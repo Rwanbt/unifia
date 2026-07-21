@@ -11,3 +11,15 @@ bunx biome check --changed --no-errors-on-unmatched .
 if command -v shellcheck >/dev/null 2>&1; then
   git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' | xargs -r shellcheck
 fi
+
+# 3. TEAM-G01: lease validate (skip if no lease is present)
+# A worker holding a lease MUST validate it is still ACTIVE before commit.
+# The lease id is read from .team/active_lease (if present); absent means
+# "not under a lease" and the check is skipped (fail-open: this is a CI gate
+# for workers, the integration gate is team:preintegrate-check on dev/Team).
+if [ -f .team/active_lease ]; then
+  LEASE_ID="$(cat .team/active_lease)"
+  WORKER_ID="$(cat .team/active_worker 2>/dev/null || echo unknown)"
+  bun run team validate --lease-id "$LEASE_ID" --worker "$WORKER_ID" --git-root "$(pwd)"
+  bun run team precommit-check --lease-id "$LEASE_ID" --git-root "$(pwd)" >/dev/null
+fi
