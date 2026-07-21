@@ -20,6 +20,18 @@
 
 import { claim, heartbeat, release, validate, inspect, recover, forceRelease, type LeaseSpec } from "./lock-manager";
 import { verifyScope, type ScopeManifest, type DiffEntry } from "./scope-monitor";
+import {
+  createWorktree,
+  attachWorktree,
+  detachWorktree,
+  validateWorktreeScope,
+  listWorktrees,
+  inspectWorktree,
+  type CreateWorktreeOpts,
+  type AttachWorktreeOpts,
+  type DetachWorktreeOpts,
+  type ValidateScopeOpts,
+} from "./worktree-manager";
 
 interface CliResult {
   ok: boolean;
@@ -273,8 +285,147 @@ export async function main(argv: string[]): Promise<never> {
       return cmdPrecommitCheck(rest);
     case "preintegrate-check":
       return cmdPreintegrateCheck(rest);
+    case "wt-create":
+      return cmdWtCreate(rest);
+    case "wt-attach":
+      return cmdWtAttach(rest);
+    case "wt-detach":
+      return cmdWtDetach(rest);
+    case "wt-validate":
+      return cmdWtValidate(rest);
+    case "wt-list":
+      return cmdWtList(rest);
+    case "wt-inspect":
+      return cmdWtInspect(rest);
     default:
       exitErr(64, `unknown subcommand: ${sub}`);
   }
+}
+
+// --------------------------------------------------------------------------------------
+// TEAM-G02 subcommands: worktree-manager CLI surface
+// --------------------------------------------------------------------------------------
+
+async function cmdWtCreate(args: string[]): Promise<never> {
+  const opts: Partial<CreateWorktreeOpts> & { allowed_files: string[]; protected_files: string[] } = {
+    allowed_files: [],
+    protected_files: [],
+  };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    const next = () => args[++i];
+    switch (a) {
+      case "--lease-id": opts.lease_id = next(); break;
+      case "--card": opts.card_id = next(); break;
+      case "--worker": opts.worker_id = next(); break;
+      case "--repo-root": opts.repo_root = next(); break;
+      case "--worktree-path": opts.worktree_path = next(); break;
+      case "--branch": opts.branch = next(); break;
+      case "--base": opts.base_sha = next(); break;
+      case "--scope-manifest-hash": opts.scope_manifest_hash = next(); break;
+      case "--scope-mode":
+        opts.scope_mode = next() as "OPEN" | "E2_REQUIRED";
+        break;
+      case "--ttl": opts.ttl_seconds = Number(next()); break;
+      case "--allowed-files": opts.allowed_files = next().split(","); break;
+      case "--protected-files": opts.protected_files = next().split(","); break;
+      case "--no-husky-check": opts.check_husky = false; break;
+      default: break;
+    }
+  }
+  const required = ["lease_id", "card_id", "worker_id", "repo_root", "worktree_path", "branch", "base_sha"] as const;
+  for (const k of required) {
+    if (!(opts as any)[k]) exitErr(64, `missing --${k.replace(/_/g, "-")}`);
+  }
+  const r = createWorktree(opts as CreateWorktreeOpts);
+  if (!r.ok) exitErr(1, r.message, { code: r.code });
+  exitOk(r.value);
+}
+
+async function cmdWtAttach(args: string[]): Promise<never> {
+  const opts: Partial<AttachWorktreeOpts> & { allowed_files: string[]; protected_files: string[] } = {
+    allowed_files: [],
+    protected_files: [],
+    pre_existing: true,
+  };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    const next = () => args[++i];
+    switch (a) {
+      case "--lease-id": opts.lease_id = next(); break;
+      case "--card": opts.card_id = next(); break;
+      case "--worker": opts.worker_id = next(); break;
+      case "--repo-root": opts.repo_root = next(); break;
+      case "--worktree-path": opts.worktree_path = next(); break;
+      case "--branch": opts.branch = next(); break;
+      case "--base": opts.base_sha = next(); break;
+      case "--allowed-files": opts.allowed_files = next().split(","); break;
+      case "--protected-files": opts.protected_files = next().split(","); break;
+      case "--ttl": opts.ttl_seconds = Number(next()); break;
+      default: break;
+    }
+  }
+  const required = ["lease_id", "card_id", "worker_id", "repo_root", "worktree_path", "branch", "base_sha"] as const;
+  for (const k of required) {
+    if (!(opts as any)[k]) exitErr(64, `missing --${k.replace(/_/g, "-")}`);
+  }
+  const r = attachWorktree(opts as AttachWorktreeOpts);
+  if (!r.ok) exitErr(1, r.message, { code: r.code });
+  exitOk(r.value);
+}
+
+async function cmdWtDetach(args: string[]): Promise<never> {
+  const opts: Partial<DetachWorktreeOpts> = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    const next = () => args[++i];
+    switch (a) {
+      case "--lease-id": opts.lease_id = next(); break;
+      case "--worker": opts.worker_id = next(); break;
+      case "--repo-root": opts.repo_root = next(); break;
+      case "--remove": opts.remove_worktree = true; break;
+      case "--force": opts.force = true; break;
+      default: break;
+    }
+  }
+  if (!opts.lease_id || !opts.worker_id) exitErr(64, "missing --lease-id or --worker");
+  const r = detachWorktree(opts as DetachWorktreeOpts);
+  if (!r.ok) exitErr(1, r.message, { code: r.code });
+  exitOk(r.value);
+}
+
+async function cmdWtValidate(args: string[]): Promise<never> {
+  const opts: Partial<ValidateScopeOpts> = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    const next = () => args[++i];
+    switch (a) {
+      case "--lease-id": opts.lease_id = next(); break;
+      case "--fencing-token": opts.expected_fencing_token = Number(next()); break;
+      default: break;
+    }
+  }
+  if (!opts.lease_id || opts.expected_fencing_token === undefined) {
+    exitErr(64, "missing --lease-id or --fencing-token");
+  }
+  const r = validateWorktreeScope(opts as ValidateScopeOpts);
+  if (!r.ok) exitErr(1, r.message, { code: r.code });
+  if (!r.value.ok) exitErr(2, "scope violations", { violations: r.value.violations });
+  exitOk(r.value);
+}
+
+async function cmdWtList(args: string[]): Promise<never> {
+  const repo_root = args.find((a) => !a.startsWith("--")) ?? process.cwd();
+  const r = listWorktrees(repo_root);
+  if (!r.ok) exitErr(1, r.message, { code: r.code });
+  exitOk({ count: r.value.length, worktrees: r.value });
+}
+
+async function cmdWtInspect(args: string[]): Promise<never> {
+  const worktree_path = args.find((a) => !a.startsWith("--"));
+  if (!worktree_path) exitErr(64, "missing worktree path");
+  const r = inspectWorktree(worktree_path);
+  if (!r.ok) exitErr(1, r.message, { code: r.code });
+  exitOk(r.value);
 }
 if (import.meta.main) await main(process.argv);
