@@ -3,7 +3,7 @@
  * Programme pur — pas d'I/O.
  */
 
-import type { Model } from "../../../src/model-intelligence/schema"
+import type { Model } from "../../src/model-intelligence/schema"
 
 const PROVIDERS = [
   "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",

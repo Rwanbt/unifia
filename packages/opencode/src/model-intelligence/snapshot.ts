@@ -16,8 +16,9 @@ import {
   SnapshotCorruptedError,
   SnapshotHashMismatchError,
   UnsupportedSchemaVersionError,
-} from "./errors-extra"
+} from "./errors"
 import { SCHEMA_VERSION } from "./schema-version"
+import { hashContent } from "./source"
 
 export interface RegistrySnapshot {
   schemaVersion: string
@@ -43,10 +44,6 @@ export function toCanonicalJSON(snapshot: RegistrySnapshot): string {
 
 export function hashSnapshot(snapshot: RegistrySnapshot): string {
   return createHash("sha256").update(toCanonicalJSON(snapshot)).digest("hex")
-}
-
-export function hashContent(content: string): string {
-  return createHash("sha256").update(content).digest("hex")
 }
 
 export function verifyHash(content: string, expectedHash: string): void {

@@ -8,7 +8,6 @@
 export * from "./schema"
 export * from "./schema-version"
 export * from "./errors"
-export * from "./errors-extra"
 export * from "./source"
 export * from "./ingestion"
 export * from "./snapshot"

@@ -9,7 +9,7 @@
  *   5. construire Registry hydraté
  */
 
-import type { Source } from "./source"
+import type { Source } from "./schema"
 import { Provider, Model, Alias, Registry, type HealthSnapshot, type ProvenanceRecord, isoUtcNow } from "./schema"
 import { SCHEMA_VERSION, GENERATOR_VERSION } from "./schema-version"
 import { SourceValidationError } from "./errors"

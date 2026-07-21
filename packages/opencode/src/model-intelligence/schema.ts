@@ -22,8 +22,6 @@
 
 import z from "zod"
 
-export const SCHEMA_VERSION = "1.0.0-draft" as const
-
 const ISO_4217 = /^[A-Z]{3}$/
 const SHA_256_HEX = /^[a-f0-9]{64}$/
 const SEMVER = /^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.]+)?$/
@@ -71,19 +69,19 @@ const ModelCapabilities = z.object({
   systemMessages: z.boolean(),
 })
 
+export const RateLimit = z.object({
+  requestsPerMinute: z.number().nullable(),
+  tokensPerMinute: z.number().nullable(),
+  resetWindow: z.enum(["per_minute", "per_hour", "per_day"]),
+})
+
 const ModelHealth = z.object({
   lastHealthCheckUTC: z.string().regex(ISO_8601_UTC),
   availabilityScore: z.number().min(0).max(1),
   latencyP50Ms: z.number().nullable(),
   latencyP95Ms: z.number().nullable(),
   errorRate1h: z.number().min(0).max(1),
-  rateLimit: z
-    .object({
-      requestsPerMinute: z.number().nullable(),
-      tokensPerMinute: z.number().nullable(),
-      resetWindow: z.enum(["per_minute", "per_hour", "per_day"]),
-    })
-    .nullable(),
+  rateLimit: RateLimit.nullable(),
   notes: z.string().nullable(),
 })
 
@@ -272,6 +270,7 @@ export type Modalities = z.infer<typeof Modalities>
 export type ModelCapabilities = z.infer<typeof ModelCapabilities>
 export type ModelHealth = z.infer<typeof ModelHealth>
 export type SourceRef = z.infer<typeof SourceRef>
+export type RateLimit = z.infer<typeof RateLimit>
 
 export function isoUtcNow(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z")

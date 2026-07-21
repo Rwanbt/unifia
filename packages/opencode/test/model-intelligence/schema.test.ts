@@ -5,10 +5,10 @@ import {
   Provider,
   Source,
   Alias,
-  SCHEMA_VERSION,
   isoUtcNow,
   isValidSchemaVersion,
 } from "../../src/model-intelligence/schema"
+import { SCHEMA_VERSION } from "../../src/model-intelligence/schema-version"
 
 describe("schema validation", () => {
   const baseUTC = "2026-07-21T00:00:00Z"

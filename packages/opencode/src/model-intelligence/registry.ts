@@ -57,15 +57,15 @@ export interface SyncResult {
 }
 
 export interface RegistryInterface {
-  readonly get: () => Effect.Effect<RegistrySchema>
-  readonly getModel: (providerID: string, modelID: string) => Effect.Effect<Model | null>
-  readonly getProvider: (providerID: string) => Effect.Effect<ProviderT | null>
-  readonly listModels: (filter?: ModelFilter) => Effect.Effect<Model[]>
-  readonly listProviders: (filter?: ProviderFilter) => Effect.Effect<ProviderT[]>
-  readonly resolveAlias: (alias: string) => Effect.Effect<ResolvedAlias | null>
+  readonly get: () => Effect.Effect<RegistrySchema, InstanceType<typeof RegistryNotInitializedError>>
+  readonly getModel: (providerID: string, modelID: string) => Effect.Effect<Model | null, InstanceType<typeof RegistryNotInitializedError>>
+  readonly getProvider: (providerID: string) => Effect.Effect<ProviderT | null, InstanceType<typeof RegistryNotInitializedError>>
+  readonly listModels: (filter?: ModelFilter) => Effect.Effect<Model[], InstanceType<typeof RegistryNotInitializedError>>
+  readonly listProviders: (filter?: ProviderFilter) => Effect.Effect<ProviderT[], InstanceType<typeof RegistryNotInitializedError>>
+  readonly resolveAlias: (alias: string) => Effect.Effect<ResolvedAlias | null, InstanceType<typeof RegistryNotInitializedError>>
   readonly sync: (opts?: SyncOptions) => Effect.Effect<SyncResult, InstanceType<typeof SourceFetchError> | InstanceType<typeof SourceParseError> | InstanceType<typeof SourceValidationError>>
-  readonly snapshot: () => Effect.Effect<{ json: string; hash: string }>
-  readonly licenseNotices: () => Effect.Effect<string>
+  readonly snapshot: () => Effect.Effect<{ json: string; hash: string }, InstanceType<typeof RegistryNotInitializedError>>
+  readonly licenseNotices: () => Effect.Effect<string, InstanceType<typeof RegistryNotInitializedError>>
   readonly isLoaded: () => Effect.Effect<boolean>
 }
 
