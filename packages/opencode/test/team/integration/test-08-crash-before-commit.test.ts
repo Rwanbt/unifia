@@ -20,6 +20,7 @@ test("integration-08: crash before commit — claim is preserved, expirable", ()
     ttl_seconds: 3600, // long enough that recover doesn't sweep
   }, db);
   expect(r.ok).toBe(true);
+  if (!r.ok) throw new Error("claim must succeed for this test");
   // Simulate "crash": worker dies, but DB still has the lease.
   // recover() should NOT expire it (TTL still in future).
   const rep = recover(db);

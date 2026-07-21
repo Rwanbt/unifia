@@ -33,17 +33,11 @@ import {
   type ValidateScopeOpts,
 } from "./worktree-manager";
 
-interface CliResult {
-  ok: boolean;
-  code: number;
-  result: unknown;
-}
-
 function exitOk(result: unknown): never {
   console.log(JSON.stringify({ ok: true, result }, null, 2));
   process.exit(0);
 }
-function exitErr(code: number, msg: string, extra: unknown = {}): never {
+function exitErr(code: number, msg: string, extra: Record<string, unknown> = {}): never {
   console.error(JSON.stringify({ ok: false, code, error: msg, ...extra }, null, 2));
   process.exit(code);
 }
@@ -75,16 +69,17 @@ async function loadManifestFromLease(lease_id: string): Promise<ScopeManifest> {
 
 function readDiff(gitRoot: string): DiffEntry[] {
   // Read `git status --porcelain` and parse.
-  const proc = Bun.spawnSync({
-    cmd: ["git", "status", "--porcelain", "--untracked-files=all", "--ignore-submodules"],
-    cwd: gitRoot,
-    env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
-    encoding: "utf-8",
-  });
-  if (proc.status !== 0) {
+  const proc = Bun.spawnSync(
+    ["git", "status", "--porcelain", "--untracked-files=all", "--ignore-submodules"],
+    {
+      cwd: gitRoot,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+    },
+  );
+  if (proc.exitCode !== 0) {
     return [];
   }
-  const out = proc.stdout as string;
+  const out = proc.stdout.toString();
   const entries: DiffEntry[] = [];
   for (const line of out.split("\n")) {
     if (!line) continue;
@@ -249,21 +244,23 @@ async function cmdPreintegrateCheck(args: string[]): Promise<never> {
   const verdict = verifyScope(manifest, diff, git_root);
   if (!verdict.ok) exitErr(2, "scope violations", { violations: verdict.violations });
 
-  // Step 2: patch-id stability check.
-  const proc = Bun.spawnSync({
-    cmd: ["git", "format-patch", "--stdout", `${base}..HEAD`],
-    cwd: git_root,
-    encoding: "utf-8",
-  });
-  if (proc.status !== 0) exitErr(3, `git format-patch failed: ${proc.stderr}`);
-  const procId = Bun.spawnSync({
-    cmd: ["git", "patch-id", "--stable"],
-    cwd: git_root,
-    encoding: "utf-8",
-    stdin: proc.stdout as string,
-  });
-  if (procId.status !== 0 || !procId.stdout) exitErr(3, `git patch-id failed: ${procId.stderr}`);
-  exitOk({ ok: true, n: diff.length, patch_id: (procId.stdout as string).trim() });
+// Step 2: patch-id stability check.
+  const proc = Bun.spawnSync(
+    ["git", "format-patch", "--stdout", `${base}..HEAD`],
+    {
+      cwd: git_root,
+    },
+  );
+  if (proc.exitCode !== 0) exitErr(3, `git format-patch failed: ${proc.stderr.toString()}`);
+  const procId = Bun.spawnSync(
+    ["git", "patch-id", "--stable"],
+    {
+      cwd: git_root,
+      stdin: new TextEncoder().encode(proc.stdout.toString()),
+    },
+  );
+  if (procId.exitCode !== 0 || !procId.stdout) exitErr(3, `git patch-id failed: ${procId.stderr.toString()}`);
+  exitOk({ ok: true, n: diff.length, patch_id: procId.stdout.toString().trim() });
 }
 
 export async function main(argv: string[]): Promise<never> {
