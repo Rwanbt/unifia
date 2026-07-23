@@ -12,6 +12,8 @@ fencing_token_provisional: 147
 
 allowed_create:
   - packages/opencode/src/multi-model/provider-discovery.ts
+  - packages/opencode/test/multi-model/provider-discovery.integration.test.ts # tests d'intégration (mock runtime discovery surface)
+  - packages/opencode/test/multi-model/provider-discovery.bench.test.ts # benchmarks + mode offline determinism
 allowed_modify_existing:
   - packages/opencode/src/collective/provider-discovery.ts # adapter mince uniquement, ne pas changer le comportement Debate
   - packages/opencode/test/multi-model/provider-discovery.test.ts # tests unitaires du nouveau substrat canonique
