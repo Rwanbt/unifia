@@ -29,38 +29,37 @@
  * / etc.
  *
  * ============================================================================
- * HEADLINE FINDING (see "KNOWN REGRESSION" describe block below):
+ * HISTORICAL FINDING — RESOLVED (see "Fail/Die parity" describe block below):
  *
- *   The adapter's `discover()` converts `InsufficientProvidersError` from a
- *   recoverable Effect Fail (pre-B02 behaviour, confirmed via the oracle)
- *   into an unrecoverable Effect Die/defect (current behaviour). Root
- *   cause: src/collective/provider-discovery.ts:131-132 round-trips the
- *   substrate's Effect through `Effect.runPromise` and re-wraps the
+ *   TEAM-B05 (this file, original version) found that the adapter's
+ *   `discover()` converted `InsufficientProvidersError` from a recoverable
+ *   Effect Fail (pre-B02 behaviour, confirmed via the oracle) into an
+ *   unrecoverable Effect Die/defect. Root cause was
+ *   src/collective/provider-discovery.ts:131-132 round-tripping the
+ *   substrate's Effect through `Effect.runPromise` and re-wrapping the
  *   resulting Promise with `Effect.promise` (which by contract treats ANY
- *   rejection as a defect) instead of `Effect.tryPromise` or a native
- *   `yield*` composition. This contradicts the adapter's own header
- *   comment ("Behaviour change vs the pre-B02 implementation: NONE") and
- *   silently invalidates the typed error channel declared at
- *   orchestrator.ts:49 (`InstanceType<typeof ProviderDiscovery.InsufficientProvidersError>`
- *   is listed as part of Effect's recoverable `E` channel, but at runtime
- *   it is not recoverable via `Effect.catch`/`catchTag`/`catchTags`).
+ *   rejection as a defect) instead of composing the Effect natively. This
+ *   contradicted the adapter's own header comment ("Behaviour change vs
+ *   the pre-B02 implementation: NONE") and silently invalidated the typed
+ *   error channel declared at orchestrator.ts:49.
  *
- *   Currently benign for observed callers: no code in src/collective/**
- *   or src/tool/debate.ts performs typed Effect-level recovery
- *   (`Effect.catch`, `catchTag`, `catchTags`) on
- *   ProviderDiscovery.InsufficientProvidersError — grepped and confirmed
- *   (see comment in the "KNOWN REGRESSION" block). All current consumers
- *   observe the failure only via plain JS `try/catch` around an `await`ed
- *   rejected Promise (orchestrator.test.ts, tool/debate.ts's
- *   executeWithLiveTracking), and a rejected Promise's `.catch()`/`try/catch`
- *   does not distinguish Fail from Die — so today's END-TO-END observable
- *   behaviour at the Promise boundary is unchanged (same error instance,
- *   same `.data.available/.required` payload).
+ *   This was reported (not fixed, per TEAM-B05's scope) in
+ *   B05-BLOCKED.md and fixed by corrective card TEAM-B02-FIX, commit
+ *   a3343b7fda9d3b1694032e1be1e7372bf37bd270 (regression_origin: B02,
+ *   discovered by TEAM-B05 worker, R-B05-001): `discover()` now does
+ *   `yield* discoverAvailableProviders(explicitNorm, maxProviders)`
+ *   directly instead of the Promise round-trip, restoring a genuine Fail.
+ *   Independently reviewed and APPROVED_WITH_FOLLOWUP, and separately
+ *   pinned by the fix's own test,
+ *   test/collective/provider-discovery.fail-die.test.ts.
  *
- *   This is nonetheless a real, executable divergence from documented
- *   "zero behavioural diff", reported per TEAM-B05's mandate to document
- *   (not fix) findings in src/collective/**. See the handoff for the full
- *   write-up.
+ *   The "Fail/Die parity" describe block below was originally named "KNOWN
+ *   REGRESSION" and pinned the OLD (buggy) Die behaviour as a trip-wire —
+ *   its assertions were INVERTED here (2026-07-25, TEAM-B05 retry, on top
+ *   of Team HEAD a3343b7fda9d3b1694032e1be1e7372bf37bd270) to assert the
+ *   now-correct Fail behaviour instead, once the fix landed. That
+ *   inversion is exactly the trip-wire doing its job: this suite forced a
+ *   conscious update rather than silently drifting.
  * ============================================================================
  */
 
@@ -168,6 +167,51 @@ describe("discover() cascade — adapter matches pre-B02 oracle exactly", () => 
       expect(adapterResult.providers).toEqual(oracleResult.providers)
       expect(adapterResult.ghostWarnings).toEqual(oracleResult.ghostWarnings)
       expect(adapterResult.providers.every((p) => p.authMethod === "api_key")).toBe(true)
+    } finally {
+      delete process.env.FAKE_ANTHROPIC_KEY
+      delete process.env.FAKE_OPENAI_KEY
+    }
+  })
+
+  test("characterized divergence: model resolved but has NO cost field — oracle DIES, adapter succeeds gracefully", async () => {
+    // Oracle's cascade does `cost: model ? {input: model.cost.input, ...} : undefined`.
+    // `model` (provider.models[mid]) is truthy whenever resolveModelID found a
+    // key, but if that model entry has no `.cost` field at all,
+    // `model.cost.input` throws `TypeError: undefined is not an object`
+    // inside the oracle's Effect.gen body — an unguarded defect (Die), not a
+    // typed Fail. The substrate's readCost() guards this
+    // (`if (!cost) return undefined`), so the adapter succeeds instead,
+    // simply omitting the `cost` key. This is the substrate being more
+    // defensive than the code it replaced — an accidental fix, not a
+    // regression — but it IS a real, executable divergence, so it's pinned
+    // here rather than only described in prose.
+    mockProviderList({
+      anthropic: buildProvider("anthropic", ["FAKE_ANTHROPIC_KEY"], {
+        "claude-sonnet-4-20250514": {},
+      }),
+      openai: buildProvider("openai", ["FAKE_OPENAI_KEY"], {
+        "gpt-4.1": { cost: { input: 1, output: 2 } },
+      }),
+    })
+    mockAuthAll({})
+    await loadFresh()
+
+    process.env.FAKE_ANTHROPIC_KEY = "1"
+    process.env.FAKE_OPENAI_KEY = "1"
+    try {
+      const oracleExit = await Effect.runPromiseExit(Oracle.discover())
+      const adapterExit = await Effect.runPromiseExit(ProviderDiscovery.discover())
+
+      expect(oracleExit._tag).toBe("Failure")
+      if (oracleExit._tag === "Failure") {
+        expect(Cause.hasDies(oracleExit.cause)).toBe(true)
+      }
+
+      expect(adapterExit._tag).toBe("Success")
+      if (adapterExit._tag === "Success") {
+        const anthropic = adapterExit.value.providers.find((p) => p.providerID === ("anthropic" as never))
+        expect(anthropic).not.toHaveProperty("cost")
+      }
     } finally {
       delete process.env.FAKE_ANTHROPIC_KEY
       delete process.env.FAKE_OPENAI_KEY
@@ -571,7 +615,7 @@ describe("characterized divergence: judge object key insertion order", () => {
 })
 
 // ============================================================================
-// SECTION 4 — insufficient-providers error: payload equality + KNOWN REGRESSION
+// SECTION 4 — insufficient-providers error: payload equality + Fail/Die parity
 // ============================================================================
 
 describe("InsufficientProvidersError — payload equality (available/required)", () => {
@@ -628,12 +672,30 @@ describe("InsufficientProvidersError — payload equality (available/required)",
   })
 })
 
-describe("KNOWN REGRESSION — adapter converts InsufficientProvidersError from a recoverable Fail into an unrecoverable Die", () => {
-  // See the file-header comment for full context. This block PINS today's
-  // actual (regressed) behaviour with executable assertions so any future
-  // change to it is caught by this suite. It does not fail the suite —
-  // the finding is reported in the TEAM-B05 handoff, not "fixed" here
-  // (src/collective/** is out of scope for this card).
+describe("Fail/Die parity — adapter now matches the pre-B02 oracle (TEAM-B02-FIX verified)", () => {
+  // HISTORY: this block was originally named "KNOWN REGRESSION" and its two
+  // tests asserted the OPPOSITE of what they assert now — they pinned the
+  // adapter's Die (defect) behaviour as a deliberate trip-wire, because at
+  // the time (TEAM-B05, commit 0e9225a1ed on the old base
+  // d94b4108894477f166ea57b6fb15a769f82a7044) the production adapter really
+  // did convert InsufficientProvidersError from a recoverable Effect Fail
+  // into an unrecoverable Die. That finding was reported (not fixed, out of
+  // this card's scope) in B05-BLOCKED.md and fixed by corrective card
+  // TEAM-B02-FIX, commit a3343b7fda9d3b1694032e1be1e7372bf37bd270:
+  // src/collective/provider-discovery.ts:131-132's
+  // `Effect.promise(() => Effect.runPromise(...))` round-trip was replaced
+  // with a direct `yield* discoverAvailableProviders(...)`, restoring a
+  // genuine Fail. Independently reviewed and APPROVED_WITH_FOLLOWUP, and
+  // separately pinned by the fix's own test,
+  // test/collective/provider-discovery.fail-die.test.ts.
+  //
+  // Rebased onto Team HEAD a3343b7fda9d3b1694032e1be1e7372bf37bd270
+  // (2026-07-25, TEAM-B05 retry) and re-verified: BOTH assertions below now
+  // hold for BOTH oracle and adapter — i.e. the divergence this block used
+  // to pin is gone. This is exactly what the trip-wire was for: the old
+  // assertions (adapter hasFails=false/hasDies=true) would fail loudly the
+  // moment the underlying code changed, forcing this conscious update
+  // instead of silently drifting out of sync with reality.
 
   test("oracle (pre-B02): InsufficientProvidersError is a recoverable Effect Fail", async () => {
     await loadFresh()
@@ -656,73 +718,74 @@ describe("KNOWN REGRESSION — adapter converts InsufficientProvidersError from 
     expect(recovered).toBe("recovered")
   })
 
-  test("adapter (current, post-B02): InsufficientProvidersError is an UNRECOVERABLE Effect Die (defect)", async () => {
+  test("adapter (current, post-B02-FIX): InsufficientProvidersError is a recoverable Effect Fail — SAME as the oracle", async () => {
     await loadFresh()
     const exit = await Effect.runPromiseExit(
       ProviderDiscovery.discover([{ providerID: "provider-a", modelID: "model-a" }]),
     )
     expect(exit._tag).toBe("Failure")
     if (exit._tag !== "Failure") return
-    // The regression: hasFails is now false, hasDies is now true — the
-    // exact inverse of the oracle's cause shape for the identical input.
-    expect(Cause.hasFails(exit.cause)).toBe(false)
-    expect(Cause.hasDies(exit.cause)).toBe(true)
+    // Parity restored: hasFails is now true, hasDies is now false — matches
+    // the oracle's cause shape for the identical input (previously this
+    // asserted the exact inverse; see the describe-block history comment
+    // above for why that inversion was deliberate and expected).
+    expect(Cause.hasFails(exit.cause)).toBe(true)
+    expect(Cause.hasDies(exit.cause)).toBe(false)
 
-    // Cause.squash() still unwraps to the right error TYPE (which is why
-    // `.rejects.toBeInstanceOf(...)` above still passes) — the class
-    // identity survives, only its recoverability does not.
     expect(Cause.squash(exit.cause)).toBeInstanceOf(ProviderDiscovery.InsufficientProvidersError)
 
-    // Effect.catch can no longer recover it — the effect DIES instead of
-    // being handled, unlike the oracle above. This is the concrete,
-    // executable proof of the divergence: identical input, identical
-    // `.pipe(Effect.catch(...))` composition, different outcome.
-    let threw = false
-    try {
-      await Effect.runPromise(
-        ProviderDiscovery.discover([{ providerID: "provider-a", modelID: "model-a" }]).pipe(
-          Effect.catch(() => Effect.succeed("recovered" as const)),
-        ),
-      )
-    } catch {
-      threw = true
-    }
-    expect(threw).toBe(true)
+    // Effect.catch now recovers it cleanly, exactly like the oracle above —
+    // this is the concrete, executable proof that Fail/Die parity is
+    // restored: identical input, identical `.pipe(Effect.catch(...))`
+    // composition, identical (successful, non-throwing) outcome.
+    const recovered = await Effect.runPromise(
+      ProviderDiscovery.discover([{ providerID: "provider-a", modelID: "model-a" }]).pipe(
+        Effect.catch(() => Effect.succeed("recovered" as const)),
+      ),
+    )
+    expect(recovered).toBe("recovered")
   })
 
-  // Root cause, located precisely (do not fix — src/collective/** is
-  // frozen for this card):
-  //   src/collective/provider-discovery.ts:131-132
+  test("dedup to < 2 unique participants also fails as a recoverable Fail on both sides (matches provider-discovery.fail-die.test.ts)", async () => {
+    await loadFresh()
+    const oracleExit = await Effect.runPromiseExit(
+      Oracle.discover([
+        { providerID: "provider-a", modelID: "model-a" },
+        { providerID: "provider-a", modelID: "model-a", role: "duplicate" },
+      ]),
+    )
+    const adapterExit = await Effect.runPromiseExit(
+      ProviderDiscovery.discover([
+        { providerID: "provider-a", modelID: "model-a" },
+        { providerID: "provider-a", modelID: "model-a", role: "duplicate" },
+      ]),
+    )
+    expect(oracleExit._tag).toBe("Failure")
+    expect(adapterExit._tag).toBe("Failure")
+    if (oracleExit._tag !== "Failure" || adapterExit._tag !== "Failure") return
+    expect(Cause.hasFails(oracleExit.cause)).toBe(true)
+    expect(Cause.hasFails(adapterExit.cause)).toBe(true)
+    expect(Cause.hasDies(adapterExit.cause)).toBe(false)
+  })
+
+  // Fix location (verified via `git show`, not modified by this card):
+  //   src/collective/provider-discovery.ts:131-132 (post-fix)
+  //     const result = yield* discoverAvailableProviders(explicitNorm, maxProviders)
+  //   replacing the pre-fix:
   //     const result = yield* Effect.promise(() =>
   //       Effect.runPromise(discoverAvailableProviders(explicitNorm, maxProviders)),
   //     )
-  //   `Effect.promise` treats ANY rejection of its executor's Promise as
-  //   a defect by contract (it is documented for Promises that are
-  //   "guaranteed" not to fail). Since discoverAvailableProviders can
-  //   genuinely Fail (InsufficientProvidersError), and that Fail becomes a
-  //   Promise rejection via the inner Effect.runPromise, the outer
-  //   Effect.promise reclassifies it as a Die. The substrate itself
-  //   (src/multi-model/provider-discovery.ts) is NOT at fault — it raises
-  //   a proper Effect.fail(...), verified by
-  //   test/multi-model/provider-discovery.integration.test.ts's Cause
-  //   inspection (`cause.reasons?.[0]?.toJSON?.()`, a Fail-shaped Cause).
+  //   `discoverAvailableProviders` already returns an Effect; composing it
+  //   natively via `yield*` lets a typed `Effect.fail(...)` propagate as a
+  //   genuine Fail through Effect's own error channel instead of being
+  //   forced through a Promise-rejection round-trip that `Effect.promise`
+  //   (by contract) reclassifies as an unrecoverable Die.
   //
-  //   Contradicts the adapter's own header claim: "Behaviour change vs the
-  //   pre-B02 implementation: NONE" (src/collective/provider-discovery.ts:27).
-  //   Also silently invalidates the typed error channel declared at
+  //   This restores the adapter's own documented claim: "Behaviour change
+  //   vs the pre-B02 implementation: NONE" (src/collective/provider-discovery.ts:27)
+  //   and re-validates the typed error channel declared at
   //   src/collective/orchestrator.ts:49
   //   (`InstanceType<typeof ProviderDiscovery.InsufficientProvidersError>`
-  //   listed as part of `run`'s recoverable Effect<...> error type `E`,
-  //   which is no longer true at runtime for this specific error).
-  //
-  //   Currently benign in practice: grepped every src/collective/** and
-  //   src/tool/debate.ts call site — none of them use
-  //   Effect.catch/catchTag/catchTags/catchCause around
-  //   ProviderDiscovery.discover() or Orchestrator.run(); all current
-  //   consumers only observe the failure via a rejected Promise at an
-  //   `await`/`.catch()` boundary (orchestrator.test.ts,
-  //   tool/debate.ts's executeWithLiveTracking's try/catch), which does
-  //   not distinguish Fail from Die. See "Promise-boundary behaviour" test
-  //   above for the executed proof that this specific observable path is
-  //   unaffected.
+  //   listed as part of `run`'s recoverable Effect<...> error type `E`) —
+  //   that declaration is now actually true at runtime again.
 })
