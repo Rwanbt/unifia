@@ -129,6 +129,28 @@
  * silently allows or silently no-ops a transition attempt (fail closed,
  * consistent with the rest of this program's doctrine).
  *
+ * ---------------------------------------------------------------------
+ * Clock — injected at construction, never accepted as per-call evidence
+ * ---------------------------------------------------------------------
+ * `LifecycleStore` takes a `clock: () => string` at construction (default
+ * `isoUtcNow`), and it is the SOLE source of every timestamp the store
+ * ever persists — `initialize()`'s entry time, `transition()`'s `atUTC`
+ * and the resulting `enteredAtUTC`/audit-log timestamps, and the "now"
+ * used to evaluate every elapsed-time promotion condition. `TransitionEvidence`
+ * carries no timestamp field at all: a caller cannot supply "now" any more
+ * than it can supply "when did this model enter its current stage" (the
+ * latter was already excluded from evidence for the same reason). This
+ * closes a real gap in an earlier draft — see `elapsedMs`'s doc comment
+ * for the specifics — where an optional `evidence.nowUTC` field let a
+ * caller both bypass elapsed-time gates (a far-future timestamp defeats
+ * `MIN_PROBATION_MS` etc. with zero real elapsed time) and corrupt the
+ * persisted audit trail (the spoofed value was what got written back as
+ * `enteredAtUTC`). Tests that need deterministic control over elapsed
+ * time inject their own fake `clock` at construction (e.g. a closure over
+ * a mutable counter) rather than passing a timestamp per call — the same
+ * technique, just scoped to the trusted construction boundary instead of
+ * the untrusted per-call evidence bundle.
+ *
  * Allowed by TEAM-C08 scope manifest:
  *   - creation: packages/opencode/src/model-intelligence/lifecycle.ts
  */
@@ -255,8 +277,6 @@ export type ExplicitLifecycleAction =
   | { kind: "grant_trust"; actor: string; reason: string }
 
 export interface TransitionEvidence {
-  /** Evaluation instant. Defaults to `isoUtcNow()`. */
-  nowUTC?: string
   /** Number of independent sources that have observed this model (mirrors `Model.sourceRefs.length`). */
   independentSourceCount: number
   /** Latest aggregated health signal (`Model.health`, or `health.ts::HealthWindowStore.aggregate()` output). `null` = never probed. */
@@ -327,9 +347,32 @@ export const UnknownModelStageError = NamedError.create(
 // 6. Promotion condition evaluation (pure, testable)
 // =====================================================================
 
-function elapsedMs(enteredAtUTC: string, nowUTC: string | undefined): number {
-  const now = nowUTC ?? isoUtcNow()
-  return new Date(now).getTime() - new Date(enteredAtUTC).getTime()
+function elapsedMs(enteredAtUTC: string, nowUTC: string): number {
+  return new Date(nowUTC).getTime() - new Date(enteredAtUTC).getTime()
+}
+
+/**
+ * Pushes an elapsed-time gate check onto `unmet`. Fails CLOSED on a
+ * non-finite `elapsed` (malformed/unparseable `enteredAtUTC` or `nowUTC`
+ * — `new Date(...).getTime()` yields `NaN` for either) rather than
+ * silently letting `NaN < thresholdMs` evaluate to `false` and be
+ * mistaken for "threshold satisfied". This is the second half of the F1
+ * fix: clock injection (see module doc) removes the ability for a caller
+ * to supply an adversarial timestamp at all, but this check is kept as a
+ * defense-in-depth backstop against a misbehaving injected `clock`
+ * function — the module's documented "fail closed" guarantee must hold
+ * even if that trust boundary is ever violated by a future caller.
+ */
+function pushElapsedGate(unmet: string[], elapsed: number, thresholdMs: number, label: string): void {
+  if (!Number.isFinite(elapsed)) {
+    unmet.push(
+      `elapsed time for the "${label}" duration requirement could not be computed (non-finite result) — failing closed`,
+    )
+    return
+  }
+  if (elapsed < thresholdMs) {
+    unmet.push(`minimum ${label} duration not met (elapsed=${elapsed}ms < required=${thresholdMs}ms)`)
+  }
 }
 
 /**
@@ -339,13 +382,19 @@ function elapsedMs(enteredAtUTC: string, nowUTC: string | undefined): number {
  * quarantine/deprecate/trust (see `requiredExplicitActionKind`) — those are
  * separate, orthogonal gates composed together in `LifecycleStore.transition`.
  *
- * `enteredAtUTC` — when the model entered `from` — is a SEPARATE parameter
- * rather than a field on `TransitionEvidence` on purpose: it is the one
- * fact the state machine itself is authoritative about (recorded the
- * moment the previous transition was applied), so it is never accepted as
- * caller-supplied evidence. A caller cannot spoof "this model has been in
- * probation for 3 days" — `LifecycleStore.transition` always supplies its
- * own tracked value here, never the caller's claim.
+ * `enteredAtUTC` (when the model entered `from`) and `nowUTC` (the
+ * evaluation instant) are SEPARATE parameters rather than fields on
+ * `TransitionEvidence` on purpose: both are facts the state machine itself
+ * is authoritative about — `enteredAtUTC` recorded the moment the previous
+ * transition was applied, `nowUTC` read from the store's injected `clock`
+ * — so neither is ever accepted as caller-supplied evidence. A caller
+ * cannot spoof "this model has been in probation for 3 days" by claiming
+ * a favorable `now`: `LifecycleStore.transition` always supplies both
+ * values from its own tracked state and its own clock, never from the
+ * caller's claim. (An earlier draft accepted `nowUTC` as an optional field
+ * on `TransitionEvidence`, which reopened exactly this hole — fixed by
+ * moving the clock to construction-time injection instead. See the module
+ * doc's "Clock" section.)
  *
  * Returns every unmet condition (not just the first) so a caller — or a
  * test — can see the full picture of what is missing, not just a single
@@ -355,10 +404,11 @@ export function evaluatePromotionConditions(
   from: LifecycleStage,
   to: LifecycleStage,
   enteredAtUTC: string,
+  nowUTC: string,
   evidence: TransitionEvidence,
 ): { allowed: boolean; unmetConditions: string[] } {
   const unmet: string[] = []
-  const elapsed = elapsedMs(enteredAtUTC, evidence.nowUTC)
+  const elapsed = elapsedMs(enteredAtUTC, nowUTC)
 
   const edge = `${from}->${to}`
   switch (edge) {
@@ -370,9 +420,7 @@ export function evaluatePromotionConditions(
       break
     }
     case "probed->low_risk_eligible": {
-      if (elapsed < MIN_PROBATION_MS) {
-        unmet.push(`minimum probation duration not met (elapsed=${elapsed}ms < required=${MIN_PROBATION_MS}ms)`)
-      }
+      pushElapsedGate(unmet, elapsed, MIN_PROBATION_MS, "probation")
       if (!evidence.health) {
         unmet.push("no health signal recorded during probation (a probe result is required)")
       } else {
@@ -388,9 +436,7 @@ export function evaluatePromotionConditions(
       break
     }
     case "low_risk_eligible->general_eligible": {
-      if (elapsed < MIN_LOW_RISK_MS) {
-        unmet.push(`minimum low-risk duration not met (elapsed=${elapsed}ms < required=${MIN_LOW_RISK_MS}ms)`)
-      }
+      pushElapsedGate(unmet, elapsed, MIN_LOW_RISK_MS, "low-risk")
       if (!evidence.health) {
         unmet.push("no health signal recorded (a probe result is required)")
       } else {
@@ -407,11 +453,7 @@ export function evaluatePromotionConditions(
       break
     }
     case "general_eligible->trusted_by_domain": {
-      if (elapsed < MIN_GENERAL_ELIGIBLE_MS) {
-        unmet.push(
-          `minimum general-eligible duration not met (elapsed=${elapsed}ms < required=${MIN_GENERAL_ELIGIBLE_MS}ms)`,
-        )
-      }
+      pushElapsedGate(unmet, elapsed, MIN_GENERAL_ELIGIBLE_MS, "general-eligible")
       if (!evidence.health) {
         unmet.push("no health signal recorded (a probe result is required)")
       } else {
@@ -517,13 +559,30 @@ export class LifecycleStore {
   private readonly current = new Map<string, { stage: LifecycleStage; enteredAtUTC: string }>()
   private readonly log: LifecycleTransitionRecord[] = []
   private readonly listeners: Array<(record: LifecycleTransitionRecord) => void> = []
+  private readonly clock: () => string
+
+  /**
+   * `clock` is the SOLE source of every timestamp this store ever
+   * persists (see the module doc's "Clock" section for the full
+   * rationale). Defaults to `isoUtcNow()` — real wall-clock time — but
+   * tests inject a fake clock here (e.g. a closure over a mutable
+   * counter) to get deterministic control over elapsed-time promotion
+   * conditions without ever exposing a timestamp on the untrusted
+   * per-call `TransitionEvidence`.
+   */
+  constructor(clock: () => string = isoUtcNow) {
+    this.clock = clock
+  }
 
   /**
    * Registers a model at `discovered` (the only legal entry point into the
    * state machine). Throws if the model is already tracked — re-initializing
    * would silently discard transition history, which this store never does.
+   * The entry timestamp always comes from `this.clock()` — never a caller
+   * parameter — for the same reason `transition()`'s `atUTC` does (see
+   * module doc "Clock" section / F1 fix).
    */
-  initialize(providerID: string, modelID: string, atUTC: string = isoUtcNow()): void {
+  initialize(providerID: string, modelID: string): void {
     const key = modelKey(providerID, modelID)
     if (this.current.has(key)) {
       throw new InvalidLifecycleTransitionError({
@@ -534,7 +593,7 @@ export class LifecycleStore {
         message: `model ${providerID}/${modelID} is already tracked; initialize() must only be called once`,
       })
     }
-    this.current.set(key, { stage: "discovered", enteredAtUTC: atUTC })
+    this.current.set(key, { stage: "discovered", enteredAtUTC: this.clock() })
   }
 
   /** Current stage + when it was entered. Throws if the model was never `initialize()`d — never silently defaults to `discovered`. */
@@ -592,7 +651,7 @@ export class LifecycleStore {
     evidence: TransitionEvidence,
   ): LifecycleTransitionRecord {
     const { stage: from, enteredAtUTC } = this.getStage(providerID, modelID)
-    const atUTC = evidence.nowUTC ?? isoUtcNow()
+    const atUTC = this.clock()
 
     if (!isStructurallyValidTransition(from, to)) {
       throw new InvalidLifecycleTransitionError({
@@ -635,7 +694,7 @@ export class LifecycleStore {
     if (!requiredKind) {
       // Only happy-path forward transitions reach here (quarantine/deprecate/
       // trust all have a requiredKind and were already gated above).
-      const evaluation = evaluatePromotionConditions(from, to, enteredAtUTC, evidence)
+      const evaluation = evaluatePromotionConditions(from, to, enteredAtUTC, atUTC, evidence)
       unmetConditionsChecked = evaluation.unmetConditions
       if (!evaluation.allowed) {
         throw new LifecyclePromotionConditionsNotMetError({
@@ -652,7 +711,7 @@ export class LifecycleStore {
       // (checked above) AND by the same data-driven conditions as any other
       // forward promotion (elapsed time, health, benchmark presence) — the
       // explicit action alone is necessary but not sufficient.
-      const evaluation = evaluatePromotionConditions(from, to, enteredAtUTC, evidence)
+      const evaluation = evaluatePromotionConditions(from, to, enteredAtUTC, atUTC, evidence)
       unmetConditionsChecked = evaluation.unmetConditions
       if (!evaluation.allowed) {
         throw new LifecyclePromotionConditionsNotMetError({
