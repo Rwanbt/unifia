@@ -1,0 +1,69 @@
+card_id: TEAM-B05
+card_title: "Gate non-régression Debate"
+generation: post-t0-008-v1
+owner: MM7
+lease_id: LEASE-B05-20260725150000-team-b05-debate-gate-v1
+fencing_token: 155
+base_sha: d94b4108894477f166ea57b6fb15a769f82a7044
+branch: c-B05/18853556
+worktree: D:\App\OpenCode\.team-worktrees\B05-18853556
+depends_on:
+  - TEAM-B02 (CLOSED+INTEGRATED, D-042)
+  - TEAM-B03 v2 (CLOSED+INTEGRATED, D-050)
+  - TEAM-B04 (CLOSED+INTEGRATED, D-055)
+allowed_create:
+  - packages/opencode/test/collective/**
+  - packages/opencode/test/tool/debate.test.ts (extend if pre-existing, else create)
+allowed_modify_existing:
+  - docs/team/scope-manifest/TEAM-B05.yaml
+forbidden:
+  - packages/opencode/src/collective/**
+  - packages/opencode/src/multi-model/**
+  - packages/opencode/src/model-intelligence/**
+  - packages/opencode/src/team/**
+  - main, dev, opti-ui, Team branches
+notes: "Carte de PREUVE, pas d'implémentation nouvelle. Objectif: prouver que
+  l'extraction canonique (B01-B04) n'a pas dégradé le comportement de Debate.
+  Ne pas modifier src/collective/** — seulement lire, tester, comparer."
+deviations_from_spec: >
+  None from the allowed_create/allowed_modify_existing scope. One addition
+  beyond the two explicitly named test targets: a test fixture directory
+  packages/opencode/test/collective/fixtures/ containing a verbatim, frozen
+  copy of the pre-B02 collective/provider-discovery.ts implementation
+  (retrieved via `git show 55b47593b9:...`), used as an executable
+  regression oracle. This is a test-only file under
+  packages/opencode/test/collective/**, within allowed_create's glob, and
+  imports no src/collective/** or src/multi-model/** internals — it is a
+  self-contained historical snapshot, not a modification of frozen domains.
+scope_respected: >
+  Yes. Verified: 0 files touched under src/collective/**, src/multi-model/**,
+  src/model-intelligence/**, src/team/**. Only files created/modified:
+  packages/opencode/test/collective/provider-discovery.regression.test.ts,
+  packages/opencode/test/collective/fixtures/pre-b02-provider-discovery-oracle.ts,
+  and this manifest. packages/opencode/test/tool/debate.test.ts already
+  existed with strong coverage of DebateLive/executeWithLiveTracking and was
+  NOT modified (no gap found there worth extending; the gap was in
+  provider-discovery coverage, addressed in test/collective/).
+finding_summary: >
+  Executed a byte-for-byte behavioral comparison between the current
+  production adapter (src/collective/provider-discovery.ts, read-only) and
+  a frozen pre-B02 oracle, under identical mocked Provider.list()/Auth.all()/
+  credential-file/CLI-subprocess inputs. All cascade auth-method paths
+  (api_key via env-var, api_key via stored auth, credential_file,
+  cli_subprocess), ghost-model warnings, includeJudge, and selectJudge
+  produce structurally identical results (verified via 22 executed tests,
+  0 failures). Two cosmetic, provably-inert shape differences were found
+  and characterized (own-key-presence of an undefined `role` field on
+  explicit participants; key insertion order on the judge object) — neither
+  affects any current Debate consumer (verified by reading every call
+  site). One REAL regression was found and is NOT fixed here (out of
+  scope): src/collective/provider-discovery.ts:131-132 wraps the
+  substrate's Effect through `Effect.promise(() => Effect.runPromise(...))`,
+  which reclassifies InsufficientProvidersError from a recoverable Effect
+  Fail (pre-B02 behaviour) into an unrecoverable Effect Die/defect
+  (current behaviour) — contradicting the adapter's own "Behaviour change:
+  NONE" claim and silently invalidating the typed error channel declared
+  at orchestrator.ts:49. Currently benign for all observed callers (none
+  use Effect-level typed recovery on this error; all observe it via a
+  rejected Promise, unaffected by Fail-vs-Die). See
+  B05-attempt1.md / B05-BLOCKED.md for full detail.
