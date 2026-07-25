@@ -265,19 +265,44 @@ export interface SyncDiff {
   aliasesAdded: string[]
   aliasesRemoved: string[]
   aliasesChanged: string[]
+  /**
+   * Source ids whose record is new or differs in ANY non-volatile field
+   * (not just `licenseCode`) from the previous sync — see
+   * `SOURCE_VOLATILE_FIELDS`. This is the field `isDiffEmpty()` checks for
+   * no-op detection; `licenseChanges` below stays narrowly scoped to
+   * `licenseCode` because that's the only pair of fields the existing
+   * `source.license.changed` event (events.ts) can carry.
+   */
+  sourcesChanged: string[]
   licenseChanges: Array<{ sourceID: string; oldLicense: string | null; newLicense: string | null }>
 }
 
 /**
- * True iff `diff` represents zero meaningful content change. Deliberately
- * NOT based on `Registry.registryID` — `buildRegistry()` (ingestion.ts,
- * frozen) computes `registryID` as `hashContent(JSON.stringify({ p:
+ * True iff `diff` represents zero meaningful content change, AS MEASURED BY
+ * `computeDiff()`'s field-by-field comparison below. Deliberately NOT based
+ * on `Registry.registryID` — `buildRegistry()` (ingestion.ts, frozen)
+ * computes `registryID` as `hashContent(JSON.stringify({ p:
  * providers.length, m: models.length }))` (ingestion.ts:156), i.e. a hash
  * of two COUNTS, not of actual content. Two registries with the same
  * provider/model counts but different pricing, capabilities, or status
  * would collide on that hash — using it for no-op detection would risk
- * silently skipping a real change. This function instead checks every
- * field this engine actually diffed.
+ * silently skipping a real change.
+ *
+ * The comparison itself (`modelContentEqual` / `providerContentEqual` /
+ * the `sourcesChanged` computation below) is a DENYLIST over each schema:
+ * every field is compared UNLESS it is on an explicit, justified
+ * volatile-field list (see `MODEL_VOLATILE_FIELDS` /
+ * `PROVIDER_VOLATILE_FIELDS` / `SOURCE_VOLATILE_FIELDS`). This is the
+ * corrected design after an independent E2 review (finding B-1) found an
+ * earlier field-ALLOWLIST version of this comparison silently discarded 17
+ * classes of real upstream change (e.g. `lifecycleStage` transitioning to
+ * `quarantined`, `regionPolicy.dataResidencyRequired`, `Source.
+ * confidenceLevel` downgrades) because those fields simply weren't in the
+ * hand-picked list of compared fields — an allowlist fails OPEN on schema
+ * growth (every new field is silently excluded until someone remembers to
+ * add it). A denylist fails CLOSED: any field not proven to be pure
+ * fetch/observation bookkeeping participates in the comparison by default,
+ * including fields added to the schema after this code was written.
  */
 function isDiffEmpty(diff: SyncDiff): boolean {
   return (
@@ -290,7 +315,7 @@ function isDiffEmpty(diff: SyncDiff): boolean {
     diff.aliasesAdded.length === 0 &&
     diff.aliasesRemoved.length === 0 &&
     diff.aliasesChanged.length === 0 &&
-    diff.licenseChanges.length === 0
+    diff.sourcesChanged.length === 0
   )
 }
 
@@ -440,32 +465,97 @@ function assertReferentialIntegrity(providers: Provider[], models: Model[], alia
 // 4. Diff — previous Registry (or null) vs candidate Registry
 // =====================================================================
 
+// ---------------------------------------------------------------------
+// Content equality — DENYLIST over each schema, not an allowlist.
+//
+// Post-review fix (E2 finding B-1): an earlier version of this file
+// compared a hand-picked subset of fields per type (an allowlist). That
+// silently discarded every real content change landing in an uncompared
+// field — 17 confirmed cases, including a model transitioning to
+// `lifecycleStage: "quarantined"`, a provider's
+// `regionPolicy.dataResidencyRequired`, and a source's `confidenceLevel`
+// downgrading from `official` to `unverified` — and, worse, it FAILS OPEN
+// on schema growth: any field added to Model/Provider/Source in the
+// future would be silently excluded from change detection until someone
+// remembered to add it to the allowlist.
+//
+// The fix inverts this: compare a canonical (JSON.stringify) serialization
+// of the WHOLE object, after stripping only fields explicitly proven to be
+// pure fetch/observation bookkeeping that legitimately changes on every
+// sync run regardless of real content (a denylist). Any field not on one
+// of the lists below — including one added to the schema after this code
+// was written — participates in the comparison by default, so the failure
+// mode is now "compare a harmless bookkeeping field and over-trigger a
+// commit" (safe: costs one extra write) rather than "silently drop a real
+// change" (unsafe: the defect this fix exists to close).
+// ---------------------------------------------------------------------
+
+/**
+ * Model fields that legitimately change on every sync regardless of
+ * whether the model's actual catalog content changed: `sourceRefs` and
+ * `provenance` carry per-fetch hashes/timestamps, `health` is live-probe
+ * telemetry (owned by C06, unrelated to catalog content), and
+ * `lastSeenAtUTC` is a bookkeeping stamp. These are the ONLY four fields
+ * excluded — every other Model field (including `family`, `aliases`,
+ * `modalities`, `reasoning`, `toolUse`, `temperature`, `lifecycleStage`,
+ * `releaseDateUTC`, `retirementDateUTC` — the fields the allowlist version
+ * missed) is compared.
+ */
+const MODEL_VOLATILE_FIELDS = ["sourceRefs", "health", "provenance", "lastSeenAtUTC"] as const
+
+/**
+ * Provider has no `health`/`provenance`/`sourceRefs` (those are
+ * Model-only). The one genuinely volatile field is `addedAtUTC`: despite
+ * its name suggesting an immutable "first observed" stamp,
+ * `ModelsDevConnector` (connectors/modelsdev.ts, frozen, read-only import)
+ * populates it with `opts.sourceVersion` — the CURRENT fetch's
+ * timestamp — on every single parse call, not a value fixed at first
+ * discovery. It therefore changes on every real sync run regardless of
+ * whether the provider's actual content changed, exactly like Model's
+ * `lastSeenAtUTC`. Every other Provider field (`sdk`, `envVars`,
+ * `deprecationReason`, `removedAtUTC`, `docsURL`, `privacyPolicyRef`,
+ * `regionPolicy`, `aliases` — the fields the allowlist version missed) is
+ * compared.
+ */
+const PROVIDER_VOLATILE_FIELDS = ["addedAtUTC"] as const
+
+/**
+ * `Source` (unlike Model/Provider) has no field that auto-updates on every
+ * fetch: `ingest()` (ingestion.ts, frozen) hardcodes `url`/`type`/
+ * `policyDocRef` to fixed constants and copies `parserVersion` from the
+ * source's own declared metadata, not a live timestamp. Every field —
+ * including `confidenceLevel`, `copyrightNotice`, `licenseFileURL`,
+ * `deprecated`, `rollbackPolicy` (the fields the allowlist version
+ * missed) — is genuine content, so the denylist is intentionally empty.
+ */
+const SOURCE_VOLATILE_FIELDS: readonly string[] = []
+
+function stripVolatileFields<T extends Record<string, unknown>>(obj: T, volatile: readonly string[]): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...obj }
+  for (const field of volatile) delete copy[field]
+  return copy
+}
+
+function canonicalContentEqual<T extends Record<string, unknown>>(a: T, b: T, volatile: readonly string[]): boolean {
+  return JSON.stringify(stripVolatileFields(a, volatile)) === JSON.stringify(stripVolatileFields(b, volatile))
+}
+
 function modelContentEqual(a: Model, b: Model): boolean {
-  // Deliberately excludes volatile bookkeeping fields (lastSeenAtUTC,
-  // health.lastHealthCheckUTC, provenance.fetchedAtUTC) that legitimately
-  // change on every sync even when nothing about the model actually
-  // changed — comparing those would make every model "changed" every sync.
-  return (
-    a.status === b.status &&
-    a.canonicalName === b.canonicalName &&
-    a.deprecationReason === b.deprecationReason &&
-    JSON.stringify(a.pricing) === JSON.stringify(b.pricing) &&
-    JSON.stringify(a.capabilities) === JSON.stringify(b.capabilities) &&
-    JSON.stringify(a.contextWindow) === JSON.stringify(b.contextWindow)
-  )
+  return canonicalContentEqual(a, b, MODEL_VOLATILE_FIELDS)
 }
 
 function providerContentEqual(a: Provider, b: Provider): boolean {
-  return (
-    a.name === b.name &&
-    a.status === b.status &&
-    JSON.stringify(a.capabilities) === JSON.stringify(b.capabilities) &&
-    JSON.stringify(a.modalitiesSupported) === JSON.stringify(b.modalitiesSupported) &&
-    JSON.stringify(a.api) === JSON.stringify(b.api)
-  )
+  return canonicalContentEqual(a, b, PROVIDER_VOLATILE_FIELDS)
+}
+
+function sourceContentEqual(a: Source, b: Source): boolean {
+  return canonicalContentEqual(a, b, SOURCE_VOLATILE_FIELDS)
 }
 
 function aliasContentEqual(a: Alias, b: Alias): boolean {
+  // Already exhaustive over Alias's non-key fields (canonicalRef,
+  // deprecated, replacedBy — Alias has no volatile bookkeeping field) —
+  // independently re-verified during the B-1 review and left unchanged.
   return (
     a.canonicalRef.providerID === b.canonicalRef.providerID &&
     a.canonicalRef.modelID === b.canonicalRef.modelID &&
@@ -540,6 +630,18 @@ function computeDiff(previous: Registry | null, candidate: Registry): SyncDiff {
     }
   }
 
+  // Full Source content diff (superset of licenseChanges above — see
+  // SOURCE_VOLATILE_FIELDS' doc comment: every Source field is content).
+  // This is what isDiffEmpty() actually gates on.
+  const prevSources = new Map(previous?.sources.map((s) => [s.id, s]) ?? [])
+  const sourcesChanged: string[] = []
+  for (const s of candidate.sources) {
+    const prev = prevSources.get(s.id)
+    if (!prev || !sourceContentEqual(prev, s)) {
+      sourcesChanged.push(s.id)
+    }
+  }
+
   return {
     modelsAdded,
     modelsRemoved,
@@ -551,6 +653,7 @@ function computeDiff(previous: Registry | null, candidate: Registry): SyncDiff {
     aliasesAdded,
     aliasesRemoved,
     aliasesChanged,
+    sourcesChanged,
     licenseChanges,
   }
 }

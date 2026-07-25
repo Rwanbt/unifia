@@ -509,6 +509,162 @@ describe("SyncEngine — no-op detection", () => {
 })
 
 // =====================================================================
+// B-1 regression — content diff must be a denylist, not an allowlist
+// =====================================================================
+//
+// Independent E2 review (Execution/Reviews/C07-E2-REVIEWER-VERDICT.md,
+// finding B-1) proved the original modelContentEqual/providerContentEqual/
+// Source-diff implementation was a field ALLOWLIST that silently dropped
+// 17 classes of real upstream change (fields present in the schema but
+// never compared). The fix inverted the comparison to a volatile-field
+// DENYLIST (see MODEL_VOLATILE_FIELDS/PROVIDER_VOLATILE_FIELDS/
+// SOURCE_VOLATILE_FIELDS in sync.ts) so any non-volatile field — including
+// ones added to the schema after this code was written — participates by
+// default. Each test below changes EXACTLY ONE previously-uncompared field
+// and asserts the sync commits (i.e. the change is NOT silently discarded
+// as a no-op) — these are the specific fields the reviewer's 17-case
+// empirical probe named.
+describe("SyncEngine — content diff exhaustiveness (B-1 regression)", () => {
+  async function syncTwice(
+    firstModel: Record<string, unknown>,
+    secondModel: Record<string, unknown>,
+    label: string,
+  ) {
+    const storage = new MemoryStorage(`b1-${label}`)
+    const provider = buildProvider(`b1-${label}-provider`)
+    await new SyncEngine({
+      storage,
+      sources: [adaptSourceConnector(makeInMemorySourceConnector(`test:b1-${label}`, [provider], [firstModel]))],
+    }).sync()
+    return new SyncEngine({
+      storage,
+      sources: [adaptSourceConnector(makeInMemorySourceConnector(`test:b1-${label}`, [provider], [secondModel]))],
+    }).sync()
+  }
+
+  test("model.lifecycleStage active->quarantined is detected (not silently dropped)", async () => {
+    const result = await syncTwice(
+      buildModel("b1-lifecycle-provider", "m1", { lifecycleStage: "trusted_by_domain" }),
+      buildModel("b1-lifecycle-provider", "m1", { lifecycleStage: "quarantined" }),
+      "lifecycle",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.modelsChanged.length).toBe(1)
+  })
+
+  test("model.modalities gaining a modality is detected", async () => {
+    const result = await syncTwice(
+      buildModel("b1-modalities-provider", "m1", { modalities: { input: ["text"], output: ["text"] } }),
+      buildModel("b1-modalities-provider", "m1", { modalities: { input: ["text", "image"], output: ["text"] } }),
+      "modalities",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.modelsChanged.length).toBe(1)
+  })
+
+  test("model.family change is detected", async () => {
+    const result = await syncTwice(
+      buildModel("b1-family-provider", "m1", { family: null }),
+      buildModel("b1-family-provider", "m1", { family: "reasoning" }),
+      "family",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.modelsChanged.length).toBe(1)
+  })
+
+  test("model.releaseDateUTC being set is detected", async () => {
+    const result = await syncTwice(
+      buildModel("b1-release-date-provider", "m1", { releaseDateUTC: null }),
+      buildModel("b1-release-date-provider", "m1", { releaseDateUTC: baseUTC }),
+      "release-date",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.modelsChanged.length).toBe(1)
+  })
+
+  async function syncTwiceProvider(
+    firstProvider: Record<string, unknown>,
+    secondProvider: Record<string, unknown>,
+    label: string,
+  ) {
+    const storage = new MemoryStorage(`b1-provider-${label}`)
+    const model = buildModel(`b1-${label}-provider`, "m1")
+    await new SyncEngine({
+      storage,
+      sources: [adaptSourceConnector(makeInMemorySourceConnector(`test:b1-provider-${label}`, [firstProvider], [model]))],
+    }).sync()
+    return new SyncEngine({
+      storage,
+      sources: [adaptSourceConnector(makeInMemorySourceConnector(`test:b1-provider-${label}`, [secondProvider], [model]))],
+    }).sync()
+  }
+
+  test("provider.regionPolicy.dataResidencyRequired flip is detected", async () => {
+    const result = await syncTwiceProvider(
+      buildProvider("b1-region-provider", { regionPolicy: { allowedRegions: [], dataResidencyRequired: false } }),
+      buildProvider("b1-region-provider", { regionPolicy: { allowedRegions: [], dataResidencyRequired: true } }),
+      "region",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.providersChanged).toEqual(["b1-region-provider"])
+  })
+
+  test("provider.removedAtUTC being set (retirement) is detected", async () => {
+    const result = await syncTwiceProvider(
+      buildProvider("b1-removed-provider", { removedAtUTC: null }),
+      buildProvider("b1-removed-provider", { removedAtUTC: baseUTC }),
+      "removed",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.providersChanged).toEqual(["b1-removed-provider"])
+  })
+
+  test("provider.envVars change is detected", async () => {
+    const result = await syncTwiceProvider(
+      buildProvider("b1-envvars-provider", { envVars: ["OLD_KEY"] }),
+      buildProvider("b1-envvars-provider", { envVars: ["OLD_KEY", "NEW_KEY"] }),
+      "envvars",
+    )
+    expect(result.committed).toBe(true)
+    expect(result.diff.providersChanged).toEqual(["b1-envvars-provider"])
+  })
+
+  test("source.confidenceLevel official->unverified is detected (not just licenseCode)", async () => {
+    const storage = new MemoryStorage("b1-source-confidence")
+    function connectorWithConfidence(level: "official" | "unverified"): SourceConnector {
+      const base = makeInMemorySourceConnector(
+        "test:b1-confidence",
+        [buildProvider("b1-confidence-provider")],
+        [buildModel("b1-confidence-provider", "m1")],
+      )
+      return { ...base, confidenceLevel: level }
+    }
+
+    await new SyncEngine({ storage, sources: [adaptSourceConnector(connectorWithConfidence("official"))] }).sync()
+    const result = await new SyncEngine({
+      storage,
+      sources: [adaptSourceConnector(connectorWithConfidence("unverified"))],
+    }).sync({ force: true })
+
+    expect(result.committed).toBe(true)
+    expect(result.diff.sourcesChanged).toEqual(["test:b1-confidence"])
+    const persisted = await storage.load()
+    expect(persisted?.sources[0]?.confidenceLevel).toBe("unverified")
+  })
+
+  test("provider addedAtUTC alone changing does NOT force a commit (confirmed volatile, matches ModelsDevConnector's real per-fetch stamping)", async () => {
+    const result = await syncTwiceProvider(
+      buildProvider("b1-addedutc-provider", { addedAtUTC: "2025-01-01T00:00:00Z" }),
+      buildProvider("b1-addedutc-provider", { addedAtUTC: "2026-01-01T00:00:00Z" }),
+      "addedutc",
+    )
+    // Second sync has zero OTHER changes either, so with addedAtUTC correctly
+    // excluded this must be a true no-op.
+    expect(result.committed).toBe(false)
+  })
+})
+
+// =====================================================================
 // Rollback — the core CRITICAL-risk guarantee
 // =====================================================================
 

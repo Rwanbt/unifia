@@ -67,6 +67,23 @@ deviations_from_spec: |
      (e.g. a pricing-only change with the same counts would hash identically).
      sync.ts computes its own content-level diff (`computeDiff`/`isDiffEmpty`)
      instead of relying on registryID for any correctness-relevant decision.
+     CORRECTION (post-E2 review, finding B-1, fixed in a follow-up commit on
+     this same branch): the first version of that content-level diff was
+     itself a field ALLOWLIST (modelContentEqual/providerContentEqual/the
+     Source diff each compared a hand-picked subset of fields), which
+     reintroduced the same class of defect in weaker form — 17
+     independently-confirmed cases of a real upstream change (e.g.
+     `lifecycleStage` transitioning to `quarantined`, `regionPolicy.
+     dataResidencyRequired`, `Source.confidenceLevel` downgrading) landing
+     in an uncompared field and being silently discarded as a no-op, with
+     the defect widening automatically on every future schema field added.
+     The comparison was inverted to a volatile-field DENYLIST (compare a
+     canonical serialization of the whole object, stripping only fields
+     proven to be pure fetch/observation bookkeeping — MODEL_VOLATILE_FIELDS
+     / PROVIDER_VOLATILE_FIELDS / SOURCE_VOLATILE_FIELDS in sync.ts) so any
+     field not explicitly proven volatile — including ones added to the
+     schema after this code was written — participates in the comparison by
+     default. Regression tests added for the reviewer's named fields.
   2. `ingest()` (ingestion.ts:91-106, frozen) hardcodes the emitted `Source`
      record's license/copyright/licenseFileURL fields to models.dev's values
      regardless of which source produced the data. `mergeIngestResults()`
