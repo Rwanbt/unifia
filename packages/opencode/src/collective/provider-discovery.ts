@@ -128,9 +128,15 @@ export namespace ProviderDiscovery {
       if (p.role !== undefined) (base as { role?: string }).role = p.role
       return base
     })
-    const result = yield* Effect.promise(() =>
-      Effect.runPromise(discoverAvailableProviders(explicitNorm, maxProviders)),
-    )
+    // discoverAvailableProviders already returns an Effect (not a Promise).
+    // yield* it directly so a typed Effect.fail (e.g. InsufficientProvidersError)
+    // propagates as a genuine Fail through Effect's own error channel. The
+    // previous Effect.runPromise(...) + Effect.promise(...) round-trip forced
+    // every Fail through a Promise rejection, which Effect.promise treats as
+    // an unrecoverable Die — silently breaking the typed error contract
+    // declared by callers such as Orchestrator.Interface.run (see
+    // collective/orchestrator.ts).
+    const result = yield* discoverAvailableProviders(explicitNorm, maxProviders)
     return {
       providers: result.providers.map(toLegacyProvider),
       ghostWarnings: result.ghostWarnings.map(toLegacyGhostWarning),
