@@ -1,0 +1,77 @@
+card_id: TEAM-C08
+card_title: "Lifecycle et collections dynamiques"
+generation: post-t0-009-v1
+owner: MM10
+lease_id: LEASE-C08-20260725160000-team-c08-lifecycle-collections-v1
+fencing_token: 158
+base_sha: ab3e9b1fb2c576017221b539736361988d320f49
+branch: c-C08/f408cb34
+worktree: D:\App\OpenCode\.team-worktrees\C08-f408cb34
+depends_on:
+  - TEAM-C07 (CLOSED+INTEGRATED, D-060)
+allowed_create:
+  - packages/opencode/src/model-intelligence/lifecycle.ts
+  - packages/opencode/src/model-intelligence/collections.ts
+  - packages/opencode/test/model-intelligence/lifecycle.test.ts
+  - packages/opencode/test/model-intelligence/collections.test.ts
+allowed_modify_existing:
+  - docs/team/scope-manifest/TEAM-C08.yaml
+forbidden:
+  - packages/opencode/src/model-intelligence/registry.ts
+  - packages/opencode/src/model-intelligence/schema.ts
+  - packages/opencode/src/model-intelligence/storage.ts
+  - packages/opencode/src/model-intelligence/ingestion.ts
+  - packages/opencode/src/model-intelligence/connectors/**
+  - packages/opencode/src/model-intelligence/pricing.ts
+  - packages/opencode/src/model-intelligence/benchmarks.ts
+  - packages/opencode/src/model-intelligence/health.ts
+  - packages/opencode/src/model-intelligence/sync.ts
+  - packages/opencode/src/multi-model/**
+  - packages/opencode/src/team/**
+  - main, dev, opti-ui, Team branches
+notes: |
+  schema.ts:106-115 (C01, gelé) définit déjà l'enum LifecycleStage à 8 états :
+  discovered -> metadata_validated -> probed -> low_risk_eligible ->
+  general_eligible -> trusted_by_domain, plus deprecated/quarantined (états
+  exceptionnels atteignables depuis n'importe quel état non-terminal). AUCUNE
+  state machine gérant ces transitions n'existe encore. lifecycle.ts doit
+  implémenter cette state machine (transitions valides/invalides, conditions de
+  promotion). collections.ts doit gérer des collections dynamiques utilisateur
+  (filtres versionnés, opt-in visible et explicite — jamais auto-trust silencieux).
+deviations_from_spec: |
+  1. `TransitionEvidence` does NOT carry `currentStageEnteredAtUTC` as originally
+     drafted internally — the state machine (`LifecycleStore`) is authoritative
+     about when a model entered its current stage (recorded at the previous
+     transition, or at `initialize()`), and computes elapsed time from ITS OWN
+     tracked value rather than trusting a caller-supplied timestamp. A caller
+     accepting a spoofable "entered at" field would let probation/eligibility
+     windows be bypassed by lying about elapsed time — closed before landing,
+     not a deviation from the card's intent, but worth recording since the
+     initial internal draft did carry that field on the evidence type.
+  2. `lifecycle.ts` and `collections.ts` are intentionally NOT code-coupled
+     (no import between them) despite being conceptually linked (an elevated
+     collection opt-in is the natural trigger for a `grant_trust` explicit
+     lifecycle action). Each is independently testable; the integration is
+     documented in both files' module docs for the next integrator/orchestration
+     layer to wire together.
+  3. `deprecated` is reachable only from `low_risk_eligible`, `general_eligible`,
+     `trusted_by_domain` — NOT from `discovered`/`metadata_validated`/`probed`.
+     Rationale documented in lifecycle.ts module doc: "deprecated" means "was
+     offered for use, now retired in favor of something else"; an onboarding
+     model was never offered for use. Early-stage rejection uses `quarantined`
+     instead, which remains reachable from every non-terminal stage including
+     these three.
+  4. `deprecated` and `quarantined` are terminal (zero outgoing transitions) —
+     re-review of a rejected/retired model is modeled as a new record decision
+     outside this module's scope, not a state-machine transition, to keep the
+     graph acyclic and every stage's remaining transitions a structural fact.
+scope_respected: |
+  Created exactly the 4 files allowed by allowed_create (lifecycle.ts,
+  collections.ts, lifecycle.test.ts, collections.test.ts) plus this manifest
+  update. No frozen file (registry.ts, schema.ts, storage.ts, ingestion.ts,
+  connectors/**, pricing.ts, benchmarks.ts, health.ts, sync.ts) was modified —
+  schema.ts/health.ts/benchmarks.ts were imported read-only (LifecycleStage
+  reused via `Model.shape.lifecycleStage`, `ModelHealth`/`ModelCapabilities`
+  types reused, no enum or type re-declared). No import from multi-model/ or
+  team/ (verified via grep, 0 matches). All work stayed inside the C08
+  worktree; no push, fetch, or pull was run; no other worktree was touched.
