@@ -136,7 +136,7 @@ function resourceMatches(scope: PermissionResource, requested: PermissionResourc
       const allowed = new URL(scope.value)
       const actual = new URL(requested.value)
       return allowed.protocol === actual.protocol &&
-        (allowed.hostname === actual.hostname || actual.hostname.endsWith(`.${allowed.hostname}`)) &&
+        allowed.hostname === actual.hostname &&
         (allowed.port === "" || allowed.port === actual.port)
     } catch {
       return false

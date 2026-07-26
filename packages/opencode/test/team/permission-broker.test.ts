@@ -48,6 +48,7 @@ describe("PermissionBroker", () => {
     expect(broker.authorize(request({ leaseId: "other-lease" }))).toMatchObject({ allowed: false, reason: "LEASE_MISMATCH" })
     expect(broker.authorize(request({ fencingToken: 8 }))).toMatchObject({ allowed: false, reason: "LEASE_MISMATCH" })
     expect(broker.authorize(request({ resource: { kind: "network", value: "https://evil.example.net" } }))).toMatchObject({ allowed: false, reason: "RESOURCE_DENIED" })
+    expect(broker.authorize(request({ resource: { kind: "network", value: "https://child.api.example.com" } }))).toMatchObject({ allowed: false, reason: "RESOURCE_DENIED" })
   })
 
   it("enforces TTL and quota", () => {
