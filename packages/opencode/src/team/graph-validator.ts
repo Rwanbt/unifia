@@ -88,8 +88,9 @@ export function validateGraph(plan: TaskPlan, options: GraphValidationOptions = 
       const canonical = canonicalPath(path)
       if (!canonical) issues.push(issue("CANONICAL_PATH", task.id, `Path or resource ${path} is not canonical.`, "Use a repository-relative slash-separated path without . or ..."))
       else canonicalPaths.set(path, canonical)
-      if (GENERATED_PATH.test(path)) issues.push(issue("GENERATED_PATH", task.id, `Generated path ${path} is not an editable graph target.`, "Replace it with the owning source path."))
-      if (FORBIDDEN_PATH.test(path)) issues.push(issue("FORBIDDEN_PATH", task.id, `Restricted path ${path} requires a separate approved card.`, "Remove it from this plan or create the dedicated card."))
+      const comparablePath = canonical ?? path.replaceAll("\\", "/")
+      if (GENERATED_PATH.test(comparablePath)) issues.push(issue("GENERATED_PATH", task.id, `Generated path ${path} is not an editable graph target.`, "Replace it with the owning source path."))
+      if (FORBIDDEN_PATH.test(comparablePath)) issues.push(issue("FORBIDDEN_PATH", task.id, `Restricted path ${path} requires a separate approved card.`, "Remove it from this plan or create the dedicated card."))
     }
   }
   for (const task of plan.tasks) {
@@ -110,9 +111,9 @@ export function validateGraph(plan: TaskPlan, options: GraphValidationOptions = 
   for (const [path, taskIds] of writers) if (taskIds.length > limits.maxWritersPerPath) issues.push(issue("HOTSPOT", taskIds[0] ?? null, `Path ${path} is written by ${taskIds.length} tasks.`, "Assign one owning task or split the resource explicitly."))
   for (let left = 0; left < plan.tasks.length; left++) for (let right = left + 1; right < plan.tasks.length; right++) {
     const a = plan.tasks[left]!, b = plan.tasks[right]!
-    const aWrites = new Set(a.writeSet.map((path) => canonicalPaths.get(path) ?? path))
-    const bReads = new Set(b.readSet.map((path) => canonicalPaths.get(path) ?? path))
-    const bWrites = new Set(b.writeSet.map((path) => canonicalPaths.get(path) ?? path))
+    const aWrites = new Set([...a.writeSet, ...a.exclusiveResources].map((path) => canonicalPaths.get(path) ?? path))
+    const bReads = new Set([...b.readSet, ...b.exclusiveResources].map((path) => canonicalPaths.get(path) ?? path))
+    const bWrites = new Set([...b.writeSet, ...b.exclusiveResources].map((path) => canonicalPaths.get(path) ?? path))
     const conflict = [...aWrites].some((path) => bWrites.has(path) || bReads.has(path))
     if (conflict && !hasDependencyPath(a.id, b.id, byId) && !hasDependencyPath(b.id, a.id, byId)) issues.push(issue("RESOURCE_ORDER", a.id, `Tasks ${a.id} and ${b.id} have an unordered write/read or write/write conflict.`, "Add an explicit dependency or separate the paths."))
   }
