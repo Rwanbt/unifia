@@ -61,6 +61,7 @@ describe("EventWriter", () => {
     const writer = new EventWriter(sink, { batchSize: 2 })
     await expect(writer.append({ ...input(), payload: "x".repeat(65 * 1024) })).rejects.toThrow(RangeError)
     expect(writer.pendingCount).toBe(0)
+    await expect(writer.append({ ...input(), family: "unknown" as "task" })).rejects.toThrow(TypeError)
   })
 })
 

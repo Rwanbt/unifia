@@ -3,6 +3,7 @@ const MAX_EVENT_PAYLOAD_BYTES = 64 * 1024
 const MAX_PAGE_SIZE = 1_000
 
 export type TeamEventFamily = "run" | "task" | "worker" | "gate" | "system"
+const EVENT_FAMILIES: readonly TeamEventFamily[] = ["run", "task", "worker", "gate", "system"]
 
 export interface TeamEventInput {
   readonly eventId: string
@@ -38,6 +39,7 @@ export function validateTeamEventInput(input: TeamEventInput): void {
   assertNonEmpty(input.eventId, "eventId")
   assertNonEmpty(input.runId, "runId")
   assertNonEmpty(input.type, "type")
+  if (!EVENT_FAMILIES.includes(input.family)) throw new TypeError(`unknown event family: ${input.family}`)
   assertPayload(input.payload)
 }
 
