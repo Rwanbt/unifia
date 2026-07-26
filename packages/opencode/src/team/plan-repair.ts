@@ -5,7 +5,7 @@ import type { PlannerTask, TaskPlan } from "./task-planner"
 
 const MAX_ATTEMPTS = 2
 export const PlanRepairIssueSchema = z.object({ rule: z.string().min(1), nodeId: z.string().min(1).nullable(), message: z.string().min(1), correction: z.string().min(1) }).strict()
-export const PlanRepairRequestSchema = z.object({ plan: z.unknown(), issues: z.array(PlanRepairIssueSchema).min(1), attempt: z.number().int().min(1).max(MAX_ATTEMPTS) }).strict()
+export const PlanRepairRequestSchema = z.object({ plan: z.unknown(), issues: z.array(PlanRepairIssueSchema).min(1), attempt: z.number().int().min(1) }).strict()
 export type PlanRepairRequest = { readonly plan: TaskPlan; readonly issues: readonly GraphValidationIssue[]; readonly attempt: number }
 export interface PlanRepairResult { readonly plan: TaskPlan; readonly changedTaskIds: readonly string[]; readonly attempt: number }
 
