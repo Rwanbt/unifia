@@ -33,6 +33,13 @@ describe("buildTaskRequirements", () => {
     expect(result.externalActions).toMatchObject([{ kind: "message", requiresHumanApproval: true }])
   })
 
+  it("gates an irreversible action that has no known category", () => {
+    const result = buildTaskRequirements({ objective: "Prepare the report.", irreversibleActions: ["Rotate internal token"] })
+
+    expect(result.externalActions).toMatchObject([{ kind: "unknown", requiresHumanApproval: true }])
+    expect(result.ambiguities.at(-1)?.resolution).toBe("GATE")
+  })
+
   it("fails closed for an empty objective", () => {
     expect(() => buildTaskRequirements({ objective: "   " })).toThrow(TypeError)
   })
