@@ -190,7 +190,12 @@ export class CheckpointManager {
   }
 
   serialize(document: CheckpointDocument): string {
-    validatePayload(document.payload)
+    try {
+      validatePayload(document.payload)
+    } catch (error) {
+      if (error instanceof CheckpointIncompatibleError || error instanceof CheckpointCorruptError) throw error
+      throw new CheckpointCorruptError(`checkpoint payload is invalid: ${error instanceof Error ? error.message : "unknown error"}`)
+    }
     if (digest(document.payload) !== document.digest) throw new CheckpointCorruptError("checkpoint digest does not match payload")
     const serialized = canonicalJson(document)
     if (new TextEncoder().encode(serialized).byteLength > this.#maxBytes) throw new RangeError(`checkpoint exceeds the ${this.#maxBytes}-byte limit`)
@@ -216,7 +221,12 @@ export class CheckpointManager {
     const document = parsed as CheckpointDocument
     if (typeof document.digest !== "string" || !SHA256_PATTERN.test(document.digest)) throw new CheckpointCorruptError("checkpoint digest is invalid")
     if (document.payload === null || typeof document.payload !== "object") throw new CheckpointCorruptError("checkpoint payload is invalid")
-    validatePayload(document.payload)
+    try {
+      validatePayload(document.payload)
+    } catch (error) {
+      if (error instanceof CheckpointIncompatibleError || error instanceof CheckpointCorruptError) throw error
+      throw new CheckpointCorruptError(`checkpoint payload is invalid: ${error instanceof Error ? error.message : "unknown error"}`)
+    }
     if (digest(document.payload) !== document.digest) throw new CheckpointCorruptError("checkpoint digest does not match payload")
     for (const [field, expectedValue] of Object.entries(expected)) {
       if (expectedValue !== undefined && document.payload[field as keyof CheckpointPayload] !== expectedValue) throw new CheckpointStaleError(`checkpoint ${field} does not match current state`)

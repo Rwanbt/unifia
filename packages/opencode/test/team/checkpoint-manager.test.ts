@@ -73,6 +73,8 @@ describe("CheckpointManager", () => {
     storage.value = storage.value.replace("team-head", "tampered-head")
 
     expect(() => manager.restore("checkpoint.json", storage)).toThrow(CheckpointCorruptError)
+    storage.value = JSON.stringify({ payload: { schemaVersion: "1.0.0" }, digest: "c".repeat(64) })
+    expect(() => manager.restore("checkpoint.json", storage)).toThrow(CheckpointCorruptError)
   })
 
   it("rejects malformed JSON and incompatible schema versions", () => {
