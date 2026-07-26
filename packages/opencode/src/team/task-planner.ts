@@ -84,7 +84,7 @@ export function registerPlannerPrompt(registry: PromptRegistry, template: string
     version: PLANNER_PROMPT_VERSION,
     template,
     description: "Strict Team DAG planner prompt",
-    inputSchema: z.object({ requirements: z.unknown() }).strict(),
+    inputSchema: z.string().min(1),
     outputSchema: TaskPlanSchema,
     changeNote: "Initial versioned structured planner contract",
   })
@@ -127,7 +127,7 @@ export async function planTask(input: TaskPlannerInput): Promise<TaskPlannerResu
     model: input.model,
     schema: TaskPlanSchema,
     system: registry.get(PLANNER_PROMPT_ID, PLANNER_PROMPT_VERSION).template,
-    prompt: plannerPromptInput(input.requirements),
+    prompt: registry.validateInput(PLANNER_PROMPT_ID, PLANNER_PROMPT_VERSION, plannerPromptInput(input.requirements)),
     maxOutputTokens: budget.maxOutputTokens,
     abortSignal: input.signal,
   })
