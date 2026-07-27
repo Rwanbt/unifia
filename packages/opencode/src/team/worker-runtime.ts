@@ -124,3 +124,93 @@ function stableValue(value: unknown): unknown {
   }
   return value;
 }
+
+export interface WriteWorkerRuntimeRequest {
+  readonly primaryWorkspacePath: string;
+  readonly worktreePath: string;
+  readonly branch: string;
+  readonly fencingToken: number;
+  readonly command: string;
+  readonly allowedCommands: readonly string[];
+  readonly timeoutMs: number;
+}
+
+export interface ScopeWatcher {
+  assertClean(): void | Promise<void>;
+  stop(): void | Promise<void>;
+}
+
+export interface WriteWorkerRuntimeAdapter {
+  verifyFencing(request: WriteWorkerRuntimeRequest): void | Promise<void>;
+  startScopeWatcher(request: WriteWorkerRuntimeRequest): ScopeWatcher;
+  execute(request: WriteWorkerRuntimeRequest): void | Promise<void>;
+  rollback(request: WriteWorkerRuntimeRequest): void | Promise<void>;
+}
+
+export interface WriteWorkerRuntimeResult {
+  readonly status: "COMPLETED" | "ROLLED_BACK" | "ROLLBACK_FAILED";
+  readonly branch: string;
+  readonly worktreePath: string;
+  readonly error?: string;
+}
+
+export class WriteWorkerRuntime {
+  async run(request: WriteWorkerRuntimeRequest, adapter: WriteWorkerRuntimeAdapter): Promise<WriteWorkerRuntimeResult> {
+    validateWriteRequest(request);
+    if (samePath(request.primaryWorkspacePath, request.worktreePath)) {
+      throw new Error("write runtime refuses the primary workspace");
+    }
+    if (!request.allowedCommands.includes(request.command)) {
+      throw new Error(`command ${request.command} is not allowed by the scope manifest`);
+    }
+    await adapter.verifyFencing(request);
+    const watcher = adapter.startScopeWatcher(request);
+    try {
+      await withWriteTimeout(adapter.execute(request), request.timeoutMs);
+      await watcher.assertClean();
+      return { status: "COMPLETED", branch: request.branch, worktreePath: request.worktreePath };
+    } catch (error) {
+      try {
+        await adapter.rollback(request);
+        return {
+          status: "ROLLED_BACK",
+          branch: request.branch,
+          worktreePath: request.worktreePath,
+          error: error instanceof Error ? error.message : "write execution failed",
+        };
+      } catch (rollbackError) {
+        return {
+          status: "ROLLBACK_FAILED",
+          branch: request.branch,
+          worktreePath: request.worktreePath,
+          error: rollbackError instanceof Error ? rollbackError.message : "rollback failed",
+        };
+      }
+    } finally {
+      await watcher.stop();
+    }
+  }
+}
+
+function validateWriteRequest(request: WriteWorkerRuntimeRequest): void {
+  if (!request.primaryWorkspacePath.trim() || !request.worktreePath.trim()) throw new TypeError("workspace paths must not be empty");
+  if (!request.branch.trim()) throw new TypeError("branch must not be empty");
+  if (!Number.isInteger(request.fencingToken) || request.fencingToken <= 0) throw new RangeError("fencingToken must be positive");
+  if (!Number.isInteger(request.timeoutMs) || request.timeoutMs <= 0) throw new RangeError("timeoutMs must be positive");
+}
+
+function samePath(left: string, right: string): boolean {
+  return left.replaceAll("\\", "/").replace(/\/+$/, "").toLowerCase() === right.replaceAll("\\", "/").replace(/\/+$/, "").toLowerCase();
+}
+
+async function withWriteTimeout(operation: void | Promise<void>, timeoutMs: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("write runtime timeout")), timeoutMs);
+  });
+  try {
+    await Promise.race([Promise.resolve(operation), timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
