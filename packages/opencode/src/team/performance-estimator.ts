@@ -53,6 +53,23 @@ export const PerformanceEstimatorInputError = NamedError.create(
   }),
 )
 
+/**
+ * Raised when prior strength and effective evidence are both zero. Beta(0,0)
+ * is improper — there is no posterior to report, and computing one anyway
+ * yields NaN. Since every comparison against NaN is false, a NaN estimate
+ * would slip past downstream thresholds instead of tripping them, so this
+ * fails loudly rather than returning a number that lies.
+ */
+export const NoEvidenceError = NamedError.create(
+  "NoEvidenceError",
+  z.object({
+    scope: z.string(),
+    priorStrength: z.number(),
+    effectiveSamples: z.number(),
+    message: z.string(),
+  }),
+)
+
 function parseBoundary<Schema extends z.ZodTypeAny>(schema: Schema, entity: string, raw: unknown): z.infer<Schema> {
   const result = schema.safeParse(raw)
   if (!result.success) {
@@ -297,11 +314,31 @@ function buildEstimate(
   priorBeta: number,
   counts: WeightedCounts,
   config: EstimatorConfig,
+  scope: string,
 ): PerformanceEstimate {
   const alpha = priorAlpha + counts.successes
   const beta = priorBeta + counts.failures
   const effectiveSamples = counts.successes + counts.failures
   const priorStrength = priorAlpha + priorBeta
+
+  // Both parameters must be strictly positive. Beta(a, 0) and Beta(0, b) are
+  // improper just as Beta(0, 0) is: with no prior strength and, say, only
+  // successes observed, nothing bounds the failure rate from above — every
+  // rate arbitrarily close to 1 stays consistent with the data. Computing
+  // anyway produced mean = 1 (certainty from a handful of runs) alongside an
+  // interval that did not even contain that mean.
+  if (alpha <= 0 || beta <= 0) {
+    throw new NoEvidenceError({
+      scope,
+      priorStrength,
+      effectiveSamples,
+      message:
+        alpha + beta <= 0
+          ? `no evidence for ${scope}: prior strength is 0 and observations carry no effective weight (all decayed or none supplied), so the posterior is undefined`
+          : `one-sided evidence for ${scope}: with prior strength 0 and only ${alpha <= 0 ? "failures" : "successes"} observed, the posterior is improper and no finite credible interval exists — supply a non-zero prior strength`,
+    })
+  }
+
   const tail = (1 - config.credibleMass) / 2
 
   return {
@@ -338,7 +375,7 @@ export function estimatePerformance(input: EstimatePerformanceInput): Performanc
   const globalPriorAlpha = externalPrior.strength * externalPrior.successRate
   const globalPriorBeta = externalPrior.strength * (1 - externalPrior.successRate)
   const globalCounts = accumulate(observations, config.halfLifeDays)
-  const global = buildEstimate(globalPriorAlpha, globalPriorBeta, globalCounts, config)
+  const global = buildEstimate(globalPriorAlpha, globalPriorBeta, globalCounts, config, "the global estimate")
 
   // Per-domain posteriors, each borrowing `domainPriorStrength` pseudo-
   // observations from the global posterior's mean.
@@ -351,7 +388,7 @@ export function estimatePerformance(input: EstimatePerformanceInput): Performanc
       observations.filter((observation) => observation.domain === domain),
       config.halfLifeDays,
     )
-    return { domain, ...buildEstimate(domainPriorAlpha, domainPriorBeta, counts, config) }
+    return { domain, ...buildEstimate(domainPriorAlpha, domainPriorBeta, counts, config, `domain "${domain}"`) }
   })
 
   const selected =
@@ -361,7 +398,10 @@ export function estimatePerformance(input: EstimatePerformanceInput): Performanc
         // An unobserved domain is not an error: it is the global estimate
         // with zero domain-specific evidence, which is what the hierarchy
         // says it should be.
-        { domain: requestedDomain, ...buildEstimate(domainPriorAlpha, domainPriorBeta, { successes: 0, failures: 0 }, config) })
+        {
+          domain: requestedDomain,
+          ...buildEstimate(domainPriorAlpha, domainPriorBeta, { successes: 0, failures: 0 }, config, `domain "${requestedDomain}"`),
+        })
 
   return {
     estimatorVersion: PERFORMANCE_ESTIMATOR_VERSION,

@@ -4,6 +4,7 @@ import {
   betaQuantile,
   DEFAULT_ESTIMATOR_CONFIG,
   estimatePerformance,
+  NoEvidenceError,
   PerformanceEstimatorInputError,
   type ExternalPrior,
   type Observation,
@@ -438,14 +439,110 @@ describe("estimatePerformance — boundaries", () => {
     }
   })
 
-  it("handles a zero-strength prior without dividing by zero", () => {
+  it("refuses to invent an estimate when there is no evidence at all", () => {
+    // Beta(0,0) is improper. Returning a number here would mean NaN, and
+    // since every comparison against NaN is false, it would slip past every
+    // downstream threshold instead of tripping them.
+    expect(() => estimatePerformance({ externalPrior: { ...prior, strength: 0 }, observations: [] })).toThrow(
+      NoEvidenceError,
+    )
+  })
+
+  it("refuses to claim certainty from one-sided evidence with no prior", () => {
+    // strength 0 with only successes leaves beta = 0: an improper posterior.
+    // Computing anyway reported mean = 1 with an interval whose upper bound
+    // was 0.67 — an interval not containing its own mean, and certainty
+    // asserted from a handful of runs.
+    expect(() =>
+      estimatePerformance({ externalPrior: { ...prior, strength: 0 }, observations: observations(1, true) }),
+    ).toThrow(NoEvidenceError)
+    expect(() =>
+      estimatePerformance({ externalPrior: { ...prior, strength: 0 }, observations: observations(50, false) }),
+    ).toThrow(NoEvidenceError)
+  })
+
+  it("accepts one-sided evidence as soon as any prior strength is supplied", () => {
+    const result = estimatePerformance({
+      externalPrior: { ...prior, strength: 0.001 },
+      observations: observations(50, true),
+    })
+
+    expect(result.global.mean).toBeLessThan(1)
+    expect(result.global.upper).toBeGreaterThanOrEqual(result.global.mean)
+  })
+
+  it("refuses just as loudly when every observation has decayed to nothing", () => {
+    // Same degenerate posterior reached the other way: no prior, and
+    // observations so old their weight underflows.
+    expect(() =>
+      estimatePerformance({
+        externalPrior: { ...prior, strength: 0 },
+        observations: observations(50, true, "rust", 100_000),
+      }),
+    ).toThrow(NoEvidenceError)
+  })
+
+  it("never reports a NaN or infinite estimate across a hostile parameter sweep", () => {
+    for (const strength of [0.001, 1, 1_000]) {
+      for (const count of [0, 1, 50]) {
+        for (const ageDays of [0, 30, 100_000]) {
+          const result = estimatePerformance({
+            externalPrior: { ...prior, strength },
+            observations: observations(count, true, "rust", ageDays),
+          })
+          for (const value of [result.global.mean, result.global.lower, result.global.upper]) {
+            expect(Number.isFinite(value)).toBe(true)
+            expect(value).toBeGreaterThanOrEqual(0)
+            expect(value).toBeLessThanOrEqual(1)
+          }
+          // Deliberately NOT asserting lower <= mean <= upper: for a heavily
+          // skewed Beta (tiny beta parameter, almost all mass at 1) the mean
+          // is dragged below the 5th percentile by the sliver of spread mass.
+          // That is a genuine property of the distribution, not a defect.
+          expect(result.global.lower).toBeLessThanOrEqual(result.global.upper)
+        }
+      }
+    }
+  })
+
+  it("is not confused by a domain named like an object prototype key", () => {
+    for (const domain of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+      const result = estimatePerformance({
+        externalPrior: prior,
+        observations: observations(6, true, domain),
+        domain,
+      })
+      expect(result.domainVector.map((entry) => entry.domain)).toEqual([domain])
+      expect(result.estimate.effectiveSamples).toBe(6)
+      expect(Number.isFinite(result.estimate.mean)).toBe(true)
+    }
+  })
+
+  it("widens the interval monotonically as the credible mass grows", () => {
+    let previousWidth = -1
+    for (const credibleMass of [0.5, 0.8, 0.9, 0.95, 0.99]) {
+      const result = estimatePerformance({
+        externalPrior: prior,
+        observations: observations(20, true),
+        config: { ...DEFAULT_ESTIMATOR_CONFIG, credibleMass },
+      })
+      const width = result.global.upper - result.global.lower
+      expect(width).toBeGreaterThanOrEqual(previousWidth)
+      previousWidth = width
+    }
+  })
+
+  it("supports a zero-strength prior once both outcomes have been observed", () => {
+    // With no prior, evidence must bound the rate from both sides for the
+    // posterior to be proper. Mixed outcomes do that; one-sided ones do not
+    // (covered above).
     const result = estimatePerformance({
       externalPrior: { ...prior, strength: 0 },
-      observations: observations(4, true),
+      observations: [...observations(4, true), ...observations(2, false)],
     })
 
     expect(Number.isFinite(result.global.mean)).toBe(true)
-    expect(result.global.mean).toBeGreaterThan(0)
+    expect(result.global.mean).toBeCloseTo(4 / 6, 6)
   })
 
   it("keeps every reported bound inside [0,1]", () => {
