@@ -48,6 +48,8 @@ function validateNetwork(network: CliNetworkPolicy): void {
 }
 function validateAuth(handle: OpaqueAuthHandle | undefined): void {
   if (!handle) return
+  const allowedKeys = ["handleId", "providerID", "expiresAtUTC"]
+  if (Object.keys(handle).some((key) => !allowedKeys.includes(key))) throw new CliWorkerPolicyError("auth handle contains non-opaque fields")
   if (!handle.handleId.trim() || !handle.providerID.trim() || !handle.expiresAtUTC.endsWith("Z") || Number.isNaN(Date.parse(handle.expiresAtUTC)) || Date.parse(handle.expiresAtUTC) <= Date.now()) throw new CliWorkerPolicyError("auth handle must be opaque, identified and unexpired")
 }
 function validateRequest(request: CliWorkerRequest): CliPlatform {

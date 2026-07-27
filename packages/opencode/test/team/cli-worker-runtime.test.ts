@@ -37,6 +37,7 @@ describe("CliWorkerRuntime", () => {
   test("rejects raw secret-shaped auth and only accepts opaque unexpired handles", async () => {
     const runtime = new CliWorkerRuntime(); const adapter = new FakeAdapter()
     await expect(runtime.run(request({ authHandle: { handleId: "", providerID: "p", expiresAtUTC: "2026-07-28T00:00:00.000Z" } }), adapter)).rejects.toBeInstanceOf(CliWorkerPolicyError)
+    await expect(runtime.run(request({ authHandle: { handleId: "h-raw", providerID: "p", expiresAtUTC: "2099-07-28T00:00:00.000Z", token: "secret" } as never }), adapter)).rejects.toBeInstanceOf(CliWorkerPolicyError)
     const result = await runtime.run(request({ authHandle: { handleId: "h-1", providerID: "p", expiresAtUTC: "2099-07-28T00:00:00.000Z" } }), adapter)
     expect(result.status).toBe("COMPLETED")
   })
