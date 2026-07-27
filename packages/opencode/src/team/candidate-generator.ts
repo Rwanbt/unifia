@@ -109,7 +109,13 @@ export const CandidateEndpointSchema = z
     privacyPolicyRef: z.string().min(1).nullable(),
   })
   .strict()
-export type CandidateEndpoint = z.infer<typeof CandidateEndpointSchema>
+/**
+ * `Readonly` at compile time and frozen at index-build time: `CandidateIndex`
+ * is documented as an immutable snapshot, and endpoint objects are handed
+ * straight back in `eligible`. Without both, a caller mutating a returned
+ * candidate would silently corrupt the index for every later query.
+ */
+export type CandidateEndpoint = Readonly<z.infer<typeof CandidateEndpointSchema>>
 
 /** Stable endpoint key. Mirrors collections.ts `refKey`. */
 export function endpointKey(endpoint: Pick<CandidateEndpoint, "providerID" | "modelID">): string {
@@ -338,7 +344,10 @@ export const CandidateEndpointListSchema = z.array(CandidateEndpointSchema).supe
 })
 
 export function buildCandidateIndex(endpoints: readonly CandidateEndpoint[]): CandidateIndex {
-  const validated = parseBoundary(CandidateEndpointListSchema, "endpoints", endpoints)
+  const parsed: CandidateEndpoint[] = parseBoundary(CandidateEndpointListSchema, "endpoints", endpoints)
+  // One-time cost per snapshot, outside the per-query budget the card's p95
+  // criterion measures.
+  const validated = parsed.map((endpoint) => Object.freeze(endpoint))
   const byProvider = new Map<string, CandidateEndpoint[]>()
   const byLifecycleStage = new Map<LifecycleStage, CandidateEndpoint[]>()
   for (const endpoint of validated) {
@@ -349,7 +358,7 @@ export function buildCandidateIndex(endpoints: readonly CandidateEndpoint[]): Ca
     if (stageBucket) stageBucket.push(endpoint)
     else byLifecycleStage.set(endpoint.lifecycleStage, [endpoint])
   }
-  return { all: validated, byProvider, byLifecycleStage }
+  return { all: Object.freeze(validated), byProvider, byLifecycleStage }
 }
 
 // -----------------------------------------------------------------------
@@ -362,6 +371,14 @@ export interface CandidateGenerationStats {
   readonly eliminatedCount: number
   /** Elimination count per rule. Only rules that fired at least once appear. */
   readonly byRule: Readonly<Partial<Record<EliminationRule, number>>>
+  /**
+   * Entries of `allowedProviderIDs` that match no endpoint in the index —
+   * almost always a typo or a stale config. Without this, such a mistake
+   * looks exactly like a legitimate "everything was filtered out" result:
+   * every endpoint eliminated as PROVIDER_NOT_ALLOWED, zero candidates, and
+   * no signal that the allow-list itself was wrong. Empty in the normal case.
+   */
+  readonly unknownAllowedProviderIDs: readonly string[]
 }
 
 export interface CandidateGenerationResult {
@@ -448,6 +465,9 @@ export function generateCandidates(
       eligibleCount: eligible.length,
       eliminatedCount: eliminated.length,
       byRule,
+      unknownAllowedProviderIDs: allowed
+        ? [...new Set(allowed)].filter((providerID) => !index.byProvider.has(providerID))
+        : [],
     },
   }
 }

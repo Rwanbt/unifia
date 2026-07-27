@@ -57,6 +57,26 @@ describe("buildCandidateIndex", () => {
     expect(() => buildCandidateIndex([endpoint(), endpoint()])).toThrow(CandidateGeneratorInputError)
   })
 
+  it("freezes indexed endpoints so a returned candidate cannot corrupt the snapshot", () => {
+    const index = buildCandidateIndex([endpoint({ modelID: "x" })])
+    const candidate = generateCandidates(index).eligible[0]!
+
+    expect(Object.isFrozen(candidate)).toBe(true)
+    expect(() => {
+      // @ts-expect-error deliberately violating readonly to prove the freeze holds
+      candidate.providerID = "HACKED"
+    }).toThrow()
+    expect(index.all[0]!.providerID).toBe("anthropic")
+  })
+
+  it("is unaffected by the caller mutating the source array after build", () => {
+    const source = [endpoint({ modelID: "a" })]
+    const index = buildCandidateIndex(source)
+    source.push(endpoint({ modelID: "b" }))
+
+    expect(index.all).toHaveLength(1)
+  })
+
   it("rejects a malformed endpoint at the boundary", () => {
     // @ts-expect-error deliberately malformed for the boundary test
     expect(() => buildCandidateIndex([{ providerID: "", modelID: "x" }])).toThrow(CandidateGeneratorInputError)
@@ -127,6 +147,19 @@ describe("generateCandidates — permissions", () => {
 
     expect(result.eligible.map((item) => item.modelID)).toEqual(["m1", "m2"])
     expect(result.stats.eligibleCount + result.stats.eliminatedCount).toBe(result.stats.totalEndpoints)
+  })
+
+  it("surfaces an allow-list provider that matches nothing in the index", () => {
+    const index = buildCandidateIndex([endpoint()])
+    const typo = generateCandidates(index, { allowedProviderIDs: ["anthropikc"] })
+
+    // Without this signal a typo is indistinguishable from a legitimate
+    // "everything filtered out" result.
+    expect(typo.stats.unknownAllowedProviderIDs).toEqual(["anthropikc"])
+    expect(typo.eligible).toHaveLength(0)
+
+    const correct = generateCandidates(index, { allowedProviderIDs: ["anthropic"] })
+    expect(correct.stats.unknownAllowedProviderIDs).toEqual([])
   })
 
   it("reports every endpoint exactly once across eligible and eliminated", () => {
