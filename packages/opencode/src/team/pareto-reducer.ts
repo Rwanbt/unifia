@@ -260,27 +260,36 @@ function dedupExactTies(group: readonly ParetoEndpoint[]): {
   kept: readonly ParetoEndpoint[]
   decisions: readonly ParetoDecision[]
 } {
+  // Build the full equivalence classes FIRST, then pick each class's
+  // survivor. Resolving pairwise while scanning would make a third twin
+  // report the second one as its superseder — and the second may itself be
+  // eliminated, leaving `supersededBy` pointing at a row that is not in the
+  // result. Every duplicate must name the endpoint that actually survived.
+  const classes: ParetoEndpoint[][] = []
+  for (const endpoint of group) {
+    const existing = classes.find(
+      (members) => equalOnAllDimensions(members[0]!, endpoint) && sameRegions(members[0]!, endpoint),
+    )
+    if (existing) existing.push(endpoint)
+    else classes.push([endpoint])
+  }
+
   const kept: ParetoEndpoint[] = []
   const decisions: ParetoDecision[] = []
-  for (const endpoint of group) {
-    const twin = kept.find((other) => equalOnAllDimensions(other, endpoint) && sameRegions(other, endpoint))
-    if (!twin) {
-      kept.push(endpoint)
-      continue
+  for (const members of classes) {
+    const survivor = [...members].sort((a, b) => endpointKey(a).localeCompare(endpointKey(b)))[0]!
+    kept.push(survivor)
+    for (const member of members) {
+      if (member === survivor) continue
+      decisions.push(
+        decision(
+          member,
+          "ELIMINATED_DUPLICATE",
+          `identical to ${endpointKey(survivor)} on every Pareto dimension and on region coverage`,
+          endpointKey(survivor),
+        ),
+      )
     }
-    const [survivor, removed] =
-      endpointKey(twin) <= endpointKey(endpoint) ? [twin, endpoint] : [endpoint, twin]
-    if (survivor !== twin) {
-      kept[kept.indexOf(twin)] = survivor
-    }
-    decisions.push(
-      decision(
-        removed,
-        "ELIMINATED_DUPLICATE",
-        `identical to ${endpointKey(survivor)} on every Pareto dimension and on region coverage`,
-        endpointKey(survivor),
-      ),
-    )
   }
   return { kept, decisions }
 }
@@ -330,6 +339,57 @@ function restoreRegionCoverage(
     )
   }
   return { restored, decisions }
+}
+
+/**
+ * Re-point every `supersededBy` at an endpoint that actually survived.
+ *
+ * A duplicate cites its class survivor, but that survivor can itself be
+ * dominated and eliminated later in the same release — leaving the
+ * duplicate citing a row absent from the result, which is useless to a
+ * consumer asking "what should I use instead?".
+ *
+ * Following the chain is not just cosmetic re-pointing: if X is identical
+ * to Y on every dimension and Y is dominated by D, then D dominates X too.
+ * So a duplicate whose chain passes through a dominance link is genuinely
+ * ELIMINATED_DOMINATED, and saying so is more accurate than calling it a
+ * duplicate of something that is gone.
+ */
+function resolveSupersededChains(
+  decisionByKey: Map<string, ParetoDecision>,
+  retainedKeys: ReadonlySet<string>,
+): void {
+  for (const [key, current] of [...decisionByKey]) {
+    if (current.supersededBy === null || retainedKeys.has(current.supersededBy)) continue
+
+    const visited = new Set<string>([key])
+    let cursor: string | null = current.supersededBy
+    let passedThroughDominance = current.outcome === "ELIMINATED_DOMINATED"
+
+    while (cursor !== null && !retainedKeys.has(cursor) && !visited.has(cursor)) {
+      visited.add(cursor)
+      const next: ParetoDecision | undefined = decisionByKey.get(cursor)
+      if (next === undefined) break
+      if (next.outcome === "ELIMINATED_DOMINATED") passedThroughDominance = true
+      cursor = next.supersededBy
+    }
+
+    // Unresolvable (cycle or dangling): leave the original attribution rather
+    // than invent one.
+    if (cursor === null || !retainedKeys.has(cursor)) continue
+
+    decisionByKey.set(
+      key,
+      passedThroughDominance
+        ? {
+            ...current,
+            outcome: "ELIMINATED_DOMINATED",
+            supersededBy: cursor,
+            reason: `dominated by ${cursor} on every Pareto dimension, transitively through an identical endpoint that was itself eliminated`,
+          }
+        : { ...current, supersededBy: cursor },
+    )
+  }
 }
 
 /**
@@ -399,6 +459,9 @@ export function reduceToParetoFront(endpoints: readonly ParetoEndpoint[]): Paret
   // Rebuild both lists in input order so the report is diffable.
   const retained = validated.filter((endpoint) => retainedSet.has(endpoint))
   const eliminated = validated.filter((endpoint) => !retainedSet.has(endpoint))
+
+  resolveSupersededChains(decisionByKey, new Set(retained.map(endpointKey)))
+
   const decisions = validated.map((endpoint) => decisionByKey.get(endpointKey(endpoint))!)
 
   const byOutcome: Partial<Record<ParetoOutcome, number>> = {}

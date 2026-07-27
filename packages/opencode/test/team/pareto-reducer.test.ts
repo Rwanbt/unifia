@@ -203,6 +203,42 @@ describe("reduceToParetoFront — exact-tie dedup", () => {
     expect(cut.supersededBy).toBe("alpha::twin")
   })
 
+  it("points every one of three twins at the endpoint that actually survived", () => {
+    const result = reduceToParetoFront([
+      endpoint({ providerID: "zeta", modelID: "t" }),
+      endpoint({ providerID: "mid", modelID: "t" }),
+      endpoint({ providerID: "alpha", modelID: "t" }),
+    ])
+
+    expect(result.retained.map((item) => item.providerID)).toEqual(["alpha"])
+    // Resolving twins pairwise would make "zeta" cite "mid", which is itself
+    // eliminated — a supersededBy pointing at a row absent from the result.
+    const superseders = result.decisions
+      .filter((item) => item.outcome === "ELIMINATED_DUPLICATE")
+      .map((item) => item.supersededBy)
+    expect(superseders).toEqual(["alpha::t", "alpha::t"])
+
+    const retainedKeys = new Set(result.retained.map((item) => `${item.providerID}::${item.modelID}`))
+    for (const key of superseders) expect(retainedKeys.has(key!)).toBe(true)
+  })
+
+  it("re-attributes a duplicate to the real dominator when its survivor is itself eliminated", () => {
+    const result = reduceToParetoFront([
+      endpoint({ providerID: "zeta", modelID: "t" }),
+      endpoint({ providerID: "alpha", modelID: "t" }),
+      endpoint({ providerID: "best", modelID: "t", costPerMillionInputTokens: 1 }),
+    ])
+
+    expect(result.retained.map((item) => item.providerID)).toEqual(["best"])
+    // zeta is identical to alpha, and best dominates alpha — so best
+    // dominates zeta too. Reporting zeta as a duplicate of the eliminated
+    // alpha would leave the caller with nothing usable to follow.
+    const zeta = result.decisions.find((item) => item.providerID === "zeta")!
+    expect(zeta.outcome).toBe("ELIMINATED_DOMINATED")
+    expect(zeta.supersededBy).toBe("best::t")
+    expect(zeta.reason).toContain("transitively")
+  })
+
   it("does NOT collapse metric-identical endpoints that cover different regions", () => {
     const result = reduceToParetoFront([
       endpoint({ providerID: "eu-host", modelID: "twin", regions: ["EU"] }),
@@ -232,6 +268,22 @@ describe("reduceToParetoFront — determinism and reporting", () => {
     expect(result.decisions).toHaveLength(sample.length)
     expect(result.stats.retainedCount + result.stats.eliminatedCount).toBe(result.stats.totalEndpoints)
     expect(result.decisions.every((item) => item.reason.length > 0)).toBe(true)
+  })
+
+  it("never cites a superseder that is itself absent from the retained set", () => {
+    const result = reduceToParetoFront([
+      ...sample,
+      endpoint({ providerID: "dup1", modelID: "z" }),
+      endpoint({ providerID: "dup2", modelID: "z" }),
+      endpoint({ providerID: "dup3", modelID: "z" }),
+      endpoint({ providerID: "loser", modelID: "z", costPerMillionInputTokens: 99 }),
+    ])
+
+    const retainedKeys = new Set(result.retained.map((item) => `${item.providerID}::${item.modelID}`))
+    for (const item of result.decisions) {
+      if (item.supersededBy === null) continue
+      expect(retainedKeys.has(item.supersededBy)).toBe(true)
+    }
   })
 
   it("preserves input order in retained, eliminated and decisions", () => {
