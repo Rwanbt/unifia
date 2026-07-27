@@ -648,7 +648,11 @@ export function scheduleWrites(
 
   const waves: WriteScheduleWave[] = [];
   let currentIds: string[] = [];
-  let currentScopes: readonly string[][] = [];
+  // Mutable outer array of readonly scope sets: this is a local accumulator
+  // that is pushed to while building a wave, while each scopeSet it holds
+  // belongs to its task and must not be mutated. Declaring the outer array
+  // readonly made every push a type error.
+  let currentScopes: (readonly string[])[] = [];
   let currentCapacity = Number.POSITIVE_INFINITY;
   let currentHotspots = new Set<string>();
 
