@@ -770,6 +770,9 @@ test("defaultAgent throws when all primary agents are disabled", async () => {
         chat: { disable: true },
         plan: { disable: true },
         debate: { disable: true },
+        // `team` is mode "all", so it is primary-capable and must be disabled
+        // here too for "no primary agent remains" to actually hold.
+        team: { disable: true },
       },
     },
   })
