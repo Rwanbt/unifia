@@ -16,7 +16,7 @@
  */
 
 import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
-import { join, resolve, sep, normalize } from "node:path";
+import { join, sep } from "node:path";
 
 export type SymlinkPolicy = "REJECT" | "ALLOW_FORBIDDEN" | "ALLOW_ALLOWED";
 export type CasePolicy = "REJECT_DUPLICATE_CASE" | "LENIENT";
@@ -194,6 +194,17 @@ export function verifyScope(
   for (const entry of diff) {
     const p = entry.path;
 
+    // Git emits repository-relative paths with `/`; reject anything that could
+    // escape the repository before applying allow-list or reserved-path rules.
+    if (p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p) || p.split(/[\\/]/).includes("..")) {
+      violations.push({
+        code: "OUT_OF_SCOPE",
+        path: p,
+        message: `path ${p} is not a repository-relative path`,
+      });
+      continue;
+    }
+
     // Reserved path: any descendant of a reserved path is forbidden.
     let reserved = false;
     for (const r of reservedDirs) {
@@ -238,7 +249,8 @@ export function verifyScope(
     }
 
     // Symlink policy.
-    if (entry.symlink) {
+    const symlink = entry.symlink ?? isSymlink(join(repoRoot, p.replaceAll("/", sep)));
+    if (symlink) {
       if (manifest.symlink_policy === "REJECT") {
         violations.push({
           code: "SYMLINK_FORBIDDEN",

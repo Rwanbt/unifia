@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { matchPattern, verifyScope, manifestHash, fileHasCrlf } from "../../src/team/scope-monitor";
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync, symlinkSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -111,5 +111,45 @@ describe("scope-monitor.fileHasCrlf", () => {
     const p = join(dir, "f.txt");
     writeFileSync(p, "line1\nline2\n");
     expect(fileHasCrlf(p)).toBe(false);
+  });
+});
+
+
+const securityManifest = {
+  schema_version: "1.0.0" as const, card_id: "TEAM-T", lease_id: "LEASE-T", base_sha: "0".repeat(40),
+  scope_mode: "OPEN" as const, allowed_files: ["src/team/**/*.ts"], protected_files: [], reserved_paths: [],
+  symlink_policy: "REJECT" as const, case_policy: "REJECT_DUPLICATE_CASE" as const,
+  long_path_policy: "FAIL_OVER_260" as const, eol_policy: "LF_NORMALIZED" as const,
+};
+describe("scope-monitor.security", () => {
+  test("verdict KO for repository escape path", () => {
+    const v = verifyScope(securityManifest, [{ path: "../outside.ts", change_type: "added" }], "/");
+    expect(v.ok).toBe(false);
+    expect(v.violations[0].code).toBe("OUT_OF_SCOPE");
+  });
+
+  test("detects a real symlink when diff metadata omits the flag", () => {
+    const manifest = {
+      schema_version: "1.0.0" as const,
+      card_id: "TEAM-T", lease_id: "LEASE-T", base_sha: "0".repeat(40),
+      scope_mode: "OPEN" as const, allowed_files: ["src/team/**/*.ts"],
+      protected_files: [], reserved_paths: [], symlink_policy: "REJECT" as const,
+      case_policy: "REJECT_DUPLICATE_CASE" as const, long_path_policy: "FAIL_OVER_260" as const,
+      eol_policy: "LF_NORMALIZED" as const,
+    };
+    const tempRoot = mkdtempSync(join(tmpdir(), "scope-monitor-symlink-"));
+    const target = join(tempRoot, "target.ts");
+    const linkDirectory = join(tempRoot, "src", "team");
+    const link = join(linkDirectory, "link.ts");
+    mkdirSync(linkDirectory, { recursive: true });
+    writeFileSync(target, "export {}\n");
+    symlinkSync(target, link);
+    try {
+      const v = verifyScope(manifest, [{ path: "src/team/link.ts", change_type: "added" }], tempRoot);
+      expect(v.ok).toBe(false);
+      expect(v.violations[0].code).toBe("SYMLINK_FORBIDDEN");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
