@@ -106,11 +106,24 @@ function summarizeHandoff(handoff: HandoffSummary, maxChars: number): string {
 function validateInput(input: ContextCapsuleInput): void {
   for (const [field, value] of Object.entries({ objective: input.objective, baseSha: input.baseSha })) if (!value.trim()) throw new TypeError(`${field} must not be empty`)
   for (const field of ["acceptance", "decisions", "invariants", "allowedReferences", "predecessorOutputs", "toolGrants", "rollback", "handoffs", "artifacts"] as const) if (!Array.isArray(input[field])) throw new TypeError(`${field} must be an array`)
+  validateStringArray(input.acceptance, "acceptance")
+  validateStringArray(input.decisions, "decisions")
+  validateStringArray(input.invariants, "invariants")
+  validateStringArray(input.toolGrants, "toolGrants")
+  validateStringArray(input.rollback, "rollback")
+  for (const handoff of input.handoffs) {
+    if (!handoff.id.trim() || !handoff.summary.trim()) throw new TypeError("handoff id and summary must not be empty")
+    validateStringArray(handoff.remaining, "handoff.remaining")
+    validateStringArray(handoff.risks, "handoff.risks")
+  }
   validateReferences(input.allowedReferences, "allowedReferences")
   validateReferences(input.predecessorOutputs, "predecessorOutputs")
   validateReferences(input.artifacts, "artifacts")
-  for (const grant of input.toolGrants) if (!grant.trim()) throw new TypeError("toolGrants must not contain empty values")
+  if (input.budget === null || typeof input.budget !== "object" || Array.isArray(input.budget)) throw new TypeError("budget must be an object")
   for (const [key, value] of Object.entries(input.budget)) if (!Number.isFinite(value) || value < 0) throw new TypeError(`budget.${key} must be a non-negative number`)
+}
+function validateStringArray(values: readonly unknown[], field: string): void {
+  for (const value of values) if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field} must contain non-empty strings`)
 }
 function validateReferences(references: readonly CapsuleReference[], field: string): void {
   for (const reference of references) {

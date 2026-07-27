@@ -60,4 +60,9 @@ describe("ContextCapsuleBuilder", () => {
   test("rejects malformed artifact references before serialization", () => {
     expect(() => new ContextCapsuleBuilder().build(input({ artifacts: [{ path: "secret.txt", sha256: "not-a-hash" }] }))).toThrow("lowercase SHA-256")
   })
+  test("rejects malformed textual sections and budgets", () => {
+    expect(() => new ContextCapsuleBuilder().build(input({ decisions: ["" as never] }))).toThrow("non-empty strings")
+    expect(() => new ContextCapsuleBuilder().build(input({ budget: null as never }))).toThrow("budget must be an object")
+  })
+
 })
