@@ -121,6 +121,14 @@ describe("generateCandidates — permissions", () => {
     expect(result.eliminated[0]!.rule).toBe("PROVIDER_DENIED")
   })
 
+  it("does not double-count when allowedProviderIDs repeats a provider", () => {
+    const index = buildCandidateIndex([endpoint({ modelID: "m1" }), endpoint({ modelID: "m2" })])
+    const result = generateCandidates(index, { allowedProviderIDs: ["anthropic", "anthropic"] })
+
+    expect(result.eligible.map((item) => item.modelID)).toEqual(["m1", "m2"])
+    expect(result.stats.eligibleCount + result.stats.eliminatedCount).toBe(result.stats.totalEndpoints)
+  })
+
   it("reports every endpoint exactly once across eligible and eliminated", () => {
     const index = buildCandidateIndex([
       endpoint({ providerID: "a", modelID: "1" }),
@@ -221,6 +229,15 @@ describe("generateCandidates — privacy", () => {
     const result = generateCandidates(index, { allowedRegions: ["EU", "FR"] })
 
     expect(result.eligible).toHaveLength(1)
+  })
+
+  it("rejects a lowercase region code instead of silently matching nothing", () => {
+    // A silent non-match here would eliminate the endpoint on privacy
+    // grounds for what is really a data-formatting mistake.
+    expect(() => buildCandidateIndex([endpoint({ providerRegions: ["eu"] })])).toThrow(CandidateGeneratorInputError)
+    expect(() => generateCandidates(buildCandidateIndex([endpoint()]), { allowedRegions: ["eu"] })).toThrow(
+      CandidateGeneratorInputError,
+    )
   })
 
   it("eliminates a provider with no published privacy policy when one is required", () => {

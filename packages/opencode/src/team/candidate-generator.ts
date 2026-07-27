@@ -57,6 +57,9 @@ function parseBoundary<Schema extends z.ZodTypeAny>(schema: Schema, entity: stri
 // Endpoint projection
 // -----------------------------------------------------------------------
 
+/** ISO 3166-1 alpha-2, canonical uppercase. See `providerRegions` below. */
+const REGION_CODE = z.string().regex(/^[A-Z]{2}$/, "region must be ISO 3166-1 alpha-2 uppercase")
+
 /** Capability flags this stage can gate on — a subset of C08 `ModelCapabilities`. */
 export const CandidateCapabilitySchema = z.enum([
   "structuredOutput",
@@ -92,8 +95,14 @@ export const CandidateEndpointSchema = z
     inputModalities: z.array(CandidateModalitySchema).min(1),
     contextTotalTokens: z.number().int().positive(),
     contextOutputTokens: z.number().int().positive(),
-    /** ISO 3166-1 alpha-2 regions the provider may serve this endpoint from. */
-    providerRegions: z.array(z.string().length(2)),
+    /**
+     * ISO 3166-1 alpha-2 regions the provider may serve this endpoint from.
+     * Uppercase is enforced rather than normalized: region comparison is a
+     * set intersection, so a lowercase code would silently match nothing
+     * and quietly eliminate an endpoint on privacy grounds. A loud boundary
+     * rejection is the correct failure mode for a privacy filter.
+     */
+    providerRegions: z.array(REGION_CODE),
     /** Mirrors `Provider.regionPolicy.dataResidencyRequired`. */
     providerGuaranteesDataResidency: z.boolean(),
     /** Mirrors `Provider.privacyPolicyRef`; `null` = no published policy. */
@@ -140,7 +149,7 @@ export const CandidateRequirementsSchema = z
     /** Data-residency requirement: provider must guarantee residency. */
     requiresDataResidency: z.boolean().default(false),
     /** Endpoint's provider must be able to serve from at least one of these regions. */
-    allowedRegions: z.array(z.string().length(2)).min(1).nullable().default(null),
+    allowedRegions: z.array(REGION_CODE).min(1).nullable().default(null),
     requiresPublishedPrivacyPolicy: z.boolean().default(false),
     reviewerSeparation: ReviewerSeparationSchema.nullable().default(null),
   })
@@ -417,8 +426,12 @@ export function generateCandidates(
     }
   }
 
+  // Dedupe before expanding buckets: a caller passing the same providerID
+  // twice must not have that provider's endpoints scanned (and reported)
+  // twice, which would double-count candidates and break the
+  // eligible + eliminated == totalEndpoints invariant.
   const scanned = allowed
-    ? allowed.flatMap((providerID) => index.byProvider.get(providerID) ?? [])
+    ? [...new Set(allowed)].flatMap((providerID) => index.byProvider.get(providerID) ?? [])
     : index.all
 
   for (const endpoint of scanned) {
