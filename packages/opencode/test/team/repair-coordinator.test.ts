@@ -193,7 +193,7 @@ describe("RepairCoordinator — acceptance: cost is tracked across the chain", (
     const decision = coordinator.plan(
       request({
         review: review({ verdict: "APPROVED" }),
-        attempts: [attempt({ usage: { inputTokens: 900, outputTokens: 100, costUsd: 0.3 } })],
+        attempts: [attempt({ verdict: "APPROVED", usage: { inputTokens: 900, outputTokens: 100, costUsd: 0.3 } })],
       }),
     );
 
@@ -308,7 +308,9 @@ describe("RepairCoordinator — worker continuity and escalation", () => {
 
 describe("RepairCoordinator — verdicts that authorise nothing", () => {
   test("does not repair an approved review", () => {
-    const decision = coordinator.plan(request({ review: review({ verdict: "APPROVED" }) }));
+    const decision = coordinator.plan(
+      request({ review: review({ verdict: "APPROVED" }), attempts: [attempt({ verdict: "APPROVED" })] }),
+    );
 
     expect(decision.outcome).toBe("STOP");
     if (decision.outcome !== "STOP") return;
@@ -318,7 +320,9 @@ describe("RepairCoordinator — verdicts that authorise nothing", () => {
   test("does not treat a BLOCKED review as authorisation to retry", () => {
     // BLOCKED means the review itself could not be performed — nothing in it
     // says the implementation is repairable.
-    const decision = coordinator.plan(request({ review: review({ verdict: "BLOCKED" }) }));
+    const decision = coordinator.plan(
+      request({ review: review({ verdict: "BLOCKED" }), attempts: [attempt({ verdict: "BLOCKED" })] }),
+    );
 
     expect(decision.outcome).toBe("STOP");
     if (decision.outcome !== "STOP") return;
@@ -345,6 +349,35 @@ describe("RepairCoordinator — input integrity", () => {
 
   test("rejects an attempt with no commit recorded", () => {
     expect(() => coordinator.plan(request({ attempts: [attempt({ commit: "  " })] }))).toThrow(RepairInputError);
+  });
+
+  test("rejects a history whose verdict contradicts the review result", () => {
+    // These describe the same fact. Allowing them to disagree gave the
+    // coordinator two sources of truth: it authorised the repair from the
+    // review verdict while counting escalation failures from the recorded
+    // attempt verdict, so a contradictory history repaired an attempt marked
+    // APPROVED and silently never escalated.
+    expect(() =>
+      coordinator.plan(
+        request({ review: review({ verdict: "CHANGES_REQUESTED" }), attempts: [attempt({ verdict: "APPROVED" })] }),
+      ),
+    ).toThrow(RepairInputError);
+  });
+
+  test("rejects duplicate or decreasing fencing tokens inside the history", () => {
+    // A repeated token means fencing was already violated before this
+    // coordinator ran; extending that history would build on a broken order.
+    const duplicate = [
+      attempt({ attemptNumber: 1, fencingToken: 5 }),
+      attempt({ attemptNumber: 2, fencingToken: 5 }),
+    ];
+    const decreasing = [
+      attempt({ attemptNumber: 1, fencingToken: 9 }),
+      attempt({ attemptNumber: 2, fencingToken: 4 }),
+    ];
+
+    expect(() => coordinator.plan(request({ attempts: duplicate, nextFencingToken: 6 }))).toThrow(RepairInputError);
+    expect(() => coordinator.plan(request({ attempts: decreasing, nextFencingToken: 10 }))).toThrow(RepairInputError);
   });
 
   test("rejects an empty card id", () => {

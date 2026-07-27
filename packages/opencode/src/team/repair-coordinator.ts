@@ -279,14 +279,36 @@ function validateRequest(request: RepairRequest): void {
     throw new RepairInputError("maxAttempts must be a positive integer");
   }
 
+  // The reviewed attempt's verdict and the review result describe the same
+  // fact. Letting them disagree gave the coordinator two sources of truth:
+  // it authorised the repair from `review.verdict` while counting escalation
+  // failures from `attempt.verdict`, so a contradictory history could repair
+  // an attempt recorded as APPROVED and silently never escalate.
+  const reviewed = request.attempts[request.attempts.length - 1]!;
+  if (reviewed.verdict !== request.review.verdict) {
+    throw new RepairInputError(
+      `reviewed attempt ${reviewed.attemptNumber} records verdict ${reviewed.verdict} but the review result says ${request.review.verdict}`,
+    );
+  }
+
   let previousNumber = 0;
+  let previousToken = Number.NEGATIVE_INFINITY;
   let highestToken = Number.NEGATIVE_INFINITY;
   for (const attempt of request.attempts) {
     if (!attempt.commit.trim()) throw new RepairInputError("every attempt must record a commit");
     if (attempt.attemptNumber <= previousNumber) {
       throw new RepairInputError("attempts must be ordered by strictly increasing attemptNumber");
     }
+    // Two attempts sharing a token means fencing was already violated before
+    // this coordinator was called. Building a new attempt on top of that
+    // history would extend an ordering that is known to be broken.
+    if (attempt.fencingToken <= previousToken) {
+      throw new RepairInputError(
+        `attempt ${attempt.attemptNumber} has fencing token ${attempt.fencingToken}, which does not exceed the previous attempt's ${previousToken}`,
+      );
+    }
     previousNumber = attempt.attemptNumber;
+    previousToken = attempt.fencingToken;
     highestToken = Math.max(highestToken, attempt.fencingToken);
     for (const [name, value] of [
       ["inputTokens", attempt.usage.inputTokens],
