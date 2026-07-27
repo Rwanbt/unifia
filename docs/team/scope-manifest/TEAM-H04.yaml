@@ -1,7 +1,7 @@
 schema_version: "1.0.0"
 card_id: TEAM-H04
 lease_id: LEASE-H04-20260727183200-team-h04-budget-v3
-base_sha: 8fe0ae6aaed201be1f6cb708423faed5db8fd02d
+base_sha: 8fe0fe6aaed201be1f6cb708423faed5db8fd02d
 scope_mode: E2_REQUIRED
 allowed_files:
   - docs/team/scope-manifest/TEAM-H04.yaml
