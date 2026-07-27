@@ -369,7 +369,14 @@ export function estimatePerformance(input: EstimatePerformanceInput): Performanc
     requestedDomain,
     global,
     domainVector,
-    sources: buildSourceWeights(externalPrior, globalCounts, requestedDomain, observations, config),
+    sources: buildSourceWeights(
+      externalPrior,
+      globalCounts,
+      requestedDomain,
+      observations,
+      config,
+      global.shrinkageWeight,
+    ),
     observationCount: observations.length,
   }
 }
@@ -386,6 +393,7 @@ function buildSourceWeights(
   requestedDomain: string | null,
   observations: readonly Observation[],
   config: EstimatorConfig,
+  globalShrinkageWeight: number,
 ): readonly SourceWeight[] {
   const globalEvidence = globalCounts.successes + globalCounts.failures
   const domainCounts =
@@ -419,7 +427,11 @@ function buildSourceWeights(
           {
             kind: "internal_global",
             evidence: config.domainPriorStrength,
-            detail: `borrowed ${config.domainPriorStrength} pseudo-observation(s) from the global posterior`,
+            // The external prior reaches a domain estimate only through the
+            // global posterior. Reporting the borrowed mass without saying
+            // how much of it is itself prior would make a mostly-borrowed
+            // domain estimate look like measured evidence.
+            detail: `borrowed ${config.domainPriorStrength} pseudo-observation(s) from the global posterior, itself ${(globalShrinkageWeight * 100).toFixed(1)}% external prior (${externalPrior.benchmarkID}@${externalPrior.benchmarkVersion})`,
           },
           {
             kind: "internal_domain",

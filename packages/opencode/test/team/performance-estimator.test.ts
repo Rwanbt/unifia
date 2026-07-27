@@ -52,6 +52,59 @@ describe("beta distribution primitives", () => {
     expect(betaCdf(0.8, 2, 1)).toBeCloseTo(0.64, 6)
   })
 
+  it("matches exact closed forms for the half-integer cases", () => {
+    // These are the a < 1 shapes where a naive numeric integration of the
+    // pdf breaks down (the t^(a-1) singularity at 0), so they are checked
+    // against identities instead:
+    //   I_x(0.5, 0.5) = (2/pi) * asin(sqrt x)
+    //   I_x(0.5, 1)   = sqrt x
+    //   I_x(1, 0.5)   = 1 - sqrt(1 - x)
+    for (const x of [0.05, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]) {
+      expect(betaCdf(x, 0.5, 0.5)).toBeCloseTo((2 / Math.PI) * Math.asin(Math.sqrt(x)), 10)
+      expect(betaCdf(x, 0.5, 1)).toBeCloseTo(Math.sqrt(x), 10)
+      expect(betaCdf(x, 1, 0.5)).toBeCloseTo(1 - Math.sqrt(1 - x), 10)
+    }
+  })
+
+  it("matches the exact binomial tail for integer parameters", () => {
+    // I_x(k, n-k+1) = P(Binomial(n, x) >= k), summed exactly.
+    const choose = (n: number, k: number) => {
+      let result = 1
+      for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1)
+      return result
+    }
+    const binomialTail = (x: number, k: number, n: number) => {
+      let sum = 0
+      for (let j = k; j <= n; j++) sum += choose(n, j) * x ** j * (1 - x) ** (n - j)
+      return sum
+    }
+
+    for (const [k, n] of [
+      [1, 5],
+      [3, 10],
+      [7, 12],
+      [2, 20],
+      [15, 20],
+    ]) {
+      for (const x of [0.1, 0.35, 0.5, 0.8]) {
+        expect(betaCdf(x, k!, n! - k! + 1)).toBeCloseTo(binomialTail(x, k!, n!), 10)
+      }
+    }
+  })
+
+  it("stays within [0,1] and finite across a hostile parameter grid", () => {
+    for (const a of [0.1, 0.5, 1, 2, 10, 100]) {
+      for (const b of [0.1, 0.5, 1, 2, 10, 100]) {
+        for (let i = 0; i <= 20; i++) {
+          const value = betaCdf(i / 20, a, b)
+          expect(Number.isFinite(value)).toBe(true)
+          expect(value).toBeGreaterThanOrEqual(0)
+          expect(value).toBeLessThanOrEqual(1)
+        }
+      }
+    }
+  })
+
   it("inverts the CDF: quantile(cdf(x)) round-trips", () => {
     for (const x of [0.1, 0.35, 0.5, 0.77, 0.95]) {
       expect(betaQuantile(betaCdf(x, 3, 5), 3, 5)).toBeCloseTo(x, 6)
@@ -259,6 +312,24 @@ describe("estimatePerformance — acceptance: explain source weights", () => {
     expect(result.sources.map((source) => source.kind).sort()).toEqual(["internal_domain", "internal_global"])
     expect(result.sources.reduce((sum, source) => sum + source.weight, 0)).toBeCloseTo(1, 10)
     expect(result.sources.find((source) => source.kind === "internal_domain")!.detail).toContain("rust")
+  })
+
+  it("discloses how much of a domain's borrowed mass is itself external prior", () => {
+    // The external prior reaches a domain estimate only through the global
+    // posterior. Without this, a mostly-borrowed domain estimate would look
+    // like measured evidence.
+    const thin = estimatePerformance({
+      externalPrior: prior,
+      observations: observations(1, true, "rust"),
+      domain: "rust",
+    })
+    const borrowed = thin.sources.find((source) => source.kind === "internal_global")!
+
+    expect(borrowed.detail).toContain("external prior")
+    expect(borrowed.detail).toContain("swe-bench")
+    // With one observation against a strength-10 prior, most of the global
+    // posterior is still the benchmark.
+    expect(borrowed.detail).toMatch(/9[0-9]\.\d%/)
   })
 })
 
