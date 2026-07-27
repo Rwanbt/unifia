@@ -272,7 +272,7 @@ export interface DryRunEstimate {
   readonly costUsd: MinMax
   readonly durationSeconds: MinMax
   readonly confidence: DryRunConfidence
-  readonly assumptions: readonly string[]
+  readonly assumptionNotes: readonly string[]
   readonly riskFactors: readonly string[]
 }
 
@@ -304,7 +304,7 @@ function buildEstimate(
   if (eligible.length === 0) riskFactors.push("no eligible model candidate in the shortlist")
 
   if (eligible.length === 0) {
-    return { costUsd: { min: 0, max: 0 }, durationSeconds, confidence: "low", assumptions: assumptionNotes, riskFactors }
+    return { costUsd: { min: 0, max: 0 }, durationSeconds, confidence: "low", assumptionNotes, riskFactors }
   }
 
   const cheapestInput = Math.min(...eligible.map((model) => model.costPerMillionInputTokens))
@@ -323,12 +323,16 @@ function buildEstimate(
         (assumptions.maxOutputTokensPerTask / 1_000_000) * priciestOutput),
   }
 
+  // graphValidation.valid is exactly `issues.length === 0` (graph-validator.ts),
+  // so once the branch above rules out `!graphValidation.valid`, issues is
+  // already guaranteed empty here — only the disk/worktree preflight can
+  // still downgrade confidence.
   let confidence: DryRunConfidence
   if (!graphValidation.valid || eligible.length === 0) confidence = "low"
-  else if (!diskPreflight.ok || graphValidation.issues.length > 0) confidence = "medium"
+  else if (!diskPreflight.ok) confidence = "medium"
   else confidence = "high"
 
-  return { costUsd, durationSeconds, confidence, assumptions: assumptionNotes, riskFactors }
+  return { costUsd, durationSeconds, confidence, assumptionNotes, riskFactors }
 }
 
 // -----------------------------------------------------------------------
