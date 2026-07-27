@@ -142,6 +142,21 @@ import type {
   McpRemoveErrors,
   McpRemoveResponses,
   McpStatusResponses,
+  ModelIntelligenceGetModelErrors,
+  ModelIntelligenceGetModelResponses,
+  ModelIntelligenceHealthResponses,
+  ModelIntelligenceLicensesErrors,
+  ModelIntelligenceLicensesResponses,
+  ModelIntelligenceListModelsErrors,
+  ModelIntelligenceListModelsResponses,
+  ModelIntelligenceListProvidersErrors,
+  ModelIntelligenceListProvidersResponses,
+  ModelIntelligenceResolveAliasErrors,
+  ModelIntelligenceResolveAliasResponses,
+  ModelIntelligenceSnapshotErrors,
+  ModelIntelligenceSnapshotResponses,
+  ModelIntelligenceSyncErrors,
+  ModelIntelligenceSyncResponses,
   ObservabilityCompareErrors,
   ObservabilityCompareResponses,
   ObservabilityDataDeleteErrors,
@@ -275,6 +290,16 @@ import type {
   TaskResumeResponses,
   TaskTeamErrors,
   TaskTeamResponses,
+  TeamGetRunErrors,
+  TeamGetRunResponses,
+  TeamListEventsErrors,
+  TeamListEventsResponses,
+  TeamListGatesErrors,
+  TeamListGatesResponses,
+  TeamListRunsErrors,
+  TeamListRunsResponses,
+  TeamListTasksErrors,
+  TeamListTasksResponses,
   TextPartInput,
   ToolIdsErrors,
   ToolIdsResponses,
@@ -4130,6 +4155,442 @@ export class Debate extends HeyApiClient {
   }
 }
 
+export class Team extends HeyApiClient {
+  /**
+   * List team runs
+   *
+   * List persisted team runs, newest first. Keyset pagination via an opaque cursor.
+   */
+  public listRuns<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListRunsResponses, TeamListRunsErrors, ThrowOnError>({
+      url: "/team/runs",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get a team run
+   *
+   * Fetch a single run by id.
+   */
+  public getRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamGetRunResponses, TeamGetRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List a run's tasks
+   *
+   * Tasks belonging to a run, in creation order, with their declared scope redacted.
+   */
+  public listTasks<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListTasksResponses, TeamListTasksErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/tasks",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Replay a run's events
+   *
+   * Events for a run in append order. The cursor is the last sequence seen, so an interrupted stream resumes exactly where it stopped rather than restarting.
+   */
+  public listEvents<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListEventsResponses, TeamListEventsErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/events",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List a run's review gates
+   *
+   * Review verdicts recorded for a run, with findings redacted.
+   */
+  public listGates<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListGatesResponses, TeamListGatesErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/gates",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class ModelIntelligence extends HeyApiClient {
+  /**
+   * List models
+   *
+   * List models known to the registry, optionally filtered by provider, status, lifecycle or modality.
+   */
+  public listModels<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceListModelsResponses,
+      ModelIntelligenceListModelsErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/models",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List providers
+   *
+   * List providers known to the registry.
+   */
+  public listProviders<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceListProvidersResponses,
+      ModelIntelligenceListProvidersErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/providers",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get a model
+   *
+   * Fetch one model by provider and model id.
+   */
+  public getModel<ThrowOnError extends boolean = false>(
+    parameters: {
+      providerID: string
+      modelID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "providerID" },
+            { in: "path", key: "modelID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceGetModelResponses,
+      ModelIntelligenceGetModelErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/models/{providerID}/{modelID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resolve a model alias
+   *
+   * Resolve an alias such as a vendor shorthand to the concrete provider and model it names.
+   */
+  public resolveAlias<ThrowOnError extends boolean = false>(
+    parameters: {
+      alias: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "alias" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceResolveAliasResponses,
+      ModelIntelligenceResolveAliasErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/aliases/{alias}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get the registry snapshot hash
+   *
+   * Return the registry's content hash and schema version. A client that already holds this hash needs no further fetch.
+   */
+  public snapshot<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceSnapshotResponses,
+      ModelIntelligenceSnapshotErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/snapshot",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get registry license notices
+   *
+   * Attribution and license notices for the data sources the registry ingests.
+   */
+  public licenses<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceLicensesResponses,
+      ModelIntelligenceLicensesErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/licenses",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Registry load state
+   *
+   * Whether the registry has been loaded. Always 200, so a client can poll it without treating it as an error.
+   */
+  public health<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ModelIntelligenceHealthResponses, unknown, ThrowOnError>({
+      url: "/model-intelligence/health",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Sync the registry from its source
+   *
+   * Refresh the registry. Idempotent: syncing an already-current registry reports zero changes rather than duplicating rows.
+   */
+  public sync<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ModelIntelligenceSyncResponses,
+      ModelIntelligenceSyncErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/sync",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Sessions extends HeyApiClient {
   /**
    * List sessions with observability data
@@ -7303,6 +7764,16 @@ export class OpencodeClient extends HeyApiClient {
   private _debate?: Debate
   get debate(): Debate {
     return (this._debate ??= new Debate({ client: this.client }))
+  }
+
+  private _team?: Team
+  get team(): Team {
+    return (this._team ??= new Team({ client: this.client }))
+  }
+
+  private _modelIntelligence?: ModelIntelligence
+  get modelIntelligence(): ModelIntelligence {
+    return (this._modelIntelligence ??= new ModelIntelligence({ client: this.client }))
   }
 
   private _observability?: Observability

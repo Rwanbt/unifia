@@ -7958,6 +7958,1157 @@
         ]
       }
     },
+    "/team/runs": {
+      "get": {
+        "operationId": "team.listRuns",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List team runs",
+        "description": "List persisted team runs, newest first. Keyset pagination via an opaque cursor.",
+        "responses": {
+          "200": {
+            "description": "A page of runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "runId": {
+                            "type": "string"
+                          },
+                          "schemaVersion": {
+                            "type": "string"
+                          },
+                          "planId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "running", "completed", "failed", "aborted"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["runId", "schemaVersion", "planId", "status", "createdAt", "updatedAt"]
+                      }
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["schemaVersion", "items", "nextCursor"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad cursor, limit or query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listRuns({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}": {
+      "get": {
+        "operationId": "team.getRun",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Get a team run",
+        "description": "Fetch a single run by id.",
+        "responses": {
+          "200": {
+            "description": "The run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "planId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "running", "completed", "failed", "aborted"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["runId", "schemaVersion", "planId", "status", "createdAt", "updatedAt"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.getRun({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/tasks": {
+      "get": {
+        "operationId": "team.listTasks",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "List a run's tasks",
+        "description": "Tasks belonging to a run, in creation order, with their declared scope redacted.",
+        "responses": {
+          "200": {
+            "description": "The run's tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "taskId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "assigned", "running", "completed", "blocked", "cancelled"]
+                          },
+                          "dependsOn": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "scope": {},
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["taskId", "runId", "status", "dependsOn", "scope", "createdAt", "updatedAt"]
+                      }
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["schemaVersion", "items", "nextCursor"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listTasks({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/events": {
+      "get": {
+        "operationId": "team.listEvents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Replay a run's events",
+        "description": "Events for a run in append order. The cursor is the last sequence seen, so an interrupted stream resumes exactly where it stopped rather than restarting.",
+        "responses": {
+          "200": {
+            "description": "A page of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "eventId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "sequence": {
+                            "type": "number"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "payload": {},
+                          "occurredAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["eventId", "runId", "sequence", "kind", "payload", "occurredAt"]
+                      }
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["schemaVersion", "items", "nextCursor"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad cursor, limit or query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listEvents({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/gates": {
+      "get": {
+        "operationId": "team.listGates",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "List a run's review gates",
+        "description": "Review verdicts recorded for a run, with findings redacted.",
+        "responses": {
+          "200": {
+            "description": "The run's gates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "gateId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "taskId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "verdict": {
+                            "type": "string",
+                            "enum": ["APPROVED", "APPROVED_WITH_FOLLOWUP", "CHANGES_REQUESTED"]
+                          },
+                          "findings": {},
+                          "decidedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["gateId", "runId", "taskId", "verdict", "findings", "decidedAt"]
+                      }
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["schemaVersion", "items", "nextCursor"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listGates({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/models": {
+      "get": {
+        "operationId": "modelIntelligence.listModels",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List models",
+        "description": "List models known to the registry, optionally filtered by provider, status, lifecycle or modality.",
+        "responses": {
+          "200": {
+            "description": "A page of models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "total": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["schemaVersion", "items", "nextCursor", "total"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown filter, cursor or limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.listModels({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/providers": {
+      "get": {
+        "operationId": "modelIntelligence.listProviders",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List providers",
+        "description": "List providers known to the registry.",
+        "responses": {
+          "200": {
+            "description": "A page of providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "nextCursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "total": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["schemaVersion", "items", "nextCursor", "total"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown filter, cursor or limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.listProviders({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/models/{providerID}/{modelID}": {
+      "get": {
+        "operationId": "modelIntelligence.getModel",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "providerID",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "modelID",
+            "required": true
+          }
+        ],
+        "summary": "Get a model",
+        "description": "Fetch one model by provider and model id.",
+        "responses": {
+          "200": {
+            "description": "The model",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "No such model",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.getModel({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/aliases/{alias}": {
+      "get": {
+        "operationId": "modelIntelligence.resolveAlias",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "alias",
+            "required": true
+          }
+        ],
+        "summary": "Resolve a model alias",
+        "description": "Resolve an alias such as a vendor shorthand to the concrete provider and model it names.",
+        "responses": {
+          "200": {
+            "description": "The resolved alias",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "No such alias",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.resolveAlias({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/snapshot": {
+      "get": {
+        "operationId": "modelIntelligence.snapshot",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get the registry snapshot hash",
+        "description": "Return the registry's content hash and schema version. A client that already holds this hash needs no further fetch.",
+        "responses": {
+          "200": {
+            "description": "Snapshot identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "hash": {
+                      "type": "string"
+                    },
+                    "byteLength": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["schemaVersion", "hash", "byteLength"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.snapshot({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/licenses": {
+      "get": {
+        "operationId": "modelIntelligence.licenses",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get registry license notices",
+        "description": "Attribution and license notices for the data sources the registry ingests.",
+        "responses": {
+          "200": {
+            "description": "License notices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "notices": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["schemaVersion", "notices"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.licenses({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/health": {
+      "get": {
+        "operationId": "modelIntelligence.health",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Registry load state",
+        "description": "Whether the registry has been loaded. Always 200, so a client can poll it without treating it as an error.",
+        "responses": {
+          "200": {
+            "description": "Load state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "string"
+                    },
+                    "loaded": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["schemaVersion", "loaded"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.health({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/model-intelligence/sync": {
+      "post": {
+        "operationId": "modelIntelligence.sync",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Sync the registry from its source",
+        "description": "Refresh the registry. Idempotent: syncing an already-current registry reports zero changes rather than duplicating rows.",
+        "responses": {
+          "200": {
+            "description": "Sync result",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The source could not be fetched, parsed or validated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.sync({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/observability/health": {
       "get": {
         "operationId": "observability.health",
@@ -14594,6 +15745,572 @@
         },
         "required": ["data", "errors", "success"]
       },
+      "Event.server.connected": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "server.connected"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.global.disposed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "global.disposed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.started": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.started"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "tier": {
+                "type": "string",
+                "enum": ["free", "quick", "standard", "deep"]
+              },
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["debateID", "tier", "providers"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.phase_changed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.phase_changed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "phase1_diverge",
+                  "phase2_extract",
+                  "phase3_converge",
+                  "phase4_synthesize",
+                  "completed",
+                  "failed",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": ["debateID", "phase"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.provider.started": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.provider.started"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "phase1_diverge",
+                  "phase2_extract",
+                  "phase3_converge",
+                  "phase4_synthesize",
+                  "completed",
+                  "failed",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": ["debateID", "provider", "phase"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.provider.completed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.provider.completed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "tokens": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "phase1_diverge",
+                  "phase2_extract",
+                  "phase3_converge",
+                  "phase4_synthesize",
+                  "completed",
+                  "failed",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": ["debateID", "provider", "tokens", "durationMs", "phase"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.provider.failed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.provider.failed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "error": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "phase1_diverge",
+                  "phase2_extract",
+                  "phase3_converge",
+                  "phase4_synthesize",
+                  "completed",
+                  "failed",
+                  "cancelled"
+                ]
+              }
+            },
+            "required": ["debateID", "provider", "error", "phase"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.claim.extracted": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.claim.extracted"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "claimId": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "novelty": {
+                "type": "string"
+              }
+            },
+            "required": ["debateID", "claimId", "category", "novelty"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.cost.update": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.cost.update"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "spent": {
+                "type": "number"
+              },
+              "budget": {
+                "type": "number"
+              },
+              "percent": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "spent", "budget", "percent"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.redteam.activated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.redteam.activated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": ["debateID", "reason"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.convergence.round": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.convergence.round"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "round": {
+                "type": "number"
+              },
+              "claimsResubmitted": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "round", "claimsResubmitted"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.canary.result": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.canary.result"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "detected": {
+                "type": "boolean"
+              }
+            },
+            "required": ["debateID", "detected"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.halting": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.halting"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "marginalGain": {
+                "type": "number"
+              },
+              "marginalCost": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "reason", "marginalGain", "marginalCost"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.completed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.completed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "blindSpotCount": {
+                "type": "number"
+              },
+              "cost": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "blindSpotCount", "cost", "durationMs"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.failed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.failed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": ["debateID", "error"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.budget_warning": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.budget_warning"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "percentUsed": {
+                "type": "number"
+              },
+              "tokensUsed": {
+                "type": "number"
+              },
+              "tokenLimit": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "percentUsed", "tokensUsed", "tokenLimit"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.tui.prompt.append": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "tui.prompt.append"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": ["text"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.tui.command.execute": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "tui.command.execute"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "session.list",
+                      "session.new",
+                      "session.share",
+                      "session.interrupt",
+                      "session.compact",
+                      "session.page.up",
+                      "session.page.down",
+                      "session.line.up",
+                      "session.line.down",
+                      "session.half.page.up",
+                      "session.half.page.down",
+                      "session.first",
+                      "session.last",
+                      "prompt.clear",
+                      "prompt.submit",
+                      "agent.cycle"
+                    ]
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": ["command"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.tui.toast.show": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "tui.toast.show"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "variant": {
+                "type": "string",
+                "enum": ["info", "success", "warning", "error"]
+              },
+              "duration": {
+                "description": "Duration in milliseconds",
+                "default": 5000,
+                "type": "number"
+              }
+            },
+            "required": ["message", "variant"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.tui.session.select": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "tui.session.select"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "description": "Session ID to navigate to",
+                "type": "string",
+                "pattern": "^ses.*"
+              }
+            },
+            "required": ["sessionID"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Project": {
         "type": "object",
         "properties": {
@@ -14723,34 +16440,6 @@
               }
             },
             "required": ["directory"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.server.connected": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "server.connected"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {}
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.global.disposed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "global.disposed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {}
           }
         },
         "required": ["type", "properties"]
@@ -15592,429 +17281,6 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.collective.debate.started": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.started"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "tier": {
-                "type": "string",
-                "enum": ["free", "quick", "standard", "deep"]
-              },
-              "providers": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "required": ["debateID", "tier", "providers"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.debate.phase_changed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.phase_changed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "phase": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "phase1_diverge",
-                  "phase2_extract",
-                  "phase3_converge",
-                  "phase4_synthesize",
-                  "completed",
-                  "failed",
-                  "cancelled"
-                ]
-              }
-            },
-            "required": ["debateID", "phase"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.provider.started": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.provider.started"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string"
-              },
-              "phase": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "phase1_diverge",
-                  "phase2_extract",
-                  "phase3_converge",
-                  "phase4_synthesize",
-                  "completed",
-                  "failed",
-                  "cancelled"
-                ]
-              }
-            },
-            "required": ["debateID", "provider", "phase"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.provider.completed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.provider.completed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "tokens": {
-                "type": "number"
-              },
-              "durationMs": {
-                "type": "number"
-              },
-              "phase": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "phase1_diverge",
-                  "phase2_extract",
-                  "phase3_converge",
-                  "phase4_synthesize",
-                  "completed",
-                  "failed",
-                  "cancelled"
-                ]
-              }
-            },
-            "required": ["debateID", "provider", "tokens", "durationMs", "phase"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.provider.failed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.provider.failed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "error": {
-                "type": "string"
-              },
-              "phase": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "phase1_diverge",
-                  "phase2_extract",
-                  "phase3_converge",
-                  "phase4_synthesize",
-                  "completed",
-                  "failed",
-                  "cancelled"
-                ]
-              }
-            },
-            "required": ["debateID", "provider", "error", "phase"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.claim.extracted": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.claim.extracted"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "claimId": {
-                "type": "string"
-              },
-              "category": {
-                "type": "string"
-              },
-              "novelty": {
-                "type": "string"
-              }
-            },
-            "required": ["debateID", "claimId", "category", "novelty"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.cost.update": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.cost.update"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "spent": {
-                "type": "number"
-              },
-              "budget": {
-                "type": "number"
-              },
-              "percent": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "spent", "budget", "percent"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.redteam.activated": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.redteam.activated"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "reason": {
-                "type": "string"
-              }
-            },
-            "required": ["debateID", "reason"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.convergence.round": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.convergence.round"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "round": {
-                "type": "number"
-              },
-              "claimsResubmitted": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "round", "claimsResubmitted"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.canary.result": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.canary.result"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "detected": {
-                "type": "boolean"
-              }
-            },
-            "required": ["debateID", "detected"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.halting": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.halting"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "reason": {
-                "type": "string"
-              },
-              "marginalGain": {
-                "type": "number"
-              },
-              "marginalCost": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "reason", "marginalGain", "marginalCost"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.debate.completed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.completed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "blindSpotCount": {
-                "type": "number"
-              },
-              "cost": {
-                "type": "number"
-              },
-              "durationMs": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "blindSpotCount", "cost", "durationMs"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.debate.failed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.failed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "error": {
-                "type": "string"
-              }
-            },
-            "required": ["debateID", "error"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.debate.budget_warning": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.budget_warning"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "percentUsed": {
-                "type": "number"
-              },
-              "tokensUsed": {
-                "type": "number"
-              },
-              "tokenLimit": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "percentUsed", "tokensUsed", "tokenLimit"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
       "Event.collective.shadow.divergence": {
         "type": "object",
         "properties": {
@@ -16043,121 +17309,6 @@
               }
             },
             "required": ["sessionID", "question", "severity", "shadowResponse", "divergenceReason"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.tui.prompt.append": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "tui.prompt.append"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "text": {
-                "type": "string"
-              }
-            },
-            "required": ["text"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.tui.command.execute": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "tui.command.execute"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "command": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "enum": [
-                      "session.list",
-                      "session.new",
-                      "session.share",
-                      "session.interrupt",
-                      "session.compact",
-                      "session.page.up",
-                      "session.page.down",
-                      "session.line.up",
-                      "session.line.down",
-                      "session.half.page.up",
-                      "session.half.page.down",
-                      "session.first",
-                      "session.last",
-                      "prompt.clear",
-                      "prompt.submit",
-                      "agent.cycle"
-                    ]
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
-              }
-            },
-            "required": ["command"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.tui.toast.show": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "tui.toast.show"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "title": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              },
-              "variant": {
-                "type": "string",
-                "enum": ["info", "success", "warning", "error"]
-              },
-              "duration": {
-                "description": "Duration in milliseconds",
-                "default": 5000,
-                "type": "number"
-              }
-            },
-            "required": ["message", "variant"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.tui.session.select": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "tui.session.select"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "sessionID": {
-                "description": "Session ID to navigate to",
-                "type": "string",
-                "pattern": "^ses.*"
-              }
-            },
-            "required": ["sessionID"]
           }
         },
         "required": ["type", "properties"]
@@ -18064,6 +19215,66 @@
       "Event": {
         "anyOf": [
           {
+            "$ref": "#/components/schemas/Event.server.connected"
+          },
+          {
+            "$ref": "#/components/schemas/Event.global.disposed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.phase_changed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.provider.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.provider.completed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.provider.failed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.claim.extracted"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.cost.update"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.redteam.activated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.convergence.round"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.canary.result"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.halting"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.completed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.failed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.budget_warning"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.prompt.append"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.command.execute"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.toast.show"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.session.select"
+          },
+          {
             "$ref": "#/components/schemas/Event.project.updated"
           },
           {
@@ -18074,12 +19285,6 @@
           },
           {
             "$ref": "#/components/schemas/Event.server.instance.disposed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.server.connected"
-          },
-          {
-            "$ref": "#/components/schemas/Event.global.disposed"
           },
           {
             "$ref": "#/components/schemas/Event.lsp.client.diagnostics"
@@ -18154,61 +19359,7 @@
             "$ref": "#/components/schemas/Event.todo.updated"
           },
           {
-            "$ref": "#/components/schemas/Event.collective.debate.started"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.phase_changed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.provider.started"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.provider.completed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.provider.failed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.claim.extracted"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.cost.update"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.redteam.activated"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.convergence.round"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.canary.result"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.halting"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.completed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.failed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.budget_warning"
-          },
-          {
             "$ref": "#/components/schemas/Event.collective.shadow.divergence"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.prompt.append"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.command.execute"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.toast.show"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.session.select"
           },
           {
             "$ref": "#/components/schemas/Event.mcp.tools.changed"
