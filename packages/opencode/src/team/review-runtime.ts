@@ -60,7 +60,8 @@ export class IndependentReviewRuntime {
     }
     const result = await model.review({ prompt: REVIEW_PROMPT, request, signal });
     validateModelResult(result);
-    if ((request.risk === "high" || request.risk === "critical") && result.verdict === "APPROVED" && result.evidence.length === 0) {
+    if (signal.aborted) return blocked(request, "review aborted before verdict");
+    if ((request.risk === "high" || request.risk === "critical") && result.verdict === "APPROVED" && (result.evidence.length === 0 || result.findings.some((finding) => finding.severity === "P0" || finding.severity === "P1"))) {
       return blocked(request, "high/critical review has no evidence");
     }
     return {

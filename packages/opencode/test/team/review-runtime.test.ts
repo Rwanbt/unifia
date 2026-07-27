@@ -50,4 +50,16 @@ describe("IndependentReviewRuntime", () => {
     expect(result.verdict).toBe("CHANGES_REQUESTED");
     expect(result.findings[0]?.remediation).toBe("add a negative test");
   });
-});
+
+  test("blocks an approval that contains a critical finding", async () => {
+    const unsafe: ReviewModel = { modelId: "model-review", review: async () => ({ verdict: "APPROVED", findings: [{ severity: "P1", title: "unsafe", evidence: "critical path", remediation: "fix it" }], evidence: ["diff inspected"] }) };
+    const result = await new IndependentReviewRuntime().run(request, selector(unsafe));
+    expect(result.verdict).toBe("BLOCKED");
+  });
+
+  test("blocks a verdict returned after cancellation", async () => {
+    const controller = new AbortController();
+    const late: ReviewModel = { modelId: "model-review", review: async () => { controller.abort(); return { verdict: "APPROVED", findings: [], evidence: ["late"] }; } };
+    const result = await new IndependentReviewRuntime().run(request, selector(late), controller.signal);
+    expect(result.verdict).toBe("BLOCKED");
+  });});
