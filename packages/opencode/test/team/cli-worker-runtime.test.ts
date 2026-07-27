@@ -5,17 +5,18 @@ const request = (overrides: Partial<CliWorkerRequest> = {}): CliWorkerRequest =>
 
 class FakeAdapter implements CliWorkerAdapter {
   killed: string[] = []
+  collectedMaxOutputBytes = 0
   process: CliProcess = { id: "p-1" }
   output: CliProcessOutput = { exitCode: 0, stdout: "ok", stderr: "" }
   async spawn(): Promise<CliProcess> { return this.process }
-  async collect(): Promise<CliProcessOutput> { return this.output }
+  async collect(_process: CliProcess, maxOutputBytes: number): Promise<CliProcessOutput> { this.collectedMaxOutputBytes = maxOutputBytes; return this.output }
   async kill(_process: CliProcess, reason: "timeout" | "cancelled" | "output_limit"): Promise<void> { this.killed.push(reason) }
 }
 
 describe("CliWorkerRuntime", () => {
   test("runs only an allowlisted executable with explicit sandbox policy", async () => {
     const adapter = new FakeAdapter(); const result = await new CliWorkerRuntime().run(request(), adapter)
-    expect(result.status).toBe("COMPLETED"); expect(result.exitCode).toBe(0); expect(adapter.killed).toEqual([])
+    expect(result.status).toBe("COMPLETED"); expect(result.exitCode).toBe(0); expect(result.status).toBe("COMPLETED"); expect(adapter.collectedMaxOutputBytes).toBe(1000); expect(adapter.killed).toEqual([])
   })
   test("rejects executable escape, traversal and shell/nested command arguments", async () => {
     const runtime = new CliWorkerRuntime(); const adapter = new FakeAdapter()

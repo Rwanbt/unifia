@@ -21,8 +21,8 @@ export interface CliWorkerRequest {
 export interface CliProcess { readonly id: string }
 export interface CliProcessOutput { readonly exitCode: number; readonly stdout: string; readonly stderr: string }
 export interface CliWorkerAdapter {
-  spawn(input: { executable: string; args: readonly string[]; cwd: string; mounts: readonly CliMount[]; network: CliNetworkPolicy; authHandle?: OpaqueAuthHandle }): Promise<CliProcess>
-  collect(process: CliProcess): Promise<CliProcessOutput>
+  spawn(input: { executable: string; args: readonly string[]; cwd: string; mounts: readonly CliMount[]; network: CliNetworkPolicy; authHandle?: OpaqueAuthHandle; maxOutputBytes: number }): Promise<CliProcess>
+  collect(process: CliProcess, maxOutputBytes: number): Promise<CliProcessOutput>
   kill(process: CliProcess, reason: "timeout" | "cancelled" | "output_limit"): Promise<void>
 }
 export interface CliWorkerResult extends CliProcessOutput { readonly status: "COMPLETED" | "CANCELLED" | "TIMED_OUT" | "OUTPUT_LIMIT"; readonly processID: string }
@@ -70,14 +70,14 @@ export class CliWorkerRuntime {
   async run(request: CliWorkerRequest, adapter: CliWorkerAdapter, signal?: AbortSignal): Promise<CliWorkerResult> {
     validateRequest(request)
     if (signal?.aborted) return Promise.reject(new CliWorkerPolicyError("worker was cancelled before spawn"))
-    const process = await adapter.spawn({ executable: request.executable, args: request.args, cwd: request.cwd, mounts: request.mounts, network: request.network, authHandle: request.authHandle })
+    const process = await adapter.spawn({ executable: request.executable, args: request.args, cwd: request.cwd, mounts: request.mounts, network: request.network, authHandle: request.authHandle, maxOutputBytes: request.maxOutputBytes })
     let killed = false
     const kill = async (reason: "timeout" | "cancelled" | "output_limit") => { if (!killed) { killed = true; await adapter.kill(process, reason) } }
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("CLI worker timeout")), request.timeoutMs) })
     const cancelled = signal ? new Promise<never>((_, reject) => signal.addEventListener("abort", () => reject(new Error("CLI worker cancelled")), { once: true })) : new Promise<never>(() => {})
     try {
-      const output = await Promise.race([adapter.collect(process), timeout, cancelled])
+      const output = await Promise.race([adapter.collect(process, request.maxOutputBytes), timeout, cancelled])
       if (outputBytes(output) > request.maxOutputBytes) { await kill("output_limit"); return { ...output, status: "OUTPUT_LIMIT", processID: process.id } }
       return { ...output, status: "COMPLETED", processID: process.id }
     } catch (error) {
