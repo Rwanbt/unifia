@@ -396,10 +396,10 @@ function buildReproducibilityKey(
  * Ties are broken by cost, then success probability, then endpointKey, so
  * the winner never depends on input order.
  */
-function selectPrimary(
-  affordable: readonly { candidate: RoutingCandidate; cost: ExpectedCostBreakdown }[],
+function selectPrimary<Entry extends { candidate: RoutingCandidate; cost: ExpectedCostBreakdown }>(
+  affordable: readonly Entry[],
   policy: RoutingPolicy,
-): { chosen: { candidate: RoutingCandidate; cost: ExpectedCostBreakdown }; eliminated: EliminatedRoutingCandidate[] } {
+): { chosen: Entry; eliminated: EliminatedRoutingCandidate[] } {
   const bestSuccess = Math.max(...affordable.map((entry) => entry.cost.successProbability))
   const adequacyFloor = bestSuccess - policy.minSuccessGainForUpgrade
 
@@ -412,7 +412,16 @@ function selectPrimary(
       b.cost.successProbability - a.cost.successProbability ||
       endpointKey(a.candidate).localeCompare(endpointKey(b.candidate)),
   )
-  const chosen = ordered[0]!
+  // `adequate` cannot be empty for a non-empty `affordable`: the candidate
+  // holding `bestSuccess` sits exactly on the floor, and the threshold is
+  // non-negative. Fail loudly rather than return an undefined selection if
+  // that ever stops holding.
+  const chosen = ordered[0]
+  if (chosen === undefined) {
+    throw new Error(
+      `model-router invariant violated: no adequate candidate among ${affordable.length} affordable (best success ${bestSuccess}, floor ${adequacyFloor})`,
+    )
+  }
 
   for (const entry of affordable) {
     if (entry === chosen) continue
@@ -557,15 +566,14 @@ export function routeModel(input: RouteModelInput): RoutingDecisionSnapshot {
     }
   }
 
-  const { chosen, eliminated: notSelected } = selectPrimary(
-    affordable.map((entry) => ({ candidate: entry.candidate, cost: entry.cost })),
-    policy,
-  )
+  // Selecting over the costed entries themselves keeps the chosen
+  // candidate's reviewer attached, instead of looking it up again afterwards
+  // and asserting the lookup succeeded.
+  const { chosen, eliminated: notSelected } = selectPrimary(affordable, policy)
   eliminated.push(...notSelected)
 
-  const chosenEntry = costed.find((entry) => entry.candidate === chosen.candidate)!
-  const reviewer = chosenEntry.reviewer
-  const fallback = pickFallback(chosen.candidate, affordable, policy)
+  const reviewer = chosen.reviewer
+  const fallback = pickFallback(chosen.candidate, affordable)
 
   if (task.requiresIndependentReviewer && reviewer === null) {
     blockingReasons.push(
@@ -663,7 +671,6 @@ function pickReviewer(
 function pickFallback(
   primary: RoutingCandidate,
   affordable: readonly { candidate: RoutingCandidate; cost: ExpectedCostBreakdown }[],
-  _policy: RoutingPolicy,
 ): RoutingCandidate | null {
   const alternatives = affordable
     .filter((entry) => entry.candidate.providerID !== primary.providerID)
