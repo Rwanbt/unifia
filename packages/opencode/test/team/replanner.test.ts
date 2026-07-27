@@ -217,6 +217,42 @@ describe("Replanner — acceptance: scope growth needs a human gate", () => {
     expect(result.scopeGrowth[0]!.kind).toBe("EXCLUSIVE_RESOURCE_ADDED");
   });
 
+  test("gates a changed integration strategy", () => {
+    // These are the very fields that make an invalidation GLOBAL. Letting a
+    // proposal rewrite them unnoticed would contradict the classification.
+    const proposed: TaskPlan = { ...plan(), integrationStrategy: "big-bang merge" };
+    const result = replanner.replan(request({ proposedPlan: proposed }));
+
+    expect(result.outcome).toBe("HUMAN_GATE_REQUIRED");
+    expect(result.scopeGrowth[0]!.kind).toBe("INTEGRATION_STRATEGY_CHANGED");
+    expect(result.scopeGrowth[0]!.taskId).toBeNull();
+  });
+
+  test("gates a changed rollback strategy", () => {
+    const proposed: TaskPlan = { ...plan(), rollback: "none" };
+    const result = replanner.replan(request({ proposedPlan: proposed }));
+
+    expect(result.outcome).toBe("HUMAN_GATE_REQUIRED");
+    expect(result.scopeGrowth[0]!.kind).toBe("ROLLBACK_STRATEGY_CHANGED");
+  });
+
+  test("gates a removed global gate rather than silently dropping a safety gate", () => {
+    const proposed: TaskPlan = { ...plan(), globalGates: [] };
+    const result = replanner.replan(request({ proposedPlan: proposed }));
+
+    expect(result.outcome).toBe("HUMAN_GATE_REQUIRED");
+    expect(result.scopeGrowth[0]!.kind).toBe("GLOBAL_GATE_REMOVED");
+    expect(result.scopeGrowth[0]!.detail).toContain("T8");
+  });
+
+  test("gates an added global gate too, since the plan's commitments changed", () => {
+    const proposed: TaskPlan = { ...plan(), globalGates: ["T8", "T9"] };
+    const result = replanner.replan(request({ proposedPlan: proposed }));
+
+    expect(result.outcome).toBe("HUMAN_GATE_REQUIRED");
+    expect(result.scopeGrowth[0]!.kind).toBe("GLOBAL_GATE_ADDED");
+  });
+
   test("does not gate a narrowed write set", () => {
     // Shrinking scope is always safe; only growth needs authorisation.
     const proposed = plan([
@@ -320,6 +356,18 @@ describe("Replanner — input integrity", () => {
 
   test("rejects a completed task that does not exist", () => {
     expect(() => replanner.replan(request({ completedTaskIds: ["ghost"] }))).toThrow(ReplanInputError);
+  });
+
+  test("rejects duplicate task ids, which would defeat the preservation check", () => {
+    // Indexing keeps the last occurrence, so a proposal listing a completed
+    // task twice — once rewritten, once intact — would compare against the
+    // intact copy and pass.
+    const sneaky = plan([task("a", { objective: "REWRITTEN" }), task("a"), task("b", { dependsOn: ["a"] })]);
+
+    expect(() => replanner.replan(request({ completedTaskIds: ["a"], proposedPlan: sneaky }))).toThrow(
+      ReplanInputError,
+    );
+    expect(() => replanner.replan(request({ plan: sneaky }))).toThrow(ReplanInputError);
   });
 
   test("rejects an empty plan and an empty reason", () => {

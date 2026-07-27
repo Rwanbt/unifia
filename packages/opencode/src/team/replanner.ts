@@ -94,11 +94,19 @@ export type ReplanRefusal =
   | "NOTHING_INVALIDATED"
   | "UNKNOWN_TASK_INVALIDATED";
 
-export type ScopeGrowthKind = "TASK_ADDED" | "WRITE_SET_WIDENED" | "EXCLUSIVE_RESOURCE_ADDED";
+export type ScopeGrowthKind =
+  | "TASK_ADDED"
+  | "WRITE_SET_WIDENED"
+  | "EXCLUSIVE_RESOURCE_ADDED"
+  | "INTEGRATION_STRATEGY_CHANGED"
+  | "ROLLBACK_STRATEGY_CHANGED"
+  | "GLOBAL_GATE_REMOVED"
+  | "GLOBAL_GATE_ADDED";
 
 export interface ScopeGrowth {
   readonly kind: ScopeGrowthKind;
-  readonly taskId: string;
+  /** `null` for a plan-level commitment, which belongs to no single task. */
+  readonly taskId: string | null;
   readonly detail: string;
 }
 
@@ -297,7 +305,10 @@ export class Replanner {
       }
     }
 
-    const scopeGrowth = detectScopeGrowth(before, proposed.tasks);
+    const scopeGrowth = [
+      ...detectPlanCommitmentChanges(plan, proposed),
+      ...detectScopeGrowth(before, proposed.tasks),
+    ];
     const drift = measureDrift(plan, proposed, completed, revalidate);
 
     if (scopeGrowth.length > 0) {
@@ -327,6 +338,48 @@ export class Replanner {
 // -----------------------------------------------------------------------
 // Scope growth and drift
 // -----------------------------------------------------------------------
+
+/**
+ * Changes to the commitments the whole plan shares.
+ *
+ * These are the very fields that make an invalidation GLOBAL when a trigger
+ * touches them, so letting a *proposal* rewrite them unnoticed would
+ * contradict the module's own classification: a proposal could swap the
+ * integration strategy, or drop a global gate outright, and still be
+ * reported as an in-scope local replan.
+ */
+function detectPlanCommitmentChanges(current: TaskPlan, proposed: TaskPlan): readonly ScopeGrowth[] {
+  const changes: ScopeGrowth[] = [];
+
+  if (current.integrationStrategy !== proposed.integrationStrategy) {
+    changes.push({
+      kind: "INTEGRATION_STRATEGY_CHANGED",
+      taskId: null,
+      detail: `integration strategy changed from "${current.integrationStrategy}" to "${proposed.integrationStrategy}"`,
+    });
+  }
+  if (current.rollback !== proposed.rollback) {
+    changes.push({
+      kind: "ROLLBACK_STRATEGY_CHANGED",
+      taskId: null,
+      detail: `rollback strategy changed from "${current.rollback}" to "${proposed.rollback}"`,
+    });
+  }
+
+  const proposedGates = new Set(proposed.globalGates);
+  const currentGates = new Set(current.globalGates);
+  for (const gate of current.globalGates) {
+    if (!proposedGates.has(gate)) {
+      changes.push({ kind: "GLOBAL_GATE_REMOVED", taskId: null, detail: `global gate ${gate} was removed` });
+    }
+  }
+  for (const gate of proposed.globalGates) {
+    if (!currentGates.has(gate)) {
+      changes.push({ kind: "GLOBAL_GATE_ADDED", taskId: null, detail: `global gate ${gate} was added` });
+    }
+  }
+  return changes;
+}
 
 function detectScopeGrowth(
   before: ReadonlyMap<string, PlannerTask>,
@@ -398,9 +451,24 @@ export function measureDrift(
 // Validation
 // -----------------------------------------------------------------------
 
+/**
+ * Duplicate ids would silently defeat the preservation check: indexing keeps
+ * the last occurrence, so a proposal listing a completed task twice — once
+ * rewritten, once intact — would compare against the intact copy and pass.
+ */
+function assertUniqueTaskIds(plan: TaskPlan, label: string): void {
+  const seen = new Set<string>();
+  for (const task of plan.tasks) {
+    if (seen.has(task.id)) throw new ReplanInputError(`${label} contains duplicate task id ${task.id}`);
+    seen.add(task.id);
+  }
+}
+
 function validateRequest(request: ReplanRequest): void {
   if (request.plan.tasks.length === 0) throw new ReplanInputError("plan must contain at least one task");
   if (!request.trigger.reason.trim()) throw new ReplanInputError("trigger reason must not be empty");
+  assertUniqueTaskIds(request.plan, "plan");
+  if (request.proposedPlan !== undefined) assertUniqueTaskIds(request.proposedPlan, "proposedPlan");
 
   const known = new Set(request.plan.tasks.map((task) => task.id));
   for (const id of request.completedTaskIds) {
