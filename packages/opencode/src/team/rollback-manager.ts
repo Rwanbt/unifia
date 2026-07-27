@@ -16,9 +16,13 @@ export interface RollbackRequest {
   readonly completedSteps?: readonly RollbackStep[];
 }
 
-export interface RollbackOperations {
+// A mapped type cannot be declared inside an `interface` (TS7061). Written
+// as an interface, this compiled to a type with no known properties, so
+// every `operations[step]` lookup silently degraded to `any` — the runtime
+// behaviour happened to be correct, but the compiler was checking nothing.
+export type RollbackOperations = {
   readonly [step in RollbackStep]: (request: RollbackRequest) => void | Promise<void>;
-}
+};
 
 export interface RollbackReport {
   readonly status: "COMPLETED" | "INTERRUPTED";
