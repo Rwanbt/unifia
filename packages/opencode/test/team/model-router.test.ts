@@ -134,8 +134,10 @@ describe("routeModel — acceptance: no premium model without required gain", ()
 
     expect(result.selected!.providerID).toBe("budget")
     const cut = result.eliminated.find((item) => item.providerID === "premium")!
-    expect(cut.rejection).toBe("NOT_SELECTED_NO_REQUIRED_GAIN")
-    expect(cut.reason).toContain("success probability")
+    // Under economy every candidate is inside the quality band (its
+    // threshold is unreachable), so the premium option loses purely on cost.
+    expect(cut.rejection).toBe("NOT_SELECTED_COSTLIER_EQUAL_QUALITY")
+    expect(cut.reason).toContain("quality band")
   })
 
   it("quality also refuses the premium model when the gain is below its threshold", () => {
@@ -148,6 +150,90 @@ describe("routeModel — acceptance: no premium model without required gain", ()
     // Both clear quality's 0.9 floor; over 3 attempts 0.95 -> 0.999875 and
     // 0.96 -> 0.999936, a gain far under quality's 0.02 requirement.
     expect(result.selected!.providerID).toBe("budget")
+  })
+
+  it("never pays more than a cheaper candidate inside the same quality band", () => {
+    // Regression for a greedy-chain selection that compared each candidate
+    // only against the running incumbent: "mid" was rejected against
+    // "cheap", then "dear" cleared the threshold against "cheap" and won —
+    // paying ~10x more than "mid" for +0.02 success. Values are chosen to
+    // subtract cleanly in binary floating point.
+    const threshold = 0.09
+    const policy = customRoutingPolicy({
+      minSuccessProbability: 0.15,
+      maxExpectedCostUsd: null,
+      minSuccessGainForUpgrade: threshold,
+      minAvailabilityScore: 0.5,
+      minReviewerSuccessProbability: 0.5,
+    })
+    const oneAttempt = task({
+      expectedInputTokens: 1_000_000,
+      expectedOutputTokens: 0,
+      maxAttempts: 1,
+      repairCostFactor: 0,
+      requiredContextTokens: 1_000,
+    })
+    const candidates = [
+      candidate({ providerID: "pa", modelID: "cheap", costPerMillionInputTokens: 1, perAttemptSuccessProbability: 0.2 }),
+      candidate({ providerID: "pb", modelID: "mid", costPerMillionInputTokens: 10, perAttemptSuccessProbability: 0.28 }),
+      candidate({ providerID: "pc", modelID: "dear", costPerMillionInputTokens: 99, perAttemptSuccessProbability: 0.3 }),
+    ]
+
+    const result = routeModel({ candidates, task: oneAttempt, policy })
+
+    expect(result.selected!.modelID).toBe("mid")
+
+    // The invariant is anchored on the BEST available option, not on
+    // pairwise comparisons — pairwise chaining is what produced the bug.
+    // Selected must sit inside the quality band, and nothing cheaper may.
+    const best = Math.max(...candidates.map((item) => item.perAttemptSuccessProbability))
+    const selected = candidates.find((item) => item.modelID === result.selected!.modelID)!
+    expect(best - selected.perAttemptSuccessProbability).toBeLessThanOrEqual(threshold)
+    for (const other of candidates) {
+      if (other.costPerMillionInputTokens >= selected.costPerMillionInputTokens) continue
+      expect(best - other.perAttemptSuccessProbability).toBeGreaterThan(threshold)
+    }
+  })
+
+  it("is unaffected by an intermediate candidate appearing or disappearing", () => {
+    const policy = customRoutingPolicy({
+      minSuccessProbability: 0.15,
+      maxExpectedCostUsd: null,
+      minSuccessGainForUpgrade: 0.09,
+      minAvailabilityScore: 0.5,
+      minReviewerSuccessProbability: 0.5,
+    })
+    const oneAttempt = task({
+      expectedInputTokens: 1_000_000,
+      expectedOutputTokens: 0,
+      maxAttempts: 1,
+      repairCostFactor: 0,
+      requiredContextTokens: 1_000,
+    })
+    const cheap = candidate({
+      providerID: "pa",
+      modelID: "cheap",
+      costPerMillionInputTokens: 1,
+      perAttemptSuccessProbability: 0.2,
+    })
+    const dear = candidate({
+      providerID: "pc",
+      modelID: "dear",
+      costPerMillionInputTokens: 99,
+      perAttemptSuccessProbability: 0.3,
+    })
+    const mid = candidate({
+      providerID: "pb",
+      modelID: "mid",
+      costPerMillionInputTokens: 10,
+      perAttemptSuccessProbability: 0.28,
+    })
+
+    // Without "mid", "dear" is the only way to reach the top of the band.
+    expect(routeModel({ candidates: [cheap, dear], task: oneAttempt, policy }).selected!.modelID).toBe("dear")
+    // Adding "mid" must make it the winner — a cheaper route to the same
+    // band — and must never leave "dear" selected.
+    expect(routeModel({ candidates: [cheap, mid, dear], task: oneAttempt, policy }).selected!.modelID).toBe("mid")
   })
 
   it("does buy the premium model when the gain is real", () => {

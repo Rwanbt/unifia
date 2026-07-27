@@ -275,7 +275,9 @@ export const RoutingRejectionSchema = z.enum([
   "BELOW_MIN_AVAILABILITY",
   "BELOW_MIN_SUCCESS_PROBABILITY",
   "OVER_EXPECTED_BUDGET",
-  "NOT_SELECTED_NO_REQUIRED_GAIN",
+  /** More than `minSuccessGainForUpgrade` below the best success available. */
+  "NOT_SELECTED_QUALITY_GAP",
+  /** Close enough in quality, but another candidate delivers it for less. */
   "NOT_SELECTED_COSTLIER_EQUAL_QUALITY",
 ])
 export type RoutingRejection = z.infer<typeof RoutingRejectionSchema>
@@ -374,55 +376,66 @@ function buildReproducibilityKey(
 }
 
 /**
- * Pick the cheapest endpoint that clears the policy, upgrading only when a
- * pricier candidate buys at least `minSuccessGainForUpgrade` more success.
+ * Pay the least you can while staying within `minSuccessGainForUpgrade` of
+ * the best success probability on offer.
  *
- * Ties on cost are broken by success probability, then by endpointKey, so
+ * Concretely: a candidate is "adequate" when its success probability is no
+ * more than the threshold below the best available; the chosen one is the
+ * cheapest adequate candidate. So the only way to justify a higher price is
+ * to be the cheapest way to reach that quality band.
+ *
+ * This replaced a greedy chain that compared each candidate only against
+ * the running incumbent. That version could pick a candidate while a
+ * cheaper, near-identical one had already been rejected earlier in the
+ * scan — e.g. with a 0.09 threshold and p = 0.20 / 0.28 / 0.30 at 1 / 10 /
+ * 99 per million, it chose the 99 option over the 10 one for +0.02 success,
+ * exactly the unearned premium this card forbids. Anchoring on the best
+ * available instead of a moving incumbent removes that whole class of
+ * outcome and makes the result independent of scan order.
+ *
+ * Ties are broken by cost, then success probability, then endpointKey, so
  * the winner never depends on input order.
  */
 function selectPrimary(
   affordable: readonly { candidate: RoutingCandidate; cost: ExpectedCostBreakdown }[],
   policy: RoutingPolicy,
 ): { chosen: { candidate: RoutingCandidate; cost: ExpectedCostBreakdown }; eliminated: EliminatedRoutingCandidate[] } {
-  const ordered = [...affordable].sort(
+  const bestSuccess = Math.max(...affordable.map((entry) => entry.cost.successProbability))
+  const adequacyFloor = bestSuccess - policy.minSuccessGainForUpgrade
+
+  const eliminated: EliminatedRoutingCandidate[] = []
+  const adequate = affordable.filter((entry) => entry.cost.successProbability >= adequacyFloor)
+
+  const ordered = [...adequate].sort(
     (a, b) =>
       a.cost.totalCostUsd - b.cost.totalCostUsd ||
       b.cost.successProbability - a.cost.successProbability ||
       endpointKey(a.candidate).localeCompare(endpointKey(b.candidate)),
   )
+  const chosen = ordered[0]!
 
-  let incumbent = ordered[0]!
-  const eliminated: EliminatedRoutingCandidate[] = []
-
-  for (const challenger of ordered.slice(1)) {
-    const gain = challenger.cost.successProbability - incumbent.cost.successProbability
-    if (gain >= policy.minSuccessGainForUpgrade) {
+  for (const entry of affordable) {
+    if (entry === chosen) continue
+    if (entry.cost.successProbability < adequacyFloor) {
       eliminated.push(
         reject(
-          incumbent.candidate,
-          "NOT_SELECTED_NO_REQUIRED_GAIN",
-          `superseded by ${endpointKey(challenger.candidate)}, which adds ${gain.toFixed(4)} success probability (policy requires ${policy.minSuccessGainForUpgrade})`,
+          entry.candidate,
+          "NOT_SELECTED_QUALITY_GAP",
+          `success probability ${entry.cost.successProbability.toFixed(4)} is more than ${policy.minSuccessGainForUpgrade} below the best available (${bestSuccess.toFixed(4)})`,
         ),
       )
-      incumbent = challenger
       continue
     }
     eliminated.push(
-      gain > 0
-        ? reject(
-            challenger.candidate,
-            "NOT_SELECTED_NO_REQUIRED_GAIN",
-            `costs ${(challenger.cost.totalCostUsd - incumbent.cost.totalCostUsd).toFixed(6)} USD more than ${endpointKey(incumbent.candidate)} for only ${gain.toFixed(4)} extra success probability (policy requires ${policy.minSuccessGainForUpgrade})`,
-          )
-        : reject(
-            challenger.candidate,
-            "NOT_SELECTED_COSTLIER_EQUAL_QUALITY",
-            `costlier than ${endpointKey(incumbent.candidate)} without being more likely to succeed`,
-          ),
+      reject(
+        entry.candidate,
+        "NOT_SELECTED_COSTLIER_EQUAL_QUALITY",
+        `within the quality band but costs ${entry.cost.totalCostUsd.toFixed(6)} USD against ${chosen.cost.totalCostUsd.toFixed(6)} for ${endpointKey(chosen.candidate)}`,
+      ),
     )
   }
 
-  return { chosen: incumbent, eliminated }
+  return { chosen, eliminated }
 }
 
 /**
