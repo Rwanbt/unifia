@@ -386,6 +386,24 @@ function buildReproducibilityKey(
 }
 
 // -----------------------------------------------------------------------
+// Token estimate (feeds graph-validator's own BUDGET rule)
+// -----------------------------------------------------------------------
+
+/**
+ * Total plan token usage implied by the per-task assumptions. Fed into
+ * `validateGraph`'s `estimatedTokens` so the BUDGET rule (E03) can fire
+ * from data this module already computes — without this, a caller would
+ * have to run a dry-run first just to learn the number to feed back into
+ * validation, which defeats the point of the estimate.
+ */
+function estimateTotalTokens(tasks: readonly PlannerTask[], assumptions: DryRunAssumptions): MinMax {
+  return {
+    min: tasks.length * (assumptions.minInputTokensPerTask + assumptions.minOutputTokensPerTask),
+    max: tasks.length * (assumptions.maxInputTokensPerTask + assumptions.maxOutputTokensPerTask),
+  }
+}
+
+// -----------------------------------------------------------------------
 // Public entry point
 // -----------------------------------------------------------------------
 
@@ -424,7 +442,11 @@ export function simulateDryRun(input: DryRunInput): DryRunReport {
     ? parseBoundary(DryRunAssumptionsSchema, "assumptions", input.assumptions)
     : DEFAULT_DRY_RUN_ASSUMPTIONS
 
-  const graphValidation = validateGraph(input.plan, input.validationOptions)
+  const tokenEstimate = estimateTotalTokens(input.plan.tasks, assumptions)
+  const graphValidation = validateGraph(input.plan, {
+    ...input.validationOptions,
+    estimatedTokens: input.validationOptions?.estimatedTokens ?? tokenEstimate.max,
+  })
   const modelShortlist = buildModelShortlist(modelCandidates)
   const waves = buildWaves(input.plan.tasks, assumptions, environment)
   const diskWorktreePreflight = buildDiskWorktreePreflight(waves, environment)

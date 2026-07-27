@@ -191,6 +191,29 @@ describe("simulateDryRun — graph validation propagation (E03 reuse)", () => {
     expect(report.blockingReasons).toContain("plan fails graph validation (see graphValidation.issues)")
     expect(report.estimate.confidence).toBe("low")
   })
+
+  it("feeds its own token estimate into graph-validator's BUDGET rule when the caller sets maxTotalTokens", () => {
+    const report = simulateDryRun({
+      plan: plan(),
+      modelCandidates: [candidate()],
+      environment: environment(),
+      validationOptions: { maxTotalTokens: 1 },
+    })
+
+    expect(report.graphValidation.valid).toBe(false)
+    expect(report.graphValidation.issues.some((issue) => issue.rule === "BUDGET")).toBe(true)
+  })
+
+  it("lets the caller override the estimated token total fed into BUDGET", () => {
+    const withinBudget = simulateDryRun({
+      plan: plan(),
+      modelCandidates: [candidate()],
+      environment: environment(),
+      validationOptions: { estimatedTokens: 1, maxTotalTokens: 1_000_000 },
+    })
+
+    expect(withinBudget.graphValidation.issues.some((issue) => issue.rule === "BUDGET")).toBe(false)
+  })
 })
 
 describe("simulateDryRun — disk/worktree preflight", () => {
