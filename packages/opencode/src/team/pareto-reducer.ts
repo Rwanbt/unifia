@@ -445,10 +445,22 @@ export function reduceToParetoFront(endpoints: readonly ParetoEndpoint[]): Paret
     for (const endpoint of cut) {
       if (retainedSet.has(endpoint)) continue
       // Deterministic attribution: smallest dominator key, not "first found".
+      //
+      // The front always contains a dominator for a cut endpoint: Pareto
+      // dominance is transitive here, and an `unknown` dimension blocks
+      // dominance entirely, so any chain A>B>C has all three measured on
+      // every compared dimension and A>C follows. If that ever stops
+      // holding, fail loudly rather than emit a decision with an undefined
+      // superseder.
       const dominator = front
         .filter((other) => dominates(other, endpoint))
         .map(endpointKey)
-        .sort()[0]!
+        .sort()[0]
+      if (dominator === undefined) {
+        throw new Error(
+          `pareto-reducer invariant violated: ${endpointKey(endpoint)} was cut from release ${releaseKey} but no front endpoint dominates it`,
+        )
+      }
       decisionByKey.set(
         endpointKey(endpoint),
         decision(endpoint, "ELIMINATED_DOMINATED", `dominated by ${dominator} on every Pareto dimension`, dominator),
@@ -462,7 +474,15 @@ export function reduceToParetoFront(endpoints: readonly ParetoEndpoint[]): Paret
 
   resolveSupersededChains(decisionByKey, new Set(retained.map(endpointKey)))
 
-  const decisions = validated.map((endpoint) => decisionByKey.get(endpointKey(endpoint))!)
+  const decisions = validated.map((endpoint) => {
+    const item = decisionByKey.get(endpointKey(endpoint))
+    // The card requires one explanation per endpoint; a hole here would ship
+    // an `undefined` inside the decisions array and surface far from its cause.
+    if (item === undefined) {
+      throw new Error(`pareto-reducer invariant violated: no decision recorded for ${endpointKey(endpoint)}`)
+    }
+    return item
+  })
 
   const byOutcome: Partial<Record<ParetoOutcome, number>> = {}
   for (const item of decisions) byOutcome[item.outcome] = (byOutcome[item.outcome] ?? 0) + 1

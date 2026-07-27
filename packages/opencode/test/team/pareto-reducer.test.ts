@@ -349,4 +349,50 @@ describe("reduceToParetoFront — boundaries", () => {
 
     expect(Object.isFrozen(result.retained[0])).toBe(true)
   })
+
+  it("rejects NaN and Infinity, which would silently corrupt every comparison", () => {
+    expect(() => reduceToParetoFront([endpoint({ costPerMillionInputTokens: Number.NaN })])).toThrow(
+      ParetoReducerInputError,
+    )
+    expect(() => reduceToParetoFront([endpoint({ costPerMillionInputTokens: Number.POSITIVE_INFINITY })])).toThrow(
+      ParetoReducerInputError,
+    )
+    expect(() => reduceToParetoFront([endpoint({ latencyP95Ms: Number.NaN })])).toThrow(ParetoReducerInputError)
+  })
+
+  it("retains a lone endpoint as the sole offer without comparing it to anything", () => {
+    const result = reduceToParetoFront([endpoint({ providerID: "lone", regions: [] })])
+
+    expect(result.decisions[0]!.outcome).toBe("RETAINED_SOLE_OFFER")
+    expect(result.stats.coveredRegions).toEqual([])
+  })
+
+  it("still reduces correctly when no endpoint declares a region", () => {
+    const result = reduceToParetoFront([
+      endpoint({ providerID: "a", costPerMillionInputTokens: 1, regions: [] }),
+      endpoint({ providerID: "b", costPerMillionInputTokens: 9, regions: [] }),
+    ])
+
+    expect(result.retained.map((item) => item.providerID)).toEqual(["a"])
+    expect(result.stats.coveredRegions).toEqual([])
+  })
+
+  it("handles a large single-release group and explains every endpoint", () => {
+    const many = Array.from({ length: 500 }, (_, i) =>
+      endpoint({
+        providerID: `p${i}`,
+        modelID: `m${i}`,
+        costPerMillionInputTokens: i % 50,
+        latencyP95Ms: (i % 37) * 10,
+        availabilityScore: (i % 5) / 4,
+        contextTotalTokens: 10_000 * (1 + (i % 9)),
+        regions: [["US", "EU", "JP", "BR"][i % 4]!],
+      }),
+    )
+    const result = reduceToParetoFront(many)
+
+    expect(result.decisions).toHaveLength(500)
+    expect(result.stats.retainedCount + result.stats.eliminatedCount).toBe(500)
+    expect([...new Set(result.retained.flatMap((item) => item.regions))].sort()).toEqual(["BR", "EU", "JP", "US"])
+  })
 })
