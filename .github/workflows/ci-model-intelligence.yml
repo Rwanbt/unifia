@@ -55,10 +55,20 @@ jobs:
           fi
 
       - name: Build THIRD_PARTY_NOTICES.md
-        run: cd packages/opencode && bun run script/build-notices.ts
+        run: |
+          if [ ! -f packages/opencode/model-intelligence-snapshot.json ]; then
+            echo "No model-intelligence snapshot committed; skipping notices regeneration."
+            exit 0
+          fi
+          cd packages/opencode
+          bun run script/build-notices.ts
 
       - name: Verify notices unchanged
         run: |
+          if [ ! -f packages/opencode/model-intelligence-snapshot.json ]; then
+            echo "No model-intelligence snapshot committed; skipping notices verification."
+            exit 0
+          fi
           if ! git diff --exit-code THIRD_PARTY_NOTICES.md; then
             echo "ERROR: THIRD_PARTY_NOTICES.md differs from committed version"
             echo "Regenerate via: cd packages/opencode && bun run script/build-notices.ts"
