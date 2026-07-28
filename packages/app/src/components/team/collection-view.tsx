@@ -71,9 +71,12 @@ export function CollectionView<T>(props: CollectionViewProps<T>) {
       {/* Only rendered when the server said there is more. A button that is
           always present cannot distinguish "the end" from "not asked yet". */}
       <Show when={props.page.nextCursor !== null}>
+        {/* min-h-11 is 44px, the smallest target a thumb hits reliably. The
+            desktop look is unchanged; what changes is that on a phone this
+            stops being a 20px strip between two rows of run ids. */}
         <button
           type="button"
-          class="text-11-regular text-text-weak hover:text-text-base border border-border-weak-base rounded px-2 py-1 self-center"
+          class="text-11-regular text-text-weak hover:text-text-base border border-border-weak-base rounded px-3 min-h-11 self-center"
           onClick={() => props.onMore()}
         >
           {props.labels.more}

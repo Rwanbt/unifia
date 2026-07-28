@@ -77,7 +77,10 @@ export function ModelSelector(props: ModelSelectorProps) {
                   type="button"
                   role="option"
                   aria-selected={current()}
-                  class="w-full text-left text-11-regular px-2 py-1 rounded hover:bg-surface-base"
+                  // 44px rows: on a phone the model list is the one place a
+                  // mis-tap silently changes which model answers the next
+                  // prompt, and the user has no way to notice.
+                  class="w-full text-left text-11-regular px-2 min-h-11 rounded hover:bg-surface-base"
                   classList={{ "bg-surface-base text-text-base": current(), "text-text-weak": !current() }}
                   onClick={() => props.onPick({ providerID: option.providerID, modelID: option.modelID })}
                 >
@@ -95,14 +98,14 @@ export function ModelSelector(props: ModelSelectorProps) {
             <span class="text-10-regular text-text-weaker">{props.labels.sessionOnly}</span>
             <button
               type="button"
-              class="text-10-regular text-text-weak hover:text-text-base underline"
+              class="text-10-regular text-text-weak hover:text-text-base underline px-2 min-h-11"
               onClick={() => props.onSaveDefault(selected())}
             >
               {props.labels.saveDefault}
             </button>
             <button
               type="button"
-              class="text-10-regular text-text-weak hover:text-text-base underline"
+              class="text-10-regular text-text-weak hover:text-text-base underline px-2 min-h-11"
               onClick={() => props.onClearOverride()}
             >
               {props.labels.clearOverride}

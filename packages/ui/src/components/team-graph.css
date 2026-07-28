@@ -10,11 +10,20 @@
     gap: 4px;
   }
 
+  /* Nodes stay compact where there is a pointer, and grow to a 44px target
+     where there is not. Keyed on pointer coarseness rather than on width: a
+     tablet with a mouse wants the dense graph, and a narrow desktop window is
+     still driven by a cursor. */
   [data-part="task"] {
     display: inline-flex;
     align-items: center;
     height: 20px;
     padding: 0 6px;
+
+    @media (any-pointer: coarse) {
+      min-height: 44px;
+      padding: 0 12px;
+    }
 
     border-radius: var(--radius-xs);
     border: 0.5px solid var(--border-weak-base);
