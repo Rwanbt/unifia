@@ -1,0 +1,12 @@
+card_id: TEAM-G02
+base_sha: a4c6bc3d0b4c6d84951f663a33967d8b9abaedb0
+scope_mode: E2_REQUIRED
+allowed_files:
+  - packages/opencode/src/team/worktree-manager.ts
+  - packages/opencode/test/team/worktree-manager.test.ts
+  - packages/opencode/test/team/integration/wt-*.test.ts
+  - packages/opencode/docs/team/scope-manifest/TEAM-G02-REVIEW.yaml
+protected_files:
+  - main
+  - dev
+  - opti-ui

@@ -1,0 +1,15 @@
+card_id: TEAM-F06
+base_sha: 6221de06facc5ebef15511c6aa91869e8a87a77a
+scope_mode: E2_REQUIRED
+allowed_files:
+  - packages/opencode/src/team/routing-eval.ts
+  - packages/opencode/test/team/routing-eval.test.ts
+  - packages/opencode/docs/team/scope-manifest/TEAM-F06.yaml
+protected_files:
+  - packages/opencode/src/team/model-router.ts
+  - packages/opencode/src/team/performance-estimator.ts
+  - packages/opencode/src/team/contextual-router.ts
+  - packages/opencode/src/model-intelligence/**
+  - main
+  - dev
+  - opti-ui

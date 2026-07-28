@@ -6240,6 +6240,520 @@ export type DebateFeedbackResponses = {
 
 export type DebateFeedbackResponse = DebateFeedbackResponses[keyof DebateFeedbackResponses]
 
+export type TeamListRunsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+    cursor?: string
+  }
+  url: "/team/runs"
+}
+
+export type TeamListRunsErrors = {
+  /**
+   * Bad cursor, limit or query parameter
+   */
+  400: {
+    error: string
+  }
+}
+
+export type TeamListRunsError = TeamListRunsErrors[keyof TeamListRunsErrors]
+
+export type TeamListRunsResponses = {
+  /**
+   * A page of runs
+   */
+  200: {
+    schemaVersion: string
+    items: Array<{
+      runId: string
+      schemaVersion: string
+      planId: string
+      status: "pending" | "running" | "completed" | "failed" | "aborted"
+      createdAt: string
+      updatedAt: string
+    }>
+    nextCursor: string | null
+  }
+}
+
+export type TeamListRunsResponse = TeamListRunsResponses[keyof TeamListRunsResponses]
+
+export type TeamGetRunData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}"
+}
+
+export type TeamGetRunErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamGetRunError = TeamGetRunErrors[keyof TeamGetRunErrors]
+
+export type TeamGetRunResponses = {
+  /**
+   * The run
+   */
+  200: {
+    runId: string
+    schemaVersion: string
+    planId: string
+    status: "pending" | "running" | "completed" | "failed" | "aborted"
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+export type TeamGetRunResponse = TeamGetRunResponses[keyof TeamGetRunResponses]
+
+export type TeamListTasksData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/tasks"
+}
+
+export type TeamListTasksErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamListTasksError = TeamListTasksErrors[keyof TeamListTasksErrors]
+
+export type TeamListTasksResponses = {
+  /**
+   * The run's tasks
+   */
+  200: {
+    schemaVersion: string
+    items: Array<{
+      taskId: string
+      runId: string
+      status: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
+      dependsOn: Array<string>
+      scope: unknown
+      createdAt: string
+      updatedAt: string
+    }>
+    nextCursor: string | null
+  }
+}
+
+export type TeamListTasksResponse = TeamListTasksResponses[keyof TeamListTasksResponses]
+
+export type TeamListEventsData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+    cursor?: string
+  }
+  url: "/team/runs/{runID}/events"
+}
+
+export type TeamListEventsErrors = {
+  /**
+   * Bad cursor, limit or query parameter
+   */
+  400: {
+    error: string
+  }
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamListEventsError = TeamListEventsErrors[keyof TeamListEventsErrors]
+
+export type TeamListEventsResponses = {
+  /**
+   * A page of events
+   */
+  200: {
+    schemaVersion: string
+    items: Array<{
+      eventId: string
+      runId: string
+      sequence: number
+      kind: string
+      payload: unknown
+      occurredAt: string
+    }>
+    nextCursor: string | null
+  }
+}
+
+export type TeamListEventsResponse = TeamListEventsResponses[keyof TeamListEventsResponses]
+
+export type TeamListGatesData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/gates"
+}
+
+export type TeamListGatesErrors = {
+  /**
+   * No such run
+   */
+  404: {
+    error: string
+  }
+}
+
+export type TeamListGatesError = TeamListGatesErrors[keyof TeamListGatesErrors]
+
+export type TeamListGatesResponses = {
+  /**
+   * The run's gates
+   */
+  200: {
+    schemaVersion: string
+    items: Array<{
+      gateId: string
+      runId: string
+      taskId: string | null
+      verdict: "APPROVED" | "APPROVED_WITH_FOLLOWUP" | "CHANGES_REQUESTED"
+      findings: unknown
+      decidedAt: string
+    }>
+    nextCursor: string | null
+  }
+}
+
+export type TeamListGatesResponse = TeamListGatesResponses[keyof TeamListGatesResponses]
+
+export type ModelIntelligenceListModelsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+    cursor?: number
+    providerID?: string
+    status?: "alpha" | "beta" | "active" | "deprecated" | "quarantined"
+    lifecycleStage?: string
+    modality?: "text" | "audio" | "image" | "video" | "pdf"
+  }
+  url: "/model-intelligence/models"
+}
+
+export type ModelIntelligenceListModelsErrors = {
+  /**
+   * Unknown filter, cursor or limit
+   */
+  400: {
+    error: string
+  }
+  /**
+   * Registry not loaded
+   */
+  503: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceListModelsError =
+  ModelIntelligenceListModelsErrors[keyof ModelIntelligenceListModelsErrors]
+
+export type ModelIntelligenceListModelsResponses = {
+  /**
+   * A page of models
+   */
+  200: {
+    schemaVersion: string
+    items: Array<unknown>
+    nextCursor: string | null
+    total: number
+  }
+}
+
+export type ModelIntelligenceListModelsResponse =
+  ModelIntelligenceListModelsResponses[keyof ModelIntelligenceListModelsResponses]
+
+export type ModelIntelligenceListProvidersData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+    cursor?: number
+    status?: "active" | "deprecated" | "experimental"
+  }
+  url: "/model-intelligence/providers"
+}
+
+export type ModelIntelligenceListProvidersErrors = {
+  /**
+   * Unknown filter, cursor or limit
+   */
+  400: {
+    error: string
+  }
+  /**
+   * Registry not loaded
+   */
+  503: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceListProvidersError =
+  ModelIntelligenceListProvidersErrors[keyof ModelIntelligenceListProvidersErrors]
+
+export type ModelIntelligenceListProvidersResponses = {
+  /**
+   * A page of providers
+   */
+  200: {
+    schemaVersion: string
+    items: Array<unknown>
+    nextCursor: string | null
+    total: number
+  }
+}
+
+export type ModelIntelligenceListProvidersResponse =
+  ModelIntelligenceListProvidersResponses[keyof ModelIntelligenceListProvidersResponses]
+
+export type ModelIntelligenceGetModelData = {
+  body?: never
+  path: {
+    providerID: string
+    modelID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/model-intelligence/models/{providerID}/{modelID}"
+}
+
+export type ModelIntelligenceGetModelErrors = {
+  /**
+   * No such model
+   */
+  404: {
+    error: string
+  }
+  /**
+   * Registry not loaded
+   */
+  503: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceGetModelError = ModelIntelligenceGetModelErrors[keyof ModelIntelligenceGetModelErrors]
+
+export type ModelIntelligenceGetModelResponses = {
+  /**
+   * The model
+   */
+  200: unknown
+}
+
+export type ModelIntelligenceResolveAliasData = {
+  body?: never
+  path: {
+    alias: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/model-intelligence/aliases/{alias}"
+}
+
+export type ModelIntelligenceResolveAliasErrors = {
+  /**
+   * No such alias
+   */
+  404: {
+    error: string
+  }
+  /**
+   * Registry not loaded
+   */
+  503: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceResolveAliasError =
+  ModelIntelligenceResolveAliasErrors[keyof ModelIntelligenceResolveAliasErrors]
+
+export type ModelIntelligenceResolveAliasResponses = {
+  /**
+   * The resolved alias
+   */
+  200: unknown
+}
+
+export type ModelIntelligenceSnapshotData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/model-intelligence/snapshot"
+}
+
+export type ModelIntelligenceSnapshotErrors = {
+  /**
+   * Registry not loaded
+   */
+  503: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceSnapshotError = ModelIntelligenceSnapshotErrors[keyof ModelIntelligenceSnapshotErrors]
+
+export type ModelIntelligenceSnapshotResponses = {
+  /**
+   * Snapshot identity
+   */
+  200: {
+    schemaVersion: string
+    hash: string
+    byteLength: number
+  }
+}
+
+export type ModelIntelligenceSnapshotResponse =
+  ModelIntelligenceSnapshotResponses[keyof ModelIntelligenceSnapshotResponses]
+
+export type ModelIntelligenceLicensesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/model-intelligence/licenses"
+}
+
+export type ModelIntelligenceLicensesErrors = {
+  /**
+   * Registry not loaded
+   */
+  503: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceLicensesError = ModelIntelligenceLicensesErrors[keyof ModelIntelligenceLicensesErrors]
+
+export type ModelIntelligenceLicensesResponses = {
+  /**
+   * License notices
+   */
+  200: {
+    schemaVersion: string
+    notices: string
+  }
+}
+
+export type ModelIntelligenceLicensesResponse =
+  ModelIntelligenceLicensesResponses[keyof ModelIntelligenceLicensesResponses]
+
+export type ModelIntelligenceHealthData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/model-intelligence/health"
+}
+
+export type ModelIntelligenceHealthResponses = {
+  /**
+   * Load state
+   */
+  200: {
+    schemaVersion: string
+    loaded: boolean
+  }
+}
+
+export type ModelIntelligenceHealthResponse = ModelIntelligenceHealthResponses[keyof ModelIntelligenceHealthResponses]
+
+export type ModelIntelligenceSyncData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/model-intelligence/sync"
+}
+
+export type ModelIntelligenceSyncErrors = {
+  /**
+   * Unknown query parameter
+   */
+  400: {
+    error: string
+  }
+  /**
+   * The source could not be fetched, parsed or validated
+   */
+  502: {
+    error: string
+  }
+}
+
+export type ModelIntelligenceSyncError = ModelIntelligenceSyncErrors[keyof ModelIntelligenceSyncErrors]
+
+export type ModelIntelligenceSyncResponses = {
+  /**
+   * Sync result
+   */
+  200: unknown
+}
+
 export type ObservabilityHealthData = {
   body?: never
   path?: never

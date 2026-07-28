@@ -3,6 +3,17 @@ import z from "zod"
 
 import { withStatics } from "@/util/schema"
 
+const sourceIdSchema = Schema.String.pipe(Schema.brand("SourceID"))
+
+export type SourceID = typeof sourceIdSchema.Type
+
+export const SourceID = sourceIdSchema.pipe(
+  withStatics((schema: typeof sourceIdSchema) => ({
+    make: (id: string) => schema.makeUnsafe(id),
+    zod: z.string().pipe(z.custom<SourceID>()),
+  })),
+)
+
 const providerIdSchema = Schema.String.pipe(Schema.brand("ProviderID"))
 
 export type ProviderID = typeof providerIdSchema.Type

@@ -1,0 +1,5 @@
+# Ignore everything in this directory except the .gitignore itself.
+# This is a generated directory used by husky (git hooks).
+# It is created by `bun install` and should never be committed.
+*
+!.gitignore

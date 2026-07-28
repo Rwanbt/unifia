@@ -38,6 +38,8 @@ import { AgentSkillRoutes } from "./routes/agent-skills"
 import { GdprRoutes } from "./routes/gdpr"
 import { ObservabilityRoutes } from "./routes/observability"
 import { DebateRoutes } from "./routes/debate"
+import { TeamRoutes } from "./routes/team"
+import { ModelIntelligenceRoutes } from "./routes/model-intelligence"
 import { errorHandler } from "./middleware"
 
 const log = Log.create({ service: "server" })
@@ -68,6 +70,8 @@ export const InstanceRoutes = (app?: Hono) =>
     .route("/question", QuestionRoutes())
     .route("/provider", ProviderRoutes())
     .route("/debate", DebateRoutes())
+    .route("/team", TeamRoutes())
+    .route("/model-intelligence", ModelIntelligenceRoutes())
     .route("/observability", ObservabilityRoutes())
     .get(
       "/presence",
