@@ -12,26 +12,68 @@ export type BadRequestError = {
   success: false
 }
 
-export type EventServerConnected = {
-  type: "server.connected"
-  properties: {
-    [key: string]: unknown
-  }
-}
-
-export type EventGlobalDisposed = {
-  type: "global.disposed"
-  properties: {
-    [key: string]: unknown
-  }
-}
-
-export type EventCollectiveDebateStarted = {
-  type: "collective.debate.started"
+export type EventCollectiveCanaryResult = {
+  type: "collective.canary.result"
   properties: {
     debateID: string
-    tier: "free" | "quick" | "standard" | "deep"
-    providers: Array<string>
+    detected: boolean
+  }
+}
+
+export type EventCollectiveClaimExtracted = {
+  type: "collective.claim.extracted"
+  properties: {
+    debateID: string
+    claimId: string
+    category: string
+    novelty: string
+  }
+}
+
+export type EventCollectiveConvergenceRound = {
+  type: "collective.convergence.round"
+  properties: {
+    debateID: string
+    round: number
+    claimsResubmitted: number
+  }
+}
+
+export type EventCollectiveCostUpdate = {
+  type: "collective.cost.update"
+  properties: {
+    debateID: string
+    spent: number
+    budget: number
+    percent: number
+  }
+}
+
+export type EventCollectiveDebateBudgetWarning = {
+  type: "collective.debate.budget_warning"
+  properties: {
+    debateID: string
+    percentUsed: number
+    tokensUsed: number
+    tokenLimit: number
+  }
+}
+
+export type EventCollectiveDebateCompleted = {
+  type: "collective.debate.completed"
+  properties: {
+    debateID: string
+    blindSpotCount: number
+    cost: number
+    durationMs: number
+  }
+}
+
+export type EventCollectiveDebateFailed = {
+  type: "collective.debate.failed"
+  properties: {
+    debateID: string
+    error: string
   }
 }
 
@@ -51,21 +93,22 @@ export type EventCollectiveDebatePhaseChanged = {
   }
 }
 
-export type EventCollectiveProviderStarted = {
-  type: "collective.provider.started"
+export type EventCollectiveDebateStarted = {
+  type: "collective.debate.started"
   properties: {
     debateID: string
-    provider: string
-    role?: string
-    phase:
-      | "pending"
-      | "phase1_diverge"
-      | "phase2_extract"
-      | "phase3_converge"
-      | "phase4_synthesize"
-      | "completed"
-      | "failed"
-      | "cancelled"
+    tier: "free" | "quick" | "standard" | "deep"
+    providers: Array<string>
+  }
+}
+
+export type EventCollectiveHalting = {
+  type: "collective.halting"
+  properties: {
+    debateID: string
+    reason: string
+    marginalGain: number
+    marginalCost: number
   }
 }
 
@@ -106,23 +149,21 @@ export type EventCollectiveProviderFailed = {
   }
 }
 
-export type EventCollectiveClaimExtracted = {
-  type: "collective.claim.extracted"
+export type EventCollectiveProviderStarted = {
+  type: "collective.provider.started"
   properties: {
     debateID: string
-    claimId: string
-    category: string
-    novelty: string
-  }
-}
-
-export type EventCollectiveCostUpdate = {
-  type: "collective.cost.update"
-  properties: {
-    debateID: string
-    spent: number
-    budget: number
-    percent: number
+    provider: string
+    role?: string
+    phase:
+      | "pending"
+      | "phase1_diverge"
+      | "phase2_extract"
+      | "phase3_converge"
+      | "phase4_synthesize"
+      | "completed"
+      | "failed"
+      | "cancelled"
   }
 }
 
@@ -134,65 +175,267 @@ export type EventCollectiveRedteamActivated = {
   }
 }
 
-export type EventCollectiveConvergenceRound = {
-  type: "collective.convergence.round"
+export type EventCollectiveShadowDivergence = {
+  type: "collective.shadow.divergence"
   properties: {
-    debateID: string
-    round: number
-    claimsResubmitted: number
+    sessionID: string
+    question: string
+    severity: "info" | "warning" | "critical"
+    shadowResponse: string
+    divergenceReason: string
   }
 }
 
-export type EventCollectiveCanaryResult = {
-  type: "collective.canary.result"
+export type EventCommandExecuted = {
+  type: "command.executed"
   properties: {
-    debateID: string
-    detected: boolean
+    name: string
+    sessionID: string
+    arguments: string
+    messageID: string
   }
 }
 
-export type EventCollectiveHalting = {
-  type: "collective.halting"
+export type EventFileEdited = {
+  type: "file.edited"
   properties: {
-    debateID: string
-    reason: string
-    marginalGain: number
-    marginalCost: number
+    file: string
   }
 }
 
-export type EventCollectiveDebateCompleted = {
-  type: "collective.debate.completed"
+export type EventFileWatcherUpdated = {
+  type: "file.watcher.updated"
   properties: {
-    debateID: string
-    blindSpotCount: number
-    cost: number
-    durationMs: number
+    file: string
+    event: "add" | "change" | "unlink"
   }
 }
 
-export type EventCollectiveDebateFailed = {
-  type: "collective.debate.failed"
+export type EventGlobalDisposed = {
+  type: "global.disposed"
   properties: {
-    debateID: string
+    [key: string]: unknown
+  }
+}
+
+export type EventInstallationUpdateAvailable = {
+  type: "installation.update-available"
+  properties: {
+    version: string
+  }
+}
+
+export type EventInstallationUpdated = {
+  type: "installation.updated"
+  properties: {
+    version: string
+  }
+}
+
+export type EventLspClientDiagnostics = {
+  type: "lsp.client.diagnostics"
+  properties: {
+    serverID: string
+    path: string
+  }
+}
+
+export type EventLspUpdated = {
+  type: "lsp.updated"
+  properties: {
+    [key: string]: unknown
+  }
+}
+
+export type EventMcpBrowserOpenFailed = {
+  type: "mcp.browser.open.failed"
+  properties: {
+    mcpName: string
+    url: string
+  }
+}
+
+export type EventMcpToolsChanged = {
+  type: "mcp.tools.changed"
+  properties: {
+    server: string
+  }
+}
+
+export type EventMessagePartDelta = {
+  type: "message.part.delta"
+  properties: {
+    sessionID: string
+    messageID: string
+    partID: string
+    field: string
+    delta: string
+  }
+}
+
+export type EventPermissionAsked = {
+  type: "permission.asked"
+  properties: PermissionRequest
+}
+
+export type EventPermissionReplied = {
+  type: "permission.replied"
+  properties: {
+    sessionID: string
+    requestID: string
+    reply: "once" | "always" | "reject"
+  }
+}
+
+export type EventProjectUpdated = {
+  type: "project.updated"
+  properties: Project
+}
+
+export type EventQuestionAsked = {
+  type: "question.asked"
+  properties: QuestionRequest
+}
+
+export type EventQuestionRejected = {
+  type: "question.rejected"
+  properties: {
+    sessionID: string
+    requestID: string
+  }
+}
+
+export type EventQuestionReplied = {
+  type: "question.replied"
+  properties: {
+    sessionID: string
+    requestID: string
+    answers: Array<QuestionAnswer>
+  }
+}
+
+export type EventServerConnected = {
+  type: "server.connected"
+  properties: {
+    [key: string]: unknown
+  }
+}
+
+export type EventServerInstanceDisposed = {
+  type: "server.instance.disposed"
+  properties: {
+    directory: string
+  }
+}
+
+export type EventSessionAllIdle = {
+  type: "session.all_idle"
+  properties: {
+    [key: string]: unknown
+  }
+}
+
+export type EventSessionCompacted = {
+  type: "session.compacted"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type EventSessionDiff = {
+  type: "session.diff"
+  properties: {
+    sessionID: string
+    diff: Array<FileDiff>
+  }
+}
+
+export type EventSessionIdle = {
+  type: "session.idle"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type EventSessionStatus = {
+  type: "session.status"
+  properties: {
+    sessionID: string
+    status: SessionStatus
+  }
+}
+
+export type EventTaskBlocked = {
+  type: "task.blocked"
+  properties: {
+    sessionID: string
+    reason?: string
+  }
+}
+
+export type EventTaskCancelled = {
+  type: "task.cancelled"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type EventTaskCompleted = {
+  type: "task.completed"
+  properties: {
+    sessionID: string
+    parentID: string
+    result?: string
+  }
+}
+
+export type EventTaskCreated = {
+  type: "task.created"
+  properties: {
+    sessionID: string
+    parentID: string
+    agent: string
+    description: string
+  }
+}
+
+export type EventTaskFailed = {
+  type: "task.failed"
+  properties: {
+    sessionID: string
+    parentID: string
     error: string
   }
 }
 
-export type EventCollectiveDebateBudgetWarning = {
-  type: "collective.debate.budget_warning"
+export type EventTaskInputNeeded = {
+  type: "task.input_needed"
   properties: {
-    debateID: string
-    percentUsed: number
-    tokensUsed: number
-    tokenLimit: number
+    sessionID: string
+    parentID: string
+    question: string
   }
 }
 
-export type EventTuiPromptAppend = {
-  type: "tui.prompt.append"
+export type EventTeamCompleted = {
+  type: "team.completed"
   properties: {
-    text: string
+    sessionID: string
+    tasks: Array<{
+      sessionID: string
+      status: string
+      description: string
+      result?: string
+    }>
+    totalCost: number
+  }
+}
+
+export type EventTodoUpdated = {
+  type: "todo.updated"
+  properties: {
+    sessionID: string
+    todos: Array<Todo>
   }
 }
 
@@ -220,16 +463,10 @@ export type EventTuiCommandExecute = {
   }
 }
 
-export type EventTuiToastShow = {
-  type: "tui.toast.show"
+export type EventTuiPromptAppend = {
+  type: "tui.prompt.append"
   properties: {
-    title?: string
-    message: string
-    variant: "info" | "success" | "warning" | "error"
-    /**
-     * Duration in milliseconds
-     */
-    duration?: number
+    text: string
   }
 }
 
@@ -240,6 +477,19 @@ export type EventTuiSessionSelect = {
      * Session ID to navigate to
      */
     sessionID: string
+  }
+}
+
+export type EventTuiToastShow = {
+  type: "tui.toast.show"
+  properties: {
+    title?: string
+    message: string
+    variant: "info" | "success" | "warning" | "error"
+    /**
+     * Duration in milliseconds
+     */
+    duration?: number
   }
 }
 
@@ -267,58 +517,6 @@ export type Project = {
   sandboxes: Array<string>
 }
 
-export type EventProjectUpdated = {
-  type: "project.updated"
-  properties: Project
-}
-
-export type EventInstallationUpdated = {
-  type: "installation.updated"
-  properties: {
-    version: string
-  }
-}
-
-export type EventInstallationUpdateAvailable = {
-  type: "installation.update-available"
-  properties: {
-    version: string
-  }
-}
-
-export type EventServerInstanceDisposed = {
-  type: "server.instance.disposed"
-  properties: {
-    directory: string
-  }
-}
-
-export type EventLspClientDiagnostics = {
-  type: "lsp.client.diagnostics"
-  properties: {
-    serverID: string
-    path: string
-  }
-}
-
-export type EventLspUpdated = {
-  type: "lsp.updated"
-  properties: {
-    [key: string]: unknown
-  }
-}
-
-export type EventMessagePartDelta = {
-  type: "message.part.delta"
-  properties: {
-    sessionID: string
-    messageID: string
-    partID: string
-    field: string
-    delta: string
-  }
-}
-
 export type PermissionRequest = {
   id: string
   sessionID: string
@@ -331,20 +529,6 @@ export type PermissionRequest = {
   tool?: {
     messageID: string
     callID: string
-  }
-}
-
-export type EventPermissionAsked = {
-  type: "permission.asked"
-  properties: PermissionRequest
-}
-
-export type EventPermissionReplied = {
-  type: "permission.replied"
-  properties: {
-    sessionID: string
-    requestID: string
-    reply: "once" | "always" | "reject"
   }
 }
 
@@ -383,94 +567,6 @@ export type SessionStatus =
   | {
       type: "cancelled"
     }
-
-export type EventSessionStatus = {
-  type: "session.status"
-  properties: {
-    sessionID: string
-    status: SessionStatus
-  }
-}
-
-export type EventSessionIdle = {
-  type: "session.idle"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type EventTaskCreated = {
-  type: "task.created"
-  properties: {
-    sessionID: string
-    parentID: string
-    agent: string
-    description: string
-  }
-}
-
-export type EventTaskCompleted = {
-  type: "task.completed"
-  properties: {
-    sessionID: string
-    parentID: string
-    result?: string
-  }
-}
-
-export type EventTaskFailed = {
-  type: "task.failed"
-  properties: {
-    sessionID: string
-    parentID: string
-    error: string
-  }
-}
-
-export type EventTaskCancelled = {
-  type: "task.cancelled"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type EventTaskBlocked = {
-  type: "task.blocked"
-  properties: {
-    sessionID: string
-    reason?: string
-  }
-}
-
-export type EventTaskInputNeeded = {
-  type: "task.input_needed"
-  properties: {
-    sessionID: string
-    parentID: string
-    question: string
-  }
-}
-
-export type EventTeamCompleted = {
-  type: "team.completed"
-  properties: {
-    sessionID: string
-    tasks: Array<{
-      sessionID: string
-      status: string
-      description: string
-      result?: string
-    }>
-    totalCost: number
-  }
-}
-
-export type EventSessionAllIdle = {
-  type: "session.all_idle"
-  properties: {
-    [key: string]: unknown
-  }
-}
 
 export type QuestionOption = {
   /**
@@ -519,49 +615,12 @@ export type QuestionRequest = {
   }
 }
 
-export type EventQuestionAsked = {
-  type: "question.asked"
-  properties: QuestionRequest
-}
-
 export type QuestionAnswer = Array<string>
 
-export type EventQuestionReplied = {
-  type: "question.replied"
+export type EventWorkspaceFailed = {
+  type: "workspace.failed"
   properties: {
-    sessionID: string
-    requestID: string
-    answers: Array<QuestionAnswer>
-  }
-}
-
-export type EventQuestionRejected = {
-  type: "question.rejected"
-  properties: {
-    sessionID: string
-    requestID: string
-  }
-}
-
-export type EventSessionCompacted = {
-  type: "session.compacted"
-  properties: {
-    sessionID: string
-  }
-}
-
-export type EventFileWatcherUpdated = {
-  type: "file.watcher.updated"
-  properties: {
-    file: string
-    event: "add" | "change" | "unlink"
-  }
-}
-
-export type EventFileEdited = {
-  type: "file.edited"
-  properties: {
-    file: string
+    message: string
   }
 }
 
@@ -569,13 +628,6 @@ export type EventWorkspaceReady = {
   type: "workspace.ready"
   properties: {
     name: string
-  }
-}
-
-export type EventWorkspaceFailed = {
-  type: "workspace.failed"
-  properties: {
-    message: string
   }
 }
 
@@ -594,50 +646,6 @@ export type Todo = {
   priority: string
 }
 
-export type EventTodoUpdated = {
-  type: "todo.updated"
-  properties: {
-    sessionID: string
-    todos: Array<Todo>
-  }
-}
-
-export type EventCollectiveShadowDivergence = {
-  type: "collective.shadow.divergence"
-  properties: {
-    sessionID: string
-    question: string
-    severity: "info" | "warning" | "critical"
-    shadowResponse: string
-    divergenceReason: string
-  }
-}
-
-export type EventMcpToolsChanged = {
-  type: "mcp.tools.changed"
-  properties: {
-    server: string
-  }
-}
-
-export type EventMcpBrowserOpenFailed = {
-  type: "mcp.browser.open.failed"
-  properties: {
-    mcpName: string
-    url: string
-  }
-}
-
-export type EventCommandExecuted = {
-  type: "command.executed"
-  properties: {
-    name: string
-    sessionID: string
-    arguments: string
-    messageID: string
-  }
-}
-
 export type FileDiff = {
   file: string
   before: string
@@ -645,14 +653,6 @@ export type FileDiff = {
   additions: number
   deletions: number
   status?: "added" | "deleted" | "modified"
-}
-
-export type EventSessionDiff = {
-  type: "session.diff"
-  properties: {
-    sessionID: string
-    diff: Array<FileDiff>
-  }
 }
 
 export type ProviderAuthError = {
@@ -731,13 +731,6 @@ export type EventSessionError = {
   }
 }
 
-export type EventVcsBranchUpdated = {
-  type: "vcs.branch.updated"
-  properties: {
-    branch?: string
-  }
-}
-
 export type EventVcsBranchBehind = {
   type: "vcs.branch.behind"
   properties: {
@@ -745,6 +738,13 @@ export type EventVcsBranchBehind = {
     upstream: string
     behind: number
     ahead: number
+  }
+}
+
+export type EventVcsBranchUpdated = {
+  type: "vcs.branch.updated"
+  properties: {
+    branch?: string
   }
 }
 
@@ -758,6 +758,22 @@ export type Pty = {
   pid: number
 }
 
+export type EventMessageRemoved = {
+  type: "message.removed"
+  properties: {
+    sessionID: string
+    messageID: string
+  }
+}
+
+export type EventMessageUpdated = {
+  type: "message.updated"
+  properties: {
+    sessionID: string
+    info: Message
+  }
+}
+
 export type EventPtyCreated = {
   type: "pty.created"
   properties: {
@@ -765,10 +781,10 @@ export type EventPtyCreated = {
   }
 }
 
-export type EventPtyUpdated = {
-  type: "pty.updated"
+export type EventPtyDeleted = {
+  type: "pty.deleted"
   properties: {
-    info: Pty
+    id: string
   }
 }
 
@@ -780,10 +796,17 @@ export type EventPtyExited = {
   }
 }
 
-export type EventPtyDeleted = {
-  type: "pty.deleted"
+export type EventPtyUpdated = {
+  type: "pty.updated"
   properties: {
-    id: string
+    info: Pty
+  }
+}
+
+export type EventWorktreeFailed = {
+  type: "worktree.failed"
+  properties: {
+    message: string
   }
 }
 
@@ -792,13 +815,6 @@ export type EventWorktreeReady = {
   properties: {
     name: string
     branch: string
-  }
-}
-
-export type EventWorktreeFailed = {
-  type: "worktree.failed"
-  properties: {
-    message: string
   }
 }
 
@@ -886,22 +902,6 @@ export type AssistantMessage = {
 }
 
 export type Message = UserMessage | AssistantMessage
-
-export type EventMessageUpdated = {
-  type: "message.updated"
-  properties: {
-    sessionID: string
-    info: Message
-  }
-}
-
-export type EventMessageRemoved = {
-  type: "message.removed"
-  properties: {
-    sessionID: string
-    messageID: string
-  }
-}
 
 export type TextPart = {
   id: string
@@ -1165,21 +1165,21 @@ export type Part =
   | RetryPart
   | CompactionPart
 
-export type EventMessagePartUpdated = {
-  type: "message.part.updated"
-  properties: {
-    sessionID: string
-    part: Part
-    time: number
-  }
-}
-
 export type EventMessagePartRemoved = {
   type: "message.part.removed"
   properties: {
     sessionID: string
     messageID: string
     partID: string
+  }
+}
+
+export type EventMessagePartUpdated = {
+  type: "message.part.updated"
+  properties: {
+    sessionID: string
+    part: Part
+    time: number
   }
 }
 
@@ -1235,16 +1235,16 @@ export type EventSessionCreated = {
   }
 }
 
-export type EventSessionUpdated = {
-  type: "session.updated"
+export type EventSessionDeleted = {
+  type: "session.deleted"
   properties: {
     sessionID: string
     info: Session
   }
 }
 
-export type EventSessionDeleted = {
-  type: "session.deleted"
+export type EventSessionUpdated = {
+  type: "session.updated"
   properties: {
     sessionID: string
     info: Session
