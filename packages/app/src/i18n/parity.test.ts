@@ -55,6 +55,11 @@ const AUDITED_SCOPE_PREFIXES = [
   "dialog.debate.",
   "dialog.model.",
   "provider.",
+  // TEAM-M05. Added to the audited scope rather than left to the weaker
+  // "the key exists" rule: an English string sitting in ru.ts satisfies that
+  // rule and still ships English to a Russian reader, which is the silent gap
+  // the 2026-07-17 audit was about.
+  "team.",
 ]
 
 // Legitimately identical across en/fr/zh: technical acronyms, proper nouns,
@@ -124,6 +129,10 @@ const TECHNICAL_ALLOWLIST = new Set([
   "settings.fork.plugins.serverNamePlaceholder",
   "settings.fork.plugins.commandPlaceholderExample",
   "settings.fork.plugins.urlPlaceholderExample",
+  // "Model" is spelled identically in bs, da, pl and tr. A genuine cognate,
+  // not an untranslated string — every other team.* key is translated in all
+  // sixteen locales.
+  "team.selector.title",
 ])
 
 // Recursively collect every language.t("literal.key") call from the

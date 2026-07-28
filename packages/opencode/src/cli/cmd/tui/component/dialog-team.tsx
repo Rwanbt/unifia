@@ -15,8 +15,10 @@
 // =============================================================================
 
 import { TextAttributes } from "@opentui/core"
-import { createMemo, createResource, createSignal, For, Show } from "solid-js"
+import { useKeyboard } from "@opentui/solid"
+import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
+import { moveCursor, navigationKey, reconcileCursor } from "../util/team-keyboard"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
 import { Spinner } from "./spinner"
@@ -53,6 +55,7 @@ export function DialogTeam() {
   const sdk = useSDK()
 
   const [selected, setSelected] = createSignal<string | undefined>(undefined)
+  const [cursor, setCursor] = createSignal(0)
 
   const [runs] = createResource(async () => {
     const response = await sdk.client.team.listRuns({ limit: RUN_PAGE_SIZE })
@@ -75,6 +78,26 @@ export function DialogTeam() {
       tasks: ((tasks.data as { items: TaskRow[] } | undefined)?.items ?? []) as TaskRow[],
       gates: ((gates.data as { items: GateRow[] } | undefined)?.items ?? []) as GateRow[],
     }
+  })
+
+  const runList = createMemo(() => runs()?.items ?? [])
+
+  // Pages arrive while the reader is moving through the list. Growing it must
+  // not move the cursor; shrinking it must not leave the cursor past the end.
+  createEffect(() => setCursor((index) => reconcileCursor({ index, count: runList().length })))
+
+  useKeyboard((event) => {
+    const key = navigationKey(event)
+    if (key === "none") return
+    if (key === "clear") {
+      setSelected(undefined)
+      return
+    }
+    if (key === "select") {
+      setSelected(runList()[cursor()]?.runId)
+      return
+    }
+    setCursor((index) => moveCursor({ index, count: runList().length, key }))
   })
 
   const nodes = createMemo<TaskNode[]>(() =>
@@ -111,17 +134,23 @@ export function DialogTeam() {
           when={!runs.error}
           fallback={<text fg={theme.error}>Could not reach the server; no runs could be listed.</text>}
         >
-          <Show when={(runs()?.items.length ?? 0) > 0} fallback={<text fg={theme.textMuted}>No runs recorded yet.</text>}>
+          <Show when={runList().length > 0} fallback={<text fg={theme.textMuted}>No runs recorded yet.</text>}>
             <box>
-              <For each={runs()?.items ?? []}>
-                {(run) => (
+              <For each={runList()}>
+                {(run, index) => (
                   <box flexDirection="row" gap={1} onMouseUp={() => setSelected(run.runId)}>
+                    {/* The cursor is drawn, not just tracked: without a marker
+                        the arrow keys move something invisible. */}
+                    <text flexShrink={0} fg={theme.textMuted}>
+                      {cursor() === index() ? "›" : " "}
+                    </text>
                     <text fg={selected() === run.runId ? theme.text : theme.textMuted}>{run.runId}</text>
                     <text fg={theme.textMuted}>{run.status}</text>
                   </box>
                 )}
               </For>
             </box>
+            <text fg={theme.textMuted}>↑↓ move · enter select · esc clear</text>
             {/* Shown only when the server said there is more, so the end of the
                 list is distinguishable from the end of the page. */}
             <Show when={runs()?.nextCursor !== null}>
