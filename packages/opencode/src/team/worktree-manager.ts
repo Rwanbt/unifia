@@ -46,7 +46,7 @@ import {
 } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import { claim, getDb, heartbeat, release, validate, type LeaseSpec } from "./lock-manager";
+import { claim, getDb, release, validate } from "./lock-manager";
 import { verifyScope, type DiffEntry, type ScopeManifest } from "./scope-monitor";
 
 // --------------------------------------------------------------------------------------
@@ -468,10 +468,16 @@ export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<
   if (!opts.lease_id || !opts.worker_id) {
     return ko("INVALID_INPUT", "missing required field");
   }
-  // Look up lease to find the worktree path.
-  const valid = validate(opts.lease_id, /* expected_fencing_token */ 0);
-  // Note: validate with token=0 is a soft check; we re-fetch by lease_id below.
-  // We rely on release() to enforce status/worker checks.
+  // Called for its side effect, not its verdict: validate() runs sweepExpired()
+  // and is the only thing that does so on this path — release() does not sweep.
+  // Dropping the call would leave an expired lease unswept, so release() below
+  // would see it as still CLAIMED.
+  //
+  // The verdict itself is deliberately ignored. Enforcement of status and
+  // ownership belongs to release(), which does it atomically inside a
+  // transaction; checking here as well would be a second, racier answer to the
+  // same question. Token 0 is passed because the caller does not hold one.
+  validate(opts.lease_id, /* expected_fencing_token */ 0);
 
   // Pre-check dirtiness if we'll remove.
   if (opts.remove_worktree) {

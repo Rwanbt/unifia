@@ -15,7 +15,7 @@
  * filesystem perspective (we do not block-lock the FS; we only read).
  */
 
-import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { join, sep } from "node:path";
 
 export type SymlinkPolicy = "REJECT" | "ALLOW_FORBIDDEN" | "ALLOW_ALLOWED";
@@ -101,13 +101,6 @@ export function matchPattern(fileRelPath: string, pattern: string): boolean {
   const pathSegs = fileRelPath.split("/");
   const patSegs = pattern.split("/");
   return matchGlobSegments(pathSegs, 0, patSegs, 0);
-}
-
-function globToRegex(pattern: string): RegExp {
-  // We do not actually use a single regex; we delegate to a recursive matcher
-  // that handles ** vs * correctly. This function is kept for symmetry with
-  // the public API but is a no-op fallback.
-  return new RegExp("^" + escapeRegex(pattern) + "$");
 }
 
 function escapeRegex(s: string): string {
@@ -288,7 +281,6 @@ export function verifyScope(
             path: p,
             message: `case collision: ${p} shares with ${collisions.join(",")}`,
           });
-          continue;
         }
       }
     }

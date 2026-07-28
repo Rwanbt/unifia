@@ -16,8 +16,8 @@
  * Git-native falsifiable monotone chain independent of SQLite.
  */
 
-import { Database } from "bun:sqlite";
-import { spawnSync, execFileSync } from "node:child_process";
+import type { Database } from "bun:sqlite";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -96,20 +96,12 @@ export function persistGitRef(
 
     // Wrap the blob into a tree via git mktree so commit-tree accepts it.
     const treeInput = `100644 blob ${blobSha}\tfence\n`;
-    const mktreeInputPath = join(tmpDir, "tree-input");
-    writeFileSync(mktreeInputPath, treeInput);
     const tree = spawnSync(gitBin, ["mktree"], {
       cwd,
       encoding: "utf-8",
       input: treeInput,
     });
     if (tree.status !== 0 || !tree.stdout) {
-      // Fallback: use stdin
-      const treeStdin = spawnSync(gitBin, ["mktree"], {
-        cwd,
-        encoding: "utf-8",
-      });
-      // Above won't work without input; let's rely on the explicit input above.
       return { ok: false, ref, sha: "", message: `git mktree failed: ${tree.stderr}` };
     }
     const treeSha = tree.stdout.trim();
