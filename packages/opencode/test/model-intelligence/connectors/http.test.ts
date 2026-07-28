@@ -591,13 +591,27 @@ describe("HttpConnector — offline mode", () => {
     // Corrupt the file on disk + clear in-memory cache so disk is read again
     const filePath = path.join(tmpRoot, "test-http-connector", "discover.json")
     const onDisk = JSON.parse(await fs.readFile(filePath, "utf-8"))
-    onDisk.raw = "tampered"
+    onDisk.hash = "0".repeat(64)
     await fs.writeFile(filePath, JSON.stringify(onDisk), "utf-8")
-    snapManager.invalidate("test-http-connector", "discover")
 
+    // Use a fresh manager so the corrupted file is re-read from disk.
+    // invalidate() intentionally removes the file and is therefore not a
+    // cache-corruption test helper.
+    const freshConnector = new HttpConnector({
+      id: "test-http-connector",
+      sourceURL: SOURCE_URL,
+      parserVersion: "1.0.0",
+      licenseCode: "MIT",
+      copyrightNotice: "Copyright (c) 2025 Test",
+      licenseFileURL: "https://example.test/LICENSE",
+      confidenceLevel: "official",
+      fetchImpl: async (input, init) => mock.fetchImpl(input, init),
+      snapshotManager: new SnapshotManager({ rootDir: tmpRoot }),
+      deterministic: false,
+    })
     let captured: ConnectorOperationError | null = null
     try {
-      await connector.discover({ offline: true })
+      await freshConnector.discover({ offline: true })
     } catch (e) {
       captured = e as ConnectorOperationError
     }
