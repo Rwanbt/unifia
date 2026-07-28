@@ -1,4 +1,5 @@
 import { Tool } from "./tool"
+import DESCRIPTION from "./team.txt"
 import z from "zod"
 import { Session } from "../session"
 import { type SessionID, MessageID } from "../session/schema"
@@ -14,6 +15,7 @@ import { Workspace } from "../control-plane/workspace"
 import { Database, eq } from "../storage/db"
 import { SessionTable } from "../session/session.sql"
 import { computeWaves } from "./team-waves"
+import { defer } from "@/util/defer"
 
 const log = Log.create({ service: "team" })
 
@@ -47,10 +49,6 @@ const parameters = z.object({
     .optional(),
 })
 
-function _sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
-}
-
 /** Get total cost of a session's messages. */
 async function getSessionCost(sessionID: SessionID): Promise<number> {
   const messages = await Session.messages({ sessionID })
@@ -74,16 +72,11 @@ async function getSessionTokens(sessionID: SessionID): Promise<number> {
 
 export const TeamTool = Tool.define("team", async (_ctx) => {
   return {
-    description: [
-      "Launch a coordinated team of agents to accomplish a complex task.",
-      "Each sub-task runs in an isolated background worktree.",
-      "Tasks can depend on each other and execute in waves.",
-      "Use this for tasks that benefit from parallel research and implementation.",
-    ].join(" "),
+    description: DESCRIPTION,
     parameters,
     async execute(params: z.infer<typeof parameters>, ctx) {
       const config = await Config.get()
-      const _maxParallel = params.budget?.max_agents ?? MAX_TEAM_TASKS
+      const maxParallel = params.budget?.max_agents ?? MAX_TEAM_TASKS
       const maxCost = params.budget?.max_cost
       const maxTokens = params.budget?.max_tokens
 
@@ -102,6 +95,12 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
           }
         }
       }
+
+      // Resolved once, before anything is launched. Reading it per task would
+      // let a failure here throw with child sessions already running, which
+      // nothing would then cancel.
+      const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
+      if (msg.info.role !== "assistant") throw new Error("Team tool must be called from an assistant message")
 
       // Compute wave ordering
       const waves = computeWaves(params.tasks)
@@ -126,8 +125,19 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
       let totalCost = 0
       let totalTokens = 0
 
+      // Cancellation has to reach the children: they run in their own
+      // worktrees and would otherwise keep working — and keep spending —
+      // after the caller has walked away.
+      const launched = new Set<SessionID>()
+      function cancelLaunched() {
+        for (const sessionID of launched) SessionPrompt.cancel(sessionID)
+      }
+      ctx.abort.addEventListener("abort", cancelLaunched)
+      using _cancellation = defer(() => ctx.abort.removeEventListener("abort", cancelLaunched))
+
       // Execute waves sequentially, tasks within each wave in parallel
       for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
+        if (ctx.abort.aborted) break
         const wave = waves[waveIdx]
 
         // Budget check before starting wave
@@ -146,10 +156,12 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
           .map((t) => `[Task "${t.description}" (${t.agent})]: ${t.result}`)
           .join("\n\n")
 
-        // Launch all tasks in this wave
+        // Launch this wave's tasks, at most `max_agents` at a time.
         const wavePromises: Promise<void>[] = []
+        let inFlight: Promise<void>[] = []
 
         for (const taskIdx of wave) {
+          if (ctx.abort.aborted) break
           const taskDef = params.tasks[taskIdx]
           const agent = await Agent.get(taskDef.agent)
           if (!agent) continue
@@ -167,6 +179,10 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
               ...(config.experimental?.primary_tools?.map((t) => ({ pattern: "*", action: "allow" as const, permission: t })) ?? []),
             ],
           })
+
+          // Registered before the worktree and prompt are set up: an abort
+          // arriving during that setup must still reach this session.
+          launched.add(session.id)
 
           const taskEntry: TaskRecord = {
             index: taskIdx,
@@ -206,8 +222,6 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
             ? `## Context from prior tasks\n\n${completedContext}\n\n## Your task\n\n${taskDef.prompt}`
             : taskDef.prompt
 
-          const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
-          if (msg.info.role !== "assistant") throw new Error("Team tool must be called from an assistant message")
           const model = agent.model ?? {
             modelID: msg.info.modelID,
             providerID: msg.info.providerID,
@@ -246,8 +260,12 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
             .then(async (result) => {
               try {
                 const text = result.parts.findLast((x) => x.type === "text")?.text ?? ""
-                taskEntry.status = "completed"
-                taskEntry.result = text.slice(0, 500)
+                // A task that produced nothing while the run was being
+                // cancelled did not complete. Calling it completed is exactly
+                // how a cancelled run reads as a finished one.
+                const cutShort = ctx.abort.aborted && text.length === 0
+                taskEntry.status = cutShort ? "cancelled" : "completed"
+                taskEntry.result = cutShort ? "cancelled before producing output" : text.slice(0, 500)
                 taskEntry.cost = await getSessionCost(session.id)
                 taskEntry.tokens = await getSessionTokens(session.id)
                 await SessionStatus.set(session.id, { type: "completed", result: text.slice(0, 500) })
@@ -273,7 +291,9 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
             .catch(async (err) => {
               try {
                 const errorMsg = err instanceof Error ? err.message : String(err)
-                taskEntry.status = "failed"
+                // Cancelling the run makes the child's prompt reject. Calling
+                // that a failure would blame the task for the user's decision.
+                taskEntry.status = ctx.abort.aborted ? "cancelled" : "failed"
                 taskEntry.result = errorMsg
                 taskEntry.cost = await getSessionCost(session.id).catch(() => 0)
                 await SessionStatus.set(session.id, { type: "failed", error: errorMsg })
@@ -284,6 +304,11 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
             })
 
           wavePromises.push(taskPromise)
+          inFlight.push(taskPromise)
+          if (inFlight.length >= maxParallel) {
+            await Promise.all(inFlight)
+            inFlight = []
+          }
         }
 
         // Wait for all tasks in this wave to complete
@@ -319,14 +344,33 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
       // Build output summary
       const completed = taskSessions.filter((t) => t.status === "completed")
       const failed = taskSessions.filter((t) => t.status === "failed")
+      const cancelled = taskSessions.filter((t) => t.status === "cancelled")
+
+      // A task the run never reached — cancelled, or cut off by a budget
+      // limit — must appear in the report. Dropping it silently is how a
+      // partial run gets read as a complete one.
+      const startedIndices = new Set(taskSessions.map((t) => t.index))
+      const neverStarted = params.tasks
+        .map((task, index) => ({ index, description: task.description, agent: task.agent }))
+        .filter((task) => !startedIndices.has(task.index))
 
       const output = [
         `## Team Run: ${params.description}`,
         "",
-        `**${completed.length}/${taskSessions.length} tasks completed** | Total cost: $${totalCost.toFixed(4)} | Total tokens: ${totalTokens.toLocaleString()}`,
+        `**${completed.length}/${params.tasks.length} tasks completed** | Total cost: $${totalCost.toFixed(4)} | Total tokens: ${totalTokens.toLocaleString()}`,
+        ...(failed.length ? [`failed: ${failed.length}`] : []),
+        ...(cancelled.length ? [`cancelled: ${cancelled.length}`] : []),
+        ...(neverStarted.length ? [`never started: ${neverStarted.length}`] : []),
         "",
         ...taskSessions.map((t) => {
-          const icon = t.status === "completed" ? "[OK]" : t.status === "failed" ? "[FAIL]" : "[?]"
+          const icon =
+            t.status === "completed"
+              ? "[OK]"
+              : t.status === "failed"
+                ? "[FAIL]"
+                : t.status === "cancelled"
+                  ? "[CANCELLED]"
+                  : "[?]"
           return [
             `### ${icon} ${t.description} (@${t.agent})`,
             `task_id: ${t.sessionID}`,
@@ -335,14 +379,21 @@ export const TeamTool = Tool.define("team", async (_ctx) => {
             "",
           ].join("\n")
         }),
+        ...neverStarted.map((t) =>
+          [`### [NOT STARTED] ${t.description} (@${t.agent})`, "", "(the run ended before this task was launched)", ""].join(
+            "\n",
+          ),
+        ),
       ].join("\n")
 
       return {
         title: `Team: ${params.description}`,
         metadata: {
-          teamSize: taskSessions.length,
+          teamSize: params.tasks.length,
           completed: completed.length,
           failed: failed.length,
+          cancelled: cancelled.length,
+          neverStarted: neverStarted.length,
           totalCost,
           totalTokens,
         },

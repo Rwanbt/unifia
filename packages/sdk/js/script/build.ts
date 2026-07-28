@@ -6,10 +6,10 @@ process.chdir(dir)
 
 import { $ } from "bun"
 import path from "path"
-
 import { createClient } from "@hey-api/openapi-ts"
+import { generateOpenApi } from "./openapi"
 
-await $`bun run dev generate > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../opencode"))
+await generateOpenApi(path.join(dir, "openapi.json"))
 
 await createClient({
   input: "./openapi.json",

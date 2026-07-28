@@ -1,0 +1,11 @@
+card_id: TEAM-G04
+base_sha: 7b5537948e
+scope_mode: E2_REQUIRED
+allowed_files:
+  - packages/opencode/src/team/rollback-manager.ts
+  - packages/opencode/test/team/rollback-manager.test.ts
+  - packages/opencode/docs/team/scope-manifest/TEAM-G04.yaml
+protected_files:
+  - main
+  - dev
+  - opti-ui

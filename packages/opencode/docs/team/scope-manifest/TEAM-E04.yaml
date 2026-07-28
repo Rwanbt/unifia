@@ -1,0 +1,15 @@
+card_id: TEAM-E04
+base_sha: 4292e63e1c4f29b9590130c2d10741aa54954c5a
+scope_mode: E2_REQUIRED
+allowed_files:
+  - packages/opencode/src/team/plan-repair.ts
+  - packages/opencode/src/team/prompts/plan-repair.txt
+  - packages/opencode/docs/team/scope-manifest/TEAM-E04.yaml
+protected_files:
+  - packages/opencode/src/team/types.ts
+  - packages/opencode/src/team/task-planner.ts
+  - packages/opencode/src/team/graph-validator.ts
+  - packages/opencode/src/team/intake.ts
+  - main
+  - dev
+  - opti-ui
