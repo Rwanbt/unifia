@@ -26,7 +26,7 @@
 // =============================================================================
 
 import { Hono, type Context } from "hono"
-import { describeRoute, resolver } from "hono-openapi"
+import { describeRoute, resolver, validator } from "hono-openapi"
 import path from "node:path"
 import z from "zod"
 import { Global } from "../../global"
@@ -40,6 +40,7 @@ import {
   type PageOf,
 } from "../../team/team-store"
 import { TEAM_STORE_SCHEMA_VERSION } from "../../team/team-store.sql"
+import { invalidQuery, rejectUnknownQuery } from "./query"
 
 const log = Log.create({ service: "server.team" })
 
@@ -136,24 +137,33 @@ function redact(value: unknown): unknown {
   }
 }
 
-/** Query params a route accepts. Anything else is a client bug worth surfacing. */
-function rejectUnknownQuery(url: string, allowed: readonly string[]): string | null {
-  const params = new URL(url).searchParams
-  for (const key of params.keys()) {
-    // `directory` is added by the instance middleware on every request.
-    if (key === "directory" || allowed.includes(key)) continue
-    return `unknown query parameter: ${key}`
-  }
-  return null
-}
+/**
+ * The pagination contract, declared rather than read ad hoc from the request.
+ *
+ * Going through `validator` is what puts `limit` and `cursor` into the OpenAPI
+ * document, and through it into the generated SDK. Parsing them by hand from
+ * `c.req.query()` works at runtime and is invisible to codegen: the SDK method
+ * ends up with no way to express a page, so every client silently reads the
+ * first one and calls it the whole list.
+ */
+const PageQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(TEAM_STORE_MAX_PAGE_SIZE).optional(),
+  cursor: z.string().min(1).optional(),
+})
 
-function parseLimit(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined
-  const limit = Number(raw)
-  if (!Number.isInteger(limit) || limit <= 0 || limit > TEAM_STORE_MAX_PAGE_SIZE) {
-    throw new TypeError(`limit must be an integer between 1 and ${TEAM_STORE_MAX_PAGE_SIZE}`)
-  }
-  return limit
+/**
+ * Read a path parameter the router has already guaranteed.
+ *
+ * `c.req.param()` loses its literal-path typing as soon as a validator sits in
+ * the middleware chain, so the compiler stops knowing that `:runID` is always
+ * present. The route cannot match without it, but this checks rather than
+ * casts: if that ever stops holding, the request fails loudly instead of
+ * reaching SQLite with `undefined` and returning "no such run".
+ */
+function pathParam(c: Context, name: string): string {
+  const value = c.req.param(name)
+  if (value === undefined) throw new TypeError(`missing path parameter: ${name}`)
+  return value
 }
 
 function paged<T>(result: PageOf<T>, map: (item: T) => unknown) {
@@ -180,14 +190,13 @@ export const TeamRoutes = lazy(() =>
           400: { description: "Bad cursor, limit or query parameter", content: { "application/json": { schema: resolver(ErrorSchema) } } },
         },
       }),
+      validator("query", PageQuerySchema, invalidQuery),
       async (c) => {
         const unknown = rejectUnknownQuery(c.req.url, ["limit", "cursor"])
         if (unknown) return c.json({ error: unknown }, 400)
+        const query = c.req.valid("query")
         try {
-          const result = teamStore().listRuns({
-            limit: parseLimit(c.req.query("limit")),
-            cursor: c.req.query("cursor") ?? null,
-          })
+          const result = teamStore().listRuns({ limit: query.limit, cursor: query.cursor ?? null })
           return c.json(paged(result, (run) => run))
         } catch (e) {
           return badRequestOr500(c, e, "list runs failed")
@@ -250,16 +259,15 @@ export const TeamRoutes = lazy(() =>
           404: { description: "No such run", content: { "application/json": { schema: resolver(ErrorSchema) } } },
         },
       }),
+      validator("query", PageQuerySchema, invalidQuery),
       async (c) => {
         const unknown = rejectUnknownQuery(c.req.url, ["limit", "cursor"])
         if (unknown) return c.json({ error: unknown }, 400)
-        const runID = c.req.param("runID")
+        const runID = pathParam(c, "runID")
         if (teamStore().getRun(runID) === null) return c.json({ error: `run ${runID} not found` }, 404)
+        const query = c.req.valid("query")
         try {
-          const result = teamStore().listEvents(runID, {
-            limit: parseLimit(c.req.query("limit")),
-            cursor: c.req.query("cursor") ?? null,
-          })
+          const result = teamStore().listEvents(runID, { limit: query.limit, cursor: query.cursor ?? null })
           return c.json(paged(result, (event) => ({ ...event, payload: redact(event.payload) })))
         } catch (e) {
           return badRequestOr500(c, e, "list events failed")

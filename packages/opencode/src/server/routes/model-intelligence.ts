@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { Hono, type Context } from "hono"
-import { describeRoute, resolver } from "hono-openapi"
+import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { Effect } from "effect"
 import { lazy } from "../../util/lazy"
@@ -31,6 +31,7 @@ import { Registry, LiveRegistryLayer, type ModelFilter } from "../../model-intel
 import { RegistryNotInitializedError } from "../../model-intelligence/errors"
 import { Model, Provider } from "../../model-intelligence/schema"
 import { SCHEMA_VERSION } from "../../model-intelligence/schema-version"
+import { invalidQuery, rejectUnknownQuery } from "./query"
 
 const log = Log.create({ service: "server.model-intelligence" })
 
@@ -48,10 +49,6 @@ const PageSchema = z.object({
   total: z.number(),
 })
 
-/** Query params each route accepts; anything else is answered with 400. */
-const MODEL_QUERY = ["providerID", "status", "lifecycleStage", "modality", "limit", "cursor"] as const
-const PROVIDER_QUERY = ["status", "limit", "cursor"] as const
-
 // Derived from the registry schema, never re-typed here. A hand-written copy
 // drifts the moment a status is added, and the drift shows up as a 400 on a
 // value the registry considers perfectly valid.
@@ -59,42 +56,37 @@ const MODEL_STATUS = Model.shape.status.options
 const PROVIDER_STATUS = Provider.shape.status.options
 const MODALITY = ["text", "audio", "image", "video", "pdf"] as const
 
-function rejectUnknownQuery(url: string, allowed: readonly string[]): string | null {
-  const params = new URL(url).searchParams
-  for (const key of params.keys()) {
-    if (key === "directory" || allowed.includes(key)) continue
-    return `unknown query parameter: ${key}`
-  }
-  return null
-}
-
 /**
- * A filter value the registry does not know is rejected, not dropped.
+ * Paging shared by both list routes.
  *
- * Silently ignoring `status=availabel` returns the full list and the caller
- * reads it as "every model is available" — the exact opposite of what they
- * asked.
+ * Declared through `validator` rather than parsed from `c.req.query()` so the
+ * parameters reach the OpenAPI document and the generated SDK. A hand-parsed
+ * parameter is invisible to codegen, and an SDK that cannot express a page
+ * leaves every consumer reading the first one as if it were the whole list.
  */
-function rejectUnknownValue(value: string | undefined, allowed: readonly string[], name: string): string | null {
-  if (value === undefined) return null
-  return allowed.includes(value) ? null : `unknown ${name}: ${value} (expected one of ${allowed.join(", ")})`
+const PageQuery = {
+  limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+  cursor: z.coerce.number().int().min(0).default(0),
 }
 
-function parseLimit(raw: string | undefined): number {
-  if (raw === undefined) return DEFAULT_PAGE_SIZE
-  const limit = Number(raw)
-  if (!Number.isInteger(limit) || limit <= 0 || limit > MAX_PAGE_SIZE) {
-    throw new TypeError(`limit must be an integer between 1 and ${MAX_PAGE_SIZE}`)
-  }
-  return limit
-}
+// The enums are carried in the schema, not checked afterwards, so that the SDK
+// receives them as a union: a consumer gets `status: "active" | ...` from the
+// type system instead of discovering the valid set from a 400.
+const ModelQuerySchema = z.object({
+  ...PageQuery,
+  providerID: z.string().min(1).optional(),
+  status: z.enum(MODEL_STATUS).optional(),
+  lifecycleStage: z.string().min(1).optional(),
+  modality: z.enum(MODALITY).optional(),
+})
 
-function parseCursor(raw: string | undefined): number {
-  if (raw === undefined) return 0
-  const offset = Number(raw)
-  if (!Number.isSafeInteger(offset) || offset < 0) throw new TypeError(`cursor must be a non-negative integer, got ${raw}`)
-  return offset
-}
+const ProviderQuerySchema = z.object({
+  ...PageQuery,
+  status: z.enum(PROVIDER_STATUS).optional(),
+})
+
+const MODEL_QUERY = Object.keys(ModelQuerySchema.shape)
+const PROVIDER_QUERY = Object.keys(ProviderQuerySchema.shape)
 
 /**
  * Slice an in-memory list into a page.
@@ -142,27 +134,20 @@ export const ModelIntelligenceRoutes = lazy(() =>
           503: { description: "Registry not loaded", content: { "application/json": { schema: resolver(ErrorSchema) } } },
         },
       }),
+      validator("query", ModelQuerySchema, invalidQuery),
       async (c) => {
-        const unknown =
-          rejectUnknownQuery(c.req.url, MODEL_QUERY) ??
-          rejectUnknownValue(c.req.query("status"), MODEL_STATUS, "status") ??
-          rejectUnknownValue(c.req.query("modality"), MODALITY, "modality")
+        const unknown = rejectUnknownQuery(c.req.url, MODEL_QUERY)
         if (unknown) return c.json({ error: unknown }, 400)
+        const query = c.req.valid("query")
         try {
-          const limit = parseLimit(c.req.query("limit"))
-          const offset = parseCursor(c.req.query("cursor"))
           const filter: ModelFilter = {}
-          const providerID = c.req.query("providerID")
-          if (providerID) filter.providerID = providerID
-          const status = c.req.query("status")
-          if (status) filter.status = status as NonNullable<ModelFilter["status"]>
-          const lifecycleStage = c.req.query("lifecycleStage")
-          if (lifecycleStage) filter.lifecycleStage = lifecycleStage as NonNullable<ModelFilter["lifecycleStage"]>
-          const modality = c.req.query("modality")
-          if (modality) filter.modality = modality as NonNullable<ModelFilter["modality"]>
+          if (query.providerID) filter.providerID = query.providerID
+          if (query.status) filter.status = query.status
+          if (query.lifecycleStage) filter.lifecycleStage = query.lifecycleStage as NonNullable<ModelFilter["lifecycleStage"]>
+          if (query.modality) filter.modality = query.modality
 
           const models = await runPromise((svc) => svc.listModels(filter))
-          return c.json(page(models, offset, limit))
+          return c.json(page(models, query.cursor, query.limit))
         } catch (e) {
           return registryError(c, e, "list models failed")
         }
@@ -180,17 +165,14 @@ export const ModelIntelligenceRoutes = lazy(() =>
           503: { description: "Registry not loaded", content: { "application/json": { schema: resolver(ErrorSchema) } } },
         },
       }),
+      validator("query", ProviderQuerySchema, invalidQuery),
       async (c) => {
-        const unknown =
-          rejectUnknownQuery(c.req.url, PROVIDER_QUERY) ??
-          rejectUnknownValue(c.req.query("status"), PROVIDER_STATUS, "provider status")
+        const unknown = rejectUnknownQuery(c.req.url, PROVIDER_QUERY)
         if (unknown) return c.json({ error: unknown }, 400)
+        const query = c.req.valid("query")
         try {
-          const limit = parseLimit(c.req.query("limit"))
-          const offset = parseCursor(c.req.query("cursor"))
-          const status = c.req.query("status")
-          const providers = await runPromise((svc) => svc.listProviders(status ? { status: status as never } : undefined))
-          return c.json(page(providers, offset, limit))
+          const providers = await runPromise((svc) => svc.listProviders(query.status ? { status: query.status } : undefined))
+          return c.json(page(providers, query.cursor, query.limit))
         } catch (e) {
           return registryError(c, e, "list providers failed")
         }

@@ -6188,6 +6188,8 @@ export type TeamListRunsData = {
   query?: {
     directory?: string
     workspace?: string
+    limit?: number
+    cursor?: string
   }
   url: "/team/runs"
 }
@@ -6314,6 +6316,8 @@ export type TeamListEventsData = {
   query?: {
     directory?: string
     workspace?: string
+    limit?: number
+    cursor?: string
   }
   url: "/team/runs/{runID}/events"
 }
@@ -6404,6 +6408,12 @@ export type ModelIntelligenceListModelsData = {
   query?: {
     directory?: string
     workspace?: string
+    limit?: number
+    cursor?: number
+    providerID?: string
+    status?: "alpha" | "beta" | "active" | "deprecated" | "quarantined"
+    lifecycleStage?: string
+    modality?: "text" | "audio" | "image" | "video" | "pdf"
   }
   url: "/model-intelligence/models"
 }
@@ -6447,6 +6457,9 @@ export type ModelIntelligenceListProvidersData = {
   query?: {
     directory?: string
     workspace?: string
+    limit?: number
+    cursor?: number
+    status?: "active" | "deprecated" | "experimental"
   }
   url: "/model-intelligence/providers"
 }

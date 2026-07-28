@@ -4165,6 +4165,8 @@ export class Team extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
+      limit?: number
+      cursor?: string
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4175,6 +4177,8 @@ export class Team extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
           ],
         },
       ],
@@ -4260,6 +4264,8 @@ export class Team extends HeyApiClient {
       runID: string
       directory?: string
       workspace?: string
+      limit?: number
+      cursor?: string
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4271,6 +4277,8 @@ export class Team extends HeyApiClient {
             { in: "path", key: "runID" },
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
           ],
         },
       ],
@@ -4325,6 +4333,12 @@ export class ModelIntelligence extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
+      limit?: number
+      cursor?: number
+      providerID?: string
+      status?: "alpha" | "beta" | "active" | "deprecated" | "quarantined"
+      lifecycleStage?: string
+      modality?: "text" | "audio" | "image" | "video" | "pdf"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4335,6 +4349,12 @@ export class ModelIntelligence extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+            { in: "query", key: "providerID" },
+            { in: "query", key: "status" },
+            { in: "query", key: "lifecycleStage" },
+            { in: "query", key: "modality" },
           ],
         },
       ],
@@ -4359,6 +4379,9 @@ export class ModelIntelligence extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
+      limit?: number
+      cursor?: number
+      status?: "active" | "deprecated" | "experimental"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4369,6 +4392,9 @@ export class ModelIntelligence extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+            { in: "query", key: "status" },
           ],
         },
       ],
