@@ -1,5 +1,7 @@
 import { registerCustomTheme, type ThemeRegistrationResolved } from "@pierre/diffs"
 
+let openCodeThemeRegistered = false
+
 // WHY this lives here (not just in context/marked.tsx, where it originated):
 // the Shiki worker pool used for the read-only file viewer (worker.ts in this
 // same directory) resolves themes by NAME on the main thread before handing
@@ -14,6 +16,9 @@ import { registerCustomTheme, type ThemeRegistrationResolved } from "@pierre/dif
 // Calling this from worker.ts too guarantees registration happens before the
 // pool ever needs it, regardless of whether markdown has rendered.
 export function registerOpenCodeTheme() {
+  if (openCodeThemeRegistered) return
+  openCodeThemeRegistered = true
+
   registerCustomTheme("OpenCode", () => {
     return Promise.resolve({
       name: "OpenCode",
