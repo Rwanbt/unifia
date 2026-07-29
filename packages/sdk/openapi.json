@@ -18363,6 +18363,38 @@
           "type": "string"
         }
       },
+      "Event.vcs.branch.behind": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "vcs.branch.behind"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "branch": {
+                "type": "string"
+              },
+              "upstream": {
+                "type": "string"
+              },
+              "behind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "ahead": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["branch", "upstream", "behind", "ahead"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.workspace.failed": {
         "type": "object",
         "properties": {
@@ -18648,38 +18680,6 @@
                 ]
               }
             }
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.vcs.branch.behind": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "vcs.branch.behind"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "branch": {
-                "type": "string"
-              },
-              "upstream": {
-                "type": "string"
-              },
-              "behind": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "ahead": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": ["branch", "upstream", "behind", "ahead"]
           }
         },
         "required": ["type", "properties"]
