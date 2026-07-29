@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { moveCursor, navigationKey, reconcileCursor } from "../../../src/cli/cmd/tui/util/team-keyboard"
+import { lifecycleKey, moveCursor, navigationKey, reconcileCursor } from "../../../src/cli/cmd/tui/util/team-keyboard"
 
 // Coverage for the TEAM-M05 keyboard navigation of the Team dialog.
 //
@@ -41,6 +41,14 @@ describe("navigationKey — only unmodified keys move the cursor", () => {
   })
 })
 
+describe("lifecycleKey — active run controls", () => {
+  test("maps p/r/c and preserves modified application shortcuts", () => {
+    expect(lifecycleKey({ name: "p" })).toBe("pause")
+    expect(lifecycleKey({ name: "r" })).toBe("resume")
+    expect(lifecycleKey({ name: "c" })).toBe("cancel")
+    expect(lifecycleKey({ name: "c", ctrl: true })).toBe("none")
+  })
+})
 describe("moveCursor — clamps, never wraps", () => {
   test("moves within the list", () => {
     expect(moveCursor({ index: 1, count: 5, key: "down" })).toBe(2)

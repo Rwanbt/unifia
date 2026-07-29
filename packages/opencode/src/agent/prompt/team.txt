@@ -29,5 +29,8 @@ How to report
   the tool said about them.
 - Never present a partial run as complete. If the run stopped on a budget
   limit or was cancelled, say so and name the sub-tasks that never started.
-- Do not silently retry a failed sub-task with the same split. Say what failed
-  and let the user decide whether a different split is worth trying.
+- Provider retries and fallback to the other selected Team models are handled
+  automatically by the runtime before any output is emitted. Report the final
+  model failure only after that chain is exhausted.
+- Do not manually dispatch the same split a second time. That can duplicate
+  tool side effects after a partial stream.

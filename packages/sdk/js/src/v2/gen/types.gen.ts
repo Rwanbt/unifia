@@ -12,30 +12,6 @@ export type BadRequestError = {
   success: false
 }
 
-export type Project = {
-  id: string
-  worktree: string
-  vcs?: "git"
-  name?: string
-  icon?: {
-    url?: string
-    override?: string
-    color?: string
-  }
-  commands?: {
-    /**
-     * Startup script to run when creating a new workspace (worktree)
-     */
-    start?: string
-  }
-  time: {
-    created: number
-    updated: number
-    initialized?: number
-  }
-  sandboxes: Array<string>
-}
-
 export type EventCollectiveCanaryResult = {
   type: "collective.canary.result"
   properties: {
@@ -63,6 +39,16 @@ export type EventCollectiveConvergenceRound = {
   }
 }
 
+export type EventCollectiveCostUpdate = {
+  type: "collective.cost.update"
+  properties: {
+    debateID: string
+    spent: number
+    budget: number
+    percent: number
+  }
+}
+
 export type EventCollectiveDebateBudgetWarning = {
   type: "collective.debate.budget_warning"
   properties: {
@@ -70,6 +56,24 @@ export type EventCollectiveDebateBudgetWarning = {
     percentUsed: number
     tokensUsed: number
     tokenLimit: number
+  }
+}
+
+export type EventCollectiveDebateCompleted = {
+  type: "collective.debate.completed"
+  properties: {
+    debateID: string
+    blindSpotCount: number
+    cost: number
+    durationMs: number
+  }
+}
+
+export type EventCollectiveDebateFailed = {
+  type: "collective.debate.failed"
+  properties: {
+    debateID: string
+    error: string
   }
 }
 
@@ -95,6 +99,16 @@ export type EventCollectiveDebateStarted = {
     debateID: string
     tier: "free" | "quick" | "standard" | "deep"
     providers: Array<string>
+  }
+}
+
+export type EventCollectiveHalting = {
+  type: "collective.halting"
+  properties: {
+    debateID: string
+    reason: string
+    marginalGain: number
+    marginalCost: number
   }
 }
 
@@ -153,6 +167,35 @@ export type EventCollectiveProviderStarted = {
   }
 }
 
+export type EventCollectiveRedteamActivated = {
+  type: "collective.redteam.activated"
+  properties: {
+    debateID: string
+    reason: string
+  }
+}
+
+export type EventCollectiveShadowDivergence = {
+  type: "collective.shadow.divergence"
+  properties: {
+    sessionID: string
+    question: string
+    severity: "info" | "warning" | "critical"
+    shadowResponse: string
+    divergenceReason: string
+  }
+}
+
+export type EventCommandExecuted = {
+  type: "command.executed"
+  properties: {
+    name: string
+    sessionID: string
+    arguments: string
+    messageID: string
+  }
+}
+
 export type EventFileEdited = {
   type: "file.edited"
   properties: {
@@ -204,6 +247,21 @@ export type EventLspUpdated = {
   }
 }
 
+export type EventMcpBrowserOpenFailed = {
+  type: "mcp.browser.open.failed"
+  properties: {
+    mcpName: string
+    url: string
+  }
+}
+
+export type EventMcpToolsChanged = {
+  type: "mcp.tools.changed"
+  properties: {
+    server: string
+  }
+}
+
 export type EventMessagePartDelta = {
   type: "message.part.delta"
   properties: {
@@ -234,153 +292,6 @@ export type EventProjectUpdated = {
   properties: Project
 }
 
-export type EventServerConnected = {
-  type: "server.connected"
-  properties: {
-    [key: string]: unknown
-  }
-}
-
-export type EventServerInstanceDisposed = {
-  type: "server.instance.disposed"
-  properties: {
-    directory: string
-  }
-}
-
-export type PermissionRequest = {
-  id: string
-  sessionID: string
-  permission: string
-  patterns: Array<string>
-  metadata: {
-    [key: string]: unknown
-  }
-  always: Array<string>
-  tool?: {
-    messageID: string
-    callID: string
-  }
-}
-
-export type SessionStatus =
-  | {
-      type: "idle"
-    }
-  | {
-      type: "retry"
-      attempt: number
-      message: string
-      next: number
-    }
-  | {
-      type: "busy"
-    }
-  | {
-      type: "queued"
-    }
-  | {
-      type: "blocked"
-      reason?: string
-    }
-  | {
-      type: "awaiting_input"
-      question?: string
-    }
-  | {
-      type: "completed"
-      result?: string
-    }
-  | {
-      type: "failed"
-      error?: string
-    }
-  | {
-      type: "cancelled"
-    }
-
-export type EventCollectiveCostUpdate = {
-  type: "collective.cost.update"
-  properties: {
-    debateID: string
-    spent: number
-    budget: number
-    percent: number
-  }
-}
-
-export type EventCollectiveDebateCompleted = {
-  type: "collective.debate.completed"
-  properties: {
-    debateID: string
-    blindSpotCount: number
-    cost: number
-    durationMs: number
-  }
-}
-
-export type EventCollectiveDebateFailed = {
-  type: "collective.debate.failed"
-  properties: {
-    debateID: string
-    error: string
-  }
-}
-
-export type EventCollectiveHalting = {
-  type: "collective.halting"
-  properties: {
-    debateID: string
-    reason: string
-    marginalGain: number
-    marginalCost: number
-  }
-}
-
-export type EventCollectiveRedteamActivated = {
-  type: "collective.redteam.activated"
-  properties: {
-    debateID: string
-    reason: string
-  }
-}
-
-export type EventCollectiveShadowDivergence = {
-  type: "collective.shadow.divergence"
-  properties: {
-    sessionID: string
-    question: string
-    severity: "info" | "warning" | "critical"
-    shadowResponse: string
-    divergenceReason: string
-  }
-}
-
-export type EventCommandExecuted = {
-  type: "command.executed"
-  properties: {
-    name: string
-    sessionID: string
-    arguments: string
-    messageID: string
-  }
-}
-
-export type EventMcpBrowserOpenFailed = {
-  type: "mcp.browser.open.failed"
-  properties: {
-    mcpName: string
-    url: string
-  }
-}
-
-export type EventMcpToolsChanged = {
-  type: "mcp.tools.changed"
-  properties: {
-    server: string
-  }
-}
-
 export type EventQuestionAsked = {
   type: "question.asked"
   properties: QuestionRequest
@@ -400,6 +311,20 @@ export type EventQuestionReplied = {
     sessionID: string
     requestID: string
     answers: Array<QuestionAnswer>
+  }
+}
+
+export type EventServerConnected = {
+  type: "server.connected"
+  properties: {
+    [key: string]: unknown
+  }
+}
+
+export type EventServerInstanceDisposed = {
+  type: "server.instance.disposed"
+  properties: {
+    directory: string
   }
 }
 
@@ -506,55 +431,6 @@ export type EventTeamCompleted = {
   }
 }
 
-export type QuestionOption = {
-  /**
-   * Display text (1-5 words, concise)
-   */
-  label: string
-  /**
-   * Explanation of choice
-   */
-  description: string
-}
-
-export type QuestionInfo = {
-  /**
-   * Complete question
-   */
-  question: string
-  /**
-   * Very short label (max 30 chars)
-   */
-  header: string
-  /**
-   * Available choices
-   */
-  options: Array<QuestionOption>
-  /**
-   * Allow selecting multiple choices
-   */
-  multiple?: boolean
-  /**
-   * Allow typing a custom answer (default: true)
-   */
-  custom?: boolean
-}
-
-export type QuestionRequest = {
-  id: string
-  sessionID: string
-  /**
-   * Questions to ask
-   */
-  questions: Array<QuestionInfo>
-  tool?: {
-    messageID: string
-    callID: string
-  }
-}
-
-export type QuestionAnswer = Array<string>
-
 export type EventTodoUpdated = {
   type: "todo.updated"
   properties: {
@@ -617,15 +493,129 @@ export type EventTuiToastShow = {
   }
 }
 
-export type EventVcsBranchBehind = {
-  type: "vcs.branch.behind"
-  properties: {
-    branch: string
-    upstream: string
-    behind: number
-    ahead: number
+export type Project = {
+  id: string
+  worktree: string
+  vcs?: "git"
+  name?: string
+  icon?: {
+    url?: string
+    override?: string
+    color?: string
+  }
+  commands?: {
+    /**
+     * Startup script to run when creating a new workspace (worktree)
+     */
+    start?: string
+  }
+  time: {
+    created: number
+    updated: number
+    initialized?: number
+  }
+  sandboxes: Array<string>
+}
+
+export type PermissionRequest = {
+  id: string
+  sessionID: string
+  permission: string
+  patterns: Array<string>
+  metadata: {
+    [key: string]: unknown
+  }
+  always: Array<string>
+  tool?: {
+    messageID: string
+    callID: string
   }
 }
+
+export type SessionStatus =
+  | {
+      type: "idle"
+    }
+  | {
+      type: "retry"
+      attempt: number
+      message: string
+      next: number
+    }
+  | {
+      type: "busy"
+    }
+  | {
+      type: "queued"
+    }
+  | {
+      type: "blocked"
+      reason?: string
+    }
+  | {
+      type: "awaiting_input"
+      question?: string
+    }
+  | {
+      type: "completed"
+      result?: string
+    }
+  | {
+      type: "failed"
+      error?: string
+    }
+  | {
+      type: "cancelled"
+    }
+
+export type QuestionOption = {
+  /**
+   * Display text (1-5 words, concise)
+   */
+  label: string
+  /**
+   * Explanation of choice
+   */
+  description: string
+}
+
+export type QuestionInfo = {
+  /**
+   * Complete question
+   */
+  question: string
+  /**
+   * Very short label (max 30 chars)
+   */
+  header: string
+  /**
+   * Available choices
+   */
+  options: Array<QuestionOption>
+  /**
+   * Allow selecting multiple choices
+   */
+  multiple?: boolean
+  /**
+   * Allow typing a custom answer (default: true)
+   */
+  custom?: boolean
+}
+
+export type QuestionRequest = {
+  id: string
+  sessionID: string
+  /**
+   * Questions to ask
+   */
+  questions: Array<QuestionInfo>
+  tool?: {
+    messageID: string
+    callID: string
+  }
+}
+
+export type QuestionAnswer = Array<string>
 
 export type EventWorkspaceFailed = {
   type: "workspace.failed"
@@ -738,6 +728,16 @@ export type EventSessionError = {
       | StructuredOutputError
       | ContextOverflowError
       | ApiError
+  }
+}
+
+export type EventVcsBranchBehind = {
+  type: "vcs.branch.behind"
+  properties: {
+    branch: string
+    upstream: string
+    behind: number
+    ahead: number
   }
 }
 
@@ -1252,12 +1252,30 @@ export type EventSessionUpdated = {
 }
 
 export type Event =
+  | EventServerConnected
+  | EventGlobalDisposed
+  | EventCollectiveDebateStarted
+  | EventCollectiveDebatePhaseChanged
+  | EventCollectiveProviderStarted
+  | EventCollectiveProviderCompleted
+  | EventCollectiveProviderFailed
+  | EventCollectiveClaimExtracted
+  | EventCollectiveCostUpdate
+  | EventCollectiveRedteamActivated
+  | EventCollectiveConvergenceRound
+  | EventCollectiveCanaryResult
+  | EventCollectiveHalting
+  | EventCollectiveDebateCompleted
+  | EventCollectiveDebateFailed
+  | EventCollectiveDebateBudgetWarning
+  | EventTuiPromptAppend
+  | EventTuiCommandExecute
+  | EventTuiToastShow
+  | EventTuiSessionSelect
   | EventProjectUpdated
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
   | EventServerInstanceDisposed
-  | EventServerConnected
-  | EventGlobalDisposed
   | EventLspClientDiagnostics
   | EventLspUpdated
   | EventMessagePartDelta
@@ -1282,25 +1300,7 @@ export type Event =
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventTodoUpdated
-  | EventCollectiveDebateStarted
-  | EventCollectiveDebatePhaseChanged
-  | EventCollectiveProviderStarted
-  | EventCollectiveProviderCompleted
-  | EventCollectiveProviderFailed
-  | EventCollectiveClaimExtracted
-  | EventCollectiveCostUpdate
-  | EventCollectiveRedteamActivated
-  | EventCollectiveConvergenceRound
-  | EventCollectiveCanaryResult
-  | EventCollectiveHalting
-  | EventCollectiveDebateCompleted
-  | EventCollectiveDebateFailed
-  | EventCollectiveDebateBudgetWarning
   | EventCollectiveShadowDivergence
-  | EventTuiPromptAppend
-  | EventTuiCommandExecute
-  | EventTuiToastShow
-  | EventTuiSessionSelect
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
@@ -3858,6 +3858,7 @@ export type ExperimentalWorkspaceListResponse =
 export type ExperimentalWorkspaceCreateData = {
   body?: {
     id?: string
+    name?: string | null
     type: string
     branch: string | null
     extra: unknown | null
@@ -6240,6 +6241,59 @@ export type DebateFeedbackResponses = {
 
 export type DebateFeedbackResponse = DebateFeedbackResponses[keyof DebateFeedbackResponses]
 
+export type TeamGetConfigData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/config"
+}
+
+export type TeamGetConfigResponses = {
+  /**
+   * Team model selection
+   */
+  200: {
+    models: Array<{
+      providerID: string
+      modelID: string
+    }>
+  } | null
+}
+
+export type TeamGetConfigResponse = TeamGetConfigResponses[keyof TeamGetConfigResponses]
+
+export type TeamConfigData = {
+  body: {
+    models: Array<{
+      providerID: string
+      modelID: string
+    }>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/config"
+}
+
+export type TeamConfigResponses = {
+  /**
+   * Saved Team model selection
+   */
+  200: {
+    models: Array<{
+      providerID: string
+      modelID: string
+    }>
+  }
+}
+
+export type TeamConfigResponse = TeamConfigResponses[keyof TeamConfigResponses]
+
 export type TeamListRunsData = {
   body?: never
   path?: never
@@ -6282,6 +6336,153 @@ export type TeamListRunsResponses = {
 }
 
 export type TeamListRunsResponse = TeamListRunsResponses[keyof TeamListRunsResponses]
+
+export type TeamStartRunData = {
+  body: {
+    description: string
+    tasks: Array<{
+      id: string
+      description: string
+      prompt: string
+      agent: string
+      mode: "read" | "write"
+      required?: boolean
+      risk?: "low" | "medium" | "high" | "critical"
+      dependsOn?: Array<string>
+      readSet?: Array<string>
+      writeSet?: Array<string>
+      modelIndex?: number
+    }>
+    budget?: {
+      maxCostUsd?: number
+      maxTokens?: number
+      maxParallel?: number
+    }
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs"
+}
+
+export type TeamStartRunResponses = {
+  /**
+   * Run accepted
+   */
+  202: {
+    runId: string
+    sessionId: string
+  }
+}
+
+export type TeamStartRunResponse = TeamStartRunResponses[keyof TeamStartRunResponses]
+
+export type TeamPauseRunData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/pause"
+}
+
+export type TeamPauseRunErrors = {
+  /**
+   * Run is not active
+   */
+  409: {
+    error: string
+  }
+}
+
+export type TeamPauseRunError = TeamPauseRunErrors[keyof TeamPauseRunErrors]
+
+export type TeamPauseRunResponses = {
+  /**
+   * Paused
+   */
+  200: {
+    runId: string
+    controlStatus: "running" | "paused" | "cancelled"
+  }
+}
+
+export type TeamPauseRunResponse = TeamPauseRunResponses[keyof TeamPauseRunResponses]
+
+export type TeamResumeRunData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/resume"
+}
+
+export type TeamResumeRunErrors = {
+  /**
+   * Run is not active
+   */
+  409: {
+    error: string
+  }
+}
+
+export type TeamResumeRunError = TeamResumeRunErrors[keyof TeamResumeRunErrors]
+
+export type TeamResumeRunResponses = {
+  /**
+   * Running
+   */
+  200: {
+    runId: string
+    controlStatus: "running" | "paused" | "cancelled"
+  }
+}
+
+export type TeamResumeRunResponse = TeamResumeRunResponses[keyof TeamResumeRunResponses]
+
+export type TeamCancelRunData = {
+  body?: never
+  path: {
+    runID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/team/runs/{runID}/cancel"
+}
+
+export type TeamCancelRunErrors = {
+  /**
+   * Run is not active
+   */
+  409: {
+    error: string
+  }
+}
+
+export type TeamCancelRunError = TeamCancelRunErrors[keyof TeamCancelRunErrors]
+
+export type TeamCancelRunResponses = {
+  /**
+   * Cancelled
+   */
+  200: {
+    runId: string
+    controlStatus: "running" | "paused" | "cancelled"
+  }
+}
+
+export type TeamCancelRunResponse = TeamCancelRunResponses[keyof TeamCancelRunResponses]
 
 export type TeamGetRunData = {
   body?: never

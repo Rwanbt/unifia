@@ -12,6 +12,7 @@ import { Provider } from "../../src/provider/provider"
 import { ProviderID, ModelID } from "../../src/provider/schema"
 import { Filesystem } from "../../src/util/filesystem"
 import { Env } from "../../src/env"
+import { Auth } from "../../src/auth"
 
 function paid(providers: Awaited<ReturnType<typeof Provider.list>>) {
   const item = providers[ProviderID.make("opencode")]
@@ -71,6 +72,52 @@ test("provider loaded from config with apiKey option", async () => {
       expect(providers[ProviderID.anthropic]).toBeDefined()
     },
   })
+})
+
+// Regression for the Team multi-model selector (fix/team-multi-model-selector):
+// dialog-team-setup.tsx and the /provider + /config/providers server routes all
+// source their catalog from Provider.list(), which merges providers from stored
+// credentials via Auth.all() (packages/opencode/src/provider/provider.ts, "load
+// apikeys" step). Every other provider-loading path in this file (env var,
+// config apiKey, custom loader) already had coverage; the Auth.all()-sourced
+// "api" auth path — the one actually used by `opencode auth login` for
+// providers like minimax and google — had none. Catches a regression where
+// that merge step stops running or starts skipping providers.
+test("provider loaded from stored Auth (api type) — Team catalog source for minimax/google", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Bun.write(
+        path.join(dir, "opencode.json"),
+        JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
+        }),
+      )
+    },
+  })
+  try {
+    await Auth.set("minimax", { type: "api", key: "test-minimax-key" })
+    await Auth.set("google", { type: "api", key: "test-google-key" })
+
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const providers = await Provider.list()
+
+        const minimax = providers[ProviderID.make("minimax")]
+        expect(minimax).toBeDefined()
+        expect(minimax.source).toBe("api")
+        expect(Object.keys(minimax.models).length).toBeGreaterThan(0)
+
+        const google = providers[ProviderID.make("google")]
+        expect(google).toBeDefined()
+        expect(google.source).toBe("api")
+        expect(Object.keys(google.models).length).toBeGreaterThan(0)
+      },
+    })
+  } finally {
+    await Auth.remove("minimax")
+    await Auth.remove("google")
+  }
 })
 
 test("disabled_providers excludes provider", async () => {

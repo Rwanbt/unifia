@@ -1,7 +1,7 @@
 // =============================================================================
 // cli/cmd/team.ts — TEAM-L04
 //
-// Headless CLI over the Team surface.
+// Headless CLI over the Team surface and its shared server-owned lifecycle.
 //
 // Built for scripts first. Every subcommand emits JSON on stdout when stdout is
 // not a TTY (or when --json is passed), keeps human formatting and progress on
@@ -16,11 +16,10 @@
 //     70  EX_SOFTWARE     an unexpected internal failure
 //     130 SIGINT          cancelled by the operator
 //
-// `start`, `pause`, `resume` and `cancel` are declared and refuse with 69. No
-// application code path reaches the Team runtime (R-WIRING-001): nothing
-// constructs a run, so there is nothing to start or stop. They exist so the
-// answer to `opencode team start` is the truth rather than "unknown argument",
-// and they will become real the day a runtime owner exists.
+// Lifecycle commands use the running server as the process owner. This keeps
+// pause/resume/cancel attached to the same in-memory controllers as the HTTP,
+// desktop, TUI and mobile clients instead of pretending a fresh CLI process
+// can control workers owned by another process.
 // =============================================================================
 
 import type { Argv } from "yargs"
@@ -158,24 +157,90 @@ async function readJsonFile(file: string, what: string): Promise<unknown> {
   }
 }
 
-const NOT_WIRED =
-  "no Team runtime is wired into this build, so there is nothing to drive.\n" +
-  "The Team modules under src/team/ are not reachable from any application code path;\n" +
-  "the `team` tool runs its own wave scheduler instead. Until a runtime owner exists,\n" +
-  "this command cannot do anything and will not pretend otherwise."
-
-function unavailable(operation: string) {
-  return cmd({
-    command: operation,
-    describe: `${operation} a team run (unavailable in this build)`,
-    builder: (yargs: Argv) => yargs.positional("runID", { type: "string", describe: "run id" }),
-    handler: async () =>
-      run(() => {
-        throw new TeamCliError(EXIT_UNAVAILABLE, `team ${operation}: ${NOT_WIRED}`)
-      }),
-  })
+function authHeaders(): HeadersInit {
+  const password = process.env.OPENCODE_SERVER_PASSWORD
+  if (!password) return { "content-type": "application/json" }
+  const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
+  return {
+    "content-type": "application/json",
+    authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+  }
 }
 
+function validateAttachUrl(attach: string): URL {
+  let base: URL
+  try {
+    base = new URL(attach)
+  } catch {
+    throw new TeamCliError(EXIT_USAGE, `invalid --attach URL: ${attach}`)
+  }
+  const loopback = base.hostname === "localhost" || base.hostname === "127.0.0.1" || base.hostname === "[::1]"
+  if (base.protocol !== "https:" && !(base.protocol === "http:" && loopback)) {
+    throw new TeamCliError(EXIT_USAGE, "--attach requires HTTPS except for localhost/127.0.0.1/[::1]")
+  }
+  return base
+}
+
+async function teamRequest(attach: string, route: string, body?: unknown): Promise<unknown> {
+  const base = validateAttachUrl(attach)
+  const response = await fetch(new URL(`/team${route}`, base), {
+    method: "POST",
+    headers: authHeaders(),
+    redirect: "error",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((error) => { throw new TeamCliError(EXIT_UNAVAILABLE, `cannot reach Team server: ${error instanceof Error ? error.message : String(error)}`) })
+  const payload = await response.json().catch(() => ({ error: response.statusText })) as { error?: string }
+  if (!response.ok) throw new TeamCliError(response.status === 404 ? EXIT_NO_INPUT : EXIT_UNAVAILABLE, payload.error ?? `Team server returned ${response.status}`)
+  return payload
+}
+
+const TeamStartCommand = cmd({
+  command: "start",
+  describe: "start a durable Team plan through a running OpenCode server",
+  builder: (yargs: Argv) => yargs
+    .option("attach", { type: "string", demandOption: true, describe: "OpenCode server URL" })
+    .option("plan", { type: "string", demandOption: true, describe: "TaskPlan JSON file" })
+    .option("max-agents", { type: "number", default: 5 })
+    .option("max-cost", { type: "number" })
+    .option("max-tokens", { type: "number" })
+    .option("json", { type: "boolean" }),
+  handler: async (args) => run(async () => {
+    const plan = TaskPlanSchema.parse(await readJsonFile(args.plan as string, "plan"))
+    const payload = await teamRequest(args.attach as string, "/runs", {
+      description: plan.tasks.map((task) => task.objective).join("; "),
+      tasks: plan.tasks.map((task, index) => ({
+        id: task.id,
+        description: task.title,
+        prompt: `${task.objective}\n\nAcceptance criteria:\n${task.acceptanceCriteria.map((criterion) => `- ${criterion}`).join("\n")}`,
+        agent: task.writeSet.length > 0 ? "general" : "explore",
+        mode: task.writeSet.length > 0 ? "write" : "read",
+        required: true,
+        risk: task.risks.length > 0 ? "medium" : "low",
+        dependsOn: task.dependsOn,
+        readSet: task.readSet,
+        writeSet: task.writeSet,
+        modelIndex: index,
+      })),
+      budget: { maxParallel: args.maxAgents, maxCostUsd: args.maxCost, maxTokens: args.maxTokens },
+    })
+    emit(args, payload as object, () => `Team run accepted: ${(payload as { runId: string }).runId}`)
+  }),
+})
+
+function controlCommand(operation: "pause" | "resume" | "cancel") {
+  return cmd({
+    command: `${operation} <runID>`,
+    describe: `${operation} an active Team run through a running OpenCode server`,
+    builder: (yargs: Argv) => yargs
+      .positional("runID", { type: "string", demandOption: true })
+      .option("attach", { type: "string", demandOption: true, describe: "OpenCode server URL" })
+      .option("json", { type: "boolean" }),
+    handler: async (args) => run(async () => {
+      const payload = await teamRequest(args.attach as string, `/runs/${args.runID}/${operation}`)
+      emit(args, payload as object, () => `Team run ${args.runID}: ${(payload as { controlStatus: string }).controlStatus}`)
+    }),
+  })
+}
 const TeamListCommand = cmd({
   command: "list",
   describe: "list persisted team runs, newest first",
@@ -472,10 +537,10 @@ export const TeamCommand = cmd({
       .command(TeamExportCommand)
       .command(TeamDryRunCommand)
       .command(TeamRegistrySyncCommand)
-      .command(unavailable("start"))
-      .command(unavailable("pause"))
-      .command(unavailable("resume"))
-      .command(unavailable("cancel"))
+      .command(TeamStartCommand)
+      .command(controlCommand("pause"))
+      .command(controlCommand("resume"))
+      .command(controlCommand("cancel"))
       .demandCommand(1, "specify a team subcommand")
       .strict(),
   handler: async () => {},

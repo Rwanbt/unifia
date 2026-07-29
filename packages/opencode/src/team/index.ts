@@ -10,4 +10,7 @@ export * from "./fencing";
 export * from "./scope-monitor";
 export * from "./worktree-manager";
 export * from "./hooks";
+export * from "./application-service";
+export * from "./run-registry";
+export { TeamModelSchema, TeamSelectionSchema, TeamSelection, TeamSelectionStore } from "./selection";
 // team-cli is intentionally NOT re-exported here because it calls process.exit.

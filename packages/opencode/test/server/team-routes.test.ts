@@ -4,7 +4,7 @@ import { withInProcessServer, type InProcessServer } from "../lib/in-process-ser
 import { Global } from "../../src/global"
 import { TeamStore } from "../../src/team/team-store"
 import { TEAM_STORE_SCHEMA_VERSION } from "../../src/team/team-store.sql"
-import { closeTeamStore } from "../../src/server/routes/team"
+import { closeTeamStore, teamRunRegistry } from "../../src/server/routes/team"
 
 // HTTP contract coverage for the Team routes (TEAM-L02). These hit the real
 // server through the real router, so what is pinned here is the contract a
@@ -57,6 +57,39 @@ function get(route: string) {
   })
 }
 
+function post(route: string) {
+  return server.fetch(`${route}?directory=${encodeURIComponent(process.cwd())}`, {
+    method: "POST",
+    headers: { Authorization: AUTH },
+  })
+}
+
+describe("POST /team/runs/:id lifecycle controls", () => {
+  test("pause, resume and cancel control the active in-process run", async () => {
+    const runID = "run-http-control"
+    teamRunRegistry.register(runID)
+    try {
+      const paused = await post(`/team/runs/${runID}/pause`)
+      expect(paused.status).toBe(200)
+      expect((await paused.json()).controlStatus).toBe("paused")
+
+      const resumed = await post(`/team/runs/${runID}/resume`)
+      expect(resumed.status).toBe(200)
+      expect((await resumed.json()).controlStatus).toBe("running")
+
+      const cancelled = await post(`/team/runs/${runID}/cancel`)
+      expect(cancelled.status).toBe(200)
+      expect((await cancelled.json()).controlStatus).toBe("cancelled")
+    } finally {
+      teamRunRegistry.finish(runID)
+    }
+  })
+
+  test("returns 409 for a run not owned by this process", async () => {
+    const response = await post("/team/runs/run-not-active/pause")
+    expect(response.status).toBe(409)
+  })
+})
 describe("GET /team/runs — success and versioning", () => {
   test("returns the seeded runs in a versioned envelope", async () => {
     const response = await get("/team/runs")

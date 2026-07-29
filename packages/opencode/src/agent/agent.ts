@@ -289,6 +289,10 @@ export namespace Agent {
               // pinned here would be a provider the caller never chose.
               mode: "all",
               native: true,
+              // WHY: pinned rather than left to the palette, which assigns a
+              // colour by the agent's index in the visible list — team landed on
+              // `warning` (orange) and would move again as agents are added.
+              color: "accent",
             },
             critic: {
               name: "critic",

@@ -48,6 +48,7 @@ export namespace Workspace {
 
   const CreateInput = z.object({
     id: WorkspaceID.zod.optional(),
+    name: Info.shape.name.optional(),
     type: Info.shape.type,
     branch: Info.shape.branch,
     projectID: ProjectID.zod,
@@ -58,7 +59,7 @@ export namespace Workspace {
     const id = WorkspaceID.ascending(input.id)
     const adaptor = await getAdaptor(input.type)
 
-    const config = await adaptor.configure({ ...input, id, name: null, directory: null })
+    const config = await adaptor.configure({ ...input, id, name: input.name ?? null, directory: null })
 
     const info: Info = {
       id,

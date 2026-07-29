@@ -23,6 +23,7 @@ describe("teamLabels — every label is wired to a key", () => {
       labels.selector.clearOverride,
       labels.graph,
       labels.lifecycle,
+      ...Object.values(labels.controls),
       labels.retrying,
       labels.exhausted,
     ]

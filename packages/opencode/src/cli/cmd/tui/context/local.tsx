@@ -29,6 +29,28 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const [debateStore, setDebateStore] = createStore<{ selection: { global?: DebateSelection } }>({
       selection: {},
     })
+    type TeamSelection = { models: Array<{ providerID: string; modelID: string }> }
+    const [teamStore, setTeamStore] = createStore<{ selection: { global?: TeamSelection } }>({ selection: {} })
+
+    // WHY: the server answers unknown API routes with the SPA fallback — HTTP 200 and
+    // `Content-Type: text/html` — so the SDK parses the body as text and returns an HTML
+    // string in `data`. A sidecar older than `/team/config` therefore looks successful.
+    function normalizeTeamSelection(value: unknown): TeamSelection | undefined {
+      if (typeof value !== "object" || value === null) return undefined
+      const models = (value as { models?: unknown }).models
+      if (!Array.isArray(models)) return undefined
+
+      const normalized: Array<{ providerID: string; modelID: string }> = []
+      for (const entry of models) {
+        if (typeof entry !== "object" || entry === null) return undefined
+        const { providerID, modelID } = entry as { providerID?: unknown; modelID?: unknown }
+        if (typeof providerID !== "string" || providerID.length === 0) return undefined
+        if (typeof modelID !== "string" || modelID.length === 0) return undefined
+        normalized.push({ providerID, modelID })
+      }
+      return { models: normalized }
+    }
+
     const debate = {
       current() {
         return debateStore.selection.global
@@ -43,13 +65,35 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         return result.data
       },
       isValid(selection: DebateSelection | undefined) {
-        return !!selection && selection.participants.length >= 2
+        return Array.isArray(selection?.participants) && selection.participants.length >= 2
       },
       async ensureConfigured() {
         const selection = debateStore.selection.global ?? (await this.load())
         return this.isValid(selection)
       },
     }
+    const team = {
+      current() {
+        return teamStore.selection.global
+      },
+      set(selection: TeamSelection) {
+        setTeamStore("selection", "global", normalizeTeamSelection(selection))
+      },
+      async load() {
+        const result = await sdk.client.team.getConfig().catch(() => undefined)
+        const selection = normalizeTeamSelection(result?.data)
+        if (!selection) return undefined
+        setTeamStore("selection", "global", selection)
+        return selection
+      },
+      isValid(input: TeamSelection | undefined) {
+        const selection = normalizeTeamSelection(input)
+        if (!selection || selection.models.length < 2) return false
+        const keys = selection.models.map((model) => model.providerID + ":" + model.modelID)
+        return new Set(keys).size === keys.length && selection.models.every(isModelValid)
+      },
+    }
+
     function isModelValid(model: { providerID: string; modelID: string }) {
       const provider = sync.data.provider.find((x) => x.id === model.providerID)
       return !!provider?.models[model.modelID]
@@ -502,6 +546,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       agent,
       mcp,
       debate,
+      team,
       modelCatalog,
     }
     return result

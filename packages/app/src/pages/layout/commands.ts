@@ -44,6 +44,7 @@ export interface LayoutCommandsDeps {
   connectProvider: () => void
   openServer: () => void
   openSettings: () => void
+  openTeam: () => void
 }
 
 export function registerLayoutCommands(deps: LayoutCommandsDeps) {
@@ -72,6 +73,7 @@ export function registerLayoutCommands(deps: LayoutCommandsDeps) {
     connectProvider,
     openServer,
     openSettings,
+    openTeam,
   } = deps
 
   command.register("layout", () => {
@@ -122,6 +124,12 @@ export function registerLayoutCommands(deps: LayoutCommandsDeps) {
         category: language.t("command.category.settings"),
         keybind: "mod+comma",
         onSelect: () => openSettings(),
+      },
+      {
+        id: "team.open",
+        title: language.t("team.selector.title"),
+        category: language.t("command.category.view"),
+        onSelect: () => openTeam(),
       },
       {
         id: "session.previous",

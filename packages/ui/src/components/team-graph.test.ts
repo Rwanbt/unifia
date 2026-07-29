@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { emphasisFor, NO_RELATIONS, relationsFor, type TeamGraphTask } from "./team-graph"
+import { emphasisFor, NO_RELATIONS, relationsFor, wavesFor, type TeamGraphTask } from "./team-graph"
 
 // Coverage for the TEAM-M03 interactive graph's one decidable question: given a
 // selected task, what else is related to it and in which direction.
@@ -112,5 +112,17 @@ describe("emphasisFor — a task is in exactly one relation to the selection", (
 
     expect(emphasisFor("a", "a", relations)).toBe("selected")
     expect(emphasisFor("b", "a", relations)).toBe("ancestor")
+  })
+})
+describe("wavesFor — one deterministic DAG layout for every surface", () => {
+  test("groups independent tasks and keeps dependencies in later waves", () => {
+    expect(wavesFor([task("b"), task("a"), task("c", ["a", "b"])])).toEqual([
+      { index: 0, taskIds: ["a", "b"] },
+      { index: 1, taskIds: ["c"] },
+    ])
+  })
+
+  test("renders malformed cyclic input in a final deterministic wave instead of hanging", () => {
+    expect(wavesFor([task("b", ["a"]), task("a", ["b"])])).toEqual([{ index: 0, taskIds: ["a", "b"] }])
   })
 })

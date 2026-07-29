@@ -65,6 +65,54 @@ export function isNetworkRetryable(err: unknown): boolean {
   return false
 }
 
+const TEAM_FALLBACK_CODES = new Set([
+  "2066",
+  "authentication_error",
+  "billing_hard_limit_reached",
+  "insufficient_quota",
+  "invalid_api_key",
+  "overloaded_error",
+  "permission_denied",
+  "rate_limit_exceeded",
+  "service_unavailable",
+  "timeout",
+])
+
+export function isTeamFallbackEligible(err: unknown, seen = new Set<object>()): boolean {
+  if (!err) return false
+  if (
+    err instanceof Error &&
+    err.name === "AbortError" &&
+    (!(err.cause instanceof Error) || err.cause.name !== "TimeoutError")
+  ) {
+    return false
+  }
+  if (isNetworkRetryable(err)) return true
+
+  if (typeof err !== "object") return false
+  if (seen.has(err)) return false
+  seen.add(err)
+  const record = err as Record<string, unknown>
+  const code = String(record.code ?? record.providerCode ?? "").toLowerCase()
+  if (TEAM_FALLBACK_CODES.has(code)) return true
+  const status = record.status ?? record.statusCode
+  if (status === 401 || status === 403) return true
+
+  const message = err instanceof Error ? err.message.toLowerCase() : String(record.message ?? "").toLowerCase()
+  if (
+    ["timed out", "timeout", "rate limit", "overloaded", "service unavailable", "invalid api key", "authentication", "insufficient quota", "quota exceeded", "billing hard limit"].some((part) => message.includes(part))
+  ) return true
+
+  for (const value of [record.cause, record.error, record.lastError, record.errors]) {
+    if (Array.isArray(value)) {
+      if (value.some((item) => isTeamFallbackEligible(item, seen))) return true
+      continue
+    }
+    if (isTeamFallbackEligible(value, seen)) return true
+  }
+  return false
+}
+
 /**
  * Streaming-aware fallback (Sprint 4 design note).
  *
@@ -168,9 +216,10 @@ export type FallbackDirection = "local" | "cloud" | null
 export function withStreamingFallback(
   primary: LanguageModelV3,
   secondary: LanguageModelV3,
-  opts: { label?: string } = {},
+  opts: FallbackOptions = {},
 ): LanguageModelV3 {
   const label = opts.label ?? `${primary.provider}/${primary.modelId}`
+  const check = opts.shouldFallback ?? isNetworkRetryable
 
   const doStream = async (options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> => {
     // Handshake retry: attempt primary. If the promise itself rejects (pre-stream
@@ -181,7 +230,7 @@ export function withStreamingFallback(
     try {
       primaryResult = await primary.doStream(options)
     } catch (err) {
-      if (!isNetworkRetryable(err)) throw err
+      if (!check(err)) throw err
       log.warn("primary handshake failed, falling back to secondary", {
         label,
         error: (err as Error)?.message ?? String(err),
@@ -220,7 +269,7 @@ export function withStreamingFallback(
       preChunkError = err
     }
 
-    if (preChunkError && isNetworkRetryable(preChunkError)) {
+    if (preChunkError && check(preChunkError)) {
       log.warn("primary errored before first chunk, falling back to secondary", {
         label,
         error: (preChunkError as Error)?.message ?? String(preChunkError),
@@ -236,16 +285,26 @@ export function withStreamingFallback(
 
     // Stitch: re-emit the buffered parts, then continue pulling from primary.
     // Any error after this point propagates — we do NOT attempt secondary.
+    //
+    // WHY pull() and not a loop inside start(): start() runs to completion
+    // independently of the consumer, so draining the upstream there would pump
+    // the provider as fast as the network allows and pile every part into the
+    // internal queue — no backpressure. A Team chain nests one wrapper per
+    // selected model (8 models => 7 wrappers), so each unbounded queue stacks.
+    // pull() is invoked once per unit of available capacity, which keeps the
+    // producer paced by the consumer.
     const stream = new ReadableStream<LanguageModelV3StreamPart>({
-      async start(controller) {
+      start(controller) {
+        for (const part of firstBatch) controller.enqueue(part)
+      },
+      async pull(controller) {
         try {
-          for (const part of firstBatch) controller.enqueue(part)
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            controller.enqueue(value)
+          const { done, value } = await reader.read()
+          if (done) {
+            controller.close()
+            return
           }
-          controller.close()
+          controller.enqueue(value)
         } catch (err) {
           controller.error(err)
         }
@@ -266,7 +325,7 @@ export function withStreamingFallback(
     try {
       return await primary.doGenerate(options)
     } catch (err) {
-      if (!isNetworkRetryable(err)) throw err
+      if (!check(err)) throw err
       log.warn("primary doGenerate failed, falling back to secondary", {
         label,
         error: (err as Error)?.message ?? String(err),
@@ -283,6 +342,24 @@ export function withStreamingFallback(
     doGenerate,
     doStream,
   }
+}
+
+export function withStreamingFallbackChain(
+  models: readonly LanguageModelV3[],
+  opts: FallbackOptions = {},
+): LanguageModelV3 {
+  const last = models.at(-1)
+  if (!last) throw new RangeError("fallback chain requires at least one model")
+  let chain = last
+  for (let index = models.length - 2; index >= 0; index--) {
+    const primary = models[index]
+    if (!primary) continue
+    chain = withStreamingFallback(primary, chain, {
+      ...opts,
+      label: opts.label ?? `${primary.provider}/${primary.modelId} -> next Team model`,
+    })
+  }
+  return chain
 }
 
 export async function resolveFallbackDirection(): Promise<FallbackDirection> {

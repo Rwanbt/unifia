@@ -26,6 +26,29 @@ export interface TeamGraphWave {
   readonly taskIds: readonly string[]
 }
 
+/** Deterministic topological waves for every Team surface. */
+export function wavesFor(tasks: readonly TeamGraphTask[]): readonly TeamGraphWave[] {
+  const remaining = new Map(tasks.map((task) => [task.taskId, task] as const))
+  const completed = new Set<string>()
+  const waves: TeamGraphWave[] = []
+  while (remaining.size > 0) {
+    const ready = [...remaining.values()]
+      .filter((task) => task.dependsOn.every((dependency) => completed.has(dependency)))
+      .map((task) => task.taskId)
+      .sort()
+    if (ready.length === 0) {
+      waves.push({ index: waves.length, taskIds: [...remaining.keys()].sort() })
+      break
+    }
+    waves.push({ index: waves.length, taskIds: ready })
+    for (const taskId of ready) {
+      remaining.delete(taskId)
+      completed.add(taskId)
+    }
+  }
+  return waves
+}
+
 /**
  * Which tasks are related to the selected one, and how.
  *
