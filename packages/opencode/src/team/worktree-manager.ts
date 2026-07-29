@@ -269,7 +269,10 @@ export function createWorktree(opts: CreateWorktreeOpts): WorktreeManagerResult<
     return ko("WORKTREE_EXISTS", `worktree_path ${opts.worktree_path} already exists`);
   }
   // Sanity: worktree_path parent must be under the team-worktrees root (fail-closed).
-  const expectedRoot = resolve("D:/App/OpenCode/.team-worktrees");
+  // Derived from repoRoot rather than hardcoded: the convention used across this
+  // codebase's own Team runs is a `.team-worktrees` sibling of the repo checkout,
+  // and a literal machine-specific path broke on every machine but one.
+  const expectedRoot = resolve(repoRoot, "..", ".team-worktrees");
   if (!resolve(parentDir).startsWith(expectedRoot) && !resolve(parentDir).startsWith(repoRoot)) {
     // Accept either inside team-worktrees root OR inside the repo root (defensive).
     // We do NOT accept arbitrary filesystem locations.

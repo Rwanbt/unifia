@@ -220,7 +220,6 @@ export const TeamRoutes = lazy(() =>
         summary: "Save the Team model selection",
         description: "Persist at least two distinct connected models for Team workers.",
         operationId: "team.config",
-        requestBody: { required: true, content: { "application/json": { schema: resolver(TeamSelectionSchema) } } },
         responses: {
           200: { description: "Saved Team model selection", content: { "application/json": { schema: resolver(TeamSelectionSchema) } } },
           400: { description: `Selection must contain 2-${MAX_TEAM_MODELS} distinct models`, content: { "application/json": { schema: resolver(ErrorSchema) } } },
@@ -499,7 +498,7 @@ function withControlStatus<T extends { runId: string }>(run: T) {
 
 function controlRun(c: Context, operation: "pause" | "resume" | "cancel") {
   const runId = pathParam(c, "runID")
-  const changed = runRegistry[operation](runId)
+  const changed = teamRunRegistry[operation](runId)
   if (!changed) return c.json({ error: `run ${runId} is not active in this process` }, 409)
   const controlStatus = teamRunRegistry.status(runId) ?? (operation === "cancel" ? "cancelled" : "running")
   return c.json({ runId, controlStatus })

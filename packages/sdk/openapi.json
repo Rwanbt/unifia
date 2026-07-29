@@ -2081,6 +2081,16 @@
                     "type": "string",
                     "pattern": "^wrk.*"
                   },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "type": {
                     "type": "string"
                   },
@@ -7958,7 +7968,362 @@
         ]
       }
     },
+    "/team/config": {
+      "get": {
+        "operationId": "team.getConfig",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get the Team model selection",
+        "description": "Return the configured distinct models used by Team workers.",
+        "responses": {
+          "200": {
+            "description": "Team model selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "models": {
+                          "minItems": 2,
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "providerID": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "modelID": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": ["providerID", "modelID"]
+                          }
+                        }
+                      },
+                      "required": ["models"]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.getConfig({\n  ...\n})"
+          }
+        ]
+      },
+      "put": {
+        "operationId": "team.config",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Save the Team model selection",
+        "description": "Persist at least two distinct connected models for Team workers.",
+        "responses": {
+          "200": {
+            "description": "Saved Team model selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "minItems": 2,
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "providerID": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "modelID": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": ["providerID", "modelID"]
+                      }
+                    }
+                  },
+                  "required": ["models"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Selection must contain 2-8 distinct models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "models": {
+                    "minItems": 2,
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "providerID": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "modelID": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["providerID", "modelID"]
+                    }
+                  }
+                },
+                "required": ["models"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.config({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/team/runs": {
+      "post": {
+        "operationId": "team.startRun",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Start a Team run",
+        "description": "Start the same durable Team lifecycle used by the native team tool.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tasks": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "prompt": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "agent": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": ["read", "write"]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "risk": {
+                          "type": "string",
+                          "enum": ["low", "medium", "high", "critical"]
+                        },
+                        "dependsOn": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "readSet": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "writeSet": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "modelIndex": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": ["id", "description", "prompt", "agent", "mode"]
+                    }
+                  },
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "maxCostUsd": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "maxTokens": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxParallel": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50
+                      }
+                    }
+                  }
+                },
+                "required": ["description", "tasks"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Run accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["runId", "sessionId"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Team task graph or Git workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Active Team run limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.startRun({\n  ...\n})"
+          }
+        ]
+      },
       "get": {
         "operationId": "team.listRuns",
         "parameters": [
@@ -8030,9 +8395,28 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "controlStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["running", "paused", "cancelled"]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
-                        "required": ["runId", "schemaVersion", "planId", "status", "createdAt", "updatedAt"]
+                        "required": [
+                          "runId",
+                          "schemaVersion",
+                          "planId",
+                          "status",
+                          "createdAt",
+                          "updatedAt",
+                          "controlStatus"
+                        ]
                       }
                     },
                     "nextCursor": {
@@ -8072,6 +8456,228 @@
           {
             "lang": "js",
             "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listRuns({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/pause": {
+      "post": {
+        "operationId": "team.pauseRun",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Pause a Team run",
+        "responses": {
+          "200": {
+            "description": "Paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "controlStatus": {
+                      "type": "string",
+                      "enum": ["running", "paused", "cancelled"]
+                    }
+                  },
+                  "required": ["runId", "controlStatus"]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Run is not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.pauseRun({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/resume": {
+      "post": {
+        "operationId": "team.resumeRun",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Resume a Team run",
+        "responses": {
+          "200": {
+            "description": "Running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "controlStatus": {
+                      "type": "string",
+                      "enum": ["running", "paused", "cancelled"]
+                    }
+                  },
+                  "required": ["runId", "controlStatus"]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Run is not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.resumeRun({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/team/runs/{runID}/cancel": {
+      "post": {
+        "operationId": "team.cancelRun",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runID",
+            "required": true
+          }
+        ],
+        "summary": "Cancel a Team run",
+        "responses": {
+          "200": {
+            "description": "Cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "controlStatus": {
+                      "type": "string",
+                      "enum": ["running", "paused", "cancelled"]
+                    }
+                  },
+                  "required": ["runId", "controlStatus"]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Run is not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.cancelRun({\n  ...\n})"
           }
         ]
       }
@@ -8131,9 +8737,20 @@
                     },
                     "updatedAt": {
                       "type": "string"
+                    },
+                    "controlStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": ["running", "paused", "cancelled"]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
-                  "required": ["runId", "schemaVersion", "planId", "status", "createdAt", "updatedAt"]
+                  "required": ["runId", "schemaVersion", "planId", "status", "createdAt", "updatedAt", "controlStatus"]
                 }
               }
             }
@@ -16137,69 +16754,6 @@
         },
         "required": ["data", "errors", "success"]
       },
-      "Project": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "worktree": {
-            "type": "string"
-          },
-          "vcs": {
-            "type": "string",
-            "const": "git"
-          },
-          "name": {
-            "type": "string"
-          },
-          "icon": {
-            "type": "object",
-            "properties": {
-              "url": {
-                "type": "string"
-              },
-              "override": {
-                "type": "string"
-              },
-              "color": {
-                "type": "string"
-              }
-            }
-          },
-          "commands": {
-            "type": "object",
-            "properties": {
-              "start": {
-                "description": "Startup script to run when creating a new workspace (worktree)",
-                "type": "string"
-              }
-            }
-          },
-          "time": {
-            "type": "object",
-            "properties": {
-              "created": {
-                "type": "number"
-              },
-              "updated": {
-                "type": "number"
-              },
-              "initialized": {
-                "type": "number"
-              }
-            },
-            "required": ["created", "updated"]
-          },
-          "sandboxes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["id", "worktree", "time", "sandboxes"]
-      },
       "Event.collective.canary.result": {
         "type": "object",
         "properties": {
@@ -16278,6 +16832,35 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.collective.cost.update": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.cost.update"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "spent": {
+                "type": "number"
+              },
+              "budget": {
+                "type": "number"
+              },
+              "percent": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "spent", "budget", "percent"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.collective.debate.budget_warning": {
         "type": "object",
         "properties": {
@@ -16303,6 +16886,58 @@
               }
             },
             "required": ["debateID", "percentUsed", "tokensUsed", "tokenLimit"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.completed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.completed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "blindSpotCount": {
+                "type": "number"
+              },
+              "cost": {
+                "type": "number"
+              },
+              "durationMs": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "blindSpotCount", "cost", "durationMs"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.debate.failed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.debate.failed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": ["debateID", "error"]
           }
         },
         "required": ["type", "properties"]
@@ -16366,6 +17001,35 @@
               }
             },
             "required": ["debateID", "tier", "providers"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.halting": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.halting"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "marginalGain": {
+                "type": "number"
+              },
+              "marginalCost": {
+                "type": "number"
+              }
+            },
+            "required": ["debateID", "reason", "marginalGain", "marginalCost"]
           }
         },
         "required": ["type", "properties"]
@@ -16486,6 +17150,91 @@
               }
             },
             "required": ["debateID", "provider", "phase"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.redteam.activated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.redteam.activated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "debateID": {
+                "type": "string",
+                "pattern": "^dbt_.*"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": ["debateID", "reason"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.collective.shadow.divergence": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "collective.shadow.divergence"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "sessionID": {
+                "type": "string"
+              },
+              "question": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["info", "warning", "critical"]
+              },
+              "shadowResponse": {
+                "type": "string"
+              },
+              "divergenceReason": {
+                "type": "string"
+              }
+            },
+            "required": ["sessionID", "question", "severity", "shadowResponse", "divergenceReason"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.command.executed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "command.executed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "sessionID": {
+                "type": "string",
+                "pattern": "^ses.*"
+              },
+              "arguments": {
+                "type": "string"
+              },
+              "messageID": {
+                "type": "string",
+                "pattern": "^msg.*"
+              }
+            },
+            "required": ["name", "sessionID", "arguments", "messageID"]
           }
         },
         "required": ["type", "properties"]
@@ -16632,6 +17381,47 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.mcp.browser.open.failed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mcp.browser.open.failed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "mcpName": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": ["mcpName", "url"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.mcp.tools.changed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mcp.tools.changed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "server": {
+                "type": "string"
+              }
+            },
+            "required": ["server"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.message.part.delta": {
         "type": "object",
         "properties": {
@@ -16720,439 +17510,6 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.server.connected": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "server.connected"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {}
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.server.instance.disposed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "server.instance.disposed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "directory": {
-                "type": "string"
-              }
-            },
-            "required": ["directory"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "PermissionRequest": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^per.*"
-          },
-          "sessionID": {
-            "type": "string",
-            "pattern": "^ses.*"
-          },
-          "permission": {
-            "type": "string"
-          },
-          "patterns": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "metadata": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {}
-          },
-          "always": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "tool": {
-            "type": "object",
-            "properties": {
-              "messageID": {
-                "type": "string",
-                "pattern": "^msg.*"
-              },
-              "callID": {
-                "type": "string"
-              }
-            },
-            "required": ["messageID", "callID"]
-          }
-        },
-        "required": ["id", "sessionID", "permission", "patterns", "metadata", "always"]
-      },
-      "SessionStatus": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "idle"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "retry"
-              },
-              "attempt": {
-                "type": "number"
-              },
-              "message": {
-                "type": "string"
-              },
-              "next": {
-                "type": "number"
-              }
-            },
-            "required": ["type", "attempt", "message", "next"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "busy"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "queued"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "blocked"
-              },
-              "reason": {
-                "type": "string"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "awaiting_input"
-              },
-              "question": {
-                "type": "string"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "completed"
-              },
-              "result": {
-                "type": "string"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "failed"
-              },
-              "error": {
-                "type": "string"
-              }
-            },
-            "required": ["type"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "cancelled"
-              }
-            },
-            "required": ["type"]
-          }
-        ]
-      },
-      "Event.collective.cost.update": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.cost.update"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "spent": {
-                "type": "number"
-              },
-              "budget": {
-                "type": "number"
-              },
-              "percent": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "spent", "budget", "percent"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.debate.completed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.completed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "blindSpotCount": {
-                "type": "number"
-              },
-              "cost": {
-                "type": "number"
-              },
-              "durationMs": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "blindSpotCount", "cost", "durationMs"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.debate.failed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.debate.failed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "error": {
-                "type": "string"
-              }
-            },
-            "required": ["debateID", "error"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.halting": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.halting"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "reason": {
-                "type": "string"
-              },
-              "marginalGain": {
-                "type": "number"
-              },
-              "marginalCost": {
-                "type": "number"
-              }
-            },
-            "required": ["debateID", "reason", "marginalGain", "marginalCost"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.redteam.activated": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.redteam.activated"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "debateID": {
-                "type": "string",
-                "pattern": "^dbt_.*"
-              },
-              "reason": {
-                "type": "string"
-              }
-            },
-            "required": ["debateID", "reason"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.collective.shadow.divergence": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "collective.shadow.divergence"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "sessionID": {
-                "type": "string"
-              },
-              "question": {
-                "type": "string"
-              },
-              "severity": {
-                "type": "string",
-                "enum": ["info", "warning", "critical"]
-              },
-              "shadowResponse": {
-                "type": "string"
-              },
-              "divergenceReason": {
-                "type": "string"
-              }
-            },
-            "required": ["sessionID", "question", "severity", "shadowResponse", "divergenceReason"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.command.executed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "command.executed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "sessionID": {
-                "type": "string",
-                "pattern": "^ses.*"
-              },
-              "arguments": {
-                "type": "string"
-              },
-              "messageID": {
-                "type": "string",
-                "pattern": "^msg.*"
-              }
-            },
-            "required": ["name", "sessionID", "arguments", "messageID"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.mcp.browser.open.failed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "mcp.browser.open.failed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "mcpName": {
-                "type": "string"
-              },
-              "url": {
-                "type": "string"
-              }
-            },
-            "required": ["mcpName", "url"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.mcp.tools.changed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "mcp.tools.changed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "server": {
-                "type": "string"
-              }
-            },
-            "required": ["server"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
       "Event.question.asked": {
         "type": "object",
         "properties": {
@@ -17216,6 +17573,39 @@
               }
             },
             "required": ["sessionID", "requestID", "answers"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.server.connected": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "server.connected"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.server.instance.disposed": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "server.instance.disposed"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "directory": {
+                "type": "string"
+              }
+            },
+            "required": ["directory"]
           }
         },
         "required": ["type", "properties"]
@@ -17522,89 +17912,6 @@
         },
         "required": ["type", "properties"]
       },
-      "QuestionOption": {
-        "type": "object",
-        "properties": {
-          "label": {
-            "description": "Display text (1-5 words, concise)",
-            "type": "string"
-          },
-          "description": {
-            "description": "Explanation of choice",
-            "type": "string"
-          }
-        },
-        "required": ["label", "description"]
-      },
-      "QuestionInfo": {
-        "type": "object",
-        "properties": {
-          "question": {
-            "description": "Complete question",
-            "type": "string"
-          },
-          "header": {
-            "description": "Very short label (max 30 chars)",
-            "type": "string"
-          },
-          "options": {
-            "description": "Available choices",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/QuestionOption"
-            }
-          },
-          "multiple": {
-            "description": "Allow selecting multiple choices",
-            "type": "boolean"
-          },
-          "custom": {
-            "description": "Allow typing a custom answer (default: true)",
-            "type": "boolean"
-          }
-        },
-        "required": ["question", "header", "options"]
-      },
-      "QuestionRequest": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^que.*"
-          },
-          "sessionID": {
-            "type": "string",
-            "pattern": "^ses.*"
-          },
-          "questions": {
-            "description": "Questions to ask",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/QuestionInfo"
-            }
-          },
-          "tool": {
-            "type": "object",
-            "properties": {
-              "messageID": {
-                "type": "string",
-                "pattern": "^msg.*"
-              },
-              "callID": {
-                "type": "string"
-              }
-            },
-            "required": ["messageID", "callID"]
-          }
-        },
-        "required": ["id", "sessionID", "questions"]
-      },
-      "QuestionAnswer": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
       "Event.todo.updated": {
         "type": "object",
         "properties": {
@@ -17746,37 +18053,315 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.vcs.branch.behind": {
+      "Project": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string",
-            "const": "vcs.branch.behind"
+          "id": {
+            "type": "string"
           },
-          "properties": {
+          "worktree": {
+            "type": "string"
+          },
+          "vcs": {
+            "type": "string",
+            "const": "git"
+          },
+          "name": {
+            "type": "string"
+          },
+          "icon": {
             "type": "object",
             "properties": {
-              "branch": {
+              "url": {
                 "type": "string"
               },
-              "upstream": {
+              "override": {
                 "type": "string"
               },
-              "behind": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+              "color": {
+                "type": "string"
+              }
+            }
+          },
+          "commands": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "description": "Startup script to run when creating a new workspace (worktree)",
+                "type": "string"
+              }
+            }
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "number"
               },
-              "ahead": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+              "updated": {
+                "type": "number"
+              },
+              "initialized": {
+                "type": "number"
               }
             },
-            "required": ["branch", "upstream", "behind", "ahead"]
+            "required": ["created", "updated"]
+          },
+          "sandboxes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
-        "required": ["type", "properties"]
+        "required": ["id", "worktree", "time", "sandboxes"]
+      },
+      "PermissionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^per.*"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses.*"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "patterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "always": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tool": {
+            "type": "object",
+            "properties": {
+              "messageID": {
+                "type": "string",
+                "pattern": "^msg.*"
+              },
+              "callID": {
+                "type": "string"
+              }
+            },
+            "required": ["messageID", "callID"]
+          }
+        },
+        "required": ["id", "sessionID", "permission", "patterns", "metadata", "always"]
+      },
+      "SessionStatus": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "idle"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "retry"
+              },
+              "attempt": {
+                "type": "number"
+              },
+              "message": {
+                "type": "string"
+              },
+              "next": {
+                "type": "number"
+              }
+            },
+            "required": ["type", "attempt", "message", "next"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "busy"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "queued"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "blocked"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "awaiting_input"
+              },
+              "question": {
+                "type": "string"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "completed"
+              },
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "failed"
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "cancelled"
+              }
+            },
+            "required": ["type"]
+          }
+        ]
+      },
+      "QuestionOption": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "description": "Display text (1-5 words, concise)",
+            "type": "string"
+          },
+          "description": {
+            "description": "Explanation of choice",
+            "type": "string"
+          }
+        },
+        "required": ["label", "description"]
+      },
+      "QuestionInfo": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "description": "Complete question",
+            "type": "string"
+          },
+          "header": {
+            "description": "Very short label (max 30 chars)",
+            "type": "string"
+          },
+          "options": {
+            "description": "Available choices",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionOption"
+            }
+          },
+          "multiple": {
+            "description": "Allow selecting multiple choices",
+            "type": "boolean"
+          },
+          "custom": {
+            "description": "Allow typing a custom answer (default: true)",
+            "type": "boolean"
+          }
+        },
+        "required": ["question", "header", "options"]
+      },
+      "QuestionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^que.*"
+          },
+          "sessionID": {
+            "type": "string",
+            "pattern": "^ses.*"
+          },
+          "questions": {
+            "description": "Questions to ask",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionInfo"
+            }
+          },
+          "tool": {
+            "type": "object",
+            "properties": {
+              "messageID": {
+                "type": "string",
+                "pattern": "^msg.*"
+              },
+              "callID": {
+                "type": "string"
+              }
+            },
+            "required": ["messageID", "callID"]
+          }
+        },
+        "required": ["id", "sessionID", "questions"]
+      },
+      "QuestionAnswer": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       },
       "Event.workspace.failed": {
         "type": "object",
@@ -18063,6 +18648,38 @@
                 ]
               }
             }
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.vcs.branch.behind": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "vcs.branch.behind"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "branch": {
+                "type": "string"
+              },
+              "upstream": {
+                "type": "string"
+              },
+              "behind": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "ahead": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["branch", "upstream", "behind", "ahead"]
           }
         },
         "required": ["type", "properties"]
@@ -19607,6 +20224,66 @@
       "Event": {
         "anyOf": [
           {
+            "$ref": "#/components/schemas/Event.server.connected"
+          },
+          {
+            "$ref": "#/components/schemas/Event.global.disposed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.phase_changed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.provider.started"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.provider.completed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.provider.failed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.claim.extracted"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.cost.update"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.redteam.activated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.convergence.round"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.canary.result"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.halting"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.completed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.failed"
+          },
+          {
+            "$ref": "#/components/schemas/Event.collective.debate.budget_warning"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.prompt.append"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.command.execute"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.toast.show"
+          },
+          {
+            "$ref": "#/components/schemas/Event.tui.session.select"
+          },
+          {
             "$ref": "#/components/schemas/Event.project.updated"
           },
           {
@@ -19617,12 +20294,6 @@
           },
           {
             "$ref": "#/components/schemas/Event.server.instance.disposed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.server.connected"
-          },
-          {
-            "$ref": "#/components/schemas/Event.global.disposed"
           },
           {
             "$ref": "#/components/schemas/Event.lsp.client.diagnostics"
@@ -19697,61 +20368,7 @@
             "$ref": "#/components/schemas/Event.todo.updated"
           },
           {
-            "$ref": "#/components/schemas/Event.collective.debate.started"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.phase_changed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.provider.started"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.provider.completed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.provider.failed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.claim.extracted"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.cost.update"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.redteam.activated"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.convergence.round"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.canary.result"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.halting"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.completed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.failed"
-          },
-          {
-            "$ref": "#/components/schemas/Event.collective.debate.budget_warning"
-          },
-          {
             "$ref": "#/components/schemas/Event.collective.shadow.divergence"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.prompt.append"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.command.execute"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.toast.show"
-          },
-          {
-            "$ref": "#/components/schemas/Event.tui.session.select"
           },
           {
             "$ref": "#/components/schemas/Event.mcp.tools.changed"

@@ -6266,7 +6266,7 @@ export type TeamGetConfigResponses = {
 export type TeamGetConfigResponse = TeamGetConfigResponses[keyof TeamGetConfigResponses]
 
 export type TeamConfigData = {
-  body: {
+  body?: {
     models: Array<{
       providerID: string
       modelID: string
@@ -6279,6 +6279,17 @@ export type TeamConfigData = {
   }
   url: "/team/config"
 }
+
+export type TeamConfigErrors = {
+  /**
+   * Selection must contain 2-8 distinct models
+   */
+  400: {
+    error: string
+  }
+}
+
+export type TeamConfigError = TeamConfigErrors[keyof TeamConfigErrors]
 
 export type TeamConfigResponses = {
   /**
@@ -6330,6 +6341,7 @@ export type TeamListRunsResponses = {
       status: "pending" | "running" | "completed" | "failed" | "aborted"
       createdAt: string
       updatedAt: string
+      controlStatus: "running" | "paused" | "cancelled" | null
     }>
     nextCursor: string | null
   }
@@ -6366,6 +6378,23 @@ export type TeamStartRunData = {
   }
   url: "/team/runs"
 }
+
+export type TeamStartRunErrors = {
+  /**
+   * Invalid Team task graph or Git workspace
+   */
+  400: {
+    error: string
+  }
+  /**
+   * Active Team run limit reached
+   */
+  429: {
+    error: string
+  }
+}
+
+export type TeamStartRunError = TeamStartRunErrors[keyof TeamStartRunErrors]
 
 export type TeamStartRunResponses = {
   /**
@@ -6518,6 +6547,7 @@ export type TeamGetRunResponses = {
     status: "pending" | "running" | "completed" | "failed" | "aborted"
     createdAt: string
     updatedAt: string
+    controlStatus: "running" | "paused" | "cancelled" | null
   }
 }
 

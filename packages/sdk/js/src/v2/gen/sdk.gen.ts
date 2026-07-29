@@ -301,6 +301,7 @@ import type {
   TaskTeamResponses,
   TeamCancelRunErrors,
   TeamCancelRunResponses,
+  TeamConfigErrors,
   TeamConfigResponses,
   TeamGetConfigResponses,
   TeamGetRunErrors,
@@ -317,6 +318,7 @@ import type {
   TeamPauseRunResponses,
   TeamResumeRunErrors,
   TeamResumeRunResponses,
+  TeamStartRunErrors,
   TeamStartRunResponses,
   TextPartInput,
   ToolIdsErrors,
@@ -4234,7 +4236,7 @@ export class Team extends HeyApiClient {
         },
       ],
     )
-    return (options?.client ?? this.client).put<TeamConfigResponses, unknown, ThrowOnError>({
+    return (options?.client ?? this.client).put<TeamConfigResponses, TeamConfigErrors, ThrowOnError>({
       url: "/team/config",
       ...options,
       ...params,
@@ -4325,7 +4327,7 @@ export class Team extends HeyApiClient {
         },
       ],
     )
-    return (options?.client ?? this.client).post<TeamStartRunResponses, unknown, ThrowOnError>({
+    return (options?.client ?? this.client).post<TeamStartRunResponses, TeamStartRunErrors, ThrowOnError>({
       url: "/team/runs",
       ...options,
       ...params,
