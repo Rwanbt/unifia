@@ -31,6 +31,15 @@ const handoff = new Map<string, State>()
 
 const handoffKey = (dir: string, id: string) => `${dir}\n${id}`
 
+// WHY: a schema-validation 400 and a network failure otherwise raise the exact same opaque
+// message, which is what made the Team minimum-models rejection unreadable on device — the
+// toast said "failed to save" and never that the server had refused a one-model selection.
+const saveConfigError = (label: string, error: unknown) => {
+  if (error === undefined || error === null) return new Error(`Failed to save global ${label} configuration`)
+  const detail = typeof error === "string" ? error : JSON.stringify(error)
+  return new Error(`Failed to save global ${label} configuration: ${detail}`)
+}
+
 const migrate = (value: unknown) => {
   if (!value || typeof value !== "object") return { session: {} }
 
@@ -405,7 +414,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           primary: selection.primary,
           participants: selection.participants,
         })
-        if (response.error || !response.data) throw new Error("Failed to save global Debate configuration")
+        if (response.error || !response.data) throw saveConfigError("Debate", response.error)
         setDebateStore("selection", response.data)
         return response.data
       },
@@ -445,7 +454,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       async save(selection: TeamSelection) {
         const response = await sdk.client.team.config({ models: selection.models })
         const saved = normalizeTeamSelection(response.data)
-        if (response.error || !saved) throw new Error("Failed to save global Team configuration")
+        if (response.error || !saved) throw saveConfigError("Team", response.error)
         setTeamStore("selection", saved)
         return saved
       },
