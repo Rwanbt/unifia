@@ -23,6 +23,7 @@ describe("teamLabels — every label is wired to a key", () => {
       labels.selector.clearOverride,
       labels.graph,
       labels.lifecycle,
+      ...Object.values(labels.controls),
       labels.retrying,
       labels.exhausted,
     ]
@@ -47,11 +48,19 @@ describe("teamLabels — every label is wired to a key", () => {
   })
 
   test("the declared key list matches the keys the bundle actually reads", () => {
+    // Construction reads every static key eagerly; the four accessor
+    // functions (selector.missing, runStatus, gateVerdict) only read their
+    // key when actually called, so each must be exercised for every value
+    // TEAM_LABEL_KEYS declares — otherwise this check would pass while
+    // silently never verifying most of the runStatus/gateVerdict entries.
     const read: string[] = []
-    teamLabels((key) => {
+    const labels = teamLabels((key) => {
       read.push(key)
       return key
-    }).selector.missing("x")
+    })
+    labels.selector.missing("x")
+    for (const status of ["pending", "running", "completed", "failed", "aborted"]) labels.runStatus(status)
+    for (const verdict of ["APPROVED", "APPROVED_WITH_FOLLOWUP", "CHANGES_REQUESTED"]) labels.gateVerdict(verdict)
 
     expect(read.toSorted()).toEqual([...TEAM_LABEL_KEYS].toSorted())
   })

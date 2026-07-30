@@ -1,6 +1,10 @@
 import { Database } from "bun:sqlite"
-import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
+// WHY: read at build time, not at runtime. `resolve(import.meta.dir, ...)` points
+// inside the Bun single-file executable's virtual FS (`B:\~BUN\`), where the
+// migration file does not exist — every compiled build (CLI, desktop sidecar,
+// mobile) died with ENOENT on the first team-store call. A text import is inlined
+// into the bundle and keeps working in dev.
+import TEAM_STORE_MIGRATION from "../../migration/20260726193000_team_store/migration.sql" with { type: "text" }
 import {
   TEAM_STORE_MAX_EVENT_BYTES,
   TEAM_STORE_MAX_JSON_BYTES,
@@ -10,7 +14,6 @@ import {
 } from "./team-store.sql"
 
 const DEFAULT_QUEUE_LIMIT = 256
-const MIGRATION_FILE = resolve(import.meta.dir, "../../migration/20260726193000_team_store/migration.sql")
 
 export class TeamStoreQueueFullError extends Error {
   constructor(limit: number) {
@@ -35,6 +38,22 @@ export interface TeamTaskInput {
   status?: "pending" | "assigned" | "running" | "completed" | "blocked" | "cancelled"
   dependsOn?: string[]
   scope: unknown
+}
+export interface TeamAttemptInput {
+  attemptId: string
+  taskId: string
+  workerId: string
+  outcome?: "success" | "failure" | "aborted" | "in_progress"
+  commitSha?: string
+  report?: unknown
+}
+
+export interface TeamGateInput {
+  gateId: string
+  runId: string
+  taskId?: string
+  verdict: TeamGateRow["verdict"]
+  findings: unknown
 }
 
 function now(): string {
@@ -246,7 +265,7 @@ export class TeamStore {
   static open(path: string, options: TeamStoreOptions = {}): TeamStore {
     const db = new Database(path, { create: true })
     db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;")
-    db.exec(readFileSync(MIGRATION_FILE, "utf8"))
+    db.exec(TEAM_STORE_MIGRATION)
     return new TeamStore(db, options)
   }
 
@@ -308,6 +327,65 @@ export class TeamStore {
     })
   }
 
+  updateRunStatus(runId: string, status: TeamRunRow["status"]): Promise<void> {
+    return this.write((db) => {
+      const result = db.prepare("UPDATE team_runs SET status = ?, updated_at = ? WHERE run_id = ?").run(status, now(), runId)
+      if (result.changes !== 1) throw new Error(`Team run ${runId} does not exist`)
+    })
+  }
+
+  updateTaskStatus(taskId: string, status: TeamTaskRow["status"]): Promise<void> {
+    return this.write((db) => {
+      const result = db.prepare("UPDATE team_tasks SET status = ?, updated_at = ? WHERE task_id = ?").run(status, now(), taskId)
+      if (result.changes !== 1) throw new Error(`Team task ${taskId} does not exist`)
+    })
+  }
+
+  createAttempt(input: TeamAttemptInput): Promise<void> {
+    const report = input.report === undefined ? null : json(input.report, TEAM_STORE_MAX_JSON_BYTES, "attempt report")
+    return this.write((db) => {
+      const timestamp = now()
+      db.prepare(
+        `INSERT INTO team_attempts(attempt_id, task_id, worker_id, outcome, commit_sha, report_json, started_at, finished_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        input.attemptId,
+        input.taskId,
+        input.workerId,
+        input.outcome ?? "in_progress",
+        input.commitSha ?? null,
+        report,
+        timestamp,
+        input.outcome && input.outcome !== "in_progress" ? timestamp : null,
+      )
+    })
+  }
+
+  finishAttempt(
+    attemptId: string,
+    outcome: Exclude<TeamAttemptInput["outcome"], "in_progress" | undefined>,
+    input: { commitSha?: string; report?: unknown } = {},
+  ): Promise<void> {
+    const report = input.report === undefined ? null : json(input.report, TEAM_STORE_MAX_JSON_BYTES, "attempt report")
+    return this.write((db) => {
+      const result = db.prepare(
+        `UPDATE team_attempts
+         SET outcome = ?, commit_sha = ?, report_json = ?, finished_at = ?
+         WHERE attempt_id = ? AND outcome = 'in_progress'`,
+      ).run(outcome, input.commitSha ?? null, report, now(), attemptId)
+      if (result.changes !== 1) throw new Error(`Active Team attempt ${attemptId} does not exist`)
+    })
+  }
+
+  recordGate(input: TeamGateInput): Promise<void> {
+    const findings = json(input.findings, TEAM_STORE_MAX_JSON_BYTES, "gate findings")
+    return this.write((db) => {
+      db.prepare(
+        `INSERT INTO team_gates(gate_id, run_id, task_id, verdict, findings_json, decided_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      ).run(input.gateId, input.runId, input.taskId ?? null, input.verdict, findings, now())
+    })
+  }
   appendEvent(runId: string, eventId: string, kind: string, payload: unknown): Promise<number> {
     const payloadJson = json(payload, TEAM_STORE_MAX_EVENT_BYTES, "event payload")
     return this.write((db) => {

@@ -106,4 +106,36 @@ describe("TeamStore SQLite durability", () => {
     })
     expect(store.integrityCheck().ok).toBe(true)
   })
+
+  test("persists lifecycle transitions, attempts, and review gates", async () => {
+    const store = await seededStore()
+    await store.updateRunStatus("run-1", "running")
+    await store.updateTaskStatus("task-1", "running")
+    await store.createAttempt({ attemptId: "attempt-1", taskId: "task-1", workerId: "worker-1" })
+    await store.finishAttempt("attempt-1", "success", {
+      commitSha: "abc123",
+      report: { tests: ["bun test"] },
+    })
+    await store.recordGate({
+      gateId: "gate-1",
+      runId: "run-1",
+      taskId: "task-1",
+      verdict: "APPROVED",
+      findings: { reviewer: "model-review" },
+    })
+    await store.updateTaskStatus("task-1", "completed")
+    await store.updateRunStatus("run-1", "completed")
+
+    expect(store.getRun("run-1")?.status).toBe("completed")
+    expect(store.listTasks("run-1")[0]?.status).toBe("completed")
+    expect(store.listGates("run-1")).toHaveLength(1)
+    expect(store.count("team_attempts")).toBe(1)
+  })
+
+  test("refuses lifecycle transitions for unknown records", async () => {
+    const store = await seededStore()
+    await expect(store.updateRunStatus("missing", "failed")).rejects.toThrow("does not exist")
+    await expect(store.updateTaskStatus("missing", "blocked")).rejects.toThrow("does not exist")
+    await expect(store.finishAttempt("missing", "failure")).rejects.toThrow("does not exist")
+  })
 })

@@ -38,6 +38,39 @@ const MAX_REPORTS = 50
 // into a multi-minute stall. Trim gradually across restarts instead.
 const MAX_PURGE_PER_RUN = 1000
 
+function retainOldest(heap: string[], value: string, limit: number): void {
+  if (heap.length < limit) {
+    heap.push(value)
+    siftOldestUp(heap, heap.length - 1)
+    return
+  }
+  if (value >= heap[0]!) return
+  heap[0] = value
+  siftOldestDown(heap, 0)
+}
+
+function siftOldestUp(heap: string[], start: number): void {
+  let index = start
+  while (index > 0) {
+    const parent = Math.floor((index - 1) / 2)
+    if (heap[parent]! >= heap[index]!) return
+    ;[heap[parent], heap[index]] = [heap[index]!, heap[parent]!]
+    index = parent
+  }
+}
+
+function siftOldestDown(heap: string[], start: number): void {
+  let index = start
+  while (true) {
+    const left = index * 2 + 1
+    if (left >= heap.length) return
+    const right = left + 1
+    const largest = right < heap.length && heap[right]! > heap[left]! ? right : left
+    if (heap[index]! >= heap[largest]!) return
+    ;[heap[index], heap[largest]] = [heap[largest]!, heap[index]!]
+    index = largest
+  }
+}
 export namespace CrashReporter {
   let installed = false
 
@@ -73,7 +106,7 @@ export namespace CrashReporter {
       // Keep handlers installed anyway so they at least log.
     }
 
-    purgeOld()
+    void purgeOld()
 
     process.on("uncaughtException", (err) => {
       writeReport("uncaughtException", err)
@@ -83,31 +116,73 @@ export namespace CrashReporter {
     })
   }
 
-  /** Delete old reports keeping only `MAX_REPORTS` most recent. */
-  function purgeOld() {
+  /**
+   * Delete old reports keeping only `MAX_REPORTS` most recent.
+   *
+   * FORK (SIDECAR-STARTUP-HANG): filenames are `${isoTimestamp}_${kind}.json`
+   * (see writeReport) — ISO 8601 sorts lexicographically in chronological
+   * order, so a plain string sort gives recency without a statSync() per file.
+   *
+   * WHY streamed instead of `readdirSync().filter().sort()`: readdirSync
+   * materialises every entry at once. Measured on a degraded directory of
+   * 1_744_670 reports, that cost ~422 MB of resident memory on every startup
+   * (A/B: 2374 MB vs 1952 MB private bytes) and ran synchronously before the
+   * app could do anything else. `opendirSync` walks with a fixed buffer, and we
+   * retain at most `MAX_PURGE_PER_RUN` names, so memory is O(K) not O(n)
+   * regardless of how far the directory has drifted.
+   *
+   * Exposed for tests.
+   */
+  export async function purgeOld(): Promise<void> {
+    let dir: fs.Dir
     try {
-      const dir = crashDir()
-      // FORK (SIDECAR-STARTUP-HANG): filenames are `${isoTimestamp}_${kind}.json`
-      // (see writeReport) — ISO 8601 sorts lexicographically in chronological
-      // order, so a plain string sort gives recency without a statSync() per
-      // file. The previous stat-and-sort-by-mtime approach turned every
-      // startup into an O(n) syscall loop that never finished once the
-      // directory accumulated millions of entries (see MAX_PURGE_PER_RUN).
-      const files = fs
-        .readdirSync(dir)
-        .filter((f) => f.endsWith(".json"))
-        .sort()
-      const excess = Math.max(0, files.length - MAX_REPORTS)
-      const toDelete = files.slice(0, Math.min(excess, MAX_PURGE_PER_RUN))
-      for (const f of toDelete) {
-        try {
-          fs.unlinkSync(path.join(dir, f))
-        } catch {}
+      dir = await fs.promises.opendir(crashDir())
+    } catch {
+      return
+    }
+
+    const oldest: string[] = []
+    let total = 0
+    let scanned = 0
+    try {
+      for await (const entry of dir) {
+        if (!entry.name.endsWith(".json")) continue
+        total++
+        retainOldest(oldest, entry.name, MAX_PURGE_PER_RUN)
+        scanned++
+        if (scanned % 2048 === 0) await new Promise<void>((resolve) => setImmediate(resolve))
       }
-    } catch {}
+    } catch {
+      // Delete only names collected before the directory became unreadable.
+    }
+
+    const excess = Math.max(0, total - MAX_REPORTS)
+    for (const name of oldest.sort().slice(0, Math.min(excess, MAX_PURGE_PER_RUN))) {
+      try {
+        await fs.promises.unlink(path.join(crashDir(), name))
+      } catch {}
+    }
+  }
+
+  /**
+   * A closed stdout/stderr pipe is a normal termination condition, not a defect
+   * worth archiving. Reporting it is actively harmful: with `--print-logs` the
+   * logger writes to stderr, so archiving an EPIPE re-enters the logger, which
+   * raises EPIPE again — a self-feeding loop. On 2026-07-28 that loop wrote
+   * 1_744_670 reports from a Tauri sidecar whose parent had gone away, and the
+   * resulting directory cost ~422 MB of RSS on every later startup (see
+   * `purgeOld()`).
+   *
+   * Exposed for tests.
+   */
+  export function isBrokenPipe(err: unknown): boolean {
+    const code = (err as { code?: unknown } | null)?.code
+    return code === "EPIPE" || code === "ERR_STREAM_DESTROYED"
   }
 
   function writeReport(kind: Report["kind"], err: unknown) {
+    if (isBrokenPipe(err)) return
+
     const now = new Date()
     const iso = now.toISOString().replace(/[:.]/g, "-")
     const filename = `${iso}_${kind}.json`

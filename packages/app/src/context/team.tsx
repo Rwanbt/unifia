@@ -18,12 +18,10 @@
 //                       the state, and stale data stays visible and is marked
 //                       stale rather than being wiped.
 //
-//   Pretend to write    The Team runtime in packages/opencode/src/team has no
-//                       owner in the running application (R-WIRING-001).
-//                       Nothing starts, pauses or cancels a run, so this
-//                       context reports lifecycle actions as unavailable —
-//                       the same answer the CLI gives with exit 69 — instead
-//                       of exposing buttons that would do nothing.
+//   Share lifecycle     Start and control calls use the server-owned Team
+//                       application service. Every client therefore observes
+//                       the same durable run instead of maintaining local
+//                       optimistic state that can drift from the executor.
 // =============================================================================
 
 import { createMemo, createResource, createSignal } from "solid-js"
@@ -50,8 +48,7 @@ import { useSDK } from "./sdk"
 export type Reachability = "ok" | "offline" | "unavailable" | "error"
 
 /** The sentence shown wherever a lifecycle action would otherwise be offered. */
-export const LIFECYCLE_UNAVAILABLE_REASON =
-  "no Team runtime is wired: runs can be read, but not started, paused or cancelled"
+export const LIFECYCLE_UNAVAILABLE_REASON = "Team lifecycle requires a reachable server"
 
 export function classifyFailure(error: unknown): Reachability {
   const status = (error as { status?: unknown } | null)?.status
@@ -161,26 +158,21 @@ export function resolveSelection(input: {
 
 export interface TeamCapabilities {
   readonly canRead: boolean
-  readonly canStart: false
-  readonly canPause: false
-  readonly canCancel: false
+  readonly canStart: boolean
+  readonly canPause: boolean
+  readonly canCancel: boolean
   readonly lifecycleReason: string
 }
 
-/**
- * What the surface may actually do right now.
- *
- * The lifecycle flags are typed as `false` rather than `boolean` so that a
- * future card wiring a runtime has to change this function and its type
- * together — a screen cannot start offering a Start button by accident.
- */
+/** Lifecycle is available only through the same reachable server as reads. */
 export function teamCapabilities(reachability: Reachability): TeamCapabilities {
+  const available = reachability === "ok"
   return {
-    canRead: reachability === "ok",
-    canStart: false,
-    canPause: false,
-    canCancel: false,
-    lifecycleReason: LIFECYCLE_UNAVAILABLE_REASON,
+    canRead: available,
+    canStart: available,
+    canPause: available,
+    canCancel: available,
+    lifecycleReason: available ? "" : LIFECYCLE_UNAVAILABLE_REASON,
   }
 }
 
@@ -232,11 +224,27 @@ interface ModelRow {
   status: string
 }
 
+interface TaskRow {
+  taskId: string
+  status: string
+  dependsOn: string[]
+}
+
+interface GateRow {
+  gateId: string
+  taskId: string | null
+  verdict: string
+}
+
 interface Store {
   runs: Page<RunRow>
   models: Page<ModelRow>
   runsReachability: Reachability
   modelsReachability: Reachability
+  selectedRunId?: string
+  tasks: TaskRow[]
+  gates: GateRow[]
+  detailsReachability: Reachability
 }
 
 interface PersistedState {
@@ -264,6 +272,9 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
       models: EMPTY_PAGE,
       runsReachability: "ok",
       modelsReachability: "ok",
+      tasks: [],
+      gates: [],
+      detailsReachability: "ok",
     })
 
     async function loadRuns(cursor: string | null) {
@@ -316,6 +327,23 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
       await advanceModels(store.models.nextCursor)
     }
 
+    async function selectRun(runID: string) {
+      try {
+        const [tasks, gates] = await Promise.all([
+          sdk.client.team.listTasks({ runID }),
+          sdk.client.team.listGates({ runID }),
+        ])
+        if (tasks.error) throw tasks.error
+        if (gates.error) throw gates.error
+        setStore("selectedRunId", runID)
+        setStore("tasks", (tasks.data as { items: TaskRow[] }).items)
+        setStore("gates", (gates.data as { items: GateRow[] }).items)
+        setStore("detailsReachability", "ok")
+      } catch (error) {
+        setStore("detailsReachability", classifyFailure(error))
+        throw error
+      }
+    }
     const [health, { refetch: refreshHealth }] = createResource(async () => {
       const response = await sdk.client.modelIntelligence.health()
       if (response.error) return { loaded: false, reachability: classifyFailure(response.error) }
@@ -347,6 +375,18 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
         more: moreModels,
       },
 
+      details: {
+        runId: () => store.selectedRunId,
+        tasks: () => store.tasks,
+        gates: () => store.gates,
+        reachability: () => store.detailsReachability,
+        select: selectRun,
+        clear: () => {
+          setStore("selectedRunId", undefined)
+          setStore("tasks", [])
+          setStore("gates", [])
+        },
+      },
       health: {
         loaded: () => health()?.loaded ?? false,
         reachability: () => health()?.reachability ?? ("ok" as Reachability),
@@ -363,6 +403,27 @@ export const { use: useTeam, provider: TeamProvider } = createSimpleContext({
         /** Not persisted: this is the model for this session only. */
         setOverride,
         clearOverride: () => setOverride(undefined),
+      },
+
+      lifecycle: {
+        async pause(runID: string) {
+          const response = await sdk.client.team.pauseRun({ runID })
+          if (response.error) throw response.error
+          await refreshRuns()
+          return response.data
+        },
+        async resume(runID: string) {
+          const response = await sdk.client.team.resumeRun({ runID })
+          if (response.error) throw response.error
+          await refreshRuns()
+          return response.data
+        },
+        async cancel(runID: string) {
+          const response = await sdk.client.team.cancelRun({ runID })
+          if (response.error) throw response.error
+          await refreshRuns()
+          return response.data
+        },
       },
 
       capabilities: createMemo(() => teamCapabilities(store.runsReachability)),

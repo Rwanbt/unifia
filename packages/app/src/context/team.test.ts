@@ -214,17 +214,16 @@ describe("resolveSelection — validation reports, it does not silently substitu
   })
 })
 
-describe("teamCapabilities — lifecycle is unavailable, and says why", () => {
+describe("teamCapabilities — lifecycle follows server reachability", () => {
   test("reads are possible only when the last read worked", () => {
     expect(teamCapabilities("ok").canRead).toBe(true)
     expect(teamCapabilities("offline").canRead).toBe(false)
     expect(teamCapabilities("unavailable").canRead).toBe(false)
   })
 
-  test("start, pause and cancel are unavailable in every reachability state", () => {
-    // R-WIRING-001: no application code path constructs a Team run, so there is
-    // nothing to act on. Offering the action would be the lie.
-    for (const reach of ["ok", "offline", "unavailable", "error"] as const) {
+  test("start, pause and cancel are available only with a reachable server", () => {
+    expect(teamCapabilities("ok")).toMatchObject({ canStart: true, canPause: true, canCancel: true })
+    for (const reach of ["offline", "unavailable", "error"] as const) {
       const capabilities = teamCapabilities(reach)
       expect(capabilities.canStart).toBe(false)
       expect(capabilities.canPause).toBe(false)
@@ -232,12 +231,11 @@ describe("teamCapabilities — lifecycle is unavailable, and says why", () => {
     }
   })
 
-  test("the reason is carried with the refusal, not left to the caller to invent", () => {
-    expect(teamCapabilities("ok").lifecycleReason).toBe(LIFECYCLE_UNAVAILABLE_REASON)
-    expect(LIFECYCLE_UNAVAILABLE_REASON).toContain("not started, paused or cancelled")
+  test("the reason is carried only when lifecycle control is unavailable", () => {
+    expect(teamCapabilities("ok").lifecycleReason).toBe("")
+    expect(teamCapabilities("offline").lifecycleReason).toBe(LIFECYCLE_UNAVAILABLE_REASON)
   })
 })
-
 describe("selectionKey", () => {
   test("is stable and distinguishes provider from model", () => {
     expect(selectionKey({ providerID: "a", modelID: "b" })).toBe("a/b")

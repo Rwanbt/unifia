@@ -14,6 +14,15 @@
 // list the Team surface grows.
 // =============================================================================
 
+export type LifecycleKey = "pause" | "resume" | "cancel" | "none"
+
+export function lifecycleKey(event: { name?: string; ctrl?: boolean; meta?: boolean }): LifecycleKey {
+  if (event.ctrl || event.meta) return "none"
+  if (event.name === "p") return "pause"
+  if (event.name === "r") return "resume"
+  if (event.name === "c") return "cancel"
+  return "none"
+}
 export type NavigationKey = "up" | "down" | "home" | "end" | "select" | "clear" | "none"
 
 /** Map a terminal key event onto an intent, or onto nothing. */

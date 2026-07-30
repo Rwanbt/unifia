@@ -14,7 +14,7 @@ describe("team-cli binary (sanity)", () => {
   test("CLI source file exists", () => {
     const fs = require("node:fs");
     const path = require("node:path");
-    const p = path.resolve("D:/App/OpenCode/.team-worktrees/G01-bbf637be/packages/opencode/src/team/team-cli.ts");
+    const p = path.resolve(import.meta.dir, "../../src/team/team-cli.ts");
     expect(fs.existsSync(p)).toBe(true);
   });
 });

@@ -4,10 +4,8 @@
 // The Team surface in the terminal: runs, their task graph, gates, and the
 // registry's load state.
 //
-// Read-only, and says so. No application code path constructs a Team run
-// (R-WIRING-001), so there is nothing here to start, pause or cancel. The
-// dialog states that once, in words, instead of offering controls that would
-// do nothing — the same answer `opencode team start` gives with exit 69.
+// Lifecycle controls call the same server-owned runtime as the CLI and App.
+// Cancellation is armed first and confirmed with a second keypress.
 //
 // Everything the display depends on being true — which tasks can run when,
 // what can never run, what a run cost — is computed in util/team-dag.ts and
@@ -18,7 +16,7 @@ import { TextAttributes } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
 import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
-import { moveCursor, navigationKey, reconcileCursor } from "../util/team-keyboard"
+import { lifecycleKey, moveCursor, navigationKey, reconcileCursor } from "../util/team-keyboard"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
 import { Spinner } from "./spinner"
@@ -26,9 +24,6 @@ import { TeamRunGraph } from "./team-run-graph"
 import { layoutTaskGraph, summarizeTasks, totalCostUsd, type TaskNode } from "../util/team-dag"
 
 const RUN_PAGE_SIZE = 30
-
-/** Kept in step with packages/app/src/context/team.tsx, which says the same thing. */
-const LIFECYCLE_UNAVAILABLE = "read-only: no Team runtime is wired, so runs cannot be started, paused or cancelled"
 
 interface RunRow {
   runId: string
@@ -56,8 +51,10 @@ export function DialogTeam() {
 
   const [selected, setSelected] = createSignal<string | undefined>(undefined)
   const [cursor, setCursor] = createSignal(0)
+  const [controlError, setControlError] = createSignal<string | undefined>()
+  const [armedCancel, setArmedCancel] = createSignal<string | undefined>()
 
-  const [runs] = createResource(async () => {
+  const [runs, { refetch: refreshRuns }] = createResource(async () => {
     const response = await sdk.client.team.listRuns({ limit: RUN_PAGE_SIZE })
     if (response.error) throw response.error
     return response.data as { items: RunRow[]; nextCursor: string | null }
@@ -86,7 +83,34 @@ export function DialogTeam() {
   // not move the cursor; shrinking it must not leave the cursor past the end.
   createEffect(() => setCursor((index) => reconcileCursor({ index, count: runList().length })))
 
+  async function control(operation: "pause" | "resume" | "cancel") {
+    const runID = selected() ?? runList()[cursor()]?.runId
+    if (!runID) return
+    const response = operation === "pause"
+      ? await sdk.client.team.pauseRun({ runID })
+      : operation === "resume"
+        ? await sdk.client.team.resumeRun({ runID })
+        : await sdk.client.team.cancelRun({ runID })
+    if (response.error) {
+      setControlError(String((response.error as { error?: string }).error ?? response.error))
+      return
+    }
+    setControlError(undefined)
+    await refreshRuns()
+  }
+
   useKeyboard((event) => {
+    const lifecycle = lifecycleKey(event)
+    if (lifecycle !== "none") {
+      const runID = selected() ?? runList()[cursor()]?.runId
+      if (lifecycle === "cancel" && runID && armedCancel() !== runID) {
+        setArmedCancel(runID)
+        return
+      }
+      setArmedCancel(undefined)
+      void control(lifecycle)
+      return
+    }
     const key = navigationKey(event)
     if (key === "none") return
     if (key === "clear") {
@@ -125,7 +149,8 @@ export function DialogTeam() {
         </text>
       </box>
 
-      <text fg={theme.textMuted}>{LIFECYCLE_UNAVAILABLE}</text>
+      <text fg={theme.textMuted}>p pause · r resume · c twice cancel</text>
+      <Show when={controlError()}><text fg={theme.error}>{controlError()}</text></Show>
 
       <Show when={!runs.loading} fallback={<Spinner />}>
         {/* An unreachable server and a server with no runs are different
@@ -150,7 +175,7 @@ export function DialogTeam() {
                 )}
               </For>
             </box>
-            <text fg={theme.textMuted}>↑↓ move · enter select · esc clear</text>
+            <text fg={theme.textMuted}>↑↓ move · enter select · esc clear · p/r control · c twice cancel</text>
             {/* Shown only when the server said there is more, so the end of the
                 list is distinguishable from the end of the page. */}
             <Show when={runs()?.nextCursor !== null}>

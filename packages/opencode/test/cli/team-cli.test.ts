@@ -20,6 +20,9 @@ const ENTRY = path.resolve(import.meta.dir, "../../src/index.ts")
 let root: string
 let dataHome: string
 let runID: string
+let attach: string
+let controlStatus = "running"
+let server: ReturnType<typeof Bun.serve>
 
 interface CliResult {
   exitCode: number
@@ -100,9 +103,26 @@ beforeAll(async () => {
   await writeFile(path.join(root, "plan.json"), JSON.stringify(plan(3)), "utf8")
   await writeFile(path.join(root, "models.json"), JSON.stringify(MODELS), "utf8")
   await writeFile(path.join(root, "not-json.json"), "{ this is not json", "utf8")
+  server = Bun.serve({
+    port: 0,
+    fetch(request) {
+      const url = new URL(request.url)
+      if (request.method === "POST" && url.pathname === "/team/runs") {
+        return Response.json({ runId: "run-http-1", sessionId: "session-http-1" }, { status: 202 })
+      }
+      const match = url.pathname.match(/^\/team\/runs\/([^/]+)\/(pause|resume|cancel)$/)
+      if (request.method === "POST" && match) {
+        controlStatus = match[2] === "pause" ? "paused" : match[2] === "cancel" ? "cancelled" : "running"
+        return Response.json({ runId: match[1], controlStatus })
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    },
+  })
+  attach = `http://127.0.0.1:${server.port}`
 }, 60_000)
 
 afterAll(async () => {
+  server.stop(true)
   await new Promise((resolve) => setTimeout(resolve, 50))
   await rm(root, { recursive: true, force: true }).catch(() => {})
 })
@@ -181,13 +201,16 @@ describe("opencode team — exit codes a script can branch on", () => {
     expect((await team("dry-run", "--plan", path.join(root, "not-json.json"))).exitCode).toBe(64)
   }, 90_000)
 
-  test("start, pause, resume and cancel are 69 (EX_UNAVAILABLE), never a silent success", async () => {
-    // They are declared rather than omitted so the answer is the truth instead
-    // of "unknown argument" — but they must never exit 0.
-    for (const operation of ["start", "pause", "resume", "cancel"]) {
-      const result = await team(operation)
-      expect(result.exitCode).toBe(69)
-      expect(result.stderr).toContain("no Team runtime is wired")
+  test("start, pause, resume and cancel use the shared server lifecycle", async () => {
+    const started = await team("start", "--attach", attach, "--plan", path.join(root, "plan.json"))
+    expect(started.exitCode).toBe(0)
+    expect(JSON.parse(started.stdout).runId).toBe("run-http-1")
+
+    for (const [operation, expected] of [["pause", "paused"], ["resume", "running"], ["cancel", "cancelled"]] as const) {
+      const controlled = await team(operation, "run-http-1", "--attach", attach)
+      expect(controlled.exitCode).toBe(0)
+      expect(JSON.parse(controlled.stdout).controlStatus).toBe(expected)
+      expect(controlStatus).toBe(expected)
     }
   }, 120_000)
 

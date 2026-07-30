@@ -299,6 +299,11 @@ import type {
   TaskResumeResponses,
   TaskTeamErrors,
   TaskTeamResponses,
+  TeamCancelRunErrors,
+  TeamCancelRunResponses,
+  TeamConfigErrors,
+  TeamConfigResponses,
+  TeamGetConfigResponses,
   TeamGetRunErrors,
   TeamGetRunResponses,
   TeamListEventsErrors,
@@ -309,6 +314,12 @@ import type {
   TeamListRunsResponses,
   TeamListTasksErrors,
   TeamListTasksResponses,
+  TeamPauseRunErrors,
+  TeamPauseRunResponses,
+  TeamResumeRunErrors,
+  TeamResumeRunResponses,
+  TeamStartRunErrors,
+  TeamStartRunResponses,
   TextPartInput,
   ToolIdsErrors,
   ToolIdsResponses,
@@ -1580,6 +1591,7 @@ export class Workspace extends HeyApiClient {
       directory?: string
       workspace?: string
       id?: string
+      name?: string | null
       type?: string
       branch?: string | null
       extra?: unknown | null
@@ -1594,6 +1606,7 @@ export class Workspace extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "body", key: "id" },
+            { in: "body", key: "name" },
             { in: "body", key: "type" },
             { in: "body", key: "branch" },
             { in: "body", key: "extra" },
@@ -4166,6 +4179,76 @@ export class Debate extends HeyApiClient {
 
 export class Team extends HeyApiClient {
   /**
+   * Get the Team model selection
+   *
+   * Return the configured distinct models used by Team workers.
+   */
+  public getConfig<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamGetConfigResponses, unknown, ThrowOnError>({
+      url: "/team/config",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Save the Team model selection
+   *
+   * Persist at least two distinct connected models for Team workers.
+   */
+  public config<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      models?: Array<{
+        providerID: string
+        modelID: string
+      }>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "models" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<TeamConfigResponses, TeamConfigErrors, ThrowOnError>({
+      url: "/team/config",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
    * List team runs
    *
    * List persisted team runs, newest first. Keyset pagination via an opaque cursor.
@@ -4194,6 +4277,153 @@ export class Team extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<TeamListRunsResponses, TeamListRunsErrors, ThrowOnError>({
       url: "/team/runs",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Start a Team run
+   *
+   * Start the same durable Team lifecycle used by the native team tool.
+   */
+  public startRun<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      description?: string
+      tasks?: Array<{
+        id: string
+        description: string
+        prompt: string
+        agent: string
+        mode: "read" | "write"
+        required?: boolean
+        risk?: "low" | "medium" | "high" | "critical"
+        dependsOn?: Array<string>
+        readSet?: Array<string>
+        writeSet?: Array<string>
+        modelIndex?: number
+      }>
+      budget?: {
+        maxCostUsd?: number
+        maxTokens?: number
+        maxParallel?: number
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "description" },
+            { in: "body", key: "tasks" },
+            { in: "body", key: "budget" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamStartRunResponses, TeamStartRunErrors, ThrowOnError>({
+      url: "/team/runs",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Pause a Team run
+   */
+  public pauseRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamPauseRunResponses, TeamPauseRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume a Team run
+   */
+  public resumeRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamResumeRunResponses, TeamResumeRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/resume",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel a Team run
+   */
+  public cancelRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamCancelRunResponses, TeamCancelRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/cancel",
       ...options,
       ...params,
     })

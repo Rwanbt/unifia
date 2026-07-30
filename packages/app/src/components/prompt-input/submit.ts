@@ -336,6 +336,14 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       }
     }
 
+    if (currentAgent.name === "team") {
+      const configured = local.team.current() ?? (await local.team.load())
+      if (!local.team.isValid(configured)) {
+        showToast({ title: language.t("team.selection.invalid"), description: language.t("team.selection.minimum") })
+        return
+      }
+    }
+
     input.addToHistory(currentPrompt, mode)
     input.resetHistoryNavigation()
     promptProbe.start()

@@ -1,5 +1,7 @@
 # TECHNICAL-DEBT-REGISTER — Programme Agent Team V3
 
+> **Current addendum — 2026-07-29:** the table below is the historical Lot A routing record, not a statement that every item is closed. Current product lifecycle wiring is implemented and locally validated. Remaining release constraints are tracked in `docs/architecture/team/ZERO-DEBT-AUDIT.md`: single-call budget overshoot, process-local lifecycle controllers without automatic restart reattachment, real-provider smoke, and release packaging/signing.
+
 > **Carte :** TEAM-A06 (Lot A, Gate T0 — clôture)
 > **SHA de base :** `ef48e5d5c5cc0aff802a519950e15aeb3786e1c6` (Team post-A05 cherry-pick)
 > **Date UTC :** 2026-07-21

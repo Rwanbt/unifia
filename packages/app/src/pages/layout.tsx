@@ -535,6 +535,14 @@ export default function Layout(props: ParentProps) {
     })
   }
 
+  function openTeam() {
+    const run = ++dialogRef.run
+    void import("@/components/dialog-team").then((x) => {
+      if (dialogRef.dead || dialogRef.run !== run) return
+      dialog.show(() => <x.DialogTeam />)
+    })
+  }
+
   function projectRoot(directory: string) {
     const key = workspaceKey(directory)
     const project = layout.projects
@@ -847,6 +855,7 @@ export default function Layout(props: ParentProps) {
     connectProvider,
     openServer,
     openSettings,
+    openTeam,
   })
 
   const workspaceSidebarCtx: WorkspaceSidebarContext = {

@@ -1,11 +1,12 @@
-# Migration Certification (N03) — placeholder
+# Team V3 Migration Validation — 2026-07-29
 
-Schema versioning: TEAM_SCHEMA_VERSION = 2.0.0; N-1 = 1.0.0 supported.
-loadAttempt migrates v1 payloads; parseAttempt rejects unmigrated v1;
-loadAttempt throws TeamSchemaVersionError on N-2 / malformed.
-WAL replay after interruption verified.
-Backup/restore round-trip verified.
-Rollback (Down) script available for every migration.
+Status: **LOCAL SCHEMA VALIDATION PASSED — NO DOWN-MIGRATION CLAIM**
 
-EXTERNAL_HUMAN_SIGNOFF_RECOMMENDED for production rollout on managed DB.
-D-066 permits local closure.
+Team has two distinct version domains:
+
+- Durable SQLite store: `TEAM_STORE_SCHEMA_VERSION = 1.0.0`, migration id `20260726193000_team_store`. Migration is idempotent and preserves WAL, foreign keys, bounded JSON and monotonic events.
+- Domain payloads: `TEAM_SCHEMA_VERSION = 2.0.0`. `Attempt` explicitly supports N-1 (`1.0.0`) through `loadAttempt`; malformed, missing and N-2 versions fail closed.
+
+Verified by the Team store, type and checkpoint tests in the 814-test Team suite. Transaction rollback, replay, payload bounds and N-1 Attempt migration pass.
+
+No generic down-migration exists for every Team schema, and this document does not claim one. Before a future SQLite schema bump, add an explicit backup/restore rehearsal and migration test against a copy of a real user database.
