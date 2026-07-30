@@ -260,7 +260,12 @@ describe("worktree-manager — listWorktrees", () => {
   });
 
   test("listWorktrees rejects missing repo_root", () => {
-    const r = listWorktrees("C:/nonexistent/path/that/does/not/exist");
+    // A literal "C:/..." path isn't absolute on POSIX, so this used to only
+    // exercise the intended PATH_NOT_DIRECTORY/GIT_COMMAND_FAILED codes on
+    // Windows — on Linux it hit PATH_NOT_ABSOLUTE instead (a different,
+    // already-covered validation path). tmpdir() is absolute on every platform.
+    const missing = join(tmpdir(), "opencode-test-nonexistent-repo-root-that-does-not-exist");
+    const r = listWorktrees(missing);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(["PATH_NOT_DIRECTORY", "GIT_COMMAND_FAILED"]).toContain(r.code);
   });
