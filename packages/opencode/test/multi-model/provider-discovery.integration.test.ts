@@ -29,6 +29,14 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import * as ProviderMod from "../../src/provider/provider"
 import * as AuthMod from "../../src/auth"
 
+// ESM namespace imports are live bindings: once mock.module() replaces what
+// a specifier resolves to, ProviderMod/AuthMod reflect the mock too. Spread
+// into a plain object HERE, before any test in this file mocks anything, so
+// resetMocks() below restores the real thing instead of re-registering
+// whatever the last mock happened to leave live.
+const originalProviderMod = { ...ProviderMod }
+const originalAuthMod = { ...AuthMod }
+
 // We capture log output by stubbing console.log temporarily.
 let logLines: string[] = []
 const originalLog = console.log
@@ -76,21 +84,27 @@ const buildProvider = (
   models,
 })
 
+// Spread the real namespace rather than replacing it outright — Provider/Auth
+// also carry an Effect `Service` tag consumed by unrelated singleton layers
+// that memoize their build process-wide (src/effect/run-service.ts). A bare
+// replacement object drops `.Service`, and if that memoized build ever runs
+// while this mock is live, the resulting `undefined` gets cached for the rest
+// of the test process. See provider-discovery.regression.test.ts for the
+// concrete cascade this caused.
 const mockProviderList = (list: Record<string, ProviderInfo>) => {
   mock.module("../../src/provider/provider", () => ({
-    Provider: { list: async () => list },
+    ...originalProviderMod,
+    Provider: { ...originalProviderMod.Provider, list: async () => list },
   }))
 }
 
 const mockAuthAll = (entries: Record<string, AuthEntry>) => {
-  mock.module("../../src/auth", () => ({
-    Auth: { all: async () => entries },
-  }))
+  mock.module("../../src/auth", () => ({ ...originalAuthMod, Auth: { ...originalAuthMod.Auth, all: async () => entries } }))
 }
 
 const resetMocks = () => {
-  mock.module("../../src/provider/provider", () => ProviderMod)
-  mock.module("../../src/auth", () => AuthMod)
+  mock.module("../../src/provider/provider", () => originalProviderMod)
+  mock.module("../../src/auth", () => originalAuthMod)
 }
 
 let discoverAvailableProviders: typeof import("../../src/multi-model/provider-discovery").discoverAvailableProviders

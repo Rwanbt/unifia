@@ -341,17 +341,32 @@ export const TeamRoutes = lazy(() =>
     )
     .post(
       "/runs/:runID/pause",
-      describeRoute({ summary: "Pause a Team run", operationId: "team.pauseRun", responses: { 200: { description: "Paused", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } } }),
+      describeRoute({
+        summary: "Pause a Team run",
+        description: "Suspend an active Team run so its workers stop making progress until resumed.",
+        operationId: "team.pauseRun",
+        responses: { 200: { description: "Paused", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } },
+      }),
       (c) => controlRun(c, "pause"),
     )
     .post(
       "/runs/:runID/resume",
-      describeRoute({ summary: "Resume a Team run", operationId: "team.resumeRun", responses: { 200: { description: "Running", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } } }),
+      describeRoute({
+        summary: "Resume a Team run",
+        description: "Resume a previously paused Team run so its workers continue making progress.",
+        operationId: "team.resumeRun",
+        responses: { 200: { description: "Running", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } },
+      }),
       (c) => controlRun(c, "resume"),
     )
     .post(
       "/runs/:runID/cancel",
-      describeRoute({ summary: "Cancel a Team run", operationId: "team.cancelRun", responses: { 200: { description: "Cancelled", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } } }),
+      describeRoute({
+        summary: "Cancel a Team run",
+        description: "Permanently stop an active or paused Team run; it cannot be resumed afterward.",
+        operationId: "team.cancelRun",
+        responses: { 200: { description: "Cancelled", content: { "application/json": { schema: resolver(RunControlSchema) } } }, 409: { description: "Run is not active", content: { "application/json": { schema: resolver(ErrorSchema) } } } },
+      }),
       (c) => controlRun(c, "cancel"),
     )
     .get(

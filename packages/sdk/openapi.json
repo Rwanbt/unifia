@@ -8488,6 +8488,7 @@
           }
         ],
         "summary": "Pause a Team run",
+        "description": "Suspend an active Team run so its workers stop making progress until resumed.",
         "responses": {
           "200": {
             "description": "Paused",
@@ -8562,6 +8563,7 @@
           }
         ],
         "summary": "Resume a Team run",
+        "description": "Resume a previously paused Team run so its workers continue making progress.",
         "responses": {
           "200": {
             "description": "Running",
@@ -8636,6 +8638,7 @@
           }
         ],
         "summary": "Cancel a Team run",
+        "description": "Permanently stop an active or paused Team run; it cannot be resumed afterward.",
         "responses": {
           "200": {
             "description": "Cancelled",
