@@ -70,6 +70,17 @@ import * as AuthMod from "../../src/auth"
 import * as RealFsPromises from "node:fs/promises"
 import * as RealChildProcess from "node:child_process"
 
+// ESM namespace imports are live bindings: once mock.module() replaces what
+// "node:fs/promises" resolves to, RealFsPromises.readFile reflects the mock
+// too — including from inside the mock's own fallback branch, which would
+// call itself forever. Spreading into a plain object HERE, before any test
+// in this file has mocked anything, freezes real function values that later
+// mock.module() calls cannot retroactively change.
+const originalFsPromises = { ...RealFsPromises }
+const originalChildProcess = { ...RealChildProcess }
+const originalProviderMod = { ...ProviderMod }
+const originalAuthMod = { ...AuthMod }
+
 // --------------------------------------------------------------------------------------
 // Mocking harness — mirrors the proven, already-passing pattern used by
 // test/multi-model/provider-discovery.integration.test.ts (B02/B03
@@ -89,25 +100,57 @@ const buildProvider = (
   models: Record<string, { cost?: { input: number; output: number }; status?: string }>,
 ): ProviderInfo => ({ id, env: envVars, models })
 
+// Spread the real namespace (captured before any mocking, via the static
+// imports below) rather than replacing it outright. `Provider`/`Auth` also
+// carry an Effect `Service` tag consumed by unrelated singleton layers
+// (src/config/config.ts, src/share/share-next.ts) that memoize their build
+// via a process-wide MemoMap (src/effect/run-service.ts). If that memoized
+// build ever ran while a partial replacement object (missing `.Service`) was
+// live in the module registry, the resulting `undefined` gets cached for the
+// rest of the test process — cascading into hundreds of unrelated failures
+// in later files, regardless of resetMocks() running correctly afterward.
 const mockProviderList = (list: Record<string, ProviderInfo>) => {
-  mock.module("../../src/provider/provider", () => ({ Provider: { list: async () => list } }))
+  mock.module("../../src/provider/provider", () => ({
+    ...originalProviderMod,
+    Provider: { ...originalProviderMod.Provider, list: async () => list },
+  }))
 }
 
 const mockAuthAll = (entries: Record<string, unknown>) => {
-  mock.module("../../src/auth", () => ({ Auth: { all: async () => entries } }))
+  mock.module("../../src/auth", () => ({ ...originalAuthMod, Auth: { ...originalAuthMod.Auth, all: async () => entries } }))
 }
 
+// Path-aware and spreads the real module (see the Provider/Auth mocks above
+// for why): a bare readFile replacement ignores its path argument, so ANY
+// unrelated file read anywhere in the process — even from a completely
+// different test file — gets this fixture's content back if it happens to
+// run while this mock is live (observed: test/session/llm.test.ts's fixture
+// loader failing to JSON.parse "not valid json {{{"). Scoping to the actual
+// auth file names and falling back to the real readFile for everything else
+// bounds the damage regardless of any afterEach/reset timing.
 const mockCredentialFile = (content: string | null) => {
   mock.module("node:fs/promises", () => ({
-    readFile: async () => {
-      if (content === null) throw new Error("ENOENT: no such file")
-      return content
+    ...originalFsPromises,
+    readFile: async (path: Parameters<typeof originalFsPromises.readFile>[0], ...rest: unknown[]) => {
+      const p = String(path)
+      // "~/.claude/.credentials.json" is the ONLY path this test simulates
+      // (src/multi-model/provider-discovery.ts's anthropic credential-file
+      // extractor). Do NOT also match "auth.json": the SAME source file's
+      // openai extractor reads "~/.codex/auth.json" — a real, unrelated file
+      // that may genuinely exist on a dev machine — and src/auth/index.ts's
+      // own storage file is already covered by mockAuthAll, not this mock.
+      if (p.endsWith(".credentials.json")) {
+        if (content === null) throw new Error("ENOENT: no such file")
+        return content
+      }
+      return (originalFsPromises.readFile as (...args: unknown[]) => Promise<unknown>)(path, ...rest)
     },
   }))
 }
 
 const mockCliAuth = (succeeds: boolean) => {
   mock.module("node:child_process", () => ({
+    ...originalChildProcess,
     execFileSync: () => {
       if (!succeeds) throw new Error("ENOENT: no such binary")
       return Buffer.from("")
@@ -115,11 +158,16 @@ const mockCliAuth = (succeeds: boolean) => {
   }))
 }
 
+// Restore from the frozen snapshots, not the live ProviderMod/AuthMod/
+// RealFsPromises/RealChildProcess bindings — those are live ESM namespace
+// views that reflect whatever mock.module() last installed, so passing them
+// straight through here would just re-register the CURRENT (possibly still
+// mocked) state instead of the pristine original.
 const resetMocks = () => {
-  mock.module("../../src/provider/provider", () => ProviderMod)
-  mock.module("../../src/auth", () => AuthMod)
-  mock.module("node:fs/promises", () => RealFsPromises)
-  mock.module("node:child_process", () => RealChildProcess)
+  mock.module("../../src/provider/provider", () => originalProviderMod)
+  mock.module("../../src/auth", () => originalAuthMod)
+  mock.module("node:fs/promises", () => originalFsPromises)
+  mock.module("node:child_process", () => originalChildProcess)
 }
 
 // Bun caches ES modules; every test gets a cache-busted fresh import of

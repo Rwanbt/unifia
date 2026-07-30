@@ -4341,6 +4341,8 @@ export class Team extends HeyApiClient {
 
   /**
    * Pause a Team run
+   *
+   * Suspend an active Team run so its workers stop making progress until resumed.
    */
   public pauseRun<ThrowOnError extends boolean = false>(
     parameters: {
@@ -4371,6 +4373,8 @@ export class Team extends HeyApiClient {
 
   /**
    * Resume a Team run
+   *
+   * Resume a previously paused Team run so its workers continue making progress.
    */
   public resumeRun<ThrowOnError extends boolean = false>(
     parameters: {
@@ -4401,6 +4405,8 @@ export class Team extends HeyApiClient {
 
   /**
    * Cancel a Team run
+   *
+   * Permanently stop an active or paused Team run; it cannot be resumed afterward.
    */
   public cancelRun<ThrowOnError extends boolean = false>(
     parameters: {

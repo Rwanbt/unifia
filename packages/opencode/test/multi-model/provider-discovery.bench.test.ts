@@ -27,6 +27,14 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import * as ProviderMod from "../../src/provider/provider"
 import * as AuthMod from "../../src/auth"
 
+// ESM namespace imports are live bindings: once mock.module() replaces what
+// a specifier resolves to, ProviderMod/AuthMod reflect the mock too. Spread
+// into a plain object HERE, before any test in this file mocks anything, so
+// the afterEach reset below restores the real thing instead of re-registering
+// whatever the last mock happened to leave live.
+const originalProviderMod = { ...ProviderMod }
+const originalAuthMod = { ...AuthMod }
+
 type ProviderInfo = {
   id: string
   name?: string
@@ -60,8 +68,8 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
-  mock.module("../../src/provider/provider", () => ProviderMod)
-  mock.module("../../src/auth", () => AuthMod)
+  mock.module("../../src/provider/provider", () => originalProviderMod)
+  mock.module("../../src/auth", () => originalAuthMod)
 })
 
 // ---------------------------------------------------------------------------
@@ -137,9 +145,10 @@ afterEach(() => {
 describe("multi-model/provider-discovery — performance benchmarks", () => {
   test(`discoverAvailableProviders (small catalogue, 3 providers) — ${N_ITER} iters`, async () => {
     mock.module("../../src/provider/provider", () => ({
-      Provider: { list: async () => SMALL_CATALOGUE },
+      ...ProviderMod,
+      Provider: { ...ProviderMod.Provider, list: async () => SMALL_CATALOGUE },
     }))
-    mock.module("../../src/auth", () => ({ Auth: { all: async () => ({}) } }))
+    mock.module("../../src/auth", () => ({ ...AuthMod, Auth: { ...AuthMod.Auth, all: async () => ({}) } }))
 
     const samples: number[] = []
     for (let i = 0; i < N_ITER; i++) {
@@ -156,9 +165,10 @@ describe("multi-model/provider-discovery — performance benchmarks", () => {
   test(`discoverAvailableProviders (medium catalogue, 50 providers) — ${N_ITER} iters`, async () => {
     const catalogue = buildLargeCatalogue(50)
     mock.module("../../src/provider/provider", () => ({
-      Provider: { list: async () => catalogue },
+      ...ProviderMod,
+      Provider: { ...ProviderMod.Provider, list: async () => catalogue },
     }))
-    mock.module("../../src/auth", () => ({ Auth: { all: async () => ({}) } }))
+    mock.module("../../src/auth", () => ({ ...AuthMod, Auth: { ...AuthMod.Auth, all: async () => ({}) } }))
 
     const samples: number[] = []
     for (let i = 0; i < N_ITER; i++) {
@@ -174,9 +184,10 @@ describe("multi-model/provider-discovery — performance benchmarks", () => {
   test(`discoverAvailableProviders (large catalogue, 200 providers) — ${N_ITER} iters`, async () => {
     const catalogue = buildLargeCatalogue(200)
     mock.module("../../src/provider/provider", () => ({
-      Provider: { list: async () => catalogue },
+      ...ProviderMod,
+      Provider: { ...ProviderMod.Provider, list: async () => catalogue },
     }))
-    mock.module("../../src/auth", () => ({ Auth: { all: async () => ({}) } }))
+    mock.module("../../src/auth", () => ({ ...AuthMod, Auth: { ...AuthMod.Auth, all: async () => ({}) } }))
 
     const samples: number[] = []
     for (let i = 0; i < N_ITER; i++) {
@@ -236,8 +247,8 @@ describe("multi-model/provider-discovery — performance benchmarks", () => {
 
 describe("multi-model/provider-discovery — offline determinism stress", () => {
   test("1000 iterations of (no env, no auth) produce identical empty-or-InsufficientProvidersError", async () => {
-    mock.module("../../src/provider/provider", () => ({ Provider: { list: async () => ({}) } }))
-    mock.module("../../src/auth", () => ({ Auth: { all: async () => ({}) } }))
+    mock.module("../../src/provider/provider", () => ({ ...ProviderMod, Provider: { ...ProviderMod.Provider, list: async () => ({}) } }))
+    mock.module("../../src/auth", () => ({ ...AuthMod, Auth: { ...AuthMod.Auth, all: async () => ({}) } }))
 
     let failureCount = 0
     for (let i = 0; i < 1000; i++) {
@@ -249,9 +260,10 @@ describe("multi-model/provider-discovery — offline determinism stress", () => 
 
   test("1000 iterations of (env-var auth, 3 providers) produce identical provider list", async () => {
     mock.module("../../src/provider/provider", () => ({
-      Provider: { list: async () => SMALL_CATALOGUE },
+      ...ProviderMod,
+      Provider: { ...ProviderMod.Provider, list: async () => SMALL_CATALOGUE },
     }))
-    mock.module("../../src/auth", () => ({ Auth: { all: async () => ({}) } }))
+    mock.module("../../src/auth", () => ({ ...AuthMod, Auth: { ...AuthMod.Auth, all: async () => ({}) } }))
 
     const baseline = await Effect.runPromise(discoverAvailableProviders())
     const baselineJSON = JSON.stringify(baseline)
