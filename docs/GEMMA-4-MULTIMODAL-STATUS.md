@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-28
 **Context:** Driven by the Google AI Edge Gallery comparison roadmap.
-**Scope:** vision in Gemma 4 E4B for OpenCode mobile and desktop.
+**Scope:** vision in Gemma 4 E4B for Unifia mobile and desktop.
 **Audio:** out of scope (Parakeet / Murmur STT pre-pass already covers
 the user's needs; llama.cpp upstream rejected Gemma 4 native audio in
 PR #21868 "not planned").
@@ -37,7 +37,7 @@ PR #21868 "not planned").
   exists in the model weights but isn't reachable through the standard
   `/v1/chat/completions` endpoint.
 
-## OpenCode current state (2026-04-28)
+## Unifia current state (2026-04-28)
 
 ### Frontend ✅ ~80 % ready
 

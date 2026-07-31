@@ -183,7 +183,7 @@ function isOverflow({ cfg, tokens, model }) {
 
 ## 6. The Three Spawn Paths
 
-OpenCode has two distinct paths that load llama-server:
+Unifia has two distinct paths that load llama-server:
 
 ### 6.1 TS Sidecar (chat hot-path)
 `llm.ts:334` → `LocalLLMServer.ensureRunning()` → `buildArgs()` → `spawnOnce()`

@@ -1,4 +1,4 @@
-# Roadmap — OpenCode Mobile → IDE Android complet (dual-mode Agent ⇄ IDE)
+# Roadmap — Unifia Mobile → IDE Android complet (dual-mode Agent ⇄ IDE)
 
 > Statut : approuvée 2026-06-16. Reviews croisées Codex + MiniMax, vérifiée contre la codebase.
 > Décisions : moteur éditeur = **CodeMirror 6** ; identité = **dual-mode switchable** (Mode Agent ⇄ Mode IDE).
@@ -124,7 +124,7 @@ Issu de l'audit dette mobile (élevée). À traiter avant tout chantier build/te
 - [x] Supprimer le swallow d'erreurs silencieux (`let _ =` sur symlink/fs) → logging. D-12/D-13 ont
   couvert `force_symlink`/`repair_rootfs_hardlinks` ; le durcissement final couvre le chemin `wrap_one`
   (cc1/collect2/binutils/rustlib), la réécriture de wrapper, la restauration `liblto_plugin.so` et le
-  seed `/etc/resolv.conf` — tous loggés (`[OpenCode] … failed to …`), best-effort par binaire conservé.
+  seed `/etc/resolv.conf` — tous loggés (`[Unifia] … failed to …`), best-effort par binaire conservé.
 - [x] Unifier le bundling CLI (`prepare-android-runtime.sh` → `scripts/bundle-mobile.mjs`) → source unique (D-17).
 - [x] Décomposer `runtime.rs` (1869 → ~848 LOC) en `runtime/{extraction,toolchain,server}.rs` (D-01).
 
@@ -250,8 +250,8 @@ Issu de l'audit dette mobile (élevée). À traiter avant tout chantier build/te
 |---|---|---|
 | NotificationBridge instanciée dans `FullApp` — session.updated (completed/failed) + llm.status (loaded) | `packages/mobile/src/entry.tsx:540` | ✅ |
 | `handleDeepLink(url)` — router en cascade pour 3 schémas | `packages/mobile/src/entry.tsx:296` | ✅ |
-| `opencode://open?file=…&project=…` → dispatch `ide-open-file` CustomEvent | `packages/mobile/src/entry.tsx:26-40` | ✅ |
-| `opencode://session?id=…` → dispatch `navigate-to-session` CustomEvent | `packages/mobile/src/entry.tsx:51-63` | ✅ |
+| `unifia://open?file=…&project=…` → dispatch `ide-open-file` CustomEvent | `packages/mobile/src/entry.tsx:26-40` | ✅ |
+| `unifia://session?id=…` → dispatch `navigate-to-session` CustomEvent | `packages/mobile/src/entry.tsx:51-63` | ✅ |
 | `ANDROID_DEVELOPMENT.md §5-6` mis à jour — permissions, lifecycle, notifications, deep-link | `docs/ANDROID_DEVELOPMENT.md` | ✅ |
 
 ---

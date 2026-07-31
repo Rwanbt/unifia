@@ -1,4 +1,4 @@
-# Standards Governance Plan — OpenCode Fork
+# Standards Governance Plan — Unifia Fork
 
 ## Périmètre
 

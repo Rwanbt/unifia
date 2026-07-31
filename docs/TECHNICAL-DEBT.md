@@ -1,4 +1,4 @@
-# Registre de dette technique — OpenCode (fork Rwanbt)
+# Registre de dette technique — Unifia (fork Rwanbt)
 
 > **Document vivant.** Registre maître de la dette technique. À re-valider à chaque fin de sprint
 > et avant tout push majeur (`/verify-standards`, `/health`).
@@ -129,7 +129,7 @@ Norme SonarQube : vert ≤ 500, alerte 800, bloquant 1500. État au 2026-06-16 :
 
 ### I. Dette marquée (TODO/FIXME/HACK)
 
-État : app 17, ui 23, opencode 23, mobile 2. À auditer à chaque fin de session (règle globale) :
+État : app 17, ui 23, unifia 23, mobile 2. À auditer à chaque fin de session (règle globale) :
 chaque occurrence doit avoir un ticket ou être résolue.
 
 | ID | Action |
