@@ -365,7 +365,9 @@ cards:
     objective: "FakeRuntime + OpenCodeRuntimeAdapter test fixture + conformance suite (10 scénarios du Plan V3 §13)."
     rationale: "Préalable à tout import (PORTABILITY §5)."
     scope: { allowed_paths: ["packages/**"], max_changed_non_generated_lines: 400, max_implementation_files: 8 }
-    commands: { preflight: [], targeted_tests: [], static_checks: [] }
+    commands:
+      preflight: ["# gabarit — détaillé quand la phase est activée"]
+      static_checks: []
     acceptance: [{ id: "AC-1", statement: "Conformance suite verte sur 3 runtimes", evidence: "bun test:conformance" }]
     rollback: { strategy: "Revert atomique" }
     review: { reviewer_mode: "fresh-context-read-only", max_cycles: 3 }
@@ -379,7 +381,9 @@ cards:
     objective: "npm sbom + cargo about + lockfile des sources upstream. CI bloquante sur deps non whitelisted."
     rationale: "Plan V3 §13 livrable 'dependency scan' + 'SBOM initiale'."
     scope: { allowed_paths: [".github/workflows/**", "scripts/**"], max_changed_non_generated_lines: 400, max_implementation_files: 8 }
-    commands: { preflight: [], targeted_tests: [], static_checks: [] }
+    commands:
+      preflight: ["# gabarit — détaillé quand la phase est activée"]
+      static_checks: []
     acceptance: [{ id: "AC-1", statement: "SBOM généré, scan CI actif", evidence: "gh workflow run sbom.yml" }]
     rollback: { strategy: "Revert atomique" }
     review: { reviewer_mode: "fresh-context-read-only", max_cycles: 3 }
@@ -393,7 +397,9 @@ cards:
     objective: "Implémenter les verrous techniques de DO-NOT-IMPORT §6 (refus /ee/, .env*, patterns dangereux, SPDX headers)."
     rationale: "Application technique de l'audit Phase -1."
     scope: { allowed_paths: [".husky/**", ".github/workflows/**", "scripts/**"], max_changed_non_generated_lines: 400, max_implementation_files: 8 }
-    commands: { preflight: [], targeted_tests: [], static_checks: [] }
+    commands:
+      preflight: ["# gabarit — détaillé quand la phase est activée"]
+      static_checks: []
     acceptance: [{ id: "AC-1", statement: "Hook pre-commit refuse les patterns interdits", evidence: "test: tentative d'ajout d'un fichier /ee/ bloquée" }]
     rollback: { strategy: "Revert atomique" }
     review: { reviewer_mode: "fresh-context-read-only", max_cycles: 3 }
@@ -498,7 +504,9 @@ cards:
     objective: "Implémenter SandboxPort (Plan V3 §7.5) avec backends Native/Docker/WSL2/Lima. OCW-S2 (sandbox Python) en adaptateur."
     rationale: "Plan V3 Phase 8."
     scope: { allowed_paths: ["packages/sandbox-broker/**"], max_changed_non_generated_lines: 400, max_implementation_files: 8 }
-    commands: { preflight: [], targeted_tests: [], static_checks: [] }
+    commands:
+      preflight: ["# gabarit — détaillé quand la phase est activée"]
+      static_checks: []
     acceptance: [{ id: "AC-1", statement: "SandboxBroker passe la conformance 4 backends", evidence: "bun test:sandbox" }]
     rollback: { strategy: "Revert atomique" }
     review: { reviewer_mode: "fresh-context-read-only", max_cycles: 3 }
@@ -511,7 +519,9 @@ cards:
     objective: "OCW-S4 en Capability Packs remote derrière RemoteTransportPort. ApprovalBroker + AuditRuntime obligatoires."
     rationale: "Plan V3 Phase 9. SECURITY-CRITICAL."
     scope: { allowed_paths: ["packages/remote-bridges/**"], max_changed_non_generated_lines: 400, max_implementation_files: 8 }
-    commands: { preflight: [], targeted_tests: [], static_checks: [] }
+    commands:
+      preflight: ["# gabarit — détaillé quand la phase est activée"]
+      static_checks: []
     acceptance: [{ id: "AC-1", statement: "Remote bridges passent la conformance + audit", evidence: "bun test:remote" }]
     rollback: { strategy: "Revert atomique" }
     review: { reviewer_mode: "fresh-context-read-only", max_cycles: 3 }
@@ -525,7 +535,9 @@ cards:
     objective: "DesktopAutomationBroker + screenshot redaction + allowlist apps. OCW-S3 (computer use Python) derrière broker. ApprovalBroker obligatoire."
     rationale: "Plan V3 Phase 10. SECURITY-CRITICAL (computer use). DERNIÈRE PHASE SÉCURITÉ."
     scope: { allowed_paths: ["packages/computer-use/**", "packages/desktop-broker/**"], max_changed_non_generated_lines: 400, max_implementation_files: 8 }
-    commands: { preflight: [], targeted_tests: [], static_checks: [] }
+    commands:
+      preflight: ["# gabarit — détaillé quand la phase est activée"]
+      static_checks: []
     acceptance: [{ id: "AC-1", statement: "Computer use passe la conformance sécurité", evidence: "bun test:computer-use" }]
     rollback: { strategy: "Revert atomique" }
     review: { reviewer_mode: "fresh-context-read-only", max_cycles: 3 }
