@@ -10,13 +10,13 @@ Nie akceptujemy raportów bezpieczeństwa generowanych przez SI. Otrzymujemy ich
 
 ### Przegląd
 
-OpenCode to asystent programowania oparty na SI, który działa lokalnie na Twoim komputerze. Oferuje system agentów z dostępem do potężnych narzędzi, w tym wykonywania powłoki, operacji na plikach i dostępu do sieci.
+Unifia Workbench to asystent programowania oparty na SI, który działa lokalnie na Twoim komputerze. Oferuje system agentów z dostępem do potężnych narzędzi, w tym wykonywania powłoki, operacji na plikach i dostępu do sieci.
 
 ### Brak sandboxa
 
-OpenCode **nie** umieszcza agenta w sandboxie. System uprawnień istnieje jako funkcja UX, aby pomóc użytkownikom być świadomymi działań agenta — prosi o potwierdzenie przed wykonaniem poleceń, zapisem plików itp. Nie jest jednak zaprojektowany do zapewniania izolacji bezpieczeństwa.
+Unifia Workbench **nie** umieszcza agenta w sandboxie. System uprawnień istnieje jako funkcja UX, aby pomóc użytkownikom być świadomymi działań agenta — prosi o potwierdzenie przed wykonaniem poleceń, zapisem plików itp. Nie jest jednak zaprojektowany do zapewniania izolacji bezpieczeństwa.
 
-Jeśli potrzebujesz prawdziwej izolacji, uruchom OpenCode wewnątrz kontenera Docker lub maszyny wirtualnej.
+Jeśli potrzebujesz prawdziwej izolacji, uruchom Unifia Workbench wewnątrz kontenera Docker lub maszyny wirtualnej.
 
 ### Tryb serwera
 

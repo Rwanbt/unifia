@@ -10,13 +10,13 @@ Wir akzeptieren keine KI-generierten Sicherheitsberichte. Wir erhalten eine gro�
 
 ### Überblick
 
-OpenCode ist ein KI-gestützter Coding-Assistent, der lokal auf Ihrem Rechner läuft. Er bietet ein Agenten-System mit Zugriff auf leistungsstarke Werkzeuge, darunter Shell-Ausführung, Datei-Operationen und Web-Zugriff.
+Unifia Workbench ist ein KI-gestützter Coding-Assistent, der lokal auf Ihrem Rechner läuft. Er bietet ein Agenten-System mit Zugriff auf leistungsstarke Werkzeuge, darunter Shell-Ausführung, Datei-Operationen und Web-Zugriff.
 
 ### Keine Sandbox
 
-OpenCode **sandboxt** den Agenten **nicht**. Das Berechtigungssystem existiert als UX-Funktion, die Nutzer über Aktionen des Agenten auf dem Laufenden hält — es fragt vor dem Ausführen von Befehlen, Schreiben von Dateien usw. nach Bestätigung. Es ist jedoch nicht auf Sicherheitsisolation ausgelegt.
+Unifia Workbench **sandboxt** den Agenten **nicht**. Das Berechtigungssystem existiert als UX-Funktion, die Nutzer über Aktionen des Agenten auf dem Laufenden hält — es fragt vor dem Ausführen von Befehlen, Schreiben von Dateien usw. nach Bestätigung. Es ist jedoch nicht auf Sicherheitsisolation ausgelegt.
 
-Für echte Isolation führen Sie OpenCode in einem Docker-Container oder einer VM aus.
+Für echte Isolation führen Sie Unifia Workbench in einem Docker-Container oder einer VM aus.
 
 ### Server-Modus
 
