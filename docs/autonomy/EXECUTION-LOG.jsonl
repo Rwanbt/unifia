@@ -29,3 +29,12 @@
 {"ts": "2026-07-31T11:05:00Z", "event": "BD-2.VIOLATED.detected", "files": ["packages/enterprise/package.json"], "status": "DOCUMENTED"}
 {"ts": "2026-07-31T11:10:00Z", "event": "P2-C110.done", "files": 23, "status": "INTEGRATED", "note": "strict whitelist"}
 {"ts": "2026-07-31T11:15:00Z", "event": "session.terminated.v2", "commits_total": 81, "push_count": 0, "files_modified_total": "~2700"}
+{"ts": "2026-07-31T11:30:00Z", "event": "P2-C120.done", "files": 18, "substitutions": 155, "status": "INTEGRATED"}
+{"ts": "2026-07-31T11:35:00Z", "event": "P2-C130.done", "files": 11, "status": "INTEGRATED"}
+{"ts": "2026-07-31T11:40:00Z", "event": "P2-C140.done", "files": 12, "status": "INTEGRATED"}
+{"ts": "2026-07-31T11:45:00Z", "event": "P2-C150.done", "files": 22, "substitutions": 120, "status": "INTEGRATED"}
+{"ts": "2026-07-31T11:50:00Z", "event": "P2-C160.done", "files": 96, "substitutions": 480, "status": "INTEGRATED", "note": "opencode core runtime"}
+{"ts": "2026-07-31T11:55:00Z", "event": "P2-C170.done", "files": 34, "substitutions": 106, "status": "INTEGRATED", "note": "desktop-electron (BD-3 DEPRECATE)"}
+{"ts": "2026-07-31T12:00:00Z", "event": "P2-C180.done", "files": 62, "substitutions": 222, "status": "INTEGRATED"}
+{"ts": "2026-07-31T12:05:00Z", "event": "P2-C190.done", "files": 12, "substitutions": 25, "status": "INTEGRATED"}
+{"ts": "2026-07-31T12:10:00Z", "event": "session.terminated.v3", "commits_total": "100+", "push_count": 0, "files_modified_total": "~3200", "occurrences_opencode_remaining": 210}
