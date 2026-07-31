@@ -201,7 +201,7 @@ export function LiteSection() {
             </div>
             <div data-slot="beta-notice">
               {i18n.t("workspace.lite.subscription.selectProvider")}{" "}
-              <a href={language.route("/docs/providers/#opencode-go")} target="_blank" rel="noopener noreferrer">
+              <a href={language.route("/docs/providers/#unifia-go")} target="_blank" rel="noopener noreferrer">
                 {i18n.t("common.learnMore")}
               </a>
               .
