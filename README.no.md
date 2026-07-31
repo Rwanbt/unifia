@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## Hvorfor denne forken?
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ Rask oversikt
 
-OpenCode (fork) — en orkestrert AI-kodingsagent som kjører på **skrivebord, server og telefon**, med lokale modeller fra ende til ende, null skyavhengighet og innebygde enterprise-grade styringsprimitiver. Fork av [anomalyco/opencode](https://github.com/anomalyco/opencode) vedlikeholdt av [Rwanbt](https://github.com/Rwanbt).
+Unifia Workbench (fork) — en orkestrert AI-kodingsagent som kjører på **skrivebord, server og telefon**, med lokale modeller fra ende til ende, null skyavhengighet og innebygde enterprise-grade styringsprimitiver. Fork av [anomalyco/opencode](https://github.com/anomalyco/opencode) vedlikeholdt av [Rwanbt](https://github.com/Rwanbt).
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### Lokal-forst AI
 
-OpenCode kjorer AI-modeller lokalt pa forbrukermaskinvare (8 GB VRAM / 16 GB RAM), med null skydavhengighet for 4B-7B modeller.
+Unifia Workbench kjorer AI-modeller lokalt pa forbrukermaskinvare (8 GB VRAM / 16 GB RAM), med null skydavhengighet for 4B-7B modeller.
 
 **Promptoptimalisering (94% reduksjon)**
 - ~1K token system prompt for lokale modeller (mot ~16K for sky)
@@ -462,7 +462,7 @@ Three major initiatives are planned on dedicated feature branches. Each is desig
 
 ### 📱 Mobile Version ()
 
-**Goal**: Run OpenCode as a native mobile app on Android and iOS, with full agent capabilities.
+**Goal**: Run Unifia Workbench as a native mobile app on Android and iOS, with full agent capabilities.
 
 | Component | Description |
 |-----------|-------------|
@@ -470,7 +470,7 @@ Three major initiatives are planned on dedicated feature branches. Each is desig
 | **Runtime adaptation** | Bundle the TypeScript agent core with Vite for WebView execution; delegate performance-critical tasks to Tauri's Rust layer |
 | **isomorphic-git** | Replace system  calls with isomorphic-git for pure-JS git operations within the mobile sandbox |
 | **File system access** | Use  for sandboxed file access + Document Picker integration |
-| **Remote mode** | Connect to a desktop OpenCode instance over a secure tunnel (Tailscale/Cloudflare) for full capability without local execution |
+| **Remote mode** | Connect to a desktop Unifia Workbench instance over a secure tunnel (Tailscale/Cloudflare) for full capability without local execution |
 | **Mobile-optimized UI** | Conversational interface that hides terminal complexity; swipe-based diff review; virtual keyboard optimizations |
 
 **Platform comparison**:
@@ -481,17 +481,17 @@ Three major initiatives are planned on dedicated feature branches. Each is desig
 
 ### 🔗 AnythingLLM Fusion ()
 
-**Goal**: Merge OpenCode's agentic coding capabilities with [AnythingLLM](https://github.com/mintplex-labs/anything-llm)'s document RAG and multi-user chat platform.
+**Goal**: Merge Unifia Workbench's agentic coding capabilities with [AnythingLLM](https://github.com/mintplex-labs/anything-llm)'s document RAG and multi-user chat platform.
 
 | Component | Description |
 |-----------|-------------|
-| **Context bridge** | Pipe AnythingLLM's indexed documents (PDFs, wikis, Confluence, etc.) into OpenCode's system prompt as additional context |
-| **Agent skill plugin** | Expose OpenCode's core commands (, , edit, bash) as an AnythingLLM Agent Skill via HTTP API |
-| **Unified vector store** | Merge OpenCode's SQLite RAG with AnythingLLM's vector DB backends (LanceDB, Pinecone, Chroma) for a single knowledge layer |
+| **Context bridge** | Pipe AnythingLLM's indexed documents (PDFs, wikis, Confluence, etc.) into Unifia Workbench's system prompt as additional context |
+| **Agent skill plugin** | Expose Unifia Workbench's core commands (, , edit, bash) as an AnythingLLM Agent Skill via HTTP API |
+| **Unified vector store** | Merge Unifia Workbench's SQLite RAG with AnythingLLM's vector DB backends (LanceDB, Pinecone, Chroma) for a single knowledge layer |
 | **Multi-user workspace** | Leverage AnythingLLM's existing multi-user and workspace management for team environments |
 | **Containerized deployment** | Docker Compose setup running both backends, with shared auth and a unified API gateway |
 
-**Synergy**: AnythingLLM excels at document ingestion and RAG over non-code content. OpenCode excels at code manipulation, agentic tool use, and multi-provider LLM orchestration. Combined, they create a full-stack AI development platform that can reason over documentation AND write/execute code.
+**Synergy**: AnythingLLM excels at document ingestion and RAG over non-code content. Unifia Workbench excels at code manipulation, agentic tool use, and multi-provider LLM orchestration. Combined, they create a full-stack AI development platform that can reason over documentation AND write/execute code.
 
 **Scale**: ~1500+ LOC for the bridge layer, ~500 LOC for the Agent Skill adapter, ~300 LOC for vector store unification.
 
@@ -520,7 +520,7 @@ nix run nixpkgs#opencode           # eller github:anomalyco/opencode for nyeste 
 
 ### Desktop-app (BETA)
 
-OpenCode er også tilgjengelig som en desktop-app. Last ned direkte fra [releases-siden](https://github.com/Rwanbt/opencode/releases) eller [opencode.ai/download](https://opencode.ai/download).
+Unifia Workbench er også tilgjengelig som en desktop-app. Last ned direkte fra [releases-siden](https://github.com/Rwanbt/opencode/releases) eller [opencode.ai/download](https://opencode.ai/download).
 
 | Plattform             | Nedlasting                            |
 | --------------------- | ------------------------------------- |
@@ -553,7 +553,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-OpenCode har to innebygde agents du kan bytte mellom med `Tab`-tasten.
+Unifia Workbench har to innebygde agents du kan bytte mellom med `Tab`-tasten.
 
 - **build** - Standard, agent med full tilgang for utviklingsarbeid
 - **plan** - Skrivebeskyttet agent for analyse og kodeutforsking
@@ -568,15 +568,15 @@ Les mer om [agents](https://opencode.ai/docs/agents).
 
 ### Dokumentasjon
 
-For mer info om hvordan du konfigurerer OpenCode, [**se dokumentasjonen**](https://opencode.ai/docs).
+For mer info om hvordan du konfigurerer Unifia Workbench, [**se dokumentasjonen**](https://opencode.ai/docs).
 
 ### Bidra
 
-Hvis du vil bidra til OpenCode, les [contributing docs](./CONTRIBUTING.md) før du sender en pull request.
+Hvis du vil bidra til Unifia Workbench, les [contributing docs](./CONTRIBUTING.md) før du sender en pull request.
 
-### Bygge på OpenCode
+### Bygge på Unifia Workbench
 
-Hvis du jobber med et prosjekt som er relatert til OpenCode og bruker "opencode" som en del av navnet; for eksempel "opencode-dashboard" eller "opencode-mobile", legg inn en merknad i README som presiserer at det ikke er bygget av OpenCode-teamet og ikke er tilknyttet oss på noen måte.
+Hvis du jobber med et prosjekt som er relatert til Unifia Workbench og bruker "opencode" som en del av navnet; for eksempel "opencode-dashboard" eller "opencode-mobile", legg inn en merknad i README som presiserer at det ikke er bygget av OpenCode-teamet og ikke er tilknyttet oss på noen måte.
 
 ### FAQ
 
@@ -585,10 +585,10 @@ Hvis du jobber med et prosjekt som er relatert til OpenCode og bruker "opencode"
 Det er veldig likt Claude Code når det gjelder funksjonalitet. Her er de viktigste forskjellene:
 
 - 100% open source
-- Ikke knyttet til en bestemt leverandør. Selv om vi anbefaler modellene vi tilbyr gjennom [OpenCode Zen](https://opencode.ai/zen); kan OpenCode brukes med Claude, OpenAI, Google eller til og med lokale modeller. Etter hvert som modellene utvikler seg vil gapene lukkes og prisene gå ned, så det er viktig å være provider-agnostic.
+- Ikke knyttet til en bestemt leverandør. Selv om vi anbefaler modellene vi tilbyr gjennom [Unifia Workbench Zen](https://opencode.ai/zen); kan Unifia Workbench brukes med Claude, OpenAI, Google eller til og med lokale modeller. Etter hvert som modellene utvikler seg vil gapene lukkes og prisene gå ned, så det er viktig å være provider-agnostic.
 - LSP-støtte rett ut av boksen
-- Fokus på TUI. OpenCode er bygget av neovim-brukere og skaperne av [terminal.shop](https://terminal.shop); vi kommer til å presse grensene for hva som er mulig i terminalen.
-- Klient/server-arkitektur. Dette kan for eksempel la OpenCode kjøre på maskinen din, mens du styrer den eksternt fra en mobilapp. Det betyr at TUI-frontend'en bare er en av de mulige klientene.
+- Fokus på TUI. Unifia Workbench er bygget av neovim-brukere og skaperne av [terminal.shop](https://terminal.shop); vi kommer til å presse grensene for hva som er mulig i terminalen.
+- Klient/server-arkitektur. Dette kan for eksempel la Unifia Workbench kjøre på maskinen din, mens du styrer den eksternt fra en mobilapp. Det betyr at TUI-frontend'en bare er en av de mulige klientene.
 
 ---
 

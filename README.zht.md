@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## 為何選擇此 Fork？
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ 速覽
 
-OpenCode（fork 版）— 可在 **桌面、伺服器和手機** 上執行的 AI 編碼代理，端到端本地模型，無需雲端依賴，內建企業級治理。由 [Rwanbt](https://github.com/Rwanbt) 維護的 [anomalyco/opencode](https://github.com/anomalyco/opencode) 分支。
+Unifia Workbench（fork 版）— 可在 **桌面、伺服器和手機** 上執行的 AI 編碼代理，端到端本地模型，無需雲端依賴，內建企業級治理。由 [Rwanbt](https://github.com/Rwanbt) 維護的 [anomalyco/opencode](https://github.com/anomalyco/opencode) 分支。
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### 本地優先 AI
 
-OpenCode 在消費級硬體（VRAM 8 GB / RAM 16 GB）上本地執行 AI 模型，4B~7B 模型零雲端依賴。
+Unifia Workbench 在消費級硬體（VRAM 8 GB / RAM 16 GB）上本地執行 AI 模型，4B~7B 模型零雲端依賴。
 
 **提示詞最佳化（94% 縮減）**
 - 本地模型使用 ~1K token 系統提示（對比雲端 ~16K）
@@ -524,7 +524,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -593,7 +593,7 @@ graph TB
 
 **第 1 層 — 內嵌執行階段（Android，100% 原生效能）：**
 - **APK 中的靜態二進位檔** — Bun、Bash、Ripgrep、Toybox (aarch64-linux-musl)，首次啟動時解壓（約 15 秒）
-- **捆綁 CLI** — OpenCode CLI 作為 JS 套件由內嵌 Bun 執行，核心功能無需網路
+- **捆綁 CLI** — Unifia Workbench CLI 作為 JS 套件由內嵌 Bun 執行，核心功能無需網路
 - **直接處理程序生成** — 無 Termux、無 intent — 從 Rust 直接 `std::process::Command`
 - **自動啟動伺服器** — `bun opencode-cli.js serve`，與桌面 sidecar 相同的 UUID 認證，localhost
 
@@ -623,7 +623,7 @@ graph TB
 
 **共用（Android + iOS）：**
 - **平台抽象** — 擴充的 `Platform` 型別，包含 `"mobile"` + `"ios"/"android"` 系統偵測
-- **遠端連線** — 透過網路連線桌面 OpenCode 伺服器（僅 iOS 或 Android 回退）
+- **遠端連線** — 透過網路連線桌面 Unifia Workbench 伺服器（僅 iOS 或 Android 回退）
 - **互動式終端機** — 透過自訂 musl `librust_pty.so`（forkpty 包裝器）的完整 PTY，Ghostty WASM 渲染器帶 canvas 回退
 - **外部儲存** — 從伺服器 HOME 到 `/sdcard/` 目錄（Documents、Downloads、projects）的符號連結
 - **行動端 UI** — 響應式側邊欄、觸控最佳化訊息輸入、行動端 diff 檢視、44px 觸控目標、安全區域支援
@@ -633,11 +633,11 @@ graph TB
 
 ### AnythingLLM Fusion (`dev_anything`)
 
-OpenCode 與 AnythingLLM 文件 RAG 平台之間的橋接。已實作：
+Unifia Workbench 與 AnythingLLM 文件 RAG 平台之間的橋接。已實作：
 - **REST 用戶端** — AnythingLLM 工作區、文件、搜尋、聊天的完整 API 封裝
 - **MCP 伺服器轉接器** — 4 個工具：`anythingllm_search`、`anythingllm_list_workspaces`、`anythingllm_get_document`、`anythingllm_chat`
 - **外掛上下文注入** — `experimental.chat.system.transform` 鉤子將相關文件注入系統提示
-- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` 將 OpenCode 工具暴露給 AnythingLLM
+- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` 將 Unifia Workbench 工具暴露給 AnythingLLM
 - **向量儲存橋接** — 合併本地 SQLite RAG 與 AnythingLLM 向量 DB 結果的複合搜尋
 - **Docker Compose** — 帶共用網路的 `docker-compose.anythingllm.yml`
 
@@ -668,7 +668,7 @@ nix run nixpkgs#opencode           # 或使用 github:anomalyco/opencode 以取�
 
 ### 桌面應用程式 (BETA)
 
-OpenCode 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [opencode.ai/download](https://opencode.ai/download) 下載。
+Unifia Workbench 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [opencode.ai/download](https://opencode.ai/download) 下載。
 
 | 平台                  | 下載連結                              |
 | --------------------- | ------------------------------------- |
@@ -701,7 +701,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-OpenCode 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換。
+Unifia Workbench 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換。
 
 - **build** - 預設模式，具備完整權限的 Agent，適用於開發工作。
 - **plan** - 唯讀模式，適用於程式碼分析與探索。
@@ -709,21 +709,21 @@ OpenCode 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換。
   - 執行 bash 指令前會詢問權限。
   - 非常適合用來探索陌生的程式碼庫或規劃變更。
 
-此外，OpenCode 還包含一個 **general** 子 Agent，用於處理複雜搜尋與多步驟任務。此 Agent 供系統內部使用，亦可透過在訊息中輸入 `@general` 來呼叫。
+此外，Unifia Workbench 還包含一個 **general** 子 Agent，用於處理複雜搜尋與多步驟任務。此 Agent 供系統內部使用，亦可透過在訊息中輸入 `@general` 來呼叫。
 
 了解更多關於 [Agents](https://opencode.ai/docs/agents) 的資訊。
 
 ### 線上文件
 
-關於如何設定 OpenCode 的詳細資訊，請參閱我們的 [**官方文件**](https://opencode.ai/docs)。
+關於如何設定 Unifia Workbench 的詳細資訊，請參閱我們的 [**官方文件**](https://opencode.ai/docs)。
 
 ### 參與貢獻
 
-如果您有興趣參與 OpenCode 的開發，請在提交 Pull Request 前先閱讀我們的 [貢獻指南 (Contributing Docs)](./CONTRIBUTING.md)。
+如果您有興趣參與 Unifia Workbench 的開發，請在提交 Pull Request 前先閱讀我們的 [貢獻指南 (Contributing Docs)](./CONTRIBUTING.md)。
 
-### 基於 OpenCode 進行開發
+### 基於 Unifia Workbench 進行開發
 
-如果您正在開發與 OpenCode 相關的專案，並在名稱中使用了 "opencode"（例如 "opencode-dashboard" 或 "opencode-mobile"），請在您的 README 中加入聲明，說明該專案並非由 OpenCode 團隊開發，且與我們沒有任何隸屬關係。
+如果您正在開發與 Unifia Workbench 相關的專案，並在名稱中使用了 "opencode"（例如 "opencode-dashboard" 或 "opencode-mobile"），請在您的 README 中加入聲明，說明該專案並非由 Unifia Workbench 團隊開發，且與我們沒有任何隸屬關係。
 
 ### 常見問題 (FAQ)
 
@@ -732,10 +732,10 @@ OpenCode 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換。
 在功能面上與 Claude Code 非常相似。以下是關鍵差異：
 
 - 100% 開源。
-- 不綁定特定的服務提供商。雖然我們推薦使用透過 [OpenCode Zen](https://opencode.ai/zen) 提供的模型，但 OpenCode 也可搭配 Claude, OpenAI, Google 甚至本地模型使用。隨著模型不斷演進，彼此間的差距會縮小且價格會下降，因此具備「不限廠商 (provider-agnostic)」的特性至關重要。
+- 不綁定特定的服務提供商。雖然我們推薦使用透過 [Unifia Workbench Zen](https://opencode.ai/zen) 提供的模型，但 Unifia Workbench 也可搭配 Claude, OpenAI, Google 甚至本地模型使用。隨著模型不斷演進，彼此間的差距會縮小且價格會下降，因此具備「不限廠商 (provider-agnostic)」的特性至關重要。
 - 內建 LSP (語言伺服器協定) 支援。
-- 專注於終端機介面 (TUI)。OpenCode 由 Neovim 愛好者與 [terminal.shop](https://terminal.shop) 的創作者打造。我們將不斷挑戰終端機介面的極限。
-- 客戶端/伺服器架構 (Client/Server Architecture)。這讓 OpenCode 能夠在您的電腦上運行的同時，由行動裝置進行遠端操控。這意味著 TUI 前端只是眾多可能的客戶端之一。
+- 專注於終端機介面 (TUI)。Unifia Workbench 由 Neovim 愛好者與 [terminal.shop](https://terminal.shop) 的創作者打造。我們將不斷挑戰終端機介面的極限。
+- 客戶端/伺服器架構 (Client/Server Architecture)。這讓 Unifia Workbench 能夠在您的電腦上運行的同時，由行動裝置進行遠端操控。這意味著 TUI 前端只是眾多可能的客戶端之一。
 
 ---
 

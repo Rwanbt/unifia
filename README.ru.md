@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## Почему этот форк?
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ С первого взгляда
 
-OpenCode (форк) — оркестрированный ИИ-агент для программирования, который работает на **десктопе, сервере и телефоне**, с локальными моделями от начала до конца, без облачных зависимостей и со встроенными примитивами управления уровня предприятия. Форк [anomalyco/opencode](https://github.com/anomalyco/opencode), поддерживаемый [Rwanbt](https://github.com/Rwanbt).
+Unifia Workbench (форк) — оркестрированный ИИ-агент для программирования, который работает на **десктопе, сервере и телефоне**, с локальными моделями от начала до конца, без облачных зависимостей и со встроенными примитивами управления уровня предприятия. Форк [anomalyco/opencode](https://github.com/anomalyco/opencode), поддерживаемый [Rwanbt](https://github.com/Rwanbt).
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### Локальный AI
 
-OpenCode запускает AI-модели локально на потребительском оборудовании (8 ГБ VRAM / 16 ГБ RAM), без облачных зависимостей для моделей 4B–7B.
+Unifia Workbench запускает AI-модели локально на потребительском оборудовании (8 ГБ VRAM / 16 ГБ RAM), без облачных зависимостей для моделей 4B–7B.
 
 **Оптимизация промптов (сокращение на 94%)**
 - ~1K токенов системный промпт для локальных моделей (против ~16K для облачных)
@@ -524,7 +524,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -593,7 +593,7 @@ graph TB
 
 **Уровень 1 — Встроенная среда выполнения (Android, 100% нативная производительность):**
 - **Статические бинарники в APK** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), извлечение при первом запуске (~15с)
-- **Встроенный CLI** — OpenCode CLI как JS-бандл, запускаемый встроенным Bun, сеть не требуется для ядра
+- **Встроенный CLI** — Unifia Workbench CLI как JS-бандл, запускаемый встроенным Bun, сеть не требуется для ядра
 - **Прямой запуск процессов** — Без Termux, без intents — `std::process::Command` из Rust напрямую
 - **Автозапуск сервера** — `bun opencode-cli.js serve` на localhost с UUID-аутентификацией, как десктопный sidecar
 
@@ -623,7 +623,7 @@ graph TB
 
 **Общее (Android + iOS):**
 - **Абстракция платформы** — Расширенный тип `Platform` с `"mobile"` + определение ОС `"ios"/"android"`
-- **Удалённое подключение** — Подключение к десктопному серверу OpenCode по сети (только iOS или Android fallback)
+- **Удалённое подключение** — Подключение к десктопному серверу Unifia Workbench по сети (только iOS или Android fallback)
 - **Интерактивный терминал** — Полный PTY через пользовательскую musl `librust_pty.so` (обёртка forkpty), Ghostty WASM renderer с canvas fallback
 - **Внешнее хранилище** — Символьные ссылки из HOME сервера на каталоги `/sdcard/` (Documents, Downloads, projects)
 - **Мобильный UI** — Адаптивная боковая панель, сенсорный ввод сообщений, мобильный diff view, 44px сенсорные цели, поддержка safe area
@@ -633,11 +633,11 @@ graph TB
 
 ### Слияние с AnythingLLM (`dev_anything`)
 
-Мост между OpenCode и платформой документального RAG AnythingLLM. Реализовано:
+Мост между Unifia Workbench и платформой документального RAG AnythingLLM. Реализовано:
 - **REST-клиент** — Полная обёртка API для рабочих пространств, документов, поиска, чата AnythingLLM
 - **MCP-адаптер** — 4 инструмента: `anythingllm_search`, `anythingllm_list_workspaces`, `anythingllm_get_document`, `anythingllm_chat`
 - **Инъекция контекста через плагин** — Хук `experimental.chat.system.transform` внедряет релевантные документы в системный промпт
-- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` для предоставления инструментов OpenCode в AnythingLLM
+- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` для предоставления инструментов Unifia Workbench в AnythingLLM
 - **Мост векторного хранилища** — Композитный поиск, объединяющий локальный SQLite RAG с результатами векторной БД AnythingLLM
 - **Docker Compose** — Готовый `docker-compose.anythingllm.yml` с общей сетью
 
@@ -666,7 +666,7 @@ nix run nixpkgs#opencode           # или github:anomalyco/opencode для с�
 
 ### Десктопное приложение (BETA)
 
-OpenCode также доступен как десктопное приложение. Скачайте его со [страницы релизов](https://github.com/Rwanbt/opencode/releases) или с [opencode.ai/download](https://opencode.ai/download).
+Unifia Workbench также доступен как десктопное приложение. Скачайте его со [страницы релизов](https://github.com/Rwanbt/opencode/releases) или с [opencode.ai/download](https://opencode.ai/download).
 
 | Платформа             | Загрузка                              |
 | --------------------- | ------------------------------------- |
@@ -699,7 +699,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-В OpenCode есть два встроенных агента, между которыми можно переключаться клавишей `Tab`.
+В Unifia Workbench есть два встроенных агента, между которыми можно переключаться клавишей `Tab`.
 
 - **build** - По умолчанию, агент с полным доступом для разработки
 - **plan** - Агент только для чтения для анализа и изучения кода
@@ -718,11 +718,11 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Вклад
 
-Если вы хотите внести вклад в OpenCode, прочитайте [contributing docs](./CONTRIBUTING.md) перед тем, как отправлять pull request.
+Если вы хотите внести вклад в Unifia Workbench, прочитайте [contributing docs](./CONTRIBUTING.md) перед тем, как отправлять pull request.
 
-### Разработка на базе OpenCode
+### Разработка на базе Unifia Workbench
 
-Если вы делаете проект, связанный с OpenCode, и используете "opencode" как часть имени (например, "opencode-dashboard" или "opencode-mobile"), добавьте примечание в README, чтобы уточнить, что проект не создан командой OpenCode и не аффилирован с нами.
+Если вы делаете проект, связанный с Unifia Workbench, и используете "opencode" как часть имени (например, "opencode-dashboard" или "opencode-mobile"), добавьте примечание в README, чтобы уточнить, что проект не создан командой Unifia Workbench и не аффилирован с нами.
 
 ### FAQ
 
@@ -731,10 +731,10 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 По возможностям это очень похоже на Claude Code. Вот ключевые отличия:
 
 - 100% open source
-- Не привязано к одному провайдеру. Мы рекомендуем модели из [OpenCode Zen](https://opencode.ai/zen); но OpenCode можно использовать с Claude, OpenAI, Google или даже локальными моделями. По мере развития моделей разрыв будет сокращаться, а цены падать, поэтому важна независимость от провайдера.
+- Не привязано к одному провайдеру. Мы рекомендуем модели из [Unifia Workbench Zen](https://opencode.ai/zen); но Unifia Workbench можно использовать с Claude, OpenAI, Google или даже локальными моделями. По мере развития моделей разрыв будет сокращаться, а цены падать, поэтому важна независимость от провайдера.
 - Поддержка LSP из коробки
-- Фокус на TUI. OpenCode построен пользователями neovim и создателями [terminal.shop](https://terminal.shop); мы будем раздвигать границы того, что возможно в терминале.
-- Архитектура клиент/сервер. Например, это позволяет запускать OpenCode на вашем компьютере, а управлять им удаленно из мобильного приложения. Это значит, что TUI-фронтенд - лишь один из возможных клиентов.
+- Фокус на TUI. Unifia Workbench построен пользователями neovim и создателями [terminal.shop](https://terminal.shop); мы будем раздвигать границы того, что возможно в терминале.
+- Архитектура клиент/сервер. Например, это позволяет запускать Unifia Workbench на вашем компьютере, а управлять им удаленно из мобильного приложения. Это значит, что TUI-фронтенд - лишь один из возможных клиентов.
 
 ---
 

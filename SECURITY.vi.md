@@ -10,13 +10,13 @@ Chúng tôi không chấp nhận các báo cáo bảo mật do AI tạo ra. Chú
 
 ### Tổng quan
 
-OpenCode là một trợ lý lập trình được hỗ trợ bởi AI chạy cục bộ trên máy của bạn. Nó cung cấp một hệ thống tác nhân với quyền truy cập vào các công cụ mạnh mẽ bao gồm thực thi shell, thao tác tệp và truy cập web.
+Unifia Workbench là một trợ lý lập trình được hỗ trợ bởi AI chạy cục bộ trên máy của bạn. Nó cung cấp một hệ thống tác nhân với quyền truy cập vào các công cụ mạnh mẽ bao gồm thực thi shell, thao tác tệp và truy cập web.
 
 ### Không có sandbox
 
-OpenCode **không** đặt tác nhân vào sandbox. Hệ thống quyền tồn tại như một tính năng UX để giúp người dùng nhận biết những gì tác nhân đang làm — nó yêu cầu xác nhận trước khi thực thi các lệnh, ghi tệp, v.v. Tuy nhiên, nó không được thiết kế để cung cấp cách ly bảo mật.
+Unifia Workbench **không** đặt tác nhân vào sandbox. Hệ thống quyền tồn tại như một tính năng UX để giúp người dùng nhận biết những gì tác nhân đang làm — nó yêu cầu xác nhận trước khi thực thi các lệnh, ghi tệp, v.v. Tuy nhiên, nó không được thiết kế để cung cấp cách ly bảo mật.
 
-Nếu bạn cần cách ly thực sự, hãy chạy OpenCode bên trong một container Docker hoặc VM.
+Nếu bạn cần cách ly thực sự, hãy chạy Unifia Workbench bên trong một container Docker hoặc VM.
 
 ### Chế độ máy chủ
 

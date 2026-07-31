@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## Neden bu fork?
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ Bir bakışta
 
-OpenCode (fork) — **masaüstü, sunucu ve telefonda** çalışan, uçtan uca yerel modeller, sıfır bulut bağımlılığı ve yerleşik enterprise düzeyinde yönetişim ilkelleriyle orkestralı bir AI kodlama ajanı. [Rwanbt](https://github.com/Rwanbt) tarafından bakımı yapılan [anomalyco/opencode](https://github.com/anomalyco/opencode) fork'u.
+Unifia Workbench (fork) — **masaüstü, sunucu ve telefonda** çalışan, uçtan uca yerel modeller, sıfır bulut bağımlılığı ve yerleşik enterprise düzeyinde yönetişim ilkelleriyle orkestralı bir AI kodlama ajanı. [Rwanbt](https://github.com/Rwanbt) tarafından bakımı yapılan [anomalyco/opencode](https://github.com/anomalyco/opencode) fork'u.
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### Yerel Öncelikli AI
 
-OpenCode, AI modellerini tüketici donanımında (8 GB VRAM / 16 GB RAM) yerel olarak çalıştırır; 4B–7B modeller için sıfır bulut bağımlılığı.
+Unifia Workbench, AI modellerini tüketici donanımında (8 GB VRAM / 16 GB RAM) yerel olarak çalıştırır; 4B–7B modeller için sıfır bulut bağımlılığı.
 
 **Prompt Optimizasyonu (%94 azaltma)**
 - Yerel modeller için ~1K token sistem promptu (bulut için ~16K'ya karşılık)
@@ -525,7 +525,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -594,7 +594,7 @@ Tauri 2.0 ile **gömülü çalışma zamanına** sahip yerel Android/iOS uygulam
 
 **Katman 1 — Gömülü Çalışma Zamanı (Android, %100 yerel performans):**
 - **APK'da statik ikili dosyalar** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl) ilk başlatmada çıkarılır (~15s)
-- **Paketlenmiş CLI** — Gömülü Bun tarafından çalıştırılan JS paketi olarak OpenCode CLI, çekirdek için ağ gerekmez
+- **Paketlenmiş CLI** — Gömülü Bun tarafından çalıştırılan JS paketi olarak Unifia Workbench CLI, çekirdek için ağ gerekmez
 - **Doğrudan süreç başlatma** — Termux yok, intent yok — Rust'tan doğrudan `std::process::Command`
 - **Sunucu otomatik başlatma** — UUID kimlik doğrulamalı localhost'ta `bun opencode-cli.js serve`, masaüstü sidecar ile aynı
 
@@ -624,7 +624,7 @@ Tauri 2.0 ile **gömülü çalışma zamanına** sahip yerel Android/iOS uygulam
 
 **Ortak (Android + iOS):**
 - **Platform soyutlama** — `"mobile"` + `"ios"/"android"` OS algılamalı genişletilmiş `Platform` tipi
-- **Uzak bağlantı** — Ağ üzerinden masaüstü OpenCode sunucusuna bağlanma (yalnızca iOS veya Android yedek)
+- **Uzak bağlantı** — Ağ üzerinden masaüstü Unifia Workbench sunucusuna bağlanma (yalnızca iOS veya Android yedek)
 - **Etkileşimli terminal** — Özel musl `librust_pty.so` (forkpty wrapper) ile tam PTY, canvas yedekli Ghostty WASM renderer
 - **Harici depolama** — Sunucu HOME'undan `/sdcard/` dizinlerine sembolik bağlantılar (Documents, Downloads, projects)
 - **Mobil UI** — Duyarlı kenar çubuğu, dokunma optimize mesaj girişi, mobil diff görünümü, 44px dokunma hedefleri, safe area desteği
@@ -634,11 +634,11 @@ Tauri 2.0 ile **gömülü çalışma zamanına** sahip yerel Android/iOS uygulam
 
 ### AnythingLLM Birleşimi (`dev_anything`)
 
-OpenCode ile AnythingLLM'in belge RAG platformu arasında köprü. Uygulanan:
+Unifia Workbench ile AnythingLLM'in belge RAG platformu arasında köprü. Uygulanan:
 - **REST istemcisi** — AnythingLLM çalışma alanları, belgeler, arama, sohbet için tam API wrapper
 - **MCP sunucu adaptörü** — 4 araç: `anythingllm_search`, `anythingllm_list_workspaces`, `anythingllm_get_document`, `anythingllm_chat`
 - **Eklenti bağlam enjeksiyonu** — `experimental.chat.system.transform` hook'u ilgili belgeleri sistem promptuna enjekte eder
-- **Agent Skills HTTP API** — OpenCode araçlarını AnythingLLM'e sunmak için `GET /agent-skills` + `POST /agent-skills/:toolId/execute`
+- **Agent Skills HTTP API** — Unifia Workbench araçlarını AnythingLLM'e sunmak için `GET /agent-skills` + `POST /agent-skills/:toolId/execute`
 - **Vektör deposu köprüsü** — Yerel SQLite RAG'ı AnythingLLM vektör DB sonuçlarıyla birleştiren kompozit arama
 - **Docker Compose** — Paylaşılan ağlı kullanıma hazır `docker-compose.anythingllm.yml`
 
@@ -667,7 +667,7 @@ nix run nixpkgs#opencode           # veya en güncel geliştirme dalı için git
 
 ### Masaüstü Uygulaması (BETA)
 
-OpenCode ayrıca masaüstü uygulaması olarak da mevcuttur. Doğrudan [sürüm sayfasından](https://github.com/Rwanbt/opencode/releases) veya [opencode.ai/download](https://opencode.ai/download) adresinden indirebilirsiniz.
+Unifia Workbench ayrıca masaüstü uygulaması olarak da mevcuttur. Doğrudan [sürüm sayfasından](https://github.com/Rwanbt/opencode/releases) veya [opencode.ai/download](https://opencode.ai/download) adresinden indirebilirsiniz.
 
 | Platform              | İndirme                               |
 | --------------------- | ------------------------------------- |
@@ -700,7 +700,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Ajanlar
 
-OpenCode, `Tab` tuşuyla aralarında geçiş yapabileceğiniz iki yerleşik (built-in) ajan içerir.
+Unifia Workbench, `Tab` tuşuyla aralarında geçiş yapabileceğiniz iki yerleşik (built-in) ajan içerir.
 
 - **build** - Varsayılan, geliştirme çalışmaları için tam erişimli ajan
 - **plan** - Analiz ve kod keşfi için salt okunur ajan
@@ -715,15 +715,15 @@ Bu dahili olarak kullanılır ve mesajlarda `@general` ile çağrılabilir.
 
 ### Dokümantasyon
 
-OpenCode'u nasıl yapılandıracağınız hakkında daha fazla bilgi için [**dokümantasyonumuza göz atın**](https://opencode.ai/docs).
+Unifia Workbench'u nasıl yapılandıracağınız hakkında daha fazla bilgi için [**dokümantasyonumuza göz atın**](https://opencode.ai/docs).
 
 ### Katkıda Bulunma
 
-OpenCode'a katkıda bulunmak istiyorsanız, lütfen bir pull request göndermeden önce [katkıda bulunma dokümanlarımızı](./CONTRIBUTING.md) okuyun.
+Unifia Workbench'a katkıda bulunmak istiyorsanız, lütfen bir pull request göndermeden önce [katkıda bulunma dokümanlarımızı](./CONTRIBUTING.md) okuyun.
 
-### OpenCode Üzerine Geliştirme
+### Unifia Workbench Üzerine Geliştirme
 
-OpenCode ile ilgili bir proje üzerinde çalışıyorsanız ve projenizin adının bir parçası olarak "opencode" kullanıyorsanız (örneğin, "opencode-dashboard" veya "opencode-mobile"), lütfen README dosyanıza projenin OpenCode ekibi tarafından geliştirilmediğini ve bizimle hiçbir şekilde bağlantılı olmadığını belirten bir not ekleyin.
+Unifia Workbench ile ilgili bir proje üzerinde çalışıyorsanız ve projenizin adının bir parçası olarak "opencode" kullanıyorsanız (örneğin, "opencode-dashboard" veya "opencode-mobile"), lütfen README dosyanıza projenin Unifia Workbench ekibi tarafından geliştirilmediğini ve bizimle hiçbir şekilde bağlantılı olmadığını belirten bir not ekleyin.
 
 ### SSS
 
@@ -732,10 +732,10 @@ OpenCode ile ilgili bir proje üzerinde çalışıyorsanız ve projenizin adın�
 Yetenekler açısından Claude Code'a çok benzer. İşte temel farklar:
 
 - %100 açık kaynak
-- Herhangi bir sağlayıcıya bağlı değil. [OpenCode Zen](https://opencode.ai/zen) üzerinden sunduğumuz modelleri önermekle birlikte; OpenCode, Claude, OpenAI, Google veya hatta yerel modellerle kullanılabilir. Modeller geliştikçe aralarındaki farklar kapanacak ve fiyatlar düşecek, bu nedenle sağlayıcıdan bağımsız olmak önemlidir.
+- Herhangi bir sağlayıcıya bağlı değil. [Unifia Workbench Zen](https://opencode.ai/zen) üzerinden sunduğumuz modelleri önermekle birlikte; Unifia Workbench, Claude, OpenAI, Google veya hatta yerel modellerle kullanılabilir. Modeller geliştikçe aralarındaki farklar kapanacak ve fiyatlar düşecek, bu nedenle sağlayıcıdan bağımsız olmak önemlidir.
 - Kurulum gerektirmeyen hazır LSP desteği
-- TUI odaklı yaklaşım. OpenCode, neovim kullanıcıları ve [terminal.shop](https://terminal.shop)'un geliştiricileri tarafından geliştirilmektedir; terminalde olabileceklerin sınırlarını zorlayacağız.
-- İstemci/sunucu (client/server) mimarisi. Bu, örneğin OpenCode'un bilgisayarınızda çalışması ve siz onu bir mobil uygulamadan uzaktan yönetmenizi sağlar. TUI arayüzü olası istemcilerden sadece biridir.
+- TUI odaklı yaklaşım. Unifia Workbench, neovim kullanıcıları ve [terminal.shop](https://terminal.shop)'un geliştiricileri tarafından geliştirilmektedir; terminalde olabileceklerin sınırlarını zorlayacağız.
+- İstemci/sunucu (client/server) mimarisi. Bu, örneğin Unifia Workbench'un bilgisayarınızda çalışması ve siz onu bir mobil uygulamadan uzaktan yönetmenizi sağlar. TUI arayüzü olası istemcilerden sadece biridir.
 
 ---
 

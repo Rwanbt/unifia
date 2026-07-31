@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## 为何选择此 Fork？
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ 速览
 
-OpenCode（fork 版）— 一款可在 **桌面、服务器和手机** 上运行的 AI 编码代理，端到端本地模型，无需云端依赖，内建企业级治理。由 [Rwanbt](https://github.com/Rwanbt) 维护的 [anomalyco/opencode](https://github.com/anomalyco/opencode) 分支。
+Unifia Workbench（fork 版）— 一款可在 **桌面、服务器和手机** 上运行的 AI 编码代理，端到端本地模型，无需云端依赖，内建企业级治理。由 [Rwanbt](https://github.com/Rwanbt) 维护的 [anomalyco/opencode](https://github.com/anomalyco/opencode) 分支。
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### 本地优先 AI
 
-OpenCode 在消费级硬件（VRAM 8 GB / RAM 16 GB）上本地运行 AI 模型，4B~7B 模型零云端依赖。
+Unifia Workbench 在消费级硬件（VRAM 8 GB / RAM 16 GB）上本地运行 AI 模型，4B~7B 模型零云端依赖。
 
 **提示词优化（94% 缩减）**
 - 本地模型使用 ~1K token 系统提示（对比云端 ~16K）
@@ -524,7 +524,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -593,7 +593,7 @@ graph TB
 
 **第 1 层 — 内嵌运行时（Android，100% 原生性能）：**
 - **APK 中的静态二进制文件** — Bun、Bash、Ripgrep、Toybox (aarch64-linux-musl)，首次启动时解压（约 15 秒）
-- **捆绑 CLI** — OpenCode CLI 作为 JS 包由内嵌 Bun 运行，核心功能无需网络
+- **捆绑 CLI** — Unifia Workbench CLI 作为 JS 包由内嵌 Bun 运行，核心功能无需网络
 - **直接进程生成** — 无 Termux、无 intent — 从 Rust 直接 `std::process::Command`
 - **自动启动服务器** — `bun opencode-cli.js serve`，与桌面 sidecar 相同的 UUID 认证，localhost
 
@@ -623,7 +623,7 @@ graph TB
 
 **共享（Android + iOS）：**
 - **平台抽象** — 扩展的 `Platform` 类型，包含 `"mobile"` + `"ios"/"android"` 系统检测
-- **远程连接** — 通过网络连接桌面 OpenCode 服务器（仅 iOS 或 Android 回退）
+- **远程连接** — 通过网络连接桌面 Unifia Workbench 服务器（仅 iOS 或 Android 回退）
 - **交互式终端** — 通过自定义 musl `librust_pty.so`（forkpty 包装器）的完整 PTY，Ghostty WASM 渲染器带 canvas 回退
 - **外部存储** — 从服务器 HOME 到 `/sdcard/` 目录（Documents、Downloads、projects）的符号链接
 - **移动端 UI** — 响应式侧边栏、触控优化消息输入、移动端 diff 视图、44px 触控目标、安全区域支持
@@ -633,11 +633,11 @@ graph TB
 
 ### AnythingLLM Fusion (`dev_anything`)
 
-OpenCode 与 AnythingLLM 文档 RAG 平台之间的桥接。已实现：
+Unifia Workbench 与 AnythingLLM 文档 RAG 平台之间的桥接。已实现：
 - **REST 客户端** — AnythingLLM 工作区、文档、搜索、聊天的完整 API 封装
 - **MCP 服务器适配器** — 4 个工具：`anythingllm_search`、`anythingllm_list_workspaces`、`anythingllm_get_document`、`anythingllm_chat`
 - **插件上下文注入** — `experimental.chat.system.transform` 钩子将相关文档注入系统提示
-- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` 将 OpenCode 工具暴露给 AnythingLLM
+- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` 将 Unifia Workbench 工具暴露给 AnythingLLM
 - **向量存储桥接** — 合并本地 SQLite RAG 与 AnythingLLM 向量 DB 结果的复合搜索
 - **Docker Compose** — 带共享网络的 `docker-compose.anythingllm.yml`
 
@@ -668,7 +668,7 @@ nix run nixpkgs#opencode           # 或用 github:anomalyco/opencode 获取最�
 
 ### 桌面应用程序 (BETA)
 
-OpenCode 也提供桌面版应用。可直接从 [发布页 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [opencode.ai/download](https://opencode.ai/download) 下载。
+Unifia Workbench 也提供桌面版应用。可直接从 [发布页 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [opencode.ai/download](https://opencode.ai/download) 下载。
 
 | 平台                  | 下载文件                              |
 | --------------------- | ------------------------------------- |
@@ -701,7 +701,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-OpenCode 内置两种 Agent，可用 `Tab` 键快速切换：
+Unifia Workbench 内置两种 Agent，可用 `Tab` 键快速切换：
 
 - **build** - 默认模式，具备完整权限，适合开发工作
 - **plan** - 只读模式，适合代码分析与探索
@@ -721,9 +721,9 @@ OpenCode 内置两种 Agent，可用 `Tab` 键快速切换：
 
 如有兴趣贡献代码，请在提交 PR 前阅读 [贡献指南 (Contributing Docs)](./CONTRIBUTING.md)。
 
-### 基于 OpenCode 进行开发
+### 基于 Unifia Workbench 进行开发
 
-如果你在项目名中使用了 “opencode”（如 “opencode-dashboard” 或 “opencode-mobile”），请在 README 里注明该项目不是 OpenCode 团队官方开发，且不存在隶属关系。
+如果你在项目名中使用了 “opencode”（如 “opencode-dashboard” 或 “opencode-mobile”），请在 README 里注明该项目不是 Unifia Workbench 团队官方开发，且不存在隶属关系。
 
 ### 常见问题 (FAQ)
 
@@ -732,9 +732,9 @@ OpenCode 内置两种 Agent，可用 `Tab` 键快速切换：
 功能上很相似，关键差异：
 
 - 100% 开源。
-- 不绑定特定提供商。推荐使用 [OpenCode Zen](https://opencode.ai/zen) 的模型，但也可搭配 Claude、OpenAI、Google 甚至本地模型。模型迭代会缩小差异、降低成本，因此保持 provider-agnostic 很重要。
+- 不绑定特定提供商。推荐使用 [Unifia Workbench Zen](https://opencode.ai/zen) 的模型，但也可搭配 Claude、OpenAI、Google 甚至本地模型。模型迭代会缩小差异、降低成本，因此保持 provider-agnostic 很重要。
 - 内置 LSP 支持。
-- 聚焦终端界面 (TUI)。OpenCode 由 Neovim 爱好者和 [terminal.shop](https://terminal.shop) 的创建者打造，会持续探索终端的极限。
+- 聚焦终端界面 (TUI)。Unifia Workbench 由 Neovim 爱好者和 [terminal.shop](https://terminal.shop) 的创建者打造，会持续探索终端的极限。
 - 客户端/服务器架构。可在本机运行，同时用移动设备远程驱动。TUI 只是众多潜在客户端之一。
 
 ---

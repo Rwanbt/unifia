@@ -10,13 +10,13 @@ AI tarafından oluşturulan güvenlik raporlarını kabul etmiyoruz. Bunlardan �
 
 ### Genel bakış
 
-OpenCode, makinenizde yerel olarak çalışan AI destekli bir kodlama asistanıdır. Shell yürütme, dosya işlemleri ve web erişimi dahil güçlü araçlara erişimi olan bir ajan sistemi sağlar.
+Unifia Workbench, makinenizde yerel olarak çalışan AI destekli bir kodlama asistanıdır. Shell yürütme, dosya işlemleri ve web erişimi dahil güçlü araçlara erişimi olan bir ajan sistemi sağlar.
 
 ### Sandbox yok
 
-OpenCode ajanı **sandbox'a almaz**. İzin sistemi, kullanıcıların ajanın ne yaptığının farkında olmasına yardımcı olan bir UX özelliği olarak vardır — komutları yürütmeden, dosya yazmadan vs. önce onay ister. Ancak güvenlik izolasyonu sağlamak için tasarlanmamıştır.
+Unifia Workbench ajanı **sandbox'a almaz**. İzin sistemi, kullanıcıların ajanın ne yaptığının farkında olmasına yardımcı olan bir UX özelliği olarak vardır — komutları yürütmeden, dosya yazmadan vs. önce onay ister. Ancak güvenlik izolasyonu sağlamak için tasarlanmamıştır.
 
-Gerçek izolasyona ihtiyacınız varsa OpenCode'u bir Docker kapsayıcısı veya VM içinde çalıştırın.
+Gerçek izolasyona ihtiyacınız varsa Unifia Workbench'u bir Docker kapsayıcısı veya VM içinde çalıştırın.
 
 ### Sunucu modu
 

@@ -10,13 +10,13 @@ Não aceitamos relatórios de segurança gerados por IA. Recebemos muitos deles 
 
 ### Visão geral
 
-OpenCode é um assistente de programação com IA que roda localmente em sua máquina. Fornece um sistema de agentes com acesso a ferramentas poderosas, incluindo execução de shell, operações em arquivos e acesso à web.
+Unifia Workbench é um assistente de programação com IA que roda localmente em sua máquina. Fornece um sistema de agentes com acesso a ferramentas poderosas, incluindo execução de shell, operações em arquivos e acesso à web.
 
 ### Sem sandbox
 
-O OpenCode **não** coloca o agente em sandbox. O sistema de permissões existe como recurso de UX para ajudar os usuários a ficarem cientes do que o agente está fazendo — solicita confirmação antes de executar comandos, gravar arquivos, etc. No entanto, não foi projetado para fornecer isolamento de segurança.
+O Unifia Workbench **não** coloca o agente em sandbox. O sistema de permissões existe como recurso de UX para ajudar os usuários a ficarem cientes do que o agente está fazendo — solicita confirmação antes de executar comandos, gravar arquivos, etc. No entanto, não foi projetado para fornecer isolamento de segurança.
 
-Se você precisa de isolamento real, execute o OpenCode dentro de um contêiner Docker ou VM.
+Se você precisa de isolamento real, execute o Unifia Workbench dentro de um contêiner Docker ou VM.
 
 ### Modo servidor
 

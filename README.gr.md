@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## Γιατί αυτό το fork;
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ Με μια ματιά
 
-OpenCode (fork) — ένας ενορχηστρωμένος AI coding agent που τρέχει σε **desktop, server και κινητό**, με τοπικά μοντέλα από άκρη σε άκρη, μηδενική εξάρτηση από το cloud και ενσωματωμένα enterprise-grade governance primitives. Fork του [anomalyco/opencode](https://github.com/anomalyco/opencode) που συντηρείται από τον [Rwanbt](https://github.com/Rwanbt).
+Unifia Workbench (fork) — ένας ενορχηστρωμένος AI coding agent που τρέχει σε **desktop, server και κινητό**, με τοπικά μοντέλα από άκρη σε άκρη, μηδενική εξάρτηση από το cloud και ενσωματωμένα enterprise-grade governance primitives. Fork του [anomalyco/opencode](https://github.com/anomalyco/opencode) που συντηρείται από τον [Rwanbt](https://github.com/Rwanbt).
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### Τοπική AI
 
-Το OpenCode εκτελεί μοντέλα AI τοπικά σε υλικό καταναλωτή (8 GB VRAM / 16 GB RAM), με μηδενική εξάρτηση από το cloud για μοντέλα 4B-7B.
+Το Unifia Workbench εκτελεί μοντέλα AI τοπικά σε υλικό καταναλωτή (8 GB VRAM / 16 GB RAM), με μηδενική εξάρτηση από το cloud για μοντέλα 4B-7B.
 
 **Βελτιστοποίηση Prompt (μείωση 94%)**
 - ~1K token system prompt για τοπικά μοντέλα (έναντι ~16K για cloud)
@@ -460,7 +460,7 @@ Three major initiatives are planned on dedicated feature branches. Each is desig
 
 ### 📱 Mobile Version ()
 
-**Goal**: Run OpenCode as a native mobile app on Android and iOS, with full agent capabilities.
+**Goal**: Run Unifia Workbench as a native mobile app on Android and iOS, with full agent capabilities.
 
 | Component | Description |
 |-----------|-------------|
@@ -468,7 +468,7 @@ Three major initiatives are planned on dedicated feature branches. Each is desig
 | **Runtime adaptation** | Bundle the TypeScript agent core with Vite for WebView execution; delegate performance-critical tasks to Tauri's Rust layer |
 | **isomorphic-git** | Replace system  calls with isomorphic-git for pure-JS git operations within the mobile sandbox |
 | **File system access** | Use  for sandboxed file access + Document Picker integration |
-| **Remote mode** | Connect to a desktop OpenCode instance over a secure tunnel (Tailscale/Cloudflare) for full capability without local execution |
+| **Remote mode** | Connect to a desktop Unifia Workbench instance over a secure tunnel (Tailscale/Cloudflare) for full capability without local execution |
 | **Mobile-optimized UI** | Conversational interface that hides terminal complexity; swipe-based diff review; virtual keyboard optimizations |
 
 **Platform comparison**:
@@ -479,17 +479,17 @@ Three major initiatives are planned on dedicated feature branches. Each is desig
 
 ### 🔗 AnythingLLM Fusion ()
 
-**Goal**: Merge OpenCode's agentic coding capabilities with [AnythingLLM](https://github.com/mintplex-labs/anything-llm)'s document RAG and multi-user chat platform.
+**Goal**: Merge Unifia Workbench's agentic coding capabilities with [AnythingLLM](https://github.com/mintplex-labs/anything-llm)'s document RAG and multi-user chat platform.
 
 | Component | Description |
 |-----------|-------------|
-| **Context bridge** | Pipe AnythingLLM's indexed documents (PDFs, wikis, Confluence, etc.) into OpenCode's system prompt as additional context |
-| **Agent skill plugin** | Expose OpenCode's core commands (, , edit, bash) as an AnythingLLM Agent Skill via HTTP API |
-| **Unified vector store** | Merge OpenCode's SQLite RAG with AnythingLLM's vector DB backends (LanceDB, Pinecone, Chroma) for a single knowledge layer |
+| **Context bridge** | Pipe AnythingLLM's indexed documents (PDFs, wikis, Confluence, etc.) into Unifia Workbench's system prompt as additional context |
+| **Agent skill plugin** | Expose Unifia Workbench's core commands (, , edit, bash) as an AnythingLLM Agent Skill via HTTP API |
+| **Unified vector store** | Merge Unifia Workbench's SQLite RAG with AnythingLLM's vector DB backends (LanceDB, Pinecone, Chroma) for a single knowledge layer |
 | **Multi-user workspace** | Leverage AnythingLLM's existing multi-user and workspace management for team environments |
 | **Containerized deployment** | Docker Compose setup running both backends, with shared auth and a unified API gateway |
 
-**Synergy**: AnythingLLM excels at document ingestion and RAG over non-code content. OpenCode excels at code manipulation, agentic tool use, and multi-provider LLM orchestration. Combined, they create a full-stack AI development platform that can reason over documentation AND write/execute code.
+**Synergy**: AnythingLLM excels at document ingestion and RAG over non-code content. Unifia Workbench excels at code manipulation, agentic tool use, and multi-provider LLM orchestration. Combined, they create a full-stack AI development platform that can reason over documentation AND write/execute code.
 
 **Scale**: ~1500+ LOC for the bridge layer, ~500 LOC for the Agent Skill adapter, ~300 LOC for vector store unification.
 
@@ -518,7 +518,7 @@ nix run nixpkgs#opencode           # ή github:anomalyco/opencode με βάση 
 
 ### Εφαρμογή Desktop (BETA)
 
-Το OpenCode είναι επίσης διαθέσιμο ως εφαρμογή. Κατέβασε το απευθείας από τη [σελίδα εκδόσεων](https://github.com/Rwanbt/opencode/releases) ή το [opencode.ai/download](https://opencode.ai/download).
+Το Unifia Workbench είναι επίσης διαθέσιμο ως εφαρμογή. Κατέβασε το απευθείας από τη [σελίδα εκδόσεων](https://github.com/Rwanbt/opencode/releases) ή το [opencode.ai/download](https://opencode.ai/download).
 
 | Πλατφόρμα             | Λήψη                                  |
 | --------------------- | ------------------------------------- |
@@ -551,7 +551,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Πράκτορες
 
-Το OpenCode περιλαμβάνει δύο ενσωματωμένους πράκτορες μεταξύ των οποίων μπορείτε να εναλλάσσεστε με το πλήκτρο `Tab`.
+Το Unifia Workbench περιλαμβάνει δύο ενσωματωμένους πράκτορες μεταξύ των οποίων μπορείτε να εναλλάσσεστε με το πλήκτρο `Tab`.
 
 - **build** - Προεπιλεγμένος πράκτορας με πλήρη πρόσβαση για εργασία πάνω σε κώδικα
 - **plan** - Πράκτορας μόνο ανάγνωσης για ανάλυση και εξερεύνηση κώδικα
@@ -566,15 +566,15 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Οδηγός Χρήσης
 
-Για περισσότερες πληροφορίες σχετικά με τη ρύθμιση του OpenCode, [**πλοηγήσου στον οδηγό χρήσης μας**](https://opencode.ai/docs).
+Για περισσότερες πληροφορίες σχετικά με τη ρύθμιση του Unifia Workbench, [**πλοηγήσου στον οδηγό χρήσης μας**](https://opencode.ai/docs).
 
 ### Συνεισφορά
 
-Εάν ενδιαφέρεσαι να συνεισφέρεις στο OpenCode, διαβάστε τα [οδηγό χρήσης συνεισφοράς](./CONTRIBUTING.md) πριν υποβάλεις ένα pull request.
+Εάν ενδιαφέρεσαι να συνεισφέρεις στο Unifia Workbench, διαβάστε τα [οδηγό χρήσης συνεισφοράς](./CONTRIBUTING.md) πριν υποβάλεις ένα pull request.
 
-### Δημιουργία πάνω στο OpenCode
+### Δημιουργία πάνω στο Unifia Workbench
 
-Εάν εργάζεσαι σε ένα έργο σχετικό με το OpenCode και χρησιμοποιείτε το "opencode" ως μέρος του ονόματός του, για παράδειγμα "opencode-dashboard" ή "opencode-mobile", πρόσθεσε μια σημείωση στο README σας για να διευκρινίσεις ότι δεν είναι κατασκευασμένο από την ομάδα του OpenCode και δεν έχει καμία σχέση με εμάς.
+Εάν εργάζεσαι σε ένα έργο σχετικό με το Unifia Workbench και χρησιμοποιείτε το "opencode" ως μέρος του ονόματός του, για παράδειγμα "opencode-dashboard" ή "opencode-mobile", πρόσθεσε μια σημείωση στο README σας για να διευκρινίσεις ότι δεν είναι κατασκευασμένο από την ομάδα του Unifia Workbench και δεν έχει καμία σχέση με εμάς.
 
 ### Συχνές Ερωτήσεις
 
@@ -583,10 +583,10 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 Είναι πολύ παρόμοιο με το Claude Code ως προς τις δυνατότητες. Ακολουθούν οι βασικές διαφορές:
 
 - 100% ανοιχτού κώδικα
-- Δεν είναι συνδεδεμένο με κανέναν πάροχο. Αν και συνιστούμε τα μοντέλα που παρέχουμε μέσω του [OpenCode Zen](https://opencode.ai/zen), το OpenCode μπορεί να χρησιμοποιηθεί με Claude, OpenAI, Google, ή ακόμα και τοπικά μοντέλα. Καθώς τα μοντέλα εξελίσσονται, τα κενά μεταξύ τους θα κλείσουν και οι τιμές θα μειωθούν, οπότε είναι σημαντικό να είσαι ανεξάρτητος από τον πάροχο.
+- Δεν είναι συνδεδεμένο με κανέναν πάροχο. Αν και συνιστούμε τα μοντέλα που παρέχουμε μέσω του [Unifia Workbench Zen](https://opencode.ai/zen), το Unifia Workbench μπορεί να χρησιμοποιηθεί με Claude, OpenAI, Google, ή ακόμα και τοπικά μοντέλα. Καθώς τα μοντέλα εξελίσσονται, τα κενά μεταξύ τους θα κλείσουν και οι τιμές θα μειωθούν, οπότε είναι σημαντικό να είσαι ανεξάρτητος από τον πάροχο.
 - Out-of-the-box υποστήριξη LSP
-- Εστίαση στο TUI. Το OpenCode είναι κατασκευασμένο από χρήστες που χρησιμοποιούν neovim και τους δημιουργούς του [terminal.shop](https://terminal.shop)· θα εξαντλήσουμε τα όρια του τι είναι δυνατό στο terminal.
-- Αρχιτεκτονική client/server. Αυτό, για παράδειγμα, μπορεί να επιτρέψει στο OpenCode να τρέχει στον υπολογιστή σου ενώ το χειρίζεσαι εξ αποστάσεως από μια εφαρμογή κινητού, που σημαίνει ότι το TUI frontend είναι μόνο ένας από τους πιθανούς clients.
+- Εστίαση στο TUI. Το Unifia Workbench είναι κατασκευασμένο από χρήστες που χρησιμοποιούν neovim και τους δημιουργούς του [terminal.shop](https://terminal.shop)· θα εξαντλήσουμε τα όρια του τι είναι δυνατό στο terminal.
+- Αρχιτεκτονική client/server. Αυτό, για παράδειγμα, μπορεί να επιτρέψει στο Unifia Workbench να τρέχει στον υπολογιστή σου ενώ το χειρίζεσαι εξ αποστάσεως από μια εφαρμογή κινητού, που σημαίνει ότι το TUI frontend είναι μόνο ένας από τους πιθανούς clients.
 
 ---
 

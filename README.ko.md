@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## 이 포크를 선택하는 이유
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ 한눈에 보기
 
-OpenCode (포크) — **데스크톱, 서버, 스마트폰**에서 실행되는 AI 코딩 에이전트. 엔드투엔드 로컬 모델, 클라우드 종속성 제로, 엔터프라이즈급 거버넌스 내장. [Rwanbt](https://github.com/Rwanbt)가 유지관리하는 [anomalyco/opencode](https://github.com/anomalyco/opencode) 포크.
+Unifia Workbench (포크) — **데스크톱, 서버, 스마트폰**에서 실행되는 AI 코딩 에이전트. 엔드투엔드 로컬 모델, 클라우드 종속성 제로, 엔터프라이즈급 거버넌스 내장. [Rwanbt](https://github.com/Rwanbt)가 유지관리하는 [anomalyco/opencode](https://github.com/anomalyco/opencode) 포크.
 
 ### Install
 
@@ -524,7 +524,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -593,7 +593,7 @@ Tauri 2.0을 통한 Android/iOS 네이티브 앱, **임베디드 런타임** —
 
 **레이어 1 — 임베디드 런타임 (Android, 100% 네이티브 성능):**
 - **APK 내 정적 바이너리** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), 첫 실행 시 추출 (~15초)
-- **번들 CLI** — 임베디드 Bun으로 실행되는 JS 번들로서의 OpenCode CLI, 코어 기능에 네트워크 불필요
+- **번들 CLI** — 임베디드 Bun으로 실행되는 JS 번들로서의 Unifia Workbench CLI, 코어 기능에 네트워크 불필요
 - **직접 프로세스 생성** — Termux 없음, intent 없음 — Rust에서 직접 `std::process::Command`
 - **서버 자동 시작** — `bun opencode-cli.js serve`, 데스크톱 사이드카와 동일한 UUID 인증 포함 localhost
 
@@ -623,7 +623,7 @@ Tauri 2.0을 통한 Android/iOS 네이티브 앱, **임베디드 런타임** —
 
 **공통 (Android + iOS):**
 - **플랫폼 추상화** — `"mobile"` + `"ios"/"android"` OS 감지를 포함한 확장 `Platform` 타입
-- **원격 연결** — 네트워크를 통해 데스크톱 OpenCode 서버에 연결 (iOS 전용 또는 Android 폴백)
+- **원격 연결** — 네트워크를 통해 데스크톱 Unifia Workbench 서버에 연결 (iOS 전용 또는 Android 폴백)
 - **인터랙티브 터미널** — 커스텀 musl `librust_pty.so` (forkpty 래퍼)를 통한 완전한 PTY, canvas 폴백 포함 Ghostty WASM 렌더러
 - **외부 스토리지** — 서버 HOME에서 `/sdcard/` 디렉터리 (Documents, Downloads, projects)로의 심볼릭 링크
 - **모바일 UI** — 반응형 사이드바, 터치 최적화 메시지 입력, 모바일 diff 뷰, 44px 터치 타겟, 세이프 영역 지원
@@ -637,7 +637,7 @@ OpenCode와 AnythingLLM의 문서 RAG 플랫폼 간의 브리지. 구현 내용:
 - **REST 클라이언트** — AnythingLLM 워크스페이스, 문서, 검색, 채팅용 완전한 API 래퍼
 - **MCP 서버 어댑터** — 4개 도구: `anythingllm_search`, `anythingllm_list_workspaces`, `anythingllm_get_document`, `anythingllm_chat`
 - **플러그인 컨텍스트 주입** — `experimental.chat.system.transform` 훅이 관련 문서를 시스템 프롬프트에 주입
-- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute`로 OpenCode 도구를 AnythingLLM에 노출
+- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute`로 Unifia Workbench 도구를 AnythingLLM에 노출
 - **벡터 스토어 브리지** — 로컬 SQLite RAG와 AnythingLLM 벡터 DB 결과를 병합하는 복합 검색
 - **Docker Compose** — 공유 네트워크 포함 `docker-compose.anythingllm.yml`
 
@@ -668,7 +668,7 @@ nix run nixpkgs#opencode           # 또는 github:anomalyco/opencode 로 최신
 
 ### 데스크톱 앱 (BETA)
 
-OpenCode 는 데스크톱 앱으로도 제공됩니다. [releases page](https://github.com/Rwanbt/opencode/releases) 에서 직접 다운로드하거나 [opencode.ai/download](https://opencode.ai/download) 를 이용하세요.
+Unifia Workbench 는 데스크톱 앱으로도 제공됩니다. [releases page](https://github.com/Rwanbt/opencode/releases) 에서 직접 다운로드하거나 [opencode.ai/download](https://opencode.ai/download) 를 이용하세요.
 
 | 플랫폼                | 다운로드                              |
 | --------------------- | ------------------------------------- |
@@ -701,7 +701,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-OpenCode 에는 내장 에이전트 2개가 있으며 `Tab` 키로 전환할 수 있습니다.
+Unifia Workbench 에는 내장 에이전트 2개가 있으며 `Tab` 키로 전환할 수 있습니다.
 
 - **build** - 기본값, 개발 작업을 위한 전체 권한 에이전트
 - **plan** - 분석 및 코드 탐색을 위한 읽기 전용 에이전트
@@ -716,15 +716,15 @@ OpenCode 에는 내장 에이전트 2개가 있으며 `Tab` 키로 전환할 수
 
 ### 문서
 
-OpenCode 설정에 대한 자세한 내용은 [**문서**](https://opencode.ai/docs) 를 참고하세요.
+Unifia Workbench 설정에 대한 자세한 내용은 [**문서**](https://opencode.ai/docs) 를 참고하세요.
 
 ### 기여하기
 
-OpenCode 에 기여하고 싶다면, Pull Request 를 제출하기 전에 [contributing docs](./CONTRIBUTING.md) 를 읽어주세요.
+Unifia Workbench 에 기여하고 싶다면, Pull Request 를 제출하기 전에 [contributing docs](./CONTRIBUTING.md) 를 읽어주세요.
 
-### OpenCode 기반으로 만들기
+### Unifia Workbench 기반으로 만들기
 
-OpenCode 와 관련된 프로젝트를 진행하면서 이름에 "opencode"(예: "opencode-dashboard" 또는 "opencode-mobile") 를 포함한다면, README 에 해당 프로젝트가 OpenCode 팀이 만든 것이 아니며 어떤 방식으로도 우리와 제휴되어 있지 않다는 점을 명시해 주세요.
+Unifia Workbench 와 관련된 프로젝트를 진행하면서 이름에 "opencode"(예: "opencode-dashboard" 또는 "opencode-mobile") 를 포함한다면, README 에 해당 프로젝트가 Unifia Workbench 팀이 만든 것이 아니며 어떤 방식으로도 우리와 제휴되어 있지 않다는 점을 명시해 주세요.
 
 ### FAQ
 
@@ -733,10 +733,10 @@ OpenCode 와 관련된 프로젝트를 진행하면서 이름에 "opencode"(예:
 기능 면에서는 Claude Code 와 매우 유사합니다. 주요 차이점은 다음과 같습니다.
 
 - 100% 오픈 소스
-- 특정 제공자에 묶여 있지 않습니다. [OpenCode Zen](https://opencode.ai/zen) 을 통해 제공하는 모델을 권장하지만, OpenCode 는 Claude, OpenAI, Google 또는 로컬 모델과도 사용할 수 있습니다. 모델이 발전하면서 격차는 줄고 가격은 내려가므로 provider-agnostic 인 것이 중요합니다.
+- 특정 제공자에 묶여 있지 않습니다. [Unifia Workbench Zen](https://opencode.ai/zen) 을 통해 제공하는 모델을 권장하지만, Unifia Workbench 는 Claude, OpenAI, Google 또는 로컬 모델과도 사용할 수 있습니다. 모델이 발전하면서 격차는 줄고 가격은 내려가므로 provider-agnostic 인 것이 중요합니다.
 - 기본으로 제공되는 LSP 지원
-- TUI 에 집중. OpenCode 는 neovim 사용자와 [terminal.shop](https://terminal.shop) 제작자가 만들었으며, 터미널에서 가능한 것의 한계를 밀어붙입니다.
-- 클라이언트/서버 아키텍처. 예를 들어 OpenCode 를 내 컴퓨터에서 실행하면서 모바일 앱으로 원격 조작할 수 있습니다. 즉, TUI 프런트엔드는 가능한 여러 클라이언트 중 하나일 뿐입니다.
+- TUI 에 집중. Unifia Workbench 는 neovim 사용자와 [terminal.shop](https://terminal.shop) 제작자가 만들었으며, 터미널에서 가능한 것의 한계를 밀어붙입니다.
+- 클라이언트/서버 아키텍처. 예를 들어 Unifia Workbench 를 내 컴퓨터에서 실행하면서 모바일 앱으로 원격 조작할 수 있습니다. 즉, TUI 프런트엔드는 가능한 여러 클라이언트 중 하나일 뿐입니다.
 
 ---
 

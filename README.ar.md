@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="شعار OpenCode">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="شعار Unifia Workbench">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## لماذا هذا الفورك؟
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ لمحة سريعة
 
-OpenCode (الفورك) — وكيل برمجة مدعوم بالذكاء الاصطناعي يعمل على **الحاسوب المكتبي والخادم والهاتف**، بنماذج محلية من البداية إلى النهاية، دون أي اعتماد على السحابة، مع بدائل حوكمة بمستوى المؤسسات مدمجة. فورك لـ [anomalyco/opencode](https://github.com/anomalyco/opencode) يحافظ عليه [Rwanbt](https://github.com/Rwanbt).
+Unifia Workbench (الفورك) — وكيل برمجة مدعوم بالذكاء الاصطناعي يعمل على **الحاسوب المكتبي والخادم والهاتف**، بنماذج محلية من البداية إلى النهاية، دون أي اعتماد على السحابة، مع بدائل حوكمة بمستوى المؤسسات مدمجة. فورك لـ [anomalyco/opencode](https://github.com/anomalyco/opencode) يحافظ عليه [Rwanbt](https://github.com/Rwanbt).
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### الذكاء الاصطناعي المحلي أولاً
 
-يشغّل OpenCode نماذج AI محلياً على أجهزة المستهلك (8 جيجابايت VRAM / 16 جيجابايت RAM)، دون أي اعتماد على السحابة لنماذج 4B–7B.
+يشغّل Unifia Workbench نماذج AI محلياً على أجهزة المستهلك (8 جيجابايت VRAM / 16 جيجابايت RAM)، دون أي اعتماد على السحابة لنماذج 4B–7B.
 
 **تحسين الأوامر (تخفيض 94%)**
 - ~1K رمز للأمر النظامي للنماذج المحلية (مقابل ~16K للسحابية)
@@ -524,7 +524,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -593,7 +593,7 @@ graph TB
 
 **الطبقة 1 — بيئة التشغيل المدمجة (Android، أداء أصلي 100%):**
 - **ملفات ثنائية ثابتة في APK** — Bun، Git، Bash، Ripgrep (aarch64-linux-musl) تُستخرج عند أول تشغيل (~15 ثانية)
-- **CLI مُجمَّع** — OpenCode CLI كحزمة JS يشغّلها Bun المدمج، لا حاجة للشبكة للنواة
+- **CLI مُجمَّع** — Unifia Workbench CLI كحزمة JS يشغّلها Bun المدمج، لا حاجة للشبكة للنواة
 - **إطلاق عمليات مباشر** — بدون Termux، بدون intents — `std::process::Command` من Rust مباشرة
 - **تشغيل تلقائي للخادم** — `bun opencode-cli.js serve` على localhost مع مصادقة UUID، مثل sidecar سطح المكتب
 
@@ -623,7 +623,7 @@ graph TB
 
 **مشترك (Android + iOS):**
 - **تجريد المنصة** — نوع `Platform` موسّع مع `"mobile"` + كشف نظام التشغيل `"ios"/"android"`
-- **اتصال عن بُعد** — الاتصال بخادم OpenCode على سطح المكتب عبر الشبكة (iOS فقط أو Android احتياطي)
+- **اتصال عن بُعد** — الاتصال بخادم Unifia Workbench على سطح المكتب عبر الشبكة (iOS فقط أو Android احتياطي)
 - **طرفية تفاعلية** — PTY كامل عبر musl مخصص `librust_pty.so` (غلاف forkpty)، Ghostty WASM renderer مع canvas احتياطي
 - **تخزين خارجي** — روابط رمزية من HOME الخادم إلى مجلدات `/sdcard/` (Documents، Downloads، projects)
 - **واجهة جوال** — شريط جانبي متجاوب، إدخال رسائل محسّن للمس، عرض diff للجوال، أهداف لمس 44px، دعم safe area
@@ -633,11 +633,11 @@ graph TB
 
 ### دمج AnythingLLM (`dev_anything`)
 
-جسر بين OpenCode ومنصة AnythingLLM لـ RAG الوثائقي. تم التنفيذ:
+جسر بين Unifia Workbench ومنصة AnythingLLM لـ RAG الوثائقي. تم التنفيذ:
 - **عميل REST** — غلاف API كامل لمساحات عمل AnythingLLM، الوثائق، البحث، المحادثة
 - **محول خادم MCP** — 4 أدوات: `anythingllm_search`، `anythingllm_list_workspaces`، `anythingllm_get_document`، `anythingllm_chat`
 - **حقن السياق عبر الإضافة** — خطاف `experimental.chat.system.transform` يحقن الوثائق ذات الصلة في الأمر النظامي
-- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` لتوفير أدوات OpenCode في AnythingLLM
+- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` لتوفير أدوات Unifia Workbench في AnythingLLM
 - **جسر مخزن المتجهات** — بحث مركّب يدمج SQLite RAG المحلي مع نتائج قاعدة بيانات المتجهات في AnythingLLM
 - **Docker Compose** — `docker-compose.anythingllm.yml` جاهز للاستخدام مع شبكة مشتركة
 
@@ -666,7 +666,7 @@ nix run nixpkgs#opencode           # او github:anomalyco/opencode لاحدث �
 
 ### تطبيق سطح المكتب (BETA)
 
-يتوفر OpenCode ايضا كتطبيق سطح مكتب. قم بالتنزيل مباشرة من [صفحة الاصدارات](https://github.com/Rwanbt/opencode/releases) او من [opencode.ai/download](https://opencode.ai/download).
+يتوفر Unifia Workbench ايضا كتطبيق سطح مكتب. قم بالتنزيل مباشرة من [صفحة الاصدارات](https://github.com/Rwanbt/opencode/releases) او من [opencode.ai/download](https://opencode.ai/download).
 
 | المنصة                | التنزيل                               |
 | --------------------- | ------------------------------------- |
@@ -699,7 +699,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-يتضمن OpenCode وكيليْن (Agents) مدمجين يمكنك التبديل بينهما باستخدام زر `Tab`.
+يتضمن Unifia Workbench وكيليْن (Agents) مدمجين يمكنك التبديل بينهما باستخدام زر `Tab`.
 
 - **build** - الافتراضي، وكيل بصلاحيات كاملة لاعمال التطوير
 - **plan** - وكيل للقراءة فقط للتحليل واستكشاف الكود
@@ -714,15 +714,15 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### التوثيق
 
-لمزيد من المعلومات حول كيفية ضبط OpenCode، [**راجع التوثيق**](https://opencode.ai/docs).
+لمزيد من المعلومات حول كيفية ضبط Unifia Workbench، [**راجع التوثيق**](https://opencode.ai/docs).
 
 ### المساهمة
 
-اذا كنت مهتما بالمساهمة في OpenCode، يرجى قراءة [contributing docs](./CONTRIBUTING.md) قبل ارسال pull request.
+اذا كنت مهتما بالمساهمة في Unifia Workbench، يرجى قراءة [contributing docs](./CONTRIBUTING.md) قبل ارسال pull request.
 
-### البناء فوق OpenCode
+### البناء فوق Unifia Workbench
 
-اذا كنت تعمل على مشروع مرتبط بـ OpenCode ويستخدم "opencode" كجزء من اسمه (مثل "opencode-dashboard" او "opencode-mobile")، يرجى اضافة ملاحظة في README توضح انه ليس مبنيا بواسطة فريق OpenCode ولا يرتبط بنا بأي شكل.
+اذا كنت تعمل على مشروع مرتبط بـ Unifia Workbench ويستخدم "opencode" كجزء من اسمه (مثل "opencode-dashboard" او "opencode-mobile")، يرجى اضافة ملاحظة في README توضح انه ليس مبنيا بواسطة فريق Unifia Workbench ولا يرتبط بنا بأي شكل.
 
 ### FAQ
 
@@ -731,10 +731,10 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 هو مشابه جدا لـ Claude Code من حيث القدرات. هذه هي الفروقات الاساسية:
 
 - 100% مفتوح المصدر
-- غير مقترن بمزود معين. نوصي بالنماذج التي نوفرها عبر [OpenCode Zen](https://opencode.ai/zen)؛ لكن يمكن استخدام OpenCode مع Claude او OpenAI او Google او حتى نماذج محلية. مع تطور النماذج ستتقلص الفجوات وستنخفض الاسعار، لذا من المهم ان يكون مستقلا عن المزود.
+- غير مقترن بمزود معين. نوصي بالنماذج التي نوفرها عبر [Unifia Workbench Zen](https://opencode.ai/zen)؛ لكن يمكن استخدام Unifia Workbench مع Claude او OpenAI او Google او حتى نماذج محلية. مع تطور النماذج ستتقلص الفجوات وستنخفض الاسعار، لذا من المهم ان يكون مستقلا عن المزود.
 - دعم LSP جاهز للاستخدام
-- تركيز على TUI. تم بناء OpenCode بواسطة مستخدمي neovim ومنشئي [terminal.shop](https://terminal.shop)؛ وسندفع حدود ما هو ممكن داخل الطرفية.
-- معمارية عميل/خادم. على سبيل المثال، يمكن تشغيل OpenCode على جهازك بينما تقوده عن بعد من تطبيق جوال. هذا يعني ان واجهة TUI هي واحدة فقط من العملاء الممكنين.
+- تركيز على TUI. تم بناء Unifia Workbench بواسطة مستخدمي neovim ومنشئي [terminal.shop](https://terminal.shop)؛ وسندفع حدود ما هو ممكن داخل الطرفية.
+- معمارية عميل/خادم. على سبيل المثال، يمكن تشغيل Unifia Workbench على جهازك بينما تقوده عن بعد من تطبيق جوال. هذا يعني ان واجهة TUI هي واحدة فقط من العملاء الممكنين.
 
 ---
 
