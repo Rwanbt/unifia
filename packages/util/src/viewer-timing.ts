@@ -10,7 +10,7 @@
 // WHY flag-gated, not always-on: this must not be noisy in production (see
 // the plan's "Critères de réussite"). Off by default everywhere, including
 // dev builds — opt in explicitly with enableViewerTiming(), or by setting
-// localStorage["opencode:debug:viewer-timing"] = "1" before reload (works on
+// localStorage["unifia:debug:viewer-timing"] = "1" before reload (works on
 // a real desktop or Android build, not just a dev server, since Phase 0's
 // whole point is measuring real save→viewer-ready latency on both
 // platforms).
@@ -55,7 +55,7 @@ export interface ViewerTimingMark {
   detail?: Record<string, unknown>
 }
 
-const STORAGE_KEY = "opencode:debug:viewer-timing"
+const STORAGE_KEY = "unifia:debug:viewer-timing"
 const MAX_MARKS = 1000
 
 let cachedEnabled: boolean | undefined
