@@ -1,6 +1,6 @@
-# OpenCode Desktop
+# Unifia Desktop
 
-Native OpenCode desktop app, built with Tauri v2.
+Native Unifia desktop app, built with Tauri v2.
 
 ## Features
 
@@ -41,12 +41,12 @@ Most numeric flags are derived at runtime by `packages/opencode/src/local-llm-se
 
 | Flag | Value | Purpose |
 |------|-------|---------|
-| `--n-gpu-layers <N>` | adaptive (env: `OPENCODE_N_GPU_LAYERS`) | Layers offloaded to fit 85 % of detected VRAM |
+| `--n-gpu-layers <N>` | adaptive (env: `UNIFIA_N_GPU_LAYERS`) | Layers offloaded to fit 85 % of detected VRAM |
 | `--threads <N>` | adaptive (2–6, big cores only) | Performance cores via cpufreq split |
 | `--batch-size <N>` | adaptive (64–512) | Scales with free RAM, halved under thermal throttle |
 | `--ubatch-size <N>` | batch / 4 | Sub-batch for prefill |
-| `--cache-type-k/v` | adaptive f16/q8_0/q4_0 (env: `OPENCODE_KV_CACHE_TYPE`) | Quant tier from VRAM headroom |
-| `--fit on` | auto (fork-only, opt-in via `OPENCODE_LLAMA_ENABLE_FIT`) | Secondary VRAM adjustment |
+| `--cache-type-k/v` | adaptive f16/q8_0/q4_0 (env: `UNIFIA_KV_CACHE_TYPE`) | Quant tier from VRAM headroom |
+| `--fit on` | auto (fork-only, opt-in via `UNIFIA_LLAMA_ENABLE_FIT`) | Secondary VRAM adjustment |
 | `-fitt 512` / `-fitc 16384` | margin + min ctx (when `--fit` enabled) | Never below 16K context |
 | `--flash-attn on` | — | Flash Attention |
 | `-np 1` | single slot | Minimize VRAM |
@@ -110,7 +110,7 @@ Globe icon in prompt toolbar — toggle web search per message.
 
 Providers that redirect back to the app no longer require the user to
 copy-paste the authorization code. Register
-`opencode://oauth/callback?providerID=<id>&code=<code>&state=<opt>` as
+`unifia://oauth/callback?providerID=<id>&code=<code>&state=<opt>` as
 the `redirect_uri` and the desktop shell auto-finalises the token
 exchange — see
 [`packages/app/src/pages/layout/deep-links.ts`](../app/src/pages/layout/deep-links.ts)

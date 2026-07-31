@@ -1,5 +1,5 @@
 [package]
-name = "opencode-desktop"
+name = "unifia-desktop"
 version = "0.0.0"
 description = "The open source AI coding agent"
 authors = ["Anomaly Innovations"]
@@ -75,7 +75,7 @@ rcgen = { version = "0.13", features = ["pem"] }
 sha2 = "0.10"
 base64 = "0.21"
 url = "2"
-opencode-kokoro-shared = { path = "../../../crates/opencode-kokoro-shared" }
+unifia-kokoro-shared = { path = "../../../crates/opencode-kokoro-shared" }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_System_Threading", "Win32_System_Registry"] }

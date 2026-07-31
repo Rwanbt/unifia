@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenCode Beta",
+  "productName": "Unifia Beta",
   "identifier": "ai.unifia.workbench.beta",
   "bundle": {
     "createUpdaterArtifacts": true,

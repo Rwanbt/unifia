@@ -28,7 +28,7 @@ for (const candidate of candidates) {
 }
 
 if (!src) {
-  console.warn(`[copy-sidecar] source missing in candidates: ${candidates.join(", ")} — run "predev" or build the opencode sidecar first`)
+  console.warn(`[copy-sidecar] source missing in candidates: ${candidates.join(", ")} — run "predev" or build the unifia sidecar first`)
   process.exit(0)
 }
 
