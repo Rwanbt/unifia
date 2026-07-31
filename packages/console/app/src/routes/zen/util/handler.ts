@@ -94,7 +94,7 @@ export async function handler(
     const sessionId = input.request.headers.get("x-unifia-session") ?? ""
     const requestId = input.request.headers.get("x-unifia-request") ?? ""
     const projectId = input.request.headers.get("x-unifia-project") ?? ""
-    const ocClient = input.request.headers.get("x-opencode-client") ?? ""
+    const ocClient = input.request.headers.get("x-unifia-client") ?? ""
     logger.metric({
       is_stream: isStream,
       session: sessionId,
@@ -166,7 +166,7 @@ export async function handler(
           headers.delete("x-unifia-request")
           headers.delete("x-unifia-session")
           headers.delete("x-unifia-project")
-          headers.delete("x-opencode-client")
+          headers.delete("x-unifia-client")
           return headers
         })(),
         body: reqBody,

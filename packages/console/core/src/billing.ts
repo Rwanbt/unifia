@@ -12,7 +12,7 @@ import { BlackData } from "./black"
 import { LiteData } from "./lite"
 
 export namespace Billing {
-  export const ITEM_CREDIT_NAME = "opencode credits"
+  export const ITEM_CREDIT_NAME = "unifia credits"
   export const ITEM_FEE_NAME = "processing fee"
   export const RELOAD_AMOUNT = 20
   export const RELOAD_AMOUNT_MIN = 10
