@@ -54,7 +54,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Orchestration, API surface, governance
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | Open source                            |       ✅       |      ❌      |  partial  |      ✅     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |    ❌    |     ✅     |   ✅   |     ✅     |
 | BYOM (bring your own model)            |       ✅       |      ❌      |     ❌     |      ❌     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |  partial |     ✅     |   ✅   |   partial  |
@@ -73,7 +73,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Intelligence, context, developer UX
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | LSP integration (go-to-def, diagnostics) | ✅           |   partial    |  partial  |   partial   |          ✅          | partial | partial | ✅   |    ✅     |    ✅    |     ✅     | partial |  partial  |
 | Plugin SDK (`@opencode/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
@@ -86,7 +86,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Platform reach & multimodal
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | First-class **Android app**            | ✅ **unique**  |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
 | iOS (remote mode)                      |       ✅       |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ Em resumo
 
-Unifia Workbench (fork) — um agente de programação com IA orquestrado que roda em **desktop, servidor e celular**, com modelos locais de ponta a ponta, zero dependência da nuvem e primitivas de governança de nível empresarial embutidas. Fork de [anomalyco/opencode](https://github.com/anomalyco/opencode) mantido por [Rwanbt](https://github.com/Rwanbt).
+Unifia Workbench (fork) — um agente de programação com IA orquestrado que roda em **desktop, servidor e celular**, com modelos locais de ponta a ponta, zero dependência da nuvem e primitivas de governança de nível empresarial embutidas. Fork de [anomalyco/opencode](https:// PROT 6 PROT  mantido por [Rwanbt](https://github.com/Rwanbt).
 
 ### Install
 
@@ -139,8 +139,8 @@ curl -fsSL https://opencode.ai/install | bash
 ### Execute sua primeira tarefa
 
 ```bash
-opencode                                  # TUI
-opencode run "fix the failing test in src/"   # one-shot
+unifia                                  # TUI
+unifia run "fix the failing test in src/"   # one-shot
 ```
 
 > 💡 Precisa de detalhes? Cada seção abaixo está recolhida — clique para abrir apenas o que lhe interessa.
@@ -156,7 +156,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 ## Funcionalidades do Fork
 
-> Este é um fork de [anomalyco/opencode](https://github.com/anomalyco/opencode) mantido por [Rwanbt](https://github.com/Rwanbt).
+> Este é um fork de [anomalyco/opencode](https:// PROT 4 PROT  mantido por [Rwanbt](https://github.com/Rwanbt).
 > Mantido em sincronia com o upstream. Veja a [branch dev](https://github.com/Rwanbt/opencode/tree/dev) para as últimas alterações.
 
 #### IA Local
@@ -174,7 +174,7 @@ O Unifia Workbench executa modelos de IA localmente em hardware consumer (8 GB V
 - **Configuração adaptativa em runtime** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, threads, tamanho de batch/ubatch, quantização de cache KV e tamanho do contexto derivados da VRAM detectada, RAM livre, divisão CPU big.LITTLE, backend GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) e estado térmico. Substitui o antigo `--n-gpu-layers 99` fixo — um Android de 4 GB agora roda em fallback CPU em vez de ser morto por OOM, desktops top obtêm batch ajustado em vez do padrão 512.
 - `--flash-attn on` — Flash Attention para eficiência de memória
 - `--cache-type-k/v` — Cache KV com rotação de ; nível adaptativo (f16 / q8_0 / q4_0) conforme a margem de VRAM
-- `--fit on` — ajuste secundário de VRAM exclusivo do fork (opt-in via `OPENCODE_LLAMA_ENABLE_FIT=1`)
+- `--fit on` — ajuste secundário de VRAM exclusivo do fork (opt-in via `UNIFIA_LLAMA_ENABLE_FIT=1`)
 - Decodificação especulativa (`--model-draft`) com VRAM Guard (desativa automaticamente se < 4 GB livres)
 - Slot único (`-np 1`) para minimizar o consumo de memória
 - **Harness de benchmark** (`bun run bench:llm`): medição reprodutível de FTL / TPS / pico de RSS / tempo total por modelo, por execução, com saída JSONL para arquivamento em CI
@@ -259,7 +259,7 @@ Diálogo com ações: abrir sessão da tarefa, cancelar, retomar, enviar acompan
 
 #### Escopo de Agente MCP
 
-Listas de permissão/negação de servidores MCP por agente. Configure em `opencode.json` no campo `mcp` de cada agente. A função `toolsForAgent()` filtra as ferramentas MCP disponíveis com base no escopo do agente chamador.
+Listas de permissão/negação de servidores MCP por agente. Configure em `unifia.json` no campo `mcp` de cada agente. A função `toolsForAgent()` filtra as ferramentas MCP disponíveis com base no escopo do agente chamador.
 
 ```json
 {
@@ -450,7 +450,7 @@ Para evitar confusão a partir de resumos gerados por IA deste projeto:
 | Capability | Status | Notes |
 |-----------|--------|-------|
 | Mobile app (Tauri) | Implemented | Android: runtime embarcado, LLM no dispositivo, STT + TTS (Kokoro). iOS: planeado |
-| **Deep link de callback OAuth** | Implemented | `opencode://oauth/callback?providerID=…&code=…&state=…` finaliza automaticamente a troca de token; sem necessidade de copiar/colar o código de autenticação |
+| **Deep link de callback OAuth** | Implemented | `unifia://oauth/callback?providerID=…&code=…&state=…` finaliza automaticamente a troca de token; sem necessidade de copiar/colar o código de autenticação |
 | **Observador de branch upstream** | Implemented | `git fetch` periódico (aquecimento 30 s, intervalo 5 min) emite `vcs.branch.behind` quando o HEAD local diverge do upstream rastreado; exibido via `platform.notify()` no desktop e mobile |
 | **Spawn de PTY no tamanho do viewport** | Implemented | `Pty.create({cols, rows})` usa um estimador de `window.innerWidth/innerHeight` — os shells iniciam já com suas dimensões finais em vez de 80×24→36×11, corrige o bug do primeiro prompt invisível no Android em mksh/bash |
 | Collaborative mode | Experimental | JWT auth, presence, file locking, WebSocket broadcast |
@@ -557,7 +557,7 @@ graph TB
 | Feature | Description |
 |---------|-------------|
 | **MCP Compliant** | Suporte completo ao Model Context Protocol — modos cliente e servidor, escopo de ferramentas por agente via listas allow/deny |
-| **Context Files** | Diretório `.opencode/` com configuração `opencode.jsonc`. Agentes definidos como markdown com frontmatter YAML. Instruções personalizadas via configuração `instructions` |
+| **Context Files** | Diretório `.opencode/` com configuração `unifia.jsonc`. Agentes definidos como markdown com frontmatter YAML. Instruções personalizadas via configuração `instructions` |
 | **Provider Router** | 25+ provedores via `Provider.parseModel("provider/model")`. Fallback automático, rastreamento de custos, roteamento consciente de tokens |
 | **Sistema RAG** | Busca vetorial local opcional (`experimental.rag`) com modelos de embedding configuráveis (OpenAI/Google). Indexação automática de arquivos modificados |
 | **Bridge AnythingLLM** | Integração opcional (`experimental.anythingllm`) — injeção de contexto, adaptador de servidor MCP, bridge de vector store, API HTTP Agent Skills |
@@ -650,15 +650,15 @@ Config: `experimental.anythingllm.enabled: true`
 curl -fsSL https://opencode.ai/install | bash
 
 # Gerenciadores de pacotes
-npm i -g opencode-ai@latest        # ou bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
+npm i -g unifia-ai@latest        # ou bun/pnpm/yarn
+scoop install unifia             # Windows
+choco install unifia             # Windows
 brew install anomalyco/tap/opencode # macOS e Linux (recomendado, sempre atualizado)
-brew install opencode              # macOS e Linux (fórmula oficial do brew, atualiza menos)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # qualquer sistema
-nix run nixpkgs#opencode           # ou github:anomalyco/opencode para a branch dev mais recente
+brew install unifia              # macOS e Linux (fórmula oficial do brew, atualiza menos)
+sudo pacman -S unifia            # Arch Linux (Stable)
+paru -S unifia-bin               # Arch Linux (Latest from AUR)
+mise use -g unifia               # qualquer sistema
+nix run nixpkgs#unifia           # ou github:anomalyco/opencode para a branch dev mais recente
 ```
 
 > [!TIP]
@@ -666,18 +666,18 @@ nix run nixpkgs#opencode           # ou github:anomalyco/opencode para a branch 
 
 ### App desktop (BETA)
 
-O Unifia Workbench também está disponível como aplicativo desktop. Baixe diretamente pela [página de releases](https://github.com/Rwanbt/opencode/releases) ou em [opencode.ai/download](https://opencode.ai/download).
+O Unifia Workbench também está disponível como aplicativo desktop. Baixe diretamente pela [página de releases](https://github.com/Rwanbt/opencode/releases) ou em [unifia.ai/download](https://opencode.ai/download).
 
 | Plataforma            | Download                              |
 | --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
+| macOS (Apple Silicon) | `unifia-desktop-darwin-aarch64.dmg` |
+| macOS (Intel)         | `unifia-desktop-darwin-x64.dmg`     |
+| Windows               | `unifia-desktop-windows-x64.exe`    |
 | Linux                 | `.deb`, `.rpm` ou AppImage            |
 
 ```bash
 # macOS (Homebrew)
-brew install --cask opencode-desktop
+brew install --cask unifia-desktop
 # Windows (Scoop)
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
@@ -686,14 +686,14 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 
 O script de instalação respeita a seguinte ordem de prioridade para o caminho de instalação:
 
-1. `$OPENCODE_INSTALL_DIR` - Diretório de instalação personalizado
+1. `$UNIFIA_INSTALL_DIR` - Diretório de instalação personalizado
 2. `$XDG_BIN_DIR` - Caminho compatível com a especificação XDG Base Directory
 3. `$HOME/bin` - Diretório binário padrão do usuário (se existir ou puder ser criado)
 4. `$HOME/.opencode/bin` - Fallback padrão
 
 ```bash
 # Exemplos
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+UNIFIA_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
 XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 ```
 
@@ -722,7 +722,7 @@ Se você tem interesse em contribuir com o Unifia Workbench, leia os [contributi
 
 ### Construindo com Unifia Workbench
 
-Se você estiver trabalhando em um projeto relacionado ao Unifia Workbench e estiver usando "opencode" como parte do nome (por exemplo, "opencode-dashboard" ou "opencode-mobile"), adicione uma nota no README para deixar claro que não foi construído pela equipe do Unifia Workbench e não é afiliado a nós de nenhuma forma.
+Se você estiver trabalhando em um projeto relacionado ao Unifia Workbench e estiver usando "unifia" como parte do nome (por exemplo, "unifia-dashboard" ou "unifia-mobile"), adicione uma nota no README para deixar claro que não foi construído pela equipe do Unifia Workbench e não é afiliado a nós de nenhuma forma.
 
 ### FAQ
 

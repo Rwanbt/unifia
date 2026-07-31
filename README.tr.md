@@ -54,7 +54,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Orchestration, API surface, governance
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | Open source                            |       ✅       |      ❌      |  partial  |      ✅     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |    ❌    |     ✅     |   ✅   |     ✅     |
 | BYOM (bring your own model)            |       ✅       |      ❌      |     ❌     |      ❌     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |  partial |     ✅     |   ✅   |   partial  |
@@ -73,7 +73,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Intelligence, context, developer UX
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | LSP integration (go-to-def, diagnostics) | ✅           |   partial    |  partial  |   partial   |          ✅          | partial | partial | ✅   |    ✅     |    ✅    |     ✅     | partial |  partial  |
 | Plugin SDK (`@opencode/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
@@ -86,7 +86,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Platform reach & multimodal
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | First-class **Android app**            | ✅ **unique**  |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
 | iOS (remote mode)                      |       ✅       |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ Bir bakışta
 
-Unifia Workbench (fork) — **masaüstü, sunucu ve telefonda** çalışan, uçtan uca yerel modeller, sıfır bulut bağımlılığı ve yerleşik enterprise düzeyinde yönetişim ilkelleriyle orkestralı bir AI kodlama ajanı. [Rwanbt](https://github.com/Rwanbt) tarafından bakımı yapılan [anomalyco/opencode](https://github.com/anomalyco/opencode) fork'u.
+Unifia Workbench (fork) — **masaüstü, sunucu ve telefonda** çalışan, uçtan uca yerel modeller, sıfır bulut bağımlılığı ve yerleşik enterprise düzeyinde yönetişim ilkelleriyle orkestralı bir AI kodlama ajanı. [Rwanbt](https://github.com/Rwanbt) tarafından bakımı yapılan [anomalyco/opencode](https:// PROT 6 PROT  fork'u.
 
 ### Install
 
@@ -139,8 +139,8 @@ curl -fsSL https://opencode.ai/install | bash
 ### İlk görevini çalıştır
 
 ```bash
-opencode                                  # TUI
-opencode run "fix the failing test in src/"   # one-shot
+unifia                                  # TUI
+unifia run "fix the failing test in src/"   # one-shot
 ```
 
 > 💡 Ayrıntılar mı gerek? Aşağıdaki her bölüm katlı — yalnızca ilgilendiğini aç.
@@ -156,7 +156,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 ## Fork Özellikleri
 
-> Bu, [anomalyco/opencode](https://github.com/anomalyco/opencode) projesinin [Rwanbt](https://github.com/Rwanbt) tarafından sürdürülen bir fork'udur.
+> Bu, [anomalyco/opencode](https:// PROT 4 PROT  projesinin [Rwanbt](https://github.com/Rwanbt) tarafından sürdürülen bir fork'udur.
 > Upstream ile senkronize tutulmaktadır. En son değişiklikler için [dev dalına](https://github.com/Rwanbt/opencode/tree/dev) bakın.
 
 #### Yerel Öncelikli AI
@@ -174,7 +174,7 @@ Unifia Workbench, AI modellerini tüketici donanımında (8 GB VRAM / 16 GB RAM)
 - **Çalışma zamanı uyarlamalı yapılandırma** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, iş parçacıkları, batch/ubatch boyutu, KV önbellek kuantizasyonu ve bağlam boyutu algılanan VRAM, boş RAM, big.LITTLE CPU bölünmesi, GPU arka ucu (CUDA/ROCm/Vulkan/Metal/OpenCL) ve termal durumdan türetilir. Eski sabit kodlanmış `--n-gpu-layers 99`'un yerine geçer — 4 GB'lık bir Android artık OOM ile öldürülmek yerine CPU geri dönüşünde çalışır, amiral gemisi masaüstleri varsayılan 512 yerine ayarlı batch alır.
 - `--flash-attn on` — Bellek verimliliği için Flash Attention
 - `--cache-type-k/v` —  rotasyonlu KV önbelleği; VRAM payına göre uyarlamalı katman (f16 / q8_0 / q4_0)
-- `--fit on` — fork'a özel ikincil VRAM ayarı (`OPENCODE_LLAMA_ENABLE_FIT=1` ile opt-in)
+- `--fit on` — fork'a özel ikincil VRAM ayarı (`UNIFIA_LLAMA_ENABLE_FIT=1` ile opt-in)
 - Spekülatif kod çözme (`--model-draft`) ile VRAM Koruması (< 4 GB boş olduğunda otomatik devre dışı)
 - Bellek ayak izini minimize etmek için tek slot (`-np 1`)
 - **Benchmark altyapısı** (`bun run bench:llm`): model başına, çalıştırma başına FTL / TPS / zirve RSS / duvar saati süresinin tekrarlanabilir ölçümü, CI arşivi için JSONL çıktısı
@@ -260,7 +260,7 @@ Eylemler içeren iletişim kutusu: görev oturumunu aç, iptal et, devam ettir, 
 
 #### MCP Ajan Kapsamı
 
-MCP sunucuları için ajan başına izin ver/engelle listeleri. `opencode.json` dosyasında her ajanın `mcp` alanı altında yapılandırılır. `toolsForAgent()` fonksiyonu, çağıran ajanın kapsamına göre kullanılabilir MCP araçlarını filtreler.
+MCP sunucuları için ajan başına izin ver/engelle listeleri. `unifia.json` dosyasında her ajanın `mcp` alanı altında yapılandırılır. `toolsForAgent()` fonksiyonu, çağıran ajanın kapsamına göre kullanılabilir MCP araçlarını filtreler.
 
 ```json
 {
@@ -451,7 +451,7 @@ Bu projenin AI tarafından oluşturulan özetlerinden kaynaklanan karışıklı�
 | Yetenek | Status | Notes |
 |-----------|--------|-------|
 | Mobile app (Tauri) | Implemented | Android: gömülü çalışma zamanı, cihaz üzerinde LLM, STT + TTS (Kokoro). iOS: uzaktan modu |
-| **OAuth geri çağrı derin bağlantısı** | Implemented | `opencode://oauth/callback?providerID=…&code=…&state=…` token değişimini otomatik olarak sonlandırır; kimlik doğrulama kodunu kopyala-yapıştıra gerek yok |
+| **OAuth geri çağrı derin bağlantısı** | Implemented | `unifia://oauth/callback?providerID=…&code=…&state=…` token değişimini otomatik olarak sonlandırır; kimlik doğrulama kodunu kopyala-yapıştıra gerek yok |
 | **Upstream dal gözlemcisi** | Implemented | Periyodik `git fetch` (30 sn ısınma, 5 dk aralık) yerel HEAD izlenen upstream'den ayrıldığında `vcs.branch.behind` yayınlar; masaüstü ve mobilde `platform.notify()` üzerinden gösterilir |
 | **Viewport boyutunda PTY oluşturma** | Implemented | `Pty.create({cols, rows})` `window.innerWidth/innerHeight` tahmin ediciyi kullanır — kabuklar 80×24→36×11 yerine son boyutlarıyla başlar, mksh/bash üzerinde Android ilk prompt görünmez hatasını düzeltir |
 | Collaborative mode | Experimental | JWT auth, presence, file locking, WebSocket broadcast |
@@ -558,7 +558,7 @@ graph TB
 | Feature | Description |
 |---------|-------------|
 | **MCP Compliant** | Tam Model Context Protocol desteği — istemci ve sunucu modları, allow/deny listeleri ile ajan bazında araç kapsamı |
-| **Context Files** | `opencode.jsonc` yapılandırmalı `.opencode/` dizini. Ajanlar YAML frontmatter'lı markdown olarak tanımlanır. `instructions` yapılandırması ile özel talimatlar |
+| **Context Files** | `unifia.jsonc` yapılandırmalı `.opencode/` dizini. Ajanlar YAML frontmatter'lı markdown olarak tanımlanır. `instructions` yapılandırması ile özel talimatlar |
 | **Provider Router** | `Provider.parseModel("provider/model")` ile 25+ sağlayıcı. Otomatik yedek, maliyet takibi, token farkındalıklı yönlendirme |
 | **RAG System** | İsteğe bağlı yerel vektör araması (`experimental.rag`) yapılandırılabilir embedding modelleri ile (OpenAI/Google). Değiştirilen dosyaları otomatik indeksler |
 | **AnythingLLM Bridge** | İsteğe bağlı entegrasyon (`experimental.anythingllm`) — bağlam enjeksiyonu, MCP sunucu adaptörü, vektör deposu köprüsü, Agent Skills HTTP API |
@@ -651,15 +651,15 @@ Yapılandırma: `experimental.anythingllm.enabled: true`
 curl -fsSL https://opencode.ai/install | bash
 
 # Paket yöneticileri
-npm i -g opencode-ai@latest        # veya bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
+npm i -g unifia-ai@latest        # veya bun/pnpm/yarn
+scoop install unifia             # Windows
+choco install unifia             # Windows
 brew install anomalyco/tap/opencode # macOS ve Linux (önerilir, her zaman güncel)
-brew install opencode              # macOS ve Linux (resmi brew formülü, daha az güncellenir)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # Tüm işletim sistemleri
-nix run nixpkgs#opencode           # veya en güncel geliştirme dalı için github:anomalyco/opencode
+brew install unifia              # macOS ve Linux (resmi brew formülü, daha az güncellenir)
+sudo pacman -S unifia            # Arch Linux (Stable)
+paru -S unifia-bin               # Arch Linux (Latest from AUR)
+mise use -g unifia               # Tüm işletim sistemleri
+nix run nixpkgs#unifia           # veya en güncel geliştirme dalı için github:anomalyco/opencode
 ```
 
 > [!TIP]
@@ -667,18 +667,18 @@ nix run nixpkgs#opencode           # veya en güncel geliştirme dalı için git
 
 ### Masaüstü Uygulaması (BETA)
 
-Unifia Workbench ayrıca masaüstü uygulaması olarak da mevcuttur. Doğrudan [sürüm sayfasından](https://github.com/Rwanbt/opencode/releases) veya [opencode.ai/download](https://opencode.ai/download) adresinden indirebilirsiniz.
+Unifia Workbench ayrıca masaüstü uygulaması olarak da mevcuttur. Doğrudan [sürüm sayfasından](https://github.com/Rwanbt/opencode/releases) veya [unifia.ai/download](https://opencode.ai/download) adresinden indirebilirsiniz.
 
 | Platform              | İndirme                               |
 | --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
+| macOS (Apple Silicon) | `unifia-desktop-darwin-aarch64.dmg` |
+| macOS (Intel)         | `unifia-desktop-darwin-x64.dmg`     |
+| Windows               | `unifia-desktop-windows-x64.exe`    |
 | Linux                 | `.deb`, `.rpm` veya AppImage          |
 
 ```bash
 # macOS (Homebrew)
-brew install --cask opencode-desktop
+brew install --cask unifia-desktop
 # Windows (Scoop)
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
@@ -687,14 +687,14 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 
 Kurulum betiği (install script), kurulum yolu (installation path) için aşağıdaki öncelik sırasını takip eder:
 
-1. `$OPENCODE_INSTALL_DIR` - Özel kurulum dizini
+1. `$UNIFIA_INSTALL_DIR` - Özel kurulum dizini
 2. `$XDG_BIN_DIR` - XDG Base Directory Specification uyumlu yol
 3. `$HOME/bin` - Standart kullanıcı binary dizini (varsa veya oluşturulabiliyorsa)
 4. `$HOME/.opencode/bin` - Varsayılan yedek konum
 
 ```bash
 # Örnekler
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+UNIFIA_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
 XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 ```
 
@@ -723,7 +723,7 @@ Unifia Workbench'a katkıda bulunmak istiyorsanız, lütfen bir pull request gö
 
 ### Unifia Workbench Üzerine Geliştirme
 
-Unifia Workbench ile ilgili bir proje üzerinde çalışıyorsanız ve projenizin adının bir parçası olarak "opencode" kullanıyorsanız (örneğin, "opencode-dashboard" veya "opencode-mobile"), lütfen README dosyanıza projenin Unifia Workbench ekibi tarafından geliştirilmediğini ve bizimle hiçbir şekilde bağlantılı olmadığını belirten bir not ekleyin.
+Unifia Workbench ile ilgili bir proje üzerinde çalışıyorsanız ve projenizin adının bir parçası olarak "unifia" kullanıyorsanız (örneğin, "unifia-dashboard" veya "unifia-mobile"), lütfen README dosyanıza projenin Unifia Workbench ekibi tarafından geliştirilmediğini ve bizimle hiçbir şekilde bağlantılı olmadığını belirten bir not ekleyin.
 
 ### SSS
 

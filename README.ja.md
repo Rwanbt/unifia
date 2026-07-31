@@ -54,7 +54,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Orchestration, API surface, governance
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | Open source                            |       ✅       |      ❌      |  partial  |      ✅     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |    ❌    |     ✅     |   ✅   |     ✅     |
 | BYOM (bring your own model)            |       ✅       |      ❌      |     ❌     |      ❌     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |  partial |     ✅     |   ✅   |   partial  |
@@ -73,7 +73,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Intelligence, context, developer UX
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | LSP integration (go-to-def, diagnostics) | ✅           |   partial    |  partial  |   partial   |          ✅          | partial | partial | ✅   |    ✅     |    ✅    |     ✅     | partial |  partial  |
 | Plugin SDK (`@opencode/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
@@ -86,7 +86,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Platform reach & multimodal
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | First-class **Android app**            | ✅ **unique**  |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
 | iOS (remote mode)                      |       ✅       |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ 概要
 
-Unifia Workbench (フォーク) — **デスクトップ、サーバー、スマートフォン**で動作する AI コーディングエージェント。エンドツーエンドのローカルモデル、クラウド依存ゼロ、エンタープライズ級ガバナンス・プリミティブを組み込み済み。[Rwanbt](https://github.com/Rwanbt) が保守する [anomalyco/opencode](https://github.com/anomalyco/opencode) のフォーク。
+Unifia Workbench (フォーク) — **デスクトップ、サーバー、スマートフォン**で動作する AI コーディングエージェント。エンドツーエンドのローカルモデル、クラウド依存ゼロ、エンタープライズ級ガバナンス・プリミティブを組み込み済み。[Rwanbt](https://github.com/Rwanbt) が保守する [anomalyco/opencode](https:// PROT 6 PROT  のフォーク。
 
 ### Install
 
@@ -139,8 +139,8 @@ curl -fsSL https://opencode.ai/install | bash
 ### 最初のタスクを実行
 
 ```bash
-opencode                                  # TUI
-opencode run "fix the failing test in src/"   # one-shot
+unifia                                  # TUI
+unifia run "fix the failing test in src/"   # one-shot
 ```
 
 > 💡 詳細が必要ですか？以下の各セクションはすべて折りたたまれています — 興味のある部分だけ展開してください。
@@ -156,7 +156,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 ## フォーク機能
 
-> これは [anomalyco/opencode](https://github.com/anomalyco/opencode) のフォークで、[Rwanbt](https://github.com/Rwanbt) がメンテナンスしています。
+> これは [anomalyco/opencode](https:// PROT 4 PROT  のフォークで、[Rwanbt](https://github.com/Rwanbt) がメンテナンスしています。
 > アップストリームと同期を維持。最新の変更は [dev ブランチ](https://github.com/Rwanbt/opencode/tree/dev) をご覧ください。
 
 #### ローカルファースト AI
@@ -174,7 +174,7 @@ Unifia Workbench はコンシューマー向けハードウェア（VRAM 8 GB / 
 - **ランタイム適応設定**（`packages/opencode/src/local-llm-server/auto-config.ts`）: 検出された VRAM、空き RAM、big.LITTLE CPU 分割、GPU バックエンド（CUDA/ROCm/Vulkan/Metal/OpenCL）、温度状態から `n_gpu_layers`、スレッド数、batch/ubatch サイズ、KV キャッシュ量子化、コンテキストサイズを導出。以前のハードコードされた `--n-gpu-layers 99` を置き換え — 4 GB の Android は OOM キルされる代わりに CPU フォールバックで動作し、ハイエンドデスクトップはデフォルトの 512 ではなく調整された batch を取得します。
 - `--flash-attn on` — メモリ効率向上のための Flash Attention
 - `--cache-type-k/v` —  回転 KV キャッシュ；VRAM 余裕に応じた適応階層（f16 / q8_0 / q4_0）
-- `--fit on` — フォーク専用の VRAM 二次調整（`OPENCODE_LLAMA_ENABLE_FIT=1` でオプトイン）
+- `--fit on` — フォーク専用の VRAM 二次調整（`UNIFIA_LLAMA_ENABLE_FIT=1` でオプトイン）
 - 投機的デコーディング（`--model-draft`）と VRAM ガード（VRAM 空き容量 < 4 GB で自動無効化）
 - シングルスロット（`-np 1`）でメモリフットプリントを最小化
 - **ベンチマークハーネス**（`bun run bench:llm`）: モデル毎・実行毎に FTL / TPS / ピーク RSS / 実行時間を再現可能に計測、CI アーカイブ用の JSONL 出力
@@ -259,7 +259,7 @@ Unifia Workbench はコンシューマー向けハードウェア（VRAM 8 GB / 
 
 #### MCP エージェントスコーピング
 
-エージェントごとの MCP サーバー許可/拒否リスト。`opencode.json` の各エージェントの `mcp` フィールドで設定します。`toolsForAgent()` 関数が呼び出し元エージェントのスコープに基づいて利用可能な MCP ツールをフィルタリングします。
+エージェントごとの MCP サーバー許可/拒否リスト。`unifia.json` の各エージェントの `mcp` フィールドで設定します。`toolsForAgent()` 関数が呼び出し元エージェントのスコープに基づいて利用可能な MCP ツールをフィルタリングします。
 
 ```json
 {
@@ -450,7 +450,7 @@ hunk 検証付きの unified diff パッチ。ファイル全体の上書きで�
 | 機能 | Status | Notes |
 |------|--------|-------|
 | Mobile app (Tauri) | Implemented | Android: 組み込みランタイム、オンデバイス LLM、STT + TTS (Kokoro)。iOS: リモートモード |
-| **OAuth コールバックディープリンク** | Implemented | `opencode://oauth/callback?providerID=…&code=…&state=…` がトークン交換を自動的に完了；認証コードのコピー&ペーストは不要 |
+| **OAuth コールバックディープリンク** | Implemented | `unifia://oauth/callback?providerID=…&code=…&state=…` がトークン交換を自動的に完了；認証コードのコピー&ペーストは不要 |
 | **アップストリームブランチウォッチャー** | Implemented | 定期的な `git fetch`（ウォームアップ 30 秒、間隔 5 分）でローカル HEAD が追跡中のアップストリームから乖離した際に `vcs.branch.behind` を発火；デスクトップとモバイルで `platform.notify()` 経由で表示 |
 | **ビューポートサイズの PTY スポーン** | Implemented | `Pty.create({cols, rows})` は `window.innerWidth/innerHeight` からの推定器を使用 — シェルが 80×24→36×11 ではなく最終寸法で起動、mksh/bash の Android 初回プロンプト不可視バグを修正 |
 | Collaborative mode | Experimental | JWT auth, presence, file locking, WebSocket broadcast |
@@ -557,7 +557,7 @@ graph TB
 | 機能 | 説明 |
 |------|------|
 | **MCP 準拠** | 完全な Model Context Protocol サポート — クライアント/サーバーモード、エージェントごとの許可/拒否リストによるツールスコーピング |
-| **コンテキストファイル** | `.opencode/` ディレクトリ、`opencode.jsonc` 設定ファイル。YAML フロントマター付きマークダウンとして定義されたエージェント。`instructions` 設定によるカスタムインストラクション |
+| **コンテキストファイル** | `.opencode/` ディレクトリ、`unifia.jsonc` 設定ファイル。YAML フロントマター付きマークダウンとして定義されたエージェント。`instructions` 設定によるカスタムインストラクション |
 | **プロバイダールーター** | `Provider.parseModel("provider/model")` で25以上のプロバイダー。自動フォールバック、コスト追跡、トークン対応ルーティング |
 | **RAG システム** | オプションのローカルベクトル検索（`experimental.rag`）、設定可能なエンベディングモデル（OpenAI/Google）。変更されたファイルを自動インデックス |
 | **AnythingLLM ブリッジ** | オプション統合（`experimental.anythingllm`） — コンテキスト注入、MCP サーバーアダプター、ベクトルストアブリッジ、Agent Skills HTTP API |
@@ -652,15 +652,15 @@ Unifia Workbench と AnythingLLM のドキュメント RAG プラットフォー
 curl -fsSL https://opencode.ai/install | bash
 
 # パッケージマネージャー
-npm i -g opencode-ai@latest        # bun/pnpm/yarn でもOK
-scoop install opencode             # Windows
-choco install opencode             # Windows
+npm i -g unifia-ai@latest        # bun/pnpm/yarn でもOK
+scoop install unifia             # Windows
+choco install unifia             # Windows
 brew install anomalyco/tap/opencode # macOS と Linux（推奨。常に最新）
-brew install opencode              # macOS と Linux（公式 brew formula。更新頻度は低め）
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # どのOSでも
-nix run nixpkgs#opencode           # または github:anomalyco/opencode で最新 dev ブランチ
+brew install unifia              # macOS と Linux（公式 brew formula。更新頻度は低め）
+sudo pacman -S unifia            # Arch Linux (Stable)
+paru -S unifia-bin               # Arch Linux (Latest from AUR)
+mise use -g unifia               # どのOSでも
+nix run nixpkgs#unifia           # または github:anomalyco/opencode で最新 dev ブランチ
 ```
 
 > [!TIP]
@@ -668,18 +668,18 @@ nix run nixpkgs#opencode           # または github:anomalyco/opencode で最�
 
 ### デスクトップアプリ (BETA)
 
-Unifia Workbench はデスクトップアプリとしても利用できます。[releases page](https://github.com/Rwanbt/opencode/releases) から直接ダウンロードするか、[opencode.ai/download](https://opencode.ai/download) を利用してください。
+Unifia Workbench はデスクトップアプリとしても利用できます。[releases page](https://github.com/Rwanbt/opencode/releases) から直接ダウンロードするか、[unifia.ai/download](https://opencode.ai/download) を利用してください。
 
 | プラットフォーム      | ダウンロード                          |
 | --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
+| macOS (Apple Silicon) | `unifia-desktop-darwin-aarch64.dmg` |
+| macOS (Intel)         | `unifia-desktop-darwin-x64.dmg`     |
+| Windows               | `unifia-desktop-windows-x64.exe`    |
 | Linux                 | `.deb`、`.rpm`、または AppImage       |
 
 ```bash
 # macOS (Homebrew)
-brew install --cask opencode-desktop
+brew install --cask unifia-desktop
 # Windows (Scoop)
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
@@ -688,14 +688,14 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 
 インストールスクリプトは、インストール先パスを次の優先順位で決定します。
 
-1. `$OPENCODE_INSTALL_DIR` - カスタムのインストールディレクトリ
+1. `$UNIFIA_INSTALL_DIR` - カスタムのインストールディレクトリ
 2. `$XDG_BIN_DIR` - XDG Base Directory Specification に準拠したパス
 3. `$HOME/bin` - 標準のユーザー用バイナリディレクトリ（存在する場合、または作成できる場合）
 4. `$HOME/.opencode/bin` - デフォルトのフォールバック
 
 ```bash
 # 例
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+UNIFIA_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
 XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 ```
 
@@ -724,7 +724,7 @@ Unifia Workbench に貢献したい場合は、Pull Request を送る前に [con
 
 ### Unifia Workbench の上に構築する
 
-Unifia Workbench に関連するプロジェクトで、名前に "opencode"（例: "opencode-dashboard" や "opencode-mobile"）を含める場合は、そのプロジェクトが Unifia Workbench チームによって作られたものではなく、いかなる形でも関係がないことを README に明記してください。
+Unifia Workbench に関連するプロジェクトで、名前に "unifia"（例: "unifia-dashboard" や "unifia-mobile"）を含める場合は、そのプロジェクトが Unifia Workbench チームによって作られたものではなく、いかなる形でも関係がないことを README に明記してください。
 
 ### FAQ
 
