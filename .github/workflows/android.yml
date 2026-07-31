@@ -197,7 +197,7 @@ jobs:
           echo "llama.cpp built:"
           ls -lh "$JNIDIR"/libllama*.so "$JNIDIR"/libggml*.so
 
-      - name: Bundle OpenCode CLI
+      - name: Bundle Unifia CLI
         run: |
           RUNTIME="packages/mobile/src-tauri/assets/runtime"
           ASSETS="packages/mobile/src-tauri/gen/android/app/src/main/assets/runtime"

@@ -62,7 +62,7 @@ jobs:
         # that script) and the windows artifact ends up empty.
         run: bun run script/build.ts --skip-embed-web-ui --all
         env:
-          OPENCODE_VERSION: ${{ steps.ver.outputs.version }}
+          UNIFIA_VERSION: ${{ steps.ver.outputs.version }}
           OPENCODE_CHANNEL: fork
 
       - name: Package artifacts
@@ -158,7 +158,7 @@ jobs:
         working-directory: packages/desktop
         run: bun ./scripts/prepare.ts
         env:
-          OPENCODE_VERSION: 0.0.0-fork
+          UNIFIA_VERSION: 0.0.0-fork
           OPENCODE_CLI_ARTIFACT: ${{ (runner.os == 'Windows' && 'opencode-cli-windows') || 'opencode-cli' }}
           RUST_TARGET: ${{ matrix.settings.target }}
           GH_TOKEN: ${{ github.token }}
@@ -342,7 +342,7 @@ jobs:
           cp /tmp/llama.cpp/include/*.h "$HEADERS/"
           cp /tmp/llama.cpp/ggml/include/*.h "$HEADERS/"
 
-      - name: Bundle OpenCode CLI
+      - name: Bundle Unifia CLI
         run: |
           RUNTIME="packages/mobile/src-tauri/assets/runtime"
           ASSETS="packages/mobile/src-tauri/gen/android/app/src/main/assets/runtime"
