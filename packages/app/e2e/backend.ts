@@ -64,22 +64,22 @@ function tail(input: string[]) {
 
 export async function startBackend(label: string, input?: { llmUrl?: string }): Promise<Handle> {
   const port = await freePort()
-  const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `opencode-e2e-${label}-`))
+  const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
   const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
   const repoDir = path.resolve(appDir, "../..")
-  const opencodeDir = path.join(repoDir, "packages", "opencode")
+  const opencodeDir = path.join(repoDir, "packages", "unifia")
   const env = {
     ...process.env,
-    OPENCODE_DISABLE_LSP_DOWNLOAD: "true",
-    OPENCODE_DISABLE_DEFAULT_PLUGINS: "true",
-    OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
-    OPENCODE_TEST_HOME: path.join(sandbox, "home"),
+    UNIFIA_DISABLE_LSP_DOWNLOAD: "true",
+    UNIFIA_DISABLE_DEFAULT_PLUGINS: "true",
+    UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
+    UNIFIA_TEST_HOME: path.join(sandbox, "home"),
     XDG_DATA_HOME: path.join(sandbox, "share"),
     XDG_CACHE_HOME: path.join(sandbox, "cache"),
     XDG_CONFIG_HOME: path.join(sandbox, "config"),
     XDG_STATE_HOME: path.join(sandbox, "state"),
-    OPENCODE_CLIENT: "app",
-    OPENCODE_STRICT_CONFIG_DEPS: "true",
+    UNIFIA_CLIENT: "app",
+    UNIFIA_STRICT_CONFIG_DEPS: "true",
     OPENCODE_E2E_LLM_URL: input?.llmUrl,
   } satisfies Record<string, string | undefined>
   const out: string[] = []

@@ -317,13 +317,13 @@ export async function openSettings(page: Page) {
 }
 
 export async function createTestProject(input?: { serverUrl?: string }) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-e2e-project-"))
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-e2e-project-"))
   const id = `e2e-${path.basename(root)}`
 
   await fs.writeFile(path.join(root, "README.md"), `# e2e\n\n${id}\n`)
 
   execSync("git init", { cwd: root, stdio: "ignore" })
-  await fs.writeFile(path.join(root, ".git", "opencode"), id)
+  await fs.writeFile(path.join(root, ".git", "unifia"), id)
   execSync("git config core.fsmonitor false", { cwd: root, stdio: "ignore" })
   execSync("git add -A", { cwd: root, stdio: "ignore" })
   execSync('git -c user.name="e2e" -c user.email="e2e@example.com" commit -m "init" --allow-empty', {

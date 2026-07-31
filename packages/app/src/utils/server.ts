@@ -1,10 +1,10 @@
-import { createOpencodeClient } from "../types/sdk-shim"
+import { createUnifiaClient } from "../types/sdk-shim"
 import type { ServerConnection } from "@/context/server"
 
 export function createSdkForServer({
   server,
   ...config
-}: Omit<NonNullable<Parameters<typeof createOpencodeClient>[0]>, "baseUrl"> & {
+}: Omit<NonNullable<Parameters<typeof createUnifiaClient>[0]>, "baseUrl"> & {
   server: ServerConnection.HttpBase
 }) {
   const auth = (() => {
@@ -14,7 +14,7 @@ export function createSdkForServer({
     }
   })()
 
-  return createOpencodeClient({
+  return createUnifiaClient({
     ...config,
     headers: { ...config.headers, ...auth },
     baseUrl: server.url,

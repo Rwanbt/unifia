@@ -333,7 +333,7 @@ export function DialogConnectProvider(props: { provider: string }) {
 
   // Auto-finalisation on OAuth callback deep link. When the user authorises
   // the provider in their browser, the provider redirects to
-  // `opencode://oauth/callback?providerID=...&code=...&state=...`. The
+  // `unifia://oauth/callback?providerID=...&code=...&state=...`. The
   // layout dispatches a CustomEvent on `window`; if the dialog is still
   // open and the providerID matches, we finish the token exchange without
   // the user copy-pasting a code.

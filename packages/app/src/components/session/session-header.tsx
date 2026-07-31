@@ -263,8 +263,8 @@ export function SessionHeader() {
       .catch((err: unknown) => showRequestError(language, err))
   }
 
-  const centerMount = createMemo(() => document.getElementById("opencode-titlebar-center"))
-  const rightMount = createMemo(() => document.getElementById("opencode-titlebar-right"))
+  const centerMount = createMemo(() => document.getElementById("unifia-titlebar-center"))
+  const rightMount = createMemo(() => document.getElementById("unifia-titlebar-right"))
 
   return (
     <>

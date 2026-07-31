@@ -38,7 +38,7 @@ type BenchResult = {
   error?: string
 }
 
-const HISTORY_KEY = "opencode-benchmark-history"
+const HISTORY_KEY = "unifia-benchmark-history"
 const MAX_HISTORY = 20
 const BENCH_PROMPT =
   "Write a short technical paragraph (about 200 words) explaining how a CPU's branch predictor works, focusing on the difference between static and dynamic prediction strategies."
