@@ -1,4 +1,4 @@
-# Synthèse finale — Collective Intelligence pour OpenCode
+# Synthèse finale — Collective Intelligence pour Unifia
 
 > 3 rounds, 8 modèles, 20+ réponses. Ce document clôt le débat et produit
 > la **spec d'implémentation définitive**. Après ceci, on code.

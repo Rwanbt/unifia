@@ -1,14 +1,14 @@
 # Prompt de lancement — session d'implémentation
 
 > Copier-coller ce prompt tel quel dans une nouvelle session Claude Code
-> ouverte dans `D:\App\OpenCode\opencode\`.
+> ouverte dans `D:\App\Unifia\unifia\`.
 
 ---
 
 ## Le prompt
 
 ```
-Je travaille sur mon fork d'OpenCode (terminal agentique IA, Bun + Effect + SolidJS + Tauri).
+Je travaille sur mon fork d'Unifia (terminal agentique IA, Bun + Effect + SolidJS + Tauri).
 Je veux implémenter une feature "Collective Intelligence" / "Blind Spot Hunter" — un mode
 /debate qui fait dialoguer N modèles IA en parallèle, extrait les claims atomiques, identifie
 les blind spots (insights qu'un seul modèle a vus), et produit un rapport structuré.
