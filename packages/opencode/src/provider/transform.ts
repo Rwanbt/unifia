@@ -19,7 +19,7 @@ function mimeToModality(mime: string): Modality | undefined {
 }
 
 export namespace ProviderTransform {
-  export const OUTPUT_TOKEN_MAX = Flag.OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
+  export const OUTPUT_TOKEN_MAX = Flag.UNIFIA_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
 
   /**
    * Returns true if thinking should be suppressed for this model.
@@ -341,7 +341,7 @@ export namespace ProviderTransform {
   export function message(msgs: ModelMessage[], model: Provider.Model, options: Record<string, unknown>) {
     msgs = unsupportedParts(msgs, model)
     msgs = normalizeMessages(msgs, model, options)
-    if (Flag.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING) {
+    if (Flag.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING) {
       const capabilities = PromptCache.getCapabilities(model)
       if (capabilities.supported) {
         // Reserve 1 slot whenever this model supports a tool breakpoint (see
@@ -394,7 +394,7 @@ export namespace ProviderTransform {
       })
     }
 
-    // Unconditional — the transient opencodeCacheInternal marker (see cache.ts)
+    // Unconditional — the transient unifiaCacheInternal marker (see cache.ts)
     // must never reach a provider adapter, whether the flag is on or off.
     msgs = PromptCache.stripInternalProviderMetadata(msgs)
 
@@ -868,7 +868,7 @@ export namespace ProviderTransform {
 
     if (
       input.model.providerID === "baseten" ||
-      (input.model.providerID === "opencode" && ["kimi-k2-thinking", "glm-4.6"].includes(input.model.api.id))
+      (input.model.providerID === "unifia" && ["kimi-k2-thinking", "glm-4.6"].includes(input.model.api.id))
     ) {
       result["chat_template_kwargs"] = { enable_thinking: true }
     }
@@ -938,7 +938,7 @@ export namespace ProviderTransform {
         result["textVerbosity"] = "low"
       }
 
-      if (input.model.providerID.startsWith("opencode")) {
+      if (input.model.providerID.startsWith("unifia")) {
         result["promptCacheKey"] = input.sessionID
         result["include"] = ["reasoning.encrypted_content"]
         result["reasoningSummary"] = "auto"

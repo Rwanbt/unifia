@@ -63,7 +63,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
           },
         },
       }),
-    opencode: Effect.fnUntraced(function* (input: Info) {
+    unifia: Effect.fnUntraced(function* (input: Info) {
       const env = Env.all()
       const hasKey = iife(() => {
         if (input.env.some((item) => env[item])) return true
@@ -72,7 +72,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
       const ok =
         hasKey ||
         Boolean(yield* dep.auth(input.id)) ||
-        Boolean((yield* dep.config()).provider?.["opencode"]?.options?.apiKey)
+        Boolean((yield* dep.config()).provider?.["unifia"]?.options?.apiKey)
 
       if (!ok) {
         for (const [key, value] of Object.entries(input.models)) {
@@ -221,7 +221,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
           }
 
           // Region resolution precedence (highest to lowest):
-          // 1. options.region from opencode.json provider config
+          // 1. options.region from unifia.json provider config
           // 2. defaultRegion from AWS_REGION environment variable
           // 3. Default "us-east-1" (baked into defaultRegion)
           const region = options?.region ?? defaultRegion
@@ -305,7 +305,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
         options: {
           headers: {
             "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "X-Title": "unifia",
           },
         },
       }),
@@ -315,7 +315,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
         options: {
           headers: {
             "http-referer": "https://opencode.ai/",
-            "x-title": "opencode",
+            "x-title": "unifia",
           },
         },
       }),
@@ -414,7 +414,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
         options: {
           headers: {
             "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "X-Title": "unifia",
           },
         },
       }),
@@ -602,7 +602,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
       if (!apiToken) {
         throw new Error(
           "CLOUDFLARE_API_TOKEN (or CF_AIG_TOKEN) is required for Cloudflare AI Gateway. " +
-            "Set it via environment variable or run `opencode auth cloudflare-ai-gateway`.",
+            "Set it via environment variable or run `unifia auth cloudflare-ai-gateway`.",
         )
       }
 
@@ -651,7 +651,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
         autoload: false,
         options: {
           headers: {
-            "X-Cerebras-3rd-Party-Integration": "opencode",
+            "X-Cerebras-3rd-Party-Integration": "unifia",
           },
         },
       }),
@@ -661,7 +661,7 @@ export function buildCustomLoaders(dep: CustomDep, log: ReturnType<typeof Log.cr
         options: {
           headers: {
             "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "X-Title": "unifia",
           },
         },
       }),
