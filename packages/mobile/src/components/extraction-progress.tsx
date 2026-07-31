@@ -81,7 +81,7 @@ export function ExtractionProgress(props: Props) {
       color: "#e5e5e5",
     }}>
       <h1 style={{ "font-size": "24px", "font-weight": "700", margin: "0" }}>
-        OpenCode
+        Unifia
       </h1>
 
       <p style={{ color: "#888", "font-size": "15px", margin: "0", "text-align": "center" }}>

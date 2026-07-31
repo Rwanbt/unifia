@@ -1,7 +1,7 @@
 [package]
-name = "opencode-mobile"
+name = "unifia-mobile"
 version = "0.1.0"
-description = "OpenCode Mobile - AI coding agent on your phone"
+description = "Unifia Mobile - AI coding agent on your phone"
 authors = ["Rwanbt"]
 edition = "2021"
 
@@ -31,7 +31,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 futures-util = "0.3"
 
 log = "0.4"
-opencode-kokoro-shared = { path = "../../../crates/opencode-kokoro-shared" }
+unifia-kokoro-shared = { path = "../../../crates/opencode-kokoro-shared" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 url = "2"
