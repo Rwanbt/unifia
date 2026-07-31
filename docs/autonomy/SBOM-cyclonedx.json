@@ -1,0 +1,338 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-07-31T09:33:33.267691Z",
+    "tools": [
+      {
+        "vendor": "Unifia",
+        "name": "sbom-generator",
+        "version": "0.1"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "bom-ref": "unifia-workbench",
+      "name": "unifia-workbench",
+      "version": "0.1.0-fork",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "unifia-workbench",
+      "name": "unifia-workbench",
+      "version": "0.0.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/unifia-workbench@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/app",
+      "name": "@unifia/app",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/app@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/desktop",
+      "name": "@unifia/desktop",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/desktop@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/desktop-electron",
+      "name": "@unifia/desktop-electron",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/desktop-electron@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/enterprise",
+      "name": "@unifia/enterprise",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/enterprise@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/function",
+      "name": "@unifia/function",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/function@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/mobile",
+      "name": "@unifia/mobile",
+      "version": "0.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/mobile@0.1.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "opencode",
+      "name": "opencode",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/opencode@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/plugin",
+      "name": "@unifia/plugin",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/plugin@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/script",
+      "name": "@unifia/script",
+      "version": "0.0.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/script@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/sdk-shared",
+      "name": "@unifia/sdk-shared",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/sdk-shared@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/slack",
+      "name": "@unifia/slack",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/slack@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/storybook",
+      "name": "@unifia/storybook",
+      "version": "0.0.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/storybook@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/ui",
+      "name": "@unifia/ui",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/ui@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/util",
+      "name": "@unifia/util",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/util@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@unifia/web",
+      "name": "@unifia/web",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@unifia/web@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@opencode-ai/console-app",
+      "name": "@opencode-ai/console-app",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@opencode-ai/console-app@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@opencode-ai/console-core",
+      "name": "@opencode-ai/console-core",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@opencode-ai/console-core@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@opencode-ai/console-function",
+      "name": "@opencode-ai/console-function",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@opencode-ai/console-function@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@opencode-ai/console-mail",
+      "name": "@opencode-ai/console-mail",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@opencode-ai/console-mail@1.3.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@opencode-ai/console-resource",
+      "name": "@opencode-ai/console-resource",
+      "version": "0.0.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@opencode-ai/console-resource@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "@opencode-ai/sdk",
+      "name": "@opencode-ai/sdk",
+      "version": "1.3.15",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:npm/@opencode-ai/sdk@1.3.15"
+    }
+  ]
+}
