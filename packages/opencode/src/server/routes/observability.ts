@@ -868,7 +868,7 @@ export const ObservabilityRoutes = () =>
           status: "finished",
           tsMs: now,
           durationMs: 1,
-          modelProvider: "opencode-test",
+          modelProvider: "unifia-test",
           modelId: "export-connection-test",
           redactionStatus: "metadata_only",
           redactedClasses: [],

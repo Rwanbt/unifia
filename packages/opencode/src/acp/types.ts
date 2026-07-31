@@ -1,5 +1,5 @@
 import type { McpServer } from "@agentclientprotocol/sdk"
-import type { OpencodeClient } from "@opencode-ai/sdk-shared"
+import type { UnifiaClient } from "@opencode-ai/sdk-shared"
 import type { ProviderID, ModelID } from "../provider/schema"
 
 export interface ACPSessionState {
@@ -16,7 +16,7 @@ export interface ACPSessionState {
 }
 
 export interface ACPConfig {
-  sdk: OpencodeClient
+  sdk: UnifiaClient
   defaultModel?: {
     providerID: ProviderID
     modelID: ModelID

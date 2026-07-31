@@ -32,13 +32,13 @@ interface MigrateInput {
 }
 
 /**
- * Migrates tui-specific keys (theme, keybinds, tui) from opencode.json files
+ * Migrates tui-specific keys (theme, keybinds, tui) from unifia.json files
  * into dedicated tui.json files. Migration is performed per-directory and
  * skips only locations where a tui.json already exists.
  */
 export async function migrateTuiConfig(input: MigrateInput) {
-  const opencode = await opencodeFiles(input)
-  for (const file of opencode) {
+  const unifia = await opencodeFiles(input)
+  for (const file of unifia) {
     const source = await Filesystem.readText(file).catch((error) => {
       log.warn("failed to read config for tui migration", { path: file, error })
       return undefined
@@ -135,19 +135,19 @@ async function backupAndStripLegacy(file: string, source: string) {
 }
 
 async function opencodeFiles(input: { directories: string[]; managed: string }) {
-  const project = Flag.OPENCODE_DISABLE_PROJECT_CONFIG
+  const project = Flag.UNIFIA_DISABLE_PROJECT_CONFIG
     ? []
     : await ConfigPaths.projectFiles(
-        "opencode",
+        "unifia",
         Instance.directory,
         ConfigPaths.searchStop({ worktree: Instance.worktree, vcs: Instance.project.vcs }),
       )
-  const files = [...project, ...ConfigPaths.fileInDirectory(Global.Path.config, "opencode")]
+  const files = [...project, ...ConfigPaths.fileInDirectory(Global.Path.config, "unifia")]
   for (const dir of unique(input.directories)) {
-    files.push(...ConfigPaths.fileInDirectory(dir, "opencode"))
+    files.push(...ConfigPaths.fileInDirectory(dir, "unifia"))
   }
-  if (Flag.OPENCODE_CONFIG) files.push(Flag.OPENCODE_CONFIG)
-  files.push(...ConfigPaths.fileInDirectory(input.managed, "opencode"))
+  if (Flag.UNIFIA_CONFIG) files.push(Flag.UNIFIA_CONFIG)
+  files.push(...ConfigPaths.fileInDirectory(input.managed, "unifia"))
 
   const existing = await Promise.all(
     unique(files).map(async (file) => {

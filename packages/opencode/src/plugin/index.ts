@@ -2,14 +2,14 @@ import type { Hooks, PluginInput, Plugin as PluginInstance, PluginModule } from 
 import { Config } from "../config/config"
 import { Bus } from "../bus"
 import { Log } from "../util/log"
-import { createOpencodeClient } from "@opencode-ai/sdk"
+import { createUnifiaClient } from "@opencode-ai/sdk"
 import { Flag } from "../flag/flag"
 import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
 import { NamedError } from "@opencode-ai/util/error"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
-import { PoeAuthPlugin } from "opencode-poe-auth"
+import { gitlabAuthPlugin as GitlabAuthPlugin } from "unifia-gitlab-auth"
+import { PoeAuthPlugin } from "unifia-poe-auth"
 import { Effect, Layer, ServiceMap, Stream } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
@@ -104,12 +104,12 @@ export namespace Plugin {
 
           const { Server } = yield* Effect.promise(() => import("../server/server"))
 
-          const client = createOpencodeClient({
+          const client = createUnifiaClient({
             baseUrl: "http://localhost:4096",
             directory: ctx.directory,
-            headers: Flag.OPENCODE_SERVER_PASSWORD
+            headers: Flag.UNIFIA_SERVER_PASSWORD
               ? {
-                  Authorization: `Basic ${Buffer.from(`${Flag.OPENCODE_SERVER_USERNAME ?? "opencode"}:${Flag.OPENCODE_SERVER_PASSWORD}`).toString("base64")}`,
+                  Authorization: `Basic ${Buffer.from(`${Flag.UNIFIA_SERVER_USERNAME ?? "unifia"}:${Flag.UNIFIA_SERVER_PASSWORD}`).toString("base64")}`,
                 }
               : undefined,
             fetch: async (...args) => Server.Default().fetch(...args),
@@ -153,8 +153,8 @@ export namespace Plugin {
             if (init._tag === "Some") hooks.push(init.value)
           }
 
-          const plugins = Flag.OPENCODE_PURE ? [] : (cfg.plugin_origins ?? [])
-          if (Flag.OPENCODE_PURE && cfg.plugin_origins?.length) {
+          const plugins = Flag.UNIFIA_PURE ? [] : (cfg.plugin_origins ?? [])
+          if (Flag.UNIFIA_PURE && cfg.plugin_origins?.length) {
             log.info("skipping external plugins in pure mode", { count: cfg.plugin_origins.length })
           }
           if (plugins.length) yield* config.waitForDependencies()

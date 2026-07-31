@@ -56,7 +56,7 @@ export const GdprRoutes = () =>
         await AuditLog.record({ action: "gdpr.export", force: true })
         return stream(c, async (s) => {
           c.header("Content-Type", "application/json; charset=utf-8")
-          c.header("Content-Disposition", 'attachment; filename="opencode-user-data.json"')
+          c.header("Content-Disposition", 'attachment; filename="unifia-user-data.json"')
           await s.write('{\n  "version": 1,\n  "exportedAt": ' + Date.now() + ',\n  "sessions": [\n')
           let first = true
           try {
@@ -180,8 +180,8 @@ export const GdprRoutes = () =>
         const toUnlink = [
           path.join(Global.Path.data, "auth.json"),
           Database.Path,
-          path.join(Global.Path.config, "opencode.jsonc"),
-          path.join(Global.Path.config, "opencode.json"),
+          path.join(Global.Path.config, "unifia.jsonc"),
+          path.join(Global.Path.config, "unifia.json"),
           path.join(Global.Path.config, "config.json"),
         ]
         for (const f of toUnlink) {

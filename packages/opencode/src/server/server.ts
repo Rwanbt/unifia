@@ -74,7 +74,7 @@ export namespace Server {
             )
               return input
 
-            // Explicit opencode.ai origins we actually use — narrower than
+            // Explicit unifia.ai origins we actually use — narrower than
             // the previous *.opencode.ai regex, which would accept anything
             // user-controlled at a hostile subdomain (e.g. evil.opencode.ai).
             const ALLOWED_OPENCODE_ORIGINS = [
@@ -166,9 +166,9 @@ export namespace Server {
         openAPIRouteHandler(app, {
           documentation: {
             info: {
-              title: "opencode",
+              title: "unifia",
               version: "0.0.3",
-              description: "opencode api",
+              description: "unifia api",
             },
             openapi: "3.1.1",
           },
@@ -252,9 +252,9 @@ export namespace Server {
     const result = await generateSpecs(app, {
       documentation: {
         info: {
-          title: "opencode",
+          title: "unifia",
           version: "1.0.0",
-          description: "opencode api",
+          description: "unifia api",
         },
         openapi: "3.1.1",
       },
@@ -273,8 +273,8 @@ export namespace Server {
     cors?: string[]
   }) {
     // TLS (Internet mode): cert and key paths are passed via env vars by the Tauri sidecar.
-    const tlsCertPath = process.env.OPENCODE_TLS_CERT_PATH
-    const tlsKeyPath = process.env.OPENCODE_TLS_KEY_PATH
+    const tlsCertPath = process.env.UNIFIA_TLS_CERT_PATH
+    const tlsKeyPath = process.env.UNIFIA_TLS_KEY_PATH
     const tls =
       tlsCertPath && tlsKeyPath
         ? { cert: Bun.file(tlsCertPath), key: Bun.file(tlsKeyPath) }

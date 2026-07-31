@@ -83,7 +83,7 @@ export const GithubInstallCommand = cmd({
 
           async function promptProvider() {
             const priority: Record<string, number> = {
-              opencode: 0,
+              unifia: 0,
               anthropic: 1,
               openai: 2,
               google: 3,
@@ -194,7 +194,7 @@ export const GithubInstallCommand = cmd({
 
             await Filesystem.write(
               path.join(app.root, WORKFLOW_FILE),
-              `name: opencode
+              `name: unifia
 
 on:
   issue_comment:
@@ -203,7 +203,7 @@ on:
     types: [created]
 
 jobs:
-  opencode:
+  unifia:
     if: |
       contains(github.event.comment.body, ' /oc') ||
       startsWith(github.event.comment.body, '/oc') ||
@@ -221,7 +221,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run opencode
+      - name: Run unifia
         uses: Rwanbt/opencode/github@latest${envStr}
         with:
           model: ${provider}/${model}`,

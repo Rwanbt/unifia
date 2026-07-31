@@ -709,7 +709,7 @@ export namespace MessageV2 {
         // "this message IS the compaction summary" regardless of which model
         // continues the conversation. PromptCache.stripInternalProviderMetadata()
         // (provider/cache.ts) removes it unconditionally before any adapter
-        // sees it, whether OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING is on or off.
+        // sees it, whether UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING is on or off.
         const isCompactionSummary = msg.info.mode === "compaction" && msg.info.summary === true
         for (const part of msg.parts) {
           if (part.type === "text") {

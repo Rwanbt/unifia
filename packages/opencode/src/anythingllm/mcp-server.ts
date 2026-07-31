@@ -5,7 +5,7 @@ const _log = Log.create({ service: "anythingllm-mcp" })
 
 /**
  * MCP server adapter that exposes AnythingLLM capabilities as MCP tools.
- * Can be registered as a local MCP server in OpenCode's MCP configuration.
+ * Can be registered as a local MCP server in Unifia's MCP configuration.
  *
  * Tools:
  * - anythingllm_search: Semantic search across workspaces

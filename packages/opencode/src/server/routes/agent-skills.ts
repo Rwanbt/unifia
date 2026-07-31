@@ -7,8 +7,8 @@ import { Log } from "../../util/log"
 const log = Log.create({ service: "agent-skills" })
 
 /**
- * HTTP API for exposing OpenCode tools as AnythingLLM Agent Skills.
- * AnythingLLM can call these endpoints to execute OpenCode tools.
+ * HTTP API for exposing Unifia tools as AnythingLLM Agent Skills.
+ * AnythingLLM can call these endpoints to execute Unifia tools.
  */
 export const AgentSkillRoutes = () =>
   new Hono()
@@ -16,7 +16,7 @@ export const AgentSkillRoutes = () =>
       "/",
       describeRoute({
         summary: "List agent skills",
-        description: "List available OpenCode tools in AnythingLLM Agent Skill format.",
+        description: "List available Unifia tools in AnythingLLM Agent Skill format.",
         operationId: "agentSkills.list",
         responses: {
           200: {
@@ -46,7 +46,7 @@ export const AgentSkillRoutes = () =>
         const skills = toolIds.map((id: string) => ({
           id,
           name: id,
-          description: `OpenCode tool: ${id}`,
+          description: `Unifia tool: ${id}`,
           parameters: {},
         }))
 
@@ -57,7 +57,7 @@ export const AgentSkillRoutes = () =>
       "/:toolId/execute",
       describeRoute({
         summary: "Execute agent skill",
-        description: "Execute an OpenCode tool by ID. Returns the tool output.",
+        description: "Execute an Unifia tool by ID. Returns the tool output.",
         operationId: "agentSkills.execute",
         responses: {
           200: {

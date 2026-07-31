@@ -17,7 +17,7 @@ const log = Log.create({ service: "tui.dialog-model" })
 export function useConnected() {
   const sync = useSync()
   return createMemo(() =>
-    sync.data.provider.some((x) => x.id !== "opencode" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
+    sync.data.provider.some((x) => x.id !== "unifia" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
   )
 }
 
@@ -57,8 +57,8 @@ export function DialogModel(props: { providerID?: string }) {
               provider.name,
             ),
             category,
-            disabled: provider.id === "opencode" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
+            disabled: provider.id === "unifia" && model.id.includes("-nano"),
+            footer: model.cost?.input === 0 && provider.id === "unifia" ? "Free" : undefined,
             onSelect: () => {
               onSelect(provider.id, model.id)
             },
@@ -78,7 +78,7 @@ export function DialogModel(props: { providerID?: string }) {
     const providerOptions = pipe(
       sync.data.provider,
       sortBy(
-        (provider) => provider.id !== "opencode",
+        (provider) => provider.id !== "unifia",
         (provider) => provider.name,
       ),
       flatMap((provider) =>
@@ -96,8 +96,8 @@ export function DialogModel(props: { providerID?: string }) {
             category: connected()
               ? consoleManagedProviderLabel(sync.data.console_state.consoleManagedProviders, provider.id, provider.name)
               : undefined,
-            disabled: provider.id === "opencode" && model.includes("-nano"),
-            footer: info.cost?.input === 0 && provider.id === "opencode" ? "Free" : undefined,
+            disabled: provider.id === "unifia" && model.includes("-nano"),
+            footer: info.cost?.input === 0 && provider.id === "unifia" ? "Free" : undefined,
             onSelect() {
               onSelect(provider.id, model)
             },

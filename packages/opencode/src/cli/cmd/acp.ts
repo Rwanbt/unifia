@@ -4,7 +4,7 @@ import { cmd } from "./cmd"
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk"
 import { ACP } from "@/acp/agent"
 import { Server } from "@/server/server"
-import { createOpencodeClient } from "@opencode-ai/sdk-shared"
+import { createUnifiaClient } from "@opencode-ai/sdk-shared"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 
 const log = Log.create({ service: "acp-command" })
@@ -20,12 +20,12 @@ export const AcpCommand = cmd({
     })
   },
   handler: async (args) => {
-    process.env.OPENCODE_CLIENT = "acp"
+    process.env.UNIFIA_CLIENT = "acp"
     await bootstrap(process.cwd(), async () => {
       const opts = await resolveNetworkOptions(args)
       const server = Server.listen(opts)
 
-      const sdk = createOpencodeClient({
+      const sdk = createUnifiaClient({
         baseUrl: `http://${server.hostname}:${server.port}`,
       })
 

@@ -44,13 +44,13 @@ const ModelsListCommand = cmd({
       const running = await Ollama.isRunning()
       if (!running) {
         UI.println(UI.Style.TEXT_WARNING + "Ollama is not running." + UI.Style.TEXT_NORMAL)
-        UI.println("Start it with: opencode models serve")
+        UI.println("Start it with: unifia models serve")
         return
       }
       const models = await Ollama.listModels()
       if (models.length === 0) {
         UI.println(UI.Style.TEXT_DIM + "No local models found." + UI.Style.TEXT_NORMAL)
-        UI.println("Pull one with: opencode models pull <model>")
+        UI.println("Pull one with: unifia models pull <model>")
         return
       }
       UI.println(UI.Style.TEXT_NORMAL_BOLD + "Local models (Ollama):" + UI.Style.TEXT_NORMAL)
@@ -92,10 +92,10 @@ const ModelsListCommand = cmd({
         }
 
         const providerIDs = Object.keys(providers).sort((a, b) => {
-          const aIsOpencode = a.startsWith("opencode")
-          const bIsOpencode = b.startsWith("opencode")
-          if (aIsOpencode && !bIsOpencode) return -1
-          if (!aIsOpencode && bIsOpencode) return 1
+          const aIsUnifia = a.startsWith("unifia")
+          const bIsUnifia = b.startsWith("unifia")
+          if (aIsUnifia && !bIsUnifia) return -1
+          if (!aIsUnifia && bIsUnifia) return 1
           return a.localeCompare(b)
         })
 
@@ -118,7 +118,7 @@ const ModelsPullCommand = cmd({
         demandOption: true,
       })
       .option("configure", {
-        describe: "auto-configure the model in opencode.jsonc",
+        describe: "auto-configure the model in unifia.jsonc",
         type: "boolean",
         default: true,
       }),
@@ -142,7 +142,7 @@ const ModelsPullCommand = cmd({
       })
 
       if (prompts.isCancel(action) || action === "skip") {
-        UI.println("Start Ollama and retry: opencode models pull " + model)
+        UI.println("Start Ollama and retry: unifia models pull " + model)
         return
       }
 
@@ -156,7 +156,7 @@ const ModelsPullCommand = cmd({
 
       UI.println(UI.Style.TEXT_SUCCESS + "Ollama installed." + UI.Style.TEXT_NORMAL)
       UI.println("Start it with: ollama serve")
-      UI.println("Then retry: opencode models pull " + model)
+      UI.println("Then retry: unifia models pull " + model)
       return
     }
 
@@ -199,7 +199,7 @@ const ModelsPullCommand = cmd({
       if (args.configure) {
         const configPath = await LocalModels.configureModel(model)
         UI.println(UI.Style.TEXT_DIM + `Configured in ${configPath}` + UI.Style.TEXT_NORMAL)
-        UI.println(`Use with: ${UI.Style.TEXT_HIGHLIGHT}opencode --model ollama/${model}${UI.Style.TEXT_NORMAL}`)
+        UI.println(`Use with: ${UI.Style.TEXT_HIGHLIGHT}unifia --model ollama/${model}${UI.Style.TEXT_NORMAL}`)
       }
     } catch (err) {
       process.stderr.write(EOL)

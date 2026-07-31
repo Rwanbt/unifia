@@ -1,6 +1,6 @@
 import type { MessageV2 } from "../../session/message-v2"
 
-export const AGENT_USERNAME = "opencode-agent[bot]"
+export const AGENT_USERNAME = "unifia-agent[bot]"
 export const AGENT_REACTION = "eyes"
 export const WORKFLOW_FILE = ".github/workflows/opencode.yml"
 

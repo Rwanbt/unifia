@@ -68,7 +68,7 @@ export const ProviderRoutes = lazy(() =>
       describeRoute({
         summary: "Force-refresh the models.dev catalog",
         description:
-          "Force a refresh of the cached models.dev provider/model catalog, bypassing the freshness TTL. Returns ok:false with an explanatory message if the catalog is managed externally (OPENCODE_MODELS_PATH), fetching is disabled (OPENCODE_DISABLE_MODELS_FETCH), or the fetch itself failed.",
+          "Force a refresh of the cached models.dev provider/model catalog, bypassing the freshness TTL. Returns ok:false with an explanatory message if the catalog is managed externally (UNIFIA_MODELS_PATH), fetching is disabled (UNIFIA_DISABLE_MODELS_FETCH), or the fetch itself failed.",
         operationId: "provider.refresh",
         responses: {
           200: {

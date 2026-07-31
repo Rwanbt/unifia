@@ -1,4 +1,4 @@
-import { createOpencodeClient, type Event } from "@opencode-ai/sdk-shared"
+import { createUnifiaClient, type Event } from "@opencode-ai/sdk-shared"
 import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, onCleanup, onMount } from "solid-js"
@@ -22,7 +22,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     let sse: AbortController | undefined
 
     function createSDK() {
-      return createOpencodeClient({
+      return createUnifiaClient({
         baseUrl: props.url,
         signal: abort.signal,
         directory: props.directory,

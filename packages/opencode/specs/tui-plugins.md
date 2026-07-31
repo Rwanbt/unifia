@@ -134,7 +134,7 @@ Example:
     }
   },
   "engines": {
-    "opencode": "^1.0.0"
+    "unifia": "^1.0.0"
   }
 }
 ```
@@ -146,20 +146,20 @@ npm plugins can declare a version compatibility range in `package.json` using th
 ```json
 {
   "engines": {
-    "opencode": "^1.0.0"
+    "unifia": "^1.0.0"
   }
 }
 ```
 
-- The value is a semver range checked against the running OpenCode version.
+- The value is a semver range checked against the running Unifia version.
 - If the range is not satisfied, the plugin is skipped with a warning and a session error.
 - If `engines.opencode` is absent, no check is performed (backward compatible).
 - File plugins are never checked; only npm package plugins are validated.
 
 - Install flow is shared by CLI and TUI in `src/plugin/install.ts`.
 - Shared helpers are `installPlugin`, `readPluginManifest`, and `patchPluginConfig`.
-- `opencode plugin <module>` and TUI install both run install → manifest read → config patch.
-- Alias: `opencode plug <module>`.
+- `unifia plugin <module>` and TUI install both run install → manifest read → config patch.
+- Alias: `unifia plug <module>`.
 - `-g` / `--global` writes into the global config dir.
 - Local installs resolve target dir inside `patchPluginConfig`.
 - For local scope, path is `<worktree>/.opencode` only when VCS is git and `worktree !== "/"`; otherwise `<directory>/.opencode`.
@@ -180,7 +180,7 @@ npm plugins can declare a version compatibility range in `package.json` using th
 - There is no uninstall, list, or update CLI command for external plugins.
 - Local file plugins are configured directly in `tui.json`.
 
-When `plugin` entries exist in a writable `.opencode` dir or `OPENCODE_CONFIG_DIR`, OpenCode installs `@opencode-ai/plugin` into that dir and writes:
+When `plugin` entries exist in a writable `.opencode` dir or `UNIFIA_CONFIG_DIR`, Unifia installs `@opencode-ai/plugin` into that dir and writes:
 
 - `package.json`
 - `bun.lock`
@@ -375,7 +375,7 @@ Metadata is persisted by plugin id.
 
 - Internal TUI plugins load first.
 - External TUI plugins load from `tuiConfig.plugin`.
-- `--pure` / `OPENCODE_PURE` skips external TUI plugins only.
+- `--pure` / `UNIFIA_PURE` skips external TUI plugins only.
 - External plugin resolution and import are parallel.
 - Packages with no `./tui` entrypoint and valid `oc-themes` are loaded as synthetic no-op TUI plugin modules.
 - Theme-only packages loaded this way appear in `api.plugins.list()` and plugin manager rows like other external plugins.

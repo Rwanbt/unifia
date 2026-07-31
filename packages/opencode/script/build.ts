@@ -15,7 +15,7 @@ process.chdir(dir)
 import { Script } from "@opencode-ai/script"
 import pkg from "../package.json"
 
-const modelsUrl = process.env.OPENCODE_MODELS_URL || "https://models.dev"
+const modelsUrl = process.env.UNIFIA_MODELS_URL || "https://models.dev"
 // Fetch and generate models.dev snapshot
 const modelsData = process.env.MODELS_DEV_API_JSON
   ? await Bun.file(process.env.MODELS_DEV_API_JSON).text()
@@ -68,7 +68,7 @@ console.log(`Loaded ${migrations.length} migrations`)
 // linux→darwin and darwin→win32. To keep `bun run build` working on every
 // developer machine, default local builds to the host platform only. The full
 // cross-platform matrix is opt-in for local testing (`--all`) and runs by
-// default in release mode where `OPENCODE_RELEASE` is set (CI publish workflow).
+// default in release mode where `UNIFIA_RELEASE` is set (CI publish workflow).
 // Every internal convention (CONTRIBUTING, CLAUDE, ARCHITECTURE, predev hooks,
 // beta script, desktop sidecar docs) already uses `--single`, so this matches
 // the documented developer workflow.
@@ -234,16 +234,16 @@ for (const item of targets) {
       windows: {},
     },
     files: {
-      ...(embeddedFileMap ? { "opencode-web-ui.gen.ts": embeddedFileMap } : {}),
+      ...(embeddedFileMap ? { "unifia-web-ui.gen.ts": embeddedFileMap } : {}),
     },
-    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : [])],
+    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["unifia-web-ui.gen.ts"] : [])],
     define: {
-      OPENCODE_VERSION: `'${Script.version}'`,
-      OPENCODE_MIGRATIONS: JSON.stringify(migrations),
+      UNIFIA_VERSION: `'${Script.version}'`,
+      UNIFIA_MIGRATIONS: JSON.stringify(migrations),
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
-      OPENCODE_WORKER_PATH: workerPath,
-      OPENCODE_CHANNEL: `'${Script.channel}'`,
-      OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
+      UNIFIA_WORKER_PATH: workerPath,
+      UNIFIA_CHANNEL: `'${Script.channel}'`,
+      UNIFIA_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
   })
 

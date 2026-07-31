@@ -89,21 +89,21 @@ export namespace Config {
       case "darwin":
         return "/Library/Application Support/opencode"
       case "win32":
-        return path.join(process.env.ProgramData || "C:\\ProgramData", "opencode")
+        return path.join(process.env.ProgramData || "C:\\ProgramData", "unifia")
       default:
         return "/etc/opencode"
     }
   }
 
   export function managedConfigDir() {
-    return process.env.OPENCODE_TEST_MANAGED_CONFIG_DIR || systemManagedConfigDir()
+    return process.env.UNIFIA_TEST_MANAGED_CONFIG_DIR || systemManagedConfigDir()
   }
 
   const managedDir = managedConfigDir()
 
   const MANAGED_PLIST_DOMAIN = "ai.opencode.managed"
 
-  // Keys injected by macOS/MDM into the managed plist that are not OpenCode config
+  // Keys injected by macOS/MDM into the managed plist that are not Unifia config
   const PLIST_META = new Set([
     "PayloadDisplayName",
     "PayloadIdentifier",
@@ -114,7 +114,7 @@ export namespace Config {
   ])
 
   /**
-   * Parse raw JSON (from plutil conversion of a managed plist) into OpenCode config.
+   * Parse raw JSON (from plutil conversion of a managed plist) into Unifia config.
    * Strips MDM metadata keys before parsing through the config schema.
    * Pure function — no OS interaction, safe to unit test directly.
    */
@@ -419,7 +419,7 @@ export namespace Config {
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Config") {}
 
   function globalConfigFile() {
-    const candidates = ["opencode.jsonc", "opencode.json", "config.json"].map((file) =>
+    const candidates = ["unifia.jsonc", "unifia.json", "config.json"].map((file) =>
       path.join(Global.Path.config, file),
     )
     for (const file of candidates) {
@@ -535,7 +535,7 @@ export namespace Config {
             delete copy.theme
             delete copy.keybinds
             delete copy.tui
-            log.warn("tui keys in opencode config are deprecated; move them to tui.json", { path: source })
+            log.warn("tui keys in unifia config are deprecated; move them to tui.json", { path: source })
             return copy
           })()
 
@@ -573,8 +573,8 @@ export namespace Config {
           let result: Info = pipe(
             {},
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "config.json"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.json"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.json"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.jsonc"))),
           )
 
           const legacy = path.join(Global.Path.config, "config")
@@ -619,7 +619,7 @@ export namespace Config {
 
           const scope = (source: string): PluginScope => {
             if (source.startsWith("http://") || source.startsWith("https://")) return "global"
-            if (source === "OPENCODE_CONFIG_CONTENT") return "local"
+            if (source === "UNIFIA_CONFIG_CONTENT") return "local"
             if (Instance.containsPath(source)) return "local"
             return "global"
           }
@@ -665,16 +665,16 @@ export namespace Config {
           const global = yield* getGlobal()
           merge(Global.Path.config, global, "global")
 
-          if (Flag.OPENCODE_CONFIG) {
-            merge(Flag.OPENCODE_CONFIG, yield* loadFile(Flag.OPENCODE_CONFIG))
-            log.debug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
+          if (Flag.UNIFIA_CONFIG) {
+            merge(Flag.UNIFIA_CONFIG, yield* loadFile(Flag.UNIFIA_CONFIG))
+            log.debug("loaded custom config", { path: Flag.UNIFIA_CONFIG })
           }
 
           const searchStop = ConfigPaths.searchStop({ worktree: ctx.worktree, vcs: ctx.project.vcs })
 
-          if (!Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
+          if (!Flag.UNIFIA_DISABLE_PROJECT_CONFIG) {
             for (const file of yield* Effect.promise(() =>
-              ConfigPaths.projectFiles("opencode", ctx.directory, searchStop),
+              ConfigPaths.projectFiles("unifia", ctx.directory, searchStop),
             )) {
               merge(file, yield* loadFile(file), "local")
             }
@@ -686,15 +686,15 @@ export namespace Config {
 
           const directories = yield* Effect.promise(() => ConfigPaths.directories(ctx.directory, searchStop))
 
-          if (Flag.OPENCODE_CONFIG_DIR) {
-            log.debug("loading config from OPENCODE_CONFIG_DIR", { path: Flag.OPENCODE_CONFIG_DIR })
+          if (Flag.UNIFIA_CONFIG_DIR) {
+            log.debug("loading config from UNIFIA_CONFIG_DIR", { path: Flag.UNIFIA_CONFIG_DIR })
           }
 
           const deps: Promise<void>[] = []
 
           for (const dir of unique(directories)) {
-            if (dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR) {
-              for (const file of ["opencode.json", "opencode.jsonc"]) {
+            if (dir.endsWith(".opencode") || dir === Flag.UNIFIA_CONFIG_DIR) {
+              for (const file of ["unifia.json", "unifia.jsonc"]) {
                 const source = path.join(dir, file)
                 log.debug(`loading config from ${source}`)
                 merge(source, yield* loadFile(source))
@@ -719,14 +719,14 @@ export namespace Config {
             track(dir, list)
           }
 
-          if (process.env.OPENCODE_CONFIG_CONTENT) {
-            const source = "OPENCODE_CONFIG_CONTENT"
-            const next = yield* loadConfig(process.env.OPENCODE_CONFIG_CONTENT, {
+          if (process.env.UNIFIA_CONFIG_CONTENT) {
+            const source = "UNIFIA_CONFIG_CONTENT"
+            const next = yield* loadConfig(process.env.UNIFIA_CONFIG_CONTENT, {
               dir: ctx.directory,
               source,
             })
             merge(source, next, "local")
-            log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
+            log.debug("loaded custom config from UNIFIA_CONFIG_CONTENT")
           }
 
           const activeOrg = Option.getOrUndefined(
@@ -739,8 +739,8 @@ export namespace Config {
                 { concurrency: 2 },
               )
               if (Option.isSome(tokenOpt)) {
-                process.env["OPENCODE_CONSOLE_TOKEN"] = tokenOpt.value
-                Env.set("OPENCODE_CONSOLE_TOKEN", tokenOpt.value)
+                process.env["UNIFIA_CONSOLE_TOKEN"] = tokenOpt.value
+                Env.set("UNIFIA_CONSOLE_TOKEN", tokenOpt.value)
               }
 
               activeOrgName = activeOrg.org.name
@@ -767,7 +767,7 @@ export namespace Config {
           }
 
           if (existsSync(managedDir)) {
-            for (const file of ["opencode.json", "opencode.jsonc"]) {
+            for (const file of ["unifia.json", "unifia.jsonc"]) {
               const source = path.join(managedDir, file)
               merge(source, yield* loadFile(source), "global")
             }
@@ -785,8 +785,8 @@ export namespace Config {
             })
           }
 
-          if (Flag.OPENCODE_PERMISSION) {
-            result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.OPENCODE_PERMISSION))
+          if (Flag.UNIFIA_PERMISSION) {
+            result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.UNIFIA_PERMISSION))
           }
 
           if (result.tools) {
@@ -818,10 +818,10 @@ export namespace Config {
             result.share = "auto"
           }
 
-          if (Flag.OPENCODE_DISABLE_AUTOCOMPACT) {
+          if (Flag.UNIFIA_DISABLE_AUTOCOMPACT) {
             result.compaction = { ...result.compaction, auto: false }
           }
-          if (Flag.OPENCODE_DISABLE_PRUNE) {
+          if (Flag.UNIFIA_DISABLE_PRUNE) {
             result.compaction = { ...result.compaction, prune: false }
           }
 

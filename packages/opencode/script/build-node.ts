@@ -48,8 +48,8 @@ await Bun.build({
   format: "esm",
   external: ["jsonc-parser"],
   define: {
-    OPENCODE_MIGRATIONS: JSON.stringify(migrations),
-    OPENCODE_CHANNEL: `'${Script.channel}'`,
+    UNIFIA_MIGRATIONS: JSON.stringify(migrations),
+    UNIFIA_CHANNEL: `'${Script.channel}'`,
   },
 })
 

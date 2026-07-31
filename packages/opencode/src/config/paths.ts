@@ -13,7 +13,7 @@ export namespace ConfigPaths {
    * worktree root. Non-git projects set worktree === directory (see
    * Project.fromDirectory — the mobile file-ops boundary must stay writable),
    * but config discovery keeps the upstream semantics of walking every
-   * ancestor directory, so parent-dir opencode.json files still merge.
+   * ancestor directory, so parent-dir unifia.json files still merge.
    */
   export function searchStop(input: { worktree: string; vcs?: "git" }): string | undefined {
     return input.vcs === "git" ? input.worktree : undefined
@@ -26,7 +26,7 @@ export namespace ConfigPaths {
   export async function directories(directory: string, stop: string | undefined) {
     return [
       Global.Path.config,
-      ...(!Flag.OPENCODE_DISABLE_PROJECT_CONFIG
+      ...(!Flag.UNIFIA_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
             Filesystem.up({
               targets: [".opencode"],
@@ -42,7 +42,7 @@ export namespace ConfigPaths {
           stop: Global.Path.home,
         }),
       )),
-      ...(Flag.OPENCODE_CONFIG_DIR ? [Flag.OPENCODE_CONFIG_DIR] : []),
+      ...(Flag.UNIFIA_CONFIG_DIR ? [Flag.UNIFIA_CONFIG_DIR] : []),
     ]
   }
 

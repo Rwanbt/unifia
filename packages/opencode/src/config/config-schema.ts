@@ -4,7 +4,7 @@ import { LSPServer } from "../lsp/server"
 import { Log } from "../util/log"
 import { ExporterConfigSchema } from "../observability/exporter"
 
-// Zod schemas for opencode configuration. Extracted from config.ts to keep
+// Zod schemas for unifia configuration. Extracted from config.ts to keep
 // that file under the size budget. config.ts re-binds every export into the
 // Config namespace so Config.Info / Config.Agent / Config.Mcp etc. are
 // unchanged for all consumers. This module has no dependency on the config
@@ -440,7 +440,7 @@ export const Server = z
     port: z.number().int().positive().optional().describe("Port to listen on"),
     hostname: z.string().optional().describe("Hostname to listen on"),
     mdns: z.boolean().optional().describe("Enable mDNS service discovery"),
-    mdnsDomain: z.string().optional().describe("Custom domain name for mDNS service (default: opencode.local)"),
+    mdnsDomain: z.string().optional().describe("Custom domain name for mDNS service (default: unifia.local)"),
     cors: z.array(z.string()).optional().describe("Additional domains to allow for CORS"),
   })
   .strict()
@@ -518,7 +518,7 @@ export const Info = z
   .object({
     $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
     logLevel: Log.Level.optional().describe("Log level"),
-    server: Server.optional().describe("Server configuration for opencode serve and web commands"),
+    server: Server.optional().describe("Server configuration for unifia serve and web commands"),
     command: z
       .record(z.string(), Command)
       .optional()
@@ -911,7 +911,7 @@ export const Info = z
             expose_tools: z
               .boolean()
               .default(false)
-              .describe("Expose OpenCode tools as AnythingLLM Agent Skills via HTTP API"),
+              .describe("Expose Unifia tools as AnythingLLM Agent Skills via HTTP API"),
             vector_bridge: z
               .boolean()
               .default(false)

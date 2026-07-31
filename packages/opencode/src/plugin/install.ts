@@ -31,7 +31,7 @@ export type PatchDeps = {
   readText: (file: string) => Promise<string>
   write: (file: string, text: string) => Promise<void>
   exists: (file: string) => Promise<boolean>
-  files: (dir: string, name: "opencode" | "tui") => string[]
+  files: (dir: string, name: "unifia" | "tui") => string[]
 }
 
 export type PatchInput = {
@@ -337,8 +337,8 @@ function patchDir(input: PatchInput) {
   return path.join(root, ".opencode")
 }
 
-function patchName(kind: Kind): "opencode" | "tui" {
-  if (kind === "server") return "opencode"
+function patchName(kind: Kind): "unifia" | "tui" {
+  if (kind === "server") return "unifia"
   return "tui"
 }
 

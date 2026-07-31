@@ -360,7 +360,7 @@ export namespace SessionPrompt {
         const userMessage = input.messages.findLast((msg) => msg.info.role === "user")
         if (!userMessage) return input.messages
 
-        if (!Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE) {
+        if (!Flag.UNIFIA_EXPERIMENTAL_PLAN_MODE) {
           if (input.agent.name === "plan") {
             userMessage.parts.push({
               id: PartID.ascending(),

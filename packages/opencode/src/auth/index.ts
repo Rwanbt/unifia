@@ -96,7 +96,7 @@ import { AppFileSystem } from "../filesystem"
 // behaviour verbatim.
 
 /** Backend selector. Read from env at module init so tests can override. */
-const AUTH_STORAGE_BACKEND = (process.env.OPENCODE_AUTH_STORAGE ?? (process.env.OPENCODE_CLIENT === "mobile-embedded" ? "encrypted-file" : "file")).toLowerCase() as
+const AUTH_STORAGE_BACKEND = (process.env.UNIFIA_AUTH_STORAGE ?? (process.env.UNIFIA_CLIENT === "mobile-embedded" ? "encrypted-file" : "file")).toLowerCase() as
   | "file"
   | "keychain"
   | "encrypted-file"
@@ -128,15 +128,15 @@ export interface AuthStorage {
  *     with a one-shot token minted at sidecar spawn. Deferred to Sprint 5.
  */
 export class KeychainStorage implements AuthStorage {
-  /** Namespace under which all OpenCode keys live in the OS keychain. */
+  /** Namespace under which all Unifia keys live in the OS keychain. */
   static readonly SERVICE = "auth"
 
   private readonly baseUrl?: string
   private readonly token?: string
 
   constructor() {
-    this.baseUrl = process.env.OPENCODE_KEYCHAIN_URL
-    this.token = process.env.OPENCODE_KEYCHAIN_TOKEN
+    this.baseUrl = process.env.UNIFIA_KEYCHAIN_URL
+    this.token = process.env.UNIFIA_KEYCHAIN_TOKEN
   }
 
   /** True when the Tauri shell injected a reachable endpoint. */
@@ -154,8 +154,8 @@ export class KeychainStorage implements AuthStorage {
   async load(): Promise<Record<string, unknown>> {
     if (!this.available()) {
       throw new Error(
-        "KeychainStorage unavailable (OPENCODE_KEYCHAIN_URL/TOKEN not set). " +
-          "Set OPENCODE_AUTH_STORAGE=file to use FileStorage explicitly.",
+        "KeychainStorage unavailable (UNIFIA_KEYCHAIN_URL/TOKEN not set). " +
+          "Set UNIFIA_AUTH_STORAGE=file to use FileStorage explicitly.",
       )
     }
     const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}`, {
@@ -250,7 +250,7 @@ export class KeychainStorage implements AuthStorage {
 // ────────────────────────────────────────────────────────────────────────────
 export const AUTH_BACKEND = AUTH_STORAGE_BACKEND
 
-export const OAUTH_DUMMY_KEY = "opencode-oauth-dummy-key"
+export const OAUTH_DUMMY_KEY = "unifia-oauth-dummy-key"
 
 const file = path.join(Global.Path.data, "auth.json")
 const migratedMarker = path.join(Global.Path.data, "auth.json.migrated")
@@ -258,14 +258,14 @@ const encryptedFile = path.join(Global.Path.data, "auth.enc.json")
 
 // ─── Migration (Sprint 5 item 5) ────────────────────────────────────────────
 //
-// When OPENCODE_AUTH_STORAGE=keychain and a legacy auth.json exists:
+// When UNIFIA_AUTH_STORAGE=keychain and a legacy auth.json exists:
 //   1. Load each entry into the keychain.
 //   2. Round-trip read to verify.
 //   3. Rename auth.json -> auth.json.migrated (7-day retention window).
 //   4. Log a one-shot warning.
 // Idempotent: if all entries already present, no-op + rename only.
 //
-// Rollback: when OPENCODE_AUTH_STORAGE=file and auth.json.migrated exists but
+// Rollback: when UNIFIA_AUTH_STORAGE=file and auth.json.migrated exists but
 // auth.json does not, restore the migrated file. This covers the "user flipped
 // the env var back" case.
 
@@ -276,8 +276,8 @@ async function readEncryptedAuth(): Promise<Record<string, unknown>> {
   try {
     const envelope = JSON.parse(await fs.readFile(encryptedFile, "utf8")) as { v: number; iv: string; tag: string; ciphertext: string }
     if (envelope.v !== 1) throw new Error("Unsupported encrypted auth version")
-    const key = Buffer.from(process.env.OPENCODE_AUTH_ENCRYPTION_KEY ?? "", "base64")
-    if (key.length !== 32) throw new Error("OPENCODE_AUTH_ENCRYPTION_KEY must be a 32-byte base64 key")
+    const key = Buffer.from(process.env.UNIFIA_AUTH_ENCRYPTION_KEY ?? "", "base64")
+    if (key.length !== 32) throw new Error("UNIFIA_AUTH_ENCRYPTION_KEY must be a 32-byte base64 key")
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.iv, "base64"))
     decipher.setAuthTag(Buffer.from(envelope.tag, "base64"))
     return JSON.parse(Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, "base64")), decipher.final()]).toString("utf8"))
@@ -290,8 +290,8 @@ async function readEncryptedAuth(): Promise<Record<string, unknown>> {
 async function writeEncryptedAuth(data: Record<string, unknown>): Promise<void> {
   const fs = await import("node:fs/promises")
   const crypto = await import("node:crypto")
-  const key = Buffer.from(process.env.OPENCODE_AUTH_ENCRYPTION_KEY ?? "", "base64")
-  if (key.length !== 32) throw new Error("OPENCODE_AUTH_ENCRYPTION_KEY must be a 32-byte base64 key")
+  const key = Buffer.from(process.env.UNIFIA_AUTH_ENCRYPTION_KEY ?? "", "base64")
+  if (key.length !== 32) throw new Error("UNIFIA_AUTH_ENCRYPTION_KEY must be a 32-byte base64 key")
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv)
   const ciphertext = Buffer.concat([cipher.update(JSON.stringify(data), "utf8"), cipher.final()])
@@ -363,7 +363,7 @@ async function maybeRollbackFromKeychain(): Promise<void> {
   if (await exists(file)) return // nothing to restore
   if (!(await exists(migratedMarker))) return
   await fs.rename(migratedMarker, file)
-  console.warn(`[auth] rolled back auth.json.migrated -> auth.json (OPENCODE_AUTH_STORAGE=file)`)
+  console.warn(`[auth] rolled back auth.json.migrated -> auth.json (UNIFIA_AUTH_STORAGE=file)`)
 }
 
 async function maybePurgeMigratedBackup(): Promise<void> {
@@ -445,9 +445,9 @@ export namespace Auth {
 
   // ─── Backend selector (Sprint 6 item 2) ─────────────────────────────────
   //
-  // When OPENCODE_AUTH_STORAGE=keychain and OPENCODE_KEYCHAIN_URL is present,
+  // When UNIFIA_AUTH_STORAGE=keychain and UNIFIA_KEYCHAIN_URL is present,
   // route all reads/writes through the KeychainStorage HTTP adapter. When the
-  // endpoint is unavailable (e.g. `opencode serve` running outside the desktop
+  // endpoint is unavailable (e.g. `unifia serve` running outside the desktop
   // shell with the env var lingering), log a one-shot warn and fall back to
   // the file path. Never crash — auth.json is always a valid last resort.
   //

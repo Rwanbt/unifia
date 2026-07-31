@@ -300,7 +300,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     })
 
   useKeyboard((evt) => {
-    if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
+    if (!Flag.UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
     const sel = renderer.getSelection()
     if (!sel) return
 
@@ -348,17 +348,17 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
 
   // Update terminal window title based on current route and session
   createEffect(() => {
-    if (!terminalTitleEnabled() || Flag.OPENCODE_DISABLE_TERMINAL_TITLE) return
+    if (!terminalTitleEnabled() || Flag.UNIFIA_DISABLE_TERMINAL_TITLE) return
 
     if (route.data.type === "home") {
-      renderer.setTerminalTitle("OpenCode")
+      renderer.setTerminalTitle("Unifia")
       return
     }
 
     if (route.data.type === "session") {
       const session = sync.session.get(route.data.sessionID)
       if (!session || SessionApi.isDefaultTitle(session.title)) {
-        renderer.setTerminalTitle("OpenCode")
+        renderer.setTerminalTitle("Unifia")
         return
       }
 
@@ -481,7 +481,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         dialog.replace(() => <DialogSessionList />)
       },
     },
-    ...(Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
+    ...(Flag.UNIFIA_EXPERIMENTAL_WORKSPACES
       ? [
           {
             title: "Manage workspaces",
@@ -691,7 +691,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     {
       title: "View status",
       keybind: "status_view",
-      value: "opencode.status",
+      value: "unifia.status",
       slash: {
         name: "status",
       },
@@ -928,7 +928,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     await DialogAlert.show(
       dialog,
       "Update Complete",
-      `Successfully updated to OpenCode v${result.data.version}. Please restart the application.`,
+      `Successfully updated to Unifia v${result.data.version}. Please restart the application.`,
     )
 
     exit()
@@ -948,16 +948,16 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       height={dimensions().height}
       backgroundColor={theme.background}
       onMouseDown={(evt) => {
-        if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
+        if (!Flag.UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
         if (evt.button !== MouseButton.RIGHT) return
 
         if (!Selection.copy(renderer, toast)) return
         evt.preventDefault()
         evt.stopPropagation()
       }}
-      onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
+      onMouseUp={Flag.UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
-      <Show when={Flag.OPENCODE_SHOW_TTFD}>
+      <Show when={Flag.UNIFIA_SHOW_TTFD}>
         <TimeToFirstDraw />
       </Show>
       <Show when={ready()}>
