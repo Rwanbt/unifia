@@ -91,9 +91,9 @@ export async function handler(
     const model = opts.parseModel(url, body)
     const isStream = opts.parseIsStream(url, body)
     const ip = input.request.headers.get("x-real-ip") ?? ""
-    const sessionId = input.request.headers.get("x-opencode-session") ?? ""
-    const requestId = input.request.headers.get("x-opencode-request") ?? ""
-    const projectId = input.request.headers.get("x-opencode-project") ?? ""
+    const sessionId = input.request.headers.get("x-unifia-session") ?? ""
+    const requestId = input.request.headers.get("x-unifia-request") ?? ""
+    const projectId = input.request.headers.get("x-unifia-project") ?? ""
     const ocClient = input.request.headers.get("x-opencode-client") ?? ""
     logger.metric({
       is_stream: isStream,
@@ -163,9 +163,9 @@ export async function handler(
           })
           headers.delete("host")
           headers.delete("content-length")
-          headers.delete("x-opencode-request")
-          headers.delete("x-opencode-session")
-          headers.delete("x-opencode-project")
+          headers.delete("x-unifia-request")
+          headers.delete("x-unifia-session")
+          headers.delete("x-unifia-project")
           headers.delete("x-opencode-client")
           return headers
         })(),
