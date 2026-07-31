@@ -12,3 +12,4 @@
 {"ts":"2026-07-31T09:20:53Z","event":"upstream.clone","repo":"https://github.com/OpenCoworkAI/open-cowork","head_sha":"ec5bd270861fd4531bda44554766b8b5bd009242","size_mb":78,"branches":40,"tags":16,"ee_branches":0,"lock_file":"upstreams/open-cowork.git-LOCK.json","status":"OK"}
 {"ts":"2026-07-31T09:30:00Z","event":"phase_minus_1.start","objective":"Audit comparatif 3 codebases"}
 {"ts":"2026-07-31T09:35:00Z","event":"phase_minus_1.deliverables","files":["TRI-REPO-ARCHITECTURE-INVENTORY.md","FEATURE-OWNERSHIP-MATRIX.md","DUPLICATION-MATRIX.md","PORTABILITY-ASSESSMENT.md","SECURITY-GAP-MATRIX.md","IMPORT-CANDIDATES.md","DO-NOT-IMPORT.md"],"status":"OK"}
+{"ts":"2026-07-31T09:40:00Z","event":"task_graph.v1.0","file":"TASK-GRAPH-v1.0.yaml","cards":17,"status":"READY+PROPOSED+BLOCKED+DEFERRED","note":"Aligned Plan V3 22 phases"}

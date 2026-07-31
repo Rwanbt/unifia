@@ -499,3 +499,9 @@ summary:
     - "Plan Directeur V3 Unifia (validation requirements)"
     - "Lecture AUDIT_REPORT.md fork (validation absence duplication)"
     - "Décision enterprise + desktop-electron"
+
+# =============================================================================
+# DEPRECATED 2026-07-31 — voir TASK-GRAPH-v1.0.yaml
+# Cette v0.1 est conservée pour traçabilité mais n'est plus la source de vérité.
+# Le TASK-GRAPH v1.0 est aligné sur le Plan directeur V3 (22 phases + 3 gates).
+# =============================================================================
