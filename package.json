@@ -22,7 +22,7 @@
     "random": "echo 'Random script'",
     "hello": "echo 'Hello World!'",
     "test": "echo 'do not run tests from root' && exit 1",
-    "test:opencode": "cd packages/opencode && bun test",
+    "test:unifia": "cd packages/opencode && bun test",
     "test:session": "cd packages/opencode && bun test --filter session"
   },
   "workspaces": {

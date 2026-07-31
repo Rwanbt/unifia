@@ -1,7 +1,7 @@
-# Security Audit — OpenCode fork
+# Security Audit — Unifia fork
 
 **Date**: 2026-04-17
-**Scope**: fork OpenCode (Bun / SolidJS / Tauri 2.0, desktop + Android)
+**Scope**: fork Unifia (Bun / SolidJS / Tauri 2.0, desktop + Android)
 **Axes audited**: attack surface, resource leaks, input validation / edge cases, secrets & auth
 **Methodology**: 4 parallel code-exploration agents + targeted manual review + corroboration with prior A.*/B.* audits
 
@@ -42,12 +42,12 @@ commit `29d6836c1`), not inherited from the prior audit reports.
 ### S2.A1 — CORS wildcard on `*.opencode.ai` subdomains
 
 - **File**: [packages/opencode/src/server/server.ts:64-88](packages/opencode/src/server/server.ts#L64-L88)
-- **Cause**: regex `^https:\/\/([a-z0-9-]+\.)*opencode\.ai$` accepts
-  arbitrarily deep subdomains of `opencode.ai`. A hijacked preview
+- **Cause**: regex `^https:\/\/([a-z0-9-]+\.)*unifia\.ai$` accepts
+  arbitrarily deep subdomains of `unifia.ai`. A hijacked preview
   environment or a forgotten staging subdomain can CSRF the local dev
   server.
 - **Recommended fix**: explicit whitelist of the two or three trusted
-  subdomains (`opencode.ai`, `www.opencode.ai`, `app.opencode.ai`).
+  subdomains (`unifia.ai`, `www.opencode.ai`, `app.opencode.ai`).
   Deferred to a separate PR because it touches the production deployment
   config.
 
@@ -56,7 +56,7 @@ commit `29d6836c1`), not inherited from the prior audit reports.
 - **File**: [packages/app/src/pages/layout/deep-links.ts:46-58](packages/app/src/pages/layout/deep-links.ts)
 - **Cause**: `parseOAuthCallbackDeepLink` accepts any non-empty
   `providerID` string. A malicious page could craft
-  `opencode://oauth/callback?providerID=../../..&code=x` and trigger
+  `unifia://oauth/callback?providerID=../../..&code=x` and trigger
   unexpected paths inside the dialog. Current mitigation is that the
   dialog compares `detail.providerID !== props.provider` before doing
   anything, but defense in depth still applies.
@@ -94,7 +94,7 @@ commit `29d6836c1`), not inherited from the prior audit reports.
 
 - **File**: [packages/app/src/pages/layout/deep-links.ts:13-31](packages/app/src/pages/layout/deep-links.ts)
 - **Cause**: `parseDeepLink` returns any string as-is. A
-  `opencode://open-project?directory=../..` can open whatever the CLI is
+  `unifia://open-project?directory=../..` can open whatever the CLI is
   willing to treat as a project root.
 - **Recommended fix**: require the string to be absolute and resolve to
   a known project root via the local server's project list.

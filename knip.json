@@ -87,7 +87,7 @@
   ],
   "ignoreBinaries": [
     "gh",
-    "opencode",
+    "unifia",
     "tar",
     "sha256sum",
     "ulimit",
@@ -134,7 +134,7 @@
     "vite-plugin-icons-spritesheet",
     "semver",
     "storybook",
-    "opencode-web-ui.gen.ts"
+    "unifia-web-ui.gen.ts"
   ],
   "ignoreExportsUsedInFile": true
 }

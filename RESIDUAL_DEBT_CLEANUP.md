@@ -95,7 +95,7 @@ bun test ./test/e2e/dag-team.test.ts
 `Auth.layer` captures its backend choice once, at layer evaluation, via
 `selectKeychain()` which reads the module-level `AUTH_STORAGE_BACKEND`
 constant set at `auth/index.ts` module-init. Flipping
-`OPENCODE_AUTH_STORAGE` mid-process does **not** affect the running
+`UNIFIA_AUTH_STORAGE` mid-process does **not** affect the running
 `ManagedRuntime` — the only way to exercise the keychain-backed
 `Auth.layer` in-process would be to rebuild the runtime, which the public
 API does not expose. Testing `KeychainStorage` directly covers the

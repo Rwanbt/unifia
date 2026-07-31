@@ -1,4 +1,4 @@
-# Production Readiness — OpenCode Fork
+# Production Readiness — Unifia Fork
 
 > Point d'entrée unique pour évaluer l'état prod du fork
 > `Rwanbt/opencode` (branche `dev`). Mis à jour à chaque fin de
@@ -78,7 +78,7 @@ Verdict courant : **NO-GO UX** — 9 bugs QA REAL utilisateur bloquants
 
 - **B1** Desktop keychain (crate `keyring` v3) + IPC endpoint
   localhost + migration `auth.json` → keychain (gaté
-  `OPENCODE_AUTH_STORAGE=keychain`) — `SPRINT4_NOTES.md`, `SPRINT5_NOTES.md`.
+  `UNIFIA_AUTH_STORAGE=keychain`) — `SPRINT4_NOTES.md`, `SPRINT5_NOTES.md`.
 - **B2 serveur** `/auth/ws-ticket` + middleware cookie/subprotocol +
   legacy flag — `SPRINT4_NOTES.md`.
 
@@ -142,7 +142,7 @@ Remote (7+8). Estimation ~10 h. Time-box priorité : 1, 2, 3, 6, 8 avant
 | Décision | Raison | Réversible ? |
 |----------|--------|--------------|
 | `experimental.ws_auth_legacy` default `true` | 4 clients WS non migrés ; flip casserait le mode LAN pairing | Oui, flip à `false` une fois clients migrés |
-| `OPENCODE_AUTH_STORAGE` default `file` | Keychain storage pas branché dans le layer Effect `Auth` ; `FileStorage` reste backend actif | Oui, activer en `keychain` une fois layer Effect refactoré |
+| `UNIFIA_AUTH_STORAGE` default `file` | Keychain storage pas branché dans le layer Effect `Auth` ; `FileStorage` reste backend actif | Oui, activer en `keychain` une fois layer Effect refactoré |
 | `experimental.provider.fallback` default `null` | Comportement byte-identical pour les utilisateurs existants ; fallback est opt-in explicite | Oui |
 | `experimental.audit.enabled` default `false` | Overhead DB sur call sites critiques ; opt-in pour users compliance | Oui |
 | `experimental.dlp.scan_tool_outputs` default `false` | Coût scanner sur chaque tool-output, faux positifs possibles | Oui |

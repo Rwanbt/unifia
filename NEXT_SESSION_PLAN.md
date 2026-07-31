@@ -129,7 +129,7 @@ Fix:
 
 - `packages/desktop/src-tauri/src/server.rs` : si `RemoteConfig.enabled=true`
   → bind `0.0.0.0:<port>`. Warning UI Windows Firewall.
-- QR encode `opencode://connect?host=<ip>&port=<p>&fp=<sha256>&token=<uuid>`.
+- QR encode `unifia://connect?host=<ip>&port=<p>&fp=<sha256>&token=<uuid>`.
   Mobile auto-trust cert sur la session via fingerprint.
 - Fallback : si `detect_lan_ip` échoue → prompt IP manuel + aide `ipconfig`.
 - Endpoint `GET /health` non-auth → `{ok, tlsFingerprint}`. Scan mobile ping

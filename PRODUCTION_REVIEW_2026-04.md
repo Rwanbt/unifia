@@ -1,6 +1,6 @@
-# Pre-production Review — OpenCode Fork (2026-04-18)
+# Pre-production Review — Unifia Fork (2026-04-18)
 
-> Audit staff-level de pré-production du fork OpenCode.
+> Audit staff-level de pré-production du fork Unifia.
 > Périmètre : monorepo Bun (`packages/*`), crates Rust (`crates/*`), app mobile Android (`packages/mobile`), sidecar CLI (`packages/opencode`).
 > Méthode : lecture directe + recoupement des audits existants (AUDIT_REPORT.md, SECURITY_AUDIT.md, ANDROID_AUDIT.md, PERFORMANCE_REPORT.md, KNOWN_ISSUES.md). Les findings déjà listés sont référencés (`cf. AUDIT_REPORT.md A.x`), les findings **nouveaux** détectés par cette passe sont préfixés `P*`.
 > Aucun `bun audit` / `cargo audit` / `gitleaks` n'a été exécuté (non disponibles dans l'environnement) — les points de vérification sont explicitement listés dans la checklist.
@@ -96,7 +96,7 @@ Le fork est **architecturalement mûr** (auto-config llama.cpp, DAG d'agents, wo
 - **Impact** : aucun `--slots` / `--cache-reuse` / `--n-predict`, `--mmap` non explicitement activé (défaut llama.cpp), pas de `--draft-model` / speculative decoding. Sur Qwen3-Coder 32B + drafter 0.6B, perte de 40–60% de tokens/s et zéro réutilisation de préfixe entre tours → chaque message relance la prefill complète. Impact utilisateur direct : latence perçue 2–3×.
 - **Remédiation** :
   1. Ajouter `--slot-save-path` + `--cache-reuse 256` + `--mmap` explicite.
-  2. Exposer `OPENCODE_DRAFT_MODEL` pour speculative decoding ; auto-probe si un drafter `*-0.5B-*.gguf` est présent à côté du modèle principal.
+  2. Exposer `UNIFIA_DRAFT_MODEL` pour speculative decoding ; auto-probe si un drafter `*-0.5B-*.gguf` est présent à côté du modèle principal.
   3. Persister le KV cache du tour précédent (`--prompt-cache`).
 - **Effort** : L
 
@@ -206,7 +206,7 @@ Le fork est **architecturalement mûr** (auto-config llama.cpp, DAG d'agents, wo
 - Thermal : champ `thermalState` existe mais n'est **jamais mis à jour dynamiquement** (le probe retourne toujours `"nominal"` ligne 107). Le `thermalMult` ligne 121 n'agit donc jamais. Cf. KNOWN_ISSUES "Thermal listener JNI" deferred.
 - KV cache quant adaptatif : ✅ f16/q8_0/q4_0 ligne 155.
 - Pas de détection NPU (I8).
-- `OPENCODE_ALLOW_CPU_ONLY=1` obligatoire si pas de GPU : ✅ cohérent avec la règle "Never CPU-only" (memory).
+- `UNIFIA_ALLOW_CPU_ONLY=1` obligatoire si pas de GPU : ✅ cohérent avec la règle "Never CPU-only" (memory).
 
 ### 5.7 Optimisation modèles locaux
 

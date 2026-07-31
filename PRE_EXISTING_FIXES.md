@@ -27,7 +27,7 @@ Validation : `bun run typecheck` (14 pkg) + `cargo check` desktop + `cargo check
 ### 1. Desktop `export_types` — NO-OP
 `packages/desktop/src-tauri/src/lib.rs:492` : la fn est **utilisée** ligne 323 (dans `setup()`) et dans `test_export_types`. `cargo check` desktop ne remonte aucun warning. Finding obsolète.
 
-**Test manuel** : `cargo check -p opencode-desktop` → 0 warning.
+**Test manuel** : `cargo check -p unifia-desktop` → 0 warning.
 
 ### 2. 40 warnings mobile — FIXED
 Cause : `#[tauri::command]` dans `speech.rs`, `kokoro/`, `parakeet/`, `fetch_private_server` sont enregistrés uniquement sous `#[cfg(target_os="android")]` dans `invoke_handler!`. Sur `cargo check` hôte Windows, le compilateur ne voit aucun appelant → 40 warnings dead_code.
@@ -42,11 +42,11 @@ Cause : `#[tauri::command]` dans `speech.rs`, `kokoro/`, `parakeet/`, `fetch_pri
 
 ### 3. S2.A2 Deep-link providerID allowlist — FIXED
 **Fichier** : `packages/app/src/pages/layout.tsx:1366-1390`.
-**Cause** : `parseOAuthCallbackDeepLink` valide la forme (`/^[a-z0-9][a-z0-9_-]{0,63}$/i`) mais pas l'identité. Une URL `opencode://oauth/callback?providerID=attacker&code=xxx` déclenchait `dispatchEvent` quel que soit l'ID.
+**Cause** : `parseOAuthCallbackDeepLink` valide la forme (`/^[a-z0-9][a-z0-9_-]{0,63}$/i`) mais pas l'identité. Une URL `unifia://oauth/callback?providerID=attacker&code=xxx` déclenchait `dispatchEvent` quel que soit l'ID.
 **Correctif** : au dispatch, on construit une allowlist = `providers.all()` (registry live) ∪ `popularProviders` (fallback first-launch) et on `continue` + `console.warn` si inconnu. Garde la compat avec les custom providers (tant qu'ils sont enregistrés).
 
 **Test manuel** :
-1. Construire un deep-link `opencode://oauth/callback?providerID=foobar&code=xxx`. L'ouvrir. Vérifier `console.warn` + aucune dialog déclenchée.
+1. Construire un deep-link `unifia://oauth/callback?providerID=foobar&code=xxx`. L'ouvrir. Vérifier `console.warn` + aucune dialog déclenchée.
 2. Avec `providerID=anthropic` (présent dans `popularProviders`), dispatch normal.
 
 **Risque** : un provider dynamique chargé tardivement (après handleDeepLinks drain) peut rater son callback. Mitigation : `popularProviders` couvre les 9 principaux, les custom providers sont chargés au démarrage via `provider.list()` avant le drain des deep-links pendants.
@@ -272,10 +272,10 @@ introduirait une dépendance réseau dans un hot path startup. L'absolute
 path check est la barrière la plus rentable et la moins risquée.
 
 **Tests manuels** :
-1. `opencode://open-project?directory=../../etc` → rejeté (log silencieux).
-2. `opencode://open-project?directory=/tmp/demo` → accepté.
-3. `opencode://open-project?directory=C:\Users\me\project` → accepté.
-4. `opencode://open-project?directory=relative/path` → rejeté.
+1. `unifia://open-project?directory=../../etc` → rejeté (log silencieux).
+2. `unifia://open-project?directory=/tmp/demo` → accepté.
+3. `unifia://open-project?directory=C:\Users\me\project` → accepté.
+4. `unifia://open-project?directory=relative/path` → rejeté.
 
 **Risque** : les tests unitaires existants (`helpers.test.ts`) utilisent
 tous des chemins absolus (`/tmp/demo`, `/a`, `/b`, `/c`), donc aucune

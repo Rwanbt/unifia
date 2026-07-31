@@ -11,7 +11,7 @@
 ### 0.1 — Interdits absolus
 - **JAMAIS** `git push --force`, `git reset --hard`, `git commit --amend` sauf ordre explicite de l'utilisateur.
 - **JAMAIS** `--no-verify` sur les commits (les hooks pre-commit détectent les régressions).
-- **JAMAIS** modifier `C:/Users/barat/AppData/Local/Antigravity/` ou tuer des processus non-OpenCode (règle [CLAUDE.md](CLAUDE.md)).
+- **JAMAIS** modifier `C:/Users/barat/AppData/Local/Antigravity/` ou tuer des processus non-Unifia (règle [CLAUDE.md](CLAUDE.md)).
 - **JAMAIS** proposer un fallback CPU pour l'inference LLM (règle : GPU mandatory).
 - **JAMAIS** `bun tauri android build` sans vérification thorough du code (5+ min par build).
 - **JAMAIS** utiliser `sed` ou regex sur du code source. Utiliser `Edit` avec des anchors textuels uniques.
@@ -310,7 +310,7 @@ Audit: d:/App/OpenCode/opencode/AUDIT_REPORT.md#a2
 Grep dans `packages/mobile/` et `packages/app/` pour trouver les destinations `fetch()` / `WebSocket` / `invoke` :
 
 - Pattern : `fetch\(` / `new WebSocket` / `EventSource` — type : ts, tsx
-- Noter les URLs (localhost, 127.0.0.1, huggingface.co, opencode.ai, etc.)
+- Noter les URLs (localhost, 127.0.0.1, huggingface.co, unifia.ai, etc.)
 
 À l'audit, les domaines observés sont :
 - `http://127.0.0.1:14097` (llama-server)
@@ -938,7 +938,7 @@ Fichier [packages/app/src/components/dialog-local-llm.tsx:155-164](packages/app/
 ```
 
 ### A.19 — Deep-link dual scheme cleanup
-[packages/mobile/src-tauri/tauri.conf.json:44-49](packages/mobile/src-tauri/tauri.conf.json#L44-L49) : **si** l'utilisateur ne contrôle pas `opencode.ai/.well-known/assetlinks.json`, retirer l'intent-filter `https` du manifeste généré. Pour l'instant, documenter uniquement dans [ANDROID_AUDIT.md](ANDROID_AUDIT.md), **ne pas** modifier le fichier auto-généré (il sera régénéré).
+[packages/mobile/src-tauri/tauri.conf.json:44-49](packages/mobile/src-tauri/tauri.conf.json#L44-L49) : **si** l'utilisateur ne contrôle pas `unifia.ai/.well-known/assetlinks.json`, retirer l'intent-filter `https` du manifeste généré. Pour l'instant, documenter uniquement dans [ANDROID_AUDIT.md](ANDROID_AUDIT.md), **ne pas** modifier le fichier auto-généré (il sera régénéré).
 
 ---
 
@@ -962,7 +962,7 @@ Si une de ces étapes fail après un fix — **rollback le fix spécifique**, di
 - Perf : [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)
 - Android : [ANDROID_AUDIT.md](ANDROID_AUDIT.md)
 - Règles : [CLAUDE.md](CLAUDE.md)
-- Roadmap : `D:/Documents/Obsidian/IA_Dev_Brain/OpenCode/Plan Directeur — Roadmap OpenCode (7 Chantiers).md` → **Chantier 8**
+- Roadmap : `D:/Documents/Obsidian/IA_Dev_Brain/OpenCode/Plan Directeur — Roadmap Unifia (7 Chantiers).md` → **Chantier 8**
 
 ---
 
