@@ -31,7 +31,7 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 
 void initI18n()
 
-const deepLinkEvent = "opencode:deep-link"
+const deepLinkEvent = "unifia:deep-link"
 
 const emitDeepLinks = (urls: string[]) => {
   if (urls.length === 0) return
@@ -249,7 +249,7 @@ listenForDeepLinks()
 render(() => {
   const platform = createPlatform()
   const loadLocale = async () => {
-    const current = await platform.storage?.("opencode.global.dat").getItem("language")
+    const current = await platform.storage?.("unifia.global.dat").getItem("language")
     const legacy = current ? undefined : await platform.storage?.().getItem("language.v1")
     const raw = current ?? legacy
     if (!raw) return

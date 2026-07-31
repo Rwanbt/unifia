@@ -1,6 +1,6 @@
-# OpenCode Desktop
+# Unifia Desktop
 
-Native OpenCode desktop app, built with Tauri v2.
+Native Unifia desktop app, built with Tauri v2.
 
 ## Development
 
