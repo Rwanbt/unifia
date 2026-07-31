@@ -1,6 +1,6 @@
 # Plan de débat multi-IA — Round 3 (convergence finale)
 
-> **Contexte** : Round 3 du débat "Collective Intelligence" pour OpenCode.
+> **Contexte** : Round 3 du débat "Collective Intelligence" pour Unifia.
 > Le Round 1 (6 modèles) a posé l'architecture. Le Round 2 (5 modèles) a
 > attaqué l'implémentation. Ce Round 3 cible les **4 divergences non résolues**
 > et la **mesure de valeur** du système.

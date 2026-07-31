@@ -1,7 +1,7 @@
 # Plan de débat multi-IA — Round 2 (post-synthèse)
 
 > **Contexte** : Ce document est le Round 2 du débat "Collective Intelligence"
-> pour OpenCode. Le Round 1 a interrogé 6 modèles (ChatGPT, DeepSeek, Mistral,
+> pour Unifia. Le Round 1 a interrogé 6 modèles (ChatGPT, DeepSeek, Mistral,
 > Gemini, Qwen, MiniMax M3). Cette version intègre les consensus, résout les
 > divergences, et pose des questions plus précises sur les points ouverts.
 >
@@ -57,7 +57,7 @@ Ces insights sont maintenant des **contraintes architecturales** :
 
 ---
 
-## Architecture existante d'OpenCode (rappel)
+## Architecture existante d'Unifia (rappel)
 
 ```
 packages/opencode/src/

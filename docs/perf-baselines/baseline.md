@@ -1,4 +1,4 @@
-# Performance Baselines — OpenCode
+# Performance Baselines — Unifia
 
 Référence mesurée sur la machine de développement principale (Windows 11, RTX 4090, Ryzen 9 7950X).
 
