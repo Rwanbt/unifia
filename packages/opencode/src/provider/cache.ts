@@ -4,10 +4,10 @@ import type { Provider } from "./provider"
 
 // Pure prompt-cache breakpoint policy for the deferred "prompt cache after
 // compaction and agent switch" chantier (plan v3.1). Gated behind
-// Flag.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING — see provider/transform.ts.
+// Flag.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING — see provider/transform.ts.
 //
-// IMPORTANT: the transient marker namespace is "opencodeCacheInternal", NOT
-// "opencode". "opencode" is a REAL provider id (self-hosted models routed via
+// IMPORTANT: the transient marker namespace is "unifiaCacheInternal", NOT
+// "unifia". "unifia" is a REAL provider id (self-hosted models routed via
 // @ai-sdk/openai-compatible, where ProviderTransform's sdkKey() falls back to
 // model.providerID) whose providerOptions.opencode carries real per-part
 // metadata (itemId, reasoning continuation, etc — see
@@ -16,7 +16,7 @@ import type { Provider } from "./provider"
 // the plan assumed, would silently corrupt real requests to that provider.
 export namespace PromptCache {
   export const MAX_BREAKPOINTS = 4
-  const MARKER_NAMESPACE = "opencodeCacheInternal"
+  const MARKER_NAMESPACE = "unifiaCacheInternal"
 
   const PROVIDER_OPTIONS_PATCH = {
     anthropic: { cacheControl: { type: "ephemeral" } },
@@ -179,7 +179,7 @@ export namespace PromptCache {
     return clone as T
   }
 
-  /** Removes the transient `opencodeCacheInternal` marker from message- and part-level providerOptions. Unconditional — runs whether the feature flag is on or off. Never mutates; returns the same reference when nothing changes. */
+  /** Removes the transient `unifiaCacheInternal` marker from message- and part-level providerOptions. Unconditional — runs whether the feature flag is on or off. Never mutates; returns the same reference when nothing changes. */
   export function stripInternalProviderMetadata(messages: ModelMessage[]): ModelMessage[] {
     let changedAny = false
     const result = messages.map((msg) => {

@@ -96,7 +96,7 @@ export namespace ModelsDev {
   export type Provider = z.infer<typeof Provider>
 
   function url() {
-    return Flag.OPENCODE_MODELS_URL || "https://models.dev"
+    return Flag.UNIFIA_MODELS_URL || "https://models.dev"
   }
 
   function fresh() {
@@ -116,16 +116,16 @@ export namespace ModelsDev {
   }
 
   export const Data = lazy(async () => {
-    const result = await Filesystem.readJson(Flag.OPENCODE_MODELS_PATH ?? filepath).catch(() => {})
+    const result = await Filesystem.readJson(Flag.UNIFIA_MODELS_PATH ?? filepath).catch(() => {})
     if (result) return result
     const snapshot = await import("./models-snapshot.js")
       .then((m) => m.snapshot as Record<string, unknown>)
       .catch(() => undefined)
     if (snapshot) return snapshot
-    if (Flag.OPENCODE_DISABLE_MODELS_FETCH) return {}
+    if (Flag.UNIFIA_DISABLE_MODELS_FETCH) return {}
     try {
       return await Flock.withLock(`models-dev:${filepath}`, async () => {
-        const result = await Filesystem.readJson(Flag.OPENCODE_MODELS_PATH ?? filepath).catch(() => {})
+        const result = await Filesystem.readJson(Flag.UNIFIA_MODELS_PATH ?? filepath).catch(() => {})
         if (result) return result
         const result2 = await fetchApi()
         if (result2.ok) {
@@ -152,11 +152,11 @@ export namespace ModelsDev {
     // Custom path is managed by the user/another process — refresh() must not
     // clobber it, and Data() never reads `filepath` while this is set (see
     // above), so a fetch here would silently do nothing useful anyway.
-    if (Flag.OPENCODE_MODELS_PATH) {
-      return { ok: false, error: "Custom models path is set (OPENCODE_MODELS_PATH) — refresh is managed externally" }
+    if (Flag.UNIFIA_MODELS_PATH) {
+      return { ok: false, error: "Custom models path is set (UNIFIA_MODELS_PATH) — refresh is managed externally" }
     }
-    if (Flag.OPENCODE_DISABLE_MODELS_FETCH) {
-      return { ok: false, error: "Models fetch is disabled (OPENCODE_DISABLE_MODELS_FETCH)" }
+    if (Flag.UNIFIA_DISABLE_MODELS_FETCH) {
+      return { ok: false, error: "Models fetch is disabled (UNIFIA_DISABLE_MODELS_FETCH)" }
     }
     if (skip(force)) {
       ModelsDev.Data.reset()
@@ -195,7 +195,7 @@ export namespace ModelsDev {
   }
 }
 
-if (!Flag.OPENCODE_DISABLE_MODELS_FETCH && !process.argv.includes("--get-yargs-completions")) {
+if (!Flag.UNIFIA_DISABLE_MODELS_FETCH && !process.argv.includes("--get-yargs-completions")) {
   ModelsDev.refresh()
   setInterval(
     async () => {
