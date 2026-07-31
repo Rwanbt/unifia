@@ -138,4 +138,4 @@ jobs:
       base64-subjects: ${{ needs.build-subjects.outputs.subjects }}
       upload-assets: ${{ github.event_name == 'release' || inputs.upload-assets }}
       upload-tag-name: ${{ needs.build-subjects.outputs.tag }}
-      provenance-name: opencode.intoto.jsonl
+      provenance-name: unifia.intoto.jsonl

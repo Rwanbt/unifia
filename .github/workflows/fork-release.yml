@@ -63,7 +63,7 @@ jobs:
         run: bun run script/build.ts --skip-embed-web-ui --all
         env:
           UNIFIA_VERSION: ${{ steps.ver.outputs.version }}
-          OPENCODE_CHANNEL: fork
+          UNIFIA_CHANNEL: fork
 
       - name: Package artifacts
         working-directory: packages/opencode/dist
@@ -72,12 +72,12 @@ jobs:
           echo "dist contents:"
           ls -la
           # Linux x64 (glibc)
-          if [ -d opencode-linux-x64 ]; then
-            tar czf opencode-linux-x64.tar.gz -C opencode-linux-x64 .
+          if [ -d unifia-linux-x64 ]; then
+            tar czf unifia-linux-x64.tar.gz -C unifia-linux-x64 .
           fi
           # Windows x64
-          if [ -d opencode-windows-x64 ]; then
-            (cd opencode-windows-x64 && zip -qr ../opencode-windows-x64.zip .)
+          if [ -d unifia-windows-x64 ]; then
+            (cd unifia-windows-x64 && zip -qr ../opencode-windows-x64.zip .)
           fi
           ls -lh *.tar.gz *.zip 2>/dev/null || true
 
@@ -159,7 +159,7 @@ jobs:
         run: bun ./scripts/prepare.ts
         env:
           UNIFIA_VERSION: 0.0.0-fork
-          OPENCODE_CLI_ARTIFACT: ${{ (runner.os == 'Windows' && 'opencode-cli-windows') || 'opencode-cli' }}
+          UNIFIA_CLI_ARTIFACT: ${{ (runner.os == 'Windows' && 'opencode-cli-windows') || 'opencode-cli' }}
           RUST_TARGET: ${{ matrix.settings.target }}
           GH_TOKEN: ${{ github.token }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -386,9 +386,9 @@ jobs:
           SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/opencode-mobile.apk"
           keytool -genkey -v \
             -keystore /tmp/ci.keystore \
-            -alias opencode -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias unifia -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass android -keypass android \
-            -dname "CN=OpenCode CI, OU=Dev, O=OpenCode, L=Paris, ST=IDF, C=FR"
+            -dname "CN=Unifia CI, OU=Dev, O=Unifia, L=Paris, ST=IDF, C=FR"
           cp "$APK" "$SIGNED"
           java -jar "$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/lib/apksigner.jar" sign \
             --ks /tmp/ci.keystore --ks-pass pass:android --key-pass pass:android \

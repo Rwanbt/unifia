@@ -268,9 +268,9 @@ jobs:
       - name: Sign APK with release key
         env:
           OPENCODE_ANDROID_KEYSTORE_B64: ${{ secrets.OPENCODE_ANDROID_KEYSTORE_B64 }}
-          OPENCODE_ANDROID_KEY_ALIAS: ${{ secrets.OPENCODE_ANDROID_KEY_ALIAS }}
-          OPENCODE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.OPENCODE_ANDROID_KEYSTORE_PASSWORD }}
-          OPENCODE_ANDROID_KEY_PASSWORD: ${{ secrets.OPENCODE_ANDROID_KEY_PASSWORD }}
+          UNIFIA_ANDROID_KEY_ALIAS: ${{ secrets.UNIFIA_ANDROID_KEY_ALIAS }}
+          UNIFIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_PASSWORD }}
+          UNIFIA_ANDROID_KEY_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           APK="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
@@ -279,15 +279,15 @@ jobs:
           test -n "$APKSIGNER" || { echo "Android apksigner was not found"; exit 1; }
           echo "Using apksigner: $APKSIGNER"
           cp "$APK" "$SIGNED"
-          if [ -n "${OPENCODE_ANDROID_KEYSTORE_B64}" ] && [ -n "${OPENCODE_ANDROID_KEY_ALIAS}" ] && [ -n "${OPENCODE_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${OPENCODE_ANDROID_KEY_PASSWORD}" ]; then
+          if [ -n "${OPENCODE_ANDROID_KEYSTORE_B64}" ] && [ -n "${UNIFIA_ANDROID_KEY_ALIAS}" ] && [ -n "${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${UNIFIA_ANDROID_KEY_PASSWORD}" ]; then
             echo "Signing APK with configured release key"
             echo "${OPENCODE_ANDROID_KEYSTORE_B64}" | base64 --decode > /tmp/opencode-release.keystore
-            "$APKSIGNER" sign --ks /tmp/opencode-release.keystore --ks-key-alias "${OPENCODE_ANDROID_KEY_ALIAS}" --ks-pass pass:"${OPENCODE_ANDROID_KEYSTORE_PASSWORD}" --key-pass pass:"${OPENCODE_ANDROID_KEY_PASSWORD}" "$SIGNED"
+            "$APKSIGNER" sign --ks /tmp/opencode-release.keystore --ks-key-alias "${UNIFIA_ANDROID_KEY_ALIAS}" --ks-pass pass:"${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" --key-pass pass:"${UNIFIA_ANDROID_KEY_PASSWORD}" "$SIGNED"
             rm -f /tmp/opencode-release.keystore
           else
             echo "Release signing secrets are not configured; using an ephemeral CI key for dev validation"
-            keytool -genkeypair -v -keystore /tmp/opencode-ci.keystore -alias opencode-ci -keyalg RSA -keysize 2048 -validity 1 -storepass android -keypass android -dname "CN=OpenCode CI"
-            "$APKSIGNER" sign --ks /tmp/opencode-ci.keystore --ks-key-alias opencode-ci --ks-pass pass:android --key-pass pass:android "$SIGNED"
+            keytool -genkeypair -v -keystore /tmp/opencode-ci.keystore -alias unifia-ci -keyalg RSA -keysize 2048 -validity 1 -storepass android -keypass android -dname "CN=Unifia CI"
+            "$APKSIGNER" sign --ks /tmp/opencode-ci.keystore --ks-key-alias unifia-ci --ks-pass pass:android --key-pass pass:android "$SIGNED"
             rm -f /tmp/opencode-ci.keystore
           fi
           "$APKSIGNER" verify --verbose "$SIGNED"
@@ -296,7 +296,7 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: opencode-mobile-apk
+          name: unifia-mobile-apk
           path: packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/opencode-mobile.apk
           retention-days: 30
 

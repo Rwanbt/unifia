@@ -31,7 +31,7 @@ jobs:
 
       - uses: ./.github/actions/setup-bun
 
-      - name: Install opencode
+      - name: Install unifia
         run: curl -fsSL https://opencode.ai/install | bash
 
       - name: Get PR details
@@ -47,11 +47,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENCODE_PERMISSION: '{ "bash": {  "*": "deny", "gh*": "allow", "gh pr review*": "deny" } }'
+          UNIFIA_PERMISSION: '{ "bash": {  "*": "deny", "gh*": "allow", "gh pr review*": "deny" } }'
           PR_TITLE: ${{ steps.pr-details.outputs.title }}
         run: |
           PR_BODY=$(jq -r .body pr_data.json)
-          opencode run -m anthropic/claude-opus-4-5 "A new pull request has been created: '${PR_TITLE}'
+          unifia run -m anthropic/claude-opus-4-5 "A new pull request has been created: '${PR_TITLE}'
 
           <pr-number>
           ${{ steps.pr-number.outputs.number }}
