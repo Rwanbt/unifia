@@ -195,7 +195,7 @@ export const AuthRoutes = () =>
         if (!caller) return c.json({ error: "Unauthenticated" }, 401)
         const ticket = JwtAuth.issueWsTicket({
           id: caller.id ?? "basic-auth",
-          username: caller.username ?? "opencode",
+          username: caller.username ?? "unifia",
           role: (caller.role ?? "admin") as any,
         })
         const expiresAt = Date.now() + 60_000
@@ -247,7 +247,7 @@ export const AuthRoutes = () =>
         if (!caller || caller.id === "basic-auth") {
           return c.json({
             id: "basic-auth",
-            username: caller?.username ?? "opencode",
+            username: caller?.username ?? "unifia",
             role: "admin",
             email: null,
             displayName: null,

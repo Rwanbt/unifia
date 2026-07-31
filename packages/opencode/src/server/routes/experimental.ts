@@ -98,7 +98,7 @@ export const ExperimentalRoutes = lazy(() =>
       "/console/switch",
       describeRoute({
         summary: "Switch active Console org",
-        description: "Persist a new active Console account/org selection for the current local OpenCode state.",
+        description: "Persist a new active Console account/org selection for the current local Unifia state.",
         operationId: "experimental.console.switchOrg",
         responses: {
           200: {
@@ -296,7 +296,7 @@ export const ExperimentalRoutes = lazy(() =>
       describeRoute({
         summary: "List sessions",
         description:
-          "Get a list of all OpenCode sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
+          "Get a list of all Unifia sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
         operationId: "experimental.session.list",
         responses: {
           200: {

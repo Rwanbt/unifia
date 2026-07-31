@@ -25,7 +25,7 @@ export async function InstanceBootstrap() {
   // FORK (LSP-TEST-SUITE-REGRESSION): see test/preload.ts — the test suite
   // disables this by default (thousands of short-lived Instance.provide()
   // calls would otherwise each spawn a real language-server process).
-  if (process.env["OPENCODE_DISABLE_LSP_WARMUP"] !== "true") {
+  if (process.env["UNIFIA_DISABLE_LSP_WARMUP"] !== "true") {
     void LSP.warmup().catch((err) => Log.Default.warn("LSP warmup failed", { error: err }))
   }
   File.init()

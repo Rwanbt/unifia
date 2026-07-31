@@ -307,7 +307,7 @@ export namespace LLM {
       // Mobile is bandwidth/perf-constrained — large system prompts cause
       // linear-growth prefill each turn. Flag when exceeds 500 tok so
       // future sessions can investigate systematic bloat.
-      if (process.env.OPENCODE_CLIENT === "mobile-embedded" && systemTokens > 500) {
+      if (process.env.UNIFIA_CLIENT === "mobile-embedded" && systemTokens > 500) {
         log.warn("[mobile-embedded] large system prompt may cause multi-turn slowdown", {
           systemTokens,
           threshold: 500,
@@ -429,7 +429,7 @@ export namespace LLM {
     // effective toolset serialize identically across an agent switch, and
     // annotating the last tool reserves a cache breakpoint that can carry
     // over too — see ProviderTransform.message()'s matching slot reservation.
-    if (Flag.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING) {
+    if (Flag.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING) {
       tools = PromptCache.canonicalizeToolOrder(tools)
       const cacheCapabilities = PromptCache.getCapabilities(input.model)
       tools = PromptCache.annotateLastToolForCache(tools, cacheCapabilities)
@@ -465,7 +465,7 @@ export namespace LLM {
     }
 
     // Wire up toolExecutor for DWS workflow models so that tool calls
-    // from the workflow service are executed via opencode's tool system
+    // from the workflow service are executed via unifia's tool system
     // and results sent back over the WebSocket.
     if (language instanceof GitLabWorkflowLanguageModel) {
       const workflowModel = language
@@ -652,12 +652,12 @@ export namespace LLM {
       maxOutputTokens,
       abortSignal: input.abort,
       headers: {
-        ...(input.model.providerID.startsWith("opencode")
+        ...(input.model.providerID.startsWith("unifia")
           ? {
-              "x-opencode-project": Instance.project.id,
-              "x-opencode-session": input.sessionID,
-              "x-opencode-request": input.user.id,
-              "x-opencode-client": Flag.OPENCODE_CLIENT,
+              "x-unifia-project": Instance.project.id,
+              "x-unifia-session": input.sessionID,
+              "x-unifia-request": input.user.id,
+              "x-unifia-client": Flag.UNIFIA_CLIENT,
             }
           : {
               "x-session-affinity": input.sessionID,

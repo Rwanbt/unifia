@@ -223,9 +223,9 @@ export namespace JwtAuth {
       // Fall back to Basic Auth (backward compatibility) — header only.
       if (authHeader?.startsWith("Basic ")) {
         const { Flag } = await import("../flag/flag")
-        const password = Flag.OPENCODE_SERVER_PASSWORD
+        const password = Flag.UNIFIA_SERVER_PASSWORD
         if (!password) return next() // No password configured — allow
-        const username = Flag.OPENCODE_SERVER_USERNAME ?? "opencode"
+        const username = Flag.UNIFIA_SERVER_USERNAME ?? "unifia"
 
         const decoded = Buffer.from(authHeader.slice(6), "base64").toString()
         const [user, pass] = decoded.split(":")
@@ -242,7 +242,7 @@ export namespace JwtAuth {
 
       // No auth header — check if auth is required
       const { Flag } = await import("../flag/flag")
-      const password = Flag.OPENCODE_SERVER_PASSWORD
+      const password = Flag.UNIFIA_SERVER_PASSWORD
       if (!password) {
         // Check collaborative config
         let requireAuth = false

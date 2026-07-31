@@ -18,7 +18,7 @@ import { Prompt } from "../component/prompt"
 import { Slot as HostSlot } from "./slots"
 import type { useToast } from "../ui/toast"
 import { Installation } from "@/installation"
-import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk-shared"
+import { createUnifiaClient, type UnifiaClient } from "@opencode-ai/sdk-shared"
 
 type RouteEntry = {
   key: symbol
@@ -44,7 +44,7 @@ type Input = {
 }
 
 type TuiHostPluginApi = TuiPluginApi & {
-  map: Map<string | undefined, OpencodeClient>
+  map: Map<string | undefined, UnifiaClient>
   dispose: () => void
 }
 
@@ -207,12 +207,12 @@ function appApi(): TuiPluginApi["app"] {
 }
 
 export function createTuiApi(input: Input): TuiHostPluginApi {
-  const map = new Map<string | undefined, OpencodeClient>()
+  const map = new Map<string | undefined, UnifiaClient>()
   const scoped: TuiPluginApi["scopedClient"] = (workspaceID) => {
     const hit = map.get(workspaceID)
     if (hit) return hit
 
-    const next = createOpencodeClient({
+    const next = createUnifiaClient({
       baseUrl: input.sdk.url,
       fetch: input.sdk.fetch,
       directory: input.sync.data.path.directory || input.sdk.directory,

@@ -23,12 +23,12 @@ import { mkdtempSync, statSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-const soakHome = mkdtempSync(path.join(os.tmpdir(), "opencode-observability-soak-"))
+const soakHome = mkdtempSync(path.join(os.tmpdir(), "unifia-observability-soak-"))
 process.env.XDG_DATA_HOME = path.join(soakHome, "data")
 process.env.XDG_CONFIG_HOME = path.join(soakHome, "config")
 process.env.XDG_CACHE_HOME = path.join(soakHome, "cache")
 process.env.XDG_STATE_HOME = path.join(soakHome, "state")
-process.env.OPENCODE_TEST_HOME = soakHome
+process.env.UNIFIA_TEST_HOME = soakHome
 
 const { Instance } = await import("../src/project/instance")
 const { ObservabilityRuntime } = await import("../src/observability/runtime")

@@ -141,7 +141,7 @@ export namespace Project {
           }),
         )
 
-      const fakeVcs = Info.shape.vcs.parse(Flag.OPENCODE_FAKE_VCS)
+      const fakeVcs = Info.shape.vcs.parse(Flag.UNIFIA_FAKE_VCS)
 
       const resolveGitPath = (cwd: string, name: string) => {
         if (!name) return cwd
@@ -155,7 +155,7 @@ export namespace Project {
       const scope = yield* Scope.Scope
 
       const readCachedProjectId = Effect.fnUntraced(function* (dir: string) {
-        return yield* fs.readFileString(pathSvc.join(dir, "opencode")).pipe(
+        return yield* fs.readFileString(pathSvc.join(dir, "unifia")).pipe(
           Effect.map((x) => x.trim()),
           Effect.map(ProjectID.make),
           Effect.catch(() => Effect.succeed(undefined)),
@@ -222,7 +222,7 @@ export namespace Project {
 
             id = roots[0] ? ProjectID.make(roots[0]) : undefined
             if (id) {
-              yield* fs.writeFileString(pathSvc.join(worktree, ".git", "opencode"), id).pipe(Effect.ignore)
+              yield* fs.writeFileString(pathSvc.join(worktree, ".git", "unifia"), id).pipe(Effect.ignore)
             }
           }
 
@@ -256,7 +256,7 @@ export namespace Project {
               time: { created: Date.now(), updated: Date.now() },
             }
 
-        if (Flag.OPENCODE_EXPERIMENTAL_ICON_DISCOVERY)
+        if (Flag.UNIFIA_EXPERIMENTAL_ICON_DISCOVERY)
           yield* discover(existing).pipe(Effect.ignore, Effect.forkIn(scope))
 
         const result: Info = {

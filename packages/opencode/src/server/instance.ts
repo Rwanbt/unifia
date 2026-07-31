@@ -41,10 +41,10 @@ import { errorHandler } from "./middleware"
 
 const log = Log.create({ service: "server" })
 
-const embeddedUIPromise = Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI
+const embeddedUIPromise = Flag.UNIFIA_DISABLE_EMBEDDED_WEB_UI
   ? Promise.resolve(null)
   : // @ts-expect-error - generated file at build time
-    import("opencode-web-ui.gen.ts").then((module) => module.default as Record<string, string>).catch(() => null)
+    import("unifia-web-ui.gen.ts").then((module) => module.default as Record<string, string>).catch(() => null)
 
 const DEFAULT_CSP =
   "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:"
@@ -110,7 +110,7 @@ export const InstanceRoutes = (app?: Hono) =>
       "/instance/dispose",
       describeRoute({
         summary: "Dispose instance",
-        description: "Clean up and dispose the current OpenCode instance, releasing all resources.",
+        description: "Clean up and dispose the current Unifia instance, releasing all resources.",
         operationId: "instance.dispose",
         responses: {
           200: {
@@ -171,7 +171,7 @@ export const InstanceRoutes = (app?: Hono) =>
       "/path",
       describeRoute({
         summary: "Get paths",
-        description: "Retrieve the current working directory and related path information for the OpenCode instance.",
+        description: "Retrieve the current working directory and related path information for the Unifia instance.",
         operationId: "path.get",
         responses: {
           200: {
@@ -262,7 +262,7 @@ export const InstanceRoutes = (app?: Hono) =>
       "/command",
       describeRoute({
         summary: "List commands",
-        description: "Get a list of all available commands in the OpenCode system.",
+        description: "Get a list of all available commands in the Unifia system.",
         operationId: "command.list",
         responses: {
           200: {
@@ -284,7 +284,7 @@ export const InstanceRoutes = (app?: Hono) =>
       "/agent",
       describeRoute({
         summary: "List agents",
-        description: "Get a list of all available AI agents in the OpenCode system.",
+        description: "Get a list of all available AI agents in the Unifia system.",
         operationId: "app.agents",
         responses: {
           200: {
@@ -306,7 +306,7 @@ export const InstanceRoutes = (app?: Hono) =>
       "/skill",
       describeRoute({
         summary: "List skills",
-        description: "Get a list of all available skills in the OpenCode system.",
+        description: "Get a list of all available skills in the Unifia system.",
         operationId: "app.skills",
         responses: {
           200: {

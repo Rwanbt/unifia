@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Agentic coding benchmark — OpenCode local models.
+ * Agentic coding benchmark — Unifia local models.
  *
  * Runs 5 real coding tasks per model and collects:
  *   success    — task verified correct (output/file checked)
@@ -25,14 +25,14 @@ import { performance } from "node:perf_hooks"
 
 // ── Paths ──────────────────────────────────────────────────────────────────────
 
-// Port 18770 — port dédié benchmark, évite tout conflit avec OpenCode desktop (14097).
+// Port 18770 — port dédié benchmark, évite tout conflit avec Unifia desktop (14097).
 // Le providerID "local-llm" est ce qui déclenche PROMPT_LOCAL (~545 tok), pas le port.
 // Le baseURL dans le workspace config pointe vers ce port → CLI se connecte correctement.
-// ✅ OpenCode desktop peut rester ouvert pendant les benchmarks.
+// ✅ Unifia desktop peut rester ouvert pendant les benchmarks.
 const BENCH_PORT = 18770
 
 const MODEL_DIR =
-  process.env.OPENCODE_LLAMA_MODELS_DIR ??
+  process.env.UNIFIA_LLAMA_MODELS_DIR ??
   (() => {
     const appdata = process.env.APPDATA ?? path.join(homedir(), "AppData", "Roaming")
     for (const n of ["ai.opencode.desktop.dev", "ai.opencode.desktop"]) {
@@ -43,7 +43,7 @@ const MODEL_DIR =
   })()
 
 const RUNTIME_DIR =
-  process.env.OPENCODE_LLAMA_RUNTIME_DIR ??
+  process.env.UNIFIA_LLAMA_RUNTIME_DIR ??
   (() => {
     const appdata = process.env.APPDATA ?? path.join(homedir(), "AppData", "Roaming")
     for (const n of ["ai.opencode.desktop.dev", "ai.opencode.desktop"]) {
@@ -58,18 +58,18 @@ const LLAMA_SERVER = path.join(RUNTIME_DIR, platform() === "win32" ? "llama-serv
 
 const CLI = (() => {
   const candidates = [
-    path.join(import.meta.dir, "..", "dist", "opencode-windows-x64", "bin", "opencode.exe"),
-    path.join(import.meta.dir, "..", "dist", "opencode-windows-x64", "bin", "opencode"),
+    path.join(import.meta.dir, "..", "dist", "unifia-windows-x64", "bin", "unifia.exe"),
+    path.join(import.meta.dir, "..", "dist", "unifia-windows-x64", "bin", "unifia"),
     path.join(import.meta.dir, "..", "..", "desktop", "src-tauri", "sidecars", "opencode-cli-x86_64-pc-windows-msvc.exe"),
   ]
   for (const c of candidates) if (existsSync(c)) return c
-  return "opencode"
+  return "unifia"
 })()
 
-// Workspace opencode.json injecté dans chaque tmpdir de benchmark.
+// Workspace unifia.json injecté dans chaque tmpdir de benchmark.
 //
 // On enregistre le modèle sous providerID "local-llm" (pas un ID custom) pour
-// déclencher toute la logique d'adaptation locale d'OpenCode :
+// déclencher toute la logique d'adaptation locale d'Unifia :
 //   - system.ts:34  → PROMPT_LOCAL (~545 tok) au lieu de PROMPT_DEFAULT (14 700 tok)
 //   - system.ts:40  → environment bloc court (1 ligne)
 //   - system.ts:73  → skills skippées (~800 tok économisés)
@@ -288,7 +288,7 @@ async function isServerAlive(): Promise<boolean> {
 async function runTask(task: Task, modelID: string, workDir: string): Promise<TaskResult> {
   task.setup?.(workDir)
 
-  writeFileSync(path.join(workDir, "opencode.json"), WORKSPACE_CONFIG(modelID))
+  writeFileSync(path.join(workDir, "unifia.json"), WORKSPACE_CONFIG(modelID))
 
   const t0 = performance.now()
   const metrics: TaskResult = {
@@ -300,7 +300,7 @@ async function runTask(task: Task, modelID: string, workDir: string): Promise<Ta
 
   try {
     // stdin: "ignore" is critical — forces non-TTY mode so CLI doesn't wait for input
-    // OPENCODE_LLAMA_PORT: redirige toute la logique local-llm (ensureRunning, /props, etc.)
+    // UNIFIA_LLAMA_PORT: redirige toute la logique local-llm (ensureRunning, /props, etc.)
     // vers le port du benchmark — évite tout conflit avec l'app desktop sur 14097.
     const child = spawn(CLI, [
       "run", "--dir", workDir, "--model", `local-llm/${modelID}`,
@@ -308,7 +308,7 @@ async function runTask(task: Task, modelID: string, workDir: string): Promise<Ta
       task.prompt,
     ], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, OPENCODE_LLAMA_PORT: String(BENCH_PORT) },
+      env: { ...process.env, UNIFIA_LLAMA_PORT: String(BENCH_PORT) },
     })
 
     let stdout = ""
@@ -338,7 +338,7 @@ async function runTask(task: Task, modelID: string, workDir: string): Promise<Ta
     })
 
     // Parse JSON events
-    // Event types from opencode run --format json:
+    // Event types from unifia run --format json:
     //   tool_use  — tool completed or errored  (part.state.status: completed|error)
     //   step_start / step_finish — LLM turn boundaries
     //   text      — final text part
@@ -523,7 +523,7 @@ async function main() {
             console.log(`[bench] Server restarted`)
           }
 
-          const workDir = mkdtempSync(path.join(tmpdir(), "opencode-bench-"))
+          const workDir = mkdtempSync(path.join(tmpdir(), "unifia-bench-"))
           try {
             process.stdout.write(`[bench] ${task.id}... `)
             const result = await runTask(task, modelID, workDir)
@@ -536,7 +536,7 @@ async function main() {
 
             writeFileSync(resultsFile, JSON.stringify(result) + "\n", { flag: "a" })
           } finally {
-            // On Windows the OpenCode file-watcher can keep handles open;
+            // On Windows the Unifia file-watcher can keep handles open;
             // swallow EBUSY and let the OS clean up on next boot.
             try { rmSync(workDir, { recursive: true, force: true }) } catch {}
           }

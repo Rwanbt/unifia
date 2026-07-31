@@ -5,7 +5,7 @@ import type { ACPConfig } from "./types"
 import { Provider } from "../provider/provider"
 import { ModelID, ProviderID } from "../provider/schema"
 import { applyPatch } from "diff"
-import type { AssistantMessage, OpencodeClient, SessionMessageResponse } from "@opencode-ai/sdk-shared"
+import type { AssistantMessage, UnifiaClient, SessionMessageResponse } from "@opencode-ai/sdk-shared"
 
 const log = Log.create({ service: "acp-agent" })
 
@@ -14,7 +14,7 @@ export const DEFAULT_VARIANT_VALUE = "default"
 export type ModelOption = { modelId: string; name: string }
 
 async function getContextLimit(
-  sdk: OpencodeClient,
+  sdk: UnifiaClient,
   providerID: ProviderID,
   modelID: ModelID,
   directory: string,
@@ -34,7 +34,7 @@ async function getContextLimit(
 
 export async function sendUsageUpdate(
   connection: AgentSideConnection,
-  sdk: OpencodeClient,
+  sdk: UnifiaClient,
   sessionID: string,
   directory: string,
 ): Promise<void> {
@@ -163,7 +163,7 @@ export async function defaultModel(config: ACPConfig, cwd?: string): Promise<{ p
 
   if (specified && !providers.length) return specified
 
-  const opencodeProvider = providers.find((p) => p.id === "opencode")
+  const opencodeProvider = providers.find((p) => p.id === "unifia")
   if (opencodeProvider) {
     if (opencodeProvider.models["big-pickle"]) {
       return { providerID: ProviderID.opencode, modelID: ModelID.make("big-pickle") }
@@ -303,7 +303,7 @@ export function buildVariantMeta(input: {
   availableVariants: string[]
 }) {
   return {
-    opencode: {
+    unifia: {
       modelId: `${input.model.providerID}/${input.model.modelID}`,
       variant: input.variant ?? null,
       availableVariants: input.availableVariants,

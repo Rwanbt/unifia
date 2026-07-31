@@ -60,9 +60,9 @@ async function checkGit(): Promise<void> {
 
 async function checkConfig(dir: string): Promise<void> {
   const paths = [
-    path.join(dir, ".opencode", "opencode.jsonc"),
-    path.join(dir, ".opencode", "opencode.json"),
-    path.join(dir, "opencode.json"),
+    path.join(dir, ".opencode", "unifia.jsonc"),
+    path.join(dir, ".opencode", "unifia.json"),
+    path.join(dir, "unifia.json"),
   ]
 
   for (const p of paths) {
@@ -81,7 +81,7 @@ async function checkConfig(dir: string): Promise<void> {
     }
   }
   UI.println(INFO + "  No project config found (using defaults)")
-  UI.println("       Run " + UI.Style.TEXT_HIGHLIGHT + "opencode init" + UI.Style.TEXT_NORMAL + " to create one.")
+  UI.println("       Run " + UI.Style.TEXT_HIGHLIGHT + "unifia init" + UI.Style.TEXT_NORMAL + " to create one.")
 }
 
 async function detectProjectLanguages(dir: string): Promise<Set<string>> {
@@ -180,12 +180,12 @@ async function checkSystem(): Promise<void> {
 
 export const DoctorCommand = cmd({
   command: "doctor",
-  describe: "check opencode installation health",
+  describe: "check unifia installation health",
   builder: (yargs) => yargs,
   async handler() {
     const dir = process.cwd()
 
-    UI.println(UI.Style.TEXT_HIGHLIGHT_BOLD + "OpenCode Doctor" + UI.Style.TEXT_NORMAL)
+    UI.println(UI.Style.TEXT_HIGHLIGHT_BOLD + "Unifia Doctor" + UI.Style.TEXT_NORMAL)
     UI.empty()
 
     UI.println(UI.Style.TEXT_NORMAL_BOLD + "Runtime" + UI.Style.TEXT_NORMAL)

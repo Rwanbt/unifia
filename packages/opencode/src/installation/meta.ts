@@ -1,7 +1,7 @@
 declare global {
-  const OPENCODE_VERSION: string
-  const OPENCODE_CHANNEL: string
+  const UNIFIA_VERSION: string
+  const UNIFIA_CHANNEL: string
 }
 
-export const VERSION = typeof OPENCODE_VERSION === "string" ? OPENCODE_VERSION : "local"
-export const CHANNEL = typeof OPENCODE_CHANNEL === "string" ? OPENCODE_CHANNEL : "local"
+export const VERSION = typeof UNIFIA_VERSION === "string" ? UNIFIA_VERSION : "local"
+export const CHANNEL = typeof UNIFIA_CHANNEL === "string" ? UNIFIA_CHANNEL : "local"
