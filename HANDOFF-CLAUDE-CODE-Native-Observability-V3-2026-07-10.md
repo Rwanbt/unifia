@@ -20,7 +20,7 @@
 
 ## Verified
 
-Run from `packages/opencode`, with TEMP/TMP set to `D:\App\OpenCode\.build-temp`:
+Run from `packages/opencode`, with TEMP/TMP set to `D:\App\Unifia\.build-temp`:
 
 ```powershell
 bun test test/observability --timeout 30000
@@ -70,6 +70,6 @@ git -c core.hooksPath=NUL commit --no-verify -m "type(scope): message"
 
 ## Checkpoint locations
 
-- GStack: `C:\Users\barat\.gstack\projects\opencode\checkpoints\20260710-150000-native-observability-v3.md`
-- Obsidian plan: `D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\Plan-Native-Observability-V3-2026-07-10.md`
-- Obsidian checklist: `D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\Checklist-P0-Native-Observability-V3-2026-07-10.md`
+- GStack: `C:\Users\barat\.gstack\projects\unifia\checkpoints\20260710-150000-native-observability-v3.md`
+- Obsidian plan: `D:\Documents\Obsidian\IA_Dev_Brain\Unifia\Plan-Native-Observability-V3-2026-07-10.md`
+- Obsidian checklist: `D:\Documents\Obsidian\IA_Dev_Brain\Unifia\Checklist-P0-Native-Observability-V3-2026-07-10.md`

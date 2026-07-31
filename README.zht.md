@@ -54,7 +54,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Orchestration, API surface, governance
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | Open source                            |       ✅       |      ❌      |  partial  |      ✅     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |    ❌    |     ✅     |   ✅   |     ✅     |
 | BYOM (bring your own model)            |       ✅       |      ❌      |     ❌     |      ❌     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |  partial |     ✅     |   ✅   |   partial  |
@@ -73,7 +73,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Intelligence, context, developer UX
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | LSP integration (go-to-def, diagnostics) | ✅           |   partial    |  partial  |   partial   |          ✅          | partial | partial | ✅   |    ✅     |    ✅    |     ✅     | partial |  partial  |
 | Plugin SDK (`@opencode/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
@@ -86,7 +86,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Platform reach & multimodal
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | First-class **Android app**            | ✅ **unique**  |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
 | iOS (remote mode)                      |       ✅       |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ 速覽
 
-Unifia Workbench（fork 版）— 可在 **桌面、伺服器和手機** 上執行的 AI 編碼代理，端到端本地模型，無需雲端依賴，內建企業級治理。由 [Rwanbt](https://github.com/Rwanbt) 維護的 [anomalyco/opencode](https://github.com/anomalyco/opencode) 分支。
+Unifia Workbench（fork 版）— 可在 **桌面、伺服器和手機** 上執行的 AI 編碼代理，端到端本地模型，無需雲端依賴，內建企業級治理。由 [Rwanbt](https://github.com/Rwanbt) 維護的 [anomalyco/opencode](https:// PROT 6 PROT  分支。
 
 ### Install
 
@@ -139,8 +139,8 @@ curl -fsSL https://opencode.ai/install | bash
 ### 執行你的第一個任務
 
 ```bash
-opencode                                  # TUI
-opencode run "fix the failing test in src/"   # one-shot
+unifia                                  # TUI
+unifia run "fix the failing test in src/"   # one-shot
 ```
 
 > 💡 需要細節？下面每個部分預設收合 — 點擊展開你關心的部分。
@@ -156,7 +156,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 ## Fork 功能
 
-> 這是 [anomalyco/opencode](https://github.com/anomalyco/opencode) 的 fork，由 [Rwanbt](https://github.com/Rwanbt) 維護。
+> 這是 [anomalyco/opencode](https:// PROT 4 PROT  的 fork，由 [Rwanbt](https://github.com/Rwanbt) 維護。
 > 與上游保持同步。查看 [dev 分支](https://github.com/Rwanbt/opencode/tree/dev) 了解最新變更。
 
 #### 本地優先 AI
@@ -174,7 +174,7 @@ Unifia Workbench 在消費級硬體（VRAM 8 GB / RAM 16 GB）上本地執行 AI
 - **執行時自適應配置**（`packages/opencode/src/local-llm-server/auto-config.ts`）：`n_gpu_layers`、執行緒數、batch/ubatch 大小、KV 快取量化與上下文大小，皆根據偵測到的 VRAM、可用 RAM、big.LITTLE CPU 拆分、GPU 後端（CUDA/ROCm/Vulkan/Metal/OpenCL）與熱狀態推導而來。取代舊的硬編碼 `--n-gpu-layers 99` — 4 GB Android 現在以 CPU 回退執行而非被 OOM 殺死，旗艦桌機取得調校後的 batch 而非預設的 512。
 - `--flash-attn on` — Flash Attention 提升記憶體效率
 - `--cache-type-k/v` — llama.cpp 標準量化；根據 VRAM 餘量自適應分層（f16 / q8_0 / q4_0）
-- `--fit on` — 僅分支版本的次要 VRAM 調整（透過 `OPENCODE_LLAMA_ENABLE_FIT=1` 啟用）
+- `--fit on` — 僅分支版本的次要 VRAM 調整（透過 `UNIFIA_LLAMA_ENABLE_FIT=1` 啟用）
 - 推測性解碼（`--model-draft`）及 VRAM 守衛（可用空間 < 4 GB 時自動停用）
 - 單槽位（`-np 1`）最小化記憶體佔用
 - **基準測試工具**（`bun run bench:llm`）：每個模型、每次執行均可重現地測量 FTL / TPS / 尖峰 RSS / 牆鐘時間，JSONL 輸出供 CI 歸檔
@@ -259,7 +259,7 @@ Unifia Workbench 在消費級硬體（VRAM 8 GB / RAM 16 GB）上本地執行 AI
 
 #### MCP 代理範圍
 
-按代理的 MCP 伺服器允許/拒絕清單。在 `opencode.json` 中各代理的 `mcp` 欄位進行設定。`toolsForAgent()` 函式根據呼叫代理的範圍篩選可用的 MCP 工具。
+按代理的 MCP 伺服器允許/拒絕清單。在 `unifia.json` 中各代理的 `mcp` 欄位進行設定。`toolsForAgent()` 函式根據呼叫代理的範圍篩選可用的 MCP 工具。
 
 ```json
 {
@@ -450,7 +450,7 @@ Model Context Protocol 用戶端與伺服器。支援 stdio、HTTP/SSE 和 Strea
 | 能力 | Status | Notes |
 |------|--------|-------|
 | Mobile app (Tauri) | Implemented | Android：嵌入式執行時、裝置端 LLM、STT + TTS (Kokoro)。iOS：遠端模式 |
-| **OAuth 回呼深層連結** | Implemented | `opencode://oauth/callback?providerID=…&code=…&state=…` 自動完成 token 交換；無需複製貼上驗證碼 |
+| **OAuth 回呼深層連結** | Implemented | `unifia://oauth/callback?providerID=…&code=…&state=…` 自動完成 token 交換；無需複製貼上驗證碼 |
 | **上游分支監視器** | Implemented | 週期性 `git fetch`（暖身 30 秒，間隔 5 分鐘）在本地 HEAD 與追蹤的 upstream 分叉時觸發 `vcs.branch.behind`；透過 `platform.notify()` 於桌面與行動端呈現 |
 | **依 viewport 尺寸啟動 PTY** | Implemented | `Pty.create({cols, rows})` 使用來自 `window.innerWidth/innerHeight` 的估算器 — shell 直接以最終尺寸啟動，而非 80×24→36×11，修復 mksh/bash 在 Android 上首個 prompt 不可見的 bug |
 | Collaborative mode | Experimental | JWT auth, presence, file locking, WebSocket broadcast |
@@ -557,7 +557,7 @@ graph TB
 | 功能 | 描述 |
 |------|------|
 | **MCP 合規** | 完整的 Model Context Protocol 支援 — 用戶端/伺服器模式，透過允許/拒絕清單實現按代理工具範圍 |
-| **上下文檔案** | `.opencode/` 目錄，`opencode.jsonc` 組態檔。代理以帶 YAML 前置元資料的 Markdown 定義。透過 `instructions` 組態自訂指令 |
+| **上下文檔案** | `.opencode/` 目錄，`unifia.jsonc` 組態檔。代理以帶 YAML 前置元資料的 Markdown 定義。透過 `instructions` 組態自訂指令 |
 | **供應商路由器** | 透過 `Provider.parseModel("provider/model")` 支援 25+ 個供應商。自動回退、成本追蹤、token 感知路由 |
 | **RAG 系統** | 選用的本地向量搜尋（`experimental.rag`），可設定嵌入模型（OpenAI/Google）。自動索引已修改檔案 |
 | **AnythingLLM 橋接** | 選用整合（`experimental.anythingllm`）— 上下文注入、MCP 伺服器轉接器、向量儲存橋接、Agent Skills HTTP API |
@@ -652,15 +652,15 @@ Unifia Workbench 與 AnythingLLM 文件 RAG 平台之間的橋接。已實作：
 curl -fsSL https://opencode.ai/install | bash
 
 # 套件管理員
-npm i -g opencode-ai@latest        # 也可使用 bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
+npm i -g unifia-ai@latest        # 也可使用 bun/pnpm/yarn
+scoop install unifia             # Windows
+choco install unifia             # Windows
 brew install anomalyco/tap/opencode # macOS 與 Linux（推薦，始終保持最新）
-brew install opencode              # macOS 與 Linux（官方 brew formula，更新頻率較低）
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # 任何作業系統
-nix run nixpkgs#opencode           # 或使用 github:anomalyco/opencode 以取得最新開發分支
+brew install unifia              # macOS 與 Linux（官方 brew formula，更新頻率較低）
+sudo pacman -S unifia            # Arch Linux (Stable)
+paru -S unifia-bin               # Arch Linux (Latest from AUR)
+mise use -g unifia               # 任何作業系統
+nix run nixpkgs#unifia           # 或使用 github:anomalyco/opencode 以取得最新開發分支
 ```
 
 > [!TIP]
@@ -668,18 +668,18 @@ nix run nixpkgs#opencode           # 或使用 github:anomalyco/opencode 以取�
 
 ### 桌面應用程式 (BETA)
 
-Unifia Workbench 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [opencode.ai/download](https://opencode.ai/download) 下載。
+Unifia Workbench 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [unifia.ai/download](https://opencode.ai/download) 下載。
 
 | 平台                  | 下載連結                              |
 | --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
+| macOS (Apple Silicon) | `unifia-desktop-darwin-aarch64.dmg` |
+| macOS (Intel)         | `unifia-desktop-darwin-x64.dmg`     |
+| Windows               | `unifia-desktop-windows-x64.exe`    |
 | Linux                 | `.deb`, `.rpm`, 或 AppImage           |
 
 ```bash
 # macOS (Homebrew Cask)
-brew install --cask opencode-desktop
+brew install --cask unifia-desktop
 # Windows (Scoop)
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
@@ -688,14 +688,14 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 
 安裝腳本會依據以下優先順序決定安裝路徑：
 
-1. `$OPENCODE_INSTALL_DIR` - 自定義安裝目錄
+1. `$UNIFIA_INSTALL_DIR` - 自定義安裝目錄
 2. `$XDG_BIN_DIR` - 符合 XDG 基礎目錄規範的路徑
 3. `$HOME/bin` - 標準使用者執行檔目錄 (若存在或可建立)
 4. `$HOME/.opencode/bin` - 預設備用路徑
 
 ```bash
 # 範例
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+UNIFIA_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
 XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 ```
 
@@ -723,7 +723,7 @@ Unifia Workbench 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換�
 
 ### 基於 Unifia Workbench 進行開發
 
-如果您正在開發與 Unifia Workbench 相關的專案，並在名稱中使用了 "opencode"（例如 "opencode-dashboard" 或 "opencode-mobile"），請在您的 README 中加入聲明，說明該專案並非由 Unifia Workbench 團隊開發，且與我們沒有任何隸屬關係。
+如果您正在開發與 Unifia Workbench 相關的專案，並在名稱中使用了 "unifia"（例如 "unifia-dashboard" 或 "unifia-mobile"），請在您的 README 中加入聲明，說明該專案並非由 Unifia Workbench 團隊開發，且與我們沒有任何隸屬關係。
 
 ### 常見問題 (FAQ)
 

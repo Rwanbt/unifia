@@ -26,7 +26,7 @@ target
 .direnv/
 
 # Local dev files
-opencode-dev
+unifia-dev
 UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
@@ -49,7 +49,7 @@ crates/opencode-kokoro-shared/Cargo.lock
 # Local LLM eval results
 packages/opencode/test/tool/eval-results/
 
-# Claude Code / OpenCode agent workspace
+# Claude Code / Unifia agent workspace
 .claudeignore
 .opencode/
 

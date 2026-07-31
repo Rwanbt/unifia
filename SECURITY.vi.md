@@ -20,7 +20,7 @@ Nếu bạn cần cách ly thực sự, hãy chạy Unifia Workbench bên trong 
 
 ### Chế độ máy chủ
 
-Chế độ máy chủ chỉ là opt-in. Khi được bật, đặt `OPENCODE_SERVER_PASSWORD` để yêu cầu HTTP Basic Auth. Nếu không có điều này, máy chủ chạy không xác thực (với cảnh báo). Người dùng cuối có trách nhiệm bảo vệ máy chủ — bất kỳ chức năng nào nó cung cấp đều không phải là lỗ hổng.
+Chế độ máy chủ chỉ là opt-in. Khi được bật, đặt `UNIFIA_SERVER_PASSWORD` để yêu cầu HTTP Basic Auth. Nếu không có điều này, máy chủ chạy không xác thực (với cảnh báo). Người dùng cuối có trách nhiệm bảo vệ máy chủ — bất kỳ chức năng nào nó cung cấp đều không phải là lỗ hổng.
 
 ### Ngoài phạm vi
 

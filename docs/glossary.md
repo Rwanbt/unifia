@@ -1,6 +1,6 @@
-# Glossaire OpenCode
+# Glossaire Unifia
 
-Définitions opérationnelles des termes utilisés dans le code. Pour chaque terme, la définition précise dans le contexte OpenCode, pas une définition générique.
+Définitions opérationnelles des termes utilisés dans le code. Pour chaque terme, la définition précise dans le contexte Unifia, pas une définition générique.
 
 ## Session
 
@@ -36,7 +36,7 @@ Pattern d'extraction : `createXxx(deps: XxxDeps)` installe ses propres effects e
 
 ## MCP
 
-Model Context Protocol — protocole JSON-RPC permettant aux LLMs d'appeler des outils externes via des serveurs MCP. OpenCode agit comme client MCP.
+Model Context Protocol — protocole JSON-RPC permettant aux LLMs d'appeler des outils externes via des serveurs MCP. Unifia agit comme client MCP.
 
 **Module** : `packages/opencode/src/mcp/`
 

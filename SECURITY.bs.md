@@ -20,7 +20,7 @@ Ako trebate stvarnu izolaciju, pokrenite Unifia Workbench unutar Docker kontejne
 
 ### Serverski režim
 
-Serverski režim je isključivo opt-in. Kad je omogućen, postavite `OPENCODE_SERVER_PASSWORD` kako biste zahtijevali HTTP Basic Auth. Bez toga server radi bez autentifikacije (uz upozorenje). Odgovornost je krajnjeg korisnika da zaštiti server — bilo koja funkcionalnost koju pruža nije ranjivost.
+Serverski režim je isključivo opt-in. Kad je omogućen, postavite `UNIFIA_SERVER_PASSWORD` kako biste zahtijevali HTTP Basic Auth. Bez toga server radi bez autentifikacije (uz upozorenje). Odgovornost je krajnjeg korisnika da zaštiti server — bilo koja funkcionalnost koju pruža nije ranjivost.
 
 ### Izvan opsega
 

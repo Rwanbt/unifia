@@ -1,4 +1,4 @@
-# KNOWN ISSUES — OpenCode Fork
+# KNOWN ISSUES — Unifia Fork
 
 > Consolidation of known bugs, in-flight fixes, and documented limitations.
 > Updated: 2026-04-17 (post A.* + B.* + features/security session).
@@ -77,7 +77,7 @@ Android terminal and speech stack:
 - **Git upstream watcher** — `Vcs.Event.BranchBehind` published every 5 min
   (warm-up 30 s) when the tracked upstream diverges; UI forwards to
   `platform.notify()` on desktop + mobile.
-- **OAuth deep-link callback** — `opencode://oauth/callback?providerID=…&code=…`
+- **OAuth deep-link callback** — `unifia://oauth/callback?providerID=…&code=…`
   auto-finalises the token exchange; `dialog-connect-provider.tsx` listens on
   the `oauthCallbackEvent` window event.
 - **Terminal first-prompt visible on mobile** — `Pty.CreateInput` accepts
@@ -117,7 +117,7 @@ preserved).
 
 | Limitation | Workaround |
 |---|---|
-| No automatic GPU/VRAM detection on older SOC | Manual override via env vars (`OPENCODE_N_GPU_LAYERS`, `OPENCODE_KV_CACHE_TYPE`) |
+| No automatic GPU/VRAM detection on older SOC | Manual override via env vars (`UNIFIA_N_GPU_LAYERS`, `UNIFIA_KV_CACHE_TYPE`) |
 | ORT Android binaries must be extracted locally | Set `ORT_LIB_LOCATION=D:/tmp/ort-android` before `tauri android build` |
 | Xiaomi MIUI blocks `adb shell input` by default | Enable "USB debugging (Security settings)" in developer options |
 | One llama-server (port 14097) per process tree | Verified by atomic owner.pid, new CLI connects to the existing server instead of spawning a duplicate |

@@ -1,4 +1,4 @@
-# Ownership Map — OpenCode Fork
+# Ownership Map — Unifia Fork
 
 Carte de possession des modules. Mise à jour après chaque extraction majeure.
 

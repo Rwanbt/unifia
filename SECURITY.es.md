@@ -20,7 +20,7 @@ Si necesitas aislamiento real, ejecuta Unifia Workbench dentro de un contenedor 
 
 ### Modo servidor
 
-El modo servidor es opcional. Cuando se activa, establece `OPENCODE_SERVER_PASSWORD` para requerir HTTP Basic Auth. Sin esto, el servidor corre sin autenticación (con un aviso). Es responsabilidad del usuario final proteger el servidor — cualquier funcionalidad que proporcione no es una vulnerabilidad.
+El modo servidor es opcional. Cuando se activa, establece `UNIFIA_SERVER_PASSWORD` para requerir HTTP Basic Auth. Sin esto, el servidor corre sin autenticación (con un aviso). Es responsabilidad del usuario final proteger el servidor — cualquier funcionalidad que proporcione no es una vulnerabilidad.
 
 ### Fuera del alcance
 

@@ -1,6 +1,6 @@
-# OpenCode Fork — Architecture
+# Unifia Fork — Architecture
 
-> Vue d'ensemble de l'architecture du fork OpenCode (agent IA polyvalent local+cloud).
+> Vue d'ensemble de l'architecture du fork Unifia (agent IA polyvalent local+cloud).
 > Dernière vérification : 2026-04-17.
 
 ---
@@ -127,7 +127,7 @@ Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages
 - **`server.rs`** — `RemoteConfig` persistant (UUID + password), toggle `tls_enabled`.
 - **`speech.rs`** — STT (Parakeet ONNX) + TTS (Pocket TTS sidecar + Kokoro ONNX) ; voice clone via WAV stockage `speech/voices/`.
 - **Sidecars** : `llama-server`, `opencode-cli` bundlés. `pocket-tts` détecté via `find_pocket_tts()` (Python requis).
-- **Deep-link** : schémas `opencode://open-project`, `opencode://new-session`, `opencode://connect` (QR pairing), `opencode://oauth/callback` (finalisation OAuth). Parseurs dans [`packages/app/src/pages/layout/deep-links.ts`](../packages/app/src/pages/layout/deep-links.ts).
+- **Deep-link** : schémas `unifia://open-project`, `unifia://new-session`, `unifia://connect` (QR pairing), `unifia://oauth/callback` (finalisation OAuth). Parseurs dans [`packages/app/src/pages/layout/deep-links.ts`](../packages/app/src/pages/layout/deep-links.ts).
 - **Devtools** : non force-enable — comportement Tauri par défaut (debug-only) restauré (cf. [SECURITY_AUDIT.md](../SECURITY_AUDIT.md) §1).
 
 ---
@@ -136,13 +136,13 @@ Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages
 
 [packages/mobile/src-tauri/](../packages/mobile/src-tauri/)
 
-- **`lib.rs`** — entry Tauri mobile, init chaîne de logging (`android_logger` → logcat tag `OpenCode`).
+- **`lib.rs`** — entry Tauri mobile, init chaîne de logging (`android_logger` → logcat tag `Unifia`).
 - **`llm.rs`** — commandes `list_models`, `download_model`, `load_llm_model`, `check_llm_health`, `set_llm_config`, `get_memory_info`, `llm_idle_tick` (visibilitychange hook).
 - **`speech.rs`** — STT Parakeet (5 commandes) + TTS Kokoro (6 commandes : `kokoro_available/download_model/load/loaded/voices/synthesize`) + voice clone WAV storage (3 commandes — non utilisées tant qu'un voice encoder n'est pas ajouté).
 - **`kokoro/`** — engine ONNX `CPUExecutionProvider` + G2P CMUDict embarqué (140k entries `assets/cmudict.dict`).
 - **`runtime.rs`** — détection plateforme, chemins d'extraction du runtime.
 - **`proxy.rs`** — port proxy LAN (`AtomicU16` + `compare_exchange`, cf. B.A6).
-- **`AndroidManifest.xml`** — permissions (FOREGROUND_SERVICE_SPECIAL_USE, POST_NOTIFICATIONS, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, storage), service `.LlamaService` foreground, deep-link dual-scheme (https://opencode.ai + opencode://).
+- **`AndroidManifest.xml`** — permissions (FOREGROUND_SERVICE_SPECIAL_USE, POST_NOTIFICATIONS, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, storage), service `.LlamaService` foreground, deep-link dual-scheme (https://opencode.ai + unifia://).
 - **`LlamaService.kt` + `MainActivity.kt`** — foreground service API 34+ avec `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` — garde le process tree à `adj=0` (exempt PhantomProcessKiller).
 - **`RustWebChromeClient.kt`** (auto-généré Tauri) — forwarde `AUDIO_CAPTURE` à la runtime permission dialog quand le WebView appelle `getUserMedia({audio:true})`.
 - **Bundle** : APK + ORT Android libs (externe, `D:/tmp/ort-android`, env `ORT_LIB_LOCATION`).

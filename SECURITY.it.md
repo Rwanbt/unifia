@@ -20,7 +20,7 @@ Se hai bisogno di un vero isolamento, esegui Unifia Workbench all'interno di un 
 
 ### Modalità server
 
-La modalità server è opt-in. Quando attiva, imposta `OPENCODE_SERVER_PASSWORD` per richiedere HTTP Basic Auth. Senza, il server gira non autenticato (con avviso). È responsabilità dell'utente finale proteggere il server — qualsiasi funzionalità offerta non è una vulnerabilità.
+La modalità server è opt-in. Quando attiva, imposta `UNIFIA_SERVER_PASSWORD` per richiedere HTTP Basic Auth. Senza, il server gira non autenticato (con avviso). È responsabilità dell'utente finale proteggere il server — qualsiasi funzionalità offerta non è una vulnerabilità.
 
 ### Fuori ambito
 

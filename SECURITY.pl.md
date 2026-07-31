@@ -20,7 +20,7 @@ Jeśli potrzebujesz prawdziwej izolacji, uruchom Unifia Workbench wewnątrz kont
 
 ### Tryb serwera
 
-Tryb serwera jest wyłącznie opt-in. Po włączeniu ustaw `OPENCODE_SERVER_PASSWORD`, aby wymagać HTTP Basic Auth. Bez tego serwer działa bez uwierzytelniania (z ostrzeżeniem). Zabezpieczenie serwera jest obowiązkiem użytkownika końcowego — jakakolwiek funkcjonalność, którą oferuje, nie jest podatnością.
+Tryb serwera jest wyłącznie opt-in. Po włączeniu ustaw `UNIFIA_SERVER_PASSWORD`, aby wymagać HTTP Basic Auth. Bez tego serwer działa bez uwierzytelniania (z ostrzeżeniem). Zabezpieczenie serwera jest obowiązkiem użytkownika końcowego — jakakolwiek funkcjonalność, którą oferuje, nie jest podatnością.
 
 ### Poza zakresem
 

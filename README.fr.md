@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Bannière OpencodeX.png" alt="RBannière OpencodeX" >
+  <img src="Bannière UnifiaX.png" alt="RBannière UnifiaX" >
   <a href="https://github.com/Rwanbt/opencode">
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
@@ -55,7 +55,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Orchestration, API surface, governance
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | Open source                            |       ✅       |      ❌      |  partial  |      ✅     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |    ❌    |     ✅     |   ✅   |     ✅     |
 | BYOM (bring your own model)            |       ✅       |      ❌      |     ❌     |      ❌     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |  partial |     ✅     |   ✅   |   partial  |
@@ -74,7 +74,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Intelligence, context, developer UX
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | LSP integration (go-to-def, diagnostics) | ✅           |   partial    |  partial  |   partial   |          ✅          | partial | partial | ✅   |    ✅     |    ✅    |     ✅     | partial |  partial  |
 | Plugin SDK (`@opencode/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
@@ -87,7 +87,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 #### Platform reach & multimodal
 
-| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | opencode (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
+| Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | First-class **Android app**            | ✅ **unique**  |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
 | iOS (remote mode)                      |       ✅       |      ❌      |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
@@ -140,8 +140,8 @@ Téléchargez un artefact depuis https://github.com/Rwanbt/opencode/releases/lat
 ### Lancer votre première tâche
 
 ```bash
-opencode                                  # TUI
-opencode run "fix the failing test in src/"   # one-shot
+unifia                                  # TUI
+unifia run "fix the failing test in src/"   # one-shot
 ```
 
 > 💡 Besoin de détails ? Chaque section ci-dessous est repliée — cliquez pour n'ouvrir que ce qui vous intéresse.
@@ -176,7 +176,7 @@ Unifia Workbench exécute des modèles IA localement sur du matériel grand publ
 _gpu_layers`, threads, taille de batch/ubatch, quantification du cache KV et taille du contexte dérivées de la VRAM détectée, de la RAM libre, du découpage CPU big.LITTLE, du backend GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) et de l'état thermique. Remplace l'ancien `--n-gpu-layers 99` codé en dur — un Android 4 Go fonctionne désormais en repli CPU au lieu d'être tué par OOM, les desktops haut de gamme obtiennent un batch ajusté au lieu du 512 par défaut.
 - `--flash-attn on` — Flash Attention pour l'efficacité mémoire
 - `--cache-type-k/v` — palier adaptatif de quantification llama.cpp standard (f16 / q8_0 / q4_0) selon la marge VRAM
-- `--fit on` — ajustement VRAM secondaire exclusif au fork (activation via `OPENCODE_LLAMA_ENABLE_FIT=1`)
+- `--fit on` — ajustement VRAM secondaire exclusif au fork (activation via `UNIFIA_LLAMA_ENABLE_FIT=1`)
 - Décodage spéculatif (`--model-draft`) avec garde VRAM (désactivation automatique si < 4 Go de marge VRAM)
 - Slot unique (`-np 1`) pour minimiser l'empreinte mémoire
 - **Harnais de benchmark** (`bun run bench:llm`) : mesure reproductible de FTL / TPS / RSS de pic / temps mur par modèle, par exécution, sortie JSONL pour archivage CI
@@ -261,7 +261,7 @@ Dialogue avec actions : ouvrir la session de tâche, annuler, reprendre, envoyer
 
 #### Portée MCP par agent
 
-Listes d'autorisation/refus par agent pour les serveurs MCP. Configurez dans `opencode.json` sous le champ `mcp` de chaque agent. La fonction `toolsForAgent()` filtre les outils MCP disponibles en fonction de la portée de l'agent appelant.
+Listes d'autorisation/refus par agent pour les serveurs MCP. Configurez dans `unifia.json` sous le champ `mcp` de chaque agent. La fonction `toolsForAgent()` filtre les outils MCP disponibles en fonction de la portée de l'agent appelant.
 
 ```json
 {
@@ -488,9 +488,9 @@ Unifia Workbench est aussi disponible en application de bureau. Téléchargez-la
 
 | Plateforme            | Téléchargement                        |
 | --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
+| macOS (Apple Silicon) | `unifia-desktop-darwin-aarch64.dmg` |
+| macOS (Intel)         | `unifia-desktop-darwin-x64.dmg`     |
+| Windows               | `unifia-desktop-windows-x64.exe`    |
 | Linux                 | `.deb`, `.rpm`, ou AppImage           |
 
 ```bash
@@ -504,7 +504,7 @@ Les paquets Scoop du fork seront ajoutes apres le rebranding.
 
 Le script d'installation respecte l'ordre de priorité suivant pour le chemin d'installation :
 
-1. `$OPENCODE_INSTALL_DIR` - Répertoire d'installation personnalisé
+1. `$UNIFIA_INSTALL_DIR` - Répertoire d'installation personnalisé
 2. `$XDG_BIN_DIR` - Chemin conforme à la spécification XDG Base Directory
 3. `$HOME/bin` - Répertoire binaire utilisateur standard (s'il existe ou peut être créé)
 4. `$HOME/.opencode/bin` - Repli par défaut

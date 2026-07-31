@@ -20,7 +20,7 @@ Hvis du har brug for ægte isolation, så kør Unifia Workbench inde i en Docker
 
 ### Servertilstand
 
-Servertilstand er kun opt-in. Når den er aktiveret, skal du sætte `OPENCODE_SERVER_PASSWORD` for at kræve HTTP Basic Auth. Uden dette kører serveren uautentificeret (med en advarsel). Det er slutbrugerens ansvar at sikre serveren — enhver funktionalitet, den tilbyder, er ikke en sårbarhed.
+Servertilstand er kun opt-in. Når den er aktiveret, skal du sætte `UNIFIA_SERVER_PASSWORD` for at kræve HTTP Basic Auth. Uden dette kører serveren uautentificeret (med en advarsel). Det er slutbrugerens ansvar at sikre serveren — enhver funktionalitet, den tilbyder, er ikke en sårbarhed.
 
 ### Uden for rammerne
 

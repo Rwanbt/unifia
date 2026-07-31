@@ -2,7 +2,7 @@
 
 # Contribuer à Unifia Workbench
 
-Nous voulons vous faciliter la contribution à OpenCode. Voici les types de changements les plus souvent mergés :
+Nous voulons vous faciliter la contribution à Unifia. Voici les types de changements les plus souvent mergés :
 
 - Corrections de bugs
 - LSPs / Formateurs supplémentaires

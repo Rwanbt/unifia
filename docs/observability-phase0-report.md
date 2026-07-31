@@ -1,5 +1,5 @@
 ---
-project: opencode
+project: unifia
 type: reference
 tags: [observability, phase-0, validation]
 summary: "Rapport de validation Phase 0 Native Observability V3 : gates, tests, limites et décision de passage en Phase 1."

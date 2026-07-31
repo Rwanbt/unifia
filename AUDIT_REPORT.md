@@ -1,6 +1,6 @@
-# AUDIT CRITIQUE — OpenCode Fork (2026-04-17)
+# AUDIT CRITIQUE — Unifia Fork (2026-04-17)
 
-> Audit indépendant du fork OpenCode (agent IA local+cloud, Bun/SolidJS/Tauri 2.0, cible Android+Desktop).
+> Audit indépendant du fork Unifia (agent IA local+cloud, Bun/SolidJS/Tauri 2.0, cible Android+Desktop).
 > Méthode : exploration en profondeur + lecture directe des zones critiques + vérification des findings.
 > Objectif : bugs subtils, logique algorithmique, gestion tokens/ressources, réactivité Android.
 
@@ -114,7 +114,7 @@ Chaque finding indique : statut de vérification (✅ vérifié, ⚠️ supposé
 
 ### A.9 — Secrets sensibles en `localStorage` (mobile) ✅
 - **Fichier** : [packages/mobile/src/entry.tsx:119-120](packages/mobile/src/entry.tsx#L119-L120), [packages/mobile/src/hooks/use-auto-start-llm.ts:58](packages/mobile/src/hooks/use-auto-start-llm.ts#L58)
-- **Observé** : `localStorage.getItem("opencode-model-config")` — JSON en clair. `setPrivateServerFp(fp)` via deep-link stocke potentiellement le fingerprint TLS dans un store non chiffré. Sur Android, toute WebView partagée ou dump de données app (`adb backup`) expose ces données.
+- **Observé** : `localStorage.getItem("unifia-model-config")` — JSON en clair. `setPrivateServerFp(fp)` via deep-link stocke potentiellement le fingerprint TLS dans un store non chiffré. Sur Android, toute WebView partagée ou dump de données app (`adb backup`) expose ces données.
 - **Impact** : fuite de pairing TLS fingerprint (fingerprinting cross-device) + config modèles (profilage VRAM disponible). Non critique seul, mais cumulatif.
 - **Fix** : migrer vers `@tauri-apps/plugin-store` avec chiffrement AES-GCM (dérivé Android Keystore), ou `EncryptedSharedPreferences` exposé via un plugin Rust.
 
@@ -177,13 +177,13 @@ Chaque finding indique : statut de vérification (✅ vérifié, ⚠️ supposé
 - **Observé** : `onCleanup(clearInterval)` en place ligne 164. Le poll ne fuit pas, mais consomme inutilement quand l'utilisateur laisse le dialog ouvert en arrière-plan.
 - **Fix** : backoff exponentiel après 3 checks OK consécutifs (5 s → 10 s → 30 s → 60 s), reset à 5 s si jamais `ok === false`.
 
-### A.19 — Deep-link : `scheme: ["opencode"]` plugin ≠ manifest double intent-filter ✅
+### A.19 — Deep-link : `scheme: ["unifia"]` plugin ≠ manifest double intent-filter ✅
 - **Fichiers** : [packages/mobile/src-tauri/tauri.conf.json:44-49](packages/mobile/src-tauri/tauri.conf.json#L44-L49) vs [AndroidManifest.xml:40-61](packages/mobile/src-tauri/gen/android/app/src/main/AndroidManifest.xml#L40-L61)
-- **Observé** : la config plugin ne déclare que `opencode`. Le manifest contient **deux** intent-filters (1) `https://opencode.ai/mobile` auto-verify, (2) `opencode://`.
-- **Impact** : l'auto-verify `https` nécessite `.well-known/assetlinks.json` hébergé sur `opencode.ai` (pas sûr qu'il existe côté fork). Si pas en place, l'app n'attrape pas les liens https et ouvre le navigateur.
+- **Observé** : la config plugin ne déclare que `unifia`. Le manifest contient **deux** intent-filters (1) `https://opencode.ai/mobile` auto-verify, (2) `unifia://`.
+- **Impact** : l'auto-verify `https` nécessite `.well-known/assetlinks.json` hébergé sur `unifia.ai` (pas sûr qu'il existe côté fork). Si pas en place, l'app n'attrape pas les liens https et ouvre le navigateur.
 - **Fix** : soit ajouter `"https"` à la config plugin si assetlinks.json est publié, soit retirer l'intent-filter https du manifest (il est auto-généré par le plugin si scheme contient https).
 
-### A.20 — ASSETLINKS.json probablement absent côté `opencode.ai` 🔎
+### A.20 — ASSETLINKS.json probablement absent côté `unifia.ai` 🔎
 - Dépendance du finding A.19.
 - **Fix** : publier ou forker le domaine de redirection pour le QR-pairing.
 

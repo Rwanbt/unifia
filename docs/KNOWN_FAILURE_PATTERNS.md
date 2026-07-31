@@ -1,4 +1,4 @@
-# Known Failure Patterns — OpenCode
+# Known Failure Patterns — Unifia
 
 > Patterns de bugs récurrents validés sur le terrain. Avant tout debug, scanner cette liste.
 > Mis à jour : 2026-05-27.
@@ -144,11 +144,11 @@ Deux étages :
 - `Not a valid dynamic program` → double-wrap (`.elf64.elf64`).
 - Échec silencieux d'un `force_symlink`/`repair_rootfs_hardlinks` → un binaire
   critique (gcc/g++) absent ; depuis D-12/D-13 ces échecs sont loggés
-  (`[OpenCode] … failed to …`), donc à scanner dans `adb logcat`.
+  (`[Unifia] … failed to …`), donc à scanner dans `adb logcat`.
 - Échec silencieux d'un `wrap_one` (cc1/collect2/binutils/rustlib) ou de la
   réécriture du wrapper / restauration `liblto_plugin.so` : depuis le
   durcissement Phase 0+ ces `let _ =` sont eux aussi loggés
-  (`[OpenCode] prepare_toolchain_wrappers: failed to …`). Un seul wrap raté
+  (`[Unifia] prepare_toolchain_wrappers: failed to …`). Un seul wrap raté
   n'avorte plus la passe (best-effort par binaire), mais laisse une trace.
 
 ---
