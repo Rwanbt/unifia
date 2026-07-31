@@ -8,3 +8,7 @@
 {"ts":"2026-07-31T08:58:30Z","event":"decision.bd7.bd8","status":"OPEN","detail":"URLs upstream OpenWork/Open Cowork à fournir"}
 {"ts":"2026-07-31T09:00:00Z","event":"phase_minus_2.start","objective":"Audit licences fork opencode"}
 {"ts":"2026-07-31T09:01:00Z","event":"phase_minus_2.deliverables","files":["LICENSE-AUDIT-UNIFIA.md","THIRD-PARTY-NOTICES.md","UPSTREAM-PROVENANCE.md","UPSTREAM-SOURCES.lock.json","ATTRIBUTION-TEMPLATE.md"],"status":"OK"}
+{"ts":"2026-07-31T09:20:36Z","event":"upstream.clone","repo":"https://github.com/different-ai/openwork","head_sha":"2c558bcffb5b686148c30bbf3dd2af7ade99492a","size_mb":276,"branches":868,"tags":2346,"ee_branches":50,"lock_file":"upstreams/openwork.git-LOCK.json","status":"OK"}
+{"ts":"2026-07-31T09:20:53Z","event":"upstream.clone","repo":"https://github.com/OpenCoworkAI/open-cowork","head_sha":"ec5bd270861fd4531bda44554766b8b5bd009242","size_mb":78,"branches":40,"tags":16,"ee_branches":0,"lock_file":"upstreams/open-cowork.git-LOCK.json","status":"OK"}
+{"ts":"2026-07-31T09:30:00Z","event":"phase_minus_1.start","objective":"Audit comparatif 3 codebases"}
+{"ts":"2026-07-31T09:35:00Z","event":"phase_minus_1.deliverables","files":["TRI-REPO-ARCHITECTURE-INVENTORY.md","FEATURE-OWNERSHIP-MATRIX.md","DUPLICATION-MATRIX.md","PORTABILITY-ASSESSMENT.md","SECURITY-GAP-MATRIX.md","IMPORT-CANDIDATES.md","DO-NOT-IMPORT.md"],"status":"OK"}
