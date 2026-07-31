@@ -17,3 +17,9 @@
 {"ts": "2026-07-31T09:50:30Z", "event": "gate.phase_0", "status": "VERIFIED", "scope": "cosmetic_rebrand", "missing": ["GOVERNANCE.md", "UPSTREAM-STRATEGY.md", "hooks pre-commit"]}
 {"ts": "2026-07-31T10:10:00Z", "event": "P0-C008.done", "sous_cartes": ["P0-C008a", "P0-C008b", "P0-C008c", "P0-C008d", "P0-C008e", "P0-C008f", "P0-C008g"], "files_installed": 130, "branch": "agent/integration"}
 {"ts": "2026-07-31T10:15:00Z", "event": "P-1-I18N-USER-SOURCE.done", "languages": 16, "files": 325, "translated_keys": 11660, "compat_fork": "14/16", "blocker": "BD-9 license missing"}
+{"ts": "2026-07-31T10:20:00Z", "event": "P0-C009-P0-C010.done", "files": ["GOVERNANCE.md", "UPSTREAM-STRATEGY.md"], "status": "INTEGRATED"}
+{"ts": "2026-07-31T10:25:00Z", "event": "P1-C011.done", "files": 16, "substitutions": 87, "status": "INTEGRATED"}
+{"ts": "2026-07-31T10:30:00Z", "event": "P1-C030.done", "files": 10, "substitutions": 32, "status": "INTEGRATED"}
+{"ts": "2026-07-31T10:35:00Z", "event": "P2-C050-suite.done", "files": 23, "substitutions": 126, "status": "INTEGRATED"}
+{"ts": "2026-07-31T10:40:00Z", "event": "gate.phase_1", "status": "PARTIAL_VERIFIED", "scope": "cosmetic_ci_rebrand"}
+{"ts": "2026-07-31T10:45:00Z", "event": "session.terminated", "commits_total": "~55", "push_count": 0, "files_modified_total": "~2300"}
