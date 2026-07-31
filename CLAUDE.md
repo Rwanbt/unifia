@@ -1,4 +1,4 @@
-# CLAUDE.md
+# CLAUDE.md — Unifia Workbench
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -7,6 +7,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ALWAYS fix ALL errors, including pre-existing ones. Never dismiss an error as "pre-existing" or "not related to our changes". If you encounter it, you fix it.
 - GPU acceleration is mandatory. Never suggest CPU-only as a solution.
 - Android builds take 5+ minutes. Never compile without thorough code verification first.
+
+
+## Unifia Workbench Context
+
+This fork is part of the **Unifia Workbench V3** initiative. See:
+- `docs/autonomy/PLAN-DIRECTEUR-V3.md` — Master plan (22 phases)
+- `docs/autonomy/TASK-GRAPH-v1.0.yaml` — Task graph aligned with the plan
+- `docs/autonomy/REPO-INVENTORY.md` — Repository inventory
+- `docs/autonomy/BLOCKED-DECISIONS.md` — Pending decisions
+
+The rebrand is currently focused on Phase 0 (cosmetic) and Phase 1 (CI harness).
+Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH dependencies.
 
 ## Anti-loop rules
 
@@ -27,10 +39,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Deployment
 
 - Desktop build: `cd packages/desktop && bun tauri build`
-- Desktop deploy: copy `packages/desktop/src-tauri/target/release/OpenCode.exe` to `C:/Users/barat/AppData/Local/OpenCode Dev/OpenCode.exe`
-- NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/@opencode-aidesktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.opencode.desktop.dev` / "OpenCode Dev".
+- Desktop deploy: copy `packages/desktop/src-tauri/target/release/Unifia.exe` to `C:/Users/barat/AppData/Local/Unifia Dev/Unifia.exe`
+- NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/@opencode-aidesktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
 - Android build: `cd packages/mobile && bun tauri android build --target aarch64` (requires `ORT_LIB_LOCATION=D:/tmp/ort-android`)
-- Sidecar (required before desktop build): `cd packages/opencode && bun run build --single --baseline`, then copy to `packages/desktop/sidecars/opencode-cli-x86_64-pc-windows-msvc.exe`
+- Sidecar (required before desktop build): `cd packages/opencode && bun run build --single --baseline  # rebranded CLI binary is `unifia``, then copy to `packages/desktop/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`
 - NEVER touch Antigravity (the IDE). NEVER kill processes that aren't ours.
 
 ---
@@ -67,7 +79,7 @@ bun run dev:desktop      # Tauri desktop with hot reload
 bun run dev:mobile-android  # Android dev build
 
 # Build
-cd packages/opencode && bun run build --single --baseline   # CLI sidecar
+cd packages/opencode && bun run build --single --baseline  # rebranded CLI binary is `unifia`   # CLI sidecar
 cd packages/desktop && bun tauri build                       # Desktop release
 cd packages/mobile && bun tauri android build --target aarch64  # Android APK
 
@@ -84,7 +96,7 @@ bun run lint
 bun run format
 ```
 
-**Critical**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline` in `packages/opencode` first and copy the output manually.
+**Critical**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline  # rebranded CLI binary is `unifia`` in `packages/opencode` first and copy the output manually.
 
 ---
 
@@ -94,7 +106,7 @@ bun run format
 
 ```
 packages/
-├── opencode/      # Core TypeScript sidecar: agent engine, REST server, CLI, all providers
+├── opencode/      # Core TypeScript sidecar: agent engine, REST server, CLI (`unifia` binary), all providers
 ├── app/           # SolidJS frontend (shared by desktop, web, mobile WebView)
 ├── desktop/       # Tauri 2.0 desktop — Rust backend (TLS, speech, local LLM orchestration)
 ├── mobile/        # Tauri 2.0 Android — Rust + Kotlin (LlamaService JNI, on-device inference)
