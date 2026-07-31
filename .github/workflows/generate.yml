@@ -31,8 +31,8 @@ jobs:
         id: committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ env.UNIFIA_APP_ID }}
-          opencode-app-secret: ${{ env.UNIFIA_APP_SECRET }}
+          unifia-app-id: ${{ env.UNIFIA_APP_ID }}
+          unifia-app-secret: ${{ env.UNIFIA_APP_SECRET }}
 
       - name: Setup fallback git committer
         if: env.UNIFIA_APP_ID == '' || env.UNIFIA_APP_SECRET == ''

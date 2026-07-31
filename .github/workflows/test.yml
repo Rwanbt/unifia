@@ -54,8 +54,8 @@ jobs:
 
       - name: Configure git identity
         run: |
-          git config --global user.email "bot@opencode.ai"
-          git config --global user.name "opencode"
+          git config --global user.email "bot@unifia.ai"
+          git config --global user.name "unifia"
 
       - name: Cache Turbo
         uses: actions/cache@v4
@@ -69,7 +69,7 @@ jobs:
       - name: Run unit tests
         run: bun turbo test:ci
         env:
-          OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
+          UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: ${{ runner.os == 'Windows' && 'true' || 'false' }}
           # Docker integration tests (ensureContainer / docker pull) are skipped on
           # Windows CI because Docker Desktop on windows-latest cannot pull images
           # reliably (network restrictions, Hub rate-limits). isDockerAvailable()
