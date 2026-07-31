@@ -266,7 +266,7 @@ export const Terminal = (props: TerminalProps) => {
     if (!http) return undefined
     return {
       url: http.url,
-      username: http.username ?? "opencode",
+      username: http.username ?? "unifia",
       password: http.password ?? "",
     }
   }

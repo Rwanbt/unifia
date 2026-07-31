@@ -332,7 +332,7 @@ export const SettingsRemoteAccess: Component = () => {
                       class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
                       value={editUsername()}
                       onInput={(e) => setEditUsername(e.currentTarget.value)}
-                      placeholder={info()?.username ?? "opencode"}
+                      placeholder={info()?.username ?? "unifia"}
                       autocomplete="off"
                       spellcheck={false}
                     />

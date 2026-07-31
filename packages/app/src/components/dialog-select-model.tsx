@@ -15,7 +15,7 @@ import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 
 const isFree = (provider: string, cost: { input: number } | undefined) =>
-  provider === "opencode" && (!cost || cost.input === 0)
+  provider === "unifia" && (!cost || cost.input === 0)
 
 type ModelState = ReturnType<typeof useLocal>["model"]
 

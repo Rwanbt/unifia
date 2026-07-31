@@ -21,7 +21,7 @@ export async function checkServerReachable(
   const fetchFn = platform.fetch ?? fetch
   const headers: Record<string, string> = {}
   if (password) {
-    headers["Authorization"] = "Basic " + btoa(`${username ?? "opencode"}:${password}`)
+    headers["Authorization"] = "Basic " + btoa(`${username ?? "unifia"}:${password}`)
   }
   try {
     const response = await fetchFn(`${cleanUrl}/doc`, {

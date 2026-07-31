@@ -457,7 +457,7 @@ export function DialogConnectProvider(props: { provider: string }) {
     return (
       <div class="flex flex-col gap-6">
         <Switch>
-          <Match when={provider().id === "opencode"}>
+          <Match when={provider().id === "unifia"}>
             <div class="flex flex-col gap-4">
               <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line1")}</div>
               <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line2")}</div>
