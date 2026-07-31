@@ -12,7 +12,7 @@ afterEach(async () => {
 
 describe("observability local HMAC secret", () => {
   test("is stable and produces a SHA-256 HMAC", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "opencode-observability-"))
+    const root = await mkdtemp(path.join(os.tmpdir(), "unifia-observability-"))
     roots.push(root)
     const first = await loadOrCreateSecret(root)
     const second = await loadOrCreateSecret(root)

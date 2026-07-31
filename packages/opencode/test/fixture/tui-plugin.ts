@@ -1,4 +1,4 @@
-import { createOpencodeClient } from "@opencode-ai/sdk-shared"
+import { createUnifiaClient } from "@opencode-ai/sdk-shared"
 import { RGBA, type CliRenderer } from "@opentui/core"
 import { createPluginKeybind } from "../../src/cli/cmd/tui/context/plugin-keybinds"
 import type { HostPluginApi } from "../../src/cli/cmd/tui/plugin/slots"
@@ -116,7 +116,7 @@ export function createTuiPluginApi(opts: Opts = {}): HostPluginApi {
   const kv: Record<string, unknown> = {}
   const count = opts.count
   const ctrl = new AbortController()
-  const own = createOpencodeClient({
+  const own = createUnifiaClient({
     baseUrl: "http://localhost:4096",
   })
   const fallback = () => own
@@ -135,7 +135,7 @@ export function createTuiPluginApi(opts: Opts = {}): HostPluginApi {
   let depth = 0
   let size: "medium" | "large" | "xlarge" = "medium"
   const has = opts.theme?.has ?? (() => false)
-  let selected = opts.theme?.selected ?? "opencode"
+  let selected = opts.theme?.selected ?? "unifia"
   const key = {
     match: opts.keybind?.match ?? (() => false),
     print: opts.keybind?.print ?? ((name: string) => name),

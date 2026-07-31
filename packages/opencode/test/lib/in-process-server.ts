@@ -2,7 +2,7 @@
  * In-process server helper (Sprint 5 — item 3).
  *
  * Boots the production `Server.listen` on a random local port using the
- * existing bun-test preload (OPENCODE_DB=:memory:, XDG_* rooted in a tmpdir).
+ * existing bun-test preload (UNIFIA_DB=:memory:, XDG_* rooted in a tmpdir).
  * Intended for e2e tests that want to hit real HTTP routes without standing
  * up a separate process.
  *
@@ -15,7 +15,7 @@
  *   }
  *
  * Caller is responsible for setting up any required auth state (e.g. via
- * `OPENCODE_SERVER_PASSWORD`). For provider calls, pair with `createMockProvider`
+ * `UNIFIA_SERVER_PASSWORD`). For provider calls, pair with `createMockProvider`
  * or `TestLLMServer` to avoid real network.
  *
  * Known limits — acknowledged for Sprint 5:
@@ -36,17 +36,17 @@ export interface InProcessServer {
 }
 
 export interface InProcessServerOptions {
-  /** Basic-auth password for the server. Set via OPENCODE_SERVER_PASSWORD env. */
+  /** Basic-auth password for the server. Set via UNIFIA_SERVER_PASSWORD env. */
   password?: string
-  /** Basic-auth username. Default "opencode". */
+  /** Basic-auth username. Default "unifia". */
   username?: string
   /** Additional env overrides applied before boot and restored on close. */
   env?: Record<string, string | undefined>
 }
 
 export async function withInProcessServer(opts: InProcessServerOptions = {}): Promise<InProcessServer> {
-  const prevPassword = process.env.OPENCODE_SERVER_PASSWORD
-  const prevUsername = process.env.OPENCODE_SERVER_USERNAME
+  const prevPassword = process.env.UNIFIA_SERVER_PASSWORD
+  const prevUsername = process.env.UNIFIA_SERVER_USERNAME
   const saved: Record<string, string | undefined> = {}
   if (opts.env) {
     for (const k of Object.keys(opts.env)) {
@@ -55,8 +55,8 @@ export async function withInProcessServer(opts: InProcessServerOptions = {}): Pr
       else process.env[k] = opts.env[k] as string
     }
   }
-  if (opts.password !== undefined) process.env.OPENCODE_SERVER_PASSWORD = opts.password
-  if (opts.username !== undefined) process.env.OPENCODE_SERVER_USERNAME = opts.username
+  if (opts.password !== undefined) process.env.UNIFIA_SERVER_PASSWORD = opts.password
+  if (opts.username !== undefined) process.env.UNIFIA_SERVER_USERNAME = opts.username
 
   const server = Server.listen({ port: 0, hostname: "127.0.0.1" })
   const port = server.port ?? 0
@@ -75,10 +75,10 @@ export async function withInProcessServer(opts: InProcessServerOptions = {}): Pr
       // test file using this harness under F1 without this.
       await Instance.disposeAll().catch(() => {})
       // restore env
-      if (prevPassword === undefined) delete process.env.OPENCODE_SERVER_PASSWORD
-      else process.env.OPENCODE_SERVER_PASSWORD = prevPassword
-      if (prevUsername === undefined) delete process.env.OPENCODE_SERVER_USERNAME
-      else process.env.OPENCODE_SERVER_USERNAME = prevUsername
+      if (prevPassword === undefined) delete process.env.UNIFIA_SERVER_PASSWORD
+      else process.env.UNIFIA_SERVER_PASSWORD = prevPassword
+      if (prevUsername === undefined) delete process.env.UNIFIA_SERVER_USERNAME
+      else process.env.UNIFIA_SERVER_USERNAME = prevUsername
       if (opts.env) {
         for (const k of Object.keys(opts.env)) {
           if (saved[k] === undefined) delete process.env[k]

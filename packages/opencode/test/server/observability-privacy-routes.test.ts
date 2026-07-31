@@ -14,7 +14,7 @@ import { ObservabilityId } from "../../src/observability/id"
 // session/project must 404, never silently act on someone else's scope.
 
 const PASSWORD = "observability-privacy-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

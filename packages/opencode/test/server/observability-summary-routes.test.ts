@@ -12,7 +12,7 @@ import { ObservabilityId } from "../../src/observability/id"
 // the same real-ownership check as the events routes.
 
 const PASSWORD = "observability-summary-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

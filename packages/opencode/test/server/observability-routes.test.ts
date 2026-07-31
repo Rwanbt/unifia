@@ -14,7 +14,7 @@ import { parseObservabilityEvent } from "../../src/observability/event-schema"
 // underlying logic (capture-policy.ts, service.ts) live in test/observability.
 
 const PASSWORD = "observability-routes-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

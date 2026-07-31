@@ -11,7 +11,7 @@ import { Vcs } from "../../src/project/vcs"
 // Previously also skipped whenever process.env.CI was set, on the assumption
 // that the native @parcel/watcher binding wasn't reliably available in CI.
 // That specific assumption was stale on Windows: test.yml sets
-// OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER=true there, which makes
+// UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER=true there, which makes
 // FileWatcher.init() a no-op (watcher.ts:79) regardless of the binding, so
 // .git/HEAD change events can never fire on Windows CI — confirmed via a
 // real unit(windows) CI run. Whether hasNativeBinding() itself succeeds on
@@ -23,7 +23,7 @@ import { Vcs } from "../../src/project/vcs"
 const nativeBindingAvailable = FileWatcher.hasNativeBinding()
 if (!nativeBindingAvailable) console.error("[vcs.test.ts] FileWatcher.hasNativeBinding() returned false")
 const describeVcs =
-  nativeBindingAvailable && process.env.OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER !== "true" ? describe : describe.skip
+  nativeBindingAvailable && process.env.UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER !== "true" ? describe : describe.skip
 
 // ---------------------------------------------------------------------------
 // Helpers

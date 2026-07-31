@@ -221,8 +221,8 @@ describe("PromptCache.stripInternalProviderMetadata", () => {
     expect((result[0] as any).content[0].providerOptions.opencodeCacheInternal).toBeUndefined()
   })
 
-  test("CRITICAL: never strips the real 'opencode' provider's own providerOptions namespace", () => {
-    // The "opencode" provider (self-hosted models via @ai-sdk/openai-compatible)
+  test("CRITICAL: never strips the real 'unifia' provider's own providerOptions namespace", () => {
+    // The "unifia" provider (self-hosted models via @ai-sdk/openai-compatible)
     // legitimately uses providerOptions.opencode for itemId / reasoning
     // continuation metadata (see ProviderTransform.message tests). The internal
     // cache marker MUST live under a different key ("opencodeCacheInternal")
@@ -230,8 +230,8 @@ describe("PromptCache.stripInternalProviderMetadata", () => {
     const messages: ModelMessage[] = [
       {
         role: "assistant",
-        providerOptions: { opencode: { itemId: "msg_123", otherOption: "value" } },
-        content: [{ type: "text", text: "hi", providerOptions: { opencode: { itemId: "msg_456" } } }],
+        providerOptions: { unifia: { itemId: "msg_123", otherOption: "value" } },
+        content: [{ type: "text", text: "hi", providerOptions: { unifia: { itemId: "msg_456" } } }],
       } as any,
     ]
     const result = PromptCache.stripInternalProviderMetadata(messages)
@@ -265,7 +265,7 @@ describe("ProviderTransform.message — flag off reproduces legacy caching exact
 })
 
 describe("PromptCache pipeline — parity with the legacy path when no compaction marker is present", () => {
-  // Flag.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING is a static const evaluated
+  // Flag.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING is a static const evaluated
   // at module load from process.env, so it can't be toggled from within a test.
   // This exercises the exact PromptCache call sequence ProviderTransform.message()
   // runs on the flag-on path, without needing to flip the flag at runtime.

@@ -1666,9 +1666,9 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
   test("preserves metadata using providerID key when store is false", () => {
     const opencodeModel = {
       ...openaiModel,
-      providerID: "opencode",
+      providerID: "unifia",
       api: {
-        id: "opencode-test",
+        id: "unifia-test",
         url: "https://api.opencode.ai",
         npm: "@ai-sdk/openai-compatible",
       },
@@ -1681,7 +1681,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
             type: "text",
             text: "Hello",
             providerOptions: {
-              opencode: {
+              unifia: {
                 itemId: "msg_123",
                 otherOption: "value",
               },
@@ -1700,9 +1700,9 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
   test("preserves itemId across all providerOptions keys", () => {
     const opencodeModel = {
       ...openaiModel,
-      providerID: "opencode",
+      providerID: "unifia",
       api: {
-        id: "opencode-test",
+        id: "unifia-test",
         url: "https://api.opencode.ai",
         npm: "@ai-sdk/openai-compatible",
       },
@@ -1712,7 +1712,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
         role: "assistant",
         providerOptions: {
           openai: { itemId: "msg_root" },
-          opencode: { itemId: "msg_opencode" },
+          unifia: { itemId: "msg_opencode" },
           extra: { itemId: "msg_extra" },
         },
         content: [
@@ -1721,7 +1721,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
             text: "Hello",
             providerOptions: {
               openai: { itemId: "msg_openai_part" },
-              opencode: { itemId: "msg_opencode_part" },
+              unifia: { itemId: "msg_opencode_part" },
               extra: { itemId: "msg_extra_part" },
             },
           },

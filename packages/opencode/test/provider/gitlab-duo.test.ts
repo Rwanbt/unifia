@@ -13,7 +13,7 @@ test("GitLab Duo: loads provider with API key from environment", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
         }),
@@ -37,7 +37,7 @@ test("GitLab Duo: config instanceUrl option sets baseURL", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           provider: {
@@ -69,7 +69,7 @@ test("GitLab Duo: loads with OAuth token from auth.json", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
         }),
@@ -106,7 +106,7 @@ test("GitLab Duo: loads with Personal Access Token from auth.json", async () => 
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
         }),
@@ -142,7 +142,7 @@ test("GitLab Duo: supports self-hosted instance configuration", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           provider: {
@@ -174,7 +174,7 @@ test("GitLab Duo: config apiKey takes precedence over environment variable", asy
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           provider: {
@@ -204,7 +204,7 @@ test("GitLab Duo: includes context-1m beta header in aiGatewayHeaders", async ()
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
         }),
@@ -230,7 +230,7 @@ test("GitLab Duo: supports feature flags configuration", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           provider: {
@@ -265,7 +265,7 @@ test("GitLab Duo: has multiple agentic chat models available", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
         }),
@@ -293,7 +293,7 @@ describe("GitLab Duo: workflow model routing", () => {
   test("duo-workflow-* model routes through workflowChat", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
       },
     })
     await Instance.provide({
@@ -341,7 +341,7 @@ describe("GitLab Duo: workflow model routing", () => {
   test("duo-chat-* model routes through agenticChat (not workflow)", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
       },
     })
     await Instance.provide({
@@ -364,7 +364,7 @@ describe("GitLab Duo: workflow model routing", () => {
   test("model.options merged with provider.options in getLanguage", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
       },
     })
     await Instance.provide({
@@ -388,7 +388,7 @@ describe("GitLab Duo: static models", () => {
   test("static duo-chat models always present regardless of discovery", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ $schema: "https://opencode.ai/config.json" }))
       },
     })
     await Instance.provide({

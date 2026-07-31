@@ -11,7 +11,7 @@ import { withInProcessServer, type InProcessServer } from "../lib/in-process-ser
 import { tmpdir } from "../fixture/fixture"
 
 const PASSWORD = "lsp-routes-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 let tmpPath: string

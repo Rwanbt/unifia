@@ -21,7 +21,7 @@ import { createTraceContext } from "../../src/observability/trace-context"
 // other test file.
 describe("SQLite real full-database behavior (P0)", () => {
   test("an insert against a database at its page-count ceiling throws SQLITE_FULL", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-sqlite-full-"))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-sqlite-full-"))
     const dbPath = path.join(dir, "test.db")
     const db = new BunSqliteDatabase(dbPath)
     try {
@@ -63,7 +63,7 @@ describe("SQLite real full-database behavior (P0)", () => {
 // here against the real bun:sqlite exception shape instead of a hand-built one.
 describe("ObservabilityService classifies a real SQLITE_FULL writer failure", () => {
   test("flush() buckets it under eventsFailedFull, not the generic db bucket", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-sqlite-full-service-"))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-sqlite-full-service-"))
     const dbPath = path.join(dir, "test.db")
     const db = new BunSqliteDatabase(dbPath)
     try {

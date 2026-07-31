@@ -3,12 +3,12 @@ import { deriveConfig, type DeviceProfile } from "../../src/local-llm-server/aut
 
 let prevAllowCpu: string | undefined
 beforeAll(() => {
-  prevAllowCpu = process.env.OPENCODE_ALLOW_CPU_ONLY
-  process.env.OPENCODE_ALLOW_CPU_ONLY = "1"
+  prevAllowCpu = process.env.UNIFIA_ALLOW_CPU_ONLY
+  process.env.UNIFIA_ALLOW_CPU_ONLY = "1"
 })
 afterAll(() => {
-  if (prevAllowCpu === undefined) delete process.env.OPENCODE_ALLOW_CPU_ONLY
-  else process.env.OPENCODE_ALLOW_CPU_ONLY = prevAllowCpu
+  if (prevAllowCpu === undefined) delete process.env.UNIFIA_ALLOW_CPU_ONLY
+  else process.env.UNIFIA_ALLOW_CPU_ONLY = prevAllowCpu
 })
 
 function profile(overrides: Partial<DeviceProfile> = {}): DeviceProfile {

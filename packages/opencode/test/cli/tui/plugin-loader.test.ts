@@ -461,7 +461,7 @@ test("continues loading when a plugin is missing config metadata", async () => {
     },
   })
 
-  process.env.OPENCODE_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
+  process.env.UNIFIA_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
   const get = spyOn(TuiConfig, "get").mockResolvedValue({
     plugin: [
       [tmp.extra.badSpec, { marker: path.join(tmp.path, "bad.txt") }],
@@ -497,7 +497,7 @@ test("continues loading when a plugin is missing config metadata", async () => {
     cwd.mockRestore()
     get.mockRestore()
     wait.mockRestore()
-    delete process.env.OPENCODE_PLUGIN_META_FILE
+    delete process.env.UNIFIA_PLUGIN_META_FILE
   }
 })
 
@@ -554,7 +554,7 @@ export default {
     },
   })
 
-  process.env.OPENCODE_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
+  process.env.UNIFIA_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
   const cwd = spyOn(process, "cwd").mockImplementation(() => tmp.path)
 
   try {
@@ -564,7 +564,7 @@ export default {
   } finally {
     await TuiPluginRuntime.dispose()
     cwd.mockRestore()
-    delete process.env.OPENCODE_PLUGIN_META_FILE
+    delete process.env.UNIFIA_PLUGIN_META_FILE
 
     if (backupJson === undefined) {
       await fs.rm(globalJson, { force: true }).catch(() => {})
@@ -698,7 +698,7 @@ test("updates installed theme when plugin metadata changes", async () => {
     },
   })
 
-  process.env.OPENCODE_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
+  process.env.UNIFIA_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
   const cwd = spyOn(process, "cwd").mockImplementation(() => tmp.path)
   const wait = spyOn(TuiConfig, "waitForDependencies").mockResolvedValue()
   const install = spyOn(Config, "installDependencies").mockResolvedValue()
@@ -739,7 +739,7 @@ test("updates installed theme when plugin metadata changes", async () => {
     expect(text).toContain("#222222")
     expect(text).not.toContain("#111111")
     const list = await Filesystem.readJson<Record<string, { themes?: Record<string, { dest: string }> }>>(
-      process.env.OPENCODE_PLUGIN_META_FILE!,
+      process.env.UNIFIA_PLUGIN_META_FILE!,
     )
     expect(list["demo.theme-update"]?.themes?.[tmp.extra.themeName]?.dest).toBe(tmp.extra.dest)
   } finally {
@@ -747,6 +747,6 @@ test("updates installed theme when plugin metadata changes", async () => {
     cwd.mockRestore()
     wait.mockRestore()
     install.mockRestore()
-    delete process.env.OPENCODE_PLUGIN_META_FILE
+    delete process.env.UNIFIA_PLUGIN_META_FILE
   }
 })

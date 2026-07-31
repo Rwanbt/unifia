@@ -66,10 +66,10 @@ afterAll(() => {
   state.server?.stop()
 })
 
-const ORIGINAL_FLAG = process.env.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING
+const ORIGINAL_FLAG = process.env.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING
 afterEach(() => {
-  if (ORIGINAL_FLAG === undefined) delete process.env.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING
-  else process.env.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = ORIGINAL_FLAG
+  if (ORIGINAL_FLAG === undefined) delete process.env.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING
+  else process.env.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = ORIGINAL_FLAG
 })
 
 function anthropicEventResponse(text: string) {
@@ -129,7 +129,7 @@ async function runAnthropicStream(opts: {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           enabled_providers: [providerID],
@@ -181,7 +181,7 @@ async function runAnthropicStream(opts: {
 
 describe("Phase 3 — tool canonicalization + tool breakpoint (flag ON)", () => {
   test("same effective toolset, different insertion order, serializes identically on the wire", async () => {
-    process.env.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = "true"
+    process.env.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = "true"
     const server = state.server!
 
     const captureA = await runAnthropicStream({
@@ -206,7 +206,7 @@ describe("Phase 3 — tool canonicalization + tool breakpoint (flag ON)", () => 
   })
 
   test("the last tool (canonical order) carries a cache_control breakpoint on the wire", async () => {
-    process.env.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = "true"
+    process.env.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = "true"
     const server = state.server!
     const capture = await runAnthropicStream({
       serverOrigin: server.url.origin,
@@ -222,7 +222,7 @@ describe("Phase 3 — tool canonicalization + tool breakpoint (flag ON)", () => 
   })
 
   test("flag OFF (default): tool order mirrors caller insertion order, no cache_control on any tool", async () => {
-    delete process.env.OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING
+    delete process.env.UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING
     const server = state.server!
     const capture = await runAnthropicStream({
       serverOrigin: server.url.origin,

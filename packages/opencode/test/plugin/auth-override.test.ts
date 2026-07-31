@@ -6,7 +6,7 @@ import { Instance } from "../../src/project/instance"
 import { ProviderAuth } from "../../src/provider/auth"
 import { ProviderID } from "../../src/provider/schema"
 
-// Instance.provide starts the full OpenCode server — too slow on Windows CI (>5 min).
+// Instance.provide starts the full Unifia server — too slow on Windows CI (>5 min).
 // Covered by Linux. Skip on Windows CI to keep the suite within job timeout.
 const skipOnWindowsCI = process.env.CI === "true" && process.platform === "win32"
 

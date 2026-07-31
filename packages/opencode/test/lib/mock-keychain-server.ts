@@ -15,8 +15,8 @@
  *
  * Usage:
  *   const kc = await startMockKeychainServer()
- *   process.env.OPENCODE_KEYCHAIN_URL = kc.url
- *   process.env.OPENCODE_KEYCHAIN_TOKEN = kc.token
+ *   process.env.UNIFIA_KEYCHAIN_URL = kc.url
+ *   process.env.UNIFIA_KEYCHAIN_TOKEN = kc.token
  *   // ... exercise code under test ...
  *   await kc.close()
  */

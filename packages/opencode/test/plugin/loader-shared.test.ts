@@ -1,6 +1,6 @@
 import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test"
 
-// Instance.provide (used by every test here) starts the full OpenCode server.
+// Instance.provide (used by every test here) starts the full Unifia server.
 // On Windows CI runners (NTFS + Defender), each startup exceeds 3 min — unacceptable
 // for a 30+ test file. Linux covers this suite; skip on Windows CI.
 const skipOnWindowsCI = process.env.CI === "true" && process.platform === "win32"
@@ -10,8 +10,8 @@ import { pathToFileURL } from "url"
 import { tmpdir } from "../fixture/fixture"
 import { Filesystem } from "../../src/util/filesystem"
 
-const disableDefault = process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS
-process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1"
+const disableDefault = process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS
+process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS = "1"
 
 const { Plugin } = await import("../../src/plugin/index")
 const { PluginLoader } = await import("../../src/plugin/loader")
@@ -24,10 +24,10 @@ const { Session } = await import("../../src/session")
 
 afterAll(() => {
   if (disableDefault === undefined) {
-    delete process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS
+    delete process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS
     return
   }
-  process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = disableDefault
+  process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS = disableDefault
 })
 
 afterEach(async () => {
@@ -87,7 +87,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -120,7 +120,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -156,7 +156,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -187,7 +187,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -226,7 +226,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -263,7 +263,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         await Bun.write(path.join(scope, "index.js"), "export default { server: async () => ({}) }\n")
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: ["acme-plugin", "scope-plugin@2.3.4"] }, null, 2),
         )
 
@@ -325,7 +325,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
         await Bun.write(path.join(mod, "tui.js"), "export default {}\n")
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
 
         return {
           mod,
@@ -382,7 +382,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
           ].join("\n"),
         )
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
 
         return {
           mod,
@@ -435,7 +435,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
           ].join("\n"),
         )
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
 
         return {
           mod,
@@ -484,7 +484,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
           ].join("\n"),
         )
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: ["acme-plugin@1.0.0"] }, null, 2))
 
         return { mod, mark }
       },
@@ -545,7 +545,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
         await fs.symlink(outside, path.join(mod, "escape"), process.platform === "win32" ? "junction" : "dir")
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: ["acme-plugin"] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: ["acme-plugin"] }, null, 2))
 
         return {
           mod,
@@ -573,10 +573,10 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify(
             {
-              plugin: ["opencode-openai-codex-auth@1.0.0", "opencode-copilot-auth@1.0.0", "regular-plugin@1.0.0"],
+              plugin: ["unifia-openai-codex-auth@1.0.0", "unifia-copilot-auth@1.0.0", "regular-plugin@1.0.0"],
             },
             null,
             2,
@@ -592,8 +592,8 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
 
       const pkgs = install.mock.calls.map((call) => call[0])
       expect(pkgs).toContain("regular-plugin@1.0.0")
-      expect(pkgs).not.toContain("opencode-openai-codex-auth@1.0.0")
-      expect(pkgs).not.toContain("opencode-copilot-auth@1.0.0")
+      expect(pkgs).not.toContain("unifia-openai-codex-auth@1.0.0")
+      expect(pkgs).not.toContain("unifia-copilot-auth@1.0.0")
     } finally {
       install.mockRestore()
     }
@@ -602,7 +602,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
   test("publishes session.error when install fails", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: ["broken-plugin@9.9.9"] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: ["broken-plugin@9.9.9"] }, null, 2))
       },
     })
 
@@ -636,7 +636,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
           ].join("\n"),
         )
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: [file] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: [file] }, null, 2))
 
         return { file }
       },
@@ -656,7 +656,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
           ["export default {", '  id: "demo.invalid",', "  nope: true,", "}", ""].join("\n"),
         )
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: [file] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: [file] }, null, 2))
 
         return { file }
       },
@@ -671,7 +671,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
         const missing = pathToFileURL(path.join(dir, "missing-plugin.ts")).href
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: [missing] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: [missing] }, null, 2))
 
         return { missing }
       },
@@ -703,7 +703,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -736,7 +736,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.loader.shared", () => {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [[pathToFileURL(file).href, { source: "tuple", enabled: true }]] }, null, 2),
         )
 
@@ -789,7 +789,7 @@ export default {
 `,
         )
 
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify({ plugin: [aSpec, bSpec] }, null, 2))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify({ plugin: [aSpec, bSpec] }, null, 2))
 
         return { marker }
       },
@@ -820,7 +820,7 @@ export default {
         )
 
         await Bun.write(
-          path.join(dir, "opencode.json"),
+          path.join(dir, "unifia.json"),
           JSON.stringify({ plugin: [pathToFileURL(file).href] }, null, 2),
         )
 
@@ -828,8 +828,8 @@ export default {
       },
     })
 
-    const pure = process.env.OPENCODE_PURE
-    process.env.OPENCODE_PURE = "1"
+    const pure = process.env.UNIFIA_PURE
+    process.env.UNIFIA_PURE = "1"
 
     try {
       await load(tmp.path)
@@ -840,9 +840,9 @@ export default {
       expect(called).toBe(false)
     } finally {
       if (pure === undefined) {
-        delete process.env.OPENCODE_PURE
+        delete process.env.UNIFIA_PURE
       } else {
-        process.env.OPENCODE_PURE = pure
+        process.env.UNIFIA_PURE = pure
       }
     }
   })

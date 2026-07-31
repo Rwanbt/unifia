@@ -12,13 +12,13 @@ import { Flag } from "../../src/flag/flag"
 import { Global } from "../../src/global"
 import { ProviderRoutes } from "../../src/server/routes/provider"
 
-const originalModelsPath = Flag.OPENCODE_MODELS_PATH
+const originalModelsPath = Flag.UNIFIA_MODELS_PATH
 const originalFetch = globalThis.fetch
 const cacheFilepath = path.join(Global.Path.cache, "models.json")
 
 function setModelsPath(value: string | undefined) {
   // @ts-expect-error intentional test-only override of a Flag namespace member, restored in afterEach
-  Flag.OPENCODE_MODELS_PATH = value
+  Flag.UNIFIA_MODELS_PATH = value
 }
 
 afterEach(async () => {
@@ -29,7 +29,7 @@ afterEach(async () => {
 
 describe("POST /provider/refresh", () => {
   test("propagates a failure result from ModelsDev.refresh() as 200 with ok:false", async () => {
-    // Default test env: OPENCODE_MODELS_PATH is set by test/preload.ts, so
+    // Default test env: UNIFIA_MODELS_PATH is set by test/preload.ts, so
     // refresh() short-circuits with an explicit "managed externally" error.
     const app = ProviderRoutes()
     const response = await app.request("/refresh", { method: "POST" })
@@ -37,7 +37,7 @@ describe("POST /provider/refresh", () => {
     expect(response.status).toBe(200)
     const body = (await response.json()) as { ok: boolean; error?: string }
     expect(body.ok).toBe(false)
-    expect(body.error).toContain("OPENCODE_MODELS_PATH")
+    expect(body.error).toContain("UNIFIA_MODELS_PATH")
   })
 
   test("propagates a success result from ModelsDev.refresh() as 200 with ok:true", async () => {

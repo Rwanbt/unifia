@@ -3,8 +3,8 @@
  * Keychain endpoint runtime smoke test (Sprint 6 item 4).
  *
  * Usage:
- *   export OPENCODE_KEYCHAIN_URL=http://127.0.0.1:<port>
- *   export OPENCODE_KEYCHAIN_TOKEN=<token>
+ *   export UNIFIA_KEYCHAIN_URL=http://127.0.0.1:<port>
+ *   export UNIFIA_KEYCHAIN_TOKEN=<token>
  *   bun run packages/opencode/test/lib/keychain-smoke.ts
  *
  * How to obtain the env vars:
@@ -25,11 +25,11 @@
  *   1 — env missing or any step failed
  */
 
-const url = process.env.OPENCODE_KEYCHAIN_URL
-const token = process.env.OPENCODE_KEYCHAIN_TOKEN
+const url = process.env.UNIFIA_KEYCHAIN_URL
+const token = process.env.UNIFIA_KEYCHAIN_TOKEN
 
 if (!url || !token) {
-  console.error("ERROR: OPENCODE_KEYCHAIN_URL and OPENCODE_KEYCHAIN_TOKEN must be set.")
+  console.error("ERROR: UNIFIA_KEYCHAIN_URL and UNIFIA_KEYCHAIN_TOKEN must be set.")
   console.error("       Start the desktop shell, copy the values from its stdout, then re-run.")
   process.exit(1)
 }

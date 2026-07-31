@@ -26,7 +26,7 @@
  * Setup instructions to enable the real e2e run:
  *   1. Export `OPENCODE_E2E_PROVIDER=mock` and register a mock provider in
  *      packages/opencode/test/fake that produces deterministic answers.
- *   2. Set OPENCODE_TEST_HOME to a tmpdir and OPENCODE_DB=:memory:.
+ *   2. Set UNIFIA_TEST_HOME to a tmpdir and UNIFIA_DB=:memory:.
  *   3. Boot an in-process server (see test/server examples), then hit
  *      `POST /task` with a 3-item team spec.
  *   4. Poll `GET /task/:id` until `status === "completed"`, collect session
@@ -195,12 +195,12 @@ describe.skip("DAG team — full e2e (requires team-tool runtime bootstrap)", ()
   // Precise remaining blockers (diagnosed in Sprint 6 residual-debt cleanup):
   //
   //   1. TeamTool.execute calls `Agent.list()` + `Agent.get(name)` — resolves
-  //      from Config, which loads `opencode.json` / ~/.opencode/agents. No
+  //      from Config, which loads `unifia.json` / ~/.opencode/agents. No
   //      test-time override; would need `Agent.overrideForTest(impl)` or a
   //      test-config fixture seeded under `XDG_CONFIG_HOME/opencode/`.
   //
   //   2. `Session.create({ parentID, permission })` writes to SQLite via
-  //      `Database.use(...)`. Works under `OPENCODE_DB=:memory:`, BUT it
+  //      `Database.use(...)`. Works under `UNIFIA_DB=:memory:`, BUT it
   //      requires an active InstanceContext (preload does NOT bootstrap one).
   //      Would need `Instance.provide({ directory: tmpdir, fn })` wrapping
   //      the whole test body. See `test/lib/with-instance-for-test.ts`.
@@ -227,7 +227,7 @@ describe.skip("DAG team — full e2e (requires team-tool runtime bootstrap)", ()
   //
   // Call sites to touch to unblock (strictly additive):
   //   - `src/agent/agent.ts`  → expose `Agent.overrideForTest(list)` or read
-  //     from an `OPENCODE_AGENTS_FIXTURE` env var.
+  //     from an `UNIFIA_AGENTS_FIXTURE` env var.
   //   - `src/provider/provider.ts` → already has `OPENCODE_E2E_LLM_URL` seam.
   //   - `test/lib/with-instance-for-test.ts` → extend `init` hook to
   //     `git init` the tmpdir and write a fixture config that declares the

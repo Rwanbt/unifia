@@ -14,7 +14,7 @@ import { setTimeout as sleep } from "node:timers/promises"
  *   - Handles error cases (connection refused, malformed JSON, etc.)
  */
 
-// We need to set OPENCODE_PTY_PORT before importing android-pty
+// We need to set UNIFIA_PTY_PORT before importing android-pty
 let mockPort: number
 let mockServer: Server
 
@@ -42,11 +42,11 @@ describe("android-pty", () => {
     connections = []
 
     // Set env var BEFORE importing android-pty
-    process.env.OPENCODE_PTY_PORT = String(port)
+    process.env.UNIFIA_PTY_PORT = String(port)
   })
 
   afterEach(async () => {
-    delete process.env.OPENCODE_PTY_PORT
+    delete process.env.UNIFIA_PTY_PORT
     for (const conn of connections) {
       conn.destroy()
     }

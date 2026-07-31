@@ -18,7 +18,7 @@ import { ObservabilityId } from "../../src/observability/id"
 // actual HTTP response body assertion (not just a 200 status check) would.
 
 const PASSWORD = "observability-compare-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

@@ -5,8 +5,8 @@ import path from "path"
 import { pathToFileURL } from "url"
 import { tmpdir } from "../fixture/fixture"
 
-const disableDefault = process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS
-process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1"
+const disableDefault = process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS
+process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS = "1"
 
 const { Plugin } = await import("../../src/plugin/index")
 const { Instance } = await import("../../src/project/instance")
@@ -17,10 +17,10 @@ afterEach(async () => {
 
 afterAll(() => {
   if (disableDefault === undefined) {
-    delete process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS
+    delete process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS
     return
   }
-  process.env.OPENCODE_DISABLE_DEFAULT_PLUGINS = disableDefault
+  process.env.UNIFIA_DISABLE_DEFAULT_PLUGINS = disableDefault
 })
 
 async function project(source: string) {
@@ -29,7 +29,7 @@ async function project(source: string) {
       const file = path.join(dir, "plugin.ts")
       await Bun.write(file, source)
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify(
           {
             $schema: "https://opencode.ai/config.json",
