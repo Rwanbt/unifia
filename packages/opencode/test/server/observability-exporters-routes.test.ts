@@ -12,7 +12,7 @@ import { ObservabilityId } from "../../src/observability/id"
 // GET /observability/exporters/preview/:eventId, POST /observability/exporters/test.
 
 const PASSWORD = "observability-exporters-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

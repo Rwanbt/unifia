@@ -35,7 +35,7 @@ async function applyMigration(db: BunSqliteDatabase) {
 
 describe("SQLite real crash-recovery behavior (P0)", () => {
   test("SIGKILL during an uncommitted transaction leaves no partial row and an intact database", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-sqlite-crash-"))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-sqlite-crash-"))
     const dbPath = path.join(dir, "test.db")
     const markerPath = path.join(dir, "ready.marker")
     const eventId = "crash-test-event-01HXXXXXXXXXXXXXXXXXXXXXXX"

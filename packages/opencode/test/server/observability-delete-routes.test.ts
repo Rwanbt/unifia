@@ -16,7 +16,7 @@ import { WorkspaceID } from "../../src/control-plane/schema"
 // events routes (a foreign session id must 404, not silently delete).
 
 const PASSWORD = "observability-delete-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

@@ -17,7 +17,7 @@ import { WorkspaceID } from "../../src/control-plane/schema"
 // session -> project relation, not a client-supplied scope value).
 
 const PASSWORD = "observability-events-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

@@ -12,9 +12,9 @@ import { tmpdir } from "../fixture/fixture"
 // default for the whole suite. This file specifically tests warmup(), so it
 // opts back in — and restores the suite-wide default afterward so the
 // derogation doesn't leak into files that run later in the same bun process.
-delete process.env.OPENCODE_DISABLE_LSP_WARMUP
+delete process.env.UNIFIA_DISABLE_LSP_WARMUP
 afterAll(() => {
-  process.env.OPENCODE_DISABLE_LSP_WARMUP = "true"
+  process.env.UNIFIA_DISABLE_LSP_WARMUP = "true"
 })
 
 function withInstance(fn: (dir: string) => Promise<void>) {

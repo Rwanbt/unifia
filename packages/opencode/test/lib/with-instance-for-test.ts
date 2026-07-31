@@ -18,7 +18,7 @@
  *       collect events via `Bus.subscribeAll` today, but a dedicated test
  *       bus would prevent cross-test leakage.
  *   [ ] SessionStatus / Session / Task in-memory — these services currently
- *       hit the real SQLite DB (in-memory via OPENCODE_DB=:memory: from
+ *       hit the real SQLite DB (in-memory via UNIFIA_DB=:memory: from
  *       preload.ts). That works, but a pure in-memory variant would avoid
  *       the SQL schema coupling and make call-site mocking easier.
  *   [ ] Permission in-memory — a test-time Permission.Service that auto-grants
@@ -68,7 +68,7 @@ export async function withInstanceForTest<R>(
 ): Promise<R> {
   const directory =
     opts.directory ??
-    (await fs.mkdtemp(path.join(os.tmpdir(), "opencode-test-instance-")))
+    (await fs.mkdtemp(path.join(os.tmpdir(), "unifia-test-instance-")))
   let produced = !opts.directory
 
   try {

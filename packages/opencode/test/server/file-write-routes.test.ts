@@ -10,7 +10,7 @@ import { tmpdir } from "../fixture/fixture"
 // (directory is request-scoped via WorkspaceRouterMiddleware).
 
 const PASSWORD = "file-write-test-pw"
-const AUTH = "Basic " + Buffer.from("opencode:" + PASSWORD).toString("base64")
+const AUTH = "Basic " + Buffer.from("unifia:" + PASSWORD).toString("base64")
 
 let server: InProcessServer
 

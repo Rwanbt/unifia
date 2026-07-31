@@ -29,8 +29,8 @@ const describeWatcher = nativeBindingAvailable ? describe : describe.skip
 
 const watcherConfigLayer = ConfigProvider.layer(
   ConfigProvider.fromUnknown({
-    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: "false",
+    UNIFIA_EXPERIMENTAL_FILEWATCHER: "true",
+    UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "false",
   }),
 )
 

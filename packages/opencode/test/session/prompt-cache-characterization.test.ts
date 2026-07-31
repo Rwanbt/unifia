@@ -4,7 +4,7 @@
 // and LLM.stream()'s tool/system serialization, so that Phase 1+ has a verified
 // baseline to diff against.
 //
-// See: D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\Plan-Differe-Prompt-Cache-Apres-Compaction-et-Changement-Agent-Post-Observability-2026-07-13.md
+// See: D:\Documents\Obsidian\IA_Dev_Brain\Unifia\Plan-Differe-Prompt-Cache-Apres-Compaction-et-Changement-Agent-Post-Observability-2026-07-13.md
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test"
 import path from "path"
 import { tool, type ModelMessage } from "ai"
@@ -142,7 +142,7 @@ async function runAnthropicStream(opts: {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(dir, "unifia.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           enabled_providers: [providerID],

@@ -12,7 +12,7 @@ afterEach(async () => {
   await Instance.disposeAll()
 })
 
-// Instance.provide starts the full OpenCode server — too slow on Windows CI (>5 min per test).
+// Instance.provide starts the full Unifia server — too slow on Windows CI (>5 min per test).
 // Covered by Linux. Skip on Windows CI.
 const skipOnWindowsCI = process.env.CI === "true" && process.platform === "win32"
 

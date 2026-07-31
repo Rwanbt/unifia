@@ -159,7 +159,7 @@ describe("session.llm observability wiring", () => {
 
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify(configWithObservability(providerID, server.url.origin, "local_metadata")))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify(configWithObservability(providerID, server.url.origin, "local_metadata")))
       },
     })
 
@@ -237,7 +237,7 @@ describe("session.llm observability wiring", () => {
 
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify(configWithObservability(providerID, server.url.origin, "local_redacted")))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify(configWithObservability(providerID, server.url.origin, "local_redacted")))
       },
     })
 
@@ -300,7 +300,7 @@ describe("session.llm observability wiring", () => {
 
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(path.join(dir, "opencode.json"), JSON.stringify(configWithObservability(providerID, server.url.origin, "local_metadata")))
+        await Bun.write(path.join(dir, "unifia.json"), JSON.stringify(configWithObservability(providerID, server.url.origin, "local_metadata")))
       },
     })
 

@@ -36,7 +36,7 @@ describe("observability migration", () => {
   })
 
   test("rollback on a copied database preserves pre-existing application tables", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "opencode-observability-migration-"))
+    const root = await mkdtemp(path.join(os.tmpdir(), "unifia-observability-migration-"))
     const dbPath = path.join(root, "observability.sqlite")
     const backupPath = path.join(root, "observability.backup.sqlite")
     const db = new Database(dbPath)

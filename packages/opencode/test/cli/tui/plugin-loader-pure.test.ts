@@ -32,10 +32,10 @@ test("skips external tui plugins in pure mode", async () => {
     },
   })
 
-  const pure = process.env.OPENCODE_PURE
-  const meta = process.env.OPENCODE_PLUGIN_META_FILE
-  process.env.OPENCODE_PURE = "1"
-  process.env.OPENCODE_PLUGIN_META_FILE = tmp.extra.meta
+  const pure = process.env.UNIFIA_PURE
+  const meta = process.env.UNIFIA_PLUGIN_META_FILE
+  process.env.UNIFIA_PURE = "1"
+  process.env.UNIFIA_PLUGIN_META_FILE = tmp.extra.meta
 
   const get = spyOn(TuiConfig, "get").mockResolvedValue({
     plugin: [[tmp.extra.spec, { marker: tmp.extra.marker }]],
@@ -59,14 +59,14 @@ test("skips external tui plugins in pure mode", async () => {
     get.mockRestore()
     wait.mockRestore()
     if (pure === undefined) {
-      delete process.env.OPENCODE_PURE
+      delete process.env.UNIFIA_PURE
     } else {
-      process.env.OPENCODE_PURE = pure
+      process.env.UNIFIA_PURE = pure
     }
     if (meta === undefined) {
-      delete process.env.OPENCODE_PLUGIN_META_FILE
+      delete process.env.UNIFIA_PLUGIN_META_FILE
     } else {
-      process.env.OPENCODE_PLUGIN_META_FILE = meta
+      process.env.UNIFIA_PLUGIN_META_FILE = meta
     }
   }
 })

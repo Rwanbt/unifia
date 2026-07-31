@@ -70,7 +70,7 @@ describe("Project.fromDirectory", () => {
     expect(project.vcs).toBe("git")
     expect(project.worktree).toBe(tmp.path)
 
-    const opencodeFile = path.join(tmp.path, ".git", "opencode")
+    const opencodeFile = path.join(tmp.path, ".git", "unifia")
     expect(await Bun.file(opencodeFile).exists()).toBe(false)
   })
 
@@ -84,7 +84,7 @@ describe("Project.fromDirectory", () => {
     expect(project.vcs).toBe("git")
     expect(project.worktree).toBe(tmp.path)
 
-    const opencodeFile = path.join(tmp.path, ".git", "opencode")
+    const opencodeFile = path.join(tmp.path, ".git", "unifia")
     expect(await Bun.file(opencodeFile).exists()).toBe(true)
   })
 
@@ -183,7 +183,7 @@ describe("Project.fromDirectory with worktrees", () => {
       expect(wt.id).toBe(main.id)
 
       // Cache should live in the common .git dir, not the worktree's .git file
-      const cache = path.join(tmp.path, ".git", "opencode")
+      const cache = path.join(tmp.path, ".git", "unifia")
       const exists = await Bun.file(cache).exists()
       expect(exists).toBe(true)
     } finally {

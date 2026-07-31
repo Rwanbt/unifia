@@ -5,17 +5,17 @@
 // refresh() that had to be fixed first (see models.ts for the fix commentary):
 //   1. refresh() swallowed all errors and returned nothing exploitable.
 //   2. A corrupted/truncated fetch body could silently overwrite a good cache.
-//   3. OPENCODE_MODELS_PATH (externally-managed catalog) was ignored by refresh().
-//   4. OPENCODE_DISABLE_MODELS_FETCH was ignored by refresh() (only gated the
+//   3. UNIFIA_MODELS_PATH (externally-managed catalog) was ignored by refresh().
+//   4. UNIFIA_DISABLE_MODELS_FETCH was ignored by refresh() (only gated the
 //      background timer, not a direct call).
 //
-// Testing note: `Flag.OPENCODE_MODELS_PATH` is set globally by test/preload.ts
+// Testing note: `Flag.UNIFIA_MODELS_PATH` is set globally by test/preload.ts
 // (to test/tool/fixtures/models-api.json) so that ModelsDev.get() has a stable
 // fixture across the whole suite. Flag namespace members are plain mutable
 // object properties (not getters), so tests can safely override them for the
 // duration of a single test and restore them afterwards — this is the same
 // pattern already used in test/sync/index.test.ts for
-// Flag.OPENCODE_EXPERIMENTAL_WORKSPACES.
+// Flag.UNIFIA_EXPERIMENTAL_WORKSPACES.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
@@ -24,11 +24,11 @@ import { Global } from "../../src/global"
 import { Flock } from "../../src/util/flock"
 import { ModelsDev } from "../../src/provider/models"
 
-const originalModelsPath = Flag.OPENCODE_MODELS_PATH
-const originalDisableFetch = Flag.OPENCODE_DISABLE_MODELS_FETCH
+const originalModelsPath = Flag.UNIFIA_MODELS_PATH
+const originalDisableFetch = Flag.UNIFIA_DISABLE_MODELS_FETCH
 const originalFetch = globalThis.fetch
 
-// Mirrors the private `filepath` computation in models.ts. OPENCODE_MODELS_URL
+// Mirrors the private `filepath` computation in models.ts. UNIFIA_MODELS_URL
 // is never set in the test env, so `source === "https://models.dev"` and the
 // cache file is always `<cache>/models.json`. Not exported from models.ts on
 // purpose (no test-only surface added to the production module) — duplicated
@@ -38,12 +38,12 @@ const lockKey = `models-dev:${cacheFilepath}`
 
 function setModelsPath(value: string | undefined) {
   // @ts-expect-error intentional test-only override of a Flag namespace member, restored in afterEach
-  Flag.OPENCODE_MODELS_PATH = value
+  Flag.UNIFIA_MODELS_PATH = value
 }
 
 function setDisableFetch(value: boolean) {
   // @ts-expect-error intentional test-only override of a Flag namespace member, restored in afterEach
-  Flag.OPENCODE_DISABLE_MODELS_FETCH = value
+  Flag.UNIFIA_DISABLE_MODELS_FETCH = value
 }
 
 function mockFetchOnce(handler: () => Response | Promise<Response>) {
@@ -66,7 +66,7 @@ afterEach(async () => {
 })
 
 describe("ModelsDev.refresh() — flag gates", () => {
-  test("OPENCODE_MODELS_PATH set → no-op with explicit error, no fetch performed", async () => {
+  test("UNIFIA_MODELS_PATH set → no-op with explicit error, no fetch performed", async () => {
     setModelsPath("/some/externally-managed/models.json")
     let fetchCalled = false
     mockFetchOnce(() => {
@@ -77,11 +77,11 @@ describe("ModelsDev.refresh() — flag gates", () => {
     const result = await ModelsDev.refresh(true)
 
     expect(result.ok).toBe(false)
-    expect(result.error).toContain("OPENCODE_MODELS_PATH")
+    expect(result.error).toContain("UNIFIA_MODELS_PATH")
     expect(fetchCalled).toBe(false)
   })
 
-  test("OPENCODE_DISABLE_MODELS_FETCH set → no-op with explicit error, no fetch performed", async () => {
+  test("UNIFIA_DISABLE_MODELS_FETCH set → no-op with explicit error, no fetch performed", async () => {
     setModelsPath(undefined)
     setDisableFetch(true)
     let fetchCalled = false
@@ -93,7 +93,7 @@ describe("ModelsDev.refresh() — flag gates", () => {
     const result = await ModelsDev.refresh(true)
 
     expect(result.ok).toBe(false)
-    expect(result.error).toContain("OPENCODE_DISABLE_MODELS_FETCH")
+    expect(result.error).toContain("UNIFIA_DISABLE_MODELS_FETCH")
     expect(fetchCalled).toBe(false)
   })
 })

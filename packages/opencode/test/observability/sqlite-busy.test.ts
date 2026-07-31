@@ -19,7 +19,7 @@ import fs from "node:fs/promises"
 // writer failure) the same safe, non-blocking way.
 describe("SQLite real busy-contention behavior (P0)", () => {
   test("a write against a file locked by another connection throws SQLITE_BUSY", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-sqlite-busy-"))
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-sqlite-busy-"))
     const dbPath = path.join(dir, "test.db")
     const writer = new BunSqliteDatabase(dbPath)
     const contender = new BunSqliteDatabase(dbPath)

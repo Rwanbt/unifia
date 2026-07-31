@@ -56,7 +56,7 @@ describe("migrateFromGlobal", () => {
     await using tmp = await tmpdir()
     await $`git init`.cwd(tmp.path).quiet()
     await $`git config user.name "Test"`.cwd(tmp.path).quiet()
-    await $`git config user.email "test@opencode.test"`.cwd(tmp.path).quiet()
+    await $`git config user.email "test@unifia.test"`.cwd(tmp.path).quiet()
     const { project: pre } = await Project.fromDirectory(tmp.path)
     expect(pre.id).toBe(ProjectID.global)
 

@@ -38,7 +38,7 @@ test("toggles plugin runtime state by exported id", async () => {
     },
   })
 
-  process.env.OPENCODE_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
+  process.env.UNIFIA_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
   const get = spyOn(TuiConfig, "get").mockResolvedValue({
     plugin: [[tmp.extra.spec, { marker: tmp.extra.marker }]],
     plugin_enabled: {
@@ -87,7 +87,7 @@ test("toggles plugin runtime state by exported id", async () => {
     cwd.mockRestore()
     get.mockRestore()
     wait.mockRestore()
-    delete process.env.OPENCODE_PLUGIN_META_FILE
+    delete process.env.UNIFIA_PLUGIN_META_FILE
   }
 })
 
@@ -116,7 +116,7 @@ test("kv plugin_enabled overrides tui config on startup", async () => {
     },
   })
 
-  process.env.OPENCODE_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
+  process.env.UNIFIA_PLUGIN_META_FILE = path.join(tmp.path, "plugin-meta.json")
   const get = spyOn(TuiConfig, "get").mockResolvedValue({
     plugin: [[tmp.extra.spec, { marker: tmp.extra.marker }]],
     plugin_enabled: {
@@ -154,6 +154,6 @@ test("kv plugin_enabled overrides tui config on startup", async () => {
     cwd.mockRestore()
     get.mockRestore()
     wait.mockRestore()
-    delete process.env.OPENCODE_PLUGIN_META_FILE
+    delete process.env.UNIFIA_PLUGIN_META_FILE
   }
 })

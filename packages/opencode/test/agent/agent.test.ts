@@ -638,8 +638,8 @@ description: Permission skill.
     },
   })
 
-  const home = process.env.OPENCODE_TEST_HOME
-  process.env.OPENCODE_TEST_HOME = tmp.path
+  const home = process.env.UNIFIA_TEST_HOME
+  process.env.UNIFIA_TEST_HOME = tmp.path
 
   try {
     await Instance.provide({
@@ -652,7 +652,7 @@ description: Permission skill.
       },
     })
   } finally {
-    process.env.OPENCODE_TEST_HOME = home
+    process.env.UNIFIA_TEST_HOME = home
   }
 })
 

@@ -3,7 +3,7 @@
  * mock keychain server (test/lib/mock-keychain-server.ts).
  *
  * Coverage:
- *   - constructor reads env vars at instantiation time (OPENCODE_KEYCHAIN_URL / TOKEN).
+ *   - constructor reads env vars at instantiation time (UNIFIA_KEYCHAIN_URL / TOKEN).
  *   - available() returns true when both env vars are set.
  *   - load()/save() round-trip through the HTTP protocol.
  *   - set()/get() single-entry round-trip used by the migration path.
@@ -31,8 +31,8 @@ function setEnv(k: string, v: string | undefined) {
 
 beforeEach(async () => {
   server = await startMockKeychainServer()
-  setEnv("OPENCODE_KEYCHAIN_URL", server.url)
-  setEnv("OPENCODE_KEYCHAIN_TOKEN", server.token)
+  setEnv("UNIFIA_KEYCHAIN_URL", server.url)
+  setEnv("UNIFIA_KEYCHAIN_TOKEN", server.token)
 })
 
 afterEach(async () => {
@@ -53,8 +53,8 @@ test("available() reports true when env vars are set", () => {
 })
 
 test("available() reports false when env vars are missing", () => {
-  setEnv("OPENCODE_KEYCHAIN_URL", undefined)
-  setEnv("OPENCODE_KEYCHAIN_TOKEN", undefined)
+  setEnv("UNIFIA_KEYCHAIN_URL", undefined)
+  setEnv("UNIFIA_KEYCHAIN_TOKEN", undefined)
   const kc = new KeychainStorage()
   expect(kc.available()).toBe(false)
 })
@@ -108,14 +108,14 @@ test("load throws when the server is unreachable (transport error)", async () =>
 })
 
 test("load throws with a clear message when env vars are missing", async () => {
-  setEnv("OPENCODE_KEYCHAIN_URL", undefined)
-  setEnv("OPENCODE_KEYCHAIN_TOKEN", undefined)
+  setEnv("UNIFIA_KEYCHAIN_URL", undefined)
+  setEnv("UNIFIA_KEYCHAIN_TOKEN", undefined)
   const kc = new KeychainStorage()
   await expect(kc.load()).rejects.toThrow(/KeychainStorage unavailable/)
 })
 
 test("rejects requests with a bad token", async () => {
-  setEnv("OPENCODE_KEYCHAIN_TOKEN", "wrong-token")
+  setEnv("UNIFIA_KEYCHAIN_TOKEN", "wrong-token")
   const kc = new KeychainStorage()
   await expect(kc.load()).rejects.toThrow(/keychain list failed|401/)
 })
