@@ -1,8 +1,48 @@
+# AGENTS.md — Unifia Workbench
+
+> **Unifia Workbench** is the rebranded continuation of [opencode](https://github.com/anomalyco/opencode) (via the [Rwanbt/opencode](https://github.com/Rwanbt/opencode) fork). All conventions below apply to the Unifia codebase.
+>
+> **Repository:** `Rwanbt/unifia` (target) — currently developed in `Rwanbt/opencode` sandbox.
+> **Brand identity:** Unifia (logo, color tokens, typography defined in `brand/unifia/`).
+> **Conventions:** derived from the upstream opencode fork, adapted to Unifia naming.
+
+This document is read by **every** AI coding agent working on this repo (Hermes, Claude Code, Codex, Cursor, etc.). Follow it strictly.
+
+## Default Branch
+
+- The default branch is **`dev`** (inherited from upstream).
+- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+- Rebrand work happens on `agent/*` branches, merged into `agent/integration`, then shipped via PR.
+
+## Project Layout
+
+- `packages/opencode/` — CLI core (binary: `unifia`)
+- `packages/app/` — Web app (SolidJS)
+- `packages/desktop/` — Tauri 2 desktop (identifier: `ai.unifia.workbench.dev`)
+- `packages/mobile/` — Tauri 2 mobile
+- `packages/console/` — Web console (5 sub-packages)
+- `packages/sdk/` — JavaScript SDK
+- `packages/ui/`, `packages/util/`, `packages/storybook/` — shared libraries
+- `brand/unifia/` — **Unifia brand kit** (logos, tokens, theme)
+- `docs/autonomy/` — Hermes governance documents (this rebrand pack)
+- `.hermes/`, `agent/*` branches — Unifia Workbench integration layer
+
+## Required Tools
+
+- **Bun** ≥ 1.3 (`packageManager: bun@1.3.11`)
+- **Node** 22+ (for tooling)
+- **Rust + Cargo** (for Tauri desktop/mobile)
+- **shellcheck** (optional, for `.sh` files)
+- **Docker** (optional, for sandbox backends)
+
+## Workflow
+
 - To regenerate the JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
 - ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE.
 - The default branch in this repo is `dev`.
 - Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
 - Prefer automation: execute requested actions without confirmation unless blocked by missing info or safety/irreversibility.
+
 
 ## Style Guide
 
