@@ -1,17 +1,17 @@
-# Plan de correction — OpenCode IDE (éditeur + gestion fichiers)
+# Plan de correction — Unifia IDE (éditeur + gestion fichiers)
 
-> Re-vérifié intégralement le 2026-06-24 par opencode (sans confiance aveugle dans le diagnostic précédent).
+> Re-vérifié intégralement le 2026-06-24 par unifia (sans confiance aveugle dans le diagnostic précédent).
 > Chaque cause est prouvée par lecture du code source + preuve empirique (serveur live / binaires).
 
 ## État du déploiement (vérifié maintenant)
 - `target/release/opencode-cli.exe` = `0.0.0-ide-202606241612` (sidecar FRAIS, copié manuellement par la session précédente — TOUJOURS en place).
-- Serveur opencode était ready sur 62521 (log), sidecar ne crashe plus (le stale du 7 mai crashait à 7s).
-- ⚠️ L'app desktop OpenCode.exe n'est pas lancée à l'instant, mais le sidecar (PID 30508) tourne encore orphelin.
+- Serveur unifia était ready sur 62521 (log), sidecar ne crashe plus (le stale du 7 mai crashait à 7s).
+- ⚠️ L'app desktop Unifia.exe n'est pas lancée à l'instant, mais le sidecar (PID 30508) tourne encore orphelin.
 - Test isolé précédent : write/readRaw/delete-dossier/conflict-409 — tous passent sur le sidecar frais.
 
 ---
 
-## RÉSOLU — R0 : Serveur opencode mort (cause racine immédiate)
+## RÉSOLU — R0 : Serveur unifia mort (cause racine immédiate)
 Le desktop spawn le sidecar **voisin du binaire** (`cli.rs:117-124` `get_sidecar_path` → `current_binary().parent().join("opencode-cli")`). Donc `target/release/OpenCode.exe` lançait `target/release/opencode-cli.exe` qui était le binaire du **7 mai** (antérieur au file-write API du 19 juin) ET crashait 7s après démarrage (log : `Sidecar terminated code=Some(1)`). Serveur mort → toute écriture/suppression → 404 → "deleted on disk" / "failed to delete".
 **Fix runtime appliqué** (toujours en place) : copie sidecar frais → `target/release/opencode-cli.exe`.
 **Reste à corriger durablement** : voir B4 (sinon chaque rebuild réintroduit le stale).

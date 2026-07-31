@@ -40,7 +40,7 @@ Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH d
 
 - Desktop build: `cd packages/desktop && bun tauri build`
 - Desktop deploy: copy `packages/desktop/src-tauri/target/release/Unifia.exe` to `C:/Users/barat/AppData/Local/Unifia Dev/Unifia.exe`
-- NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/@opencode-aidesktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
+- NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/@unifia-aidesktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
 - Android build: `cd packages/mobile && bun tauri android build --target aarch64` (requires `ORT_LIB_LOCATION=D:/tmp/ort-android`)
 - Sidecar (required before desktop build): `cd packages/opencode && bun run build --single --baseline  # rebranded CLI binary is `unifia``, then copy to `packages/desktop/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`
 - NEVER touch Antigravity (the IDE). NEVER kill processes that aren't ours.
@@ -115,7 +115,7 @@ packages/
 ├── console/       # Web dashboard (SolidJS Start + Cloudflare)
 └── util/          # Shared Zod schemas and utilities
 crates/
-└── opencode-kokoro-shared/  # Rust: Kokoro TTS ONNX engine
+└── unifia-kokoro-shared/  # Rust: Kokoro TTS ONNX engine
 ```
 
 ### Request flow
@@ -152,7 +152,7 @@ SolidJS UI  →  POST /session/:id/stream (SSE, Hono server)
 
 ### Mobile Rust backend (`packages/mobile/src-tauri/src/`)
 
-- `lib.rs` — Tauri mobile entry, logcat logging (tag: `OpenCode`)
+- `lib.rs` — Tauri mobile entry, logcat logging (tag: `Unifia`)
 - `llm.rs` — `load_llm_model`, `set_llm_config`, `get_memory_info`, `llm_idle_tick`
 - `runtime.rs` — Alpine rootfs setup, toolchain wrappers (Rust/Python/etc.), embedded sidecar env
 - `proxy.rs` — LAN port proxy (atomic port allocation)
@@ -171,7 +171,7 @@ SolidJS 1.9.10 + Tailwind 4. Entry: `entry.tsx`. Key dirs: `pages/`, `components
 4. Validates loaded model matches requested; kills and respawns if not
 5. Tracks subscribers via `refs/{pid}.ref` files; prunes stale refs on startup
 
-**Android only**: llama-server is owned by `LlamaService` (Kotlin JNI), not spawned by the sidecar. Gate all llama-server spawn logic with `process.env.OPENCODE_CLIENT === "mobile-embedded"`.
+**Android only**: llama-server is owned by `LlamaService` (Kotlin JNI), not spawned by the sidecar. Gate all llama-server spawn logic with `process.env.UNIFIA_CLIENT === "mobile-embedded"`.
 
 ### Config cascade (lowest → highest priority)
 

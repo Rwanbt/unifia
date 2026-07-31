@@ -59,21 +59,21 @@ Branche `dev`. Aucun commit effectué.
   - Rate limit 60 req/60s (fixed window, fail-closed).
   - Body cap 32 KiB.
 - `packages/desktop/src-tauri/src/lib.rs` : `start_keychain_endpoint` lancé dans `.setup()` via `tauri::async_runtime::spawn`. Échec non-fatal (fallback FileStorage).
-- `packages/desktop/src-tauri/src/cli.rs` : injection automatique de `OPENCODE_KEYCHAIN_URL` + `OPENCODE_KEYCHAIN_TOKEN` dans `envs` quand l'endpoint est up.
+- `packages/desktop/src-tauri/src/cli.rs` : injection automatique de `UNIFIA_KEYCHAIN_URL` + `UNIFIA_KEYCHAIN_TOKEN` dans `envs` quand l'endpoint est up.
 - `packages/desktop/src-tauri/Cargo.toml` : ajouté features tokio `net`, `io-util`, `sync`, `time`, `rt-multi-thread`. Pas de nouveau crate.
 - **TS** : `packages/opencode/src/auth/index.ts` — `KeychainStorage` devient opérationnelle. Lit les env vars au constructeur, `available()` gate, impl `load/save/get/set` via fetch contre l'endpoint.
 - **Sécurité** : 127.0.0.1 only, header auth, rate limit, token 256 bits, lifetime = process Tauri.
 - **Test manuel** (à faire côté desktop en conditions réelles) :
   - Démarrer desktop → `cargo check` OK.
   - Logs : `keychain endpoint listening at http://127.0.0.1:XXXXX`.
-  - Le sidecar reçoit `OPENCODE_KEYCHAIN_URL` (pas vérifié en runtime e2e faute d'orchestration).
+  - Le sidecar reçoit `UNIFIA_KEYCHAIN_URL` (pas vérifié en runtime e2e faute d'orchestration).
 
 ### 5 — Migration auth.json — **FAIT (non activé par défaut)**
 
 - `packages/opencode/src/auth/index.ts` :
   - `initAuthStorage()` — fonction publique idempotente à appeler au boot.
-  - Si `OPENCODE_AUTH_STORAGE=keychain` + `auth.json` existe + keychain available → migre chaque entrée, vérifie round-trip, renomme `auth.json` → `auth.json.migrated`, warn one-shot.
-  - Si `OPENCODE_AUTH_STORAGE=file` + `auth.json.migrated` existe + `auth.json` absent → rollback (rename back).
+  - Si `UNIFIA_AUTH_STORAGE=keychain` + `auth.json` existe + keychain available → migre chaque entrée, vérifie round-trip, renomme `auth.json` → `auth.json.migrated`, warn one-shot.
+  - Si `UNIFIA_AUTH_STORAGE=file` + `auth.json.migrated` existe + `auth.json` absent → rollback (rename back).
   - `maybePurgeMigratedBackup` — unlink `auth.json.migrated` si mtime > 7j.
 - **Non branché au boot** : `initAuthStorage()` n'est pas appelé dans `cli/cmd/serve.ts` (ni ailleurs). Le comportement reste `FileStorage` par défaut. Pour activer, il faudra :
   1. Appeler `initAuthStorage()` dans le bootstrap du sidecar.

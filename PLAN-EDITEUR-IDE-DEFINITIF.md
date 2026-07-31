@@ -1,4 +1,4 @@
-# Plan définitif — Éditeur & gestion fichiers OpenCode (IDE fonctionnel, zéro dette)
+# Plan définitif — Éditeur & gestion fichiers Unifia (IDE fonctionnel, zéro dette)
 
 > 📋 **Mirror vault** : [[OpenCode/Plan-Editeur-IDE-Definitif-2026-06-25]]
 > 📋 **Règle vault** : [[_global/rules/rule-plans-vault|règle plans-vault]]
@@ -30,7 +30,7 @@
 | Phase 6 (tests CI) | ⏸ partiel | — | canonical.test.ts ✅, manque : non-régression open→save→close→reopen, watcher echo, dirty-close, invariants runtime. |
 | Phase 6 (tests CI) | ⏸ partiel | — | canonical.test.ts ✅, manque : non-régression open→save→close→reopen, watcher echo, dirty-close, invariants runtime. |
 
-**Incident de session 2026-06-25 14h08** : `mavis-trash` a supprimé `D:\App\OpenCode\opencode` par erreur (path contenant `$null`). Récupération immédiate depuis Corbeille Windows via `robocopy` + `bun install`. Voir [[OpenCode/_review/2026-06-25 - Incident mavis-trash dossier opencode]].
+**Incident de session 2026-06-25 14h08** : `mavis-trash` a supprimé `D:\App\Unifia\unifia` par erreur (path contenant `$null`). Récupération immédiate depuis Corbeille Windows via `robocopy` + `bun install`. Voir [[OpenCode/_review/2026-06-25 - Incident mavis-trash dossier unifia]].
 > Ici on attaque les **causes racines architecturales**, pas les symptômes.
 > Objectif : l'app devient un IDE où l'on code à la main (comme VS Code), pas seulement via l'IA.
 > **Pas de MVP, pas de dette technique** : une source de vérité, des invariants vérifiés.
@@ -278,7 +278,7 @@ C'est le cœur du plan. On fusionne cache lecture + baseline édition.
 5. ✅ **« Revert File »** : commit `0333705ac9`. `editor.revert(path)` alias de `reload()` + palette entry. 1 test.
 
 **Bilan Phase 3** : 5 commits atomiques, +27 tests, **519/519 packages/app tests verts**.
-Voir `D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\_memory\memory.md` (entrée 2026-06-25 Phase 3)
+Voir `D:\Documents\Obsidian\IA_Dev_Brain\Unifia\_memory\memory.md` (entrée 2026-06-25 Phase 3)
 + `OpenCode/sessions/2026-06-25 - Session Phase 3 Save Dirty.md` pour l'état détaillé.
 
 ### Phase 4 — Cohérence UI & conventions (R-code&conv)
@@ -303,7 +303,7 @@ Voir `D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\_memory\memory.md` (entrée 20
    renommé dans `GlobalConfigResponse` après le refactor backend
    (commit 61c5d7e6b0), `SpawnConfig` minimal en remplacement.
    Commit `cc8816f188` (2026-06-25).
-4. ✅ **Client SDK non-throwant par défaut** : `createOpencodeClient` passe
+4. ✅ **Client SDK non-throwant par défaut** : `createUnifiaClient` passe
    désormais `throwOnError:false` à `createClient` (était `undefined` →
    dépendait des overrides explicites). Migration des 2 root defaults
    (`global-sdk.tsx:234`, `sdk.tsx:20`) + retrait du workaround
@@ -312,7 +312,7 @@ Voir `D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\_memory\memory.md` (entrée 20
    Phase 5+) : `global-sync.tsx:183`, `prompt-input/submit.ts:355`,
    `dialog-connect-provider.tsx:171`. Commit `e8fff6c7b3` (2026-06-25).
 
-Voir `D:\Documents\Obsidian\IA_Dev_Brain\OpenCode\_memory\memory.md` (entrée 2026-06-25 Phase 4)
+Voir `D:\Documents\Obsidian\IA_Dev_Brain\Unifia\_memory\memory.md` (entrée 2026-06-25 Phase 4)
 + `OpenCode/sessions/2026-06-25 - Session Phase 4 UI Conventions.md` pour l'état détaillé.
 
 ### Phase 5 — Features IDE (manquants #5–17, par valeur)

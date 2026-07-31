@@ -13,7 +13,7 @@
 | Statut upstream | Fork non-officiel maintenu indépendamment |
 | Repository cible | `Rwanbt/unifia` (à confirmer BD-7) |
 | Branche de référence | `dev` (héritée d'upstream) |
-| CLI | `unifia` (binaire, anciennement `opencode`) |
+| CLI | `unifia` (binaire, anciennement `unifia`) |
 | Package root | `unifia-workbench` |
 | Brand | Unifia (logos dans `brand/unifia/`) |
 
@@ -87,9 +87,9 @@ agent/<phase>/<CARD-ID>  --(self-check + reviewer fresh-context)-->
 ### 4.1 Packages
 
 ```
-@unifia/<package-name>     # anciennement @opencode-ai/<package-name>
-unifia-workbench           # package root, anciennement "opencode"
-unifia                     # binaire CLI, anciennement "opencode"
+@unifia/<package-name>     # anciennement @unifia-ai/<package-name>
+unifia-workbench           # package root, anciennement "unifia"
+unifia                     # binaire CLI, anciennement "unifia"
 ```
 
 ### 4.2 Tauri identifiers
@@ -97,7 +97,7 @@ unifia                     # binaire CLI, anciennement "opencode"
 ```
 ai.unifia.workbench.dev    # anciennement ai.opencode.desktop.dev
 ai.unifia.workbench.beta   # anciennement ai.opencode.desktop.beta
-unifia                     # URL scheme, anciennement "opencode"
+unifia                     # URL scheme, anciennement "unifia"
 unifia-cli                 # sidecar externalBin, anciennement "opencode-cli"
 ```
 

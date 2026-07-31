@@ -33,7 +33,7 @@ Points instrumentés (tous via `recordAsync`, best-effort, gate `experimental.au
 - `Database.close()` **avant** `fs.unlink` du DB file (évite EBUSY Windows sur SQLite).
 - SQLite sidecars : supprime `-wal`, `-shm`, `-journal`.
 - `Database.Path` ajouté à la liste unlink (préservant ENOENT tolerance).
-- **Test manuel** : `curl -XDELETE -H "X-Confirm-Delete: yes" localhost:4096/user/data` → 204 ; `<datadir>/` ne contient plus `opencode.db`, `crashes/`, ni worktrees sur disque.
+- **Test manuel** : `curl -XDELETE -H "X-Confirm-Delete: yes" localhost:4096/user/data` → 204 ; `<datadir>/` ne contient plus `unifia.db`, `crashes/`, ni worktrees sur disque.
 
 ### 4 — Provider fallback câblage — **SQUELETTE**
 - `packages/opencode/src/provider/fallback.ts` : ajout `resolveFallbackDirection()` qui lit `experimental.provider.fallback` et retourne `"local"|"cloud"|null`.
@@ -52,10 +52,10 @@ Points instrumentés (tous via `recordAsync`, best-effort, gate `experimental.au
 
 ### 6 — B1 Keychain — **SQUELETTE PROPRE + impl Rust**
 - **Desktop (Rust) FAIT** : `packages/desktop/src-tauri/src/auth_storage.rs` — 4 commandes Tauri (`auth_storage_{get,set,delete,list}`) basées sur `keyring = "3"` (features `apple-native`, `windows-native`, `sync-secret-service`, `vendored`).
-  - Namespace `opencode.<service>` ; registry JSON `<data_dir>/auth.keychain-index.json` pour permettre l'énumération cross-platform.
+  - Namespace `unifia.<service>` ; registry JSON `<data_dir>/auth.keychain-index.json` pour permettre l'énumération cross-platform.
   - `get` tolère `NoEntry` (retourne `None`) pour permettre migration.
   - Enregistré dans `lib.rs::make_specta_builder()` et `collect_commands![...]`.
-- **Côté TypeScript SQUELETTE** : `packages/opencode/src/auth/index.ts` expose `AuthStorage` interface + `KeychainStorage` stub + `AUTH_BACKEND` env switch (`OPENCODE_AUTH_STORAGE`, défaut `"file"`).
+- **Côté TypeScript SQUELETTE** : `packages/opencode/src/auth/index.ts` expose `AuthStorage` interface + `KeychainStorage` stub + `AUTH_BACKEND` env switch (`UNIFIA_AUTH_STORAGE`, défaut `"file"`).
   - **KeychainStorage.load/save throw** pour l'instant car le sidecar (Bun) n'a pas de channel `invoke` direct vers le shell Tauri — la solution (localhost-only endpoint avec token one-shot au spawn sidecar) est documentée dans le commentaire de la classe.
 - **Android** : design-only en commentaire (EncryptedSharedPreferences + plugin Tauri dédié).
 - **CLI fallback AES-GCM** : design-only (Argon2id TOFU non-rotatable).
@@ -71,7 +71,7 @@ Points instrumentés (tous via `recordAsync`, best-effort, gate `experimental.au
 - `packages/opencode/src/config/config.ts` : `experimental.ws_auth_legacy: z.boolean().optional()` ajouté.
 - **Clients non migrés** : desktop/mobile/web continuent d'utiliser la query-string pour cette sprint (legacy flag = true par défaut). À migrer Sprint 5 en consommant `/auth/ws-ticket` avant le upgrade WS et en passant le subprotocol `bearer,<jwt>`.
 - **Baseline Playwright non ajouté** : `packages/app` n'a pas de Playwright installé. À la place, `packages/opencode/test/server/ws-ticket.test.ts` couvre le contrat crypto (issue/verify, rejet kind-mismatch, expiry).
-- **Test manuel** : `curl -X POST -u opencode:pw localhost:4096/auth/ws-ticket` → `{ticket, expiresAt}`. Vérifier Set-Cookie `opencode_ws_ticket=...; HttpOnly; SameSite=Strict; Max-Age=60`.
+- **Test manuel** : `curl -X POST -u unifia:pw localhost:4096/auth/ws-ticket` → `{ticket, expiresAt}`. Vérifier Set-Cookie `opencode_ws_ticket=...; HttpOnly; SameSite=Strict; Max-Age=60`.
 
 ## Risques résiduels
 

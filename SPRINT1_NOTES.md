@@ -33,7 +33,7 @@ Ajout effectué : les plages RFC1918 comme domain-config cleartext. `network_sec
 **Risque** : `includeSubdomains` sur une IP n'est pas strictement standard AOSP ; certains devices OEM (MIUI notamment) peuvent l'ignorer et refuser la connexion à `192.168.1.42`. À valider sur device physique avant release.
 
 **Test manuel** :
-1. Sur un device réel, se connecter à un serveur opencode en `http://192.168.x.y:14097` en mode Remote Server → doit fonctionner.
+1. Sur un device réel, se connecter à un serveur unifia en `http://192.168.x.y:14097` en mode Remote Server → doit fonctionner.
 2. Tenter de se connecter à un serveur public HTTP non-LAN (ex. `http://example.com:14097`) → doit échouer avec `CLEARTEXT_NOT_PERMITTED`.
 3. Vérifier que `127.0.0.1` loopback (sidecar embarqué) reste OK.
 
@@ -77,7 +77,7 @@ Correctif : construction d'une `Map<serverName, Set<toolKey>>` depuis `s.defs[se
 
 ### W8 — CORS allowlist explicite (FAIT ajustement)
 
-**ÉCART RAPPORT/CODE** : le fichier pointé (`server.ts:64-88`) n'utilise déjà plus de regex `*.opencode.ai`. Une allowlist explicite était en place mais incluait `app.opencode.ai / api.opencode.ai / dev.opencode.ai`. J'ai aligné sur la liste demandée : `opencode.ai / www.opencode.ai / docs.opencode.ai / console.opencode.ai`. `localhost` / `127.0.0.1` / `tauri.localhost` restent whitelistés pour dev.
+**ÉCART RAPPORT/CODE** : le fichier pointé (`server.ts:64-88`) n'utilise déjà plus de regex `*.opencode.ai`. Une allowlist explicite était en place mais incluait `app.opencode.ai / api.opencode.ai / dev.opencode.ai`. J'ai aligné sur la liste demandée : `unifia.ai / www.opencode.ai / docs.opencode.ai / console.opencode.ai`. `localhost` / `127.0.0.1` / `tauri.localhost` restent whitelistés pour dev.
 
 **Risque** : si le front déployé utilisait `app.opencode.ai` ou `dev.opencode.ai` pour le pairing, ils sont maintenant bloqués. À confirmer avec l'équipe front avant merge.
 
@@ -90,16 +90,16 @@ Correctif : construction d'une `Map<serverName, Set<toolKey>>` depuis `s.defs[se
 
 ### W9 — shell env allowlist (FAIT)
 
-Ajout de `SHELL_ENV_ALLOWLIST` (exact-match) + `SHELL_ENV_ALLOWED_PREFIXES` (prefix-match pour `LC_*` et `OPENCODE_*`). Filtrage appliqué dans `merge_shell_env` sur la partie `shell_env` (env lu depuis `zsh -il` / `bash -l`). Les `envs` explicites passés par le caller opencode ne sont pas filtrés (non-user-controlled).
+Ajout de `SHELL_ENV_ALLOWLIST` (exact-match) + `SHELL_ENV_ALLOWED_PREFIXES` (prefix-match pour `LC_*` et `OPENCODE_*`). Filtrage appliqué dans `merge_shell_env` sur la partie `shell_env` (env lu depuis `zsh -il` / `bash -l`). Les `envs` explicites passés par le caller unifia ne sont pas filtrés (non-user-controlled).
 
 Contenu allowlist : `PATH HOME USER LANG LANGUAGE TERM TMPDIR TMP TEMP NO_COLOR FORCE_COLOR NODE_ENV BUN_INSTALL SHELL XDG_*`. Préfixes : `LC_`, `OPENCODE_`. Tout `*_API_KEY`, `*_TOKEN`, `*_SECRET`, `GITHUB_TOKEN`, `AWS_*` est désormais strippé avant passage au sidecar.
 
 **Risque** : si un utilisateur avancé exportait `ANTHROPIC_API_KEY` dans son `.zshrc` en s'attendant à ce que le sidecar le lise, ça ne passera plus. `auth.json` reste la source of truth officielle, donc régression minime mais à mentionner dans les release notes. `GITHUB_TOKEN` notamment utilisé par certains MCP : à valider si les MCP qui en dépendent le reçoivent via un autre canal (ils devraient : via config explicite, pas par inherit env).
 
 **Test manuel** :
-1. `export FOO_API_KEY=xxx && opencode` → dans le sidecar (log env), `FOO_API_KEY` ne doit pas apparaître.
-2. `export LC_ALL=en_US.UTF-8 && opencode` → doit être transmis.
-3. `export OPENCODE_LLAMA_MODELS_DIR=/custom && opencode` → doit être transmis (OPENCODE_* whitelist prefix).
+1. `export FOO_API_KEY=xxx && unifia` → dans le sidecar (log env), `FOO_API_KEY` ne doit pas apparaître.
+2. `export LC_ALL=en_US.UTF-8 && unifia` → doit être transmis.
+3. `export UNIFIA_LLAMA_MODELS_DIR=/custom && unifia` → doit être transmis (OPENCODE_* whitelist prefix).
 
 ---
 
@@ -124,7 +124,7 @@ Déjà implémenté via `assertInsideProject` qui appelle `AppFileSystem.resolve
 
 **Test manuel** :
 1. Push la branche → `CodeQL` workflow doit apparaître dans l'onglet Actions et passer sur JS/TS.
-2. `Actions → SBOM → Run workflow` → vérifier artefacts `opencode-sbom.spdx.json` + `opencode-sbom.cyclonedx.json`.
+2. `Actions → SBOM → Run workflow` → vérifier artefacts `unifia-sbom.spdx.json` + `unifia-sbom.cyclonedx.json`.
 3. Dans Settings → Security → Dependabot alerts, vérifier que les PRs weekly arrivent au prochain lundi.
 
 ---

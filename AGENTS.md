@@ -1,10 +1,10 @@
 # AGENTS.md — Unifia Workbench
 
-> **Unifia Workbench** is the rebranded continuation of [opencode](https://github.com/anomalyco/opencode) (via the [Rwanbt/opencode](https://github.com/Rwanbt/opencode) fork). All conventions below apply to the Unifia codebase.
+> **Unifia Workbench** is the rebranded continuation of [unifia](https://github.com/anomalyco/opencode) (via the [Rwanbt/opencode](https://github.com/Rwanbt/opencode) fork). All conventions below apply to the Unifia codebase.
 >
 > **Repository:** `Rwanbt/unifia` (target) — currently developed in `Rwanbt/opencode` sandbox.
 > **Brand identity:** Unifia (logo, color tokens, typography defined in `brand/unifia/`).
-> **Conventions:** derived from the upstream opencode fork, adapted to Unifia naming.
+> **Conventions:** derived from the upstream unifia fork, adapted to Unifia naming.
 
 This document is read by **every** AI coding agent working on this repo (Hermes, Claude Code, Codex, Cursor, etc.). Follow it strictly.
 

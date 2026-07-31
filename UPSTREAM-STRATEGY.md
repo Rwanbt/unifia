@@ -8,7 +8,7 @@
 
 | Upstream | URL | Type | HEAD actuel |
 |---|---|---|---|
-| `anomalyco/opencode` | https://github.com/anomalyco/opencode | OpenCode originel | (à synchroniser) |
+| `anomalyco/opencode` | https://github.com/anomalyco/opencode | Unifia originel | (à synchroniser) |
 | `Rwanbt/opencode` | https://github.com/Rwanbt/opencode | Fork Rwanbt (notre base) | `207ff452` |
 | `different-ai/openwork` | https://github.com/different-ai/openwork | OpenWork (donneur structurel) | `2c558bcff` |
 | `OpenCoworkAI/open-cowork` | https://github.com/OpenCoworkAI/open-cowork | Open Cowork (donneur fonctionnel) | `ec5bd27` |
@@ -19,7 +19,7 @@ Configuration cible :
 
 ```bash
 git remote add origin-unifia       https://github.com/Rwanbt/unifia.git     # NOTRE fork
-git remote add upstream-opencode  https://github.com/Rwanbt/opencode.git   # fork actuel
+git remote add upstream-unifia  https://github.com/Rwanbt/opencode.git   # fork actuel
 git remote add upstream-anomalyco https://github.com/anomalyco/opencode.git # originel
 git remote add upstream-openwork  https://github.com/different-ai/openwork.git
 git remote add upstream-cowork    https://github.com/OpenCoworkAI/open-cowork.git
@@ -67,8 +67,8 @@ Tout chemin `**/ee/**` est **interdit** d'import :
 | Phase -2 | aucun (audit seulement) | tout |
 | Phase -1 | aucun (audit seulement) | tout |
 | Phase 0 | Brand Unifia (logos), traductions i18n | code opencode/openwork |
-| Phase 1 | Fixtures de tests depuis opencode | runtime openwork |
-| Phase 2 | Contrats depuis opencode (types) | runtime |
+| Phase 1 | Fixtures de tests depuis unifia | runtime openwork |
+| Phase 2 | Contrats depuis unifia (types) | runtime |
 | Phase 3 | aucun | tout (sécurité critique) |
 | Phase 4 | Workspace runtime patterns | computer use |
 | Phase 5 | OpenWork apps/server | /ee/, Swift, Electron |
@@ -85,7 +85,7 @@ git switch dev
 git switch -c upstream-sync/opencode-$(date +%Y%m%d)
 
 # 2. Fetch upstream
-git fetch upstream-opencode
+git fetch upstream-unifia
 
 # 3. Voir les changements depuis le dernier sync
 git log --oneline upstream-opencode/main ^main | head -20

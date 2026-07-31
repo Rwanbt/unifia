@@ -16,7 +16,7 @@ Typecheck : `bun run typecheck` (tsgo --noEmit) → vert.
 ### I3 — Endpoints RGPD (FAIT)
 - Fichier : `packages/opencode/src/server/routes/gdpr.ts`, branché dans `server/instance.ts`.
 - `GET /user/data/export` : stream JSON `{version, exportedAt, sessions:[{session,messages}], providers:[…]}` via `hono/streaming`.
-- `DELETE /user/data` : exige `X-Confirm-Delete: yes`, sinon 400 `missing_confirmation`. Supprime sessions (`Session.remove`), `auth.json`, `opencode.jsonc|json` et `config.json` via `fs.unlink` (ENOENT toléré). Réponse 204.
+- `DELETE /user/data` : exige `X-Confirm-Delete: yes`, sinon 400 `missing_confirmation`. Supprime sessions (`Session.remove`), `auth.json`, `unifia.jsonc|json` et `config.json` via `fs.unlink` (ENOENT toléré). Réponse 204.
 - Les deux endpoints appellent `AuditLog.record({ force: true, ... })`.
 - **Test manuel** : `curl -XDELETE localhost:4096/user/data` → 400 ; avec header → 204 et fichiers absents.
 
@@ -40,10 +40,10 @@ Typecheck : `bun run typecheck` (tsgo --noEmit) → vert.
 
 ### I9 — Thermal listener Android (SQUELETTE)
 - Tauri côté Rust : `packages/mobile/src-tauri/src/lib.rs` — nouvelle commande `get_thermal_state` (`#[cfg(target_os = "android")]`), enregistrée dans `invoke_handler`. **Retourne "nominal"** — le binding JNI `PowerManager.getCurrentThermalStatus()` est documenté mais pas câblé (requiert crates `jni` + `ndk-context` + `ContextCompat.getSystemService` boilerplate, hors scope 1h). Commentaire TODO(I9) explicite.
-- Côté TS : `packages/opencode/src/local-llm-server/auto-config.ts` — `startThermalListener(invokeThermal, intervalMs=30_000)` + `stopThermalListener()`. Normalise les retours en `"nominal"|"fair"|"serious"|"critical"` (map vers l'enum `ThermalState` existant). No-op hors Android sauf `OPENCODE_THERMAL_FORCE=1`. Sur changement, mute `cached.thermalState` puis appelle `resetProfileCache()`. `unref()` pour ne pas garder l'event loop ouvert.
+- Côté TS : `packages/opencode/src/local-llm-server/auto-config.ts` — `startThermalListener(invokeThermal, intervalMs=30_000)` + `stopThermalListener()`. Normalise les retours en `"nominal"|"fair"|"serious"|"critical"` (map vers l'enum `ThermalState` existant). No-op hors Android sauf `UNIFIA_THERMAL_FORCE=1`. Sur changement, mute `cached.thermalState` puis appelle `resetProfileCache()`. `unref()` pour ne pas garder l'event loop ouvert.
 - Desktop : placeholder `"nominal"` documenté avec commentaire "see I9 backlog, requires native hook per OS".
 - **Non branché** sur la mobile-entry (appeler `startThermalListener(() => invoke("get_thermal_state"))` au démarrage du sidecar embedded). À faire Sprint 4.
-- **Test manuel** : `OPENCODE_THERMAL_FORCE=1` + injecter un `invokeThermal` qui renvoie "severe" → `detectProfile().thermalState` = "critical" et `deriveConfig` applique `thermalMult = 0.5`.
+- **Test manuel** : `UNIFIA_THERMAL_FORCE=1` + injecter un `invokeThermal` qui renvoie "severe" → `detectProfile().thermalState` = "critical" et `deriveConfig` applique `thermalMult = 0.5`.
 
 ### I10 — Cascading cloud/local (FAIT)
 - Fichier : `packages/opencode/src/provider/fallback.ts` — `withFallback(primary, secondary, {label?, shouldFallback?})`, `isNetworkRetryable()`.
@@ -55,7 +55,7 @@ Typecheck : `bun run typecheck` (tsgo --noEmit) → vert.
 ### I11 — E2E fixture DAG (SQUELETTE)
 - Fichier : `packages/opencode/test/e2e/dag-team.test.ts`.
 - Tests actifs (unit guard) : re-implémentation de `computeWaves` + 3 tests (waves correctes pour explore/critic/tester, rejet de cycles, chaîne linéaire).
-- `describe.skip("DAG team — full e2e")` avec bloc d'instructions de setup détaillé (mock provider, OPENCODE_DB=:memory:, server en process, poll `GET /task/:id`).
+- `describe.skip("DAG team — full e2e")` avec bloc d'instructions de setup détaillé (mock provider, UNIFIA_DB=:memory:, server en process, poll `GET /task/:id`).
 - Rationale skipped : le harness `team` tool pull tout le runtime (worktrees, LSP, MCP, permissions). Mock provider non disponible dans cette passe.
 - **Test manuel** : `bun test test/e2e/dag-team.test.ts` → 3 passed, 2 skipped.
 

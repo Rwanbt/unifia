@@ -3,7 +3,7 @@ type: plan
 status: ready-for-review
 created: 2026-06-28
 updated: 2026-06-28 (post 3-AI review)
-project: opencode-desktop
+project: unifia-desktop
 issue: Manual file edits via close-guard dialog are not persisted to disk (round 3)
 review-style: adversarial / multi-angle
 reviewers: GLM 5.2, ChatGPT, DeepSeek
@@ -394,7 +394,7 @@ onSave={async () => {
 1. `bun test src/context/editor/ src/context/file/` → tous pass
 2. `bun run typecheck -F packages/app` → 0 erreurs
 3. `bun run build` + `bun run tauri build --no-bundle` (~3 min)
-4. Lance `OpenCode.exe`
+4. Lance `Unifia.exe`
 5. **Test runtime critique** :
    - Ouvre un fichier
    - Modifie du contenu
