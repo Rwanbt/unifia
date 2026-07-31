@@ -6,8 +6,8 @@
   "license": "MIT",
   "homepage": "https://opencode.ai",
   "author": {
-    "name": "OpenCode",
-    "email": "hello@opencode.ai"
+    "name": "Unifia",
+    "email": "hello@unifia.ai"
   },
   "scripts": {
     "typecheck": "tsgo -b",

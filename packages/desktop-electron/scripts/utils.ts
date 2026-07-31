@@ -3,7 +3,7 @@ import { $ } from "bun"
 export type Channel = "dev" | "beta" | "prod"
 
 export function resolveChannel(): Channel {
-  const raw = Bun.env.OPENCODE_CHANNEL
+  const raw = Bun.env.UNIFIA_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
   return "dev"
 }
@@ -11,32 +11,32 @@ export function resolveChannel(): Channel {
 export const SIDECAR_BINARIES: Array<{ rustTarget: string; ocBinary: string; assetExt: string }> = [
   {
     rustTarget: "aarch64-apple-darwin",
-    ocBinary: "opencode-darwin-arm64",
+    ocBinary: "unifia-darwin-arm64",
     assetExt: "zip",
   },
   {
     rustTarget: "x86_64-apple-darwin",
-    ocBinary: "opencode-darwin-x64-baseline",
+    ocBinary: "unifia-darwin-x64-baseline",
     assetExt: "zip",
   },
   {
     rustTarget: "aarch64-pc-windows-msvc",
-    ocBinary: "opencode-windows-arm64",
+    ocBinary: "unifia-windows-arm64",
     assetExt: "zip",
   },
   {
     rustTarget: "x86_64-pc-windows-msvc",
-    ocBinary: "opencode-windows-x64-baseline",
+    ocBinary: "unifia-windows-x64-baseline",
     assetExt: "zip",
   },
   {
     rustTarget: "x86_64-unknown-linux-gnu",
-    ocBinary: "opencode-linux-x64-baseline",
+    ocBinary: "unifia-linux-x64-baseline",
     assetExt: "tar.gz",
   },
   {
     rustTarget: "aarch64-unknown-linux-gnu",
-    ocBinary: "opencode-linux-arm64",
+    ocBinary: "unifia-linux-arm64",
     assetExt: "tar.gz",
   },
 ]

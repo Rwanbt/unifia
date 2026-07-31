@@ -21,13 +21,13 @@ async function signWindows(configuration: { path: string }) {
 }
 
 const channel = (() => {
-  const raw = process.env.OPENCODE_CHANNEL
+  const raw = process.env.UNIFIA_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
   return "dev"
 })()
 
 const getBase = (): Configuration => ({
-  artifactName: "opencode-electron-${os}-${arch}.${ext}",
+  artifactName: "unifia-electron-${os}-${arch}.${ext}",
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -59,8 +59,8 @@ const getBase = (): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "OpenCode",
-    schemes: ["opencode"],
+    name: "Unifia",
+    schemes: ["unifia"],
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -90,28 +90,28 @@ function getConfig() {
       return {
         ...base,
         appId: "ai.opencode.desktop.dev",
-        productName: "OpenCode Dev",
-        rpm: { packageName: "opencode-dev" },
+        productName: "Unifia Dev",
+        rpm: { packageName: "unifia-dev" },
       }
     }
     case "beta": {
       return {
         ...base,
         appId: "ai.opencode.desktop.beta",
-        productName: "OpenCode Beta",
-        protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "Rwanbt", repo: "opencode-beta", channel: "latest" },
-        rpm: { packageName: "opencode-beta" },
+        productName: "Unifia Beta",
+        protocols: { name: "Unifia Beta", schemes: ["unifia"] },
+        publish: { provider: "github", owner: "Rwanbt", repo: "unifia-beta", channel: "latest" },
+        rpm: { packageName: "unifia-beta" },
       }
     }
     case "prod": {
       return {
         ...base,
         appId: "ai.opencode.desktop",
-        productName: "OpenCode",
-        protocols: { name: "OpenCode", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "Rwanbt", repo: "opencode", channel: "latest" },
-        rpm: { packageName: "opencode" },
+        productName: "Unifia",
+        protocols: { name: "Unifia", schemes: ["unifia"] },
+        publish: { provider: "github", owner: "Rwanbt", repo: "unifia", channel: "latest" },
+        rpm: { packageName: "unifia" },
       }
     }
   }

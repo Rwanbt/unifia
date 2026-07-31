@@ -16,7 +16,7 @@ export function createMenu(deps: Deps) {
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: "OpenCode",
+      label: "Unifia",
       submenu: [
         { role: "about" },
         {
@@ -120,7 +120,7 @@ export function createMenu(deps: Deps) {
     {
       label: "Help",
       submenu: [
-        { label: "OpenCode Documentation", click: () => shell.openExternal("https://opencode.ai/docs") },
+        { label: "Unifia Documentation", click: () => shell.openExternal("https://opencode.ai/docs") },
         { label: "Support Forum", click: () => shell.openExternal("https://github.com/Rwanbt/opencode") },
         { type: "separator" },
         { type: "separator" },
