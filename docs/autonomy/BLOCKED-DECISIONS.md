@@ -14,11 +14,20 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 
 ## BD-2 — packages/enterprise/ : EXCLUDE par défaut
 
-**Statut :** `DEFERRED` (par défaut EXCLUDE)
+**Statut :** `VIOLATED` — rebrand partiel accidentel
 **Sévérité :** MOYENNE
-**Risque :** Possible contamination de code propriétaire upstream (licence à vérifier).
+**Risque :** Possible contamination de code propriétaire non documenté.
 **Action requise :** confirmer EXCLUDE (par défaut) ou AUDIT_LICENSE_FIRST.
 **Note :** le Plan V3 §3.1 (matrice d'adoption OpenWork) ne mentionne pas enterprise → cohérent avec EXCLUDE.
+
+**Violation constatée (2026-07-31) :** lors de P0-C003 (rename packages workspaces) puis P2-C090e (openapi specs), `packages/enterprise/package.json` a été partiellement rebrandé :
+- `@opencode-ai/enterprise` → `@unifia/enterprise` (P0-C003, cohérent avec workspaces)
+- `OPENCODE_DEPLOYMENT_TARGET` → `UNIFIA_DEPLOYMENT_TARGET` (P2-C090e, env var)
+
+**Décision prise :** la restauration complète casserait le workspace (le package n'existerait plus sous son ancien nom). On documente la violation et on attend décision utilisateur :
+- Option A : restaurer (mais casser workspace)
+- Option B : accepter le rebrand et basculer enterprise/ en INCLUDE (modifier BD-2)
+- Option C : exclure enterprise/ de tous les futurs rebrand via une whitelist `enterprise/`
 
 ## BD-3 — packages/desktop-electron/ : DEPRECATE
 
