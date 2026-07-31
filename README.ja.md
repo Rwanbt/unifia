@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 <!-- WHY-FORK-MATRIX -->
 ## なぜこの Fork を選ぶのか？
@@ -111,7 +111,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 
 ## ⚡ 概要
 
-OpenCode (フォーク) — **デスクトップ、サーバー、スマートフォン**で動作する AI コーディングエージェント。エンドツーエンドのローカルモデル、クラウド依存ゼロ、エンタープライズ級ガバナンス・プリミティブを組み込み済み。[Rwanbt](https://github.com/Rwanbt) が保守する [anomalyco/opencode](https://github.com/anomalyco/opencode) のフォーク。
+Unifia Workbench (フォーク) — **デスクトップ、サーバー、スマートフォン**で動作する AI コーディングエージェント。エンドツーエンドのローカルモデル、クラウド依存ゼロ、エンタープライズ級ガバナンス・プリミティブを組み込み済み。[Rwanbt](https://github.com/Rwanbt) が保守する [anomalyco/opencode](https://github.com/anomalyco/opencode) のフォーク。
 
 ### Install
 
@@ -161,7 +161,7 @@ opencode run "fix the failing test in src/"   # one-shot
 
 #### ローカルファースト AI
 
-OpenCode はコンシューマー向けハードウェア（VRAM 8 GB / RAM 16 GB）でAIモデルをローカル実行し、4B〜7B モデルはクラウド依存ゼロで動作します。
+Unifia Workbench はコンシューマー向けハードウェア（VRAM 8 GB / RAM 16 GB）でAIモデルをローカル実行し、4B〜7B モデルはクラウド依存ゼロで動作します。
 
 **プロンプト最適化（94% 削減）**
 - ローカルモデル向け ~1K トークンのシステムプロンプト（クラウド向けの ~16K と比較）
@@ -524,7 +524,7 @@ graph TB
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| OpenCode Server | 4096 | HTTP (REST + SSE + WebSocket) |
+| Unifia Workbench Server | 4096 | HTTP (REST + SSE + WebSocket) |
 | LLM (llama-server) | 14097 | HTTP (OpenAI-compatible) |
 | TTS (pocket-tts) | 14100 | HTTP (FastAPI) |
 
@@ -593,7 +593,7 @@ Tauri 2.0 による Android/iOS ネイティブアプリ、**組み込みラン�
 
 **レイヤー 1 — 組み込みランタイム（Android、100% ネイティブパフォーマンス）：**
 - **APK 内の静的バイナリ** — Bun、Bash、Ripgrep、Toybox (aarch64-linux-musl)、初回起動時に展開（~15秒）
-- **バンドル済み CLI** — 組み込み Bun で実行される JS バンドルとしての OpenCode CLI、コア機能にネットワーク不要
+- **バンドル済み CLI** — 組み込み Bun で実行される JS バンドルとしての Unifia Workbench CLI、コア機能にネットワーク不要
 - **直接プロセス起動** — Termux なし、intent なし — Rust から直接 `std::process::Command`
 - **サーバー自動起動** — `bun opencode-cli.js serve`、デスクトップサイドカーと同じ UUID 認証付き localhost
 
@@ -623,7 +623,7 @@ Tauri 2.0 による Android/iOS ネイティブアプリ、**組み込みラン�
 
 **共通（Android + iOS）：**
 - **プラットフォーム抽象化** — `"mobile"` + `"ios"/"android"` OS 検出を含む拡張 `Platform` 型
-- **リモート接続** — ネットワーク経由でデスクトップ OpenCode サーバーに接続（iOS のみまたは Android フォールバック）
+- **リモート接続** — ネットワーク経由でデスクトップ Unifia Workbench サーバーに接続（iOS のみまたは Android フォールバック）
 - **インタラクティブターミナル** — カスタム musl `librust_pty.so`（forkpty ラッパー）経由の完全な PTY、canvas フォールバック付き Ghostty WASM レンダラー
 - **外部ストレージ** — サーバー HOME から `/sdcard/` ディレクトリ（Documents、Downloads、projects）へのシンボリックリンク
 - **モバイル UI** — レスポンシブサイドバー、タッチ最適化メッセージ入力、モバイル diff ビュー、44px タッチターゲット、セーフエリアサポート
@@ -633,11 +633,11 @@ Tauri 2.0 による Android/iOS ネイティブアプリ、**組み込みラン�
 
 ### AnythingLLM Fusion (`dev_anything`)
 
-OpenCode と AnythingLLM のドキュメント RAG プラットフォーム間のブリッジ。実装内容：
+Unifia Workbench と AnythingLLM のドキュメント RAG プラットフォーム間のブリッジ。実装内容：
 - **REST クライアント** — AnythingLLM ワークスペース、ドキュメント、検索、チャット用の完全な API ラッパー
 - **MCP サーバーアダプター** — 4つのツール：`anythingllm_search`、`anythingllm_list_workspaces`、`anythingllm_get_document`、`anythingllm_chat`
 - **プラグインコンテキスト注入** — `experimental.chat.system.transform` フックが関連ドキュメントをシステムプロンプトに注入
-- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` で OpenCode ツールを AnythingLLM に公開
+- **Agent Skills HTTP API** — `GET /agent-skills` + `POST /agent-skills/:toolId/execute` で Unifia Workbench ツールを AnythingLLM に公開
 - **ベクトルストアブリッジ** — ローカル SQLite RAG と AnythingLLM ベクトル DB 結果をマージするコンポジット検索
 - **Docker Compose** — 共有ネットワーク付きの `docker-compose.anythingllm.yml`
 
@@ -668,7 +668,7 @@ nix run nixpkgs#opencode           # または github:anomalyco/opencode で最�
 
 ### デスクトップアプリ (BETA)
 
-OpenCode はデスクトップアプリとしても利用できます。[releases page](https://github.com/Rwanbt/opencode/releases) から直接ダウンロードするか、[opencode.ai/download](https://opencode.ai/download) を利用してください。
+Unifia Workbench はデスクトップアプリとしても利用できます。[releases page](https://github.com/Rwanbt/opencode/releases) から直接ダウンロードするか、[opencode.ai/download](https://opencode.ai/download) を利用してください。
 
 | プラットフォーム      | ダウンロード                          |
 | --------------------- | ------------------------------------- |
@@ -701,7 +701,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-OpenCode には組み込みの Agent が2つあり、`Tab` キーで切り替えられます。
+Unifia Workbench には組み込みの Agent が2つあり、`Tab` キーで切り替えられます。
 
 - **build** - デフォルト。開発向けのフルアクセス Agent
 - **plan** - 分析とコード探索向けの読み取り専用 Agent
@@ -716,15 +716,15 @@ OpenCode には組み込みの Agent が2つあり、`Tab` キーで切り替え
 
 ### ドキュメント
 
-OpenCode の設定については [**ドキュメント**](https://opencode.ai/docs) を参照してください。
+Unifia Workbench の設定については [**ドキュメント**](https://opencode.ai/docs) を参照してください。
 
 ### コントリビュート
 
-OpenCode に貢献したい場合は、Pull Request を送る前に [contributing docs](./CONTRIBUTING.md) を読んでください。
+Unifia Workbench に貢献したい場合は、Pull Request を送る前に [contributing docs](./CONTRIBUTING.md) を読んでください。
 
-### OpenCode の上に構築する
+### Unifia Workbench の上に構築する
 
-OpenCode に関連するプロジェクトで、名前に "opencode"（例: "opencode-dashboard" や "opencode-mobile"）を含める場合は、そのプロジェクトが OpenCode チームによって作られたものではなく、いかなる形でも関係がないことを README に明記してください。
+Unifia Workbench に関連するプロジェクトで、名前に "opencode"（例: "opencode-dashboard" や "opencode-mobile"）を含める場合は、そのプロジェクトが Unifia Workbench チームによって作られたものではなく、いかなる形でも関係がないことを README に明記してください。
 
 ### FAQ
 
@@ -733,10 +733,10 @@ OpenCode に関連するプロジェクトで、名前に "opencode"（例: "ope
 機能面では Claude Code と非常に似ています。主な違いは次のとおりです。
 
 - 100% オープンソース
-- 特定のプロバイダーに依存しません。[OpenCode Zen](https://opencode.ai/zen) で提供しているモデルを推奨しますが、OpenCode は Claude、OpenAI、Google、またはローカルモデルでも利用できます。モデルが進化すると差は縮まり価格も下がるため、provider-agnostic であることが重要です。
+- 特定のプロバイダーに依存しません。[Unifia Workbench Zen](https://opencode.ai/zen) で提供しているモデルを推奨しますが、Unifia Workbench は Claude、OpenAI、Google、またはローカルモデルでも利用できます。モデルが進化すると差は縮まり価格も下がるため、provider-agnostic であることが重要です。
 - そのまま使える LSP サポート
-- TUI にフォーカス。OpenCode は neovim ユーザーと [terminal.shop](https://terminal.shop) の制作者によって作られており、ターミナルで可能なことの限界を押し広げます。
-- クライアント/サーバー構成。例えば OpenCode をあなたのPCで動かし、モバイルアプリからリモート操作できます。TUI フロントエンドは複数あるクライアントの1つにすぎません。
+- TUI にフォーカス。Unifia Workbench は neovim ユーザーと [terminal.shop](https://terminal.shop) の制作者によって作られており、ターミナルで可能なことの限界を押し広げます。
+- クライアント/サーバー構成。例えば Unifia Workbench をあなたのPCで動かし、モバイルアプリからリモート操作できます。TUI フロントエンドは複数あるクライアントの1つにすぎません。
 
 ---
 
