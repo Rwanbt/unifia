@@ -84,7 +84,7 @@ phases_plan_v3:
 
 summary:
   total_cards_v2: 22
-  cards_integrated: "50+ (P0-C001..010, P1-C110..030, P2-C040..230, 20 ADRs, 3 Gates, 4 configs)"
+  cards_integrated: "60+ (P0-C001..010, P1-C110..030, P2-C040..230, 25 ADRs, 3 Gates, 7 configs, 1 contracts, 8 fixtures, 1 skill)"
   ready: 0
   proposed: 0
   integrated: 45
@@ -99,7 +99,7 @@ summary:
   audit_complete: "UPSTREAM_AUDIT_COMPLETE (Phase -1 done)"
   user_overlay_status: "USER_CUSTOM_OVERLAY_PENDING (BD-9 licence)"
   push_status: "BLOQUÉ (3 verrous actifs)"
-  total_commits: 130
+  total_commits: 145
   files_modified: 3300
   lines_modified: 22000
   secrets_introduced: 0
@@ -719,6 +719,148 @@ cards:
     sub_cards_count: 12
     plan_path: "docs/autonomy/plans/GATE-C-platform-extensible-stable.md"
     note: "Release publique complète, après Phase 16"
+
+
+  - id: "P1-C110e"
+    phase: "1"
+    title: "Documentation des deps critiques (CRITICAL-DEPS.md)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/autonomy/CRITICAL-DEPS.md"
+
+  - id: "P1-C100e"
+    phase: "1"
+    title: "Workspace fixtures (8 manifests JSON)"
+    status: "INTEGRATED_LOCAL"
+    files: ["tests/fixtures/workspaces/*.json"]
+
+  - id: "P2-C200a"
+    phase: "2"
+    title: "Package @unifia/contracts (6 ports TS)"
+    status: "INTEGRATED_LOCAL"
+    files: ["packages/contracts/src/{runtime,workspace,capability,artifact,sandbox,remote}.ts"]
+    note: "TypeScript valide (tsc --noEmit exit 0)"
+
+  # ADRs P11-P19 (5 additional)
+
+  - id: "ADR-0021"
+    phase: "11"
+    title: "Spec-Driven Development"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0021-spec-driven-development.md"
+
+  - id: "ADR-0022"
+    phase: "transition"
+    title: "Org Model Strategy (BDFL)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0022-org-model-strategy.md"
+
+  - id: "ADR-0023"
+    phase: "transition"
+    title: "Licensing Strategy (MIT/BUSL/Commercial)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0023-licensing-strategy.md"
+
+  - id: "ADR-0024"
+    phase: "transition"
+    title: "Roadmap Strategy (GitHub Projects)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0024-roadmap-strategy.md"
+
+  - id: "ADR-0025"
+    phase: "transition"
+    title: "Community Strategy (Discord/GitHub)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0025-community-strategy.md"
+
+  # Plans détaillés P11-P18 (8 plans)
+
+  - id: "P11-C1100"
+    phase: "11"
+    title: "Spec-Driven Development (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 8
+    plan_path: "docs/autonomy/plans/P11-C1100-spec-driven.md"
+
+  - id: "P12-C1200"
+    phase: "12"
+    title: "Artifact Studio (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 10
+    plan_path: "docs/autonomy/plans/P12-C1200-artifact-studio.md"
+
+  - id: "P13-C1300"
+    phase: "13"
+    title: "Memory System (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 8
+    plan_path: "docs/autonomy/plans/P13-C1300-memory.md"
+
+  - id: "P14-C1400"
+    phase: "14"
+    title: "Workflow Automation (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 8
+    plan_path: "docs/autonomy/plans/P14-C1400-workflow.md"
+
+  - id: "P15-C1500"
+    phase: "15"
+    title: "Skill Hub & Marketplace (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 10
+    plan_path: "docs/autonomy/plans/P15-C1500-skill-hub.md"
+
+  - id: "P16-C1600"
+    phase: "16"
+    title: "MCP UI Server (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 8
+    plan_path: "docs/autonomy/plans/P16-C1600-mcp-ui.md"
+
+  - id: "P17-C1700"
+    phase: "17"
+    title: "Release Hardening (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 10
+    plan_path: "docs/autonomy/plans/P17-C1700-release-hardening.md"
+
+  - id: "P18-C1800"
+    phase: "18"
+    title: "Release publique (plan détaillé)"
+    status: "DEFERRED"
+    sub_cards_count: 8
+    plan_path: "docs/autonomy/plans/P18-C1800-release.md"
+
+  # Configurations additionnelles
+
+  - id: "CONFIG-008"
+    phase: 'config'
+    title: "PRODUCTION_READINESS.md"
+    status: "INTEGRATED_LOCAL"
+    file: "PRODUCTION_READINESS.md"
+
+  - id: "CONFIG-009"
+    phase: 'config'
+    title: "docs/autonomy/index.md"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/autonomy/index.md"
+
+  - id: "CONFIG-010"
+    phase: 'config'
+    title: "unifia-install.sh (install from scratch)"
+    status: "INTEGRATED_LOCAL"
+    file: "scripts/unifia-install.sh"
+
+  - id: "CONFIG-011"
+    phase: 'config'
+    title: "unifia-migrate.cmd (Windows equivalent)"
+    status: "INTEGRATED_LOCAL"
+    file: "scripts/unifia-migrate.cmd"
+
+  - id: "CONFIG-012"
+    phase: 'config'
+    title: "skills/unifia-rebrand/SKILL.md (pour agents future)"
+    status: "INTEGRATED_LOCAL"
+    file: "skills/unifia-rebrand/SKILL.md"
 
 decisions_default:
   BD-2: "EXCLUDE packages/enterprise/ (par défaut, à confirmer)"
