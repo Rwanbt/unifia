@@ -3,3 +3,8 @@
 {"ts":"2026-07-31T08:28:31Z","event":"lock.test","cmd":"git push --dry-run origin HEAD","exit":128,"status":"BLOCKED_AS_EXPECTED"}
 {"ts":"2026-07-31T08:28:32Z","event":"branch.create","name":"agent/unifia-workbench-v3-20260731-082811-207ff452","base":"main","status":"OK"}
 {"ts":"2026-07-31T08:30:00Z","event":"doc.write","files":["docs/autonomy/BASELINE.md","docs/autonomy/REPO-INVENTORY.md","docs/autonomy/TASK-GRAPH-DRAFT.yaml","docs/autonomy/UNIFIA-AUDIT-PACK.md","docs/autonomy/EXECUTION-LOG.jsonl"],"status":"OK"}
+{"ts":"2026-07-31T08:55:00Z","event":"plan.capture","source":"obsidian://OpenCode/Plan-directeur-V3-Unifia-WorkBench-OpenWork-OpenCowork.md","size_bytes":49575,"lines":2149,"sections":187,"status":"OK"}
+{"ts":"2026-07-31T08:58:00Z","event":"decision.bd1","status":"RESOLVED","detail":"Plan V3 capturé"}
+{"ts":"2026-07-31T08:58:30Z","event":"decision.bd7.bd8","status":"OPEN","detail":"URLs upstream OpenWork/Open Cowork à fournir"}
+{"ts":"2026-07-31T09:00:00Z","event":"phase_minus_2.start","objective":"Audit licences fork opencode"}
+{"ts":"2026-07-31T09:01:00Z","event":"phase_minus_2.deliverables","files":["LICENSE-AUDIT-UNIFIA.md","THIRD-PARTY-NOTICES.md","UPSTREAM-PROVENANCE.md","UPSTREAM-SOURCES.lock.json","ATTRIBUTION-TEMPLATE.md"],"status":"OK"}
