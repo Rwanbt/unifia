@@ -1,0 +1,15 @@
+{"ts":"2026-07-31T08:28:11Z","event":"clone","action":"git clone --depth 1 https://github.com/Rwanbt/opencode.git","status":"OK","sha":"207ff452b8056ae11d1f71e23198e520835f70ed","files":5295,"loc":462701}
+{"ts":"2026-07-31T08:28:30Z","event":"lock.install","layer1":"core.hooksPath=.git/hooks/pre-push","layer2":"remote.origin.pushurl=invalid.local","layer3":"push.default=nothing","status":"OK"}
+{"ts":"2026-07-31T08:28:31Z","event":"lock.test","cmd":"git push --dry-run origin HEAD","exit":128,"status":"BLOCKED_AS_EXPECTED"}
+{"ts":"2026-07-31T08:28:32Z","event":"branch.create","name":"agent/unifia-workbench-v3-20260731-082811-207ff452","base":"main","status":"OK"}
+{"ts":"2026-07-31T08:30:00Z","event":"doc.write","files":["docs/autonomy/BASELINE.md","docs/autonomy/REPO-INVENTORY.md","docs/autonomy/TASK-GRAPH-DRAFT.yaml","docs/autonomy/UNIFIA-AUDIT-PACK.md","docs/autonomy/EXECUTION-LOG.jsonl"],"status":"OK"}
+{"ts":"2026-07-31T08:55:00Z","event":"plan.capture","source":"obsidian://OpenCode/Plan-directeur-V3-Unifia-WorkBench-OpenWork-OpenCowork.md","size_bytes":49575,"lines":2149,"sections":187,"status":"OK"}
+{"ts":"2026-07-31T08:58:00Z","event":"decision.bd1","status":"RESOLVED","detail":"Plan V3 capturé"}
+{"ts":"2026-07-31T08:58:30Z","event":"decision.bd7.bd8","status":"OPEN","detail":"URLs upstream OpenWork/Open Cowork à fournir"}
+{"ts":"2026-07-31T09:00:00Z","event":"phase_minus_2.start","objective":"Audit licences fork opencode"}
+{"ts":"2026-07-31T09:01:00Z","event":"phase_minus_2.deliverables","files":["LICENSE-AUDIT-UNIFIA.md","THIRD-PARTY-NOTICES.md","UPSTREAM-PROVENANCE.md","UPSTREAM-SOURCES.lock.json","ATTRIBUTION-TEMPLATE.md"],"status":"OK"}
+{"ts":"2026-07-31T09:20:36Z","event":"upstream.clone","repo":"https://github.com/different-ai/openwork","head_sha":"2c558bcffb5b686148c30bbf3dd2af7ade99492a","size_mb":276,"branches":868,"tags":2346,"ee_branches":50,"lock_file":"upstreams/openwork.git-LOCK.json","status":"OK"}
+{"ts":"2026-07-31T09:20:53Z","event":"upstream.clone","repo":"https://github.com/OpenCoworkAI/open-cowork","head_sha":"ec5bd270861fd4531bda44554766b8b5bd009242","size_mb":78,"branches":40,"tags":16,"ee_branches":0,"lock_file":"upstreams/open-cowork.git-LOCK.json","status":"OK"}
+{"ts":"2026-07-31T09:30:00Z","event":"phase_minus_1.start","objective":"Audit comparatif 3 codebases"}
+{"ts":"2026-07-31T09:35:00Z","event":"phase_minus_1.deliverables","files":["TRI-REPO-ARCHITECTURE-INVENTORY.md","FEATURE-OWNERSHIP-MATRIX.md","DUPLICATION-MATRIX.md","PORTABILITY-ASSESSMENT.md","SECURITY-GAP-MATRIX.md","IMPORT-CANDIDATES.md","DO-NOT-IMPORT.md"],"status":"OK"}
+{"ts":"2026-07-31T09:40:00Z","event":"task_graph.v1.0","file":"TASK-GRAPH-v1.0.yaml","cards":17,"status":"READY+PROPOSED+BLOCKED+DEFERRED","note":"Aligned Plan V3 22 phases"}
