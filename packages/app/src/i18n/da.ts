@@ -137,7 +137,7 @@ export const dict = {
   "provider.connect.opencodeZen.line2":
     "Med en enkelt API-nøgle får du adgang til modeller som Claude, GPT, Gemini, GLM og flere.",
   "provider.connect.opencodeZen.visit.prefix": "Besøg ",
-  "provider.connect.opencodeZen.visit.link": "opencode.ai/zen",
+  "provider.connect.opencodeZen.visit.link": "unifia.ai/zen",
   "provider.connect.opencodeZen.visit.suffix": " for at hente din API-nøgle.",
   "provider.connect.oauth.code.visit.prefix": "Besøg ",
   "provider.connect.oauth.code.visit.link": "dette link",
@@ -293,7 +293,7 @@ export const dict = {
   "dialog.mcp.empty": "Ingen MCP'er konfigureret",
 
   "dialog.lsp.empty": "LSP'er registreret automatisk fra filtyper",
-  "dialog.plugins.empty": "Plugins konfigureret i opencode.json",
+  "dialog.plugins.empty": "Plugins konfigureret i unifia.json",
 
   "mcp.status.connected": "forbundet",
   "mcp.status.failed": "mislykkedes",
@@ -467,7 +467,7 @@ export const dict = {
   "error.chain.responseBody": "Svarindhold:\n{{body}}",
   "error.chain.didYouMean": "Mente du: {{suggestions}}",
   "error.chain.modelNotFound": "Model ikke fundet: {{provider}}/{{model}}",
-  "error.chain.checkConfig": "Tjek dine konfigurations (opencode.json) udbyder/modelnavne",
+  "error.chain.checkConfig": "Tjek dine konfigurations (unifia.json) udbyder/modelnavne",
   "error.chain.mcpFailed": 'MCP-server "{{name}}" fejlede. Bemærk, Unifia understøtter ikke MCP-godkendelse endnu.',
   "error.chain.providerAuthFailed": "Udbydergodkendelse mislykkedes ({{provider}}): {{message}}",
   "error.chain.providerInitFailed":
@@ -1175,11 +1175,11 @@ export const dict = {
   "settings.fork.plugins.loading": "Indlæser…",
   "settings.fork.config.title": "Konfiguration",
   "settings.fork.config.exportTitle": "Eksportér konfiguration",
-  "settings.fork.config.exportDescription": "Hent opencode-config.json med alle dine indstillinger",
+  "settings.fork.config.exportDescription": "Hent unifia-config.json med alle dine indstillinger",
   "settings.fork.config.export": "Eksportér",
   "settings.fork.config.exporting": "Eksportérer…",
   "settings.fork.config.importTitle": "Importér konfiguration",
-  "settings.fork.config.importDescription": "Gendan fra en eksporteret opencode-config.json-fil",
+  "settings.fork.config.importDescription": "Gendan fra en eksporteret unifia-config.json-fil",
   "settings.fork.config.import": "Importér",
   "settings.fork.config.importing": "Importerer…",
   "settings.fork.config.exportFailed": "Eksport mislykkedes",

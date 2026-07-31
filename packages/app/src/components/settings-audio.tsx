@@ -50,7 +50,7 @@ function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> 
   return tauri.core.invoke(cmd, args)
 }
 
-const STORAGE_KEY = "opencode-audio-settings"
+const STORAGE_KEY = "unifia-audio-settings"
 
 export function loadAudioSettings(): AudioSettings {
   try {

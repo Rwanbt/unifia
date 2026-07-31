@@ -223,7 +223,7 @@ export const SettingsRemoteAccess: Component = () => {
     if (data.tlsEnabled && data.tlsFingerprint) {
       params.set("fp", data.tlsFingerprint)
     }
-    return `opencode://connect?${params.toString()}`
+    return `unifia://connect?${params.toString()}`
   })
 
   // Border color for QR container: green = LAN, orange = Internet, neutral = local

@@ -17,7 +17,7 @@ Communique avec le sidecar `packages/opencode` via SSE (events entrants) et REST
 ## Constraints
 - Le terminal utilise ghostty-web (canvas+textarea) — jamais chercher `.xterm-*` dans le DOM
 - Sur mobile, `100dvh` est instable sous MIUI au keyboard toggle — utiliser `var(--vvh, 100dvh)` + `visualViewport` listener
-- `process.env.OPENCODE_CLIENT === "mobile-embedded"` gate les comportements desktop vs mobile
+- `process.env.UNIFIA_CLIENT === "mobile-embedded"` gate les comportements desktop vs mobile
 - Les imports de `packages/opencode` sont interdits dans ce package (couplage UI→backend)
 - CSP WebView requiert `http://ipc.localhost` (connect-src) et `http://asset.localhost` (img-src)
 

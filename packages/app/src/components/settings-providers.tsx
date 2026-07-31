@@ -18,7 +18,7 @@ type ProviderItem = ReturnType<ReturnType<typeof useProviders>["connected"]>[num
 const PROVIDER_NOTES = [
   { match: (id: string) => id === "local-llm", key: "dialog.provider.localLlm.note" },
   { match: (id: string) => id === "unifia", key: "dialog.provider.opencode.note" },
-  { match: (id: string) => id === "opencode-go", key: "dialog.provider.opencodeGo.tagline" },
+  { match: (id: string) => id === "unifia-go", key: "dialog.provider.opencodeGo.tagline" },
   { match: (id: string) => id === "anthropic", key: "dialog.provider.anthropic.note" },
   { match: (id: string) => id.startsWith("github-copilot"), key: "dialog.provider.copilot.note" },
   { match: (id: string) => id === "openai", key: "dialog.provider.openai.note" },
@@ -212,7 +212,7 @@ export const SettingsProviders: Component = () => {
                       <Show when={item.id === "unifia"}>
                         <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
                       </Show>
-                      <Show when={item.id === "opencode-go"}>
+                      <Show when={item.id === "unifia-go"}>
                         <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
                       </Show>
                     </div>

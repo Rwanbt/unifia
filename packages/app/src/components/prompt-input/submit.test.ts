@@ -71,7 +71,7 @@ beforeAll(async () => {
   }))
 
   mock.module("../../types/sdk-shim", () => ({
-    createOpencodeClient: (input: { directory: string }) => {
+    createUnifiaClient: (input: { directory: string }) => {
       createdClients.push(input.directory)
       return clientFor(input.directory)
     },

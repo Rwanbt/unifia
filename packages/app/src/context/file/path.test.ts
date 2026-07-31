@@ -111,7 +111,7 @@ describe("encodeFilePath", () => {
 
   describe("Windows paths", () => {
     test("should handle Windows absolute path with backslashes", () => {
-      const windowsPath = "D:\\dev\\projects\\opencode\\README.bs.md"
+      const windowsPath = "D:\\dev\\projects\\unifia\\README.bs.md"
       const result = encodeFilePath(windowsPath)
       const fileUrl = `file://${result}`
 
@@ -172,7 +172,7 @@ describe("encodeFilePath", () => {
 
     test("should NOT create invalid URL like the bug report", () => {
       // This is the exact scenario from bug report by @alexyaroshuk
-      const windowsPath = "D:\\dev\\projects\\opencode\\README.bs.md"
+      const windowsPath = "D:\\dev\\projects\\unifia\\README.bs.md"
       const result = encodeFilePath(windowsPath)
       const fileUrl = `file://${result}`
 
