@@ -84,7 +84,7 @@ phases_plan_v3:
 
 summary:
   total_cards_v2: 22
-  cards_integrated: "45+ (P0-C001..010, P1-C110..030, P2-C040..230)"
+  cards_integrated: "50+ (P0-C001..010, P1-C110..030, P2-C040..230, 20 ADRs, 3 Gates, 4 configs)"
   ready: 0
   proposed: 0
   integrated: 45
@@ -99,7 +99,7 @@ summary:
   audit_complete: "UPSTREAM_AUDIT_COMPLETE (Phase -1 done)"
   user_overlay_status: "USER_CUSTOM_OVERLAY_PENDING (BD-9 licence)"
   push_status: "BLOQUÉ (3 verrous actifs)"
-  total_commits: 121
+  total_commits: 130
   files_modified: 3300
   lines_modified: 22000
   secrets_introduced: 0
@@ -656,6 +656,69 @@ cards:
     title: "CHANGELOG.md v1.0.0"
     status: "INTEGRATED_LOCAL"
     file: "CHANGELOG.md"
+
+
+  # ================================================================
+  # ADRs (5 SUPPLEMENTAIRES — 16-20)
+  # ================================================================
+
+  - id: "ADR-0016"
+    phase: "transition"
+    title: "Critères de Gate (A/B/C)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0016-gate-criteria.md"
+
+  - id: "ADR-0017"
+    phase: "11"
+    title: "OpenDesign et Spec-Driven Development"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0017-opendesign-integration.md"
+
+  - id: "ADR-0018"
+    phase: "13"
+    title: "Memory System (long-term + working)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0018-memory-system.md"
+
+  - id: "ADR-0019"
+    phase: "14"
+    title: "Workflow Automation"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0019-workflow-automation.md"
+
+  - id: "ADR-0020"
+    phase: "16"
+    title: "MCP UI Server (exposition capabilities)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0020-mcp-ui-server.md"
+
+  # ================================================================
+  # GATES (3 checkpoints Plan V3 §15)
+  # ================================================================
+
+  - id: "GATE-A"
+    phase: "transition"
+    title: "Workbench headless stable"
+    status: "DEFERRED"
+    sub_cards_count: 11
+    plan_path: "docs/autonomy/plans/GATE-A-workbench-headless-stable.md"
+    note: "Premier checkpoint bloqueur, après Phase 2"
+
+  - id: "GATE-B"
+    phase: "transition"
+    title: "Cowork local-first sécurisé"
+    status: "BLOCKED_SECURITY_CRITICAL"
+    sub_cards_count: 12
+    plan_path: "docs/autonomy/plans/GATE-B-cowork-local-first-secure.md"
+    note: "Checkpoint de sécurité, après Phase 10"
+
+  - id: "GATE-C"
+    phase: "transition"
+    title: "Plateforme extensible stabilisée"
+    status: "DEFERRED"
+    sub_cards_count: 12
+    plan_path: "docs/autonomy/plans/GATE-C-platform-extensible-stable.md"
+    note: "Release publique complète, après Phase 16"
 
 decisions_default:
   BD-2: "EXCLUDE packages/enterprise/ (par défaut, à confirmer)"
