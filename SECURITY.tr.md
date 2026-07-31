@@ -20,7 +20,7 @@ Gerçek izolasyona ihtiyacınız varsa Unifia Workbench'u bir Docker kapsayıcı
 
 ### Sunucu modu
 
-Sunucu modu yalnızca opt-in'dir. Etkinleştirildiğinde, HTTP Basic Auth gerektirmek için `OPENCODE_SERVER_PASSWORD` ayarlayın. Bu olmadan sunucu kimlik doğrulaması olmadan çalışır (uyarı ile). Sunucuyu güvence altına almak son kullanıcının sorumluluğundadır — sağladığı herhangi bir işlevsellik bir güvenlik açığı değildir.
+Sunucu modu yalnızca opt-in'dir. Etkinleştirildiğinde, HTTP Basic Auth gerektirmek için `UNIFIA_SERVER_PASSWORD` ayarlayın. Bu olmadan sunucu kimlik doğrulaması olmadan çalışır (uyarı ile). Sunucuyu güvence altına almak son kullanıcının sorumluluğundadır — sağladığı herhangi bir işlevsellik bir güvenlik açığı değildir.
 
 ### Kapsam dışı
 

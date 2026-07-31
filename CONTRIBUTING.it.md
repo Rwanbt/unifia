@@ -2,7 +2,7 @@
 
 # Contribuire a Unifia Workbench
 
-Vogliamo renderti facile contribuire a OpenCode. Ecco i tipi di modifiche più comunemente mergiate:
+Vogliamo renderti facile contribuire a Unifia. Ecco i tipi di modifiche più comunemente mergiate:
 
 - Correzioni di bug
 - LSP / Formatter aggiuntivi

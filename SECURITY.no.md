@@ -20,7 +20,7 @@ Hvis du trenger ekte isolering, kjør Unifia Workbench inne i en Docker-containe
 
 ### Servermodus
 
-Servermodus er kun opt-in. Når aktivert, sett `OPENCODE_SERVER_PASSWORD` for å kreve HTTP Basic Auth. Uten dette kjører serveren uautentisert (med en advarsel). Det er sluttbrukerens ansvar å sikre serveren — enhver funksjonalitet den gir, er ikke en sårbarhet.
+Servermodus er kun opt-in. Når aktivert, sett `UNIFIA_SERVER_PASSWORD` for å kreve HTTP Basic Auth. Uten dette kjører serveren uautentisert (med en advarsel). Det er sluttbrukerens ansvar å sikre serveren — enhver funksjonalitet den gir, er ikke en sårbarhet.
 
 ### Utenfor omfang
 

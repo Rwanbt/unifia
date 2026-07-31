@@ -20,7 +20,7 @@ Für echte Isolation führen Sie Unifia Workbench in einem Docker-Container oder
 
 ### Server-Modus
 
-Der Server-Modus ist Opt-in. Bei Aktivierung `OPENCODE_SERVER_PASSWORD` setzen, um HTTP Basic Auth zu verlangen. Ohne diese Variable läuft der Server nicht authentifiziert (mit Warnung). Die Absicherung des Servers liegt in der Verantwortung des Endnutzers — jede Funktionalität, die er bereitstellt, ist keine Schwachstelle.
+Der Server-Modus ist Opt-in. Bei Aktivierung `UNIFIA_SERVER_PASSWORD` setzen, um HTTP Basic Auth zu verlangen. Ohne diese Variable läuft der Server nicht authentifiziert (mit Warnung). Die Absicherung des Servers liegt in der Verantwortung des Endnutzers — jede Funktionalität, die er bereitstellt, ist keine Schwachstelle.
 
 ### Außerhalb des Geltungsbereichs
 

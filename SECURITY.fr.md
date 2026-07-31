@@ -20,7 +20,7 @@ Si vous avez besoin d'une isolation réelle, exécutez Unifia Workbench dans un 
 
 ### Mode serveur
 
-Le mode serveur est opt-in uniquement. Lorsqu'activé, définissez `OPENCODE_SERVER_PASSWORD` pour imposer HTTP Basic Auth. Sans cela, le serveur tourne non authentifié (avec un avertissement). C'est à l'utilisateur final de sécuriser le serveur — toute fonctionnalité qu'il offre n'est pas une vulnérabilité.
+Le mode serveur est opt-in uniquement. Lorsqu'activé, définissez `UNIFIA_SERVER_PASSWORD` pour imposer HTTP Basic Auth. Sans cela, le serveur tourne non authentifié (avec un avertissement). C'est à l'utilisateur final de sécuriser le serveur — toute fonctionnalité qu'il offre n'est pas une vulnérabilité.
 
 ### Hors périmètre
 

@@ -2,7 +2,7 @@
 
 # Bidra til Unifia Workbench
 
-Vi vil gjøre det enkelt for deg å bidra til OpenCode. Her er de vanligste typene endringer som blir merget:
+Vi vil gjøre det enkelt for deg å bidra til Unifia. Her er de vanligste typene endringer som blir merget:
 
 - Feilrettelser
 - Ytterligere LSP-er / formatterere

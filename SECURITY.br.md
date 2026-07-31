@@ -20,7 +20,7 @@ Se você precisa de isolamento real, execute o Unifia Workbench dentro de um con
 
 ### Modo servidor
 
-O modo servidor é somente opt-in. Quando ativado, defina `OPENCODE_SERVER_PASSWORD` para exigir HTTP Basic Auth. Sem isso, o servidor roda sem autenticação (com um aviso). É responsabilidade do usuário final proteger o servidor — qualquer funcionalidade fornecida por ele não é uma vulnerabilidade.
+O modo servidor é somente opt-in. Quando ativado, defina `UNIFIA_SERVER_PASSWORD` para exigir HTTP Basic Auth. Sem isso, o servidor roda sem autenticação (com um aviso). É responsabilidade do usuário final proteger o servidor — qualquer funcionalidade fornecida por ele não é uma vulnerabilidade.
 
 ### Fora de escopo
 

@@ -2,7 +2,7 @@
 
 # Contribuir a Unifia Workbench
 
-Queremos facilitarte la contribución a OpenCode. Estos son los tipos de cambios más comúnmente mergeados:
+Queremos facilitarte la contribución a Unifia. Estos son los tipos de cambios más comúnmente mergeados:
 
 - Corrección de bugs
 - LSPs / Formatters adicionales
