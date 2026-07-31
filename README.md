@@ -1,17 +1,17 @@
 <p align="center">
-  <img src="Bannière OpencodeX.png" alt="RBannière OpencodeX" >
+  <img src="Bannière OpencodeX.png" alt="Unifia Workbench banner" >
   <a href="https://github.com/Rwanbt/opencode">
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Unifia Workbench logo">
     </picture>
   </a>
 </p>
 <p align="center">The open source AI coding agent.</p>
 <p align="center">
-  <a href="https://github.com/Rwanbt/opencode/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/opencode?display_name=tag&style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/opencode?display_name=tag&style=flat-square" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -50,7 +50,7 @@ Releases, binaries, issues, roadmap, and support for this fork are maintained he
 
 ## ⚡ At a glance
 
-OpenCode Fusion (working name) — an orchestrated AI coding agent that runs on **desktop, server, and phone**, with local models end-to-end and governance primitives built into the fork. It is based on [upstream OpenCode](https://github.com/anomalyco/opencode) and distributed from the [Rwanbt fork](https://github.com/Rwanbt/opencode). The final product name is not fixed yet.
+Unifia Workbench — an orchestrated AI coding agent that runs on **desktop, server, and phone**, with local models end-to-end and governance primitives built into the fork. It is based on [upstream OpenCode](https://github.com/anomalyco/opencode) and distributed from the [Rwanbt fork](https://github.com/Rwanbt/opencode). The final product name is not fixed yet.
 
 ### Install
 
@@ -59,7 +59,7 @@ OpenCode Fusion (working name) — an orchestrated AI coding agent that runs on 
 # The upstream installer is intentionally not used for this fork. Use a fork release artifact or build from source.
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 10 things this fork bundles that no other CLI does
@@ -757,7 +757,7 @@ Android is already implemented and functional. The remaining mobile client work 
 
 ### Installation
 
-Use a fork release artifact from [Rwanbt/opencode/releases](https://github.com/Rwanbt/opencode/releases/latest), or build from source:
+Use a fork release artifact from [Rwanbt/opencode/releases](https://github.com/Rwanbt/unifia/releases/latest), or build from source:
 
 ```bash
 git clone https://github.com/Rwanbt/opencode.git
@@ -770,7 +770,7 @@ The upstream installer, npm package, Homebrew formula, Scoop package and `openco
 
 ### Desktop App and Android APK
 
-Download the platform artifact from the [fork releases page](https://github.com/Rwanbt/opencode/releases). Check each release note for signing and production-readiness status before deployment.
+Download the platform artifact from the [fork releases page](https://github.com/Rwanbt/unifia/releases). Check each release note for signing and production-readiness status before deployment.
 
 | Platform | Artifact |
 | --- | --- |
