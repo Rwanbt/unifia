@@ -1,11 +1,11 @@
 ---
-project: opencode
+project: unifia
 type: roadmap
 tags: [fork, distribution, updater, android, desktop, csp, testing]
 summary: "Plan de correction fondé sur les builds dev, l’installation Android réelle et l’audit des chemins de distribution du fork."
 created: 2026-07-16
 updated: 2026-07-16
-related: [[OpenCode/AGENTS|OpenCode AGENTS.md]], [[OpenCode/INDEX|OpenCode INDEX]], [[OpenCode/Agent-DAG-System|Agent-DAG-System]]
+related: [[OpenCode/AGENTS|Unifia AGENTS.md]], [[OpenCode/INDEX|Unifia INDEX]], [[OpenCode/Agent-DAG-System|Agent-DAG-System]]
 ---
 
 # Plan — distribution et corrections de production du fork
@@ -14,11 +14,11 @@ related: [[OpenCode/AGENTS|OpenCode AGENTS.md]], [[OpenCode/INDEX|OpenCode INDEX
 
 - Branche : `dev`, HEAD `cfdf9233c9`.
 - Les modifications de Claude sont non commitées et doivent rester intactes.
-- Typechecks et tests ciblés précédemment verts : UI, app, opencode, desktop, Electron ; CodeMirror 3/3 et preload thème 3/3.
+- Typechecks et tests ciblés précédemment verts : UI, app, unifia, desktop, Electron ; CodeMirror 3/3 et preload thème 3/3.
 - Desktop Tauri compilé en release avec Vite, typecheck et Rust Tauri réussis.
 - Android ARM64 compilé après configuration explicite de `ORT_LIB_LOCATION=D:\tmp\ort-android`.
 - APK signé v2/v3 et installé sur le téléphone `b7163823` ; `lastUpdateTime` confirmé à `2026-07-16 12:17:44`.
-- La commande `opencode.exe --version` du binaire généré n’a pas terminé et doit être diagnostiquée avant de considérer le CLI validé.
+- La commande `unifia.exe --version` du binaire généré n’a pas terminé et doit être diagnostiquée avant de considérer le CLI validé.
 
 ## Artefacts validés
 
@@ -36,11 +36,11 @@ related: [[OpenCode/AGENTS|OpenCode AGENTS.md]], [[OpenCode/INDEX|OpenCode INDEX
 3. Rendre l’updater Tauri installable : signer les releases, publier `latest.json` et les signatures attendues par Tauri, aligner la clé publique, le repo production et le repo beta. Un binaire « unsigned » ne peut pas satisfaire le flux updater actuel.
 4. Décider et implémenter la distribution Electron : publier les artefacts et `latest.yml` dans le repo fork, avec un canal beta cohérent. Le code Electron vise déjà le fork mais le workflow fork ne construit pas Electron.
 5. Définir l’update Android séparément : version dynamique au lieu de `0.1.0`, endpoint/release fork, vérification de checksum/signature et UX de mise à jour. Tant qu’il n’y a pas de mécanisme de distribution Android choisi, documenter clairement « téléchargement manuel depuis GitHub ».
-6. Corriger l’action GitHub d’installation : sélectionner OS/architecture au lieu de forcer `opencode-linux-x64.tar.gz`, puis vérifier que chaque URL vise le fork.
+6. Corriger l’action GitHub d’installation : sélectionner OS/architecture au lieu de forcer `unifia-linux-x64.tar.gz`, puis vérifier que chaque URL vise le fork.
 
 ## P1 — supprimer les références officielles restantes
 
-- Scanner le dépôt, les locales, le site et les workflows pour `anomalyco/opencode`, `anomalyco/opencode-beta`, `opencode.ai/install` et le Discord officiel.
+- Scanner le dépôt, les locales, le site et les workflows pour `anomalyco/opencode`, `anomalyco/opencode-beta`, `unifia.ai/install` et le Discord officiel.
 - Remplacer les liens d’aide par le GitHub du fork, en gardant une mention explicite « fork non officiel » au début des README.
 - Tester les traductions et les pages d’erreur desktop, Electron, mobile, CLI et web.
 - Ajouter un test CI qui échoue si une URL de distribution officielle reste dans un chemin runtime ou de documentation utilisateur.

@@ -4,7 +4,7 @@ Branche `dev`. Aucun commit effectué.
 
 ## Validation
 
-- `bun run typecheck` (monorepo, via turbo) → **0 erreur** sur les 14 packages (`@opencode-ai/{app,mobile,desktop,ui,opencode,...}`).
+- `bun run typecheck` (monorepo, via turbo) → **0 erreur** sur les 14 packages (`@unifia-ai/{app,mobile,desktop,ui,unifia,...}`).
 - `cd packages/opencode && bun test` complet → **2114 pass, 26 skip, 1 todo, 0 fail** en ~350 s (174 fichiers, 6121 assertions).
 - `cd packages/opencode && bun test test/auth/` → **4 pass, 0 fail**.
 - `cd packages/opencode && bun test test/provider/ test/e2e/dag-team.test.ts test/server/ws-ticket.test.ts test/lib/in-process-server.test.ts` → **280 pass, 2 skip, 0 fail**.
@@ -28,16 +28,16 @@ Branche `dev`. Aucun commit effectué.
 ### 2 — Auth.layer → KeychainStorage + initAuthStorage() au boot — FAIT
 
 - `packages/opencode/src/auth/index.ts` :
-  - Nouveau `selectKeychain()` : retourne `KeychainStorage` si `OPENCODE_AUTH_STORAGE=keychain` **et** `kc.available()` (URL + token injectés par le sidecar). Sinon retourne `undefined`. Warn one-shot si l'env dit "keychain" mais l'URL manque (cas CLI headless).
+  - Nouveau `selectKeychain()` : retourne `KeychainStorage` si `UNIFIA_AUTH_STORAGE=keychain` **et** `kc.available()` (URL + token injectés par le sidecar). Sinon retourne `undefined`. Warn one-shot si l'env dit "keychain" mais l'URL manque (cas CLI headless).
   - `Auth.layer` : lecture/écriture routées vers `keychain.load()` / `keychain.save()` quand activé ; sinon `FileStorage` comme avant.
   - Lecture keychain : si l'endpoint lève une erreur transitoire (ex. endpoint mort), on catch dans le `try` du `Effect.tryPromise`, on log warn, et on retombe sur `auth.json`. Jamais de crash.
   - Écriture keychain : propagée comme `AuthError` via `Effect.tryPromise.catch` — seule voie de remontée d'erreur métier (pas de fallback silencieux à l'écriture sinon données divergentes).
 - `packages/opencode/src/cli/cmd/serve.ts` : `await initAuthStorage()` appelé juste avant `Server.listen()` (donc après `CrashReporter.init()` qui tourne dans `index.ts` avant tout CLI command). Garantit qu'un `auth.json` existant est migré **avant** que la première route Auth ne soit servie.
-- **Sécurité** : `OPENCODE_AUTH_STORAGE=keychain` sans `OPENCODE_KEYCHAIN_URL` → warn + `FileStorage`. Jamais de crash boot.
-- Test manuel CLI : `OPENCODE_AUTH_STORAGE=keychain bun packages/opencode/src/index.ts serve` → warn visible, fonctionne sur file.
+- **Sécurité** : `UNIFIA_AUTH_STORAGE=keychain` sans `UNIFIA_KEYCHAIN_URL` → warn + `FileStorage`. Jamais de crash boot.
+- Test manuel CLI : `UNIFIA_AUTH_STORAGE=keychain bun packages/opencode/src/index.ts serve` → warn visible, fonctionne sur file.
 - Test manuel desktop : à dérouler manuellement avec le sidecar (non scripté ici — voir item 4 pour le round-trip endpoint isolé).
 - Tests automatisés : `bun test test/auth/` reste vert (4 pass) — par défaut `AUTH_STORAGE_BACKEND=file`, aucun changement de comportement.
-- **Risque résiduel** : la sélection est capturée **au moment** de l'évaluation du layer (memoized par `makeRuntime`). Un test qui flip `OPENCODE_AUTH_STORAGE` runtime n'aura aucun effet ; il faut instancier un nouveau runtime.
+- **Risque résiduel** : la sélection est capturée **au moment** de l'évaluation du layer (memoized par `makeRuntime`). Un test qui flip `UNIFIA_AUTH_STORAGE` runtime n'aura aucun effet ; il faut instancier un nouveau runtime.
 
 ### 3 — Migrer les 3 call sites WS legacy — FAIT (1 migré, 2 documentés non-applicable)
 
@@ -70,15 +70,15 @@ Analyse des 3 call sites WS client identifiés par grep `new WebSocket` :
 
 ### 4 — Runtime test keychain endpoint — FAIT
 
-- `packages/opencode/test/lib/keychain-smoke.ts` : script Bun standalone (`#!/usr/bin/env bun`). Lit `OPENCODE_KEYCHAIN_URL` + `OPENCODE_KEYCHAIN_TOKEN`, fait PUT → GET (match) → DELETE → GET (404), exit 0 si tout OK sinon 1.
+- `packages/opencode/test/lib/keychain-smoke.ts` : script Bun standalone (`#!/usr/bin/env bun`). Lit `UNIFIA_KEYCHAIN_URL` + `UNIFIA_KEYCHAIN_TOKEN`, fait PUT → GET (match) → DELETE → GET (404), exit 0 si tout OK sinon 1.
 - Documentation inline (header JSDoc) : procédure pour récupérer les env vars depuis les logs du shell desktop.
 - **Commande de test manuel** :
   ```bash
   # 1. Lancer le desktop et relever dans ses logs :
   #    keychain endpoint listening at http://127.0.0.1:XXXXX  (port)
   #    (le token apparaît aussi dans les logs au même endroit)
-  export OPENCODE_KEYCHAIN_URL=http://127.0.0.1:XXXXX
-  export OPENCODE_KEYCHAIN_TOKEN=<token>
+  export UNIFIA_KEYCHAIN_URL=http://127.0.0.1:XXXXX
+  export UNIFIA_KEYCHAIN_TOKEN=<token>
   bun run packages/opencode/test/lib/keychain-smoke.ts
   ```
 - **Non exécuté ici** (aucune session desktop disponible en CI). À valider manuellement avant release.
@@ -86,7 +86,7 @@ Analyse des 3 call sites WS client identifiés par grep `new WebSocket` :
 ## Risques résiduels
 
 1. **Item 1 (DAG e2e)** : toujours skippé. `withInstanceForTest` ne couvre que l'ALS — manque Provider mock seam + Permission in-memory. Reportable sans impact utilisateur (c'est du test infra).
-2. **Item 2 (Auth.layer)** : sélection capturée à la construction du Layer. Si un utilisateur flip `OPENCODE_AUTH_STORAGE` à chaud (relance sidecar), le comportement ne change qu'au prochain boot — attendu. Documenté.
+2. **Item 2 (Auth.layer)** : sélection capturée à la construction du Layer. Si un utilisateur flip `UNIFIA_AUTH_STORAGE` à chaud (relance sidecar), le comportement ne change qu'au prochain boot — attendu. Documenté.
 3. **Item 3 (terminal.tsx)** : `open()` devient async de facto. Le cleanup `disposed` est couvert. Aucun autre call site ne mesure `ws.readyState` immédiatement après `open()`.
 4. **Item 4 (smoke test)** : non exécuté en CI, requiert un desktop vivant.
 5. **Item 5 (fallback resolver)** : validation providerID se fait au runtime de chaque stream — pas de pre-check boot. Première requête avec un override invalide log un warn au lieu d'échouer fast. Acceptable (le fallback est opt-in, une direction null suffit à désactiver).

@@ -1,11 +1,11 @@
 ---
-project: opencode
+project: unifia
 type: roadmap
-tags: [opencode, desktop, android, auto, debate, observability]
+tags: [unifia, desktop, android, auto, debate, observability]
 summary: "Plan de convergence CLI, Desktop et Android pour la visibilité des agents, Auto, Debate et l’observabilité mobile."
 created: 2026-07-13
 updated: 2026-07-13
-related: [[OpenCode/Codex|OpenCode AGENTS.md/Codex]], [[OpenCode/Handoff-CLI-Auto-Debate-CloudLean-2026-07-12|CLI Auto/Debate handoff]], [[OpenCode/Plan-Native-Observability-V3-2026-07-10|Native observability V3]], [[OpenCode/Roadmap-IDE-Android-Dual-Mode|Android dual-mode roadmap]]
+related: [[OpenCode/Codex|Unifia AGENTS.md/Codex]], [[OpenCode/Handoff-CLI-Auto-Debate-CloudLean-2026-07-12|CLI Auto/Debate handoff]], [[OpenCode/Plan-Native-Observability-V3-2026-07-10|Native observability V3]], [[OpenCode/Roadmap-IDE-Android-Dual-Mode|Android dual-mode roadmap]]
 ---
 
 # Plan de convergence CLI, Desktop et Android
