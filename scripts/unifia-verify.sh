@@ -12,7 +12,8 @@
 # - Aucun secret en clair
 # - Pas de fichiers interdits
 
-set -euo pipefail
+# PAS de `set -e` : on veut que les checks continuent même si un échoue
+set -uo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -43,7 +44,7 @@ detect_paths() {
 check_db() {
     if [ -f "$NEW_DIR/unifia.db" ]; then
         if [ -r "$NEW_DIR/unifia.db" ]; then
-            SIZE=$(stat -c%s "$NEW_DIR/unifia.db" 2>/dev/null || stat -f%z "$NEW_DIR/unifia.db" 2>/dev/null)
+            SIZE=$(stat -c%s "$NEW_DIR/unifia.db" 2>/dev/null || stat -f%z "$NEW_DIR/unifia.db" 2>/dev/null || echo "?")
             pass "DB exists and readable ($SIZE bytes): $NEW_DIR/unifia.db"
         else
             fail "DB exists but not readable: $NEW_DIR/unifia.db"
@@ -59,9 +60,11 @@ check_config() {
     if [ -f "$NEW_DIR/unifia.jsonc" ]; then
         # Valider JSONC (JSON5)
         if command -v node >/dev/null 2>&1; then
-            node -e "JSON.parse(require('fs').readFileSync('$NEW_DIR/unifia.jsonc', 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''))" 2>/dev/null && \
-                pass "Config exists and valid JSONC: $NEW_DIR/unifia.jsonc" || \
+            if node -e "JSON.parse(require('fs').readFileSync('$NEW_DIR/unifia.jsonc', 'utf8').replace(/\/\/.*\$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''))" 2>/dev/null; then
+                pass "Config exists and valid JSONC: $NEW_DIR/unifia.jsonc"
+            else
                 warn "Config exists but JSONC parse failed: $NEW_DIR/unifia.jsonc"
+            fi
         else
             pass "Config exists: $NEW_DIR/unifia.jsonc (node not available for JSONC validation)"
         fi
@@ -99,7 +102,7 @@ check_hooks() {
 check_no_secrets() {
     # Vérifier qu'il n'y a pas de .env* dans le repo
     if [ -d .git ]; then
-        LEAKED=$(git ls-files | grep -E '\.env' | grep -v '\.env\.example$' || true)
+        LEAKED=$(git ls-files 2>/dev/null | grep -E '\.env' | grep -v '\.env\.example$' || true)
         if [ -n "$LEAKED" ]; then
             fail "Secrets leaked in git: $LEAKED"
         else
@@ -110,8 +113,10 @@ check_no_secrets() {
 
 check_no_ee() {
     if [ -d .git ]; then
-        EE=$(git ls-tree -r HEAD | grep -E '/ee/' | grep -v 'docs/' | wc -l)
-        if [ "$EE" -gt 0 ]; then
+        # git ls-tree peut retourner non-zéro si HEAD n'est pas résolvable
+        EE=$(git ls-tree -r HEAD 2>/dev/null | grep -E '/ee/' | grep -v 'docs/' | wc -l | tr -d ' \n' || echo 0)
+        EE=${EE:-0}
+        if [ "${EE:-0}" -gt 0 ] 2>/dev/null; then
             fail "Forbidden /ee/ code committed ($EE files)"
         else
             pass "No /ee/ code committed"
@@ -123,8 +128,14 @@ check_brand() {
     if [ -d brand/unifia ]; then
         MANIFEST=brand/unifia/brand-manifest.json
         if [ -f "$MANIFEST" ]; then
-            VERSION=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['version'])" 2>/dev/null || echo "unknown")
-            pass "Unifia brand installed: v$VERSION"
+            # Tenter d'extraire version ou schemaVersion
+            VERSION=$(python3 -c "
+import json
+with open('$MANIFEST') as f:
+    d = json.load(f)
+print(d.get('version') or d.get('schemaVersion') or d.get('name') or 'unknown')
+" 2>/dev/null || echo "unknown")
+            pass "Unifia brand installed: $VERSION"
         else
             warn "brand/unifia/ exists but no manifest"
         fi
@@ -141,7 +152,7 @@ main() {
     echo "New dir: $NEW_DIR"
     echo "Legacy dir: $LEGACY_DIR"
     echo ""
-    
+
     check_db
     check_config
     check_binaries
@@ -149,19 +160,19 @@ main() {
     check_no_secrets
     check_no_ee
     check_brand
-    
+
     echo ""
     echo "=== Résumé ==="
     echo -e "  ${GREEN}PASS${NC}: $PASS"
     echo -e "  ${RED}FAIL${NC}: $FAIL"
     echo -e "  ${YELLOW}WARN${NC}: $WARN"
     echo ""
-    
+
     if [ "$FAIL" -gt 0 ]; then
         echo -e "${RED}❌ Verification FAILED${NC}"
         exit 1
     elif [ "$WARN" -gt 0 ]; then
-        echo -e "${YELLOW}⚠️  Verification OK with warnings${NC}"
+        echo -e "${YELLOW}⚠  Verification OK with warnings${NC}"
         exit 0
     else
         echo -e "${GREEN}✅ Verification PASSED${NC}"
