@@ -150,7 +150,7 @@ let ttsAborted = false
 
 function getAudioSettings() {
   try {
-    const raw = localStorage.getItem("opencode-audio-settings")
+    const raw = localStorage.getItem("unifia-audio-settings")
     return raw ? JSON.parse(raw) : {}
   } catch { return {} }
 }

@@ -1,12 +1,12 @@
-# OpenCode Mobile
+# Unifia Mobile
 
-Native mobile app for Android (and future iOS), powered by Tauri 2.0. Supports both local on-device AI and remote connection to a desktop OpenCode server.
+Native mobile app for Android (and future iOS), powered by Tauri 2.0. Supports both local on-device AI and remote connection to a desktop Unifia server.
 
 ## Features
 
 ### Dual Mode
-- **Local Mode** (Android): Runs an embedded OpenCode server directly on the device with full agent capabilities
-- **Remote Mode**: Connects to a desktop OpenCode instance over the network
+- **Local Mode** (Android): Runs an embedded Unifia server directly on the device with full agent capabilities
+- **Remote Mode**: Connects to a desktop Unifia instance over the network
 
 ### Local LLM Inference
 - On-device inference via llama.cpp with JNI bridge (GPU optional: OpenCL/Vulkan)
@@ -205,7 +205,7 @@ Packaged as JNI libs in `jniLibs/arm64-v8a/`:
 ## Remote Connection
 
 ### Setup
-1. Start OpenCode server on your desktop: `opencode serve --hostname 0.0.0.0`
+1. Start Unifia server on your desktop: `unifia serve --hostname 0.0.0.0`
 2. Note the server URL (e.g., `http://192.168.1.100:4096`)
 3. Open the mobile app → Remote → Enter server URL
 

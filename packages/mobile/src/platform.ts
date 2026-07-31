@@ -11,7 +11,7 @@ export function setPrivateServerFp(fp: string | null) {
 }
 
 // IPs RFC1918 + loopback + IPv6 ULA. Utilisé comme fallback quand l'utilisateur
-// arrive sur une URL HTTPS LAN sans avoir transité par le deep link `opencode://`
+// arrive sur une URL HTTPS LAN sans avoir transité par le deep link `unifia://`
 // (cas typique : scan via Google Lens / scanner tiers qui ne route pas les
 // schemes custom — l'utilisateur copie-colle l'URL HTTPS à la main, donc fp
 // jamais transmis). Sans cette détection, le tauri-plugin-http rejette le cert
@@ -319,7 +319,7 @@ export async function createPlatform(): Promise<Platform> {
     // DialogSelectDirectory, which uses the opencode-cli /file API.
 
     // List navigable storage roots on Android (internal storage, SD cards,
-    // OTG drives, opencode home). The dialog uses these as starting points
+    // OTG drives, unifia home). The dialog uses these as starting points
     // since Android sandboxes /storage/ from direct enumeration.
     async listStorageRoots() {
       try {
@@ -376,7 +376,7 @@ export async function createPlatform(): Promise<Platform> {
             : (input as Request).url
       // Routage via la commande Rust fetch_private_server (accept_invalid_certs)
       // dans deux cas :
-      //   1. fp pinning explicite reçu via deep link `opencode://...&fp=...`
+      //   1. fp pinning explicite reçu via deep link `unifia://...&fp=...`
       //   2. fallback HTTPS vers IP privée RFC1918 sans fp (scan QR via scanner
       //      tiers qui ne route pas les schemes custom — l'utilisateur a copié
       //      l'URL à la main). Sans ce fallback, l'erreur est silencieuse et
@@ -436,7 +436,7 @@ export async function createPlatform(): Promise<Platform> {
         await writeDebugLog(`server_running=true savedPw=${savedPw ? savedPw.slice(0,8)+"..." : "null"}`)
         if (savedPw) {
           await writeDebugLog(`returning cached: url=http://127.0.0.1:${port} pw=${savedPw.slice(0,8)}...`)
-          return { url: `http://127.0.0.1:${port}`, username: "opencode", password: savedPw }
+          return { url: `http://127.0.0.1:${port}`, username: "unifia", password: savedPw }
         }
         await writeDebugLog("server running but no saved password, restarting...")
         try { await stopLocal(port) } catch {}
@@ -465,7 +465,7 @@ export async function createPlatform(): Promise<Platform> {
         await writeDebugLog(`checkLocalHealth(${i+1}): ${healthy}`)
         if (healthy) {
           await writeDebugLog(`returning: url=http://127.0.0.1:${port} pw=${password.slice(0,8)}...`)
-          return { url: `http://127.0.0.1:${port}`, username: "opencode", password }
+          return { url: `http://127.0.0.1:${port}`, username: "unifia", password }
         }
       }
       await writeDebugLog("health check timed out after 30s")

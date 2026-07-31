@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicorichard/tauri-schema/main/tauri.conf.json",
-  "productName": "OpenCode Mobile",
+  "productName": "Unifia Mobile",
   "version": "0.1.0",
   "identifier": "ai.opencode.mobile",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OpenCode",
+        "title": "Unifia",
         "fullscreen": false,
         "resizable": true
       }
@@ -44,7 +44,7 @@
     "deep-link": {
       "mobile": [
         {
-          "scheme": ["opencode"]
+          "scheme": ["unifia"]
         }
       ]
     }

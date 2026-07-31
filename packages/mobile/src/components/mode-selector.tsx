@@ -24,7 +24,7 @@ export function ModeSelector(props: Props) {
       color: "#e5e5e5",
     }}>
       <h1 style={{ "font-size": "28px", "font-weight": "700", margin: "0" }}>
-        OpenCode
+        Unifia
       </h1>
       <p style={{ color: "#888", "text-align": "center", margin: "0", "max-width": "320px" }}>
         Choose how to connect to the AI coding agent
@@ -69,7 +69,7 @@ export function ModeSelector(props: Props) {
         >
           <div style={{ "font-weight": "600" }}>Remote Server</div>
           <div style={{ "font-size": "13px", color: "#888", "margin-top": "4px" }}>
-            Connect to OpenCode running on your PC
+            Connect to Unifia running on your PC
           </div>
         </button>
 
