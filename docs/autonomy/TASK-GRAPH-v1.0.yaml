@@ -578,3 +578,7 @@ changelog:
     date: "2026-07-31"
     changes: "DRAFT initial inventé, basé sur hypothèses. 17 cartes, scope = rebrand cosmétique Phase 0."
     status: "DEPRECATED"
+
+# =============================================================================
+# P0-C008 — Ajout post-capture Plan V3 : drop-in brand Unifia
+# =============================================================================

@@ -15,3 +15,5 @@
 {"ts":"2026-07-31T09:40:00Z","event":"task_graph.v1.0","file":"TASK-GRAPH-v1.0.yaml","cards":17,"status":"READY+PROPOSED+BLOCKED+DEFERRED","note":"Aligned Plan V3 22 phases"}
 {"ts": "2026-07-31T09:50:00Z", "event": "phase_0.cards.executed", "cards": ["P0-C001", "P0-C002", "P0-C003", "P0-C004", "P0-C005", "P0-C006", "P0-C007"], "status": "ALL_INTEGRATED_LOCAL", "branch": "agent/integration"}
 {"ts": "2026-07-31T09:50:30Z", "event": "gate.phase_0", "status": "VERIFIED", "scope": "cosmetic_rebrand", "missing": ["GOVERNANCE.md", "UPSTREAM-STRATEGY.md", "hooks pre-commit"]}
+{"ts": "2026-07-31T10:10:00Z", "event": "P0-C008.done", "sous_cartes": ["P0-C008a", "P0-C008b", "P0-C008c", "P0-C008d", "P0-C008e", "P0-C008f", "P0-C008g"], "files_installed": 130, "branch": "agent/integration"}
+{"ts": "2026-07-31T10:15:00Z", "event": "P-1-I18N-USER-SOURCE.done", "languages": 16, "files": 325, "translated_keys": 11660, "compat_fork": "14/16", "blocker": "BD-9 license missing"}

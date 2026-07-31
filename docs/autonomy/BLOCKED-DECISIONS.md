@@ -65,8 +65,13 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 
 ## BD-8 — Accès aux codebases OpenWork et Open Cowork (NOUVEAU, bloquant Phase -1)
 
-**Statut :** `BLOCKED_MISSING_URLS`
-**Sévérité :** BLOQUANT pour Phase -1
-**Question :** l'audit comparatif Phase -1 nécessite le code source d'OpenWork et Open Cowork. Sans ces URLs, je ne peux produire qu'un audit **distant** (README + metadata).
-**Action requise :** fournir les URLs ou autoriser le clone dans le sandbox.
+**Statut :** ✅ **RÉSOLU** — utilisateur a copié les clones dans `/opt/data/projets/` (openwork-dev/, open-cowork-main/) le 2026-07-31. Clones upstream également verrouillés en bare dans `/opt/data/work/unifia-sandbox/upstreams/`.
+
+## BD-9 — Licence du snapshot i18n utilisateur (NOUVEAU, bloquant Phase 7)
+
+**Statut :** `BLOCKED_MISSING_LICENSE`
+**Sévérité :** BLOQUANT pour P7-I18N-MIGRATION
+**Question :** le snapshot `.i18n-work/` (16 langues, 325 fichiers, 11 660 clés) n'a pas de licence explicite. Avant toute intégration dans Unifia, l'utilisateur doit confirmer la licence (typiquement : "MIT,Copyright Erwan" ou "CC-BY-SA" ou "domaine public").
+**Action requise :** déclarer la licence du snapshot.
+**Note :** l'intégration dans le fork Unifia (MIT) suppose une licence compatible.
 
