@@ -13,3 +13,5 @@
 {"ts":"2026-07-31T09:30:00Z","event":"phase_minus_1.start","objective":"Audit comparatif 3 codebases"}
 {"ts":"2026-07-31T09:35:00Z","event":"phase_minus_1.deliverables","files":["TRI-REPO-ARCHITECTURE-INVENTORY.md","FEATURE-OWNERSHIP-MATRIX.md","DUPLICATION-MATRIX.md","PORTABILITY-ASSESSMENT.md","SECURITY-GAP-MATRIX.md","IMPORT-CANDIDATES.md","DO-NOT-IMPORT.md"],"status":"OK"}
 {"ts":"2026-07-31T09:40:00Z","event":"task_graph.v1.0","file":"TASK-GRAPH-v1.0.yaml","cards":17,"status":"READY+PROPOSED+BLOCKED+DEFERRED","note":"Aligned Plan V3 22 phases"}
+{"ts": "2026-07-31T09:50:00Z", "event": "phase_0.cards.executed", "cards": ["P0-C001", "P0-C002", "P0-C003", "P0-C004", "P0-C005", "P0-C006", "P0-C007"], "status": "ALL_INTEGRATED_LOCAL", "branch": "agent/integration"}
+{"ts": "2026-07-31T09:50:30Z", "event": "gate.phase_0", "status": "VERIFIED", "scope": "cosmetic_rebrand", "missing": ["GOVERNANCE.md", "UPSTREAM-STRATEGY.md", "hooks pre-commit"]}
