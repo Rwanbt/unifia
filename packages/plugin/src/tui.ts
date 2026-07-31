@@ -1,6 +1,6 @@
 import type {
   AgentPart,
-  OpencodeClient,
+  UnifiaClient,
   Event,
   FilePart,
   LspStatus,
@@ -483,8 +483,8 @@ export type TuiPluginApi = {
   kv: TuiKV
   state: TuiState
   theme: TuiTheme
-  client: OpencodeClient
-  scopedClient: (workspaceID?: string) => OpencodeClient
+  client: UnifiaClient
+  scopedClient: (workspaceID?: string) => UnifiaClient
   workspace: TuiWorkspace
   event: TuiEventBus
   renderer: CliRenderer

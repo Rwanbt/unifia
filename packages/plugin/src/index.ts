@@ -1,6 +1,6 @@
 import type {
   Event,
-  createOpencodeClient,
+  createUnifiaClient,
   Project,
   Model,
   Provider,
@@ -25,7 +25,7 @@ export type ProviderContext = {
 }
 
 export type PluginInput = {
-  client: ReturnType<typeof createOpencodeClient>
+  client: ReturnType<typeof createUnifiaClient>
   project: Project
   directory: string
   worktree: string
