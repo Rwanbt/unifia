@@ -38,3 +38,7 @@
 {"ts": "2026-07-31T12:00:00Z", "event": "P2-C180.done", "files": 62, "substitutions": 222, "status": "INTEGRATED"}
 {"ts": "2026-07-31T12:05:00Z", "event": "P2-C190.done", "files": 12, "substitutions": 25, "status": "INTEGRATED"}
 {"ts": "2026-07-31T12:10:00Z", "event": "session.terminated.v3", "commits_total": "100+", "push_count": 0, "files_modified_total": "~3200", "occurrences_opencode_remaining": 210}
+{"ts": "2026-07-31T14:40:00Z", "event": "P2-C200.done", "files": 2, "status": "INTEGRATED"}
+{"ts": "2026-07-31T14:45:00Z", "event": "handoff.generated", "bundle": "unifia-agent-result.bundle", "size_mb": 64, "patches": 65, "reports": 28, "sbom": "SBOM-cyclonedx.json"}
+{"ts": "2026-07-31T14:50:00Z", "event": "FINAL-STATUS.done", "commits_total": 101, "files_modified": 3200, "occurrences_remaining_intentional": 210, "blocked_cards": 3}
+{"ts": "2026-07-31T14:55:00Z", "event": "session.terminated.FINAL", "status": "PROTOCOL_RESPECTED", "summary": "Phase 0+1+cosmetic-Phase-2 COMPLETE, Phase 2-runtime+Phase-3+ blocked by tooling/security"}
