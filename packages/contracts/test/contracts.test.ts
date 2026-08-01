@@ -173,6 +173,7 @@ describe("@unifia/contracts", () => {
             backend: "docker",
             network: "none",
             filesystem: { readOnly: true },
+            resources: {},
           },
         }),
         execute: async () => ({
@@ -195,6 +196,7 @@ describe("@unifia/contracts", () => {
           backend: "native",
           network: "none",
           filesystem: { readOnly: true },
+          resources: {},
         },
       }
       expect(handle.id).toBe("s1")

@@ -120,7 +120,7 @@ async function main() {
   // Read files
   const results = await ws.read(handle.id, ["hello.txt", "data.json"])
   for (const r of results) {
-    const text = new TextDecoder().decode(r.content)
+    const text = typeof r.content === "string" ? r.content : new TextDecoder().decode(r.content)
     console.log(`Read ${r.path}: ${text} (${r.size} bytes)`)
   }
 
@@ -134,7 +134,11 @@ async function main() {
 
   // Trigger a write (will fire the watch event)
   await new Promise((r) => setTimeout(r, 100))
-  await ws.write(handle.id, [{ path: "hello.txt", content: "Updated!" }])
+    const update: import("../src/workspace.js").FileWrite = {
+    path: "hello.txt",
+    content: new TextEncoder().encode("Updated!"),
+  }
+  await ws.write(handle.id, [update])
 
   await watchPromise
   await ws.close(handle.id)
