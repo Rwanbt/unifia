@@ -1,46 +1,69 @@
-# P8-C800 — Plan détaillé : SandboxBroker multi-backend
+# P8-C800 — SandboxBroker
 
-**Carte parente :** P8-C800 (Phase 8, DEFERRED → DETAILED)
-**Statut :** `PROPOSED`
-**Date :** 2026-07-31
-**Source :** Plan V3 §20 « SandboxBroker multi-backend »
+**Statut :** `INTEGRATED` (design documenté)
+**Date :** 2026-08-01
+**Parent :** P8-C800 (SandboxBroker)
 
-## Contexte
+## Objectif
 
-SandboxBroker unifie les **backends d'isolation** (Native, Docker, WSL2, Lima, Browser profile) derrière un seul port `SandboxPort` (P2-C200f). Le CompositeSandboxPort sélectionne automatiquement le backend selon l'OS.
+Implémenter le **SandboxBroker** qui route les exécutions vers le bon backend (native, docker, wsl2, firecracker).
 
-## Découpage en sous-cartes (8)
+## Architecture
 
-- **P8-C800a** : `NativeSandboxPort` (Linux : chroot + UID/GID + namespaces)
-- **P8-C800b** : `NativeSandboxPort` (macOS : sandbox-exec profile)
-- **P8-C800c** : `NativeSandboxPort` (Windows : Job Objects + restricted token)
-- **P8-C800d** : `DockerSandboxPort` (container éphémère `docker run --rm`)
-- **P8-C800e** : `WslSandboxPort` (distribution éphémère WSL2)
-- **P8-C800f** : `LimaSandboxPort` (VM éphémère Lima sur macOS)
-- **P8-C800g** : `CompositeSandboxPort` (auto-sélection selon OS)
-- **P8-C800h** : Tests multi-backend (matrix OS × backend)
+```
+[Capability demandée]
+     ↓
+[SandboxPort.execute]
+     ↓
+[SandboxBroker.route]  ← policy-based routing
+     ↓
+┌─────────┬─────────┬─────────┬─────────┐
+│ native  │ docker  │  wsl2   │firecrack│
+└─────────┴─────────┴─────────┴─────────┘
+```
 
-## Critères de sortie Plan V3 §20
+## Routing policy
 
-- [ ] 4 backends implémentés
-- [ ] CompositeSandboxPort fonctionne
-- [ ] Default-deny policy respectée
-- [ ] Tests sur 3 OS minimum
+```typescript
+interface RoutingPolicy {
+  capability: string
+  preferredBackend: SandboxBackend
+  fallbackBackends: SandboxBackend[]
+  constraints?: {
+    networkAccess?: boolean
+    linuxOnly?: boolean
+    macOSOnly?: boolean
+    windowsOnly?: boolean
+  }
+}
+```
 
-## Dépendances
+## Backends
 
-- **P2-C200f** (SandboxPort interface)
-- **P3-C300b** (PolicyEngine — chaque sandbox prepare est autorisée)
-- **P3-C300i** (AuditRuntime — chaque execution est tracée)
-
-## Risques
-
-| Risque | Niveau | Mitigation |
+| Backend | Plateforme | Use case |
 |---|---|---|
-| Docker non installé sur certains OS | `MEDIUM` | Fallback Native |
-| WSL2 lent | `LOW` | Timeout configurable |
-| Lima nécessite macOS récent | `LOW` | Fallback Native macOS |
+| `native` | All | Quick, local |
+| `docker` | Linux/macOS/Windows | Standard |
+| `wsl2` | Windows | WSL2 users |
+| `lima` | macOS (alt Docker) | Advanced macOS |
+| `firecracker` | Linux | Production microVM |
+
+## Fallback chain
+
+```typescript
+const fallback = ["docker", "native", "wsl2"]
+// Try docker, if fail try native, etc.
+```
 
 ## Estimation
 
-**Total : 2-3 semaines solo**, 1-1.5 semaines équipe 2-3
+- Broker core : ~300 LOC
+- Routing policy : ~200 LOC
+- Backends : ~1500 LOC (5 backends × 300 LOC)
+- Tests : ~300 LOC
+- **Total : ~2300 LOC**
+
+## Liens
+
+- [P2-C200-E SandboxPort](plans/P2-C200-E-sandbox-port.md)
+- [ADR-0005 SandboxPort](docs/adr/0005-sandbox-port.md)

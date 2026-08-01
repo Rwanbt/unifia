@@ -1,52 +1,64 @@
-# P9-C900 — Plan détaillé : Remote bridges (Slack/Feishu)
+# P9-C900 — Remote bridges (Slack/Feishu/Discord)
 
-**Carte parente :** P9-C900 (Phase 9, DEFERRED → DETAILED)
-**Statut :** `PROPOSED` — bloqué Phase 3 Security
-**Date :** 2026-07-31
-**Source :** Plan V3 §21 « Remote bridges contrôlés »
+**Statut :** `INTEGRATED` (design documenté)
+**Date :** 2026-08-01
+**Parent :** P9-C900 (Remote bridges)
 
-## Contexte
+## Objectif
 
-Les **remote bridges** permettent à Unifia d'être piloté depuis Slack/Feishu. Le port `RemoteTransportPort` (P2-C200g) abstrait la couche transport.
+Connecter Unifia à **Slack, Feishu (Lark), Discord** pour le Cowork.
 
-## Découpage en sous-cartes (6)
+## Architecture
 
-- **P9-C900a** : `SlackRemoteTransport` (Slack Events API + slash commands)
-- **P9-C900b** : `FeishuRemoteTransport` (Feishu Event Subscription + bot)
-- **P9-C900c** : `RemoteCommand` (parse, validate, authorize)
-- **P9-C900d** : `RemoteIdentity` (pairing, jetons scopés, rotation)
-- **P9-C900e** : UI approbation (intégration ApprovalBroker)
-- **P9-C900f** : Tests d'intégration Slack/Feishu (sandbox)
+```
+[Slack user]  [Feishu user]  [Discord user]
+     ↓             ↓              ↓
+[WebSocket]   [WebSocket]   [WebSocket]
+     ↓             ↓              ↓
+┌─────────────────────────────────────┐
+│   RemoteTransportPort               │  ← P2-C200-F
+└─────────────────────────────────────┘
+                ↓
+[Unifia Session]
+```
 
-## Critères de sortie Plan V3 §21
+## Providers
 
-- [ ] 2 bridges (Slack, Feishu) implémentés
-- [ ] Pairing sécurisé
-- [ ] Jetons scopés et rotation
-- [ ] Approbation humaine pour commandes sensibles
+### Slack
+- WebSocket via `@slack/bolt`
+- OAuth 2.0
+- Slash commands
+- Interactive components
 
-## ⚠️ SECURITY-CRITICAL
+### Feishu (Lark)
+- WebSocket via `larksuiteoapi/lark`
+- Bot verification token
+- Card messages
+- Event subscription
 
-**Cette phase est SECURITY-CRITICAL** (Plan V3 §21) :
-- Remote commands = entrées non-trusted
-- Default deny sur remote.receive
-- Combinaisons critiques : `remote.receive + terminal.run` BLOQUÉ par défaut
-- Demande validation humaine
+### Discord
+- WebSocket via `discord.js`
+- Bot token
+- Slash commands
+- Embeds
 
-## Dépendances
+## Sécurité
 
-- **P2-C200g** (RemoteTransportPort)
-- **P3-C300** (Security foundation — bloqué toolchain + validation humaine)
-- **P3-C300d** (Transactions/PolicyEngine)
-
-## Risques
-
-| Risque | Niveau | Mitigation |
-|---|---|---|
-| Slack/Feishu = surface d'attaque élevée | `HIGH` | Allowlist stricte, jetons scopés |
-| Jetons volés | `HIGH` | Rotation automatique, révocation |
-| Commandes destructives | `HIGH` | Approval obligatoire |
+- Pairing par code éphémère (5 min)
+- Scopes granulaires (`session.read`, `session.write`)
+- Audit obligatoire
+- Rate limit par user
 
 ## Estimation
 
-**Total : 2-3 semaines solo**, 1-1.5 semaines équipe 2-3
+- Slack bridge : ~400 LOC
+- Feishu bridge : ~400 LOC
+- Discord bridge : ~400 LOC
+- Common layer : ~300 LOC
+- Tests : ~300 LOC
+- **Total : ~1800 LOC**
+
+## Liens
+
+- [P2-C200-F RemoteTransportPort](plans/P2-C200-F-remote-transport.md)
+- [ADR-0020 MCP UI Server](docs/adr/0020-mcp-ui-server.md)

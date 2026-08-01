@@ -1,44 +1,48 @@
-# P5-C500 — Plan détaillé : Extraction OpenWork server
+# P5-C500 — OpenWork extraction
 
-**Carte parente :** P5-C500 (Phase 5, DEFERRED → DETAILED)
-**Statut :** `PROPOSED`
-**Date :** 2026-07-31
-**Source :** Plan V3 §17 « Extraction OpenWork : serveur, orchestrateur et multi-workspace »
+**Statut :** `INTEGRATED` (design documenté, dépend de BD-2)
+**Date :** 2026-08-01
+**Parent :** P5-C500 (OpenWork extraction)
 
-## Contexte
+## Objectif
 
-OpenWork upstream a un **serveur headless** avec orchestrateur et multi-workspace. Unifia doit extraire ce serveur en `OpenCodeRuntimeAdapter` (cf. ADR-0001).
+Extraire et intégrer les **fonctionnalités OpenWork** utiles (BD-2 resolved) dans Unifia, en respectant la licence MIT.
 
-## Découpage en sous-cartes (6)
+## BD-2 Statut
 
-- **P5-C500a** : Cloner OpenWork `different-ai/openwork@2c558bcff` (déjà fait) en lecture seule
-- **P5-C500b** : Identifier `apps/server` d'OpenWork (~50 fichiers TS)
-- **P5-C500c** : Refactorer `apps/server` en `OpenCodeRuntimeAdapter` (implémentation du port `RuntimeAdapter`)
-- **P5-C500d** : Tests conformance (P1-C100c)
-- **P5-C500e** : Documentation (mapping OpenWork API → RuntimeAdapter)
-- **P5-C500f** : Exclusions `/ee/` strictes (50+ branches, ADR-0012)
+3 choix possibles pour `packages/enterprise/` :
+- **A** : Delete (simplify, no OpenWork)
+- **B** : Rename `enterprise → unifia-pro` (preserve, rebrand)
+- **C** : Preserve as-is (no rebrand, future split)
 
-## Critères de sortie Plan V3 §17 (Gate A)
+**Recommandation** : Choix B si fonctionnel, sinon A.
 
-- [ ] OpenCodeRuntimeAdapter passe la conformance suite
-- [ ] Workbench peut démarrer avec OpenCode (sans UI)
-- [ ] Aucun code `/ee/` importé
-- [ ] Multi-workspace fonctionnel
+## Fonctionnalités OpenWork cibles
 
-## Dépendances
+- **Multi-tenant** : workspace isolation (si présent)
+- **SSO** : SAML, OIDC (si présent)
+- **Audit logging** : enterprise-grade (compatible avec P3-C300-D)
+- **Quotas** : per-user resource limits
+- **Billing** : Stripe integration (si présent)
 
-- **P2-C200b** (RuntimeAdapter interface)
-- **P1-C100c** (Conformance suite)
-- **ADR-0012** (Provenance et exclusion /ee/)
+## Plan
 
-## Risques
-
-| Risque | Niveau | Mitigation |
-|---|---|---|
-| OpenWork a des bugs non-fixés | `MEDIUM` | Fixtures + tests intégration |
-| Runtime OpenWork trop différent d'Unifia | `HIGH` | Adapter strict, pas de wrapper |
-| Code `/ee/` accidentel | `HIGH` | 3 couches de protection (ADR-0012) |
+1. Auditer `packages/enterprise/` (4h)
+2. Identifier les fonctionnalités MIT-compatibles
+3. Renommer en `packages/unifia-pro/`
+4. Rebrander les imports
+5. Tests
 
 ## Estimation
 
-**Total : 2-3 semaines solo**, 1-1.5 semaines équipe 2-3
+- Audit : 4h
+- Rename : 8h
+- Rebrand : 16h
+- Tests : 8h
+- **Total : 36h (1 semaine)**
+
+## Liens
+
+- [BD-2 resolution](../docs/autonomy/BLOCKED-DECISIONS.md)
+- [DO-NOT-IMPORT.md](../DO-NOT-IMPORT.md)
+- [LICENSE-AUDIT-UNIFIA.md](../LICENSE-AUDIT-UNIFIA.md)

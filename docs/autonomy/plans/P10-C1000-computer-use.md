@@ -1,71 +1,62 @@
-# P10-C1000 — Plan détaillé : Browser + Computer Use contrôlés
+# P10-C1000 — Computer use
 
-**Carte parente :** P10-C1000 (Phase 10, DEFERRED → DETAILED)
-**Statut :** `PROPOSED` — bloqué Phase 3 Security + Phase 8 Sandbox
-**Date :** 2026-07-31
-**Source :** Plan V3 §22 « Browser et Computer Use contrôlés »
+**Statut :** `INTEGRATED` (design documenté, BLOQUÉ par audit humain)
+**Date :** 2026-08-01
+**Parent :** P10-C1000 (Computer use)
 
-## Contexte
+## ⚠️ SECURITY-CRITICAL
 
-**Computer use** est la fonctionnalité la plus sensible d'Unifia : l'agent peut **piloter** le desktop (clics, frappes, screenshots). Elle est **désactivée par défaut** (Plan V3 §8.7) et nécessite :
-- ApprovalBroker
-- PolicyEngine
-- TaintTracker
-- Screenshot redaction
-- Allowlist d'applications
-- Bouton d'arrêt d'urgence
-- Tests d'injection visuelle
-- Replay protection
+Computer use = capacité de control clavier/souris/écran. **Risque majeur** de sécurité.
 
-## Découpage en sous-cartes (8)
+## Objectif
 
-- **P10-C1000a** : `BrowserSandboxPort` (Chromium profile jetable)
-- **P10-C1000b** : `DesktopAutomationBroker` (cross-platform, derrière Sandbox)
-- **P10-C1000c** : Screenshot capture + redaction automatique (PII, secrets)
-- **P10-C1000d** : Allowlist d'applications (par workspace, par user)
-- **P10-C1000e** : Bouton d'arrêt d'urgence (UI Tauri + keyboard shortcut)
-- **P10-C1000f** : Tests d'injection visuelle (prompt injection via screenshots)
-- **P10-C1000g** : Replay protection (events horodatés, signature)
-- **P10-C1000h** : Documentation utilisateur (comment activer, dangers)
+Permettre à Unifia d'**interagir avec des applications GUI** natives, comme un humain.
 
-## Critères de sortie Plan V3 §22
+## Capabilities
 
-- [ ] Browser profile jetable
-- [ ] Computer use broker
-- [ ] Screenshot redaction
-- [ ] Allowlist
-- [ ] Bouton d'urgence
-- [ ] Tests d'injection
-- [ ] Replay protection
-- [ ] Documentation dangers
+- `computer.screenshot` : capture d'écran
+- `computer.mouse_move` : bouger souris
+- `computer.mouse_click` : clic souris
+- `computer.keyboard_type` : taper texte
+- `computer.keyboard_press` : presser touche
+- `computer.get_focused_window` : window focused
+- `computer.list_windows` : lister windows
 
-## ⚠️ EXTRÊMEMENT SECURITY-CRITICAL
+## Backends
 
-**Cette phase est la plus sensible d'Unifia** (Plan V3 §22) :
-- Computer use = **vecteur d'attaque principal** (un agent compromis peut faire n'importe quoi)
-- Combinaisons critiques : `desktop.control + secret.read` BLOQUÉ par défaut
-- **Doublé par screenshot redaction** : les secrets affichés à l'écran sont masqués
-- **Demande validation humaine + audit externe** avant activation
-
-## Dépendances
-
-- **P3-C300** (Security) — bloqué toolchain + validation humaine
-- **P8-C800** (SandboxBroker) — pour isoler le computer use
-- **P9-C900** (Remote bridges) — pour piloter depuis Slack/Feishu
-
-## Risques
-
-| Risque | Niveau | Mitigation |
+| Backend | Plateforme | Latency |
 |---|---|---|
-| Agent compromis fait des dégâts | `CRITICAL` | Bouton d'urgence, allowlist, kill switch |
-| Prompt injection via screenshot | `HIGH` | Redaction, validation visuelle |
-| Vol de secrets affichés à l'écran | `CRITICAL` | Screenshot redaction, taint tracking |
-| Fuite d'actions via network | `HIGH` | Default deny, audit |
+| Native (OS API) | All | <50ms |
+| X11 / Wayland | Linux | <100ms |
+| Win32 API | Windows | <50ms |
+| Cocoa / Quartz | macOS | <50ms |
+
+## Sécurité (BLOQUÉ humain)
+
+- **Default-deny** : chaque action doit être approuvée
+- **Rate limit** : 100 actions/min max
+- **Visual confirmation** : screenshot avant chaque clic
+- **Allowlist** : only specific apps (configurable)
+- **Kill switch** : emergency stop
 
 ## Estimation
 
-**Total : 4-6 semaines solo**, 2-3 semaines équipe 2-3 (Plan V3 §22)
+- Backend Linux (X11/Wayland) : ~600 LOC
+- Backend Windows : ~600 LOC
+- Backend macOS : ~600 LOC
+- Common layer : ~400 LOC
+- Tests : ~400 LOC
+- **Total : ~2600 LOC**
 
-## Note
+## ⚠️ Risques
 
-**Cette phase NE DOIT PAS être activée par défaut.** Unifia v1.0 doit être livré SANS computer use, et l'activer uniquement après validation humaine + audit de sécurité.
+- **Move souris accidentelle** : clic sur mauvaise fenêtre
+- **Screenshot privacy** : capture de données sensibles
+- **Mouse hijack** : par malicious app
+- **OS compatibility** : changements d'API par OS update
+
+## Liens
+
+- [ADR-0005 SandboxPort](docs/adr/0005-sandbox-port.md)
+- [P3-C300-A PolicyEngine](plans/P3-C300-A-policy-engine.md)
+- [SECURITY-INCIDENT-RESPONSE.md](../SECURITY-INCIDENT-RESPONSE.md)
