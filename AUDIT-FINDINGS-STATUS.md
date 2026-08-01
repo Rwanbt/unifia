@@ -25,6 +25,12 @@
 - **A.3**: Cleanup stream SSE sur abort potentiellement incomplet
 - **A.20**: ASSETLINKS.json probablement absent côté `unifia.ai`
 
+### Warning (à investiguer)
+
+- **A.4**: Lifecycle `llama-server` Android `onPause`/`onDestroy` incomplet
+- **A.5**: Runtime permission request Android manquante
+- **A.11**: Commandes Tauri sans guard argument
+
 ## ### Fixed (depuis audit)
 
 - **A.1**: Tokenizer naïf `length / 4` partout
