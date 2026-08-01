@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "Building OpenCode Mobile for Android..."
+echo "Building Unifia Mobile for Android..."
 echo "Requires: Android SDK, NDK, and JAVA_HOME set"
 echo ""
 

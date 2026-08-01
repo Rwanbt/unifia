@@ -10,7 +10,7 @@
 //! profile is needed; on Android the mobile Tauri sidecar exposes
 //! `get_device_profile()` which reads /proc/meminfo + /sys cpufreq.
 //!
-//! Keep this file simple and avoid external deps — it runs in the opencode
+//! Keep this file simple and avoid external deps — it runs in the unifia
 //! sidecar hot path.
 
 import os from "node:os"
@@ -152,7 +152,7 @@ export function startThermalListener(
   invokeThermal: () => Promise<string>,
   intervalMs = 30_000,
 ): () => void {
-  if (process.platform !== "android" && process.env.OPENCODE_THERMAL_FORCE !== "1") {
+  if (process.platform !== "android" && process.env.UNIFIA_THERMAL_FORCE !== "1") {
     return () => {}
   }
   if (thermalPollTimer) return () => stopThermalListener()
@@ -288,12 +288,12 @@ export function deriveConfig(
   // n_gpu_layers=0 yielded a nominally-working server that ran at <5 tok/s,
   // which is worse UX than a loud error telling the user to install a
   // driver / choose a smaller model. Users who really want CPU-only must
-  // opt in with OPENCODE_ALLOW_CPU_ONLY=1 (Android emulators, VMs, CI…).
-  if (!hasUsableGpu && process.env.OPENCODE_ALLOW_CPU_ONLY !== "1") {
+  // opt in with UNIFIA_ALLOW_CPU_ONLY=1 (Android emulators, VMs, CI…).
+  if (!hasUsableGpu && process.env.UNIFIA_ALLOW_CPU_ONLY !== "1") {
     throw new Error(
       `No usable GPU backend detected (gpuBackend="${p.gpuBackend}", vramMb=${p.vramMb}). ` +
         `Install a GPU driver (CUDA / ROCm / Vulkan / Metal) or set ` +
-        `OPENCODE_ALLOW_CPU_ONLY=1 to explicitly allow CPU-only inference.`,
+        `UNIFIA_ALLOW_CPU_ONLY=1 to explicitly allow CPU-only inference.`,
     )
   }
 
@@ -333,7 +333,7 @@ export function deriveConfig(
   // KV cache quant: q8_0 quand VRAM serrée, f16 si confortable.
   // turbo3 (TurboQuant, Google ICLR 2026) serait idéal mais exige head_dim ≤ 128 pour la
   // matrice WHT 128×128 — incompatible avec Gemma-4 (head_dim=512) et d'autres modèles.
-  // Activable manuellement via OPENCODE_KV_CACHE_TYPE=turbo3 si le modèle est compatible.
+  // Activable manuellement via UNIFIA_KV_CACHE_TYPE=turbo3 si le modèle est compatible.
   const kvCacheType: "f16" | "q8_0" | "q4_0" =
     p.vramMb > modelSizeMb * 3 ? "f16" : p.vramMb > modelSizeMb * 1.5 ? "q8_0" : "q4_0"
 

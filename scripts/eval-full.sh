@@ -1,5 +1,5 @@
 #!/bin/bash
-# eval-full.sh — Full feature evaluation for OpenCode fork
+# eval-full.sh — Full feature evaluation for Unifia fork
 # Usage: bash scripts/eval-full.sh
 # Runs all testable features without Tauri rebuild
 set -uo pipefail
@@ -36,7 +36,7 @@ skip_test() {
 OC="bun run --cwd packages/opencode --conditions=browser src/index.ts"
 
 echo "========================================"
-echo "  OpenCode Full Feature Evaluation"
+echo "  Unifia Full Feature Evaluation"
 echo "  $(date)"
 echo "========================================"
 echo "" | tee "$LOG"

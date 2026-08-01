@@ -1,11 +1,11 @@
-# AI_SUMMARY — opencode
+# AI_SUMMARY — unifia
 
 > **Auto-generated 2026-05-27 17:45** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
 ## Purpose
-Cœur TypeScript du sidecar OpenCode : moteur agent, gestion des sessions de chat,
+Cœur TypeScript du sidecar Unifia : moteur agent, gestion des sessions de chat,
 intégration des providers LLM (Anthropic, OpenAI, Gemini, Ollama, local…),
 serveur REST/SSE local, outils (bash, edit, glob, grep…), MCP, LSP, RAG, partage.
 Tourne dans un process Bun séparé ; communique avec l'UI via SSE et REST sur un port local.

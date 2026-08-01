@@ -1,7 +1,7 @@
 # AI_CONTEXT — packages/opencode
 
 ## Purpose
-Cœur TypeScript du sidecar OpenCode : moteur agent, gestion des sessions de chat,
+Cœur TypeScript du sidecar Unifia : moteur agent, gestion des sessions de chat,
 intégration des providers LLM (Anthropic, OpenAI, Gemini, Ollama, local…),
 serveur REST/SSE local, outils (bash, edit, glob, grep…), MCP, LSP, RAG, partage.
 Tourne dans un process Bun séparé ; communique avec l'UI via SSE et REST sur un port local.
@@ -22,7 +22,7 @@ Tourne dans un process Bun séparé ; communique avec l'UI via SSE et REST sur u
 - `session/` est le seul module autorisé à écrire en base SQL
 - Les clés API ne transitent jamais dans les logs (voir `observability/`)
 - `tool/bash.ts` exécute du code arbitraire — la sandbox est gérée par `sandbox/`
-- Sur mobile Android, `OPENCODE_CLIENT=mobile-embedded` désactive le spawn llama-server local
+- Sur mobile Android, `UNIFIA_CLIENT=mobile-embedded` désactive le spawn llama-server local
 
 ## Forbidden
 - Jamais d'appel `fetch()` sans timeout (bug S1.V2 connu — pattern `AbortSignal.timeout()`)
