@@ -1,7 +1,7 @@
-# docs/autonomy/ — Index de navigation
+# docs/autonomy/ — Index de navigation v4.0
 
 **Date :** 2026-07-31
-**Statut :** `v2.0` aligné avec TASK-GRAPH v2.0
+**Statut :** `v4.0` — index complet
 
 ## Vue d'ensemble
 
@@ -12,101 +12,140 @@ Ce dossier contient la **gouvernance** d'Unifia Workbench : audit, plans, ADRs, 
 ```
 docs/autonomy/
 ├── index.md (ce fichier)
-├── TASK-GRAPH-v1.0.yaml           # 17 cartes initiales (DEPRECATED, v2.0 plus complet)
-├── TASK-GRAPH-v1.1.md             # 60+ cartes en markdown (backup)
-├── TASK-GRAPH-v2.0.yaml           # 73 cartes alignées état réel (recommandé)
-├── BLOCKED-DECISIONS.md           # 9 décisions bloquantes (BD-1 à BD-9)
-├── BASELINE.md                    # SHA baseline fork opencode
-├── REPO-INVENTORY.md              # Inventaire initial du repo
-├── LICENSE-AUDIT-UNIFIA.md        # Audit licences du fork
-├── THIRD-PARTY-NOTICES.md         # Notices tiers (269+ deps)
-├── UPSTREAM-PROVENANCE.md         # Chaîne de provenance
-├── UPSTREAM-SOURCES.lock.json     # Verrous SHA upstream
-├── ATTRIBUTION-TEMPLATE.md        # Modèle d'en-tête SPDX
-├── DO-NOT-IMPORT.md               # Interdictions d'import
-├── IMPORT-CANDIDATES.md           # Candidats à l'import d'OpenWork/OpenCowork
-├── TRI-REPO-ARCHITECTURE-INVENTORY.md  # Architecture 3 repos
-├── FEATURE-OWNERSHIP-MATRIX.md    # 32 domaines → 5 autorités
-├── DUPLICATION-MATRIX.md          # Doublons et compléments
-├── PORTABILITY-ASSESSMENT.md      # Évaluation portabilité composants
-├── SECURITY-GAP-MATRIX.md         # 6 gaps de sécurité
-├── MIGRATION-PLAN.md              # Plan migration non-breaking
-├── I18N-USER-INVENTORY.md         # Inventaire i18n utilisateur (16 langues)
-├── I18N-USER-INVENTORY.json       # Idem en JSON
-├── SBOM-cyclonedx.json            # SBOM CycloneDX 1.5 (22 packages)
-├── PLAN-DIRECTEUR-V3.md           # Plan V3 (49 KB, snapshot)
-├── plans/                         # 11 plans détaillés + 3 Gates
-├── reports/                       # Rapports de session et gates
-├── adr/                           # 20 ADRs (0001-0020 + 19 fork legacy)
-└── EXECUTION-LOG.jsonl            # Log de tous les events session
+├── PLAN-DIRECTEUR-V3.md (49 KB)
+├── TASK-GRAPH-v1.0.yaml (28 KB, DEPRECATED)
+├── TASK-GRAPH-v1.1.md (6 KB, DEPRECATED)
+├── TASK-GRAPH-v2.0.yaml (26 KB, 102 cartes, RECOMMANDÉ)
+├── TASK-GRAPH-DRAFT.yaml (22 KB, DEPRECATED)
+├── BLOCKED-DECISIONS.md (5.5 KB, 9 décisions bloquantes)
+├── BASELINE.md
+├── REPO-INVENTORY.md
+├── LICENSE-AUDIT-UNIFIA.md
+├── THIRD-PARTY-NOTICES.md
+├── UPSTREAM-PROVENANCE.md
+├── UPSTREAM-SOURCES.lock.json
+├── UNIFIA-AUDIT-PACK.md (8.9 KB)
+├── ATTRIBUTION-TEMPLATE.md
+├── DO-NOT-IMPORT.md
+├── IMPORT-CANDIDATES.md
+├── TRI-REPO-ARCHITECTURE-INVENTORY.md
+├── FEATURE-OWNERSHIP-MATRIX.md
+├── DUPLICATION-MATRIX.md
+├── PORTABILITY-ASSESSMENT.md
+├── SECURITY-GAP-MATRIX.md
+├── MIGRATION-PLAN.md
+├── CRITICAL-DEPS.md (7 KB, 15 deps documentées)
+├── I18N-USER-INVENTORY.{md,json}
+├── SBOM-cyclonedx.json
+├── EXECUTION-LOG.jsonl
+├── DX-DEVEX-GUIDE.md (3.7 KB)
+├── SDK-README.md (5 KB, @unifia/sdk)
+├── plans/ (22 plans détaillés)
+├── reports/ (6 rapports)
+└── adr/ (39 — 25 nouveaux + 14 héritage fork)
 ```
 
-## Lecture recommandée
+## Reading paths
 
 ### Pour comprendre le projet
 
-1. **README.md** (racine) — point d'entrée
-2. **GOVERNANCE.md** (racine) — gouvernance
-3. **docs/autonomy/PLAN-DIRECTEUR-V3.md** — plan directeur
-4. **docs/autonomy/TASK-GRAPH-v2.0.yaml** — état réel du projet
+1. **README.md** (racine)
+2. **GOVERNANCE.md** (racine)
+3. **docs/autonomy/PLAN-DIRECTEUR-V3.md**
+4. **docs/autonomy/TASK-GRAPH-v2.0.yaml**
+5. **docs/autonomy/UNIFIA-AUDIT-PACK.md**
 
 ### Pour contribuer
 
-1. **CODEOWNERS** (racine) — qui review quoi
-2. **.github/PULL_REQUEST_TEMPLATE.md** — comment PR
-3. **.github/ISSUE_TEMPLATE/** — comment issue
-4. **PRODUCTION_READINESS.md** (racine) — critères de qualité
+1. **CONTRIBUTING.md** (racine)
+2. **CODE_OF_CONDUCT.md** (racine)
+3. **docs/autonomy/DX-DEVEX-GUIDE.md**
+4. **unifia-tasks.md** (racine)
+5. **PRODUCTION_READINESS.md** (racine)
 
 ### Pour déployer
 
 1. **scripts/unifia-migrate.sh** — migration opencode → unifia
 2. **scripts/unifia-verify.sh** — validation post-install
-3. **RELEASE-NOTES.md** — notes de release v1.0.0
-4. **MIGRATION-PLAN.md** — plan non-breaking
+3. **scripts/unifia-install.sh** — installation from scratch
+4. **scripts/unifia-doctor.sh** — diagnostic
+5. **RELEASE-NOTES.md** — notes de release v1.0.0
+6. **MIGRATION-PLAN.md** — plan non-breaking
 
 ### Pour la sécurité
 
-1. **SECURITY.md** (racine) — politique de sécurité
-2. **docs/autonomy/DO-NOT-IMPORT.md** — interdictions
-3. **docs/autonomy/BLOCKED-DECISIONS.md** — décisions bloquantes
-4. **docs/adr/0006-policy-engine.md** à **0012-provenance** — ADRs sécurité
+1. **SECURITY.md** (racine)
+2. **SECURITY-INCIDENT-RESPONSE.md** (racine)
+3. **SECURITY-CHECKLIST.md** (racine)
+4. **docs/autonomy/DO-NOT-IMPORT.md**
+5. **docs/autonomy/BLOCKED-DECISIONS.md**
+6. **docs/adr/0006-policy-engine.md** à **0012-provenance**
 
 ### Pour les décisions architecturales
 
-- **docs/adr/** — 20 ADRs (notamment 0001-0015 nouveaux + 0001-0012 héritage fork)
+- **docs/adr/** — 39 ADRs (25 nouveaux + 14 héritage fork)
 
-## Statistiques (mise à jour 2026-07-31)
+## Statistiques (2026-07-31)
 
 | Catégorie | Nombre |
 |---|---:|
-| Cartes TASK-GRAPH v2.0 | 73 |
-| Plans détaillés | 14 (11 phases + 3 Gates) |
-| ADRs (total) | 39 (20 nouveaux + 19 héritage fork) |
-| Sous-cartes détaillées | ~120 |
+| Cartes TASK-GRAPH v2.0 | 102 |
+| Plans détaillés | 22 |
+| ADRs (total) | 39 |
+| Sous-cartes détaillées | 170+ |
 | Rapports de session | 6 |
 | Décisions bloquantes | 9 |
-| Upstream SHA verrouillés | 2 (OpenWork, OpenCowork) |
+| Upstream SHA verrouillés | 2 |
 | Deps tierces documentées | 269+ |
+| CRITICAL-DEPS documentées | 15 |
+| Fixtures workspace | 12 (8 normal + 4 broken) |
+| Fixtures contractes | 3 examples |
+| Schemas | 1 (skill-hub-manifest) |
+| Scripts shell | 4 (migrate, verify, install, doctor) |
+| Scripts cmd | 1 (migrate.cmd) |
+| Tests vitest | 1 (contracts.test.ts) |
+| Skills | 2 (unifia-rebrand, spec-driven) |
 
-## Cartes par statut
+## Cartes par statut (TASK-GRAPH v2.0)
 
 | Statut | Cartes |
 |---|---:|
-| INTEGRATED_LOCAL | 60 |
+| INTEGRATED_LOCAL | 78 |
 | PARTIAL | 1 |
-| DEFERRED | 9 |
+| DEFERRED | 19 |
 | BLOCKED_DEPENDENCY | 2 |
-| BLOCKED_SECURITY_CRITICAL | 1 |
+| BLOCKED_SECURITY_CRITICAL | 2 |
 
 ## Versions
 
-- **v0.1** (DRAFT) : 17 cartes basées sur hypothèses
-- **v1.0** : 17 cartes alignées Plan V3 (statuses obsolètes)
-- **v1.1** (md) : 60+ cartes en markdown (backup)
-- **v2.0** (yaml) : 73 cartes alignées état réel (recommandé)
+- TASK-GRAPH v0.1 (DRAFT) : 17 cartes basées sur hypothèses
+- TASK-GRAPH v1.0 : 17 cartes alignées Plan V3 (statuses obsolètes)
+- TASK-GRAPH v1.1 (md) : 60+ cartes en markdown (backup)
+- TASK-GRAPH v2.0 (yaml) : 102 cartes alignées état réel (recommandé)
 
 ## Voir aussi
 
-- [racine REPO-INVENTORY.md](REPO-INVENTORY.md) — inventaire détaillé du repo
-- [racine UPSTREAM-STRATEGY.md](/UPSTREAM-STRATEGY.md) — stratégie upstream
-- [racine GOVERNANCE.md](/GOVERNANCE.md) — gouvernance Unifia
+- **racine README.md** — point d'entrée
+- **racine GOVERNANCE.md** — gouvernance
+- **racine UPSTREAM-STRATEGY.md** — stratégie upstream
+- **racine CHANGELOG.md** — changelog
+- **racine RELEASE-NOTES.md** — release notes
+- **racine PRODUCTION_READINESS.md** — readiness
+- **racine SECURITY.md** — sécurité
+- **racine SECURITY-INCIDENT-RESPONSE.md** — process incidents
+- **racine SECURITY-CHECKLIST.md** — checklist release
+- **racine CODE_OF_CONDUCT.md** — code de conduite
+- **racine LICENSE-FAQ.md** — FAQ license
+- **racine SUPPORT.md** — channels support
+- **racine unifia-tasks.md** — cheat sheet
+- **racine scripts/** — migrate, verify, install, doctor
+- **racine packages/contracts/** — @unifia/contracts v0.1.0
+- **racine packages/contracts/examples/** — 3 examples TS
+- **racine packages/contracts/test/** — tests vitest
+- **racine tests/fixtures/workspaces/** — 12 fixtures
+- **racine capability-packs/** — schema skill-hub
+- **racine skills/unifia-rebrand/** — skill rebrand
+- **racine skills/spec-driven/** — skill spec-driven
+- **racine docs/autonomy/reports/** — 6 rapports de session
+- **racine docs/autonomy/plans/** — 22 plans détaillés
+- **racine docs/autonomy/adr/** — 39 ADRs
