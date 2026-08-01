@@ -1,3 +1,10 @@
+---
+id: 0009
+title: AuditRuntime
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0009: AuditRuntime — journal d'audit centralisé
 
 **Statut :** `PROPOSED`

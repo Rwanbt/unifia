@@ -1,3 +1,10 @@
+---
+id: 0024
+title: Roadmap Strategy
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0024: Roadmap Strategy
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0017
+title: OpenDesign integration
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0017: OpenDesign et Spec-Driven Development
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0015
+title: i18n 21 languages
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0015: i18n 21 langues et pas de nouvelles (BD-5)
 
 **Statut :** `PROPOSED`

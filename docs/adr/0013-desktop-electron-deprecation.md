@@ -1,3 +1,10 @@
+---
+id: 0013
+title: Desktop-electron deprecation
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0013: Dépréciation desktop-electron (BD-3)
 
 **Statut :** `PROPOSED`

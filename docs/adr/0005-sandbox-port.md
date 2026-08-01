@@ -1,3 +1,10 @@
+---
+id: 0005
+title: SandboxPort
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0005: SandboxPort design
 
 **Statut :** `PROPOSED`

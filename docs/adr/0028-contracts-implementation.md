@@ -1,3 +1,10 @@
+---
+id: 0028
+title: Contracts implementation
+status: PROPOSED
+date: 2026-08-01
+---
+
 # ADR-0028: Stratégie d\'implémentation des Contrats
 
 **Statut :** `PROPOSED`

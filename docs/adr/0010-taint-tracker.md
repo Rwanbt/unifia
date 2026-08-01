@@ -1,3 +1,10 @@
+---
+id: 0010
+title: TaintTracker
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0010: TaintTracker — marquage des données sensibles
 
 **Statut :** `PROPOSED`

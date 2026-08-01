@@ -1,3 +1,10 @@
+---
+id: 0020
+title: MCP UI Server
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0020: MCP UI Server (exposition des capabilities)
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0014
+title: Provider unifia native
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0014: Provider unifia natif dans le runtime (BD-6)
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0002
+title: WorkspacePort
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0002: WorkspacePort design
 
 **Statut :** `PROPOSED`

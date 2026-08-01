@@ -1,3 +1,10 @@
+---
+id: 0007
+title: ApprovalBroker
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0007: ApprovalBroker — workflow d'approbation
 
 **Statut :** `PROPOSED`

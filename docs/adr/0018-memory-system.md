@@ -1,3 +1,10 @@
+---
+id: 0018
+title: Memory System
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0018: Memory System (long-term + working)
 
 **Statut :** `PROPOSED`

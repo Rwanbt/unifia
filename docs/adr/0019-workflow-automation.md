@@ -1,3 +1,10 @@
+---
+id: 0019
+title: Workflow Automation
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0019: Workflow Automation
 
 **Statut :** `PROPOSED`

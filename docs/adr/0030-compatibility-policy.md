@@ -1,3 +1,10 @@
+---
+id: 0030
+title: Compatibility policy
+status: PROPOSED
+date: 2026-08-01
+---
+
 # ADR-0030: Politique de compatibilité et de rupture
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0006
+title: PolicyEngine
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0006: PolicyEngine — moteur de policies Default-Deny
 
 **Statut :** `PROPOSED`

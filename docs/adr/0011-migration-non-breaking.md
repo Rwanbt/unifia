@@ -1,3 +1,10 @@
+---
+id: 0011
+title: Migration non-breaking
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0011: Migration non-breaking opencode → unifia
 
 **Statut :** `PROPOSED`

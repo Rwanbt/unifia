@@ -1,3 +1,10 @@
+---
+id: 0003
+title: CapabilityPort
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0003: CapabilityPort design
 
 **Statut :** `PROPOSED`

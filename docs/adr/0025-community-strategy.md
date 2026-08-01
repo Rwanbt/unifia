@@ -1,3 +1,10 @@
+---
+id: 0025
+title: Community Strategy
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0025: Community Strategy
 
 **Statut :** `PROPOSED`

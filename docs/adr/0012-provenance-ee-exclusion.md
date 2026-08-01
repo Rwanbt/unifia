@@ -1,3 +1,10 @@
+---
+id: 0012
+title: Provenance and /ee/ exclusion
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0012: Provenance et exclusion /ee/
 
 **Statut :** `PROPOSED`

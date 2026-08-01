@@ -1,3 +1,10 @@
+---
+id: 0029
+title: Tech-debt policy
+status: PROPOSED
+date: 2026-08-01
+---
+
 # ADR-0029: Politique de dette technique
 
 **Statut :** `PROPOSED`

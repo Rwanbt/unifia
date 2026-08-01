@@ -1,3 +1,10 @@
+---
+id: 0027
+title: Release strategy
+status: PROPOSED
+date: 2026-08-01
+---
+
 # ADR-0027: Stratégie de release
 
 **Statut :** `PROPOSED`

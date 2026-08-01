@@ -1,3 +1,10 @@
+---
+id: 0008
+title: SecretStore
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0008: SecretStore — stockage sécurisé des secrets
 
 **Statut :** `PROPOSED`

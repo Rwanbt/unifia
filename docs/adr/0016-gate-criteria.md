@@ -1,3 +1,10 @@
+---
+id: 0016
+title: Gate criteria
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0016: Critères de Gate (A/B/C)
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0023
+title: Licensing Strategy
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0023: Licensing Strategy
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0026
+title: Contribution workflow
+status: PROPOSED
+date: 2026-08-01
+---
+
 # ADR-0026: Workflow de contribution
 
 **Statut :** `PROPOSED`

@@ -1,3 +1,10 @@
+---
+id: 0001
+title: RuntimeAdapter
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0001: RuntimeAdapter OpenCode vs Unifia
 
 **Statut :** `PROPOSED`

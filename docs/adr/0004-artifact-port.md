@@ -1,3 +1,10 @@
+---
+id: 0004
+title: ArtifactPort
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0004: ArtifactPort design
 
 **Statut :** `PROPOSED`

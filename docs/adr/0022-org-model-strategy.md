@@ -1,3 +1,10 @@
+---
+id: 0022
+title: Org Model Strategy
+status: PROPOSED
+date: 2026-07-31
+---
+
 # ADR-0022: Org Model Strategy
 
 **Statut :** `PROPOSED`
