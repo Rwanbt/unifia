@@ -32,13 +32,23 @@ for key in "${!stats[@]}"; do
 done
 
 if [ "$FORMAT" = "json" ]; then
+    # Génère JSON avec gestion correcte des virgules
     echo "{"
+    # Trier les clés pour un output stable
+    keys_sorted=($(echo "${!stats[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
     first=true
-    for key in "${!stats[@]}"; do
-        if [ "$first" = true ]; then first=false; else echo ","; fi
-        echo "  "${key}": ${stats[$key]}"
-    done | sort
-    echo ","total": $total}"
+    for key in "${keys_sorted[@]}"; do
+        if [ -n "$key" ]; then
+            if [ "$first" = true ]; then
+                printf '  "%s": %d' "$key" "${stats[$key]}"
+                first=false
+            else
+                printf ',\n  "%s": %d' "$key" "${stats[$key]}"
+            fi
+        fi
+    done
+    printf ',\n  "total": %d\n}' "$total"
+    echo ""
 else
     echo "================================================="
     echo "  Unifia LOC Stats"
