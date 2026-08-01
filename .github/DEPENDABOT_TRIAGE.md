@@ -110,7 +110,7 @@ Tauri 1→2 ont cassé la config `tauri.conf.json`, l'IPC, les plugins.
 - `effect`
 - `@effect/*`
 
-**Pourquoi** : le runtime OpenCode repose sur Effect (`Layer`, `Service`,
+**Pourquoi** : le runtime Unifia repose sur Effect (`Layer`, `Service`,
 `Effect.gen`). Les bumps majors Effect ont historiquement modifié les
 signatures de `Effect.runPromise`, `Layer.effect`, et les `Context.Tag`.
 

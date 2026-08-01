@@ -4,7 +4,7 @@ name: Bug Report
 
 - **Version** : `unifia --version` (sortie)
 - **OS** : [ ] macOS [ ] Linux [ ] Windows
-- **Runtime** : [ ] OpenCode (legacy) [ ] Unifia [ ] Fake (test)
+- **Runtime** : [ ] Unifia (legacy) [ ] Unifia [ ] Fake (test)
 
 ## Description
 
