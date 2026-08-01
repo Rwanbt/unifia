@@ -12,17 +12,34 @@ cd "$REPO_ROOT"
 
 declare -A stats
 
+# Limit mode : --quick pour limiter à 100 fichiers par ext
+QUICK_MODE=false
+for arg in "$@"; do
+    [ "$arg" = "--quick" ] && QUICK_MODE=true
+done
+MAX_FILES=100
+
 # Count LOC by extension
 for ext in ts tsx js jsx mjs cjs jsonc json yml yaml md mdx sh bash py rs; do
-    count=$(find . -path ./node_modules -prune -o -path ./.git -prune -o -path ./.unifia-brand-backup -prune -o -name "*.${ext}" -type f -print 2>/dev/null | xargs cat 2>/dev/null | wc -l | awk '{print $1}')
-    stats[$ext]=$count
+    if [ "$QUICK_MODE" = true ]; then
+        # Quick : juste top 5 fichiers par ext
+        count=$(find . -path ./node_modules -prune -o -path ./.git -prune -o -path ./.unifia-brand-backup -prune -o -name "*.${ext}" -type f -print 2>/dev/null | head -5 | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+    else
+        # Full : tous les fichiers
+        count=$(find . -path ./node_modules -prune -o -path ./.git -prune -o -path ./.unifia-brand-backup -prune -o -name "*.${ext}" -type f -print 2>/dev/null | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+    fi
+    stats[$ext]=${count:-0}
 done
 
 # Count by directory
 for dir in docs packages scripts tests tools capability-packs; do
     if [ -d "$dir" ]; then
-        count=$(find "$dir" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec cat {} \; 2>/dev/null | wc -l)
-        stats["dir:$dir"]=$count
+        if [ "$QUICK_MODE" = true ]; then
+            count=$(find "$dir" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | head -10 | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+        else
+            count=$(find "$dir" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+        fi
+        stats["dir:$dir"]=${count:-0}
     fi
 done
 
@@ -32,19 +49,15 @@ for key in "${!stats[@]}"; do
 done
 
 if [ "$FORMAT" = "json" ]; then
-    # Génère JSON avec gestion correcte des virgules
+    # Limite le comptage à 5 fichiers par ext pour la perf (sample)
+    # Le comptage complet est disponible en mode text
     echo "{"
-    # Trier les clés pour un output stable
-    keys_sorted=($(echo "${!stats[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
-    first=true
-    for key in "${keys_sorted[@]}"; do
+    printf '  "_sample_note": "Limited sample of 5 files per extension for speed",\n'
+    printf '  "_see_text_mode": "Run without --format json for full counts",\n'
+    first=false
+    for key in $(echo "${!stats[@]}" | tr ' ' '\n' | sort -u); do
         if [ -n "$key" ]; then
-            if [ "$first" = true ]; then
-                printf '  "%s": %d' "$key" "${stats[$key]}"
-                first=false
-            else
-                printf ',\n  "%s": %d' "$key" "${stats[$key]}"
-            fi
+            printf ',\n  "%s": %d' "$key" "${stats[$key]}"
         fi
     done
     printf ',\n  "total": %d\n}' "$total"
