@@ -84,7 +84,7 @@ phases_plan_v3:
 
 summary:
   total_cards_v2: 22
-  cards_integrated: "60+ (P0-C001..010, P1-C110..030, P2-C040..230, 25 ADRs, 3 Gates, 7 configs, 1 contracts, 8 fixtures, 1 skill)"
+  cards_integrated: "65+ (P0-C001..010, P1-C110..030, P2-C040..230, 30 ADRs, 3 Gates, 7 configs, 1 contracts, 8 fixtures, 8 examples, 1 skill)"
   ready: 0
   proposed: 0
   integrated: 45
@@ -861,6 +861,165 @@ cards:
     title: "skills/unifia-rebrand/SKILL.md (pour agents future)"
     status: "INTEGRATED_LOCAL"
     file: "skills/unifia-rebrand/SKILL.md"
+
+
+  - id: "ADR-0026"
+    phase: "transition"
+    title: "Workflow de contribution (BDFL-asynchronous)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0026-contribution-workflow.md"
+
+  - id: "ADR-0027"
+    phase: "transition"
+    title: "Stratégie de release (semver strict, 3 channels)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0027-release-strategy.md"
+
+  - id: "ADR-0028"
+    phase: "2"
+    title: "Implémentation des Contrats (incrémentale, fake-first)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0028-contracts-implementation.md"
+
+  - id: "ADR-0029"
+    phase: "transition"
+    title: "Politique de dette technique (3 niveaux, tracking)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0029-tech-debt-policy.md"
+
+  - id: "ADR-0030"
+    phase: "transition"
+    title: "Compatibilité et rupture (N-1, semver)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0030-compatibility-policy.md"
+
+  # Configurations additionnelles (post v2.0 initial)
+
+  - id: "CONFIG-013"
+    phase: 'config'
+    title: "Dockerfile (multi-stage build)"
+    status: "INTEGRATED_LOCAL"
+    file: "Dockerfile"
+
+  - id: "CONFIG-014"
+    phase: 'config'
+    title: "docker-compose.yml (dev environment)"
+    status: "INTEGRATED_LOCAL"
+    file: "docker-compose.yml"
+
+  - id: "CONFIG-015"
+    phase: 'config'
+    title: ".dockerignore (exclusions)"
+    status: "INTEGRATED_LOCAL"
+    file: ".dockerignore"
+
+  - id: "CONFIG-016"
+    phase: 'config'
+    title: ".github/workflows/release.yml (release on tag)"
+    status: "INTEGRATED_LOCAL"
+    file: ".github/workflows/release.yml"
+
+  - id: "CONFIG-017"
+    phase: 'config'
+    title: ".github/ISSUE_TEMPLATE/question.yml"
+    status: "INTEGRATED_LOCAL"
+    file: ".github/ISSUE_TEMPLATE/question.yml"
+
+  - id: "CONFIG-018"
+    phase: 'config'
+    title: ".github/ISSUE_TEMPLATE/config.yml (blank disabled)"
+    status: "INTEGRATED_LOCAL"
+    file: ".github/ISSUE_TEMPLATE/config.yml"
+
+  - id: "CONFIG-019"
+    phase: 'config'
+    title: ".env.example (35 env vars documentées)"
+    status: "INTEGRATED_LOCAL"
+    file: ".env.example"
+
+  - id: "CONFIG-020"
+    phase: 'config'
+    title: "RELEASE-GUIDE.md (release workflow)"
+    status: "INTEGRATED_LOCAL"
+    file: "RELEASE-GUIDE.md"
+
+  - id: "CONFIG-021"
+    phase: 'config'
+    title: "CHANGELOG-ACTIONS.md (par tour)"
+    status: "INTEGRATED_LOCAL"
+    file: "CHANGELOG-ACTIONS.md"
+
+  - id: "CONFIG-022"
+    phase: 'config'
+    title: "Makefile (13 targets)"
+    status: "INTEGRATED_LOCAL"
+    file: "Makefile"
+
+  # Tools (8 nouveaux)
+
+  - id: "TOOL-001"
+    phase: 'tools'
+    title: "tools/dev-runner.sh (orchestrateur tests)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/dev-runner.sh"
+
+  - id: "TOOL-002"
+    phase: 'tools'
+    title: "tools/release-helper.sh (release automation)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/release-helper.sh"
+
+  - id: "TOOL-003"
+    phase: 'tools'
+    title: "tools/cleanup-cargo.sh (clean Rust artifacts)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/cleanup-cargo.sh"
+
+  - id: "TOOL-004"
+    phase: 'tools'
+    title: "tools/loc-stats.sh (LOC statistics)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/loc-stats.sh"
+
+  - id: "TOOL-005"
+    phase: 'tools'
+    title: "tools/wf-list.sh (list GitHub Actions)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/wf-list.sh"
+
+  - id: "TOOL-006"
+    phase: 'tools'
+    title: "tools/audit-licenses.sh (license audit)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/audit-licenses.sh"
+
+  - id: "TOOL-007"
+    phase: 'tools'
+    title: "tools/db-migrate.sh (DB schema migration)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/db-migrate.sh"
+
+  - id: "TOOL-008"
+    phase: 'tools'
+    title: "tools/wf-test.sh + wf-parse.py (workflow test)"
+    status: "INTEGRATED_LOCAL"
+    file: "tools/wf-test.sh"
+
+  # Examples supplémentaires
+
+  - id: "EX-008"
+    phase: "2"
+    title: "Example 08 : integration-test (E2E)"
+    status: "INTEGRATED_LOCAL"
+    file: "packages/contracts/examples/08-integration-test.ts"
+
+  # Index additionnel
+
+  - id: "IDX-001"
+    phase: "transition"
+    title: "PLANS-ADRS-INDEX.md (200+ ADRs/plans)"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/autonomy/PLANS-ADRS-INDEX.md"
 
 decisions_default:
   BD-2: "EXCLUDE packages/enterprise/ (par défaut, à confirmer)"
