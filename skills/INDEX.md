@@ -7,6 +7,9 @@
 ### [unifia-rebrand/SKILL.md](unifia-rebrand/SKILL.md)
 Rebrand opencode fork → Unifia Workbench. Triggers: rebrand, rename, install brand kit, write ADR.
 
+### [debate/SKILL.md](debate/SKILL.md)
+Collective Intelligence — Multi-model debate that surfaces blind spots. Triggers: debate, multi-model, diverse perspectives, blind spot.
+
 ### [spec-driven/SKILL.md](spec-driven/SKILL.md)
 Spec-driven development. Triggers: spec-driven, design spec, generate from spec, validate spec.
 
