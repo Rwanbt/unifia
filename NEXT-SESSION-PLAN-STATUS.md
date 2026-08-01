@@ -16,6 +16,7 @@
 | Bug 6 | CLI TUI : pas d'auto-spawn llama-server | HAUTE | OPEN |
 | Bug 7 | Panneau git changes lent | MOYENNE | OPEN |
 | Bug 8 | QR code internet mode "impossible de joindre" | CRITIQUE | OPEN |
+| Bug 9 | LLM réponse très lente | BASSE | OPEN |
 
 ## Légende
 
