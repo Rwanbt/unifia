@@ -28,6 +28,11 @@ case "${1:-}" in
         echo "  --help       Show this help"
         exit 0
         ;;
+    --*)
+        echo "Unknown option: $1" >&2
+        echo "Usage: $0 [--json|--verbose|--help]" >&2
+        exit 1
+        ;;
 esac
 
 # === Diagnostics ===

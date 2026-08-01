@@ -128,7 +128,7 @@ Legend: ✅ shipped · ❌ absent · *partial* limited/incomplete · *plugin* vi
 | Capability                             | **This fork** | Claude Code | Codex CLI | Gemini CLI | unifia (upstream) | Aider | Goose | Cline | Roo Code | Cursor | Continue | Crush | Qwen Code |
 | -------------------------------------- | :-----------: | :---------: | :-------: | :--------: | :-----------------: | :---: | :---: | :---: | :------: | :----: | :------: | :---: | :-------: |
 | LSP integration (go-to-def, diagnostics) | ✅           |   partial    |  partial  |   partial   |          ✅          | partial | partial | ✅   |    ✅     |    ✅    |     ✅     | partial |  partial  |
-| Plugin SDK (`@opencode/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
+| Plugin SDK (`@unifia/plugin`)        |       ✅       |   partial    |     ❌     |      ❌     |          ✅          |   ❌   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ❌   |     ❌     |
 | Prompt caching (cloud + local KV)      |       ✅       |      ✅      |     ✅     |      ✅     |          ✅          |   ✅   |   ✅   |   ✅   |    ✅     |    ✅    |     ✅     |   ✅   |     ✅     |
 | **RAG: BM25 or vector (selectable)** + exponential decay | ✅ | ❌  |     ❌     |      ❌     |          ❌          |   ❌   |   ❌   | vector only | ❌      |  vector only |  vector only |  ❌   |     ❌     |
 | **Auto-learn** (requires `learner` agent configured) | opt-in | ❌  |  ❌     |      ❌     |          ❌          |   ❌   |   ❌   |   ❌   |    ❌     |    ❌    |     ❌     |   ❌   |     ❌     |
@@ -441,7 +441,7 @@ Per-message cost with full token breakdown (input, output, reasoning, cache read
 
 ### Plugin System
 
-Full SDK (`@opencode/plugin`) with hook architecture. Dynamic loading from npm packages or filesystem. Built-in plugins for Codex, GitHub Copilot, GitLab, and Poe authentication.
+Full SDK (`@unifia/plugin`) with hook architecture. Dynamic loading from npm packages or filesystem. Built-in plugins for Codex, GitHub Copilot, GitLab, and Poe authentication.
 
 ---
 
@@ -688,7 +688,7 @@ Native Android app via Tauri 2.0 with **embedded runtime** — a single APK, zer
 - **Static binaries in APK** — Bun, Bash, Ripgrep, Toybox (aarch64, packaged as `.so` libraries) extracted at first launch (~15s). `git` is intentionally not bundled — source projects are expected to be mounted from `/sdcard/` (see external storage below)
 - **Bundled CLI** — Unifia CLI as a JS bundle run by the embedded Bun, no network required for core
 - **Direct process spawning** — No Termux, no intents — `std::process::Command` from Rust directly
-- **Auto-start server** — `bun opencode-cli.js serve` on localhost with UUID auth, same as desktop sidecar
+- **Auto-start server** — `bun unifia-cli.js serve` on localhost with UUID auth, same as desktop sidecar
 
 **Layer 2 — On-Device LLM Inference:**
 - **llama.cpp via JNI** — Kotlin LlamaEngine loads native .so libraries with JNI bridge

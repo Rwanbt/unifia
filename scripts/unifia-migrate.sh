@@ -20,6 +20,11 @@ if [ "$MODE" = "--apply" ]; then
     DRY_RUN=false
 elif [ "$MODE" = "--dry-run" ]; then
     DRY_RUN=true
+elif [ "$MODE" = "--help" ] || [ "$MODE" = "-h" ]; then
+    echo "Usage: $0 [--dry-run|--apply]"
+    echo "  --dry-run: affiche les actions sans les exécuter (défaut)"
+    echo "  --apply:   exécute la migration"
+    exit 0
 else
     echo "Usage: $0 [--dry-run|--apply]" >&2
     exit 1
