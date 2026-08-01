@@ -70,8 +70,9 @@ fi
 # === Test 5: présence de .gitignore (pas /ee/) ===
 echo "--- Test 5: no /ee/ in repo ---"
 if [ -d "$REPO_ROOT/.git" ]; then
-    EE=$(git -C "$REPO_ROOT" ls-tree -r HEAD 2>/dev/null | grep -E '/ee/' | grep -v 'docs/' | wc -l || echo 0)
-    if [ "$EE" -gt 0 ]; then
+    EE=$(git -C "$REPO_ROOT" ls-tree -r HEAD 2>/dev/null | grep -E '/ee/' | grep -v 'docs/' | wc -l | tr -d ' \n')
+    EE=${EE:-0}
+    if [ "${EE:-0}" -gt 0 ] 2>/dev/null; then
         fail "Found $EE /ee/ files in repo"
     else
         pass "no /ee/ code committed"
