@@ -233,3 +233,66 @@ git checkout 207ff452 && bun install
 - `docs/autonomy/ATTRIBUTION-TEMPLATE.md` — modèle d'en-tête SPDX
 - `docs/autonomy/DO-NOT-IMPORT.md` — interdictions d'import
 - `docs/autonomy/reports/GATE-PHASE-0.md`, `GATE-PHASE-1.md` — gates précédents
+
+
+## 12. Timeline d'adoption (recommandée)
+
+| Phase | Période | Action |
+|---|---|---|
+| **v1.0.0** | J0 | Release initiale. Dual-support actif. |
+| **v1.0.x** | J0-30 | Patchs urgents. Support des deux formats. |
+| **v1.1.0** | J+30 | Première release mineure. Renforcement audit. |
+| **v1.5.0** | J+90 | LTS. Migration considérée stable. |
+| **v2.0.0** | J+180 | Suppression du support `opencode.*` (breaking) |
+
+**Stratégie de communication** :
+- v1.0 : message de release
+- v1.5 : email aux utilisateurs connus
+- v2.0 : annonce 6 mois à l'avance
+
+## 13. Métriques de succès
+
+- **% d'utilisateurs migrés** : 80 % d'ici v1.5
+- **% d'erreurs post-migration** : < 5 % (signaux de support)
+- **% de tickets liés au rebrand** : < 2 % du volume total
+- **% de forks communautaires** : < 5 % (preuve d'adoption directe)
+
+## 14. Cas particuliers
+
+### Utilisateur sans DB opencode
+
+Si l'utilisateur est sur une fresh install Unifia :
+- `unifia-migrate.sh` retourne "Aucun legacy" → exit 0
+- Aucun risque de perte de données
+
+### Utilisateur mixte
+
+Si l'utilisateur a des données opencode ET unifia (migration partielle) :
+- `unifia-migrate.sh --apply` : migre seulement les legacy
+- Préserve les unifia déjà créés
+
+### Utilisateur Windows natif (cmd.exe)
+
+Si l'utilisateur est sur Windows natif :
+- `scripts\\unifia-migrate.cmd` au lieu de `.sh`
+- Paths Windows : `%APPDATA%\\unifia` au lieu de `~/.config/unifia`
+
+### Utilisateur WSL2
+
+Si l'utilisateur est sur WSL2 :
+- Utiliser `unifia-migrate.sh` (Linux paths)
+- Les paths WSL2 montent sur Windows : `~/.config/unifia` = `C:\\Users\\...\\AppData\\Local\\Packages\\...\\LocalState\\rootfs\\home\\...\\.config\\unifia`
+
+### Utilisateur avec données chiffrées
+
+Si l'utilisateur a des secrets opencode chiffrés :
+- `unifia secrets migrate <legacy-file>` à exécuter manuellement
+- Avant v2.0 : compatible avec l'ancien format
+- À v2.0 : ré-encryptage avec le format Unifia
+
+### Utilisateur Enterprise
+
+Si l'utilisateur est en environnement enterprise :
+- `unifia-migrate.sh` accepte un flag `--batch` pour les déploiements automatisés
+- `--config` pour un fichier de config de migration
+- `--dry-run` pour la validation
