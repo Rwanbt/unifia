@@ -1021,6 +1021,55 @@ cards:
     status: "INTEGRATED_LOCAL"
     file: "docs/autonomy/PLANS-ADRS-INDEX.md"
 
+
+  # Skills additionnels
+
+  - id: "SKILL-003"
+    phase: 'config'
+    title: "SKILL release"
+    status: "INTEGRATED_LOCAL"
+    file: "skills/release/SKILL.md"
+
+  - id: "SKILL-004"
+    phase: 'config'
+    title: "SKILL contribute"
+    status: "INTEGRATED_LOCAL"
+    file: "skills/contribute/SKILL.md"
+
+  - id: "SKILL-005"
+    phase: 'config'
+    title: "SKILL testing"
+    status: "INTEGRATED_LOCAL"
+    file: "skills/testing/SKILL.md"
+
+  - id: "SKILL-006"
+    phase: 'config'
+    title: "Skills INDEX"
+    status: "INTEGRATED_LOCAL"
+    file: "skills/INDEX.md"
+
+  # Test ADR structurels
+
+  - id: "TEST-009"
+    phase: 'config'
+    title: "test-adrs.sh (96 tests structurels ADR)"
+    status: "INTEGRATED_LOCAL"
+    file: "tests/integration/test-adrs.sh"
+
+  - id: "TEST-010"
+    phase: 'config'
+    title: "test-tools.sh (24 tests tools)"
+    status: "INTEGRATED_LOCAL"
+    file: "tests/integration/test-tools.sh"
+
+  # ADR frontmatter
+
+  - id: "ADR-FM"
+    phase: 'transition'
+    title: "30 ADRs Unifia avec frontmatter YAML"
+    status: "INTEGRATED_LOCAL"
+    file: "docs/adr/0001-runtime-adapter.md (etc)"
+
 decisions_default:
   BD-2: "EXCLUDE packages/enterprise/ (par défaut, à confirmer)"
   BD-3: "DEPRECATE packages/desktop-electron/ (par défaut, à confirmer)"
