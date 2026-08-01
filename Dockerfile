@@ -42,6 +42,7 @@ ENV PATH="/app/bin:${PATH}"
 # Verify
 RUN /app/scripts/unifia-verify.sh --version 2>&1 || true
 
-# Default command
-ENTRYPOINT ["/app/bin/unifia"]
-CMD ["--help"]
+# Default command : run the doctor (validate install)
+# Override with: docker run unifia unifia-migrate.sh --dry-run
+ENTRYPOINT ["/app/scripts/unifia-doctor.sh"]
+CMD ["--json"]
