@@ -672,6 +672,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@unifia/contracts": "workspace:*",
+        "@unifia/workflow-runtime": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },
       "devDependencies": {

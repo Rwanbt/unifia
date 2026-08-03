@@ -4,7 +4,7 @@ export const P3_CAPABILITIES = [
   "workspace.read", "workspace.write", "workspace.watch", "artifact.create",
   "artifact.export", "terminal.run", "network.request", "browser.navigate",
   "desktop.observe", "desktop.control", "remote.receive", "remote.respond",
-  "secret.read", "package.install",
+  "secret.read", "package.install", "workflow.run",
 ] as const
 export type P3Capability = (typeof P3_CAPABILITIES)[number]
 
@@ -183,7 +183,7 @@ export const P3_CAPABILITY_EFFECTS: Readonly<Record<string, readonly string[]>> 
   "artifact.create": ["artifact.create"], "artifact.export": ["artifact.export", "filesystem.write"],
   "terminal.run": ["process.spawn"], "network.request": ["network.connect"], "browser.navigate": ["network.connect"],
   "desktop.observe": ["desktop.observe"], "desktop.control": ["desktop.control"], "remote.receive": ["remote.receive"],
-  "remote.respond": ["remote.send"], "secret.read": ["secret.read"], "package.install": ["process.spawn", "filesystem.write"],
+  "remote.respond": ["remote.send"], "secret.read": ["secret.read"], "package.install": ["process.spawn", "filesystem.write"], "workflow.run": ["workflow.execute"],
 }
 
 export type PolicyRequestDouble = { capabilities: readonly string[]; resource?: string; tainted?: boolean }

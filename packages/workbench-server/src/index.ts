@@ -1,5 +1,6 @@
 import { ApprovalBroker, type BrowserAutomationBroker, type DesktopAutomationBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
+import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
 import type {
   FileReadResult,
   FileWrite,
@@ -13,7 +14,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -35,6 +36,8 @@ export class WorkbenchServer {
   readonly #capability: CapabilityGate
   readonly #browser?: BrowserAutomationBroker
   readonly #desktop?: DesktopAutomationBroker
+  readonly #workflow?: WorkflowRuntime
+  readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
 
@@ -45,6 +48,7 @@ export class WorkbenchServer {
     this.#capability = dependencies.capability
     this.#browser = dependencies.browser
     this.#desktop = dependencies.desktop
+    this.#workflow = dependencies.workflow
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -62,6 +66,7 @@ export class WorkbenchServer {
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
+      if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -181,6 +186,30 @@ export class WorkbenchServer {
     if (action === "observe") { const gate = await this.#checkCapability("desktop.observe", input.workspaceId); if (gate) return gate; const observation = await this.#desktop.observe(target); this.#allow("desktop.observe"); return json(200, { observation }) }
     if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) { const gate = await this.#checkCapability("desktop.control", input.workspaceId); if (gate) return gate; await this.#desktop.control(target, input.action, input.payload); this.#allow("desktop.control"); return json(202, { accepted: true }) }
     return this.#deny("desktop.action", 400)
+  }
+
+  async #workflowAction(request: Request, action: string): Promise<Response> {
+    if (!this.#workflow) return this.#deny("workflow.unavailable", 503)
+    const input = await body(request)
+    if (action === "start") {
+      if (typeof input.workspaceId !== "string" || !input.definition || typeof input.definition !== "object") return this.#deny("workflow.start", 400)
+      const token = this.#authorize(request, input.workspaceId)
+      if (!token) return this.#deny("workflow.scope", 403)
+      const gate = await this.#checkCapability("workflow.run", input.workspaceId)
+      if (gate) return gate
+      const definition = { ...(input.definition as WorkflowDefinition), workspaceId: input.workspaceId }
+      const state = await this.#workflow.start(definition)
+      this.#workflowOwners.set(state.workflowId, input.workspaceId)
+      this.#allow("workflow.start")
+      return json(202, { state })
+    }
+    if (typeof input.workflowId !== "string") return this.#deny("workflow.scope", 400)
+    const workspaceId = this.#workflowOwners.get(input.workflowId)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("workflow.scope", 403)
+    const state = action === "resume" ? await this.#workflow.resume(input.workflowId) : action === "cancel" ? await this.#workflow.cancel(input.workflowId) : undefined
+    if (!state) return this.#deny("workflow.action", 400)
+    this.#allow(`workflow.${action}`)
+    return json(200, { state })
   }
 
   async #approval(request: Request, id: string): Promise<Response> {
