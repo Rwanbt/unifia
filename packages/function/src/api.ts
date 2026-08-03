@@ -49,9 +49,9 @@ export class SyncServer extends DurableObject<Env> {
     })
   }
 
-  async webSocketMessage(ws, message) {}
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {}
 
-  async webSocketClose(ws, code, reason, wasClean) {
+  async webSocketClose(ws: WebSocket, code?: number, reason?: string, wasClean?: boolean) {
     ws.close(code, "Durable Object is closing WebSocket")
   }
 
@@ -189,8 +189,8 @@ export default new Hono<{ Bindings: Env }>()
     const id = c.req.query("id")
     console.log("share_data", id)
     if (!id) return c.text("Error: Share ID is required", { status: 400 })
-    const stub = c.env.SYNC_SERVER.get(c.env.SYNC_SERVER.idFromName(id))
-    const data = await stub.getData()
+    const stub: any = c.env.SYNC_SERVER.get(c.env.SYNC_SERVER.idFromName(id))
+    const data = (await stub.getData()) as Array<{ key: string; content: any }>
 
     let info
     const messages: Record<string, any> = {}
@@ -289,7 +289,11 @@ export default new Hono<{ Bindings: Env }>()
         audience: EXPECTED_AUDIENCE,
       })
       const sub = payload.sub // e.g. 'repo:my-org/my-repo:ref:refs/heads/main'
-      const parts = sub.split(":")[1].split("/")
+      if (!sub) throw new Error("GitHub token subject is missing")
+      const subject = sub.split(":")[1]
+      if (!subject) throw new Error("GitHub token subject is malformed")
+      const parts = subject.split("/")
+      if (!parts[0] || !parts[1]) throw new Error("GitHub repository subject is malformed")
       owner = parts[0]
       repo = parts[1]
     } catch (err) {
@@ -336,7 +340,8 @@ export default new Hono<{ Bindings: Env }>()
       // Verify permissions
       const userClient = new Octokit({ auth: token })
       const { data: repoData } = await userClient.repos.get({ owner, repo })
-      if (!repoData.permissions.admin && !repoData.permissions.push && !repoData.permissions.maintain)
+      const permissions = repoData.permissions
+      if (!permissions?.admin && !permissions?.push && !permissions?.maintain)
         throw new Error("User does not have write permissions")
 
       // Get installation token
@@ -375,16 +380,16 @@ export default new Hono<{ Bindings: Env }>()
   .get("/get_github_app_installation", async (c) => {
     const owner = c.req.query("owner")
     const repo = c.req.query("repo")
+    if (!owner || !repo) return c.json({ error: "owner and repo are required" }, { status: 400 })
 
     const auth = createAppAuth({
       appId: Resource.GITHUB_APP_ID.value,
       privateKey: Resource.GITHUB_APP_PRIVATE_KEY.value,
     })
     const appAuth = await auth({ type: "app" })
-
+    let installation: unknown
     // Lookup installation
     const octokit = new Octokit({ auth: appAuth.token })
-    let installation
     try {
       const ret = await octokit.apps.getRepoInstallation({ owner, repo })
       installation = ret.data
