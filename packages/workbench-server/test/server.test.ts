@@ -2,7 +2,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter } from "@unifia/contracts"
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
@@ -83,6 +83,12 @@ try {
   if (capabilityEnable.status !== 200) throw new Error("capability enable route failed")
   const capabilitySearch = await capabilityServer.fetch(new Request(`http://localhost/v1/capabilities/search?workspaceId=${capabilityHandle.id}&enabledOnly=true`, { headers: { authorization: `Bearer ${capabilityHandle.token}` } }))
   if (capabilitySearch.status !== 200) throw new Error("capability search route failed")
+  const ui = new McpUiControlBroker({ inspect: async (componentId) => ({ componentId }), execute: async () => ({}) }, ["panel-main"], { request: () => ({ id: "ui-approval-1" }) })
+  const uiServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, ui })
+  const uiOpen = await uiServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const uiHandle = await uiOpen.json() as { id: string; token: string }
+  const uiAction = await uiServer.fetch(new Request("http://localhost/v1/ui/actions", { method: "POST", headers: { authorization: `Bearer ${uiHandle.token}` }, body: JSON.stringify({ workspaceId: uiHandle.id, action: { id: "inspect-main", componentId: "panel-main", kind: "inspect" } }) }))
+  if (uiAction.status !== 200) throw new Error("MCP UI route failed")
   const memory = new MemoryRuntime(new InMemoryMemoryStore())
   const memoryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
   const memoryOpen = await memoryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
@@ -108,7 +114,7 @@ try {
   if (observed.status !== 200) throw new Error("desktop observe route failed")
   const controlled = await desktopServer.fetch(new Request("http://localhost/v1/desktop/control", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app", action: "mouse", payload: { x: 1, y: 1 } }) }))
   if (controlled.status !== 202) throw new Error("desktop control route failed")
-  console.log("WorkbenchServer: 27/27 passed")
+  console.log("WorkbenchServer: 29/29 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

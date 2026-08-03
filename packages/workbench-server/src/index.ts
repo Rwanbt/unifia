@@ -1,4 +1,4 @@
-import { ApprovalBroker, CapabilityRegistry, type BrowserAutomationBroker, type CapabilityManifest, type DesktopAutomationBroker } from "@unifia/contracts"
+import { ApprovalBroker, CapabilityRegistry, type BrowserAutomationBroker, type McpUiControlBroker, type UiAction, type CapabilityManifest, type DesktopAutomationBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
@@ -15,7 +15,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -40,6 +40,7 @@ export class WorkbenchServer {
   readonly #workflow?: WorkflowRuntime
   readonly #memory?: MemoryRuntime
   readonly #capabilities?: CapabilityRegistry
+  readonly #ui?: McpUiControlBroker
   readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
@@ -54,6 +55,7 @@ export class WorkbenchServer {
     this.#workflow = dependencies.workflow
     this.#memory = dependencies.memory
     this.#capabilities = dependencies.capabilities
+    this.#ui = dependencies.ui
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -74,6 +76,7 @@ export class WorkbenchServer {
       if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
       if (segments[1] === "memory" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) return this.#memoryAction(request, segments[2])
       if (segments[1] === "capabilities" && (request.method === "GET" || request.method === "POST")) return this.#capabilityAction(request, segments[2])
+      if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request)
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -245,6 +248,19 @@ export class WorkbenchServer {
     if (action === "revoke" && typeof input.digest === "string") { this.#capabilities.revoke(input.digest); this.#allow("capability.revoke"); return json(200, { revoked: true }) }
     if (action === "search") { const records = this.#capabilities.search({ tag: typeof input.tag === "string" ? input.tag : undefined, trustLevel: typeof input.trustLevel === "string" ? input.trustLevel as "untrusted" | "verified" | "official" : undefined, enabledOnly: input.enabledOnly === "true" }); this.#allow("capability.search"); return json(200, { records }) }
     return this.#deny("capability.action", 400)
+  }
+
+  async #uiAction(request: Request): Promise<Response> {
+    if (!this.#ui) return this.#deny("ui.unavailable", 503)
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string" || !input.action || typeof input.action !== "object") return this.#deny("ui.scope", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("ui.scope", 403)
+    const gate = await this.#checkCapability("desktop.control", input.workspaceId)
+    if (gate) return gate
+    const result = await this.#ui.execute(input.action as UiAction)
+    this.#allow("ui.action")
+    return json(result.status === "denied" ? 403 : result.status === "pending-approval" ? 202 : 200, { result })
   }
 
   async #approval(request: Request, id: string): Promise<Response> {
