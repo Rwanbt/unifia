@@ -25,10 +25,17 @@ try {
   if (read.status !== 200) throw new Error("scoped file read failed")
   const created = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/sessions`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` } }))
   const session = (await created.json() as { session: { id: string } }).session
+  const events = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/events`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (events.status !== 200 || !events.body) throw new Error("scoped event stream failed")
+  const reader = events.body.getReader()
+  const pendingEvent = reader.read()
   const prompt = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/prompt`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ prompt: "hello" }) }))
+  const eventChunk = await Promise.race([pendingEvent, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("event stream timeout")), 5_000))])
+  await reader.cancel()
+  if (eventChunk.done || !new TextDecoder().decode(eventChunk.value).includes("hello")) throw new Error("runtime event was not streamed")
   if (prompt.status !== 202) throw new Error("scoped prompt failed")
   if (audit.events().filter((event) => event.decision === "deny").length < 1) throw new Error("denied request was not audited")
-  console.log("WorkbenchServer: 6/6 passed")
+  console.log("WorkbenchServer: 8/8 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

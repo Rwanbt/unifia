@@ -46,6 +46,7 @@ export class WorkbenchServer {
       if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2])
       if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
+      if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       return this.#deny("route.unknown", 404)
@@ -88,6 +89,26 @@ export class WorkbenchServer {
     return this.#deny("session.method", 405)
   }
 
+  async #events(request: Request, sessionId: string): Promise<Response> {
+    const workspaceId = this.#sessionOwners.get(sessionId)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("session.events.scope", 403)
+    const iterator = this.#runtime.subscribeEvents({ sessionId })[Symbol.asyncIterator]()
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const next = await iterator.next()
+          if (next.done) controller.close()
+          else controller.enqueue(encoder.encode(`data: ${JSON.stringify(next.value)}\\n\\n`))
+        } catch (error) {
+          controller.error(error)
+        }
+      },
+      async cancel() { await iterator.return?.() },
+    })
+    this.#allow("session.events")
+    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } })
+  }
   async #prompt(request: Request, sessionId: string): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
     const token = workspaceId ? this.#authorize(request, workspaceId) : undefined
