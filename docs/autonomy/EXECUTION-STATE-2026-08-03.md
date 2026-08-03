@@ -177,3 +177,10 @@
 - `inspectStoredZip` vérifie EOCD, répertoire central, en-têtes locaux, méthode stockée, chemins sans traversal, cohérence des tailles et quotas d entrées/octets.
 - Les tests inspectent les trois archives OOXML et rejettent un ZIP malformé ; typecheck et `DocumentPackRegistry: 6/6 passed` passent.
 - Commit : `c36a6d7`; backup : `D:\App\OpenCode\unifia-execution-clean-document-security-2026-08-03.bundle`.
+
+## Checkpoint resumable SSE — 7e9ae61
+
+- `RuntimeEvent.sequence` et `RuntimeAdapter.subscribeEvents(afterSequence)` sont optionnels et rétrocompatibles.
+- Le FakeRuntimeAdapter conserve l historique séquentiel ; le serveur émet `id:` et reprend avec `Last-Event-ID` ou `after`.
+- Test serveur : reconnexion après l événement 1 récupère l événement `reconnected`; adapter runtime 4/4 et WorkbenchServer 15/15 passent.
+- Commit : `7e9ae61`; reste : remote/platform, inspection/convert, gates globales et typecheck complet de l amont.
