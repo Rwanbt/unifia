@@ -7,7 +7,7 @@
 
 ## Correctif M1 — règle de preuve
 
-Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les décisions historiques restent non exécutables tant que le dépôt, le commit, le chemin exact, la licence et le comportement n'ont pas été vérifiés. Inventaires vérifiés : OpenWork pps/server/ (171 chemins), OpenWork pps/desktop/electron/ (60), Open Cowork src/main/remote/ (16), src/main/sandbox/ (17), et src/main/skills/ + .claude/skills/ (143). OpenWork /ee reste EXCLUDE (1 067 chemins Fair Source). i18n utilisateur reste BLOCKED_MISSING_SOURCE.
+Les mentions UNVERIFIED, UNVERIFIED ou assumed ne sont pas des preuves. Les décisions historiques restent non exécutables tant que le dépôt, le commit, le chemin exact, la licence et le comportement n'ont pas été vérifiés. Inventaires vérifiés : OpenWork apps/server/ (171 chemins), OpenWork apps/desktop/electron/ (60), Open Cowork src/main/remote/ (16), src/main/sandbox/ (17), et src/main/skills/ + .claude/skills/ (143). OpenWork /ee reste EXCLUDE (1 067 chemins Fair Source). i18n utilisateur reste BLOCKED_MISSING_SOURCE.
 
 ## 1. Légende
 
@@ -18,6 +18,8 @@ Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les déc
 | `REWRITE` | Réécrire from scratch en suivant le pattern |
 | `INSPIRER` | Ne pas importer, juste s'inspirer du design |
 | `EXCLUDE` | Ne pas importer (licence, technique, ou stratégique) |
+| `EXCLUDE_LICENCE` | Ne pas importer — licence amont l'interdit explicitement (extract / copy / derivative / distribute / sublicense / transfer / reverse-engineer). Aucun contournement n'est autorisé. |
+| `BLOCKED_LICENCE` | Statut provisoire en attente de revue explicite (typiquement : licence ambiguë, NOTICE manquant, ou vendor non confirmé). Bloque tout import tant que la revue n'a pas tranché. |
 | `DEFER` | Importer plus tard (Phase X+) |
 
 ## 2. Candidats à l'import — depuis OpenWork upstream
@@ -55,22 +57,40 @@ Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les déc
 - **Verdict :** `DEFER` Phase 19+
 - **Justification :** Tauri garde-fou pour Phase 0-18. Swift natif est post-production.
 
-### OW-S6 — Code `ee/` (50 branches concernées)
+### OW-S6 — Code `ee/` (1 067 chemins)
 - **Source :** `https://github.com/different-ai/openwork@2c558bcff`, branches `ee/*`
 - **Verdict :** `EXCLUDE` (par défaut, par licence)
-- **Justification :** Plan V3 §3.1 « OpenWork Den /ee → Exclure par défaut ». `ee/LICENSE` est UNVERIFIEDment une licence propriétaire distincte.
+- **Justification :** Plan V3 §3.1 « OpenWork Den /ee → Exclure par défaut ». `ee/LICENSE` est Fair Source FSL-1.1-MIT, licence distincte vérifiée dans LICENSE-AUDIT-CORRECTION-2026-08-03.md.
 - **Verrou :** Hook pre-commit + scan CI qui refuse tout chemin `**/ee/**` dans les imports.
 
 ## 3. Candidats à l'import — depuis Open Cowork upstream
 
 ### OCW-S1 — Skills bureautiques (DOCX/PPTX/XLSX/PDF)
 - **Source :** `https://github.com/OpenCoworkAI/open-cowork@ec5bd27` (HEAD verrouillé)
-- **Verdict :** `ADOPT`
-- **Phase cible :** 6
-- **Format UNVERIFIED :** 78 fichiers XSD (schémas) + TS (implémentations)
-- **Adaptation :** Convertir en Capability Packs `unifia.document.docx`, `unifia.document.pptx`, `unifia.document.xlsx`, `unifia.document.pdf` (Plan V3 §3.2).
-- **Critères :** Les 4 formats doivent être chargeables comme Capability Packs sans modification du core.
-- **Justification :** Plan V3 §3.2 « Skills PPTX/DOCX/XLSX/PDF → Adopter en priorité ».
+- **Sous-ensemble :** 5 sous-skills (138 fichiers), voir détail licence dans `M1-PROVENANCE-DETAIL-2026-08-03.md` §3.
+
+#### OCW-S1.a — `.claude/skills/docx/` (60 fichiers)
+- **Verdict :** `EXCLUDE_LICENCE`
+- **Justification :** `LICENSE.txt` au format Anthropic-restricted (© 2025 Anthropic, PBC). Clauses explicites : pas d'extraction, pas de reproduction, pas de travaux dérivés, pas de distribution / sous-licence / transfert, pas de rétro-ingénierie. Voir `M1-PROVENANCE-DETAIL-2026-08-03.md` §3.1 (texte verbatim).
+- **Verrou :** Le registre `ProvenanceRecord` (C4) refuse tout chemin sous `.claude/skills/docx/` à l'enregistrement. Hook pre-commit + scan CI rejettent toute tentative d'ajout.
+- **Pas de rewrite / inspire autorisé :** la licence interdit explicitement la copie ou la création de travaux dérivés, ce qui couvre l'inspiration matérialisée (recopie du code) et le rewrite structurel.
+
+#### OCW-S1.b — `.claude/skills/pdf/` (11 fichiers)
+- **Verdict :** `EXCLUDE_LICENCE` (mêmes clauses que OCW-S1.a, fichier `LICENSE.txt` textuellement identique).
+
+#### OCW-S1.c — `.claude/skills/pptx/` (57 fichiers)
+- **Verdict :** `EXCLUDE_LICENCE` (mêmes clauses que OCW-S1.a, fichier `LICENSE.txt` textuellement identique).
+
+#### OCW-S1.d — `.claude/skills/xlsx/` (3 fichiers)
+- **Verdict :** `EXCLUDE_LICENCE` (mêmes clauses que OCW-S1.a, fichier `LICENSE.txt` textuellement identique).
+
+#### OCW-S1.e — `.claude/skills/skill-creator/` (7 fichiers)
+- **Verdict :** `ADOPT` conditionnel — Apache License 2.0
+- **Format :** `LICENSE.txt` au format Apache 2.0 complet (texte intégral lu en `M1-PROVENANCE-DETAIL-2026-08-03.md` §3.2).
+- **Obligations à respecter :** §4(a) copie de la licence à chaque destinataire ; §4(b) mentions de modification sur les fichiers modifiés ; §4(c) préservation des mentions de copyright / brevet / marque / attribution dans toute œuvre dérivée distribuée ; §3 clause de rétorsion brevet.
+- **Adaptation :** Convertir en Capability Pack `unifia.skill.creator` (Plan V3 §3.2). Le pack distribué doit inclure le texte de la licence Apache 2.0 et la notice d'attribution.
+- **Critères de succès :** Le pack est chargeable comme Capability Pack sans modification du core, et la suite de conformité Apache (licence + attribution + §3) passe.
+- **Statut détaillé :** `REVIEW_PER_COMPONENT` — la décision `ADOPT` est subordonnée à la revue par fichier (cf. `P3-CONTRACTS-DRAFT-2026-08-03.md` C4 et C5).
 
 ### OCW-S2 — Sandbox Python (scripts WSL2/Lima)
 - **Source :** `https://github.com/OpenCoworkAI/open-cowork@ec5bd27`
@@ -126,25 +146,31 @@ Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les déc
 
 | Verdict | OpenWork | Open Cowork | Total |
 |---|---|---|---:|
-| `ADOPT` | 1 (manifest) | 3 (skills, remote, i18n) | 4 |
-| `ADAPT` | 1 (server) | 3 (sandbox, computer use, OCW-S4 déjà compté) | 4 |
+| `ADOPT` | 1 (manifest) | 1 (skill-creator, conditionnel Apache-2.0) + 1 (remote, OCW-S4) = 2 | 3 |
+| `ADAPT` | 1 (server) | 3 (sandbox, computer use, remote) | 4 |
 | `REWRITE` | 0 | 1 (MCP) | 1 |
 | `INSPIRER` | 1 (UI) | 2 (Trace, Permission) | 3 |
-| `EXCLUDE` | 2 (stats, ee) | 0 | 2 |
+| `EXCLUDE` | 1 (stats) | 0 | 1 |
+| `EXCLUDE_LICENCE` | 1 (ee) | 4 (docx, pdf, pptx, xlsx) | 5 |
+| `BLOCKED_LICENCE` | 0 | 0 | 0 |
 | `DEFER` | 1 (Swift) | 0 | 1 |
-| `BLOCKED` | 0 | 1 (i18n user) | 1 |
-| **Total** | **6** | **10** | **16** |
+| `BLOCKED` (source absente) | 0 | 1 (i18n user) | 1 |
+| **Total** | **5** | **13** | **18** |
+
+> **Note M1 — correction OCW-S1 :** la version antérieure de ce document attribuait `ADOPT` à l'ensemble OCW-S1 (78 fichiers XSD/TS). Le détail path-par-path dans `M1-PROVENANCE-DETAIL-2026-08-03.md` §3 a montré que 4 des 5 sous-skills sont couverts par une licence Anthropic-restricted, ce qui interdit extract / copy / derivative / distribute. Le verdict est donc `EXCLUDE_LICENCE` pour ces 4 sous-skills, et seul `skill-creator/` (Apache 2.0) demeure admissible. Le compteur d'`ADOPT` Open Cowork passe de 3 à 2, et le compteur d'`EXCLUDE_LICENCE` global passe de 1 à 5.
 
 ## 5. Imports interdits sans revue explicite
 
 Tout import NON listé ci-dessus doit être considéré comme **interdit par défaut** et nécessite une revue utilisateur explicite + ADR.
 
+Cette règle s'applique **a fortiori** aux chemins couverts par `EXCLUDE_LICENCE` : aucune revue, aucun ADR, aucune dérogation ne peut autoriser l'import — la licence amont l'interdit explicitement.
+
 ## 6. Conclusion
 
-- **4 imports directs** (ADOPT) à planifier.
+- **3 imports directs** (ADOPT) à planifier — 1 conditionnel (Apache 2.0) sur OCW-S1.e.
 - **4 imports avec adaptation** (ADAPT) à fort coût.
 - **3 inspirations** (INSPIRER) sans import de code.
-- **2 exclusions** (EE + stats).
+- **1 exclusion stratégique** (stats) + **5 exclusions licence** (OpenWork `/ee` + 4 sous-skills Anthropic-restricted).
 - **1 import utilisateur bloqué** (i18n).
 
-L'ordre optimal d'import suit le Plan V3 : Phase 2 (contrats) → Phase 5 (OpenWork server) → Phase 6 (Open Cowork skills) → Phase 8 (sandbox) → Phase 9 (remote) → Phase 10 (computer use).
+L'ordre optimal d'import suit le Plan V3 : Phase 2 (contrats) → Phase 5 (OpenWork server) → Phase 6 (Open Cowork skills — uniquement `skill-creator` après revue Apache 2.0 par fichier) → Phase 8 (sandbox) → Phase 9 (remote) → Phase 10 (computer use).
