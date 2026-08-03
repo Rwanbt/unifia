@@ -164,3 +164,10 @@
 - Ajout d un worker PDF déterministe Unifia, sans dépendance upstream ni réseau, avec échappement de texte, structure PDF minimale et sortie `document.pdf`.
 - Golden test SHA-256 : `23b19e6c4315b0ec5310a1bd12e19690378dc4138aec3a8a9df48f9b8c85bf97`; package typecheck et test `DocumentPackRegistry: 6/6 passed`.
 - Commit prévu : worker PDF + registre built-in ; reste : workers DOCX/PPTX/XLSX, inspection stricte, zip-slip/bombes et isolation crash.
+
+## Checkpoint OOXML workers — 3a500d3
+
+- Ajout de workers Unifia isolés pour DOCX, XLSX et PPTX : ZIP stocké, entrées fixes, XML échappé, noms d entrées rejetant `..` et chemins absolus.
+- Golden tests SHA-256 : DOCX `01264d58430a65a6cae1326fbb0c9b728de5b435ae5c8e82afb9dbb9f70a7973`, XLSX `e83bac85c04569c9f00d6f2b3d515b6871b1221198f56bb2117a8d619615ccd9`, PPTX `4b6a37f98adf6f3d65ea214701d75a6e203a92e79279c87ffb0e663dffcdd0af`.
+- Vérification : typecheck et `DocumentPackRegistry: 6/6 passed`; commit `3a500d3`.
+- Reste : validation structure ZIP/OOXML, inspection stricte, limites anti-bombe, isolation crash, formats convert/remote/platform et gates finales.
