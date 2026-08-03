@@ -18,9 +18,15 @@ try {
   })
   const artifact = await registry.execute("unifia.document.inspect", "ws-1", "hello")
   if (artifact.kind !== "text" || artifact.filename !== "inspection.txt") throw new Error("worker output was not registered as artifact")
-  let unregistered = false
-  try { await registry.execute("unifia.document.docx", "ws-1", "input") } catch { unregistered = true }
-  if (!unregistered) throw new Error("unimplemented document worker was silently executed")
+  const formats = ["docx", "xlsx", "pptx"] as const
+  for (const format of formats) {
+    const artifact = await registry.execute(`unifia.document.${format}`, "ws-1", `hello ${format}`)
+    const bytes = await store.read(artifact)
+    const digest = createHash("sha256").update(bytes).digest("hex")
+    const golden = { docx: "01264d58430a65a6cae1326fbb0c9b728de5b435ae5c8e82afb9dbb9f70a7973", xlsx: "e83bac85c04569c9f00d6f2b3d515b6871b1221198f56bb2117a8d619615ccd9", pptx: "4b6a37f98adf6f3d65ea214701d75a6e203a92e79279c87ffb0e663dffcdd0af" }
+    if (digest !== golden[format]) throw new Error(`${format} golden mismatch: ${digest}`)
+    if (artifact.kind !== format || Buffer.from(bytes).subarray(0, 2).toString() !== "PK") throw new Error(`${format} OOXML artifact is invalid`)
+  }
   const pdf = await registry.execute("unifia.document.pdf", "ws-1", "hello")
   if (pdf.kind !== "pdf" || pdf.filename !== "document.pdf") throw new Error("PDF worker output is invalid")
   const bytes = await store.read(pdf)

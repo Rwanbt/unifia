@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { ArtifactStore, type ArtifactInput, type ArtifactKind, type ArtifactVersion } from "@unifia/artifact-runtime"
 import { pdfWorker } from "./workers/pdf.js"
+import { docxWorker, pptxWorker, xlsxWorker } from "./workers/ooxml.js"
 
 export type DocumentPackId = "unifia.document.docx" | "unifia.document.pptx" | "unifia.document.xlsx" | "unifia.document.pdf" | "unifia.document.convert" | "unifia.document.inspect"
 export type DocumentPackManifest = {
@@ -66,5 +67,10 @@ export const registerBuiltInDocumentWorkers = (registry: DocumentPackRegistry): 
   const manifest = registry.manifest("unifia.document.pdf")
   if (!manifest) throw new Error("built-in PDF manifest is missing")
   registry.register(manifest, (input) => pdfWorker(input))
+  for (const [id, worker] of [["unifia.document.docx", docxWorker], ["unifia.document.pptx", pptxWorker], ["unifia.document.xlsx", xlsxWorker]] as const) {
+    const formatManifest = registry.manifest(id)
+    if (!formatManifest) throw new Error(`${id} manifest is missing`)
+    registry.register(formatManifest, (input) => worker(input))
+  }
 }
 
