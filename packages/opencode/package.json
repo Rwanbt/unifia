@@ -102,6 +102,7 @@
     "@octokit/graphql": "9.0.2",
     "@octokit/rest": "catalog:",
     "@openauthjs/openauth": "catalog:",
+    "@unifia/contracts": "workspace:*",
     "@unifia/plugin": "workspace:*",
     "@unifia/script": "workspace:*",
     "@unifia/sdk": "workspace:*",
