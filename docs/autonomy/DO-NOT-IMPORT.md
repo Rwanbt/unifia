@@ -10,7 +10,7 @@ Ce fichier liste les **chemins et composants explicitement interdits d'import** 
 
 | Pattern | Sources concernées | Justification |
 |---|---|---|
-| `**/ee/**` | OpenWork (50 branches) | Code propriétaire Plan V3 §3.1 « Exclure par défaut » |
+| `**/ee/**` | OpenWork (1 067 chemins Fair Source) | Code propriétaire Plan V3 §3.1 « Exclure par défaut » |
 | `**/.ee/**` | générique | Idem |
 | `**/enterprise/**` | Fork Unifia (`packages/enterprise/`) | BD-2 par défaut, possible code propriétaire |
 | `**/commercial/**` | générique | Idem |
