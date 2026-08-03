@@ -12,7 +12,7 @@ import type {
 
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
-export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision> }
+export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
 type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate }
 type JsonRecord = Record<string, unknown>
 
@@ -55,6 +55,7 @@ export class WorkbenchServer {
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
+      if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -148,6 +149,23 @@ export class WorkbenchServer {
     return json(200, { results: results as unknown as JsonRecord[] })
   }
 
+  async #approval(request: Request, id: string): Promise<Response> {
+    const token = this.#bearer(request)
+    const approval = token ? this.#capability.getApproval?.(id) : undefined
+    if (!token || !approval || this.#tokens.get(token)?.id !== approval.resource) return this.#deny("approval.scope", 403)
+    if (request.method === "DELETE") {
+      const decision = this.#capability.cancel?.(id)
+      if (!decision) return this.#deny("approval.cancel", 404)
+      this.#audit.record("workbench-server", "approval.cancel", "deny")
+      return json(200, { decision })
+    }
+    const input = await body(request)
+    if (input.decision !== "allow" && input.decision !== "deny") return this.#deny("approval.resolve", 400)
+    const decision = this.#capability.resolve?.(id, input.decision, "file-session", approval.resource)
+    if (!decision) return this.#deny("approval.resolve", 404)
+    this.#audit.record("workbench-server", "approval.resolve", (decision as { kind?: string }).kind === "allow" ? "allow" : "deny")
+    return json(200, { decision })
+  }
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)
     if (!supplied || supplied !== token || !this.#tokens.has(token)) return this.#deny("workspace.close.scope", 403)
@@ -193,7 +211,13 @@ export class ApprovalCapabilityGate implements CapabilityGate {
   }
   async check(capability: P3Capability, resource: string, _actor: string): Promise<CapabilityDecision> {
     if (this.#allowlisted.has(capability)) return "allow"
+    const existing = this.#broker.find(capability, resource)
+    if (existing?.status === "allow") return "allow"
+    if (existing?.status === "pending") return { kind: "approval_required", approvalId: existing.id }
     const request = this.#broker.request(capability, resource, Date.now() + this.#ttlMs)
     return { kind: "approval_required", approvalId: request.id }
   }
+  getApproval(id: string) { return this.#broker.get(id) }
+  resolve(id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) { return this.#broker.resolve(id, decision, actor, grantedResource) }
+  cancel(id: string) { return this.#broker.cancel(id) }
 }

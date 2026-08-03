@@ -39,6 +39,12 @@ export class ApprovalBroker {
     return this.#close(request, "cancelled", this.#deny("C3-cancel-effective", "approval-cancelled"))
   }
 
+  find(capability: P3Capability, resource: string): ApprovalRequestRecord | undefined {
+    const matches = [...this.#requests.values()].filter((request) => request.capability === capability && request.resource === resource)
+    const request = matches.at(-1)
+    return request ? { ...request } : undefined
+  }
+
   get(id: string): ApprovalRequestRecord | undefined {
     const request = this.#requests.get(id)
     return request ? { ...request } : undefined
