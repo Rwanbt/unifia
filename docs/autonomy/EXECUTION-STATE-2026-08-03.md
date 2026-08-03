@@ -211,3 +211,11 @@
 - Smoke : `SandboxBroker: 4/4 passed`; contracts typecheck passé.
 - Commit : `bb94bbd`; backup : `D:\App\OpenCode\unifia-execution-clean-sandbox-broker-2026-08-03.bundle`.
 - Reste Phase 8 : drivers réels/conformance par backend, secrets temporaires, quotas CPU/RAM/durée et images hashées.
+
+## Checkpoint RemoteBridgeBroker — d85d2d2
+
+- `RemoteBridgeBroker` ajoute pairing/expiration/révocation, signature injectée, anti-rejeu nonce/timestamp, allowlists users/channels, quota pièces jointes, rate limit et audit.
+- Les commandes sensibles exigent un ApprovalBroker local ; lecture seule reste acceptée par défaut, identité révoquée refusée.
+- Smoke : `RemoteBridgeBroker: 7/7 passed`; contracts typecheck passé.
+- Commit : `d85d2d2`; backup : `D:\App\OpenCode\unifia-execution-clean-remote-broker-2026-08-03.bundle`.
+- Reste : adaptateurs Slack/Feishu réels, SecretStore, signature webhook provider-specific et kill switches séparés.
