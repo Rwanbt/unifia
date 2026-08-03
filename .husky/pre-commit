@@ -26,11 +26,14 @@ bunx biome check --changed --no-errors-on-unmatched .
 
 # 2. Shell scripts (only if shellcheck is available)
 if command -v shellcheck >/dev/null 2>&1; then
-  git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' | xargs -r shellcheck
+  SHELL_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
+  if [ -n "$SHELL_FILES" ]; then
+    printf '%s\n' "$SHELL_FILES" | xargs -r shellcheck
+  fi
 fi
 
 # 3. SPDX-License-Identifier requis sur les nouveaux fichiers TS/TSX/RS/MD
-NEW_FILES=$(git diff --cached --name-only --diff-filter=A | grep -E '\.(ts|tsx|rs|md|mdx)$')
+NEW_FILES=$(git diff --cached --name-only --diff-filter=A | grep -E '\.(ts|tsx|rs|md|mdx)$' || true)
 if [ -n "$NEW_FILES" ]; then
   for f in $NEW_FILES; do
     if [ -f "$f" ] && ! head -10 "$f" | grep -q 'SPDX-License-Identifier'; then

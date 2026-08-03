@@ -41,9 +41,9 @@
   },
   "dependencies": {
     "@kobalte/core": "catalog:",
-    "@unifia/sdk": "workspace:*",
+    "@opencode-ai/sdk": "workspace:*",
     "@unifia/sdk-shared": "workspace:*",
-    "@unifia/ui": "workspace:*",
+    "@opencode-ai/ui": "workspace:*",
     "@unifia/util": "workspace:*",
     "@shikijs/transformers": "3.9.2",
     "@solid-primitives/active-element": "2.1.3",

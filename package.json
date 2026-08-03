@@ -28,6 +28,8 @@
   "workspaces": {
     "packages": [
       "packages/*",
+      "!packages/enterprise",
+      "!packages/desktop-electron",
       "packages/console/*",
       "packages/sdk/js",
       "packages/slack"
