@@ -321,3 +321,10 @@
 - Typechecks desktop-runtime/workbench-server verts; lockfile vérifié.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-desktop-broker-composition-2026-08-03.bundle`.
 - Reste : injection dans le bootstrap Workbench, test réel application allowlistée et emergency stop actif.
+
+## Checkpoint EmergencyStop — 2026-08-03
+
+- `EmergencyStop` engage/reset/isStopped ajouté au contrat Desktop et vérifié par `DesktopAutomationBroker` avant toute observation ou action.
+- Smoke : `EmergencyStop: 1/1 passed`; P3 Lot 3 et contracts typecheck verts.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-emergency-stop-2026-08-03.bundle`.
+- Reste : arrêt d’un driver OS réellement actif, injection bootstrap et Gate B finale.
