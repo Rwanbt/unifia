@@ -171,3 +171,9 @@
 - Golden tests SHA-256 : DOCX `01264d58430a65a6cae1326fbb0c9b728de5b435ae5c8e82afb9dbb9f70a7973`, XLSX `e83bac85c04569c9f00d6f2b3d515b6871b1221198f56bb2117a8d619615ccd9`, PPTX `4b6a37f98adf6f3d65ea214701d75a6e203a92e79279c87ffb0e663dffcdd0af`.
 - Vérification : typecheck et `DocumentPackRegistry: 6/6 passed`; commit `3a500d3`.
 - Reste : validation structure ZIP/OOXML, inspection stricte, limites anti-bombe, isolation crash, formats convert/remote/platform et gates finales.
+
+## Checkpoint ZIP/OOXML security — c36a6d7
+
+- `inspectStoredZip` vérifie EOCD, répertoire central, en-têtes locaux, méthode stockée, chemins sans traversal, cohérence des tailles et quotas d entrées/octets.
+- Les tests inspectent les trois archives OOXML et rejettent un ZIP malformé ; typecheck et `DocumentPackRegistry: 6/6 passed` passent.
+- Commit : `c36a6d7`; backup : `D:\App\OpenCode\unifia-execution-clean-document-security-2026-08-03.bundle`.
