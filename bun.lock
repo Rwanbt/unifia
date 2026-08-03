@@ -680,6 +680,17 @@
         "typescript": "catalog:",
       },
     },
+    "packages/workflow-runtime": {
+      "name": "@unifia/workflow-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "typescript": "catalog:",
+      },
+    },
     "packages/workspace-runtime": {
       "name": "@unifia/workspace-runtime",
       "version": "0.1.0",
@@ -2500,6 +2511,8 @@
     "@unifia/web": ["@unifia/web@workspace:packages/web"],
 
     "@unifia/workbench-server": ["@unifia/workbench-server@workspace:packages/workbench-server"],
+
+    "@unifia/workflow-runtime": ["@unifia/workflow-runtime@workspace:packages/workflow-runtime"],
 
     "@unifia/workspace-runtime": ["@unifia/workspace-runtime@workspace:packages/workspace-runtime"],
 
