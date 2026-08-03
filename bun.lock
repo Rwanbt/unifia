@@ -83,6 +83,18 @@
         "vite-plugin-solid": "catalog:",
       },
     },
+    "packages/artifact-runtime": {
+      "name": "@unifia/artifact-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/workspace-runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/console/app": {
       "name": "@opencode-ai/console-app",
       "version": "1.3.15",
@@ -2427,6 +2439,8 @@
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.2", "", {}, "sha512-5jsZFwgR5rTdKwidH9Qmat75RKwqfpKlWWB1frDkljN127mwqBu8K0PYo7/hFpF03IEJpfVPpCQDY/eDx3iHvA=="],
 
     "@unifia/app": ["@unifia/app@workspace:packages/app"],
+
+    "@unifia/artifact-runtime": ["@unifia/artifact-runtime@workspace:packages/artifact-runtime"],
 
     "@unifia/contracts": ["@unifia/contracts@workspace:packages/contracts"],
 
