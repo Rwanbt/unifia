@@ -105,3 +105,21 @@ export class SandboxBroker {
     return this.#allowedPaths.some((root) => normalized === root || normalized.startsWith(`${root}\\`) || normalized.startsWith(`${root}/`))
   }
 }
+
+export type SandboxConformanceResult = { backend: Exclude<SandboxBackend, "auto">; checks: readonly string[] }
+export async function assertSandboxDriverConformance(driver: SandboxDriver, now: () => number = () => Date.now()): Promise<SandboxConformanceResult> {
+  const checks: string[] = []
+  const info = await driver.inspect()
+  if (!info.some((entry) => entry.backend === driver.backend)) throw new Error("sandbox driver inspection omits its backend")
+  checks.push("inspect")
+  const policy: SandboxPolicy = { backend: driver.backend, network: "none", filesystem: { readOnly: true }, resources: { cpu: 1, memoryMb: 128, timeoutMs: 5_000 } }
+  const handle = await driver.prepare(policy)
+  if (handle.backend !== driver.backend || !handle.policy.filesystem.readOnly || handle.policy.network !== "none") throw new Error("sandbox driver weakened the safety policy")
+  checks.push("prepare-policy")
+  const result = await driver.execute(handle, { command: "true", args: [] })
+  if (!Number.isInteger(result.exitCode) || result.durationMs < 0 || result.durationMs > policy.resources.timeoutMs!) throw new Error("sandbox driver returned an invalid execution result")
+  checks.push("execute-result")
+  await driver.terminate(handle)
+  checks.push(`terminate@${now()}`)
+  return { backend: driver.backend, checks }
+}
