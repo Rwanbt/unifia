@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `fbf1999`
+**Latest commit**: `f44fd0c`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -115,3 +115,11 @@
 - Le test serveur couvre register/open/scope/list/create/prompt/read/audit et le flux événementiel ; smoke `WorkbenchServer: 8/8 passed`.
 - Commit : `fbf1999`; backup : `D:\App\OpenCode\unifia-execution-clean-headless-events-2026-08-03.bundle`.
 - Reste : ApprovalBroker injecté dans les écritures/capabilities, reconnexion SSE et phases artefacts/documents.
+
+
+## Checkpoint CapabilityGate — f44fd0c
+
+- WorkbenchServer reçoit maintenant un `CapabilityGate` obligatoire ; `workspace.read`, `workspace.write` et `workspace.watch` passent par cette décision avant l accès effectif.
+- Le smoke injecte un gate allow puis deny et vérifie le refus d écriture : `WorkbenchServer: 10/10 passed`.
+- Commit : `f44fd0c`; backup : `D:\App\OpenCode\unifia-execution-clean-headless-capability-gate-2026-08-03.bundle`.
+- Reste : remplacer le gate de test par l ApprovalBroker persistant, reconnect SSE et commencer artefacts/documents.
