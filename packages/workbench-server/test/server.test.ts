@@ -2,7 +2,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, DesktopAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
@@ -71,6 +71,18 @@ try {
   if (browserNavigate.status !== 202) throw new Error("browser navigate route failed")
   const browserScreenshot = await browserServer.fetch(new Request("http://localhost/v1/browser/screenshot", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id }) }))
   if (browserScreenshot.status !== 200) throw new Error("browser screenshot route failed")
+  const capabilities = new CapabilityRegistry()
+  const capabilityServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, capabilities })
+  const capabilityOpen = await capabilityServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const capabilityHandle = await capabilityOpen.json() as { id: string; token: string }
+  const manifest = { descriptor: { id: "prompt-pack/test", name: "Test", description: "test", version: "1.0.0", author: "Unifia", license: "MIT", schema: {}, tags: ["test"], trustLevel: "verified" }, digest: "sha256:test", sourceRepo: "local", sourceCommit: "abc", license: "MIT", remoteCode: false }
+  const capabilityRegister = await capabilityServer.fetch(new Request("http://localhost/v1/capabilities/register", { method: "POST", headers: { authorization: `Bearer ${capabilityHandle.token}` }, body: JSON.stringify({ workspaceId: capabilityHandle.id, manifest }) }))
+  if (capabilityRegister.status !== 201) throw new Error("capability register route failed")
+  await capabilityServer.fetch(new Request("http://localhost/v1/capabilities/approve", { method: "POST", headers: { authorization: `Bearer ${capabilityHandle.token}` }, body: JSON.stringify({ workspaceId: capabilityHandle.id, digest: "sha256:test" }) }))
+  const capabilityEnable = await capabilityServer.fetch(new Request("http://localhost/v1/capabilities/enable", { method: "POST", headers: { authorization: `Bearer ${capabilityHandle.token}` }, body: JSON.stringify({ workspaceId: capabilityHandle.id, digest: "sha256:test" }) }))
+  if (capabilityEnable.status !== 200) throw new Error("capability enable route failed")
+  const capabilitySearch = await capabilityServer.fetch(new Request(`http://localhost/v1/capabilities/search?workspaceId=${capabilityHandle.id}&enabledOnly=true`, { headers: { authorization: `Bearer ${capabilityHandle.token}` } }))
+  if (capabilitySearch.status !== 200) throw new Error("capability search route failed")
   const memory = new MemoryRuntime(new InMemoryMemoryStore())
   const memoryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
   const memoryOpen = await memoryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
@@ -96,7 +108,7 @@ try {
   if (observed.status !== 200) throw new Error("desktop observe route failed")
   const controlled = await desktopServer.fetch(new Request("http://localhost/v1/desktop/control", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app", action: "mouse", payload: { x: 1, y: 1 } }) }))
   if (controlled.status !== 202) throw new Error("desktop control route failed")
-  console.log("WorkbenchServer: 23/23 passed")
+  console.log("WorkbenchServer: 27/27 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
