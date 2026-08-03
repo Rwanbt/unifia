@@ -383,3 +383,11 @@
 - Test : `CapabilityRegistry: 4/4 passed`, incluant signature valide et signature invalide.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-signed-capabilities-2026-08-03.bundle`.
 - Reste : fournir l’implémentation Ed25519 de production et connecter le vérificateur au bootstrap Workbench.
+
+## Checkpoint Ed25519 Capability verifier — 2026-08-03
+
+- Nouveau package `@unifia/capability-runtime` : `Ed25519ManifestVerifier` et signature base64 des payloads canoniques.
+- Test cryptographique réel : génération de clé Ed25519, signature valide acceptée, digest altéré refusé.
+- Résultat : `Ed25519ManifestVerifier: 3/3 passed`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-capability-ed25519-2026-08-03.bundle`.
+- Reste : injecter ce vérificateur dans le bootstrap Workbench et préparer Gate C.
