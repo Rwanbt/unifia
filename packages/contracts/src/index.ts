@@ -19,3 +19,5 @@ export * from "./sandbox.js"
 export * from "./remote.js"
 
 export * from './p3.js'
+
+export * from './p3-runtime.js'
