@@ -184,3 +184,10 @@
 - Le FakeRuntimeAdapter conserve l historique séquentiel ; le serveur émet `id:` et reprend avec `Last-Event-ID` ou `after`.
 - Test serveur : reconnexion après l événement 1 récupère l événement `reconnected`; adapter runtime 4/4 et WorkbenchServer 15/15 passent.
 - Commit : `7e9ae61`; reste : remote/platform, inspection/convert, gates globales et typecheck complet de l amont.
+
+## Checkpoint Gate A documents — 54b5382
+
+- Les six packs documentaires ont maintenant un worker intégré : inspect et convert déterministes en plus de PDF/DOCX/XLSX/PPTX.
+- Les tests ne reposent plus sur une fixture inspect ; typecheck package et `DocumentPackRegistry: 6/6 passed` passent.
+- Commit : `54b5382`; backup : `D:\App\OpenCode\unifia-execution-clean-document-packs-complete-2026-08-03.bundle`.
+- Gate A reste à vérifier globalement : CI/conformance complète, orchestrateur, absence de second runtime et typecheck amont.
