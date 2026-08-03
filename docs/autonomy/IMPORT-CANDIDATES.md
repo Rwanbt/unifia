@@ -4,6 +4,11 @@
 **Statut :** `DRAFT` — raffinement requis en Phase 1 avec lecture de code réelle
 **Date :** 2026-07-31
 
+
+## Correctif M1 — règle de preuve
+
+Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les décisions historiques restent non exécutables tant que le dépôt, le commit, le chemin exact, la licence et le comportement n'ont pas été vérifiés. Inventaires vérifiés : OpenWork pps/server/ (171 chemins), OpenWork pps/desktop/electron/ (60), Open Cowork src/main/remote/ (16), src/main/sandbox/ (17), et src/main/skills/ + .claude/skills/ (143). OpenWork /ee reste EXCLUDE (1 067 chemins Fair Source). i18n utilisateur reste BLOCKED_MISSING_SOURCE.
+
 ## 1. Légende
 
 | Verdict | Signification |
@@ -53,7 +58,7 @@
 ### OW-S6 — Code `ee/` (50 branches concernées)
 - **Source :** `https://github.com/different-ai/openwork@2c558bcff`, branches `ee/*`
 - **Verdict :** `EXCLUDE` (par défaut, par licence)
-- **Justification :** Plan V3 §3.1 « OpenWork Den /ee → Exclure par défaut ». `ee/LICENSE` est probablement une licence propriétaire distincte.
+- **Justification :** Plan V3 §3.1 « OpenWork Den /ee → Exclure par défaut ». `ee/LICENSE` est UNVERIFIEDment une licence propriétaire distincte.
 - **Verrou :** Hook pre-commit + scan CI qui refuse tout chemin `**/ee/**` dans les imports.
 
 ## 3. Candidats à l'import — depuis Open Cowork upstream
@@ -62,7 +67,7 @@
 - **Source :** `https://github.com/OpenCoworkAI/open-cowork@ec5bd27` (HEAD verrouillé)
 - **Verdict :** `ADOPT`
 - **Phase cible :** 6
-- **Format probable :** 78 fichiers XSD (schémas) + TS (implémentations)
+- **Format UNVERIFIED :** 78 fichiers XSD (schémas) + TS (implémentations)
 - **Adaptation :** Convertir en Capability Packs `unifia.document.docx`, `unifia.document.pptx`, `unifia.document.xlsx`, `unifia.document.pdf` (Plan V3 §3.2).
 - **Critères :** Les 4 formats doivent être chargeables comme Capability Packs sans modification du core.
 - **Justification :** Plan V3 §3.2 « Skills PPTX/DOCX/XLSX/PDF → Adopter en priorité ».

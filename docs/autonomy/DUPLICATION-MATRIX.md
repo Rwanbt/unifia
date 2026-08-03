@@ -4,6 +4,11 @@
 **Statut :** `DRAFT` — basé sur lecture des README + top-level ; raffinement requis en Phase 1
 **Date :** 2026-07-31
 
+
+## Correctif M1 — règle de preuve
+
+Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les décisions historiques restent non exécutables tant que le dépôt, le commit, le chemin exact, la licence et le comportement n'ont pas été vérifiés. Inventaires vérifiés : OpenWork pps/server/ (171 chemins), OpenWork pps/desktop/electron/ (60), Open Cowork src/main/remote/ (16), src/main/sandbox/ (17), et src/main/skills/ + .claude/skills/ (143). OpenWork /ee reste EXCLUDE (1 067 chemins Fair Source). i18n utilisateur reste BLOCKED_MISSING_SOURCE.
+
 ## 1. Méthodologie
 
 Pour chaque domaine fonctionnel, on compare :
@@ -26,29 +31,29 @@ Catégorisation :
 | **Runtime agentique** | ✅ (`opencode/src/runtime`) | ✅ (côté OpenCode embarqué) | ❌ | **DOUBLON_FORT** | Refactorer : OpenCode reste comme `OpenCodeRuntimeAdapter`, Unifia Core = `UnifiaRuntimeAdapter`. Plan V3 §7.1. |
 | **Session management** | ✅ | ✅ | ❌ | **DOUBLON_FORT** | Unifia Core owns. OpenCode = adapter. |
 | **Provider routing** | ✅ (10 providers) | ❌ (côté OpenCode) | ❌ | **N/A** | Unifia Core owns (déjà existant). |
-| **MCP client** | probable | ✅ | probable | **DOUBLON_FAIBLE** | Unifia Core owns ; OpenWork peut être importé comme référence. |
-| **Tools registry** | ✅ | ✅ | probable | **DOUBLON_FAIBLE** | Unifia Core owns via CapabilityRegistry (Phase 4+). |
-| **Workspace identity** | probable | ✅ (multi) | ❌ | **DOUBLON_FAIBLE** | WorkspaceRuntime = Unifia App. OpenWork sert d'inspiration. |
-| **File sessions** | probable | ✅ | ❌ | **DOUBLON_FAIBLE** | WorkspaceRuntime owns. |
+| **MCP client** | UNVERIFIED | ✅ | UNVERIFIED | **DOUBLON_FAIBLE** | Unifia Core owns ; OpenWork peut être importé comme référence. |
+| **Tools registry** | ✅ | ✅ | UNVERIFIED | **DOUBLON_FAIBLE** | Unifia Core owns via CapabilityRegistry (Phase 4+). |
+| **Workspace identity** | UNVERIFIED | ✅ (multi) | ❌ | **DOUBLON_FAIBLE** | WorkspaceRuntime = Unifia App. OpenWork sert d'inspiration. |
+| **File sessions** | UNVERIFIED | ✅ | ❌ | **DOUBLON_FAIBLE** | WorkspaceRuntime owns. |
 | **Multi-workspace** | ❌ | ✅ | ❌ | **COMPLEMENTAIRE** | ADOPT depuis OpenWork (Phase 5). |
-| **Skills / Plugins** | probable | ✅ | probable | **DOUBLON_FAIBLE** | CapabilityRegistry owns ; manifest typé inspiré d'OpenWork. |
-| **Permission system** | probable | probable | probable | **DOUBLON_FAIBLE** | Réécrire en PolicyEngine (Plan V3 §3.3). |
-| **Approvals** | probable | probable | probable | **DOUBLON_FAIBLE** | ApprovalBroker unique. |
-| **Secrets** | probable | `.infisical.json` | probable | **CONFLIT** | Réécrire (Plan V3 §3.3). Ne pas adopter Infisical. |
-| **Memory** | probable | probable | ❌ | **DOUBLON_FAIBLE** | MemoryRuntime = Unifia. Migrer les idées utiles d'Open Cowork. |
-| **Config store** | probable | probable | probable | **DOUBLON_FAIBLE** | Config versionnée Unifia (Plan V3 §3.2). |
-| **Trace / EventLog** | probable | probable | probable | **DOUBLON_FAIBLE** | AuditRuntime + Trace UI. |
-| **Artifacts (DOCX/PPTX/XLSX/PDF)** | ❌ | probable | ✅ (78 XSD) | **COMPLEMENTAIRE** | ADOPT depuis Open Cowork comme Capability Packs (Phase 6). |
-| **Browser profile** | ❌ | probable | probable | **COMPLEMENTAIRE** | ADAPTER tardif (Phase 10). |
-| **Computer use** | ❌ | probable | probable (Python) | **COMPLEMENTAIRE** | ADAPTER tardif (Phase 10) avec DesktopAutomationBroker. |
-| **Sandbox Docker** | probable | probable | probable | **DOUBLON_FAIBLE** | SandboxBroker unifie. |
-| **Sandbox WSL2/Lima** | ❌ | probable | probable (Python) | **COMPLEMENTAIRE** | ADAPTER depuis Open Cowork (Phase 6+). |
-| **Remote bridges (Slack/Feishu)** | `packages/slack/` | probable | probable (Feishu) | **COMPLEMENTAIRE** | ADAPTER Open Cowork pour Feishu. |
-| **Desktop Tauri** | ✅ (`packages/desktop/`) | probable | probable | **DOUBLON_FAIBLE** | Unifia = Tauri. Reuse. |
-| **Desktop Electron** | ✅ (`packages/desktop-electron/`) | ❌ | probable | **DOUBLON_FORT** | DEPRECATE (BD-3). |
-| **Mobile Tauri** | ✅ (`packages/mobile/`) | Swift natif | probable | **DOUBLON_FAIBLE** | Tauri garde-fou. Swift natif = Phase 19+. |
-| **CLI** | ✅ (`bin/opencode`) | probable | probable | **DOUBLON_FAIBLE** | Unifia CLI = binaire `unifia` (P0-C004). |
-| **i18n** | ✅ (21 langues) | probable | probable | **DOUBLON_FAIBLE** | Overlay utilisateur à intégrer (carte `P-1-I18N-USER-SOURCE`). |
+| **Skills / Plugins** | UNVERIFIED | ✅ | UNVERIFIED | **DOUBLON_FAIBLE** | CapabilityRegistry owns ; manifest typé inspiré d'OpenWork. |
+| **Permission system** | UNVERIFIED | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | Réécrire en PolicyEngine (Plan V3 §3.3). |
+| **Approvals** | UNVERIFIED | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | ApprovalBroker unique. |
+| **Secrets** | UNVERIFIED | `.infisical.json` | UNVERIFIED | **CONFLIT** | Réécrire (Plan V3 §3.3). Ne pas adopter Infisical. |
+| **Memory** | UNVERIFIED | UNVERIFIED | ❌ | **DOUBLON_FAIBLE** | MemoryRuntime = Unifia. Migrer les idées utiles d'Open Cowork. |
+| **Config store** | UNVERIFIED | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | Config versionnée Unifia (Plan V3 §3.2). |
+| **Trace / EventLog** | UNVERIFIED | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | AuditRuntime + Trace UI. |
+| **Artifacts (DOCX/PPTX/XLSX/PDF)** | ❌ | UNVERIFIED | ✅ (78 XSD) | **COMPLEMENTAIRE** | ADOPT depuis Open Cowork comme Capability Packs (Phase 6). |
+| **Browser profile** | ❌ | UNVERIFIED | UNVERIFIED | **COMPLEMENTAIRE** | ADAPTER tardif (Phase 10). |
+| **Computer use** | ❌ | UNVERIFIED | UNVERIFIED (Python) | **COMPLEMENTAIRE** | ADAPTER tardif (Phase 10) avec DesktopAutomationBroker. |
+| **Sandbox Docker** | UNVERIFIED | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | SandboxBroker unifie. |
+| **Sandbox WSL2/Lima** | ❌ | UNVERIFIED | UNVERIFIED (Python) | **COMPLEMENTAIRE** | ADAPTER depuis Open Cowork (Phase 6+). |
+| **Remote bridges (Slack/Feishu)** | `packages/slack/` | UNVERIFIED | UNVERIFIED (Feishu) | **COMPLEMENTAIRE** | ADAPTER Open Cowork pour Feishu. |
+| **Desktop Tauri** | ✅ (`packages/desktop/`) | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | Unifia = Tauri. Reuse. |
+| **Desktop Electron** | ✅ (`packages/desktop-electron/`) | ❌ | UNVERIFIED | **DOUBLON_FORT** | DEPRECATE (BD-3). |
+| **Mobile Tauri** | ✅ (`packages/mobile/`) | Swift natif | UNVERIFIED | **DOUBLON_FAIBLE** | Tauri garde-fou. Swift natif = Phase 19+. |
+| **CLI** | ✅ (`bin/opencode`) | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | Unifia CLI = binaire `unifia` (P0-C004). |
+| **i18n** | ✅ (21 langues) | UNVERIFIED | UNVERIFIED | **DOUBLON_FAIBLE** | Overlay utilisateur à intégrer (carte `P-1-I18N-USER-SOURCE`). |
 | **Server headless** | ❌ | ✅ `apps/server/` | ❌ | **COMPLEMENTAIRE** | ADOPT OpenWork (Phase 5). |
 | **OpenCode embarqué** | (le fork EST opencode) | ✅ OpenCode embarqué | ❌ | **DOUBLON_FORT** | Garder opencode comme adapter legacy, ne pas dupliquer runtime. |
 

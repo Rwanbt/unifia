@@ -15,8 +15,8 @@ Ce fichier liste les **chemins et composants explicitement interdits d'import** 
 | `**/enterprise/**` | Fork Unifia (`packages/enterprise/`) | BD-2 par défaut, possible code propriétaire |
 | `**/commercial/**` | générique | Idem |
 | `**/private/**` | générique | Idem |
-| `**/ee-pro/**` | OpenWork probable | Idem |
-| `**/pro-payloads/**` | OpenWork probable | Idem |
+| `**/ee-pro/**` | OpenWork — UNVERIFIED path-level | Idem |
+| `**/pro-payloads/**` | OpenWork — UNVERIFIED path-level | Idem |
 
 ## 2. Composants interdits (par source)
 
@@ -27,7 +27,7 @@ Ce fichier liste les **chemins et composants explicitement interdits d'import** 
 | `.infisical.json` | SaaS externe de secrets, à remplacer par SecretStore Unifia (Plan V3 §3.3) | EXCLUDE, réécrire |
 | `STATS.md`, `STATS_V2.md` | Télémétrie activée par défaut = fuite de données | EXCLUDE pour Unifia v1 |
 | Code Swift natif (`*.swift`) | Tauri garde-fou Phase 0-18 | DEFER Phase 19+ |
-| Branches `ee/*` (50+ branches) | Plan V3 §3.1 « Exclure par défaut » | EXCLUDE |
+| OpenWork `/ee` (1 067 chemins, Fair Source FSL-1.1-MIT) | Plan V3 §3.1 « Exclure par défaut » | EXCLUDE |
 | `apps/den-api/*` | API propriétaire, sous `ee/` | EXCLUDE |
 | `.vercelignore` | Déploiement Vercel non-pertinent pour Unifia | EXCLUDE |
 | `.devcontainer/` | Config dev container, à recréer pour Unifia | EXCLUDE, réécrire |

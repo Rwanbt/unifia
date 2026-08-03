@@ -4,6 +4,11 @@
 **Statut :** `DRAFT` — basé sur métadonnées ; tests réels en Phase 1
 **Date :** 2026-07-31
 
+
+## Correctif M1 — règle de preuve
+
+Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les décisions historiques restent non exécutables tant que le dépôt, le commit, le chemin exact, la licence et le comportement n'ont pas été vérifiés. Inventaires vérifiés : OpenWork pps/server/ (171 chemins), OpenWork pps/desktop/electron/ (60), Open Cowork src/main/remote/ (16), src/main/sandbox/ (17), et src/main/skills/ + .claude/skills/ (143). OpenWork /ee reste EXCLUDE (1 067 chemins Fair Source). i18n utilisateur reste BLOCKED_MISSING_SOURCE.
+
 ## 1. Méthodologie
 
 Pour chaque composant candidat à l'import, on évalue :
@@ -21,8 +26,8 @@ Score total = somme pondérée. Plus c'est haut, plus l'import est risqué.
 | Critère | Évaluation | Score |
 |---|---|---:|
 | Langage principal | TS/TSX (Bun) | 1 |
-| Dépendances natives | Tauri (Rust) probable, Pas de Python | 2 |
-| Architecture | Monorepo Turborepo probable | 1 |
+| Dépendances natives | Tauri (Rust) UNVERIFIED, Pas de Python | 2 |
+| Architecture | Monorepo Turborepo UNVERIFIED | 1 |
 | Autorité après import | Remplacée par RuntimeAdapter Unifia | 3 |
 | Effort d'adaptation | Réécriture des entry points + injection Unifia | 4 |
 | Risque d'import | Conflit avec opencode existant | 3 |
@@ -34,8 +39,8 @@ Score total = somme pondérée. Plus c'est haut, plus l'import est risqué.
 
 | Critère | Évaluation | Score |
 |---|---|---:|
-| Langage | TSX + probable Tauri/Electron | 2 |
-| Dépendances natives | Tauri 2 probable | 2 |
+| Langage | TSX + UNVERIFIED Tauri/Electron | 2 |
+| Dépendances natives | Tauri 2 UNVERIFIED | 2 |
 | Architecture | UI monolithique | 2 |
 | Autorité après import | Remplacée par Shell Unifia (Phase 7) | 4 |
 | Effort d'adaptation | Refonte en Shell Unifia | 5 |
@@ -50,7 +55,7 @@ Score total = somme pondérée. Plus c'est haut, plus l'import est risqué.
 |---|---|---:|
 | Langage | TS + 78 XSD (schémas) | 1 |
 | Dépendances natives | Python (37 fichiers — sandbox) | 2 |
-| Architecture | Capability Packs probable | 1 |
+| Architecture | Capability Packs UNVERIFIED | 1 |
 | Autorité après import | CapabilityRegistry Unifia (Phase 6) | 2 |
 | Effort d'adaptation | Réadapter les chemins + manifest | 2 |
 | Risque d'import | Faible — code isolé | 1 |
