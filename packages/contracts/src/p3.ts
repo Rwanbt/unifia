@@ -141,3 +141,40 @@ export class RemoteTransportDouble {
 
   public revoke(identity: string): void { this.revoked.add(identity) }
 }
+export type SandboxPathMode = "read" | "write" | "create" | "delete" | "watch"
+export type SandboxPathDecision = { kind: "allow" | "deny"; ruleId: string; canonical?: string; reason?: string }
+
+/** Pure containment double: callers provide the parent/symlink view used at decision and use time. */
+export class SandboxPathDouble {
+  private readonly root: string
+  public constructor(root: string) { this.root = root.replace(/[\\/]+$/, "").replace(/\\/g, "/") }
+
+  public decide(rawPath: string, mode: SandboxPathMode, view: { existing: ReadonlySet<string>; symlinks: ReadonlyMap<string, string> }): SandboxPathDecision {
+    if (!rawPath || rawPath.includes("\0")) return { kind: "deny", ruleId: "C6-lexical-escape-denied", reason: "invalid-path" }
+    const normalized = rawPath.replace(/\\/g, "/")
+    if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized) || normalized.startsWith("//")) return { kind: "deny", ruleId: "C6-windows-no-widen", reason: "absolute-or-unc-path" }
+    const segments = normalized.split("/").filter(Boolean)
+    if (segments.some((segment) => segment === "..")) return { kind: "deny", ruleId: "C6-lexical-escape-denied", reason: "parent-traversal" }
+    const lexical = `${this.root}/${segments.join("/")}`
+    const parentCandidates = [...view.symlinks.keys()].filter((candidate) => lexical === candidate || lexical.startsWith(`${candidate}/`)).sort((a, b) => b.length - a.length)
+    const link = parentCandidates[0]
+    const canonical = link ? `${view.symlinks.get(link)}/${lexical.slice(link.length).replace(/^\/+/, "")}`.replace(/\/$/, "") : lexical
+    if (!canonical.startsWith(`${this.root}/`) && canonical !== this.root) return { kind: "deny", ruleId: "C6-symlinked-parent-denied", reason: "resolved-outside-root" }
+    if ((mode === "read" || mode === "watch") && !view.existing.has(canonical)) return { kind: "deny", ruleId: "C6-write-no-silent-create", reason: "not-found" }
+    return { kind: "allow", ruleId: "C6-contained", canonical }
+  }
+
+  public decideAtUse(rawPath: string, mode: SandboxPathMode, decisionView: { existing: ReadonlySet<string>; symlinks: ReadonlyMap<string, string> }, useView: { existing: ReadonlySet<string>; symlinks: ReadonlyMap<string, string> }): SandboxPathDecision {
+    const before = this.decide(rawPath, mode, decisionView)
+    const after = this.decide(rawPath, mode, useView)
+    if (before.kind === "allow" && (after.kind === "deny" || after.canonical !== before.canonical)) return { kind: "deny", ruleId: "C6-toctou-denied", reason: "path-changed-between-decision-and-use" }
+    return after
+  }
+
+  public validateCommand(command: string, allowedCommandPrefixes: ReadonlyArray<string>): SandboxPathDecision {
+    if (allowedCommandPrefixes.length === 0) return { kind: "deny", ruleId: "C6-denylist-only-denied", reason: "no-explicit-allow-rule" }
+    return allowedCommandPrefixes.some((prefix) => command === prefix || command.startsWith(`${prefix} `))
+      ? { kind: "allow", ruleId: "C6-command-allowlist" }
+      : { kind: "deny", ruleId: "C6-command-not-allowlisted", reason: "command-class-not-allowed" }
+  }
+}
