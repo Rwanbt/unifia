@@ -15,7 +15,7 @@ test("C2-browser-cookie-network-deny", () => deny(engine.evaluate({ capabilities
 test("C2-unknown-capability-deny", () => deny(engine.evaluate({ capabilities: ["unknown.capability"] }), "C2-unknown-capability"))
 assert.equal(passed, 8)
 console.log(`P3 Lot 3 foundation: ${passed}/8 passed`)
-import { BrowserAutomationBroker, DesktopAutomationBroker } from "../src/index.ts"
+import { BrowserAutomationBroker, DesktopAutomationBroker, EmergencyStop } from "../src/index.ts"
 const driver = { navigate: async () => {}, snapshot: async () => ({ redacted: true }), screenshot: async () => new Uint8Array(), quarantineDownload: async (_p: unknown, filename: string) => `quarantine/${filename}` }
 const browser = new BrowserAutomationBroker(driver, ["example.com"])
 await browser.navigate("ws-1", "https://example.com/home")
@@ -23,3 +23,8 @@ let browserDenied = false; try { await browser.navigate("ws-1", "https://evil.ex
 const desktop = new DesktopAutomationBroker({ observe: async () => ({ redacted: true }), control: async () => {} }, ["allowed-app"])
 await desktop.observe({ appId: "allowed-app" }); let desktopDenied = false; try { await desktop.control({ appId: "other-app" }, "mouse", {}) } catch { desktopDenied = true }; if (!desktopDenied) throw new Error("desktop app allowlist failed")
 console.log("BrowserDesktopBroker: 4/4 passed")
+
+const stop = new EmergencyStop()
+const stoppable = new DesktopAutomationBroker({ observe: async () => ({}), control: async () => {} }, ["allowed-app"], undefined, stop)
+stop.engage(); let stopped = false; try { await stoppable.observe({ appId: "allowed-app" }) } catch { stopped = true }; if (!stopped) throw new Error("emergency stop did not block desktop observation")
+console.log("EmergencyStop: 1/1 passed")
