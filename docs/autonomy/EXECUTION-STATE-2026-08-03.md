@@ -335,3 +335,10 @@
 - Test Node : `WorkflowRuntime: 4/4 passed`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workflow-runtime-2026-08-03.bundle`.
 - Reste : adapter le store durable WorkspaceRuntime, intégrer les routes Workbench, memory/session intelligence et marketplace.
+
+## Checkpoint Workflow persistence — 2026-08-03
+
+- `FileWorkflowStore` persiste les états dans `.unifia/workflows`, avec identifiants strictement bornés, écriture temporaire et rename atomique.
+- Test : `WorkflowRuntime: 4/4`, `FileWorkflowStore: 1/1`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workflow-persistence-2026-08-03.bundle`.
+- Reste : adapter les exécuteurs/capabilities au Workbench et ajouter les routes workflow.
