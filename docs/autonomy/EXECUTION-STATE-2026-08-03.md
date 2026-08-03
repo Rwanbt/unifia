@@ -423,3 +423,10 @@
 - Tests : `SkillHubRegistry: 5/5 passed`; typecheck monorepo : 20/20 packages green.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-skill-hub-2026-08-03.bundle`.
 - Reste : exposer le registry au Workbench/UI, intégrer le renderer Generative UI au serveur, puis Gate C/release hardening.
+
+## Checkpoint Gate C status — 2026-08-03
+
+- Rapport local créé : `docs/autonomy/reports/GATE-C-STATUS-2026-08-03.md`.
+- Décision provisoire : NO-GO, car Gate A/B, audit externe, transports/auth/rate limiting MCP UI, OpenDesign/Artifact Studio complets et migration/demo ne sont pas prouvés.
+- Le Skill Hub local et le renderer Generative UI sont PASS local mais pas encore exposés au Workbench.
+- Prochaine carte unique : intégrer ces deux surfaces au bootstrap Workbench avec tests HTTP de scope et allowlist.
