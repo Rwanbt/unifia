@@ -22,7 +22,8 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
   }
   async navigate(profile: BrowserProfile, url: string): Promise<void> { await (await this.#page(profile)).goto(url, { waitUntil: "domcontentloaded" }) }
   async snapshot(profile: BrowserProfile): Promise<unknown> { return (await this.#page(profile)).locator("body").ariaSnapshot() }
-  async screenshot(profile: BrowserProfile): Promise<Uint8Array> { return (await this.#page(profile)).screenshot({ type: "png", animations: "disabled" }) }
+  async screenshot(profile: BrowserProfile): Promise<Uint8Array> { const page = await this.#page(profile)
+    return page.screenshot({ type: "png", animations: "disabled", mask: profile.redactSelectors.map((selector) => page.locator(selector)), maskColor: "#000000" }) }
   async quarantineDownload(profile: BrowserProfile, filename: string, bytes: Uint8Array): Promise<string> {
     const directory = resolve(join(this.#root, profile.workspaceId, "downloads"))
     if (!directory.startsWith(this.#root + "\\") && directory !== this.#root) throw new Error("download directory escaped root")
