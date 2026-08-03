@@ -359,3 +359,11 @@
 - Validation : `MemoryRuntime: 4/4`, `WorkbenchServer: 23/23`; typechecks verts.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-memory-workbench-2026-08-03.bundle`.
 - Reste : persistance Memory fichier/DB, session intelligence, Skill Hub/Marketplace et MCP UI.
+
+## Checkpoint CapabilityRegistry — 2026-08-03
+
+- `CapabilityRegistry` local : manifests avec digest/sourceCommit/sourceRepo, licence/attribution, exclusion `/ee`, remote code refusé par défaut.
+- Cycle explicite `registered → approved → enabled`, révocation et recherche filtrée.
+- Test : `CapabilityRegistry: 4/4 passed`; contracts typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-capability-registry-2026-08-03.bundle`.
+- Reste : exposer le registre au Skill Hub/Workbench, signatures cryptographiques et Gate C.
