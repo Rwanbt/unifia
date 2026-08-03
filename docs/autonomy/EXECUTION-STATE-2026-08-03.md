@@ -399,3 +399,11 @@
 - Tests : Ed25519 `3/3`, MCP UI `4/4`; typecheck contracts/capability-runtime vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-mcp-ui-capability-security-2026-08-03.bundle`.
 - Reste : intégrer MCP UI au Workbench, generative UI renderer, Gate C et release hardening.
+
+## Checkpoint Workbench MCP UI — 2026-08-03
+
+- `POST /v1/ui/actions` intégré au Workbench ; action déclarative envoyée au `McpUiControlBroker`.
+- Workspace scope + `desktop.control` gate appliqués ; réponses 200/202/403 reflètent inspect/approval/deny.
+- Test server : `WorkbenchServer: 29/29 passed`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-mcp-ui-2026-08-03.bundle`.
+- Reste : renderer Generative UI, UI Skill Hub, Gate C et release hardening.
