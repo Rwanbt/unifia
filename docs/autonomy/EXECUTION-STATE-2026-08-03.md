@@ -158,3 +158,9 @@
 - Vérification : `DocumentPackRegistry: 4/4 passed`, typecheck package et frozen install 2504 installations sur 2441 packages.
 - Commit : `91e6a0b`; backup : `D:\App\OpenCode\unifia-execution-clean-document-packs-2026-08-03.bundle`.
 - Reste : workers DOCX/PPTX/XLSX/PDF réels, golden tests, corruption/zip-slip/bombes et crash isolation.
+
+## Checkpoint PDF worker — en cours
+
+- Ajout d un worker PDF déterministe Unifia, sans dépendance upstream ni réseau, avec échappement de texte, structure PDF minimale et sortie `document.pdf`.
+- Golden test SHA-256 : `23b19e6c4315b0ec5310a1bd12e19690378dc4138aec3a8a9df48f9b8c85bf97`; package typecheck et test `DocumentPackRegistry: 6/6 passed`.
+- Commit prévu : worker PDF + registre built-in ; reste : workers DOCX/PPTX/XLSX, inspection stricte, zip-slip/bombes et isolation crash.
