@@ -257,6 +257,17 @@
         "vite": "catalog:",
       },
     },
+    "packages/desktop-runtime": {
+      "name": "@unifia/desktop-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "typescript": "catalog:",
+      },
+    },
     "packages/document-packs": {
       "name": "@unifia/document-packs",
       "version": "0.1.0",
@@ -2473,6 +2484,8 @@
     "@unifia/contracts": ["@unifia/contracts@workspace:packages/contracts"],
 
     "@unifia/desktop": ["@unifia/desktop@workspace:packages/desktop"],
+
+    "@unifia/desktop-runtime": ["@unifia/desktop-runtime@workspace:packages/desktop-runtime"],
 
     "@unifia/document-packs": ["@unifia/document-packs@workspace:packages/document-packs"],
 
