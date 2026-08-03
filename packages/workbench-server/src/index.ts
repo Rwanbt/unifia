@@ -1,4 +1,4 @@
-import { ApprovalBroker, type BrowserAutomationBroker } from "@unifia/contracts"
+import { ApprovalBroker, type BrowserAutomationBroker, type DesktopAutomationBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type {
   FileReadResult,
@@ -13,7 +13,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -34,6 +34,7 @@ export class WorkbenchServer {
   readonly #audit: AuditPort
   readonly #capability: CapabilityGate
   readonly #browser?: BrowserAutomationBroker
+  readonly #desktop?: DesktopAutomationBroker
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
 
@@ -43,6 +44,7 @@ export class WorkbenchServer {
     this.#audit = dependencies.audit
     this.#capability = dependencies.capability
     this.#browser = dependencies.browser
+    this.#desktop = dependencies.desktop
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -59,6 +61,7 @@ export class WorkbenchServer {
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
+      if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -166,6 +169,18 @@ export class WorkbenchServer {
     if (action === "snapshot") { const snapshot = await this.#browser.snapshot(input.workspaceId); this.#allow("browser.snapshot"); return json(200, { snapshot }) }
     if (action === "screenshot") { const screenshot = await this.#browser.screenshot(input.workspaceId); this.#allow("browser.screenshot"); return json(200, { contentType: "image/png", data: Buffer.from(screenshot).toString("base64") }) }
     return this.#deny("browser.action", 400)
+  }
+
+  async #desktopAction(request: Request, action: string): Promise<Response> {
+    if (!this.#desktop) return this.#deny("desktop.unavailable", 503)
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string" || typeof input.appId !== "string") return this.#deny("desktop.scope", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("desktop.scope", 403)
+    const target = { appId: input.appId, windowId: typeof input.windowId === "string" ? input.windowId : undefined }
+    if (action === "observe") { const gate = await this.#checkCapability("desktop.observe", input.workspaceId); if (gate) return gate; const observation = await this.#desktop.observe(target); this.#allow("desktop.observe"); return json(200, { observation }) }
+    if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) { const gate = await this.#checkCapability("desktop.control", input.workspaceId); if (gate) return gate; await this.#desktop.control(target, input.action, input.payload); this.#allow("desktop.control"); return json(202, { accepted: true }) }
+    return this.#deny("desktop.action", 400)
   }
 
   async #approval(request: Request, id: string): Promise<Response> {

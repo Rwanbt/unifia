@@ -2,7 +2,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, DesktopAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
 
@@ -69,7 +69,15 @@ try {
   if (browserNavigate.status !== 202) throw new Error("browser navigate route failed")
   const browserScreenshot = await browserServer.fetch(new Request("http://localhost/v1/browser/screenshot", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id }) }))
   if (browserScreenshot.status !== 200) throw new Error("browser screenshot route failed")
-  console.log("WorkbenchServer: 17/17 passed")
+  const desktop = new DesktopAutomationBroker({ observe: async () => ({ appId: "allowed-app", redacted: true }), control: async () => {} }, ["allowed-app"])
+  const desktopServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, desktop })
+  const desktopOpen = await desktopServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const desktopHandle = await desktopOpen.json() as { id: string; token: string }
+  const observed = await desktopServer.fetch(new Request("http://localhost/v1/desktop/observe", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app" }) }))
+  if (observed.status !== 200) throw new Error("desktop observe route failed")
+  const controlled = await desktopServer.fetch(new Request("http://localhost/v1/desktop/control", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app", action: "mouse", payload: { x: 1, y: 1 } }) }))
+  if (controlled.status !== 202) throw new Error("desktop control route failed")
+  console.log("WorkbenchServer: 19/19 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
