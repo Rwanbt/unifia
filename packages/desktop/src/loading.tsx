@@ -1,6 +1,6 @@
 import { render } from "solid-js/web"
 import { MetaProvider } from "@solidjs/meta"
-import "@opencode-ai/app/index.css"
+import "@unifia/app/index.css"
 import { Font } from "@opencode-ai/ui/font"
 import { Splash } from "@opencode-ai/ui/logo"
 import { Progress } from "@opencode-ai/ui/progress"

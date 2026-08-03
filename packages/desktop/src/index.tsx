@@ -13,7 +13,7 @@ import {
   ServerConnection,
   useCommand,
   useGlobalSDK,
-} from "@opencode-ai/app"
+} from "@unifia/app"
 import type { AsyncStorage } from "@solid-primitives/storage"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { readImage } from "@tauri-apps/plugin-clipboard-manager"

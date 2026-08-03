@@ -1,4 +1,4 @@
-import type { Platform } from "@opencode-ai/app"
+import type { Platform } from "@unifia/app"
 import { checkRuntime, extractRuntime, startEmbeddedServer, checkLocalHealth, stopLocalServer as stopLocal, writeDebugLog } from "./runtime"
 
 // Fingerprint du serveur privé (reçu via QR en mode Internet).

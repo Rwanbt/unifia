@@ -8,8 +8,8 @@ import {
   PlatformProvider,
   ServerConnection,
   checkServerReachable,
-} from "@opencode-ai/app"
-import "@opencode-ai/app/index.css"
+} from "@unifia/app"
+import "@unifia/app/index.css"
 import "./mobile.css"
 import { ModeSelector } from "./components/mode-selector"
 import { ExtractionProgress } from "./components/extraction-progress"
