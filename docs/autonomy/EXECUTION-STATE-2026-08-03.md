@@ -52,3 +52,11 @@
 - Evidence: runtime adapter smoke 4/4, isolated TypeScript compilation passed, `git diff --check` passed.
 - Backup: `D:\App\OpenCode\unifia-execution-clean-opencode-adapter-2026-08-03.bundle`.
 - Next: implement the real OpenCode backend against the existing Effect Session/SessionPrompt/Bus APIs; preserve the contract boundary and add package-level integration coverage.
+## Checkpoint OpenCode backend — commit 9953187
+
+- Added `packages/opencode/src/unifia/opencode-runtime-backend.ts` using the existing `Session`, `SessionPrompt` and `Bus` APIs.
+- Session listing/creation, prompt dispatch, cancellation and per-session event streams are now mapped to `@unifia/contracts`.
+- Event subscriptions filter by `sessionID` and unsubscribe on iterator close; no OpenWork/Open Cowork source is used.
+- Package-level typecheck remains blocked by the pre-existing incomplete workspace dependency installation; filtered output reports no error in `src/unifia` after the import correction.
+- Backup: `D:\App\OpenCode\unifia-execution-clean-opencode-backend-2026-08-03.bundle`.
+- Next: add a real package integration harness with installed workspace dependencies, then introduce the Unifia runtime implementation behind the same conformance suite.
