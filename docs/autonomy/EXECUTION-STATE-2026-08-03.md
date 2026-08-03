@@ -198,3 +198,9 @@
 - Typecheck OpenCode : 0 erreur ; typecheck monorepo : 18/18 tâches réussies, 24 packages ciblés.
 - Frozen install et toutes les suites Unifia précédentes restent vertes ; commit `bb5827c`; backup : `D:\App\OpenCode\unifia-execution-clean-monorepo-typecheck-2026-08-03.bundle`.
 - Gate A foundation peut passer localement ; reste : preuve CI distante, shell Phase 7, remote/platform et phases V3 ultérieures.
+
+## Addendum Gate A — monorepo typecheck vert
+
+- Après `caf58f5` et `bb5827c`, `bun run typecheck` racine passe : 18/18 tâches réussies sur 24 packages ciblés.
+- Le verdict Gate A reste **GO local / non-promu** : la preuve CI distante et les phases produit post-Gate A restent à exécuter ; aucun push/main effectué.
+- Desktop/mobile sont alignés sur `@unifia/app`; backup : `D:\App\OpenCode\unifia-execution-clean-shell-rebrand-2026-08-03.bundle`.
