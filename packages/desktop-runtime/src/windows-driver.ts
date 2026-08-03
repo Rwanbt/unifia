@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
-import type { DesktopDriver, DesktopTarget } from "@unifia/contracts"
+import { DesktopAutomationBroker, type DesktopDriver, type DesktopTarget } from "@unifia/contracts"
 
 const execFileAsync = promisify(execFile)
 const WINDOWS_SCRIPT = `param([string]$operation,[string]$appId,[string]$windowId,[string]$payload)
@@ -42,4 +42,8 @@ export class WindowsDesktopDriver implements DesktopDriver {
     const result = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-Command", WINDOWS_SCRIPT, operation, target.appId, target.windowId ?? "", JSON.stringify(payload ?? {})], { timeout: 15_000, windowsHide: true, maxBuffer: 1_000_000 })
     return result.stdout.trim()
   }
+}
+
+export function createWindowsDesktopBroker(allowedApps: readonly string[], switches?: { isEngaged(surface: "computer-use"): boolean }): DesktopAutomationBroker {
+  return new DesktopAutomationBroker(new WindowsDesktopDriver(), allowedApps, switches)
 }
