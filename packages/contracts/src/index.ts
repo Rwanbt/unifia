@@ -24,3 +24,5 @@ export * from './p3-runtime.js'
 export * from "./runtime-adapters.js"
 
 export * from "./approval-broker.js"
+export * from "./browser.js"
+export * from "./desktop.js"

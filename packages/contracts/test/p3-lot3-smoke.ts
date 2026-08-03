@@ -15,3 +15,11 @@ test("C2-browser-cookie-network-deny", () => deny(engine.evaluate({ capabilities
 test("C2-unknown-capability-deny", () => deny(engine.evaluate({ capabilities: ["unknown.capability"] }), "C2-unknown-capability"))
 assert.equal(passed, 8)
 console.log(`P3 Lot 3 foundation: ${passed}/8 passed`)
+import { BrowserAutomationBroker, DesktopAutomationBroker } from "../src/index.ts"
+const driver = { navigate: async () => {}, snapshot: async () => ({ redacted: true }), screenshot: async () => new Uint8Array(), quarantineDownload: async (_p: unknown, filename: string) => `quarantine/${filename}` }
+const browser = new BrowserAutomationBroker(driver, ["example.com"])
+await browser.navigate("ws-1", "https://example.com/home")
+let browserDenied = false; try { await browser.navigate("ws-1", "https://evil.example") } catch { browserDenied = true }; if (!browserDenied) throw new Error("browser host allowlist failed")
+const desktop = new DesktopAutomationBroker({ observe: async () => ({ redacted: true }), control: async () => {} }, ["allowed-app"])
+await desktop.observe({ appId: "allowed-app" }); let desktopDenied = false; try { await desktop.control({ appId: "other-app" }, "mouse", {}) } catch { desktopDenied = true }; if (!desktopDenied) throw new Error("desktop app allowlist failed")
+console.log("BrowserDesktopBroker: 4/4 passed")

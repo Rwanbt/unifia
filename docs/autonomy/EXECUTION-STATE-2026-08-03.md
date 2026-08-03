@@ -258,3 +258,11 @@
 - Smoke : `SandboxBroker: 4/4` et `SandboxConformance: 4/4`; contracts typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-sandbox-conformance-2026-08-03.bundle`.
 - Reste : implémentations process réelles native/Docker/WSL2/Lima et vérification sur les hôtes disponibles.
+
+## Checkpoint Browser/Desktop brokers — 2026-08-03
+
+- `BrowserAutomationBroker` : profils isolés par workspace, host allowlist, cookies isolés, snapshots/screenshots séparés et téléchargements en quarantaine.
+- `DesktopAutomationBroker` : observation séparée du contrôle, applications allowlistées et kill switch `computer-use`.
+- Smoke : `BrowserDesktopBroker: 4/4`; contracts typecheck vert.
+- Bundle : `D:\App\OpenCode\unifia-execution-clean-browser-desktop-brokers-2026-08-03.bundle`.
+- Reste : drivers réels Playwright/desktop, redaction screenshot, approbations JIT et Gate B.
