@@ -44,7 +44,7 @@ Ce fichier documente la **chaîne de provenance** de chaque portion de code int�
 | Dépôt | `https://github.com/different-ai/openwork` | `VERIFIED_BARE_CLONE` |
 | Alternatives | `WILSCH-AI-SERVICES/openwork`, `ehsky/openwork`, `iRaez/openwork` | à disqualifier (clones vides) |
 | Commit | `2c558bcffb5b686148c30bbf3dd2af7ade99492a` | `VERIFIED` |
-| Licence probable | à auditer par chemin admissible | `PENDING_LICENSE_REVIEW` |
+| Licence | MIT hors `/ee/`; FSL-1.1-MIT sous `/ee/` | `VERIFIED_EXCLUDE_EE` |
 | Présence `/ee` | `1067` chemins dans le commit verrouillé | `EXCLUDE_FORBIDDEN_PATHS` |
 | Note | Aucun chemin `/ee/`, `enterprise/`, `commercial/` ou `private/` ne doit être importé. Une fonctionnalité équivalente doit être adaptée ou réécrite clean-room. | |
 
@@ -56,7 +56,7 @@ Ce fichier documente la **chaîne de provenance** de chaque portion de code int�
 | Dépôt candidat B | `https://github.com/OpenCoworkAI/open-cowork` | `CANDIDATE` (1.9k stars, MIT, mentionne explicitement Skills + MCP + sandbox) |
 | Dépôt candidat C | `https://github.com/AIDotNet/OpenCowork` | `CANDIDATE` (589 stars, Apache-2.0) |
 | Commit | (à cloner pour audit Phase -1) | `BLOCKED_BD-8` |
-| Licence probable | Apache-2.0 ou MIT | (à confirmer) |
+| Licence | MIT au niveau du dépôt ; notices Apache présentes pour certains skills embarqués | `VERIFIED_PENDING_ATTRIBUTION_MAP` |
 | Note | Le Plan V3 §3.2 attend Skills PPTX/DOCX/XLSX/PDF, sandbox WSL2/Lima, computer use, Slack/Feishu. OpenCoworkAI/open-cowork matche le mieux sur Skills+Feishu/Slack. | |
 
 ## 5. Modèle d'en-tête d'attribution (à appliquer en Phase 0)

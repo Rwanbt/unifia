@@ -27,8 +27,8 @@
         "url": "https://github.com/different-ai/openwork",
         "head_sha": "2c558bcffb5b686148c30bbf3dd2af7ade99492a",
         "default_branch": "dev",
-        "license": null,
-        "copyright": null,
+        "license": "MIT (repository root outside forbidden paths); FSL-1.1-MIT under /ee",
+        "copyright": "Copyright (c) 2026 Different AI, Inc.",
         "stars_at_check": 19034,
         "verified_at": "2026-08-03",
         "ee_path_count": 1067,
@@ -44,8 +44,8 @@
     "open_cowork_candidates": {
       "primary": {
         "url": "https://github.com/OpenCoworkAI/open-cowork",
-        "license": "MIT",
-        "copyright": "OpenCoworkAI contributors",
+        "license": "MIT (repository root; embedded components require per-path attribution review)",
+        "copyright": "Copyright (c) 2026 OpenCoworkAI",
         "stars_at_check": 1954,
         "size_kb": 78371,
         "verified_at": "2026-07-31",
