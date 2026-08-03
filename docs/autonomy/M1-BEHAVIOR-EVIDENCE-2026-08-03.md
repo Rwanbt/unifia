@@ -41,3 +41,7 @@ reviewing nested notices.
 `M1_BEHAVIOR_READ_PARTIAL`: five candidate paths have concrete behavioral
 findings; Open Cowork skill implementation and the remaining i18n source remain
 unverified. No runtime import is permitted.
+## Additional findings
+
+- Open Cowork src/main/skills/plugin-runtime-service.ts resolves marketplace plugins, copies directories into source/runtime paths, persists a registry, and materializes runtime content. This is installation and code-materialization behavior, not a passive skill catalogue: REWRITE_BEHIND_CAPABILITY_AND_PROVENANCE_POLICY.
+- Open Cowork contains base renderer i18n at src/renderer/i18n/ with n.json and zh.json; this does not satisfy the unavailable user-overlay source recorded in the plan: base i18n may be REVIEW, user overlay remains BLOCKED_MISSING_SOURCE.
