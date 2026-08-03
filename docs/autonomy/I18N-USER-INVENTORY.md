@@ -1,9 +1,11 @@
 # I18N-USER-INVENTORY — Inventaire de la traduction utilisateur Open Cowork
 
 **Carte :** `P-1-I18N-USER-SOURCE`
-**Statut :** `VERIFIED` — inventaire complet
-**Date :** 2026-07-31
-**Source :** `/opt/data/projets/open-cowork-main/.i18n-work/`
+**Statut :** `BLOCKED_MISSING_SOURCE` — métriques rapportées, snapshot non accessible dans l’environnement d’exécution
+**Date :** 2026-08-03
+**Source déclarée :** `/opt/data/projets/open-cowork-main/.i18n-work/` (chemin absent de l’environnement Windows)
+
+> Les chiffres ci-dessous proviennent d’un rapport Hermes antérieur. Ils ne constituent pas une preuve d’accès au snapshot. La carte `P-1-I18N-USER-SOURCE` reste bloquée jusqu’à la présence vérifiable des fichiers, de leurs hashes et de leur provenance.
 
 ## 1. Source
 

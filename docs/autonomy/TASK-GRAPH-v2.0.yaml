@@ -4,7 +4,7 @@ metadata:
   generated_at: "2026-07-31T15:30:00Z"
   baseline_sha: "207ff452b8056ae11d1f71e23198e520835f70ed"
   plan_v3_sha: "(snapshot in docs/autonomy/PLAN-DIRECTEUR-V3.md)"
-  status: "v2.0_ALIGNED"
+  status: "v2.0_AUDIT_CORRECTION_REQUIRED"
   replaces: "TASK-GRAPH-v1.0.yaml (statuses obsolètes)"
 
 phases_plan_v3:
@@ -14,7 +14,7 @@ phases_plan_v3:
     deliverables: 5
   - id: "M1"
     name: "Audit comparatif des trois codebases"
-    status: "COMPLETE"
+    status: "CORRECTION_REQUIRED"
     deliverables: 7
   - id: "P0"
     name: "Rebrand Unifia, gouvernance et stratégie upstream"
@@ -96,8 +96,8 @@ summary:
   deferred_gabarits: 12
   plans_detailed: 12
   subcards_total: 95
-  audit_complete: "UPSTREAM_AUDIT_COMPLETE (Phase -1 done)"
-  user_overlay_status: "USER_CUSTOM_OVERLAY_PENDING (BD-9 licence)"
+  audit_complete: "STRUCTURAL_AUDIT_CORRECTED; LICENSE_REVIEW_PENDING"
+  user_overlay_status: "BLOCKED_MISSING_SOURCE (reported metrics retained, files unavailable)"
   push_status: "BLOQUÉ (3 verrous actifs)"
   total_commits: 145
   files_modified: 3300

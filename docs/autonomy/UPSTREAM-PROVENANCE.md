@@ -1,8 +1,8 @@
 # UPSTREAM-PROVENANCE — Provenance upstream pour Unifia
 
 **Phase :** -2 (Audit licences et provenance)
-**Statut :** `DRAFT` — à enrichir en Phase -1
-**Date :** 2026-07-31
+**Statut :** `CORRECTED_PENDING_LICENSE_REVIEW` — audit structurel corrigé, revue de licence restante
+**Date :** 2026-08-03
 
 Ce fichier documente la **chaîne de provenance** de chaque portion de code intégrée dans Unifia. Le plan V3 §8.6 « Provenance obligatoire » exige ces 6 informations minimales pour tout import :
 
@@ -41,12 +41,12 @@ Ce fichier documente la **chaîne de provenance** de chaque portion de code int�
 
 | Champ | Valeur | Statut |
 |---|---|---|
-| Dépôt probable | `https://github.com/different-ai/openwork` | `CANDIDATE` (19k stars, "powered by opencode", conforme au plan V3 §3.1) |
+| Dépôt | `https://github.com/different-ai/openwork` | `VERIFIED_BARE_CLONE` |
 | Alternatives | `WILSCH-AI-SERVICES/openwork`, `ehsky/openwork`, `iRaez/openwork` | à disqualifier (clones vides) |
-| Commit | (à cloner pour audit Phase -1) | `BLOCKED_BD-8` |
-| Licence probable | (à vérifier) | `BLOCKED_BD-8` |
-| Présence `/ee` | (à vérifier explicitement) | `BLOCKED_BD-8` |
-| Note | OpenWork a une couche « Den /ee » propriétaire selon Plan V3 §3.1 ; à exclure par défaut | |
+| Commit | `2c558bcffb5b686148c30bbf3dd2af7ade99492a` | `VERIFIED` |
+| Licence probable | à auditer par chemin admissible | `PENDING_LICENSE_REVIEW` |
+| Présence `/ee` | `1067` chemins dans le commit verrouillé | `EXCLUDE_FORBIDDEN_PATHS` |
+| Note | Aucun chemin `/ee/`, `enterprise/`, `commercial/` ou `private/` ne doit être importé. Une fonctionnalité équivalente doit être adaptée ou réécrite clean-room. | |
 
 ## 4. Provenance Open Cowork (cible Phase -1)
 

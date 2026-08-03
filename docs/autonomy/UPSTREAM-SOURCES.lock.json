@@ -25,12 +25,15 @@
     "openwork_candidates": {
       "primary": {
         "url": "https://github.com/different-ai/openwork",
+        "head_sha": "2c558bcffb5b686148c30bbf3dd2af7ade99492a",
+        "default_branch": "dev",
         "license": null,
         "copyright": null,
         "stars_at_check": 19034,
-        "verified_at": null,
-        "status": "CANDIDATE_NOT_VERIFIED",
-        "notes": "Candidat principal pour OpenWork. Vérification licence + /ee bloquée par BD-8."
+        "verified_at": "2026-08-03",
+        "ee_path_count": 1067,
+        "status": "EXCLUDE_FORBIDDEN_PATHS",
+        "notes": "Audit structurel corrigé depuis le bare clone verrouillé. Le dépôt contient 1067 chemins /ee/ ; aucun chemin /ee/, enterprise, commercial ou private ne peut être importé. La licence des chemins admissibles reste à auditer séparément."
       },
       "alternatives": [
         {"url": "https://github.com/WILSCH-AI-SERVICES/openwork", "stars": 0, "status": "REJECTED (fork vide)"},

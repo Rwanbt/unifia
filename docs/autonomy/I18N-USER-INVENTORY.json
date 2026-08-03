@@ -1,6 +1,8 @@
 {
   "snapshot_root": "/opt/data/projets/open-cowork-main/.i18n-work",
   "snapshot_type": "user_provided_translation",
+  "status": "BLOCKED_MISSING_SOURCE",
+  "availability_verified": false,
   "languages": {
     "ar": {
       "files_total": 22,
@@ -956,9 +958,9 @@
     "compatibility_rate": "14/16"
   },
   "provenance": {
-    "snapshot_source": "user_provided (copied to /opt/data/projets/open-cowork-main/.i18n-work)",
+    "snapshot_source": "reported_only; source unavailable in the Windows execution workspace",
     "snapshot_format": "i18n batches JSON (translated + original)",
-    "license": "à vérifier auprès de l'utilisateur",
+    "license": "UNVERIFIED",
     "open_cowork_upstream": "https://github.com/OpenCoworkAI/open-cowork@ec5bd27"
   }
 }

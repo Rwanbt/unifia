@@ -1,9 +1,9 @@
 # TRI-REPO-ARCHITECTURE-INVENTORY.md
 
 **Phase :** -1 (Audit comparatif des trois codebases)
-**Statut :** `VERIFIED_LOCAL` — toutes les métriques mesurées via `git ls-tree` HEAD
-**Date :** 2026-07-31
-**Auditeur :** Hermes Agent (MiniMax-M3)
+**Statut :** `CORRECTED_PENDING_REVIEW` — l’audit structurel OpenWork a été corrigé ; les décisions d’import restent en attente de revue de licence
+**Date :** 2026-08-03
+**Auditeur :** Hermes Agent (MiniMax-M3)`n`n> Correction 2026-08-03 : le bare clone OpenWork contient 1 067 chemins `/ee/` au commit `2c558bcffb5b686148c30bbf3dd2af7ade99492a`. Toute matrice précédente indiquant zéro chemin interdit est obsolète.
 
 ## 1. Identité des trois codebases
 
