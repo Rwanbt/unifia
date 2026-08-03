@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `d5119de`
+**Latest commit**: `74cc952`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -141,3 +141,11 @@
 - Vérification : ApprovalBroker 5/5, WorkbenchServer 15/15, suite P3/runtime complète et typechecks contracts/server passent.
 - Commit : `d5119de`; backup : `D:\App\OpenCode\unifia-execution-clean-approval-lifecycle-2026-08-03.bundle`.
 - Reste : reconnexion SSE avec curseur, artefacts/documents, puis gates finales.
+
+
+## Checkpoint ArtifactStore — 74cc952
+
+- Package `@unifia/artifact-runtime` ajoute `ArtifactStore` : filename sûr, quota, hash SHA-256, création non destructive, read avec revalidation hash et publication outbox.
+- Smoke : `ArtifactStore: 5/5 passed`; typecheck package et frozen install 2503 installations sur 2440 packages passent.
+- Commit : `74cc952`; backup : `D:\App\OpenCode\unifia-execution-clean-artifact-runtime-2026-08-03.bundle`.
+- Reste Phase 6 : packs document typés/manifestés, workers isolés, golden tests et formats réels.
