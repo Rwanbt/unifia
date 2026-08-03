@@ -391,3 +391,11 @@
 - Résultat : `Ed25519ManifestVerifier: 3/3 passed`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-capability-ed25519-2026-08-03.bundle`.
 - Reste : injecter ce vérificateur dans le bootstrap Workbench et préparer Gate C.
+
+## Checkpoint Secure capability assembly + MCP UI — 2026-08-03
+
+- `createSecureCapabilityRegistry(publicKey)` force l’assemblage avec `Ed25519ManifestVerifier`.
+- `McpUiControlBroker` ajoute des actions UI déclaratives, composants allowlistés, IDs stricts, approval obligatoire pour click/fill/select et kill switch `mcp-ui-control`.
+- Tests : Ed25519 `3/3`, MCP UI `4/4`; typecheck contracts/capability-runtime vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-mcp-ui-capability-security-2026-08-03.bundle`.
+- Reste : intégrer MCP UI au Workbench, generative UI renderer, Gate C et release hardening.
