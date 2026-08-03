@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `74cc952`
+**Latest commit**: `91e6a0b`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -149,3 +149,12 @@
 - Smoke : `ArtifactStore: 5/5 passed`; typecheck package et frozen install 2503 installations sur 2440 packages passent.
 - Commit : `74cc952`; backup : `D:\App\OpenCode\unifia-execution-clean-artifact-runtime-2026-08-03.bundle`.
 - Reste Phase 6 : packs document typés/manifestés, workers isolés, golden tests et formats réels.
+
+
+## Checkpoint DocumentPacks — 91e6a0b
+
+- `DocumentPackRegistry` impose six manifests typés, provenance/licence, réseau off, quota d entrée, worker sans provider/secrets et conversion vers ArtifactVersion.
+- Les packs non dotés d un worker sont refusés explicitement ; `inspect` est couvert par un worker fixture et l outbox ArtifactStore.
+- Vérification : `DocumentPackRegistry: 4/4 passed`, typecheck package et frozen install 2504 installations sur 2441 packages.
+- Commit : `91e6a0b`; backup : `D:\App\OpenCode\unifia-execution-clean-document-packs-2026-08-03.bundle`.
+- Reste : workers DOCX/PPTX/XLSX/PDF réels, golden tests, corruption/zip-slip/bombes et crash isolation.
