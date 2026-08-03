@@ -12,6 +12,7 @@
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@unifia/contracts": "workspace:*",
     "@octokit/auth-app": "8.0.1",
     "@octokit/rest": "catalog:",
     "hono": "catalog:",
