@@ -351,3 +351,11 @@
 - Test server : `WorkbenchServer: 21/21 passed`; contracts/server typechecks verts.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-workflows-2026-08-03.bundle`.
 - Reste : executor réel relié au runtime Unifia, memory/session intelligence, Skill Hub/Marketplace et MCP UI.
+
+## Checkpoint Memory Workbench integration — 2026-08-03
+
+- Nouveau package `@unifia/memory-runtime` : records visibles, recherche, suppression, quotas et prompt injection désactivée par défaut.
+- WorkbenchServer expose `POST /v1/memory/remember`, `GET /v1/memory/search` et `DELETE /v1/memory/remove`, avec workspace scope et capabilities read/write.
+- Validation : `MemoryRuntime: 4/4`, `WorkbenchServer: 23/23`; typechecks verts.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-memory-workbench-2026-08-03.bundle`.
+- Reste : persistance Memory fichier/DB, session intelligence, Skill Hub/Marketplace et MCP UI.
