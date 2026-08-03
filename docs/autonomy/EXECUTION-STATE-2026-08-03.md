@@ -273,3 +273,11 @@
 - Dépendance Playwright locale `1.57.0`; typecheck package vert; lockfile mis à jour.
 - Commit `81f75eb`; bundle : `D:\App\OpenCode\unifia-execution-clean-playwright-driver-2026-08-03.bundle`.
 - Reste : test E2E contrôlé avec navigateur installé, redaction screenshots, driver desktop réel, approbations JIT et Gate B.
+
+## Checkpoint Playwright E2E — d7c9ea2
+
+- Test E2E réel Node 22 + Chromium local : serveur HTTP local éphémère, navigation, snapshot ARIA, screenshot PNG et quarantaine téléchargement vérifiés.
+- Résultat : `PlaywrightBrowserDriver E2E: 4/4 passed`.
+- Bun reste incompatible pour le lancement Playwright sur cette machine ; le script officiel du package utilise Node 22.
+- Commit `d7c9ea2`; bundle : `D:\App\OpenCode\unifia-execution-clean-playwright-e2e-2026-08-03.bundle`.
+- Reste : intégration du broker dans l’application, redaction screenshots, driver desktop réel, approbations JIT et Gate B.
