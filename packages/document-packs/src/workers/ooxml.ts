@@ -111,3 +111,12 @@ export const pptxWorker = async (input: string | Uint8Array): Promise<ArtifactIn
     { name: "ppt/slides/slide1.xml", content: `<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr/><p:grpSpPr/><p:sp><p:nvSpPr/><p:txBody><a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:r><a:t>${text}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>` },
   ]) }
 }
+export const inspectWorker = async (input: string | Uint8Array): Promise<ArtifactInput> => {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input
+  return { kind: "text", filename: "inspection.txt", content: `bytes=${bytes.byteLength}\nencoding=utf-8\nnetwork=off\n` }
+}
+
+export const convertWorker = async (input: string | Uint8Array): Promise<ArtifactInput> => {
+  const value = typeof input === "string" ? input : new TextDecoder().decode(input)
+  return { kind: "text", filename: "converted.md", content: `# Converted document\n\n${value.trim()}\n` }
+}

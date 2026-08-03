@@ -13,12 +13,10 @@ try {
   const registry = new DocumentPackRegistry(store)
   registerBuiltInDocumentWorkers(registry)
   if (DOCUMENT_PACK_MANIFESTS.length !== 6 || DOCUMENT_PACK_MANIFESTS.some((manifest) => manifest.network !== "off" || !manifest.provenance || !manifest.license)) throw new Error("pack manifests are incomplete")
-  registry.register({ ...DOCUMENT_PACK_MANIFESTS.find((manifest) => manifest.id === "unifia.document.inspect")!, outputKind: "text" }, async (input, context) => {
-    if (context.network !== "off" || context.workspaceId !== "ws-1") throw new Error("worker context widened network")
-    return { kind: "text", filename: "inspection.txt", content: typeof input === "string" ? input : new TextDecoder().decode(input) }
-  })
   const artifact = await registry.execute("unifia.document.inspect", "ws-1", "hello")
   if (artifact.kind !== "text" || artifact.filename !== "inspection.txt") throw new Error("worker output was not registered as artifact")
+  const converted = await registry.execute("unifia.document.convert", "ws-1", "hello")
+  if (converted.kind !== "text" || converted.filename !== "converted.md") throw new Error("built-in convert worker failed")
   const formats = ["docx", "xlsx", "pptx"] as const
   for (const format of formats) {
     const artifact = await registry.execute(`unifia.document.${format}`, "ws-1", `hello ${format}`)
@@ -43,4 +41,3 @@ try {
 } finally {
   await rm(root, { recursive: true, force: true })
 }
-
