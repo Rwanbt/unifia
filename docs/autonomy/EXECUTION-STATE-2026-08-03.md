@@ -289,3 +289,11 @@
 - Typechecks contracts/browser-runtime verts ; E2E Node + Chromium local `PlaywrightBrowserDriver E2E: 4/4 passed`.
 - Commit `5ac5b1c`; bundle : `D:\App\OpenCode\unifia-execution-clean-browser-redaction-2026-08-03.bundle`.
 - Reste : intégration Workbench, approbations JIT, driver desktop, Gate B et phases plateforme.
+
+## Checkpoint Workbench Browser integration — 366f1ca
+
+- WorkbenchServer expose maintenant `POST /v1/browser/navigate`, `/snapshot` et `/screenshot`.
+- Chaque route exige bearer workspace scope, capability `browser.navigate`, audit et broker Browser injecté ; screenshot renvoie un PNG base64 redacted par le driver.
+- Test server : `WorkbenchServer: 17/17 passed`; typecheck workbench-server vert.
+- Commit `366f1ca`; bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-browser-routes-2026-08-03.bundle`.
+- Reste : Computer Use intégré, approbations JIT dédiées, Gate B et phases plateforme.
