@@ -178,3 +178,31 @@ export class SandboxPathDouble {
       : { kind: "deny", ruleId: "C6-command-not-allowlisted", reason: "command-class-not-allowed" }
   }
 }
+export const P3_CAPABILITY_EFFECTS: Readonly<Record<string, readonly string[]>> = {
+  "workspace.read": ["filesystem.read"], "workspace.write": ["filesystem.write"], "workspace.watch": ["filesystem.watch"],
+  "artifact.create": ["artifact.create"], "artifact.export": ["artifact.export", "filesystem.write"],
+  "terminal.run": ["process.spawn"], "network.request": ["network.connect"], "browser.navigate": ["network.connect"],
+  "desktop.observe": ["ui.notify"], "desktop.control": ["ui.prompt"], "remote.receive": ["remote.receive"],
+  "remote.respond": ["remote.send"], "secret.read": ["secret.read"], "package.install": ["process.spawn", "filesystem.write"],
+}
+
+export type PolicyRequestDouble = { capabilities: readonly string[]; resource?: string; tainted?: boolean }
+export class PolicyEngineDouble {
+  public evaluate(request: PolicyRequestDouble): P3Decision {
+    const allowedDerived = new Set(["browser.cookies"])
+    if (request.capabilities.some((capability) => !P3_CAPABILITIES.includes(capability as P3Capability) && !allowedDerived.has(capability))) return { kind: "deny", ruleId: "C2-unknown-capability", reason: "capability-is-not-registered" }
+    const has = (capability: string) => request.capabilities.includes(capability)
+    if (has("secret.read") && (has("network.request") || has("process.spawn") || has("desktop.control") || request.tainted)) return { kind: "deny", ruleId: "C2-taint-veto", reason: "secret-taint-crosses-boundary" }
+    if (has("remote.receive") && has("terminal.run")) return { kind: "deny", ruleId: "C2-remote-terminal", reason: "remote-command-cannot-spawn" }
+    if (has("package.install") && has("desktop.control")) return { kind: "deny", ruleId: "C2-package-desktop", reason: "installation-cannot-control-desktop" }
+    if (has("workspace.read") && request.resource === "global" && has("network.request")) return { kind: "deny", ruleId: "C2-global-read-network", reason: "global-read-cannot-request-network" }
+    if (has("browser.cookies") && has("network.request")) return { kind: "deny", ruleId: "C2-browser-cookie-network", reason: "cookie-taint-cannot-request-network" }
+    return { kind: "allow", ruleId: "C2-named-rule-free" }
+  }
+}
+
+export class TaintTrackerDouble {
+  private secretTaint = false
+  public recordSecretRead(): void { this.secretTaint = true }
+  public isTainted(): boolean { return this.secretTaint }
+}
