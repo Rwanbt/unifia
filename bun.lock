@@ -618,6 +618,18 @@
         "typescript": "catalog:",
       },
     },
+    "packages/workspace-runtime": {
+      "name": "@unifia/workspace-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
   },
   "trustedDependencies": [
     "esbuild",
@@ -2416,6 +2428,8 @@
     "@unifia/storybook": ["@unifia/storybook@workspace:packages/storybook"],
 
     "@unifia/web": ["@unifia/web@workspace:packages/web"],
+
+    "@unifia/workspace-runtime": ["@unifia/workspace-runtime@workspace:packages/workspace-runtime"],
 
     "@vercel/oidc": ["@vercel/oidc@3.1.0", "", {}, "sha512-Fw28YZpRnA3cAHHDlkt7xQHiJ0fcL+NRcIqsocZQUSmbzeIKRpwttJjik5ZGanXP+vlA4SbTg+AbA3bP363l+w=="],
 
