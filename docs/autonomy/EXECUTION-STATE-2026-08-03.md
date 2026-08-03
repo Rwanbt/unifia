@@ -305,3 +305,11 @@
 - Test server : `WorkbenchServer: 19/19 passed`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-desktop-routes-2026-08-03.bundle`.
 - Reste : driver desktop OS réel, approbations JIT non-allowlistées, Gate B et plateformes V3.
+
+## Checkpoint Windows Desktop driver — 2026-08-03
+
+- Nouveau package `@unifia/desktop-runtime` avec `WindowsDesktopDriver` réel : observation PowerShell `Get-Process`, activation fenêtre, clavier `SendKeys` et souris Win32 `SetCursorPos/mouse_event`.
+- Commandes bornées à 15 secondes, `windowsHide`, payload séparé et driver injecté pour tests.
+- Validation : `WindowsDesktopDriver: 3/3 passed`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-windows-desktop-driver-2026-08-03.bundle`.
+- Reste : test sur application Windows allowlistée réelle, emergency stop pendant action active, injection dans l’assemblage Workbench.
