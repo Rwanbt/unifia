@@ -183,3 +183,5 @@ export class WorkspaceRuntime implements WorkspacePort {
   }
 }
 export * from "./storage.js"
+
+export * from "./queue.js"
