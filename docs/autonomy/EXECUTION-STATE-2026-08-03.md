@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `38d900c`
+**Latest commit**: `d7c8090`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -89,3 +89,12 @@
 - Vérification : typecheck package et smoke `WorkspaceRuntime: 5/5`, `WorkspaceStorage: 4/4` passent.
 - Commit : `38d900c`; backup : `D:\App\OpenCode\unifia-execution-clean-workspace-health-2026-08-03.bundle`.
 - Phase 4 restante : inbox/outbox, file watcher reprenable, tests de crash/recovery et gate sécurité workspace.
+
+
+## Checkpoint file events — d7c8090
+
+- `FileEvent.sequence` est optionnel au contrat ; WorkspaceRuntime persiste les événements dans l outbox par workspace via DurableQueue.
+- Le watcher ordonne les écritures, retourne un curseur, et les événements sont rejouables puis acquittables via `replayFileEvents`/`acknowledgeFileEvent`.
+- Vérification : smoke WorkspaceRuntime 9/9, storage 4/4, queue 4/4 ; typecheck package passe.
+- Commit : `d7c8090`; backup : `D:\App\OpenCode\unifia-execution-clean-workspace-events-2026-08-03.bundle`.
+- Gate suivante : test watcher réel, audit path/symlink Windows, puis branchement serveur headless.
