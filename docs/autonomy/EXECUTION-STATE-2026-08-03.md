@@ -328,3 +328,10 @@
 - Smoke : `EmergencyStop: 1/1 passed`; P3 Lot 3 et contracts typecheck verts.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-emergency-stop-2026-08-03.bundle`.
 - Reste : arrêt d’un driver OS réellement actif, injection bootstrap et Gate B finale.
+
+## Checkpoint WorkflowRuntime — 2026-08-03
+
+- Nouveau package `@unifia/workflow-runtime` : définitions versionnées, état durable, reprise après pause, checkpoints par étape, approvals JIT, cancellation et kill switch `workflow-automation`.
+- Test Node : `WorkflowRuntime: 4/4 passed`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workflow-runtime-2026-08-03.bundle`.
+- Reste : adapter le store durable WorkspaceRuntime, intégrer les routes Workbench, memory/session intelligence et marketplace.
