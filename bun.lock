@@ -618,6 +618,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/workbench-server": {
+      "name": "@unifia/workbench-server",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+        "@unifia/workspace-runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/workspace-runtime": {
       "name": "@unifia/workspace-runtime",
       "version": "0.1.0",
@@ -2428,6 +2441,8 @@
     "@unifia/storybook": ["@unifia/storybook@workspace:packages/storybook"],
 
     "@unifia/web": ["@unifia/web@workspace:packages/web"],
+
+    "@unifia/workbench-server": ["@unifia/workbench-server@workspace:packages/workbench-server"],
 
     "@unifia/workspace-runtime": ["@unifia/workspace-runtime@workspace:packages/workspace-runtime"],
 
