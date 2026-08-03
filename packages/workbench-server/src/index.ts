@@ -2,6 +2,7 @@
 import type {
   FileReadResult,
   FileWrite,
+  P3Capability,
   RuntimeAdapter,
   Workspace,
   WorkspaceHandle,
@@ -9,7 +10,9 @@ import type {
 } from "@unifia/contracts"
 
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort }
+type CapabilityDecision = "allow" | "deny" | "approval_required"
+type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision> }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -28,6 +31,7 @@ export class WorkbenchServer {
   readonly #workspace: WorkspacePort
   readonly #runtime: RuntimeAdapter
   readonly #audit: AuditPort
+  readonly #capability: CapabilityGate
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
 
@@ -35,6 +39,7 @@ export class WorkbenchServer {
     this.#workspace = dependencies.workspace
     this.#runtime = dependencies.runtime
     this.#audit = dependencies.audit
+    this.#capability = dependencies.capability
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -92,6 +97,7 @@ export class WorkbenchServer {
   async #events(request: Request, sessionId: string): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("session.events.scope", 403)
+    if (await this.#capability.check("workspace.watch", workspaceId, "workbench-server") !== "allow") return this.#deny("workspace.watch", 403)
     const iterator = this.#runtime.subscribeEvents({ sessionId })[Symbol.asyncIterator]()
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
@@ -126,6 +132,8 @@ export class WorkbenchServer {
     const workspaceId = input.workspaceId
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
+    const capability = `workspace.${operation}` as P3Capability
+    if (await this.#capability.check(capability, workspaceId, "workbench-server") !== "allow") return this.#deny(capability, 403)
     if (operation === "read") {
       const results = await this.#workspace.read(token, input.paths as string[])
       this.#allow("workspace.read")

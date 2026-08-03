@@ -11,7 +11,8 @@ try {
   await writeFile(path.join(root, "README.md"), "hello")
   const workspace = new WorkspaceRuntime()
   const audit = new AuditRuntimeDouble(() => 1_000)
-  const server = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit })
+  let capabilityDecision: "allow" | "deny" = "allow"
+  const server = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
   const registered = await server.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "fixture", path: root }) }))
   if (registered.status !== 201) throw new Error("workspace register route failed")
   const registeredBody = await registered.json() as { id: string }
@@ -23,6 +24,10 @@ try {
   if (listed.status !== 200) throw new Error("scoped session list failed")
   const read = await server.fetch(new Request("http://localhost/v1/files/read", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, paths: ["README.md"] }) }))
   if (read.status !== 200) throw new Error("scoped file read failed")
+  capabilityDecision = "deny"
+  const deniedWrite = await server.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "README.md", content: "blocked" }] }) }))
+  if (deniedWrite.status !== 403) throw new Error("capability gate did not deny write")
+  capabilityDecision = "allow"
   const created = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/sessions`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` } }))
   const session = (await created.json() as { session: { id: string } }).session
   const events = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/events`, { headers: { authorization: `Bearer ${handle.token}` } }))
@@ -35,7 +40,7 @@ try {
   if (eventChunk.done || !new TextDecoder().decode(eventChunk.value).includes("hello")) throw new Error("runtime event was not streamed")
   if (prompt.status !== 202) throw new Error("scoped prompt failed")
   if (audit.events().filter((event) => event.decision === "deny").length < 1) throw new Error("denied request was not audited")
-  console.log("WorkbenchServer: 8/8 passed")
+  console.log("WorkbenchServer: 10/10 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
