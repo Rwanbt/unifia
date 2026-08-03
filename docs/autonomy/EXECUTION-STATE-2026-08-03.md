@@ -219,3 +219,9 @@
 - Smoke : `RemoteBridgeBroker: 7/7 passed`; contracts typecheck passé.
 - Commit : `d85d2d2`; backup : `D:\App\OpenCode\unifia-execution-clean-remote-broker-2026-08-03.bundle`.
 - Reste : adaptateurs Slack/Feishu réels, SecretStore, signature webhook provider-specific et kill switches séparés.
+
+## Validation brokers — 2026-08-03
+
+- Typecheck monorepo : 18/18 tâches réussies sur 24 packages ciblés après RemoteBridgeBroker.
+- RemoteBridgeBroker : 7/7 ; SandboxBroker : 4/4 ; contracts typecheck passé.
+- Worktree propre avant ce checkpoint ; aucune promotion ni synchronisation distante effectuée.
