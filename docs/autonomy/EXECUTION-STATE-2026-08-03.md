@@ -251,3 +251,10 @@
 - Vérification : P3 runtime étendu 8 assertions, SlackRemoteAdapter 5/5, FeishuRemoteAdapter 5/5, typechecks contracts/function/slack verts.
 - Commits `fd13e63`, `56d0f7a`; bundle : `D:\App\OpenCode\unifia-execution-clean-remote-killswitch-2026-08-03.bundle`.
 - Reste : injecter SecretStore dans les bindings réels, drivers Sandbox concrets/conformance, Browser/Computer Use et gates B/C.
+
+## Checkpoint Sandbox conformance — 2026-08-03
+
+- Ajout de `assertSandboxDriverConformance` : inspect, politique read-only/network none, résultat d’exécution borné et terminate sont vérifiés pour chaque driver.
+- Smoke : `SandboxBroker: 4/4` et `SandboxConformance: 4/4`; contracts typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-sandbox-conformance-2026-08-03.bundle`.
+- Reste : implémentations process réelles native/Docker/WSL2/Lima et vérification sur les hôtes disponibles.
