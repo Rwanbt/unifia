@@ -225,3 +225,11 @@
 - Typecheck monorepo : 18/18 tâches réussies sur 24 packages ciblés après RemoteBridgeBroker.
 - RemoteBridgeBroker : 7/7 ; SandboxBroker : 4/4 ; contracts typecheck passé.
 - Worktree propre avant ce checkpoint ; aucune promotion ni synchronisation distante effectuée.
+
+## Checkpoint Slack bridge contrôlé — 8c75df4 / b82e8b1
+
+- Le connecteur Slack passe par `SlackRemoteAdapter` et `RemoteBridgeBroker` : allowlists `UNIFIA_SLACK_ALLOWED_*`, anti-rejeu, audit borné, lecture seule explicite et ApprovalBroker pour les commandes générales.
+- Les logs bruts d événements et le partage automatique de sessions ont été supprimés ; la résolution d approval reste exposée au host local.
+- Vérification : Slack typecheck + adapter 4/4 ; contracts typecheck + RemoteBridgeBroker 7/7.
+- Bundles : `D:\App\OpenCode\unifia-execution-clean-slack-bridge-2026-08-03.bundle`, `D:\App\OpenCode\unifia-execution-clean-remote-approval-host-2026-08-03.bundle`.
+- Reste : adaptateur Feishu/Lark provider-specific, tests d intégration Bolt, SecretStore et kill switches séparés.
