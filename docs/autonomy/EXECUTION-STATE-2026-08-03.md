@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `3349a9a`
+**Latest commit**: `fbf1999`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -107,3 +107,11 @@
 - Vérification : typecheck package et smoke `WorkbenchServer: 6/6 passed` ; aucun desktop/OpenWork/enterprise requis.
 - Commit : `3349a9a`; backup : `D:\App\OpenCode\unifia-execution-clean-headless-server-2026-08-03.bundle`.
 - Gate suivante : event endpoint/reconnect, ApprovalBroker branch, puis artefacts/documents selon Phase 6.
+
+
+## Checkpoint runtime events SSE — fbf1999
+
+- `GET /v1/sessions/:id/events` fournit un flux SSE headless via `RuntimeAdapter.subscribeEvents`, avec auth token scoped et fermeture/cancel de l itérateur.
+- Le test serveur couvre register/open/scope/list/create/prompt/read/audit et le flux événementiel ; smoke `WorkbenchServer: 8/8 passed`.
+- Commit : `fbf1999`; backup : `D:\App\OpenCode\unifia-execution-clean-headless-events-2026-08-03.bundle`.
+- Reste : ApprovalBroker injecté dans les écritures/capabilities, reconnexion SSE et phases artefacts/documents.
