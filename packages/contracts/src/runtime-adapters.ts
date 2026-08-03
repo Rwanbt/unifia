@@ -47,3 +47,23 @@ export class FakeRuntimeAdapter implements RuntimeAdapter {
     else state.events.push(event)
   }
 }
+export interface OpenCodeRuntimeBackend {
+  listSessions(workspaceId: string): Promise<Session[]>
+  createSession(workspaceId: string): Promise<Session>
+  sendPrompt(input: SendPromptInput): Promise<void>
+  subscribeEvents(sessionId: string): AsyncIterable<RuntimeEvent>
+  cancelSession(sessionId: string): Promise<void>
+}
+
+/** Boundary adapter for the existing OpenCode runtime; all I/O stays in the injected backend. */
+export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
+  public constructor(private readonly backend: OpenCodeRuntimeBackend, private readonly version: string = "unknown") {}
+  public async getInfo(): Promise<RuntimeInfo> {
+    return { id: "opencode", version: this.version, capabilities: [], healthy: true }
+  }
+  public listSessions(scope: WorkspaceScope): Promise<Session[]> { return this.backend.listSessions(scope.workspaceId) }
+  public createSession(input: { workspaceId: string }): Promise<Session> { return this.backend.createSession(input.workspaceId) }
+  public sendPrompt(input: SendPromptInput): Promise<void> { return this.backend.sendPrompt(input) }
+  public subscribeEvents(input: { sessionId: string }): AsyncIterable<RuntimeEvent> { return this.backend.subscribeEvents(input.sessionId) }
+  public cancelSession(sessionId: string): Promise<void> { return this.backend.cancelSession(sessionId) }
+}
