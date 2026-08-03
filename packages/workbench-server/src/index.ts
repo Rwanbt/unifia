@@ -1,5 +1,6 @@
 import { ApprovalBroker, type BrowserAutomationBroker, type DesktopAutomationBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
+import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
 import type {
   FileReadResult,
@@ -14,7 +15,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -37,6 +38,7 @@ export class WorkbenchServer {
   readonly #browser?: BrowserAutomationBroker
   readonly #desktop?: DesktopAutomationBroker
   readonly #workflow?: WorkflowRuntime
+  readonly #memory?: MemoryRuntime
   readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
@@ -49,6 +51,7 @@ export class WorkbenchServer {
     this.#browser = dependencies.browser
     this.#desktop = dependencies.desktop
     this.#workflow = dependencies.workflow
+    this.#memory = dependencies.memory
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -67,6 +70,7 @@ export class WorkbenchServer {
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
       if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
+      if (segments[1] === "memory" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) return this.#memoryAction(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -210,6 +214,18 @@ export class WorkbenchServer {
     if (!state) return this.#deny("workflow.action", 400)
     this.#allow(`workflow.${action}`)
     return json(200, { state })
+  }
+
+  async #memoryAction(request: Request, action: string): Promise<Response> {
+    if (!this.#memory) return this.#deny("memory.unavailable", 503)
+    const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
+    if (typeof input.workspaceId !== "string") return this.#deny("memory.scope", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("memory.scope", 403)
+    if (request.method === "POST" && action === "remember") { const gate = await this.#checkCapability("workspace.write", input.workspaceId); if (gate) return gate; if (typeof input.content !== "string" || (input.source !== "user" && input.source !== "agent" && input.source !== "import")) return this.#deny("memory.remember", 400); const record = await this.#memory.remember({ workspaceId: input.workspaceId, content: input.content, source: input.source, tags: Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined, id: typeof input.id === "string" ? input.id : undefined }); this.#allow("memory.remember"); return json(201, { record }) }
+    if (request.method === "GET" && action === "search") { const gate = await this.#checkCapability("workspace.read", input.workspaceId); if (gate) return gate; const records = await this.#memory.search({ workspaceId: input.workspaceId, text: typeof input.text === "string" ? input.text : undefined }); this.#allow("memory.search"); return json(200, { records }) }
+    if (request.method === "DELETE" && action === "remove" && typeof input.id === "string") { const gate = await this.#checkCapability("workspace.write", input.workspaceId); if (gate) return gate; const removed = await this.#memory.remove(input.workspaceId, input.id); this.#allow("memory.remove"); return json(200, { removed }) }
+    return this.#deny("memory.action", 400)
   }
 
   async #approval(request: Request, id: string): Promise<Response> {

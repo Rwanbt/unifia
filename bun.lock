@@ -297,6 +297,17 @@
         "typescript": "catalog:",
       },
     },
+    "packages/memory-runtime": {
+      "name": "@unifia/memory-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "typescript": "catalog:",
+      },
+    },
     "packages/mobile": {
       "name": "@unifia/mobile",
       "version": "0.1.0",
@@ -672,6 +683,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@unifia/contracts": "workspace:*",
+        "@unifia/memory-runtime": "workspace:*",
         "@unifia/workflow-runtime": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },
@@ -2502,6 +2514,8 @@
     "@unifia/document-packs": ["@unifia/document-packs@workspace:packages/document-packs"],
 
     "@unifia/function": ["@unifia/function@workspace:packages/function"],
+
+    "@unifia/memory-runtime": ["@unifia/memory-runtime@workspace:packages/memory-runtime"],
 
     "@unifia/mobile": ["@unifia/mobile@workspace:packages/mobile"],
 

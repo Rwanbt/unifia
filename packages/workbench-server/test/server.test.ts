@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, DesktopAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
+import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
@@ -70,6 +71,14 @@ try {
   if (browserNavigate.status !== 202) throw new Error("browser navigate route failed")
   const browserScreenshot = await browserServer.fetch(new Request("http://localhost/v1/browser/screenshot", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id }) }))
   if (browserScreenshot.status !== 200) throw new Error("browser screenshot route failed")
+  const memory = new MemoryRuntime(new InMemoryMemoryStore())
+  const memoryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
+  const memoryOpen = await memoryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const memoryHandle = await memoryOpen.json() as { id: string; token: string }
+  const remembered = await memoryServer.fetch(new Request("http://localhost/v1/memory/remember", { method: "POST", headers: { authorization: `Bearer ${memoryHandle.token}` }, body: JSON.stringify({ workspaceId: memoryHandle.id, content: "visible memory", source: "user" }) }))
+  if (remembered.status !== 201) throw new Error("memory remember route failed")
+  const foundMemory = await memoryServer.fetch(new Request(`http://localhost/v1/memory/search?workspaceId=${memoryHandle.id}&text=visible`, { headers: { authorization: `Bearer ${memoryHandle.token}` } }))
+  if (foundMemory.status !== 200) throw new Error("memory search route failed")
   const workflow = new WorkflowRuntime(new InMemoryWorkflowStore(), { execute: async (step) => step.id }, { request: async () => true })
   const workflowServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, workflow })
   const workflowOpen = await workflowServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
@@ -87,7 +96,7 @@ try {
   if (observed.status !== 200) throw new Error("desktop observe route failed")
   const controlled = await desktopServer.fetch(new Request("http://localhost/v1/desktop/control", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app", action: "mouse", payload: { x: 1, y: 1 } }) }))
   if (controlled.status !== 202) throw new Error("desktop control route failed")
-  console.log("WorkbenchServer: 21/21 passed")
+  console.log("WorkbenchServer: 23/23 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
