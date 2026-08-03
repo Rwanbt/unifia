@@ -233,3 +233,12 @@
 - Vérification : Slack typecheck + adapter 4/4 ; contracts typecheck + RemoteBridgeBroker 7/7.
 - Bundles : `D:\App\OpenCode\unifia-execution-clean-slack-bridge-2026-08-03.bundle`, `D:\App\OpenCode\unifia-execution-clean-remote-approval-host-2026-08-03.bundle`.
 - Reste : adaptateur Feishu/Lark provider-specific, tests d intégration Bolt, SecretStore et kill switches séparés.
+
+## Checkpoint Feishu + Function typecheck — 376a0b5 / 6de8660
+
+- Ajout de `FeishuRemoteAdapter` avec vérification officielle de signature SHA-256, anti-rejeu, allowlists et passage des commandes sensibles par `RemoteBridgeBroker`.
+- Séparation explicite entre le timestamp signé du callback Feishu et le timestamp milliseconde utilisé par le broker.
+- Typecheck complet `packages/function` vert via TypeScript local ; test ciblé Feishu : `FeishuRemoteAdapter: 4/4`.
+- Durcissement défensif de l’API Worker/GitHub : callbacks WebSocket typés, sujets JWT validés, permissions optionnelles gérées, owner/repo obligatoires.
+- Commit `376a0b5` + `6de8660`; bundle : `D:\App\OpenCode\unifia-execution-clean-feishu-function-2026-08-03.bundle`.
+- Reste : raccordement d’ingress Feishu au Worker, SecretStore/kill switches réels, drivers Sandbox et surfaces Browser/Computer Use.
