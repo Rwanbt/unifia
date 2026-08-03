@@ -2,7 +2,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, FakeRuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
 
@@ -61,7 +61,15 @@ try {
   if (resolved.status !== 200) throw new Error("scoped approval resolve failed")
   const retried = await approvalServer.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ workspaceId: approvalHandle.id, writes: [{ path: "README.md", content: "approved" }] }) }))
   if (retried.status !== 200) throw new Error("approved write was not retried")
-  console.log("WorkbenchServer: 15/15 passed")
+  const browser = new BrowserAutomationBroker({ navigate: async () => {}, snapshot: async () => ({ title: "fixture" }), screenshot: async () => new Uint8Array([1, 2]), quarantineDownload: async () => "quarantine/result" }, ["example.com"])
+  const browserServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, browser })
+  const browserOpen = await browserServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const browserHandle = await browserOpen.json() as { id: string; token: string }
+  const browserNavigate = await browserServer.fetch(new Request("http://localhost/v1/browser/navigate", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id, url: "https://example.com" }) }))
+  if (browserNavigate.status !== 202) throw new Error("browser navigate route failed")
+  const browserScreenshot = await browserServer.fetch(new Request("http://localhost/v1/browser/screenshot", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id }) }))
+  if (browserScreenshot.status !== 200) throw new Error("browser screenshot route failed")
+  console.log("WorkbenchServer: 17/17 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

@@ -1,4 +1,4 @@
-import { ApprovalBroker } from "@unifia/contracts"
+import { ApprovalBroker, type BrowserAutomationBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type {
   FileReadResult,
@@ -13,7 +13,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -33,6 +33,7 @@ export class WorkbenchServer {
   readonly #runtime: RuntimeAdapter
   readonly #audit: AuditPort
   readonly #capability: CapabilityGate
+  readonly #browser?: BrowserAutomationBroker
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
 
@@ -41,6 +42,7 @@ export class WorkbenchServer {
     this.#runtime = dependencies.runtime
     this.#audit = dependencies.audit
     this.#capability = dependencies.capability
+    this.#browser = dependencies.browser
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -56,6 +58,7 @@ export class WorkbenchServer {
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
+      if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -149,6 +152,20 @@ export class WorkbenchServer {
     const results = await this.#workspace.write(token, input.writes as FileWrite[])
     this.#allow("workspace.write")
     return json(200, { results: results as unknown as JsonRecord[] })
+  }
+
+  async #browserAction(request: Request, action: string): Promise<Response> {
+    if (!this.#browser) return this.#deny("browser.unavailable", 503)
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string") return this.#deny("browser.scope", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("browser.scope", 403)
+    const gate = await this.#checkCapability("browser.navigate", input.workspaceId)
+    if (gate) return gate
+    if (action === "navigate" && typeof input.url === "string") { await this.#browser.navigate(input.workspaceId, input.url); this.#allow("browser.navigate"); return json(202, { accepted: true }) }
+    if (action === "snapshot") { const snapshot = await this.#browser.snapshot(input.workspaceId); this.#allow("browser.snapshot"); return json(200, { snapshot }) }
+    if (action === "screenshot") { const screenshot = await this.#browser.screenshot(input.workspaceId); this.#allow("browser.screenshot"); return json(200, { contentType: "image/png", data: Buffer.from(screenshot).toString("base64") }) }
+    return this.#deny("browser.action", 400)
   }
 
   async #approval(request: Request, id: string): Promise<Response> {
