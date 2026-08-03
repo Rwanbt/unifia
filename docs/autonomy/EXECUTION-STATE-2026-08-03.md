@@ -45,3 +45,10 @@
 - Accepted correction commit: `8b85c9e`.
 - Evidence: Lot 1 17/17, Lot 2 6/6, Lot 3 8/8, C8/C9 6/6; isolated TypeScript compilation passed; `git diff --check` passed.
 - Toolchain note: full workspace install remains incomplete because unrelated workspace links are absent; no lockfile or source repository was modified.
+## Checkpoint runtime adapters — commit b29b90f
+
+- `FakeRuntimeAdapter` and `OpenCodeRuntimeAdapter` are exported by `packages/contracts`.
+- The OpenCode boundary uses injected `OpenCodeRuntimeBackend`; no hidden I/O or upstream import.
+- Evidence: runtime adapter smoke 4/4, isolated TypeScript compilation passed, `git diff --check` passed.
+- Backup: `D:\App\OpenCode\unifia-execution-clean-opencode-adapter-2026-08-03.bundle`.
+- Next: implement the real OpenCode backend against the existing Effect Session/SessionPrompt/Bus APIs; preserve the contract boundary and add package-level integration coverage.
