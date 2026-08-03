@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `2374a13`
+**Latest commit**: `38d900c`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -80,3 +80,12 @@
 - Vérification : `bun run typecheck` et `bun test/runtime.test.ts` passent ; smoke `WorkspaceRuntime: 5/5 passed` ; frozen install 2501 installations sur 2438 packages.
 - Commit : `2374a13`; backup : `D:\App\OpenCode\unifia-execution-clean-workspace-runtime-2026-08-03.bundle`.
 - Reste Phase 4 : storage versionné, migrations réversibles, crash recovery et health gate.
+
+
+## Checkpoint storage health — 38d900c
+
+- `WorkspaceStorage` ajoute un état `.unifia/workspace-state.json` versionné, migration V0↔V1 réversible, génération monotone, écriture fsync/temp/backup et récupération du candidat valide le plus récent.
+- `WorkspaceRuntime.health()` expose le health check : root lisible, état valide, récupération détectée, génération et problèmes.
+- Vérification : typecheck package et smoke `WorkspaceRuntime: 5/5`, `WorkspaceStorage: 4/4` passent.
+- Commit : `38d900c`; backup : `D:\App\OpenCode\unifia-execution-clean-workspace-health-2026-08-03.bundle`.
+- Phase 4 restante : inbox/outbox, file watcher reprenable, tests de crash/recovery et gate sécurité workspace.
