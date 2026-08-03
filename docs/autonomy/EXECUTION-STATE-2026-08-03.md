@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `1c75000`
+**Latest commit**: `d5119de`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -132,3 +132,12 @@
 - Vérification : ApprovalBroker 5/5, WorkbenchServer 11/11, typechecks packages passent.
 - Commit : `1c75000`; backup : `D:\App\OpenCode\unifia-execution-clean-approval-broker-2026-08-03.bundle`.
 - Reste : endpoint resolve/cancel approvals, reconnexion SSE et phases artefacts/documents.
+
+
+## Checkpoint approval lifecycle — d5119de
+
+- WorkbenchServer expose maintenant POST/DELETE `/v1/approvals/:id` ; la résolution exige le bearer token dont le workspace correspond exactement à la ressource de l approbation.
+- `ApprovalCapabilityGate` réutilise une demande pending, accepte un retry après allow et ne crée pas une boucle de demandes.
+- Vérification : ApprovalBroker 5/5, WorkbenchServer 15/15, suite P3/runtime complète et typechecks contracts/server passent.
+- Commit : `d5119de`; backup : `D:\App\OpenCode\unifia-execution-clean-approval-lifecycle-2026-08-03.bundle`.
+- Reste : reconnexion SSE avec curseur, artefacts/documents, puis gates finales.
