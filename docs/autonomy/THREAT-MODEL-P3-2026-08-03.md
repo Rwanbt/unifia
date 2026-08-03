@@ -168,7 +168,9 @@ test references in §5.
 
 ---
 
-## 6. Residual risks (cross-cutting)
+## 6. Residual risks
+
+- **Phase 4 debt B6:** `WorkspaceRuntime` MUST use `realpath`/equivalent final-target containment for every authorized root; lexical `resolve()` alone is insufficient against junctions or symlinked roots. (cross-cutting)
 
 These risks are **not** fully mitigated by the contracts above. Each is
 flagged here so it can be tracked across phases and so the next reviewer can

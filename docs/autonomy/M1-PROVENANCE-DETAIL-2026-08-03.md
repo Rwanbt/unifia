@@ -226,7 +226,7 @@ report.
 | A — `.claude/skills/**` | `xlsx/` | Anthropic restricted | **EXCLUDE** | Same terms as `docx/`. |
 | A — `.claude/skills/**` | `skill-creator/` | Apache 2.0 | **REVIEW_PER_COMPONENT** | Apache 2.0 is permissive but non-trivial: requires licence copy propagation (§4a), file-level modification notices (§4b), attribution preservation (§4c), and patent-retaliation awareness (§3). Per-file review required before any adoption. |
 | B — `src/main/skills/**` | (all 5 files) | Root MIT | **ADOPT** | Project-internal runtime code, MIT, no nested restrictions, no third-party obligations. |
-| C — `src/renderer/i18n/**` | (all 4 files) | Root MIT | **ADOPT** | Project-internal i18n configuration + locales, MIT, no nested restrictions. Translations are project-owned strings, not third-party. |
+| C — `src/renderer/i18n/**` | (all 4 files) | Root MIT | **REVIEW_PER_COMPONENT** | Project-internal i18n configuration + locales, MIT, no nested restrictions. Translations are project-owned strings, not third-party. |
 
 **No path set is rated `BLOCKED`.** A `BLOCKED` rating would mean we cannot
 even read the licence text; here every licence is in the public tree and was

@@ -147,7 +147,7 @@ Les mentions UNVERIFIED, UNVERIFIED ou assumed ne sont pas des preuves. Les déc
 | Verdict | OpenWork | Open Cowork | Total |
 |---|---|---|---:|
 | `ADOPT` | 1 (manifest) | 1 (skill-creator, conditionnel Apache-2.0) + 1 (remote, OCW-S4) = 2 | 3 |
-| `ADAPT` | 1 (server) | 3 (sandbox, computer use, remote) | 4 |
+| `ADAPT` | 1 (server) | 2 (sandbox, computer use) | 3 |
 | `REWRITE` | 0 | 1 (MCP) | 1 |
 | `INSPIRER` | 1 (UI) | 2 (Trace, Permission) | 3 |
 | `EXCLUDE` | 1 (stats) | 0 | 1 |
@@ -155,7 +155,7 @@ Les mentions UNVERIFIED, UNVERIFIED ou assumed ne sont pas des preuves. Les déc
 | `BLOCKED_LICENCE` | 0 | 0 | 0 |
 | `DEFER` | 1 (Swift) | 0 | 1 |
 | `BLOCKED` (source absente) | 0 | 1 (i18n user) | 1 |
-| **Total** | **5** | **13** | **18** |
+| **Total** | **5** | **12** | **17** |
 
 > **Note M1 — correction OCW-S1 :** la version antérieure de ce document attribuait `ADOPT` à l'ensemble OCW-S1 (78 fichiers XSD/TS). Le détail path-par-path dans `M1-PROVENANCE-DETAIL-2026-08-03.md` §3 a montré que 4 des 5 sous-skills sont couverts par une licence Anthropic-restricted, ce qui interdit extract / copy / derivative / distribute. Le verdict est donc `EXCLUDE_LICENCE` pour ces 4 sous-skills, et seul `skill-creator/` (Apache 2.0) demeure admissible. Le compteur d'`ADOPT` Open Cowork passe de 3 à 2, et le compteur d'`EXCLUDE_LICENCE` global passe de 1 à 5.
 
@@ -168,7 +168,7 @@ Cette règle s'applique **a fortiori** aux chemins couverts par `EXCLUDE_LICENCE
 ## 6. Conclusion
 
 - **3 imports directs** (ADOPT) à planifier — 1 conditionnel (Apache 2.0) sur OCW-S1.e.
-- **4 imports avec adaptation** (ADAPT) à fort coût.
+- **3 imports avec adaptation** (ADAPT) à fort coût.
 - **3 inspirations** (INSPIRER) sans import de code.
 - **1 exclusion stratégique** (stats) + **5 exclusions licence** (OpenWork `/ee` + 4 sous-skills Anthropic-restricted).
 - **1 import utilisateur bloqué** (i18n).

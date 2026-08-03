@@ -49,6 +49,26 @@ The numbered IDs are stable references for the threat model
 ---
 
 ## 3. C1 — CapabilityDescriptor / CapabilityRequest
+The capability vocabulary is closed and normative. These are the 14 Plan V3 capabilities; an implementation MUST NOT collapse them into an unscoped generic effect or invent an additional capability at runtime.
+
+| Capability | Required scope | Minimum declared effects |
+|---|---|---|
+| `workspace.read[path]` | path | `filesystem.read` |
+| `workspace.write[path]` | path | `filesystem.write` |
+| `workspace.watch[path]` | path | `filesystem.watch` |
+| `artifact.create[type]` | artifact type | `artifact.create` |
+| `artifact.export[type,path]` | type + destination path | `artifact.export` + `filesystem.write` |
+| `terminal.run[command-pattern]` | command pattern | `process.spawn` |
+| `network.request[host-pattern]` | host pattern | `network.connect` |
+| `browser.navigate[host-pattern]` | host pattern | `network.connect` + `ui.prompt` |
+| `desktop.observe[app/window]` | app/window | `ui.notify` |
+| `desktop.control[app/window/action]` | app/window/action | `ui.prompt` |
+| `remote.receive[transport/identity]` | transport + identity | `remote.receive` |
+| `remote.respond[transport/identity]` | transport + identity | `remote.send` |
+| `secret.read[name]` | secret name | `secret.read` |
+| `package.install[id/publisher]` | package + publisher | `process.spawn` + `filesystem.write` |
+
+The six critical combinations are named `PolicyEngine` rules and MUST be tested independently: `secret.read + network.request`, `desktop.control + secret.read`, `remote.receive + terminal.run`, `package.install + desktop.control`, `workspace.read[global] + network.request[*]`, and `browser.cookies + network.request[*]`. The last combination is a derived browser taint/effect rule and MUST be representable even though `browser.cookies` is not independently grantable.
 
 ```ts
 type CapabilityId = string;            // e.g. "workspace.read[path]"
@@ -71,6 +91,7 @@ interface CapabilityDescriptor {
     | "secret.read"     | "secret.write"
     | "ui.prompt"       | "ui.notify"
     | "remote.receive"  | "remote.send"
+    | "artifact.create" | "artifact.export"
   >;
   declaredResources: ReadonlyArray<string>; // path globs, hosts, ports, tool names
   requiresApproval: ReadonlyArray<CapabilityId>;
@@ -126,8 +147,8 @@ type PolicyDecision =
 - Deny unknown capabilities (no rule → deny).
 - Deny global workspace access (paths outside the workspace are denied).
 - Deny arbitrary network egress.
-- Deny combinations of `secret.read` + `network.connect` and
-  `secret.read` + `process.spawn`.
+- Deny the six named critical combinations in C1, including every request
+  whose declared effects or taint make one of those combinations true.
 - Deny all components that do not have a valid `ProvenanceRecord`.
 - Deny all `/ee/` paths (OpenWork enterprise, FSL-1.1-MIT).
 - Deny all Open Cowork `.claude/skills/{docx,pdf,pptx,xlsx}/**` paths
@@ -217,8 +238,9 @@ interface ProvenanceRecord {
 
 ## 7. C5 — Plugin lifecycle (registered → approved → materialized)
 
-The lifecycle has **three distinct states**. Each state has a single
-gate that moves it to the next.
+The lifecycle has **three distinct states**. `enabled` is not a fourth state;
+it is a separate reachability gate evaluated after materialization. Each state
+has a single gate that moves it to the next.
 
 ```
                         register()
@@ -242,14 +264,13 @@ gate that moves it to the next.
                           ▼
                       materialized
                           │
-                          │  enable() [PolicyEngine-decided]
-                          ▼
-                        enabled  (CapabilityDescriptor.enabled = true)
+                          └── enable() [separate PolicyEngine reachability gate]
+                              CapabilityDescriptor.enabled = true only after this gate
 ```
 
 **Rules:**
 
-- `install` (i.e. `materialize`) is **never** `enable`. The runtime MUST
+- `install` and `materialize` are distinct operations: install registers an admissible source and may prepare an isolated staging area; materialize creates the isolated runtime artifact. Neither operation is `enable`. The runtime MUST
   refuse to load any approved component into the agent loop without an
   explicit `enable` step that goes through the `PolicyEngine`.
 - A component's identity is the **source digest**, not the manifest
@@ -285,7 +306,7 @@ interface PathRequest {
 }
 
 interface PathDecision {
-  effect: "allow" | "deny" | "rewrite" | "create-under-root";
+  effect: "allow" | "deny" | "create-under-root";
   reason: string;
   canonical?: string;                   // canonical absolute path, if allowed
   correlation: CorrelationId;
@@ -300,8 +321,8 @@ interface CommandRequest {
 }
 ```
 
-**Path decision algorithm (canonicalize nearest existing parent + remaining
-lexical suffix):**
+**Path decision algorithm (canonicalize the deepest existing accumulator +
+remaining lexical suffix):**
 
 1. Take `rawPath`. Convert backslashes to `/` (Windows). Strip a single
    drive-letter prefix (e.g. `C:`) but **never** treat it as widening the
@@ -309,24 +330,26 @@ lexical suffix):**
 2. Reject immediately if `rawPath` resolves to a path **outside** the
    workspace (lexical comparison only — do **not** follow symlinks at this
    stage).
-3. Walk the path components. For each component, check whether the current
-   accumulator exists.
-   - The **first** component that exists is the **nearest existing parent**.
-   - The remaining components form the **lexical suffix**.
-4. `realpath` the nearest existing parent (follow symlinks), then
-   concatenate the lexical suffix. The result is the **canonical path**.
+3. Walk path components from the target backwards until the **deepest existing
+   accumulator** is found (the last existing parent, nearest to the target).
+   The remaining components form the lexical suffix. Every intermediate
+   component between the workspace root and that accumulator MUST be checked.
+4. `realpath` the deepest existing accumulator and resolve or reject every
+   intermediate symlink. Then concatenate the lexical suffix. The result is
+   the **canonical path**.
 5. Re-verify that the canonical path is contained in the workspace root.
    If not → `deny: escaped`.
 6. If the mode is `read` / `watch`, `stat` the canonical path; if it does
    not exist → `deny: not-found` (never silently create).
 7. If the mode is `write` / `create`, the canonical path may legitimately
    not exist. In that case, the canonical path is the result of step 4
-   and the decision is `allow` (subject to workspace containment), or
-   `rewrite` if the lexical suffix begins with a `..` or absolute segment.
+   and the decision is `allow` (subject to workspace containment). A lexical
+   suffix beginning with `..` or an absolute segment is `deny`; silent
+   rewriting to a different authorized target is forbidden.
 
 **Rejected inputs (mandatory `deny`):**
 
-- A `rawPath` whose nearest existing parent is a symlink pointing outside
+- A `rawPath` whose deepest existing parent is a symlink pointing outside
   the workspace root → `deny: symlinked-parent-escape`.
 - A Windows path that would, when canonicalized, escape the workspace root
   (e.g. `\\?\C:\...`, `\\.\pipe\...`, `C:\..\..\Windows`) → `deny`.
@@ -542,6 +565,7 @@ the contracts above. They are also the test references for the threat model
 ### C2 — PolicyEngine
 - An unknown capability → `deny`.
 - A capability with no rule → `deny` (no implicit allow).
+- Each of the six C1 critical combinations has a named rule and an independent deny test.
 - A rule that allows `secret.read` + `network.connect` → `deny` regardless
   of precedence (taint veto).
 - An OpenWork `/ee/` path → `deny` at the registry, even with a hand-written
@@ -585,7 +609,7 @@ the contracts above. They are also the test references for the threat model
 - A transport registered with `mode: "open"` is refused at construction.
 - A pairing request whose initiator is not authenticated out-of-band is
   refused.
-- A pairing code is one-shot and expires in ≤ 5 minutes.
+- A pairing code is never delivered on the unauthenticated inbound transport; it is one-shot and expires in ≤ 5 minutes.
 - A replayed remote command (same sequence number / nonce) is denied.
 - A revoked identity is denied on the next command.
 - A remote command is translated into a `CapabilityRequest` and routed
