@@ -1,7 +1,7 @@
 # P3 Threat Model — Unifia Security Foundation
 
 **Date**: 2026-08-03
-**Status**: `DRAFT_FOR_REVIEW`
+**Status**: `CONTRACTS_ACCEPTED_WITH_TRACKED_DEBT`
 **Authority**: Plan directeur V3 (Unifia Core boundary, §5 trust and
 governance, §7 ports)
 **Companion contract**: `P3-CONTRACTS-DRAFT-2026-08-03.md` (C1–C9)
@@ -203,7 +203,4 @@ challenge the assumptions.
 
 ## 7. Gate
 
-`DRAFT_FOR_REVIEW`. The threat model is a companion to the P3 contracts and
-to the updated import candidates. The next authorized action is review of
-all three documents together. No runtime code, no upstream import, no
-commit, no push is permitted under this gate.
+`CONTRACTS_ACCEPTED_WITH_TRACKED_DEBT`. The independent review passed after the contract and import corrections. Runtime adapter work may proceed only against the reviewed contracts; B6 remains explicitly tracked for Phase 4 WorkspaceRuntime. No upstream import, `/ee` materialization, open transport mode, or global auto approval is permitted.

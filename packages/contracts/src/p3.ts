@@ -182,7 +182,7 @@ export const P3_CAPABILITY_EFFECTS: Readonly<Record<string, readonly string[]>> 
   "workspace.read": ["filesystem.read"], "workspace.write": ["filesystem.write"], "workspace.watch": ["filesystem.watch"],
   "artifact.create": ["artifact.create"], "artifact.export": ["artifact.export", "filesystem.write"],
   "terminal.run": ["process.spawn"], "network.request": ["network.connect"], "browser.navigate": ["network.connect"],
-  "desktop.observe": ["ui.notify"], "desktop.control": ["ui.prompt"], "remote.receive": ["remote.receive"],
+  "desktop.observe": ["desktop.observe"], "desktop.control": ["desktop.control"], "remote.receive": ["remote.receive"],
   "remote.respond": ["remote.send"], "secret.read": ["secret.read"], "package.install": ["process.spawn", "filesystem.write"],
 }
 

@@ -1,7 +1,7 @@
 # P3 — Security Foundation Contracts (Draft)
 
 **Date**: 2026-08-03
-**Status**: `DRAFT_FOR_REVIEW` (amended post `UNIFIA-P3-REVIEW-2026-08-03`)
+**Status**: `CONTRACTS_ACCEPTED` (independently reviewed by Claude on 2026-08-03; documentary corrections closed)
 **Authority**: Plan directeur V3 — Unifia Workbench (Unifia Core boundary,
 §7.3 CapabilityPort, §7.5 SandboxPort, §7.6 RemoteTransportPort, §5 trust
 and governance: PolicyEngine / ApprovalBroker / SecretStore / AuditRuntime /
@@ -61,8 +61,8 @@ The capability vocabulary is closed and normative. These are the 14 Plan V3 capa
 | `terminal.run[command-pattern]` | command pattern | `process.spawn` |
 | `network.request[host-pattern]` | host pattern | `network.connect` |
 | `browser.navigate[host-pattern]` | host pattern | `network.connect` + `ui.prompt` |
-| `desktop.observe[app/window]` | app/window | `ui.notify` |
-| `desktop.control[app/window/action]` | app/window/action | `ui.prompt` |
+| `desktop.observe[app/window]` | app/window | `desktop.observe` |
+| `desktop.control[app/window/action]` | app/window/action | `desktop.control` |
 | `remote.receive[transport/identity]` | transport + identity | `remote.receive` |
 | `remote.respond[transport/identity]` | transport + identity | `remote.send` |
 | `secret.read[name]` | secret name | `secret.read` |
@@ -90,6 +90,7 @@ interface CapabilityDescriptor {
     | "process.spawn"   | "process.signal"
     | "secret.read"     | "secret.write"
     | "ui.prompt"       | "ui.notify"
+    | "desktop.observe" | "desktop.control"
     | "remote.receive"  | "remote.send"
     | "artifact.create" | "artifact.export"
   >;
@@ -245,7 +246,7 @@ has a single gate that moves it to the next.
 ```
                         register()
             (no I/O, no exec, no network, no secrets)
-              source → digest computed → registry row
+              register() → source → digest computed → registry row
                           │
                           ▼
                        registered
@@ -306,7 +307,7 @@ interface PathRequest {
 }
 
 interface PathDecision {
-  effect: "allow" | "deny" | "create-under-root";
+  effect: "allow" | "deny";
   reason: string;
   canonical?: string;                   // canonical absolute path, if allowed
   correlation: CorrelationId;
@@ -412,6 +413,7 @@ interface PairingRequest {
   channel) is only consumable once, expires in ≤ 5 minutes, and yields
   a `RemoteIdentity` that is itself scoped to a workspace and to a
   `CapabilityRequest` set.
+- A pairing code MUST be delivered only through the authenticated out-of-band approval channel; it MUST NOT be returned on the unauthenticated inbound transport.
 - The remote identity is **bound** to:
   1. A workspace.
   2. A `CapabilityRequest` set.
@@ -637,8 +639,4 @@ the contracts above. They are also the test references for the threat model
 
 ## 14. Gate
 
-`DRAFT_FOR_REVIEW`: implementation is blocked until an independent reviewer
-accepts or amends these contracts. The next authorized action is review of
-the threat model (`THREAT-MODEL-P3-2026-08-03.md`) and of the import-candidate
-updates (`IMPORT-CANDIDATES.md` OCW-S1 split). No `open` mode, no global
-`auto` mode, no upstream code import is permitted under this gate.
+`CONTRACTS_ACCEPTED`: the independent Claude review passed on 2026-08-03 and the documentary corrections are closed. Runtime adapter work may proceed only against these contracts and the threat model; upstream source import, `/ee` materialization, open transport mode, and global auto approval remain forbidden.
