@@ -42,6 +42,7 @@ export interface FileWriteResult {
 }
 
 export interface FileEvent {
+  sequence?: number
   type: "created" | "modified" | "deleted" | "renamed"
   path: string
   timestamp: number

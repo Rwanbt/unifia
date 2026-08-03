@@ -17,6 +17,11 @@ try {
   const written = await runtime.write(handle.token, [{ path: "src/main.ts", content: "export const value = 2\n" }])
   if (written[0]?.sha.length !== 64) throw new Error("transactional write did not return sha256")
   if ((await readFile(path.join(root, "src", "main.ts"), "utf8")) !== "export const value = 2\n") throw new Error("write was not committed")
+  const recorded = await runtime.appendFileEvent(workspace.id, { type: "modified", path: "src/main.ts", timestamp: 1_001 })
+  const replayed = await runtime.replayFileEvents(workspace.id, 0)
+  if (recorded.sequence !== 1 || replayed[0]?.sequence !== 1) throw new Error("file event was not persisted with a cursor")
+  await runtime.acknowledgeFileEvent(workspace.id, recorded.sequence ?? 0)
+  if ((await runtime.replayFileEvents(workspace.id)).length !== 0) throw new Error("file event ack did not advance the outbox")
 
   let escaped = false
   try { await runtime.read(handle.token, ["../outside.txt"]) } catch { escaped = true }
@@ -30,7 +35,7 @@ try {
   let revoked = false
   try { await runtime.read(handle.token, ["src/main.ts"]) } catch { revoked = true }
   if (!revoked) throw new Error("closed file session remained usable")
-  console.log("WorkspaceRuntime: 5/5 passed")
+  console.log("WorkspaceRuntime: 9/9 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

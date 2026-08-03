@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { WorkspaceStorage } from "./storage.js"
+import { DurableQueue } from "./queue.js"
 import { createHash, randomBytes } from "node:crypto"
 import { promises as fs, watch as watchFiles, type FSWatcher } from "node:fs"
 import path from "node:path"
@@ -55,6 +56,7 @@ export class WorkspaceRuntime implements WorkspacePort {
   readonly #now: () => number
   readonly #maxReadBytes: number
   readonly #maxWriteBytes: number
+  readonly #queues = new Map<WorkspaceId, DurableQueue<FileEvent>>()
 
   constructor(options: WorkspaceRuntimeOptions = {}) {
     this.#now = options.now ?? Date.now
@@ -124,34 +126,67 @@ export class WorkspaceRuntime implements WorkspacePort {
   watch(sessionId: FileSessionId): AsyncIterable<FileEvent> {
     const session = this.#session(sessionId)
     const queue: FileEvent[] = []
-    const waiters: Array<(result: IteratorResult<FileEvent>) => void> = []
+    const waiters: Array<{ resolve: (result: IteratorResult<FileEvent>) => void; reject: (error: unknown) => void }> = []
     let closed = false
+    let persistenceError: Error | undefined
     let sequence = 0
+    let writeChain = Promise.resolve()
+    const deliver = (event: FileEvent) => {
+      const waiter = waiters.shift()
+      if (waiter) waiter.resolve({ done: false, value: event })
+      else queue.push(event)
+    }
     const watcher: FSWatcher = watchFiles(session.workspace.path, { recursive: true }, (eventType, filename) => {
       if (closed || !filename) return
-      const relative = filename.toString().replaceAll("\\", "/")
+      const relative = filename.toString().replaceAll("\\\\", "/")
       const event: FileEvent = { type: eventType === "rename" ? "renamed" : "modified", path: relative, timestamp: this.#now() + sequence++ / 1000 }
-      const waiter = waiters.shift()
-      if (waiter) waiter({ done: false, value: event })
-      else queue.push(event)
+      writeChain = writeChain.then(async () => {
+        const stored = await this.appendFileEvent(session.workspace.id, event)
+        if (!closed) deliver(stored)
+      }).catch((error: unknown) => {
+        persistenceError = error instanceof Error ? error : new Error("file event persistence failed")
+        close()
+      })
     })
     const close = () => {
       if (closed) return
       closed = true
       watcher.close()
-      for (const waiter of waiters.splice(0)) waiter({ done: true, value: undefined })
+      session.watchers.delete(close)
+      for (const waiter of waiters.splice(0)) waiter.resolve({ done: true, value: undefined })
     }
+    session.watchers.add(close)
     return {
       [Symbol.asyncIterator]: () => ({
         next: (): Promise<IteratorResult<FileEvent>> => {
+          if (persistenceError) return Promise.reject(persistenceError)
           const event = queue.shift()
           if (event) return Promise.resolve({ done: false, value: event })
           if (closed) return Promise.resolve({ done: true, value: undefined })
-          return new Promise((resolve) => waiters.push(resolve))
+          return new Promise((resolve, reject) => waiters.push({ resolve, reject }))
         },
         return: async (): Promise<IteratorResult<FileEvent>> => { close(); return { done: true, value: undefined } },
       }),
     }
+  }
+  async appendFileEvent(workspaceId: WorkspaceId, event: FileEvent): Promise<FileEvent> {
+    const workspace = this.#workspaces.get(workspaceId)
+    if (!workspace) throw new Error("workspace is not registered")
+    const item = await this.#queue(workspace).enqueue("outbox", { ...event, sequence: undefined })
+    return { ...event, sequence: item.sequence }
+  }
+
+  async replayFileEvents(workspaceId: WorkspaceId, afterSequence = 0): Promise<FileEvent[]> {
+    const workspace = this.#workspaces.get(workspaceId)
+    if (!workspace) throw new Error("workspace is not registered")
+    const items = await this.#queue(workspace).pending("outbox", afterSequence)
+    return items.map((item) => ({ ...item.payload, sequence: item.sequence }))
+  }
+
+  async acknowledgeFileEvent(workspaceId: WorkspaceId, sequence: number): Promise<void> {
+    const workspace = this.#workspaces.get(workspaceId)
+    if (!workspace) throw new Error("workspace is not registered")
+    await this.#queue(workspace).acknowledge("outbox", sequence)
   }
 
   async health(workspaceId: WorkspaceId) {
@@ -164,7 +199,18 @@ export class WorkspaceRuntime implements WorkspacePort {
     const session = this.#sessions.get(sessionId)
     if (!session) return
     session.closed = true
+    for (const watcher of session.watchers) watcher()
+    session.watchers.clear()
     this.#sessions.delete(sessionId)
+  }
+
+  #queue(workspace: Workspace): DurableQueue<FileEvent> {
+    let queue = this.#queues.get(workspace.id)
+    if (!queue) {
+      queue = new DurableQueue<FileEvent>(workspace.path)
+      this.#queues.set(workspace.id, queue)
+    }
+    return queue
   }
 
   async #resolveExisting(root: string, relative: string): Promise<string> {
