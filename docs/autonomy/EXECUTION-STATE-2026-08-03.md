@@ -367,3 +367,11 @@
 - Test : `CapabilityRegistry: 4/4 passed`; contracts typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-capability-registry-2026-08-03.bundle`.
 - Reste : exposer le registre au Skill Hub/Workbench, signatures cryptographiques et Gate C.
+
+## Checkpoint Workbench Capability Registry — 2026-08-03
+
+- WorkbenchServer expose `POST /v1/capabilities/register|approve|enable|revoke` et `GET /v1/capabilities/search`.
+- Toutes les opérations sont workspace-scoped et passent `package.install`; aucun remote code n’est activable.
+- Test server : `WorkbenchServer: 27/27 passed`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-capabilities-2026-08-03.bundle`.
+- Reste : signatures cryptographiques de manifests, UI Skill Hub, MCP UI/Generative UI et Gate C.
