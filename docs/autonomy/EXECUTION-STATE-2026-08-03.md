@@ -313,3 +313,11 @@
 - Validation : `WindowsDesktopDriver: 3/3 passed`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-windows-desktop-driver-2026-08-03.bundle`.
 - Reste : test sur application Windows allowlistée réelle, emergency stop pendant action active, injection dans l’assemblage Workbench.
+
+## Checkpoint Desktop broker composition — 2026-08-03
+
+- `createWindowsDesktopBroker()` compose le driver Windows réel avec `DesktopAutomationBroker` et sa politique allowlist/kill switch.
+- Aucun second contrôle d’autorisation n’est créé dans le driver ; l’assemblage reste injecté par l’application.
+- Typechecks desktop-runtime/workbench-server verts; lockfile vérifié.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-desktop-broker-composition-2026-08-03.bundle`.
+- Reste : injection dans le bootstrap Workbench, test réel application allowlistée et emergency stop actif.
