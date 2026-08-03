@@ -33,6 +33,7 @@ export interface RuntimeEvent {
   type: "text" | "tool-call" | "tool-result" | "permission" | "error"
   data: unknown
   timestamp: number
+  sequence?: number
 }
 
 export interface RuntimeAdapter {
@@ -40,7 +41,7 @@ export interface RuntimeAdapter {
   listSessions(scope: WorkspaceScope): Promise<Session[]>
   createSession(input: { workspaceId: string }): Promise<Session>
   sendPrompt(input: SendPromptInput): Promise<void>
-  subscribeEvents(input: { sessionId: string }): AsyncIterable<RuntimeEvent>
+  subscribeEvents(input: { sessionId: string; afterSequence?: number }): AsyncIterable<RuntimeEvent>
   cancelSession(sessionId: string): Promise<void>
 }
 

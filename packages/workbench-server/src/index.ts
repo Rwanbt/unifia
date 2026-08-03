@@ -101,14 +101,16 @@ export class WorkbenchServer {
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("session.events.scope", 403)
     const eventGate = await this.#checkCapability("workspace.watch", workspaceId)
     if (eventGate) return eventGate
-    const iterator = this.#runtime.subscribeEvents({ sessionId })[Symbol.asyncIterator]()
+    const requestedCursor = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? "0")
+    const afterSequence = Number.isSafeInteger(requestedCursor) && requestedCursor > 0 ? requestedCursor : 0
+    const iterator = this.#runtime.subscribeEvents({ sessionId, afterSequence })[Symbol.asyncIterator]()
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
           const next = await iterator.next()
           if (next.done) controller.close()
-          else controller.enqueue(encoder.encode(`data: ${JSON.stringify(next.value)}\\n\\n`))
+          else controller.enqueue(encoder.encode(`id: ${next.value.sequence ?? ""}\\ndata: ${JSON.stringify(next.value)}\\n\\n`))
         } catch (error) {
           controller.error(error)
         }
@@ -116,7 +118,7 @@ export class WorkbenchServer {
       async cancel() { await iterator.return?.() },
     })
     this.#allow("session.events")
-    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } })
+    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive" } })
   }
   async #prompt(request: Request, sessionId: string): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)

@@ -39,6 +39,14 @@ try {
   await reader.cancel()
   if (eventChunk.done || !new TextDecoder().decode(eventChunk.value).includes("hello")) throw new Error("runtime event was not streamed")
   if (prompt.status !== 202) throw new Error("scoped prompt failed")
+  const reconnectPrompt = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/prompt`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ prompt: "reconnected" }) }))
+  if (reconnectPrompt.status !== 202) throw new Error("second scoped prompt failed")
+  const resumed = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/events`, { headers: { authorization: `Bearer ${handle.token}`, "last-event-id": "1" } }))
+  if (!resumed.body) throw new Error("resumed event stream missing body")
+  const resumedReader = resumed.body.getReader()
+  const resumedChunk = await Promise.race([resumedReader.read(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("resumed event timeout")), 5_000))])
+  await resumedReader.cancel()
+  if (resumedChunk.done || !new TextDecoder().decode(resumedChunk.value).includes("reconnected")) throw new Error("SSE cursor did not resume from sequence")
   if (audit.events().filter((event) => event.decision === "deny").length < 1) throw new Error("denied request was not audited")
   const pending = await new ApprovalCapabilityGate(new ApprovalBroker(() => 1_000)).check("workspace.write", handle.id, "actor")
   if (typeof pending !== "object" || pending.kind !== "approval_required") throw new Error("ApprovalCapabilityGate did not require approval")
@@ -57,3 +65,4 @@ try {
 } finally {
   await rm(root, { recursive: true, force: true })
 }
+

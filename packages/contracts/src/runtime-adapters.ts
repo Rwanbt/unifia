@@ -1,6 +1,6 @@
 import type { RuntimeAdapter, RuntimeEvent, RuntimeInfo, SendPromptInput, Session, WorkspaceScope } from "./runtime.ts"
 
-type SessionState = { session: Session; events: RuntimeEvent[]; waiters: Array<(result: IteratorResult<RuntimeEvent>) => void>; cancelled: boolean }
+type SessionState = { session: Session; events: RuntimeEvent[]; history: RuntimeEvent[]; nextSequence: number; waiters: Array<(result: IteratorResult<RuntimeEvent>) => void>; cancelled: boolean }
 
 /** Deterministic adapter used to prove the runtime port without external I/O. */
 export class FakeRuntimeAdapter implements RuntimeAdapter {
@@ -13,7 +13,7 @@ export class FakeRuntimeAdapter implements RuntimeAdapter {
   }
   public async createSession(input: { workspaceId: string }): Promise<Session> {
     const session: Session = { id: `fake-session-${this.nextSession++}`, workspaceId: input.workspaceId, runtimeId: "fake", createdAt: this.now(), messageCount: 0 }
-    this.sessions.set(session.id, { session, events: [], waiters: [], cancelled: false })
+    this.sessions.set(session.id, { session, events: [], history: [], nextSequence: 1, waiters: [], cancelled: false })
     return { ...session }
   }
   public async sendPrompt(input: SendPromptInput): Promise<void> {
@@ -23,10 +23,10 @@ export class FakeRuntimeAdapter implements RuntimeAdapter {
     state.session.messageCount += 1
     this.emit(state, { sessionId: state.session.id, type: "text", data: input.prompt, timestamp: this.now() })
   }
-  public subscribeEvents(input: { sessionId: string }): AsyncIterable<RuntimeEvent> {
+  public subscribeEvents(input: { sessionId: string; afterSequence?: number }): AsyncIterable<RuntimeEvent> {
     const state = this.sessions.get(input.sessionId)
     if (!state) throw new Error("session-not-found")
-    const pending = [...state.events]
+    const pending = state.history.filter((event) => (event.sequence ?? 0) > (input.afterSequence ?? 0))
     state.events.length = 0
     return { [Symbol.asyncIterator]: () => ({ next: (): Promise<IteratorResult<RuntimeEvent>> => {
       const event = pending.shift() ?? state.events.shift()
@@ -42,16 +42,18 @@ export class FakeRuntimeAdapter implements RuntimeAdapter {
     for (const resolve of state.waiters.splice(0)) resolve({ done: true, value: undefined })
   }
   private emit(state: SessionState, event: RuntimeEvent): void {
+    const sequenced = { ...event, sequence: state.nextSequence++ }
+    state.history.push(sequenced)
     const resolve = state.waiters.shift()
-    if (resolve) resolve({ done: false, value: event })
-    else state.events.push(event)
+    if (resolve) resolve({ done: false, value: sequenced })
+    else state.events.push(sequenced)
   }
 }
 export interface OpenCodeRuntimeBackend {
   listSessions(workspaceId: string): Promise<Session[]>
   createSession(workspaceId: string): Promise<Session>
   sendPrompt(input: SendPromptInput): Promise<void>
-  subscribeEvents(sessionId: string): AsyncIterable<RuntimeEvent>
+  subscribeEvents(sessionId: string, afterSequence?: number): AsyncIterable<RuntimeEvent>
   cancelSession(sessionId: string): Promise<void>
 }
 
@@ -64,6 +66,6 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   public listSessions(scope: WorkspaceScope): Promise<Session[]> { return this.backend.listSessions(scope.workspaceId) }
   public createSession(input: { workspaceId: string }): Promise<Session> { return this.backend.createSession(input.workspaceId) }
   public sendPrompt(input: SendPromptInput): Promise<void> { return this.backend.sendPrompt(input) }
-  public subscribeEvents(input: { sessionId: string }): AsyncIterable<RuntimeEvent> { return this.backend.subscribeEvents(input.sessionId) }
+  public subscribeEvents(input: { sessionId: string; afterSequence?: number }): AsyncIterable<RuntimeEvent> { return this.backend.subscribeEvents(input.sessionId, input.afterSequence) }
   public cancelSession(sessionId: string): Promise<void> { return this.backend.cancelSession(sessionId) }
 }
