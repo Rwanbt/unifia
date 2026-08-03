@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `f44fd0c`
+**Latest commit**: `1c75000`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -123,3 +123,12 @@
 - Le smoke injecte un gate allow puis deny et vérifie le refus d écriture : `WorkbenchServer: 10/10 passed`.
 - Commit : `f44fd0c`; backup : `D:\App\OpenCode\unifia-execution-clean-headless-capability-gate-2026-08-03.bundle`.
 - Reste : remplacer le gate de test par l ApprovalBroker persistant, reconnect SSE et commencer artefacts/documents.
+
+
+## Checkpoint ApprovalBroker — 1c75000
+
+- `ApprovalBroker` de production ajoute requêtes expirables, deny-by-default, acteur obligatoire, scope exact, cancel, copies de lecture et observer d audit.
+- `ApprovalCapabilityGate` produit un `approval_required` avec identifiant pour les capacités non allowlistées ; le serveur le renvoie en 202.
+- Vérification : ApprovalBroker 5/5, WorkbenchServer 11/11, typechecks packages passent.
+- Commit : `1c75000`; backup : `D:\App\OpenCode\unifia-execution-clean-approval-broker-2026-08-03.bundle`.
+- Reste : endpoint resolve/cancel approvals, reconnexion SSE et phases artefacts/documents.
