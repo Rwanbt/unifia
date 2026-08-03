@@ -191,3 +191,10 @@
 - Les tests ne reposent plus sur une fixture inspect ; typecheck package et `DocumentPackRegistry: 6/6 passed` passent.
 - Commit : `54b5382`; backup : `D:\App\OpenCode\unifia-execution-clean-document-packs-complete-2026-08-03.bundle`.
 - Gate A reste à vérifier globalement : CI/conformance complète, orchestrateur, absence de second runtime et typecheck amont.
+
+## Checkpoint Gate A compilation green — bb5827c
+
+- Alias `UNIFIA_*` réversible, ProviderID opencode, modules optionnels explicites et alignement mobile/desktop sur `@unifia/app`.
+- Typecheck OpenCode : 0 erreur ; typecheck monorepo : 18/18 tâches réussies, 24 packages ciblés.
+- Frozen install et toutes les suites Unifia précédentes restent vertes ; commit `bb5827c`; backup : `D:\App\OpenCode\unifia-execution-clean-monorepo-typecheck-2026-08-03.bundle`.
+- Gate A foundation peut passer localement ; reste : preuve CI distante, shell Phase 7, remote/platform et phases V3 ultérieures.
