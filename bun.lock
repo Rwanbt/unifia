@@ -32,7 +32,9 @@
       "dependencies": {
         "@kobalte/core": "catalog:",
         "@opencode-ai/sdk": "workspace:*",
+        "@opencode-ai/sdk-shared": "workspace:*",
         "@opencode-ai/ui": "workspace:*",
+        "@opencode-ai/util": "workspace:*",
         "@shikijs/transformers": "3.9.2",
         "@solid-primitives/active-element": "2.1.3",
         "@solid-primitives/audio": "1.4.2",
@@ -50,8 +52,6 @@
         "@tanstack/solid-query": "5.91.4",
         "@thisbeyond/solid-dnd": "0.7.5",
         "@types/qrcode": "1.5.6",
-        "@unifia/sdk-shared": "workspace:*",
-        "@unifia/util": "workspace:*",
         "diff": "catalog:",
         "effect": "catalog:",
         "fuzzysort": "catalog:",
@@ -320,6 +320,8 @@
         "@opencode-ai/plugin": "workspace:*",
         "@opencode-ai/script": "workspace:*",
         "@opencode-ai/sdk": "workspace:*",
+        "@opencode-ai/sdk-shared": "workspace:*",
+        "@opencode-ai/util": "workspace:*",
         "@openrouter/ai-sdk-provider": "2.3.3",
         "@opentui/core": "0.1.96",
         "@opentui/solid": "0.1.96",
@@ -329,8 +331,6 @@
         "@solid-primitives/scheduled": "1.5.2",
         "@standard-schema/spec": "1.0.0",
         "@unifia/contracts": "workspace:*",
-        "@unifia/sdk-shared": "workspace:*",
-        "@unifia/util": "workspace:*",
         "@zip.js/zip.js": "2.7.62",
         "ai": "catalog:",
         "ai-gateway-provider": "3.1.2",
@@ -415,7 +415,7 @@
       "version": "1.3.15",
       "dependencies": {
         "@opencode-ai/sdk": "workspace:*",
-        "@unifia/sdk-shared": "workspace:*",
+        "@opencode-ai/sdk-shared": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -446,7 +446,7 @@
       },
     },
     "packages/sdk-shared": {
-      "name": "@unifia/sdk-shared",
+      "name": "@opencode-ai/sdk-shared",
       "version": "1.3.15",
       "dependencies": {
         "@opencode-ai/sdk": "workspace:*",
@@ -529,6 +529,8 @@
         "@kobalte/core": "catalog:",
         "@lezer/highlight": "1.2.3",
         "@opencode-ai/sdk": "workspace:*",
+        "@opencode-ai/sdk-shared": "workspace:*",
+        "@opencode-ai/util": "workspace:*",
         "@pierre/diffs": "catalog:",
         "@shikijs/transformers": "3.9.2",
         "@solid-primitives/bounds": "0.1.3",
@@ -537,8 +539,6 @@
         "@solid-primitives/resize-observer": "2.1.3",
         "@solidjs/meta": "catalog:",
         "@solidjs/router": "catalog:",
-        "@unifia/sdk-shared": "workspace:*",
-        "@unifia/util": "workspace:*",
         "dompurify": "3.4.2",
         "fuzzysort": "catalog:",
         "katex": "0.16.27",
@@ -573,7 +573,7 @@
       },
     },
     "packages/util": {
-      "name": "@unifia/util",
+      "name": "@opencode-ai/util",
       "version": "1.3.15",
       "dependencies": {
         "zod": "catalog:",
@@ -1565,7 +1565,11 @@
 
     "@opencode-ai/sdk": ["@opencode-ai/sdk@workspace:packages/sdk/js"],
 
+    "@opencode-ai/sdk-shared": ["@opencode-ai/sdk-shared@workspace:packages/sdk-shared"],
+
     "@opencode-ai/ui": ["@opencode-ai/ui@workspace:packages/ui"],
+
+    "@opencode-ai/util": ["@opencode-ai/util@workspace:packages/util"],
 
     "@openrouter/ai-sdk-provider": ["@openrouter/ai-sdk-provider@2.3.3", "", { "peerDependencies": { "ai": "^6.0.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-4fVteGkVedc7fGoA9+qJs4tpYwALezMq14m2Sjub3KmyRlksCbK+WJf67NPdGem8+NZrV2tAN42A1NU3+SiV3w=="],
 
@@ -2407,13 +2411,9 @@
 
     "@unifia/mobile": ["@unifia/mobile@workspace:packages/mobile"],
 
-    "@unifia/sdk-shared": ["@unifia/sdk-shared@workspace:packages/sdk-shared"],
-
     "@unifia/slack": ["@unifia/slack@workspace:packages/slack"],
 
     "@unifia/storybook": ["@unifia/storybook@workspace:packages/storybook"],
-
-    "@unifia/util": ["@unifia/util@workspace:packages/util"],
 
     "@unifia/web": ["@unifia/web@workspace:packages/web"],
 

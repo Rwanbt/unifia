@@ -21,4 +21,4 @@ export * from "./remote.js"
 export * from './p3.js'
 
 export * from './p3-runtime.js'
-export * from "./runtime-adapters.ts"
+export * from "./runtime-adapters.js"

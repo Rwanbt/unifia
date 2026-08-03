@@ -1,6 +1,8 @@
 import { Bus } from "@/bus"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
+import { SessionID } from "@/session/schema"
+import { WorkspaceID } from "@/control-plane/schema"
 import type { OpenCodeRuntimeBackend } from "@unifia/contracts"
 import type { RuntimeEvent, SendPromptInput, Session as UnifiaSession } from "@unifia/contracts"
 
@@ -32,16 +34,16 @@ function toRuntimeEvent(event: BusEvent, sessionId: string): RuntimeEvent {
 export class OpenCodeSessionBackend implements OpenCodeRuntimeBackend {
   public async listSessions(workspaceId: string): Promise<UnifiaSession[]> {
     const sessions: UnifiaSession[] = []
-    for (const info of Session.list({ workspaceID: workspaceId })) sessions.push(toSession(info))
+    for (const info of Session.list({ workspaceID: WorkspaceID.make(workspaceId) })) sessions.push(toSession(info))
     return sessions
   }
 
   public async createSession(workspaceId: string): Promise<UnifiaSession> {
-    return toSession(await Session.create({ workspaceID: workspaceId }))
+    return toSession(await Session.create({ workspaceID: WorkspaceID.make(workspaceId) }))
   }
 
   public async sendPrompt(input: SendPromptInput): Promise<void> {
-    await SessionPrompt.prompt({ sessionID: input.sessionId, parts: [{ type: "text", text: input.prompt }] })
+    await SessionPrompt.prompt({ sessionID: SessionID.make(input.sessionId), parts: [{ type: "text", text: input.prompt }] })
   }
 
   public subscribeEvents(sessionId: string): AsyncIterable<RuntimeEvent> {
@@ -79,6 +81,6 @@ export class OpenCodeSessionBackend implements OpenCodeRuntimeBackend {
   }
 
   public async cancelSession(sessionId: string): Promise<void> {
-    await SessionPrompt.cancel(sessionId)
+    await SessionPrompt.cancel(SessionID.make(sessionId))
   }
 }

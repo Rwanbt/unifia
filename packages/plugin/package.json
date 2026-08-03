@@ -18,7 +18,7 @@
   ],
   "dependencies": {
     "@opencode-ai/sdk": "workspace:*",
-    "@unifia/sdk-shared": "workspace:*",
+    "@opencode-ai/sdk-shared": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {
