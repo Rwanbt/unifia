@@ -118,7 +118,7 @@ export namespace ModelsDev {
   export const Data = lazy(async () => {
     const result = await Filesystem.readJson(Flag.UNIFIA_MODELS_PATH ?? filepath).catch(() => {})
     if (result) return result
-    const snapshot = await import("./models-snapshot.js")
+    const snapshot = await import("./models-snapshot.js" as string)
       .then((m) => m.snapshot as Record<string, unknown>)
       .catch(() => undefined)
     if (snapshot) return snapshot

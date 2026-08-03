@@ -13,6 +13,7 @@ export const ProviderID = providerIdSchema.pipe(
     zod: z.string().pipe(z.custom<ProviderID>()),
     // Well-known providers
     unifia: schema.makeUnsafe("unifia"),
+    opencode: schema.makeUnsafe("opencode"),
     anthropic: schema.makeUnsafe("anthropic"),
     openai: schema.makeUnsafe("openai"),
     google: schema.makeUnsafe("google"),

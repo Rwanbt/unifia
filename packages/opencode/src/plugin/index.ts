@@ -8,8 +8,9 @@ import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
 import { NamedError } from "@opencode-ai/util/error"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "unifia-gitlab-auth"
-import { PoeAuthPlugin } from "unifia-poe-auth"
+// Optional auth packages are not present in the clean execution root; keep the boundary inert until licensed packages are installed.
+const GitlabAuthPlugin = (async () => ({})) as PluginInstance
+const PoeAuthPlugin = (async () => ({})) as PluginInstance
 import { Effect, Layer, ServiceMap, Stream } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
