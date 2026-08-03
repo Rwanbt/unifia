@@ -1,0 +1,9 @@
+{
+  "name": "@unifia/browser-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": { "@unifia/contracts": "workspace:*", "playwright": "1.57.0" },
+  "devDependencies": { "@tsconfig/node22": "22.0.2", "typescript": "catalog:" }
+}
