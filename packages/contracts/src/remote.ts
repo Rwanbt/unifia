@@ -59,7 +59,7 @@ export interface RemoteTransportPort {
 
 export type RemoteAudit = { record(event: { type: "pair" | "revoke" | "message" | "replay" | "deny" | "approval"; identityId: string; reason?: string }): void }
 export type RemoteVerifier = { verify(payload: string, signature: string): boolean }
-export type RemoteApprovalPort = { request(capability: string, resource: string, expiresAt: number): { id: string }; find(capability: string, resource: string): { status: string; id: string } | undefined }
+export type RemoteApprovalPort = { request(capability: string, resource: string, expiresAt: number): { id: string }; find(capability: string, resource: string): { status: string; id: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown }
 export type RemoteBridgePolicy = {
   allowedChannels: readonly string[]
   allowedUsers: readonly string[]
@@ -132,6 +132,10 @@ export class RemoteBridgeBroker {
     const approval = existing?.id ? existing : approvals.request(capability, resource, this.#now() + 30_000)
     this.#audit.record({ type: "approval", identityId, reason: capability })
     return { commandId: command.id, status: "pending-approval", result: { approvalId: approval.id } }
+  }
+  resolveApproval(id: string, decision: "allow" | "deny", actor: string): unknown {
+    if (!this.#approvals?.resolve) throw new Error("approval broker is unavailable")
+    return this.#approvals.resolve(id, decision, actor)
   }
   #validIdentity(identityId: string): RemoteIdentity | undefined {
     const identity = this.#identities.get(identityId)

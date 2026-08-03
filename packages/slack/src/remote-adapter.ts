@@ -18,6 +18,7 @@ export class SlackRemoteAdapter {
     return this.#broker.authorizeMessage({ identityId, message, signature: "bolt-verified", nonce: `${input.channelId}:${input.id}` })
   }
   authorizeCommand(userId: string, command: RemoteCommand): RemoteCommandResult { return this.#broker.authorizeCommand(`slack:${userId}`, command) }
+  resolveApproval(id: string, decision: "allow" | "deny"): unknown { return this.#broker.resolveApproval(id, decision, "slack-host") }
   #brokerIdentity(identityId: string, userId: string): boolean {
     try {
       this.#broker.pair({ id: identityId, providerId: "slack", userId, scopes: ["read"], expiresAt: this.#now() + 30 * 60_000 })
