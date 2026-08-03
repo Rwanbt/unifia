@@ -69,3 +69,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   public subscribeEvents(input: { sessionId: string; afterSequence?: number }): AsyncIterable<RuntimeEvent> { return this.backend.subscribeEvents(input.sessionId, input.afterSequence) }
   public cancelSession(sessionId: string): Promise<void> { return this.backend.cancelSession(sessionId) }
 }
+export interface UnifiaRuntimeBackend extends OpenCodeRuntimeBackend {}
+export class UnifiaRuntimeAdapter implements RuntimeAdapter {
+  public constructor(private readonly backend: UnifiaRuntimeBackend, private readonly version: string = "unknown") {}
+  public async getInfo(): Promise<RuntimeInfo> { return { id: "unifia", version: this.version, capabilities: [], healthy: true } }
+  public listSessions(scope: WorkspaceScope): Promise<Session[]> { return this.backend.listSessions(scope.workspaceId) }
+  public createSession(input: { workspaceId: string }): Promise<Session> { return this.backend.createSession(input.workspaceId) }
+  public sendPrompt(input: SendPromptInput): Promise<void> { return this.backend.sendPrompt(input) }
+  public subscribeEvents(input: { sessionId: string; afterSequence?: number }): AsyncIterable<RuntimeEvent> { return this.backend.subscribeEvents(input.sessionId, input.afterSequence) }
+  public cancelSession(sessionId: string): Promise<void> { return this.backend.cancelSession(sessionId) }
+}
