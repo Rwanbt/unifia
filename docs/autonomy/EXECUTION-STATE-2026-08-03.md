@@ -204,3 +204,10 @@
 - Après `caf58f5` et `bb5827c`, `bun run typecheck` racine passe : 18/18 tâches réussies sur 24 packages ciblés.
 - Le verdict Gate A reste **GO local / non-promu** : la preuve CI distante et les phases produit post-Gate A restent à exécuter ; aucun push/main effectué.
 - Desktop/mobile sont alignés sur `@unifia/app`; backup : `D:\App\OpenCode\unifia-execution-clean-shell-rebrand-2026-08-03.bundle`.
+
+## Checkpoint SandboxBroker — bb94bbd
+
+- `SandboxBroker` injectable ajoute sélection auto native/docker/wsl2/lima, network open refusé, read-only forcé, mounts/cwd allowlistés, backend disponible obligatoire et handles actifs/terminables.
+- Smoke : `SandboxBroker: 4/4 passed`; contracts typecheck passé.
+- Commit : `bb94bbd`; backup : `D:\App\OpenCode\unifia-execution-clean-sandbox-broker-2026-08-03.bundle`.
+- Reste Phase 8 : drivers réels/conformance par backend, secrets temporaires, quotas CPU/RAM/durée et images hashées.
