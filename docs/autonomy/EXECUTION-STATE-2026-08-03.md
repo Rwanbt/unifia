@@ -281,3 +281,11 @@
 - Bun reste incompatible pour le lancement Playwright sur cette machine ; le script officiel du package utilise Node 22.
 - Commit `d7c9ea2`; bundle : `D:\App\OpenCode\unifia-execution-clean-playwright-e2e-2026-08-03.bundle`.
 - Reste : intégration du broker dans l’application, redaction screenshots, driver desktop réel, approbations JIT et Gate B.
+
+## Checkpoint Screenshot redaction — 5ac5b1c
+
+- `BrowserProfile.redactSelectors` est désormais obligatoire ; le broker transmet les sélecteurs approuvés au driver.
+- Playwright applique un masque noir aux locators sensibles avant screenshot.
+- Typechecks contracts/browser-runtime verts ; E2E Node + Chromium local `PlaywrightBrowserDriver E2E: 4/4 passed`.
+- Commit `5ac5b1c`; bundle : `D:\App\OpenCode\unifia-execution-clean-browser-redaction-2026-08-03.bundle`.
+- Reste : intégration Workbench, approbations JIT, driver desktop, Gate B et phases plateforme.
