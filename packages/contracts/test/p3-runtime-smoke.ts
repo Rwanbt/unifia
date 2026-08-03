@@ -11,3 +11,6 @@ test("C9-kill-switch-all-remote", () => { const switches = new KillSwitchDouble(
 test("C9-kill-switch-global", () => { const switches = new KillSwitchDouble(); switches.engage("global"); assert.equal(switches.isEngaged("all-remote"), true); assert.equal(switches.isEngaged("all-plugin-enable"), true) })
 assert.equal(passed, 6)
 console.log(`P3 C8/C9: ${passed}/6 passed`)
+import { KillSwitchRegistry, SecretStore } from "../src/p3-runtime.ts"
+test("C9-secret-store-issues-scoped-expiring-handles", () => { let now = 1_000; const store = new SecretStore(() => now, 10); store.put({ name: "TOKEN", value: "value" }); const handle = store.issue("TOKEN", "sandbox-a"); assert.ok(handle); assert.equal(store.resolve(handle!, "sandbox-b"), undefined); assert.equal(store.resolve(handle!, "sandbox-a"), "value"); now = 1_011; assert.equal(store.resolve(handle!, "sandbox-a"), undefined) })
+test("C9-kill-switch-registry-is-reversible-and-global", () => { const switches = new KillSwitchRegistry(); switches.engage("browser"); assert.equal(switches.isEngaged("browser"), true); assert.equal(switches.isEngaged("computer-use"), false); switches.engage("global"); assert.equal(switches.isEngaged("computer-use"), true); switches.release("global"); assert.equal(switches.isEngaged("computer-use"), false) })

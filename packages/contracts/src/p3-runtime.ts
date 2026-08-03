@@ -59,3 +59,39 @@ export class KillSwitchDouble {
   public engage(surface: KillSwitchSurface): void { this.engaged.add(surface) }
   public isEngaged(surface: KillSwitchSurface): boolean { return this.engaged.has(surface) || this.engaged.has("global") }
 }
+export type SecretRecord = { name: string; value: string; expiresAt?: number }
+export class SecretStore {
+  private readonly secrets = new Map<string, SecretRecord>()
+  private readonly handles = new Map<string, { name: string; scope: string; expiresAt: number }>()
+  private nextHandle = 1
+  public constructor(private readonly now: () => number = () => Date.now(), private readonly handleTtlMs = 30_000) {}
+  public put(record: SecretRecord): void {
+    if (!record.name || !record.value) throw new Error("secret name and value are required")
+    this.secrets.set(record.name, { ...record })
+  }
+  public issue(name: string, scope: string): SecretHandle | undefined {
+    const secret = this.secrets.get(name)
+    if (!secret || secret.expiresAt !== undefined && secret.expiresAt <= this.now()) return undefined
+    const id = `secret-handle-${this.nextHandle++}`
+    this.handles.set(id, { name, scope, expiresAt: this.now() + this.handleTtlMs })
+    return { id, name, scope }
+  }
+  public resolve(handle: SecretHandle, scope: string): string | undefined {
+    const issued = this.handles.get(handle.id)
+    if (!issued || issued.scope !== scope || issued.name !== handle.name || issued.expiresAt <= this.now()) return undefined
+    const secret = this.secrets.get(issued.name)
+    if (!secret || secret.expiresAt !== undefined && secret.expiresAt <= this.now()) return undefined
+    return secret.value
+  }
+  public revoke(name: string): boolean { return this.secrets.delete(name) }
+  public names(): readonly string[] { return [...this.secrets.keys()] }
+}
+
+export type KillSwitch = "all-remote" | "all-plugin-enable" | "global" | "browser" | "computer-use" | "document-packs" | "workflow-automation" | "marketplace"
+export class KillSwitchRegistry {
+  private readonly engaged = new Set<KillSwitch>()
+  public engage(surface: KillSwitch): void { this.engaged.add(surface) }
+  public release(surface: KillSwitch): void { this.engaged.delete(surface) }
+  public isEngaged(surface: KillSwitch): boolean { return this.engaged.has(surface) || this.engaged.has("global") || surface === "all-remote" && this.engaged.has("global") }
+  public snapshot(): readonly KillSwitch[] { return [...this.engaged] }
+}
