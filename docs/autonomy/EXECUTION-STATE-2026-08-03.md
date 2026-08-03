@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `d7c8090`
+**Latest commit**: `3349a9a`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -98,3 +98,12 @@
 - Vérification : smoke WorkspaceRuntime 9/9, storage 4/4, queue 4/4 ; typecheck package passe.
 - Commit : `d7c8090`; backup : `D:\App\OpenCode\unifia-execution-clean-workspace-events-2026-08-03.bundle`.
 - Gate suivante : test watcher réel, audit path/symlink Windows, puis branchement serveur headless.
+
+
+## Checkpoint headless server — 3349a9a
+
+- Package `@unifia/workbench-server` ajoute un `fetch(Request)` headless et injectable : register/open workspace, sessions list/create, prompt, fichiers read/write et fermeture file-session.
+- Chaque route exige le token file-session scoped quand elle touche un workspace ; les sessions runtime sont liées a leur workspace ; chaque allow/deny/erreur est audite.
+- Vérification : typecheck package et smoke `WorkbenchServer: 6/6 passed` ; aucun desktop/OpenWork/enterprise requis.
+- Commit : `3349a9a`; backup : `D:\App\OpenCode\unifia-execution-clean-headless-server-2026-08-03.bundle`.
+- Gate suivante : event endpoint/reconnect, ApprovalBroker branch, puis artefacts/documents selon Phase 6.
