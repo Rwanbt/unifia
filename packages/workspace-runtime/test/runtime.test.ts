@@ -22,6 +22,11 @@ try {
   if (recorded.sequence !== 1 || replayed[0]?.sequence !== 1) throw new Error("file event was not persisted with a cursor")
   await runtime.acknowledgeFileEvent(workspace.id, recorded.sequence ?? 0)
   if ((await runtime.replayFileEvents(workspace.id)).length !== 0) throw new Error("file event ack did not advance the outbox")
+  const eventStream = runtime.watch(handle.token)[Symbol.asyncIterator]()
+  await runtime.write(handle.token, [{ path: "src/main.ts", content: "export const value = 3\n" }])
+  const observed = await Promise.race([eventStream.next(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("watcher timeout")), 5_000))])
+  if (observed.done || observed.value.sequence === undefined) throw new Error("watcher did not emit a sequenced event")
+  await eventStream.return?.()
 
   let escaped = false
   try { await runtime.read(handle.token, ["../outside.txt"]) } catch { escaped = true }
@@ -35,7 +40,7 @@ try {
   let revoked = false
   try { await runtime.read(handle.token, ["src/main.ts"]) } catch { revoked = true }
   if (!revoked) throw new Error("closed file session remained usable")
-  console.log("WorkspaceRuntime: 9/9 passed")
+  console.log("WorkspaceRuntime: 12/12 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
