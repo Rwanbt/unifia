@@ -342,3 +342,12 @@
 - Test : `WorkflowRuntime: 4/4`, `FileWorkflowStore: 1/1`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workflow-persistence-2026-08-03.bundle`.
 - Reste : adapter les exécuteurs/capabilities au Workbench et ajouter les routes workflow.
+
+## Checkpoint Workbench Workflow integration — 2026-08-03
+
+- Capability `workflow.run` ajoutée avec effet `workflow.execute`.
+- WorkbenchServer expose `POST /v1/workflows/start`, `/resume`, `/cancel`, avec bearer workspace scope et capability gate.
+- WorkflowRuntime est injecté par dépendance ; aucune boucle agentique secondaire n’est créée.
+- Test server : `WorkbenchServer: 21/21 passed`; contracts/server typechecks verts.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-workflows-2026-08-03.bundle`.
+- Reste : executor réel relié au runtime Unifia, memory/session intelligence, Skill Hub/Marketplace et MCP UI.
