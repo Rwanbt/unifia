@@ -242,3 +242,12 @@
 - Durcissement défensif de l’API Worker/GitHub : callbacks WebSocket typés, sujets JWT validés, permissions optionnelles gérées, owner/repo obligatoires.
 - Commit `376a0b5` + `6de8660`; bundle : `D:\App\OpenCode\unifia-execution-clean-feishu-function-2026-08-03.bundle`.
 - Reste : raccordement d’ingress Feishu au Worker, SecretStore/kill switches réels, drivers Sandbox et surfaces Browser/Computer Use.
+
+## Checkpoint SecretStore + remote kill switches — fd13e63 / 56d0f7a
+
+- `SecretStore` de production : handles opaques scoped, TTL, expiration des secrets, révocation et aucune valeur exposée par `names()`.
+- `KillSwitchRegistry` de production : surfaces globales et ciblées (remote, browser, computer-use, documents, workflows, marketplace), engage/release et snapshot.
+- Slack et Feishu refusent maintenant réception et commandes lorsque `all-remote` est engagé.
+- Vérification : P3 runtime étendu 8 assertions, SlackRemoteAdapter 5/5, FeishuRemoteAdapter 5/5, typechecks contracts/function/slack verts.
+- Commits `fd13e63`, `56d0f7a`; bundle : `D:\App\OpenCode\unifia-execution-clean-remote-killswitch-2026-08-03.bundle`.
+- Reste : injecter SecretStore dans les bindings réels, drivers Sandbox concrets/conformance, Browser/Computer Use et gates B/C.
