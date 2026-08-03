@@ -1,3 +1,4 @@
+import { ApprovalBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type {
   FileReadResult,
@@ -10,8 +11,8 @@ import type {
 } from "@unifia/contracts"
 
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
-type CapabilityDecision = "allow" | "deny" | "approval_required"
-type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision> }
+export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
+export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision> }
 type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate }
 type JsonRecord = Record<string, unknown>
 
@@ -97,7 +98,8 @@ export class WorkbenchServer {
   async #events(request: Request, sessionId: string): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("session.events.scope", 403)
-    if (await this.#capability.check("workspace.watch", workspaceId, "workbench-server") !== "allow") return this.#deny("workspace.watch", 403)
+    const eventGate = await this.#checkCapability("workspace.watch", workspaceId)
+    if (eventGate) return eventGate
     const iterator = this.#runtime.subscribeEvents({ sessionId })[Symbol.asyncIterator]()
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
@@ -133,7 +135,8 @@ export class WorkbenchServer {
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
     const capability = `workspace.${operation}` as P3Capability
-    if (await this.#capability.check(capability, workspaceId, "workbench-server") !== "allow") return this.#deny(capability, 403)
+    const capabilityResponse = await this.#checkCapability(capability, workspaceId)
+    if (capabilityResponse) return capabilityResponse
     if (operation === "read") {
       const results = await this.#workspace.read(token, input.paths as string[])
       this.#allow("workspace.read")
@@ -165,6 +168,32 @@ export class WorkbenchServer {
     return value?.startsWith("Bearer ") ? value.slice(7) : undefined
   }
 
+  async #checkCapability(capability: P3Capability, resource: string): Promise<Response | undefined> {
+    const decision = await this.#capability.check(capability, resource, "workbench-server")
+    if (decision === "allow") return undefined
+    if (typeof decision === "object") {
+      this.#audit.record("workbench-server", capability, "approval_required")
+      return json(202, { approvalRequired: true, approvalId: decision.approvalId, capability })
+    }
+    return this.#deny(capability, 403)
+  }
+
   #allow(capability: string): void { this.#audit.record("workbench-server", capability, "allow") }
   #deny(capability: string, status: number): Response { this.#audit.record("workbench-server", capability, "deny"); return json(status, { error: "denied", capability }) }
+}
+
+export class ApprovalCapabilityGate implements CapabilityGate {
+  readonly #broker: ApprovalBroker
+  readonly #allowlisted: ReadonlySet<P3Capability>
+  readonly #ttlMs: number
+  constructor(broker: ApprovalBroker, allowlisted: ReadonlySet<P3Capability> = new Set(), ttlMs = 30_000) {
+    this.#broker = broker
+    this.#allowlisted = allowlisted
+    this.#ttlMs = ttlMs
+  }
+  async check(capability: P3Capability, resource: string, _actor: string): Promise<CapabilityDecision> {
+    if (this.#allowlisted.has(capability)) return "allow"
+    const request = this.#broker.request(capability, resource, Date.now() + this.#ttlMs)
+    return { kind: "approval_required", approvalId: request.id }
+  }
 }

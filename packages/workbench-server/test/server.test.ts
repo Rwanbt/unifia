@@ -2,9 +2,9 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { AuditRuntimeDouble, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
-import { WorkbenchServer } from "../src/index.js"
+import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
 
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
 try {
@@ -40,7 +40,9 @@ try {
   if (eventChunk.done || !new TextDecoder().decode(eventChunk.value).includes("hello")) throw new Error("runtime event was not streamed")
   if (prompt.status !== 202) throw new Error("scoped prompt failed")
   if (audit.events().filter((event) => event.decision === "deny").length < 1) throw new Error("denied request was not audited")
-  console.log("WorkbenchServer: 10/10 passed")
+  const pending = await new ApprovalCapabilityGate(new ApprovalBroker(() => 1_000)).check("workspace.write", handle.id, "actor")
+  if (typeof pending !== "object" || pending.kind !== "approval_required") throw new Error("ApprovalCapabilityGate did not require approval")
+  console.log("WorkbenchServer: 11/11 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
