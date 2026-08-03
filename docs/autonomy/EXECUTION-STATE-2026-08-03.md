@@ -375,3 +375,11 @@
 - Test server : `WorkbenchServer: 27/27 passed`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-capabilities-2026-08-03.bundle`.
 - Reste : signatures cryptographiques de manifests, UI Skill Hub, MCP UI/Generative UI et Gate C.
+
+## Checkpoint Signed Capability manifests — 2026-08-03
+
+- `CapabilityManifest.signature` et payload canonique ajoutés.
+- `CapabilityRegistry` accepte un `ManifestVerifier` injecté et refuse les signatures absentes/invalides lorsque configuré.
+- Test : `CapabilityRegistry: 4/4 passed`, incluant signature valide et signature invalide.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-signed-capabilities-2026-08-03.bundle`.
+- Reste : fournir l’implémentation Ed25519 de production et connecter le vérificateur au bootstrap Workbench.
