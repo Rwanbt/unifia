@@ -266,3 +266,10 @@
 - Smoke : `BrowserDesktopBroker: 4/4`; contracts typecheck vert.
 - Bundle : `D:\App\OpenCode\unifia-execution-clean-browser-desktop-brokers-2026-08-03.bundle`.
 - Reste : drivers réels Playwright/desktop, redaction screenshot, approbations JIT et Gate B.
+
+## Checkpoint Playwright driver — 81f75eb
+
+- Nouveau package `@unifia/browser-runtime` avec `PlaywrightBrowserDriver` réel, headless, contexte isolé par profil/workspace, snapshot ARIA, screenshot PNG et quarantaine disque des téléchargements.
+- Dépendance Playwright locale `1.57.0`; typecheck package vert; lockfile mis à jour.
+- Commit `81f75eb`; bundle : `D:\App\OpenCode\unifia-execution-clean-playwright-driver-2026-08-03.bundle`.
+- Reste : test E2E contrôlé avec navigateur installé, redaction screenshots, driver desktop réel, approbations JIT et Gate B.
