@@ -2,12 +2,13 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `8b85c9e`  
+**Latest commit**: `d364748`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot3-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-pre-contract-doc-fix-2026-08-03.bundle`
+- `D:\App\OpenCode\unifia-execution-clean-workspace-boundary-2026-08-03.bundle`
 
 ## Completed in this run
 
@@ -28,8 +29,9 @@
 
 1. add Unifia-owned runtime adapters behind the accepted contracts;
 2. add integration tests for adapter wiring, lifecycle gates and audit emission;
-3. run the strongest available package-level checks once workspace dependencies are restored;
-4. only then proceed through the Plan V3 runtime phases and platform integrations;
+3. workspace boundary normalized and `bun install --frozen-lockfile` now passes;
+4. run the strongest available package-level checks against installed dependencies;
+5. only then proceed through the Plan V3 runtime phases and platform integrations;
 5. backup and update Obsidian after each verified lot.
 
 ## Non-negotiable exclusions
@@ -60,3 +62,12 @@
 - Package-level typecheck remains blocked by the pre-existing incomplete workspace dependency installation; filtered output reports no error in `src/unifia` after the import correction.
 - Backup: `D:\App\OpenCode\unifia-execution-clean-opencode-backend-2026-08-03.bundle`.
 - Next: add a real package integration harness with installed workspace dependencies, then introduce the Unifia runtime implementation behind the same conformance suite.
+
+## Checkpoint workspace boundary — d364748
+
+- Workspace manifests now use the compatibility package names consumed by the source (`@opencode-ai/plugin`, `@opencode-ai/script`, `@opencode-ai/sdk`, `@opencode-ai/ui`) while Unifia contracts remain canonical.
+- `packages/enterprise` and `packages/desktop-electron` are explicitly excluded from the root workspace; their DO-NOT-IMPORT manifests were not changed.
+- `bun install --frozen-lockfile --no-progress`: passed, 2500 installs across 2437 packages, no changes.
+- Pre-commit provenance guard passed; hook false failures for empty shell/SPDX candidate sets were corrected.
+- Commit: `d364748`; backup: `D:\App\OpenCode\unifia-execution-clean-workspace-boundary-2026-08-03.bundle`.
+- Remaining: package-level typecheck/integration harness, then WorkspaceRuntime and subsequent Plan V3 phases.
