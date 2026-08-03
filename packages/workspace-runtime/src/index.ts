@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: MIT */
+import { WorkspaceStorage } from "./storage.js"
 import { createHash, randomBytes } from "node:crypto"
 import { promises as fs, watch as watchFiles, type FSWatcher } from "node:fs"
 import path from "node:path"
@@ -151,6 +152,12 @@ export class WorkspaceRuntime implements WorkspacePort {
         return: async (): Promise<IteratorResult<FileEvent>> => { close(); return { done: true, value: undefined } },
       }),
     }
+  }
+
+  async health(workspaceId: WorkspaceId) {
+    const workspace = this.#workspaces.get(workspaceId)
+    if (!workspace) throw new Error("workspace is not registered")
+    return new WorkspaceStorage(workspace.path).health(workspace.id)
   }
 
   async close(sessionId: FileSessionId): Promise<void> {
