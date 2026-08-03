@@ -503,6 +503,7 @@
       "dependencies": {
         "@opencode-ai/sdk": "workspace:*",
         "@slack/bolt": "^3.17.1",
+        "@unifia/contracts": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "catalog:",

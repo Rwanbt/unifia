@@ -1,5 +1,6 @@
 import { App } from "@slack/bolt"
 import { createUnifia, type ToolPart } from "@opencode-ai/sdk"
+import { createSlackRemoteAdapter } from "./remote-adapter.ts"
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -7,6 +8,10 @@ const app = new App({
   socketMode: true,
   appToken: process.env.SLACK_APP_TOKEN,
 })
+
+const remoteAuditLog: string[] = []
+const remoteAudit = { record: (event: { type: string; identityId: string; reason?: string }) => { remoteAuditLog.push(event.type); if (remoteAuditLog.length > 1000) remoteAuditLog.shift() } }
+const slackRemote = createSlackRemoteAdapter(remoteAudit)
 
 console.log("🔧 Bot configuration:")
 console.log("- Bot token present:", !!process.env.SLACK_BOT_TOKEN)
@@ -50,20 +55,34 @@ async function handleToolUpdate(part: ToolPart, channel: string, thread: string)
     .catch(() => {})
 }
 
-app.use(async ({ next, context }) => {
-  console.log("📡 Raw Slack event:", JSON.stringify(context, null, 2))
-  await next()
-})
 
 app.message(async ({ message, say }) => {
-  console.log("📨 Received message event:", JSON.stringify(message, null, 2))
+
 
   if (message.subtype || !("text" in message) || !message.text) {
     console.log("⏭️ Skipping message - no text or has subtype")
     return
   }
+  if (!("user" in message) || !message.user) return
+  const authorized = slackRemote.authorize({ id: message.ts, channelId: message.channel, userId: message.user, text: message.text, timestamp: Number.isFinite(Number(message.ts)) ? Math.floor(Number(message.ts) * 1000) : Date.now() })
+  if (!authorized) {
+    await say({ text: "This Slack identity or channel is not authorized.", thread_ts: message.ts })
+    return
+  }
+  const command = slackRemote.authorizeCommand(message.user, { id: message.ts, text: message.text, scope: "session", metadata: message.text.startsWith("/read ") ? { mode: "read-only" } : { capability: "session.prompt" } })
+  if (command.status === "pending-approval") {
+    const approvalId = typeof command.result === "object" && command.result && "approvalId" in command.result ? String(command.result.approvalId) : "pending"
+    await say({ text: `Approval required on the host (${approvalId}).`, thread_ts: message.ts })
+    return
+  }
+  if (command.status === "denied") {
+    await say({ text: "This remote command was denied by policy.", thread_ts: message.ts })
+    return
+  }
 
-  console.log("✅ Processing message:", message.text)
+
+
+
 
   const channel = message.channel
   const thread = (message as any).thread_ts || message.ts
@@ -72,7 +91,7 @@ app.message(async ({ message, say }) => {
   let session = sessions.get(sessionKey)
 
   if (!session) {
-    console.log("🆕 Creating new unifia session...")
+
     const { client, server } = unifia
 
     const createResult = await client.session.create({
@@ -80,7 +99,7 @@ app.message(async ({ message, say }) => {
     })
 
     if (createResult.error) {
-      console.error("❌ Failed to create session:", createResult.error)
+      console.error("❌ Failed to create session:")
       await say({
         text: "Sorry, I had trouble creating a session. Please try again.",
         thread_ts: thread,
@@ -88,29 +107,23 @@ app.message(async ({ message, say }) => {
       return
     }
 
-    console.log("✅ Created unifia session:", createResult.data.id)
+
 
     session = { client, server, sessionId: createResult.data.id, channel, thread }
     sessions.set(sessionKey, session)
 
-    const shareResult = await client.session.share({ path: { id: createResult.data.id } })
-    if (!shareResult.error && shareResult.data) {
-      const sessionUrl = shareResult.data.share?.url!
-      console.log("🔗 Session shared:", sessionUrl)
-      await app.client.chat.postMessage({ channel, thread_ts: thread, text: sessionUrl })
-    }
   }
 
-  console.log("📝 Sending to unifia:", message.text)
+
   const result = await session.client.session.prompt({
     path: { id: session.sessionId },
     body: { parts: [{ type: "text", text: message.text }] },
   })
 
-  console.log("📤 Unifia response:", JSON.stringify(result, null, 2))
+
 
   if (result.error) {
-    console.error("❌ Failed to send message:", result.error)
+    console.error("❌ Failed to send message:")
     await say({
       text: "Sorry, I had trouble processing your message. Please try again.",
       thread_ts: thread,
@@ -129,7 +142,7 @@ app.message(async ({ message, say }) => {
       .join("\n") ||
     "I received your message but didn't have a response."
 
-  console.log("💬 Sending response:", responseText)
+
 
   // Send main response (tool updates will come via live events)
   await say({ text: responseText, thread_ts: thread })

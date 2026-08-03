@@ -8,6 +8,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@unifia/contracts": "workspace:*",
     "@opencode-ai/sdk": "workspace:*",
     "@slack/bolt": "^3.17.1"
   },
