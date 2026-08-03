@@ -407,3 +407,11 @@
 - Test server : `WorkbenchServer: 29/29 passed`; typecheck vert.
 - Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-mcp-ui-2026-08-03.bundle`.
 - Reste : renderer Generative UI, UI Skill Hub, Gate C et release hardening.
+
+## Checkpoint Generative UI renderer — 2026-08-03
+
+- Renderer déclaratif ajouté dans `@unifia/contracts` avec composants et props allowlistés, IDs stricts et actions explicitement autorisées.
+- Les props inconnues, attributs de type `javascript:` et actions non allowlistées ne sont pas rendus.
+- Tests : `GenerativeUiRenderer: 3/3 passed`; typecheck contracts vert.
+- Commit et bundle : `542de96`, `D:\App\OpenCode\unifia-execution-clean-generative-ui-2026-08-03.bundle`.
+- Reste : UI Skill Hub, intégration render au Workbench, Gate C et release hardening.
