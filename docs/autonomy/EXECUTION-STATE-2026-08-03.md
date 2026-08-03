@@ -2,7 +2,7 @@
 
 **Clone**: `D:\App\OpenCode\unifia-execution-clean`  
 **Branch**: `recovery/unifia-audit-correction-20260803`  
-**Latest commit**: `d364748`
+**Latest commit**: `2374a13`
 **Backups**:
 - `D:\App\OpenCode\unifia-execution-clean-backup-2026-08-03.bundle`
 - `D:\App\OpenCode\unifia-execution-clean-lot1-final2-2026-08-03.bundle`
@@ -71,3 +71,12 @@
 - Pre-commit provenance guard passed; hook false failures for empty shell/SPDX candidate sets were corrected.
 - Commit: `d364748`; backup: `D:\App\OpenCode\unifia-execution-clean-workspace-boundary-2026-08-03.bundle`.
 - Remaining: package-level typecheck/integration harness, then WorkspaceRuntime and subsequent Plan V3 phases.
+
+
+## Checkpoint WorkspaceRuntime — 2374a13
+
+- Nouveau package `@unifia/workspace-runtime` : resolver canonique, contrôle realpath symlink/junction, file sessions révocables, quotas de lecture/écriture et écritures atomiques par fichier.
+- Les écritures de fichiers absents sont refusées ; le quota est prévalidé avant mutation ; `close()` révoque aussi les watchers.
+- Vérification : `bun run typecheck` et `bun test/runtime.test.ts` passent ; smoke `WorkspaceRuntime: 5/5 passed` ; frozen install 2501 installations sur 2438 packages.
+- Commit : `2374a13`; backup : `D:\App\OpenCode\unifia-execution-clean-workspace-runtime-2026-08-03.bundle`.
+- Reste Phase 4 : storage versionné, migrations réversibles, crash recovery et health gate.
