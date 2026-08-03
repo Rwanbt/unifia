@@ -175,3 +175,4 @@ export class WorkspaceRuntime implements WorkspacePort {
     return session
   }
 }
+export * from "./storage.js"
