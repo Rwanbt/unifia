@@ -297,3 +297,11 @@
 - Test server : `WorkbenchServer: 17/17 passed`; typecheck workbench-server vert.
 - Commit `366f1ca`; bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-browser-routes-2026-08-03.bundle`.
 - Reste : Computer Use intégré, approbations JIT dédiées, Gate B et phases plateforme.
+
+## Checkpoint Workbench Desktop integration — 2026-08-03
+
+- WorkbenchServer expose `POST /v1/desktop/observe` et `/v1/desktop/control`.
+- Observation et contrôle restent séparés ; chaque route est workspace-scoped et passe par `desktop.observe`/`desktop.control`.
+- Test server : `WorkbenchServer: 19/19 passed`; typecheck vert.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-desktop-routes-2026-08-03.bundle`.
+- Reste : driver desktop OS réel, approbations JIT non-allowlistées, Gate B et plateformes V3.
