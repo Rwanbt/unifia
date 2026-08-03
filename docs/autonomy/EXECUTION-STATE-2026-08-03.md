@@ -415,3 +415,11 @@
 - Tests : `GenerativeUiRenderer: 3/3 passed`; typecheck contracts vert.
 - Commit et bundle : `542de96`, `D:\App\OpenCode\unifia-execution-clean-generative-ui-2026-08-03.bundle`.
 - Reste : UI Skill Hub, intégration render au Workbench, Gate C et release hardening.
+
+## Checkpoint Skill Hub local registry — 2026-08-03
+
+- Package `@unifia/skill-hub` ajouté : manifeste strict, payload canonique, vérification des signatures pour `verified`/`official`, registre local mémoire, recherche tags/capabilities, install/update et ratings bornés.
+- Aucun téléchargement, aucune exécution de skill, aucun registre distant dans ce lot ; la surface réseau reste séparée.
+- Tests : `SkillHubRegistry: 5/5 passed`; typecheck monorepo : 20/20 packages green.
+- Commit et bundle : `D:\App\OpenCode\unifia-execution-clean-skill-hub-2026-08-03.bundle`.
+- Reste : exposer le registry au Workbench/UI, intégrer le renderer Generative UI au serveur, puis Gate C/release hardening.
