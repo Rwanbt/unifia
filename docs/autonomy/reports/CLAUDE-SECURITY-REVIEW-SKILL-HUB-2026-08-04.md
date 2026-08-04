@@ -23,3 +23,12 @@
 - Aucun consommateur DOM réel du modèle Generative UI : validation E2 externe nécessaire avant de considérer la surface production-ready.
 - Key-id/algorithme et audit externe de supply chain restent à traiter dans release hardening.
 - Gate C demeure `NO-GO` jusqu’aux preuves externes, transports MCP complets, OpenDesign/Artifact Studio et migrations.
+
+
+## Mise a jour Workbench - 2026-08-04
+
+- Route POST /v1/ui/render integree dans [[OpenCode/Handoff-Hermes-Unifia-2026-08-03]].
+- Allowlist injectee cote serveur; le payload ne peut pas la fournir ni l elargir.
+- Tests HTTP: scope workspace, filtrage des props, refus action et echec ferme.
+- Commit b986905; bundle D:\App\OpenCode\unifia-execution-clean-generative-ui-workbench-2026-08-04.bundle.
+- Aucun consommateur DOM reel ni E2 externe; Gate C reste NO-GO.
