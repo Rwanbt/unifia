@@ -260,9 +260,36 @@ and EXIF inside embedded images is not touched.
 
 **Phase 12 is now complete for its stated scope.**
 
-### Remaining NO-GO reasons
+## Re-evaluation 2026-08-04 (eighth pass — spec-driven development)
 
-- Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
+Decision: **still NO-GO**, and the remaining reasons are now *only* the
+external gates plus two deliberately deferred surfaces.
+
+`@unifia/spec-runtime` (`43ccdaa`, 35/35) implements the load-bearing part of
+plan section 25. That section rests on one sentence — *une spec ne peut pas
+élargir les permissions du workspace* — and the reason it matters is that a
+spec is authored content, frequently authored by a model. If declaring a
+capability granted it, a spec would be a privilege-escalation primitive.
+
+`resolveEffectiveCapabilities` computes an **intersection, never a union**, so
+no code path exists along which a spec adds a capability. Denials are returned
+and audited rather than dropped: a silently ignored request is
+indistinguishable from a granted one at the call site. Tests assert the
+invariant directly, including that an empty grant yields nothing and that the
+workspace grant is never mutated.
+
+Around it: strict parsing that refuses rather than partially applies, rule
+injection carrying spec id and version so an instruction merged into a prompt
+stays traceable, design tokens with constrained names and values because tokens
+reach generated documents and stylesheets, and reviews rendered as artefact
+inputs so a review can be versioned instead of living in a chat log.
+
+Deferred, with the reason recorded in the module: code generation (a product of
+its own; a half-generator would create a second authority over the codebase),
+diagram round-trips (need format parsers — a supply-chain decision), and YAML
+specs (adding a parser is a dependency this repo gates on provenance review).
+
+### Remaining NO-GO reasons
 - Phase 12 Artifact Studio core: see the sixth pass — lineage and export landed,
   semantic diff / sandboxed preview / format-level metadata stripping remain.
 - No external MCP provider connected (deliberate), and no real OpenCode backend
