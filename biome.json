@@ -30,6 +30,7 @@
 			"packages/document-packs/**/*.ts",
 			"packages/generative-ui-dom/**/*.ts",
 			"packages/mcp-transport/**/*.ts",
+			"packages/mcp-ui-actions/**/*.ts",
 			"packages/memory-governance/**/*.ts",
 			"packages/memory-runtime/**/*.ts",
 			"packages/release-hardening/**/*.ts",

@@ -32,6 +32,7 @@ const UNIFIA_PACKAGES = [
   "document-packs",
   "generative-ui-dom",
   "mcp-transport",
+  "mcp-ui-actions",
   "memory-governance",
   "memory-runtime",
   "release-hardening",
@@ -71,6 +72,7 @@ const TEST_ENTRYPOINTS = [
   "packages/document-packs/test/packs.test.ts",
   "packages/generative-ui-dom/test/dom.test.ts",
   "packages/mcp-transport/test/transport.test.ts",
+  "packages/mcp-ui-actions/test/actions.test.ts",
   "packages/memory-governance/test/governance.test.ts",
   "packages/memory-runtime/test/memory-runtime.test.ts",
   "packages/release-hardening/test/hardening.test.ts",
@@ -291,3 +293,4 @@ if (jsonIndex >= 0 && args[jsonIndex + 1]) writeFileSync(path.resolve(repoRoot, 
 
 process.stdout.write(`\n${report.verdict}: ${results.length - failedCount}/${results.length} conformance checks passed\n`)
 process.exit(failedCount === 0 ? 0 : 1)
+

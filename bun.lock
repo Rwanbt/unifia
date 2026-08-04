@@ -359,6 +359,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/mcp-ui-actions": {
+      "name": "@unifia/mcp-ui-actions",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/memory-governance": {
       "name": "@unifia/memory-governance",
       "version": "0.1.0",
@@ -2697,6 +2710,8 @@
     "@unifia/generative-ui-dom": ["@unifia/generative-ui-dom@workspace:packages/generative-ui-dom"],
 
     "@unifia/mcp-transport": ["@unifia/mcp-transport@workspace:packages/mcp-transport"],
+
+    "@unifia/mcp-ui-actions": ["@unifia/mcp-ui-actions@workspace:packages/mcp-ui-actions"],
 
     "@unifia/memory-governance": ["@unifia/memory-governance@workspace:packages/memory-governance"],
 
