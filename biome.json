@@ -21,6 +21,7 @@
 			"packages/sdk/js/src/**/*.ts",
 			"!packages/sdk/js/src/**/gen",
 			"packages/artifact-runtime/**/*.ts",
+			"packages/artifact-studio/**/*.ts",
 			"packages/browser-runtime/**/*.ts",
 			"packages/capability-runtime/**/*.ts",
 			"packages/contracts/**/*.ts",
@@ -88,3 +89,4 @@
 		}
 	]
 }
+

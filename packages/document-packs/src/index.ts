@@ -3,6 +3,10 @@ import type { ArtifactStore, ArtifactInput, ArtifactKind, ArtifactVersion } from
 import { pdfWorker } from "./workers/pdf.js"
 import { convertWorker, docxWorker, inspectWorker, pptxWorker, xlsxWorker } from "./workers/ooxml.js"
 
+export * from "./zip.js"
+export { convertWorker, docxWorker, inspectWorker, pptxWorker, xlsxWorker } from "./workers/ooxml.js"
+export { createDeterministicPdf, pdfWorker } from "./workers/pdf.js"
+
 export type DocumentPackId = "unifia.document.docx" | "unifia.document.pptx" | "unifia.document.xlsx" | "unifia.document.pdf" | "unifia.document.convert" | "unifia.document.inspect"
 export type DocumentPackManifest = {
   id: DocumentPackId

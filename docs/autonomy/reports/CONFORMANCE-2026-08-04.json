@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T13:27:47.245Z",
+  "generatedAt": "2026-08-04T14:44:56.785Z",
   "scope": "local reproducible checks only; excludes external audit, pentest and signed release",
   "excludedTests": {
     "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate"
@@ -23,7 +23,7 @@
     {
       "name": "supply-chain/manifest-licenses",
       "ok": true,
-      "detail": "14 manifests declare an allowed licence"
+      "detail": "15 manifests declare an allowed licence"
     },
     {
       "name": "supply-chain/dependency-provenance",
@@ -33,17 +33,17 @@
     {
       "name": "quality/lint",
       "ok": true,
-      "detail": "14 owned packages lint clean"
+      "detail": "15 owned packages lint clean"
     },
     {
       "name": "quality/typecheck",
       "ok": true,
-      "detail": "Tasks:    23 successful, 23 total"
+      "detail": "Tasks:    24 successful, 24 total"
     },
     {
       "name": "quality/tests",
       "ok": true,
-      "detail": "29 suites passed (26 bun + 2 vitest, 1 browser), 1 excluded with a stated reason"
+      "detail": "30 suites passed (27 bun + 2 vitest, 1 browser), 1 excluded with a stated reason"
     }
   ],
   "verdict": "PASS"

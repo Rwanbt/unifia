@@ -95,6 +95,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/artifact-studio": {
+      "name": "@unifia/artifact-studio",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/document-packs": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/browser-runtime": {
       "name": "@unifia/browser-runtime",
       "version": "0.1.0",
@@ -2564,6 +2577,8 @@
     "@unifia/app": ["@unifia/app@workspace:packages/app"],
 
     "@unifia/artifact-runtime": ["@unifia/artifact-runtime@workspace:packages/artifact-runtime"],
+
+    "@unifia/artifact-studio": ["@unifia/artifact-studio@workspace:packages/artifact-studio"],
 
     "@unifia/browser-runtime": ["@unifia/browser-runtime@workspace:packages/browser-runtime"],
 

@@ -1,83 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 import type { ArtifactInput } from "@unifia/artifact-runtime"
+import { createStoredZip } from "../zip.js"
 
-type ZipEntry = { name: string; content: string }
+export { createStoredZip, createStoredZipFromBytes, inspectStoredZip, readStoredZip, type ZipBinaryEntry, type ZipInspection } from "../zip.js"
 
-const crc32 = (bytes: Uint8Array): number => {
-  let value = 0xffffffff
-  for (const byte of bytes) {
-    value ^= byte
-    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0)
-  }
-  return (value ^ 0xffffffff) >>> 0
-}
-const u16 = (value: number): Uint8Array => Uint8Array.from([value & 255, (value >>> 8) & 255])
-const u32 = (value: number): Uint8Array => Uint8Array.from([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255])
-const join = (...parts: Uint8Array[]): Uint8Array => {
-  const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0))
-  let offset = 0
-  for (const part of parts) { result.set(part, offset); offset += part.length }
-  return result
-}
-
-export const createStoredZip = (entries: readonly ZipEntry[]): Uint8Array => {
-  const encoder = new TextEncoder()
-  const local: Uint8Array[] = []
-  const central: Uint8Array[] = []
-  let offset = 0
-  for (const entry of entries) {
-    if (!entry.name || entry.name.includes("..") || entry.name.startsWith("/")) throw new Error("unsafe OOXML entry name")
-    const name = encoder.encode(entry.name)
-    const content = encoder.encode(entry.content)
-    const crc = crc32(content)
-    const header = join(u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(content.length), u32(content.length), u16(name.length), u16(0), name, content)
-    local.push(header)
-    central.push(join(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(content.length), u32(content.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name))
-    offset += header.length
-  }
-  const localBytes = join(...local)
-  const centralBytes = join(...central)
-  const end = join(u32(0x06054b50), u16(0), u16(0), u16(entries.length), u16(entries.length), u32(centralBytes.length), u32(localBytes.length), u16(0))
-  return join(localBytes, centralBytes, end)
-}
-
-export type ZipInspection = { entries: string[]; totalUncompressedBytes: number }
-export const inspectStoredZip = (input: Uint8Array, limits: { maxEntries?: number; maxUncompressedBytes?: number } = {}): ZipInspection => {
-  const maxEntries = limits.maxEntries ?? 128
-  const maxUncompressedBytes = limits.maxUncompressedBytes ?? 32 * 1024 * 1024
-  const view = new DataView(input.buffer, input.byteOffset, input.byteLength)
-  let end = -1
-  for (let index = input.byteLength - 22; index >= Math.max(0, input.byteLength - 65557); index -= 1) if (view.getUint32(index, true) === 0x06054b50) { end = index; break }
-  if (end < 0) throw new Error("ZIP end record is missing")
-  const count = view.getUint16(end + 10, true)
-  const centralSize = view.getUint32(end + 12, true)
-  const centralOffset = view.getUint32(end + 16, true)
-  if (count > maxEntries || centralOffset + centralSize > input.byteLength) throw new Error("ZIP structure exceeds safety limits")
-  const decoder = new TextDecoder()
-  const entries: string[] = []
-  let cursor = centralOffset
-  let total = 0
-  for (let index = 0; index < count; index += 1) {
-    if (cursor + 46 > input.byteLength || view.getUint32(cursor, true) !== 0x02014b50) throw new Error("ZIP central directory is invalid")
-    const flags = view.getUint16(cursor + 8, true)
-    const method = view.getUint16(cursor + 10, true)
-    const compressed = view.getUint32(cursor + 20, true)
-    const uncompressed = view.getUint32(cursor + 24, true)
-    const nameLength = view.getUint16(cursor + 28, true)
-    const extraLength = view.getUint16(cursor + 30, true)
-    const commentLength = view.getUint16(cursor + 32, true)
-    const localOffset = view.getUint32(cursor + 42, true)
-    if (flags !== 0 || method !== 0 || localOffset + 30 > input.byteLength || compressed !== uncompressed || total + uncompressed > maxUncompressedBytes) throw new Error("ZIP entry violates safety limits")
-    const name = decoder.decode(input.slice(cursor + 46, cursor + 46 + nameLength))
-    if (!name || name.includes("..") || name.startsWith("/") || name.includes("\\")) throw new Error("ZIP entry path is unsafe")
-    if (view.getUint32(localOffset, true) !== 0x04034b50) throw new Error("ZIP local header is invalid")
-    entries.push(name)
-    total += uncompressed
-    cursor += 46 + nameLength + extraLength + commentLength
-  }
-  if (cursor !== centralOffset + centralSize) throw new Error("ZIP central directory length mismatch")
-  return { entries, totalUncompressedBytes: total }
-}
 const xml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;")
 const contentText = (input: string | Uint8Array): string => xml(typeof input === "string" ? input : new TextDecoder().decode(input).slice(0, 16384))
 

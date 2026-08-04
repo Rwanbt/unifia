@@ -23,6 +23,7 @@ import process from "node:process"
 /** Packages owned by Unifia. Inherited OpenCode packages are out of scope here. */
 const UNIFIA_PACKAGES = [
   "artifact-runtime",
+  "artifact-studio",
   "browser-runtime",
   "capability-runtime",
   "contracts",
@@ -44,6 +45,7 @@ const UNIFIA_PACKAGES = [
  */
 const TEST_ENTRYPOINTS = [
   "packages/artifact-runtime/test/artifact.test.ts",
+  "packages/artifact-studio/test/studio.test.ts",
   "packages/capability-runtime/test/ed25519.test.ts",
   "packages/contracts/test/approval-broker-smoke.ts",
   "packages/contracts/test/capability-registry.test.ts",
