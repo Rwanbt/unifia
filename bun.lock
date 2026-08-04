@@ -308,6 +308,16 @@
         "typescript": "catalog:",
       },
     },
+    "packages/mcp-transport": {
+      "name": "@unifia/mcp-transport",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/memory-runtime": {
       "name": "@unifia/memory-runtime",
       "version": "0.1.0",
@@ -2537,6 +2547,8 @@
     "@unifia/document-packs": ["@unifia/document-packs@workspace:packages/document-packs"],
 
     "@unifia/function": ["@unifia/function@workspace:packages/function"],
+
+    "@unifia/mcp-transport": ["@unifia/mcp-transport@workspace:packages/mcp-transport"],
 
     "@unifia/memory-runtime": ["@unifia/memory-runtime@workspace:packages/memory-runtime"],
 
