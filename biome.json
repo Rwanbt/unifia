@@ -35,6 +35,7 @@
 			"packages/spec-runtime/**/*.ts",
 			"packages/workbench-orchestrator/**/*.ts",
 			"packages/workbench-server/**/*.ts",
+			"packages/workflow-catalog/**/*.ts",
 			"packages/workflow-runtime/**/*.ts",
 			"packages/workspace-runtime/**/*.ts"
 		]
