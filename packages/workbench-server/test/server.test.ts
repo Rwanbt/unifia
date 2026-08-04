@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: MIT */
+import { createHash } from "node:crypto"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -8,6 +9,8 @@ import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
 import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
+const skillArtifact = (name: string) => new TextEncoder().encode(name)
+const skillDigest = (name: string) => createHash("sha256").update(skillArtifact(name)).digest("hex")
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
 try {
   await writeFile(path.join(root, "README.md"), "hello")
@@ -71,11 +74,11 @@ try {
   if (browserNavigate.status !== 202) throw new Error("browser navigate route failed")
   const browserScreenshot = await browserServer.fetch(new Request("http://localhost/v1/browser/screenshot", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id }) }))
   if (browserScreenshot.status !== 200) throw new Error("browser screenshot route failed")
-  const capabilities = new CapabilityRegistry()
+  const capabilities = new CapabilityRegistry({ verify: () => true })
   const capabilityServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, capabilities })
   const capabilityOpen = await capabilityServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const capabilityHandle = await capabilityOpen.json() as { id: string; token: string }
-  const manifest = { descriptor: { id: "prompt-pack/test", name: "Test", description: "test", version: "1.0.0", author: "Unifia", license: "MIT", schema: {}, tags: ["test"], trustLevel: "verified" }, digest: "sha256:test", sourceRepo: "local", sourceCommit: "abc", license: "MIT", remoteCode: false }
+  const manifest = { descriptor: { id: "prompt-pack/test", name: "Test", description: "test", version: "1.0.0", author: "Unifia", license: "MIT", schema: {}, tags: ["test"], trustLevel: "verified" }, digest: "sha256:test", sourceRepo: "local", sourceCommit: "abc", license: "MIT", remoteCode: false, signature: "valid" }
   const capabilityRegister = await capabilityServer.fetch(new Request("http://localhost/v1/capabilities/register", { method: "POST", headers: { authorization: `Bearer ${capabilityHandle.token}` }, body: JSON.stringify({ workspaceId: capabilityHandle.id, manifest }) }))
   if (capabilityRegister.status !== 201) throw new Error("capability register route failed")
   await capabilityServer.fetch(new Request("http://localhost/v1/capabilities/approve", { method: "POST", headers: { authorization: `Bearer ${capabilityHandle.token}` }, body: JSON.stringify({ workspaceId: capabilityHandle.id, digest: "sha256:test" }) }))
@@ -115,8 +118,8 @@ try {
   const controlled = await desktopServer.fetch(new Request("http://localhost/v1/desktop/control", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app", action: "mouse", payload: { x: 1, y: 1 } }) }))
   if (controlled.status !== 202) throw new Error("desktop control route failed")
   const seededRegistry = new InMemorySkillRegistry(() => 1_000)
-  await seededRegistry.publish({ manifest: { name: "demo-skill", version: "1.0.0", digest: "a".repeat(64), trust: "untrusted" as SkillTrust, tags: ["demo"], capabilities: ["workflow.run"] } })
-  await seededRegistry.publish({ manifest: { name: "audit-skill", version: "1.0.0", digest: "b".repeat(64), trust: "untrusted" as SkillTrust, tags: ["audit"], capabilities: ["workspace.read"] } })
+  await seededRegistry.publish({ manifest: { name: "demo-skill", version: "1.0.0", digest: skillDigest("demo-skill"), trust: "untrusted" as SkillTrust, tags: ["demo"], capabilities: ["workflow.run"] }, artifact: skillArtifact("demo-skill") })
+  await seededRegistry.publish({ manifest: { name: "audit-skill", version: "1.0.0", digest: skillDigest("audit-skill"), trust: "untrusted" as SkillTrust, tags: ["audit"], capabilities: ["workspace.read"] }, artifact: skillArtifact("audit-skill") })
   type CallLog = Record<"publish" | "search" | "install" | "update" | "rate" | "exec" | "load" | "run", number>
   const makeRecorder = (registry: SkillRegistry): { registry: SkillRegistry; log: CallLog; throwIfExec: () => void } => {
     const log = { publish: 0, search: 0, install: 0, update: 0, rate: 0, exec: 0, load: 0, run: 0 } as CallLog
@@ -161,10 +164,10 @@ try {
   if (searchBody.manifests.length !== 1 || searchBody.manifests[0].name !== "demo-skill") throw new Error("skill-hub search did not filter correctly")
   if ((seeded.log.search as number) !== 1) throw new Error("skill-hub search did not call registry.search once")
   seeded.throwIfExec()
-  const installResponse = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/install", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ workspaceId: skillHubHandle.id, digest: "a".repeat(64), allowlist: ["ui.click", "ui.inspect"], uiActions: ["approve"] }) }))
+  const installResponse = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/install", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ workspaceId: skillHubHandle.id, digest: skillDigest("demo-skill"), allowlist: ["ui.click", "ui.inspect"], uiActions: ["approve"] }) }))
   if (installResponse.status !== 201) throw new Error("skill-hub install route failed")
   const installBody = await installResponse.json() as { installed: InstalledSkill }
-  if (installBody.installed.manifest.digest !== "a".repeat(64)) throw new Error("skill-hub install did not return the installed manifest")
+  if (installBody.installed.manifest.digest !== skillDigest("demo-skill")) throw new Error("skill-hub install did not return the installed manifest")
   if ((seeded.log.install as number) !== 1) throw new Error("skill-hub install did not call registry.install once")
   if ((seeded.log.update as number) !== 0) throw new Error("skill-hub install must not trigger registry.update")
   if (((installBody.installed.manifest as unknown) as { allowlist?: unknown }).allowlist !== undefined) throw new Error("install manifest was mutated by payload allowlist")
