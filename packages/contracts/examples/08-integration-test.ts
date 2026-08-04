@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 08: Complete integration test
  *
@@ -164,7 +165,7 @@ async function main() {
   const runtime = new FakeRuntime()
   const cap = new FakeCapability()
   const artifact = new FakeArtifact()
-  const sandbox = new FakeSandbox()
+  const _sandbox = new FakeSandbox()
 
   // 1. Open workspace
   console.log("1. Open workspace")

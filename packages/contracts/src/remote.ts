@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * RemoteTransportPort — abstraction sur les transports distants (Slack, Feishu)
  *

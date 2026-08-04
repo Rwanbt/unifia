@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 07: Fake implementations for tests
  *
@@ -10,10 +11,6 @@
 import type {
   RuntimeAdapter,
   WorkspacePort,
-  CapabilityPort,
-  ArtifactPort,
-  SandboxPort,
-  RemoteTransportPort,
 } from "../src/index.js"
 
 // === FakeRuntimeAdapter ===
@@ -68,7 +65,7 @@ class FakeWorkspacePort implements WorkspacePort {
   async open(id: string) {
     return { id, token: "fake-token" }
   }
-  async read(session: string, paths: string[]) {
+  async read(_session: string, paths: string[]) {
     return paths.map((p) => ({
       path: p,
       content: this.files.get(p) || "",
@@ -76,17 +73,17 @@ class FakeWorkspacePort implements WorkspacePort {
       size: (this.files.get(p) || "").length,
     }))
   }
-  async write(session: string, writes: any[]) {
+  async write(_session: string, writes: any[]) {
     return writes.map((w) => {
       const content = typeof w.content === "string" ? w.content : new TextDecoder().decode(w.content)
       this.files.set(w.path, content)
       return { path: w.path, bytesWritten: content.length, sha: "fake-sha" }
     })
   }
-  async *watch(session: string) {
+  async *watch(_session: string) {
     // No events in fake
   }
-  async close(session: string) {}
+  async close(_session: string) {}
 }
 
 // === Demo ===

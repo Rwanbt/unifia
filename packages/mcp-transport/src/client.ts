@@ -54,7 +54,7 @@ export class JsonRpcClient {
   readonly #authorizer?: MethodAuthorizer
   readonly #caller: string
   #nextId = 1
-  #pump?: Promise<void>
+  #draining = false
   #closed = false
 
   constructor(transport: MessageTransport, options: JsonRpcClientOptions = {}) {
@@ -67,7 +67,9 @@ export class JsonRpcClient {
 
   /** Starts draining the transport. Idempotent. */
   start(): void {
-    this.#pump ??= this.#drain()
+    if (this.#draining) return
+    this.#draining = true
+    void this.#drain()
   }
 
   async call(method: string, params?: unknown, options: CallOptions = {}): Promise<unknown> {

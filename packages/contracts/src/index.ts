@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * @unifia/contracts — Unifia Workbench contracts
  *

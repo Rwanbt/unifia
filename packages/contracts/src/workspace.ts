@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * WorkspacePort — abstraction sur le storage des workspaces
  *

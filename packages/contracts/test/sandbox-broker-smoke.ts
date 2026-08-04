@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { strict as assert } from "node:assert"
-import { SandboxBroker, type SandboxDriver, type SandboxHandle } from "../src/sandbox.ts"
+import { SandboxBroker, assertSandboxDriverConformance, type SandboxDriver } from "../src/sandbox.ts"
 const calls: string[] = []
 const driver: SandboxDriver = {
   backend: "native",
@@ -20,7 +20,6 @@ await broker.terminate(handle)
 assert.deepEqual(calls, ["echo", "terminate"])
 console.log("SandboxBroker: 4/4 passed")
 
-import { assertSandboxDriverConformance, type SandboxDriver } from "../src/sandbox.ts"
 const conformanceDriver: SandboxDriver = { backend: "native", inspect: async () => [{ backend: "native", available: true, features: ["readonly"] }], prepare: async (policy) => ({ id: "conformance", backend: "native", createdAt: 1, policy }), execute: async () => ({ exitCode: 0, stdout: "", stderr: "", durationMs: 1 }), terminate: async () => {} }
 const conformance = await assertSandboxDriverConformance(conformanceDriver, () => 2)
 if (conformance.checks.length !== 4) throw new Error("sandbox conformance incomplete")

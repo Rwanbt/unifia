@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import assert from "node:assert/strict"
 import { AuditRuntimeDouble, KillSwitchDouble, QuotaDouble, SecretStoreDouble } from "../src/p3-runtime.ts"
 let passed = 0

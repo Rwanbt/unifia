@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 06: ArtifactPort — Document generation
  *
@@ -40,7 +41,7 @@ class MultiFormatArtifactStore implements ArtifactPort {
   }
 
   async version(input: { artifactId: string; content: any }): Promise<ArtifactVersion> {
-    const newVersion = await this.create({
+    const _newVersion = await this.create({
       type: "text",
       content: input.content,
       parentId: input.artifactId,

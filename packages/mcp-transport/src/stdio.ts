@@ -32,8 +32,6 @@ export type MessageTransport = {
  */
 export const MAX_MESSAGE_BYTES = 8 * 1024 * 1024
 
-const NEWLINE = 0x0a
-
 export class StdioTransport implements MessageTransport {
   readonly #source: AsyncIterable<Uint8Array>
   readonly #sink: ByteSink

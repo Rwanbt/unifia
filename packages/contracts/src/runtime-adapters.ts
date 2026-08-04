@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import type { RuntimeAdapter, RuntimeEvent, RuntimeInfo, SendPromptInput, Session, WorkspaceScope } from "./runtime.ts"
 
 type SessionState = { session: Session; events: RuntimeEvent[]; history: RuntimeEvent[]; nextSequence: number; waiters: Array<(result: IteratorResult<RuntimeEvent>) => void>; cancelled: boolean }

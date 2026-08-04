@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 02: WorkspacePort usage
  *
@@ -27,7 +28,7 @@ class MemoryWorkspace implements WorkspacePort {
     return { id, token: "memory-token" }
   }
 
-  async read(session: string, paths: string[]): Promise<FileReadResult[]> {
+  async read(_session: string, paths: string[]): Promise<FileReadResult[]> {
     return paths.map((path) => {
       const content = this.files.get(path) || new Uint8Array()
       return {

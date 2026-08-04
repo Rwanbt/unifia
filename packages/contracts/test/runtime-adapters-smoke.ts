@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import { strict as assert } from "node:assert"
 import { FakeRuntimeAdapter, OpenCodeRuntimeAdapter, UnifiaRuntimeAdapter, type OpenCodeRuntimeBackend } from "../src/runtime-adapters.ts"
 const test = async (name: string, run: () => Promise<void>) => { await run(); console.log(`PASS ${name}`) }

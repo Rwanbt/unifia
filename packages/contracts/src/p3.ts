@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /** P3 security foundation doubles. These are pure contract implementations used by conformance tests. */
 
 export const P3_CAPABILITIES = [

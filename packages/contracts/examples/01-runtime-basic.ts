@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 01: Basic RuntimeAdapter usage
  *

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 03: CapabilityPort pipeline
  *
@@ -73,7 +74,7 @@ class SimpleCapabilityRegistry implements CapabilityPort {
     this.audit.set(`${workspaceId}:${capabilityId}`, true)
   }
 
-  async cancel(executionId: string): Promise<void> {
+  async cancel(_executionId: string): Promise<void> {
     // Mark as cancelled in real impl
   }
 }

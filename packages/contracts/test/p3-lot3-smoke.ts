@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import assert from "node:assert/strict"
 import { P3_CAPABILITIES, P3_CAPABILITY_EFFECTS, PolicyEngineDouble, TaintTrackerDouble } from "../src/p3.ts"
 const engine = new PolicyEngineDouble()
@@ -5,7 +6,16 @@ let passed = 0
 function test(name: string, run: () => void) { run(); passed++; console.log(`PASS ${name}`) }
 function deny(value: { kind: string; ruleId: string }, ruleId: string) { assert.equal(value.kind, "deny"); assert.equal(value.ruleId, ruleId) }
 
-test("C1-capability-effect-table-complete", () => { assert.equal(P3_CAPABILITIES.length, 14); for (const capability of P3_CAPABILITIES) assert.ok(P3_CAPABILITY_EFFECTS[capability]) })
+// WHY derived instead of a hardcoded count: the assertion used to require
+// exactly 14 capabilities and went stale the moment workflow.run was added for
+// Phase 14, while the effect table was updated correctly. The invariant that
+// matters is that the two stay in bijection, not how many entries there are.
+test("C1-capability-effect-table-complete", () => {
+  for (const capability of P3_CAPABILITIES) assert.ok(P3_CAPABILITY_EFFECTS[capability], `capability without an effect entry: ${capability}`)
+  const declared = new Set<string>(P3_CAPABILITIES)
+  for (const capability of Object.keys(P3_CAPABILITY_EFFECTS)) assert.ok(declared.has(capability), `effect entry without a declared capability: ${capability}`)
+  assert.equal(Object.keys(P3_CAPABILITY_EFFECTS).length, P3_CAPABILITIES.length)
+})
 test("C2-taint-veto", () => { const tracker = new TaintTrackerDouble(); tracker.recordSecretRead(); assert.equal(tracker.isTainted(), true); deny(engine.evaluate({ capabilities: ["secret.read", "network.request"], tainted: tracker.isTainted() }), "C2-taint-veto") })
 test("C2-desktop-secret-deny", () => deny(engine.evaluate({ capabilities: ["desktop.control", "secret.read"] }), "C2-taint-veto"))
 test("C2-remote-terminal-deny", () => deny(engine.evaluate({ capabilities: ["remote.receive", "terminal.run"] }), "C2-remote-terminal"))

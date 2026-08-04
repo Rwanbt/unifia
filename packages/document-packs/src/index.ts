@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { ArtifactStore, type ArtifactInput, type ArtifactKind, type ArtifactVersion } from "@unifia/artifact-runtime"
+import type { ArtifactStore, ArtifactInput, ArtifactKind, ArtifactVersion } from "@unifia/artifact-runtime"
 import { pdfWorker } from "./workers/pdf.js"
 import { convertWorker, docxWorker, inspectWorker, pptxWorker, xlsxWorker } from "./workers/ooxml.js"
 

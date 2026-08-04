@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import assert from "node:assert/strict"
 import { SandboxPathDouble } from "../src/p3.ts"
 const root = "/workspace"

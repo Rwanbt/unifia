@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * SandboxPort — abstraction sur les backends d'isolation (Native, Docker, WSL, Lima)
  *

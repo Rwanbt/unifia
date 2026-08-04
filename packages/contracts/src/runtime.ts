@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * RuntimeAdapter — abstraction sur le runtime agentique
  * (OpenCode legacy ou Unifia)

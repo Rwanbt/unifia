@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import assert from "node:assert/strict"
 import { ApprovalBrokerDouble, CapabilityLifecycleDouble, ProvenanceGateDouble, RemoteTransportDouble, validateApprovalConfig } from "../src/p3.ts"
 

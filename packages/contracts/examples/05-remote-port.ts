@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 05: RemoteTransportPort — Slack/Feishu integration
  *
@@ -20,9 +21,8 @@ import type {
 // === Step 1: Define a Mock Slack/Feishu implementation ===
 class MockRemoteTransport implements RemoteTransportPort {
   private identity: Map<string, RemoteIdentity> = new Map()
-  private eventBuffer: RemoteEvent[] = []
 
-  async send(channelId: string, message: RemoteMessage): Promise<void> {
+  async send(_channelId: string, _message: RemoteMessage): Promise<void> {
     // providerId is inferred from the transport, not stored on the message
   }
 

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * Example 04: SandboxPort — Multi-backend isolation
  *
@@ -62,7 +63,7 @@ class MultiBackendSandbox implements SandboxPort {
 // === Step 2: Define backends ===
 const sandbox = new MultiBackendSandbox()
 
-sandbox.registerBackend("native", async (handle, request) => {
+sandbox.registerBackend("native", async (_handle, request) => {
   console.log(`[native] Executing: ${request.command} ${request.args.join(" ")}`)
   return {
     exitCode: 0,
@@ -72,7 +73,7 @@ sandbox.registerBackend("native", async (handle, request) => {
   }
 })
 
-sandbox.registerBackend("docker", async (handle, request) => {
+sandbox.registerBackend("docker", async (_handle, request) => {
   console.log(`[docker] Container: ${request.command} ${request.args.join(" ")}`)
   return {
     exitCode: 0,
@@ -82,7 +83,7 @@ sandbox.registerBackend("docker", async (handle, request) => {
   }
 })
 
-sandbox.registerBackend("wsl2", async (handle, request) => {
+sandbox.registerBackend("wsl2", async (_handle, request) => {
   console.log(`[wsl2] WSL: ${request.command}`)
   return {
     exitCode: 0,

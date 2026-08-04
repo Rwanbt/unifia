@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * CapabilityPort — abstraction sur les capabilities (skills, plugins, MCP)
  *

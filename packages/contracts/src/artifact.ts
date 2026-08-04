@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /**
  * ArtifactPort — abstraction sur les artefacts (documents, fichiers générés)
  *

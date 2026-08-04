@@ -48,7 +48,7 @@ export class ArtifactStore {
     const sha256 = hash(content)
     const artifactId = `artifact-${sha256.slice(0, 24)}`
     const relativePath = path.posix.join(".unifia", "artifacts", artifactId, filename)
-    const target = path.join(this.#root, ".unifia", "artifacts", artifactId, filename)
+    const target = path.join(this.#artifactsRoot, artifactId, filename)
     await fs.mkdir(path.dirname(target), { recursive: true })
     try { await fs.access(target); throw new Error("artifact version already exists") } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error

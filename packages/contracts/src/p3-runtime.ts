@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /** C8/C9 runtime services. State is instance-owned and exposed only through copies. */
 
 export type RuntimeDecision = "allow" | "deny" | "approval_required"
