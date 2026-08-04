@@ -87,11 +87,22 @@ try {
   const capabilitySearch = await capabilityServer.fetch(new Request(`http://localhost/v1/capabilities/search?workspaceId=${capabilityHandle.id}&enabledOnly=true`, { headers: { authorization: `Bearer ${capabilityHandle.token}` } }))
   if (capabilitySearch.status !== 200) throw new Error("capability search route failed")
   const ui = new McpUiControlBroker({ inspect: async (componentId) => ({ componentId }), execute: async () => ({}) }, ["panel-main"], { request: () => ({ id: "ui-approval-1" }) })
-  const uiServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, ui })
+  const uiServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, ui, uiAllowedActions: new Set(["ui.inspect"]) })
   const uiOpen = await uiServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const uiHandle = await uiOpen.json() as { id: string; token: string }
   const uiAction = await uiServer.fetch(new Request("http://localhost/v1/ui/actions", { method: "POST", headers: { authorization: `Bearer ${uiHandle.token}` }, body: JSON.stringify({ workspaceId: uiHandle.id, action: { id: "inspect-main", componentId: "panel-main", kind: "inspect" } }) }))
   if (uiAction.status !== 200) throw new Error("MCP UI route failed")
+  const renderedUi = await uiServer.fetch(new Request("http://localhost/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${uiHandle.token}` }, body: JSON.stringify({ workspaceId: uiHandle.id, node: { type: "button", id: "run", props: { label: "Run", actionId: "ui.inspect", onclick: "evil()" } } }) }))
+  if (renderedUi.status !== 200) throw new Error("Generative UI render route failed")
+  const renderedBody = await renderedUi.json() as { rendered: { props: Record<string, string> } }
+  if (renderedBody.rendered.props.onclick !== undefined || renderedBody.rendered.props.actionId !== "ui.inspect") throw new Error("Generative UI renderer did not filter props")
+  const blockedUi = await uiServer.fetch(new Request("http://localhost/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${uiHandle.token}` }, body: JSON.stringify({ workspaceId: uiHandle.id, node: { type: "button", id: "blocked", props: { actionId: "ui.shutdown" } } }) }))
+  if (blockedUi.status !== 400) throw new Error("Generative UI renderer accepted an unallowlisted action")
+  const missingUi = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
+  const missingUiOpen = await missingUi.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const missingUiHandle = await missingUiOpen.json() as { id: string; token: string }
+  const unavailableUi = await missingUi.fetch(new Request("http://localhost/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${missingUiHandle.token}` }, body: JSON.stringify({ workspaceId: missingUiHandle.id, node: { type: "text", id: "x", props: { value: "x" } } }) }))
+  if (unavailableUi.status !== 503) throw new Error("Generative UI route did not fail closed when unavailable")
   const memory = new MemoryRuntime(new InMemoryMemoryStore())
   const memoryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
   const memoryOpen = await memoryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))

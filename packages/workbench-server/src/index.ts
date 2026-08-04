@@ -3,6 +3,7 @@ import { ApprovalBroker, CapabilityRegistry, type BrowserAutomationBroker, type 
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
 import type { SkillRegistry } from "@unifia/skill-hub"
+import { renderGenerativeUi, type UiNode } from "@unifia/contracts"
 import type {
   FileReadResult,
   FileWrite,
@@ -16,7 +17,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; skillHub?: SkillRegistry }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -42,6 +43,7 @@ export class WorkbenchServer {
   readonly #memory?: MemoryRuntime
   readonly #capabilities?: CapabilityRegistry
   readonly #ui?: McpUiControlBroker
+  readonly #uiAllowedActions?: ReadonlySet<string>
   readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
@@ -58,6 +60,7 @@ export class WorkbenchServer {
     this.#memory = dependencies.memory
     this.#capabilities = dependencies.capabilities
     this.#ui = dependencies.ui
+    this.#uiAllowedActions = dependencies.uiAllowedActions
     this.#skillHub = dependencies.skillHub
   }
 
@@ -80,6 +83,7 @@ export class WorkbenchServer {
       if (segments[1] === "memory" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) return this.#memoryAction(request, segments[2])
       if (segments[1] === "capabilities" && (request.method === "GET" || request.method === "POST")) return this.#capabilityAction(request, segments[2])
       if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request)
+      if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
@@ -265,6 +269,21 @@ export class WorkbenchServer {
     const result = await this.#ui.execute(input.action as UiAction)
     this.#allow("ui.action")
     return json(result.status === "denied" ? 403 : result.status === "pending-approval" ? 202 : 200, { result })
+  }
+
+  async #renderUi(request: Request): Promise<Response> {
+    if (!this.#uiAllowedActions) return this.#deny("ui.render.unavailable", 503)
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string" || !input.node || typeof input.node !== "object" || Array.isArray(input.node)) return this.#deny("ui.render", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("ui.render.scope", 403)
+    try {
+      const rendered = renderGenerativeUi(input.node as UiNode, this.#uiAllowedActions)
+      this.#allow("ui.render")
+      return json(200, { rendered })
+    } catch {
+      return this.#deny("ui.render", 400)
+    }
   }
 
   async #skillHubAction(request: Request, action: string): Promise<Response> {
