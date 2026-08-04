@@ -217,13 +217,33 @@ With this, **Gate A's two outstanding items are closed locally**: a real
 headless server (`5590c9d`) and adapters passing a conformance suite
 (`541238e`).
 
+## Re-evaluation 2026-08-04 (sixth pass — artefact version lineage)
+
+Decision: **still NO-GO**, on one product surface plus the external gates.
+
+`47b1b84` (`ArtifactStore` 27/27) gives artefacts a real lineage. The id was
+derived from the content hash with `version` hardcoded to 1, so the type called
+ArtifactVersion versioned nothing — and the same derivation made two logically
+distinct artefacts with identical bytes collide, the second being refused. An
+id now names a lineage independent of content; each revision carries its own
+manifest and history is derived from what is on disk, so no global index can
+drift from the versions it describes.
+
+Export to a workspace outbox lands with a metadata policy defaulting to
+`strip`: an export leaves the trust boundary, so disclosure is opt-in. The
+limit is written into the code rather than implied — the policy governs the
+Unifia metadata record only, not format-level metadata inside the bytes.
+
+Still missing from Phase 12: semantic diff for DOCX/PPTX/XLSX, sandboxed
+preview, and format-level metadata stripping (EXIF, OOXML docProps, PDF Info).
+
 ### Remaining NO-GO reasons
 
 - Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
-- Phase 12 Artifact Studio core: artefacts remain content-addressed with no
-  version lineage, no semantic diff, no sandboxed preview, no metadata stripping.
-- No real DOM consumer for the Generative UI renderer — now unblocked, since a
-  server exists to serve it.
+- Phase 12 remainder: semantic diff, sandboxed preview, format-level metadata
+  stripping.
+- Phase 12 Artifact Studio core: see the sixth pass — lineage and export landed,
+  semantic diff / sandboxed preview / format-level metadata stripping remain.
 - No external MCP provider connected (deliberate), and no real OpenCode backend
   behind the conformance suite.
 - External audit, pentest, 90-minute demo and signed release: `BLOQUÉ EXTERNE`.
