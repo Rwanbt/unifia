@@ -32,6 +32,7 @@
 			"packages/mcp-transport/**/*.ts",
 			"packages/memory-governance/**/*.ts",
 			"packages/memory-runtime/**/*.ts",
+			"packages/release-hardening/**/*.ts",
 			"packages/runtime-conformance/**/*.ts",
 			"packages/sandbox-drivers/**/*.ts",
 			"packages/skill-hub/**/*.ts",

@@ -569,6 +569,25 @@
         "@opentui/solid",
       ],
     },
+    "packages/release-hardening": {
+      "name": "@unifia/release-hardening",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/artifact-runtime": "workspace:*",
+        "@unifia/artifact-studio": "workspace:*",
+        "@unifia/contracts": "workspace:*",
+        "@unifia/document-packs": "workspace:*",
+        "@unifia/skill-hub": "workspace:*",
+        "@unifia/workbench-orchestrator": "workspace:*",
+        "@unifia/workspace-runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/runtime-conformance": {
       "name": "@unifia/runtime-conformance",
       "version": "0.1.0",
@@ -2684,6 +2703,8 @@
     "@unifia/memory-runtime": ["@unifia/memory-runtime@workspace:packages/memory-runtime"],
 
     "@unifia/mobile": ["@unifia/mobile@workspace:packages/mobile"],
+
+    "@unifia/release-hardening": ["@unifia/release-hardening@workspace:packages/release-hardening"],
 
     "@unifia/runtime-conformance": ["@unifia/runtime-conformance@workspace:packages/runtime-conformance"],
 
