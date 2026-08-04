@@ -26,7 +26,7 @@ le handoff Hermes et une lecture directe du code de `D:\App\OpenCode\unifia-exec
 | 2 | Contrats Unifia et adaptateurs | `PASS local` | `@unifia/contracts` : 6 ports, suites vitest 32/32 + smokes. Typecheck monorepo 21/21. Négociation de version et compat N−1 : `NON FAIT`. |
 | 3 | Security foundation, capabilities, ApprovalBroker | `PASS local` | `PolicyEngineDouble`, `ApprovalBroker` 5/5, `CapabilityRegistry` 6/6, `SecretStore`/`KillSwitchRegistry`. Bijection capability↔effet désormais vérifiée (corrigée ce jour : l'assertion était figée à 14 et périmée). |
 | 4 | WorkspaceRuntime, stockage, migrations | `PASS local` | `WorkspaceRuntime` 12/12, `DurableQueue` 4/4, `WorkspaceStorage` 12/12 dont **8 checks de conformance migration ajoutés ce jour**. Défaut de perte de données corrigé (`7ff7dd1`). |
-| 5 | Extraction OpenWork (serveur, orchestrateur) | `PARTIEL` | `WorkbenchServer` 71/71, 17 routes, scope workspace, audit, default-deny. **Aucun bootstrap de production** : le serveur n'a aucun consommateur hors son propre test (vérifié par recherche `new WorkbenchServer` dans tout le dépôt). Orchestrateur et MultiWorkspaceRouter : `NON FAIT`. |
+| 5 | Extraction OpenWork (serveur, orchestrateur) | `PASS local` (serveur) / `PARTIEL` | `WorkbenchServer` 72/72 + **`WorkbenchBootstrap` 39/39 sur HTTP réel** (`5590c9d`) : le serveur est désormais un processus, avec écoute loopback, audit JSONL durable et arrêt propre. Le critère « le serveur fonctionne headless » est atteint localement. Orchestrateur et MultiWorkspaceRouter : `NON FAIT`. |
 | 6 | Documents et artefacts bureautiques | `PASS local` | `DocumentPackRegistry` 6/6, six packs, workers réseau `off`, golden hashes, `inspectStoredZip` anti zip-slip/bombe. |
 | **Gate A** | Workbench headless stable | `NON PROUVÉ` | Critères techniques largement couverts localement, mais §19 exige des adapters conformes à une suite de conformance qui n'existe pas, et aucune exécution headless réelle n'est démontrée. |
 | 7 | Shell Unifia Code/Work | `NON PROUVÉ` | Rebrand fait ; l'expérience Work V1 (§20) n'est pas démontrée. |
@@ -48,8 +48,8 @@ le handoff Hermes et une lecture directe du code de `D:\App\OpenCode\unifia-exec
 
 Ces points sont volontairement listés parce qu'une suite verte ne les couvre pas :
 
-1. **Aucun processus n'expose le WorkbenchServer.** Il est instancié uniquement par son test. Toutes les routes sont des preuves de bibliothèque, pas de service.
-2. **Aucun consommateur DOM du Generative UI.** `renderGenerativeUi` retourne un arbre validé ; rien ne le rend, donc l'allowlist n'a jamais été confrontée à un navigateur.
+1. ~~Aucun processus n'expose le WorkbenchServer.~~ **Clos le 2026-08-04** par `5590c9d`. Le passage aux preuves HTTP réelles a immédiatement révélé trois défauts de production qu'aucun test en mémoire ne pouvait voir : chemin d'erreur mort sur les 17 routes (`return` sans `await` dans `fetch`), contenu de fichier sérialisé en `{"type":"Buffer",...}`, et flux SSE tué par l'idle timeout faute d'octet initial.
+2. **Aucun consommateur DOM du Generative UI.** `renderGenerativeUi` retourne un arbre validé ; rien ne le rend, donc l'allowlist n'a jamais été confrontée à un navigateur. Désormais débloqué : un serveur existe pour le servir.
 3. **Aucun fournisseur MCP externe branché.** Le transport est prouvé contre une paire loopback et des flux injectés, pas contre un serveur MCP réel.
 4. **Aucune preuve externe** : pas d'audit tiers, pas de pentest, pas de démo 90 minutes, pas de release signée.
 

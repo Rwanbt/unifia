@@ -89,3 +89,44 @@ external E2E are blocked behind it.
 - External audit, pentest, 90-minute demo and signed release: `BLOQUÉ EXTERNE`.
 
 Full phase-by-phase evidence: `PHASE-STATUS-2026-08-04.md`.
+
+## Re-evaluation 2026-08-04 (third pass — headless bootstrap)
+
+Decision: **still NO-GO**, but the blocker raised in the second pass is closed.
+
+`packages/workbench-server/src/bootstrap.ts` (`5590c9d`) makes the server a
+process: environment configuration, HTTP listener, durable JSONL audit and
+clean shutdown. It refuses to start without a >=32 byte signing key and refuses
+any non-loopback host — there is no default key and no fallback to
+`UnauthenticatedPrincipal`. `WorkbenchBootstrap` 39/39 drives it over real HTTP
+and parses the SSE wire format instead of searching it.
+
+**Phase 5 "le serveur fonctionne headless" is now `PASS local`.**
+
+### Three production defects that only real HTTP revealed
+
+1. **The error path was dead for all 17 routes.** `fetch()` returned each
+   handler promise without awaiting it, so the surrounding `try/catch` settled
+   before the handler did. A rejecting handler escaped as an unhandled
+   rejection instead of becoming an audited 400.
+2. **`files/read` returned undecodable content.** `Uint8Array` serialised to
+   `{"type":"Buffer","data":[104,...]}`, roughly six times the size and
+   unusable by a client. Content now carries an explicit `encoding` field.
+3. **SSE subscriptions died after 10 seconds.** The stream emitted nothing
+   until its first event, so the connection sat idle and hit the server idle
+   timeout. It now flushes an opening comment frame and the listener disables
+   the idle timeout.
+
+All three were invisible to in-memory tests: none of them serialise a response,
+open a socket, or let a handler reject.
+
+### Remaining NO-GO reasons
+
+- Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
+- Phase 12 Artifact Studio core: artefacts remain content-addressed with no
+  version lineage, no semantic diff, no sandboxed preview, no metadata stripping.
+- No real DOM consumer for the Generative UI renderer — now unblocked, since a
+  server exists to serve it.
+- Conformance suite of the plan §13 (10 scenarios across 3 runtimes): absent.
+- No external MCP provider connected (deliberate).
+- External audit, pentest, 90-minute demo and signed release: `BLOQUÉ EXTERNE`.
