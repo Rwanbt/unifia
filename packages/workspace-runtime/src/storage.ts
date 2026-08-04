@@ -16,6 +16,7 @@ type WorkspaceStateV0 = {
 }
 
 export type WorkspaceState = WorkspaceStateV0 & { schemaVersion: 1 }
+type StateScan = { candidates: Array<{ path: string; state: WorkspaceState }>; failures: string[] }
 export type WorkspaceHealth = {
   healthy: boolean
   rootReadable: boolean
@@ -70,9 +71,15 @@ export class WorkspaceStorage {
   }
 
   async load(workspaceId: string): Promise<WorkspaceState> {
-    const candidates = await this.#readCandidates()
+    const { candidates, failures } = await this.#readCandidates()
     const matching = candidates.filter((candidate) => candidate.state.workspaceId === workspaceId)
-    if (matching.length === 0) return { schemaVersion: 1, workspaceId, generation: 0, updatedAt: this.#now(), metadata: {} }
+    if (matching.length === 0) {
+      // WHY it throws instead of returning a fresh state: state exists on disk
+      // but cannot be read. Returning an empty state here would make the next
+      // save() destroy it. Refusing is recoverable; overwriting is not.
+      if (failures.length > 0) throw new Error(`workspace state is present but unreadable: ${failures.join("; ")}`)
+      return { schemaVersion: 1, workspaceId, generation: 0, updatedAt: this.#now(), metadata: {} }
+    }
     const selected = matching.sort((left, right) => right.state.generation - left.state.generation)[0]
     if (selected.path !== this.#statePath) await this.#commit(selected.state)
     return selected.state
@@ -97,7 +104,8 @@ export class WorkspaceStorage {
     let recovered = false
     let generation = 0
     try {
-      const candidates = await this.#readCandidates()
+      const { candidates, failures } = await this.#readCandidates()
+      problems.push(...failures)
       const matching = candidates.filter((candidate) => candidate.state.workspaceId === workspaceId)
       if (matching.length > 0) {
         const selected = matching.sort((left, right) => right.state.generation - left.state.generation)[0]
@@ -113,16 +121,23 @@ export class WorkspaceStorage {
     return { healthy: rootReadable && stateValid && problems.length === 0, rootReadable, stateValid, recovered, generation, problems }
   }
 
-  async #readCandidates(): Promise<Array<{ path: string; state: WorkspaceState }>> {
+  async #readCandidates(): Promise<StateScan> {
     const candidates: Array<{ path: string; state: WorkspaceState }> = []
+    const failures: string[] = []
     for (const candidatePath of [this.#statePath, this.#temporaryPath, this.#backupPath]) {
       try {
         candidates.push({ path: candidatePath, state: parseState(await fs.readFile(candidatePath, "utf8")) })
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") continue
+        // WHY the two branches differ: an absent candidate is normal (a fresh
+        // workspace has no backup), but an unreadable one — corrupt JSON, or a
+        // state written by a newer schema — is evidence that real state exists.
+        // Treating both as "nothing here" made load() return an empty state and
+        // the next save() overwrite the user's data.
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue
+        failures.push(`${path.basename(candidatePath)}: ${error instanceof Error ? error.message : "unreadable"}`)
       }
     }
-    return candidates
+    return { candidates, failures }
   }
 
   async #commit(state: WorkspaceState): Promise<void> {
