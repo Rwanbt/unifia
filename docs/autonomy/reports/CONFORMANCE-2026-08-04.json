@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T01:52:55.547Z",
+  "generatedAt": "2026-08-04T01:56:00.841Z",
   "scope": "local reproducible checks only; excludes external audit, pentest and signed release",
   "excludedTests": {
     "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate"
