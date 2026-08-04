@@ -38,3 +38,54 @@ Intégrer `@unifia/skill-hub` et `renderGenerativeUi` au bootstrap Workbench ave
 - Checkpoints: `f11094a`, `b986905`, `a94601e`; bundles preserved locally.
 - Decision remains NO-GO: no real DOM consumer/E2 external, no MCP transports/OAuth/rate-limit proof, OpenDesign/Artifact Studio and release/security gates not complete.
 - Next card unique: close the external and product-surface gates; do not claim production readiness from local package tests.
+
+## Re-evaluation 2026-08-04 (second pass)
+
+Decision: **still NO-GO**. Four of the previously listed gaps are now closed
+with local proof, and one new blocker was found that is more fundamental than
+any of them.
+
+### Closed since the previous entry
+
+| Gap | Evidence | Commit |
+|---|---|---|
+| MCP transports (JSON-RPC / STDIO) | `@unifia/mcp-transport` 32/32: strict codec, newline framing with a bounded frame, correlation, deadlines, AbortSignal cancellation, per-method authorisation, rate limiting | `907a4c0` |
+| Auth and rate limiting on the server | Principal authentication is a required constructor dependency; HS256 verification with pinned alg and iss/aud/exp/nbf; fixed-window limiter always installed; 429 and 401 audited | `3bfbf66` |
+| Migrations no-breaking | 8 migration conformance checks; a newer-schema state file is now preserved and refused instead of silently discarded and overwritten | `7ff7dd1` |
+| Reproducible conformance / supply chain | `scripts/unifia-conformance.mjs` + CI workflow, 8/8: forbidden paths, excluded imports, SPDX, licences, dependency pinning, lint, typecheck, 25 suites | `8f1b860` |
+
+### Defects found and fixed during this pass
+
+1. **SSE framing was unusable** (`eff4a51`) — frames carried literal `\n`
+   characters, so no SSE client could parse the event stream. The existing test
+   substring-matched the payload and never saw it.
+2. **Silent workspace data loss** (`7ff7dd1`) — every state read error was
+   swallowed identically, so a corrupt or newer-schema file produced a fresh
+   empty state that the next save overwrote.
+3. **Unifia code was outside every quality gate** (`8f1b860`) — `biome.json`
+   listed only inherited OpenCode packages; 25 lint violations and 25 files
+   without an SPDX header had accumulated unseen.
+4. **A stale security invariant** (`8f1b860`) — the capability/effect
+   completeness check asserted a hardcoded count of 14 and had been failing
+   since `workflow.run` was added; it ran in no gate, so nobody saw it.
+
+### New blocker, higher priority than the previously listed residuals
+
+**No process exposes the WorkbenchServer.** Searching `new WorkbenchServer`
+across the repository returns only its own test file. Every route proof is a
+library proof: an in-memory `server.fetch(new Request(...))` with no socket, no
+listener and no lifecycle. "Serveur headless" — a Phase 5 exit criterion and a
+Gate A condition — is therefore `NON PROUVÉ`, and both the DOM consumer and the
+external E2E are blocked behind it.
+
+### Remaining NO-GO reasons
+
+- No headless bootstrap (above) — addressed by `NEXT-CARD-2026-08-04.md`.
+- Phase 11 OpenDesign: nothing beyond `docs/adr/0017-opendesign-integration.md`.
+- Phase 12 Artifact Studio core: artefacts are content-addressed with no version
+  lineage, no semantic diff, no sandboxed preview, no metadata stripping.
+- No real DOM consumer for the Generative UI renderer.
+- No external MCP provider connected (deliberate: requires provenance review).
+- External audit, pentest, 90-minute demo and signed release: `BLOQUÉ EXTERNE`.
+
+Full phase-by-phase evidence: `PHASE-STATUS-2026-08-04.md`.
