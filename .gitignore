@@ -115,3 +115,6 @@ _bench/
 
 # Transient bundles produced by the generative-ui-dom browser e2e runner
 .e2e-build/
+
+# Local output of scripts/unifia-conformance.mjs --json
+unifia-conformance.json
