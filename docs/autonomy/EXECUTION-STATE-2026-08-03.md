@@ -430,3 +430,12 @@
 - Décision provisoire : NO-GO, car Gate A/B, audit externe, transports/auth/rate limiting MCP UI, OpenDesign/Artifact Studio complets et migration/demo ne sont pas prouvés.
 - Le Skill Hub local et le renderer Generative UI sont PASS local mais pas encore exposés au Workbench.
 - Prochaine carte unique : intégrer ces deux surfaces au bootstrap Workbench avec tests HTTP de scope et allowlist.
+
+## Checkpoint Skill Hub Workbench + multi-IA — 2026-08-04
+
+- Carte MiniMax transmise via MiniMax Code ; l’agent a vérifié la branche et les baselines puis implémenté les routes `/v1/skill-hub/search`, `/install`, `/update` avec `SkillRegistry` injecté.
+- Revue locale indépendante : deux défauts trouvés puis corrigés — scope avant registre absent, assertions d’audit refusé/autorisé, méthodes HTTP search GET et mutations POST.
+- Preuves : `WorkbenchServer: 49/49 passed`, typecheck monorepo `20/20`, Skill Hub `5/5`, Generative UI `3/3`, `git diff --check` propre.
+- Commit : `bc94400`; bundle : `D:\App\OpenCode\unifia-execution-clean-workbench-skill-hub-2026-08-04.bundle`.
+- Carte Claude transmise pour revue sécurité indépendante ; résultat encore à récupérer.
+- Reste : intégrer le renderer Generative UI au Workbench, récupérer/archiver le verdict Claude, puis gates et release hardening.
