@@ -3275,68 +3275,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opencode-desktop"
-version = "0.0.0"
-dependencies = [
- "base64 0.21.7",
- "bincode",
- "chrono",
- "comrak",
- "dirs",
- "futures",
- "gtk",
- "hound",
- "keyring",
- "listeners",
- "ndarray",
- "objc2 0.6.3",
- "objc2-web-kit",
- "opencode-kokoro-shared",
- "ort",
- "process-wrap",
- "rcgen",
- "reqwest 0.12.24",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build 2.5.2",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-decorum",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-http",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "tauri-plugin-window-state",
- "tauri-specta",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "url",
- "uuid",
- "webkit2gtk",
- "windows-core 0.62.2",
- "windows-sys 0.61.2",
- "zip 2.4.2",
-]
-
-[[package]]
-name = "opencode-kokoro-shared"
-version = "0.0.0"
-
-[[package]]
 name = "openssl"
 version = "0.10.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6432,6 +6370,68 @@ name = "unicode_categories"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
+
+[[package]]
+name = "unifia-desktop"
+version = "0.0.0"
+dependencies = [
+ "base64 0.21.7",
+ "bincode",
+ "chrono",
+ "comrak",
+ "dirs",
+ "futures",
+ "gtk",
+ "hound",
+ "keyring",
+ "listeners",
+ "ndarray",
+ "objc2 0.6.3",
+ "objc2-web-kit",
+ "ort",
+ "process-wrap",
+ "rcgen",
+ "reqwest 0.12.24",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build 2.5.2",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-decorum",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-http",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "tauri-plugin-window-state",
+ "tauri-specta",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "unifia-kokoro-shared",
+ "url",
+ "uuid",
+ "webkit2gtk",
+ "windows-core 0.62.2",
+ "windows-sys 0.61.2",
+ "zip 2.4.2",
+]
+
+[[package]]
+name = "unifia-kokoro-shared"
+version = "0.0.0"
 
 [[package]]
 name = "untrusted"

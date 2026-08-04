@@ -389,16 +389,22 @@ pub fn run() {
 
     // FIX: Kill orphaned sidecar from a previous session on all desktop platforms.
     // macOS: killall by name. Windows: taskkill by image name.
+    //
+    // WHY the name matters: killing by image name hits every process with that
+    // name on the machine, not just ours. While this fork's sidecar was still
+    // called `opencode-cli`, this dev build terminated the sidecar of the user's
+    // genuine OpenCode install too. The rebranded name keeps the blast radius
+    // inside this application.
     #[cfg(all(target_os = "macos", not(debug_assertions)))]
     let _ = std::process::Command::new("killall")
-        .arg("opencode-cli")
+        .arg("unifia-cli")
         .output();
 
     #[cfg(all(windows, not(debug_assertions)))]
     {
         use std::os::windows::process::CommandExt;
         let _ = std::process::Command::new("taskkill")
-            .args(["/F", "/IM", "opencode-cli.exe"])
+            .args(["/F", "/IM", "unifia-cli.exe"])
             .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .output();
     }
@@ -486,10 +492,14 @@ pub fn run() {
                 // call start_kill(). Use a synchronous OS-level kill as fallback.
                 kill_sidecar(app.clone());
 
+                // NOTE: llama-server is killed by image name and that name is
+                // shared with the user's genuine OpenCode install — unlike the
+                // sidecar, it cannot be disambiguated by renaming. Narrowing it
+                // to our own child PID is a separate change.
                 #[cfg(windows)]
                 {
                     use std::os::windows::process::CommandExt;
-                    for process in ["opencode-cli.exe", "llama-server.exe"] {
+                    for process in ["unifia-cli.exe", "llama-server.exe"] {
                         let _ = std::process::Command::new("taskkill")
                             .args(["/F", "/IM", process])
                             .creation_flags(0x08000000)
@@ -498,7 +508,7 @@ pub fn run() {
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    for process in ["opencode-cli", "llama-server"] {
+                    for process in ["unifia-cli", "llama-server"] {
                         let _ = std::process::Command::new("killall")
                             .arg(process)
                             .output();
@@ -599,7 +609,7 @@ struct LoadingWindowComplete;
 async fn initialize(app: AppHandle) {
     tracing::info!("Initializing app");
 
-    // Defensive cleanup: nuke any stray opencode-cli / llama-server processes
+    // Defensive cleanup: nuke any stray unifia-cli / llama-server processes
     // left by a previous app instance that didn't exit cleanly (Tauri
     // `RunEvent::Exit` can skip firing on abrupt close, crash, or
     // close-via-tray-menu with state preserved). Without this, the new
@@ -608,7 +618,7 @@ async fn initialize(app: AppHandle) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        for process in ["opencode-cli.exe", "llama-server.exe"] {
+        for process in ["unifia-cli.exe", "llama-server.exe"] {
             let _ = std::process::Command::new("taskkill")
                 .args(["/F", "/IM", process])
                 .creation_flags(0x08000000)
@@ -617,7 +627,7 @@ async fn initialize(app: AppHandle) {
     }
     #[cfg(target_os = "macos")]
     {
-        for process in ["opencode-cli", "llama-server"] {
+        for process in ["unifia-cli", "llama-server"] {
             let _ = std::process::Command::new("killall").arg(process).output();
         }
     }

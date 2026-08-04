@@ -4,7 +4,7 @@ import { dirname } from "node:path"
 import { getCurrentSidecar, windowsify } from "./utils"
 
 // WHY: get_sidecar_path (cli.rs) spawns the sidecar SIBLING to the running
-// binary (target/<profile>/opencode-cli). tauri-build's externalBin step
+// binary (target/<profile>/unifia-cli). tauri-build's externalBin step
 // restores a stale sidecar there during `tauri build`, so this runs AFTER the
 // build (see the "release" npm script) to put the fresh one back.
 // Uses Bun.write (not node:fs copyFileSync): on Bun 1.3.11/win32 the latter
@@ -16,7 +16,7 @@ const sidecarConfig = getCurrentSidecar(target)
 const candidates = [
   windowsify(`../opencode/dist/${sidecarConfig.ocBinary}/bin/opencode`),
   windowsify(`../opencode/dist/${sidecarConfig.ocBinary.replace("-baseline", "")}/bin/opencode`),
-  windowsify(`src-tauri/sidecars/opencode-cli-${target}`),
+  windowsify(`src-tauri/sidecars/unifia-cli-${target}`),
 ]
 
 let src = ""
@@ -37,12 +37,12 @@ const srcFile = Bun.file(src)
 
 // WHY: Tauri resolves bundle.externalBin before Cargo starts, so the source
 // sidecar must exist in src-tauri/sidecars before the official build command.
-const bundleDestination = windowsify(`src-tauri/sidecars/opencode-cli-${target}`)
+const bundleDestination = windowsify(`src-tauri/sidecars/unifia-cli-${target}`)
 mkdirSync(dirname(bundleDestination), { recursive: true })
 await Bun.write(bundleDestination, srcFile)
 console.log(`[copy-sidecar] bundle <- ${bundleDestination}`)
 for (const profile of ["debug", "release"]) {
-  const dest = windowsify(`src-tauri/target/${profile}/opencode-cli`)
+  const dest = windowsify(`src-tauri/target/${profile}/unifia-cli`)
   mkdirSync(dirname(dest), { recursive: true })
   try {
     await Bun.write(dest, srcFile)

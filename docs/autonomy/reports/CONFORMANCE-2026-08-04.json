@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T15:08:14.443Z",
+  "generatedAt": "2026-08-04T16:36:25.459Z",
   "scope": "local reproducible checks only; excludes external audit, pentest and signed release",
   "excludedTests": {
     "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate"
@@ -13,12 +13,12 @@
     {
       "name": "supply-chain/excluded-imports",
       "ok": true,
-      "detail": "87 owned source files import no excluded path"
+      "detail": "89 owned source files import no excluded path"
     },
     {
       "name": "supply-chain/spdx-headers",
       "ok": true,
-      "detail": "87 owned source files carry an SPDX header"
+      "detail": "89 owned source files carry an SPDX header"
     },
     {
       "name": "supply-chain/manifest-licenses",
@@ -43,7 +43,7 @@
     {
       "name": "quality/tests",
       "ok": true,
-      "detail": "32 suites passed (29 bun + 2 vitest, 1 browser), 1 excluded with a stated reason"
+      "detail": "31 suites passed (29 bun + 2 vitest, 1 browser suite(s) skipped, pass --with-browser to include), 1 excluded with a stated reason"
     }
   ],
   "verdict": "PASS"

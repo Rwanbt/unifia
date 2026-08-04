@@ -1,36 +1,25 @@
 import { $ } from "bun"
 
-export const SIDECAR_BINARIES: Array<{ rustTarget: string; ocBinary: string; assetExt: string }> = [
-  {
-    rustTarget: "aarch64-apple-darwin",
-    ocBinary: "unifia-darwin-arm64",
-    assetExt: "zip",
-  },
-  {
-    rustTarget: "x86_64-apple-darwin",
-    ocBinary: "unifia-darwin-x64-baseline",
-    assetExt: "zip",
-  },
-  {
-    rustTarget: "aarch64-pc-windows-msvc",
-    ocBinary: "unifia-windows-arm64",
-    assetExt: "zip",
-  },
-  {
-    rustTarget: "x86_64-pc-windows-msvc",
-    ocBinary: "unifia-windows-x64-baseline",
-    assetExt: "zip",
-  },
-  {
-    rustTarget: "x86_64-unknown-linux-gnu",
-    ocBinary: "unifia-linux-x64-baseline",
-    assetExt: "tar.gz",
-  },
-  {
-    rustTarget: "aarch64-unknown-linux-gnu",
-    ocBinary: "unifia-linux-arm64",
-    assetExt: "tar.gz",
-  },
+/**
+ * Name of the CLI package, read from its manifest rather than repeated here.
+ *
+ * WHY: the sidecar's dist directory is `<package name>-<os>-<arch>[-baseline]`,
+ * composed by packages/opencode/script/build.ts from the package name. This file
+ * used to hardcode the whole directory name, so the two drifted the moment the
+ * rebrand touched one and not the other: the build wrote `opencode-windows-x64`
+ * while this side looked for `unifia-windows-x64`, and every desktop build
+ * failed with "resource path sidecars\... doesn't exist". Deriving it keeps one
+ * authoritative source for the name.
+ */
+const cliPackageName: string = ((await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }).name
+
+export const SIDECAR_BINARIES: Array<{ rustTarget: string; platform: string; assetExt: string }> = [
+  { rustTarget: "aarch64-apple-darwin", platform: "darwin-arm64", assetExt: "zip" },
+  { rustTarget: "x86_64-apple-darwin", platform: "darwin-x64-baseline", assetExt: "zip" },
+  { rustTarget: "aarch64-pc-windows-msvc", platform: "windows-arm64", assetExt: "zip" },
+  { rustTarget: "x86_64-pc-windows-msvc", platform: "windows-x64-baseline", assetExt: "zip" },
+  { rustTarget: "x86_64-unknown-linux-gnu", platform: "linux-x64-baseline", assetExt: "tar.gz" },
+  { rustTarget: "aarch64-unknown-linux-gnu", platform: "linux-arm64", assetExt: "tar.gz" },
 ]
 
 export const RUST_TARGET = Bun.env.RUST_TARGET
@@ -41,7 +30,7 @@ export function getCurrentSidecar(target = RUST_TARGET) {
   const binaryConfig = SIDECAR_BINARIES.find((b) => b.rustTarget === target)
   if (!binaryConfig) throw new Error(`Sidecar configuration not available for Rust target '${RUST_TARGET}'`)
 
-  return binaryConfig
+  return { ...binaryConfig, ocBinary: `${cliPackageName}-${binaryConfig.platform}` }
 }
 
 // The official release matrix cross-compiles a "-baseline" CLI variant
@@ -59,7 +48,7 @@ export async function resolveSidecarBinaryPath(dir: string, ocBinary: string) {
 
 export async function copyBinaryToSidecarFolder(source: string, target = RUST_TARGET) {
   await $`mkdir -p src-tauri/sidecars`
-  const dest = windowsify(`src-tauri/sidecars/opencode-cli-${target}`)
+  const dest = windowsify(`src-tauri/sidecars/unifia-cli-${target}`)
   await $`cp ${source} ${dest}`
   if (process.platform === "win32" && process.env.GITHUB_ACTIONS === "true") {
     await $`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File ../../script/sign-windows.ps1 ${dest}`

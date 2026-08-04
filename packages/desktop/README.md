@@ -150,7 +150,7 @@ cd packages/opencode && bun run build --single
 # 2. Copy sidecar
 mkdir -p packages/desktop/src-tauri/sidecars
 cp packages/opencode/dist/opencode-windows-x64/bin/opencode.exe \
-   packages/desktop/src-tauri/sidecars/opencode-cli-x86_64-pc-windows-msvc.exe
+   packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe
 
 # 3. Build (requires MSVC on Windows for ONNX Runtime)
 bun run --cwd packages/desktop tauri build
