@@ -59,6 +59,8 @@ try {
   const events = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/events`, { headers: { authorization: `Bearer ${handle.token}` } }))
   if (events.status !== 200 || !events.body) throw new Error("scoped event stream failed")
   const reader = events.body.getReader()
+  const openingChunk = await Promise.race([reader.read(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("opening frame timeout")), 5_000))])
+  check(!openingChunk.done && new TextDecoder().decode(openingChunk.value) === ": unifia stream open\n\n", "the stream did not flush an opening comment frame")
   const pendingEvent = reader.read()
   const prompt = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/prompt`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ prompt: "hello" }) }))
   const eventChunk = await Promise.race([pendingEvent, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("event stream timeout")), 5_000))])
@@ -79,6 +81,7 @@ try {
   const resumed = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/events`, { headers: { authorization: `Bearer ${handle.token}`, "last-event-id": "1" } }))
   if (!resumed.body) throw new Error("resumed event stream missing body")
   const resumedReader = resumed.body.getReader()
+  await resumedReader.read() // opening comment frame
   const resumedChunk = await Promise.race([resumedReader.read(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("resumed event timeout")), 5_000))])
   await resumedReader.cancel()
   if (resumedChunk.done || !new TextDecoder().decode(resumedChunk.value).includes("reconnected")) throw new Error("SSE cursor did not resume from sequence")

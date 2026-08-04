@@ -5,6 +5,7 @@ import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runti
 import type { SkillRegistry } from "@unifia/skill-hub"
 import { renderGenerativeUi, type UiNode } from "@unifia/contracts"
 import type {
+  FileReadResult,
   FileWrite,
   P3Capability,
   RuntimeAdapter,
@@ -38,6 +39,21 @@ function json(status: number, body: JsonRecord): Response {
 export function sseFrame(event: { sequence?: number }): string {
   const id = typeof event.sequence === "number" ? `id: ${event.sequence}\n` : ""
   return `${id}data: ${JSON.stringify(event)}\n\n`
+}
+
+/**
+ * Encodes a file read result for the wire.
+ *
+ * WHY: FileReadResult.content is `string | Uint8Array`, and JSON.stringify turns
+ * a Uint8Array into `{"type":"Buffer","data":[104,101,...]}` — a Node-specific
+ * blob that no client can rely on and that inflates a text file about sixfold.
+ * The encoding is now stated explicitly so the caller can decode deterministically.
+ */
+export function encodeReadResult(result: FileReadResult): JsonRecord {
+  const { content, ...rest } = result
+  return typeof content === "string"
+    ? { ...rest, content, encoding: "utf-8" }
+    : { ...rest, content: Buffer.from(content).toString("base64"), encoding: "base64" }
 }
 
 async function body(request: Request): Promise<JsonRecord> {
@@ -87,8 +103,24 @@ export class WorkbenchServer {
     this.#skillHub = dependencies.skillHub
   }
 
+  /**
+   * WHY the router is awaited in a separate method: this method used to inline
+   * the if-chain and `return this.#handler(...)` without awaiting. In an async
+   * function a returned promise settles *outside* the try block, so the catch
+   * below never saw a handler rejection — the error path was dead for every
+   * route, and a failing handler escaped as an unhandled rejection instead of
+   * an audited 400. In-memory tests never rejected, so nothing revealed it.
+   */
   async fetch(request: Request): Promise<Response> {
     try {
+      return await this.#route(request)
+    } catch (error) {
+      this.#audit.record("workbench-server", "request.error", "deny")
+      return json(400, { error: error instanceof Error ? error.message : "request failed" })
+    }
+  }
+
+  async #route(request: Request): Promise<Response> {
       const url = new URL(request.url)
       const segments = url.pathname.split("/").filter(Boolean)
       if (segments[0] !== "v1") return this.#deny("route.unknown", 404)
@@ -112,10 +144,6 @@ export class WorkbenchServer {
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
       return this.#deny("route.unknown", 404)
-    } catch (error) {
-      this.#audit.record("workbench-server", "request.error", "deny")
-      return json(400, { error: error instanceof Error ? error.message : "request failed" })
-    }
   }
 
   async #register(request: Request, principal: Principal): Promise<Response> {
@@ -163,6 +191,13 @@ export class WorkbenchServer {
     const iterator = this.#runtime.subscribeEvents({ sessionId, afterSequence })[Symbol.asyncIterator]()
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        // WHY an immediate comment frame: without any byte on the wire the
+        // client can stall waiting for headers to flush, and an idle connection
+        // is a candidate for proxy and server idle timeouts before the first
+        // real event ever arrives. A comment line is ignored by SSE parsers.
+        controller.enqueue(encoder.encode(": unifia stream open\n\n"))
+      },
       async pull(controller) {
         try {
           const next = await iterator.next()
@@ -200,7 +235,7 @@ export class WorkbenchServer {
     if (operation === "read") {
       const results = await this.#workspace.read(token, input.paths as string[])
       this.#allow("workspace.read")
-      return json(200, { results: results as unknown as JsonRecord[] })
+      return json(200, { results: results.map(encodeReadResult) })
     }
     if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
     const results = await this.#workspace.write(token, input.writes as FileWrite[])
@@ -367,6 +402,33 @@ export class WorkbenchServer {
     this.#tokens.delete(token)
     this.#allow("workspace.close")
     return json(200, { closed: true })
+  }
+
+  /**
+   * Closes every open file session.
+   *
+   * WHY it swallows per-token failures: shutdown must release as many sessions
+   * as it can. One workspace whose root already vanished must not leave the
+   * others holding watchers. The failures are returned so a caller can report
+   * them rather than discover them silently.
+   */
+  async shutdown(): Promise<readonly string[]> {
+    const failures: string[] = []
+    for (const token of [...this.#tokens.keys()]) {
+      try {
+        await this.#workspace.close(token)
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : "close failed")
+      }
+      this.#tokens.delete(token)
+    }
+    this.#audit.record("workbench-server", "workspace.shutdown", failures.length === 0 ? "allow" : "deny")
+    return failures
+  }
+
+  /** Number of file sessions currently open. Exposed for shutdown assertions. */
+  get openFileSessions(): number {
+    return this.#tokens.size
   }
 
   #authorize(request: Request, workspaceId: string): string | undefined {

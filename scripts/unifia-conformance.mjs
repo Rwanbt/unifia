@@ -60,6 +60,7 @@ const TEST_ENTRYPOINTS = [
   "packages/memory-runtime/test/memory-runtime.test.ts",
   "packages/skill-hub/test/test.ts",
   "packages/workbench-server/test/server.test.ts",
+  "packages/workbench-server/test/bootstrap.test.ts",
   "packages/workflow-runtime/test/workflow-runtime.test.ts",
   "packages/workspace-runtime/test/queue.test.ts",
   "packages/workspace-runtime/test/runtime.test.ts",

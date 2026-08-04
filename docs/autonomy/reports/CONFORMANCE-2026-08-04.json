@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T01:56:00.841Z",
+  "generatedAt": "2026-08-04T09:15:24.135Z",
   "scope": "local reproducible checks only; excludes external audit, pentest and signed release",
   "excludedTests": {
     "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate"
@@ -43,7 +43,7 @@
     {
       "name": "quality/tests",
       "ok": true,
-      "detail": "25 suites passed (23 bun + 2 vitest), 1 excluded with a stated reason"
+      "detail": "26 suites passed (24 bun + 2 vitest), 1 excluded with a stated reason"
     }
   ],
   "verdict": "PASS"
