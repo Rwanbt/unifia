@@ -620,6 +620,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/spec-runtime": {
+      "name": "@unifia/spec-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/artifact-runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/storybook": {
       "name": "@unifia/storybook",
       "devDependencies": {
@@ -2607,6 +2620,8 @@
     "@unifia/skill-hub": ["@unifia/skill-hub@workspace:packages/skill-hub"],
 
     "@unifia/slack": ["@unifia/slack@workspace:packages/slack"],
+
+    "@unifia/spec-runtime": ["@unifia/spec-runtime@workspace:packages/spec-runtime"],
 
     "@unifia/storybook": ["@unifia/storybook@workspace:packages/storybook"],
 
