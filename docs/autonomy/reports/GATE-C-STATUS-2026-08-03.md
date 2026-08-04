@@ -120,7 +120,8 @@ and parses the SSE wire format instead of searching it.
 All three were invisible to in-memory tests: none of them serialise a response,
 open a socket, or let a handler reject.
 
-### Remaining NO-GO reasons
+(The NO-GO list for this pass is superseded by the consolidated summary at the
+end of this file; the empty heading that stood here was an editing artefact.)
 
 ## Re-evaluation 2026-08-04 (fourth pass — DOM consumer)
 
@@ -295,3 +296,82 @@ specs (adding a parser is a dependency this repo gates on provenance review).
 - No external MCP provider connected (deliberate), and no real OpenCode backend
   behind the conformance suite.
 - External audit, pentest, 90-minute demo and signed release: `BLOQUÉ EXTERNE`.
+
+## Re-evaluation 2026-08-04 (ninth pass — event replay in the real backend)
+
+Decision: **still NO-GO**, unchanged reasons. This pass fixed a defect rather
+than closing a gate.
+
+Investigating whether the real OpenCode backend could sit behind the conformance
+suite produced two results.
+
+**The honest answer to the original question:** it cannot, offline.
+`SessionPrompt.prompt` reaches a model, so the `send-prompt` scenario is not
+runnable here. `createSession` and `listSessions` would be, but a partial
+conformance run would be more misleading than useful, so the caveat on the
+30/30 result stands as written.
+
+**A real defect found on the way:** `OpenCodeSessionBackend` did not honour the
+event replay contract. `toRuntimeEvent` emitted no `sequence`, so the server
+never wrote an SSE `id:` line and a client had nothing to resume from; and
+`subscribeEvents` ignored `afterSequence` entirely, so a client that reconnected
+anyway received only what happened next and silently lost everything that
+arrived while it was away. "Les événements sont rejouables" is a Phase 2 exit
+criterion and this was the one place it was not met. Both failures are invisible
+until someone reconnects, which is why every suite stayed green over them.
+
+`cc6b325` adds `SessionEventHub` to the contracts package — sequence assignment,
+bounded retained history, replay from a cursor then live — and wires the backend
+to one hub and one bus subscription per session. The subscription outlives any
+individual reader on purpose: if a disconnecting reader tore it down, the hub
+would record nothing while that reader was away and the replay it reconnects for
+would be empty by construction. A cursor older than the retained window raises
+`EventGapError` rather than jumping forward, because a stream that looks
+continuous but is not is worse than one that says resynchronise. The hub carries
+no runtime dependency, so the contract is proven (25/25) without booting a
+runtime.
+
+---
+
+# Consolidated state — 2026-08-04, end of session
+
+**Gate C: NO-GO.**
+
+## Closed with local proof
+
+| Area | Evidence |
+|---|---|
+| Headless server | `WorkbenchBootstrap` 40/40 over real HTTP |
+| Principal auth + rate limiting | required by construction, 401/429 audited |
+| MCP transports | `McpTransport` 32/32 |
+| Runtime conformance (plan §13) | `RuntimeConformance` 30/30, 3 runtimes × 10 scenarios |
+| Event replay contract | `SessionEventHub` 25/25, real backend wired |
+| Generative UI DOM consumer | `GenerativeUiDom` 29/29 |
+| Real-browser E2E | `GenerativeUiBrowserE2E` 10/10 in Chromium |
+| Artefact lineage | `ArtifactStore` 27/27 |
+| Artifact Studio (Phase 12) | `ArtifactStudio` 33/33 |
+| Spec-driven (Phase 11 core) | `SpecRuntime` 35/35 |
+| Migrations no-breaking | `WorkspaceStorage` 12/12 |
+| Reproducible conformance gate | 8/8 over 32 suites |
+
+## Still NO-GO — nothing here can be closed by writing code
+
+- External security audit targeting computer use and remote control.
+- Pentest.
+- Signed installers and checksums (keys are not on this machine, and must not be).
+- 90-minute product demo.
+- A remote CI run: the workflow exists and the gate passes locally, but the
+  branch has not been pushed and pushing was not authorised.
+
+## Deferred by decision, with the reason recorded in the code
+
+- Code generation from a spec (ADR-0017): a product of its own; a half
+  generator would create a second authority over the codebase.
+- Diagram round-trips and YAML specs: both need a third-party parser, which is
+  a supply-chain decision under provenance review, not a coding task.
+- A real OpenCode backend behind the conformance suite: `SessionPrompt.prompt`
+  reaches a model and cannot run offline.
+
+**Do not promote Gate C on the strength of the table above.** Thirty-two green
+suites prove the code does what it says. They do not prove anyone independent
+has looked at it, which is what plan sections 31 and 33 actually require.
