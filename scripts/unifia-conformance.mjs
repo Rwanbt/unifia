@@ -50,6 +50,7 @@ const TEST_ENTRYPOINTS = [
   "packages/capability-runtime/test/ed25519.test.ts",
   "packages/contracts/test/approval-broker-smoke.ts",
   "packages/contracts/test/capability-registry.test.ts",
+  "packages/contracts/test/event-sequencer.test.ts",
   "packages/contracts/test/generative-ui.test.ts",
   "packages/contracts/test/mcp-ui.test.ts",
   "packages/contracts/test/p3-lot2-smoke.ts",
