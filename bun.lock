@@ -530,6 +530,22 @@
         "@opentui/solid",
       ],
     },
+    "packages/runtime-conformance": {
+      "name": "@unifia/runtime-conformance",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/artifact-runtime": "workspace:*",
+        "@unifia/contracts": "workspace:*",
+        "@unifia/workbench-server": "workspace:*",
+        "@unifia/workspace-runtime": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/script": {
       "name": "@opencode-ai/script",
       "dependencies": {
@@ -2570,6 +2586,8 @@
     "@unifia/memory-runtime": ["@unifia/memory-runtime@workspace:packages/memory-runtime"],
 
     "@unifia/mobile": ["@unifia/mobile@workspace:packages/mobile"],
+
+    "@unifia/runtime-conformance": ["@unifia/runtime-conformance@workspace:packages/runtime-conformance"],
 
     "@unifia/skill-hub": ["@unifia/skill-hub@workspace:packages/skill-hub"],
 

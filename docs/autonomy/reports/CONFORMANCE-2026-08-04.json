@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T10:54:49.014Z",
+  "generatedAt": "2026-08-04T11:57:37.932Z",
   "scope": "local reproducible checks only; excludes external audit, pentest and signed release",
   "excludedTests": {
     "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate"
@@ -13,17 +13,17 @@
     {
       "name": "supply-chain/excluded-imports",
       "ok": true,
-      "detail": "78 owned source files import no excluded path"
+      "detail": "79 owned source files import no excluded path"
     },
     {
       "name": "supply-chain/spdx-headers",
       "ok": true,
-      "detail": "78 owned source files carry an SPDX header"
+      "detail": "79 owned source files carry an SPDX header"
     },
     {
       "name": "supply-chain/manifest-licenses",
       "ok": true,
-      "detail": "13 manifests declare an allowed licence"
+      "detail": "14 manifests declare an allowed licence"
     },
     {
       "name": "supply-chain/dependency-provenance",
@@ -33,17 +33,17 @@
     {
       "name": "quality/lint",
       "ok": true,
-      "detail": "13 owned packages lint clean"
+      "detail": "14 owned packages lint clean"
     },
     {
       "name": "quality/typecheck",
       "ok": true,
-      "detail": "Tasks:    22 successful, 22 total"
+      "detail": "Tasks:    23 successful, 23 total"
     },
     {
       "name": "quality/tests",
       "ok": true,
-      "detail": "28 suites passed (25 bun + 2 vitest, 1 browser), 1 excluded with a stated reason"
+      "detail": "29 suites passed (26 bun + 2 vitest, 1 browser), 1 excluded with a stated reason"
     }
   ],
   "verdict": "PASS"
