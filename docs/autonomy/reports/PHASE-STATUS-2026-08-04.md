@@ -39,7 +39,7 @@ le handoff Hermes et une lecture directe du code de `D:\App\OpenCode\unifia-exec
 | 13 | Memory et session intelligence | `PARTIEL` | `MemoryRuntime` 4/4, routes serveur. Provenance, consentement, classification de sensibilité : `NON FAIT`. |
 | 14 | Workflow automation | `PARTIEL` | `WorkflowRuntime` + `FileWorkflowStore` 1/1, start/resume/cancel. Les 8 workflows du plan §28 : `NON FAIT`. |
 | 15 | Skill Hub et Marketplace | `PASS local` | `SkillHubRegistry` 8/8, manifeste strict, signatures trustées, refus de downgrade, sorties immuables ; routes serveur avec scope. Marketplace distante : `NON FAIT` (et hors périmètre local). |
-| 16 | MCP UI Control et Generative UI | `PARTIEL` | Renderer allowlisté 3/3, `McpUiControlBroker` 4/4, routes `/v1/ui/actions` et `/v1/ui/render`. **Transports MCP livrés ce jour** : `@unifia/mcp-transport` 32/32 (JSON-RPC strict, framing stdio, timeouts, annulation, rate limit, autorisation par méthode). **Consommateur DOM réel et E2E externe : `NON FAIT`.** |
+| 16 | MCP UI Control et Generative UI | `PARTIEL` | Renderer allowlisté 3/3, `McpUiControlBroker` 4/4, routes `/v1/ui/actions` et `/v1/ui/render`. **Transports MCP** : `@unifia/mcp-transport` 32/32. **Consommateur DOM** : `@unifia/generative-ui-dom` 29/29, montage sûr sous DOM réel (happy-dom), payloads hostiles couverts. **E2E navigateur réel : `BLOQUÉ`** (playwright↔Bun, voir en-tête de `browser.e2e.ts`). |
 | **Gate C** | Plateforme extensible stabilisée | `NO-GO` | Voir `GATE-C-STATUS-2026-08-03.md`. Bloquants : Phase 11 absente, cœur Phase 12 absent, pas de consommateur DOM, pas de bootstrap serveur, audit externe absent. |
 | 17 | Release hardening | `PARTIEL` | Gate de conformance reproductible livré ce jour (8/8). Reliability soak, crash matrix §32 et reproductibilité de build : `NON FAIT`. |
 | 18 | Release publique | `BLOQUÉ EXTERNE` | Installers signés, audit externe ciblé computer-use/remote : nécessitent des clés et un auditeur tiers. |
@@ -49,7 +49,7 @@ le handoff Hermes et une lecture directe du code de `D:\App\OpenCode\unifia-exec
 Ces points sont volontairement listés parce qu'une suite verte ne les couvre pas :
 
 1. ~~Aucun processus n'expose le WorkbenchServer.~~ **Clos le 2026-08-04** par `5590c9d`. Le passage aux preuves HTTP réelles a immédiatement révélé trois défauts de production qu'aucun test en mémoire ne pouvait voir : chemin d'erreur mort sur les 17 routes (`return` sans `await` dans `fetch`), contenu de fichier sérialisé en `{"type":"Buffer",...}`, et flux SSE tué par l'idle timeout faute d'octet initial.
-2. **Aucun consommateur DOM du Generative UI.** `renderGenerativeUi` retourne un arbre validé ; rien ne le rend, donc l'allowlist n'a jamais été confrontée à un navigateur. Désormais débloqué : un serveur existe pour le servir.
+2. ~~Aucun consommateur DOM du Generative UI.~~ **Clos le 2026-08-04** par `2783f35` : `@unifia/generative-ui-dom` 29/29, règles de sûreté imposées structurellement, payloads hostiles couverts. **Mais la preuve en navigateur réel reste BLOQUÉE** — playwright ne peut piloter Chromium sous Bun par aucun de ses deux transports, et l'exécution sous Node bute sur `Bun.serve` dans le bootstrap. Preuves et deux issues concrètes dans l'en-tête de `packages/generative-ui-dom/test/browser.e2e.ts`.
 3. **Aucun fournisseur MCP externe branché.** Le transport est prouvé contre une paire loopback et des flux injectés, pas contre un serveur MCP réel.
 4. **Aucune preuve externe** : pas d'audit tiers, pas de pentest, pas de démo 90 minutes, pas de release signée.
 

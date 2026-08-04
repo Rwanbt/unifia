@@ -122,6 +122,47 @@ open a socket, or let a handler reject.
 
 ### Remaining NO-GO reasons
 
+## Re-evaluation 2026-08-04 (fourth pass — DOM consumer)
+
+Decision: **still NO-GO**. The DOM consumer exists; the external browser proof
+does not, and its blocker is now precisely characterised.
+
+`@unifia/generative-ui-dom` (`2783f35`, `GenerativeUiDom` 29/29) mounts a
+validated tree into a real document with every safety rule enforced
+structurally: no `innerHTML` family, no generic `setAttribute` loop, no
+behaviour read from the payload, input type hardcoded, and re-validation
+through the canonical renderer so this layer neither trusts its own server nor
+grows a second allowlist. Hostile payloads (`onclick`, `style`,
+`href=javascript:`, markup inside a text value) are covered.
+
+### The external browser proof is BLOCKED, not missing by omission
+
+The E2E is written — real Chromium, page served from a harness origin that
+keeps the tokens server-side, click forwarded to the workbench, assertion that
+a generated-UI click becomes a *pending approval* rather than an execution. It
+does not run here:
+
+- `chromium.launch()` starts the browser then hangs to the launch timeout:
+  Playwright uses `--remote-debugging-pipe`, needing stdio fds 3 and 4 that Bun
+  does not wire on Windows.
+- Attaching over a TCP debugging port gets further — Chromium logs
+  `DevTools listening on ws://127.0.0.1:<port>/...` and `/json/version` returns
+  200 — but `connectOverCDP` fails with `Timeout 30000ms exceeded /
+  <ws connecting>`: playwright-core's websocket client does not complete a
+  handshake under Bun either.
+- Running it under Node, the convention used by
+  `packages/browser-runtime/test/playwright-driver.e2e.ts`, is blocked from the
+  other side: the suite needs the WorkbenchServer, whose bootstrap uses
+  `Bun.serve`, and Node's `--experimental-strip-types` refuses to strip types
+  from workspace packages reached through node_modules.
+
+This is a toolchain incompatibility, not a product defect. Two ways out are
+recorded in the suite header; the suite is excluded from the gate with that
+reason attached rather than deleted or quietly skipped.
+
+### Remaining NO-GO reasons
+
+- No real-browser proof of the render → click → broker → audit chain (above).
 - Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
 - Phase 12 Artifact Studio core: artefacts remain content-addressed with no
   version lineage, no semantic diff, no sandboxed preview, no metadata stripping.
