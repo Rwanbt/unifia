@@ -183,6 +183,40 @@ the durable audit log — **a click from a generated UI does not execute, it
 becomes a pending approval**. Browser suites are opt-in behind `--with-browser`
 so the default gate stays offline-reproducible.
 
+## Re-evaluation 2026-08-04 (fifth pass — runtime conformance suite)
+
+Decision: **still NO-GO**, and the remaining reasons are now down to two
+product surfaces plus the external gates.
+
+`@unifia/runtime-conformance` (`541238e`) implements plan section 13: the three
+runtimes each pass the same ten scenarios — create a session, send a prompt,
+receive events, request a permission, answer a permission, cancel, switch
+workspace, read and write an artefact, close cleanly, recover after a crash.
+**RuntimeConformance 30/30.**
+
+Two things are reported rather than smoothed over:
+
+- **Contract divergence.** Plan section 7.1 lists `replyApproval` on
+  `RuntimeAdapter`; the implemented interface has no such method. Adding it
+  would contradict plan section 5, which makes ApprovalBroker the sole
+  authority for approvals — the second authority the plan forbids. The
+  approval scenarios go through ApprovalBroker and the divergence is recorded
+  in the suite. The plan is internally inconsistent here.
+- **Scope of the result.** The `opencode` and `unifia` adapters run over a
+  backend built from a FakeRuntimeAdapter. This proves each adapter honours the
+  contract and delegates faithfully; it does **not** prove the real OpenCode
+  runtime's behaviour. Wiring `OpenCodeRuntimeBackend` to a live session
+  runtime is a separate step and is not claimed here.
+
+The suite earned its keep on first run: `reply-permission` failed on all three
+runtimes until the scenario was corrected — `WorkspacePort.write` resolves an
+*existing* path by design, so creating a file through a write is not a
+capability the workspace grants.
+
+With this, **Gate A's two outstanding items are closed locally**: a real
+headless server (`5590c9d`) and adapters passing a conformance suite
+(`541238e`).
+
 ### Remaining NO-GO reasons
 
 - Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
@@ -190,6 +224,6 @@ so the default gate stays offline-reproducible.
   version lineage, no semantic diff, no sandboxed preview, no metadata stripping.
 - No real DOM consumer for the Generative UI renderer — now unblocked, since a
   server exists to serve it.
-- Conformance suite of the plan §13 (10 scenarios across 3 runtimes): absent.
-- No external MCP provider connected (deliberate).
+- No external MCP provider connected (deliberate), and no real OpenCode backend
+  behind the conformance suite.
 - External audit, pentest, 90-minute demo and signed release: `BLOQUÉ EXTERNE`.
