@@ -1,0 +1,211 @@
+/* SPDX-License-Identifier: MIT */
+
+/**
+ * Principal authentication and request rate limiting for the Workbench server.
+ *
+ * WHY this exists: before this module the token-minting routes
+ * (`POST /v1/workspaces/register` and `POST /v1/workspaces/:id/open`) accepted
+ * anonymous callers. Anyone able to reach the port could register a workspace
+ * rooted at an arbitrary filesystem path and mint a file-session token with
+ * read and write access. Authentication is therefore a constructor requirement
+ * of WorkbenchServer, not an option: omitting it must be impossible, and
+ * disabling it must be an explicit, visible act.
+ *
+ * Scope of this module: local verification of detached HMAC-signed bearer
+ * tokens (HS256, JWT-shaped). Obtaining those tokens from an external identity
+ * provider (OAuth authorization-code flow, OIDC discovery, JWKS rotation) is
+ * deliberately NOT implemented here — it needs an external IdP and cannot be
+ * proven locally. See docs/autonomy/reports/GATE-C-STATUS-2026-08-03.md.
+ */
+
+import { createHmac, timingSafeEqual } from "node:crypto"
+
+export type Principal = {
+  readonly id: string
+  readonly scopes: ReadonlySet<string>
+  /** `"*"` grants every workspace; a set restricts the principal to those ids. */
+  readonly workspaces: "*" | ReadonlySet<string>
+}
+
+export type PrincipalAuthenticator = {
+  authenticate(request: Request): Promise<Principal | undefined>
+}
+
+export type RateLimiter = {
+  /** Returns false when the caller exceeded its budget for this window. */
+  take(key: string): boolean
+}
+
+export function principalCanRegister(principal: Principal): boolean {
+  return principal.scopes.has("workspace.register")
+}
+
+export function principalCanOpen(principal: Principal, workspaceId: string): boolean {
+  if (!principal.scopes.has("workspace.open")) return false
+  return principal.workspaces === "*" || principal.workspaces.has(workspaceId)
+}
+
+const BASE64URL = /^[A-Za-z0-9_-]+$/
+
+function decodeSegment(segment: string): unknown {
+  if (!BASE64URL.test(segment)) throw new Error("token segment is not base64url")
+  return JSON.parse(Buffer.from(segment, "base64url").toString("utf8"))
+}
+
+function signingInput(token: string): { data: string; signature: Buffer } {
+  const parts = token.split(".")
+  if (parts.length !== 3) throw new Error("token is not a three-part JWS")
+  if (!BASE64URL.test(parts[2])) throw new Error("token signature is not base64url")
+  return { data: `${parts[0]}.${parts[1]}`, signature: Buffer.from(parts[2], "base64url") }
+}
+
+function signaturesMatch(expected: Buffer, supplied: Buffer): boolean {
+  // WHY: timingSafeEqual throws on length mismatch, so the length is compared
+  // first — but only after both buffers exist, to keep the comparison constant
+  // time for equal-length forgeries.
+  return expected.length === supplied.length && timingSafeEqual(expected, supplied)
+}
+
+type TokenClaims = {
+  sub?: unknown
+  iss?: unknown
+  aud?: unknown
+  exp?: unknown
+  nbf?: unknown
+  scopes?: unknown
+  workspaces?: unknown
+}
+
+function readStringArray(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return value.every((entry) => typeof entry === "string") ? (value as readonly string[]) : undefined
+}
+
+/**
+ * Verifies detached HS256 bearer tokens minted by a trusted local issuer.
+ *
+ * @thread-safety stateless after construction; safe for concurrent requests.
+ */
+export class HmacTokenAuthenticator implements PrincipalAuthenticator {
+  readonly #key: Buffer
+  readonly #issuer: string
+  readonly #audience: string
+  readonly #now: () => number
+
+  constructor(key: string | Uint8Array, issuer: string, audience: string, now: () => number = Date.now) {
+    const material = typeof key === "string" ? Buffer.from(key, "utf8") : Buffer.from(key)
+    if (material.length < 32) throw new Error("signing key must be at least 32 bytes")
+    this.#key = material
+    this.#issuer = issuer
+    this.#audience = audience
+    this.#now = now
+  }
+
+  /** Mints a token for the given principal. Test and local-bootstrap use only. */
+  sign(principal: Principal, expiresAt: number, notBefore = 0): string {
+    const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")
+    const claims = {
+      sub: principal.id,
+      iss: this.#issuer,
+      aud: this.#audience,
+      exp: expiresAt,
+      nbf: notBefore,
+      scopes: [...principal.scopes],
+      workspaces: principal.workspaces === "*" ? "*" : [...principal.workspaces],
+    }
+    const payload = Buffer.from(JSON.stringify(claims)).toString("base64url")
+    const data = `${header}.${payload}`
+    return `${data}.${createHmac("sha256", this.#key).update(data).digest("base64url")}`
+  }
+
+  async authenticate(request: Request): Promise<Principal | undefined> {
+    const header = request.headers.get("authorization")
+    if (!header?.startsWith("Bearer ")) return undefined
+    try {
+      return this.#verify(header.slice(7))
+    } catch {
+      return undefined
+    }
+  }
+
+  #verify(token: string): Principal | undefined {
+    const { data, signature } = signingInput(token)
+    const expected = createHmac("sha256", this.#key).update(data).digest()
+    if (!signaturesMatch(expected, signature)) return undefined
+    const head = decodeSegment(data.split(".")[0]) as { alg?: unknown; typ?: unknown }
+    // WHY: pinning alg rejects the "alg: none" and algorithm-confusion families
+    // outright instead of trusting the token to name its own verification.
+    if (head.alg !== "HS256" || head.typ !== "JWT") return undefined
+    return this.#principalFromClaims(decodeSegment(data.split(".")[1]) as TokenClaims)
+  }
+
+  #principalFromClaims(claims: TokenClaims): Principal | undefined {
+    if (typeof claims.sub !== "string" || claims.sub.length === 0) return undefined
+    if (claims.iss !== this.#issuer || claims.aud !== this.#audience) return undefined
+    if (typeof claims.exp !== "number" || typeof claims.nbf !== "number") return undefined
+    const now = this.#now()
+    if (now >= claims.exp || now < claims.nbf) return undefined
+    const scopes = readStringArray(claims.scopes)
+    if (!scopes) return undefined
+    const workspaces = claims.workspaces === "*" ? "*" : readStringArray(claims.workspaces)
+    if (!workspaces) return undefined
+    return {
+      id: claims.sub,
+      scopes: new Set(scopes),
+      workspaces: workspaces === "*" ? "*" : new Set(workspaces),
+    }
+  }
+}
+
+/**
+ * Fixed-window request limiter keyed by principal.
+ *
+ * A fixed window admits up to 2x the budget across a window boundary. That is
+ * accepted here: this limiter exists to bound abuse and accidental loops, not
+ * to meter billing. A sliding window would be required for the latter.
+ */
+export class FixedWindowRateLimiter implements RateLimiter {
+  readonly #budget: number
+  readonly #windowMs: number
+  readonly #now: () => number
+  readonly #counters = new Map<string, { windowStart: number; count: number }>()
+
+  constructor(budget: number, windowMs: number, now: () => number = Date.now) {
+    if (!Number.isSafeInteger(budget) || budget <= 0) throw new Error("rate limit budget must be a positive integer")
+    if (!Number.isSafeInteger(windowMs) || windowMs <= 0) throw new Error("rate limit window must be a positive integer")
+    this.#budget = budget
+    this.#windowMs = windowMs
+    this.#now = now
+  }
+
+  take(key: string): boolean {
+    const now = this.#now()
+    const counter = this.#counters.get(key)
+    if (!counter || now - counter.windowStart >= this.#windowMs) {
+      this.#counters.set(key, { windowStart: now, count: 1 })
+      return true
+    }
+    if (counter.count >= this.#budget) return false
+    counter.count += 1
+    return true
+  }
+}
+
+/**
+ * Accepts every caller as a fixed principal.
+ *
+ * WHY it is a named, exported class rather than an `auth?: ...` default:
+ * disabling authentication must appear at the call site and be greppable.
+ * Never construct this in a process reachable from a network interface.
+ */
+export class UnauthenticatedPrincipal implements PrincipalAuthenticator {
+  readonly #principal: Principal
+
+  constructor(id = "anonymous", scopes: readonly string[] = ["workspace.register", "workspace.open"]) {
+    this.#principal = { id, scopes: new Set(scopes), workspaces: "*" }
+  }
+
+  async authenticate(): Promise<Principal> {
+    return this.#principal
+  }
+}

@@ -8,7 +8,15 @@ import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
-import { ApprovalCapabilityGate, WorkbenchServer, sseFrame } from "../src/index.js"
+import { ApprovalCapabilityGate, FixedWindowRateLimiter, HmacTokenAuthenticator, UnauthenticatedPrincipal, WorkbenchServer, sseFrame } from "../src/index.js"
+
+/**
+ * The legacy assertions below predate principal authentication and carry the
+ * file-session token in `Authorization`. They run against an explicitly
+ * unauthenticated principal; the dedicated auth block at the end of this file
+ * exercises the real HMAC authenticator, scopes and rate limiting.
+ */
+const testAuth = new UnauthenticatedPrincipal()
 
 /**
  * WHY: the summary line used to be a hardcoded string. `check()` counts every
@@ -30,7 +38,7 @@ try {
   const workspace = new WorkspaceRuntime()
   const audit = new AuditRuntimeDouble(() => 1_000)
   let capabilityDecision: "allow" | "deny" = "allow"
-  const server = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
+  const server = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
   const registered = await server.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "fixture", path: root }) }))
   if (registered.status !== 201) throw new Error("workspace register route failed")
   const registeredBody = await registered.json() as { id: string }
@@ -78,7 +86,7 @@ try {
   const pending = await new ApprovalCapabilityGate(new ApprovalBroker(() => 1_000)).check("workspace.write", handle.id, "actor")
   if (typeof pending !== "object" || pending.kind !== "approval_required") throw new Error("ApprovalCapabilityGate did not require approval")
   const approvalBroker = new ApprovalBroker(() => 1_000)
-  const approvalServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: new ApprovalCapabilityGate(approvalBroker) })
+  const approvalServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: new ApprovalCapabilityGate(approvalBroker) })
   const approvalOpen = await approvalServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const approvalHandle = await approvalOpen.json() as { id: string; token: string }
   const approvalRequestResponse = await approvalServer.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ workspaceId: approvalHandle.id, writes: [{ path: "README.md", content: "approved" }] }) }))
@@ -89,7 +97,7 @@ try {
   const retried = await approvalServer.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ workspaceId: approvalHandle.id, writes: [{ path: "README.md", content: "approved" }] }) }))
   if (retried.status !== 200) throw new Error("approved write was not retried")
   const browser = new BrowserAutomationBroker({ navigate: async () => {}, snapshot: async () => ({ title: "fixture" }), screenshot: async () => new Uint8Array([1, 2]), quarantineDownload: async () => "quarantine/result" }, ["example.com"])
-  const browserServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, browser })
+  const browserServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, browser })
   const browserOpen = await browserServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const browserHandle = await browserOpen.json() as { id: string; token: string }
   const browserNavigate = await browserServer.fetch(new Request("http://localhost/v1/browser/navigate", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id, url: "https://example.com" }) }))
@@ -97,7 +105,7 @@ try {
   const browserScreenshot = await browserServer.fetch(new Request("http://localhost/v1/browser/screenshot", { method: "POST", headers: { authorization: `Bearer ${browserHandle.token}` }, body: JSON.stringify({ workspaceId: browserHandle.id }) }))
   if (browserScreenshot.status !== 200) throw new Error("browser screenshot route failed")
   const capabilities = new CapabilityRegistry({ verify: () => true })
-  const capabilityServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, capabilities })
+  const capabilityServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, capabilities })
   const capabilityOpen = await capabilityServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const capabilityHandle = await capabilityOpen.json() as { id: string; token: string }
   const manifest = { descriptor: { id: "prompt-pack/test", name: "Test", description: "test", version: "1.0.0", author: "Unifia", license: "MIT", schema: {}, tags: ["test"], trustLevel: "verified" }, digest: "sha256:test", sourceRepo: "local", sourceCommit: "abc", license: "MIT", remoteCode: false, signature: "valid" }
@@ -109,7 +117,7 @@ try {
   const capabilitySearch = await capabilityServer.fetch(new Request(`http://localhost/v1/capabilities/search?workspaceId=${capabilityHandle.id}&enabledOnly=true`, { headers: { authorization: `Bearer ${capabilityHandle.token}` } }))
   if (capabilitySearch.status !== 200) throw new Error("capability search route failed")
   const ui = new McpUiControlBroker({ inspect: async (componentId) => ({ componentId }), execute: async () => ({}) }, ["panel-main"], { request: () => ({ id: "ui-approval-1" }) })
-  const uiServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, ui, uiAllowedActions: new Set(["ui.inspect"]) })
+  const uiServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, ui, uiAllowedActions: new Set(["ui.inspect"]) })
   const uiOpen = await uiServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const uiHandle = await uiOpen.json() as { id: string; token: string }
   const uiAction = await uiServer.fetch(new Request("http://localhost/v1/ui/actions", { method: "POST", headers: { authorization: `Bearer ${uiHandle.token}` }, body: JSON.stringify({ workspaceId: uiHandle.id, action: { id: "inspect-main", componentId: "panel-main", kind: "inspect" } }) }))
@@ -120,13 +128,13 @@ try {
   if (renderedBody.rendered.props.onclick !== undefined || renderedBody.rendered.props.actionId !== "ui.inspect") throw new Error("Generative UI renderer did not filter props")
   const blockedUi = await uiServer.fetch(new Request("http://localhost/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${uiHandle.token}` }, body: JSON.stringify({ workspaceId: uiHandle.id, node: { type: "button", id: "blocked", props: { actionId: "ui.shutdown" } } }) }))
   if (blockedUi.status !== 400) throw new Error("Generative UI renderer accepted an unallowlisted action")
-  const missingUi = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
+  const missingUi = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
   const missingUiOpen = await missingUi.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const missingUiHandle = await missingUiOpen.json() as { id: string; token: string }
   const unavailableUi = await missingUi.fetch(new Request("http://localhost/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${missingUiHandle.token}` }, body: JSON.stringify({ workspaceId: missingUiHandle.id, node: { type: "text", id: "x", props: { value: "x" } } }) }))
   if (unavailableUi.status !== 503) throw new Error("Generative UI route did not fail closed when unavailable")
   const memory = new MemoryRuntime(new InMemoryMemoryStore())
-  const memoryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
+  const memoryServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, memory })
   const memoryOpen = await memoryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const memoryHandle = await memoryOpen.json() as { id: string; token: string }
   const remembered = await memoryServer.fetch(new Request("http://localhost/v1/memory/remember", { method: "POST", headers: { authorization: `Bearer ${memoryHandle.token}` }, body: JSON.stringify({ workspaceId: memoryHandle.id, content: "visible memory", source: "user" }) }))
@@ -134,7 +142,7 @@ try {
   const foundMemory = await memoryServer.fetch(new Request(`http://localhost/v1/memory/search?workspaceId=${memoryHandle.id}&text=visible`, { headers: { authorization: `Bearer ${memoryHandle.token}` } }))
   if (foundMemory.status !== 200) throw new Error("memory search route failed")
   const workflow = new WorkflowRuntime(new InMemoryWorkflowStore(), { execute: async (step) => step.id }, { request: async () => true })
-  const workflowServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, workflow })
+  const workflowServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, workflow })
   const workflowOpen = await workflowServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const workflowHandle = await workflowOpen.json() as { id: string; token: string }
   const workflowStart = await workflowServer.fetch(new Request("http://localhost/v1/workflows/start", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workspaceId: workflowHandle.id, definition: { id: "wf-server", version: 1, workspaceId: workflowHandle.id, steps: [] } }) }))
@@ -143,7 +151,7 @@ try {
   const workflowCancel = await workflowServer.fetch(new Request("http://localhost/v1/workflows/cancel", { method: "POST", headers: { authorization: `Bearer ${workflowHandle.token}` }, body: JSON.stringify({ workflowId: workflowState.state.workflowId }) }))
   if (workflowCancel.status !== 200) throw new Error("workflow cancel route failed")
   const desktop = new DesktopAutomationBroker({ observe: async () => ({ appId: "allowed-app", redacted: true }), control: async () => {} }, ["allowed-app"])
-  const desktopServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, desktop })
+  const desktopServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" }, desktop })
   const desktopOpen = await desktopServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const desktopHandle = await desktopOpen.json() as { id: string; token: string }
   const observed = await desktopServer.fetch(new Request("http://localhost/v1/desktop/observe", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app" }) }))
@@ -172,7 +180,7 @@ try {
   }
   const seeded = makeRecorder(seededRegistry)
   const skillHubAudit = new AuditRuntimeDouble(() => 1_000)
-  const skillHubServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit: skillHubAudit, capability: { check: async () => "allow" }, skillHub: seeded.registry })
+  const skillHubServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit: skillHubAudit, capability: { check: async () => "allow" }, skillHub: seeded.registry })
   const skillHubOpen = await skillHubServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const skillHubHandle = await skillHubOpen.json() as { id: string; token: string }
   const deniedSearchScope = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/search", { method: "POST", headers: { authorization: "Bearer not-a-real-token" }, body: JSON.stringify({ workspaceId: skillHubHandle.id, query: "x" }) }))
@@ -181,7 +189,7 @@ try {
   if (deniedInstallScope.status !== 403) throw new Error("skill-hub install with cross-workspace id was not denied")
   const deniedUpdateScope = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/update", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ name: "demo-skill" }) }))
   if (deniedUpdateScope.status !== 400) throw new Error("skill-hub update without workspaceId was not 400")
-  const missingRegistryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit: skillHubAudit, capability: { check: async () => "allow" } })
+  const missingRegistryServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit: skillHubAudit, capability: { check: async () => "allow" } })
   const missingRegistryOpen = await missingRegistryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const missingRegistryHandle = await missingRegistryOpen.json() as { id: string; token: string }
   const unavailableSearch = await missingRegistryServer.fetch(new Request("http://localhost/v1/skill-hub/search", { method: "POST", headers: { authorization: `Bearer ${missingRegistryHandle.token}` }, body: JSON.stringify({ workspaceId: missingRegistryHandle.id, query: "x" }) }))
@@ -215,6 +223,58 @@ try {
   const successCalls = skillHubAudit.events().slice(searchAuditBaseline).filter((event) => event.capability.startsWith("skill-hub."))
   if (successCalls.length < 3) throw new Error("skill-hub success routes were not audited as allow")
   if (successCalls.some((event) => event.decision !== "allow")) throw new Error("skill-hub success routes produced a non-allow audit decision")
+  // --- Principal authentication, scopes and rate limiting -------------------
+  const clock = { value: 10_000 }
+  const now = () => clock.value
+  const signer = new HmacTokenAuthenticator("unifia-test-signing-key-0123456789abcdef", "unifia-local", "workbench", now)
+  const admin = { id: "admin", scopes: new Set(["workspace.register", "workspace.open"]), workspaces: "*" as const }
+  const adminToken = signer.sign(admin, clock.value + 60_000)
+  const authed = new WorkbenchServer({ auth: signer, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
+  const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
+
+  const anonymous = await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "anon", path: root }) }))
+  check(anonymous.status === 401, "register accepted an anonymous caller")
+  const forged = await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", headers: bearer(`${adminToken.split(".").slice(0, 2).join(".")}.AAAA`), body: JSON.stringify({ name: "forged", path: root }) }))
+  check(forged.status === 401, "register accepted a token with a forged signature")
+  const noneAlg = `${Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url")}.${adminToken.split(".")[1]}.`
+  check((await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", headers: bearer(noneAlg), body: JSON.stringify({ name: "none", path: root }) }))).status === 401, "register accepted an alg:none token")
+
+  const authedRegister = await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", headers: bearer(adminToken), body: JSON.stringify({ name: "authed", path: root }) }))
+  check(authedRegister.status === 201, "authenticated register was rejected")
+  const authedWorkspace = await authedRegister.json() as { id: string }
+
+  const reader2 = { id: "reader", scopes: new Set(["workspace.open"]), workspaces: "*" as const }
+  const readerToken = signer.sign(reader2, clock.value + 60_000)
+  check((await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", headers: bearer(readerToken), body: JSON.stringify({ name: "nope", path: root }) }))).status === 403, "register ignored a missing workspace.register scope")
+
+  const scopedPrincipal = { id: "scoped", scopes: new Set(["workspace.open"]), workspaces: new Set(["some-other-workspace"]) }
+  const scopedToken = signer.sign(scopedPrincipal, clock.value + 60_000)
+  check((await authed.fetch(new Request(`http://localhost/v1/workspaces/${authedWorkspace.id}/open`, { method: "POST", headers: bearer(scopedToken) }))).status === 403, "open ignored the principal workspace allowlist")
+
+  const expired = signer.sign(admin, clock.value + 1_000)
+  clock.value += 5_000
+  check((await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", headers: bearer(expired), body: JSON.stringify({ name: "expired", path: root }) }))).status === 401, "register accepted an expired token")
+  const freshToken = signer.sign(admin, clock.value + 60_000)
+  const notYetValid = signer.sign(admin, clock.value + 60_000, clock.value + 30_000)
+  check((await authed.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", headers: bearer(notYetValid), body: JSON.stringify({ name: "early", path: root }) }))).status === 401, "register accepted a not-yet-valid token")
+
+  const openAuthed = await authed.fetch(new Request(`http://localhost/v1/workspaces/${authedWorkspace.id}/open`, { method: "POST", headers: bearer(freshToken) }))
+  check(openAuthed.status === 200, "authenticated open was rejected")
+  const authedHandle = await openAuthed.json() as { id: string; token: string }
+  const scopedRead = await authed.fetch(new Request("http://localhost/v1/files/read", { method: "POST", headers: { ...bearer(freshToken), "x-unifia-file-session": authedHandle.token }, body: JSON.stringify({ workspaceId: authedHandle.id, paths: ["README.md"] }) }))
+  check(scopedRead.status === 200, "file read with a separate file-session header failed")
+  const missingFileSession = await authed.fetch(new Request("http://localhost/v1/files/read", { method: "POST", headers: bearer(freshToken), body: JSON.stringify({ workspaceId: authedHandle.id, paths: ["README.md"] }) }))
+  check(missingFileSession.status === 403, "a principal token was accepted as a file-session token")
+
+  const limited = new WorkbenchServer({ auth: signer, rateLimiter: new FixedWindowRateLimiter(2, 60_000, now), workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
+  const burst: number[] = []
+  for (let attempt = 0; attempt < 3; attempt += 1) burst.push((await limited.fetch(new Request(`http://localhost/v1/workspaces/${authedWorkspace.id}/open`, { method: "POST", headers: bearer(freshToken) }))).status)
+  check(burst[0] === 200 && burst[1] === 200 && burst[2] === 429, `rate limiter did not return 429 on the third request (got ${burst.join(",")})`)
+  clock.value += 61_000
+  check((await limited.fetch(new Request(`http://localhost/v1/workspaces/${authedWorkspace.id}/open`, { method: "POST", headers: bearer(signer.sign(admin, clock.value + 60_000)) }))).status === 200, "rate limiter did not reopen the window")
+  check(audit.events().some((event) => event.capability === "auth.rate-limit" && event.decision === "deny"), "rate limit rejection was not audited")
+  check(audit.events().some((event) => event.capability === "auth.principal" && event.decision === "deny"), "authentication failure was not audited")
+
   console.log(`WorkbenchServer: ${LEGACY_ASSERTIONS + checks}/${LEGACY_ASSERTIONS + checks} passed (${LEGACY_ASSERTIONS} legacy + ${checks} counted)`)
 } finally {
   await rm(root, { recursive: true, force: true })

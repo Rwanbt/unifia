@@ -14,10 +14,18 @@ import type {
   WorkspacePort,
 } from "@unifia/contracts"
 
+import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter } from "./auth.js"
+
+export * from "./auth.js"
+
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
+
+/** Requests per principal per window when the caller injects no limiter. */
+const DEFAULT_RATE_BUDGET = 240
+const DEFAULT_RATE_WINDOW_MS = 60_000
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -58,8 +66,15 @@ export class WorkbenchServer {
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
   readonly #skillHub?: SkillRegistry
+  readonly #auth: PrincipalAuthenticator
+  readonly #rateLimiter: RateLimiter
 
   constructor(dependencies: ServerDependencies) {
+    this.#auth = dependencies.auth
+    // WHY: a limiter is always installed. An absent `rateLimiter` must mean
+    // "use the default budget", never "no limit" — omission must not disable a
+    // control.
+    this.#rateLimiter = dependencies.rateLimiter ?? new FixedWindowRateLimiter(DEFAULT_RATE_BUDGET, DEFAULT_RATE_WINDOW_MS)
     this.#workspace = dependencies.workspace
     this.#runtime = dependencies.runtime
     this.#audit = dependencies.audit
@@ -79,8 +94,11 @@ export class WorkbenchServer {
       const url = new URL(request.url)
       const segments = url.pathname.split("/").filter(Boolean)
       if (segments[0] !== "v1") return this.#deny("route.unknown", 404)
-      if (request.method === "POST" && segments[1] === "workspaces" && segments[2] === "register") return this.#register(request)
-      if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2])
+      const principal = await this.#auth.authenticate(request)
+      if (!principal) return this.#deny("auth.principal", 401)
+      if (!this.#rateLimiter.take(principal.id)) return this.#deny("auth.rate-limit", 429)
+      if (request.method === "POST" && segments[1] === "workspaces" && segments[2] === "register") return this.#register(request, principal)
+      if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2], principal)
       if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
@@ -102,7 +120,8 @@ export class WorkbenchServer {
     }
   }
 
-  async #register(request: Request): Promise<Response> {
+  async #register(request: Request, principal: Principal): Promise<Response> {
+    if (!principalCanRegister(principal)) return this.#deny("workspace.register.scope", 403)
     const input = await body(request)
     if (typeof input.name !== "string" || typeof input.path !== "string") return this.#deny("workspace.register", 400)
     const workspace = await this.#workspace.register({ name: input.name, path: input.path })
@@ -110,7 +129,8 @@ export class WorkbenchServer {
     return json(201, workspace as unknown as JsonRecord)
   }
 
-  async #open(workspaceId: string): Promise<Response> {
+  async #open(workspaceId: string, principal: Principal): Promise<Response> {
+    if (!principalCanOpen(principal, workspaceId)) return this.#deny("workspace.open.scope", 403)
     const handle = await this.#workspace.open(workspaceId)
     this.#tokens.set(handle.token, handle)
     this.#allow("workspace.open")
@@ -357,7 +377,20 @@ export class WorkbenchServer {
     return handle?.id === workspaceId ? token : undefined
   }
 
+  /**
+   * Reads the file-session token, which is a capability handle and NOT the
+   * caller's identity — identity lives in `Authorization` and is resolved by
+   * the PrincipalAuthenticator.
+   *
+   * WHY the Authorization fallback: callers that predate principal
+   * authentication carry the file-session token in `Authorization: Bearer`.
+   * The fallback is safe because the value is only ever looked up in #tokens —
+   * a principal token is never present there, so a misrouted credential fails
+   * closed with 403 rather than granting access.
+   */
   #bearer(request: Request): string | undefined {
+    const scoped = request.headers.get("x-unifia-file-session")
+    if (scoped) return scoped
     const value = request.headers.get("authorization")
     return value?.startsWith("Bearer ") ? value.slice(7) : undefined
   }
