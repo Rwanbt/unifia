@@ -237,11 +237,32 @@ Unifia metadata record only, not format-level metadata inside the bytes.
 Still missing from Phase 12: semantic diff for DOCX/PPTX/XLSX, sandboxed
 preview, and format-level metadata stripping (EXIF, OOXML docProps, PDF Info).
 
+## Re-evaluation 2026-08-04 (seventh pass — Artifact Studio complete)
+
+Decision: **still NO-GO**, now on Phase 11 plus the external gates alone.
+
+`@unifia/artifact-studio` (`e5dbfe8`, 33/33) closes the three Phase 12 surfaces
+that were missing:
+
+- **Metadata stripping** removes OOXML metadata parts *and* the references to
+  them, so the package stays consistent — a stripped archive still declaring an
+  Override or Relationship for a deleted part is corrupt, which is worse than
+  not stripping.
+- **Preview** extracts inert text and refuses anything that can execute: a
+  macro part, an external relationship, or a PDF carrying JavaScript, an
+  OpenAction or an embedded file.
+- **Semantic diff** compares extracted content units, not bytes, and inherits
+  the preview's refusals.
+
+Two limits are stated in the code rather than implied: PDF stripping **refuses**
+a document carrying an `/Info` dictionary instead of pretending to sanitise it,
+and EXIF inside embedded images is not touched.
+
+**Phase 12 is now complete for its stated scope.**
+
 ### Remaining NO-GO reasons
 
 - Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
-- Phase 12 remainder: semantic diff, sandboxed preview, format-level metadata
-  stripping.
 - Phase 12 Artifact Studio core: see the sixth pass — lineage and export landed,
   semantic diff / sandboxed preview / format-level metadata stripping remain.
 - No external MCP provider connected (deliberate), and no real OpenCode backend
