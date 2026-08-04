@@ -64,8 +64,8 @@ suivantes ne sont pas remplies.
 | Stabilisation des contrats | ✅ | `@unifia/contracts` : 32/32 vitest + smokes, typecheck 25/25 |
 | Tests de conformité | ✅ | `RuntimeConformance` 30/30 (3 runtimes × 10 scénarios), gate 8/8 sur 32 suites |
 | Validation des licences | ✅ local | `supply-chain/*` 5/5 : chemins interdits, imports exclus, SPDX, licences de manifeste, épinglage des dépendances |
-| Validation du build desktop | ❌ | Jamais tenté dans cette session. Nécessite le sidecar puis `bun tauri build`. |
-| Validation du mobile | ❌ | Jamais tenté. Nécessite `ORT_LIB_LOCATION` et un build Android de 5+ min. |
+| Validation du build desktop | ✅ | `bun tauri build` exit 0 : `Unifia.exe` 48,3 Mo (ProductName « Unifia Dev ») + installeur NSIS `Unifia Dev_1.3.15_x64-setup.exe` 52,6 Mo. A exigé de réparer le rebrand — voir ci-dessous. |
+| Validation du mobile | ✅ | `bun tauri android build --target aarch64` exit 0 : APK universel 1066,9 Mo + AAB 1017,1 Mo. `rootfs.tgz` vérifié **stocké à 0 % de compression** dans l'APK — la règle `noCompress` tient, AAPT2 ne dégonfle pas l'archive. |
 | Réduction des conflits upstream | ✅ mesuré | Voir ci-dessous |
 
 ### Conflits mesurés
@@ -82,12 +82,65 @@ La surface de conflit est donc faible et nommée, ce qui satisfait la condition
 « réduction des conflits avec upstream OpenCode » au sens où elle est désormais
 mesurée plutôt que supposée.
 
+## Pourquoi les deux validations de build n'avaient jamais été faites
+
+Elles étaient **impossibles**. Le rebrand Phase 0 a renommé un côté de trois
+couplages et laissé l'autre, et **ni le desktop ni le mobile ne compilaient**.
+
+| Couplage | Côté renommé | Côté oublié | Effet |
+|---|---|---|---|
+| Crate Kokoro | `Cargo.toml` desktop **et** mobile → `unifia-kokoro-shared` | crate + dossier restés `opencode-kokoro-shared` | `cargo` : `no matching package` — mort dès la première étape, sur les deux plateformes |
+| Sidecar Tauri | `tauri.conf.json` → `externalBin: sidecars/unifia-cli` | `copy-sidecar.ts` écrivait `sidecars/opencode-cli-<target>` | `resource path ... doesn't exist` |
+| Nom du dist | `utils.ts` cherchait `dist/unifia-<os>-<arch>` | `build.ts` le compose depuis `pkg.name`, resté `opencode` | sidecar introuvable |
+
+**Le plus grave n'était pas un échec de build mais un risque.** `cli.rs` résolvait
+`opencode-cli` et `lib.rs` exécutait `taskkill /F /IM opencode-cli.exe` au
+démarrage **et** à l'arrêt. Tuer par nom d'image atteint tous les processus de ce
+nom sur la machine : ce build de développement terminait le sidecar de
+l'installation OpenCode authentique de l'utilisateur. Le rename confine le rayon
+d'action à cette application. `llama-server` reste tué par un nom partagé et ne
+peut pas être désambiguïsé par un rename — c'est signalé dans le code comme un
+changement distinct.
+
+Pour la duplication du nom de dist, le correctif ne rétablit pas la symétrie : il
+**dérive** le nom depuis le manifeste, puisque c'est la répétition qui avait
+permis la dérive.
+
+Correctif : commit `7c5630bf7`.
+
+### Obstacles annexes rencontrés
+
+- **`@mixmark-io/domino` incomplet dans `node_modules`** : `lib/URLUtils.js`
+  absent, d'où `Could not resolve: "./URLUtils"` au bundling du sidecar. Ce
+  n'est pas un défaut du paquet publié mais une extraction incomplète ;
+  `bun install --frozen-lockfile` ne la répare pas, il faut supprimer le dossier
+  du paquet et réinstaller.
+- **`--baseline` échoue** à télécharger son runtime Bun. `script/build.ts`
+  documente lui-même que les variantes baseline sont *flaky to download*, alors
+  que `CLAUDE.md` présente `--baseline` comme la commande standard.
+- **Runtime Android absent** : `rootfs.tgz` (786 Mo) n'est pas dans le dépôt (il
+  est gitignoré) et sa reconstruction passe par WSL et un rootfs Alpine complet.
+  L'artefact déjà préparé du fork a été réutilisé. **Cela valide le build, pas le
+  rootfs lui-même.**
+
 ## Verdict
 
-**Quatre conditions sur six sont remplies.** Les deux manquantes sont les
-validations de build desktop et mobile — ni l'une ni l'autre n'est un problème
-de code Unifia, ce sont des builds à exécuter.
+**Les six conditions §6.3 sont remplies.** Le plan n'interdit donc plus la
+consolidation monorepo sur ses propres critères.
 
-Tant qu'elles ne sont pas faites, le plan interdit la consolidation monorepo.
-La branche vit donc dans le fork **sans être fusionnée**, ce qui est exactement
-l'étape §6.1 : le travail est dans le bon dépôt, la fusion attend ses conditions.
+Deux réserves à porter avec ce verdict, parce qu'elles changent ce qu'il
+signifie :
+
+1. **Les deux builds réutilisent des artefacts natifs pré-construits** repris du
+   fork : `rootfs.tgz` (786 Mo) et 30 bibliothèques `jniLibs` (0,83 Go), toutes
+   gitignorées et donc absentes de tout clone frais. Cela prouve que **la chaîne
+   de build fonctionne**, pas que ces binaires sont reproductibles. Une
+   reconstruction depuis les sources — rootfs Alpine via WSL, llama.cpp pour
+   arm64 — reste à faire, et c'est elle qui adresserait la reproductibilité
+   exigée par le plan §32.
+2. **La consolidation reste une décision, pas une conséquence.** Le plan §6.1
+   décrit deux dépôts pour l'étape initiale ; passer au monorepo §6.4 est un
+   choix de topologie qui appartient au propriétaire.
+
+En l'état, la branche vit dans le fork **sans être fusionnée** : le travail est
+dans le bon dépôt, et la fusion est désormais permise plutôt qu'obligatoire.
