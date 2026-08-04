@@ -765,6 +765,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/workbench-orchestrator": {
+      "name": "@unifia/workbench-orchestrator",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/workbench-server": {
       "name": "@unifia/workbench-server",
       "version": "0.1.0",
@@ -2626,6 +2639,8 @@
     "@unifia/storybook": ["@unifia/storybook@workspace:packages/storybook"],
 
     "@unifia/web": ["@unifia/web@workspace:packages/web"],
+
+    "@unifia/workbench-orchestrator": ["@unifia/workbench-orchestrator@workspace:packages/workbench-orchestrator"],
 
     "@unifia/workbench-server": ["@unifia/workbench-server@workspace:packages/workbench-server"],
 
