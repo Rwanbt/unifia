@@ -2,6 +2,7 @@ import { ApprovalBroker, CapabilityRegistry, type BrowserAutomationBroker, type 
 /* SPDX-License-Identifier: MIT */
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
+import type { SkillRegistry } from "@unifia/skill-hub"
 import type {
   FileReadResult,
   FileWrite,
@@ -15,7 +16,7 @@ import type {
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker }
+type ServerDependencies = { workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; skillHub?: SkillRegistry }
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -44,6 +45,7 @@ export class WorkbenchServer {
   readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #sessionOwners = new Map<string, string>()
+  readonly #skillHub?: SkillRegistry
 
   constructor(dependencies: ServerDependencies) {
     this.#workspace = dependencies.workspace
@@ -56,6 +58,7 @@ export class WorkbenchServer {
     this.#memory = dependencies.memory
     this.#capabilities = dependencies.capabilities
     this.#ui = dependencies.ui
+    this.#skillHub = dependencies.skillHub
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -77,6 +80,7 @@ export class WorkbenchServer {
       if (segments[1] === "memory" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) return this.#memoryAction(request, segments[2])
       if (segments[1] === "capabilities" && (request.method === "GET" || request.method === "POST")) return this.#capabilityAction(request, segments[2])
       if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request)
+      if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
       return this.#deny("route.unknown", 404)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
@@ -261,6 +265,35 @@ export class WorkbenchServer {
     const result = await this.#ui.execute(input.action as UiAction)
     this.#allow("ui.action")
     return json(result.status === "denied" ? 403 : result.status === "pending-approval" ? 202 : 200, { result })
+  }
+
+  async #skillHubAction(request: Request, action: string): Promise<Response> {
+    if (!this.#skillHub) return this.#deny("skill-hub.unavailable", 503)
+    const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
+    if (typeof input.workspaceId !== "string") return this.#deny("skill-hub.scope", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("skill-hub.scope", 403)
+    if (action === "search") {
+      const query = typeof input.query === "string" ? input.query : undefined
+      const tags = typeof input.tags === "string" && input.tags.length > 0 ? input.tags.split(",").map((tag) => tag.trim()).filter((tag) => tag.length > 0) : Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined
+      const trust = input.trust === "untrusted" || input.trust === "verified" || input.trust === "official" ? input.trust : undefined
+      const manifests = await this.#skillHub.search({ query, tags, trust })
+      this.#allow("skill-hub.search")
+      return json(200, { manifests })
+    }
+    if (action === "install") {
+      if (typeof input.digest !== "string") return this.#deny("skill-hub.install", 400)
+      const installed = await this.#skillHub.install(input.digest)
+      this.#allow("skill-hub.install")
+      return json(201, { installed })
+    }
+    if (action === "update") {
+      if (typeof input.name !== "string") return this.#deny("skill-hub.update", 400)
+      const updated = await this.#skillHub.update(input.name)
+      this.#allow("skill-hub.update")
+      return json(200, { updated: updated ?? null })
+    }
+    return this.#deny("skill-hub.action", 400)
   }
 
   async #approval(request: Request, id: string): Promise<Response> {

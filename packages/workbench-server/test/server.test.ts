@@ -6,8 +6,8 @@ import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, Capability
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
+import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
 import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
-
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
 try {
   await writeFile(path.join(root, "README.md"), "hello")
@@ -114,7 +114,72 @@ try {
   if (observed.status !== 200) throw new Error("desktop observe route failed")
   const controlled = await desktopServer.fetch(new Request("http://localhost/v1/desktop/control", { method: "POST", headers: { authorization: `Bearer ${desktopHandle.token}` }, body: JSON.stringify({ workspaceId: desktopHandle.id, appId: "allowed-app", action: "mouse", payload: { x: 1, y: 1 } }) }))
   if (controlled.status !== 202) throw new Error("desktop control route failed")
-  console.log("WorkbenchServer: 29/29 passed")
+  const seededRegistry = new InMemorySkillRegistry(() => 1_000)
+  await seededRegistry.publish({ manifest: { name: "demo-skill", version: "1.0.0", digest: "a".repeat(64), trust: "untrusted" as SkillTrust, tags: ["demo"], capabilities: ["workflow.run"] } })
+  await seededRegistry.publish({ manifest: { name: "audit-skill", version: "1.0.0", digest: "b".repeat(64), trust: "untrusted" as SkillTrust, tags: ["audit"], capabilities: ["workspace.read"] } })
+  type CallLog = Record<"publish" | "search" | "install" | "update" | "rate" | "exec" | "load" | "run", number>
+  const makeRecorder = (registry: SkillRegistry): { registry: SkillRegistry; log: CallLog; throwIfExec: () => void } => {
+    const log = { publish: 0, search: 0, install: 0, update: 0, rate: 0, exec: 0, load: 0, run: 0 } as CallLog
+    const throwIfExec = () => { if (log.exec > 0 || log.load > 0 || log.run > 0) throw new Error("skill content was executed") }
+    const record = { registry: {
+      publish: async (pkg: SkillPackage) => { log.publish += 1; return registry.publish(pkg) },
+      search: async (input: Parameters<SkillRegistry["search"]>[0]) => { log.search += 1; return registry.search(input) },
+      install: async (digest: string) => { log.install += 1; return registry.install(digest) },
+      update: async (name: string) => { log.update += 1; return registry.update(name) },
+      rate: async (digest: string, rating: number) => { log.rate += 1; return registry.rate(digest, rating) },
+    } as SkillRegistry, log, throwIfExec }
+    const guarded = record.registry as SkillRegistry & { execute?: () => never; load?: () => never; run?: () => never }
+    guarded.execute = () => { log.exec += 1; throw new Error("execute must never be called") }
+    guarded.load = () => { log.load += 1; throw new Error("load must never be called") }
+    guarded.run = () => { log.run += 1; throw new Error("run must never be called") }
+    return record
+  }
+  const seeded = makeRecorder(seededRegistry)
+  const skillHubAudit = new AuditRuntimeDouble(() => 1_000)
+  const skillHubServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit: skillHubAudit, capability: { check: async () => "allow" }, skillHub: seeded.registry })
+  const skillHubOpen = await skillHubServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const skillHubHandle = await skillHubOpen.json() as { id: string; token: string }
+  const deniedSearchScope = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/search", { method: "POST", headers: { authorization: "Bearer not-a-real-token" }, body: JSON.stringify({ workspaceId: skillHubHandle.id, query: "x" }) }))
+  if (deniedSearchScope.status !== 403) throw new Error("skill-hub search with bad token was not denied (expected 403)")
+  const deniedInstallScope = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/install", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ workspaceId: "other-workspace", digest: "a".repeat(64) }) }))
+  if (deniedInstallScope.status !== 403) throw new Error("skill-hub install with cross-workspace id was not denied")
+  const deniedUpdateScope = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/update", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ name: "demo-skill" }) }))
+  if (deniedUpdateScope.status !== 400) throw new Error("skill-hub update without workspaceId was not 400")
+  const missingRegistryServer = new WorkbenchServer({ workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit: skillHubAudit, capability: { check: async () => "allow" } })
+  const missingRegistryOpen = await missingRegistryServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
+  const missingRegistryHandle = await missingRegistryOpen.json() as { id: string; token: string }
+  const unavailableSearch = await missingRegistryServer.fetch(new Request("http://localhost/v1/skill-hub/search", { method: "POST", headers: { authorization: `Bearer ${missingRegistryHandle.token}` }, body: JSON.stringify({ workspaceId: missingRegistryHandle.id, query: "x" }) }))
+  if (unavailableSearch.status !== 503) throw new Error("skill-hub search without registry was not 503")
+  const unavailableInstall = await missingRegistryServer.fetch(new Request("http://localhost/v1/skill-hub/install", { method: "POST", headers: { authorization: `Bearer ${missingRegistryHandle.token}` }, body: JSON.stringify({ workspaceId: missingRegistryHandle.id, digest: "0".repeat(64) }) }))
+  if (unavailableInstall.status !== 503) throw new Error("skill-hub install without registry was not 503")
+  const unavailableUpdate = await missingRegistryServer.fetch(new Request("http://localhost/v1/skill-hub/update", { method: "POST", headers: { authorization: `Bearer ${missingRegistryHandle.token}` }, body: JSON.stringify({ workspaceId: missingRegistryHandle.id, name: "demo-skill" }) }))
+  if (unavailableUpdate.status !== 503) throw new Error("skill-hub update without registry was not 503")
+  const searchAuditBaseline = skillHubAudit.events().length
+  const searchResponse = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/search", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ workspaceId: skillHubHandle.id, query: "workflow", tags: ["demo"] }) }))
+  if (searchResponse.status !== 200) throw new Error("skill-hub search route failed")
+  const searchBody = await searchResponse.json() as { manifests: readonly SkillManifest[] }
+  if (searchBody.manifests.length !== 1 || searchBody.manifests[0].name !== "demo-skill") throw new Error("skill-hub search did not filter correctly")
+  if ((seeded.log.search as number) !== 1) throw new Error("skill-hub search did not call registry.search once")
+  seeded.throwIfExec()
+  const installResponse = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/install", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ workspaceId: skillHubHandle.id, digest: "a".repeat(64), allowlist: ["ui.click", "ui.inspect"], uiActions: ["approve"] }) }))
+  if (installResponse.status !== 201) throw new Error("skill-hub install route failed")
+  const installBody = await installResponse.json() as { installed: InstalledSkill }
+  if (installBody.installed.manifest.digest !== "a".repeat(64)) throw new Error("skill-hub install did not return the installed manifest")
+  if ((seeded.log.install as number) !== 1) throw new Error("skill-hub install did not call registry.install once")
+  if ((seeded.log.update as number) !== 0) throw new Error("skill-hub install must not trigger registry.update")
+  if (((installBody.installed.manifest as unknown) as { allowlist?: unknown }).allowlist !== undefined) throw new Error("install manifest was mutated by payload allowlist")
+  seeded.throwIfExec()
+  const updateResponse = await skillHubServer.fetch(new Request("http://localhost/v1/skill-hub/update", { method: "POST", headers: { authorization: `Bearer ${skillHubHandle.token}` }, body: JSON.stringify({ workspaceId: skillHubHandle.id, name: "demo-skill", uiActions: ["shutdown"] }) }))
+  if (updateResponse.status !== 200) throw new Error("skill-hub update route failed")
+  const updateBody = await updateResponse.json() as { updated: InstalledSkill | null }
+  if (updateBody.updated?.manifest.name !== "demo-skill") throw new Error("skill-hub update did not return the installed skill")
+  if ((seeded.log.update as number) !== 1) throw new Error("skill-hub update did not call registry.update once")
+  if ((seeded.log.search as number) === 0) throw new Error("skill-hub update did not call registry.search to resolve latest version")
+  seeded.throwIfExec()
+  const successCalls = skillHubAudit.events().slice(searchAuditBaseline).filter((event) => event.capability.startsWith("skill-hub."))
+  if (successCalls.length < 3) throw new Error("skill-hub success routes were not audited as allow")
+  if (successCalls.some((event) => event.decision !== "allow")) throw new Error("skill-hub success routes produced a non-allow audit decision")
+  console.log("WorkbenchServer: 49/49 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

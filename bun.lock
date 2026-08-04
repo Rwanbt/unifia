@@ -704,6 +704,7 @@
       "dependencies": {
         "@unifia/contracts": "workspace:*",
         "@unifia/memory-runtime": "workspace:*",
+        "@unifia/skill-hub": "workspace:*",
         "@unifia/workflow-runtime": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },
