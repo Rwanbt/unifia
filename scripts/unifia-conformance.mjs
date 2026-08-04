@@ -10,7 +10,7 @@
  * a supply-chain attestation service or a signed release.
  *
  * Usage:
- *   node scripts/unifia-conformance.mjs [--json <path>] [--skip-tests]
+ *   node scripts/unifia-conformance.mjs [--json <path>] [--skip-tests] [--with-browser]
  *
  * Exit code is non-zero when any check fails, so CI can gate on it.
  */
@@ -88,9 +88,17 @@ const SUITE_ARGS = {
   "packages/generative-ui-dom/test/dom.test.ts": ["--preload", "./test/happydom.ts"],
 }
 
+/**
+ * Suites that need a Chromium binary. They are real and passing, but a runner
+ * without `playwright install` cannot execute them, so the default gate stays
+ * offline-reproducible. Pass --with-browser to include them.
+ */
+const BROWSER_SUITES = [
+  "packages/generative-ui-dom/test/browser.e2e.ts",
+]
+
 const EXCLUDED_TESTS = {
   "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate",
-  "packages/generative-ui-dom/test/browser.e2e.ts": "BLOCKED: playwright cannot drive Chromium under Bun (pipe transport needs fd 3/4; connectOverCDP's websocket handshake times out), and running it under Node is blocked by Bun.serve in the workbench bootstrap. Full evidence and two ways out are in the suite header.",
 }
 
 /** Paths whose licence forbids import into Unifia. See docs/autonomy/DO-NOT-IMPORT.md */
@@ -204,9 +212,9 @@ function checkTypecheck() {
   }
 }
 
-function checkTests() {
+function checkTests(withBrowser) {
   let failed = 0
-  for (const entry of TEST_ENTRYPOINTS) {
+  for (const entry of [...TEST_ENTRYPOINTS, ...(withBrowser ? BROWSER_SUITES : [])]) {
     // WHY the package directory is the cwd: suites resolve workspace imports
     // relative to their own package, exactly as `bun test` does there.
     const packageDirectory = path.join(repoRoot, path.dirname(path.dirname(entry)))
@@ -232,8 +240,10 @@ function checkTests() {
       process.stdout.write(`      ${packageDir} (vitest) — FAILED: ${String(error.stdout ?? error.message).split("\n").slice(-3).join(" | ")}\n`)
     }
   }
-  const total = TEST_ENTRYPOINTS.length + vitestFiles
-  record("quality/tests", failed === 0, failed === 0 ? `${total} suites passed (${TEST_ENTRYPOINTS.length} bun + ${vitestFiles} vitest), ${Object.keys(EXCLUDED_TESTS).length} excluded with a stated reason` : `${failed} suite(s) failed`)
+  const browserCount = withBrowser ? BROWSER_SUITES.length : 0
+  const total = TEST_ENTRYPOINTS.length + vitestFiles + browserCount
+  const browserNote = withBrowser ? `${browserCount} browser` : `${BROWSER_SUITES.length} browser suite(s) skipped, pass --with-browser to include`
+  record("quality/tests", failed === 0, failed === 0 ? `${total} suites passed (${TEST_ENTRYPOINTS.length} bun + ${vitestFiles} vitest, ${browserNote}), ${Object.keys(EXCLUDED_TESTS).length} excluded with a stated reason` : `${failed} suite(s) failed`)
 }
 
 const args = process.argv.slice(2)
@@ -248,7 +258,7 @@ checkDependencyProvenance()
 checkLint()
 checkTypecheck()
 if (args.includes("--skip-tests")) record("quality/tests", true, "skipped by --skip-tests (NOT a proof)")
-else checkTests()
+else checkTests(args.includes("--with-browser"))
 
 const failedCount = results.filter((result) => !result.ok).length
 const report = {
