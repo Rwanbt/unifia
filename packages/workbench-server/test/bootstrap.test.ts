@@ -73,6 +73,10 @@ try {
   throws(() => loadConfigFromEnv({ UNIFIA_WORKBENCH_SIGNING_KEY: validKey, UNIFIA_WORKBENCH_HOST: "0.0.0.0" }), "loopback", "a non-loopback host was accepted")
   throws(() => loadConfigFromEnv({ UNIFIA_WORKBENCH_SIGNING_KEY: validKey, UNIFIA_WORKBENCH_RUNTIME: "wat" }), "unsupported", "an unknown runtime was accepted")
   throws(() => createWorkbenchApp({ ...loadConfigFromEnv({ UNIFIA_WORKBENCH_SIGNING_KEY: validKey }), runtime: "opencode" }), "requires an OpenCodeRuntimeBackend", "runtime=opencode started without a backend")
+  // Omitting a surface must fail closed, never default to permitting it.
+  const bare = createWorkbenchApp(loadConfigFromEnv({ UNIFIA_WORKBENCH_SIGNING_KEY: validKey, UNIFIA_WORKBENCH_AUDIT_LOG: path.join(root, ".unifia", "audit-bare.jsonl") }))
+  const bareUi = await bare.server.fetch(new Request("http://local/v1/ui/render", { method: "POST", headers: { authorization: `Bearer ${new HmacTokenAuthenticator(validKey, "unifia-local", "workbench").sign({ id: "a", scopes: new Set(["workspace.register"]), workspaces: "*" }, Date.now() + 60_000)}` }, body: JSON.stringify({ workspaceId: "x", node: { type: "text", id: "t", props: {} } }) }))
+  check(bareUi.status === 503, `an unwired UI surface returned ${bareUi.status} instead of 503`)
 
   const baseEnv = { UNIFIA_WORKBENCH_SIGNING_KEY: validKey, UNIFIA_WORKBENCH_PORT: "0", UNIFIA_WORKBENCH_AUDIT_LOG: path.join(root, ".unifia", "audit.jsonl") }
   const config: WorkbenchConfig = loadConfigFromEnv(baseEnv)

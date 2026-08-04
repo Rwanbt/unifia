@@ -1,8 +1,9 @@
 {
-  "generatedAt": "2026-08-04T09:15:24.135Z",
+  "generatedAt": "2026-08-04T09:43:57.985Z",
   "scope": "local reproducible checks only; excludes external audit, pentest and signed release",
   "excludedTests": {
-    "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate"
+    "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate",
+    "packages/generative-ui-dom/test/browser.e2e.ts": "BLOCKED: playwright cannot drive Chromium under Bun (pipe transport needs fd 3/4; connectOverCDP's websocket handshake times out), and running it under Node is blocked by Bun.serve in the workbench bootstrap. Full evidence and two ways out are in the suite header."
   },
   "results": [
     {
@@ -13,17 +14,17 @@
     {
       "name": "supply-chain/excluded-imports",
       "ok": true,
-      "detail": "71 owned source files import no excluded path"
+      "detail": "73 owned source files import no excluded path"
     },
     {
       "name": "supply-chain/spdx-headers",
       "ok": true,
-      "detail": "71 owned source files carry an SPDX header"
+      "detail": "73 owned source files carry an SPDX header"
     },
     {
       "name": "supply-chain/manifest-licenses",
       "ok": true,
-      "detail": "12 manifests declare an allowed licence"
+      "detail": "13 manifests declare an allowed licence"
     },
     {
       "name": "supply-chain/dependency-provenance",
@@ -33,17 +34,17 @@
     {
       "name": "quality/lint",
       "ok": true,
-      "detail": "12 owned packages lint clean"
+      "detail": "13 owned packages lint clean"
     },
     {
       "name": "quality/typecheck",
       "ok": true,
-      "detail": "Tasks:    21 successful, 21 total"
+      "detail": "Tasks:    22 successful, 22 total"
     },
     {
       "name": "quality/tests",
       "ok": true,
-      "detail": "26 suites passed (24 bun + 2 vitest), 1 excluded with a stated reason"
+      "detail": "27 suites passed (25 bun + 2 vitest), 2 excluded with a stated reason"
     }
   ],
   "verdict": "PASS"

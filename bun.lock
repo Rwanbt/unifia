@@ -308,6 +308,21 @@
         "typescript": "catalog:",
       },
     },
+    "packages/generative-ui-dom": {
+      "name": "@unifia/generative-ui-dom",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@happy-dom/global-registrator": "20.0.11",
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@unifia/workbench-server": "workspace:*",
+        "playwright": "1.57.0",
+        "typescript": "catalog:",
+      },
+    },
     "packages/mcp-transport": {
       "name": "@unifia/mcp-transport",
       "version": "0.1.0",
@@ -2547,6 +2562,8 @@
     "@unifia/document-packs": ["@unifia/document-packs@workspace:packages/document-packs"],
 
     "@unifia/function": ["@unifia/function@workspace:packages/function"],
+
+    "@unifia/generative-ui-dom": ["@unifia/generative-ui-dom@workspace:packages/generative-ui-dom"],
 
     "@unifia/mcp-transport": ["@unifia/mcp-transport@workspace:packages/mcp-transport"],
 

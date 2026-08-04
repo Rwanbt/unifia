@@ -28,6 +28,7 @@ const UNIFIA_PACKAGES = [
   "contracts",
   "desktop-runtime",
   "document-packs",
+  "generative-ui-dom",
   "mcp-transport",
   "memory-runtime",
   "skill-hub",
@@ -56,6 +57,7 @@ const TEST_ENTRYPOINTS = [
   "packages/contracts/test/sandbox-broker-smoke.ts",
   "packages/desktop-runtime/test/windows-driver.test.ts",
   "packages/document-packs/test/packs.test.ts",
+  "packages/generative-ui-dom/test/dom.test.ts",
   "packages/mcp-transport/test/transport.test.ts",
   "packages/memory-runtime/test/memory-runtime.test.ts",
   "packages/skill-hub/test/test.ts",
@@ -77,8 +79,18 @@ const VITEST_SUITES = {
   "packages/contracts": ["test/contracts.test.ts", "test/p3.test.ts"],
 }
 
+/**
+ * Extra bun arguments per suite. A suite needing a DOM must say so here rather
+ * than the runner guessing: running it without the preload would fail on a
+ * missing `document` and look like a product defect.
+ */
+const SUITE_ARGS = {
+  "packages/generative-ui-dom/test/dom.test.ts": ["--preload", "./test/happydom.ts"],
+}
+
 const EXCLUDED_TESTS = {
   "packages/browser-runtime/test/playwright-driver.e2e.ts": "requires a real browser; not runnable offline in this gate",
+  "packages/generative-ui-dom/test/browser.e2e.ts": "BLOCKED: playwright cannot drive Chromium under Bun (pipe transport needs fd 3/4; connectOverCDP's websocket handshake times out), and running it under Node is blocked by Bun.serve in the workbench bootstrap. Full evidence and two ways out are in the suite header.",
 }
 
 /** Paths whose licence forbids import into Unifia. See docs/autonomy/DO-NOT-IMPORT.md */
@@ -199,7 +211,8 @@ function checkTests() {
     // relative to their own package, exactly as `bun test` does there.
     const packageDirectory = path.join(repoRoot, path.dirname(path.dirname(entry)))
     try {
-      const output = run("bun", [path.relative(packageDirectory, path.join(repoRoot, entry)).split(path.sep).join("/")], { cwd: packageDirectory })
+      const relativeEntry = path.relative(packageDirectory, path.join(repoRoot, entry)).split(path.sep).join("/")
+      const output = run("bun", [...(SUITE_ARGS[entry] ?? []), relativeEntry], { cwd: packageDirectory })
       const summary = output.trim().split("\n").filter(Boolean).at(-1) ?? "no output"
       process.stdout.write(`      ${entry} — ${summary}\n`)
     } catch (error) {

@@ -26,6 +26,7 @@
 			"packages/contracts/**/*.ts",
 			"packages/desktop-runtime/**/*.ts",
 			"packages/document-packs/**/*.ts",
+			"packages/generative-ui-dom/**/*.ts",
 			"packages/mcp-transport/**/*.ts",
 			"packages/memory-runtime/**/*.ts",
 			"packages/skill-hub/**/*.ts",

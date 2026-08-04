@@ -15,7 +15,7 @@
 
 import { appendFileSync, mkdirSync } from "node:fs"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer } from "./index.js"
@@ -115,8 +115,17 @@ export type WorkbenchApp = {
   readonly workspace: WorkspaceRuntime
 }
 
+export type WorkbenchSurfaces = {
+  backend?: OpenCodeRuntimeBackend
+  /** UI control broker. Absent means /v1/ui/actions answers 503, not "allow". */
+  ui?: McpUiControlBroker
+  /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
+  uiAllowedActions?: ReadonlySet<string>
+}
+
 /** Assembles the object graph. No I/O beyond opening the audit log. */
-export function createWorkbenchApp(config: WorkbenchConfig, backend?: OpenCodeRuntimeBackend): WorkbenchApp {
+export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchSurfaces = {}): WorkbenchApp {
+  const backend = surfaces.backend
   if (config.runtime === "opencode" && !backend) throw new Error("runtime=opencode requires an OpenCodeRuntimeBackend")
   const runtime: RuntimeAdapter = config.runtime === "opencode" ? new OpenCodeRuntimeAdapter(backend as OpenCodeRuntimeBackend) : new FakeRuntimeAdapter()
   const authenticator = new HmacTokenAuthenticator(config.signingKey, config.issuer, config.audience)
@@ -129,13 +138,15 @@ export function createWorkbenchApp(config: WorkbenchConfig, backend?: OpenCodeRu
     runtime,
     audit,
     capability: new ApprovalCapabilityGate(new ApprovalBroker(), config.allowlistedCapabilities),
+    ui: surfaces.ui,
+    uiAllowedActions: surfaces.uiAllowedActions,
   })
   return { server, authenticator, audit, workspace }
 }
 
 /** Starts the HTTP listener and returns a handle that shuts it down cleanly. */
-export async function startWorkbench(config: WorkbenchConfig, backend?: OpenCodeRuntimeBackend): Promise<WorkbenchHandle> {
-  const app = createWorkbenchApp(config, backend)
+export async function startWorkbench(config: WorkbenchConfig, surfaces: WorkbenchSurfaces = {}): Promise<WorkbenchHandle> {
+  const app = createWorkbenchApp(config, surfaces)
   const listener = Bun.serve({
     hostname: config.host,
     port: config.port,
