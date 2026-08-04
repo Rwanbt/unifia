@@ -24,6 +24,16 @@ function json(status: number, body: JsonRecord): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
 }
 
+/**
+ * Serialise one runtime event as a wire-format SSE frame.
+ * WHY: the `id:` line is omitted when no sequence exists — emitting an empty
+ * `id:` would reset the client's Last-Event-ID and break cursor resumption.
+ */
+export function sseFrame(event: { sequence?: number }): string {
+  const id = typeof event.sequence === "number" ? `id: ${event.sequence}\n` : ""
+  return `${id}data: ${JSON.stringify(event)}\n\n`
+}
+
 async function body(request: Request): Promise<JsonRecord> {
   try {
     const value: unknown = await request.json()
@@ -139,7 +149,7 @@ export class WorkbenchServer {
         try {
           const next = await iterator.next()
           if (next.done) controller.close()
-          else controller.enqueue(encoder.encode(`id: ${next.value.sequence ?? ""}\\ndata: ${JSON.stringify(next.value)}\\n\\n`))
+          else controller.enqueue(encoder.encode(sseFrame(next.value)))
         } catch (error) {
           controller.error(error)
         }

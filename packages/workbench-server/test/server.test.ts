@@ -8,7 +8,20 @@ import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
-import { ApprovalCapabilityGate, WorkbenchServer } from "../src/index.js"
+import { ApprovalCapabilityGate, WorkbenchServer, sseFrame } from "../src/index.js"
+
+/**
+ * WHY: the summary line used to be a hardcoded string. `check()` counts every
+ * assertion it guards so the reported number is derived, not asserted.
+ * LEGACY_ASSERTIONS is a manual count of the inline `if (...) throw` checks
+ * that predate this helper and are still executed below.
+ */
+const LEGACY_ASSERTIONS = 49
+let checks = 0
+const check = (condition: boolean, message: string): void => {
+  checks += 1
+  if (!condition) throw new Error(message)
+}
 const skillArtifact = (name: string) => new TextEncoder().encode(name)
 const skillDigest = (name: string) => createHash("sha256").update(skillArtifact(name)).digest("hex")
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
@@ -43,6 +56,15 @@ try {
   const eventChunk = await Promise.race([pendingEvent, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("event stream timeout")), 5_000))])
   await reader.cancel()
   if (eventChunk.done || !new TextDecoder().decode(eventChunk.value).includes("hello")) throw new Error("runtime event was not streamed")
+  const eventFrame = new TextDecoder().decode(eventChunk.value)
+  check(!eventFrame.includes("\\n"), "SSE frame contains a literal backslash-n instead of a newline")
+  check(eventFrame.endsWith("\n\n"), "SSE frame is not terminated by a blank line")
+  const frameLines = eventFrame.split("\n")
+  check(frameLines[0].startsWith("id: "), "SSE frame does not start with an id line")
+  check(frameLines[1].startsWith("data: "), "SSE frame does not carry a data line")
+  check(JSON.parse(frameLines[1].slice(6)).sequence === 1, "SSE data line is not parseable JSON with a sequence")
+  check(sseFrame({ sequence: 7 }) === `id: 7\ndata: {"sequence":7}\n\n`, "sseFrame did not emit a wire-format frame")
+  check(sseFrame({}) === `data: {}\n\n`, "sseFrame emitted an empty id line when no sequence exists")
   if (prompt.status !== 202) throw new Error("scoped prompt failed")
   const reconnectPrompt = await server.fetch(new Request(`http://localhost/v1/sessions/${session.id}/prompt`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ prompt: "reconnected" }) }))
   if (reconnectPrompt.status !== 202) throw new Error("second scoped prompt failed")
@@ -193,7 +215,7 @@ try {
   const successCalls = skillHubAudit.events().slice(searchAuditBaseline).filter((event) => event.capability.startsWith("skill-hub."))
   if (successCalls.length < 3) throw new Error("skill-hub success routes were not audited as allow")
   if (successCalls.some((event) => event.decision !== "allow")) throw new Error("skill-hub success routes produced a non-allow audit decision")
-  console.log("WorkbenchServer: 49/49 passed")
+  console.log(`WorkbenchServer: ${LEGACY_ASSERTIONS + checks}/${LEGACY_ASSERTIONS + checks} passed (${LEGACY_ASSERTIONS} legacy + ${checks} counted)`)
 } finally {
   await rm(root, { recursive: true, force: true })
 }
