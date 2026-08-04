@@ -24,6 +24,7 @@
 			"packages/artifact-studio/**/*.ts",
 			"packages/browser-runtime/**/*.ts",
 			"packages/capability-runtime/**/*.ts",
+			"packages/computer-use-safety/**/*.ts",
 			"packages/contracts/**/*.ts",
 			"packages/desktop-runtime/**/*.ts",
 			"packages/document-packs/**/*.ts",
