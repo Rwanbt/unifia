@@ -65,7 +65,7 @@ suivantes ne sont pas remplies.
 | Tests de conformité | ✅ | `RuntimeConformance` 30/30 (3 runtimes × 10 scénarios), gate 8/8 sur 32 suites |
 | Validation des licences | ✅ local | `supply-chain/*` 5/5 : chemins interdits, imports exclus, SPDX, licences de manifeste, épinglage des dépendances |
 | Validation du build desktop | ✅ | `bun tauri build` exit 0 : `Unifia.exe` 48,3 Mo (ProductName « Unifia Dev ») + installeur NSIS `Unifia Dev_1.3.15_x64-setup.exe` 52,6 Mo. A exigé de réparer le rebrand — voir ci-dessous. |
-| Validation du mobile | ✅ | `bun tauri android build --target aarch64` exit 0 : APK universel 1066,9 Mo + AAB 1017,1 Mo. `rootfs.tgz` vérifié **stocké à 0 % de compression** dans l'APK — la règle `noCompress` tient, AAPT2 ne dégonfle pas l'archive. |
+| Validation du mobile | ✅ | `bun tauri android build --target aarch64` exit 0 : APK universel 1067 Mo + AAB 1017,2 Mo. `rootfs.tgz` vérifié **stocké à 0 % de compression** dans l'APK — la règle `noCompress` tient, AAPT2 ne dégonfle pas l'archive. Build refait une seconde fois avec un rootfs reconstruit depuis les sources. |
 | Réduction des conflits upstream | ✅ mesuré | Voir ci-dessous |
 
 ### Conflits mesurés
@@ -118,10 +118,56 @@ Correctif : commit `7c5630bf7`.
 - **`--baseline` échoue** à télécharger son runtime Bun. `script/build.ts`
   documente lui-même que les variantes baseline sont *flaky to download*, alors
   que `CLAUDE.md` présente `--baseline` comme la commande standard.
-- **Runtime Android absent** : `rootfs.tgz` (786 Mo) n'est pas dans le dépôt (il
-  est gitignoré) et sa reconstruction passe par WSL et un rootfs Alpine complet.
-  L'artefact déjà préparé du fork a été réutilisé. **Cela valide le build, pas le
-  rootfs lui-même.**
+- **Runtime Android absent** : `rootfs.tgz` (786 Mo) et les 30 bibliothèques
+  `jniLibs` (0,83 Go) ne sont pas dans le dépôt — ils sont gitignorés, donc
+  absents de tout clone frais. Les artefacts du fork ont d'abord été réutilisés
+  pour débloquer le build, puis le rootfs a été **reconstruit depuis les sources**
+  et l'APK refait avec (voir la réserve 1 du verdict).
+
+### Deux détails du script de rootfs, relevés en le lisant
+
+- Son en-tête annonce « ~80 Mo compressé » alors que sa liste de paquets (rust,
+  gdb, php83, openjdk21, gradle, go, ruby, cmake…) produit 787 Mo. Le
+  commentaire est périmé, pas le script.
+- Une garde d'idempotence saute la reconstruction si la sortie a moins de
+  30 jours. Une copie d'artefact prend la date du jour et déclenche donc ce
+  saut : il faut supprimer la sortie pour forcer une vraie reconstruction.
+
+### Défaut d'empaquetage : 786 Mo d'octets orphelins dans l'APK
+
+Reconstruire l'APK après avoir **changé** `rootfs.tgz`, sans nettoyer les
+sorties, produit un fichier de 1853,1 Mo dont les entrées ne totalisent que
+1066,9 Mo : **786,2 Mo d'octets orphelins**, soit exactement l'ancien rootfs,
+resté échoué dans le fichier quand le nouveau a été écrit par-dessus. Le
+répertoire central ne les référence pas, donc l'APK reste installable — mais il
+embarque 786 Mo de gras.
+
+Trois mesures ont écarté la coïncidence :
+
+| Build | Fichier | Somme des entrées | Écart |
+|---|---|---:|---:|
+| Incrémental, rootfs changé | 1853,1 Mo | 1066,9 Mo | **786,2 Mo** |
+| Clean (sorties supprimées) | 1067 Mo | 1066,9 Mo | 0,1 Mo |
+| AAB du même build incrémental | 1017,2 Mo | 1017,1 Mo | 0,1 Mo |
+
+Seul l'APK est touché ; l'AAB est produit correctement. Le défaut ne se
+manifeste **que si le rootfs change entre deux builds**, ce qui le rend
+invisible en usage courant — et il ne serait jamais apparu si la validation
+s'était arrêtée au premier build vert.
+
+**Conséquence pratique** : toute release qui modifie un asset `noCompress` doit
+supprimer `app/build/outputs/apk` avant l'empaquetage, sinon l'APK publié
+transporte l'ancien asset en doublon.
+
+### Hard links : la réparation est à l'extraction, pas au build
+
+L'archive livrée contient 24 entrées hard-link (alias `gcc`, `binutils`,
+`perl`). Le script n'emploie pas `--hard-dereference` et la reconstruction en
+produit exactement autant. Ce n'est pas un défaut : `runtime.rs` expose
+`repair_rootfs_hardlinks`, qui les traite **à l'extraction sur l'appareil**, où
+SELinux refuse `link()` sur `app_data_file`. Une note de mémoire projet décrivant
+un `fix_hardlinks.py` appliqué au moment du build correspond à une approche
+antérieure ; ce fichier n'existe dans aucun des deux dépôts.
 
 ## Verdict
 
@@ -131,13 +177,16 @@ consolidation monorepo sur ses propres critères.
 Deux réserves à porter avec ce verdict, parce qu'elles changent ce qu'il
 signifie :
 
-1. **Les deux builds réutilisent des artefacts natifs pré-construits** repris du
-   fork : `rootfs.tgz` (786 Mo) et 30 bibliothèques `jniLibs` (0,83 Go), toutes
-   gitignorées et donc absentes de tout clone frais. Cela prouve que **la chaîne
-   de build fonctionne**, pas que ces binaires sont reproductibles. Une
-   reconstruction depuis les sources — rootfs Alpine via WSL, llama.cpp pour
-   arm64 — reste à faire, et c'est elle qui adresserait la reproductibilité
-   exigée par le plan §32.
+1. **Le rootfs est reproductible ; les bibliothèques natives ne sont pas encore
+   vérifiées.** `scripts/build-alpine-rootfs.sh` a été réexécuté depuis les
+   sources (WSL + qemu, 222 paquets) et produit **824 414 554 octets contre
+   824 220 313 pour l'artefact livré — 0,02 % d'écart**, avec exactement le même
+   nombre d'entrées hard-link (24). L'écart résiduel est attendu : les `apk add`
+   ne sont pas épinglés et Alpine réécrit ses révisions `-r*` sur place, donc la
+   reproductibilité **bit-à-bit est hors d'atteinte avec cette recette** — ce
+   serait une contrainte amont, pas un défaut du script. Les 30 bibliothèques
+   `jniLibs` (llama.cpp, ggml, ONNX Runtime) restent, elles, reprises du fork
+   sans reconstruction.
 2. **La consolidation reste une décision, pas une conséquence.** Le plan §6.1
    décrit deux dépôts pour l'étape initiale ; passer au monorepo §6.4 est un
    choix de topologie qui appartient au propriétaire.
