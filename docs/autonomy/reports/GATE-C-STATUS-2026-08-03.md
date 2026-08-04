@@ -160,9 +160,31 @@ This is a toolchain incompatibility, not a product defect. Two ways out are
 recorded in the suite header; the suite is excluded from the gate with that
 reason attached rather than deleted or quietly skipped.
 
+### Update, same day — the browser proof is no longer blocked
+
+`637f786` runs it. The diagnosis above was correct about playwright under Bun,
+but the second half was wrong: Node *can* type-strip through the workspace
+symlinks. What actually failed was that the packages import siblings with `.js`
+specifiers pointing at `.ts` files (`./runtime.js` → `runtime.ts`), which Bun
+rewrites and Node does not.
+
+The fix is a runner/implementation split. The runner stays under Bun and
+bundles both sides with `bun build` — the page script for the browser, the
+suite for Node with playwright left external. Bundling resolves the specifiers
+at build time, so Node runs the suite and drives Chromium normally. The bundle
+is written inside the package, not the system temp directory: Node resolves a
+bare specifier by walking up from the importing file, and neither `cwd` nor
+`NODE_PATH` applies to ESM.
+
+`GenerativeUiBrowserE2E` 10/10: real Chromium loads the page over a real
+socket, mounts the server-described UI with the real consumer, a real click
+travels back over HTTP into `WorkbenchServer.fetch`, and the decision reaches
+the durable audit log — **a click from a generated UI does not execute, it
+becomes a pending approval**. Browser suites are opt-in behind `--with-browser`
+so the default gate stays offline-reproducible.
+
 ### Remaining NO-GO reasons
 
-- No real-browser proof of the render → click → broker → audit chain (above).
 - Phase 11 OpenDesign: still nothing beyond `docs/adr/0017-opendesign-integration.md`.
 - Phase 12 Artifact Studio core: artefacts remain content-addressed with no
   version lineage, no semantic diff, no sandboxed preview, no metadata stripping.
