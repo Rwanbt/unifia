@@ -29,6 +29,7 @@
 			"packages/document-packs/**/*.ts",
 			"packages/generative-ui-dom/**/*.ts",
 			"packages/mcp-transport/**/*.ts",
+			"packages/memory-governance/**/*.ts",
 			"packages/memory-runtime/**/*.ts",
 			"packages/runtime-conformance/**/*.ts",
 			"packages/skill-hub/**/*.ts",
