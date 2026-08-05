@@ -601,6 +601,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/remote-bridge": {
+      "name": "@unifia/remote-bridge",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/runtime-conformance": {
       "name": "@unifia/runtime-conformance",
       "version": "0.1.0",
@@ -2720,6 +2733,8 @@
     "@unifia/mobile": ["@unifia/mobile@workspace:packages/mobile"],
 
     "@unifia/release-hardening": ["@unifia/release-hardening@workspace:packages/release-hardening"],
+
+    "@unifia/remote-bridge": ["@unifia/remote-bridge@workspace:packages/remote-bridge"],
 
     "@unifia/runtime-conformance": ["@unifia/runtime-conformance@workspace:packages/runtime-conformance"],
 
