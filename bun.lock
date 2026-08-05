@@ -588,10 +588,14 @@
       "dependencies": {
         "@unifia/artifact-runtime": "workspace:*",
         "@unifia/artifact-studio": "workspace:*",
+        "@unifia/computer-use-safety": "workspace:*",
         "@unifia/contracts": "workspace:*",
         "@unifia/document-packs": "workspace:*",
+        "@unifia/mcp-ui-actions": "workspace:*",
+        "@unifia/sandbox-drivers": "workspace:*",
         "@unifia/skill-hub": "workspace:*",
         "@unifia/workbench-orchestrator": "workspace:*",
+        "@unifia/workbench-shell": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },
       "devDependencies": {

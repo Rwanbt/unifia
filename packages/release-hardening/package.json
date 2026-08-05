@@ -18,7 +18,11 @@
     "@unifia/workspace-runtime": "workspace:*",
     "@unifia/artifact-runtime": "workspace:*",
     "@unifia/artifact-studio": "workspace:*",
-    "@unifia/skill-hub": "workspace:*"
+    "@unifia/skill-hub": "workspace:*",
+    "@unifia/computer-use-safety": "workspace:*",
+    "@unifia/mcp-ui-actions": "workspace:*",
+    "@unifia/workbench-shell": "workspace:*",
+    "@unifia/sandbox-drivers": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
@@ -27,4 +31,3 @@
     "@tsconfig/node22": "22.0.2"
   }
 }
-
