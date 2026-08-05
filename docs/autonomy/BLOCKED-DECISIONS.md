@@ -84,3 +84,23 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 **Action requise :** déclarer la licence du snapshot.
 **Note :** l'intégration dans le fork Unifia (MIT) suppose une licence compatible.
 
+
+## BD-10 — Secret `FEISHU_ENCRYPT_KEY` et déploiement du Worker (NOUVEAU, Phase 9 / §22)
+
+**Statut :** `BLOCKED_MISSING_SECRET`
+**Sévérité :** BLOQUANT pour la mise en service du bridge Feishu — non bloquant pour le reste de la Phase 9.
+
+**Contexte :** la route `POST /feishu` (`packages/function/src/api.ts`) relayait n'importe quelle
+charge POST dans un canal Discord avec un token de bot, **sans aucune vérification de signature**.
+Elle vérifie désormais `X-Lark-Signature` et **échoue fermée** : sans clé configurée, aucun callback
+n'est accepté. C'est volontaire — pour cette route, refuser tout vaut mieux que relayer tout.
+
+**Action requise :**
+1. Récupérer l'Encrypt Key du callback dans la console développeur Feishu (valeur distincte de
+   `FEISHU_APP_SECRET`, qui ne permet pas de vérifier un callback).
+2. `sst secret set FEISHU_ENCRYPT_KEY <valeur>` pour chaque stage.
+3. Déployer, puis confirmer qu'un callback réel est accepté et qu'un callback forgé reçoit 401.
+
+**Pourquoi cela ne peut pas être simulé ici :** la vérification est prouvée localement contre des
+signatures calculées indépendamment (`FeishuRemoteAdapter` 20/20), mais qu'un vrai callback Feishu
+signe exactement la chaîne attendue ne peut être établi que contre le service réel.
