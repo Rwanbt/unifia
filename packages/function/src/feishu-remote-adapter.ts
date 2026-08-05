@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { KillSwitchRegistry, RemoteBridgeBroker, type RemoteBridgePolicy, type RemoteMessage, type RemoteCommand, type RemoteCommandResult } from "@unifia/contracts"
+import { KillSwitchRegistry, PRE_VERIFIED, RemoteBridgeBroker, type RemoteBridgePolicy, type RemoteMessage, type RemoteCommand, type RemoteCommandResult } from "@unifia/contracts"
 
 export type FeishuIngress = { id: string; channelId: string; userId: string; text: string; timestamp: number; callbackTimestamp: string; nonce: string; signature: string; rawBody: string }
 
@@ -44,25 +44,46 @@ export class FeishuRemoteAdapter {
   readonly #encryptKey: string
   readonly #now: () => number
   readonly #switches: KillSwitchRegistry
+  #enabled = true
+
   constructor(policy: RemoteBridgePolicy, encryptKey: string, audit: { record(event: { type: string; identityId: string; reason?: string }): void }, now: () => number = () => Date.now(), switches: KillSwitchRegistry = new KillSwitchRegistry()) {
     this.#encryptKey = encryptKey
     this.#now = now
     this.#switches = switches
-    this.#broker = new RemoteBridgeBroker({ policy, verifier: { verify: () => true }, audit, now })
-  }
-  async authorize(input: FeishuIngress): Promise<boolean> {
-    if (this.#switches.isEngaged("all-remote")) return false
-    if (!await verifyFeishuCallbackSignature({ timestamp: input.callbackTimestamp, nonce: input.nonce, encryptKey: this.#encryptKey, rawBody: input.rawBody, signature: input.signature })) return false
-    const identityId = `feishu:${input.userId}`
-    if (!this.#paired.has(identityId)) {
-      this.#broker.pair({ id: identityId, providerId: "feishu", userId: input.userId, scopes: ["read"], expiresAt: this.#now() + 30 * 60_000 })
+    // PRE_VERIFIED: `authorize` checks the callback signature itself before it
+    // reaches the broker, so the broker's own verifier is a pass-through.
+    this.#broker = new RemoteBridgeBroker({ policy, verifier: PRE_VERIFIED, audit, now })
+    // Pairing comes from the host allowlist, not from inbound traffic — the
+    // same reason as in SlackRemoteAdapter: a sender must not be able to make
+    // the host allocate state under an id the sender chose.
+    for (const userId of policy.allowedUsers) {
+      const identityId = `feishu:${userId}`
+      this.#broker.pair({ id: identityId, providerId: "feishu", userId, scopes: ["read"], expiresAt: now() + 30 * 60_000 })
       this.#paired.add(identityId)
     }
+  }
+
+  /** Disables Feishu alone; §22 wants the transports separable. */
+  setEnabled(enabled: boolean): void { this.#enabled = enabled }
+  get enabled(): boolean { return this.#enabled && !this.#switches.isEngaged("all-remote") }
+
+  revoke(userId: string): boolean {
+    const identityId = `feishu:${userId}`
+    const known = this.#paired.delete(identityId)
+    return this.#broker.revoke(identityId) || known
+  }
+
+  async authorize(input: FeishuIngress): Promise<boolean> {
+    if (!this.enabled) return false
+    if (!await verifyFeishuCallbackSignature({ timestamp: input.callbackTimestamp, nonce: input.nonce, encryptKey: this.#encryptKey, rawBody: input.rawBody, signature: input.signature, now: this.#now() })) return false
+    const identityId = `feishu:${input.userId}`
+    if (!this.#paired.has(identityId)) return false
     const message: RemoteMessage = { id: input.id, channelId: input.channelId, userId: input.userId, text: input.text, timestamp: input.timestamp }
     return this.#broker.authorizeMessage({ identityId, message, signature: "verified", nonce: input.nonce })
   }
+
   authorizeCommand(userId: string, command: RemoteCommand): RemoteCommandResult {
-    if (this.#switches.isEngaged("all-remote")) return { commandId: command.id, status: "denied", result: "remote-disabled" }
+    if (!this.enabled) return { commandId: command.id, status: "denied", result: "remote-disabled" }
     return this.#broker.authorizeCommand(`feishu:${userId}`, command)
   }
 }

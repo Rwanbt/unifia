@@ -14,7 +14,7 @@
  * It is now a named attestation the caller has to make on purpose.
  */
 
-import { ApprovalBroker, KillSwitchRegistry, RemoteBridgeBroker, type RemoteApprovalPort, type RemoteAudit, type RemoteBridgePolicy, type RemoteCommand, type RemoteCommandResult, type RemoteMessage } from "@unifia/contracts"
+import { ApprovalBroker, KillSwitchRegistry, PRE_VERIFIED, RemoteBridgeBroker, type RemoteApprovalPort, type RemoteAudit, type RemoteBridgePolicy, type RemoteCommand, type RemoteCommandResult, type RemoteMessage } from "@unifia/contracts"
 
 type SlackIngress = { id: string; channelId: string; userId: string; text: string; timestamp: number }
 
@@ -43,7 +43,7 @@ export class SlackRemoteAdapter {
     const now = options.now ?? (() => Date.now())
     this.#switches = options.switches ?? new KillSwitchRegistry()
     this.#enabled = options.enabled ?? true
-    this.#broker = new RemoteBridgeBroker({ policy: options.policy, verifier: { verify: () => true }, audit: options.audit, now, approvals: options.approvals })
+    this.#broker = new RemoteBridgeBroker({ policy: options.policy, verifier: PRE_VERIFIED, audit: options.audit, now, approvals: options.approvals })
     // Pairing is a host act: being named in the allowlist is that act. Inbound
     // traffic never pairs anyone, so an unknown sender costs no nonce window,
     // no rate-limit window and no audit entry it chose the key of.

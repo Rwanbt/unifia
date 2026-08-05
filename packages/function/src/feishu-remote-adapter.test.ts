@@ -30,4 +30,30 @@ const switches = new KillSwitchRegistry()
 switches.engage("all-remote")
 const disabled = new FeishuRemoteAdapter({ allowedChannels: ["chat-1"], allowedUsers: ["user-1"], maxMessageAgeMs: 30_000, maxAttachmentBytes: 1_000, maxMessagesPerMinute: 10 }, encryptKey, { record: () => {} }, () => now, switches)
 assert.equal(await disabled.authorize(ingress), false)
-console.log("FeishuRemoteAdapter: 11/11 passed")
+
+// A sender outside the allowlist is refused without its traffic pairing it.
+const policy = { allowedChannels: ["chat-1"], allowedUsers: ["user-1"], maxMessageAgeMs: 30_000, maxAttachmentBytes: 1_000, maxMessagesPerMinute: 10, readOnlyCommands: ["status"] }
+const pairEvents: string[] = []
+const solo = new FeishuRemoteAdapter(policy, encryptKey, { record: (event) => { if (event.type === "pair") pairEvents.push(event.identityId) } }, () => now)
+const attackerSignature = createHash("sha256").update(`${timestamp}${nonce}${encryptKey}${rawBody}`).digest("hex")
+assert.equal(await solo.authorize({ ...ingress, id: "e-9", userId: "attacker", signature: attackerSignature }), false)
+assert.equal(pairEvents.includes("feishu:attacker"), false)
+
+// The nonce is inside the signed string, so each one carries its own signature.
+const signedWith = (n: string) => ({ ...ingress, nonce: n, signature: createHash("sha256").update(`${timestamp}${n}${encryptKey}${rawBody}`).digest("hex") })
+
+// Feishu disables on its own, and revocation is local and immediate.
+solo.setEnabled(false)
+assert.equal(await solo.authorize({ ...signedWith("n-2"), id: "e-2" }), false)
+solo.setEnabled(true)
+assert.equal(await solo.authorize({ ...signedWith("n-2"), id: "e-2" }), true)
+
+// A command declaring nothing does not reach the runtime.
+assert.equal(solo.authorizeCommand("user-1", { id: "c-1", text: "rm -rf /", scope: "global" }).result, "capability-required")
+
+// Revocation then closes both paths for that identity.
+assert.equal(solo.revoke("user-1"), true)
+assert.equal(await solo.authorize({ ...signedWith("n-3"), id: "e-3" }), false)
+assert.equal(solo.authorizeCommand("user-1", { id: "c-2", text: "status", scope: "session", metadata: { mode: "read-only", command: "status" } }).result, "identity-invalid")
+
+console.log("FeishuRemoteAdapter: 20/20 passed")

@@ -20,7 +20,7 @@
  *    rather than by being fast enough.
  */
 
-import { RemoteBridgeBroker, type KillSwitchRegistry, type RemoteApprovalPort, type RemoteAudit, type RemoteBridgePolicy, type RemoteCommand, type RemoteCommandResult, type RemoteIdentity, type RemoteMessage, type RemoteProviderId } from "@unifia/contracts"
+import { PRE_VERIFIED, RemoteBridgeBroker, type KillSwitchRegistry, type RemoteApprovalPort, type RemoteAudit, type RemoteBridgePolicy, type RemoteCommand, type RemoteCommandResult, type RemoteIdentity, type RemoteMessage, type RemoteProviderId } from "@unifia/contracts"
 import { RemoteTransportRegistry } from "./registry.js"
 import { verifyFeishuSignature, verifySlackSignature, type SecretReference, type SignatureRefusal, type SignedRequest } from "./signatures.js"
 
@@ -64,7 +64,7 @@ export class RemoteBridge {
     this.#options = options
     this.#now = options.now ?? (() => Date.now())
     this.transports = new RemoteTransportRegistry(options.switches)
-    this.#broker = new RemoteBridgeBroker({ policy: options.policy, verifier: { verify: () => true }, audit: options.audit, now: this.#now, approvals: options.approvals })
+    this.#broker = new RemoteBridgeBroker({ policy: options.policy, verifier: PRE_VERIFIED, audit: options.audit, now: this.#now, approvals: options.approvals })
   }
 
   /** Pairs an identity. Called by the host, never by inbound traffic. */

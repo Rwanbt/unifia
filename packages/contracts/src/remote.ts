@@ -62,6 +62,17 @@ export interface RemoteTransportPort {
 
 export type RemoteAudit = { record(event: { type: "pair" | "revoke" | "message" | "replay" | "deny" | "approval"; identityId: string; reason?: string }): void }
 export type RemoteVerifier = { verify(payload: string, signature: string): boolean }
+
+/**
+ * A verifier that accepts everything, for callers that already checked the
+ * signature themselves.
+ *
+ * It exists so that "the signature was verified upstream" is a claim someone
+ * has to write down and can be grepped for, instead of an anonymous
+ * `{ verify: () => true }` that reads like a control and is not one. Every use
+ * must sit next to a comment naming what did the verifying.
+ */
+export const PRE_VERIFIED: RemoteVerifier = { verify: () => true }
 export type RemoteApprovalPort = { request(capability: string, resource: string, expiresAt: number): { id: string }; find(capability: string, resource: string): { status: string; id: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown }
 export type RemoteBridgePolicy = {
   allowedChannels: readonly string[]
