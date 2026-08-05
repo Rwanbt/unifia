@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: MIT */
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ArtifactStore } from "../src/index.js"
+import { ArtifactRejectedError, ArtifactStore } from "../src/index.js"
 
 let checks = 0
 const check = (condition: boolean, message: string): void => {
@@ -76,6 +76,52 @@ try {
   // --- Safety -----------------------------------------------------------------
   await rejects(() => store.create({ kind: "text", filename: "../escape.txt", content: "no" }), "artifact traversal filename was accepted")
   await rejects(() => store.create({ kind: "text", filename: "large.txt", content: "x".repeat(101) }), "artifact quota was not enforced")
+
+
+  // --- Provenance and the optional scanner (§26) ---------------------------------
+  // "La source et les outils de génération sont visibles" and "lien à une action
+  // remote ou computer-use": an artefact whose origin is unstated is the one
+  // nobody can account for later.
+  const traced = await store.create({
+    kind: "text",
+    filename: "traced.txt",
+    content: "from a remote command",
+    provenance: { sourceTool: "browser-capture", capabilityPack: "pack.browser", remoteActionId: "cmd-42", computerUseReceiptId: "obs-7" },
+  })
+  check(traced.provenance?.sourceTool === "browser-capture", "the source tool was not recorded")
+  check(traced.provenance?.remoteActionId === "cmd-42", "the remote action link was not recorded")
+  check(traced.provenance?.computerUseReceiptId === "obs-7", "the computer-use receipt link was not recorded")
+  check(traced.provenance?.capabilityPack === "pack.browser", "the capability pack was not recorded")
+  const tracedManifest = JSON.parse(await readFile(path.join(root, traced.relativePath, "..", "version.json"), "utf8"))
+  check(tracedManifest.provenance?.remoteActionId === "cmd-42", "provenance did not survive into the manifest")
+
+  // An artefact created without provenance says so rather than leaving a blank.
+  const untraced = await store.create({ kind: "text", filename: "untraced.txt", content: "no origin" })
+  check(untraced.provenance?.sourceTool === "unknown", "a missing origin was left empty instead of stated")
+
+  // No scanner configured: the version says "unscanned", never "clean".
+  check(untraced.scan === "unscanned", `an unscanned artefact reported ${untraced.scan}`)
+
+  // A configured scanner is not advisory: a rejection stops the write, and it
+  // must leave nothing behind for a later reader to find.
+  const scanned = new ArtifactStore(root, () => 1000, 1024, {
+    scan: async (content) => {
+      const text = new TextDecoder().decode(content)
+      return text.includes("EICAR") ? { clean: false, detail: "test signature" } : { clean: true }
+    },
+  })
+  const clean = await scanned.create({ kind: "text", filename: "clean.txt", content: "harmless" })
+  check(clean.scan === "clean", "a scanned artefact was not marked clean")
+  let rejected = false
+  try {
+    await scanned.create({ kind: "text", filename: "infected.txt", content: "EICAR sample" })
+  } catch (error) {
+    rejected = error instanceof ArtifactRejectedError
+  }
+  check(rejected, "a scanner rejection did not stop the write")
+  const lineages = await readdir(path.join(root, ".unifia", "artifacts"))
+  const filenames = (await Promise.all(lineages.map(async (id) => (await scanned.latest(id))?.filename))).filter(Boolean)
+  check(!filenames.includes("infected.txt"), "a rejected artefact left a version behind")
 
   console.log(`ArtifactStore: ${checks}/${checks} passed`)
 } finally {

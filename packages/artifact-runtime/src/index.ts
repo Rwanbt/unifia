@@ -33,6 +33,28 @@ export type ArtifactVersion = {
   bytes: number
   createdAt: number
   metadata: Record<string, string>
+  provenance?: ArtifactProvenance
+  /** "clean" once a scanner passed it, "unscanned" when none was configured. */
+  scan?: "clean" | "unscanned"
+}
+
+/**
+ * Where a revision came from — §26's "la source et les outils de génération
+ * sont visibles" and "lien à une action remote ou computer-use".
+ *
+ * `sourceTool` is required because an artefact with no stated origin is the one
+ * nobody can account for later, and "unknown" written down beats a field
+ * quietly left empty.
+ */
+export type ArtifactProvenance = {
+  /** What produced the bytes, e.g. "docx-worker", "browser-capture", "user-upload". */
+  sourceTool: string
+  /** The capability pack that authorised the production, when there was one. */
+  capabilityPack?: string
+  /** The remote command this artefact answers, when it came in over a bridge. */
+  remoteActionId?: string
+  /** The observation receipt a computer-use capture was taken against. */
+  computerUseReceiptId?: string
 }
 
 export type ArtifactInput = {
@@ -42,6 +64,25 @@ export type ArtifactInput = {
   metadata?: Record<string, string>
   /** Omit to start a new lineage; pass an existing id to add a revision to it. */
   artifactId?: string
+  provenance?: ArtifactProvenance
+}
+
+/**
+ * Optional content scan — §26's "validation antivirus optionnelle".
+ *
+ * Optional means the store works without one, not that a configured scanner may
+ * be skipped: when one is present a rejection stops the write. The outcome is
+ * recorded on the version either way, so "scanned and clean" and "never
+ * scanned" are distinguishable afterwards. Collapsing them would make an
+ * unscanned artefact look vetted.
+ */
+export type ArtifactScanner = { scan(content: Uint8Array, filename: string): Promise<{ clean: boolean; detail?: string }> }
+
+export class ArtifactRejectedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ArtifactRejectedError"
+  }
 }
 
 /**
@@ -51,11 +92,12 @@ export type ArtifactInput = {
  * metadata is the field most likely to carry something the author did not mean
  * to publish. Callers opt into disclosure explicitly.
  *
- * LIMIT, stated so it is not mistaken for more than it is: this governs the
- * Unifia metadata record only. Format-level metadata embedded inside the bytes
- * — EXIF in an image, docProps in an OOXML package, the Info dictionary of a
- * PDF — is NOT inspected or removed. That needs per-format surgery and is not
- * implemented.
+ * SCOPE, stated so it is not mistaken for more than it is: this governs the
+ * Unifia metadata record only. Metadata embedded inside the bytes — docProps in
+ * an OOXML package, EXIF in an image it contains — is handled separately by
+ * `@unifia/artifact-studio`'s `stripFormatMetadata`, which the caller must
+ * apply to the content before handing it here. A PDF `/Info` dictionary is
+ * still refused rather than edited.
  */
 export type MetadataPolicy = "strip" | "keep" | { allow: readonly string[] }
 
@@ -102,8 +144,10 @@ export class ArtifactStore {
   readonly #outbox: DurableQueue<ArtifactVersion>
   readonly #now: () => number
   readonly #maxBytes: number
+  readonly #scanner?: ArtifactScanner
 
-  constructor(root: string, now: () => number = Date.now, maxBytes = MAX_ARTIFACT_BYTES) {
+  constructor(root: string, now: () => number = Date.now, maxBytes = MAX_ARTIFACT_BYTES, scanner?: ArtifactScanner) {
+    this.#scanner = scanner
     this.#root = root
     this.#artifactsRoot = path.join(root, ".unifia", ARTIFACTS_DIRECTORY)
     this.#outboxRoot = path.join(root, ".unifia", OUTBOX_DIRECTORY)
@@ -125,6 +169,12 @@ export class ArtifactStore {
     const content = Buffer.from(typeof input.content === "string" ? Buffer.from(input.content) : input.content)
     if (content.byteLength > this.#maxBytes) throw new Error("artifact quota exceeded")
     const sha256 = hash(content)
+    // Scanned before anything is written: a rejected artefact must leave no
+    // version directory behind for a later reader to find.
+    if (this.#scanner) {
+      const verdict = await this.#scanner.scan(content, filename)
+      if (!verdict.clean) throw new ArtifactRejectedError(`artifact rejected by scanner: ${verdict.detail ?? "no detail"}`)
+    }
     const artifactId = input.artifactId ? safeArtifactId(input.artifactId) : `artifact-${randomBytes(12).toString("hex")}`
     const head = input.artifactId ? await this.latest(artifactId) : undefined
     if (input.artifactId && !head) throw new Error("artifact lineage does not exist")
@@ -147,7 +197,7 @@ export class ArtifactStore {
       await fs.rm(temporary, { force: true })
       throw error
     }
-    const artifact: ArtifactVersion = { artifactId, version, kind: input.kind, filename, relativePath, sha256, bytes: content.byteLength, createdAt: this.#now(), metadata: { ...(input.metadata ?? {}) } }
+    const artifact: ArtifactVersion = { artifactId, version, kind: input.kind, filename, relativePath, sha256, bytes: content.byteLength, createdAt: this.#now(), metadata: { ...(input.metadata ?? {}) }, provenance: input.provenance ? { ...input.provenance } : { sourceTool: "unknown" }, scan: this.#scanner ? "clean" : "unscanned" }
     await fs.writeFile(path.join(versionDirectory, MANIFEST), `${JSON.stringify(artifact, null, 2)}\n`, "utf8")
     await this.#outbox.enqueue("outbox", artifact)
     return artifact
