@@ -4,6 +4,8 @@
  *
  * Source : Plan V3 §7.6
  */
+import { P3_CAPABILITIES } from "./p3.js"
+
 export type RemoteProviderId = "slack" | "feishu" | "discord"
 export type RemoteChannelId = string
 
@@ -67,6 +69,13 @@ export type RemoteBridgePolicy = {
   maxMessageAgeMs: number
   maxAttachmentBytes: number
   maxMessagesPerMinute: number
+  /**
+   * Verbs a remote sender may run without an approval, e.g. `["status", "read"]`.
+   *
+   * Absent means the empty list: §22 asks for "commandes lecture seule par
+   * défaut", and a command nobody enumerated as safe is not known to be safe.
+   */
+  readOnlyCommands?: readonly string[]
 }
 
 export class RemoteBridgeBroker {
@@ -121,12 +130,31 @@ export class RemoteBridgeBroker {
     this.#audit.record({ type: "message", identityId: input.identityId })
     return true
   }
+  /**
+   * Decides what a remote sender may run.
+   *
+   * Default-deny by construction. A command reaches the runtime without an
+   * approval only when it declares `mode: "read-only"` *and* its verb was
+   * enumerated in `readOnlyCommands`. Everything else — including a command
+   * that declares nothing at all — needs an approval on the host.
+   *
+   * An undeclared command is refused rather than sent to the ApprovalBroker: a
+   * dialog cannot describe the effect of a command whose effect is unstated,
+   * and an approval the user cannot understand is not consent.
+   */
   authorizeCommand(identityId: string, command: RemoteCommand): RemoteCommandResult {
-    if (!this.#validIdentity(identityId)) return { commandId: command.id, status: "denied", result: "identity-invalid" }
+    if (!this.#validIdentity(identityId)) return this.#denyCommand(identityId, command, "identity-invalid")
     const capability = command.metadata?.capability
-    if (!capability || command.metadata?.mode === "read-only") return { commandId: command.id, status: "accepted" }
+    if (command.metadata?.mode === "read-only") {
+      if (capability) return this.#denyCommand(identityId, command, "read-only-declares-capability")
+      const verb = command.metadata?.command ?? command.text.trim().split(/\s+/)[0] ?? ""
+      if (!(this.#policy.readOnlyCommands ?? []).includes(verb)) return this.#denyCommand(identityId, command, "read-only-not-allowlisted")
+      return { commandId: command.id, status: "accepted" }
+    }
+    if (!capability) return this.#denyCommand(identityId, command, "capability-required")
+    if (!(P3_CAPABILITIES as readonly string[]).includes(capability)) return this.#denyCommand(identityId, command, "unknown-capability")
     const approvals = this.#approvals
-    if (!approvals) return { commandId: command.id, status: "denied", result: "approval-broker-required" }
+    if (!approvals) return this.#denyCommand(identityId, command, "approval-broker-required")
     const resource = `${identityId}:${command.scope}`
     const existing = approvals.find(capability, resource)
     if (existing?.status === "allow") return { commandId: command.id, status: "accepted" }
@@ -143,6 +171,11 @@ export class RemoteBridgeBroker {
     if (!identity || identity.expiresAt !== undefined && identity.expiresAt <= this.#now()) return undefined
     return identity
   }
+  #denyCommand(identityId: string, command: RemoteCommand, reason: string): RemoteCommandResult {
+    this.#audit.record({ type: "deny", identityId, reason })
+    return { commandId: command.id, status: "denied", result: reason }
+  }
+
   #deny(identityId: string, reason: string): false {
     this.#audit.record({ type: reason === "replay" ? "replay" : "deny", identityId, reason })
     return false
