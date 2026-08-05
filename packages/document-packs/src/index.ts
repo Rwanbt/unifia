@@ -6,6 +6,7 @@ import { convertWorker, docxWorker, inspectWorker, pptxWorker, xlsxWorker } from
 export * from "./zip.js"
 export { convertWorker, docxWorker, inspectWorker, pptxWorker, xlsxWorker } from "./workers/ooxml.js"
 export { createDeterministicPdf, pdfWorker } from "./workers/pdf.js"
+export { CONSUMED_TOKENS, applyDesignTokens, type TokenApplication } from "./tokens.js"
 
 export type DocumentPackId = "unifia.document.docx" | "unifia.document.pptx" | "unifia.document.xlsx" | "unifia.document.pdf" | "unifia.document.convert" | "unifia.document.inspect"
 export type DocumentPackManifest = {

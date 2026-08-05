@@ -189,7 +189,15 @@ export function injectedRules(spec: Spec): readonly InjectedRule[] {
   return spec.rules.map((rule) => ({ specId: spec.id, specVersion: spec.version, ruleId: rule.id, statement: rule.statement }))
 }
 
-/** Flattens tokens for a document pack, prefixed by group so names cannot collide. */
+/**
+ * Flattens tokens for a document pack, prefixed by group so names cannot collide.
+ *
+ * The prefixes are the contract with `applyDesignTokens` in
+ * `@unifia/document-packs`, which is what actually places them into a package.
+ * Until that existed this function's output went nowhere — it was imported by
+ * nothing but its own test, which is how "document packs can consume design
+ * tokens" looked delivered while no pack consumed anything.
+ */
 export function resolveDesignTokens(spec: Spec): Record<string, string> {
   const tokens = spec.tokens ?? {}
   const flattened: Record<string, string> = {}

@@ -713,6 +713,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@unifia/artifact-runtime": "workspace:*",
+        "@unifia/document-packs": "workspace:*",
       },
       "devDependencies": {
         "@tsconfig/node22": "22.0.2",

@@ -92,6 +92,15 @@ check(tokens["spacing.gutter"] === "16", "spacing token was not flattened as a s
 check(tokens["typography.body"] === "Inter", "typography token was not flattened")
 check(Object.keys(resolveDesignTokens({ ...spec, tokens: undefined } as Spec)).length === 0, "a spec without tokens produced tokens")
 
+// The two halves meet: a spec's tokens reach an actual document part. Before
+// this, resolveDesignTokens was imported by nothing except this file.
+const { applyDesignTokens } = await import("@unifia/document-packs")
+const { docxWorker, readStoredZip } = await import("@unifia/document-packs")
+const styled = applyDesignTokens(await docxWorker("body"), resolveDesignTokens(spec))
+const stylesPart = readStoredZip(styled.input.content as Uint8Array).find((entry) => entry.name === "word/styles.xml")
+check(stylesPart !== undefined, "a spec's design tokens produced no styles part")
+check(styled.applied.length > 0, "a spec's design tokens were all reported as ignored")
+
 // --- Reviews become artefacts --------------------------------------------------
 const review = reviewToArtifactInput({ specId: "quarterly-report", reviewer: "erwan", verdict: "changes-requested", findings: ["Contrast is below AA on the summary card."] })
 check(review.kind === "text" && review.filename === "review-quarterly-report.md", "the review artefact has the wrong identity")

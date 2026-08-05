@@ -12,7 +12,8 @@
     "test": "bun test/spec.test.ts"
   },
   "dependencies": {
-    "@unifia/artifact-runtime": "workspace:*"
+    "@unifia/artifact-runtime": "workspace:*",
+    "@unifia/document-packs": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
