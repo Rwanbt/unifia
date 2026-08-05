@@ -5,6 +5,7 @@ import { jwtVerify, createRemoteJWKSet } from "jose"
 import { createAppAuth } from "@octokit/auth-app"
 import { Octokit } from "@octokit/rest"
 import { Resource } from "sst"
+import { verifyFeishuCallbackSignature } from "./feishu-remote-adapter.ts"
 
 type Env = {
   SYNC_SERVER: DurableObjectNamespace<SyncServer>
@@ -215,7 +216,22 @@ export default new Hono<{ Bindings: Env }>()
     return c.json({ info, messages })
   })
   .post("/feishu", async (c) => {
-    const body = (await c.req.json()) as {
+    // This route relays its payload into a Discord channel with a bot token.
+    // Until this check existed it did so for anyone who could POST to it: the
+    // FeishuRemoteAdapter was in the tree but wired to nothing but its own test.
+    // Fails closed — no Encrypt Key configured means no callback is trusted.
+    const raw = await c.req.text()
+    const verified = await verifyFeishuCallbackSignature({
+      timestamp: c.req.header("X-Lark-Request-Timestamp") ?? "",
+      nonce: c.req.header("X-Lark-Request-Nonce") ?? "",
+      encryptKey: Resource.FEISHU_ENCRYPT_KEY.value,
+      rawBody: raw,
+      signature: c.req.header("X-Lark-Signature") ?? "",
+      now: Date.now(),
+    })
+    if (!verified) return c.json({ error: "Feishu callback signature is invalid" }, { status: 401 })
+
+    const body = JSON.parse(raw) as {
       challenge?: string
       event?: {
         message?: {
@@ -227,7 +243,8 @@ export default new Hono<{ Bindings: Env }>()
         }
       }
     }
-    console.log(JSON.stringify(body, null, 2))
+    // Message bodies are user content; only the shape is logged.
+    console.log(`feishu callback: challenge=${Boolean(body.challenge)} message=${Boolean(body.event?.message)}`)
     const challenge = body.challenge
     if (challenge) return c.json({ challenge })
 

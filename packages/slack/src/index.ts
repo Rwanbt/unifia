@@ -69,7 +69,10 @@ app.message(async ({ message, say }) => {
     await say({ text: "This Slack identity or channel is not authorized.", thread_ts: message.ts })
     return
   }
-  const command = slackRemote.authorizeCommand(message.user, { id: message.ts, text: message.text, scope: "session", metadata: message.text.startsWith("/read ") ? { mode: "read-only" } : { capability: "session.prompt" } })
+  // `session.prompt` is not a P3 capability; prompting the agent can write the
+  // workspace and run tools, so the declared capability has to say so.
+  const metadata: Record<string, string> = message.text.startsWith("/read ") ? { mode: "read-only", command: "read" } : { capability: "workspace.write" }
+  const command = slackRemote.authorizeCommand(message.user, { id: message.ts, text: message.text, scope: "session", metadata })
   if (command.status === "pending-approval") {
     const approvalId = typeof command.result === "object" && command.result && "approvalId" in command.result ? String(command.result.approvalId) : "pending"
     await say({ text: `Approval required on the host (${approvalId}).`, thread_ts: message.ts })
