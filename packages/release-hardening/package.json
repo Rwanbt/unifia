@@ -22,7 +22,10 @@
     "@unifia/computer-use-safety": "workspace:*",
     "@unifia/mcp-ui-actions": "workspace:*",
     "@unifia/workbench-shell": "workspace:*",
-    "@unifia/sandbox-drivers": "workspace:*"
+    "@unifia/sandbox-drivers": "workspace:*",
+    "@unifia/memory-governance": "workspace:*",
+    "@unifia/remote-bridge": "workspace:*",
+    "@unifia/workflow-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

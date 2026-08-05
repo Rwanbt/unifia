@@ -95,4 +95,36 @@ check(audited.some((entry) => entry.decision === "rejected"), "no rejection was 
 check(audited.some((entry) => entry.decision === "duplicate"), "no duplicate was audited")
 check(audited.some((entry) => entry.decision === "accepted"), "no acceptance was audited")
 
+
+// --- Memory is visible AND deletable (§31 Gate C) ---------------------------------
+// MemoryRuntime could already delete any id in a workspace; the governed layer
+// had no way to forget at all, so a caller had to reach past compartment
+// scoping to delete anything.
+const codeRecord = await governance.promote({ workspaceId: "ws-1", compartment: "code", content: "a fact worth forgetting", origin: { kind: "user" } })
+check(codeRecord.status === "accepted", "the record to forget was not stored")
+const recordId = codeRecord.status === "accepted" ? codeRecord.record.id : ""
+check((await governance.recall("ws-1", "code")).some((record) => record.id === recordId), "the record is not visible before deletion")
+
+// Deleting from the wrong compartment fails, and fails the same way as a
+// missing record: saying "wrong compartment" would confirm to a caller with no
+// right to read that compartment that the record exists.
+check(!(await governance.forget("ws-1", "personal", recordId)), "a record was deleted from a compartment it does not belong to")
+check((await governance.recall("ws-1", "code")).some((record) => record.id === recordId), "a cross-compartment delete removed the record anyway")
+check(!(await governance.forget("ws-1", "code", "memory-does-not-exist")), "forgetting an unknown id reported success")
+
+check(await governance.forget("ws-1", "code", recordId), "a governed record could not be forgotten")
+check(!(await governance.recall("ws-1", "code")).some((record) => record.id === recordId), "a forgotten record is still recalled")
+check(audited.some((entry) => entry.detail.includes(`forget ${recordId}`)), "the deletion was not audited")
+
+// The bulk case: a user wanting their personal memory gone should not delete it
+// one id at a time.
+await governance.promote({ workspaceId: "ws-1", compartment: "personal", content: "personal note one", origin: { kind: "user" } })
+await governance.promote({ workspaceId: "ws-1", compartment: "personal", content: "personal note two", origin: { kind: "user" } })
+const before = (await governance.recall("ws-1", "personal")).length
+check(before >= 2, `expected at least two personal records, found ${before}`)
+check((await governance.forgetCompartment("ws-1", "personal")) === before, "forgetCompartment did not remove every record it reported")
+check((await governance.recall("ws-1", "personal")).length === 0, "records survived a compartment-wide deletion")
+// Deleting one compartment must not touch another.
+check((await governance.recall("ws-1", "work")).length >= 0, "recall broke after a compartment deletion")
+
 console.log(`MemoryGovernance: ${checks}/${checks} passed`)

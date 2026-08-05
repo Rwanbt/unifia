@@ -82,6 +82,7 @@ const TEST_ENTRYPOINTS = [
   "packages/memory-runtime/test/memory-runtime.test.ts",
   "packages/release-hardening/test/hardening.test.ts",
   "packages/release-hardening/test/gate-b.test.ts",
+  "packages/release-hardening/test/gate-c.test.ts",
   "packages/runtime-conformance/test/conformance.test.ts",
   "packages/sandbox-drivers/test/drivers.test.ts",
   "packages/skill-hub/test/test.ts",

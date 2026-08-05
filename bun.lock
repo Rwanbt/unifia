@@ -592,10 +592,13 @@
         "@unifia/contracts": "workspace:*",
         "@unifia/document-packs": "workspace:*",
         "@unifia/mcp-ui-actions": "workspace:*",
+        "@unifia/memory-governance": "workspace:*",
+        "@unifia/remote-bridge": "workspace:*",
         "@unifia/sandbox-drivers": "workspace:*",
         "@unifia/skill-hub": "workspace:*",
         "@unifia/workbench-orchestrator": "workspace:*",
         "@unifia/workbench-shell": "workspace:*",
+        "@unifia/workflow-runtime": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },
       "devDependencies": {
