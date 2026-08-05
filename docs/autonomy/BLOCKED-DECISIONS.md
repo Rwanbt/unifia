@@ -104,3 +104,42 @@ n'est accepté. C'est volontaire — pour cette route, refuser tout vaut mieux q
 **Pourquoi cela ne peut pas être simulé ici :** la vérification est prouvée localement contre des
 signatures calculées indépendamment (`FeishuRemoteAdapter` 20/20), mais qu'un vrai callback Feishu
 signe exactement la chaîne attendue ne peut être établi que contre le service réel.
+
+## BD-11 — Renommage de l'identifiant Android `ai.opencode.mobile` (NOUVEAU, reliquat Phase 0)
+
+**Statut :** `BLOCKED_NEEDS_DEVICE_VERIFICATION`
+**Sévérité :** non bloquant pour le reste du plan — bloquant pour « Phase 0 terminée ».
+
+**Ce qui reste :** `packages/mobile/src-tauri/tauri.conf.json` déclare encore
+`"identifier": "ai.opencode.mobile"`. Le desktop a été rebrandé (`ai.unifia.workbench.dev`),
+le mobile non.
+
+**Pourquoi ce n'est pas un simple remplacement de chaîne :** le renommage touche
+~25 fichiers Kotlin suivis, les **chemins de répertoire de paquet**
+(`app/src/main/java/ai/opencode/mobile/`), le nom de bibliothèque JNI
+`opencode_mobile_lib` (`Cargo.toml` + trois `System.loadLibrary`), le thème
+`Theme.opencode_mobile`, et surtout des chemins **codés en dur** dans `LlamaEngine.kt` :
+
+```
+/data/data/ai.opencode.mobile/runtime/.native_lib_dir
+/data/user/0/ai.opencode.mobile/runtime/.native_lib_dir
+```
+
+**Le vrai danger :** l'`applicationId` détermine le répertoire de données sur l'appareil.
+Un renommage qui manque ces chemins **compile parfaitement**, passe le typecheck, et casse le
+runtime LLM **seulement sur un vrai téléphone**. De plus, changer l'`applicationId` fait
+installer l'APK comme une **application différente** — les données de l'utilisateur sur
+l'appareil actuel ne sont pas migrées.
+
+**Action requise avant de l'appliquer :**
+1. Confirmer l'identifiant cible (`ai.unifia.mobile` ? `ai.unifia.workbench.mobile` ?).
+2. Confirmer que la perte des données de l'app mobile actuelle sur l'appareil est acceptée,
+   ou décider d'une procédure de migration.
+3. Après renommage : `bun tauri android build --target aarch64` avec `ORT_LIB_LOCATION`,
+   puis vérifier **sur appareil** que le chargement d'un modèle local fonctionne encore
+   (c'est le seul chemin qui exerce les chemins codés en dur).
+
+**Pourquoi ce n'est pas fait ici :** aucune de ces trois vérifications ne peut être produite
+depuis cette session sans l'appareil et sans la décision de l'utilisateur sur la perte de
+données. Le faire à l'aveugle produirait un changement qui a l'air correct dans le diff et
+qui casse en production.
