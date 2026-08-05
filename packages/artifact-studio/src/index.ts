@@ -15,6 +15,7 @@
  */
 
 import { createStoredZipFromBytes, readStoredZip, type ZipBinaryEntry } from "@unifia/document-packs/zip"
+import { isJpeg, isPng, isSupportedImage, stripImageMetadata, type ImageStripResult } from "./images.js"
 import { attribute, filterElements, textOf } from "./xml.js"
 
 export type StudioFormat = "docx" | "pptx" | "xlsx" | "pdf" | "text" | "binary"
@@ -48,7 +49,22 @@ export class UnsupportedFormatError extends Error {
 
 // --- Metadata stripping ------------------------------------------------------
 
-export type StripResult = { content: Uint8Array; removedParts: readonly string[] }
+export type StripResult = {
+  content: Uint8Array
+  removedParts: readonly string[]
+  /** Embedded images whose metadata was removed, with what came out of each. */
+  sanitisedImages?: readonly { part: string; removed: readonly string[] }[]
+  /**
+   * Embedded images left byte-for-byte intact because their format is not
+   * parsed here. Non-empty means the strip was **partial** — the caller must
+   * not report the document as sanitised.
+   */
+  unsanitisedImages?: readonly string[]
+}
+
+/** Where OOXML packages keep embedded pictures. */
+const MEDIA_PREFIXES = ["word/media/", "ppt/media/", "xl/media/", "word/embeddings/", "ppt/embeddings/"]
+const isMediaPart = (name: string): boolean => MEDIA_PREFIXES.some((prefix) => name.startsWith(prefix))
 
 const isMetadataPart = (name: string): boolean => METADATA_PREFIXES.some((prefix) => name.startsWith(prefix))
 
@@ -59,6 +75,12 @@ const isMetadataPart = (name: string): boolean => METADATA_PREFIXES.some((prefix
  * the result is a consistent package: a stripped archive that still declares an
  * Override or a Relationship for a part that is gone is corrupt, and a corrupt
  * export is worse than an unstripped one.
+ *
+ * Embedded pictures are stripped too. Removing the author from `docProps` while
+ * shipping a phone JPEG with its GPS coordinates is worse than not stripping at
+ * all, because the caller then believes the document is clean. Images whose
+ * format is not parsed here are reported in `unsanitisedImages` instead of
+ * being counted as clean.
  *
  * For PDF it refuses rather than pretends. Our own generator emits no /Info
  * dictionary, so a PDF that has one did not come from here, and editing an
@@ -71,9 +93,25 @@ export function stripFormatMetadata(format: StudioFormat, bytes: Uint8Array): St
   if (!OOXML.has(format)) throw new UnsupportedFormatError(`unsupported format: ${format}`)
   const entries = readStoredZip(bytes)
   const removedParts = entries.map((entry) => entry.name).filter(isMetadataPart)
-  if (removedParts.length === 0) return { content: bytes, removedParts: [] }
-  const kept = entries.filter((entry) => !isMetadataPart(entry.name)).map(rewriteReferences)
-  return { content: createStoredZipFromBytes(kept), removedParts }
+  const sanitisedImages: { part: string; removed: readonly string[] }[] = []
+  const unsanitisedImages: string[] = []
+  const kept = entries
+    .filter((entry) => !isMetadataPart(entry.name))
+    .map(rewriteReferences)
+    .map((entry) => {
+      if (!isMediaPart(entry.name)) return entry
+      const stripped = stripImageMetadata(entry.content)
+      if (!stripped) {
+        unsanitisedImages.push(entry.name)
+        return entry
+      }
+      if (stripped.removed.length > 0) sanitisedImages.push({ part: entry.name, removed: stripped.removed })
+      return { name: entry.name, content: stripped.content }
+    })
+  if (removedParts.length === 0 && sanitisedImages.length === 0) {
+    return { content: bytes, removedParts: [], sanitisedImages: [], unsanitisedImages }
+  }
+  return { content: createStoredZipFromBytes(kept), removedParts, sanitisedImages, unsanitisedImages }
 }
 
 function rewriteReferences(entry: ZipBinaryEntry): ZipBinaryEntry {
@@ -203,3 +241,5 @@ function diffUnits(before: readonly string[], after: readonly string[]): DiffOpe
   while (j < after.length) { units.push({ op: "added", value: after[j] }); j += 1 }
   return units
 }
+
+export { isJpeg, isPng, isSupportedImage, stripImageMetadata, type ImageStripResult }

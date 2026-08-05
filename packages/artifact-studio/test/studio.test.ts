@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
-import { createStoredZip, docxWorker, inspectStoredZip, pdfWorker, pptxWorker, readStoredZip, xlsxWorker } from "@unifia/document-packs"
-import { UnsafeDocumentError, UnsupportedFormatError, diffArtifacts, previewArtifact, stripFormatMetadata } from "../src/index.js"
+import { createStoredZip, createStoredZipFromBytes, docxWorker, inspectStoredZip, pdfWorker, pptxWorker, readStoredZip, xlsxWorker } from "@unifia/document-packs"
+import { UnsafeDocumentError, UnsupportedFormatError, diffArtifacts, previewArtifact, stripFormatMetadata, stripImageMetadata } from "../src/index.js"
 
 let checks = 0
 const check = (condition: boolean, message: string): void => {
@@ -108,6 +108,94 @@ const multi = diffArtifacts("text", bytes("a\nb\nc"), bytes("a\nc\nd"))
 check(multi.unchanged === 2 && multi.removed === 1 && multi.added === 1, `text diff reported =${multi.unchanged} -${multi.removed} +${multi.added}`)
 check(multi.units.filter((unit) => unit.op === "unchanged").map((unit) => unit.value).join(",") === "a,c", "the diff kept the wrong common units")
 refuses(() => diffArtifacts("docx", macroDoc, docx), UnsafeDocumentError, "a macro document was diffed instead of refused")
+
+
+// --- Embedded image metadata (§26) ------------------------------------------------
+// A phone JPEG carries GPS coordinates, a capture time and often a camera serial
+// in APP1. Stripping docProps while shipping that is worse than not stripping.
+
+const GPS_MARKER = "GPS:48.8584,2.2945"
+const CAMERA_SERIAL = "SERIAL-XYZ-991"
+
+const jpegWithExif = (): Uint8Array => {
+  const exif = new TextEncoder().encode(`Exif\0\0${GPS_MARKER} ${CAMERA_SERIAL}`)
+  const comment = new TextEncoder().encode("authored by someone")
+  const out: number[] = [0xff, 0xd8]
+  // APP0 JFIF — structural, must survive.
+  const jfif = new TextEncoder().encode("JFIF\0")
+  out.push(0xff, 0xe0, 0x00, jfif.length + 2, ...jfif)
+  out.push(0xff, 0xe1, ((exif.length + 2) >> 8) & 0xff, (exif.length + 2) & 0xff, ...exif)
+  out.push(0xff, 0xfe, ((comment.length + 2) >> 8) & 0xff, (comment.length + 2) & 0xff, ...comment)
+  // APP2 ICC — colour management, must survive.
+  const icc = new TextEncoder().encode("ICC_PROFILE\0")
+  out.push(0xff, 0xe2, 0x00, icc.length + 2, ...icc)
+  // SOS then entropy data containing a bare 0xFF, which a naive walker would
+  // mistake for a marker and truncate the image at.
+  out.push(0xff, 0xda, 0x00, 0x03, 0x01, 0xde, 0xad, 0xff, 0x00, 0xbe, 0xef)
+  out.push(0xff, 0xd9)
+  return Uint8Array.from(out)
+}
+
+const pngChunk = (type: string, payload: Uint8Array): number[] => {
+  const length = payload.length
+  return [(length >>> 24) & 0xff, (length >>> 16) & 0xff, (length >>> 8) & 0xff, length & 0xff, ...new TextEncoder().encode(type), ...payload, 0x00, 0x00, 0x00, 0x00]
+}
+const pngWithText = (): Uint8Array =>
+  Uint8Array.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ...pngChunk("IHDR", Uint8Array.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0])),
+    ...pngChunk("tEXt", new TextEncoder().encode(`Author\0${CAMERA_SERIAL}`)),
+    ...pngChunk("eXIf", new TextEncoder().encode(GPS_MARKER)),
+    ...pngChunk("sRGB", Uint8Array.from([0])),
+    ...pngChunk("IDAT", Uint8Array.from([0x78, 0x9c, 0x63, 0x00])),
+    ...pngChunk("IEND", new Uint8Array(0)),
+  ])
+
+const jpegStripped = stripImageMetadata(jpegWithExif())
+check(jpegStripped !== undefined, "a JPEG was reported as an unparseable format")
+const jpegText = new TextDecoder().decode(jpegStripped!.content)
+check(!jpegText.includes(GPS_MARKER), "the JPEG kept its GPS coordinates")
+check(!jpegText.includes(CAMERA_SERIAL), "the JPEG kept its camera serial")
+check(!jpegText.includes("authored by someone"), "the JPEG kept its COM comment")
+check(jpegText.includes("JFIF"), "stripping removed the structural JFIF segment")
+check(jpegText.includes("ICC_PROFILE"), "stripping removed the ICC colour profile")
+// The entropy-coded data after SOS is copied verbatim, 0xFF bytes and all.
+const out = jpegStripped!.content
+const sos = out.findIndex((byte, index) => byte === 0xff && out[index + 1] === 0xda)
+check(sos > 0, "the scan header was lost")
+const entropy = Array.from(out.subarray(sos + 5))
+check(entropy.join(",") === "222,173,255,0,190,239,255,217", `the entropy data was altered: ${entropy.join(",")}`)
+check(jpegStripped!.content.at(-2) === 0xff && jpegStripped!.content.at(-1) === 0xd9, "the JPEG lost its end-of-image marker")
+
+const pngStripped = stripImageMetadata(pngWithText())
+check(pngStripped !== undefined, "a PNG was reported as an unparseable format")
+const pngText = new TextDecoder().decode(pngStripped!.content)
+check(!pngText.includes(CAMERA_SERIAL) && !pngText.includes(GPS_MARKER), "the PNG kept its text or EXIF chunks")
+check(pngText.includes("IHDR") && pngText.includes("IDAT") && pngText.includes("IEND"), "stripping removed a critical PNG chunk")
+check(pngText.includes("sRGB"), "stripping removed a colour chunk it had no reason to touch")
+check(pngStripped!.removed.includes("tEXt") && pngStripped!.removed.includes("eXIf"), "the PNG strip did not report what it removed")
+
+// An unparseable image is reported as such, never counted as clean.
+check(stripImageMetadata(new Uint8Array([0x47, 0x49, 0x46, 0x38])) === undefined, "a GIF was reported as sanitised")
+
+// End to end: the picture inside a .docx is sanitised with the package.
+const withPicture = createStoredZip([
+  { name: "[Content_Types].xml", content: "<Types/>" },
+  { name: "word/document.xml", content: "<w:t>text</w:t>" },
+  { name: "docProps/core.xml", content: "<cp:coreProperties/>" },
+])
+const packed = readStoredZip(withPicture).map((entry) => entry)
+packed.push({ name: "word/media/image1.jpeg", content: jpegWithExif() })
+packed.push({ name: "word/media/diagram.emf", content: Uint8Array.from([0x01, 0x00, 0x00, 0x00]) })
+const docWithMedia = createStoredZipFromBytes(packed)
+const strippedDoc = stripFormatMetadata("docx", docWithMedia)
+const rebuiltImage = readStoredZip(strippedDoc.content).find((entry) => entry.name === "word/media/image1.jpeg")
+check(rebuiltImage !== undefined, "the picture disappeared from the stripped package")
+check(!new TextDecoder().decode(rebuiltImage!.content).includes(GPS_MARKER), "the picture inside the .docx kept its GPS coordinates")
+check(strippedDoc.removedParts.includes("docProps/core.xml"), "the package metadata was not removed")
+check((strippedDoc.sanitisedImages ?? []).some((image) => image.part === "word/media/image1.jpeg"), "the sanitised picture was not reported")
+// The EMF cannot be parsed here, so the strip is partial and says so.
+check((strippedDoc.unsanitisedImages ?? []).includes("word/media/diagram.emf"), "an unparseable embedded image was silently counted as clean")
 
 console.log(`ArtifactStudio: ${checks}/${checks} passed`)
 
