@@ -40,6 +40,7 @@
 			"packages/skill-hub/**/*.ts",
 			"packages/spec-runtime/**/*.ts",
 			"packages/workbench-orchestrator/**/*.ts",
+			"packages/workbench-shell/**/*.ts",
 			"packages/workbench-server/**/*.ts",
 			"packages/workflow-catalog/**/*.ts",
 			"packages/workflow-runtime/**/*.ts",

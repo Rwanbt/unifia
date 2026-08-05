@@ -878,6 +878,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/workbench-shell": {
+      "name": "@unifia/workbench-shell",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/workflow-catalog": {
       "name": "@unifia/workflow-catalog",
       "version": "0.1.0",
@@ -2753,6 +2766,8 @@
     "@unifia/workbench-orchestrator": ["@unifia/workbench-orchestrator@workspace:packages/workbench-orchestrator"],
 
     "@unifia/workbench-server": ["@unifia/workbench-server@workspace:packages/workbench-server"],
+
+    "@unifia/workbench-shell": ["@unifia/workbench-shell@workspace:packages/workbench-shell"],
 
     "@unifia/workflow-catalog": ["@unifia/workflow-catalog@workspace:packages/workflow-catalog"],
 
