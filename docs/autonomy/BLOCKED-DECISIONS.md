@@ -143,3 +143,24 @@ l'appareil actuel ne sont pas migrées.
 depuis cette session sans l'appareil et sans la décision de l'utilisateur sur la perte de
 données. Le faire à l'aveugle produirait un changement qui a l'air correct dans le diff et
 qui casse en production.
+
+## BD-12 — Vérification du DockerDriver en exécution réelle (NOUVEAU, reliquat Phase 8)
+
+**Statut :** `BLOCKED_DAEMON_NOT_RUNNING`
+**Sévérité :** faible — la propriété que le §35 exige est déjà prouvée.
+
+`NativeRestrictedDriver` et `Wsl2Driver` sont vérifiés **en exécution réelle**.
+`DockerDriver` ne l'est pas : le daemon n'est pas lancé sur cette machine
+(`npipe:////./pipe/dockerDesktopLinuxEngine` introuvable).
+
+**Ce qui est déjà prouvé sans daemon :** la propriété du §35 — *aucun repli
+silencieux*. Docker absent lève `SandboxUnavailableError` au lieu de se rabattre
+sur le backend natif. C'est la garantie de sécurité ; l'exécution réelle
+vérifierait le confinement, pas le refus.
+
+**Action requise :** démarrer Docker Desktop, puis relancer
+`cd packages/sandbox-drivers && bun test/drivers.test.ts`. Le driver n'a pas été
+lancé automatiquement ici : démarrer une application lourde sur la machine de
+l'utilisateur sans qu'il l'ait demandé n'est pas une action à prendre seul.
+
+**Lima :** `NON FAIT`, et ne peut pas l'être ici — Lima est macOS uniquement.
