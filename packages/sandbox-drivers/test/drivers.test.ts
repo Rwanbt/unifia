@@ -118,7 +118,56 @@ check(dockerInfo?.backend === "docker", "docker inspection omitted its backend")
 if (dockerInfo?.available) {
   const dockerConformance = await assertSandboxDriverConformance(docker)
   check(dockerConformance.checks.length === 4, "docker did not pass the conformance suite")
-  process.stdout.write("      docker: available, conformance verified\n")
+
+  // The conformance suite only proves the plumbing: it runs `true` and checks
+  // that an integer exit code came back. Docker earns its place by enforcing
+  // isolation the native driver cannot, so the isolation itself is what has to
+  // be exercised — otherwise "docker verified" only means the daemon answered.
+  const dockerHandle = await docker.prepare(policy({ backend: "docker" }))
+
+  const dockerEcho = await docker.execute(dockerHandle, { command: "echo", args: ["hello-docker"] })
+  check(dockerEcho.exitCode === 0 && dockerEcho.stdout.includes("hello-docker"), `docker echo failed: ${dockerEcho.stderr}`)
+
+  // Network "none" is a claim about the container, not about the flag. On a
+  // bridge network the container has eth0; with none it has only lo.
+  const interfaces = await docker.execute(dockerHandle, { command: "ip", args: ["-o", "addr"] })
+  check(interfaces.exitCode === 0, `listing interfaces failed: ${interfaces.stderr}`)
+  check(interfaces.stdout.includes("lo"), "the interface listing returned nothing, so an absent eth0 proves nothing")
+  check(!interfaces.stdout.includes("eth0"), `the sandbox has a network interface: ${interfaces.stdout}`)
+
+  // Read-only is enforced by the kernel, not by the policy object agreeing with
+  // itself: a write into the container root must actually fail.
+  const write = await docker.execute(dockerHandle, { command: "touch", args: ["/probe"] })
+  check(write.exitCode !== 0, "a write into a read-only sandbox succeeded")
+  check(write.stderr.toLowerCase().includes("read-only"), `the write failed for another reason: ${write.stderr}`)
+
+  // The host environment is not inherited, and a declared variable still arrives.
+  process.env.UNIFIA_SANDBOX_LEAK_PROBE = "leaked-secret"
+  const dockerEnv = await docker.execute(dockerHandle, { command: "env", args: [] })
+  check(!dockerEnv.stdout.includes("leaked-secret"), "the host environment leaked into the docker sandbox")
+  const dockerDeclared = await docker.execute(dockerHandle, { command: "env", args: [], env: { UNIFIA_DECLARED: "visible" } })
+  check(dockerDeclared.stdout.includes("UNIFIA_DECLARED=visible"), "an explicitly declared variable did not reach the docker sandbox")
+  delete process.env.UNIFIA_SANDBOX_LEAK_PROBE
+
+  // A writable filesystem request is downgraded, never honoured.
+  const dockerWritable = await docker.prepare(policy({ backend: "docker", filesystem: { readOnly: false } }))
+  check(dockerWritable.policy.filesystem.readOnly, "the docker driver honoured a writable filesystem request")
+  await docker.terminate(dockerWritable)
+
+  // The timeout kills the container rather than merely giving up on waiting.
+  // 3s rather than the native driver's 700ms: a container takes about a second
+  // to start, and a deadline firing during startup would report exit 124
+  // without ever proving that a running process was killed.
+  const dockerShort = await docker.prepare(policy({ backend: "docker", resources: { timeoutMs: 3_000 } }))
+  const dockerStartedAt = Date.now()
+  const dockerKilled = await docker.execute(dockerShort, { command: "sleep", args: ["30"] })
+  const dockerElapsed = Date.now() - dockerStartedAt
+  check(dockerKilled.exitCode === 124, `a timed-out container reported exit ${dockerKilled.exitCode}`)
+  check(dockerElapsed < 20_000, `the docker timeout took ${dockerElapsed}ms, so it did not enforce its deadline`)
+  await docker.terminate(dockerShort)
+
+  await docker.terminate(dockerHandle)
+  process.stdout.write("      docker: available, conformance + isolation verified (network none, read-only enforced, env not inherited, timeout kills)\n")
 } else {
   await rejects(() => docker.prepare(policy({ backend: "docker" })), SandboxUnavailableError, "an unavailable docker backend prepared a sandbox anyway")
   process.stdout.write("      docker: SKIPPED — daemon absent; verified that it refuses rather than falling back\n")

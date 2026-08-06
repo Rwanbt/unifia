@@ -146,7 +146,7 @@ qui casse en production.
 
 ## BD-12 — Vérification du DockerDriver en exécution réelle (NOUVEAU, reliquat Phase 8)
 
-**Statut :** `BLOCKED_DAEMON_NOT_RUNNING`
+**Statut :** ✅ **RÉSOLU** le 2026-08-05 — daemon démarré sur autorisation explicite de l'utilisateur, `DockerDriver` vérifié en exécution réelle (`SandboxDrivers` 40/40).
 **Sévérité :** faible — la propriété que le §35 exige est déjà prouvée.
 
 `NativeRestrictedDriver` et `Wsl2Driver` sont vérifiés **en exécution réelle**.
