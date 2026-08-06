@@ -1,4 +1,4 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 /**
  * Decides whether an unexpectedly-dead PTY server process should be

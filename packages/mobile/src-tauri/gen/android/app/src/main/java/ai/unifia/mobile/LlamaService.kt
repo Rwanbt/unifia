@@ -1,4 +1,4 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 import android.app.Notification
 import android.app.NotificationChannel

@@ -107,7 +107,7 @@ signe exactement la chaîne attendue ne peut être établi que contre le service
 
 ## BD-11 — Renommage de l'identifiant Android `ai.opencode.mobile` (NOUVEAU, reliquat Phase 0)
 
-**Statut :** `BLOCKED_NEEDS_DEVICE_VERIFICATION`
+**Statut :** ✅ **RÉSOLU** le 2026-08-06 — identifiant `ai.unifia.mobile` choisi par l'utilisateur, renommage appliqué, build vérifié et **validé sur Mi 10 Pro** (`LlamaEngine initialized` sans `UnsatisfiedLinkError`, toolchain migré fonctionnel).
 **Sévérité :** non bloquant pour le reste du plan — bloquant pour « Phase 0 terminée ».
 
 **Ce qui reste :** `packages/mobile/src-tauri/tauri.conf.json` déclare encore

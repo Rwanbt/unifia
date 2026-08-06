@@ -1,4 +1,4 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 import android.util.Log
 
@@ -737,8 +737,8 @@ object LlamaEngine {
             var libDir = nativeLibDir
             if (libDir == null) {
                 val possiblePaths = listOf(
-                    "/data/data/ai.opencode.mobile/runtime/.native_lib_dir",
-                    "/data/user/0/ai.opencode.mobile/runtime/.native_lib_dir"
+                    "/data/data/ai.unifia.mobile/runtime/.native_lib_dir",
+                    "/data/user/0/ai.unifia.mobile/runtime/.native_lib_dir"
                 )
                 for (p in possiblePaths) {
                     val f = java.io.File(p)

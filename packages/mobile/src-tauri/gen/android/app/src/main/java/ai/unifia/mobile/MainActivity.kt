@@ -1,4 +1,4 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 import android.Manifest
 import android.security.keystore.KeyGenParameterSpec

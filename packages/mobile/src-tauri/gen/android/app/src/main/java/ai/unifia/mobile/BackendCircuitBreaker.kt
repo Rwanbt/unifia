@@ -1,4 +1,4 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 /**
  * In-memory circuit breaker for llama-server GPU backend failures.

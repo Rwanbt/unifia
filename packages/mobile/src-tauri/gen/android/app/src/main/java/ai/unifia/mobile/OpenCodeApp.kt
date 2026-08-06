@@ -1,15 +1,15 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 import android.app.Application
 
 /**
  * Pre-load libonnxruntime.so BEFORE the class loader reaches
- * WryActivity.<clinit> — which calls System.loadLibrary("opencode_mobile_lib")
+ * WryActivity.<clinit> — which calls System.loadLibrary("unifia_mobile_lib")
  * and fails with UnsatisfiedLinkError (OrtGetApiBase) if ORT isn't resolvable.
  *
  * Android doesn't chase NEEDED entries the way glibc does on Linux: when Rust
  * ort is built with ORT_PREFER_DYNAMIC_LINK=1 (see build-android.sh), the
- * resulting libopencode_mobile_lib.so has an undefined reference to
+ * resulting libunifia_mobile_lib.so has an undefined reference to
  * OrtGetApiBase that can only be satisfied if libonnxruntime.so is *already*
  * in the process' namespace. System.loadLibrary pushes it there explicitly.
  *

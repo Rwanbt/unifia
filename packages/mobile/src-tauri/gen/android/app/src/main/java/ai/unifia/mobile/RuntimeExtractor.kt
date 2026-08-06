@@ -1,4 +1,4 @@
-package ai.opencode.mobile
+package ai.unifia.mobile
 
 import android.content.Context
 import android.content.res.AssetManager

@@ -21,7 +21,7 @@ fi
 # causes `dlopen failed: cannot locate symbol OrtGetApiBase` at launch
 # because the Android bionic linker doesn't resolve versioned symbols
 # across a DT_NEEDED gap (the .so exports OrtGetApiBase@@VERS_1.22.0 but
-# libopencode_mobile_lib.so's undefined reference is VERS_1.19.2).
+# libunifia_mobile_lib.so's undefined reference is VERS_1.19.2).
 JNILIBS="$SCRIPT_DIR/../src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
 ORT_VERSION="${ORT_VERSION:-1.19.2}"
 ORT_SHA256="${ORT_SHA256:-}"

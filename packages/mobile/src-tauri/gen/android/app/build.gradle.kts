@@ -15,11 +15,11 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    namespace = "ai.opencode.mobile"
+    namespace = "ai.unifia.mobile"
     defaultConfig {
         // Allow cleartext for localhost (embedded server runs on 127.0.0.1)
         manifestPlaceholders["usesCleartextTraffic"] = "true"
-        applicationId = "ai.opencode.mobile"
+        applicationId = "ai.unifia.mobile"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

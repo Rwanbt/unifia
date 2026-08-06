@@ -316,7 +316,7 @@ pub async fn install_extended_env(app: AppHandle) -> Result<(), String> {
 pub(crate) fn runtime_dir(app: &AppHandle) -> PathBuf {
     app.path()
         .data_dir()
-        .unwrap_or_else(|_| PathBuf::from("/data/data/ai.opencode.mobile/files"))
+        .unwrap_or_else(|_| PathBuf::from("/data/data/ai.unifia.mobile/files"))
         .join(RUNTIME_SUBDIR)
 }
 
