@@ -41,7 +41,7 @@ export const GATE_C_CONDITIONS: readonly GateEntry[] = [
       assert(refused, "an invalid skill manifest was accepted")
     },
   },
-  { kind: "go", condition: "Registry canonique", evidence: "covered", by: "@unifia/document-packs + @unifia/skill-hub + contracts/capability-registry", note: "DocumentPackRegistry 27/27, SkillHubRegistry 8/8, CapabilityRegistry 6/6 — one registry per domain, no second source" },
+  { kind: "go", condition: "Registry canonique", evidence: "covered", by: "@unifia/document-packs + @unifia/skill-hub + contracts/capability-registry", note: "DocumentPackRegistry, SkillHubRegistry, CapabilityRegistry — one registry per domain, no second source" },
   {
     kind: "go",
     condition: "Marketplace content-first",
@@ -86,7 +86,7 @@ export const GATE_C_CONDITIONS: readonly GateEntry[] = [
       assert(typeof MemoryGovernance.prototype.forgetCompartment === "function", "governed memory cannot be deleted in bulk")
     },
   },
-  { kind: "go", condition: "Artefacts versionnés", evidence: "covered", by: "@unifia/artifact-runtime", note: "ArtifactStore 37/37 — the id names a lineage independent of content, every revision owns its manifest, history/latest" },
+  { kind: "go", condition: "Artefacts versionnés", evidence: "covered", by: "@unifia/artifact-runtime", note: "ArtifactStore — the id names a lineage independent of content, every revision owns its manifest, history/latest" },
   {
     kind: "go",
     condition: "Computer use et remote bridges restent révocables",

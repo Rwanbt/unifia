@@ -20,7 +20,7 @@
  */
 
 import { ComputerUseGuard, type WindowSnapshot } from "@unifia/computer-use-safety"
-import { BrowserAutomationBroker, DEFAULT_REDACT_SELECTORS, EmergencyStop, RemoteBridgeBroker, validateApprovalConfig } from "@unifia/contracts"
+import { BrowserAutomationBroker, DEFAULT_REDACT_SELECTORS, EmergencyStop, PRE_VERIFIED, RemoteBridgeBroker, validateApprovalConfig } from "@unifia/contracts"
 
 export type GateConditionKind = "go" | "no-go"
 
@@ -94,13 +94,13 @@ const refuses = async (run: () => unknown | Promise<unknown>, message: string): 
 
 /** The twelve GO conditions of §24, in the plan's order. */
 export const GATE_B_GO: readonly GateEntry[] = [
-  { kind: "go", condition: "Workbench intégré dans Unifia", evidence: "covered", by: "@unifia/workbench-shell", note: "one runtime across all four modes, 122/122" },
-  { kind: "go", condition: "Documents stables", evidence: "covered", by: "@unifia/document-packs", note: "six packs with golden hashes, 6/6" },
-  { kind: "go", condition: "SandboxBroker stable", evidence: "covered", by: "@unifia/sandbox-drivers", note: "native and WSL2 verified in real execution, 29/29" },
-  { kind: "go", condition: "Remote bridges sûrs", evidence: "covered", by: "@unifia/remote-bridge", note: "real provider signatures, host-side pairing, 35/35" },
+  { kind: "go", condition: "Workbench intégré dans Unifia", evidence: "covered", by: "@unifia/workbench-shell", note: "one runtime across all four modes" },
+  { kind: "go", condition: "Documents stables", evidence: "covered", by: "@unifia/document-packs", note: "six packs with golden hashes" },
+  { kind: "go", condition: "SandboxBroker stable", evidence: "covered", by: "@unifia/sandbox-drivers", note: "native and WSL2 verified in real execution" },
+  { kind: "go", condition: "Remote bridges sûrs", evidence: "covered", by: "@unifia/remote-bridge", note: "real provider signatures, host-side pairing" },
   { kind: "go", condition: "Browser isolé", evidence: "covered", by: "contracts/browser", note: "per-workspace profile, cookiesIsolated is structurally true" },
-  { kind: "go", condition: "Computer use contrôlé", evidence: "covered", by: "@unifia/computer-use-safety", note: "observation receipts, 36/36" },
-  { kind: "go", condition: "Emergency stop testé", evidence: "covered", by: "contracts/p3-lot3-smoke", note: "EmergencyStop 1/1" },
+  { kind: "go", condition: "Computer use contrôlé", evidence: "covered", by: "@unifia/computer-use-safety", note: "observation receipts" },
+  { kind: "go", condition: "Emergency stop testé", evidence: "covered", by: "contracts/p3-lot3-smoke", note: "EmergencyStop" },
   { kind: "go", condition: "Aucune fuite de secret", evidence: "covered", by: "contracts/p3-runtime + @unifia/memory-governance", note: "SecretStore handles are scope-bound; secret-classified records excluded from prompt context in the layer" },
   { kind: "go", condition: "Aucune évasion de workspace", evidence: "covered", by: "@unifia/release-hardening", note: "symlink/junction escape scenario executed in the §32 matrix" },
   { kind: "go", condition: "Audit complet", evidence: "covered", by: "@unifia/mcp-ui-actions + @unifia/remote-bridge", note: "every refusal reason is asserted to reach the audit sink" },
@@ -155,7 +155,9 @@ export const GATE_B_NO_GO: readonly GateEntry[] = [
       await refuses(() => validateApprovalConfig({ mode: "auto" }), "global auto approval was accepted")
       const broker = new RemoteBridgeBroker({
         policy: { allowedChannels: ["c"], allowedUsers: ["u"], maxMessageAgeMs: 1000, maxAttachmentBytes: 1, maxMessagesPerMinute: 1 },
-        verifier: { verify: () => true },
+        // PRE_VERIFIED: this check drives the command path, not the signature
+        // path, so the broker's verifier is deliberately a pass-through.
+        verifier: PRE_VERIFIED,
         audit: { record: () => {} },
         now: () => 1000,
       })
@@ -223,7 +225,7 @@ export const GATE_B_NO_GO: readonly GateEntry[] = [
     condition: "Backend native choisi silencieusement après échec de sandbox",
     evidence: "covered",
     by: "@unifia/sandbox-drivers",
-    note: "an unavailable Docker backend raises SandboxUnavailableError instead of falling back (§35), asserted in drivers 29/29",
+    note: "an unavailable Docker backend raises SandboxUnavailableError instead of falling back (§35), asserted in drivers",
   },
   {
     kind: "no-go",
