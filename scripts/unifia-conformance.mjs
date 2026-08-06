@@ -77,7 +77,6 @@ const TEST_ENTRYPOINTS = [
   "packages/mcp-ui-actions/test/actions.test.ts",
   "packages/remote-bridge/test/bridge.test.ts",
   "packages/slack/src/remote-adapter.test.ts",
-  "packages/function/src/feishu-remote-adapter.test.ts",
   "packages/memory-governance/test/governance.test.ts",
   "packages/memory-runtime/test/memory-runtime.test.ts",
   "packages/release-hardening/test/hardening.test.ts",

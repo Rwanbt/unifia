@@ -5,26 +5,11 @@ import { jwtVerify, createRemoteJWKSet } from "jose"
 import { createAppAuth } from "@octokit/auth-app"
 import { Octokit } from "@octokit/rest"
 import { Resource } from "sst"
-import { verifyFeishuCallbackSignature } from "./feishu-remote-adapter.ts"
 
 type Env = {
   SYNC_SERVER: DurableObjectNamespace<SyncServer>
   Bucket: R2Bucket
   WEB_DOMAIN: string
-}
-
-async function getFeishuTenantToken(): Promise<string> {
-  const response = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      app_id: Resource.FEISHU_APP_ID.value,
-      app_secret: Resource.FEISHU_APP_SECRET.value,
-    }),
-  })
-  const data = (await response.json()) as { tenant_access_token?: string }
-  if (!data.tenant_access_token) throw new Error("Failed to get Feishu tenant token")
-  return data.tenant_access_token
 }
 
 export class SyncServer extends DurableObject<Env> {
@@ -214,76 +199,6 @@ export default new Hono<{ Bindings: Env }>()
     })
 
     return c.json({ info, messages })
-  })
-  .post("/feishu", async (c) => {
-    // This route relays its payload into a Discord channel with a bot token.
-    // Until this check existed it did so for anyone who could POST to it: the
-    // FeishuRemoteAdapter was in the tree but wired to nothing but its own test.
-    // Fails closed — no Encrypt Key configured means no callback is trusted.
-    const raw = await c.req.text()
-    const verified = await verifyFeishuCallbackSignature({
-      timestamp: c.req.header("X-Lark-Request-Timestamp") ?? "",
-      nonce: c.req.header("X-Lark-Request-Nonce") ?? "",
-      encryptKey: Resource.FEISHU_ENCRYPT_KEY.value,
-      rawBody: raw,
-      signature: c.req.header("X-Lark-Signature") ?? "",
-      now: Date.now(),
-    })
-    if (!verified) return c.json({ error: "Feishu callback signature is invalid" }, { status: 401 })
-
-    const body = JSON.parse(raw) as {
-      challenge?: string
-      event?: {
-        message?: {
-          message_id?: string
-          root_id?: string
-          parent_id?: string
-          chat_id?: string
-          content?: string
-        }
-      }
-    }
-    // Message bodies are user content; only the shape is logged.
-    console.log(`feishu callback: challenge=${Boolean(body.challenge)} message=${Boolean(body.event?.message)}`)
-    const challenge = body.challenge
-    if (challenge) return c.json({ challenge })
-
-    const content = body.event?.message?.content
-    const parsed =
-      typeof content === "string" && content.trim().startsWith("{")
-        ? (JSON.parse(content) as {
-            text?: string
-          })
-        : undefined
-    const text = typeof parsed?.text === "string" ? parsed.text : typeof content === "string" ? content : ""
-
-    let message = text.trim().replace(/^@_user_\d+\s*/, "")
-    message = message.replace(/^aiden,?\s*/i, "<@759257817772851260> ")
-    if (!message) return c.json({ ok: true })
-
-    const threadId = body.event?.message?.root_id || body.event?.message?.message_id
-    if (threadId) message = `${message} [${threadId}]`
-
-    const response = await fetch(
-      `https://discord.com/api/v10/channels/${Resource.DISCORD_SUPPORT_CHANNEL_ID.value}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bot ${Resource.DISCORD_SUPPORT_BOT_TOKEN.value}`,
-        },
-        body: JSON.stringify({
-          content: `${message}`,
-        }),
-      },
-    )
-
-    if (!response.ok) {
-      console.error(await response.text())
-      return c.json({ error: "Discord bot message failed" }, { status: 502 })
-    }
-
-    return c.json({ ok: true })
   })
   /**
    * Used by the GitHub action to get GitHub installation access token given the OIDC token

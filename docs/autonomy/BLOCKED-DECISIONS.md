@@ -85,25 +85,33 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 **Note :** l'intégration dans le fork Unifia (MIT) suppose une licence compatible.
 
 
-## BD-10 — Secret `FEISHU_ENCRYPT_KEY` et déploiement du Worker (NOUVEAU, Phase 9 / §22)
+## BD-10 — Pont Feishu — ✅ **CLOS le 2026-08-06 par suppression**
 
-**Statut :** `BLOCKED_MISSING_SECRET`
-**Sévérité :** BLOQUANT pour la mise en service du bridge Feishu — non bloquant pour le reste de la Phase 9.
+**Décision utilisateur :** supprimer, ne pas configurer.
 
-**Contexte :** la route `POST /feishu` (`packages/function/src/api.ts`) relayait n'importe quelle
-charge POST dans un canal Discord avec un token de bot, **sans aucune vérification de signature**.
-Elle vérifie désormais `X-Lark-Signature` et **échoue fermée** : sans clé configurée, aucun callback
-n'est accepté. C'est volontaire — pour cette route, refuser tout vaut mieux que relayer tout.
+**Raisonnement :** le mode remote de l'app mobile couvre déjà le besoin de pilotage
+à distance. Une messagerie externe n'apporte rien et **ajoute une surface d'attaque**.
 
-**Action requise :**
-1. Récupérer l'Encrypt Key du callback dans la console développeur Feishu (valeur distincte de
-   `FEISHU_APP_SECRET`, qui ne permet pas de vérifier un callback).
-2. `sst secret set FEISHU_ENCRYPT_KEY <valeur>` pour chaque stage.
-3. Déployer, puis confirmer qu'un callback réel est accepté et qu'un callback forgé reçoit 401.
+**Ce qu'était réellement cette route :** le guichet de support du projet **amont**.
+`POST /feishu` relayait un message Feishu dans un canal **Discord de support** avec
+un token de bot. C'est de la plomberie héritée du fork, câblée vers un Discord qui
+n'appartient pas à l'utilisateur — pas une fonctionnalité de l'application.
 
-**Pourquoi cela ne peut pas être simulé ici :** la vérification est prouvée localement contre des
-signatures calculées indépendamment (`FeishuRemoteAdapter` 20/20), mais qu'un vrai callback Feishu
-signe exactement la chaîne attendue ne peut être établi que contre le service réel.
+**Supprimé :**
+- la route `POST /feishu` (`packages/function/src/api.ts`) ;
+- `feishu-remote-adapter.ts` et sa suite de tests ;
+- `getFeishuTenantToken()` — **déjà du code mort** avant cette session, défini et jamais appelé ;
+- les secrets `FEISHU_APP_ID`, `FEISHU_APP_SECRET`, `FEISHU_ENCRYPT_KEY` ;
+- les secrets `DISCORD_SUPPORT_BOT_TOKEN` et `DISCORD_SUPPORT_CHANNEL_ID`, devenus
+  morts avec la route — un token de bot lié à un Worker est un token qui fuit si le
+  Worker est compromis.
+
+**Conservé volontairement :** `@unifia/remote-bridge`. C'est une **bibliothèque**,
+sans point d'entrée réseau : elle n'écoute rien et ses transports sont **désactivés
+par défaut**. Elle porte la chaîne de sécurité du §22 (signatures réelles,
+anti-rejeu, appairage côté hôte, révocation) et reste la preuve de la Phase 9. La
+surface d'attaque supprimée était l'**endpoint HTTP vivant**, pas le code de
+vérification.
 
 ## BD-11 — Renommage de l'identifiant Android `ai.opencode.mobile` (NOUVEAU, reliquat Phase 0)
 
