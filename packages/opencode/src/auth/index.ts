@@ -1,3 +1,4 @@
+import { Flag } from "../flag/flag"
 import path from "node:path"
 import { Effect, Layer, Record, Result, Schema, ServiceMap } from "effect"
 import { makeRuntime } from "@/effect/run-service"
@@ -96,7 +97,7 @@ import { AppFileSystem } from "../filesystem"
 // behaviour verbatim.
 
 /** Backend selector. Read from env at module init so tests can override. */
-const AUTH_STORAGE_BACKEND = (process.env.UNIFIA_AUTH_STORAGE ?? (process.env.UNIFIA_CLIENT === "mobile-embedded" ? "encrypted-file" : "file")).toLowerCase() as
+const AUTH_STORAGE_BACKEND = (Flag.UNIFIA_AUTH_STORAGE ?? (Flag.UNIFIA_CLIENT === "mobile-embedded" ? "encrypted-file" : "file")).toLowerCase() as
   | "file"
   | "keychain"
   | "encrypted-file"

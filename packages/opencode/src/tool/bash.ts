@@ -353,7 +353,7 @@ async function runProxied(
   // otherwise the on-device toolchain (rust/python/gcc shipped in the
   // Alpine rootfs) handles them and the user keeps a fully autonomous
   // mobile flow.
-  const proxyUrl = process.env["OPENCODE_CARGO_PROXY_URL"] ?? "http://127.0.0.1:9999/exec"
+  const proxyUrl = Flag.UNIFIA_CARGO_PROXY_URL ?? "http://127.0.0.1:9999/exec"
   ctx.metadata({
     metadata: {
       output: `[cargo-proxy] forwarding to ${proxyUrl}\n`,
@@ -693,8 +693,8 @@ export const BashTool = Tool.define("bash", async () => {
       // local on-device execution if the proxy daemon is not reachable
       // (autonomous mobile use case: rust/python/gcc shipped in rootfs).
       if (
-        process.env["OPENCODE_CARGO_PROXY"] === "1" &&
-        process.env["OPENCODE_CLIENT"] === "mobile-embedded" &&
+        Flag.UNIFIA_CARGO_PROXY &&
+        Flag.UNIFIA_CLIENT === "mobile-embedded" &&
         REMOTE_TOOLCHAIN.test(params.command)
       ) {
         const proxied = await runProxied({ command: params.command, cwd, description }, ctx)

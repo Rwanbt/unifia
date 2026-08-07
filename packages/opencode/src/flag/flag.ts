@@ -132,6 +132,29 @@ export namespace Flag {
   export const UNIFIA_DISABLE_CLAUDE_CODE_PROMPT = unifiaTruthy("DISABLE_CLAUDE_CODE_PROMPT", OPENCODE_DISABLE_CLAUDE_CODE_PROMPT)
   export const UNIFIA_ENABLE_EXPERIMENTAL_MODELS = unifiaTruthy("ENABLE_EXPERIMENTAL_MODELS", OPENCODE_ENABLE_EXPERIMENTAL_MODELS)
   export const UNIFIA_FAKE_VCS = unifiaValue("FAKE_VCS", OPENCODE_FAKE_VCS)
+
+  // These four were read straight from process.env at their call sites, which
+  // meant the rebranded name was silently ignored there: setting UNIFIA_CALLER
+  // did nothing because the caller looked only at OPENCODE_CALLER. Routing them
+  // through the shim is what makes the rebranded name actually work.
+  export const UNIFIA_CALLER = unifiaValue("CALLER", process.env["OPENCODE_CALLER"])
+  export const UNIFIA_DISABLE_SHARE = unifiaTruthy("DISABLE_SHARE", truthy("OPENCODE_DISABLE_SHARE"))
+  export const UNIFIA_CARGO_PROXY = unifiaTruthy("CARGO_PROXY", truthy("OPENCODE_CARGO_PROXY"))
+  export const UNIFIA_CARGO_PROXY_URL = unifiaValue("CARGO_PROXY_URL", process.env["OPENCODE_CARGO_PROXY_URL"])
+
+  /**
+   * Credential storage backend.
+   *
+   * WHY this is here rather than read at the call site: `auth/index.ts` read
+   * `process.env.UNIFIA_AUTH_STORAGE` directly, while the desktop and mobile
+   * shells both emit `OPENCODE_AUTH_STORAGE`. The rebrand had moved the reader
+   * to the new name and left the writers on the old one, so neither value ever
+   * arrived and the backend silently fell back to plaintext `auth.json` — on a
+   * device this was verified by reading the file, which began with `{`.
+   */
+  export const UNIFIA_AUTH_STORAGE = unifiaValue("AUTH_STORAGE", process.env["OPENCODE_AUTH_STORAGE"])
+  export const UNIFIA_PTY_PORT = unifiaValue("PTY_PORT", process.env["OPENCODE_PTY_PORT"])
+  export const UNIFIA_DISABLE_LSP_DOWNLOAD = unifiaTruthy("DISABLE_LSP_DOWNLOAD", OPENCODE_DISABLE_LSP_DOWNLOAD)
 }
 // Dynamic getter for OPENCODE_DISABLE_PROJECT_CONFIG
 // This must be evaluated at access time, not module load time,

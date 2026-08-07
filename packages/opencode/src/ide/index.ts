@@ -1,4 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
+import { Flag } from "../flag/flag"
 import z from "zod"
 import { NamedError } from "@opencode-ai/util/error"
 import { Log } from "../util/log"
@@ -44,7 +45,7 @@ export namespace Ide {
   }
 
   export function alreadyInstalled() {
-    return process.env["OPENCODE_CALLER"] === "vscode" || process.env["OPENCODE_CALLER"] === "vscode-insiders"
+    return Flag.UNIFIA_CALLER === "vscode" || Flag.UNIFIA_CALLER === "vscode-insiders"
   }
 
   export async function install(ide: (typeof SUPPORTED_IDES)[number]["name"]) {

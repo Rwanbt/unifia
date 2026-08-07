@@ -15,12 +15,13 @@
  *   Control (resize/kill/status) via separate short-lived connections.
  */
 
+import { Flag } from "../flag/flag"
 import { createConnection, type Socket as NetSocket } from "node:net"
 import type { IPty, IExitEvent, IDisposable } from "bun-pty"
 
 /** Read port on each use so tests can change it between runs. */
 function ptyPort() {
-  return parseInt(process.env.OPENCODE_PTY_PORT || "14098", 10)
+  return parseInt(Flag.UNIFIA_PTY_PORT || "14098", 10)
 }
 
 class Emitter<T> {

@@ -1,4 +1,5 @@
 import type * as SDK from "@opencode-ai/sdk-shared"
+import { Flag } from "../flag/flag"
 import { Effect, Exit, Layer, Option, Schema, Scope, ServiceMap, Stream } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { Account } from "@/account"
@@ -17,7 +18,7 @@ import { SessionShareTable } from "./share.sql"
 
 export namespace ShareNext {
   const log = Log.create({ service: "share-next" })
-  const disabled = process.env["OPENCODE_DISABLE_SHARE"] === "true" || process.env["OPENCODE_DISABLE_SHARE"] === "1"
+  const disabled = Flag.UNIFIA_DISABLE_SHARE
 
   export type Api = {
     create: string

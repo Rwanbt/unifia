@@ -79,7 +79,7 @@ export const Vue: Info = {
     let binary = which("vue-language-server")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("@vue/language-server")
       if (!resolved) return
       binary = resolved
@@ -110,7 +110,7 @@ export const ESLint: Info = {
     log.info("spawning eslint server")
     const serverPath = path.join(Global.Path.bin, "vscode-eslint", "server", "out", "eslintServer.js")
     if (!(await Filesystem.exists(serverPath))) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading and building VS Code ESLint server")
       const response = await fetch("https://github.com/microsoft/vscode-eslint/archive/refs/heads/main.zip")
       if (!response.ok) return
@@ -304,7 +304,7 @@ export const Gopls: Info = {
     let bin = which("gopls")
     if (!bin) {
       if (!which("go")) return
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
 
       log.info("installing gopls")
       const proc = Process.spawn(["go", "install", "golang.org/x/tools/gopls@latest"], {
@@ -344,7 +344,7 @@ export const Rubocop: Info = {
         log.info("Ruby not found, please install Ruby first")
         return
       }
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("installing rubocop")
       const proc = Process.spawn(["gem", "install", "rubocop", "--bindir", Global.Path.bin], {
         stdout: "pipe",
@@ -441,7 +441,7 @@ export const Pyright: Info = {
     let binary = which("pyright-langserver")
     const args = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("pyright")
       if (!resolved) return
       binary = resolved
@@ -499,7 +499,7 @@ export const ElixirLS: Info = {
           return
         }
 
-        if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+        if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
         log.info("downloading elixir-ls from GitHub releases")
 
         const response = await fetch("https://github.com/elixir-lsp/elixir-ls/archive/refs/heads/master.zip")
@@ -554,7 +554,7 @@ export const Zls: Info = {
         return
       }
 
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading zls from GitHub releases")
 
       const releaseResponse = await fetch("https://api.github.com/repos/zigtools/zls/releases/latest")

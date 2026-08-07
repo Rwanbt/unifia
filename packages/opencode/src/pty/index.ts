@@ -1,3 +1,4 @@
+import { Flag } from "../flag/flag"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { InstanceState } from "@/effect/instance-state"
@@ -74,8 +75,8 @@ export namespace Pty {
     // from forkpty children (SIGSYS / exitCode=159). Use pty_server instead ---
     // a native binary spawned from Java context (Seccomp: 0) that relays PTY
     // data over TCP.
-    if (process.env.OPENCODE_PTY_PORT) {
-      log.info("using android-pty via TCP", { port: process.env.OPENCODE_PTY_PORT })
+    if (Flag.UNIFIA_PTY_PORT) {
+      log.info("using android-pty via TCP", { port: Flag.UNIFIA_PTY_PORT })
       const { androidSpawn } = await import("./android-pty")
       return androidSpawn
     }

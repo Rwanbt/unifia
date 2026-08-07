@@ -306,7 +306,7 @@ export const dict = {
   "dialog.directory.empty": "Ingen mapper fundet",
 
   "dialog.server.title": "Servere",
-  "dialog.server.description": "Skift hvilken OpenCode-server denne app forbinder til.",
+  "dialog.server.description": "Skift hvilken Unifia-server denne app forbinder til.",
   "dialog.server.search.placeholder": "Søg servere",
   "dialog.server.empty": "Ingen servere endnu",
   "dialog.server.add.title": "Tilføj en server",
@@ -449,7 +449,7 @@ export const dict = {
   "error.page.action.checking": "Tjekker...",
   "error.page.action.checkUpdates": "Tjek for opdateringer",
   "error.page.action.updateTo": "Opdater til {{version}}",
-  "error.page.report.prefix": "Rapporter venligst denne fejl til OpenCode-teamet",
+  "error.page.report.prefix": "Rapporter venligst denne fejl til Unifia-teamet",
   "error.page.report.github": "på GitHub",
   "error.page.version": "Version: {{version}}",
 
@@ -614,7 +614,7 @@ export const dict = {
   "settings.tab.shortcuts": "Genveje",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL integration",
-  "settings.desktop.wsl.description": "Kør OpenCode-serveren inde i WSL på Windows.",
+  "settings.desktop.wsl.description": "Kør Unifia-serveren inde i WSL på Windows.",
 
   "settings.general.section.appearance": "Udseende",
   "settings.general.section.notifications": "Systemmeddelelser",
@@ -1012,7 +1012,7 @@ export const dict = {
   "sidebar.empty.description": "Open a project to get started",
   "settings.desktop.section.remote": "Remote access",
   "settings.desktop.remote.mode.title": "Adgangstilstand",
-  "settings.desktop.remote.mode.description": "Vælg hvilke maskiner der kan nå OpenCode-serveren.",
+  "settings.desktop.remote.mode.description": "Vælg hvilke maskiner der kan nå Unifia-serveren.",
   "settings.desktop.remote.mode.local": "Lokal",
   "settings.desktop.remote.mode.lan": "LAN",
   "settings.desktop.remote.mode.internet": "Internet",
