@@ -1,4 +1,4 @@
-import { createUnifiaClient, type Event } from "@opencode-ai/sdk-shared"
+import { createUnifiaClient, type Event } from "@unifia/sdk-shared"
 import { createSimpleContext } from "./helper"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, onCleanup, onMount } from "solid-js"

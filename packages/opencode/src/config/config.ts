@@ -7,7 +7,7 @@ import z from "zod"
 import { mergeDeep, pipe, unique } from "remeda"
 import { Global } from "../global"
 import fsNode from "node:fs/promises"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { Env } from "../env"
@@ -189,7 +189,7 @@ export namespace Config {
     }))
     json.dependencies = {
       ...json.dependencies,
-      "@opencode-ai/plugin": target,
+      "@unifia/plugin": target,
     }
     await Filesystem.writeJson(pkg, json)
 

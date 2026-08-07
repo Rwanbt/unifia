@@ -1,4 +1,4 @@
-import { createUnifiaClient, createUnifiaServer } from "@opencode-ai/sdk"
+import { createUnifiaClient, createUnifiaServer } from "@unifia/sdk"
 import { pathToFileURL } from "bun"
 
 const server = await createUnifiaServer()

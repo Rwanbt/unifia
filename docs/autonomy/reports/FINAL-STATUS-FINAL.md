@@ -71,7 +71,7 @@ Tous les éléments visibles et fonctionnels sont rebranded :
 | URLs upstream (github.com/.../opencode) | Whitelist conservée | Aucune |
 | Paths packages/opencode/ | Whitelist conservée | Aucune |
 | Sidecar opencode-cli | Whitelist conservée | Aucune |
-| @opencode-ai/ (package scope) | Whitelist conservée | Aucune |
+| @unifia/ (package scope) | Whitelist conservée | Aucune |
 | RELEASE-NOTES.md (13 occurrences) | Doc qui parle de la migration opencode → unifia | Aucune — c'est le sujet du doc |
 
 ## 6. Incidents et résolutions

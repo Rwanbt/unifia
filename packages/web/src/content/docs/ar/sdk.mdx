@@ -18,7 +18,7 @@ export const typesUrl = `${config.github}/blob/dev/packages/sdk/js/src/gen/types
 ثبّت SDK من npm:
 
 ```bash
-npm install @opencode-ai/sdk
+npm install @unifia/sdk
 ```
 
 ---
@@ -28,7 +28,7 @@ npm install @opencode-ai/sdk
 أنشئ مثيلا من unifia:
 
 ```javascript
-import { createUnifia } from "@opencode-ai/sdk"
+import { createUnifia } from "@unifia/sdk"
 
 const { client } = await createUnifia()
 ```
@@ -52,7 +52,7 @@ const { client } = await createUnifia()
 يمكنك تمرير كائن إعدادات لتخصيص السلوك. سيستمر المثيل في التقاط `unifia.json` لديك، لكن يمكنك تجاوز الإعدادات أو إضافة إعدادات مباشرة:
 
 ```javascript
-import { createUnifia } from "@opencode-ai/sdk"
+import { createUnifia } from "@unifia/sdk"
 
 const unifia = await createUnifia({
   hostname: "127.0.0.1",
@@ -72,7 +72,7 @@ unifia.server.close()
 إذا كان لديك مثيل unifia يعمل بالفعل، يمكنك إنشاء مثيل عميل للاتصال به:
 
 ```javascript
-import { createUnifiaClient } from "@opencode-ai/sdk"
+import { createUnifiaClient } from "@unifia/sdk"
 
 const client = createUnifiaClient({
   baseUrl: "http://localhost:4096",
@@ -96,7 +96,7 @@ const client = createUnifiaClient({
 تتضمن SDK تعريفات TypeScript لجميع أنواع API. استوردها مباشرة:
 
 ```typescript
-import type { Session, Message, Part } from "@opencode-ai/sdk"
+import type { Session, Message, Part } from "@unifia/sdk"
 ```
 
 جميع الأنواع مولّدة من مواصفات OpenAPI الخاصة بالخادم ومتاحة في <a href={typesUrl}>ملف الأنواع</a>.

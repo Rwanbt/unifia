@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Flag } from "../flag/flag"
 import z from "zod"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import { Log } from "../util/log"
 import { Process } from "@/util/process"
 

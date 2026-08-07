@@ -1,4 +1,4 @@
-import { base64Decode, base64Encode } from "@opencode-ai/util/encode"
+import { base64Decode, base64Encode } from "@unifia/util/encode"
 import { expect, type Locator, type Page } from "@playwright/test"
 
 // Use the per-test timeout (PLAYWRIGHT_TIMEOUT=90s on CI) for all poll-based waits.

@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
+    "@unifia/sdk": "workspace:*",
     "@slack/bolt": "^3.17.1"
   },
   "devDependencies": {

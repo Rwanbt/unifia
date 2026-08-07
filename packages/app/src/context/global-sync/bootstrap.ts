@@ -9,9 +9,9 @@ import type {
   Session,
   Todo,
 } from "../../types/sdk-shim"
-import { showToast } from "@opencode-ai/ui/toast"
-import { getFilename } from "@opencode-ai/util/path"
-import { retry } from "@opencode-ai/util/retry"
+import { showToast } from "@unifia/ui/toast"
+import { getFilename } from "@unifia/util/path"
+import { retry } from "@unifia/util/retry"
 import { batch } from "solid-js"
 import { reconcile, type SetStoreFunction, type Store } from "solid-js/store"
 import type { State, VcsCache } from "./types"

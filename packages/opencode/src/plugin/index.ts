@@ -1,12 +1,12 @@
-import type { Hooks, PluginInput, Plugin as PluginInstance, PluginModule } from "@opencode-ai/plugin"
+import type { Hooks, PluginInput, Plugin as PluginInstance, PluginModule } from "@unifia/plugin"
 import { Config } from "../config/config"
 import { Bus } from "../bus"
 import { Log } from "../util/log"
-import { createUnifiaClient } from "@opencode-ai/sdk"
+import { createUnifiaClient } from "@unifia/sdk"
 import { Flag } from "../flag/flag"
 import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
 // Optional auth packages are not present in the clean execution root; keep the boundary inert until licensed packages are installed.
 const GitlabAuthPlugin = (async () => ({})) as PluginInstance

@@ -1,5 +1,5 @@
 import { createContext, useContext } from "solid-js"
-import type { Provider } from "@opencode-ai/sdk-shared"
+import type { Provider } from "@unifia/sdk-shared"
 import { useSync } from "@tui/context/sync"
 import { useTuiConfig } from "../../context/tui-config"
 

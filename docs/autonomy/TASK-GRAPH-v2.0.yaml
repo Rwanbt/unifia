@@ -137,13 +137,13 @@ cards:
 
   - id: "P0-C003"
     phase: "0"
-    title: "Renommer les 22 packages workspaces : @opencode-ai/* → @unifia/*"
+    title: "Renommer les 22 packages workspaces : @unifia/* → @unifia/*"
     status: "INTEGRATED_LOCAL"
     objective: "22 packages rebrandés."
     commit: "36cf381"
     files: 15
     acceptance:
-      - "Aucun package.json ne contient plus '@opencode-ai/'"
+      - "Aucun package.json ne contient plus '@unifia/'"
 
   - id: "P0-C004"
     phase: "0"

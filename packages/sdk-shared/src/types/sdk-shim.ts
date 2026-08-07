@@ -10,12 +10,12 @@
  * evolves toward thin route types.
  *
  * Phase 7.2: this shim moved out of packages/app/src/types into the
- * @opencode-ai/sdk-shared workspace package so it can be imported by app,
+ * @unifia/sdk-shared workspace package so it can be imported by app,
  * ui, plugin, and backend from a single source of truth. The app/ui shims
  * are now thin re-exports of this file.
  *
  * When to delete this file: once consumers import model types from a stable
- * location (e.g. a dedicated `@opencode-ai/sdk/v2/model` subpath or a
+ * location (e.g. a dedicated `@unifia/sdk/v2/model` subpath or a
  * package-local definition backed by the backend Zod schema).
  */
 import type {
@@ -39,8 +39,8 @@ import type {
   SessionTodoResponses,
   ExperimentalWorkspaceListResponses,
   FormatterStatusResponses,
-} from "@opencode-ai/sdk/v2/client"
-import type { Model as ModelV1, Provider as ProviderV1 } from "@opencode-ai/sdk"
+} from "@unifia/sdk/v2/client"
+import type { Model as ModelV1, Provider as ProviderV1 } from "@unifia/sdk"
 
 // ----- Session -----
 // SessionListResponses[200] is Array<Session>.
@@ -102,7 +102,7 @@ export type FileDiff = SessionDiffResponses[200][number]
 // the index signature swallowing the narrowing.
 //
 // The full response shape is still available as `SessionStatusResponse`
-// from the SDK v2 re-export (via @opencode-ai/sdk/v2/client). The shim does
+// from the SDK v2 re-export (via @unifia/sdk/v2/client). The shim does
 // not re-export it because the SDK already provides it via the *Responses
 // union pattern. Consumers import SessionStatusResponse through the shared
 // package without needing a local alias.
@@ -304,7 +304,7 @@ export type Provider = Omit<ProviderListResponses[200]["all"][number] | Provider
 
 // ----- V1 aliases for plugin compat -----
 // Phase 7.2 addition: packages/plugin/src/index.ts:14 imports
-// `ProviderV2`/`ModelV2` from `@opencode-ai/sdk/v2` for the
+// `ProviderV2`/`ModelV2` from `@unifia/sdk/v2` for the
 // ProviderHook.models() signature. The v2 regen dropped those top-level
 // types. Re-export the v1 shapes (which still exist) as `ProviderV2`/
 // `ModelV2` so the plugin compiles without touching the hook contract.

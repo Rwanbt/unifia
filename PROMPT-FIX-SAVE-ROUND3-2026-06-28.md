@@ -145,7 +145,7 @@ onSave={async () => {
 
 **IMPORTANT — Ajoute l'import `showToast`** si pas déjà présent en haut du fichier :
 ```tsx
-import { showToast } from "@opencode-ai/ui/toast"
+import { showToast } from "@unifia/ui/toast"
 ```
 
 ---

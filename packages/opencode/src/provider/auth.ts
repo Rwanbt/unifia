@@ -1,5 +1,5 @@
-import type { AuthOAuthResult, Hooks } from "@opencode-ai/plugin"
-import { NamedError } from "@opencode-ai/util/error"
+import type { AuthOAuthResult, Hooks } from "@unifia/plugin"
+import { NamedError } from "@unifia/util/error"
 import { Auth } from "@/auth"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"

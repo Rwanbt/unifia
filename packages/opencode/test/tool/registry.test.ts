@@ -109,7 +109,7 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
             JSON.stringify({
               name: "custom-tools",
               dependencies: {
-                "@opencode-ai/plugin": "^0.0.0",
+                "@unifia/plugin": "^0.0.0",
                 cowsay: "^1.6.0",
               },
             }),

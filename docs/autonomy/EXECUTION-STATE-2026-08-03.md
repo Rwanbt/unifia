@@ -65,7 +65,7 @@
 
 ## Checkpoint workspace boundary — d364748
 
-- Workspace manifests now use the compatibility package names consumed by the source (`@opencode-ai/plugin`, `@opencode-ai/script`, `@opencode-ai/sdk`, `@opencode-ai/ui`) while Unifia contracts remain canonical.
+- Workspace manifests now use the compatibility package names consumed by the source (`@unifia/plugin`, `@unifia/script`, `@unifia/sdk`, `@unifia/ui`) while Unifia contracts remain canonical.
 - `packages/enterprise` and `packages/desktop-electron` are explicitly excluded from the root workspace; their DO-NOT-IMPORT manifests were not changed.
 - `bun install --frozen-lockfile --no-progress`: passed, 2500 installs across 2437 packages, no changes.
 - Pre-commit provenance guard passed; hook false failures for empty shell/SPDX candidate sets were corrected.

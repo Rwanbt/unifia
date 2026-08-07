@@ -18,7 +18,7 @@ unifia JS/TS SDK 提供了一个类型安全的客户端，用于与服务器进
 从 npm 安装 SDK：
 
 ```bash
-npm install @opencode-ai/sdk
+npm install @unifia/sdk
 ```
 
 ---
@@ -28,7 +28,7 @@ npm install @opencode-ai/sdk
 创建一个 unifia 实例：
 
 ```javascript
-import { createUnifia } from "@opencode-ai/sdk"
+import { createUnifia } from "@unifia/sdk"
 
 const { client } = await createUnifia()
 ```
@@ -52,7 +52,7 @@ const { client } = await createUnifia()
 你可以传入一个配置对象来自定义行为。实例仍然会读取你的 `unifia.json`，但你可以通过内联方式覆盖或添加配置：
 
 ```javascript
-import { createUnifia } from "@opencode-ai/sdk"
+import { createUnifia } from "@unifia/sdk"
 
 const unifia = await createUnifia({
   hostname: "127.0.0.1",
@@ -72,7 +72,7 @@ unifia.server.close()
 如果你已经有一个正在运行的 unifia 实例，可以创建一个客户端实例来连接它：
 
 ```javascript
-import { createUnifiaClient } from "@opencode-ai/sdk"
+import { createUnifiaClient } from "@unifia/sdk"
 
 const client = createUnifiaClient({
   baseUrl: "http://localhost:4096",
@@ -96,7 +96,7 @@ const client = createUnifiaClient({
 SDK 包含所有 API 类型的 TypeScript 定义。你可以直接导入它们：
 
 ```typescript
-import type { Session, Message, Part } from "@opencode-ai/sdk"
+import type { Session, Message, Part } from "@unifia/sdk"
 ```
 
 所有类型均根据服务器的 OpenAPI 规范生成，可在<a href={typesUrl}>类型文件</a>中查看。

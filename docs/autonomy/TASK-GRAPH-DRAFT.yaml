@@ -81,9 +81,9 @@ cards:
   # --------------------------------------------------------------------------
   - id: "P0-C003"
     phase: "0"
-    title: "Renommer les 22 packages workspaces : @opencode-ai/* → @unifia/*"
+    title: "Renommer les 22 packages workspaces : @unifia/* → @unifia/*"
     status: "PROPOSED"
-    objective: "Renommer les 22 noms de packages sous packages/*/package.json. @opencode-ai/app → @unifia/app, etc. Ne PAS toucher aux scopes privés (commençant par @)."
+    objective: "Renommer les 22 noms de packages sous packages/*/package.json. @unifia/app → @unifia/app, etc. Ne PAS toucher aux scopes privés (commençant par @)."
     rationale: "Cohérence d'écosystème NPM. Identité du SDK public (`@unifia/sdk`)."
     scope:
       allowed_paths: ["packages/*/package.json"]
@@ -94,8 +94,8 @@ cards:
       static_checks: ["bun install"]
     acceptance:
       - id: "AC-1"
-        statement: "Aucun package.json ne contient plus '@opencode-ai/'"
-        evidence: "grep -r '@opencode-ai/' packages/*/package.json | wc -l == 0"
+        statement: "Aucun package.json ne contient plus '@unifia/'"
+        evidence: "grep -r '@unifia/' packages/*/package.json | wc -l == 0"
       - id: "AC-2"
         statement: "Tous les cross-references internes pointent vers @unifia/*"
         evidence: "bun install exit 0 (catalog resolution)"

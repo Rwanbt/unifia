@@ -1,4 +1,4 @@
-import type * as SDK from "@opencode-ai/sdk-shared"
+import type * as SDK from "@unifia/sdk-shared"
 import { Flag } from "../flag/flag"
 import { Effect, Exit, Layer, Option, Schema, Scope, ServiceMap, Stream } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"

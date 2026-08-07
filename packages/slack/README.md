@@ -1,4 +1,4 @@
-# @opencode-ai/slack
+# @unifia/slack
 
 Slack bot integration for unifia that creates threaded conversations.
 

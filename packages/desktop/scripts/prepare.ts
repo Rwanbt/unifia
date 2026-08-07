@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { $ } from "bun"
 
-import { Script } from "@opencode-ai/script"
+import { Script } from "@unifia/script"
 import { copyBinaryToSidecarFolder, getCurrentSidecar, resolveSidecarBinaryPath } from "./utils"
 
 const pkg = await Bun.file("./package.json").json()

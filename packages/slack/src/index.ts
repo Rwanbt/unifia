@@ -1,5 +1,5 @@
 import { App } from "@slack/bolt"
-import { createUnifia, type ToolPart } from "@opencode-ai/sdk"
+import { createUnifia, type ToolPart } from "@unifia/sdk"
 import { createSlackRemoteAdapter } from "./remote-adapter.ts"
 
 const app = new App({

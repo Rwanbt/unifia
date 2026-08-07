@@ -102,7 +102,7 @@ the [Rwanbt/opencode](https://github.com/Rwanbt/opencode) fork.
 ### Changed
 
 #### Rebrand (~3200 fichiers)
-- **22 packages** `@opencode-ai/*` → `@unifia/*` (P0-C003)
+- **22 packages** `@unifia/*` → `@unifia/*` (P0-C003)
 - **Binaire CLI** `opencode` → `unifia` (P0-C004)
 - **Tauri** : identifier, scheme, sidecar (P0-C005)
 - **README.md** : titre, banner, URLs (P0-C006)

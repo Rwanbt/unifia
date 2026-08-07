@@ -4,7 +4,7 @@
 // WHY a shared, framework-agnostic module: the pipeline being measured spans
 // packages/app (editor-panel.tsx, editor/store.ts, file-tabs.tsx) AND
 // packages/ui (components/file.tsx, pierre/file-runtime.ts) — a plain module
-// in @opencode-ai/util is importable from both without creating a dependency
+// in @unifia/util is importable from both without creating a dependency
 // from packages/ui back onto packages/app.
 //
 // WHY flag-gated, not always-on: this must not be noisy in production (see

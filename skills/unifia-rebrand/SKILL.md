@@ -50,7 +50,7 @@ Patterns à protéger (regex) :
 - `github\.com/[^\s]*`
 - `packages/opencode...`
 - `opencode-cli...`
-- `@opencode-ai/...`
+- `@unifia/...`
 - `Rwanbt/opencode`, `anomalyco/opencode`
 
 Substitution :

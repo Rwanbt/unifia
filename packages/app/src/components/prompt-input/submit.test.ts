@@ -77,11 +77,11 @@ beforeAll(async () => {
     },
   }))
 
-  mock.module("@opencode-ai/ui/toast", () => ({
+  mock.module("@unifia/ui/toast", () => ({
     showToast: () => 0,
   }))
 
-  mock.module("@opencode-ai/util/encode", () => ({
+  mock.module("@unifia/util/encode", () => ({
     base64Encode: (value: string) => value,
   }))
 

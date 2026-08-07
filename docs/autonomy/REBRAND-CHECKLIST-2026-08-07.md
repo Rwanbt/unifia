@@ -36,32 +36,40 @@ Chiffres relevés par scan direct ce jour, pas de mémoire.
 
 Classé du plus mécanique au plus délicat.
 
-### Mécanique — remplacement sûr
-- [ ] **11 paquets encore `@opencode-ai/*`** — `console-app`, `console-core`,
-      `console-function`, `console-mail`, `console-resource`, `plugin`, `script`,
-      `sdk-shared`, `sdk`, `ui`, `util`
-      *Attention : `@opencode-ai/sdk` et `@opencode-ai/plugin` sont des noms
-      **publiés publiquement**. Les renommer casse les consommateurs externes —
-      c'est une décision de distribution, pas un rebrand cosmétique.*
-- [ ] **Nom du paquet CLI** — `packages/opencode/package.json` s'appelle encore
-      `opencode` (sans scope), alors que son binaire est déjà `unifia`
-- [ ] **58 occurrences « OpenCode » dans 18 fichiers de locale** (`packages/app/src/i18n/`)
-- [ ] **53 occurrences « OpenCode » dans des littéraux d'interface**
+### Fait le 2026-08-07
+- [x] **Scope npm** — les 11 derniers paquets `@opencode-ai/*` renommés en
+      `@unifia/*` : 1516 occurrences dans 461 fichiers. Décidé **maintenant**
+      parce que le dépôt n'a encore aucun consommateur : la fenêtre pour
+      renommer sans rupture se referme dès qu'un tiers importe le SDK.
+      *Argument décisif : `publish.yml` publie sur npmjs.org — un fork qui
+      publie sous le scope de l'amont squatte son espace de noms.*
+- [x] **Nom du paquet CLI** — `opencode` → `unifia`
+- [x] **58 occurrences dans 6 locales** — `en.ts` était déjà propre ; le rebrand
+      avait été fait langue par langue et 6 des 18 étaient restées à mi-chemin
+      (`ja` 23, `ko` 16, `bs` 7, `de`/`da`/`no` 4). Un utilisateur japonais
+      voyait « OpenCode » là où un anglophone voyait « Unifia ».
+- [x] **Clés `turbo.json` mortes** — `@opencode-ai/mobile#test` ne
+      correspondait plus à rien depuis le renommage du paquet en
+      `@unifia/mobile` : la tâche n'utilisait plus sa config dédiée, en silence.
+- [x] **Les « 53 littéraux d'interface » étaient un faux positif** de mon scan :
+      ce sont des **identifiants internes** (`OpenCodeWindow`,
+      `registerOpenCodeTheme`), pas du texte visible.
 
 ### Demande une décision
 - [ ] **Répertoire de config projet `.opencode/`** — 8 occurrences. État actuel
       incohérent : `.opencode/unifia.json`. Le renommer en `.unifia/` **casse les
       projets existants** qui ont déjà un `.opencode/` — il faut soit une
       migration, soit lire les deux
-- [ ] **Variables d'environnement, côté émission** — `packages/mobile/src-tauri/src/runtime/server.rs`
-      émet encore 6 noms `OPENCODE_*` (`OPENCODE_CLIENT`, `OPENCODE_PTY_PORT`,
-      `OPENCODE_SERVER_USERNAME/PASSWORD`, `OPENCODE_AUTH_STORAGE`,
-      `OPENCODE_DISABLE_LSP_DOWNLOAD`). **Ce n'est pas un bug** — le shim les lit —
-      mais le nom hérité reste porteur
-- [ ] **5 lectures directes qui contournent le shim** — `ide/index.ts:47`,
-      `share/share-next.ts:20`, `tool/bash.ts:356,696,697`. Elles lisent
-      `process.env.OPENCODE_*` sans repli, donc elles **ignoreraient** un
-      `UNIFIA_*` équivalent
+- [x] **5 lectures directes qui contournaient le shim** — routées le 2026-08-07.
+      Avant cela, positionner le nom rebrandé ne faisait **rien** à ces endroits.
+- [x] **Défaut de sécurité trouvé par ce contrôle** — `auth/index.ts` lisait
+      `process.env.UNIFIA_AUTH_STORAGE` alors que les deux shells émettent
+      l'ancien nom. La valeur n'arrivait jamais, le sélecteur retombait sur
+      `"file"`, et les identifiants de fournisseurs étaient écrits **en clair**.
+      Vérifié sur appareil : `auth.json` commençait par `{`. Corrigé.
+- [ ] **Émission côté shells Rust** — laissée telle quelle **délibérément** :
+      le shim lit les deux noms, donc la changer ne gagnerait rien et coûterait
+      un rebuild APK plus une re-vérification sur appareil.
 
 ### Périmètre à trancher
 - [ ] **Domaine `opencode.ai`** — 562 fichiers, dont **417 dans `packages/web`**
@@ -96,5 +104,5 @@ Trois niveaux, à ne pas confondre :
 
 Le premier niveau est celui qui décide si l'application « est » Unifia. Il est
 complet. Les deux autres sont de la cohérence, pas de l'identité — et deux items
-(`@opencode-ai/sdk`, `.opencode/`) ont des **conséquences externes** qui en font
-des décisions, pas des tâches.
+(`.opencode/` projet, `packages/web`) ont des **conséquences externes** qui en
+font des décisions, pas des tâches.

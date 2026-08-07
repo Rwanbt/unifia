@@ -796,7 +796,7 @@ test.skipIf(_skipOnWindowsCI)("installs dependencies in writable UNIFIA_CONFIG_D
     await fs.mkdir(mod, { recursive: true })
     await Filesystem.write(
       path.join(mod, "package.json"),
-      JSON.stringify({ name: "@opencode-ai/plugin", version: "1.0.0" }),
+      JSON.stringify({ name: "@unifia/plugin", version: "1.0.0" }),
     )
   })
 
@@ -852,7 +852,7 @@ test("dedupes concurrent config dependency installs for the same dir", async () 
     await fs.mkdir(mod, { recursive: true })
     await Filesystem.write(
       path.join(mod, "package.json"),
-      JSON.stringify({ name: "@opencode-ai/plugin", version: "1.0.0" }),
+      JSON.stringify({ name: "@unifia/plugin", version: "1.0.0" }),
     )
     if (hit) {
       start()
@@ -921,7 +921,7 @@ test("serializes config dependency installs across dirs", async () => {
     await fs.mkdir(mod, { recursive: true })
     await Filesystem.write(
       path.join(mod, "package.json"),
-      JSON.stringify({ name: "@opencode-ai/plugin", version: "1.0.0" }),
+      JSON.stringify({ name: "@unifia/plugin", version: "1.0.0" }),
     )
     if (hit) {
       open -= 1

@@ -9,7 +9,7 @@ import type {
   TuiPluginStatus,
   TuiSlotPlugin,
   TuiTheme,
-} from "@opencode-ai/plugin/tui"
+} from "@unifia/plugin/tui"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 

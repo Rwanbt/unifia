@@ -3,7 +3,7 @@ import path from "node:path"
 import { Global } from "../global"
 import fs from "node:fs/promises"
 import z from "zod"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import { lazy } from "../util/lazy"
 
 import { Filesystem } from "../util/filesystem"

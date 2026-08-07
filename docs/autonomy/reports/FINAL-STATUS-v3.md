@@ -38,7 +38,7 @@
 | URLs upstream (github.com/.../opencode) | Whitelist conservée |
 | Paths packages/opencode/ | Whitelist conservée |
 | Sidecar opencode-cli | Whitelist conservée |
-| @opencode-ai/ (package scope) | Whitelist conservée |
+| @unifia/ (package scope) | Whitelist conservée |
 | localStorage keys opencode-theme-id, opencode-model-config, etc. | Migration = breaking change |
 
 ## 4. Réduction globale des occurrences

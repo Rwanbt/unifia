@@ -12,7 +12,7 @@
 - **Nom :** OpenCode → **Unifia**
 - **CLI :** `opencode` → **`unifia`**
 - **Package root :** `opencode` → **`unifia-workbench`**
-- **Packages :** `@opencode-ai/*` → **`@unifia/*`** (22 packages)
+- **Packages :** `@unifia/*` → **`@unifia/*`** (22 packages)
 - **Tauri identifier :** `ai.opencode.desktop.dev` → **`ai.unifia.workbench.dev`**
 
 ### Brand kit (drop-in)
@@ -82,7 +82,7 @@
 
 **Changements visibles** :
 - Le nom de la CLI est `unifia` (était `opencode`)
-- Les packages npm sont `@unifia/*` (étaient `@opencode-ai/*`)
+- Les packages npm sont `@unifia/*` (étaient `@unifia/*`)
 - Le Tauri identifier est `ai.unifia.workbench.dev` (était `ai.opencode.desktop.dev`)
 
 ---

@@ -1,5 +1,5 @@
 /// <reference path="../env.d.ts" />
-import { tool } from "@opencode-ai/plugin"
+import { tool } from "@unifia/plugin"
 const TEAM = {
   desktop: ["adamdotdevin", "iamdavidhill", "Brendonovich", "nexxeln"],
   zen: ["fwang", "MrMushrooooom"],

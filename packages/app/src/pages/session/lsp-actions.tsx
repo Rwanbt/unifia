@@ -15,9 +15,9 @@
 // code-actions-panel state.
 
 import { createSignal } from "solid-js"
-import { showToast } from "@opencode-ai/ui/toast"
-import type { CodeMirrorHandle } from "@opencode-ai/ui/code-mirror"
-import type { LspCodeAction, LspWorkspaceEdit } from "@opencode-ai/ui/code-mirror-lsp"
+import { showToast } from "@unifia/ui/toast"
+import type { CodeMirrorHandle } from "@unifia/ui/code-mirror"
+import type { LspCodeAction, LspWorkspaceEdit } from "@unifia/ui/code-mirror-lsp"
 import { applyTextEdits, editsForFile } from "@/pages/session/lsp-handlers"
 import { useLanguage } from "@/context/language"
 import type { RenameState } from "@/pages/session/rename-dialog"

@@ -21,7 +21,7 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 **Note :** le Plan V3 §3.1 (matrice d'adoption OpenWork) ne mentionne pas enterprise → cohérent avec EXCLUDE.
 
 **Violation constatée (2026-07-31) :** lors de P0-C003 (rename packages workspaces) puis P2-C090e (openapi specs), `packages/enterprise/package.json` a été partiellement rebrandé :
-- `@opencode-ai/enterprise` → `@unifia/enterprise` (P0-C003, cohérent avec workspaces)
+- `@unifia/enterprise` → `@unifia/enterprise` (P0-C003, cohérent avec workspaces)
 - `OPENCODE_DEPLOYMENT_TARGET` → `UNIFIA_DEPLOYMENT_TARGET` (P2-C090e, env var)
 
 **Décision prise :** la restauration complète casserait le workspace (le package n'existerait plus sous son ancien nom). On documente la violation et on attend décision utilisateur :

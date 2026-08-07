@@ -1,10 +1,10 @@
 import { type Component, Show } from "solid-js"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useDialog } from "@unifia/ui/context/dialog"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
-import { Dialog } from "@opencode-ai/ui/dialog"
-import { List } from "@opencode-ai/ui/list"
-import { Tag } from "@opencode-ai/ui/tag"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
+import { Dialog } from "@unifia/ui/dialog"
+import { List } from "@unifia/ui/list"
+import { Tag } from "@unifia/ui/tag"
+import { ProviderIcon } from "@unifia/ui/provider-icon"
 import { useLanguage } from "@/context/language"
 // DialogConnectProvider / DialogCustomProvider imported on-demand to avoid
 // a static cycle (connect ↔ select ↔ custom) and to keep each out of the

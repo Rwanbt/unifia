@@ -18,7 +18,7 @@ Damit kannst du Integrationen bauen und unifia programmatisch steuern.
 Installiere das SDK ueber npm:
 
 ```bash
-npm install @opencode-ai/sdk
+npm install @unifia/sdk
 ```
 
 ---
@@ -28,7 +28,7 @@ npm install @opencode-ai/sdk
 Erstelle eine opencode-Instanz:
 
 ```javascript
-import { createUnifia } from "@opencode-ai/sdk"
+import { createUnifia } from "@unifia/sdk"
 
 const { client } = await createUnifia()
 ```
@@ -53,7 +53,7 @@ Du kannst ein Konfigurationsobjekt uebergeben, um das Verhalten anzupassen.
 `unifia.json` wird weiterhin geladen, kann aber inline ueberschrieben oder erweitert werden:
 
 ```javascript
-import { createUnifia } from "@opencode-ai/sdk"
+import { createUnifia } from "@unifia/sdk"
 
 const unifia = await createUnifia({
   hostname: "127.0.0.1",
@@ -73,7 +73,7 @@ unifia.server.close()
 Wenn unifia bereits laeuft, kannst du nur einen Client erstellen und verbinden:
 
 ```javascript
-import { createUnifiaClient } from "@opencode-ai/sdk"
+import { createUnifiaClient } from "@unifia/sdk"
 
 const client = createUnifiaClient({
   baseUrl: "http://localhost:4096",
@@ -98,7 +98,7 @@ Das SDK bringt TypeScript-Definitionen fuer alle API-Typen mit.
 Du kannst sie direkt importieren:
 
 ```typescript
-import type { Session, Message, Part } from "@opencode-ai/sdk"
+import type { Session, Message, Part } from "@unifia/sdk"
 ```
 
 Alle Typen werden aus der OpenAPI-Spezifikation des Servers generiert und sind in der <a href={typesUrl}>Typdatei</a> verfuegbar.

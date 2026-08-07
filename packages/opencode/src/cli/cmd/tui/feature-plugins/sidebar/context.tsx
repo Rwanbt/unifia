@@ -1,5 +1,5 @@
-import type { AssistantMessage } from "@opencode-ai/sdk-shared"
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
+import type { AssistantMessage } from "@unifia/sdk-shared"
+import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@unifia/plugin/tui"
 import { createMemo } from "solid-js"
 
 const id = "internal:sidebar-context"

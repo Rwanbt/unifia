@@ -13,8 +13,8 @@
  * UI will iterate over CPU / OpenCL / Vulkan / Hexagon and show a table.
  */
 import { type Component, createSignal, createResource, createMemo, For, Show, } from "solid-js"
-import { Button } from "@opencode-ai/ui/button"
-import { Select } from "@opencode-ai/ui/select"
+import { Button } from "@unifia/ui/button"
+import { Select } from "@unifia/ui/select"
 import { useLanguage } from "@/context/language"
 
 function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> {

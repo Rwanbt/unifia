@@ -133,7 +133,7 @@ export const drainPendingDeepLinks = (target: OpenCodeWindow) => {
 
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { onMount } from "solid-js"
-import { base64Encode } from "@opencode-ai/util/encode"
+import { base64Encode } from "@unifia/util/encode"
 import type { useProviders } from "@/hooks/use-providers"
 import type { useServer } from "@/context/server"
 import type { setSessionHandoff } from "@/pages/session/handoff"

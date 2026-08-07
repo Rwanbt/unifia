@@ -38,7 +38,7 @@ Le rebrand Unifia a été appliqué à **tous les labels visibles** (UI, marketi
 | `opencode.trace` (Langfuse attr) | `unifia.trace` | Observability attr | OUI (dashboards) |
 | `scriptName("opencode")` (yargs) | `scriptName("unifia")` | CLI display | NON (cosmétique) |
 | `opencode-cli` (sidecar filename) | `unifia-cli` | Binary | OUI (release artifact) |
-| `@opencode-ai/*` (package scope) | `@unifia/*` | Package name | OUI (NPM) |
+| `@unifia/*` (package scope) | `@unifia/*` | Package name | OUI (NPM) |
 
 ## 4. Plan de migration (code)
 

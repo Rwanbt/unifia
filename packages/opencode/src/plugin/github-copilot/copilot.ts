@@ -1,5 +1,5 @@
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
-import type { Model } from "@opencode-ai/sdk-shared"
+import type { Hooks, PluginInput } from "@unifia/plugin"
+import type { Model } from "@unifia/sdk-shared"
 import { Installation } from "@/installation"
 import { iife } from "@/util/iife"
 import { Log } from "../../util/log"

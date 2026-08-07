@@ -41,7 +41,7 @@ import type { Config } from "@/config/config"
 import { Todo } from "@/session/todo"
 import { z } from "zod"
 import { LoadAPIKeyError } from "ai"
-import type { AssistantMessage, Event, UnifiaClient, SessionMessageResponse, ToolPart } from "@opencode-ai/sdk-shared"
+import type { AssistantMessage, Event, UnifiaClient, SessionMessageResponse, ToolPart } from "@unifia/sdk-shared"
 import {
   sendUsageUpdate,
   toToolKind,

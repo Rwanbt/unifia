@@ -1,4 +1,4 @@
-import type { AssistantMessage, Part, Provider, UserMessage } from "@opencode-ai/sdk-shared"
+import type { AssistantMessage, Part, Provider, UserMessage } from "@unifia/sdk-shared"
 import { Locale } from "@/util/locale"
 import * as Model from "./model"
 

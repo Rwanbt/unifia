@@ -1,5 +1,5 @@
 import type { Argv } from "yargs"
-import type { Session as SDKSession, Message, Part } from "@opencode-ai/sdk-shared"
+import type { Session as SDKSession, Message, Part } from "@unifia/sdk-shared"
 import { Session } from "../../session"
 import { MessageV2 } from "../../session/message-v2"
 import { cmd } from "./cmd"

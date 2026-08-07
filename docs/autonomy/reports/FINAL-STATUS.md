@@ -107,7 +107,7 @@ Le fork `Rwanbt/opencode` a été rebranded en `Unifia` selon le Plan V3 captur�
 | URLs upstream (github.com/.../opencode) | Whitelist conservée |
 | Paths packages/opencode/ | Whitelist conservée |
 | Sidecar opencode-cli | Whitelist conservée |
-| @opencode-ai/ (package scope) | Whitelist conservée |
+| @unifia/ (package scope) | Whitelist conservée |
 
 ## 7. Sécurité (vérifiée sur tous les commits)
 

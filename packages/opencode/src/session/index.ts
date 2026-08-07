@@ -1,4 +1,4 @@
-import { Slug } from "@opencode-ai/util/slug"
+import { Slug } from "@unifia/util/slug"
 import path from "node:path"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"

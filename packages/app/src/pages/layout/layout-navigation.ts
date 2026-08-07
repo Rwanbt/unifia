@@ -10,7 +10,7 @@
 import { untrack } from "solid-js"
 import type { SetStoreFunction } from "solid-js/store"
 import { produce } from "solid-js/store"
-import { base64Encode } from "@opencode-ai/util/encode"
+import { base64Encode } from "@unifia/util/encode"
 import type { Session } from "../../types/sdk-shim"
 import type { LocalProject } from "@/context/layout"
 import type { useGlobalSDK } from "@/context/global-sdk"

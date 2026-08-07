@@ -1,4 +1,4 @@
-# @opencode-ai/app
+# @unifia/app
 
 Shared UI package for all Unifia frontends (desktop, mobile, web). Built with SolidJS and Tailwind CSS.
 

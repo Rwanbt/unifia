@@ -1,6 +1,6 @@
 import z from "zod"
 import { EOL } from "node:os"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import { logo as glyphs } from "./logo"
 
 export namespace UI {

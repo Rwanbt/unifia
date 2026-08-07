@@ -1,4 +1,4 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@unifia/plugin/tui"
 import { createMemo, For, Show } from "solid-js"
 
 const id = "internal:sidebar-tasks"

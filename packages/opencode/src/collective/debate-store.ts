@@ -1,7 +1,7 @@
 import { Effect, Layer, ServiceMap } from "effect"
 import { eq, desc, and, sql } from "drizzle-orm"
 import { createHash } from "node:crypto"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import z from "zod"
 import { Database } from "../storage/db"
 import { DebateTable, ClaimTable, ClaimFeedbackTable } from "./debate-store.sql"

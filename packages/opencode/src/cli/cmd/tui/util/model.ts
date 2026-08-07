@@ -1,4 +1,4 @@
-import type { Provider } from "@opencode-ai/sdk-shared"
+import type { Provider } from "@unifia/sdk-shared"
 
 export function index(list: Provider[] | undefined) {
   return new Map((list ?? []).map((item) => [item.id, item] as const))

@@ -177,7 +177,7 @@ packages/mobile/
 
 ### Shared Code
 
-The mobile app reuses the shared `@opencode-ai/app` package for UI components. Mobile adaptations include:
+The mobile app reuses the shared `@unifia/app` package for UI components. Mobile adaptations include:
 - `src/mobile.css` — Touch targets, safe areas, responsive layouts, terminal/diff/settings overrides
 - `src/platform.ts` — Mobile Platform implementation (storage, notifications, clipboard)
 - Responsive behavior via `@solid-primitives/media` breakpoints (768px for tablet, 1280px for desktop)

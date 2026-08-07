@@ -1,5 +1,5 @@
 import { Effect } from "effect"
-import { NamedError } from "@opencode-ai/util/error"
+import { NamedError } from "@unifia/util/error"
 import z from "zod"
 import { Provider } from "../provider/provider"
 import { Auth } from "../auth"

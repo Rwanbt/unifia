@@ -31,7 +31,7 @@ Règle : aucun push automatique; les commits de phase sont ciblés et les change
 
 ## Diagnostic vérifié
 
-- L’interface mobile importe `@opencode-ai/app`; les écrans observability desktop/mobile ont donc une source commune.
+- L’interface mobile importe `@unifia/app`; les écrans observability desktop/mobile ont donc une source commune.
 - Le backend mobile est le bundle généré depuis `packages/opencode/src/mobile-entry.ts`.
 - Le bundle mobile contient les migrations observability, le stockage local, la rétention/cache et les métadonnées `UNIFIA_VERSION=1.3.15`, `UNIFIA_CHANNEL=latest`.
 - CLI production et desktop production ont été buildés localement; le raccourci Windows pointe vers le binaire production du worktree cible.
