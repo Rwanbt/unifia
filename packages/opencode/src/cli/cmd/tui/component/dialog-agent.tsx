@@ -4,6 +4,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { DialogDebateSetup } from "./dialog-debate-setup"
+import { DialogTeamSetup } from "./dialog-team-setup"
 
 export function DialogAgent() {
   const local = useLocal()
@@ -34,6 +35,13 @@ export function DialogAgent() {
           local.agent.confirmAuto()
         }
         local.agent.set(option.value)
+        if (option.value === "team") {
+          const valid = local.team.isValid(local.team.current() ?? (await local.team.load()))
+          if (!valid) dialog.replace(() => <DialogTeamSetup />)
+          else dialog.clear()
+          return
+        }
+
         if (option.value === "debate") {
           const valid = await local.debate.ensureConfigured()
           if (!valid) dialog.replace(() => <DialogDebateSetup />)

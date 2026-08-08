@@ -19,12 +19,14 @@ interface TaskInfo {
   title: string
   status: string
   mode?: string
+  /** `providerID/modelID` — set for Team workers, absent for plain Task calls. */
+  model?: string
 }
 
 function View(props: { api: TuiPluginApi; session_id: string }) {
   const theme = () => props.api.theme.current
 
-  // Extract child task session IDs from the message tool parts
+  // Extract child task/team-worker session IDs from the message tool parts
   const tasks = createMemo(() => {
     const messages = props.api.state.session.messages(props.session_id)
     const found: TaskInfo[] = []
@@ -34,19 +36,40 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
       if (msg.role !== "assistant") continue
       const parts = props.api.state.part(msg.id)
       for (const part of parts) {
-        if (!("tool" in part) || part.tool !== "task") continue
-        const state = part.state as any
-        const sessionId = state?.metadata?.sessionId
-        if (!sessionId || seen.has(sessionId)) continue
-        seen.add(sessionId)
+        if (!("tool" in part)) continue
+        if (part.tool === "task") {
+          const state = part.state as any
+          const sessionId = state?.metadata?.sessionId
+          if (!sessionId || seen.has(sessionId)) continue
+          seen.add(sessionId)
 
-        const status = props.api.state.session.status(sessionId)
-        found.push({
-          sessionId,
-          title: state?.title ?? state?.input?.description ?? "Task",
-          status: status?.type ?? "idle",
-          mode: state?.metadata?.mode,
-        })
+          const status = props.api.state.session.status(sessionId)
+          found.push({
+            sessionId,
+            title: state?.title ?? state?.input?.description ?? "Task",
+            status: status?.type ?? "idle",
+            mode: state?.metadata?.mode,
+          })
+          continue
+        }
+        if (part.tool === "team") {
+          const state = part.state as any
+          const workers = state?.metadata?.workers as
+            | { sessionId: string; description: string; providerID: string; modelID: string }[]
+            | undefined
+          for (const worker of workers ?? []) {
+            if (!worker.sessionId || seen.has(worker.sessionId)) continue
+            seen.add(worker.sessionId)
+
+            const status = props.api.state.session.status(worker.sessionId)
+            found.push({
+              sessionId: worker.sessionId,
+              title: worker.description,
+              status: status?.type ?? "idle",
+              model: `${worker.providerID}/${worker.modelID}`,
+            })
+          }
+        }
       }
     }
     return found
@@ -58,11 +81,16 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     return tasks().filter((t) => activeStates.has(t.status))
   })
 
+  // Team runs are the reason this exists: without a live per-worker model
+  // read-out here, "multiple models actually ran" is just a claim in the log.
+  const distinctModels = createMemo(() => new Set(tasks().flatMap((t) => (t.model ? [t.model] : []))))
+
   return (
     <Show when={activeTasks().length > 0}>
       <box>
         <text fg={theme().text}>
           <b>Background Tasks</b>
+          <Show when={distinctModels().size > 1}> ({distinctModels().size} models)</Show>
         </text>
         <For each={activeTasks()}>
           {(task) => {
@@ -83,6 +111,11 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
                 <text fg={theme().textMuted} wrapMode="none">
                   {task.title.length > 28 ? task.title.slice(0, 28) + ".." : task.title}
                 </text>
+                <Show when={task.model}>
+                  <text fg={theme().primary} wrapMode="none">
+                    {task.model}
+                  </text>
+                </Show>
                 <text fg={theme().textMuted}>{info().label}</text>
               </box>
             )

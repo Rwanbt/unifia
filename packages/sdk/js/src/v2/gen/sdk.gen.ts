@@ -89,6 +89,15 @@ import type {
   GitCommitErrors,
   GitCommitResponses,
   GitGetCredentialsResponses,
+  GithubDeviceCancelResponses,
+  GithubDevicePollResponses,
+  GithubDeviceStartErrors,
+  GithubDeviceStartResponses,
+  GithubDiagnosticsResponses,
+  GithubDisconnectResponses,
+  GithubStatusResponses,
+  GithubTestConnectionErrors,
+  GithubTestConnectionResponses,
   GitLogResponses,
   GitPullResponses,
   GitPushResponses,
@@ -142,6 +151,21 @@ import type {
   McpRemoveErrors,
   McpRemoveResponses,
   McpStatusResponses,
+  ModelIntelligenceGetModelErrors,
+  ModelIntelligenceGetModelResponses,
+  ModelIntelligenceHealthResponses,
+  ModelIntelligenceLicensesErrors,
+  ModelIntelligenceLicensesResponses,
+  ModelIntelligenceListModelsErrors,
+  ModelIntelligenceListModelsResponses,
+  ModelIntelligenceListProvidersErrors,
+  ModelIntelligenceListProvidersResponses,
+  ModelIntelligenceResolveAliasErrors,
+  ModelIntelligenceResolveAliasResponses,
+  ModelIntelligenceSnapshotErrors,
+  ModelIntelligenceSnapshotResponses,
+  ModelIntelligenceSyncErrors,
+  ModelIntelligenceSyncResponses,
   ObservabilityCompareErrors,
   ObservabilityCompareResponses,
   ObservabilityDataDeleteErrors,
@@ -275,6 +299,27 @@ import type {
   TaskResumeResponses,
   TaskTeamErrors,
   TaskTeamResponses,
+  TeamCancelRunErrors,
+  TeamCancelRunResponses,
+  TeamConfigErrors,
+  TeamConfigResponses,
+  TeamGetConfigResponses,
+  TeamGetRunErrors,
+  TeamGetRunResponses,
+  TeamListEventsErrors,
+  TeamListEventsResponses,
+  TeamListGatesErrors,
+  TeamListGatesResponses,
+  TeamListRunsErrors,
+  TeamListRunsResponses,
+  TeamListTasksErrors,
+  TeamListTasksResponses,
+  TeamPauseRunErrors,
+  TeamPauseRunResponses,
+  TeamResumeRunErrors,
+  TeamResumeRunResponses,
+  TeamStartRunErrors,
+  TeamStartRunResponses,
   TextPartInput,
   ToolIdsErrors,
   ToolIdsResponses,
@@ -1546,6 +1591,7 @@ export class Workspace extends HeyApiClient {
       directory?: string
       workspace?: string
       id?: string
+      name?: string | null
       type?: string
       branch?: string | null
       extra?: unknown | null
@@ -1560,6 +1606,7 @@ export class Workspace extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "body", key: "id" },
+            { in: "body", key: "name" },
             { in: "body", key: "type" },
             { in: "body", key: "branch" },
             { in: "body", key: "extra" },
@@ -4126,6 +4173,691 @@ export class Debate extends HeyApiClient {
         ...options?.headers,
         ...params.headers,
       },
+    })
+  }
+}
+
+export class Team extends HeyApiClient {
+  /**
+   * Get the Team model selection
+   *
+   * Return the configured distinct models used by Team workers.
+   */
+  public getConfig<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamGetConfigResponses, unknown, ThrowOnError>({
+      url: "/team/config",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Save the Team model selection
+   *
+   * Persist at least two distinct connected models for Team workers.
+   */
+  public config<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      models?: Array<{
+        providerID: string
+        modelID: string
+      }>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "models" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<TeamConfigResponses, TeamConfigErrors, ThrowOnError>({
+      url: "/team/config",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List team runs
+   *
+   * List persisted team runs, newest first. Keyset pagination via an opaque cursor.
+   */
+  public listRuns<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+      cursor?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListRunsResponses, TeamListRunsErrors, ThrowOnError>({
+      url: "/team/runs",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Start a Team run
+   *
+   * Start the same durable Team lifecycle used by the native team tool.
+   */
+  public startRun<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      description?: string
+      tasks?: Array<{
+        id: string
+        description: string
+        prompt: string
+        agent: string
+        mode: "read" | "write"
+        required?: boolean
+        risk?: "low" | "medium" | "high" | "critical"
+        dependsOn?: Array<string>
+        readSet?: Array<string>
+        writeSet?: Array<string>
+        modelIndex?: number
+      }>
+      budget?: {
+        maxCostUsd?: number
+        maxTokens?: number
+        maxParallel?: number
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "description" },
+            { in: "body", key: "tasks" },
+            { in: "body", key: "budget" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamStartRunResponses, TeamStartRunErrors, ThrowOnError>({
+      url: "/team/runs",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Pause a Team run
+   *
+   * Suspend an active Team run so its workers stop making progress until resumed.
+   */
+  public pauseRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamPauseRunResponses, TeamPauseRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume a Team run
+   *
+   * Resume a previously paused Team run so its workers continue making progress.
+   */
+  public resumeRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamResumeRunResponses, TeamResumeRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/resume",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel a Team run
+   *
+   * Permanently stop an active or paused Team run; it cannot be resumed afterward.
+   */
+  public cancelRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<TeamCancelRunResponses, TeamCancelRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/cancel",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get a team run
+   *
+   * Fetch a single run by id.
+   */
+  public getRun<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamGetRunResponses, TeamGetRunErrors, ThrowOnError>({
+      url: "/team/runs/{runID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List a run's tasks
+   *
+   * Tasks belonging to a run, in creation order, with their declared scope redacted.
+   */
+  public listTasks<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListTasksResponses, TeamListTasksErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/tasks",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Replay a run's events
+   *
+   * Events for a run in append order. The cursor is the last sequence seen, so an interrupted stream resumes exactly where it stopped rather than restarting.
+   */
+  public listEvents<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+      limit?: number
+      cursor?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListEventsResponses, TeamListEventsErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/events",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List a run's review gates
+   *
+   * Review verdicts recorded for a run, with findings redacted.
+   */
+  public listGates<ThrowOnError extends boolean = false>(
+    parameters: {
+      runID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<TeamListGatesResponses, TeamListGatesErrors, ThrowOnError>({
+      url: "/team/runs/{runID}/gates",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class ModelIntelligence extends HeyApiClient {
+  /**
+   * List models
+   *
+   * List models known to the registry, optionally filtered by provider, status, lifecycle or modality.
+   */
+  public listModels<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+      cursor?: number
+      providerID?: string
+      status?: "alpha" | "beta" | "active" | "deprecated" | "quarantined"
+      lifecycleStage?: string
+      modality?: "text" | "audio" | "image" | "video" | "pdf"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+            { in: "query", key: "providerID" },
+            { in: "query", key: "status" },
+            { in: "query", key: "lifecycleStage" },
+            { in: "query", key: "modality" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceListModelsResponses,
+      ModelIntelligenceListModelsErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/models",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List providers
+   *
+   * List providers known to the registry.
+   */
+  public listProviders<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+      cursor?: number
+      status?: "active" | "deprecated" | "experimental"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
+            { in: "query", key: "status" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceListProvidersResponses,
+      ModelIntelligenceListProvidersErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/providers",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get a model
+   *
+   * Fetch one model by provider and model id.
+   */
+  public getModel<ThrowOnError extends boolean = false>(
+    parameters: {
+      providerID: string
+      modelID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "providerID" },
+            { in: "path", key: "modelID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceGetModelResponses,
+      ModelIntelligenceGetModelErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/models/{providerID}/{modelID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resolve a model alias
+   *
+   * Resolve an alias such as a vendor shorthand to the concrete provider and model it names.
+   */
+  public resolveAlias<ThrowOnError extends boolean = false>(
+    parameters: {
+      alias: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "alias" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceResolveAliasResponses,
+      ModelIntelligenceResolveAliasErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/aliases/{alias}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get the registry snapshot hash
+   *
+   * Return the registry's content hash and schema version. A client that already holds this hash needs no further fetch.
+   */
+  public snapshot<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceSnapshotResponses,
+      ModelIntelligenceSnapshotErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/snapshot",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get registry license notices
+   *
+   * Attribution and license notices for the data sources the registry ingests.
+   */
+  public licenses<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ModelIntelligenceLicensesResponses,
+      ModelIntelligenceLicensesErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/licenses",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Registry load state
+   *
+   * Whether the registry has been loaded. Always 200, so a client can poll it without treating it as an error.
+   */
+  public health<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ModelIntelligenceHealthResponses, unknown, ThrowOnError>({
+      url: "/model-intelligence/health",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Sync the registry from its source
+   *
+   * Refresh the registry. Idempotent: syncing an already-current registry reports zero changes rather than duplicating rows.
+   */
+  public sync<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ModelIntelligenceSyncResponses,
+      ModelIntelligenceSyncErrors,
+      ThrowOnError
+    >({
+      url: "/model-intelligence/sync",
+      ...options,
+      ...params,
     })
   }
 }
@@ -7175,6 +7907,220 @@ export class Git extends HeyApiClient {
   }
 }
 
+export class Github extends HeyApiClient {
+  /**
+   * Get GitHub connection status
+   *
+   * Returns whether a GitHub session is connected (from stored state, no network call) and whether the OAuth app is configured for this build.
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GithubStatusResponses, unknown, ThrowOnError>({
+      url: "/github/status",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Start GitHub Device Flow
+   *
+   * Requests a device/user code pair from GitHub. Call /device/poll on the returned interval.
+   */
+  public deviceStart<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GithubDeviceStartResponses, GithubDeviceStartErrors, ThrowOnError>({
+      url: "/github/device/start",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Poll the pending Device Flow
+   *
+   * Call on the interval returned by /device/start (increase it on slow_down). No request body.
+   */
+  public devicePoll<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GithubDevicePollResponses, unknown, ThrowOnError>({
+      url: "/github/device/poll",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel the pending Device Flow
+   */
+  public deviceCancel<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GithubDeviceCancelResponses, unknown, ThrowOnError>({
+      url: "/github/device/cancel",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Disconnect the GitHub account
+   *
+   * Deletes the stored session from whichever backend holds it (keychain / encrypted file / plain file).
+   */
+  public disconnect<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GithubDisconnectResponses, unknown, ThrowOnError>({
+      url: "/github/disconnect",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Live capability check
+   *
+   * Re-validates the GitHub session against the live API and probes git HTTPS with the session's credentials. Distinguishes API reachability from git transport health — never reports 'operational' from the API check alone.
+   */
+  public testConnection<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      GithubTestConnectionResponses,
+      GithubTestConnectionErrors,
+      ThrowOnError
+    >({
+      url: "/github/test-connection",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Git runtime diagnostics
+   *
+   * Unauthenticated probe of the local git installation and HTTPS transport (git --version, exec-path, git-remote-https presence, a read-only ls-remote against a public repo). Safe to run without a GitHub session.
+   */
+  public diagnostics<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GithubDiagnosticsResponses, unknown, ThrowOnError>({
+      url: "/github/diagnostics",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Formatter extends HeyApiClient {
   /**
    * Get formatter status
@@ -7305,6 +8251,16 @@ export class UnifiaClient extends HeyApiClient {
     return (this._debate ??= new Debate({ client: this.client }))
   }
 
+  private _team?: Team
+  get team(): Team {
+    return (this._team ??= new Team({ client: this.client }))
+  }
+
+  private _modelIntelligence?: ModelIntelligence
+  get modelIntelligence(): ModelIntelligence {
+    return (this._modelIntelligence ??= new ModelIntelligence({ client: this.client }))
+  }
+
   private _observability?: Observability
   get observability(): Observability {
     return (this._observability ??= new Observability({ client: this.client }))
@@ -7373,6 +8329,11 @@ export class UnifiaClient extends HeyApiClient {
   private _git?: Git
   get git(): Git {
     return (this._git ??= new Git({ client: this.client }))
+  }
+
+  private _github?: Github
+  get github(): Github {
+    return (this._github ??= new Github({ client: this.client }))
   }
 
   private _formatter?: Formatter

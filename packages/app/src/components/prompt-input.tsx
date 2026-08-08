@@ -35,6 +35,7 @@ import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { promptEnabled, promptProbe } from "@/testing/prompt"
 import { DebateModelSelector } from "@/components/debate-model-selector"
+import { TeamModelSelector } from "@/components/team-model-selector"
 import {
   createTextFragment,
   getCursorPosition,
@@ -1334,7 +1335,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   </TooltipKeybind>
                 </div>
                 <Show when={store.mode !== "shell"}>
-                <Show when={local.agent.current()?.name !== "debate"}>
+                <Show when={local.agent.current()?.name !== "debate" && local.agent.current()?.name !== "team"}>
                   <div data-component="prompt-model-control">
                     <Show
                       when={providers.paid().length > 0}
@@ -1410,6 +1411,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 <Show when={local.agent.current()?.name === "debate"}>
                   <div data-component="prompt-debate-model-control">
                     <DebateModelSelector local={local} />
+                  </div>
+                </Show>
+                <Show when={local.agent.current()?.name === "team"}>
+                  <div data-component="prompt-team-model-control">
+                    <TeamModelSelector local={local} />
                   </div>
                 </Show>
                   <div data-component="prompt-mode-control">

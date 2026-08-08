@@ -1,6 +1,7 @@
 import { type Component, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@unifia/ui/button"
+import { Collapsible } from "@unifia/ui/collapsible"
 import { Icon } from "@unifia/ui/icon"
 import { Select } from "@unifia/ui/select"
 import { Switch } from "@unifia/ui/switch"
@@ -24,6 +25,7 @@ import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { Link } from "./link"
 import { SettingsList } from "./settings-list"
 import { SettingsRow } from "./settings-row"
+import { SettingsGithubAuth } from "./settings-github-auth"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsGitAuth } from "./settings-git-auth"
 import { SettingsDiskQuota } from "./settings-disk-quota"
@@ -622,10 +624,29 @@ export const SettingsGeneral: Component = () => {
           }}
         </Show>*/}
 
-        <SettingsRemoteAccess />
+        {/* FORK: GitHub account connection — OAuth Device Flow, above Remote Access per spec.
+            "Se connecter avec GitHub" is the ONLY primary action; manual git
+            credentials (SSH key / PAT) are folded under a collapsed "Advanced
+            options" disclosure — never shown as an equally-weighted method. */}
+        <SettingsGithubAuth />
 
-        {/* FORK: Stretch — git push/pull auth */}
-        <SettingsGitAuth />
+        <Collapsible class="border-t border-border-weak-base">
+          <Collapsible.Trigger class="flex items-center gap-1 px-4 py-2 text-12-regular text-text-weak hover:text-text-base">
+            <Collapsible.Arrow />
+            {language.t("settings.fork.githubAuth.advancedOptions")}
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <div class="px-4 pb-2">
+              <span class="text-11-regular text-text-weaker">
+                {language.t("settings.fork.githubAuth.advancedOptionsWarning")}
+              </span>
+            </div>
+            {/* FORK: Stretch — git push/pull auth (any host, manual token/SSH key) */}
+            <SettingsGitAuth />
+          </Collapsible.Content>
+        </Collapsible>
+
+        <SettingsRemoteAccess />
 
         {/* FORK: Stretch — disk quota warning (hidden on Windows where statfs is unavailable) */}
         <SettingsList>

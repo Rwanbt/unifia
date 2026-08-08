@@ -1,0 +1,14 @@
+card_id: TEAM-F04
+base_sha: fc8895085aaf2310fb30eec85422fb2954c48a61
+scope_mode: E2_REQUIRED
+allowed_files:
+  - packages/opencode/src/team/performance-estimator.ts
+  - packages/opencode/test/team/performance-estimator.test.ts
+  - packages/opencode/docs/team/scope-manifest/TEAM-F04.yaml
+protected_files:
+  - packages/opencode/src/team/types.ts
+  - packages/opencode/src/team/model-router.ts
+  - packages/opencode/src/model-intelligence/**
+  - main
+  - dev
+  - opti-ui

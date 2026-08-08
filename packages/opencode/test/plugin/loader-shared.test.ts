@@ -62,8 +62,16 @@ async function errs(dir: string) {
         errors.push(error.data.message)
       }
       GlobalBus.on("event", handler)
-      await Plugin.list()
-      GlobalBus.off("event", handler)
+      try {
+        await Plugin.list()
+      } finally {
+        // Every call site here exists to exercise an error path (that's the
+        // entire point of collecting session.error events) — a handler left
+        // registered because Plugin.list() threw instead of publishing
+        // accumulates across this file's ~10 tests, degrading GlobalBus for
+        // every test that runs afterward in the same process.
+        GlobalBus.off("event", handler)
+      }
       return errors
     },
   })

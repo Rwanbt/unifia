@@ -129,13 +129,18 @@ export interface AuthStorage {
  *     with a one-shot token minted at sidecar spawn. Deferred to Sprint 5.
  */
 export class KeychainStorage implements AuthStorage {
-  /** Namespace under which all Unifia keys live in the OS keychain. */
+  /** Default namespace — provider credentials (Auth.*). Other secret domains
+   *  (e.g. GitHub account connection) pass their own `service` to get a
+   *  fully separate OS-keychain namespace without a second Rust-side
+   *  implementation — see [[GithubAuth]] in `../github/auth.ts`. */
   static readonly SERVICE = "auth"
 
+  private readonly service: string
   private readonly baseUrl?: string
   private readonly token?: string
 
-  constructor() {
+  constructor(service: string = KeychainStorage.SERVICE) {
+    this.service = service
     this.baseUrl = process.env.UNIFIA_KEYCHAIN_URL
     this.token = process.env.UNIFIA_KEYCHAIN_TOKEN
   }
@@ -159,7 +164,7 @@ export class KeychainStorage implements AuthStorage {
           "Set UNIFIA_AUTH_STORAGE=file to use FileStorage explicitly.",
       )
     }
-    const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}`, {
+    const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(this.service)}`, {
       method: "GET",
       headers: this.headers(),
     })
@@ -168,7 +173,7 @@ export class KeychainStorage implements AuthStorage {
     const out: Record<string, unknown> = {}
     for (const key of keys) {
       const r = await fetch(
-        `${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}/${encodeURIComponent(key)}`,
+        `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
         { method: "GET", headers: this.headers() },
       )
       if (r.status === 404) continue
@@ -188,7 +193,7 @@ export class KeychainStorage implements AuthStorage {
       throw new Error("KeychainStorage unavailable")
     }
     // Fetch the current key set to detect removals.
-    const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}`, {
+    const listRes = await fetch(`${this.baseUrl}/kc/${encodeURIComponent(this.service)}`, {
       method: "GET",
       headers: this.headers(),
     })
@@ -197,7 +202,7 @@ export class KeychainStorage implements AuthStorage {
     // Upsert each wanted key.
     for (const [key, value] of Object.entries(data)) {
       const r = await fetch(
-        `${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}/${encodeURIComponent(key)}`,
+        `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
         { method: "PUT", headers: this.headers(), body: JSON.stringify(value) },
       )
       if (!r.ok && r.status !== 204) throw new Error(`keychain set ${key} failed: ${r.status}`)
@@ -206,7 +211,7 @@ export class KeychainStorage implements AuthStorage {
     for (const key of existing) {
       if (wanted.has(key)) continue
       await fetch(
-        `${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}/${encodeURIComponent(key)}`,
+        `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
         { method: "DELETE", headers: this.headers() },
       )
     }
@@ -216,7 +221,7 @@ export class KeychainStorage implements AuthStorage {
   async set(key: string, value: unknown): Promise<void> {
     if (!this.available()) throw new Error("KeychainStorage unavailable")
     const r = await fetch(
-      `${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}/${encodeURIComponent(key)}`,
+      `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
       { method: "PUT", headers: this.headers(), body: JSON.stringify(value) },
     )
     if (!r.ok && r.status !== 204) throw new Error(`keychain set ${key} failed: ${r.status}`)
@@ -225,7 +230,7 @@ export class KeychainStorage implements AuthStorage {
   async get(key: string): Promise<unknown | undefined> {
     if (!this.available()) throw new Error("KeychainStorage unavailable")
     const r = await fetch(
-      `${this.baseUrl}/kc/${encodeURIComponent(KeychainStorage.SERVICE)}/${encodeURIComponent(key)}`,
+      `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
       { method: "GET", headers: this.headers() },
     )
     if (r.status === 404) return undefined
@@ -236,6 +241,17 @@ export class KeychainStorage implements AuthStorage {
     } catch {
       return value
     }
+  }
+
+  /** Single-entry delete. Used by disconnect flows that don't want to go
+   *  through the bulk `save()` diff (e.g. GithubAuth.disconnect). */
+  async delete(key: string): Promise<void> {
+    if (!this.available()) throw new Error("KeychainStorage unavailable")
+    const r = await fetch(
+      `${this.baseUrl}/kc/${encodeURIComponent(this.service)}/${encodeURIComponent(key)}`,
+      { method: "DELETE", headers: this.headers() },
+    )
+    if (!r.ok && r.status !== 204) throw new Error(`keychain delete ${key} failed: ${r.status}`)
   }
 }
 

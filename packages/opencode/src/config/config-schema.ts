@@ -336,6 +336,7 @@ export const Keybinds = z
     agent_cycle: z.string().optional().default("tab").describe("Next agent"),
     agent_cycle_reverse: z.string().optional().default("shift+tab").describe("Previous agent"),
     debate_models: z.string().optional().default("alt+w").describe("Configure debate models"),
+    team_models: z.string().optional().default("alt+t").describe("Configure team worker models"),
     variant_cycle: z.string().optional().default("ctrl+t").describe("Cycle model variants"),
     input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
     input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),

@@ -60,7 +60,7 @@ export const DebateModelSelector: Component<{ local: LocalContext }> = (props) =
 
   onMount(async () => {
     const existing = props.local.debate.current() ?? (await props.local.debate.load())
-    if (!existing) return
+    if (!existing || !Array.isArray(existing.participants)) return
     const keys = new Set(available().map(modelKey))
     setAnnexSlots(existing.participants.filter((item) => keys.has(modelKey(item))).map(createAnnexSlot))
   })

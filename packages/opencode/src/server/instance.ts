@@ -26,6 +26,7 @@ import { McpRoutes } from "./routes/mcp"
 import { FileRoutes } from "./routes/file"
 import { LspRoutes } from "./routes/lsp"
 import { GitRoutes } from "./routes/git"
+import { GithubRoutes } from "./routes/github"
 import { ConfigRoutes } from "./routes/config"
 import { ExperimentalRoutes } from "./routes/experimental"
 import { ProviderRoutes } from "./routes/provider"
@@ -37,6 +38,8 @@ import { AgentSkillRoutes } from "./routes/agent-skills"
 import { GdprRoutes } from "./routes/gdpr"
 import { ObservabilityRoutes } from "./routes/observability"
 import { DebateRoutes } from "./routes/debate"
+import { TeamRoutes } from "./routes/team"
+import { ModelIntelligenceRoutes } from "./routes/model-intelligence"
 import { errorHandler } from "./middleware"
 
 const log = Log.create({ service: "server" })
@@ -67,6 +70,8 @@ export const InstanceRoutes = (app?: Hono) =>
     .route("/question", QuestionRoutes())
     .route("/provider", ProviderRoutes())
     .route("/debate", DebateRoutes())
+    .route("/team", TeamRoutes())
+    .route("/model-intelligence", ModelIntelligenceRoutes())
     .route("/observability", ObservabilityRoutes())
     .get(
       "/presence",
@@ -397,6 +402,8 @@ export const InstanceRoutes = (app?: Hono) =>
     .route("/lsp", LspRoutes())
     // FORK: Phase 3 Git write routes — add/reset/commit/push/pull/log/blame/branches
     .route("/git", GitRoutes())
+    // FORK: GitHub account connection — OAuth Device Flow + capability diagnostics
+    .route("/github", GithubRoutes())
     .get(
       "/formatter",
       describeRoute({

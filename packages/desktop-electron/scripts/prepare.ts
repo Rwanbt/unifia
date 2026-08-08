@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { $ } from "bun"
 
-import { Script } from "@opencode-ai/script"
+import { Script } from "@unifia/script"
 import { copyBinaryToSidecarFolder, getCurrentSidecar, resolveChannel, resolveSidecarBinaryPath } from "./utils"
 
 const channel = resolveChannel()

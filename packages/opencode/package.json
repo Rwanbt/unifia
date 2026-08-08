@@ -21,7 +21,16 @@
     "format": "echo 'Formatting code...' && bun run --prettier --write src/**/*.ts",
     "docs": "echo 'Generating documentation...' && find src -name '*.ts' -exec echo 'Processing: {}' \\;",
     "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'",
-    "db": "bun drizzle-kit"
+    "db": "bun drizzle-kit",
+    "team": "bun run packages/opencode/src/team/team-cli.ts",
+    "team:claim": "bun run packages/opencode/src/team/team-cli.ts claim",
+    "team:heartbeat": "bun run packages/opencode/src/team/team-cli.ts heartbeat",
+    "team:validate": "bun run packages/opencode/src/team/team-cli.ts validate",
+    "team:release": "bun run packages/opencode/src/team/team-cli.ts release",
+    "team:inspect": "bun run packages/opencode/src/team/team-cli.ts inspect",
+    "team:recover": "bun run packages/opencode/src/team/team-cli.ts recover",
+    "team:precommit-check": "bun run packages/opencode/src/team/team-cli.ts precommit-check",
+    "team:preintegrate-check": "bun run packages/opencode/src/team/team-cli.ts preintegrate-check"
   },
   "bin": {
     "unifia": "./bin/unifia"

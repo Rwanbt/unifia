@@ -14,6 +14,7 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_ORCHESTRATOR from "./prompt/orchestrator.txt"
+import PROMPT_TEAM from "./prompt/team.txt"
 import PROMPT_CRITIC from "./prompt/critic.txt"
 import PROMPT_TESTER from "./prompt/tester.txt"
 import PROMPT_DOCUMENTER from "./prompt/documenter.txt"
@@ -253,6 +254,45 @@ export namespace Agent {
               mode: "subagent",
               native: true,
               steps: 50,
+            },
+            team: {
+              name: "team",
+              permission: Permission.merge(
+                defaults,
+                Permission.fromConfig({
+                  // The team agent plans and dispatches; the agents it
+                  // dispatches do the writing, each in its own worktree. Left
+                  // able to edit, it would race the very workers it started.
+                  "*": "deny",
+                  team: "allow",
+                  todowrite: "allow",
+                  read: "allow",
+                  grep: "allow",
+                  glob: "allow",
+                  list: "allow",
+                  codesearch: "allow",
+                  webfetch: "allow",
+                  websearch: "allow",
+                  question: "allow",
+                  external_directory: {
+                    "*": "ask",
+                    ...Object.fromEntries(whitelistedDirs.map((dir) => [dir, "allow"])),
+                  },
+                }),
+                user,
+              ),
+              description:
+                "Team agent that splits an objective into parallel sub-tasks and dispatches them with the team tool, each in its own worktree. Use when the work genuinely divides into parts that can run at the same time; for a single unit of work, use the task tool.",
+              prompt: PROMPT_TEAM,
+              options: {},
+              // No `model`: the run inherits the session's provider. A model
+              // pinned here would be a provider the caller never chose.
+              mode: "all",
+              native: true,
+              // WHY: pinned rather than left to the palette, which assigns a
+              // colour by the agent's index in the visible list — team landed on
+              // `warning` (orange) and would move again as agents are added.
+              color: "accent",
             },
             critic: {
               name: "critic",

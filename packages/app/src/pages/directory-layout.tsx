@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/language"
 import { LocalProvider } from "@/context/local"
 import { SDKProvider } from "@/context/sdk"
 import { SyncProvider, useSync } from "@/context/sync"
+import { TeamProvider } from "@/context/team"
 import { decode64 } from "@/utils/base64"
 // FORK: editor context (ADR-0005)
 import { EditorProvider, EditorTabCleanup } from "@/context/editor"
@@ -91,7 +92,9 @@ export default function Layout(props: ParentProps) {
           <FileStoreProvider>
             <SyncProvider>
               <LspDiagnosticsProvider>
-                <DirectoryDataProvider directory={resolved}>{props.children}</DirectoryDataProvider>
+                <TeamProvider>
+                  <DirectoryDataProvider directory={resolved}>{props.children}</DirectoryDataProvider>
+                </TeamProvider>
               </LspDiagnosticsProvider>
             </SyncProvider>
           </FileStoreProvider>

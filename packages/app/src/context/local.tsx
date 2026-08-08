@@ -12,6 +12,7 @@ import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { visibleAgents } from "./global-sync/utils"
 import { modelKey, type DebateSelection, validateDebateSelection } from "@/components/debate-selection"
+import { normalizeTeamSelection, validateTeamSelection, type TeamSelection } from "@/context/team-selection"
 
 export type ModelKey = { providerID: string; modelID: string }
 
@@ -411,11 +412,52 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       loading: () => debateStore.loading,
     }
 
+    const [teamStore, setTeamStore] = createStore<{ selection?: TeamSelection; loading: boolean }>({ loading: false })
+
+    const team = {
+      current: () => teamStore.selection,
+      async load() {
+        if (teamStore.loading) return teamStore.selection
+        setTeamStore("loading", true)
+        try {
+          const response = await sdk.client.team.getConfig()
+          if (response.error) throw new Error("Failed to load global Team configuration")
+          const selection = normalizeTeamSelection(response.data)
+          setTeamStore("selection", selection)
+          return selection
+        } finally {
+          setTeamStore("loading", false)
+        }
+      },
+      set(selection: TeamSelection | undefined) {
+        setTeamStore("selection", normalizeTeamSelection(selection))
+      },
+      isValid(selection: TeamSelection | undefined) {
+        const available = new Set(
+          providers
+            .connected()
+            .flatMap((provider) =>
+              Object.values(provider.models).map((item) => modelKey({ providerID: provider.id, modelID: item.id })),
+            ),
+        )
+        return validateTeamSelection(normalizeTeamSelection(selection), available)
+      },
+      async save(selection: TeamSelection) {
+        const response = await sdk.client.team.config({ models: selection.models })
+        const saved = normalizeTeamSelection(response.data)
+        if (response.error || !saved) throw new Error("Failed to save global Team configuration")
+        setTeamStore("selection", saved)
+        return saved
+      },
+      loading: () => teamStore.loading,
+    }
+
     const result = {
       slug: createMemo(() => base64Encode(sdk.directory)),
       model,
       agent,
       debate,
+      team,
       session: {
         reset() {
           setStore("draft", undefined)

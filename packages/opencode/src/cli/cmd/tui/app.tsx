@@ -30,11 +30,13 @@ import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogStatus } from "@tui/component/dialog-status"
+import { DialogTeam } from "@tui/component/dialog-team"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogDebateSetup } from "@tui/component/dialog-debate-setup"
+import { DialogTeamSetup } from "@tui/component/dialog-team-setup"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
 import { DialogConsoleOrg } from "@tui/component/dialog-console-org"
@@ -61,6 +63,7 @@ import { TuiConfigProvider, useTuiConfig } from "./context/tui-config"
 import { TuiConfig } from "@/config/tui"
 import { createTuiApi, TuiPluginRuntime, type RouteMap } from "./plugin"
 import { FormatError, FormatUnknownError } from "@/cli/error"
+import { restoreTerminalMouseTracking } from "@tui/util/terminal-cleanup"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -174,6 +177,10 @@ export function tui(input: {
 }) {
   // promise to prevent immediate exit
   return new Promise<void>(async (resolve) => {
+    // WHY: an abrupt TUI failure can bypass renderer.destroy(), leaving SGR mouse
+    // reporting enabled and making the shell print sequences such as [55;82;30M.
+    process.once("exit", restoreTerminalMouseTracking)
+
     const unguard = win32InstallCtrlCGuard()
     win32DisableProcessedInput()
 
@@ -466,6 +473,21 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     local.agent.set("auto")
   }
 
+  // Agents that need more than the session's single model cannot run until they
+  // are configured, so cycling onto one opens its setup dialog rather than
+  // leaving the user on an agent that would refuse the next prompt.
+  const promptSetupIfUnconfigured = async (agent: string) => {
+    if (agent === "debate") {
+      if (!(await local.debate.ensureConfigured())) dialog.replace(() => <DialogDebateSetup />)
+      return
+    }
+    if (agent === "team") {
+      if (!local.team.isValid(local.team.current() ?? (await local.team.load()))) {
+        dialog.replace(() => <DialogTeamSetup />)
+      }
+    }
+  }
+
   command.register(() => [
     {
       title: "Switch session",
@@ -531,6 +553,13 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         name: "models",
       },
       onSelect: () => {
+        // WHY: Team runs several models at once, so the single-choice picker
+        // cannot express its configuration. Route to the multi-select dialog
+        // instead of silently showing a chooser that discards the extra models.
+        if (local.agent.current().name === "team") {
+          dialog.replace(() => <DialogTeamSetup />)
+          return
+        }
         dialog.replace(() => <DialogModel />)
       },
     },
@@ -606,10 +635,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       onSelect: () => {
         const next = local.agent.move(1)
         if (next === "auto") void confirmAutoActivation()
-        if (next === "debate")
-          void local.debate.ensureConfigured().then((valid) => {
-            if (!valid) dialog.replace(() => <DialogDebateSetup />)
-          })
+        void promptSetupIfUnconfigured(next)
       },
     },
     {
@@ -621,6 +647,19 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       onSelect: () => {
         if (local.agent.current().name !== "debate") return
         dialog.replace(() => <DialogDebateSetup />)
+      },
+    },
+    {
+      title: "Configure team models",
+      value: "team.models",
+      keybind: "team_models",
+      category: "Agent",
+      slash: {
+        name: "team-models",
+      },
+      onSelect: () => {
+        if (local.agent.current().name !== "team") return
+        dialog.replace(() => <DialogTeamSetup />)
       },
     },
     {
@@ -653,10 +692,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       onSelect: () => {
         const next = local.agent.move(-1)
         if (next === "auto") void confirmAutoActivation()
-        if (next === "debate")
-          void local.debate.ensureConfigured().then((valid) => {
-            if (!valid) dialog.replace(() => <DialogDebateSetup />)
-          })
+        void promptSetupIfUnconfigured(next)
       },
     },
     {
@@ -697,6 +733,17 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       },
       onSelect: () => {
         dialog.replace(() => <DialogStatus />)
+      },
+      category: "System",
+    },
+    {
+      title: "View team runs",
+      value: "opencode.team",
+      slash: {
+        name: "team",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogTeam />)
       },
       category: "System",
     },

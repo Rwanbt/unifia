@@ -17,6 +17,7 @@ import { assign } from "./part"
 import { usePromptStash } from "./stash"
 import { DialogStash } from "../dialog-stash"
 import { DialogDebateSetup } from "../dialog-debate-setup"
+import { DialogTeamSetup } from "../dialog-team-setup"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
 import { useCommandDialog } from "../dialog-command"
 import { useKeyboard, useRenderer, type JSX } from "@opentui/solid"
@@ -678,6 +679,15 @@ export function Prompt(props: PromptProps) {
       sessionID = res.data.id
     }
 
+    if (local.agent.current().name === "team") {
+      const selection = local.team.current() ?? (await local.team.load())
+      if (!local.team.isValid(selection)) {
+        toast.show({ variant: "warning", message: "Select at least two Team models before sending a prompt.", duration: 4000 })
+        dialog.replace(() => <DialogTeamSetup />)
+        return
+      }
+    }
+
     if (local.agent.current().name === "debate") {
       const selection = local.debate.current() ?? (await local.debate.load())
       if (!local.debate.isValid(selection)) {
@@ -1322,6 +1332,11 @@ export function Prompt(props: PromptProps) {
                   <Show when={local.agent.current().name === "debate"}>
                     <text fg={theme.text}>
                       {keybind.print("debate_models")} <span style={{ fg: theme.textMuted }}>debate models</span>
+                    </text>
+                  </Show>
+                  <Show when={local.agent.current().name === "team"}>
+                    <text fg={theme.text}>
+                      {keybind.print("team_models")} <span style={{ fg: theme.textMuted }}>team models</span>
                     </text>
                   </Show>
                 </Match>

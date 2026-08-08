@@ -8,7 +8,7 @@ import { mergeDeep, pipe } from "remeda"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
 import { PromptCache } from "@/provider/cache"
-import { resolveFallbackDirection, withStreamingFallback } from "@/provider/fallback"
+import { resolveLanguageFallback } from "@/provider/language-fallback"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import type { Agent } from "@/agent/agent"
@@ -240,31 +240,15 @@ export namespace LLM {
 
     const capturePolicy = resolveCapturePolicy(cfg.experimental?.observability)
 
-    // ── Provider fallback (Sprint 5 item 2) ─────────────────────────────────
-    // Opt-in: experimental.provider.fallback = "local" | "cloud" | null.
-    // null => no wrap, byte-identical behaviour. Secondary resolution is best
-    // effort: if no secondary can be built (no local-llm configured, no other
-    // cloud provider), we log once and proceed without wrapping. Retry is
-    // handshake-only; mid-stream errors propagate (see fallback.ts).
     let language = languageRaw
     try {
-      const direction = await resolveFallbackDirection()
-      if (direction) {
-        const primaryIsLocal = input.model.providerID === "local-llm"
-        const wantSecondary =
-          (direction === "local" && !primaryIsLocal) || (direction === "cloud" && primaryIsLocal)
-        if (wantSecondary) {
-          const secondary = await resolveSecondaryLanguageModel(direction, input.model.providerID).catch(
-            () => undefined,
-          )
-          if (secondary) {
-            language = withStreamingFallback(languageRaw, secondary, {
-              label: `${input.model.providerID} -> ${direction}`,
-            })
-            l.info("provider fallback armed", { direction })
-          }
-        }
-      }
+      language = await resolveLanguageFallback({
+        primary: languageRaw,
+        providerID: input.model.providerID,
+        modelID: input.model.id,
+        sessionID: input.sessionID,
+        agent: input.agent.name,
+      })
     } catch (err) {
       l.warn("provider fallback setup failed, using primary only", {
         error: (err as Error)?.message ?? String(err),
@@ -708,80 +692,6 @@ export namespace LLM {
       Permission.merge(input.agent.permission, input.permission ?? []),
     )
     return Record.filter(input.tools, (_, k) => input.user.tools?.[k] !== false && !disabled.has(k))
-  }
-
-  /**
-   * Resolve the secondary language model for provider fallback (item 2).
-   *
-   * Strategy:
-   *   - direction = "local" : secondary is local-llm provider's first listed
-   *     model. If local-llm is not configured, returns undefined.
-   *   - direction = "cloud" : secondary is the first non-local, non-primary
-   *     provider that has at least one model. This keeps the picker stable
-   *     (user order in config) without inventing heuristics.
-   *
-   * Returns undefined on any lookup failure — the caller treats that as
-   * "no fallback available" and streams with primary only.
-   */
-  async function resolveSecondaryLanguageModel(
-    direction: "local" | "cloud",
-    primaryProviderID: string,
-  ): Promise<import("@ai-sdk/provider").LanguageModelV3 | undefined> {
-    if (direction === "local") {
-      const localProvider = await Provider.getProvider("local-llm" as any).catch(() => undefined as any)
-      if (!localProvider) return undefined
-      const modelID = Object.keys(localProvider.models ?? {})[0]
-      if (!modelID) return undefined
-      const model = await Provider.getModel("local-llm" as any, modelID as any).catch(() => undefined as any)
-      if (!model) return undefined
-      return await Provider.getLanguage(model).catch(() => undefined as any)
-    }
-    // direction === "cloud"
-    const all = await Provider.list().catch(() => undefined as any)
-    if (!all) return undefined
-
-    // Customisable cloud fallback (Sprint 6 item 5).
-    // If `experimental.provider.fallback_cloud_providerID` is set and matches a
-    // configured provider, prefer it. Otherwise fall back to the historic
-    // "first non-local non-primary provider" heuristic. Invalid overrides log
-    // a one-shot warn and degrade to default behaviour.
-    const cfg = await Config.get().catch(() => undefined as any)
-    const override: string | null | undefined = (cfg as any)?.experimental?.provider?.fallback_cloud_providerID
-    if (override && typeof override === "string") {
-      const prov = (all as Record<string, any>)[override]
-      if (!prov) {
-        log.warn("fallback_cloud_providerID not found in configured providers, falling back to default selection", {
-          requested: override,
-        })
-      } else if (override === primaryProviderID) {
-        log.warn("fallback_cloud_providerID matches primary provider, ignoring (would be a no-op)", {
-          providerID: override,
-        })
-      } else {
-        const modelID = Object.keys(prov?.models ?? {})[0]
-        if (modelID) {
-          const model = await Provider.getModel(override as any, modelID as any).catch(() => undefined as any)
-          if (model) {
-            const lm = await Provider.getLanguage(model).catch(() => undefined as any)
-            if (lm) return lm
-          }
-        }
-        log.warn("fallback_cloud_providerID resolved but has no usable model, falling back to default selection", {
-          requested: override,
-        })
-      }
-    }
-
-    for (const [providerID, prov] of Object.entries<any>(all as Record<string, any>)) {
-      if (providerID === primaryProviderID || providerID === "local-llm") continue
-      const modelID = Object.keys(prov?.models ?? {})[0]
-      if (!modelID) continue
-      const model = await Provider.getModel(providerID as any, modelID as any).catch(() => undefined as any)
-      if (!model) continue
-      const lm = await Provider.getLanguage(model).catch(() => undefined as any)
-      if (lm) return lm
-    }
-    return undefined
   }
 
   // Check if messages contain any tool-call content
