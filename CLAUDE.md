@@ -42,7 +42,7 @@ Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH d
 - Desktop deploy: copy `packages/desktop/src-tauri/target/release/Unifia.exe` to `C:/Users/barat/AppData/Local/Unifia Dev/Unifia.exe`
 - NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/@unifia-aidesktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
 - Android build: `cd packages/mobile && bun tauri android build --target aarch64` (requires `ORT_LIB_LOCATION=D:/tmp/ort-android`)
-- Sidecar (required before desktop build): `cd packages/opencode && bun run build --single --baseline  # rebranded CLI binary is `unifia``, then copy to `packages/desktop/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`
+- Sidecar (required before desktop build): `cd packages/opencode && bun run build --single --baseline`, then copy the result to `packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`. That is where `tauri.conf.json`'s `externalBin` resolves; `packages/desktop/sidecars/` is only a cache and a build there fails with "resource path doesn't exist".
 - NEVER touch Antigravity (the IDE). NEVER kill processes that aren't ours.
 
 ---

@@ -89,29 +89,29 @@ function getConfig() {
     case "dev": {
       return {
         ...base,
-        appId: "ai.opencode.desktop.dev",
-        productName: "Unifia Dev",
-        rpm: { packageName: "unifia-dev" },
+        appId: "ai.unifia.desktop.preview.dev",
+        productName: "Unifia Preview Dev",
+        rpm: { packageName: "unifia-preview-dev" },
       }
     }
     case "beta": {
       return {
         ...base,
-        appId: "ai.opencode.desktop.beta",
-        productName: "Unifia Beta",
-        protocols: { name: "Unifia Beta", schemes: ["unifia"] },
-        publish: { provider: "github", owner: "Rwanbt", repo: "unifia-beta", channel: "latest" },
-        rpm: { packageName: "unifia-beta" },
+        appId: "ai.unifia.desktop.preview.beta",
+        productName: "Unifia Preview Beta",
+        protocols: { name: "Unifia Preview Beta", schemes: ["unifia"] },
+        publish: { provider: "github", owner: "Rwanbt", repo: "unifia-preview-beta", channel: "latest" },
+        rpm: { packageName: "unifia-preview-beta" },
       }
     }
     case "prod": {
       return {
         ...base,
-        appId: "ai.opencode.desktop",
-        productName: "Unifia",
-        protocols: { name: "Unifia", schemes: ["unifia"] },
-        publish: { provider: "github", owner: "Rwanbt", repo: "unifia", channel: "latest" },
-        rpm: { packageName: "unifia" },
+        appId: "ai.unifia.desktop.preview",
+        productName: "Unifia Preview",
+        protocols: { name: "Unifia Preview", schemes: ["unifia"] },
+        publish: { provider: "github", owner: "Rwanbt", repo: "unifia-preview", channel: "latest" },
+        rpm: { packageName: "unifia-preview" },
       }
     }
   }

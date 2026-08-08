@@ -16,6 +16,8 @@
     "typecheck": "bun turbo typecheck",
     "brand:generate": "node scripts/brand/generate.mjs",
     "brand:check": "node scripts/brand/check.mjs",
+    "identity:generate": "node scripts/identity/generate.mjs",
+    "identity:check": "node scripts/identity/check.mjs",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check . --write",
     "deadcode": "bunx knip --no-progress",

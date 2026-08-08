@@ -1,6 +1,7 @@
 mod auth_storage;
 mod cli;
 mod constants;
+mod identity_generated;
 mod llm;
 mod util;
 mod validate;
