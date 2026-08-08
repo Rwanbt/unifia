@@ -108,6 +108,21 @@ def generate_rasters(cfg: dict, masters: Path, icon: str) -> dict[str, Entry]:
     return produced
 
 
+def generate_copies(cfg: dict) -> dict[str, Entry]:
+    """Mirror a brand source file verbatim to the packages that consume it.
+
+    packages/app/src/styles/unifia-brand.css was a hand-made duplicate of
+    brand/unifia/unifia.css — two copies of the same design tokens, with
+    nothing keeping them in step. Deriving it removes the second owner.
+    """
+    produced: dict[str, Entry] = {}
+    for entry in cfg.get("copies", []):
+        data = (REPO / entry["from"]).read_bytes()
+        write_if_changed(REPO / entry["to"], data)
+        produced[entry["to"]] = describe(data)
+    return produced
+
+
 def generate_tauri_icons(cfg: dict, masters: Path, icon: str) -> dict[str, Entry]:
     spec = cfg["tauriIconSpec"]
     master = masters / f"{icon}.png"
@@ -153,10 +168,15 @@ def main() -> int:
     produced.update(generate_svg_sets(cfg, manifest, masters))
     produced.update(generate_rasters(cfg, masters, cfg["primaryIcon"]))
     produced.update(generate_tauri_icons(cfg, masters, cfg["primaryIcon"]))
+    produced.update(generate_copies(cfg))
 
     manifest["generatedBy"] = "scripts/brand/generate.py"
     manifest["generated"] = dict(sorted(produced.items()))
-    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # newline="" so Windows does not turn these into CRLF: .gitattributes pins
+    # the repository to eol=lf, and a CRLF write shows up as a phantom diff.
+    MANIFEST.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline=""
+    )
     print(f"brand: {len(produced)} assets generated from {cfg['masterDir']}")
     return 0
 

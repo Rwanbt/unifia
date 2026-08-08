@@ -14,6 +14,9 @@
   "icos": [
     { "path": "packages/web/public/brand/unifia/favicon.ico", "sizes": [16, 32, 48] }
   ],
+  "copies": [
+    { "from": "brand/unifia/unifia.css", "to": "packages/app/src/styles/unifia-brand.css" }
+  ],
   "tauriIconSets": ["packages/desktop/src-tauri/icons", "packages/mobile/src-tauri/icons"],
   "tauriIconSpec": {
     "png": {

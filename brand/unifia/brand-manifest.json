@@ -212,6 +212,7 @@
     "packages/app/src/assets/brand/unifia/unifia-symbol-color-shadow.svg": "7a061444e24129a86730ab27a4575be8681d063fb748d93d76f3342b52cd6a93",
     "packages/app/src/assets/brand/unifia/unifia-symbol-color.svg": "7a061444e24129a86730ab27a4575be8681d063fb748d93d76f3342b52cd6a93",
     "packages/app/src/assets/brand/unifia/unifia-symbol-white.svg": "0d7feefbb7e50b8c7dfe52dd7eb31315a3fb43b58132cbef2f8a7c862fff06a8",
+    "packages/app/src/styles/unifia-brand.css": "5e58a9676386020512e052afcadfad191444023d53c721f694949b2a7584613b",
     "packages/desktop/src-tauri/icons/128x128.png": [
       "1e1e6420b1c279c020d9b00bf07eed2d9f7a7facabdc0a508f3be33b31313836",
       128,
