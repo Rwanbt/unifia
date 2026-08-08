@@ -391,9 +391,10 @@ pub fn run() {
 
     // Reclaim children left behind by a previous session that did not exit
     // cleanly. Renaming the sidecar was not enough to make killing by image name
-    // safe: llama-server keeps its name in both products, so `taskkill /F /IM`
-    // reached the user's genuine OpenCode install. Leases make the blast radius
-    // exactly the set of processes we can prove we started.
+    // safe: `llama-server` is llama.cpp's name rather than ours, and even
+    // `unifia-cli` is shared by every channel, so `taskkill /F /IM` reached
+    // processes belonging to the user or to another Unifia install. Leases make
+    // the blast radius exactly the set of processes we can prove we started.
     let child_processes = child_processes::ChildProcesses::default();
     child_processes.recover_orphans();
 
@@ -658,7 +659,7 @@ async fn initialize(app: AppHandle) {
     let needs_migration = !sqlite_file_exists();
     let sqlite_done = needs_migration.then(|| {
         tracing::info!(
-            path = %opencode_db_path().expect("failed to get db path").display(),
+            path = %sidecar_db_path().expect("failed to get db path").display(),
             "Sqlite file not found, waiting for it to be generated"
         );
 
@@ -782,14 +783,26 @@ fn get_sidecar_port() -> u32 {
 }
 
 fn sqlite_file_exists() -> bool {
-    let Ok(path) = opencode_db_path() else {
+    let Ok(path) = sidecar_db_path() else {
         return true;
     };
 
     path.exists()
 }
 
-fn opencode_db_path() -> Result<PathBuf, &'static str> {
+/// Where the sidecar actually creates its database.
+///
+/// This must mirror `Global.Path.data` in packages/opencode/src/global/index.ts,
+/// which joins the XDG data home with the product's data directory name. It
+/// previously joined "opencode" — the official install's directory — so the
+/// probe read a file this application never writes: with OpenCode installed the
+/// migration window was skipped even on a first run, and without it the window
+/// appeared on every start even once Unifia's own database existed.
+///
+/// The file inside is still named opencode.db on both sides. Renaming it to
+/// match identity.json's `databaseFile` would strand existing data, so it is
+/// the import bridge's job, not a rename in place.
+fn sidecar_db_path() -> Result<PathBuf, &'static str> {
     let xdg_data_home = env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty());
 
     let data_home = match xdg_data_home {
@@ -800,7 +813,9 @@ fn opencode_db_path() -> Result<PathBuf, &'static str> {
         }
     };
 
-    Ok(data_home.join("opencode").join("opencode.db"))
+    Ok(data_home
+        .join(crate::identity_generated::DATA_DIR_NAME)
+        .join("opencode.db"))
 }
 
 // Creates a `once` listener for the specified event and returns a future that resolves

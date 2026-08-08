@@ -32,11 +32,16 @@ pub struct ChildProcesses {
 impl ChildProcesses {
     /// Terminates the children of a previous run that crashed or was killed.
     ///
-    /// Replaces `killall unifia-cli` / `taskkill /F /IM llama-server.exe`. Those
-    /// ended every process with that image name on the machine: llama-server is
-    /// shipped by the user's genuine OpenCode install too, so starting Unifia
-    /// killed their model server. Recovery now acts only on processes whose
-    /// recorded executable path and start time still match a lease we wrote.
+    /// Replaces `killall unifia-cli` / `taskkill /F /IM llama-server.exe`, which
+    /// ended every process with that image name on the machine.
+    ///
+    /// `llama-server` is not a name we own: it is llama.cpp's, so the victim was
+    /// any copy the user runs themselves or through another tool. `unifia-cli` is
+    /// ours, but every Unifia channel shares it, so launching the stable build
+    /// killed the sidecar of a running Preview or Beta.
+    ///
+    /// Recovery now acts only on processes whose recorded executable path and
+    /// start time still match a lease we wrote.
     pub fn recover_orphans(&self) {
         let Some(dir) = lease_dir() else {
             tracing::warn!("no data directory: skipping orphan recovery");

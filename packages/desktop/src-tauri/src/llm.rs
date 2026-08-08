@@ -768,10 +768,10 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
         //
         // This was `taskkill /F /IM llama-server.exe` on Windows and
         // `lsof -ti :PORT | xargs kill -9` on Unix. The first ended every
-        // llama-server on the machine — the user's genuine OpenCode install ships
-        // one under the same name — and the second killed whoever held the port,
-        // ours or not. Comparing the full executable path is what tells the two
-        // copies apart, since the name cannot.
+        // llama-server on the machine — the name belongs to llama.cpp, so any
+        // copy the user runs themselves was fair game — and the second killed
+        // whoever held the port, ours or not. Comparing the full executable path
+        // is what tells our copy apart, since the name cannot.
         match unifia_supervisor::Supervisor::new(llm_lease_dir()).reclaim_port(LLM_PORT, &server_exe) {
             unifia_supervisor::Verdict::Owned => {
                 tracing::info!("[LLM] Reclaimed port {} from our own llama-server", LLM_PORT)
