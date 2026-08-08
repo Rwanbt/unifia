@@ -1,83 +1,159 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "name": "Unifia Brand Assets",
-  "sourceDirectory": "external-master-directory",
-  "sourceHint": "Run with --source <path-to-unifia-logo>",
+  "sourceDirectory": "brand/unifia/masters",
+  "classification": {
+    "source": [
+      "brand/unifia/masters/",
+      "brand/unifia/source-user-approved/",
+      "brand/unifia/cli/",
+      "brand/unifia/unifia.tokens.json",
+      "brand/unifia/unifia.css",
+      "brand/unifia/unifia.theme.ts",
+      "brand/unifia/unifia.tailwind.ts"
+    ],
+    "generated": [
+      "brand/unifia/variants/"
+    ],
+    "localBackup": [
+      ".unifia-brand-backup/"
+    ]
+  },
   "masters": [
     {
       "stem": "unifia-app-icon-dark",
       "svg": "9c71feee37fe87ce074e6f7ddb2cca9ed5308e591005f05ee6190f45859d8bd6",
-      "png": "e9eb02ec68f30b2b55c34f25a59c95a7436b354eeead6588a60cc2c1996b9cdc"
+      "png": "e9eb02ec68f30b2b55c34f25a59c95a7436b354eeead6588a60cc2c1996b9cdc",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-app-icon-light",
       "svg": "a1f5d68b94b75ce9e4e1444e75e64d9ca5dd8794a5947352d09801ffbe6187ee",
-      "png": "9e0e29c156c2445dcf4d681ddfbf78b785220f662cd8ebbb20414f12fada8daf"
+      "png": "9e0e29c156c2445dcf4d681ddfbf78b785220f662cd8ebbb20414f12fada8daf",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-app-icon-monochrome-dark",
       "svg": "7f004651e63208317411c031e73805a6ae03041cc0534d48f0b69431b31e04fd",
-      "png": "cea9833dd9ed743f1e2c49811c06a5c6cead0f7acea27cd3b4849a01e1268f55"
+      "png": "cea9833dd9ed743f1e2c49811c06a5c6cead0f7acea27cd3b4849a01e1268f55",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-app-icon-monochrome-light",
       "svg": "0926a43e94cc283b965dd705251e299b870afea71302438ff07087826d3c6a77",
-      "png": "bd2ac19e539a0ce41ef7bcf02d8d1c28110b3e158ddbdcd9e4c59eba7ebfec72"
+      "png": "bd2ac19e539a0ce41ef7bcf02d8d1c28110b3e158ddbdcd9e4c59eba7ebfec72",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-lockup-dark",
       "svg": "efacec5cf489df03ae806c3d278d183b69f9785ae45beec74ad19adfa00f6e5d",
-      "png": "466455e6bb3355a16b6222a444815a7f594a69934694657a47e46de2969898f6"
+      "png": "466455e6bb3355a16b6222a444815a7f594a69934694657a47e46de2969898f6",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-lockup-light",
       "svg": "c7213e6b0cb5e2e62bfd91207afc5ab31a39418b312aa60ce3f09635ee25ca47",
-      "png": "e912f20238431d52231f2906d8b28691c0e3286291f32657389871992d9773f5"
+      "png": "e912f20238431d52231f2906d8b28691c0e3286291f32657389871992d9773f5",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-lockup-monochrome-dark",
       "svg": "a53870cd866205b3fcabc958ba75675fd4f92ebf010c05b385cf76add534513b",
-      "png": "b9dfe3769ae4734f24f16cc4384f78937c4706d907bd36b851991ea0788d71d0"
+      "png": "b9dfe3769ae4734f24f16cc4384f78937c4706d907bd36b851991ea0788d71d0",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-lockup-monochrome-light",
       "svg": "6c33e6ebd6afc6fa267026271821ca21baea28d54fb930258d26e82b1b0774a0",
-      "png": "ca11be220880ccfd9c5a646894d0f11aab03acb9851f660ea63f8c5bbd346bdc"
+      "png": "ca11be220880ccfd9c5a646894d0f11aab03acb9851f660ea63f8c5bbd346bdc",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-logotype-dark",
       "svg": "9733690383cadca37cb2dc545456e4b076cc9ee62e68394258ea92149863e240",
-      "png": "395058775513ff9502fe7c5681eb730bd2e80186cbd06133f7081eb980152a7e"
+      "png": "395058775513ff9502fe7c5681eb730bd2e80186cbd06133f7081eb980152a7e",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-logotype-light",
       "svg": "61f02e1d299f2469f9e063a4ad336c367f696449f8dcc7fd9c99f765a0846c6f",
-      "png": "791c0abf8b78901c257c6a361840189bcccaf2cb100705cfce6ac1ed258edd08"
+      "png": "791c0abf8b78901c257c6a361840189bcccaf2cb100705cfce6ac1ed258edd08",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-logotype-monochrome-dark",
       "svg": "00da4a18db85050d013b731ed224f2cdd7e0b98a7c9c16a5c993c8c4648e37b7",
-      "png": "78567538bea2319e2b0305d0d8f5bad6116a720ac0ff716e9ed18aab1bc5d9b3"
+      "png": "78567538bea2319e2b0305d0d8f5bad6116a720ac0ff716e9ed18aab1bc5d9b3",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-logotype-monochrome-light",
       "svg": "d104df1896bf28b06fbdfaf0af02e69e57413df9c8536c70a5b663916329848b",
-      "png": "af5037136c66115b038fe8e1a33c6c5ac8f436509361b201546f58bc038643c5"
+      "png": "af5037136c66115b038fe8e1a33c6c5ac8f436509361b201546f58bc038643c5",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-symbol-black",
       "svg": "54b6d4bfac25555ffbfc5bbf8e6d70cce4d94444c13785ab02e6904c6369bdb0",
-      "png": "26b52f693be3172dc6544bfe50ee8b4fca46f9cb6648be796ecad022afa50b48"
+      "png": "26b52f693be3172dc6544bfe50ee8b4fca46f9cb6648be796ecad022afa50b48",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-symbol-color",
       "svg": "7a061444e24129a86730ab27a4575be8681d063fb748d93d76f3342b52cd6a93",
-      "png": "12efa17d73a3eba992267d9c595bb9c891ef053462dca5d04632e3e9a6682fc4"
+      "png": "12efa17d73a3eba992267d9c595bb9c891ef053462dca5d04632e3e9a6682fc4",
+      "pngPixels": [
+        400,
+        400
+      ]
     },
     {
       "stem": "unifia-symbol-white",
       "svg": "0d7feefbb7e50b8c7dfe52dd7eb31315a3fb43b58132cbef2f8a7c862fff06a8",
-      "png": "2cde91e51b1af23503a0d5aba64b2b8a16315b378c3063b2965bd1d956c3a529"
+      "png": "2cde91e51b1af23503a0d5aba64b2b8a16315b378c3063b2965bd1d956c3a529",
+      "pngPixels": [
+        400,
+        400
+      ]
     }
   ],
   "aliases": {
@@ -90,7 +166,6 @@
     "androidForeground": "unifia-symbol-color",
     "fontMono": "Roboto Mono"
   },
-  "generatedBy": "scripts/generate-brand.py",
   "cliTui": {
     "specification": "cli/unifia-cli-lockup.json",
     "preview": "cli/unifia-cli-lockup.txt",
