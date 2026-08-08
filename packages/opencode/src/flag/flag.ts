@@ -96,6 +96,31 @@ export namespace Flag {
 // Unifia compatibility flags: prefer the rebranded environment variable and fall back to OPENCODE during migration.
 function unifiaTruthy(name: string, legacy: boolean): boolean { return truthy(`UNIFIA_${name}`) || legacy }
 function unifiaValue(name: string, legacy: string | undefined): string | undefined { return process.env[`UNIFIA_${name}`] ?? legacy }
+
+/**
+ * Reads a variable that must never fall back to its `OPENCODE_*` spelling.
+ *
+ * These are the `isolated` class in config/identity.json: ports, credential
+ * storage, profile locations, server identity. Accepting the legacy name for
+ * them lets an environment set up for one product reach into the other's
+ * keychain, port or profile — the exact cross-product leak the coexistence plan
+ * exists to prevent. Preferences are a different matter and keep dual-reading
+ * through `unifiaValue`.
+ *
+ * A legacy value that is present but ignored is reported once, because the
+ * failure it causes otherwise is silent: the feature simply behaves as if
+ * unconfigured.
+ */
+function isolatedValue(name: string): string | undefined {
+  const value = process.env[`UNIFIA_${name}`]
+  if (value === undefined && process.env[`OPENCODE_${name}`] !== undefined) {
+    console.warn(
+      `[flag] ignoring OPENCODE_${name}: this setting is per-product and is only read as UNIFIA_${name}. ` +
+        `Whatever set it needs updating.`,
+    )
+  }
+  return value
+}
 export namespace Flag {
   export const UNIFIA_AUTO_SHARE = unifiaTruthy("AUTO_SHARE", OPENCODE_AUTO_SHARE)
   export const UNIFIA_AUTO_HEAP_SNAPSHOT = unifiaTruthy("AUTO_HEAP_SNAPSHOT", OPENCODE_AUTO_HEAP_SNAPSHOT)
@@ -109,9 +134,9 @@ export namespace Flag {
   export const UNIFIA_SHOW_TTFD = unifiaTruthy("SHOW_TTFD", OPENCODE_SHOW_TTFD)
   export const UNIFIA_PERMISSION = unifiaValue("PERMISSION", OPENCODE_PERMISSION)
   export const UNIFIA_PURE = unifiaTruthy("PURE", OPENCODE_PURE)
-  export const UNIFIA_CLIENT = unifiaValue("CLIENT", OPENCODE_CLIENT) ?? "cli"
-  export const UNIFIA_SERVER_PASSWORD = unifiaValue("SERVER_PASSWORD", OPENCODE_SERVER_PASSWORD)
-  export const UNIFIA_SERVER_USERNAME = unifiaValue("SERVER_USERNAME", OPENCODE_SERVER_USERNAME)
+  export const UNIFIA_CLIENT = isolatedValue("CLIENT") ?? "cli"
+  export const UNIFIA_SERVER_PASSWORD = isolatedValue("SERVER_PASSWORD")
+  export const UNIFIA_SERVER_USERNAME = isolatedValue("SERVER_USERNAME")
   export const UNIFIA_EXPERIMENTAL = unifiaTruthy("EXPERIMENTAL", OPENCODE_EXPERIMENTAL)
   export const UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = unifiaTruthy("EXPERIMENTAL_DISABLE_COPY_ON_SELECT", OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT)
   export const UNIFIA_EXPERIMENTAL_ICON_DISCOVERY = unifiaTruthy("EXPERIMENTAL_ICON_DISCOVERY", OPENCODE_EXPERIMENTAL_ICON_DISCOVERY)
@@ -125,7 +150,7 @@ export namespace Flag {
   export const UNIFIA_DISABLE_MODELS_FETCH = unifiaTruthy("DISABLE_MODELS_FETCH", OPENCODE_DISABLE_MODELS_FETCH)
   export const UNIFIA_DISABLE_EMBEDDED_WEB_UI = unifiaTruthy("DISABLE_EMBEDDED_WEB_UI", OPENCODE_DISABLE_EMBEDDED_WEB_UI)
   export const UNIFIA_DISABLE_PROJECT_CONFIG = unifiaTruthy("DISABLE_PROJECT_CONFIG", OPENCODE_DISABLE_PROJECT_CONFIG)
-  export const UNIFIA_CONFIG_DIR = unifiaValue("CONFIG_DIR", OPENCODE_CONFIG_DIR)
+  export const UNIFIA_CONFIG_DIR = isolatedValue("CONFIG_DIR")
   export const UNIFIA_TUI_CONFIG = unifiaValue("TUI_CONFIG", OPENCODE_TUI_CONFIG)
   export const UNIFIA_PLUGIN_META_FILE = unifiaValue("PLUGIN_META_FILE", OPENCODE_PLUGIN_META_FILE)
   export const UNIFIA_DISABLE_AUTOCOMPACT = unifiaTruthy("DISABLE_AUTOCOMPACT", OPENCODE_DISABLE_AUTOCOMPACT)
@@ -152,8 +177,20 @@ export namespace Flag {
    * arrived and the backend silently fell back to plaintext `auth.json` — on a
    * device this was verified by reading the file, which began with `{`.
    */
-  export const UNIFIA_AUTH_STORAGE = unifiaValue("AUTH_STORAGE", process.env["OPENCODE_AUTH_STORAGE"])
-  export const UNIFIA_PTY_PORT = unifiaValue("PTY_PORT", process.env["OPENCODE_PTY_PORT"])
+  export const UNIFIA_AUTH_STORAGE = isolatedValue("AUTH_STORAGE")
+  export const UNIFIA_PTY_PORT = isolatedValue("PTY_PORT")
+  // Read here rather than at the call site for the reason the comment above
+  // gives: auth/index.ts reached for process.env directly, so when the shell
+  // still emitted the OPENCODE_* spelling the endpoint never arrived and the
+  // keychain silently reported itself unavailable.
+  //
+  // Declared, not assigned: the getters below read at access time. KeychainStorage
+  // used to read process.env in its constructor, and the desktop shell injects
+  // the endpoint at sidecar spawn, so a value captured at module load would be a
+  // behaviour change — one that tests setting the endpoint after import notice
+  // immediately.
+  export declare const UNIFIA_KEYCHAIN_URL: string | undefined
+  export declare const UNIFIA_KEYCHAIN_TOKEN: string | undefined
   export const UNIFIA_DISABLE_LSP_DOWNLOAD = unifiaTruthy("DISABLE_LSP_DOWNLOAD", OPENCODE_DISABLE_LSP_DOWNLOAD)
 }
 // Dynamic getter for OPENCODE_DISABLE_PROJECT_CONFIG
@@ -233,3 +270,15 @@ Object.defineProperty(Flag, "OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING", {
   enumerable: true,
   configurable: false,
 })
+
+// Access-time getters for the keychain endpoint. See the declarations in the
+// namespace above for why these are not plain constants.
+for (const name of ["KEYCHAIN_URL", "KEYCHAIN_TOKEN"] as const) {
+  Object.defineProperty(Flag, `UNIFIA_${name}`, {
+    get() {
+      return isolatedValue(name)
+    },
+    enumerable: true,
+    configurable: false,
+  })
+}

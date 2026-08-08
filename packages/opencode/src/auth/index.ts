@@ -141,8 +141,8 @@ export class KeychainStorage implements AuthStorage {
 
   constructor(service: string = KeychainStorage.SERVICE) {
     this.service = service
-    this.baseUrl = process.env.UNIFIA_KEYCHAIN_URL
-    this.token = process.env.UNIFIA_KEYCHAIN_TOKEN
+    this.baseUrl = Flag.UNIFIA_KEYCHAIN_URL
+    this.token = Flag.UNIFIA_KEYCHAIN_TOKEN
   }
 
   /** True when the Tauri shell injected a reachable endpoint. */

@@ -180,8 +180,8 @@ pub fn auth_storage_list(app: AppHandle, service: String) -> Result<Vec<String>,
 //
 //   1. Generate a 128-bit token (UUID v4, hex).
 //   2. Bind a TcpListener on 127.0.0.1:0 and stash (url, token) in statics.
-//   3. Export them to the sidecar via `OPENCODE_KEYCHAIN_URL` and
-//      `OPENCODE_KEYCHAIN_TOKEN` env vars at spawn time (see cli.rs).
+//   3. Export them to the sidecar via `UNIFIA_KEYCHAIN_URL` and
+//      `UNIFIA_KEYCHAIN_TOKEN` env vars at spawn time (see cli.rs).
 //
 // Security:
 //   - Bound to 127.0.0.1 only — not reachable off-box.

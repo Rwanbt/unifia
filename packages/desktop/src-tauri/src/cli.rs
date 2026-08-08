@@ -439,8 +439,8 @@ pub fn spawn_command(
             "OPENCODE_EXPERIMENTAL_FILEWATCHER".to_string(),
             "true".to_string(),
         ),
-        ("OPENCODE_CLIENT".to_string(), "desktop".to_string()),
-        ("OPENCODE_AUTH_STORAGE".to_string(), "keychain".to_string()),
+        ("UNIFIA_CLIENT".to_string(), "desktop".to_string()),
+        ("UNIFIA_AUTH_STORAGE".to_string(), "keychain".to_string()),
         (
             "XDG_STATE_HOME".to_string(),
             state_dir.to_string_lossy().to_string(),
@@ -468,8 +468,8 @@ pub fn spawn_command(
     // If the endpoint did not start (boot failure or feature disabled), these
     // vars are omitted and the sidecar falls back to FileStorage.
     if let Some(ep) = crate::auth_storage::endpoint() {
-        envs.push(("OPENCODE_KEYCHAIN_URL".to_string(), ep.url.clone()));
-        envs.push(("OPENCODE_KEYCHAIN_TOKEN".to_string(), ep.token.clone()));
+        envs.push(("UNIFIA_KEYCHAIN_URL".to_string(), ep.url.clone()));
+        envs.push(("UNIFIA_KEYCHAIN_TOKEN".to_string(), ep.token.clone()));
     }
 
     let mut cmd = if cfg!(windows) {
@@ -490,14 +490,14 @@ pub fn spawn_command(
             let mut env_prefix = vec![
                 "OPENCODE_EXPERIMENTAL_ICON_DISCOVERY=true".to_string(),
                 "OPENCODE_EXPERIMENTAL_FILEWATCHER=true".to_string(),
-                "OPENCODE_CLIENT=desktop".to_string(),
+                "UNIFIA_CLIENT=desktop".to_string(),
                 "XDG_STATE_HOME=\"$HOME/.local/state\"".to_string(),
             ];
             env_prefix.extend(
                 envs.iter()
                     .filter(|(key, _)| key != "OPENCODE_EXPERIMENTAL_ICON_DISCOVERY")
                     .filter(|(key, _)| key != "OPENCODE_EXPERIMENTAL_FILEWATCHER")
-                    .filter(|(key, _)| key != "OPENCODE_CLIENT")
+                    .filter(|(key, _)| key != "UNIFIA_CLIENT")
                     .filter(|(key, _)| key != "XDG_STATE_HOME")
                     .map(|(key, value)| format!("{}={}", key, shell_escape(value))),
             );
@@ -648,8 +648,8 @@ pub fn serve(
     tracing::info!(port, tls_enabled, "Spawning sidecar");
 
     let mut envs = vec![
-        ("OPENCODE_SERVER_USERNAME", username.to_string()),
-        ("OPENCODE_SERVER_PASSWORD", password.to_string()),
+        ("UNIFIA_SERVER_USERNAME", username.to_string()),
+        ("UNIFIA_SERVER_PASSWORD", password.to_string()),
     ];
 
     // Pass TLS cert/key paths to the sidecar when Internet mode is active.
@@ -828,8 +828,8 @@ mod tests {
             Some(shell_env),
             vec![
                 ("PATH".to_string(), "/desktop/path".to_string()),
-                ("OPENCODE_CLIENT".to_string(), "desktop".to_string()),
-                ("OPENCODE_AUTH_STORAGE".to_string(), "keychain".to_string()),
+                ("UNIFIA_CLIENT".to_string(), "desktop".to_string()),
+                ("UNIFIA_AUTH_STORAGE".to_string(), "keychain".to_string()),
             ],
         )
         .into_iter()
@@ -837,7 +837,7 @@ mod tests {
 
         assert_eq!(merged.get("PATH"), Some(&"/desktop/path".to_string()));
         assert_eq!(merged.get("HOME"), Some(&"/tmp/home".to_string()));
-        assert_eq!(merged.get("OPENCODE_CLIENT"), Some(&"desktop".to_string()));
+        assert_eq!(merged.get("UNIFIA_CLIENT"), Some(&"desktop".to_string()));
     }
 
     #[test]

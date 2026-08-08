@@ -41,7 +41,7 @@ fn auth_storage_key() -> Result<String, String> {
     // `call_method` in this jni crate version — it can leave `result` as an
     // `Ok` wrapping a null/default JObject, which then silently decodes to an
     // EMPTY Rust String below instead of failing loudly. That empty string
-    // was passed straight through as OPENCODE_AUTH_ENCRYPTION_KEY, so the
+    // was passed straight through as UNIFIA_AUTH_ENCRYPTION_KEY, so the
     // GitHub session write failed downstream with a confusing, unrelated
     // "must be a 32-byte base64 key" error instead of the real cause here.
     // Always check for a pending exception FIRST, before trusting the result.
@@ -237,7 +237,7 @@ pub async fn start_embedded_server(
     let bash_path = bin_link_dir.join("bash");
     let bash_env_path = home_dir.join(".bashrc");
     let env_content = format!(
-        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nOPENCODE_PTY_PORT=14098\nOPENCODE_SERVER_USERNAME=opencode\nOPENCODE_SERVER_PASSWORD={pw}\nOPENCODE_CLIENT=mobile-embedded\nOPENCODE_AUTH_STORAGE=encrypted-file\nOPENCODE_AUTH_ENCRYPTION_KEY={auth_key}\nOPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
+        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT=14098\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\nUNIFIA_AUTH_ENCRYPTION_KEY={auth_key}\nOPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
         home = home_dir.display(),
         bash_env = bash_env_path.display(),
         cert = ca_bundle_path.display(),
@@ -306,11 +306,11 @@ pub async fn start_embedded_server(
         .env("TEMP", app_tmp_dir.to_str().unwrap_or(""))
         .env("EXTERNAL_STORAGE", "/sdcard")
         .env("OPENCODE_HOME", home_dir.to_str().unwrap_or("/tmp"))
-        .env("OPENCODE_SERVER_USERNAME", "opencode")
-        .env("OPENCODE_SERVER_PASSWORD", &password)
-        .env("OPENCODE_CLIENT", "mobile-embedded")
-        .env("OPENCODE_AUTH_STORAGE", "encrypted-file")
-        .env("OPENCODE_AUTH_ENCRYPTION_KEY", &auth_key)
+        .env("UNIFIA_SERVER_USERNAME", "opencode")
+        .env("UNIFIA_SERVER_PASSWORD", &password)
+        .env("UNIFIA_CLIENT", "mobile-embedded")
+        .env("UNIFIA_AUTH_STORAGE", "encrypted-file")
+        .env("UNIFIA_AUTH_ENCRYPTION_KEY", &auth_key)
         .env("OPENCODE_CARGO_PROXY", if cargo_proxy_active { "1" } else { "0" })
         // musl's getaddrinfo can't resolve DNS on Android (see proxy.rs) —
         // without these, mobile-entry.ts's fetch() proxy-patch never
