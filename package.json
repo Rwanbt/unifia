@@ -14,6 +14,8 @@
     "dev:mobile-ios": "bun --cwd packages/mobile tauri ios dev",
     "dev:storybook": "bun --cwd packages/storybook storybook",
     "typecheck": "bun turbo typecheck",
+    "brand:generate": "node scripts/brand/generate.mjs",
+    "brand:check": "node scripts/brand/check.mjs",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check . --write",
     "deadcode": "bunx knip --no-progress",
