@@ -87,12 +87,15 @@ const MODELS = [
 ]
 
 beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), "opencode-team-cli-"))
+  root = await mkdtemp(path.join(tmpdir(), "unifia-team-cli-"))
   dataHome = path.join(root, "share")
-  const opencodeData = path.join(dataHome, "opencode")
-  await mkdir(opencodeData, { recursive: true })
+  // Must match the directory Global.Path.data joins onto XDG_DATA_HOME — the
+  // product's own name. Seeding "opencode" here left the store somewhere the
+  // spawned CLI never looks, so every command reported an empty run.
+  const productData = path.join(dataHome, "unifia")
+  await mkdir(productData, { recursive: true })
 
-  const store = TeamStore.open(path.join(opencodeData, "team.db"))
+  const store = TeamStore.open(path.join(productData, "team.db"))
   runID = "run-cli-1"
   await store.createRun({ runId: runID, planId: "plan-cli", status: "completed" })
   await store.createTask({ taskId: "t1", runId: runID, dependsOn: [], scope: { files: ["src/a.ts"] } })

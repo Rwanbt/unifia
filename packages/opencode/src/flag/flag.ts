@@ -133,15 +133,15 @@ export namespace Flag {
   export const UNIFIA_DISABLE_TERMINAL_TITLE = unifiaTruthy("DISABLE_TERMINAL_TITLE", OPENCODE_DISABLE_TERMINAL_TITLE)
   export const UNIFIA_SHOW_TTFD = unifiaTruthy("SHOW_TTFD", OPENCODE_SHOW_TTFD)
   export const UNIFIA_PERMISSION = unifiaValue("PERMISSION", OPENCODE_PERMISSION)
-  export const UNIFIA_PURE = unifiaTruthy("PURE", OPENCODE_PURE)
-  export const UNIFIA_CLIENT = isolatedValue("CLIENT") ?? "cli"
+  export declare const UNIFIA_PURE: boolean
+  export declare const UNIFIA_CLIENT: string
   export const UNIFIA_SERVER_PASSWORD = isolatedValue("SERVER_PASSWORD")
   export const UNIFIA_SERVER_USERNAME = isolatedValue("SERVER_USERNAME")
   export const UNIFIA_EXPERIMENTAL = unifiaTruthy("EXPERIMENTAL", OPENCODE_EXPERIMENTAL)
   export const UNIFIA_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = unifiaTruthy("EXPERIMENTAL_DISABLE_COPY_ON_SELECT", OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT)
   export const UNIFIA_EXPERIMENTAL_ICON_DISCOVERY = unifiaTruthy("EXPERIMENTAL_ICON_DISCOVERY", OPENCODE_EXPERIMENTAL_ICON_DISCOVERY)
   export const UNIFIA_EXPERIMENTAL_OUTPUT_TOKEN_MAX = Number(unifiaValue("EXPERIMENTAL_OUTPUT_TOKEN_MAX", OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX?.toString())) || undefined
-  export const UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING = unifiaTruthy("EXPERIMENTAL_PROMPT_CACHE_ANCHORING", false)
+  export declare const UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING: boolean
   export const UNIFIA_EXPERIMENTAL_PLAN_MODE = unifiaTruthy("EXPERIMENTAL_PLAN_MODE", OPENCODE_EXPERIMENTAL_PLAN_MODE)
   export const UNIFIA_EXPERIMENTAL_WORKSPACES = unifiaTruthy("EXPERIMENTAL_WORKSPACES", OPENCODE_EXPERIMENTAL_WORKSPACES)
   export const UNIFIA_EXPERIMENTAL_MARKDOWN = !falsy(unifiaValue("EXPERIMENTAL_MARKDOWN", undefined) ?? "")
@@ -149,10 +149,10 @@ export namespace Flag {
   export const UNIFIA_MODELS_PATH = unifiaValue("MODELS_PATH", OPENCODE_MODELS_PATH)
   export const UNIFIA_DISABLE_MODELS_FETCH = unifiaTruthy("DISABLE_MODELS_FETCH", OPENCODE_DISABLE_MODELS_FETCH)
   export const UNIFIA_DISABLE_EMBEDDED_WEB_UI = unifiaTruthy("DISABLE_EMBEDDED_WEB_UI", OPENCODE_DISABLE_EMBEDDED_WEB_UI)
-  export const UNIFIA_DISABLE_PROJECT_CONFIG = unifiaTruthy("DISABLE_PROJECT_CONFIG", OPENCODE_DISABLE_PROJECT_CONFIG)
-  export const UNIFIA_CONFIG_DIR = isolatedValue("CONFIG_DIR")
-  export const UNIFIA_TUI_CONFIG = unifiaValue("TUI_CONFIG", OPENCODE_TUI_CONFIG)
-  export const UNIFIA_PLUGIN_META_FILE = unifiaValue("PLUGIN_META_FILE", OPENCODE_PLUGIN_META_FILE)
+  export declare const UNIFIA_DISABLE_PROJECT_CONFIG: boolean
+  export declare const UNIFIA_CONFIG_DIR: string | undefined
+  export declare const UNIFIA_TUI_CONFIG: string | undefined
+  export declare const UNIFIA_PLUGIN_META_FILE: string | undefined
   export const UNIFIA_DISABLE_AUTOCOMPACT = unifiaTruthy("DISABLE_AUTOCOMPACT", OPENCODE_DISABLE_AUTOCOMPACT)
   export const UNIFIA_DISABLE_CLAUDE_CODE_PROMPT = unifiaTruthy("DISABLE_CLAUDE_CODE_PROMPT", OPENCODE_DISABLE_CLAUDE_CODE_PROMPT)
   export const UNIFIA_ENABLE_EXPERIMENTAL_MODELS = unifiaTruthy("ENABLE_EXPERIMENTAL_MODELS", OPENCODE_ENABLE_EXPERIMENTAL_MODELS)
@@ -271,14 +271,32 @@ Object.defineProperty(Flag, "OPENCODE_EXPERIMENTAL_PROMPT_CACHE_ANCHORING", {
   configurable: false,
 })
 
-// Access-time getters for the keychain endpoint. See the declarations in the
-// namespace above for why these are not plain constants.
-for (const name of ["KEYCHAIN_URL", "KEYCHAIN_TOKEN"] as const) {
-  Object.defineProperty(Flag, `UNIFIA_${name}`, {
-    get() {
-      return isolatedValue(name)
-    },
-    enumerable: true,
-    configurable: false,
-  })
+// Access-time getters.
+//
+// Every OPENCODE_* name in this group already had one, for the reason the
+// comments above give: tests and external tooling set these after the module has
+// loaded. The rebrand re-exposed them as `const UNIFIA_X = ...`, which reads
+// once at import and freezes whatever the environment happened to be — that is
+// what left eight config and tui tests failing, and it would equally ignore an
+// endpoint the desktop shell injects at sidecar spawn.
+function defineDynamic(name: string, read: () => unknown) {
+  Object.defineProperty(Flag, name, { get: read, enumerable: true, configurable: false })
 }
+
+// Isolated class: the OPENCODE_* spelling must not satisfy these.
+defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
+defineDynamic("UNIFIA_KEYCHAIN_TOKEN", () => isolatedValue("KEYCHAIN_TOKEN"))
+defineDynamic("UNIFIA_CONFIG_DIR", () => isolatedValue("CONFIG_DIR"))
+defineDynamic("UNIFIA_CLIENT", () => isolatedValue("CLIENT") ?? "cli")
+
+// Preferences: these keep reading the legacy spelling as a fallback.
+defineDynamic("UNIFIA_PURE", () => truthy("UNIFIA_PURE") || Flag.OPENCODE_PURE)
+defineDynamic("UNIFIA_TUI_CONFIG", () => process.env["UNIFIA_TUI_CONFIG"] ?? Flag.OPENCODE_TUI_CONFIG)
+defineDynamic("UNIFIA_PLUGIN_META_FILE", () => process.env["UNIFIA_PLUGIN_META_FILE"] ?? Flag.OPENCODE_PLUGIN_META_FILE)
+defineDynamic(
+  "UNIFIA_DISABLE_PROJECT_CONFIG",
+  () => truthy("UNIFIA_DISABLE_PROJECT_CONFIG") || Flag.OPENCODE_DISABLE_PROJECT_CONFIG,
+)
+defineDynamic("UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING", () =>
+  truthy("UNIFIA_EXPERIMENTAL_PROMPT_CACHE_ANCHORING"),
+)
