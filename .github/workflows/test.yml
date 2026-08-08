@@ -155,7 +155,13 @@ jobs:
         # bun run build --single --baseline. An empty stub satisfies the check.
         run: |
           mkdir -p packages/desktop/src-tauri/sidecars
-          touch packages/desktop/src-tauri/sidecars/opencode-cli-x86_64-unknown-linux-gnu
+          touch packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-unknown-linux-gnu
+
+      - name: Supervisor tests
+        # Own crate, own step: it deliberately links neither Tauri nor ORT, so a
+        # failure here is a failure in the ownership rules and nothing else.
+        working-directory: crates/unifia-supervisor
+        run: cargo test
 
       - name: Desktop Rust tests
         # ort uses download-binaries on Linux — downloads libonnxruntime.so at build time.
