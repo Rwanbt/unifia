@@ -23,4 +23,3 @@ test("integration-20: process lock (best-effort) — uniqueness invariant via SQ
   // bun:sqlite the UNIQUE partial index does the same job.
   repo.cleanup();
 });
-

@@ -28,4 +28,3 @@ test("integration-11: git operation in progress (HEAD ref locked) detected by va
   expect(r.lease_id).toBe("LEASE-T11");
   repo.cleanup();
 });
-

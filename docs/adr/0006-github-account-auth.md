@@ -45,7 +45,7 @@ existait déjà, seul le wrapper TS manquait).
 
 ### 2. Injection credential scoped à `github.com`, jamais globale
 
-`git/credentials.ts` (manuel) injecte `http.extraheader` **non scoped** — 
+`git/credentials.ts` (manuel) injecte `http.extraheader` **non scoped** —
 acceptable car explicitement configuré par l'utilisateur pour un usage
 particulier. La session GitHub OAuth est **fallback automatique** : elle doit
 strictement ne jamais fuiter vers un autre host. `github/credentials.ts`

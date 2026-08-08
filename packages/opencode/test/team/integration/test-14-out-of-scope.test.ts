@@ -23,4 +23,3 @@ test("integration-14: file outside allowed_files is reported OUT_OF_SCOPE", () =
   expect(v.ok).toBe(false);
   expect(v.violations[0].code).toBe("OUT_OF_SCOPE");
 });
-

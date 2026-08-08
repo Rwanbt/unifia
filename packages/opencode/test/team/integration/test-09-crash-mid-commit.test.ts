@@ -28,4 +28,3 @@ test("integration-09: crash mid-commit — lease preserved with leftover state",
   expect(rel.ok).toBe(true);
   repo.cleanup();
 });
-

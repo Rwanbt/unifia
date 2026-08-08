@@ -38,4 +38,3 @@ test("integration-04: same worktree, different branch — second fails WORKTREE_
   expect(r2.ok).toBe(false);
   if (!r2.ok) expect(r2.code).toBe("WORKTREE_TAKEN");
 });
-

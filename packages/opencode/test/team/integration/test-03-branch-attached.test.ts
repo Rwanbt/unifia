@@ -38,4 +38,3 @@ test("integration-03: branch already attached to a worktree blocks a second clai
   }, db);
   expect(r2.ok).toBe(false);
 });
-

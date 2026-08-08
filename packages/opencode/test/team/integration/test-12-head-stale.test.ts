@@ -32,4 +32,3 @@ test("integration-12: HEAD has drifted from declared base_sha at validate time",
   if (v.ok) expect(v.lease.base_sha).toBe(originalHead);
   repo.cleanup();
 });
-

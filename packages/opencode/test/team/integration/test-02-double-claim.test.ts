@@ -38,4 +38,3 @@ test("integration-02: double acquisition — second fails", () => {
   expect(r2.ok).toBe(false);
   if (!r2.ok) expect(r2.code).toBe("BRANCH_TAKEN");
 });
-

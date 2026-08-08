@@ -49,4 +49,3 @@ test("integration-15: untracked file detection — must be in allowed_files", ()
   expect(v2.violations[0].code).toBe("OUT_OF_SCOPE");
   repo.cleanup();
 });
-

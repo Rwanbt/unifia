@@ -16,4 +16,3 @@ test("integration-19: CRLF file detection", () => {
   // This test focuses on the underlying detector, which is what scope monitor delegates to.
   repo.cleanup();
 });
-

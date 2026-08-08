@@ -7,4 +7,3 @@ test("integration-24: protected branch dev — push refused by .husky/pre-push g
   expect(branchName).toBe("dev");
   repo.cleanup();
 });
-

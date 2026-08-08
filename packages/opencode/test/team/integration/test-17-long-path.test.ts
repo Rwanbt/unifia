@@ -27,4 +27,3 @@ test("integration-17: long path (>260) rejected when policy is FAIL_OVER_260", (
     expect(["PATH_TOO_LONG", "OUT_OF_SCOPE"]).toContain(v.violations[0].code);
   }
 });
-

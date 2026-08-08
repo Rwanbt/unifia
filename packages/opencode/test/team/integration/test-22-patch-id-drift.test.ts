@@ -20,4 +20,3 @@ test("integration-22: patch-id stability check (sanity)", () => {
   expect(proc2stdout).toMatch(/[0-9a-f]{40}/);
   repo.cleanup();
 });
-

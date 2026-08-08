@@ -29,4 +29,3 @@ test("integration-16: husky hook missing — scope does not block on the gate (f
   expect(v.ok).toBe(true);
   repo.cleanup();
 });
-

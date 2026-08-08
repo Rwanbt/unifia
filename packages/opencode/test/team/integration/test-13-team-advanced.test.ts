@@ -26,4 +26,3 @@ test("integration-13: Team branch is protected — claim blocks via BRANCH_TAKEN
   expect(r.ok).toBe(true);
   repo.cleanup();
 });
-

@@ -40,4 +40,3 @@ test("integration-06: lease expires when TTL elapses, recovered by recover()", a
   expect(r2.ok).toBe(true);
   repo.cleanup();
 });
-

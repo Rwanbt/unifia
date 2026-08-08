@@ -25,4 +25,3 @@ test("integration-01: normal acquisition on a free slot", () => {
   expect(r.ok).toBe(true);
   if (r.ok) expect(r.fencing_token).toBe(1);
 });
-

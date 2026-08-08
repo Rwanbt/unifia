@@ -30,4 +30,3 @@ test("integration-05: stale token rejected by validate", () => {
   expect(v.ok).toBe(false);
   if (!v.ok) expect(v.code).toBe("TOKEN_STALE");
 });
-

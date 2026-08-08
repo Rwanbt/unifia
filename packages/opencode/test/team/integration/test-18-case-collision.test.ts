@@ -30,4 +30,3 @@ test("integration-18: case-insensitive collision detected on Windows-policy mani
   }
   repo.cleanup();
 });
-

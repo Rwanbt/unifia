@@ -27,4 +27,3 @@ test("integration-08: crash before commit — claim is preserved, expirable", ()
   expect(rep.expired).not.toContain(r.lease_id);
   repo.cleanup();
 });
-

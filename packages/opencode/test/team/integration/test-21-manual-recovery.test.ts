@@ -32,4 +32,3 @@ test("integration-21: manual recovery — operator force-releases an orphan leas
   if (!fr.ok) expect(fr.code).toBe("NOT_CLAIMED");
   repo.cleanup();
 });
-

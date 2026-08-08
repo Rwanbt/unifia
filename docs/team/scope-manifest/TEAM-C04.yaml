@@ -82,4 +82,3 @@ execution_log:
     - "Bug découvert + corrigé pendant l'implémentation : lookupPrice utilisait isoUtcNow() (tronqué à la seconde) comme 'now' par défaut, ce qui pouvait rendre un snapshot tout juste enregistré avec un validFrom à la milliseconde près faussement 'pas encore applicable' jusqu'au prochain top de seconde. Fix : 'now' interne utilise new Date().toISOString() en pleine précision ; isoUtcNow() reste le format de stockage par défaut de validFrom (cohérent avec le reste du registry)."
   deviations_from_spec: none
   scope_respected: true
-

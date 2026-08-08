@@ -40,4 +40,3 @@ test("integration-10: crash before cherry-pick — lease swept and reusable", as
   expect(r2.ok).toBe(true);
   repo.cleanup();
 });
-

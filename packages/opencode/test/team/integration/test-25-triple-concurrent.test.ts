@@ -34,4 +34,3 @@ test("integration-25: triple concurrent — only one wins on a shared branch", a
   }
   for (const r of repos) r.cleanup();
 });
-

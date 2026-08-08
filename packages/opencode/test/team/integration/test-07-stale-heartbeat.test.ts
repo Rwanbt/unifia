@@ -29,4 +29,3 @@ test("integration-07: lease without heartbeat is flagged STALE", async () => {
   if (v.ok) expect(v.lease.stale).toBe(true);
   repo.cleanup();
 });
-
