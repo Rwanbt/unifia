@@ -76,6 +76,9 @@ pub struct TerminatedPayload {
 #[derive(Clone, Debug)]
 pub struct CommandChild {
     kill: mpsc::Sender<()>,
+    /// PID of the spawned process, so the supervisor can take a lease on it and
+    /// later prove the process it is about to kill is still this one.
+    pid: Option<u32>,
 }
 
 impl CommandChild {
@@ -83,6 +86,10 @@ impl CommandChild {
         self.kill
             .try_send(())
             .map_err(|e| std::io::Error::other(e.to_string()))
+    }
+
+    pub fn pid(&self) -> Option<u32> {
+        self.pid
     }
 }
 
@@ -549,6 +556,8 @@ pub fn spawn_command(
     }
 
     let mut child = wrap.spawn()?;
+    // Captured before `child` moves into the wait task below.
+    let child_pid = child.id();
     let guard = Arc::new(tokio::sync::RwLock::new(()));
     let (tx, rx) = mpsc::channel(256);
     let (kill_tx, mut kill_rx) = mpsc::channel(1);
@@ -606,7 +615,13 @@ pub fn spawn_command(
     let event_stream = ReceiverStream::new(rx);
     let event_stream = sqlite_migration::logs_middleware(app.clone(), event_stream);
 
-    Ok((event_stream, CommandChild { kill: kill_tx }))
+    Ok((
+        event_stream,
+        CommandChild {
+            kill: kill_tx,
+            pid: child_pid,
+        },
+    ))
 }
 
 fn signal_from_status(status: std::process::ExitStatus) -> Option<i32> {

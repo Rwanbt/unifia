@@ -1,6 +1,7 @@
 mod auth_storage;
 mod cli;
 mod constants;
+mod child_processes;
 mod identity_generated;
 mod llm;
 mod util;
@@ -388,27 +389,13 @@ pub fn run() {
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     export_types(&builder);
 
-    // FIX: Kill orphaned sidecar from a previous session on all desktop platforms.
-    // macOS: killall by name. Windows: taskkill by image name.
-    //
-    // WHY the name matters: killing by image name hits every process with that
-    // name on the machine, not just ours. While this fork's sidecar was still
-    // called `opencode-cli`, this dev build terminated the sidecar of the user's
-    // genuine OpenCode install too. The rebranded name keeps the blast radius
-    // inside this application.
-    #[cfg(all(target_os = "macos", not(debug_assertions)))]
-    let _ = std::process::Command::new("killall")
-        .arg("unifia-cli")
-        .output();
-
-    #[cfg(all(windows, not(debug_assertions)))]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = std::process::Command::new("taskkill")
-            .args(["/F", "/IM", "unifia-cli.exe"])
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .output();
-    }
+    // Reclaim children left behind by a previous session that did not exit
+    // cleanly. Renaming the sidecar was not enough to make killing by image name
+    // safe: llama-server keeps its name in both products, so `taskkill /F /IM`
+    // reached the user's genuine OpenCode install. Leases make the blast radius
+    // exactly the set of processes we can prove we started.
+    let child_processes = child_processes::ChildProcesses::default();
+    child_processes.recover_orphans();
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -447,6 +434,7 @@ pub fn run() {
             // Hold the guard in managed state so it lives for the app's lifetime,
             // ensuring all buffered logs are flushed on shutdown.
             handle.manage(logging::init(&log_dir));
+            handle.manage(child_processes);
             handle.manage(llm::LlmServerState::new());
             handle.manage(speech::SpeechState::new());
 
@@ -493,27 +481,12 @@ pub fn run() {
                 // call start_kill(). Use a synchronous OS-level kill as fallback.
                 kill_sidecar(app.clone());
 
-                // NOTE: llama-server is killed by image name and that name is
-                // shared with the user's genuine OpenCode install — unlike the
-                // sidecar, it cannot be disambiguated by renaming. Narrowing it
-                // to our own child PID is a separate change.
-                #[cfg(windows)]
-                {
-                    use std::os::windows::process::CommandExt;
-                    for process in ["unifia-cli.exe", "llama-server.exe"] {
-                        let _ = std::process::Command::new("taskkill")
-                            .args(["/F", "/IM", process])
-                            .creation_flags(0x08000000)
-                            .output();
-                    }
-                }
-                #[cfg(target_os = "macos")]
-                {
-                    for process in ["unifia-cli", "llama-server"] {
-                        let _ = std::process::Command::new("killall")
-                            .arg(process)
-                            .output();
-                    }
+                // Stops the sidecar and llama-server by PID, after checking each
+                // one is still the process we spawned. This used to kill by image
+                // name, which also ended the llama-server belonging to the user's
+                // genuine OpenCode install.
+                if let Some(children) = app.try_state::<child_processes::ChildProcesses>() {
+                    children.stop_all();
                 }
             }
         });
@@ -610,28 +583,11 @@ struct LoadingWindowComplete;
 async fn initialize(app: AppHandle) {
     tracing::info!("Initializing app");
 
-    // Defensive cleanup: nuke any stray unifia-cli / llama-server processes
-    // left by a previous app instance that didn't exit cleanly (Tauri
-    // `RunEvent::Exit` can skip firing on abrupt close, crash, or
-    // close-via-tray-menu with state preserved). Without this, the new
-    // sidecar fails to bind its port and the app hangs at startup. Counterpart
-    // of the shutdown taskkill in the `RunEvent::Exit` arm below.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        for process in ["unifia-cli.exe", "llama-server.exe"] {
-            let _ = std::process::Command::new("taskkill")
-                .args(["/F", "/IM", process])
-                .creation_flags(0x08000000)
-                .output();
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        for process in ["unifia-cli", "llama-server"] {
-            let _ = std::process::Command::new("killall").arg(process).output();
-        }
-    }
+    // Stray children from an instance that didn't exit cleanly (Tauri's
+    // `RunEvent::Exit` can skip firing on abrupt close, crash, or close-via-tray
+    // with state preserved) are already reclaimed by the lease sweep in `run()`,
+    // which happens before this point. Repeating it here would only re-scan the
+    // same, now-empty, lease directory.
 
     let (init_tx, init_rx) = watch::channel(InitStep::ServerWaiting);
 
@@ -680,6 +636,16 @@ async fn initialize(app: AppHandle) {
         password: Some(password),
     });
     app.manage(SidecarReady(ready_rx.shared()));
+
+    // Take the lease now: if the app is killed before this runs, the next start
+    // has no record of the sidecar and will leave it alone rather than guess.
+    if let Some(children) = app.try_state::<child_processes::ChildProcesses>() {
+        match child.pid() {
+            Some(pid) => children.adopt(pid),
+            None => tracing::warn!("sidecar reported no pid; it will not be reclaimed after a crash"),
+        }
+    }
+
     app.manage(ServerState {
         child: Arc::new(Mutex::new(Some(child))),
     });
