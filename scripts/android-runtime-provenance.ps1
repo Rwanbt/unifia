@@ -15,7 +15,12 @@ function Get-ToolVersion([string]$Command) {
 function Get-FileRecord([string]$Path) {
   $file = Get-Item -LiteralPath $Path -ErrorAction Stop
   $hash = Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256
-  [ordered]@{
+  # pscustomobject, not a bare [ordered] hashtable: `Sort-Object path -Unique`
+  # below resolves `path` as a property. On a hashtable that lookup yields
+  # nothing, every record compares equal, and -Unique collapsed all 46 artifacts
+  # down to one — a provenance file that looked like an audit trail while
+  # recording almost nothing.
+  [pscustomobject][ordered]@{
     path = [IO.Path]::GetRelativePath($RepositoryRoot, $file.FullName).Replace([char]92, '/')
     size_bytes = $file.Length
     sha256 = $hash.Hash.ToLowerInvariant()
