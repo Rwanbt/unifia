@@ -5710,6 +5710,7 @@ dependencies = [
  "tauri-plugin-haptics",
  "tauri-plugin-http",
  "tauri-plugin-notification",
+ "tauri-plugin-opener",
  "tauri-plugin-os",
  "tauri-plugin-process",
  "tauri-plugin-store",

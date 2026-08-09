@@ -267,28 +267,35 @@ jobs:
       # ─── Sign APK ─────────────────────────────────────────────────
       - name: Sign APK with release key
         env:
-          OPENCODE_ANDROID_KEYSTORE_B64: ${{ secrets.OPENCODE_ANDROID_KEYSTORE_B64 }}
+          # Dual-read while the secret is renamed. The other three signing
+          # secrets already use the UNIFIA_ prefix; this one does not, and a
+          # repository secret cannot be renamed from here — it has to be
+          # re-created in the repository settings. Reading both means CI keeps
+          # signing whichever name exists, so the migration is not a flag day.
+          # Drop OPENCODE_ANDROID_KEYSTORE_B64 once UNIFIA_ANDROID_KEYSTORE_B64
+          # is set.
+          ANDROID_KEYSTORE_B64: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_B64 || secrets.OPENCODE_ANDROID_KEYSTORE_B64 }}
           UNIFIA_ANDROID_KEY_ALIAS: ${{ secrets.UNIFIA_ANDROID_KEY_ALIAS }}
           UNIFIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_PASSWORD }}
           UNIFIA_ANDROID_KEY_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           APK="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
-          SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/opencode-mobile.apk"
+          SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$APKSIGNER" || { echo "Android apksigner was not found"; exit 1; }
           echo "Using apksigner: $APKSIGNER"
           cp "$APK" "$SIGNED"
-          if [ -n "${OPENCODE_ANDROID_KEYSTORE_B64}" ] && [ -n "${UNIFIA_ANDROID_KEY_ALIAS}" ] && [ -n "${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${UNIFIA_ANDROID_KEY_PASSWORD}" ]; then
+          if [ -n "${ANDROID_KEYSTORE_B64}" ] && [ -n "${UNIFIA_ANDROID_KEY_ALIAS}" ] && [ -n "${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${UNIFIA_ANDROID_KEY_PASSWORD}" ]; then
             echo "Signing APK with configured release key"
-            echo "${OPENCODE_ANDROID_KEYSTORE_B64}" | base64 --decode > /tmp/opencode-release.keystore
-            "$APKSIGNER" sign --ks /tmp/opencode-release.keystore --ks-key-alias "${UNIFIA_ANDROID_KEY_ALIAS}" --ks-pass pass:"${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" --key-pass pass:"${UNIFIA_ANDROID_KEY_PASSWORD}" "$SIGNED"
-            rm -f /tmp/opencode-release.keystore
+            echo "${ANDROID_KEYSTORE_B64}" | base64 --decode > /tmp/unifia-release.keystore
+            "$APKSIGNER" sign --ks /tmp/unifia-release.keystore --ks-key-alias "${UNIFIA_ANDROID_KEY_ALIAS}" --ks-pass pass:"${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" --key-pass pass:"${UNIFIA_ANDROID_KEY_PASSWORD}" "$SIGNED"
+            rm -f /tmp/unifia-release.keystore
           else
             echo "Release signing secrets are not configured; using an ephemeral CI key for dev validation"
-            keytool -genkeypair -v -keystore /tmp/opencode-ci.keystore -alias unifia-ci -keyalg RSA -keysize 2048 -validity 1 -storepass android -keypass android -dname "CN=Unifia CI"
-            "$APKSIGNER" sign --ks /tmp/opencode-ci.keystore --ks-key-alias unifia-ci --ks-pass pass:android --key-pass pass:android "$SIGNED"
-            rm -f /tmp/opencode-ci.keystore
+            keytool -genkeypair -v -keystore /tmp/unifia-ci.keystore -alias unifia-ci -keyalg RSA -keysize 2048 -validity 1 -storepass android -keypass android -dname "CN=Unifia CI"
+            "$APKSIGNER" sign --ks /tmp/unifia-ci.keystore --ks-key-alias unifia-ci --ks-pass pass:android --key-pass pass:android "$SIGNED"
+            rm -f /tmp/unifia-ci.keystore
           fi
           "$APKSIGNER" verify --verbose "$SIGNED"
           sha256sum "$SIGNED" | tee "$SIGNED.sha256"
@@ -297,7 +304,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unifia-mobile-apk
-          path: packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/opencode-mobile.apk
+          path: packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk
           retention-days: 30
 
       # ─── Verify Android Rust unit tests compile ────────────────────

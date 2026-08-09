@@ -383,7 +383,7 @@ jobs:
       - name: Sign APK (debug keystore)
         run: |
           APK="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
-          SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/opencode-mobile.apk"
+          SIGNED="packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk"
           keytool -genkey -v \
             -keystore /tmp/ci.keystore \
             -alias unifia -keyalg RSA -keysize 2048 -validity 10000 \
@@ -397,7 +397,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: apk
-          path: packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/opencode-mobile.apk
+          path: packages/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/unifia-mobile.apk
           if-no-files-found: error
 
   # ─── Create GitHub Release ──────────────────────────────────────────
@@ -447,4 +447,4 @@ jobs:
             release/opencode-windows-x64.zip
             release/opencode-desktop-linux-x64.deb
             release/opencode-desktop-windows-x64.exe
-            release/opencode-mobile.apk
+            release/unifia-mobile.apk

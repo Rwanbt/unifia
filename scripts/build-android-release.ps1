@@ -36,7 +36,7 @@ try {
 
 $unsigned = Get-ChildItem -LiteralPath $apkRoot -Recurse -File -Filter '*unsigned.apk' | Select-Object -First 1
 if (-not $unsigned) { throw "No unsigned APK found below $apkRoot" }
-$unsignedOut = Join-Path $artifactDir 'opencode-mobile-unsigned.apk'
+$unsignedOut = Join-Path $artifactDir 'unifia-mobile-unsigned.apk'
 Copy-Item -LiteralPath $unsigned.FullName -Destination $unsignedOut -Force
 
 & pwsh -NoProfile -File (Join-Path $repo 'scripts/android-runtime-provenance.ps1') -OutputPath 'artifacts/android-release/provenance.json'
@@ -54,7 +54,7 @@ if ([string]::IsNullOrWhiteSpace($KeystoreAlias) -or [string]::IsNullOrWhiteSpac
   throw 'Release keystore alias and password are required.'
 }
 
-$signedOut = Join-Path $artifactDir 'opencode-mobile-release.apk'
+$signedOut = Join-Path $artifactDir 'unifia-mobile-release.apk'
 Copy-Item -LiteralPath $unsignedOut -Destination $signedOut -Force
 $apksigner = Get-Command apksigner -ErrorAction SilentlyContinue
 if (-not $apksigner) { throw 'apksigner is required to sign and verify release APKs.' }
@@ -66,5 +66,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Release APK signature verification failed' }
 
 $metadata = & $apksigner.Source verify --print-certs $signedOut 2>&1 | Out-String
 if ($metadata -match '(?i)CN=Android Debug|androiddebugkey') { throw 'Debug-signed APK rejected' }
-Get-FileHash -LiteralPath $signedOut -Algorithm SHA256 | ConvertTo-Json | Set-Content (Join-Path $artifactDir 'opencode-mobile-release.apk.sha256.json')
+Get-FileHash -LiteralPath $signedOut -Algorithm SHA256 | ConvertTo-Json | Set-Content (Join-Path $artifactDir 'unifia-mobile-release.apk.sha256.json')
 Write-Host "Release APK: $signedOut"

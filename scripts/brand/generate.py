@@ -123,6 +123,36 @@ def generate_copies(cfg: dict) -> dict[str, Entry]:
     return produced
 
 
+def generate_android_launcher(cfg: dict, masters: Path, icon: str) -> dict[str, Entry]:
+    """Android home-screen icons, per density.
+
+    These were still the upstream artwork: sampling them found only greys, while
+    every Unifia master carries the brand purple and orange. The launcher icon is
+    the most visible surface there is, and it was the one the rebrand missed.
+
+    hdpi is 49px rather than the textbook 48 * 1.5 = 72 because that is the size
+    the existing set uses; keeping it avoids a layout change on that density.
+    """
+    spec = cfg.get("androidLauncher")
+    if not spec:
+        return {}
+    root = REPO / spec["dir"]
+    produced: dict[str, Entry] = {}
+    plans = [
+        (spec["icon"], icon, ["ic_launcher.png", "ic_launcher_round.png"]),
+        (spec["foreground"], spec.get("foregroundSource", icon), ["ic_launcher_foreground.png"]),
+    ]
+    for sizes, stem, names in plans:
+        master = masters / f"{stem}.png"
+        for density, size in sizes.items():
+            data = render_png(master, size)
+            for name in names:
+                path = root / f"mipmap-{density}" / name
+                write_if_changed(path, data)
+                produced[f"{spec['dir']}/mipmap-{density}/{name}"] = describe(data)
+    return produced
+
+
 def generate_tauri_icons(cfg: dict, masters: Path, icon: str) -> dict[str, Entry]:
     spec = cfg["tauriIconSpec"]
     master = masters / f"{icon}.png"
@@ -168,6 +198,7 @@ def main() -> int:
     produced.update(generate_svg_sets(cfg, manifest, masters))
     produced.update(generate_rasters(cfg, masters, cfg["primaryIcon"]))
     produced.update(generate_tauri_icons(cfg, masters, cfg["primaryIcon"]))
+    produced.update(generate_android_launcher(cfg, masters, cfg["primaryIcon"]))
     produced.update(generate_copies(cfg))
 
     manifest["generatedBy"] = "scripts/brand/generate.py"

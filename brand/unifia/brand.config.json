@@ -17,6 +17,12 @@
   "copies": [
     { "from": "brand/unifia/unifia.css", "to": "packages/app/src/styles/unifia-brand.css" }
   ],
+  "androidLauncher": {
+    "dir": "packages/mobile/src-tauri/gen/android/app/src/main/res",
+    "icon": { "mdpi": 48, "hdpi": 49, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192 },
+    "foreground": { "mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432 },
+    "foregroundSource": "unifia-symbol-color"
+  },
   "tauriIconSets": ["packages/desktop/src-tauri/icons", "packages/mobile/src-tauri/icons"],
   "tauriIconSpec": {
     "png": {
