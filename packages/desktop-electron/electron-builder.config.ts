@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -6,6 +7,24 @@ import { promisify } from "node:util"
 import type { Configuration } from "electron-builder"
 
 const execFileAsync = promisify(execFile)
+
+// Kept in this file rather than imported from ./scripts/utils.ts: electron-builder
+// loads this config under Node, and that module reads the CLI manifest through
+// Bun's API at import time. The literal is the same one `extraResources` filters
+// on a few lines below, and the same one src/main/cli.ts resolves at runtime.
+const SIDECAR_BASENAME = `opencode-cli${process.platform === "win32" ? ".exe" : ""}`
+const sidecarStagingPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "resources", SIDECAR_BASENAME)
+
+// A package with no sidecar builds, signs and installs without a single
+// warning, and only fails at runtime as "cannot reach the local server" — the
+// `extraResources` filter below simply matches zero files. Fail the build
+// instead: shipping the shell without its backend is never the intent.
+function assertSidecarStaged() {
+  if (existsSync(sidecarStagingPath)) return
+  throw new Error(
+    `Sidecar missing at ${sidecarStagingPath}. Run "bun ./scripts/stage-sidecar.ts" in packages/desktop-electron first.`,
+  )
+}
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
 
@@ -28,11 +47,18 @@ const channel = (() => {
 
 const getBase = (): Configuration => ({
   artifactName: "unifia-electron-${os}-${arch}.${ext}",
+  beforePack: async () => {
+    assertSidecarStaged()
+  },
   directories: {
     output: "dist",
     buildResources: "resources",
   },
-  files: ["out/**/*", "resources/**/*"],
+  // The sidecar is excluded here because `extraResources` below already ships
+  // it, unpacked, at the path getSidecarPath() resolves. Without the negation
+  // it is *also* packed into app.asar, where nothing ever reads it — 184 MB of
+  // dead weight that lands in the installer twice.
+  files: ["out/**/*", "resources/**/*", `!resources/${SIDECAR_BASENAME}`],
   extraResources: [
     {
       from: "resources/",

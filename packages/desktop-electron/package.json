@@ -14,6 +14,7 @@
     "prebuild": "bun ./scripts/copy-icons.ts",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "prepackage": "bun ./scripts/stage-sidecar.ts",
     "package": "electron-builder --config electron-builder.config.ts",
     "package:mac": "electron-builder --mac --config electron-builder.config.ts",
     "package:win": "electron-builder --win --config electron-builder.config.ts",
