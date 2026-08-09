@@ -11,7 +11,7 @@ export const dict = {
   "desktop.updater.checkFailed.title": "업데이트 확인 실패",
   "desktop.updater.checkFailed.message": "업데이트를 확인하지 못했습니다",
   "desktop.updater.none.title": "사용 가능한 업데이트 없음",
-  "desktop.updater.none.message": "이미 최신 버전의 OpenCode를 사용하고 있습니다",
+  "desktop.updater.none.message": "이미 최신 버전의 Unifia를 사용하고 있습니다",
   "desktop.updater.downloadFailed.title": "업데이트 실패",
   "desktop.updater.downloadFailed.message": "업데이트를 다운로드하지 못했습니다",
   "desktop.updater.downloaded.title": "업데이트 다운로드 완료",

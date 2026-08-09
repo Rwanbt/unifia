@@ -40,7 +40,7 @@ export const dict = {
   "desktop.menu.view.forward": "Vorwärts",
   "desktop.menu.view.previousSession": "Vorherige Sitzung",
   "desktop.menu.view.nextSession": "Nächste Sitzung",
-  "desktop.menu.help.documentation": "OpenCode-Dokumentation",
+  "desktop.menu.help.documentation": "Unifia-Dokumentation",
   "desktop.menu.help.supportForum": "Support-Forum",
   "desktop.menu.help.shareFeedback": "Feedback teilen",
   "desktop.menu.help.reportBug": "Einen Fehler melden",
