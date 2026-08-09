@@ -6,7 +6,7 @@ import type { ProviderID, ModelID } from "../provider/schema"
 import { Collective } from "./types"
 import { Metrics } from "./metrics"
 import { Log } from "../util/log"
-import { Bus } from "../bus"
+import type { Bus } from "../bus"
 import * as Events from "./events"
 
 import PROMPT_SYNTHESIS from "./prompts/synthesis.txt"

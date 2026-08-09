@@ -5,7 +5,7 @@ import { Provider } from "../provider/provider"
 import type { ProviderID, ModelID } from "../provider/schema"
 import { Collective } from "./types"
 import { Log } from "../util/log"
-import { Bus } from "../bus"
+import type { Bus } from "../bus"
 import * as Events from "./events"
 
 export namespace Canary {

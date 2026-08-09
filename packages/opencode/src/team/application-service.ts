@@ -7,7 +7,7 @@ import {
   type ReviewResult,
   type ReviewRisk,
 } from "./review-runtime"
-import { TeamStore } from "./team-store"
+import type { TeamStore } from "./team-store"
 
 export interface TeamApplicationTask {
   readonly taskId: string

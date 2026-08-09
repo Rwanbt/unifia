@@ -8,6 +8,6 @@ test("read-only viewer keeps every Unifia syntax token colored under CSP", () =>
     "variable", "property", "type", "constant", "punctuation", "object",
     "critical", "warning", "info", "unknown",
   ]) {
-    expect(pierreSource).toContain(`span[style*=\"--syntax-${token}\"]`)
+    expect(pierreSource).toContain(`span[style*="--syntax-${token}"]`)
   }
 })
