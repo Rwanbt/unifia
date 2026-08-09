@@ -70,7 +70,10 @@ export default function Home() {
 
   return (
     <div class="mx-auto mt-55 w-full md:w-auto px-4">
-      <Logo class="md:w-xl opacity-12" />
+      {/* mx-auto + an explicit narrow-viewport width: the logo carried neither,
+          so below `md` it fell back to the SVG's default intrinsic width and sat
+          left-aligned in the full-width container instead of centred. */}
+      <Logo class="mx-auto w-64 md:w-xl opacity-12" />
       <Button
         size="large"
         variant="ghost"

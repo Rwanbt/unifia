@@ -25,6 +25,14 @@
       "to": "packages/ui/src/assets/brand/unifia/unifia-symbol-color.svg"
     },
     {
+      "from": "brand/unifia/variants/unifia-logotype-dark.svg",
+      "to": "packages/ui/src/assets/brand/unifia/unifia-logotype-dark.svg"
+    },
+    {
+      "from": "brand/unifia/variants/unifia-logotype-light.svg",
+      "to": "packages/ui/src/assets/brand/unifia/unifia-logotype-light.svg"
+    },
+    {
       "from": "packages/web/public/brand/unifia/unifia-192.png",
       "to": "packages/app/public/brand/unifia/unifia-192.png"
     },

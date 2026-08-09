@@ -53,7 +53,12 @@ impl MainWindow {
             app,
             decorations,
         )
-        .title("OpenCode")
+        // Read from the bundle's productName rather than written out: the
+        // literal here still said "OpenCode" after the rebrand, so the running
+        // window announced the upstream product in its title bar, its taskbar
+        // entry and its Alt-Tab card. Deriving it also keeps the per-channel
+        // names ("Unifia Dev" / "Unifia Beta" / "Unifia") correct for free.
+        .title(&app.package_info().name)
         .disable_drag_drop_handler()
         .zoom_hotkeys_enabled(false)
         .visible(true)

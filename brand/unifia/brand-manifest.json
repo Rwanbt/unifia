@@ -876,6 +876,8 @@
       512,
       512
     ],
+    "packages/ui/src/assets/brand/unifia/unifia-logotype-dark.svg": "9733690383cadca37cb2dc545456e4b076cc9ee62e68394258ea92149863e240",
+    "packages/ui/src/assets/brand/unifia/unifia-logotype-light.svg": "61f02e1d299f2469f9e063a4ad336c367f696449f8dcc7fd9c99f765a0846c6f",
     "packages/ui/src/assets/brand/unifia/unifia-symbol-color.svg": "7a061444e24129a86730ab27a4575be8681d063fb748d93d76f3342b52cd6a93",
     "packages/web/public/brand/unifia/favicon.ico": "58e88aa38297c40cc1ace574cab262d8d7da13a3d929466894e495f3f9406fc6",
     "packages/web/public/brand/unifia/unifia-192.png": [
