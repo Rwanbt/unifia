@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, statSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import { resolve } from "node:path"
 
 const runtimeFiles = [
@@ -76,10 +76,12 @@ const MANUALLY_VENDORED = [
 // libunifia_mobile_lib.so is the cargo output, so neither has to pre-exist here.
 const present = (name) => {
   const path = resolve(JNI_DIR, name)
+  // Both existsSync and statSync follow symlinks, so a hard link or a symlink
+  // into a sibling worktree counts — that is the documented staging route —
+  // while a dangling symlink does not. Checking the link itself with lstat
+  // would pass one, since its own size is the length of the target path.
   if (!existsSync(path)) return false
-  // Hard links and symlinks both count: staging from a sibling worktree is the
-  // documented workaround, and lstat keeps a dangling symlink from passing.
-  return lstatSync(path).size > 0 || statSync(path).size > 0
+  return statSync(path).size > 0
 }
 
 const missingCi = CI_PROVISIONED.filter((name) => !present(name))
