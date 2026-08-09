@@ -4,6 +4,8 @@ import android.Manifest
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.util.Log
+import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -25,9 +27,52 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.File
 
+private const val AUTH_KEY_ALIAS = "opencode.auth.master"
+private const val AUTH_PREFS = "opencode_secure_auth"
+private const val WRAPPED_KEY_PREF = "wrapped_key"
+private const val AUTH_KEY_BYTES = 32
+private const val GCM_IV_BYTES = 12
+private const val GCM_TAG_BITS = 128
+// Wrapped blob layout: GCM IV, then the AES-GCM ciphertext of the 32-byte key
+// with its 128-bit tag appended.
+private const val PACKED_KEY_BYTES = GCM_IV_BYTES + AUTH_KEY_BYTES + GCM_TAG_BITS / 8
+private const val AUTH_LOG_TAG = "Unifia"
+
 class MainActivity : TauriActivity() {
-  fun getAuthStorageKey(): String {
-    val alias = "opencode.auth.master"
+  // The AndroidKeyStore entry and the wrapped key in SharedPreferences have
+  // independent lifecycles. A lock-screen credential change, a keystore reset,
+  // or an OEM-specific invalidation drops the key while the wrapped blob
+  // survives — decryption then fails the GCM tag check on every launch and the
+  // embedded server can never start (observed on MIUI: keystore2 reports
+  // `finish: KeyMint::finish failed / ErrorCode(-30)` = VERIFICATION_FAILED).
+  // Re-key rather than stay bricked: whatever the lost key protected is already
+  // unrecoverable, so keeping the stale blob buys nothing.
+  fun getAuthStorageKey(): String =
+    try {
+      loadOrCreateAuthStorageKey()
+    } catch (e: GeneralSecurityException) {
+      rekeyAuthStorage(e)
+    } catch (e: IllegalStateException) {
+      rekeyAuthStorage(e)
+    } catch (e: IllegalArgumentException) {
+      // Base64.decode on a truncated or malformed wrapped_key.
+      rekeyAuthStorage(e)
+    }
+
+  // Drops the unusable key material so the next load regenerates it. Any
+  // second failure propagates — one recovery attempt, never a retry loop.
+  private fun rekeyAuthStorage(cause: Exception): String {
+    Log.w(AUTH_LOG_TAG, "secure auth storage unusable, re-keying", cause)
+    val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    if (store.containsAlias(AUTH_KEY_ALIAS)) store.deleteEntry(AUTH_KEY_ALIAS)
+    // commit(), not apply(): the regeneration below reads this file back, so the
+    // removal has to be durable before it runs.
+    getSharedPreferences(AUTH_PREFS, MODE_PRIVATE).edit().remove(WRAPPED_KEY_PREF).commit()
+    return loadOrCreateAuthStorageKey()
+  }
+
+  private fun loadOrCreateAuthStorageKey(): String {
+    val alias = AUTH_KEY_ALIAS
     val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
     if (!store.containsAlias(alias)) {
       val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
@@ -50,23 +95,28 @@ class MainActivity : TauriActivity() {
     }
     val key = store.getKey(alias, null)
       ?: throw IllegalStateException("AndroidKeyStore alias '$alias' exists but getKey() returned null")
-    val prefs = getSharedPreferences("opencode_secure_auth", MODE_PRIVATE)
-    val wrapped = prefs.getString("wrapped_key", null)
+    val prefs = getSharedPreferences(AUTH_PREFS, MODE_PRIVATE)
+    val wrapped = prefs.getString(WRAPPED_KEY_PREF, null)
     val raw = if (wrapped == null) {
-      ByteArray(32).also { SecureRandom().nextBytes(it) }.also { keyBytes ->
+      ByteArray(AUTH_KEY_BYTES).also { SecureRandom().nextBytes(it) }.also { keyBytes ->
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key)
-        prefs.edit().putString("wrapped_key", Base64.encodeToString(cipher.iv + cipher.doFinal(keyBytes), Base64.NO_WRAP)).apply()
+        prefs.edit().putString(WRAPPED_KEY_PREF, Base64.encodeToString(cipher.iv + cipher.doFinal(keyBytes), Base64.NO_WRAP)).apply()
       }
     } else {
       val packed = Base64.decode(wrapped, Base64.NO_WRAP)
+      // Guard before slicing: a truncated blob would raise
+      // ArrayIndexOutOfBoundsException, which getAuthStorageKey does not treat
+      // as recoverable. IllegalStateException routes it to the re-key path.
+      check(packed.size == PACKED_KEY_BYTES) {
+        "wrapped auth key is ${packed.size} bytes, expected $PACKED_KEY_BYTES"
+      }
       val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-      cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, packed.copyOfRange(0, 12)))
-      cipher.doFinal(packed.copyOfRange(12, packed.size))
+      cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, packed.copyOfRange(0, GCM_IV_BYTES)))
+      cipher.doFinal(packed.copyOfRange(GCM_IV_BYTES, packed.size))
     }
-    val encoded = Base64.encodeToString(raw, Base64.NO_WRAP)
-    check(raw.size == 32) { "generated auth key is ${raw.size} bytes, expected 32" }
-    return encoded
+    check(raw.size == AUTH_KEY_BYTES) { "auth key is ${raw.size} bytes, expected $AUTH_KEY_BYTES" }
+    return Base64.encodeToString(raw, Base64.NO_WRAP)
   }
 
   private var hadAllFilesAccessAtCreate: Boolean = false
