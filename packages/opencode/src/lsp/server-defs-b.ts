@@ -25,7 +25,7 @@ export const CSharp: Info = {
         return
       }
 
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("installing csharp-ls via dotnet tool")
       const proc = Process.spawn(["dotnet", "tool", "install", "csharp-ls", "--tool-path", Global.Path.bin], {
         stdout: "pipe",
@@ -62,7 +62,7 @@ export const FSharp: Info = {
         return
       }
 
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("installing fsautocomplete via dotnet tool")
       const proc = Process.spawn(["dotnet", "tool", "install", "fsautocomplete", "--tool-path", Global.Path.bin], {
         stdout: "pipe",
@@ -206,7 +206,7 @@ export const Clangd: Info = {
       }
     }
 
-    if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+    if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
     log.info("downloading clangd from GitHub releases")
 
     const releaseResponse = await fetch("https://api.github.com/repos/clangd/clangd/releases/latest")
@@ -321,7 +321,7 @@ export const Svelte: Info = {
     let binary = which("svelteserver")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("svelte-language-server")
       if (!resolved) return
       binary = resolved
@@ -355,7 +355,7 @@ export const Astro: Info = {
     let binary = which("astro-ls")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("@astrojs/language-server")
       if (!resolved) return
       binary = resolved
@@ -423,7 +423,7 @@ export const JDTLS: Info = {
     const launcherDir = path.join(distPath, "plugins")
     const installed = await pathExists(launcherDir)
     if (!installed) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("Downloading JDTLS LSP server.")
       await fs.mkdir(distPath, { recursive: true })
       const releaseURL =
@@ -521,7 +521,7 @@ export const KotlinLS: Info = {
       process.platform === "win32" ? path.join(distPath, "kotlin-lsp.cmd") : path.join(distPath, "kotlin-lsp.sh")
     const installed = await Filesystem.exists(launcherScript)
     if (!installed) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("Downloading Kotlin Language Server from GitHub.")
 
       const releaseResponse = await fetch("https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest")
@@ -606,7 +606,7 @@ export const YamlLS: Info = {
     let binary = which("yaml-language-server")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("yaml-language-server")
       if (!resolved) return
       binary = resolved
@@ -640,7 +640,7 @@ export const LuaLS: Info = {
     let bin = which("lua-language-server")
 
     if (!bin) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading lua-language-server from GitHub releases")
 
       const releaseResponse = await fetch("https://api.github.com/repos/LuaLS/lua-language-server/releases/latest")

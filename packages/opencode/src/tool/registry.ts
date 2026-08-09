@@ -183,7 +183,7 @@ export namespace ToolRegistry {
           patch,
           ...(Flag.UNIFIA_EXPERIMENTAL_LSP_TOOL ? [lsp] : []),
           ...(cfg.experimental?.batch_tool === true ? [batch] : []),
-          ...(Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [plan] : []),
+          ...(Flag.UNIFIA_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [plan] : []),
           debate,
           ...custom,
         ]

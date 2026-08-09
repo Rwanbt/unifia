@@ -77,7 +77,7 @@ export namespace Shell {
 
   export function gitbash() {
     if (process.platform !== "win32") return
-    if (Flag.OPENCODE_GIT_BASH_PATH) return Flag.OPENCODE_GIT_BASH_PATH
+    if (Flag.UNIFIA_GIT_BASH_PATH) return Flag.UNIFIA_GIT_BASH_PATH
     const git = which("git")
     if (!git) return
     // git.exe can live at <root>/cmd, <root>/mingw64/bin, or <root>/usr/bin

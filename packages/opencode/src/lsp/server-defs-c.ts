@@ -18,7 +18,7 @@ export const PHPIntelephense: Info = {
     let binary = which("intelephense")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("intelephense")
       if (!resolved) return
       binary = resolved
@@ -102,7 +102,7 @@ export const BashLS: Info = {
     let binary = which("bash-language-server")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("bash-language-server")
       if (!resolved) return
       binary = resolved
@@ -128,7 +128,7 @@ export const TerraformLS: Info = {
     let bin = which("terraform-ls")
 
     if (!bin) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading terraform-ls from HashiCorp releases")
 
       const releaseResponse = await fetch("https://api.releases.hashicorp.com/v1/releases/terraform-ls/latest")
@@ -209,7 +209,7 @@ export const TexLab: Info = {
     let bin = which("texlab")
 
     if (!bin) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading texlab from GitHub releases")
 
       const response = await fetch("https://api.github.com/repos/latex-lsp/texlab/releases/latest")
@@ -297,7 +297,7 @@ export const DockerfileLS: Info = {
     let binary = which("docker-langserver")
     const args: string[] = []
     if (!binary) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       const resolved = await Npm.which("dockerfile-language-server-nodejs")
       if (!resolved) return
       binary = resolved
@@ -393,7 +393,7 @@ export const Tinymist: Info = {
     let bin = which("tinymist")
 
     if (!bin) {
-      if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) return
+      if (Flag.UNIFIA_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading tinymist from GitHub releases")
 
       const response = await fetch("https://api.github.com/repos/Myriad-Dreamin/tinymist/releases/latest")
