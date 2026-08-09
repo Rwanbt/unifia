@@ -109,7 +109,10 @@ export namespace Npm {
         savePrefix: "",
         ignoreScripts: true,
       })
-      await arb.reify().catch(() => {})
+      // Deliberately not swallowed. A failing reify used to be invisible here,
+      // so an unresolvable dependency looked exactly like a successful install
+      // with a missing package — the caller could neither report nor recover.
+      await arb.reify()
     }
 
     if (!(await Filesystem.exists(path.join(dir, "node_modules")))) {
