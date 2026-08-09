@@ -704,7 +704,7 @@ export namespace MessageV2 {
         }
         // Deferred prompt-cache-after-compaction chantier (plan v3.1, Phase 2):
         // tag the compaction summary's text part with a transient
-        // opencodeCacheInternal.cacheAnchor marker, independent of the
+        // unifiaCacheInternal.cacheAnchor marker, independent of the
         // differentModel gate below — this bookkeeping marker identifies
         // "this message IS the compaction summary" regardless of which model
         // continues the conversation. PromptCache.stripInternalProviderMetadata()
@@ -716,7 +716,13 @@ export namespace MessageV2 {
             const providerMetadata = iife(() => {
               const base = differentModel ? undefined : part.metadata
               if (!isCompactionSummary || part.text.trim() === "") return base
-              return mergeDeep(base ?? {}, { opencodeCacheInternal: { cacheAnchor: true } })
+              // Must match PromptCache.MARKER_NAMESPACE in provider/cache.ts.
+              // The rebrand renamed the stripper to "unifiaCacheInternal" and
+              // left this writer on the old spelling, so the marker was never
+              // removed: it rode out to the provider adapter on every
+              // compaction summary, and the anchoring it exists to drive never
+              // matched either.
+              return mergeDeep(base ?? {}, { unifiaCacheInternal: { cacheAnchor: true } })
             })
             assistantMessage.parts.push({
               type: "text",

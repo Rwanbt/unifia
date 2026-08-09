@@ -134,7 +134,7 @@ describe("PromptCache.selectMessageBreakpoints", () => {
   test("prioritizes the compaction-summary anchor over a duplicate final-message slot", () => {
     const summary: ModelMessage = {
       role: "assistant",
-      content: [{ type: "text", text: "summary", providerOptions: { opencodeCacheInternal: { cacheAnchor: true } } }],
+      content: [{ type: "text", text: "summary", providerOptions: { unifiaCacheInternal: { cacheAnchor: true } } }],
     } as any
     const messages: ModelMessage[] = [{ role: "system", content: "sys" }, summary, { role: "user", content: "next" }]
     // Budget of 2: system + summary should win over "last 2 non-system messages" (summary + next).
@@ -207,25 +207,25 @@ describe("PromptCache.applyMessageCacheMarkers", () => {
 })
 
 describe("PromptCache.stripInternalProviderMetadata", () => {
-  test("removes the opencodeCacheInternal namespace from message and content providerOptions", () => {
+  test("removes the unifiaCacheInternal namespace from message and content providerOptions", () => {
     const messages: ModelMessage[] = [
       {
         role: "assistant",
-        providerOptions: { opencodeCacheInternal: { cacheAnchor: true }, anthropic: { cacheControl: { type: "ephemeral" } } },
-        content: [{ type: "text", text: "hi", providerOptions: { opencodeCacheInternal: { cacheAnchor: true } } }],
+        providerOptions: { unifiaCacheInternal: { cacheAnchor: true }, anthropic: { cacheControl: { type: "ephemeral" } } },
+        content: [{ type: "text", text: "hi", providerOptions: { unifiaCacheInternal: { cacheAnchor: true } } }],
       } as any,
     ]
     const result = PromptCache.stripInternalProviderMetadata(messages)
-    expect((result[0] as any).providerOptions.opencodeCacheInternal).toBeUndefined()
+    expect((result[0] as any).providerOptions.unifiaCacheInternal).toBeUndefined()
     expect((result[0] as any).providerOptions.anthropic).toEqual({ cacheControl: { type: "ephemeral" } })
-    expect((result[0] as any).content[0].providerOptions.opencodeCacheInternal).toBeUndefined()
+    expect((result[0] as any).content[0].providerOptions.unifiaCacheInternal).toBeUndefined()
   })
 
   test("CRITICAL: never strips the real 'unifia' provider's own providerOptions namespace", () => {
     // The "unifia" provider (self-hosted models via @ai-sdk/openai-compatible)
-    // legitimately uses providerOptions.opencode for itemId / reasoning
+    // legitimately uses providerOptions.unifia for itemId / reasoning
     // continuation metadata (see ProviderTransform.message tests). The internal
-    // cache marker MUST live under a different key ("opencodeCacheInternal")
+    // cache marker MUST live under a different key ("unifiaCacheInternal")
     // so this real namespace is never touched.
     const messages: ModelMessage[] = [
       {
@@ -235,8 +235,8 @@ describe("PromptCache.stripInternalProviderMetadata", () => {
       } as any,
     ]
     const result = PromptCache.stripInternalProviderMetadata(messages)
-    expect((result[0] as any).providerOptions.opencode).toEqual({ itemId: "msg_123", otherOption: "value" })
-    expect((result[0] as any).content[0].providerOptions.opencode).toEqual({ itemId: "msg_456" })
+    expect((result[0] as any).providerOptions.unifia).toEqual({ itemId: "msg_123", otherOption: "value" })
+    expect((result[0] as any).content[0].providerOptions.unifia).toEqual({ itemId: "msg_456" })
   })
 
   test("returns the same array reference when nothing needs stripping", () => {
@@ -396,11 +396,11 @@ describe("Phase 2 — end-to-end compaction-summary anchoring pipeline", () => {
     const marked = PromptCache.applyMessageCacheMarkers(msgs, { capabilities, breakpoints })
     expect((marked[1] as any).providerOptions.anthropic.cacheControl).toEqual({ type: "ephemeral" })
     // The internal marker is still present until the final strip step...
-    expect((marked[1] as any).content[0].providerOptions.opencodeCacheInternal.cacheAnchor).toBe(true)
+    expect((marked[1] as any).content[0].providerOptions.unifiaCacheInternal.cacheAnchor).toBe(true)
 
     const wire = PromptCache.stripInternalProviderMetadata(marked)
     // ...and is gone from the payload that would actually reach the provider.
-    expect(JSON.stringify(wire)).not.toContain("opencodeCacheInternal")
+    expect(JSON.stringify(wire)).not.toContain("unifiaCacheInternal")
     expect(JSON.stringify(wire)).not.toContain("cacheAnchor")
     // The real cache_control marker survives the strip.
     expect((wire[1] as any).providerOptions.anthropic.cacheControl).toEqual({ type: "ephemeral" })

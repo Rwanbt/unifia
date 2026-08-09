@@ -203,7 +203,7 @@ describe("Phase 2 — MessageV2.toModelMessagesEffect compaction marker", () => 
   // propagates at all"). Phase 2 of the deferred prompt-cache-after-compaction
   // plan (v3.1) deliberately changes this — the assertions below now reflect
   // the new, intentional behavior instead.
-  test("a compaction summary message (mode=compaction, summary=true) carries the opencodeCacheInternal.cacheAnchor marker", async () => {
+  test("a compaction summary message (mode=compaction, summary=true) carries the unifiaCacheInternal.cacheAnchor marker", async () => {
     const sessionID = SessionID.make("session-marker")
     const providerID = ProviderID.make("anthropic")
     const messageID = MessageID.make("m-summary")
@@ -270,7 +270,7 @@ describe("Phase 2 — MessageV2.toModelMessagesEffect compaction marker", () => 
     // providerMetadata → ModelMessage content-part providerOptions round trip),
     // not on the message itself.
     const content = result[0].content as any[]
-    expect(content[0].providerOptions?.opencodeCacheInternal?.cacheAnchor).toBe(true)
+    expect(content[0].providerOptions?.unifiaCacheInternal?.cacheAnchor).toBe(true)
   })
 
   test("an ordinary assistant message (no mode=compaction/summary=true) is never tagged as a cache anchor", async () => {
