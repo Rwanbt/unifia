@@ -19,7 +19,11 @@ import { FileIgnore } from "./ignore"
 import { Protected } from "./protected"
 import { Log } from "../util/log"
 
-declare const OPENCODE_LIBC: string | undefined
+// Inlined by script/build.ts's `define`. The rebrand renamed it there and left
+// this consumer on OPENCODE_LIBC, so a musl build silently loaded the glibc
+// binding. Guarded with `typeof` below because a source checkout defines
+// nothing at all, and a bare read of an undeclared global throws.
+declare const UNIFIA_LIBC: string | undefined
 
 export namespace FileWatcher {
   const log = Log.create({ service: "file.watcher" })
@@ -37,8 +41,9 @@ export namespace FileWatcher {
 
   const watcher = lazy((): typeof import("@parcel/watcher") | undefined => {
     try {
+      const libc = typeof UNIFIA_LIBC === "string" && UNIFIA_LIBC ? UNIFIA_LIBC : "glibc"
       const binding = require(
-        `@parcel/watcher-${process.platform}-${process.arch}${process.platform === "linux" ? `-${OPENCODE_LIBC || "glibc"}` : ""}`,
+        `@parcel/watcher-${process.platform}-${process.arch}${process.platform === "linux" ? `-${libc}` : ""}`,
       )
       return createWrapper(binding) as typeof import("@parcel/watcher")
     } catch (error) {
@@ -76,7 +81,7 @@ export namespace FileWatcher {
       const state = yield* InstanceState.make(
         Effect.fn("FileWatcher.state")(
           function* () {
-            if (yield* Flag.OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER) return
+            if (yield* Flag.UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER) return
 
             log.info("init", { directory: Instance.directory })
 
@@ -128,7 +133,7 @@ export namespace FileWatcher {
             const cfg = yield* config.get()
             const cfgIgnores = cfg.watcher?.ignore ?? []
 
-            if (yield* Flag.OPENCODE_EXPERIMENTAL_FILEWATCHER) {
+            if (yield* Flag.UNIFIA_EXPERIMENTAL_FILEWATCHER) {
               yield* subscribe(Instance.directory, [
                 ...FileIgnore.PATTERNS,
                 ...cfgIgnores,

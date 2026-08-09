@@ -16,7 +16,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { iife } from "@/util/iife"
 import { init } from "#db"
 
-declare const OPENCODE_MIGRATIONS: { sql: string; timestamp: number; name: string }[] | undefined
+declare const UNIFIA_MIGRATIONS: { sql: string; timestamp: number; name: string }[] | undefined
 
 export const NotFoundError = NamedError.create(
   "NotFoundError",
@@ -29,16 +29,17 @@ const log = Log.create({ service: "db" })
 
 export namespace Database {
   export function getChannelPath() {
-    if (["latest", "beta"].includes(CHANNEL) || Flag.OPENCODE_DISABLE_CHANNEL_DB)
+    if (["latest", "beta"].includes(CHANNEL) || Flag.UNIFIA_DISABLE_CHANNEL_DB)
       return path.join(Global.Path.data, "opencode.db")
     const safe = CHANNEL.replace(/[^a-zA-Z0-9._-]/g, "-")
     return path.join(Global.Path.data, `opencode-${safe}.db`)
   }
 
   export const Path = iife(() => {
-    if (Flag.OPENCODE_DB) {
-      if (Flag.OPENCODE_DB === ":memory:" || path.isAbsolute(Flag.OPENCODE_DB)) return Flag.OPENCODE_DB
-      return path.join(Global.Path.data, Flag.OPENCODE_DB)
+    const override = Flag.UNIFIA_DB
+    if (override) {
+      if (override === ":memory:" || path.isAbsolute(override)) return override
+      return path.join(Global.Path.data, override)
     }
     return getChannelPath()
   })
@@ -94,21 +95,36 @@ export namespace Database {
     db.run("PRAGMA foreign_keys = ON")
     db.run("PRAGMA wal_checkpoint(PASSIVE)")
 
-    // Apply schema migrations
-    // OPENCODE_MIGRATIONS can be inlined via --define (compile-time) or set
-    // on globalThis by a wrapper module (runtime, used on Android mobile).
-    const entries =
-      typeof OPENCODE_MIGRATIONS !== "undefined"
-        ? OPENCODE_MIGRATIONS
-        : (globalThis as any).OPENCODE_MIGRATIONS
-          ? (globalThis as any).OPENCODE_MIGRATIONS
+    // Apply schema migrations. The journal reaches us one of three ways:
+    //   1. compile-time — script/build.ts and script/build-node.ts inline it
+    //      through Bun's `define` as UNIFIA_MIGRATIONS;
+    //   2. runtime — scripts/bundle-mobile.mjs assigns it on globalThis for the
+    //      Android bundle;
+    //   3. dev — read off disk, which only exists in a source checkout.
+    //
+    // WHY this reads two globalThis spellings: the rebrand renamed the define
+    // to UNIFIA_MIGRATIONS on the producing side but left this consumer on
+    // OPENCODE_MIGRATIONS, so branch 1 never matched in a compiled binary and
+    // execution fell through to branch 3 — which scans a directory that does
+    // not exist inside a `bun build --compile` binary (B:\~BUN\migration). The
+    // sidecar died with ENOENT on its first database open, before it could ever
+    // answer /global/health, and the desktop shells reported "cannot reach the
+    // local server". The legacy globalThis name stays readable until the
+    // checked-in Android bundle is regenerated, because that artifact is
+    // committed and would otherwise silently lose every migration.
+    const bundledMigrations = (globalThis as any).UNIFIA_MIGRATIONS ?? (globalThis as any).OPENCODE_MIGRATIONS
+    const entries: Journal =
+      typeof UNIFIA_MIGRATIONS !== "undefined"
+        ? UNIFIA_MIGRATIONS
+        : bundledMigrations
+          ? bundledMigrations
           : migrations(path.join(import.meta.dirname, "../../migration"))
     if (entries.length > 0) {
       log.info("applying migrations", {
         count: entries.length,
-        mode: typeof OPENCODE_MIGRATIONS !== "undefined" || (globalThis as any).OPENCODE_MIGRATIONS ? "bundled" : "dev",
+        mode: typeof UNIFIA_MIGRATIONS !== "undefined" || bundledMigrations ? "bundled" : "dev",
       })
-      if (Flag.OPENCODE_SKIP_MIGRATIONS) {
+      if (Flag.UNIFIA_SKIP_MIGRATIONS) {
         for (const item of entries) {
           item.sql = "select 1;"
         }

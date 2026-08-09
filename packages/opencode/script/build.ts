@@ -229,7 +229,10 @@ for (const item of targets) {
       autoloadTsconfig: true,
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/unifia`,
+      // Derived, not written out: the desktop and Electron packagers locate the
+      // sidecar as `bin/<package name>`, and hardcoding it here is what let the
+      // two spellings drift apart during the rebrand.
+      outfile: `dist/${name}/bin/${pkg.name}`,
       // Default outbound User-Agent for the whole binary. This is the product's
       // own identity, so it follows the rebrand — but it is worth re-checking
       // against providers before a release: a provider that allowlists clients
@@ -250,7 +253,11 @@ for (const item of targets) {
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
       UNIFIA_WORKER_PATH: workerPath,
       UNIFIA_CHANNEL: `'${Script.channel}'`,
-      UNIFIA_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
+      // Every `define` value is substituted as source text. An empty string
+      // here erases the identifier instead of replacing it, which turns the
+      // one expression that reads it (src/file/watcher.ts) into a syntax
+      // error on every non-Linux target. Emit an empty string *literal*.
+      UNIFIA_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
     },
   })
 
