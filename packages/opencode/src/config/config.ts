@@ -418,8 +418,21 @@ export namespace Config {
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Config") {}
 
+  /**
+   * Config basenames, in merge order: later entries override earlier ones.
+   *
+   * `LEGACY_CONFIG_FILES` are the pre-rebrand names. MIGRATION-PLAN.md 4.2
+   * specifies accepting them with lower priority; the rebrand implemented only
+   * the current names, so an existing `opencode.json` stopped being read
+   * without any error — the file was simply never opened.
+   */
+  const CONFIG_FILES = ["unifia.json", "unifia.jsonc"]
+  const LEGACY_CONFIG_FILES = ["opencode.json", "opencode.jsonc"]
+
   function globalConfigFile() {
-    const candidates = ["unifia.jsonc", "unifia.json", "config.json"].map((file) =>
+    // First match wins here, so the order is the reverse of the merge order:
+    // current names first, legacy only as a last resort.
+    const candidates = ["unifia.jsonc", "unifia.json", "config.json", ...LEGACY_CONFIG_FILES.toReversed()].map((file) =>
       path.join(Global.Path.config, file),
     )
     for (const file of candidates) {
@@ -573,6 +586,9 @@ export namespace Config {
           let result: Info = pipe(
             {},
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "config.json"))),
+            // Legacy before current: mergeDeep applies in order, last wins.
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.json"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.json"))),
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.jsonc"))),
           )
@@ -674,7 +690,7 @@ export namespace Config {
 
           if (!Flag.UNIFIA_DISABLE_PROJECT_CONFIG) {
             for (const file of yield* Effect.promise(() =>
-              ConfigPaths.projectFiles("unifia", ctx.directory, searchStop),
+              ConfigPaths.projectFiles("unifia", ctx.directory, searchStop, "opencode"),
             )) {
               merge(file, yield* loadFile(file), "local")
             }
@@ -694,7 +710,12 @@ export namespace Config {
 
           for (const dir of unique(directories)) {
             if (dir.endsWith(".opencode") || dir === Flag.UNIFIA_CONFIG_DIR) {
-              for (const file of ["unifia.json", "unifia.jsonc"]) {
+              // Legacy basenames first: this loop merges in order, so the
+              // current brand must come last to win. The `.opencode` directory
+              // itself is still honoured (see ConfigPaths.directories), so the
+              // file inside it has to be too — reading the directory but
+              // ignoring its config was the inconsistency here.
+              for (const file of LEGACY_CONFIG_FILES.concat(CONFIG_FILES)) {
                 const source = path.join(dir, file)
                 log.debug(`loading config from ${source}`)
                 merge(source, yield* loadFile(source))
@@ -767,7 +788,7 @@ export namespace Config {
           }
 
           if (existsSync(managedDir)) {
-            for (const file of ["unifia.json", "unifia.jsonc"]) {
+            for (const file of LEGACY_CONFIG_FILES.concat(CONFIG_FILES)) {
               const source = path.join(managedDir, file)
               merge(source, yield* loadFile(source), "global")
             }

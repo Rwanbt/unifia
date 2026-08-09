@@ -19,8 +19,21 @@ export namespace ConfigPaths {
     return input.vcs === "git" ? input.worktree : undefined
   }
 
-  export async function projectFiles(name: string, directory: string, stop: string | undefined) {
-    return Filesystem.findUp([`${name}.json`, `${name}.jsonc`], directory, stop, { rootFirst: true })
+  /**
+   * Config files for `name`, nearest-last so callers can merge in order.
+   *
+   * `legacy` names the pre-rebrand basename. It is searched first on purpose:
+   * `findUp` emits targets in the order given and the caller merges them in
+   * that order, so the current brand has to come last to win where both exist.
+   * MIGRATION-PLAN.md 4.2 asks for exactly this — accept `unifia.*` with
+   * priority and `opencode.*` as legacy — but only the current name was
+   * implemented, so every existing `opencode.json` silently stopped being read.
+   */
+  export async function projectFiles(name: string, directory: string, stop: string | undefined, legacy?: string) {
+    const targets = legacy
+      ? [`${legacy}.json`, `${legacy}.jsonc`, `${name}.json`, `${name}.jsonc`]
+      : [`${name}.json`, `${name}.jsonc`]
+    return Filesystem.findUp(targets, directory, stop, { rootFirst: true })
   }
 
   export async function directories(directory: string, stop: string | undefined) {
