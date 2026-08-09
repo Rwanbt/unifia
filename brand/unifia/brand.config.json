@@ -15,7 +15,27 @@
     { "path": "packages/web/public/brand/unifia/favicon.ico", "sizes": [16, 32, 48] }
   ],
   "copies": [
-    { "from": "brand/unifia/unifia.css", "to": "packages/app/src/styles/unifia-brand.css" }
+    { "from": "brand/unifia/unifia.css", "to": "packages/app/src/styles/unifia-brand.css" },
+    {
+      "from": "brand/unifia/masters/unifia-app-icon-dark.svg",
+      "to": "packages/app/public/brand/unifia/unifia-app-icon-dark.svg"
+    },
+    {
+      "from": "brand/unifia/masters/unifia-symbol-color.svg",
+      "to": "packages/ui/src/assets/brand/unifia/unifia-symbol-color.svg"
+    },
+    {
+      "from": "packages/web/public/brand/unifia/unifia-192.png",
+      "to": "packages/app/public/brand/unifia/unifia-192.png"
+    },
+    {
+      "from": "packages/web/public/brand/unifia/unifia-512.png",
+      "to": "packages/app/public/brand/unifia/unifia-512.png"
+    },
+    {
+      "from": "packages/web/public/brand/unifia/favicon.ico",
+      "to": "packages/app/public/brand/unifia/favicon.ico"
+    }
   ],
   "androidLauncher": {
     "dir": "packages/mobile/src-tauri/gen/android/app/src/main/res",
@@ -23,7 +43,16 @@
     "foreground": { "mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432 },
     "foregroundSource": "unifia-symbol-color"
   },
-  "tauriIconSets": ["packages/desktop/src-tauri/icons", "packages/mobile/src-tauri/icons"],
+  "tauriIconSets": [
+    "packages/desktop/src-tauri/icons",
+    "packages/desktop/src-tauri/icons/dev",
+    "packages/desktop/src-tauri/icons/beta",
+    "packages/desktop/src-tauri/icons/prod",
+    "packages/desktop-electron/icons/dev",
+    "packages/desktop-electron/icons/beta",
+    "packages/desktop-electron/icons/prod",
+    "packages/mobile/src-tauri/icons"
+  ],
   "tauriIconSpec": {
     "png": {
       "32x32.png": 32,

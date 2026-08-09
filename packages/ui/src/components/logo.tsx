@@ -1,4 +1,5 @@
 import type { ComponentProps } from "solid-js"
+import unifiaSymbol from "../assets/brand/unifia/unifia-symbol-color.svg"
 
 export const Mark = (props: { class?: string }) => {
   return (
@@ -21,12 +22,11 @@ export const Splash = (props: Pick<ComponentProps<"svg">, "ref" | "class">) => {
       ref={props.ref}
       data-component="logo-splash"
       classList={{ [props.class ?? ""]: !!props.class }}
-      viewBox="0 0 80 100"
+      viewBox="0 0 400 400"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M60 80H20V40H60V80Z" fill="var(--icon-base)" />
-      <path d="M60 20H20V80H60V20ZM80 100H0V0H80V100Z" fill="var(--icon-strong-base)" />
+      <image href={unifiaSymbol} x="0" y="0" width="400" height="400" preserveAspectRatio="xMidYMid meet" />
     </svg>
   )
 }
