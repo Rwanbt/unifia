@@ -11,7 +11,7 @@ import { $ } from "bun"
  * failed with "resource path sidecars\... doesn't exist". Deriving it keeps one
  * authoritative source for the name.
  */
-const cliPackageName: string = ((await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }).name
+export const cliPackageName: string = ((await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }).name
 
 export const SIDECAR_BINARIES: Array<{ rustTarget: string; platform: string; assetExt: string }> = [
   { rustTarget: "aarch64-apple-darwin", platform: "darwin-arm64", assetExt: "zip" },
@@ -39,7 +39,15 @@ export function getCurrentSidecar(target = RUST_TARGET) {
 // directory, so fall back to the plain binary — same resilience already
 // used by copy-sidecar.ts's candidate list.
 export async function resolveSidecarBinaryPath(dir: string, ocBinary: string) {
-  const candidates = [windowsify(`${dir}/${ocBinary}/bin/opencode`), windowsify(`${dir}/${ocBinary.replace("-baseline", "")}/bin/opencode`)]
+  // `bin/<package name>`, not `bin/opencode`: script/build.ts names the compiled
+  // binary after the CLI package, so the rebrand moved it to `bin/unifia` while
+  // this side kept looking for the old name. Both candidates then missed, and
+  // the callers that have a fallback silently reused a stale sidecar instead of
+  // the one just built.
+  const candidates = [
+    windowsify(`${dir}/${ocBinary}/bin/${cliPackageName}`),
+    windowsify(`${dir}/${ocBinary.replace("-baseline", "")}/bin/${cliPackageName}`),
+  ]
   for (const candidate of candidates) {
     if (await Bun.file(candidate).exists()) return candidate
   }
