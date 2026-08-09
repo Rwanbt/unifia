@@ -182,7 +182,10 @@ export namespace Flag {
   // meant the rebranded name was silently ignored there: setting UNIFIA_CALLER
   // did nothing because the caller looked only at OPENCODE_CALLER. Routing them
   // through the shim is what makes the rebranded name actually work.
-  export const UNIFIA_CALLER = unifiaValue("CALLER", process.env["OPENCODE_CALLER"])
+  // CALLER is dynamic (see defineDynamic below): the IDE extension exports it
+  // around the CLI, and tests set it after import. Freezing it at module load
+  // made Ide.alreadyInstalled() blind to it.
+  export declare const UNIFIA_CALLER: string | undefined
   export const UNIFIA_DISABLE_SHARE = unifiaTruthy("DISABLE_SHARE", truthy("OPENCODE_DISABLE_SHARE"))
   export const UNIFIA_CARGO_PROXY = unifiaTruthy("CARGO_PROXY", truthy("OPENCODE_CARGO_PROXY"))
   export const UNIFIA_CARGO_PROXY_URL = unifiaValue("CARGO_PROXY_URL", process.env["OPENCODE_CARGO_PROXY_URL"])
@@ -229,7 +232,10 @@ export namespace Flag {
    * device this was verified by reading the file, which began with `{`.
    */
   export const UNIFIA_AUTH_STORAGE = isolatedValue("AUTH_STORAGE")
-  export const UNIFIA_PTY_PORT = isolatedValue("PTY_PORT")
+  // Dynamic (see defineDynamic below): the mobile Rust runtime injects this
+  // around the sidecar and the tests bind an ephemeral port per case, so a
+  // value frozen at import always fell back to 14098 and refused to connect.
+  export declare const UNIFIA_PTY_PORT: string | undefined
   // Read here rather than at the call site for the reason the comment above
   // gives: auth/index.ts reached for process.env directly, so when the shell
   // still emitted the OPENCODE_* spelling the endpoint never arrived and the
@@ -338,9 +344,11 @@ function defineDynamic(name: string, read: () => unknown) {
 defineDynamic("UNIFIA_KEYCHAIN_URL", () => isolatedValue("KEYCHAIN_URL"))
 defineDynamic("UNIFIA_KEYCHAIN_TOKEN", () => isolatedValue("KEYCHAIN_TOKEN"))
 defineDynamic("UNIFIA_CONFIG_DIR", () => isolatedValue("CONFIG_DIR"))
+defineDynamic("UNIFIA_PTY_PORT", () => isolatedValue("PTY_PORT"))
 defineDynamic("UNIFIA_CLIENT", () => isolatedValue("CLIENT") ?? "cli")
 
 // Preferences: these keep reading the legacy spelling as a fallback.
+defineDynamic("UNIFIA_CALLER", () => process.env["UNIFIA_CALLER"] ?? process.env["OPENCODE_CALLER"])
 defineDynamic("UNIFIA_PURE", () => truthy("UNIFIA_PURE") || Flag.OPENCODE_PURE)
 defineDynamic("UNIFIA_TUI_CONFIG", () => process.env["UNIFIA_TUI_CONFIG"] ?? Flag.OPENCODE_TUI_CONFIG)
 defineDynamic("UNIFIA_PLUGIN_META_FILE", () => process.env["UNIFIA_PLUGIN_META_FILE"] ?? Flag.OPENCODE_PLUGIN_META_FILE)
