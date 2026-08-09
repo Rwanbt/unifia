@@ -435,7 +435,14 @@ export function SessionHeader() {
                   </Button>
                 </TooltipKeybind>
 
-                <div class="hidden md:flex items-center gap-1 shrink-0">
+                {/* Was `hidden md:flex`, which dropped the review and file-tree
+                    toggles below 768px. The review panel defaults to open
+                    (context/layout.tsx: `store.review?.panelOpened ?? true`),
+                    so on a phone it appeared at launch with no control able to
+                    close it — the conversation stayed unreachable. The terminal
+                    toggle above is already visible at this width and opens the
+                    same kind of overlay, so showing these two is consistent. */}
+                <div class="flex items-center gap-1 shrink-0">
                   <TooltipKeybind
                     title={language.t("command.review.toggle")}
                     keybind={command.keybind("review.toggle")}
