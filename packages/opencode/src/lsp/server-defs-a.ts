@@ -382,7 +382,7 @@ export const Ty: Info = {
     "pyrightconfig.json",
   ]),
   async spawn(root) {
-    if (!Flag.OPENCODE_EXPERIMENTAL_LSP_TY) {
+    if (!Flag.UNIFIA_EXPERIMENTAL_LSP_TY) {
       return undefined
     }
 

@@ -147,7 +147,7 @@ export namespace Skill {
     directory: string,
     worktree: string,
   ) {
-    if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {
+    if (!Flag.UNIFIA_DISABLE_EXTERNAL_SKILLS) {
       for (const dir of EXTERNAL_DIRS) {
         const root = path.join(Global.Path.home, dir)
         if (!(yield* fsys.isDir(root))) continue

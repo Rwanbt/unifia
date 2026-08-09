@@ -162,7 +162,7 @@ export namespace ToolRegistry {
 
       const all = Effect.fn("ToolRegistry.all")(function* (custom: Tool.Info[]) {
         const cfg = yield* config.get()
-        const question = ["app", "cli", "desktop"].includes(Flag.OPENCODE_CLIENT) || Flag.OPENCODE_ENABLE_QUESTION_TOOL
+        const question = ["app", "cli", "desktop"].includes(Flag.OPENCODE_CLIENT) || Flag.UNIFIA_ENABLE_QUESTION_TOOL
 
         return [
           invalid,
@@ -181,7 +181,7 @@ export namespace ToolRegistry {
           code,
           skill,
           patch,
-          ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [lsp] : []),
+          ...(Flag.UNIFIA_EXPERIMENTAL_LSP_TOOL ? [lsp] : []),
           ...(cfg.experimental?.batch_tool === true ? [batch] : []),
           ...(Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [plan] : []),
           debate,
@@ -257,7 +257,7 @@ export namespace ToolRegistry {
           }
 
           if (tool.id === "codesearch" || tool.id === "websearch" || tool.id === "webfetch") {
-            const exaAllowed = model.providerID === ProviderID.opencode || Flag.OPENCODE_ENABLE_EXA
+            const exaAllowed = model.providerID === ProviderID.opencode || Flag.UNIFIA_ENABLE_EXA
             if (!exaAllowed) return false
           }
 

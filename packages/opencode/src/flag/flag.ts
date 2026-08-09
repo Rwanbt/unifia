@@ -121,6 +121,26 @@ function isolatedValue(name: string): string | undefined {
   }
   return value
 }
+function positiveInteger(value: string | undefined): number | undefined {
+  if (!value) return undefined
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+}
+
+/**
+ * Effect `Config` equivalent of `unifiaTruthy`.
+ *
+ * These values are resolved lazily inside an Effect, so the legacy fallback
+ * cannot be a plain `||` on an already-computed boolean — it has to stay in the
+ * Config pipeline via `orElse`.
+ */
+function dualConfigBoolean(name: string) {
+  return Config.boolean(`UNIFIA_${name}`).pipe(
+    Config.orElse(() => Config.boolean(`OPENCODE_${name}`)),
+    Config.withDefault(false),
+  )
+}
+
 export namespace Flag {
   export const UNIFIA_AUTO_SHARE = unifiaTruthy("AUTO_SHARE", OPENCODE_AUTO_SHARE)
   export const UNIFIA_AUTO_HEAP_SNAPSHOT = unifiaTruthy("AUTO_HEAP_SNAPSHOT", OPENCODE_AUTO_HEAP_SNAPSHOT)
@@ -166,6 +186,37 @@ export namespace Flag {
   export const UNIFIA_DISABLE_SHARE = unifiaTruthy("DISABLE_SHARE", truthy("OPENCODE_DISABLE_SHARE"))
   export const UNIFIA_CARGO_PROXY = unifiaTruthy("CARGO_PROXY", truthy("OPENCODE_CARGO_PROXY"))
   export const UNIFIA_CARGO_PROXY_URL = unifiaValue("CARGO_PROXY_URL", process.env["OPENCODE_CARGO_PROXY_URL"])
+
+  // Completing the dual read. These seventeen still resolved only the
+  // OPENCODE_* spelling while the rest of the project had already moved on:
+  // the published docs (packages/web/.../cli.mdx, tools.mdx, rules.mdx, every
+  // locale) tell users to set UNIFIA_*, the Windows CI job sets
+  // UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER (.github/workflows/test.yml), and so
+  // do the local E2E runner and one server test. Nothing ever errored — `truthy`
+  // just returns false and `Config.withDefault` supplies the default — so each
+  // of those settings was silently inert.
+  export const UNIFIA_DB = unifiaValue("DB", OPENCODE_DB)
+  export const UNIFIA_DISABLE_CHANNEL_DB = unifiaTruthy("DISABLE_CHANNEL_DB", OPENCODE_DISABLE_CHANNEL_DB)
+  export const UNIFIA_DISABLE_CLAUDE_CODE = unifiaTruthy("DISABLE_CLAUDE_CODE", OPENCODE_DISABLE_CLAUDE_CODE)
+  export const UNIFIA_DISABLE_CLAUDE_CODE_SKILLS = unifiaTruthy(
+    "DISABLE_CLAUDE_CODE_SKILLS",
+    OPENCODE_DISABLE_CLAUDE_CODE_SKILLS,
+  )
+  export const UNIFIA_DISABLE_DEFAULT_PLUGINS = unifiaTruthy("DISABLE_DEFAULT_PLUGINS", OPENCODE_DISABLE_DEFAULT_PLUGINS)
+  export const UNIFIA_DISABLE_EXTERNAL_SKILLS = unifiaTruthy("DISABLE_EXTERNAL_SKILLS", OPENCODE_DISABLE_EXTERNAL_SKILLS)
+  export const UNIFIA_ENABLE_EXA = unifiaTruthy("ENABLE_EXA", OPENCODE_ENABLE_EXA)
+  export const UNIFIA_ENABLE_QUESTION_TOOL = unifiaTruthy("ENABLE_QUESTION_TOOL", OPENCODE_ENABLE_QUESTION_TOOL)
+  export const UNIFIA_EXPERIMENTAL_LSP_TOOL = unifiaTruthy("EXPERIMENTAL_LSP_TOOL", OPENCODE_EXPERIMENTAL_LSP_TOOL)
+  export const UNIFIA_EXPERIMENTAL_LSP_TY = unifiaTruthy("EXPERIMENTAL_LSP_TY", OPENCODE_EXPERIMENTAL_LSP_TY)
+  export const UNIFIA_EXPERIMENTAL_OXFMT = unifiaTruthy("EXPERIMENTAL_OXFMT", OPENCODE_EXPERIMENTAL_OXFMT)
+  export const UNIFIA_SKIP_MIGRATIONS = unifiaTruthy("SKIP_MIGRATIONS", OPENCODE_SKIP_MIGRATIONS)
+  export const UNIFIA_STRICT_CONFIG_DEPS = unifiaTruthy("STRICT_CONFIG_DEPS", OPENCODE_STRICT_CONFIG_DEPS)
+  export const UNIFIA_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS =
+    positiveInteger(process.env["UNIFIA_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS"]) ??
+    OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS
+  export const UNIFIA_DISABLE_FILETIME_CHECK = dualConfigBoolean("DISABLE_FILETIME_CHECK")
+  export const UNIFIA_EXPERIMENTAL_FILEWATCHER = dualConfigBoolean("EXPERIMENTAL_FILEWATCHER")
+  export const UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER = dualConfigBoolean("EXPERIMENTAL_DISABLE_FILEWATCHER")
 
   /**
    * Credential storage backend.
