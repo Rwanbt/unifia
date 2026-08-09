@@ -17,6 +17,18 @@ const problems = []
 
 const read = (relative) => readFileSync(join(REPO, relative), "utf8")
 
+/**
+ * Source with comments removed.
+ *
+ * Scanning raw text made the checker flag the comment that explains why a call
+ * is absent — the words it looks for appear in the explanation. Only real code
+ * should be able to fail a gate.
+ */
+const readCode = (relative) =>
+  read(relative)
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1")
+
 function expect(condition, message) {
   if (!condition) problems.push(message)
 }
@@ -48,7 +60,7 @@ function checkTauriSurface(key, surface) {
 }
 
 function checkElectronSurfaces() {
-  const source = read("packages/desktop-electron/electron-builder.config.ts")
+  const source = readCode("packages/desktop-electron/electron-builder.config.ts")
   const declared = [...source.matchAll(/appId:\s*"([^"]+)"/g)].map((match) => match[1])
   const expected = Object.entries(identity.surfaces)
     .filter(([key]) => key.startsWith("electron-"))
@@ -71,6 +83,40 @@ function checkElectronSurfaces() {
     expect(
       names.includes(surface.displayName),
       `electron-builder.config.ts declares no productName "${surface.displayName}" for ${key}`,
+    )
+  }
+}
+
+// electron-builder decides what the installer registers; src/main/index.ts
+// decides what the running process actually uses for its profile directory.
+// Checking only the former missed that the runtime still resolved userData under
+// ai.opencode.desktop — the official app's profile — while the packaging config
+// had already been corrected.
+function checkElectronRuntime() {
+  const file = "packages/desktop-electron/src/main/index.ts"
+  const source = readCode(file)
+  const declared = [...source.matchAll(/"(ai\.[a-z0-9.]+)"/g)].map((match) => match[1])
+  const expected = Object.entries(identity.surfaces)
+    .filter(([key]) => key.startsWith("electron-"))
+    .map(([, surface]) => surface.appId)
+
+  for (const appId of expected) {
+    expect(declared.includes(appId), `${file} does not use the app id "${appId}"`)
+  }
+  for (const appId of declared) {
+    expect(expected.includes(appId), `${file} uses app id "${appId}", which the manifest does not list`)
+  }
+
+  // Preview must not take the protocol association; decision A5 gives it to the
+  // stable Tauri desktop.
+  for (const scheme of identity.protocols.owned) {
+    expect(
+      !source.includes(`setAsDefaultProtocolClient("${scheme}")`),
+      `${file} registers ${scheme}:// globally — Preview must not claim it`,
+    )
+    expect(
+      !readCode("packages/desktop-electron/electron-builder.config.ts").includes(`schemes: ["${scheme}"]`),
+      `electron-builder.config.ts packages a ${scheme}:// association — Preview must not claim it`,
     )
   }
 }
@@ -100,6 +146,7 @@ for (const [key, surface] of Object.entries(identity.surfaces)) {
   if (key.startsWith("tauri-")) checkTauriSurface(key, surface)
 }
 checkElectronSurfaces()
+checkElectronRuntime()
 checkNoUpstreamNamespace()
 checkGeneratedAdaptersAreCurrent()
 

@@ -11,18 +11,27 @@ import pkg from "electron-updater"
 import contextMenu from "electron-context-menu"
 contextMenu({ showSaveImageAs: true, showLookUpSelection: false, showSearchWithGoogle: false })
 
+// Electron is the Preview channel, not the stable desktop — that is Tauri.
+// Decision A5: Preview keeps its own name, profile and feed, and never claims a
+// protocol globally.
+//
+// These must match electron-builder.config.ts. They said ai.opencode.desktop*,
+// which is exactly what upstream's Electron app uses, so userData resolved to
+// the official application's profile directory: this build read and wrote
+// another product's settings, sessions and window state.
 const APP_NAMES: Record<string, string> = {
-  dev: "Unifia Dev",
-  beta: "Unifia Beta",
-  prod: "Unifia",
+  dev: "Unifia Preview Dev",
+  beta: "Unifia Preview Beta",
+  prod: "Unifia Preview",
 }
 const APP_IDS: Record<string, string> = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "ai.unifia.desktop.preview.dev",
+  beta: "ai.unifia.desktop.preview.beta",
+  prod: "ai.unifia.desktop.preview",
 }
-app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "Unifia Dev")
-app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? APP_IDS[CHANNEL] : "ai.opencode.desktop.dev"))
+const UNPACKAGED_APP_ID = APP_IDS.dev
+app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : APP_NAMES.dev)
+app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? APP_IDS[CHANNEL] : UNPACKAGED_APP_ID))
 const { autoUpdater } = pkg
 
 import type { InitStep, ServerReadyData, SqliteMigrationProgress, WslConfig } from "../preload/types"
@@ -97,7 +106,15 @@ function setupApp() {
 
   void app.whenReady().then(async () => {
     // migrate()
-    app.setAsDefaultProtocolClient("unifia")
+    // Deliberately does NOT call setAsDefaultProtocolClient("unifia").
+    //
+    // Decision A5 gives the scheme to the stable Tauri desktop. Preview claiming
+    // it would mean whichever of the two launched last owns every unifia:// link
+    // on the machine, including OAuth callbacks meant for the stable app.
+    //
+    // The consequence is real and intended: links do not open Preview. It still
+    // handles them when the OS routes one to it — second-instance and open-url
+    // below are unchanged — but it never takes the association.
     setDockIcon()
     setupAutoUpdater()
     syncCli()

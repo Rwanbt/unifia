@@ -58,10 +58,9 @@ const getBase = (): Configuration => ({
   dmg: {
     sign: true,
   },
-  protocols: {
-    name: "Unifia",
-    schemes: ["unifia"],
-  },
+  // No `protocols` entry: packaging one registers unifia:// with the OS on
+  // macOS and Linux, and decision A5 reserves the scheme for the stable Tauri
+  // desktop. Per-channel overrides below must not reintroduce it either.
   win: {
     icon: `resources/icons/icon.ico`,
     signtoolOptions: {
@@ -99,7 +98,6 @@ function getConfig() {
         ...base,
         appId: "ai.unifia.desktop.preview.beta",
         productName: "Unifia Preview Beta",
-        protocols: { name: "Unifia Preview Beta", schemes: ["unifia"] },
         publish: { provider: "github", owner: "Rwanbt", repo: "unifia-preview-beta", channel: "latest" },
         rpm: { packageName: "unifia-preview-beta" },
       }
@@ -109,7 +107,6 @@ function getConfig() {
         ...base,
         appId: "ai.unifia.desktop.preview",
         productName: "Unifia Preview",
-        protocols: { name: "Unifia Preview", schemes: ["unifia"] },
         publish: { provider: "github", owner: "Rwanbt", repo: "unifia-preview", channel: "latest" },
         rpm: { packageName: "unifia-preview" },
       }
