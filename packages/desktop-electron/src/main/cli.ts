@@ -12,7 +12,10 @@ import { WSL_ENABLED_KEY } from "./constants"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import { store } from "./store"
 
-const CLI_INSTALL_DIR = ".opencode/bin"
+// Was ".opencode/bin" while the binary name was already "unifia", so this looked
+// for a file that never exists inside the directory the official OpenCode
+// installer owns.
+const CLI_INSTALL_DIR = ".unifia/bin"
 const CLI_BINARY_NAME = "unifia"
 
 export type ServerConfig = {
@@ -216,12 +219,15 @@ function handleSqliteProgress(events: EventEmitter, line: string) {
 function buildCommand(args: string, env: Record<string, string>, shell: string | null) {
   if (process.platform === "win32" && isWslEnabled()) {
     console.log(`[cli] Using WSL mode`)
-    const version = app.getVersion()
+    // See the matching comment in packages/desktop/src-tauri/src/cli.rs: the
+    // missing-binary branch used to install the upstream OpenCode CLI from a
+    // domain this fork does not control and run it as the backend.
     const script = [
       "set -e",
-      'BIN="$HOME/.opencode/bin/opencode"',
+      `BIN="$HOME/${CLI_INSTALL_DIR}/${CLI_BINARY_NAME}"`,
       'if [ ! -x "$BIN" ]; then',
-      `  curl -fsSL https://opencode.ai/install | bash -s -- --version ${shellEscape(version)} --no-modify-path`,
+      '  echo "Unifia is not installed in WSL. Run the repository\'s ./install script inside your WSL distribution, then start Unifia again." >&2',
+      "  exit 127",
       "fi",
       `${envPrefix(env)} exec "$BIN" ${args}`,
     ].join("\n")

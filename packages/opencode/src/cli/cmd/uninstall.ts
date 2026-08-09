@@ -9,6 +9,19 @@ import os from "node:os"
 import { Filesystem } from "../../util/filesystem"
 import { Process } from "../../util/process"
 
+/** The comment the installer writes above the PATH line it owns. */
+const SHELL_CONFIG_MARKER = "# unifia"
+/**
+ * Only PATH entries pointing here are ours to remove.
+ *
+ * These matched `.opencode/bin` before, which is the directory the official
+ * OpenCode installer owns — so `unifia uninstall` deleted that product's PATH
+ * entry from the user's shell config and left its binary stranded. Decision A2
+ * and gate C6 both require uninstall to touch nothing but our own artefacts.
+ */
+const UNIFIA_DIR_FRAGMENT = ".unifia"
+const UNIFIA_BIN_FRAGMENT = ".unifia/bin"
+
 interface UninstallArgs {
   keepConfig: boolean
   keepData: boolean
@@ -266,7 +279,7 @@ async function getShellConfigFile(): Promise<string | null> {
     if (!exists) continue
 
     const content = await Filesystem.readText(file).catch(() => "")
-    if (content.includes("# unifia") || content.includes(".opencode/bin")) {
+    if (content.includes(SHELL_CONFIG_MARKER) || content.includes(UNIFIA_BIN_FRAGMENT)) {
       return file
     }
   }
@@ -274,7 +287,13 @@ async function getShellConfigFile(): Promise<string | null> {
   return null
 }
 
-async function cleanShellConfig(file: string) {
+/**
+ * Removes only the PATH entries this product installed.
+ *
+ * Exported for test/cli/uninstall-coexistence.test.ts, which is the gate that
+ * an uninstall leaves a coexisting OpenCode install's shell config untouched.
+ */
+export async function cleanShellConfig(file: string) {
   const content = await Filesystem.readText(file)
   const lines = content.split("\n")
 
@@ -284,21 +303,21 @@ async function cleanShellConfig(file: string) {
   for (const line of lines) {
     const trimmed = line.trim()
 
-    if (trimmed === "# unifia") {
+    if (trimmed === SHELL_CONFIG_MARKER) {
       skip = true
       continue
     }
 
     if (skip) {
       skip = false
-      if (trimmed.includes(".opencode/bin") || trimmed.includes("fish_add_path")) {
+      if (trimmed.includes(UNIFIA_BIN_FRAGMENT) || trimmed.includes("fish_add_path")) {
         continue
       }
     }
 
     if (
-      (trimmed.startsWith("export PATH=") && trimmed.includes(".opencode/bin")) ||
-      (trimmed.startsWith("fish_add_path") && trimmed.includes(".opencode"))
+      (trimmed.startsWith("export PATH=") && trimmed.includes(UNIFIA_BIN_FRAGMENT)) ||
+      (trimmed.startsWith("fish_add_path") && trimmed.includes(UNIFIA_DIR_FRAGMENT))
     ) {
       continue
     }

@@ -229,8 +229,15 @@ for (const item of targets) {
       autoloadTsconfig: true,
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/opencode`,
-      execArgv: [`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
+      outfile: `dist/${name}/bin/unifia`,
+      // Default outbound User-Agent for the whole binary. This is the product's
+      // own identity, so it follows the rebrand — but it is worth re-checking
+      // against providers before a release: a provider that allowlists clients
+      // by User-Agent would see a name it has never seen. Not the case for any
+      // provider tested locally, and continuing to claim upstream's name would
+      // be a misrepresentation. The one User-Agent deliberately left alone is in
+      // src/plugin/codex.ts, which pairs it with a registered OAuth client id.
+      execArgv: [`--user-agent=unifia/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
     files: {
@@ -249,7 +256,7 @@ for (const item of targets) {
 
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
-    const binaryPath = `dist/${name}/bin/opencode`
+    const binaryPath = `dist/${name}/bin/unifia`
     console.log(`Running smoke test: ${binaryPath} --version`)
     try {
       const versionOutput = await $`${binaryPath} --version`.text()

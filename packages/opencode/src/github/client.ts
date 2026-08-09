@@ -14,7 +14,7 @@ export const CLIENT_ID = process.env.OPENCODE_GITHUB_CLIENT_ID ?? "Ov23liuaygpsQ
  *  "access private + collaborator repos" requirement without over-asking. */
 const SCOPE = "repo"
 
-const USER_AGENT = "OpenCode-Fork-GithubAuth"
+const USER_AGENT = "Unifia-GithubAuth"
 const REQUEST_TIMEOUT_MS = 15_000
 
 export class GithubApiError extends Error {

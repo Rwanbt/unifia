@@ -40,8 +40,14 @@ impl CommandWrapper for WinCreationFlags {
     }
 }
 
-const CLI_INSTALL_DIR: &str = ".opencode/bin";
-const CLI_BINARY_NAME: &str = "opencode";
+// Where "Install CLI" puts the binary. This was `.opencode/bin` + `opencode`,
+// which is the path the official OpenCode installer owns — the desktop app
+// silently overwrote the user's real `opencode` binary with this fork's
+// sidecar, and `is_cli_installed()` reported true when only OpenCode was
+// present. Must stay in step with INSTALL_DIR and APP in the repository-root
+// `install` script, which this command executes.
+const CLI_INSTALL_DIR: &str = ".unifia/bin";
+const CLI_BINARY_NAME: &str = "unifia";
 const SHELL_ENV_TIMEOUT: Duration = Duration::from_secs(5);
 
 // Config surface kept for future UI that surfaces the resolved CLI config.
@@ -475,15 +481,19 @@ pub fn spawn_command(
     let mut cmd = if cfg!(windows) {
         if is_wsl_enabled(app) {
             tracing::info!("WSL is enabled, spawning CLI server in WSL");
-            let version = app.package_info().version.to_string();
+            let _version = app.package_info().version.to_string();
+            // WHY this no longer bootstraps itself: the missing-binary branch used
+            // to `curl https://opencode.ai/install | bash`, which downloads the
+            // upstream OpenCode CLI into WSL and then runs it as this app's
+            // backend — a different product, fetched from a domain this fork does
+            // not control. Refusing with an actionable message is the only honest
+            // option until the fork ships its own WSL bootstrap.
             let mut script = vec![
                 "set -e".to_string(),
-                "BIN=\"$HOME/.opencode/bin/opencode\"".to_string(),
+                "BIN=\"$HOME/.unifia/bin/unifia\"".to_string(),
                 "if [ ! -x \"$BIN\" ]; then".to_string(),
-                format!(
-                    "  curl -fsSL https://opencode.ai/install | bash -s -- --version {} --no-modify-path",
-                    shell_escape(&version)
-                ),
+                "  echo \"Unifia is not installed in WSL. Run the repository's ./install script inside your WSL distribution, then start Unifia again.\" >&2".to_string(),
+                "  exit 127".to_string(),
                 "fi".to_string(),
             ];
 

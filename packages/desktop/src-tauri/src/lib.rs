@@ -744,8 +744,17 @@ async fn initialize(app: AppHandle) {
 }
 
 fn setup_app(app: &tauri::AppHandle, init_rx: watch::Receiver<InitStep>) {
+    // Registers the schemes in tauri.conf.json — only `unifia`; `opencode` is
+    // parsed by the import flow but never claimed, so signing in from a browser
+    // cannot silently take the handler away from an OpenCode install.
+    //
+    // The failure used to be discarded with `.ok()`. When registration fails the
+    // app keeps running but every deep link — OAuth callbacks included — lands
+    // nowhere, and nothing anywhere says why.
     #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
-    app.deep_link().register_all().ok();
+    if let Err(error) = app.deep_link().register_all() {
+        tracing::error!(%error, "failed to register the unifia:// scheme — deep links and OAuth callbacks will not arrive");
+    }
 
     app.manage(InitState { current: init_rx });
 }
