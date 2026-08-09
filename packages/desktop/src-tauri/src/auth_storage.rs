@@ -71,6 +71,16 @@ fn save_index(app: &AppHandle, index: &KeychainIndex) -> Result<(), String> {
     fs::write(&p, bytes).map_err(|e| format!("write {p:?}: {e}"))
 }
 
+/// OS keychain service name.
+///
+/// Kept on the old prefix on purpose. It looks like a cross-product collision
+/// and is not: upstream's desktop is Electron, declares no `keyring`
+/// dependency, and has no `src-tauri` directory — this whole module is the
+/// fork's own, so nothing else on the machine reads `opencode.*` entries.
+///
+/// Renaming it would strand every credential this fork has already stored, with
+/// no isolation won. It changes when the legacy import bridge can move the
+/// entries across.
 fn namespaced(service: &str) -> String {
     format!("opencode.{service}")
 }
