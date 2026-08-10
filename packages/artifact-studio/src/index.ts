@@ -184,11 +184,52 @@ function previewPdf(bytes: Uint8Array): PreviewResult {
   return truncate(pdfTextRuns(text).join("\n"), ["%PDF"])
 }
 
+/**
+ * Extracts `(literal) Tj` show-text operands.
+ *
+ * Hand-scanned rather than `matchAll(/\((?:[^()\\]|\\.)*\)\s*Tj/g)`: that regex
+ * is linear per attempt but `matchAll` restarts a failed one at start+1, so a
+ * document of `(\(\(\(...` makes every other offset re-consume the whole tail —
+ * quadratic on attacker-supplied bytes (CodeQL `js/polynomial-redos`). Resuming
+ * where the failed scan stopped makes it linear.
+ *
+ * One deliberate behaviour change comes with it: `\\.` could not match a
+ * backslash followed by a newline, because JS `.` excludes line terminators, so
+ * the old regex silently dropped the whole run whenever a literal used a line
+ * continuation — which PDF 32000-1 §7.3.4.2 explicitly allows. The scanner
+ * treats an escape as covering the next character whatever it is. Differential
+ * fuzzing over 500k inputs found this to be the only divergence.
+ */
 function pdfTextRuns(text: string): string[] {
   const runs: string[] = []
-  for (const match of text.matchAll(/\((?:[^()\\]|\\.)*\)\s*Tj/g)) {
-    const literal = match[0].slice(1, match[0].lastIndexOf(")"))
-    runs.push(literal.replaceAll("\\(", "(").replaceAll("\\)", ")").replaceAll("\\\\", "\\"))
+  let index = text.indexOf("(")
+  while (index >= 0) {
+    let cursor = index + 1
+    let literal = ""
+    // The literal body, matching the old character classes exactly: an escape
+    // covers the next character whatever it is, and a bare paren ends the run.
+    while (cursor < text.length) {
+      const char = text[cursor]!
+      if (char === "\\") {
+        if (cursor + 1 >= text.length) break
+        literal += text.slice(cursor, cursor + 2)
+        cursor += 2
+        continue
+      }
+      if (char === "(" || char === ")") break
+      literal += char
+      cursor++
+    }
+    if (text[cursor] === ")") {
+      let after = cursor + 1
+      while (after < text.length && /\s/.test(text[after]!)) after++
+      if (text.startsWith("Tj", after)) {
+        runs.push(literal.replaceAll("\\(", "(").replaceAll("\\)", ")").replaceAll("\\\\", "\\"))
+      }
+      cursor++
+    }
+    // Never rewind: `cursor > index` always, so the scan advances monotonically.
+    index = text.indexOf("(", Math.max(cursor, index + 1))
   }
   return runs
 }

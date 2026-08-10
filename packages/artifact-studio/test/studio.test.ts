@@ -32,6 +32,25 @@ check(previewArtifact("xlsx", await asBytes(xlsxWorker("Cell value"))).text === 
 check(previewArtifact("pdf", await asBytes(pdfWorker("Printed line"))).text === "Printed line", "pdf preview did not extract text runs")
 check(previewArtifact("text", bytes("plain")).text === "plain", "text preview did not pass content through")
 
+// A literal split with a line continuation is valid PDF (32000-1 §7.3.4.2). The
+// regex this extractor replaced could not match one — JS `.` excludes newlines,
+// so `\\.` failed and the whole run was silently dropped.
+check(
+  previewArtifact("pdf", bytes("%PDF-1.4\n(first\\\nsecond) Tj\n%%EOF")).text === "first\\\nsecond",
+  "pdf preview dropped a literal using a line continuation",
+)
+
+// Guards the linearity of that extractor: `(\(\(\(...` used to make every other
+// offset re-consume the tail, and 16k pairs took ~600 ms. Anything above a
+// second here means the quadratic scan is back.
+{
+  const pathological = new TextEncoder().encode(`%PDF-1.4\n${"(\\".repeat(20_000)}\n%%EOF`)
+  const started = performance.now()
+  previewArtifact("pdf", pathological)
+  const elapsed = performance.now() - started
+  check(elapsed < 1_000, `pdf text extraction went quadratic again (${elapsed.toFixed(0)} ms on 20k escaped parens)`)
+}
+
 // Entities must come back decoded, not as markup.
 check(previewArtifact("docx", await asBytes(docxWorker("a < b & c"))).text === "a < b & c", "docx preview did not decode XML entities")
 refuses(() => previewArtifact("binary", bytes("x")), UnsupportedFormatError, "binary was given a textual preview")
