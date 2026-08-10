@@ -80,6 +80,10 @@ base64 = "0.21"
 url = "2"
 unifia-kokoro-shared = { path = "../../../crates/unifia-kokoro-shared" }
 unifia-supervisor = { version = "0.0.0", path = "../../../crates/unifia-supervisor" }
+# Brand-prefixed keyring helpers (carte C8-B). Isolated from the Tauri
+# runtime so the migration logic can be unit-tested on a workstation
+# without WebView2 / DirectML installed.
+unifia-keyring-shim = { path = "../keyring-shim" }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_System_Threading", "Win32_System_Registry"] }

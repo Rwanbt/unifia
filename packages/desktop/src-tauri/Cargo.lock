@@ -6464,6 +6464,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "unifia-keyring-shim",
  "unifia-kokoro-shared",
  "unifia-supervisor",
  "url",
@@ -6472,6 +6473,13 @@ dependencies = [
  "windows-core 0.62.2",
  "windows-sys 0.61.2",
  "zip 2.4.2",
+]
+
+[[package]]
+name = "unifia-keyring-shim"
+version = "0.1.0"
+dependencies = [
+ "keyring",
 ]
 
 [[package]]
