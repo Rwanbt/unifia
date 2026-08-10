@@ -141,6 +141,49 @@ type IssueQueryResponse = {
   }
 }
 
+/**
+ * Strips raw control characters before a value from a comment body is logged,
+ * so a crafted comment cannot forge log lines in CI output (CWE-117).
+ */
+export function sanitizeForLog(value: string): string {
+  return value.replace(/[\x00-\x1f\x7f]/g, "")
+}
+
+/**
+ * Resolves an attachment URL found in a comment body into the URL to fetch, or
+ * null when it must not be fetched at all.
+ *
+ * The request carries the GitHub App token, so two things have to hold and
+ * neither can be left to the caller's regex:
+ *
+ * - **The host is a literal.** Only the path crosses over from the comment.
+ *   Assigning `.pathname` is what makes that safe — building
+ *   `new URL(pathname, base)` instead would re-read a pathname of
+ *   `//evil.example/x`, the shape `new URL()` yields from
+ *   `https://github.com//evil.example/x`, as an authority and send the token
+ *   there.
+ * - **The prefix is checked after normalisation.** The caller's regex anchors
+ *   the raw string to `https://github.com/user-attachments/`, but
+ *   `.../user-attachments/../../x` satisfies it and resolves to `/x`. Checking
+ *   the raw string would let the token reach any github.com path an attacker
+ *   names, including repository API endpoints.
+ */
+export function resolveGithubAttachmentUrl(raw: string): URL | null {
+  let parsed: URL
+  try {
+    parsed = new URL(raw)
+  } catch {
+    return null
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "github.com") return null
+
+  const attachment = new URL("https://github.com")
+  attachment.pathname = parsed.pathname
+  attachment.search = parsed.search
+  if (!attachment.pathname.startsWith("/user-attachments/")) return null
+  return attachment
+}
+
 export const GithubRunCommand = cmd({
   command: "run",
   describe: "run the GitHub agent",
@@ -556,61 +599,39 @@ export const GithubRunCommand = cmd({
           const url = m[1]
           const start = m.index
 
-          // Defense-in-depth: the regexes above already anchor url to the
-          // literal prefix https://github.com/user-attachments/, so an
-          // attacker can't redirect this request to an arbitrary host —
-          // but re-validate the parsed origin here too, right before the
-          // network call, so a future loosening of either regex can't
-          // silently reopen this to SSRF against an attacker-chosen host.
-          let parsedUrl: URL
-          try {
-            parsedUrl = new URL(url)
-          } catch {
-            console.error("Rejected attachment URL: unparseable")
+          const attachment = resolveGithubAttachmentUrl(url)
+          if (!attachment) {
+            console.error(`Rejected attachment URL: ${sanitizeForLog(url)}`)
             continue
           }
 
-          // WHY the sink lives inside this positive equality check (rather
-          // than an early `if (bad) continue`): this is the barrier-guard
-          // shape CodeQL's SSRF taint tracker recognizes as sanitizing —
-          // the request is only ever reachable when hostname/protocol are
-          // proven equal to the fixed, trusted values.
-          if (parsedUrl.protocol === "https:" && parsedUrl.hostname === "github.com") {
-            const filename = path.basename(url)
+          const filename = path.basename(attachment.pathname)
 
-            const res = await fetch(parsedUrl, {
-              headers: {
-                Authorization: `Bearer ${appToken}`,
-                Accept: "application/vnd.github.v3+json",
-              },
-            })
-            if (!res.ok) {
-              // WHY replace() here: url comes from a GitHub comment body
-              // (untrusted input) and the regex above still allows raw
-              // control characters in its path segment — strip them before
-              // logging so a crafted comment can't forge fake log lines
-              // (CWE-117) in CI output.
-              console.error(`Failed to download image: ${url.replace(/[\x00-\x1f\x7f]/g, "")}`)
-              continue
-            }
-
-            // Replace img tag with file path, ie. @image.png
-            const replacement = `@${filename}`
-            prompt = prompt.slice(0, start + offset) + replacement + prompt.slice(start + offset + tag.length)
-            offset += replacement.length - tag.length
-
-            const contentType = res.headers.get("content-type")
-            imgData.push({
-              filename,
-              mime: contentType?.startsWith("image/") ? contentType : "text/plain",
-              content: Buffer.from(await res.arrayBuffer()).toString("base64"),
-              start,
-              end: start + replacement.length,
-              replacement,
-            })
-          } else {
-            console.error("Rejected attachment URL: unexpected host")
+          const res = await fetch(attachment, {
+            headers: {
+              Authorization: `Bearer ${appToken}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          })
+          if (!res.ok) {
+            console.error(`Failed to download image: ${sanitizeForLog(url)}`)
+            continue
           }
+
+          // Replace img tag with file path, ie. @image.png
+          const replacement = `@${filename}`
+          prompt = prompt.slice(0, start + offset) + replacement + prompt.slice(start + offset + tag.length)
+          offset += replacement.length - tag.length
+
+          const contentType = res.headers.get("content-type")
+          imgData.push({
+            filename,
+            mime: contentType?.startsWith("image/") ? contentType : "text/plain",
+            content: Buffer.from(await res.arrayBuffer()).toString("base64"),
+            start,
+            end: start + replacement.length,
+            replacement,
+          })
         }
 
         return { userPrompt: prompt, promptFiles: imgData }
