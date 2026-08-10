@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 /** P3 security foundation doubles. These are pure contract implementations used by conformance tests. */
 
+import { trimTrailingSeparators } from "./path-separators"
+
 export const P3_CAPABILITIES = [
   "workspace.read", "workspace.write", "workspace.watch", "artifact.create",
   "artifact.export", "terminal.run", "network.request", "browser.navigate",
@@ -148,7 +150,7 @@ export type SandboxPathDecision = { kind: "allow" | "deny"; ruleId: string; cano
 /** Pure containment double: callers provide the parent/symlink view used at decision and use time. */
 export class SandboxPathDouble {
   private readonly root: string
-  public constructor(root: string) { this.root = root.replace(/[\\/]+$/, "").replace(/\\/g, "/") }
+  public constructor(root: string) { this.root = trimTrailingSeparators(root).replace(/\\/g, "/") }
 
   public decide(rawPath: string, mode: SandboxPathMode, view: { existing: ReadonlySet<string>; symlinks: ReadonlyMap<string, string> }): SandboxPathDecision {
     if (!rawPath || rawPath.includes("\0")) return { kind: "deny", ruleId: "C6-lexical-escape-denied", reason: "invalid-path" }

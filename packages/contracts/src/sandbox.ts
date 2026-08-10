@@ -5,6 +5,8 @@
  * ADR-0005
  * Source : Plan V3 §7.5
  */
+import { trimTrailingSeparators } from "./path-separators"
+
 export type SandboxId = string
 export type SandboxBackend = "native" | "docker" | "wsl2" | "lima" | "auto"
 
@@ -59,7 +61,7 @@ export class SandboxBroker {
   readonly #active = new Set<SandboxId>()
   constructor(drivers: readonly SandboxDriver[], allowedPaths: readonly string[] = []) {
     this.#drivers = new Map(drivers.map((driver) => [driver.backend, driver]))
-    this.#allowedPaths = allowedPaths.map((value) => value.replace(/[\\/]+$/, "").toLowerCase())
+    this.#allowedPaths = allowedPaths.map((value) => trimTrailingSeparators(value).toLowerCase())
   }
   async inspect(): Promise<SandboxBackendInfo[]> {
     const result: SandboxBackendInfo[] = []
@@ -102,7 +104,7 @@ export class SandboxBroker {
     throw new Error("no sandbox backend is available")
   }
   #isAllowedPath(value: string): boolean {
-    const normalized = value.replace(/[\\/]+$/, "").toLowerCase()
+    const normalized = trimTrailingSeparators(value).toLowerCase()
     return this.#allowedPaths.some((root) => normalized === root || normalized.startsWith(`${root}\\`) || normalized.startsWith(`${root}/`))
   }
 }
