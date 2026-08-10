@@ -5,7 +5,7 @@
  * ADR-0005
  * Source : Plan V3 §7.5
  */
-import { trimTrailingSeparators } from "./path-separators"
+import { trimTrailingSeparators } from "./path-separators.js"
 
 export type SandboxId = string
 export type SandboxBackend = "native" | "docker" | "wsl2" | "lima" | "auto"

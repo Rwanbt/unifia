@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /** P3 security foundation doubles. These are pure contract implementations used by conformance tests. */
 
-import { trimTrailingSeparators } from "./path-separators"
+import { trimTrailingSeparators } from "./path-separators.js"
 
 export const P3_CAPABILITIES = [
   "workspace.read", "workspace.write", "workspace.watch", "artifact.create",
