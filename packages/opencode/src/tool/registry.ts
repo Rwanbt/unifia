@@ -162,7 +162,11 @@ export namespace ToolRegistry {
 
       const all = Effect.fn("ToolRegistry.all")(function* (custom: Tool.Info[]) {
         const cfg = yield* config.get()
-        const question = ["app", "cli", "desktop"].includes(Flag.OPENCODE_CLIENT) || Flag.UNIFIA_ENABLE_QUESTION_TOOL
+        // UNIFIA_CLIENT is what every shell actually exports (Tauri, Electron
+        // and the mobile Rust runtime) and what acp.ts sets for itself.
+        // OPENCODE_CLIENT is set by nobody except mobile-entry.ts, so it read
+        // "cli" everywhere else — this allowlist was matching a constant.
+        const question = ["app", "cli", "desktop"].includes(Flag.UNIFIA_CLIENT) || Flag.UNIFIA_ENABLE_QUESTION_TOOL
 
         return [
           invalid,
@@ -183,7 +187,7 @@ export namespace ToolRegistry {
           patch,
           ...(Flag.UNIFIA_EXPERIMENTAL_LSP_TOOL ? [lsp] : []),
           ...(cfg.experimental?.batch_tool === true ? [batch] : []),
-          ...(Flag.UNIFIA_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [plan] : []),
+          ...(Flag.UNIFIA_EXPERIMENTAL_PLAN_MODE && Flag.UNIFIA_CLIENT === "cli" ? [plan] : []),
           debate,
           ...custom,
         ]
