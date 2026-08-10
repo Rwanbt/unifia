@@ -792,7 +792,7 @@ test.skipIf(_skipOnWindowsCI)("installs dependencies in writable UNIFIA_CONFIG_D
   process.env.UNIFIA_CONFIG_DIR = tmp.extra
   const online = spyOn(Network, "online").mockReturnValue(false)
   const install = spyOn(Npm, "install").mockImplementation(async (dir: string) => {
-    const mod = path.join(dir, "node_modules", "@unifia-ai", "plugin")
+    const mod = path.join(dir, "node_modules", "@unifia", "plugin")
     await fs.mkdir(mod, { recursive: true })
     await Filesystem.write(
       path.join(mod, "package.json"),
@@ -848,7 +848,7 @@ test("dedupes concurrent config dependency installs for the same dir", async () 
       start()
       await gate
     }
-    const mod = path.join(d, "node_modules", "@unifia-ai", "plugin")
+    const mod = path.join(d, "node_modules", "@unifia", "plugin")
     await fs.mkdir(mod, { recursive: true })
     await Filesystem.write(
       path.join(mod, "package.json"),
@@ -917,7 +917,7 @@ test("serializes config dependency installs across dirs", async () => {
         await gate
       }
     }
-    const mod = path.join(cwd, "node_modules", "@unifia-ai", "plugin")
+    const mod = path.join(cwd, "node_modules", "@unifia", "plugin")
     await fs.mkdir(mod, { recursive: true })
     await Filesystem.write(
       path.join(mod, "package.json"),
