@@ -151,7 +151,7 @@ import { hideBin } from "yargs/helpers"
 import { ServeCommand } from "./cli/cmd/serve"
 import { Log } from "./util/log"
 import { Installation } from "./installation"
-import { Database } from "./storage/db"
+import { Database, DATABASE_FILE } from "./storage/db"
 import { JsonMigration } from "./storage/json-migration"
 import { Global } from "./global"
 import { Filesystem } from "./util/filesystem"
@@ -193,7 +193,7 @@ const cli = yargs(args)
     })
 
     // Run database migration if needed
-    const marker = path.join(Global.Path.data, "opencode.db")
+    const marker = path.join(Global.Path.data, DATABASE_FILE)
     if (!(await Filesystem.exists(marker))) {
       process.stderr.write("Performing database migration..." + EOL)
       await JsonMigration.run(Database.Client().$client, {})

@@ -9,7 +9,7 @@ import { Log } from "../util/log"
 import { NamedError } from "@unifia/util/error"
 import z from "zod"
 import path from "node:path"
-import { readFileSync, readdirSync, existsSync } from "node:fs"
+import { readFileSync, readdirSync, existsSync, copyFileSync } from "node:fs"
 import { Flag } from "../flag/flag"
 import { CHANNEL } from "../installation/meta"
 import { InstanceState } from "@/effect/instance-state"
@@ -27,12 +27,46 @@ export const NotFoundError = NamedError.create(
 
 const log = Log.create({ service: "db" })
 
+// Brand-aligned database file name. The legacy "opencode.db" stays as the
+// source of a one-shot copy so existing installs (and any concurrent upstream
+// install) keep working. See Runbook-Autonome-Independance-Unifia-2026-08-10
+// §3 (carte C8-A) for the migration design.
+export const DATABASE_FILE = "unifia.db"
+export const LEGACY_DATABASE_FILE = "opencode.db"
+
+function channelFileNames() {
+  if (["latest", "beta"].includes(CHANNEL) || Flag.UNIFIA_DISABLE_CHANNEL_DB) {
+    return { current: DATABASE_FILE, legacy: LEGACY_DATABASE_FILE }
+  }
+  const safe = CHANNEL.replace(/[^a-zA-Z0-9._-]/g, "-")
+  return { current: `unifia-${safe}.db`, legacy: `opencode-${safe}.db` }
+}
+
+// Copy a legacy database file (and its `-wal` / `-shm` siblings) to the new
+// path. Idempotent: bails out if the destination already exists, so a second
+// startup is a no-op. Never deletes the source — the legacy file stays as a
+// backup and a concurrent upstream install keeps working.
+//
+// Returns true if a copy actually happened.
+export function migrateLegacyDatabaseFile(newPath: string, oldPath: string): boolean {
+  if (existsSync(newPath)) return false
+  if (!existsSync(oldPath)) return false
+  log.info("migrating legacy database file", { from: oldPath, to: newPath })
+  for (const suffix of ["", "-wal", "-shm"]) {
+    const src = oldPath + suffix
+    if (!existsSync(src)) continue
+    copyFileSync(src, newPath + suffix)
+  }
+  return true
+}
+
 export namespace Database {
   export function getChannelPath() {
-    if (["latest", "beta"].includes(CHANNEL) || Flag.UNIFIA_DISABLE_CHANNEL_DB)
-      return path.join(Global.Path.data, "opencode.db")
-    const safe = CHANNEL.replace(/[^a-zA-Z0-9._-]/g, "-")
-    return path.join(Global.Path.data, `opencode-${safe}.db`)
+    const files = channelFileNames()
+    const newPath = path.join(Global.Path.data, files.current)
+    const oldPath = path.join(Global.Path.data, files.legacy)
+    migrateLegacyDatabaseFile(newPath, oldPath)
+    return newPath
   }
 
   export const Path = iife(() => {
