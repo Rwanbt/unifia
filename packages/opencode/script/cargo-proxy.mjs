@@ -15,6 +15,9 @@
 //   POST /exec
 //     body: { deviceCwd: string, command: string, env: object }
 //     returns: { stdout: string, stderr: string, exitCode: number, durationMs: number }
+//     403 unless the caller sends application/json without browser fetch
+//     headers, the command starts with an ALLOWED_TOOLS entry and carries no
+//     shell control characters, and env sets no loader/resolution variable.
 //   GET /health → { ok: true }
 
 import { createServer } from "node:http"
@@ -33,6 +36,53 @@ const EXEC_TIMEOUT_MS = 5 * 60 * 1000
 function argFlag(name) {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : null
+}
+
+// The header has always promised "whitelisted toolchain commands"; until now
+// nothing enforced it. `MUTATING` below only decides whether to push sources
+// back, so any POST to /exec was arbitrary shell execution on the developer's
+// PC (CodeQL `js/command-line-injection`). Binding to 127.0.0.1 is not the
+// barrier it looks like: `adb reverse` exposes the port to the device on
+// purpose, and a web page the developer visits can POST here from their
+// browser. The three guards below make the promise true.
+const ALLOWED_TOOLS = new Set(["cargo", "rustc", "rustup", "npm", "pnpm", "yarn", "tsc", "bun", "node"])
+
+// Anything that would let a payload chain a second command past the allowed
+// leading tool. Quotes and `=` stay legal so `cargo test -- --nocapture` and
+// `npm run build --workspace=x` still work.
+const SHELL_CONTROL = /[;&|`$><\n\r(){}]/
+
+// Spread into the child env, so a payload could otherwise redirect which
+// binary `cargo` resolves to, or inject code into node.
+const ENV_DENYLIST = /^(PATH|LD_|DYLD_|NODE_OPTIONS$|BASH_ENV$|SHELL$|IFS$)/i
+
+/** @returns {string | null} the reason to refuse, or null when acceptable. */
+function refuseCommand(command, env) {
+  if (SHELL_CONTROL.test(command)) return "command contains shell control characters"
+  const tool = command.trim().split(/\s+/, 1)[0]
+  if (!ALLOWED_TOOLS.has(tool)) return `command is not a whitelisted toolchain tool: ${tool}`
+  for (const key of Object.keys(env || {})) if (ENV_DENYLIST.test(key)) return `env key is not permitted: ${key}`
+  return null
+}
+
+/**
+ * A browser cannot be made to send this request.
+ *
+ * `Origin` is attached to every cross-origin POST, and `Sec-Fetch-Site` to
+ * every fetch from a modern browser — so their presence means the caller is a
+ * page, not the mobile bash tool. Requiring `application/json` closes the
+ * remaining gap: a simple request may only carry text/plain, form or multipart
+ * content types, and anything else forces a preflight this server never
+ * answers.
+ */
+function refuseCaller(req) {
+  if (req.headers["origin"] || req.headers["sec-fetch-site"] || req.headers["sec-fetch-mode"]) {
+    return "browser-originated requests are not accepted"
+  }
+  if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) {
+    return "content-type must be application/json"
+  }
+  return null
 }
 
 function adbArgs() {
@@ -140,6 +190,12 @@ const server = createServer((req, res) => {
     res.end()
     return
   }
+  const callerRefusal = refuseCaller(req)
+  if (callerRefusal) {
+    res.writeHead(403, { "Content-Type": "application/json" })
+    res.end(JSON.stringify({ error: callerRefusal }))
+    return
+  }
   let body = Buffer.alloc(0)
   req.on("data", (c) => (body = Buffer.concat([body, c])))
   req.on("end", () => {
@@ -155,6 +211,13 @@ const server = createServer((req, res) => {
     if (typeof deviceCwd !== "string" || typeof command !== "string") {
       res.writeHead(400, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ error: "deviceCwd and command required" }))
+      return
+    }
+    const commandRefusal = refuseCommand(command, env)
+    if (commandRefusal) {
+      process.stderr.write(`[refused] ${commandRefusal}\n`)
+      res.writeHead(403, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ error: commandRefusal }))
       return
     }
     const t0 = Date.now()
