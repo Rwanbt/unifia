@@ -11,7 +11,7 @@ export type Channel = "dev" | "beta" | "prod"
  * found and the packaged app shipped with no backend at all.
  */
 export const cliPackageName: string = (
-  (await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }
+  (await Bun.file(new URL("../../unifia/package.json", import.meta.url)).json()) as { name: string }
 ).name
 
 export function resolveChannel(): Channel {
@@ -115,12 +115,12 @@ export async function copyBinaryToSidecarFolder(source: string) {
  */
 export async function stageSidecar({ rebuild = false }: { rebuild?: boolean } = {}) {
   const sidecarConfig = getCurrentSidecar()
-  const dir = "../opencode/dist"
+  const dir = "../unifia/dist"
 
   if (rebuild) {
     await (sidecarConfig.ocBinary.includes("-baseline")
-      ? $`cd ../opencode && bun run build --single --baseline`
-      : $`cd ../opencode && bun run build --single`)
+      ? $`cd ../unifia && bun run build --single --baseline`
+      : $`cd ../unifia && bun run build --single`)
   }
 
   let source: string

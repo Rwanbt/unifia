@@ -164,16 +164,16 @@ try {
     process.env.OPENCODE = "1"
     process.env.UNIFIA_PID = String(process.pid)
 
-    const log = await import("../../opencode/src/util/log")
-    const install = await import("../../opencode/src/installation")
+    const log = await import("../../unifia/src/util/log")
+    const install = await import("../../unifia/src/installation")
     await log.Log.init({
       print: true,
       dev: install.Installation.isLocal(),
       level: "WARN",
     })
 
-    const servermod = await import("../../opencode/src/server/server")
-    inst = await import("../../opencode/src/project/instance")
+    const servermod = await import("../../unifia/src/server/server")
+    inst = await import("../../unifia/src/project/instance")
     server = servermod.Server.listen({ port: serverPort, hostname: "127.0.0.1" })
     console.log(`unifia server listening on http://127.0.0.1:${serverPort}`)
 

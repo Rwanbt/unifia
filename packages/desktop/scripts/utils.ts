@@ -11,7 +11,7 @@ import { $ } from "bun"
  * failed with "resource path sidecars\... doesn't exist". Deriving it keeps one
  * authoritative source for the name.
  */
-export const cliPackageName: string = ((await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }).name
+export const cliPackageName: string = ((await Bun.file(new URL("../../unifia/package.json", import.meta.url)).json()) as { name: string }).name
 
 export const SIDECAR_BINARIES: Array<{ rustTarget: string; platform: string; assetExt: string }> = [
   { rustTarget: "aarch64-apple-darwin", platform: "darwin-arm64", assetExt: "zip" },

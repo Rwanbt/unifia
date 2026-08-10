@@ -142,7 +142,7 @@ fi
 # into the gen/android assets dir. Maintaining a second `bun build` here risked
 # shipping a stale CLI on local builds vs CI.
 echo "[5/6] Bundling Unifia CLI (via scripts/bundle-mobile.mjs)..."
-UNIFIA_DIR="$(cd "$MOBILE_DIR/../opencode" && pwd)"
+UNIFIA_DIR="$(cd "$MOBILE_DIR/../unifia" && pwd)"
 REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
 
 if [ -f "$UNIFIA_DIR/src/mobile-entry.ts" ]; then
