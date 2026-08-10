@@ -15,6 +15,26 @@ import { setTimeout as sleep } from "node:timers/promises"
  */
 
 // We need to set UNIFIA_PTY_PORT before importing android-pty
+/**
+ * Polls until `condition` holds, instead of sleeping a fixed amount.
+ *
+ * Every wait in this file used to be a bare `sleep()` covering a TCP connect,
+ * a JSON handshake and a response parse. 200 ms is generous on an idle machine
+ * and not enough on a loaded Windows runner, which is why `unit (windows)`
+ * alternated pass and fail across commits that could not have affected it.
+ * Polling keeps the fast path fast and stops the slow path from lying.
+ *
+ * Deliberately returns rather than throwing on timeout: the assertion that
+ * follows each call produces a far better diagnostic than a generic timeout.
+ */
+async function waitFor(condition: () => boolean, timeoutMs = 5000, intervalMs = 10) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await sleep(intervalMs)
+  }
+}
+
 let mockPort: number
 let mockServer: Server
 
@@ -85,8 +105,7 @@ describe("android-pty", () => {
       env: { TERM: "xterm-256color" },
     })
 
-    // Wait for handshake
-    await sleep(200)
+    await waitFor(() => term.pid !== -1)
     expect(term.pid).toBe(1234)
     expect(term.cols).toBe(80)
     expect(term.rows).toBe(24)
@@ -116,7 +135,7 @@ describe("android-pty", () => {
     const output: string[] = []
     term.onData((data) => output.push(data))
 
-    await sleep(500)
+    await waitFor(() => output.join("").includes("hello from pty"))
     expect(output.length).toBeGreaterThan(0)
     expect(output.join("")).toContain("hello from pty")
 
@@ -143,10 +162,10 @@ describe("android-pty", () => {
     const { AndroidTerminal } = await import("../../src/pty/android-pty")
     const term = new AndroidTerminal("bash", [], { cwd: "/tmp" })
 
-    await sleep(200) // wait for handshake
+    await waitFor(() => term.pid !== -1)
     term.write("ls -la\r")
 
-    await sleep(200)
+    await waitFor(() => receivedAfterHandshake.includes("ls -la"))
     expect(receivedAfterHandshake).toContain("ls -la")
 
     term.kill()
@@ -185,7 +204,7 @@ describe("android-pty", () => {
       exitCode = evt.exitCode
     })
 
-    await sleep(800) // wait for spawn + server close + status query
+    await waitFor(() => exitCode === 42 && statusConnection)
     expect(exitCode).toBe(42)
     expect(statusConnection).toBe(true)
   })
@@ -222,10 +241,10 @@ describe("android-pty", () => {
     const { AndroidTerminal } = await import("../../src/pty/android-pty")
     const term = new AndroidTerminal("bash", [], { cwd: "/tmp" })
 
-    await sleep(200) // wait for handshake
+    await waitFor(() => term.pid !== -1)
     term.resize(120, 40)
 
-    await sleep(300) // wait for control connection
+    await waitFor(() => resizeReceived)
     expect(resizeReceived).toBe(true)
     expect(resizeHandle).toBe(4)
     expect(resizeCols).toBe(120)
@@ -253,7 +272,7 @@ describe("android-pty", () => {
       exitCode = evt.exitCode
     })
 
-    await sleep(300)
+    await waitFor(() => exitCode === 127)
     expect(exitCode).toBe(127) // error exit code
   })
 
@@ -269,7 +288,7 @@ describe("android-pty", () => {
       exitCode = evt.exitCode
     })
 
-    await sleep(500)
+    await waitFor(() => exitCode === 1)
     expect(exitCode).toBe(1) // error exit code
 
     // Recreate server for afterEach cleanup
@@ -300,7 +319,7 @@ describe("android-pty", () => {
       env: { TERM: "xterm-256color", HOME: "/data/home", PATH: "/usr/bin" },
     })
 
-    await sleep(200)
+    await waitFor(() => receivedEnv !== "")
     expect(receivedEnv).toContain("TERM=xterm-256color")
     expect(receivedEnv).toContain("HOME=/data/home")
     expect(receivedEnv).toContain("PATH=/usr/bin")
@@ -337,7 +356,7 @@ describe("android-pty", () => {
     const { AndroidTerminal } = await import("../../src/pty/android-pty")
     const term = new AndroidTerminal("bash", [], { cwd: "/tmp" })
 
-    await sleep(200)
+    await waitFor(() => term.pid !== -1)
 
     let exitFired = false
     term.onExit(() => {
@@ -346,7 +365,7 @@ describe("android-pty", () => {
 
     term.kill()
 
-    await sleep(300)
+    await waitFor(() => killReceived && exitFired)
     expect(killReceived).toBe(true)
     expect(exitFired).toBe(true)
   })
