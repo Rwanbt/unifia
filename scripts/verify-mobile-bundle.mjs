@@ -17,7 +17,12 @@ const missing = migrations.filter((name) => !bundle.includes(name))
 const checks = {
   migrationCount: migrations.length,
   missingMigrations: missing,
-  hasVersionMetadata: bundle.includes("globalThis.OPENCODE_VERSION"),
+  // Must track what scripts/bundle-mobile.mjs actually emits. It now writes
+  // globalThis.UNIFIA_VERSION, because packages/script reads UNIFIA_VERSION;
+  // asserting the old spelling here made this check fail on a correct bundle.
+  // Deliberately not accepting both: the point of the assertion is to catch a
+  // stale bundle, and a permissive match would let exactly that through.
+  hasVersionMetadata: bundle.includes("globalThis.UNIFIA_VERSION"),
   generatedCopyMatches: bundle === generatedBundle,
   hasObservabilityRuntime: bundle.includes("observability"),
 }
