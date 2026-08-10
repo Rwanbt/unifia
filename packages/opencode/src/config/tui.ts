@@ -100,7 +100,7 @@ export namespace TuiConfig {
     }
 
     for (const dir of unique(directories)) {
-      if (!dir.endsWith(".opencode") && dir !== Flag.UNIFIA_CONFIG_DIR) continue
+      if (!ConfigPaths.isConfigDirectory(dir)) continue
       for (const file of ConfigPaths.fileInDirectory(dir, "tui")) {
         await mergeFile(acc, file)
       }
@@ -117,7 +117,9 @@ export namespace TuiConfig {
     const deps: Promise<void>[] = []
     if (acc.result.plugin?.length) {
       for (const dir of unique(directories)) {
-        if (!dir.endsWith(".opencode") && dir !== Flag.UNIFIA_CONFIG_DIR) continue
+        // Read from both brands, install into ours only — see
+        // ConfigPaths.PROJECT_DIRECTORY.
+        if (!ConfigPaths.isConfigDirectory(dir) || ConfigPaths.isLegacyDirectory(dir)) continue
         deps.push(installDeps(dir))
       }
     }

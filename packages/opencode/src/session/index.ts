@@ -1,5 +1,7 @@
 import { Slug } from "@unifia/util/slug"
 import path from "node:path"
+import { existsSync } from "node:fs"
+import { ConfigPaths } from "../config/paths"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Decimal } from "decimal.js"
@@ -240,10 +242,16 @@ export namespace Session {
   }
 
   export function plan(input: { slug: string; time: { created: number } }) {
-    const base = Instance.project.vcs
-      ? path.join(Instance.worktree, ".opencode", "plans")
-      : path.join(Global.Path.data, "plans")
-    return path.join(base, [input.time.created, input.slug].join("-") + ".md")
+    if (!Instance.project.vcs) {
+      return path.join(Global.Path.data, "plans", [input.time.created, input.slug].join("-") + ".md")
+    }
+    const name = [input.time.created, input.slug].join("-") + ".md"
+    // A plan is addressed by path, so a plan written before the rename has to
+    // stay resolvable at its old location — returning the new path for it would
+    // make an existing plan read as empty and be rewritten elsewhere.
+    const legacy = path.join(Instance.worktree, ConfigPaths.LEGACY_PROJECT_DIRECTORY, "plans", name)
+    if (existsSync(legacy)) return legacy
+    return path.join(Instance.worktree, ConfigPaths.PROJECT_DIRECTORY, "plans", name)
   }
 
   export const getUsage = (input: {

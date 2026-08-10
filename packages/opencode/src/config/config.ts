@@ -274,7 +274,17 @@ export namespace Config {
       })
       if (!md) continue
 
-      const patterns = ["/.opencode/command/", "/.opencode/commands/", "/command/", "/commands/"]
+      // Both brands: without the current one the prefix never strips, and a
+      // nested command in .unifia/command/a/b.md would be named "b" instead of
+      // "a/b" through the basename fallback below.
+      const patterns = [
+        "/.unifia/command/",
+        "/.unifia/commands/",
+        "/.opencode/command/",
+        "/.opencode/commands/",
+        "/command/",
+        "/commands/",
+      ]
       const file = rel(item, patterns) ?? path.basename(item)
       const name = trim(file)
 
@@ -313,7 +323,14 @@ export namespace Config {
       })
       if (!md) continue
 
-      const patterns = ["/.opencode/agent/", "/.opencode/agents/", "/agent/", "/agents/"]
+      const patterns = [
+        "/.unifia/agent/",
+        "/.unifia/agents/",
+        "/.opencode/agent/",
+        "/.opencode/agents/",
+        "/agent/",
+        "/agents/",
+      ]
       const file = rel(item, patterns) ?? path.basename(item)
       const agentName = trim(file)
 
@@ -740,7 +757,7 @@ export namespace Config {
           const deps: Promise<void>[] = []
 
           for (const dir of unique(directories)) {
-            if (dir.endsWith(".opencode") || dir === Flag.UNIFIA_CONFIG_DIR) {
+            if (ConfigPaths.isConfigDirectory(dir)) {
               // Legacy basenames first: this loop merges in order, so the
               // current brand must come last to win. The `.opencode` directory
               // itself is still honoured (see ConfigPaths.directories), so the
@@ -756,13 +773,19 @@ export namespace Config {
               }
             }
 
-            const dep = iife(async () => {
-              await installDependencies(dir)
-            })
-            void dep.catch((err) => {
-              log.warn("background dependency install failed", { dir, error: err })
-            })
-            deps.push(dep)
+            // Never into `.opencode`: that directory is read for backward
+            // compatibility, but it is also the separately-installed OpenCode's,
+            // and this wrote a package.json, a .gitignore and a node_modules
+            // tree into it on every load.
+            if (!ConfigPaths.isLegacyDirectory(dir)) {
+              const dep = iife(async () => {
+                await installDependencies(dir)
+              })
+              void dep.catch((err) => {
+                log.warn("background dependency install failed", { dir, error: err })
+              })
+              deps.push(dep)
+            }
 
             result.command = mergeDeep(result.command ?? {}, yield* Effect.promise(() => loadCommand(dir)))
             result.agent = mergeDeep(result.agent, yield* Effect.promise(() => loadAgent(dir)))

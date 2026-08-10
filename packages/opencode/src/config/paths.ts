@@ -9,6 +9,35 @@ import { Global } from "@/global"
 
 export namespace ConfigPaths {
   /**
+   * Project-level config directory, holding skills, themes, agents, commands
+   * and plugins.
+   *
+   * `.opencode` is the pre-rebrand name and stays readable: renaming without
+   * reading the old name would make every existing project's customisations
+   * vanish at the first launch. It is deliberately never written to — the same
+   * directory belongs to the separately-installed OpenCode this product
+   * coexists with, and `installDependencies` was dropping a package.json, a
+   * .gitignore and a node_modules tree into it.
+   *
+   * Order is load-bearing: Filesystem.up emits `targets` in order at each level
+   * and callers merge in the order returned, so the current brand comes last to
+   * win where both exist — the rule projectFiles() already applies to filenames.
+   */
+  export const PROJECT_DIRECTORY = ".unifia"
+  export const LEGACY_PROJECT_DIRECTORY = ".opencode"
+  const PROJECT_DIRECTORIES = [LEGACY_PROJECT_DIRECTORY, PROJECT_DIRECTORY]
+
+  /** A directory config is read from: either brand, or the explicit override. */
+  export function isConfigDirectory(dir: string) {
+    return PROJECT_DIRECTORIES.some((name) => dir.endsWith(name)) || dir === Flag.UNIFIA_CONFIG_DIR
+  }
+
+  /** Read-only by contract — see PROJECT_DIRECTORY. */
+  export function isLegacyDirectory(dir: string) {
+    return dir.endsWith(LEGACY_PROJECT_DIRECTORY)
+  }
+
+  /**
    * Upward-traversal boundary for config discovery. Git projects stop at the
    * worktree root. Non-git projects set worktree === directory (see
    * Project.fromDirectory — the mobile file-ops boundary must stay writable),
@@ -42,7 +71,7 @@ export namespace ConfigPaths {
       ...(!Flag.UNIFIA_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
             Filesystem.up({
-              targets: [".opencode"],
+              targets: PROJECT_DIRECTORIES,
               start: directory,
               stop,
             }),
@@ -50,7 +79,7 @@ export namespace ConfigPaths {
         : []),
       ...(await Array.fromAsync(
         Filesystem.up({
-          targets: [".opencode"],
+          targets: PROJECT_DIRECTORIES,
           start: Global.Path.home,
           stop: Global.Path.home,
         }),

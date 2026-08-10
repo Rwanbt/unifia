@@ -334,7 +334,9 @@ function patchDir(input: PatchInput) {
   if (input.global) return input.config ?? Global.Path.config
   const git = input.vcs === "git" && input.worktree !== "/"
   const root = git ? input.worktree : input.directory
-  return path.join(root, ".opencode")
+  // The current brand: this is a write target, and `.opencode` also belongs to
+  // the separately-installed OpenCode.
+  return path.join(root, ConfigPaths.PROJECT_DIRECTORY)
 }
 
 function patchName(kind: Kind): "unifia" | "tui" {

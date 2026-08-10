@@ -1,10 +1,11 @@
 /**
  * Direct learnings injection fallback when RAG is not active.
- * Reads the most recent .opencode/learnings/*.md files and formats
- * them for system prompt injection.
+ * Reads the most recent learnings/*.md files from the project config
+ * directories and formats them for system prompt injection.
  */
 import fs from "node:fs"
 import path from "node:path"
+import { ConfigPaths } from "../config/paths"
 
 /**
  * Read recent learnings from disk and format for system prompt injection.
@@ -15,24 +16,35 @@ import path from "node:path"
 export function readRecentLearnings(worktree: string, budgetTokens: number): string | undefined {
   if (budgetTokens <= 0) return undefined
 
-  const dir = path.join(worktree, ".opencode", "learnings")
-  let files: string[]
-  try {
-    files = fs.readdirSync(dir).filter((f) => f.endsWith(".md"))
-  } catch {
-    return undefined
-  }
+  // Both brands: learnings written before the rename live under `.opencode`,
+  // and dropping them would silently empty a user's accumulated context.
+  const dirs = [
+    path.join(worktree, ConfigPaths.LEGACY_PROJECT_DIRECTORY, "learnings"),
+    path.join(worktree, ConfigPaths.PROJECT_DIRECTORY, "learnings"),
+  ]
+  const files = dirs.flatMap((dir) => {
+    try {
+      return fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith(".md"))
+        .map((name) => ({ name, filepath: path.join(dir, name) }))
+    } catch {
+      return []
+    }
+  })
 
   if (files.length === 0) return undefined
 
-  // Sort by filename (YYYY-MM-DD prefix) descending — most recent first
-  files.sort().reverse()
+  // By filename (YYYY-MM-DD prefix) descending — most recent first, across both
+  // directories. Sorting full paths instead would order by directory and put
+  // every legacy learning ahead of every current one.
+  files.sort((a, b) => b.name.localeCompare(a.name))
 
   const budgetChars = budgetTokens * 4
   let content = ""
   for (const file of files.slice(0, 5)) {
     try {
-      const text = fs.readFileSync(path.join(dir, file), "utf-8")
+      const text = fs.readFileSync(file.filepath, "utf-8")
       if (content.length + text.length > budgetChars) break
       content += text + "\n---\n"
     } catch {

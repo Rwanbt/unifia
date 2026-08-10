@@ -6,6 +6,7 @@ import { Provider } from "../provider/provider"
 import { LLM } from "./llm"
 import { Log } from "../util/log"
 import { Instance } from "../project/instance"
+import { ConfigPaths } from "../config/paths"
 import { Filesystem } from "../util/filesystem"
 import path from "node:path"
 import type { ProviderID, ModelID } from "../provider/schema"
@@ -94,10 +95,11 @@ export namespace SessionLearn {
       return
     }
 
-    // Write lessons to .opencode/learnings/
+    // Written under the current brand only; readRecentLearnings still reads the
+    // legacy directory, so nothing written before the rename is lost.
     const date = new Date().toISOString().split("T")[0]
     const filename = `${date}-${input.sessionID.slice(0, 8)}.md`
-    const filepath = path.join(Instance.worktree, ".opencode", "learnings", filename)
+    const filepath = path.join(Instance.worktree, ConfigPaths.PROJECT_DIRECTORY, "learnings", filename)
 
     const content = lessons
       .map((l) => `### ${l.title}\n\n${l.content}\n\nTags: ${l.tags.map((t) => `\`${t}\``).join(", ")}`)

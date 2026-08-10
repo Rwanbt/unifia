@@ -98,7 +98,10 @@ describe.skipIf(skipOnWindowsCI)("tool.registry", () => {
     async () => {
       await using tmp = await tmpdir({
         init: async (dir) => {
-          const opencodeDir = path.join(dir, ".opencode")
+          // `.unifia`, not `.opencode`: dependencies are only installed into the
+          // current brand's directory. The legacy one is read but never written
+          // to, since it is also the separately-installed OpenCode's.
+          const opencodeDir = path.join(dir, ".unifia")
           await fs.mkdir(opencodeDir, { recursive: true })
 
           const toolsDir = path.join(opencodeDir, "tools")
