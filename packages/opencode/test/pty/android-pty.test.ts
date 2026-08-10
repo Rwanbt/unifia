@@ -33,10 +33,10 @@ async function waitFor(condition: () => boolean, timeoutMs = 5000, intervalMs = 
     if (condition()) return
     await sleep(intervalMs)
   }
+  // Deliberately silent on timeout: every call site asserts the same condition
+  // on the next line, so the expect produces the real message ("expected 42,
+  // got undefined") instead of a generic timeout. No test can pass vacuously.
 }
-
-let mockPort: number
-let mockServer: Server
 
 /** Create a mock PTY server that speaks the pty_server protocol. */
 function createMockPtyServer(): Promise<{ server: Server; port: number }> {

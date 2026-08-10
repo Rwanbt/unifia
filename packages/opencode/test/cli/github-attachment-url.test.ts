@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { expect, test } from "bun:test"
-import { resolveGithubAttachmentUrl, sanitizeForLog } from "../../src/cli/cmd/github-run"
+import { resolveGithubAttachmentUrl } from "../../src/cli/cmd/github-run"
 
 // The fetch this feeds carries the GitHub App token, and its input is a URL
 // lifted out of an issue comment — i.e. attacker-supplied. The two guards that
@@ -45,10 +45,4 @@ test("refuses anything that is not https://github.com", () => {
   ]) {
     expect({ raw, resolved: resolveGithubAttachmentUrl(raw) }).toEqual({ raw, resolved: null })
   }
-})
-
-test("strips control characters before a comment value is logged", () => {
-  expect(sanitizeForLog("https://github.com/a\n[error] forged line\x00\x7f")).toBe(
-    "https://github.com/a[error] forged line",
-  )
 })

@@ -142,14 +142,6 @@ type IssueQueryResponse = {
 }
 
 /**
- * Strips raw control characters before a value from a comment body is logged,
- * so a crafted comment cannot forge log lines in CI output (CWE-117).
- */
-export function sanitizeForLog(value: string): string {
-  return value.replace(/[\x00-\x1f\x7f]/g, "")
-}
-
-/**
  * Resolves an attachment URL found in a comment body into the URL to fetch, or
  * null when it must not be fetched at all.
  *
@@ -594,14 +586,20 @@ export const GithubRunCommand = cmd({
         console.log("Images", JSON.stringify(matches, null, 2))
 
         let offset = 0
-        for (const m of matches) {
+        for (const [index, m] of matches.entries()) {
           const tag = m[0]
           const url = m[1]
           const start = m.index
 
           const attachment = resolveGithubAttachmentUrl(url)
           if (!attachment) {
-            console.error(`Rejected attachment URL: ${sanitizeForLog(url)}`)
+            // The URL is never echoed. It comes from a comment body, and the
+            // previous attempt — strip its control characters first — kept
+            // being reported as CWE-117 once the strip moved into a helper the
+            // taint tracker does not follow through. Position and reason are
+            // enough to find the offender, and a number cannot forge a log
+            // line, so the sink is gone rather than sanitised.
+            console.error(`Rejected attachment ${index}: not an https://github.com/user-attachments/ path`)
             continue
           }
 
@@ -614,7 +612,7 @@ export const GithubRunCommand = cmd({
             },
           })
           if (!res.ok) {
-            console.error(`Failed to download image: ${sanitizeForLog(url)}`)
+            console.error(`Failed to download attachment ${index}: HTTP ${res.status}`)
             continue
           }
 
