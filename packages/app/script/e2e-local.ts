@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import fs from "node:fs/promises"
 import net from "node:net"
 import os from "node:os"
@@ -44,7 +45,17 @@ async function waitForHealth(url: string) {
 
 const appDir = process.cwd()
 const repoDir = path.resolve(appDir, "../..")
-const opencodeDir = path.join(repoDir, "packages", "unifia")
+
+// The package is named `unifia`, but its directory is still `packages/opencode`
+// — the rebrand renamed the string here without renaming the folder. Nothing
+// caught it, because posix_spawn reports a missing cwd as ENOENT *on the
+// executable*: `e2e (linux)` failed with `ENOENT: posix_spawn 'bun'` and read
+// as a PATH problem. The check below turns the next such drift into a sentence
+// instead of a misdirection.
+const serverDir = path.join(repoDir, "packages", "opencode")
+if (!existsSync(serverDir)) {
+  throw new Error(`Server package directory not found: ${serverDir}. Was packages/opencode renamed?`)
+}
 
 const extraArgs = (() => {
   const args = process.argv.slice(2)
@@ -132,13 +143,13 @@ process.once("unhandledRejection", (error) => {
 let code = 1
 
 try {
-  // process.execPath, not "bun": Bun.spawn goes straight to posix_spawn and
-  // does not resolve a bare command through PATH the way a shell does. On the
-  // Linux runner this failed with `ENOENT: posix_spawn 'bun'` before a single
-  // test ran. The absolute path to the interpreter already executing this file
-  // is both correct and guaranteed to exist.
+  // An earlier version of this comment blamed PATH resolution for the
+  // `ENOENT: posix_spawn 'bun'` on the Linux runner. That was wrong: the cwd
+  // above did not exist, and posix_spawn attributes that ENOENT to the
+  // executable. `process.execPath` is kept because naming the interpreter
+  // already running this file is unambiguous, not because a bare "bun" fails.
   seed = Bun.spawn([process.execPath, "script/seed-e2e.ts"], {
-    cwd: opencodeDir,
+    cwd: serverDir,
     env: serverEnv,
     stdout: "inherit",
     stderr: "inherit",

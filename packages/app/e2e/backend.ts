@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { existsSync } from "node:fs"
 import fs from "node:fs/promises"
 import net from "node:net"
 import os from "node:os"
@@ -67,7 +68,14 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
   const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
   const repoDir = path.resolve(appDir, "../..")
-  const opencodeDir = path.join(repoDir, "packages", "unifia")
+  // packages/opencode, not packages/unifia: the package is named `unifia` but
+  // its directory was never renamed. See the same fix in script/e2e-local.ts —
+  // a missing cwd surfaces as `ENOENT: posix_spawn '<executable>'`, which does
+  // not look like a path problem at all.
+  const serverDir = path.join(repoDir, "packages", "opencode")
+  if (!existsSync(serverDir)) {
+    throw new Error(`Server package directory not found: ${serverDir}. Was packages/opencode renamed?`)
+  }
   const env = {
     ...process.env,
     UNIFIA_DISABLE_LSP_DOWNLOAD: "true",
@@ -88,7 +96,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
     "bun",
     ["run", "--conditions=browser", "./src/index.ts", "serve", "--port", String(port), "--hostname", "127.0.0.1"],
     {
-      cwd: opencodeDir,
+      cwd: serverDir,
       env,
       stdio: ["ignore", "pipe", "pipe"],
     },

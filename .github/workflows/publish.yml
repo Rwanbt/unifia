@@ -95,17 +95,22 @@ jobs:
           GH_REPO: ${{ needs.version.outputs.repo }}
           GH_TOKEN: ${{ steps.committer.outputs.token }}
 
+      # if-no-files-found: error on all three uploads below — the paths said
+      # opencode-* while build.ts has emitted unifia-* since the rename, and the
+      # default (warn) let the release publish empty CLI artifacts in silence.
       - uses: actions/upload-artifact@v4
         with:
           name: opencode-cli
+          if-no-files-found: error
           path: |
-            packages/opencode/dist/opencode-darwin*
-            packages/opencode/dist/opencode-linux*
+            packages/opencode/dist/unifia-darwin*
+            packages/opencode/dist/unifia-linux*
 
       - uses: actions/upload-artifact@v4
         with:
           name: opencode-cli-windows
-          path: packages/opencode/dist/opencode-windows*
+          if-no-files-found: error
+          path: packages/opencode/dist/unifia-windows*
     outputs:
       version: ${{ needs.version.outputs.version }}
 
@@ -150,9 +155,9 @@ jobs:
           signing-account-name: ${{ env.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
           certificate-profile-name: ${{ env.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE }}
           files: |
-            ${{ github.workspace }}\packages\unifia\dist\unifia-windows-arm64\bin\unifia.exe
-            ${{ github.workspace }}\packages\unifia\dist\unifia-windows-x64\bin\unifia.exe
-            ${{ github.workspace }}\packages\unifia\dist\unifia-windows-x64-baseline\bin\unifia.exe
+            ${{ github.workspace }}\packages\opencode\dist\unifia-windows-arm64\bin\unifia.exe
+            ${{ github.workspace }}\packages\opencode\dist\unifia-windows-x64\bin\unifia.exe
+            ${{ github.workspace }}\packages\opencode\dist\unifia-windows-x64-baseline\bin\unifia.exe
           exclude-environment-credential: true
           exclude-workload-identity-credential: true
           exclude-managed-identity-credential: true
@@ -168,9 +173,9 @@ jobs:
         shell: pwsh
         run: |
           $files = @(
-            "${{ github.workspace }}\packages\unifia\dist\unifia-windows-arm64\bin\unifia.exe",
-            "${{ github.workspace }}\packages\unifia\dist\unifia-windows-x64\bin\unifia.exe",
-            "${{ github.workspace }}\packages\unifia\dist\unifia-windows-x64-baseline\bin\unifia.exe"
+            "${{ github.workspace }}\packages\opencode\dist\unifia-windows-arm64\bin\unifia.exe",
+            "${{ github.workspace }}\packages\opencode\dist\unifia-windows-x64\bin\unifia.exe",
+            "${{ github.workspace }}\packages\opencode\dist\unifia-windows-x64-baseline\bin\unifia.exe"
           )
 
           foreach ($file in $files) {
@@ -195,19 +200,20 @@ jobs:
           GH_TOKEN: ${{ steps.committer.outputs.token }}
         run: |
           gh release upload "v${{ needs.version.outputs.version }}" `
-            "${{ github.workspace }}\packages\unifia\dist\unifia-windows-arm64.zip" `
-            "${{ github.workspace }}\packages\unifia\dist\unifia-windows-x64.zip" `
-            "${{ github.workspace }}\packages\unifia\dist\unifia-windows-x64-baseline.zip" `
+            "${{ github.workspace }}\packages\opencode\dist\unifia-windows-arm64.zip" `
+            "${{ github.workspace }}\packages\opencode\dist\unifia-windows-x64.zip" `
+            "${{ github.workspace }}\packages\opencode\dist\unifia-windows-x64-baseline.zip" `
             --clobber `
             --repo "${{ needs.version.outputs.repo }}"
 
       - uses: actions/upload-artifact@v4
         with:
           name: opencode-cli-signed-windows
+          if-no-files-found: error
           path: |
-            packages/opencode/dist/opencode-windows-arm64
-            packages/opencode/dist/opencode-windows-x64
-            packages/opencode/dist/opencode-windows-x64-baseline
+            packages/opencode/dist/unifia-windows-arm64
+            packages/opencode/dist/unifia-windows-x64
+            packages/opencode/dist/unifia-windows-x64-baseline
 
   build-tauri:
     needs:
