@@ -71,7 +71,19 @@ test("refuses a whitelisted tool with a chained second command", async () => {
 })
 
 test("refuses env keys that redirect binary resolution or inject code", async () => {
-  for (const key of ["PATH", "LD_PRELOAD", "DYLD_INSERT_LIBRARIES", "NODE_OPTIONS", "BASH_ENV"]) {
+  for (const key of [
+    "PATH",
+    "PATHEXT",
+    "LD_PRELOAD",
+    "DYLD_INSERT_LIBRARIES",
+    "NODE_OPTIONS",
+    "BASH_ENV",
+    // Each of these names a program cargo will then execute.
+    "RUSTC",
+    "RUSTC_WRAPPER",
+    "CARGO_BUILD_RUSTC_WRAPPER",
+    "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER",
+  ]) {
     const { status, body } = await post({
       deviceCwd: "/data/data/ai.unifia.mobile/files/p",
       command: "cargo build",

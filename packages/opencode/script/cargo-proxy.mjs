@@ -44,7 +44,14 @@ function argFlag(name) {
 // PC (CodeQL `js/command-line-injection`). Binding to 127.0.0.1 is not the
 // barrier it looks like: `adb reverse` exposes the port to the device on
 // purpose, and a web page the developer visits can POST here from their
-// browser. The three guards below make the promise true.
+// browser.
+//
+// What each guard is worth, stated plainly so nobody mistakes one for the
+// other: `refuseCaller` is the boundary — it is what a drive-by page cannot
+// get past. `refuseCommand` is defence in depth, and it cannot be more than
+// that, because every tool on this list runs project code by design (`cargo
+// build` executes build.rs). It stops a caller from naming a *different*
+// program; it does not make a permitted one harmless.
 const ALLOWED_TOOLS = new Set(["cargo", "rustc", "rustup", "npm", "pnpm", "yarn", "tsc", "bun", "node"])
 
 // Anything that would let a payload chain a second command past the allowed
@@ -53,8 +60,13 @@ const ALLOWED_TOOLS = new Set(["cargo", "rustc", "rustup", "npm", "pnpm", "yarn"
 const SHELL_CONTROL = /[;&|`$><\n\r(){}]/
 
 // Spread into the child env, so a payload could otherwise redirect which
-// binary `cargo` resolves to, or inject code into node.
-const ENV_DENYLIST = /^(PATH|LD_|DYLD_|NODE_OPTIONS$|BASH_ENV$|SHELL$|IFS$)/i
+// binary `cargo` resolves to, or inject code into node. PATH is matched by
+// prefix on purpose: PATHEXT is the same hijack on Windows. The wrapper and
+// runner entries are the cargo-specific equivalents — each names a program
+// cargo will execute — and a device payload has no legitimate reason to set
+// any of them.
+const ENV_DENYLIST =
+  /^(PATH|LD_|DYLD_|NODE_OPTIONS$|BASH_ENV$|SHELL$|IFS$|RUSTC$|RUSTC_WRAPPER$|RUSTC_WORKSPACE_WRAPPER$|CARGO_BUILD_RUSTC|CARGO_TARGET_.*_RUNNER$)/i
 
 /** @returns {string | null} the reason to refuse, or null when acceptable. */
 function refuseCommand(command, env) {
