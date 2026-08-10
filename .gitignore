@@ -13,6 +13,9 @@ playground
 tmp
 dist
 ts-dist
+# npm tarballs produced by `bun pm pack` during a publish
+packages/*/*.tgz
+packages/*/*/*.tgz
 .turbo
 **/.serena
 .serena/

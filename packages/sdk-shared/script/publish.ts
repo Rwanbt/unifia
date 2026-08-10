@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/* SPDX-License-Identifier: MIT */
 
 import { Script } from "@unifia/script"
 import { publish } from "@unifia/script/npm"

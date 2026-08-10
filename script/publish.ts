@@ -76,8 +76,14 @@ if (Script.release) {
 console.log("\n=== cli ===\n")
 await import(`../packages/opencode/script/publish.ts`)
 
+// Dependency order: sdk-shared depends on sdk, and plugin on both. npm rejects
+// nothing here, but a consumer installing an earlier one would hit a 404 on the
+// dependency until the later publishes land.
 console.log("\n=== sdk ===\n")
 await import(`../packages/sdk/js/script/publish.ts`)
+
+console.log("\n=== sdk-shared ===\n")
+await import(`../packages/sdk-shared/script/publish.ts`)
 
 console.log("\n=== plugin ===\n")
 await import(`../packages/plugin/script/publish.ts`)
