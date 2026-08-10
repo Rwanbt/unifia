@@ -144,8 +144,23 @@ jobs:
           HEADERS="packages/mobile/src-tauri/gen/android/llama-headers"
           NDK=$ANDROID_HOME/ndk/27.0.12077973
 
-          # Clone llama.cpp
-          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
+          # Clone llama.cpp at a pinned revision.
+          #
+          # This used to be `git clone --depth 1 ... master`, which made the
+          # step — and with it every APK the CI can produce — hostage to an
+          # upstream repository we do not control. It has been failing since
+          # 2026-07-28 (llama-common no longer compiles); the last green run was
+          # 2026-07-23, and da296d6e is the master commit as of that run, so it
+          # is the newest revision this build configuration is known to compile.
+          #
+          # No tag exists for it (upstream tags as master-<sha7>, and that one
+          # was not published), hence fetch-by-SHA rather than --branch. Bump
+          # this deliberately, and only after a green run.
+          LLAMA_CPP_REV=da296d6e726654949bce10d7cae9a2195d292bfc
+          git init /tmp/llama.cpp
+          git -C /tmp/llama.cpp remote add origin https://github.com/ggml-org/llama.cpp.git
+          git -C /tmp/llama.cpp fetch --depth 1 origin "$LLAMA_CPP_REV"
+          git -C /tmp/llama.cpp checkout FETCH_HEAD
 
           # Build shared libraries with NDK
           cmake -B /tmp/llama.cpp/build-android \
