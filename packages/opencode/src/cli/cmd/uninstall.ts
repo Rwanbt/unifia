@@ -192,30 +192,23 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
   }
 
   if (method !== "curl" && method !== "unknown") {
+    // Homebrew, Chocolatey and Scoop are gone with Installation.Method: this
+    // fork does not publish to them, and the entries here removed a package
+    // named `unifia` that only upstream's registries could have provided.
     const cmds: Record<string, string[]> = {
       npm: ["npm", "uninstall", "-g", "unifia-ai"],
       pnpm: ["pnpm", "uninstall", "-g", "unifia-ai"],
       bun: ["bun", "remove", "-g", "unifia-ai"],
       yarn: ["yarn", "global", "remove", "unifia-ai"],
-      brew: ["brew", "uninstall", "unifia"],
-      choco: ["choco", "uninstall", "unifia"],
-      scoop: ["scoop", "uninstall", "unifia"],
     }
 
     const cmd = cmds[method]
     if (cmd) {
       spinner.start(`Running ${cmd.join(" ")}...`)
-      const result = await Process.run(method === "choco" ? ["choco", "uninstall", "unifia", "-y", "-r"] : cmd, {
-        nothrow: true,
-      })
+      const result = await Process.run(cmd, { nothrow: true })
       if (result.code !== 0) {
         spinner.stop(`Package manager uninstall failed: exit code ${result.code}`, 1)
-        const text = `${result.stdout.toString("utf8")}\n${result.stderr.toString("utf8")}`
-        if (method === "choco" && text.includes("not running from an elevated command shell")) {
-          prompts.log.warn(`You may need to run '${cmd.join(" ")}' from an elevated command shell`)
-        } else {
-          prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)
-        }
+        prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)
       } else {
         spinner.stop("Package removed")
       }

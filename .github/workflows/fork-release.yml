@@ -87,6 +87,15 @@ jobs:
           path: |
             packages/opencode/dist/unifia-linux-x64.tar.gz
             packages/opencode/dist/unifia-windows-x64.zip
+            install
+          if-no-files-found: error
+
+      # Every platform package, kept whole for the npm job below. The bundles
+      # above are only the two the GitHub release carries.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-dist
+          path: packages/opencode/dist
           if-no-files-found: error
 
       # Second upload in the "unifia-cli" layout expected by
@@ -104,6 +113,83 @@ jobs:
           name: unifia-cli-windows
           path: packages/opencode/dist/unifia-windows*
           if-no-files-found: warn
+
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+
+  # ─── npm: unifia-ai + one package per platform ──────────────────────
+  # Reuses the binaries build-cli already cross-compiled, so npm costs one job
+  # rather than a second build matrix.
+  publish-npm:
+    needs: build-cli
+    if: github.repository == 'Rwanbt/unifia'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install deps
+        run: bun install
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-dist
+          path: packages/opencode/dist
+
+      - name: Restore executable bits
+        # upload-artifact does not preserve the mode, and the stub's bin/ entry
+        # has to stay executable for `npm i -g unifia-ai` to produce a runnable
+        # command.
+        run: chmod -R +x packages/opencode/dist packages/opencode/bin || true
+
+      - name: Publish to npm
+        run: bun packages/opencode/script/publish-npm.ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          UNIFIA_VERSION: ${{ needs.build-cli.outputs.version }}
+          UNIFIA_CHANNEL: fork
+
+  # ─── Container image ────────────────────────────────────────────────
+  publish-docker:
+    needs: build-cli
+    if: github.repository == 'Rwanbt/unifia'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ghcr.io/rwanbt/unifia, not upstream's ghcr.io/anomalyco/opencode: the
+      # inherited script/publish.ts hardcodes the latter, which this fork has no
+      # write access to and no business publishing under.
+      - name: Build and push
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/unifia:${{ needs.build-cli.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/unifia:latest
 
   # ─── Tauri Desktop (Linux x64 + Windows x64, unsigned) ──────────────
   build-tauri:
@@ -443,6 +529,7 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
+            release/install
             release/unifia-linux-x64.tar.gz
             release/unifia-windows-x64.zip
             release/unifia-desktop-linux-x64.deb

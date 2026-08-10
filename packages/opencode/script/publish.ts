@@ -4,6 +4,20 @@ import pkg from "../package.json"
 import { Script } from "@unifia/script"
 import { fileURLToPath } from "url"
 
+// Upstream's release path, kept byte-compatible so the monthly upstream sync
+// stays conflict-free. It is unreachable on this fork by workflow gating
+// (.github/workflows/publish.yml runs only on `anomalyco/opencode`), but a
+// manual run here would push a container to ghcr.io/anomalyco, rewrite the AUR
+// package and force-push upstream's Homebrew tap — all infrastructure this fork
+// does not own. Unifia publishes through script/publish-npm.ts instead.
+if (!process.env["UNIFIA_ALLOW_UPSTREAM_PUBLISH"]) {
+  throw new Error(
+    "packages/opencode/script/publish.ts targets upstream's registries (ghcr.io/anomalyco, AUR, anomalyco/homebrew-tap). " +
+      "Use script/publish-npm.ts to publish the Unifia CLI. " +
+      "Set UNIFIA_ALLOW_UPSTREAM_PUBLISH=1 only when running as anomalyco/opencode.",
+  )
+}
+
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 

@@ -94,58 +94,70 @@ describe("installation", () => {
       expect(result).toBe("1.6.0")
     })
 
-    test("reads scoop manifest versions", async () => {
-      const layer = testLayer(() => jsonResponse({ version: "2.3.4" }))
-
-      const result = await Effect.runPromise(
-        Installation.Service.use((svc) => svc.latest("scoop")).pipe(Effect.provide(layer)),
-      )
-      expect(result).toBe("2.3.4")
-    })
-
-    test("reads chocolatey feed versions", async () => {
-      const layer = testLayer(() => jsonResponse({ d: { results: [{ Version: "3.4.5" }] } }))
-
-      const result = await Effect.runPromise(
-        Installation.Service.use((svc) => svc.latest("choco")).pipe(Effect.provide(layer)),
-      )
-      expect(result).toBe("3.4.5")
-    })
-
-    test("reads brew formulae API versions", async () => {
+    // The fork used to ask npm for `opencode-ai`, then upgrade by installing
+    // `unifia-ai` at whatever version that returned. Upstream is on a separate,
+    // faster-moving version line, so this reported updates that did not exist.
+    test("asks npm for this fork's package, never upstream's", async () => {
+      const requested: string[] = []
       const layer = testLayer(
-        () => jsonResponse({ versions: { stable: "2.0.0" } }),
+        (request) => {
+          requested.push(request.url)
+          return jsonResponse({ version: "1.5.0" })
+        },
         (cmd, args) => {
-          // getBrewFormula: return core formula (no tap)
-          if (cmd === "brew" && args.includes("--formula") && args.includes("anomalyco/tap/opencode")) return ""
-          if (cmd === "brew" && args.includes("--formula") && args.includes("unifia")) return "unifia"
+          if (cmd === "npm" && args.includes("registry")) return "https://registry.npmjs.org\n"
           return ""
         },
       )
 
-      const result = await Effect.runPromise(
-        Installation.Service.use((svc) => svc.latest("brew")).pipe(Effect.provide(layer)),
-      )
-      expect(result).toBe("2.0.0")
+      await Effect.runPromise(Installation.Service.use((svc) => svc.latest("npm")).pipe(Effect.provide(layer)))
+
+      expect(requested).toHaveLength(1)
+      expect(requested[0]).toContain("/unifia-ai/")
+      expect(requested[0]).not.toContain("opencode-ai")
     })
 
-    test("reads brew tap info JSON via CLI", async () => {
-      const brewInfoJson = JSON.stringify({
-        formulae: [{ versions: { stable: "2.1.0" } }],
+    test("asks GitHub for this fork's releases, never upstream's", async () => {
+      const requested: string[] = []
+      const layer = testLayer((request) => {
+        requested.push(request.url)
+        return jsonResponse({ tag_name: "v1.2.3" })
       })
+
+      await Effect.runPromise(Installation.Service.use((svc) => svc.latest("unknown")).pipe(Effect.provide(layer)))
+
+      expect(requested).toHaveLength(1)
+      expect(requested[0]).toContain("/repos/Rwanbt/unifia/")
+      expect(requested[0]).not.toContain("anomalyco")
+    })
+
+    // Every method left on Installation.Method resolves through a channel this
+    // fork publishes to. Homebrew, Scoop and Chocolatey were removed rather
+    // than re-pointed, so no code path can reach upstream's registries.
+    test("no upgrade method reaches a registry this fork does not publish to", async () => {
+      const requested: string[] = []
       const layer = testLayer(
-        () => jsonResponse({}), // HTTP not used for tap formula
+        (request) => {
+          requested.push(request.url)
+          return jsonResponse({ version: "1.5.0", tag_name: "v1.5.0" })
+        },
         (cmd, args) => {
-          if (cmd === "brew" && args.includes("anomalyco/tap/opencode") && args.includes("--formula")) return "unifia"
-          if (cmd === "brew" && args.includes("--json=v2")) return brewInfoJson
+          if (cmd === "npm" && args.includes("registry")) return "https://registry.npmjs.org\n"
           return ""
         },
       )
 
-      const result = await Effect.runPromise(
-        Installation.Service.use((svc) => svc.latest("brew")).pipe(Effect.provide(layer)),
-      )
-      expect(result).toBe("2.1.0")
+      for (const method of ["curl", "npm", "yarn", "pnpm", "bun", "unknown"] as const) {
+        await Effect.runPromise(Installation.Service.use((svc) => svc.latest(method)).pipe(Effect.provide(layer)))
+      }
+
+      for (const url of requested) {
+        expect(url).not.toContain("anomalyco")
+        expect(url).not.toContain("opencode-ai")
+        expect(url).not.toContain("formulae.brew.sh")
+        expect(url).not.toContain("chocolatey.org")
+        expect(url).not.toContain("ScoopInstaller")
+      }
     })
   })
 })

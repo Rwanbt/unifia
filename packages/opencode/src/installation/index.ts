@@ -19,10 +19,26 @@ import semver from "semver"
 // out of date against upstream's own (unrelated) version numbering.
 const FORK_REPO = "Rwanbt/unifia"
 
+// The npm package the CLI installs and upgrades itself as. Kept next to
+// FORK_REPO because the two have to name the same product: the update check
+// used to read upstream's `opencode-ai` and then install `unifia-ai`, so it
+// compared this fork against a version line that is not its own.
+const NPM_PACKAGE = "unifia-ai"
+
+// Shipped as a release asset by .github/workflows/fork-release.yml, so the
+// installer the upgrade path runs is the one this repo builds.
+const INSTALL_SCRIPT_URL = `https://github.com/${FORK_REPO}/releases/latest/download/install`
+
 export namespace Installation {
   const log = Log.create({ service: "installation" })
 
-  export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
+  // Unifia distributes through the install script, npm and the desktop
+  // updaters. Upstream additionally ships to Homebrew, Scoop and Chocolatey;
+  // those methods are deliberately absent here rather than re-pointed, because
+  // every one of them resolved to upstream's package — detecting a channel this
+  // fork does not publish to is how a Unifia install got told that OpenCode's
+  // latest version was available to it.
+  export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "unknown"
 
   export type ReleaseType = "patch" | "minor" | "major"
 
@@ -81,14 +97,6 @@ export namespace Installation {
   // Response schemas for external version APIs
   const GitHubRelease = Schema.Struct({ tag_name: Schema.String })
   const NpmPackage = Schema.Struct({ version: Schema.String })
-  const BrewFormula = Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })
-  const BrewInfoV2 = Schema.Struct({
-    formulae: Schema.Array(Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })),
-  })
-  const ChocoPackage = Schema.Struct({
-    d: Schema.Struct({ results: Schema.Array(Schema.Struct({ Version: Schema.String })) }),
-  })
-  const ScoopManifest = NpmPackage
 
   export interface Interface {
     readonly info: () => Effect.Effect<Info>
@@ -142,17 +150,14 @@ export namespace Installation {
           Effect.catch(() => Effect.succeed({ code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" })),
         )
 
-        const getBrewFormula = Effect.fnUntraced(function* () {
-          const tapFormula = yield* text(["brew", "list", "--formula", "anomalyco/tap/opencode"])
-          if (tapFormula.includes("unifia")) return "anomalyco/tap/opencode"
-          const coreFormula = yield* text(["brew", "list", "--formula", "unifia"])
-          if (coreFormula.includes("unifia")) return "unifia"
-          return "unifia"
-        })
-
         const upgradeCurl = Effect.fnUntraced(
           function* (target: string) {
-            const response = yield* httpOk.execute(HttpClientRequest.get("https://opencode.ai/install"))
+            // The fork's own installer, published as a release asset. This read
+            // `https://opencode.ai/install` — upstream's script, on a domain
+            // this fork does not control — so `unifia upgrade` on a curl
+            // install fetched and ran OpenCode's installer, replacing Unifia
+            // with the upstream product.
+            const response = yield* httpOk.execute(HttpClientRequest.get(INSTALL_SCRIPT_URL))
             const body = yield* response.text
             const bodyBytes = new TextEncoder().encode(body)
             const proc = ChildProcess.make("bash", [], {
@@ -173,6 +178,11 @@ export namespace Installation {
         )
 
         const methodImpl = Effect.fn("Installation.method")(function* () {
+          // `.unifia/bin` first: that is where the install script deploys
+          // (INSTALL_DIR in `install`). Only `.opencode/bin` was tested, so a
+          // current curl install fell through every package-manager probe and
+          // reported "unknown" — leaving `unifia upgrade` with no method.
+          if (process.execPath.includes(path.join(".unifia", "bin"))) return "curl" as Method
           if (process.execPath.includes(path.join(".opencode", "bin"))) return "curl" as Method
           if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
           const exec = process.execPath.toLowerCase()
@@ -182,9 +192,6 @@ export namespace Installation {
             { name: "yarn", command: () => text(["yarn", "global", "list"]) },
             { name: "pnpm", command: () => text(["pnpm", "list", "-g", "--depth=0"]) },
             { name: "bun", command: () => text(["bun", "pm", "ls", "-g"]) },
-            { name: "brew", command: () => text(["brew", "list", "--formula", "unifia"]) },
-            { name: "scoop", command: () => text(["scoop", "list", "unifia"]) },
-            { name: "choco", command: () => text(["choco", "list", "--limit-output", "unifia"]) },
           ]
 
           checks.sort((a, b) => {
@@ -197,9 +204,7 @@ export namespace Installation {
 
           for (const check of checks) {
             const output = yield* check.command()
-            const installedName =
-              check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "unifia" : "unifia-ai"
-            if (output.includes(installedName)) {
+            if (output.includes(NPM_PACKAGE)) {
               return check.name
             }
           }
@@ -210,51 +215,19 @@ export namespace Installation {
         const latestImpl = Effect.fn("Installation.latest")(function* (installMethod?: Method) {
           const detectedMethod = installMethod || (yield* methodImpl())
 
-          if (detectedMethod === "brew") {
-            const formula = yield* getBrewFormula()
-            if (formula.includes("/")) {
-              const infoJson = yield* text(["brew", "info", "--json=v2", formula])
-              const info = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(BrewInfoV2))(infoJson)
-              return info.formulae[0].versions.stable
-            }
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get("https://formulae.brew.sh/api/formula/opencode.json").pipe(
-                HttpClientRequest.acceptJson,
-              ),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(BrewFormula)(response)
-            return data.versions.stable
-          }
-
           if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
             const r = (yield* text(["npm", "config", "get", "registry"])).trim()
             const reg = r || "https://registry.npmjs.org"
             const registry = reg.endsWith("/") ? reg.slice(0, -1) : reg
             const channel = CHANNEL
+            // NPM_PACKAGE, not upstream's `opencode-ai`. Reading upstream meant
+            // comparing this fork's version against a separate, faster-moving
+            // version line, then upgrading to a `unifia-ai` release carrying
+            // that number — which does not exist.
             const response = yield* httpOk.execute(
-              HttpClientRequest.get(`${registry}/opencode-ai/${channel}`).pipe(HttpClientRequest.acceptJson),
+              HttpClientRequest.get(`${registry}/${NPM_PACKAGE}/${channel}`).pipe(HttpClientRequest.acceptJson),
             )
             const data = yield* HttpClientResponse.schemaBodyJson(NpmPackage)(response)
-            return data.version
-          }
-
-          if (detectedMethod === "choco") {
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get(
-                "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27opencode%27%20and%20IsLatestVersion&$select=Version",
-              ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json;odata=verbose" })),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(ChocoPackage)(response)
-            return data.d.results[0].Version
-          }
-
-          if (detectedMethod === "scoop") {
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get(
-                "https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/opencode.json",
-              ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json" })),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(ScoopManifest)(response)
             return data.version
           }
 
@@ -277,48 +250,19 @@ export namespace Installation {
               result = yield* upgradeCurl(target)
               break
             case "npm":
-              result = yield* run(["npm", "install", "-g", `unifia-ai@${target}`])
+              result = yield* run(["npm", "install", "-g", `${NPM_PACKAGE}@${target}`])
               break
             case "pnpm":
-              result = yield* run(["pnpm", "install", "-g", `unifia-ai@${target}`])
+              result = yield* run(["pnpm", "install", "-g", `${NPM_PACKAGE}@${target}`])
               break
             case "bun":
-              result = yield* run(["bun", "install", "-g", `unifia-ai@${target}`])
-              break
-            case "brew": {
-              const formula = yield* getBrewFormula()
-              const env = { HOMEBREW_NO_AUTO_UPDATE: "1" }
-              if (formula.includes("/")) {
-                const tap = yield* run(["brew", "tap", "anomalyco/tap"], { env })
-                if (tap.code !== 0) {
-                  result = tap
-                  break
-                }
-                const repo = yield* text(["brew", "--repo", "anomalyco/tap"])
-                const dir = repo.trim()
-                if (dir) {
-                  const pull = yield* run(["git", "pull", "--ff-only"], { cwd: dir, env })
-                  if (pull.code !== 0) {
-                    result = pull
-                    break
-                  }
-                }
-              }
-              result = yield* run(["brew", "upgrade", formula], { env })
-              break
-            }
-            case "choco":
-              result = yield* run(["choco", "upgrade", "unifia", `--version=${target}`, "-y"])
-              break
-            case "scoop":
-              result = yield* run(["scoop", "install", `unifia@${target}`])
+              result = yield* run(["bun", "install", "-g", `${NPM_PACKAGE}@${target}`])
               break
             default:
               return yield* new UpgradeFailedError({ stderr: `Unknown method: ${m}` })
           }
           if (!result || result.code !== 0) {
-            const stderr = m === "choco" ? "not running from an elevated command shell" : result?.stderr || ""
-            return yield* new UpgradeFailedError({ stderr })
+            return yield* new UpgradeFailedError({ stderr: result?.stderr || "" })
           }
           log.info("upgraded", {
             method: m,
