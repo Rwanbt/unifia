@@ -14,7 +14,7 @@ date: 2026-07-31
 
 ## Contexte
 
-Le fork `Rwanbt/opencode` supporte **21 langues** : ar, bn, br, bs, da, de, es, fr, gr, it, ja, ko, no, pl, ru, th, tr, uk, vi, zh, zht
+Le fork `Rwanbt/unifia` supporte **21 langues** : ar, bn, br, bs, da, de, es, fr, gr, it, ja, ko, no, pl, ru, th, tr, uk, vi, zh, zht
 
 L'utilisateur Unifia a une **traduction i18n personnalisée** d'Open Cowork (16 langues, 325 fichiers, 11 660 clés) qui doit être préservée.
 

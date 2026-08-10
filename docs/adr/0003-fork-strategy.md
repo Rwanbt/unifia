@@ -1,10 +1,10 @@
-# ADR-0003 : Stratégie Fork — Rwanbt/opencode vs anomalyco/opencode
+# ADR-0003 : Stratégie Fork — Rwanbt/unifia vs anomalyco/opencode
 
 **Date** : 2026-05-27 | **Statut** : Accepté | **Amendé** : 2026-06-17 (D-14, voir §Amendement)
 
 ## Contexte
 
-Ce dépôt (`Rwanbt/opencode`) est un fork de `anomalyco/opencode` avec des fonctionnalités additionnelles (inference mobile on-device, Hexagon NPU, CLI toolchain, gouvernance). Comment gérer la divergence sans dette ingérable ?
+Ce dépôt (`Rwanbt/unifia`) est un fork de `anomalyco/opencode` avec des fonctionnalités additionnelles (inference mobile on-device, Hexagon NPU, CLI toolchain, gouvernance). Comment gérer la divergence sans dette ingérable ?
 
 ## Décision
 

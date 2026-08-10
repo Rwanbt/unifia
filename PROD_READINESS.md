@@ -1,7 +1,7 @@
 # Production Readiness — Unifia Fork
 
 > Point d'entrée unique pour évaluer l'état prod du fork
-> `Rwanbt/opencode` (branche `dev`). Mis à jour à chaque fin de
+> `Rwanbt/unifia` (branche `dev`). Mis à jour à chaque fin de
 > sprint. La source d'autorité pour l'audit initial reste
 > `PRODUCTION_REVIEW_2026-04.md` ; ce document agrège l'état courant
 > et pointe vers les docs détaillés.
@@ -147,7 +147,7 @@ Remote (7+8). Estimation ~10 h. Time-box priorité : 1, 2, 3, 6, 8 avant
 | `experimental.audit.enabled` default `false` | Overhead DB sur call sites critiques ; opt-in pour users compliance | Oui |
 | `experimental.dlp.scan_tool_outputs` default `false` | Coût scanner sur chaque tool-output, faux positifs possibles | Oui |
 | Thermal listener retourne `"nominal"` par défaut | Binding JNI non câblé (crates absents), stub sûr | Non — nécessite implémentation |
-| Cosign / SLSA gated `if: repository == 'Rwanbt/opencode'` | Empêcher le spam sur les forks downstream | Oui |
+| Cosign / SLSA gated `if: repository == 'Rwanbt/unifia'` | Empêcher le spam sur les forks downstream | Oui |
 | SPRINT1 B2 **SAUTÉ** | Risque régression non maîtrisé sans baseline e2e Playwright | N/A — repris en Sprint 4 |
 | `cleartextTrafficPermitted` via `includeSubdomains` sur IP | Android ne supporte pas CIDR en network_security_config | À valider en QA MIUI |
 | Shell env filtering (W9) strict allowlist + prefixes | Défense en profondeur contre exfiltration via spawn | Oui mais breaking (doc RN) |
@@ -192,7 +192,7 @@ Contraintes transverses :
 
 - `release-sign.yml` exige que le workflow ait `id-token: write` —
   configuré dans le yaml. Vérifier que la **org settings** GitHub
-  autorise ce permission pour `Rwanbt/opencode`.
+  autorise ce permission pour `Rwanbt/unifia`.
 - `slsa.yml` via `slsa-framework/slsa-github-generator@v2.0.0` est
   une action réutilisable ; elle nécessite que le repo soit
   **public** (Fulcio OIDC exige) ou qu'une config privée ait été
@@ -214,7 +214,7 @@ Contraintes transverses :
 | Crash reporter endpoint | SRE / Observability | — |
 | GDPR endpoints ops | Legal / Compliance | Dev backend |
 
-Pour toute question : ouvrir un issue `Rwanbt/opencode` avec le
+Pour toute question : ouvrir un issue `Rwanbt/unifia` avec le
 label correspondant (`qa-android`, `dependencies`, `release`,
 `supply-chain`, `auth`, `observability`).
 

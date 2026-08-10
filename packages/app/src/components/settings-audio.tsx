@@ -248,7 +248,7 @@ export const SettingsAudio: Component = () => {
           </SettingsList>
           <div class="text-11-regular text-text-weak mt-2 px-1">
             <Show when={settings.ttsProvider === "kokoro"} fallback={
-              <>{language.t("settings.fork.audio.poweredPocket")}</>
+              language.t("settings.fork.audio.poweredPocket")
             }>
               {language.t("settings.fork.audio.poweredKokoro")}
             </Show>

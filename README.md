@@ -1,6 +1,6 @@
 <p align="center">
   <img src="Bannière UnifiaX.png" alt="Unifia Workbench banner" >
-  <a href="https://github.com/Rwanbt/opencode">
+  <a href="https://github.com/Rwanbt/unifia">
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
@@ -10,8 +10,8 @@
 </p>
 <p align="center">The open source AI coding agent.</p>
 <p align="center">
-  <a href="https://github.com/Rwanbt/unifia/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/opencode?display_name=tag&style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/unifia?display_name=tag&style=flat-square" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@
 
 
 > [!WARNING]
-> **Unofficial fork notice:** this repository is an independent, unofficial fork of [Unifia](https://github.com/anomalyco/opencode), maintained by [Rwanbt/opencode](https://github.com/Rwanbt/opencode). It is not built, operated, endorsed, or supported by the upstream Unifia team.
+> **Unofficial fork notice:** this repository is an independent, unofficial fork of [Unifia](https://github.com/anomalyco/opencode), maintained by [Rwanbt/unifia](https://github.com/Rwanbt/unifia). It is not built, operated, endorsed, or supported by the upstream Unifia team.
 
 Releases, binaries, issues, roadmap, and support for this fork are maintained here.
 ---
@@ -50,7 +50,7 @@ Releases, binaries, issues, roadmap, and support for this fork are maintained he
 
 ## ⚡ At a glance
 
-Unifia Workbench — an orchestrated AI coding agent that runs on **desktop, server, and phone**, with local models end-to-end and governance primitives built into the fork. It is based on [upstream Unifia](https://github.com/anomalyco/opencode) and distributed from the [Rwanbt fork](https://github.com/Rwanbt/opencode). The final product name is not fixed yet.
+Unifia Workbench — an orchestrated AI coding agent that runs on **desktop, server, and phone**, with local models end-to-end and governance primitives built into the fork. It is based on [upstream Unifia](https://github.com/anomalyco/opencode) and distributed from the [Rwanbt fork](https://github.com/Rwanbt/unifia). The final product name is not fixed yet.
 
 ### Install
 
@@ -239,7 +239,7 @@ Kick off 5 tasks in isolated worktrees from a laptop. Check their progress from 
 
 ## Fork Features
 
-> This is a working-name fork of [upstream Unifia](https://github.com/anomalyco/opencode), maintained in [Rwanbt/opencode](https://github.com/Rwanbt/opencode).
+> This is a working-name fork of [upstream Unifia](https://github.com/anomalyco/opencode), maintained in [Rwanbt/unifia](https://github.com/Rwanbt/unifia).
 > See [`docs/FORK-DISTRIBUTION.md`](docs/FORK-DISTRIBUTION.md) for the temporary naming and distribution boundary.
 
 #### Local-First AI
@@ -753,14 +753,14 @@ This follows the vault sequence: workspace OS and storage scopes, then OpenDesig
 Android is already implemented and functional. The remaining mobile client work is a native iOS target, initially prioritizing remote mode and Apple's sandbox constraints.
 
 </details>
-[![Unifia Fusion Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/Rwanbt/opencode)
+[![Unifia Fusion Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/Rwanbt/unifia)
 
 ### Installation
 
-Use a fork release artifact from [Rwanbt/opencode/releases](https://github.com/Rwanbt/unifia/releases/latest), or build from source:
+Use a fork release artifact from [Rwanbt/unifia/releases](https://github.com/Rwanbt/unifia/releases/latest), or build from source:
 
 ```bash
-git clone https://github.com/Rwanbt/opencode.git
+git clone https://github.com/Rwanbt/unifia.git
 cd unifia
 bun install
 bun run --cwd packages/opencode build --single
@@ -812,4 +812,4 @@ It's very similar to Claude Code in terms of capability. Here are the key differ
 </details>
 ---
 
-**Community**: use the [fork issues](https://github.com/Rwanbt/opencode/issues) for fork support. The [upstream Discord](https://discord.gg/opencode) is for upstream Unifia and may not reflect fork releases.
+**Community**: use the [fork issues](https://github.com/Rwanbt/unifia/issues) for fork support. The [upstream Discord](https://discord.gg/opencode) is for upstream Unifia and may not reflect fork releases.

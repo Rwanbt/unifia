@@ -65,7 +65,7 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 **Statut :** `OPEN`
 **Sévérité :** HAUTE
 **Question :** le Plan V3 §12 (Phase 0) définit 4 remotes :
-- `upstream-opencode` (Rwanbt/opencode ou anomalyco/opencode ?)
+- `upstream-opencode` (Rwanbt/unifia ou anomalyco/opencode ?)
 - `upstream-openwork` (URL à fournir)
 - `upstream-open-cowork` (URL à fournir)
 - `origin-unifia` (Rwanbt/unifia — nouveau repo à créer ?)

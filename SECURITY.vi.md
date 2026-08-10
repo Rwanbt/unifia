@@ -38,7 +38,7 @@ Chế độ máy chủ chỉ là opt-in. Khi được bật, đặt `UNIFIA_SERV
 
 Chúng tôi đánh giá cao nỗ lực công bố có trách nhiệm các phát hiện của bạn và sẽ cố gắng hết sức để ghi nhận những đóng góp của bạn.
 
-Để báo cáo sự cố bảo mật, hãy sử dụng tab GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+Để báo cáo sự cố bảo mật, hãy sử dụng tab GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 Nhóm sẽ gửi phản hồi chỉ ra các bước tiếp theo. Sau phản hồi ban đầu, nhóm bảo mật sẽ thông báo cho bạn về tiến trình hướng tới một bản sửa lỗi và thông báo đầy đủ, và có thể yêu cầu thông tin bổ sung.
 

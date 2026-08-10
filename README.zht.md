@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench（fork 版）— 可在 **桌面、伺服器和手機** 上執�
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 此 fork 獨家打包的 8 項能力
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Fork 功能
 
 > 這是 [anomalyco/opencode](https:// PROT 4 PROT  的 fork，由 [Rwanbt](https://github.com/Rwanbt) 維護。
-> 與上游保持同步。查看 [dev 分支](https://github.com/Rwanbt/opencode/tree/dev) 了解最新變更。
+> 與上游保持同步。查看 [dev 分支](https://github.com/Rwanbt/unifia/tree/dev) 了解最新變更。
 
 #### 本地優先 AI
 
@@ -668,7 +668,7 @@ nix run nixpkgs#unifia           # 或使用 github:anomalyco/opencode 以取得
 
 ### 桌面應用程式 (BETA)
 
-Unifia Workbench 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/Rwanbt/opencode/releases) 或 [unifia.ai/download](https://opencode.ai/download) 下載。
+Unifia Workbench 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/Rwanbt/unifia/releases) 或 [unifia.ai/download](https://opencode.ai/download) 下載。
 
 | 平台                  | 下載連結                              |
 | --------------------- | ------------------------------------- |

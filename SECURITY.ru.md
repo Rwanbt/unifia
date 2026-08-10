@@ -38,7 +38,7 @@ Unifia Workbench **не** помещает агента в песочницу. �
 
 Мы ценим ваши усилия по ответственному раскрытию находок и сделаем всё возможное, чтобы отметить ваш вклад.
 
-Чтобы сообщить о проблеме безопасности, используйте вкладку GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+Чтобы сообщить о проблеме безопасности, используйте вкладку GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 Команда отправит ответ с описанием следующих шагов. После первого ответа команда безопасности будет держать вас в курсе хода исправления и полного анонса и может запросить дополнительную информацию.
 

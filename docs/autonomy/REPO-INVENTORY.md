@@ -1,4 +1,4 @@
-# Inventaire réel du repo — Rwanbt/opencode (snapshot 2026-07-31)
+# Inventaire réel du repo — Rwanbt/unifia (snapshot 2026-07-31)
 
 **Source :** `git ls-remote` + `git clone --depth 1` + lecture locale du clone jetable
 **Statut :** `VERIFIED_LOCAL` — toutes les métriques sont mesurées, pas extrapolées
@@ -8,7 +8,7 @@
 
 | Champ | Valeur | Source |
 |---|---|---|
-| URL upstream fork | `https://github.com/Rwanbt/opencode` | `git remote -v` |
+| URL upstream fork | `https://github.com/Rwanbt/unifia` | `git remote -v` |
 | URL upstream original | `https://github.com/anomalyco/opencode` | `README.md` |
 | HEAD `main` | `207ff452b8056ae11d1f71e23198e520835f70ed` | `git rev-parse HEAD` |
 | Branche `Dev` | `e21b7389fa12334835f9cfd64e0718443e148e76` | `git ls-remote` (non checkoutée, depth-1) |
@@ -137,6 +137,6 @@ Note : pas de `nl`, pas de `sv`, pas de `fi`, pas de `cs` — la couverture ling
 
 1. **Desktop-electron :** à rebrand-er ou à déprécier ? (réponse implicite attendue : déprécier)
 2. **Provider « minimax » (MiniMax M3) :** Unifia doit-il devenir un provider de premier plan dans `packages/opencode/src/provider/` ou rester un provider externe ? Si premier plan, le binaire CLI doit pouvoir le charger.
-3. **Site public `packages/web/ :** rebrand URL ? (Rwanbt/opencode → unifia.com ?)
+3. **Site public `packages/web/ :** rebrand URL ? (Rwanbt/unifia → unifia.com ?)
 4. **Identifiant Tauri macOS :** faut-il acheter un nouveau Developer ID ? (sinon, garder `ai.opencode.desktop.dev` ?)
 5. **Enterprise :** fork officiel ou rester upstream ?

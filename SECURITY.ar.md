@@ -38,7 +38,7 @@ Unifia Workbench مساعد برمجة مدعوم بالذكاء الاصطنا�
 
 نقدر جهودك للإفصاح المسؤول عن اكتشافاتك وسنبذل قصارى جهدنا للاعتراف بإسهاماتك.
 
-للإبلاغ عن مشكلة أمان، استخدم تبويب GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+للإبلاغ عن مشكلة أمان، استخدم تبويب GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 سيرسل الفريق رداً يوضح الخطوات التالية. بعد الرد الأولي، سيبقيك فريق الأمان على اطلاع بالتقدم نحو إصلاح وإعلان كامل، وقد يطلب معلومات إضافية.
 

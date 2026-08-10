@@ -15,7 +15,7 @@ date: 2026-07-31
 ## Contexte
 
 Le fork Unifia doit pouvoir fonctionner avec **deux runtimes agentiques** pendant la transition :
-1. **OpenCode runtime** (legacy) — le runtime actuel du fork `Rwanbt/opencode`
+1. **OpenCode runtime** (legacy) — le runtime actuel du fork `Rwanbt/unifia`
 2. **Unifia runtime** (cible) — le nouveau runtime à construire (Phase 2+)
 
 L'UI (Shell Unifia, app) doit être **runtime-agnostique** : elle ne doit pas savoir si elle parle à OpenCode ou Unifia.

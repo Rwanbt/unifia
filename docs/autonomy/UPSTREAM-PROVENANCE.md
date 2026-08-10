@@ -17,7 +17,7 @@ Ce fichier documente la **chaîne de provenance** de chaque portion de code int�
 
 | Champ | Valeur |
 |---|---|
-| Dépôt source | `https://github.com/Rwanbt/opencode.git` |
+| Dépôt source | `https://github.com/Rwanbt/unifia.git` |
 | Commit source (baseline) | `207ff452b8056ae11d1f71e23198e520835f70ed` |
 | Branche | `main` (la branche `Dev` n'a pas été fetchée en --depth 1) |
 | Chemin source | ensemble du dépôt (fork complet) |

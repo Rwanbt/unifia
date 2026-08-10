@@ -38,7 +38,7 @@ Serverski režim je isključivo opt-in. Kad je omogućen, postavite `UNIFIA_SERV
 
 Cijenimo vaše napore da odgovorno otkrijete svoje nalaze i učinit ćemo sve što možemo da prepoznamo vaše doprinose.
 
-Za prijavu sigurnosnog problema, koristite karticu GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+Za prijavu sigurnosnog problema, koristite karticu GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 Tim će poslati odgovor s opisom sljedećih koraka. Nakon prvog odgovora, sigurnosni tim će vas obavještavati o napretku prema popravku i punoj objavi i može tražiti dodatne informacije.
 

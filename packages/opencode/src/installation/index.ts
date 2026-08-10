@@ -17,7 +17,7 @@ import semver from "semver"
 // .github/workflows/fork-release.yml) instead of anomalyco/opencode's. Update
 // checks must compare against this repo, or every install looks perpetually
 // out of date against upstream's own (unrelated) version numbering.
-const FORK_REPO = "Rwanbt/opencode"
+const FORK_REPO = "Rwanbt/unifia"
 
 export namespace Installation {
   const log = Log.create({ service: "installation" })

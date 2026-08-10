@@ -37,8 +37,8 @@
 
   <content_rating type="oars-1.1" />
 
-  <url type="bugtracker">https://github.com/Rwanbt/opencode/issues</url>
-  <url type="vcs-browser">https://github.com/Rwanbt/opencode</url>
+  <url type="bugtracker">https://github.com/Rwanbt/unifia/issues</url>
+  <url type="vcs-browser">https://github.com/Rwanbt/unifia</url>
 
   <!--
     No homepage or screenshot url: the previous ones pointed at opencode.ai,

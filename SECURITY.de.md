@@ -38,7 +38,7 @@ Der Server-Modus ist Opt-in. Bei Aktivierung `UNIFIA_SERVER_PASSWORD` setzen, um
 
 Wir schätzen Ihre Bemühungen um eine verantwortungsvolle Offenlegung und werden alles tun, um Ihre Beiträge zu würdigen.
 
-Nutzen Sie den Tab ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new) in GitHub Security Advisories.
+Nutzen Sie den Tab ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new) in GitHub Security Advisories.
 
 Das Team antwortet mit den nächsten Schritten. Nach der ersten Antwort hält Sie das Sicherheitsteam über den Fortschritt der Behebung und Veröffentlichung auf dem Laufenden und kann zusätzliche Informationen erbitten.
 

@@ -14,7 +14,7 @@ date: 2026-07-31
 
 ## Contexte
 
-Le rebrand Unifia doit être **non-breaking** pour les installations existantes du fork Rwanbt/opencode. Les utilisateurs ont :
+Le rebrand Unifia doit être **non-breaking** pour les installations existantes du fork Rwanbt/unifia. Les utilisateurs ont :
 - Des DB SQLite (`~/.config/opencode/opencode.db`) avec données accumulées
 - Des configs JSONC (`opencode.jsonc`) avec providers, modèles, etc.
 - Des themes, localStorage keys, et autres identifiants persistants

@@ -9,7 +9,7 @@
 
 | Repo | Type | URL upstream | HEAD SHA | Tag proche | Branches | Taille |
 |---|---|---|---|---|---:|---:|
-| **Fork Unifia/OpenCode** | non-bare | `https://github.com/Rwanbt/opencode` | `885553a` | `v0.2.1-fork` | 2 | ~500 MB |
+| **Fork Unifia/OpenCode** | non-bare | `https://github.com/Rwanbt/unifia` | `885553a` | `v0.2.1-fork` | 2 | ~500 MB |
 | **OpenWork upstream** | bare (audit-only) | `https://github.com/different-ai/openwork` | `2c558bcff` | `alpha-macos-v0.18.13-alpha.2070-2c558bc` | 868 | 276 MB |
 | **Open Cowork upstream** | bare (audit-only) | `https://github.com/OpenCoworkAI/open-cowork` | `ec5bd27` | `v3.3.1` | 40 | 78 MB |
 

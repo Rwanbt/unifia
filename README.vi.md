@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (fork) — một tác nhân lập trình AI được điều ph
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 8 điều chỉ fork này gói gọn
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Tính năng Fork
 
 > Đây là một fork của [anomalyco/opencode](https:// PROT 3 PROT  được duy trì bởi [Rwanbt](https://github.com/Rwanbt).
-> Được đồng bộ với upstream. Xem [nhánh dev](https://github.com/Rwanbt/opencode/tree/dev) để biết các thay đổi mới nhất.
+> Được đồng bộ với upstream. Xem [nhánh dev](https://github.com/Rwanbt/unifia/tree/dev) để biết các thay đổi mới nhất.
 
 #### AI Ưu tiên Cục bộ
 
@@ -518,7 +518,7 @@ nix run nixpkgs#unifia           # hoặc github:anomalyco/opencode cho nhánh d
 
 ### Ứng dụng Desktop (BETA)
 
-Unifia Workbench cũng có sẵn dưới dạng ứng dụng desktop. Tải trực tiếp từ [trang releases](https://github.com/Rwanbt/opencode/releases) hoặc [unifia.ai/download](https://opencode.ai/download).
+Unifia Workbench cũng có sẵn dưới dạng ứng dụng desktop. Tải trực tiếp từ [trang releases](https://github.com/Rwanbt/unifia/releases) hoặc [unifia.ai/download](https://opencode.ai/download).
 
 | Nền tảng              | Tải xuống                             |
 | --------------------- | ------------------------------------- |

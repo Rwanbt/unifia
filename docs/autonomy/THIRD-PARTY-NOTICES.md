@@ -11,7 +11,7 @@ Ce fichier liste les **notifications obligatoires** que Unifia doit conserver et
 | Composant | Copyright | Licence | Localisation actuelle | Notification |
 |---|---|---|---|---|
 | OpenCode (upstream) | Copyright (c) 2025 opencode | MIT | `LICENSE` racine | « This software includes code derived from opencode (https://github.com/anomalyco/opencode), MIT License. » |
-| OpenCode fork Rwanbt | Copyright (c) 2025-2026 Rwanbt contributors | MIT | `LICENSE` racine (mise à jour nécessaire) | « This software is a fork of Rwanbt/opencode, MIT License. » |
+| OpenCode fork Rwanbt | Copyright (c) 2025-2026 Rwanbt contributors | MIT | `LICENSE` racine (mise à jour nécessaire) | « This software is a fork of Rwanbt/unifia, MIT License. » |
 
 ## 2. Dépendances NPM notables (échantillon)
 
@@ -102,4 +102,4 @@ Et un script `scripts/generate-notices.ts` combinera les deux dans un fichier `T
 
 ## 10. Conclusion
 
-Le fork Rwanbt/opencode est **propre du point de vue des licences** : tout est MIT ou compatible MIT, aucun copyleft fort détecté. Les notifications tierces seront industrialisées en Phase 1, mais cette ébauche suffit pour démarrer la Phase 0 (rebrand).
+Le fork Rwanbt/unifia est **propre du point de vue des licences** : tout est MIT ou compatible MIT, aucun copyleft fort détecté. Les notifications tierces seront industrialisées en Phase 1, mais cette ébauche suffit pour démarrer la Phase 0 (rebrand).

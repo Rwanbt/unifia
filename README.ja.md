@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (フォーク) — **デスクトップ、サーバー、スマ
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### このフォークだけが同梱する 8 つのこと
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## フォーク機能
 
 > これは [anomalyco/opencode](https:// PROT 4 PROT  のフォークで、[Rwanbt](https://github.com/Rwanbt) がメンテナンスしています。
-> アップストリームと同期を維持。最新の変更は [dev ブランチ](https://github.com/Rwanbt/opencode/tree/dev) をご覧ください。
+> アップストリームと同期を維持。最新の変更は [dev ブランチ](https://github.com/Rwanbt/unifia/tree/dev) をご覧ください。
 
 #### ローカルファースト AI
 
@@ -668,7 +668,7 @@ nix run nixpkgs#unifia           # または github:anomalyco/opencode で最新
 
 ### デスクトップアプリ (BETA)
 
-Unifia Workbench はデスクトップアプリとしても利用できます。[releases page](https://github.com/Rwanbt/opencode/releases) から直接ダウンロードするか、[unifia.ai/download](https://opencode.ai/download) を利用してください。
+Unifia Workbench はデスクトップアプリとしても利用できます。[releases page](https://github.com/Rwanbt/unifia/releases) から直接ダウンロードするか、[unifia.ai/download](https://opencode.ai/download) を利用してください。
 
 | プラットフォーム      | ダウンロード                          |
 | --------------------- | ------------------------------------- |

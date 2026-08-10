@@ -1,6 +1,6 @@
 # Dependabot — First-Batch Triage Guide
 
-> Cible : triage du premier batch Dependabot sur `Rwanbt/opencode`
+> Cible : triage du premier batch Dependabot sur `Rwanbt/unifia`
 > (probablement 20–50 PRs — monorepo npm/Bun + 3 `Cargo.toml` Rust
 > + GitHub Actions). À exécuter dans la demi-journée qui suit
 > l'activation de `.github/dependabot.yml`.

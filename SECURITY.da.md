@@ -38,7 +38,7 @@ Servertilstand er kun opt-in. Når den er aktiveret, skal du sætte `UNIFIA_SERV
 
 Vi sætter pris på din indsats for ansvarligt at offentliggøre dine fund og vil gøre alt for at anerkende dine bidrag.
 
-For at rapportere et sikkerhedsproblem, brug fanen GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+For at rapportere et sikkerhedsproblem, brug fanen GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 Teamet sender et svar med de næste skridt. Efter det første svar holder sikkerhedsteamet dig informeret om fremskridtene mod en rettelse og fuld meddelelse og kan bede om yderligere oplysninger.
 

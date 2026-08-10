@@ -9,7 +9,7 @@
 | Champ | Valeur |
 |---|---|
 | Nom | Unifia Workbench |
-| Origine | Fork de [Rwanbt/opencode](https://github.com/Rwanbt/opencode) (lui-même fork d'anomalyco/opencode) |
+| Origine | Fork de [Rwanbt/unifia](https://github.com/Rwanbt/unifia) (lui-même fork d'anomalyco/opencode) |
 | Statut upstream | Fork non-officiel maintenu indépendamment |
 | Repository cible | `Rwanbt/unifia` (à confirmer BD-7) |
 | Branche de référence | `dev` (héritée d'upstream) |

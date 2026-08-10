@@ -9,7 +9,7 @@
 | Upstream | URL | Type | HEAD actuel |
 |---|---|---|---|
 | `anomalyco/opencode` | https://github.com/anomalyco/opencode | Unifia originel | (à synchroniser) |
-| `Rwanbt/opencode` | https://github.com/Rwanbt/opencode | Fork Rwanbt (notre base) | `207ff452` |
+| `Rwanbt/unifia` | https://github.com/Rwanbt/unifia | Fork Rwanbt (notre base) | `207ff452` |
 | `different-ai/openwork` | https://github.com/different-ai/openwork | OpenWork (donneur structurel) | `2c558bcff` |
 | `OpenCoworkAI/open-cowork` | https://github.com/OpenCoworkAI/open-cowork | Open Cowork (donneur fonctionnel) | `ec5bd27` |
 
@@ -19,7 +19,7 @@ Configuration cible :
 
 ```bash
 git remote add origin-unifia       https://github.com/Rwanbt/unifia.git     # NOTRE fork
-git remote add upstream-unifia  https://github.com/Rwanbt/opencode.git   # fork actuel
+git remote add upstream-unifia  https://github.com/Rwanbt/unifia.git   # fork actuel
 git remote add upstream-anomalyco https://github.com/anomalyco/opencode.git # originel
 git remote add upstream-openwork  https://github.com/different-ai/openwork.git
 git remote add upstream-cowork    https://github.com/OpenCoworkAI/open-cowork.git

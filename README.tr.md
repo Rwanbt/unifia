@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (fork) — **masaüstü, sunucu ve telefonda** çalışan, uçt
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### Yalnızca bu fork'un bir arada sunduğu 8 şey
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Fork Özellikleri
 
 > Bu, [anomalyco/opencode](https:// PROT 4 PROT  projesinin [Rwanbt](https://github.com/Rwanbt) tarafından sürdürülen bir fork'udur.
-> Upstream ile senkronize tutulmaktadır. En son değişiklikler için [dev dalına](https://github.com/Rwanbt/opencode/tree/dev) bakın.
+> Upstream ile senkronize tutulmaktadır. En son değişiklikler için [dev dalına](https://github.com/Rwanbt/unifia/tree/dev) bakın.
 
 #### Yerel Öncelikli AI
 
@@ -667,7 +667,7 @@ nix run nixpkgs#unifia           # veya en güncel geliştirme dalı için githu
 
 ### Masaüstü Uygulaması (BETA)
 
-Unifia Workbench ayrıca masaüstü uygulaması olarak da mevcuttur. Doğrudan [sürüm sayfasından](https://github.com/Rwanbt/opencode/releases) veya [unifia.ai/download](https://opencode.ai/download) adresinden indirebilirsiniz.
+Unifia Workbench ayrıca masaüstü uygulaması olarak da mevcuttur. Doğrudan [sürüm sayfasından](https://github.com/Rwanbt/unifia/releases) veya [unifia.ai/download](https://opencode.ai/download) adresinden indirebilirsiniz.
 
 | Platform              | İndirme                               |
 | --------------------- | ------------------------------------- |

@@ -1,6 +1,6 @@
 # Unifia Fork — Release Notes Template
 
-> Use this template for every release of the `Rwanbt/opencode` fork.
+> Use this template for every release of the `Rwanbt/unifia` fork.
 > Replace the `<...>` placeholders, keep the section order, drop empty
 > subsections. The first published release using this template is the
 > merge of the pre-production hardening work tracked in
@@ -116,7 +116,7 @@ this release, only an explicit allowlist is forwarded:
   release assets. Verify with:
   ```
   cosign verify-blob \
-    --certificate-identity-regexp 'https://github.com/Rwanbt/opencode/.+' \
+    --certificate-identity-regexp 'https://github.com/Rwanbt/unifia/.+' \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     --signature <file>.sig --certificate <file>.cert <file>
   ```
@@ -150,7 +150,7 @@ sha256sum -c <artifact>.sha256
 cosign verify-blob ...   # see Security section
 slsa-verifier verify-artifact <artifact> \
   --provenance-path <artifact>.intoto.jsonl \
-  --source-uri github.com/Rwanbt/opencode \
+  --source-uri github.com/Rwanbt/unifia \
   --source-tag <vX.Y.Z>
 ```
 

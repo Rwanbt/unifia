@@ -2,7 +2,7 @@
 
 **Phase :** -2 (Audit licences et provenance)
 **Statut :** `VERIFIED` — audit purement descriptif, aucune décision prise
-**Cible :** `Rwanbt/opencode` (fork d'`anomalyco/opencode` upstream)
+**Cible :** `Rwanbt/unifia` (fork d'`anomalyco/opencode` upstream)
 **Date :** 2026-07-31
 **Auditeur :** Hermes Agent (MiniMax-M3)
 

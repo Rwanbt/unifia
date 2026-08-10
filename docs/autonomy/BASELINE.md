@@ -8,7 +8,7 @@
 
 | Champ | Valeur |
 |---|---|
-| Repository | `https://github.com/Rwanbt/opencode.git` |
+| Repository | `https://github.com/Rwanbt/unifia.git` |
 | Branche de référence | `main` (default HEAD au clone ; la branche `Dev` n'a PAS été ramenée par le clone shallow) |
 | Baseline SHA | `207ff452b8056ae11d1f71e23198e520835f70ed` |
 | Commit sujet | `Merge pull request #16 from Rwanbt/dev` |

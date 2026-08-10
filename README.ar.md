@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (الفورك) — وكيل برمجة مدعوم بالذكا�
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### ٨ أشياء يجمعها هذا الفورك فقط
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## ميزات الفورك
 
 > هذا فورك من [anomalyco/opencode](https:// PROT 4 PROT  يديره [Rwanbt](https://github.com/Rwanbt).
-> يتم الحفاظ على المزامنة مع المستودع الأصلي. راجع [فرع dev](https://github.com/Rwanbt/opencode/tree/dev) لآخر التغييرات.
+> يتم الحفاظ على المزامنة مع المستودع الأصلي. راجع [فرع dev](https://github.com/Rwanbt/unifia/tree/dev) لآخر التغييرات.
 
 #### الذكاء الاصطناعي المحلي أولاً
 
@@ -666,7 +666,7 @@ nix run nixpkgs#unifia           # او github:anomalyco/opencode لاحدث ف�
 
 ### تطبيق سطح المكتب (BETA)
 
-يتوفر Unifia Workbench ايضا كتطبيق سطح مكتب. قم بالتنزيل مباشرة من [صفحة الاصدارات](https://github.com/Rwanbt/opencode/releases) او من [unifia.ai/download](https://opencode.ai/download).
+يتوفر Unifia Workbench ايضا كتطبيق سطح مكتب. قم بالتنزيل مباشرة من [صفحة الاصدارات](https://github.com/Rwanbt/unifia/releases) او من [unifia.ai/download](https://opencode.ai/download).
 
 | المنصة                | التنزيل                               |
 | --------------------- | ------------------------------------- |

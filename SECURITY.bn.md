@@ -38,7 +38,7 @@ Unifia Workbench এজেন্টকে **স্যান্ডবক্স �
 
 আপনার দায়িত্বশীলভাবে আবিষ্কারগুলি প্রকাশের প্রচেষ্টাকে আমরা প্রশংসা করি এবং আপনার অবদানগুলি স্বীকার করার জন্য সর্বাত্মক চেষ্টা করব।
 
-নিরাপত্তা সমস্যা রিপোর্ট করতে, GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new) ট্যাব ব্যবহার করুন।
+নিরাপত্তা সমস্যা রিপোর্ট করতে, GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new) ট্যাব ব্যবহার করুন।
 
 দলটি পরবর্তী পদক্ষেপ নির্দেশ করে একটি প্রতিক্রিয়া পাঠাবে। প্রাথমিক উত্তরের পরে, নিরাপত্তা দল আপনাকে সমাধান এবং সম্পূর্ণ ঘোষণার দিকে অগ্রগতি সম্পর্কে অবহিত রাখবে এবং অতিরিক্ত তথ্যের অনুরোধ করতে পারে।
 

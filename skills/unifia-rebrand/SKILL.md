@@ -51,7 +51,7 @@ Patterns à protéger (regex) :
 - `packages/opencode...`
 - `opencode-cli...`
 - `@unifia/...`
-- `Rwanbt/opencode`, `anomalyco/opencode`
+- `Rwanbt/unifia`, `anomalyco/opencode`
 
 Substitution :
 - `OPENCODE_X` → `UNIFIA_X` (env vars)

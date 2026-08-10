@@ -38,7 +38,7 @@ Unifia Workbench **ไม่ได้** จำกัดเอเจนต์ใ�
 
 เราขอขอบคุณความพยายามของคุณในการเปิดเผยสิ่งที่ค้นพบอย่างมีความรับผิดชอบ และจะพยายามอย่างสุดความสามารถในการยกย่องการมีส่วนร่วมของคุณ
 
-ในการรายงานปัญหาความปลอดภัย กรุณาใช้แท็บ GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new)
+ในการรายงานปัญหาความปลอดภัย กรุณาใช้แท็บ GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new)
 
 ทีมงานจะส่งคำตอบที่ระบุขั้นตอนถัดไป หลังจากตอบกลับครั้งแรก ทีมความปลอดภัยจะแจ้งให้คุณทราบเกี่ยวกับความคืบหน้าในการแก้ไขและประกาศเต็มรูปแบบ และอาจขอข้อมูลเพิ่มเติม
 

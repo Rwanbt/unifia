@@ -14,7 +14,7 @@ date: 2026-07-31
 
 ## Contexte
 
-Le fork `Rwanbt/opencode` contient **deux packages desktop** :
+Le fork `Rwanbt/unifia` contient **deux packages desktop** :
 - `packages/desktop/` : Tauri 2 (recommandé par le Plan V3)
 - `packages/desktop-electron/` : Electron (legacy, hérité d'upstream)
 

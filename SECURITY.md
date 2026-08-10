@@ -19,7 +19,7 @@ submit one that will be an automatic ban from the project.
 | 1.2.x   | ⚠️ Security fixes only |
 | < 1.2   | ❌ No              |
 
-> This fork (`Rwanbt/opencode`) tracks the latest upstream release. Patches are backported to the current minor series only.
+> This fork (`Rwanbt/unifia`) tracks the latest upstream release. Patches are backported to the current minor series only.
 
 ## Threat Model
 

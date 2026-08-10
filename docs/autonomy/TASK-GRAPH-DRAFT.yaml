@@ -181,7 +181,7 @@ cards:
     phase: "0"
     title: "README.md racine : rebrand titre, banner, URLs"
     status: "PROPOSED"
-    objective: "Remplacer 'OpenCode' par 'Unifia' dans README.md (racine). Supprimer la bannière 'Bannière OpencodeX.png' (1.5 MB) et la remplacer par une référence au logo Unifia. Adapter les URLs `Rwanbt/opencode` vers `Rwanbt/unifia` (ou nouveau repo)."
+    objective: "Remplacer 'OpenCode' par 'Unifia' dans README.md (racine). Supprimer la bannière 'Bannière OpencodeX.png' (1.5 MB) et la remplacer par une référence au logo Unifia. Adapter les URLs `Rwanbt/unifia` vers `Rwanbt/unifia` (ou nouveau repo)."
     rationale: "Premier fichier lu par un visiteur du repo."
     scope:
       allowed_paths: ["README.md"]
@@ -234,7 +234,7 @@ cards:
     phase: "1"
     title: "i18n 21 langues README + CONTRIBUTING + LICENSE + SECURITY"
     status: "PROPOSED"
-    objective: "Renommer 'OpenCode' → 'Unifia' dans les 84 fichiers i18n racine. URLs Rwanbt/opencode → à adapter. Stricte limite : recherche/remplacement par regex validée."
+    objective: "Renommer 'OpenCode' → 'Unifia' dans les 84 fichiers i18n racine. URLs Rwanbt/unifia → à adapter. Stricte limite : recherche/remplacement par regex validée."
     rationale: "Cohérence multilingue du rebrand."
     scope:
       allowed_paths: ["README.*.md", "CONTRIBUTING.*.md", "LICENSE.*.md", "SECURITY.*.md"]

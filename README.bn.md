@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (ফর্ক) — একটি অর্কেস্ট্র�
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### ৮টি জিনিস যা শুধুমাত্র এই ফর্ক একত্রিত করে
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## ফর্কের বৈশিষ্ট্যসমূহ
 
 > এটি [anomalyco/opencode](https:// PROT 3 PROT  একটি ফর্ক যা [Rwanbt](https://github.com/Rwanbt) দ্বারা রক্ষণাবেক্ষণ করা হয়।
-> আপস্ট্রিমের সাথে সিঙ্ক রাখা হয়। সর্বশেষ পরিবর্তনের জন্য [dev ব্রাঞ্চ](https://github.com/Rwanbt/opencode/tree/dev) দেখুন।
+> আপস্ট্রিমের সাথে সিঙ্ক রাখা হয়। সর্বশেষ পরিবর্তনের জন্য [dev ব্রাঞ্চ](https://github.com/Rwanbt/unifia/tree/dev) দেখুন।
 
 #### লোকাল-ফার্স্ট AI
 
@@ -518,7 +518,7 @@ nix run nixpkgs#unifia           # or github:anomalyco/opencode for latest dev b
 
 ### ডেস্কটপ অ্যাপ (BETA)
 
-Unifia Workbench ডেস্কটপ অ্যাপ্লিকেশন হিসেবেও উপলব্ধ। সরাসরি [রিলিজ পেজ](https://github.com/Rwanbt/opencode/releases) অথবা [unifia.ai/download](https://opencode.ai/download) থেকে ডাউনলোড করুন।
+Unifia Workbench ডেস্কটপ অ্যাপ্লিকেশন হিসেবেও উপলব্ধ। সরাসরি [রিলিজ পেজ](https://github.com/Rwanbt/unifia/releases) অথবা [unifia.ai/download](https://opencode.ai/download) থেকে ডাউনলোড করুন।
 
 | প্ল্যাটফর্ম           | ডাউনলোড                               |
 | --------------------- | ------------------------------------- |

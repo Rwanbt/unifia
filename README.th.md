@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="สถานะการสร้าง" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="สถานะการสร้าง" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (fork) — เอเจนต์เขียนโค้ด AI 
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 8 สิ่งที่มีเฉพาะใน fork นี้
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## คุณสมบัติของ Fork
 
 > นี่คือ fork ของ [anomalyco/opencode](https:// PROT 3 PROT  ที่ดูแลโดย [Rwanbt](https://github.com/Rwanbt)
-> ซิงค์กับ upstream อยู่เสมอ ดู [สาขา dev](https://github.com/Rwanbt/opencode/tree/dev) สำหรับการเปลี่ยนแปลงล่าสุด
+> ซิงค์กับ upstream อยู่เสมอ ดู [สาขา dev](https://github.com/Rwanbt/unifia/tree/dev) สำหรับการเปลี่ยนแปลงล่าสุด
 
 #### AI แบบ Local-First
 
@@ -518,7 +518,7 @@ nix run nixpkgs#unifia           # หรือ github:anomalyco/opencode สำ
 
 ### แอปพลิเคชันเดสก์ท็อป (เบต้า)
 
-Unifia Workbench มีให้ใช้งานเป็นแอปพลิเคชันเดสก์ท็อป ดาวน์โหลดโดยตรงจาก [หน้ารุ่น](https://github.com/Rwanbt/opencode/releases) หรือ [unifia.ai/download](https://opencode.ai/download)
+Unifia Workbench มีให้ใช้งานเป็นแอปพลิเคชันเดสก์ท็อป ดาวน์โหลดโดยตรงจาก [หน้ารุ่น](https://github.com/Rwanbt/unifia/releases) หรือ [unifia.ai/download](https://opencode.ai/download)
 
 | แพลตฟอร์ม             | ดาวน์โหลด                             |
 | --------------------- | ------------------------------------- |

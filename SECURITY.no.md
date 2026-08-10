@@ -38,7 +38,7 @@ Servermodus er kun opt-in. Når aktivert, sett `UNIFIA_SERVER_PASSWORD` for å k
 
 Vi setter pris på innsatsen din for ansvarlig å offentliggjøre funnene dine og vil gjøre alt for å anerkjenne bidragene dine.
 
-For å rapportere et sikkerhetsproblem, bruk fanen GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+For å rapportere et sikkerhetsproblem, bruk fanen GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 Teamet vil sende et svar med neste skritt. Etter det første svaret vil sikkerhetsteamet holde deg informert om fremgangen mot en løsning og full kunngjøring, og kan be om ytterligere informasjon.
 

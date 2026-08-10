@@ -43,7 +43,7 @@ Ce fichier liste les **chemins et composants explicitement interdits d'import** 
 | Config store | « Ne pas reprendre tel quel, Config versionnée Unifia » | EXCLUDE code, REWRITE |
 | Electron IPC métier | « Ne pas reprendre, Ports et API indépendants du shell » | EXCLUDE |
 
-### Depuis le fork Unifia (Rwanbt/opencode)
+### Depuis le fork Unifia (Rwanbt/unifia)
 
 | Composant | Raison | Action |
 |---|---|---|

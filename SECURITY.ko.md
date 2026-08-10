@@ -38,7 +38,7 @@ OpenCode는 에이전트를 **샌드박스화하지 않습니다**. 권한 시�
 
 책임 있는 공개 노력을 감사드리며, 여러분의 기여에 감사를 표하기 위해 가능한 모든 노력을 다할 것입니다.
 
-보안 문제를 보고하려면 GitHub 보안 권고 ["취약점 보고"](https://github.com/Rwanbt/opencode/security/advisories/new) 탭을 사용하세요.
+보안 문제를 보고하려면 GitHub 보안 권고 ["취약점 보고"](https://github.com/Rwanbt/unifia/security/advisories/new) 탭을 사용하세요.
 
 팀은 다음 단계에 대한 답변을 보내드립니다. 초기 응답 후, 보안 팀은 수정 및 전체 공지의 진행 상황을 계속 알려드리며 추가 정보를 요청할 수 있습니다.
 

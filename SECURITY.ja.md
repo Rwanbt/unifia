@@ -38,7 +38,7 @@ Unifia Workbench はエージェントを**サンドボックス化しません*
 
 発見を責任を持って開示するご努力に感謝し、貢献を認めるためにあらゆる努力をします。
 
-セキュリティ問題を報告するには、GitHub Security Advisory の ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new) タブを使用してください。
+セキュリティ問題を報告するには、GitHub Security Advisory の ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new) タブを使用してください。
 
 チームは次のステップを示す回答をお送りします。最初の回答後、セキュリティチームは修正と完全な発表に向けた進捗をお知らせし、追加情報を求めることがあります。
 

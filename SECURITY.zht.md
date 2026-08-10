@@ -38,7 +38,7 @@ Unifia Workbench **不會** 對代理進行沙箱化。權限系統作為 UX 功
 
 我們感謝您負責任地揭露發現的努力，並將盡一切可能感謝您的貢獻。
 
-請使用 GitHub 安全公告 [“回報漏洞”](https://github.com/Rwanbt/opencode/security/advisories/new) 分頁。
+請使用 GitHub 安全公告 [“回報漏洞”](https://github.com/Rwanbt/unifia/security/advisories/new) 分頁。
 
 團隊將發送回覆並告知處理步驟。在初步回覆後，安全團隊將持續告知修復和公告進度，並可能要求提供更多資訊。
 

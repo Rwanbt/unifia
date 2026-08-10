@@ -2,7 +2,7 @@
 
 ## Périmètre
 
-Ce plan s'applique au fork `Rwanbt/opencode`. Il adapte les standards professionnels à un projet TypeScript/SolidJS/Tauri.
+Ce plan s'applique au fork `Rwanbt/unifia`. Il adapte les standards professionnels à un projet TypeScript/SolidJS/Tauri.
 
 ## Tier 1 — CI Enforcement (Automatique)
 

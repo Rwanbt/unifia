@@ -6,9 +6,9 @@ Until the rebrand is complete, documentation must use these boundaries:
 
 | Purpose | Temporary canonical location |
 |---|---|
-| Fork source and issues | <https://github.com/Rwanbt/opencode> |
-| Fork releases and desktop/APK downloads | <https://github.com/Rwanbt/opencode/releases> |
-| Fork CI | <https://github.com/Rwanbt/opencode/actions> |
+| Fork source and issues | <https://github.com/Rwanbt/unifia> |
+| Fork releases and desktop/APK downloads | <https://github.com/Rwanbt/unifia/releases> |
+| Fork CI | <https://github.com/Rwanbt/unifia/actions> |
 | Upstream attribution only | <https://github.com/anomalyco/opencode> |
 | Upstream-hosted services | <https://opencode.ai> |
 

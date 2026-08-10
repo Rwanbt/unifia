@@ -7,7 +7,7 @@ APP=unifia
 # over the user's own OpenCode binary. The fork publishes to its own repository
 # (see the `github.repository` guards in .github/workflows/fork-release.yml);
 # overridable so the eventual repository rename is one variable, not five URLs.
-UNIFIA_RELEASE_REPO=${UNIFIA_RELEASE_REPO:-Rwanbt/opencode}
+UNIFIA_RELEASE_REPO=${UNIFIA_RELEASE_REPO:-Rwanbt/unifia}
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'

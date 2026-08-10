@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (fork) — ένας ενορχηστρωμένος AI coding ag
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 8 πράγματα που μόνο αυτό το fork συγκεντρώνει
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Χαρακτηριστικά Fork
 
 > Αυτό είναι ένα fork του [anomalyco/opencode](https:// PROT 3 PROT  που συντηρείται από τον [Rwanbt](https://github.com/Rwanbt).
-> Διατηρείται συγχρονισμένο με το upstream. Δείτε τον [κλάδο dev](https://github.com/Rwanbt/opencode/tree/dev) για τις τελευταίες αλλαγές.
+> Διατηρείται συγχρονισμένο με το upstream. Δείτε τον [κλάδο dev](https://github.com/Rwanbt/unifia/tree/dev) για τις τελευταίες αλλαγές.
 
 #### Τοπική AI
 
@@ -518,7 +518,7 @@ nix run nixpkgs#unifia           # ή github:anomalyco/opencode με βάση τ
 
 ### Εφαρμογή Desktop (BETA)
 
-Το Unifia Workbench είναι επίσης διαθέσιμο ως εφαρμογή. Κατέβασε το απευθείας από τη [σελίδα εκδόσεων](https://github.com/Rwanbt/opencode/releases) ή το [unifia.ai/download](https://opencode.ai/download).
+Το Unifia Workbench είναι επίσης διαθέσιμο ως εφαρμογή. Κατέβασε το απευθείας από τη [σελίδα εκδόσεων](https://github.com/Rwanbt/unifia/releases) ή το [unifia.ai/download](https://opencode.ai/download).
 
 | Πλατφόρμα             | Λήψη                                  |
 | --------------------- | ------------------------------------- |

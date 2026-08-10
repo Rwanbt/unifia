@@ -14,7 +14,7 @@
       "notes": "Upstream originel. HEAD exact à vérifier après configuration de la remotes upstream-opencode (Plan V3 §12)."
     },
     "opencode_fork": {
-      "url": "https://github.com/Rwanbt/opencode.git",
+      "url": "https://github.com/Rwanbt/unifia.git",
       "license": "MIT",
       "copyright": "(c) 2025-2026 Rwanbt contributors",
       "verified_at": "2026-07-31",

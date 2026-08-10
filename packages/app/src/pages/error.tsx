@@ -309,7 +309,7 @@ export const ErrorPage: Component<ErrorPageProps> = (props) => {
             <button
               type="button"
               class="flex items-center text-text-interactive-base gap-1"
-              onClick={() => platform.openLink("https://github.com/Rwanbt/opencode")}
+              onClick={() => platform.openLink("https://github.com/Rwanbt/unifia")}
             >
               <div>{language.t("error.page.report.github")}</div>
               <Icon name="github" class="text-text-interactive-base" />

@@ -1,6 +1,6 @@
 <p align="center">
   <img src="Bannière UnifiaX.png" alt="RBannière UnifiaX" >
-  <a href="https://github.com/Rwanbt/opencode">
+  <a href="https://github.com/Rwanbt/unifia">
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
@@ -10,8 +10,8 @@
 </p>
 <p align="center">L'agent de codage IA open source.</p>
 <p align="center">
-  <a href="https://github.com/Rwanbt/opencode/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/opencode?display_name=tag&style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/unifia?display_name=tag&style=flat-square" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@
 
 
 > [!WARNING]
-> **Avis de fork non officiel :** ce dépôt est un fork indépendant et non officiel d'[Unifia Workbench](https://github.com/anomalyco/opencode), maintenu par [Rwanbt/opencode](https://github.com/Rwanbt/opencode). Il n'est ni construit, ni opéré, ni approuvé, ni supporté par l'équipe Unifia Workbench amont. Les releases, binaires, issues, roadmap et le support de ce fork sont maintenus ici.
+> **Avis de fork non officiel :** ce dépôt est un fork indépendant et non officiel d'[Unifia Workbench](https://github.com/anomalyco/opencode), maintenu par [Rwanbt/unifia](https://github.com/Rwanbt/unifia). Il n'est ni construit, ni opéré, ni approuvé, ni supporté par l'équipe Unifia Workbench amont. Les releases, binaires, issues, roadmap et le support de ce fork sont maintenus ici.
 <!-- WHY-FORK-MATRIX -->
 ## Pourquoi ce fork ?
 
@@ -118,10 +118,10 @@ Unifia Workbench (fork) — un agent de codage IA orchestré qui tourne sur **de
 
 ```bash
 # CLI (macOS / Linux / Windows)
-Téléchargez un artefact depuis https://github.com/Rwanbt/opencode/releases/latest.
+Téléchargez un artefact depuis https://github.com/Rwanbt/unifia/releases/latest.
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 8 choses que ce fork regroupe et qu'aucun autre CLI n'offre
@@ -158,7 +158,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Fonctionnalités du fork
 
 > Ceci est un fork non officiel d'[Unifia Workbench amont](https://github.com/anomalyco/opencode), maintenu par [Rwanbt](https://github.com/Rwanbt).
-> Synchronisé avec l'upstream. Voir la [branche dev](https://github.com/Rwanbt/opencode/tree/dev) pour les dernières modifications.
+> Synchronisé avec l'upstream. Voir la [branche dev](https://github.com/Rwanbt/unifia/tree/dev) pour les dernières modifications.
 
 #### IA locale d'abord
 
@@ -466,13 +466,13 @@ L'application Android est déjà fonctionnelle. Le prochain chantier mobile est 
 
 ---
 
-[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/Rwanbt/opencode)
+[![Unifia Workbench Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/Rwanbt/unifia)
 
 ### Installation
 
 ```bash
 # YOLO
-Téléchargez un artefact depuis https://github.com/Rwanbt/opencode/releases/latest.
+Téléchargez un artefact depuis https://github.com/Rwanbt/unifia/releases/latest.
 
 # Gestionnaires de paquets
 Aucun canal npm, Homebrew, Scoop, Chocolatey, pacman, AUR ou mise du fork n'est annoncé pour le moment.
@@ -484,7 +484,7 @@ Téléchargez un artefact depuis les releases du fork ou construisez depuis le d
 
 ### Application de bureau (BETA)
 
-Unifia Workbench est aussi disponible en application de bureau. Téléchargez-la directement depuis la [page des releases du fork](https://github.com/Rwanbt/opencode/releases).
+Unifia Workbench est aussi disponible en application de bureau. Téléchargez-la directement depuis la [page des releases du fork](https://github.com/Rwanbt/unifia/releases).
 
 | Plateforme            | Téléchargement                        |
 | --------------------- | ------------------------------------- |
@@ -511,8 +511,8 @@ Le script d'installation respecte l'ordre de priorité suivant pour le chemin d'
 
 ```bash
 # Exemples
-Téléchargez l'artefact depuis https://github.com/Rwanbt/opencode/releases/latest et placez-le dans /usr/local/bin
-Téléchargez l'artefact depuis https://github.com/Rwanbt/opencode/releases/latest et placez-le dans $HOME/.local/bin
+Téléchargez l'artefact depuis https://github.com/Rwanbt/unifia/releases/latest et placez-le dans /usr/local/bin
+Téléchargez l'artefact depuis https://github.com/Rwanbt/unifia/releases/latest et placez-le dans $HOME/.local/bin
 ```
 
 ### Agents

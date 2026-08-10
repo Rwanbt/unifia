@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (форк) — оркестрированный ИИ-агент
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 8 вещей, которые объединяет только этот форк
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Функции Форка
 
 > Это форк [anomalyco/opencode](https:// PROT 4 PROT  поддерживаемый [Rwanbt](https://github.com/Rwanbt).
-> Синхронизируется с upstream. Смотрите [ветку dev](https://github.com/Rwanbt/opencode/tree/dev) для последних изменений.
+> Синхронизируется с upstream. Смотрите [ветку dev](https://github.com/Rwanbt/unifia/tree/dev) для последних изменений.
 
 #### Локальный AI
 
@@ -666,7 +666,7 @@ nix run nixpkgs#unifia           # или github:anomalyco/opencode для са�
 
 ### Десктопное приложение (BETA)
 
-Unifia Workbench также доступен как десктопное приложение. Скачайте его со [страницы релизов](https://github.com/Rwanbt/opencode/releases) или с [unifia.ai/download](https://opencode.ai/download).
+Unifia Workbench также доступен как десктопное приложение. Скачайте его со [страницы релизов](https://github.com/Rwanbt/unifia/releases) или с [unifia.ai/download](https://opencode.ai/download).
 
 | Платформа             | Загрузка                              |
 | --------------------- | ------------------------------------- |

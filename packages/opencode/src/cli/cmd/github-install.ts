@@ -222,7 +222,7 @@ jobs:
           persist-credentials: false
 
       - name: Run unifia
-        uses: Rwanbt/opencode/github@latest${envStr}
+        uses: Rwanbt/unifia/github@latest${envStr}
         with:
           model: ${provider}/${model}`,
             )

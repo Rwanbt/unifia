@@ -38,7 +38,7 @@ Tryb serwera jest wyłącznie opt-in. Po włączeniu ustaw `UNIFIA_SERVER_PASSWO
 
 Doceniamy wysiłki odpowiedzialnego ujawniania znalezisk i dołożymy wszelkich starań, aby docenić Twój wkład.
 
-Aby zgłosić problem bezpieczeństwa, użyj zakładki GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new).
+Aby zgłosić problem bezpieczeństwa, użyj zakładki GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new).
 
 Zespół prześle odpowiedź wskazującą kolejne kroki. Po pierwszej odpowiedzi zespół bezpieczeństwa będzie Cię informował o postępach w kierunku poprawki i pełnego ogłoszenia oraz może prosić o dodatkowe informacje.
 

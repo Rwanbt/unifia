@@ -38,7 +38,7 @@ Sunucu modu yalnızca opt-in'dir. Etkinleştirildiğinde, HTTP Basic Auth gerekt
 
 Bulgularınızı sorumlu bir şekilde açıklama çabanızı takdir ediyoruz ve katkılarınızı kabul etmek için her türlü çabayı göstereceğiz.
 
-Güvenlik sorunu bildirmek için GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/opencode/security/advisories/new) sekmesini kullanın.
+Güvenlik sorunu bildirmek için GitHub Security Advisory ["Report a Vulnerability"](https://github.com/Rwanbt/unifia/security/advisories/new) sekmesini kullanın.
 
 Ekip, sonraki adımları belirten bir yanıt gönderecektir. İlk yanıttan sonra güvenlik ekibi, düzeltme ve tam duyuruya doğru ilerlemeler hakkında sizi bilgilendirecek ve ek bilgi isteyebilir.
 

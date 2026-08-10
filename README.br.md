@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/opencode/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/opencode/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ Unifia Workbench (fork) — um agente de programação com IA orquestrado que ro
 curl -fsSL https://opencode.ai/install | bash
 
 # Desktop app + Android APK
-# → https://github.com/Rwanbt/opencode/releases/latest
+# → https://github.com/Rwanbt/unifia/releases/latest
 ```
 
 ### 8 coisas que só este fork reúne
@@ -157,7 +157,7 @@ unifia run "fix the failing test in src/"   # one-shot
 ## Funcionalidades do Fork
 
 > Este é um fork de [anomalyco/opencode](https:// PROT 4 PROT  mantido por [Rwanbt](https://github.com/Rwanbt).
-> Mantido em sincronia com o upstream. Veja a [branch dev](https://github.com/Rwanbt/opencode/tree/dev) para as últimas alterações.
+> Mantido em sincronia com o upstream. Veja a [branch dev](https://github.com/Rwanbt/unifia/tree/dev) para as últimas alterações.
 
 #### IA Local
 
@@ -666,7 +666,7 @@ nix run nixpkgs#unifia           # ou github:anomalyco/opencode para a branch de
 
 ### App desktop (BETA)
 
-O Unifia Workbench também está disponível como aplicativo desktop. Baixe diretamente pela [página de releases](https://github.com/Rwanbt/opencode/releases) ou em [unifia.ai/download](https://opencode.ai/download).
+O Unifia Workbench também está disponível como aplicativo desktop. Baixe diretamente pela [página de releases](https://github.com/Rwanbt/unifia/releases) ou em [unifia.ai/download](https://opencode.ai/download).
 
 | Plataforma            | Download                              |
 | --------------------- | ------------------------------------- |

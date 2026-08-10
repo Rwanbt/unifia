@@ -46,7 +46,7 @@ BUSL-1.1 (Business Source License) est source-available, pas open-source. Nous l
 
 ### Unifia est-il un fork ?
 
-Oui, Unifia est un fork de [Rwanbt/opencode](https://github.com/Rwanbt/opencode), qui est lui-même un fork d'[anomalyco/opencode](https://github.com/anomalyco/opencode).
+Oui, Unifia est un fork de [Rwanbt/unifia](https://github.com/Rwanbt/unifia), qui est lui-même un fork d'[anomalyco/opencode](https://github.com/anomalyco/opencode).
 
 ### Puis-je contribuer en upstream ?
 

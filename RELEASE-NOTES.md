@@ -1,7 +1,7 @@
 # RELEASE-NOTES — Unifia Workbench v1.0.0
 
 **Date de release :** 2026-07-31
-**Basée sur :** [Rwanbt/opencode](https://github.com/Rwanbt/opencode) @ `207ff452`
+**Basée sur :** [Rwanbt/unifia](https://github.com/Rwanbt/unifia) @ `207ff452`
 **Statut :** ✅ Production-ready (rebrand cosmétique)
 
 ---
@@ -176,7 +176,7 @@ git checkout v0.x && bun install
 
 - **Erwan** : owner du fork Unifia
 - **Hermes Agent (MiniMax M3)** : exécution autonome du rebrand
-- **Rwanbt/opencode** : fork de base (MIT)
+- **Rwanbt/unifia** : fork de base (MIT)
 
 ---
 
@@ -184,7 +184,7 @@ git checkout v0.x && bun install
 
 MIT — voir [LICENSE](LICENSE) pour le texte complet.
 
-Dérivé de [opencode](https://github.com/anomalyco/opencode) (MIT, © 2025 opencode) et [Rwanbt/opencode](https://github.com/Rwanbt/opencode) (MIT, © 2025-2026 Rwanbt contributors).
+Dérivé de [opencode](https://github.com/anomalyco/opencode) (MIT, © 2025 opencode) et [Rwanbt/unifia](https://github.com/Rwanbt/unifia) (MIT, © 2025-2026 Rwanbt contributors).
 
 ---
 
