@@ -132,7 +132,12 @@ process.once("unhandledRejection", (error) => {
 let code = 1
 
 try {
-  seed = Bun.spawn(["bun", "script/seed-e2e.ts"], {
+  // process.execPath, not "bun": Bun.spawn goes straight to posix_spawn and
+  // does not resolve a bare command through PATH the way a shell does. On the
+  // Linux runner this failed with `ENOENT: posix_spawn 'bun'` before a single
+  // test ran. The absolute path to the interpreter already executing this file
+  // is both correct and guaranteed to exist.
+  seed = Bun.spawn([process.execPath, "script/seed-e2e.ts"], {
     cwd: opencodeDir,
     env: serverEnv,
     stdout: "inherit",
@@ -162,7 +167,7 @@ try {
     console.log(`unifia server listening on http://127.0.0.1:${serverPort}`)
 
     await waitForHealth(`http://127.0.0.1:${serverPort}/global/health`)
-    runner = Bun.spawn(["bun", "test:e2e", ...extraArgs], {
+    runner = Bun.spawn([process.execPath, "test:e2e", ...extraArgs], {
       cwd: appDir,
       env: runnerEnv,
       stdout: "inherit",
