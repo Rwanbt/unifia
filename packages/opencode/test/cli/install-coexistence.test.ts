@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test"
-import { mkdtemp, mkdir, readFile, rm, writeFile, stat } from "node:fs/promises"
+import { mkdtemp, mkdir, open, readFile, rm, writeFile, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
@@ -73,9 +73,17 @@ test("installs unifia without touching an existing OpenCode install", async () =
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: expect.any(String) })
 
   // Installed under its own name, in its own directory.
+  // One handle for both assertions: stat-then-read on a path is a TOCTOU race
+  // (CodeQL `js/file-system-race`), and reusing the handle keeps the "it is a
+  // regular file" check without re-resolving the path.
   const installed = path.join(home, ".unifia", "bin", "unifia")
-  expect((await stat(installed)).isFile()).toBe(true)
-  expect(await readFile(installed, "utf8")).toContain("echo unifia")
+  const handle = await open(installed, "r")
+  try {
+    expect((await handle.stat()).isFile()).toBe(true)
+    expect(await handle.readFile("utf8")).toContain("echo unifia")
+  } finally {
+    await handle.close()
+  }
 
   // The OpenCode install is byte-for-byte what it was.
   expect(await sha(officialBinary)).toBe(before)
