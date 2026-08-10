@@ -12,7 +12,7 @@ and inspection of per-card worktrees.
 It is invoked through the team CLI surface (subcommands `team wt-create`,
 `team wt-attach`, `team wt-detach`, `team wt-validate`, `team wt-list`,
 `team wt-inspect`) or programmatically through
-`packages/opencode/src/team/worktree-manager.ts`.
+`packages/unifia/src/team/worktree-manager.ts`.
 
 ## Public API
 
@@ -24,13 +24,13 @@ import {
   validateWorktreeScope,
   listWorktrees,
   inspectWorktree,
-} from "packages/opencode/src/team/worktree-manager";
+} from "packages/unifia/src/team/worktree-manager";
 
 import {
   hookPreCommit,
   hookPrePush,
   hookPostCommit,
-} from "packages/opencode/src/team/hooks";
+} from "packages/unifia/src/team/hooks";
 ```
 
 ### createWorktree(opts)

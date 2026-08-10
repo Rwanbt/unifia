@@ -16,7 +16,7 @@ This document is read by **every** AI coding agent working on this repo (Hermes,
 
 ## Project Layout
 
-- `packages/opencode/` — CLI core (binary: `unifia`)
+- `packages/unifia/` — CLI core (binary: `unifia`)
 - `packages/app/` — Web app (SolidJS)
 - `packages/desktop/` — Tauri 2 desktop (identifier: `ai.unifia.workbench.dev`)
 - `packages/mobile/` — Tauri 2 mobile
@@ -161,8 +161,8 @@ const table = sqliteTable("session", {
 
 - Avoid mocks as much as possible
 - Test actual implementation, do not duplicate logic into tests
-- Tests cannot run from repo root (guard: `do-not-run-tests-from-root`); run from package dirs like `packages/opencode`.
+- Tests cannot run from repo root (guard: `do-not-run-tests-from-root`); run from package dirs like `packages/unifia`.
 
 ## Type Checking
 
-- Always run `bun typecheck` from package directories (e.g., `packages/opencode`), never `tsc` directly.
+- Always run `bun typecheck` from package directories (e.g., `packages/unifia`), never `tsc` directly.

@@ -41,7 +41,7 @@ onTrimMemory(CRITICAL)→ unload model, garder sidecar connecté
 
 ### 2.2 — État actuel dans le code
 
-- [packages/opencode/src/local-llm-server/index.ts:262-281](packages/opencode/src/local-llm-server/index.ts#L262-L281) : handlers `SIGTERM`/`SIGINT`/`exit` → `syncCleanup()`.
+- [packages/unifia/src/local-llm-server/index.ts:262-281](packages/unifia/src/local-llm-server/index.ts#L262-L281) : handlers `SIGTERM`/`SIGINT`/`exit` → `syncCleanup()`.
 - [packages/mobile/src-tauri/src/lib.rs](packages/mobile/src-tauri/src/lib.rs) : à lire pour confirmer si un `RunEvent::Exit` ou `OnPause` hook est implémenté.
 - [packages/mobile/src/entry.tsx](packages/mobile/src/entry.tsx) : pas de `document.addEventListener("visibilitychange", ...)` — aucun signal côté JS quand l'app passe en background.
 

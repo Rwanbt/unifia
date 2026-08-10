@@ -33,7 +33,7 @@ const runtimeVersion = process.env.UNIFIA_VERSION || process.env.OPENCODE_VERSIO
 const runtimeChannel = process.env.UNIFIA_CHANNEL || process.env.OPENCODE_CHANNEL || "local"
 
 // ── 1. Read SQL migrations ──────────────────────────────────────────
-const migrationDir = join(ROOT, "packages/opencode/migration")
+const migrationDir = join(ROOT, "packages/unifia/migration")
 const dirs = readdirSync(migrationDir, { withFileTypes: true })
   .filter((e) => e.isDirectory())
   .map((e) => e.name)
@@ -60,7 +60,7 @@ mkdirSync(outdir, { recursive: true })
 
 const cmd = [
   "bun", "build",
-  join(ROOT, "packages/opencode/src/mobile-entry.ts"),
+  join(ROOT, "packages/unifia/src/mobile-entry.ts"),
   "--target=bun",
   `--outdir=${outdir}`,
   '--external', '@opentui/core',

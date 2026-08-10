@@ -47,6 +47,6 @@ SolidJS UI  →  POST /session/:id/stream (SSE, Hono server)
 - **Mobile gate**: all llama-server spawn logic gated via `process.env.UNIFIA_CLIENT === "mobile-embedded"` — Android owns the process through `LlamaService` (JNI), not the sidecar.
 - **Config cascade** (lowest → highest priority): `~/.opencode/config.json` → `./opencode.json` → MDM profile (macOS) → environment variables.
 - **CSP/IPC (Windows)**: `connect-src` must whitelist `http://ipc.localhost` (Tauri IPC) and `http://asset.localhost` (static assets).
-- **Sidecar build**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline` in `packages/opencode` first.
+- **Sidecar build**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline` in `packages/unifia` first.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture document including thread model, data flow, and fork-specific additions.

@@ -6,7 +6,7 @@ Définitions opérationnelles des termes utilisés dans le code. Pour chaque ter
 
 Une conversation agent ↔ LLM dans un répertoire donné. Identifiée par un UUID. Stockée dans SQLite via Drizzle ORM. Une session a un `directory`, un `title` autogénéré, et un état (`idle | running | error`).
 
-**Module** : `packages/opencode/src/session/session.ts`
+**Module** : `packages/unifia/src/session/session.ts`
 
 ## Workspace / Worktree
 
@@ -18,7 +18,7 @@ Un répertoire de travail git worktree associé à un projet. Le workspace racin
 
 Un service LLM (Anthropic, OpenAI, Gemini, local-llm, etc.) configuré par l'utilisateur. Résolu à l'exécution depuis la config cascade. Le pseudo-provider `local-llm` gère le lifecycle du processus llama-server.
 
-**Module** : `packages/opencode/src/provider/provider.ts`
+**Module** : `packages/unifia/src/provider/provider.ts`
 
 ## Session Key
 
@@ -38,7 +38,7 @@ Pattern d'extraction : `createXxx(deps: XxxDeps)` installe ses propres effects e
 
 Model Context Protocol — protocole JSON-RPC permettant aux LLMs d'appeler des outils externes via des serveurs MCP. Unifia agit comme client MCP.
 
-**Module** : `packages/opencode/src/mcp/`
+**Module** : `packages/unifia/src/mcp/`
 
 ## Sidecar
 

@@ -157,7 +157,7 @@ if [ -f "$UNIFIA_DIR/src/mobile-entry.ts" ]; then
   echo "  CLI: $(du -sh "$RUNTIME_DIR/opencode-cli.js" 2>/dev/null | cut -f1 || echo "error")"
 else
   echo "  WARNING: mobile-entry.ts not found at $UNIFIA_DIR/src/mobile-entry.ts"
-  echo "  Make sure packages/opencode/src/mobile-entry.ts exists."
+  echo "  Make sure packages/unifia/src/mobile-entry.ts exists."
 fi
 
 echo ""

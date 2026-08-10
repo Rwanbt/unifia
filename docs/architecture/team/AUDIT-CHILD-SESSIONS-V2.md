@@ -1,4 +1,4 @@
-# AUDIT-CHILD-SESSIONS-V2 — `packages/opencode/src/session/`
+# AUDIT-CHILD-SESSIONS-V2 — `packages/unifia/src/session/`
 
 > **Carte :** TEAM-A01 (Lot A, Gate T0) — **tentative 2**
 > **Worktree :** `D:\App\OpenCode\.team-worktrees\A01-7d80a3f1`
@@ -26,13 +26,13 @@
    - `rg -n 'Event\.TeamCompleted|publish.*team\.completed'` — publishers de `TeamCompleted`.
    - `rg -n 'x-parent-session-id'` — tous usages du header HTTP.
 3. Lecture exhaustive :
-   - `packages/opencode/src/util/abort.ts` (helpers d'annulation).
-   - `packages/opencode/src/acp/agent.ts` (cancel via SDK).
-   - `packages/opencode/src/cli/cmd/session.ts` (CLI).
-   - `packages/opencode/src/server/routes/session.ts` (API route).
-   - `packages/opencode/src/server/routes/gdpr.ts` (GDPR).
-   - `packages/opencode/src/tool/task.ts` (cancel propagation).
-   - `packages/opencode/src/tool/team.ts` (publisher `TeamCompleted`).
+   - `packages/unifia/src/util/abort.ts` (helpers d'annulation).
+   - `packages/unifia/src/acp/agent.ts` (cancel via SDK).
+   - `packages/unifia/src/cli/cmd/session.ts` (CLI).
+   - `packages/unifia/src/server/routes/session.ts` (API route).
+   - `packages/unifia/src/server/routes/gdpr.ts` (GDPR).
+   - `packages/unifia/src/tool/task.ts` (cancel propagation).
+   - `packages/unifia/src/tool/team.ts` (publisher `TeamCompleted`).
 4. Sections §9, §10, §11, §12 : retrait des prescriptions non démontrées ;
    ré-écriture des findings amendés ; ajout F-A01-6..8.
 
@@ -41,7 +41,7 @@
 ## 1. Schéma de persistance (INCHANGÉ v1 → v2, conservé pour traçabilité)
 
 ### 1.1 Colonne parent_id
-Preuve — `packages/opencode/src/session/session.sql.ts:24` :
+Preuve — `packages/unifia/src/session/session.sql.ts:24` :
 ```ts
 parent_id: text().$type<SessionID>(),
 ```
@@ -50,13 +50,13 @@ NOT NULL explicitement ajoutée.** Pas de `references(..., { onDelete })` non pl
 — la colonne n'a pas de foreign key.
 
 ### 1.2 Index
-Preuve — `packages/opencode/src/session/session.sql.ts:45` :
+Preuve — `packages/unifia/src/session/session.sql.ts:45` :
 ```ts
 index("session_parent_idx").on(table.parent_id),
 ```
 
 ### 1.3 Persistence des permissions par session
-Preuve — `packages/opencode/src/session/session.sql.ts:37` :
+Preuve — `packages/unifia/src/session/session.sql.ts:37` :
 ```ts
 permission: text({ mode: "json" }).$type<Permission.Ruleset>(),
 ```
@@ -69,7 +69,7 @@ permission: text({ mode: "json" }).$type<Permission.Ruleset>(),
 ## 2. Création d'une session enfant
 
 ### 2.1 Interface publique
-Preuve — `packages/opencode/src/session/index.ts:332-337` :
+Preuve — `packages/unifia/src/session/index.ts:332-337` :
 ```ts
 readonly create: (input?: {
   parentID?: SessionID
@@ -80,7 +80,7 @@ readonly create: (input?: {
 ```
 
 ### 2.2 Implémentation
-Preuve — `packages/opencode/src/session/index.ts:394-448` (extrait) :
+Preuve — `packages/unifia/src/session/index.ts:394-448` (extrait) :
 ```ts
 const createNext = Effect.fn("Session.createNext")(function* (input: {
   id?: SessionID
@@ -114,7 +114,7 @@ vide » vs « aucun permission posée ») dépend de la couche d'évaluation non
 auditée ici. Voir F-A01-1.
 
 ### 2.3 Audit log asynchrone
-Preuve — `packages/opencode/src/session/index.ts:436-445` :
+Preuve — `packages/unifia/src/session/index.ts:436-445` :
 ```ts
 AuditLog.recordAsync({
   action: "session.create",
@@ -124,13 +124,13 @@ AuditLog.recordAsync({
 ```
 
 ### 2.4 Mapping row → Info
-Preuve — `packages/opencode/src/session/index.ts:76` :
+Preuve — `packages/unifia/src/session/index.ts:76` :
 ```ts
 parentID: row.parent_id ?? undefined,
 ```
 
 ### 2.5 Schéma Zod
-Preuves — `packages/opencode/src/session/index.ts:135` et `:720` :
+Preuves — `packages/unifia/src/session/index.ts:135` et `:720` :
 ```ts
 parentID: SessionID.zod.optional(),
 ```
@@ -140,13 +140,13 @@ parentID: SessionID.zod.optional(),
 ## 3. Récupération des enfants
 
 ### 3.1 Interface publique
-Preuve — `packages/opencode/src/session/index.ts:355` :
+Preuve — `packages/unifia/src/session/index.ts:355` :
 ```ts
 readonly children: (parentID: SessionID) => Effect.Effect<Info[]>
 ```
 
 ### 3.2 Implémentation
-Preuve — `packages/opencode/src/session/index.ts:475-485` :
+Preuve — `packages/unifia/src/session/index.ts:475-485` :
 ```ts
 const children = Effect.fn("Session.children")(function* (parentID: SessionID) {
   const ctx = yield* InstanceState.context
@@ -164,7 +164,7 @@ const children = Effect.fn("Session.children")(function* (parentID: SessionID) {
 ## 4. Suppression et cascade manuelle
 
 ### 4.1 Suppression récursive
-Preuve — `packages/opencode/src/session/index.ts:487-503` :
+Preuve — `packages/unifia/src/session/index.ts:487-503` :
 ```ts
 const remove: (sessionID: SessionID) => Effect.Effect<void> = Effect.fnUntraced(function* (sessionID: SessionID) {
   try {
@@ -191,11 +191,11 @@ Recherche `rg -n 'SyncEvent\.remove\(|Session\.remove\(|children\('` :
 
 | Fichier:ligne | Caller | Contexte |
 |---|---|---|
-| `packages/opencode/src/session/index.ts:490` | auto-récursion | `for (const child of kids) yield* remove(child.id)` |
-| `packages/opencode/src/session/index.ts:497` | auto-récursion | `SyncEvent.remove(sessionID)` (effet de bord après suppression récursive) |
-| `packages/opencode/src/cli/cmd/session.ts:68` | CLI | `await Session.remove(sessionID)` dans `cmdSessionDelete` |
-| `packages/opencode/src/server/routes/session.ts:241` | HTTP API | `await Session.remove(sessionID)` dans DELETE /session/:id |
-| `packages/opencode/src/server/routes/gdpr.ts:117` | GDPR | `await Session.remove(id as any)` dans route DELETE gdpr |
+| `packages/unifia/src/session/index.ts:490` | auto-récursion | `for (const child of kids) yield* remove(child.id)` |
+| `packages/unifia/src/session/index.ts:497` | auto-récursion | `SyncEvent.remove(sessionID)` (effet de bord après suppression récursive) |
+| `packages/unifia/src/cli/cmd/session.ts:68` | CLI | `await Session.remove(sessionID)` dans `cmdSessionDelete` |
+| `packages/unifia/src/server/routes/session.ts:241` | HTTP API | `await Session.remove(sessionID)` dans DELETE /session/:id |
+| `packages/unifia/src/server/routes/gdpr.ts:117` | GDPR | `await Session.remove(id as any)` dans route DELETE gdpr |
 
 **Aucun caller n'appelle aujourd'hui de helper de suppression atomique
 (`removeAtomic`) : tous utilisent `Session.remove` directement, qui avale
@@ -216,7 +216,7 @@ silencieusement les erreurs via `catch (e) { log.error(e) }` (ligne 501).**
 ## 5. Événements émis par les sessions enfants
 
 ### 5.1 Événements de cycle de vie (INCHANGÉ)
-Preuve — `packages/opencode/src/session/index.ts:192-235` :
+Preuve — `packages/unifia/src/session/index.ts:192-235` :
 ```ts
 Created: SyncEvent.define({
   type: "session.created",
@@ -231,7 +231,7 @@ Error: BusEvent.define("session.error", z.object({ sessionID: SessionID.zod.opti
 ```
 
 ### 5.2 Statuts
-Preuve — `packages/opencode/src/session/status.ts:60-78` et `:80-87` :
+Preuve — `packages/unifia/src/session/status.ts:60-78` et `:80-87` :
 ```ts
 Status: BusEvent.define("session.status", z.object({ sessionID: SessionID.zod, status: Info })),
 ```
@@ -240,7 +240,7 @@ Union statuts : `idle | busy | retry | queued | blocked | awaiting_input | compl
 `idle`, `busy`, `retry` ne sont PAS persistés.
 
 ### 5.3 Événements de tâche — F-A01-3 confirmé (P2, medium, D05)
-Preuve — `packages/opencode/src/session/status.ts:95-141` :
+Preuve — `packages/unifia/src/session/status.ts:95-141` :
 ```ts
 TaskCreated:     { sessionID, parentID, agent, description }     // parentID présent
 TaskCompleted:   { sessionID, parentID, result? }                // parentID présent
@@ -257,7 +257,7 @@ Inégalité persistée. Routage : D05 doit harmoniser via versioning N-1.
 **v2 corrige** : le rapport v1 s'était trompé (recherche `rg` inexacte, le contrat
 est `SessionStatus.Event.TeamCompleted`, et le publisher publie via `Bus.publish`).
 
-Preuve — `packages/opencode/src/tool/team.ts:308` :
+Preuve — `packages/unifia/src/tool/team.ts:308` :
 ```ts
       await Bus.publish(SessionStatus.Event.TeamCompleted, {
         sessionID,
@@ -269,14 +269,14 @@ Preuve — `packages/opencode/src/tool/team.ts:308` :
 `tool/team.ts` qui ré-exporte le publisher. C'est incohérent architecturalement
 (deux contrats concurrents possibles), pas dormant.
 
-**Action** : D05 doit consolider ce contrat vers `packages/opencode/src/team/events.ts`
+**Action** : D05 doit consolider ce contrat vers `packages/unifia/src/team/events.ts`
 ou supprimer celui de `session/status.ts` après migration complète.
 
 ---
 
 ## 6. Header HTTP `x-parent-session-id`
 
-Preuve — `packages/opencode/src/session/llm.ts:664` (unique occurrence) :
+Preuve — `packages/unifia/src/session/llm.ts:664` (unique occurrence) :
 ```ts
               ...(input.parentSessionID ? { "x-parent-session-id": input.parentSessionID } : {}),
 ```
@@ -298,7 +298,7 @@ Preuve — `packages/opencode/src/session/llm.ts:664` (unique occurrence) :
 ## 7. Permissions et sous-sessions — F-A01-1 amendé (high, D03)
 
 ### 7.1 Pas de propagation automatique (CONFIRMÉ)
-Recherche : `rg -n 'sub.?session|child.?session|fork|cascade|inherits' packages/opencode/src/permission/`
+Recherche : `rg -n 'sub.?session|child.?session|fork|cascade|inherits' packages/unifia/src/permission/`
 Résultat : aucune occurrence.
 
 ### 7.2 Sémantique effective — AMEND v2
@@ -321,7 +321,7 @@ Suite à l'amendement E2, ne PAS prescrire `inherit_parent_unless_overridden`
 ## 8. Compactage et reprise
 
 ### 8.1 Compaction
-Preuve — `packages/opencode/src/session/compaction.ts:56` :
+Preuve — `packages/unifia/src/session/compaction.ts:56` :
 ```ts
 parentID: MessageID
 ```

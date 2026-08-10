@@ -31,7 +31,7 @@ const CHANNEL = await (async () => {
 })()
 const IS_PREVIEW = CHANNEL !== "latest"
 
-// Kept in step with NPM_PACKAGE in packages/opencode/src/installation/index.ts:
+// Kept in step with NPM_PACKAGE in packages/unifia/src/installation/index.ts:
 // the version a release is cut from and the package the CLI upgrades itself
 // through have to be the same product.
 const NPM_PACKAGE = "unifia-ai"

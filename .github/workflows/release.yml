@@ -61,7 +61,7 @@ jobs:
           echo "tag=$RAW" >> "$GITHUB_OUTPUT"
 
       - name: Build CLI (cross-compile all targets via Bun)
-        working-directory: packages/opencode
+        working-directory: packages/unifia
         # --all: build-cli runs once on ubuntu-latest but build-tauri needs both
         # linux and windows CLI binaries (see SIDECAR_BINARIES in
         # packages/desktop/scripts/utils.ts). Without --all, script/build.ts
@@ -73,7 +73,7 @@ jobs:
           UNIFIA_CHANNEL: latest
 
       - name: Package artifacts
-        working-directory: packages/opencode/dist
+        working-directory: packages/unifia/dist
         run: |
           set -e
           echo "dist contents:"
@@ -92,8 +92,8 @@ jobs:
         with:
           name: cli-bundles
           path: |
-            packages/opencode/dist/unifia-linux-x64.tar.gz
-            packages/opencode/dist/unifia-windows-x64.zip
+            packages/unifia/dist/unifia-linux-x64.tar.gz
+            packages/unifia/dist/unifia-windows-x64.zip
             install
           if-no-files-found: error
 
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cli-dist
-          path: packages/opencode/dist
+          path: packages/unifia/dist
           if-no-files-found: error
 
       # Second upload in the "unifia-cli" layout expected by
@@ -111,14 +111,14 @@ jobs:
         with:
           name: unifia-cli
           path: |
-            packages/opencode/dist/unifia-linux*
-            packages/opencode/dist/unifia-darwin*
+            packages/unifia/dist/unifia-linux*
+            packages/unifia/dist/unifia-darwin*
           if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
         with:
           name: unifia-cli-windows
-          path: packages/opencode/dist/unifia-windows*
+          path: packages/unifia/dist/unifia-windows*
           if-no-files-found: warn
 
     outputs:
@@ -149,16 +149,16 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cli-dist
-          path: packages/opencode/dist
+          path: packages/unifia/dist
 
       - name: Restore executable bits
         # upload-artifact does not preserve the mode, and the stub's bin/ entry
         # has to stay executable for `npm i -g unifia-ai` to produce a runnable
         # command.
-        run: chmod -R +x packages/opencode/dist packages/opencode/bin || true
+        run: chmod -R +x packages/unifia/dist packages/unifia/bin || true
 
       - name: Publish to npm
-        run: bun packages/opencode/script/publish-npm.ts
+        run: bun packages/unifia/script/publish-npm.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           UNIFIA_VERSION: ${{ needs.build-cli.outputs.version }}
@@ -443,7 +443,7 @@ jobs:
           node scripts/bundle-mobile.mjs --outdir "$RUNTIME"
           echo 'export function createWrapper() { return undefined }' > "$RUNTIME/node_modules/@parcel/watcher/wrapper.js"
           echo '{"name":"@parcel/watcher","version":"0.0.0","main":"wrapper.js"}' > "$RUNTIME/node_modules/@parcel/watcher/package.json"
-          cp "$RUNTIME/opencode-cli.js" "$ASSETS/opencode-cli.js"
+          cp "$RUNTIME/unifia-cli.js" "$ASSETS/unifia-cli.js"
           cp -r "$RUNTIME/node_modules" "$ASSETS/"
           cp "$RUNTIME"/*.wasm "$ASSETS/" 2>/dev/null || true
 

@@ -171,7 +171,7 @@ Unifia Workbench pokrece AI modele lokalno na potrosackom hardveru (8 GB VRAM / 
 
 **Motor za inferenciju (llama.cpp b8731)**
 - Vulkan GPU backend, automatski preuzet pri prvom ucitavanju modela
-- **Adaptivna runtime konfiguracija** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, niti, velicina batch/ubatch, kvantizacija KV cache-a i velicina konteksta izvedeni iz detektovanog VRAM-a, slobodnog RAM-a, big.LITTLE CPU podjele, GPU backend-a (CUDA/ROCm/Vulkan/Metal/OpenCL) i termalnog stanja. Zamjenjuje stari hardkodirani `--n-gpu-layers 99` — 4 GB Android sada radi u CPU fallback-u umjesto da bude ubijen OOM-om, vrhunski desktopi dobijaju podeseni batch umjesto podrazumijevanog 512.
+- **Adaptivna runtime konfiguracija** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, niti, velicina batch/ubatch, kvantizacija KV cache-a i velicina konteksta izvedeni iz detektovanog VRAM-a, slobodnog RAM-a, big.LITTLE CPU podjele, GPU backend-a (CUDA/ROCm/Vulkan/Metal/OpenCL) i termalnog stanja. Zamjenjuje stari hardkodirani `--n-gpu-layers 99` — 4 GB Android sada radi u CPU fallback-u umjesto da bude ubijen OOM-om, vrhunski desktopi dobijaju podeseni batch umjesto podrazumijevanog 512.
 - `--flash-attn on` — Flash Attention za efikasnost memorije
 - `--cache-type-k/v` — KV cache sa  rotacijom; adaptivni nivo (f16 / q8_0 / q4_0) na osnovu VRAM rezerve
 - `--fit on` — sekundarno VRAM podesavanje ekskluzivno za fork (opt-in preko `UNIFIA_LLAMA_ENABLE_FIT=1`)

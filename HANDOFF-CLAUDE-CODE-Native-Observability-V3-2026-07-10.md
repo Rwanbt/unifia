@@ -20,7 +20,7 @@
 
 ## Verified
 
-Run from `packages/opencode`, with TEMP/TMP set to `D:\App\Unifia\.build-temp`:
+Run from `packages/unifia`, with TEMP/TMP set to `D:\App\Unifia\.build-temp`:
 
 ```powershell
 bun test test/observability --timeout 30000
@@ -42,7 +42,7 @@ Result before this handoff: **12 tests passed**, typecheck passed.
 
 ## Next implementation slice
 
-Build `packages/opencode/src/observability/service.ts` and repository access:
+Build `packages/unifia/src/observability/service.ts` and repository access:
 
 1. Convert validated events to `ObservabilityEventTable` rows.
 2. Expose `record(ctx, event): RecordResult` without throwing into product flows.
@@ -51,7 +51,7 @@ Build `packages/opencode/src/observability/service.ts` and repository access:
 5. Add tests for retry ordering, queue bytes, circuit-open behavior, invalid context and same span lifecycle.
 6. Do **not** yet add raw content, exporters, OTel or Langfuse.
 
-Then integrate the first LLM instrumentation at the existing AI SDK call site in `packages/opencode/src/session/llm.ts`. Force legacy `experimental_telemetry.recordInputs=false` and `recordOutputs=false` while legacy support remains.
+Then integrate the first LLM instrumentation at the existing AI SDK call site in `packages/unifia/src/session/llm.ts`. Force legacy `experimental_telemetry.recordInputs=false` and `recordOutputs=false` while legacy support remains.
 
 ## Important repository state
 

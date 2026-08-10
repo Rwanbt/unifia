@@ -171,7 +171,7 @@ unifia run "fix the failing test in src/"   # one-shot
 
 **محرك الاستدلال (llama.cpp b8731)**
 - واجهة GPU خلفية Vulkan، تُحمَّل تلقائياً عند أول تحميل نموذج
-- **تكوين تكيُّفي أثناء التشغيل** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`، الخيوط، حجم batch/ubatch، تكميم ذاكرة KV المؤقتة وحجم السياق، كلها مُستنبطة من VRAM المكتشفة وRAM الحرة وتقسيم CPU big.LITTLE وواجهة GPU الخلفية (CUDA/ROCm/Vulkan/Metal/OpenCL) والحالة الحرارية. يحلّ محل `--n-gpu-layers 99` المُرمَّز سابقاً — جهاز Android بسعة 4 جيجابايت يعمل الآن بوضع CPU الاحتياطي بدلاً من قتله بسبب OOM، وأجهزة سطح المكتب الرائدة تحصل على batch مضبوط بدلاً من الافتراضي 512.
+- **تكوين تكيُّفي أثناء التشغيل** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`، الخيوط، حجم batch/ubatch، تكميم ذاكرة KV المؤقتة وحجم السياق، كلها مُستنبطة من VRAM المكتشفة وRAM الحرة وتقسيم CPU big.LITTLE وواجهة GPU الخلفية (CUDA/ROCm/Vulkan/Metal/OpenCL) والحالة الحرارية. يحلّ محل `--n-gpu-layers 99` المُرمَّز سابقاً — جهاز Android بسعة 4 جيجابايت يعمل الآن بوضع CPU الاحتياطي بدلاً من قتله بسبب OOM، وأجهزة سطح المكتب الرائدة تحصل على batch مضبوط بدلاً من الافتراضي 512.
 - `--flash-attn on` — Flash Attention لكفاءة الذاكرة
 - `--cache-type-k/v` — ذاكرة KV المؤقتة مع دوران ؛ مستوى تكيُّفي (f16 / q8_0 / q4_0) حسب هامش VRAM
 - `--fit on` — تعديل VRAM ثانوي خاص بالـfork (اختياري عبر `UNIFIA_LLAMA_ENABLE_FIT=1`)

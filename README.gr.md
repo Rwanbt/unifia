@@ -171,7 +171,7 @@ unifia run "fix the failing test in src/"   # one-shot
 
 **Μηχανή Συμπερασμού (llama.cpp b8731)**
 - Vulkan GPU backend, αυτόματη λήψη κατά το πρώτο φόρτωμα μοντέλου
-- **Προσαρμοστική διαμόρφωση runtime** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, threads, μέγεθος batch/ubatch, κβαντοποίηση KV cache και μέγεθος πλαισίου προέρχονται από την ανιχνευμένη VRAM, ελεύθερη RAM, διάσπαση CPU big.LITTLE, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) και θερμική κατάσταση. Αντικαθιστά το παλιό hardcoded `--n-gpu-layers 99` — ένα Android 4 GB τρέχει πλέον σε CPU fallback αντί να σκοτώνεται από OOM, flagship desktops παίρνουν ρυθμισμένο batch αντί για το προεπιλεγμένο 512.
+- **Προσαρμοστική διαμόρφωση runtime** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, threads, μέγεθος batch/ubatch, κβαντοποίηση KV cache και μέγεθος πλαισίου προέρχονται από την ανιχνευμένη VRAM, ελεύθερη RAM, διάσπαση CPU big.LITTLE, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) και θερμική κατάσταση. Αντικαθιστά το παλιό hardcoded `--n-gpu-layers 99` — ένα Android 4 GB τρέχει πλέον σε CPU fallback αντί να σκοτώνεται από OOM, flagship desktops παίρνουν ρυθμισμένο batch αντί για το προεπιλεγμένο 512.
 - `--flash-attn on` — Flash Attention για αποδοτικότητα μνήμης
 - `--cache-type-k/v` — KV cache με  rotation· προσαρμοστικό επίπεδο (f16 / q8_0 / q4_0) βάσει περιθωρίου VRAM
 - `--fit on` — δευτερεύουσα ρύθμιση VRAM αποκλειστικά στο fork (opt-in μέσω `UNIFIA_LLAMA_ENABLE_FIT=1`)

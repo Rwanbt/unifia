@@ -61,7 +61,7 @@ async function typecheck() {
   console.log("  Running typecheck...")
 
   try {
-    await $`bun typecheck`.cwd("packages/opencode")
+    await $`bun typecheck`.cwd("packages/unifia")
     return true
   } catch (err) {
     console.log(`Typecheck failed: ${err}`)
@@ -73,7 +73,7 @@ async function build() {
   console.log("  Running final build smoke check...")
 
   try {
-    await $`./script/build.ts --single`.cwd("packages/opencode")
+    await $`./script/build.ts --single`.cwd("packages/unifia")
     return true
   } catch (err) {
     console.log(`Build failed: ${err}`)
@@ -113,7 +113,7 @@ async function fix(pr: PR, files: string[], prs: PR[], applied: number[], idx: n
     "If bun.lock is conflicted, do not hand-merge it. Delete bun.lock and run bun install after the code conflicts are resolved.",
     "If a PR already deleted a file/directory, do not re-add it, instead apply changes in the new semantic location.",
     "If a PR already changed an import, keep that change.",
-    "After resolving the conflicts, run `bun typecheck` in `packages/opencode`.",
+    "After resolving the conflicts, run `bun typecheck` in `packages/unifia`.",
     "If typecheck fails, you may also update any files reported by typecheck.",
     "Keep any non-conflict edits narrowly scoped to restoring a valid merged state for the current PR batch.",
     "Fix any merge-caused typecheck errors before finishing.",
@@ -149,8 +149,8 @@ async function smoke(prs: PR[], applied: number[]) {
   const prompt = [
     "The beta merge batch is complete.",
     `Merged PRs on HEAD:\n${done}`,
-    "Run `bun typecheck` in `packages/opencode`.",
-    "Run `./script/build.ts --single` in `packages/opencode`.",
+    "Run `bun typecheck` in `packages/unifia`.",
+    "Run `./script/build.ts --single` in `packages/unifia`.",
     "Fix any merge-caused issues until both commands pass.",
     "Do not create a commit.",
   ].join("\n")

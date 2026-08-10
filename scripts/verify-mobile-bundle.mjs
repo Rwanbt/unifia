@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 
 const root = process.cwd()
-const migrationRoot = join(root, "packages/opencode/migration")
+const migrationRoot = join(root, "packages/unifia/migration")
 const bundlePath = join(root, "packages/mobile/src-tauri/assets/runtime/opencode-cli.js")
 const generatedBundlePath = join(root, "packages/mobile/src-tauri/gen/android/app/src/main/assets/runtime/opencode-cli.js")
 const migrations = (await readdir(migrationRoot, { withFileTypes: true }))

@@ -5,7 +5,7 @@ Status: **NO HIDDEN LOCAL BLOCKER; KNOWN LIMITS ARE EXPLICIT**
 ## Verified
 
 - `bun test test/team --timeout 30000`: 814 passed, 0 failed across 81 files.
-- `bun run typecheck` in `packages/opencode`: passed.
+- `bun run typecheck` in `packages/unifia`: passed.
 - `bun run typecheck` in `packages/app`: passed.
 - CLI subprocess E2E: 12 passed, 0 failed.
 - App Team/i18n tests: 69 passed, 0 failed.

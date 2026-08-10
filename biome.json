@@ -9,7 +9,7 @@
 	"files": {
 		"ignoreUnknown": true,
 		"includes": [
-			"packages/opencode/src/**/*.ts",
+			"packages/unifia/src/**/*.ts",
 			"packages/app/src/**/*.ts",
 			"packages/app/src/**/*.tsx",
 			"packages/ui/src/**/*.ts",

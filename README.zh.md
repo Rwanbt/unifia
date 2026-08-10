@@ -171,7 +171,7 @@ Unifia Workbench 在消费级硬件（VRAM 8 GB / RAM 16 GB）上本地运行 AI
 
 **推理引擎 (llama.cpp b8731)**
 - Vulkan GPU 后端，首次模型加载时自动下载
-- **运行时自适应配置**（`packages/opencode/src/local-llm-server/auto-config.ts`）：`n_gpu_layers`、线程数、batch/ubatch 大小、KV 缓存量化和上下文大小均基于检测到的 VRAM、可用 RAM、big.LITTLE CPU 拆分、GPU 后端（CUDA/ROCm/Vulkan/Metal/OpenCL）和热状态推导。取代旧的硬编码 `--n-gpu-layers 99` — 4 GB Android 现在以 CPU 回退运行而不是被 OOM 杀死，旗舰桌面获得调优后的 batch 而非默认 512。
+- **运行时自适应配置**（`packages/unifia/src/local-llm-server/auto-config.ts`）：`n_gpu_layers`、线程数、batch/ubatch 大小、KV 缓存量化和上下文大小均基于检测到的 VRAM、可用 RAM、big.LITTLE CPU 拆分、GPU 后端（CUDA/ROCm/Vulkan/Metal/OpenCL）和热状态推导。取代旧的硬编码 `--n-gpu-layers 99` — 4 GB Android 现在以 CPU 回退运行而不是被 OOM 杀死，旗舰桌面获得调优后的 batch 而非默认 512。
 - `--flash-attn on` — Flash Attention 提高内存效率
 - `--cache-type-k/v` — llama.cpp 标准量化；根据 VRAM 余量自适应分级（f16 / q8_0 / q4_0）
 - `--fit on` — 仅分叉提供的辅助 VRAM 调整（通过 `UNIFIA_LLAMA_ENABLE_FIT=1` 启用）

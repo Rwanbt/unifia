@@ -44,7 +44,7 @@ bun run team claim \
   --worktree D:/App/OpenCode/.team-worktrees/G01-bbf637be \
   --base ef48e5d5c5cc0aff802a519950e15aeb3786e1c6 \
   --manifest-hash <sha256 of manifest> \
-  --allowed-files "packages/opencode/src/team/*.ts,packages/opencode/test/team/*.test.ts,..." \
+  --allowed-files "packages/unifia/src/team/*.ts,packages/unifia/test/team/*.test.ts,..." \
   --protected-files "Execution/00-EXECUTION-STATE.md,Execution/01-TASK-BOARD.md,..." \
   --scope-mode E2_REQUIRED \
   --ttl 1800
@@ -117,10 +117,10 @@ manifests and `git status --porcelain` at the moment of the check.
 
 ## Authoritative references
 
-- `packages/opencode/src/team/lock-manager.ts` — atomic claim/release/heartbeat
-- `packages/opencode/src/team/fencing.ts` — monotone token + Git ref
-- `packages/opencode/src/team/scope-monitor.ts` — scope validator
-- `packages/opencode/src/team/team-cli.ts` — CLI entry points
+- `packages/unifia/src/team/lock-manager.ts` — atomic claim/release/heartbeat
+- `packages/unifia/src/team/fencing.ts` — monotone token + Git ref
+- `packages/unifia/src/team/scope-monitor.ts` — scope validator
+- `packages/unifia/src/team/team-cli.ts` — CLI entry points
 - `docs/team/scope-manifest/TEAM-G01.yaml` — manifest for TEAM-G01
 - `Execution/Locks/leases.db` — runtime DB
 - `refs/team-fencing/<lease_id>` — Git-native fence chain

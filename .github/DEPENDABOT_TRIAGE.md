@@ -70,8 +70,8 @@ niveau semver** — doit être reviewée par un humain avant merge.
 - `@anthropic-ai/sdk`
 - `openai`
 
-**Pourquoi** : le pipeline `streamText` dans `packages/opencode/src/session/llm.ts`
-et `packages/opencode/src/provider/fallback.ts` dépend de la forme exacte
+**Pourquoi** : le pipeline `streamText` dans `packages/unifia/src/session/llm.ts`
+et `packages/unifia/src/provider/fallback.ts` dépend de la forme exacte
 des chunks `LanguageModelV3` (`text-delta`, `reasoning-delta`,
 `tool-input-*`, `finish`). Un bump mineur peut introduire un nouveau
 type de chunk et casser silencieusement le détecteur pre/mid stream
@@ -134,14 +134,14 @@ migration.
 - [ ] Lire le CHANGELOG.
 - [ ] `bun run drizzle-kit check` (si commande disponible).
 - [ ] Vérifier que les migrations existantes sous
-      `packages/opencode/migration/` se ré-appliquent sans erreur
+      `packages/unifia/migration/` se ré-appliquent sans erreur
       (DB from scratch).
 
 ### Zod
 
 - `zod`
 
-**Pourquoi** : usage massif dans `packages/opencode/src/config/config.ts`
+**Pourquoi** : usage massif dans `packages/unifia/src/config/config.ts`
 et routes Hono. Un bump major (Zod 3 → 4) change l'API `.parse`,
 `.safeParse`, les error messages et les methods chainables.
 

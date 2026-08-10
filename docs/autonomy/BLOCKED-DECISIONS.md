@@ -56,7 +56,7 @@ Décisions que l'agent ne peut PAS trancher seul et qui bloquent l'exécution. *
 
 **Statut :** `OPEN`
 **Sévérité :** MOYENNE
-**Question :** Unifia doit-il être listé dans `packages/opencode/src/provider/` comme provider natif, ou rester externe ?
+**Question :** Unifia doit-il être listé dans `packages/unifia/src/provider/` comme provider natif, ou rester externe ?
 **Recommandation :** provider natif (cohérence avec le fait que ce pack utilise MiniMax M3).
 **Note :** le Plan V3 §5 confirme « Providers et modèles = Unifia Core » → cohérent avec provider natif.
 

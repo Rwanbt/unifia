@@ -30,7 +30,7 @@
 
 #### Tier 1 — patches directs
 - [x] `diff` 8.0.2 → 8.0.3 (catalog)
-- [x] `minimatch` 10.0.3 → 10.2.1 (`packages/opencode/package.json`)
+- [x] `minimatch` 10.0.3 → 10.2.1 (`packages/unifia/package.json`)
 - [x] `@astrojs/cloudflare` 12.6.3 → 12.6.6 (`packages/web/package.json`)
 
 #### Tier 2 — overrides transitives (root `package.json`)
@@ -206,7 +206,7 @@ Aucun consumer direct dans le code Unifia. Surface : fichiers utilisateur lus pa
 .gitignore                                       # .gstack/
 .gitleaks.toml                                   # nouveau
 package.json                                     # +11 overrides
-packages/opencode/package.json                   # minimatch 10.2.1
+packages/unifia/package.json                   # minimatch 10.2.1
 packages/web/package.json                        # @astrojs/cloudflare 12.6.6 + astro 5.18.1
 packages/desktop-electron/package.json           # electron 40.8.5 (T3.2)
 packages/console/core/drizzle.config.ts          # ssl: {}

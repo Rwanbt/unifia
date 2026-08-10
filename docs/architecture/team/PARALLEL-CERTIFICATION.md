@@ -12,17 +12,17 @@
 This document certifies the performance properties of the parallel
 execution stack delivered by the K-series:
 
-- **K01** — Parallel READ scheduler (`packages/opencode/src/team/task-scheduler.ts::schedule`)
+- **K01** — Parallel READ scheduler (`packages/unifia/src/team/task-scheduler.ts::schedule`)
 - **K02** — Parallel WRITE scheduler with conflict matrix, hotspot serialization,
   lease acquisition, context drift, integration queue
-  (`packages/opencode/src/team/task-scheduler.ts::scheduleWrites`)
+  (`packages/unifia/src/team/task-scheduler.ts::scheduleWrites`)
 - **K03** — Adaptive concurrency controller with hysteresis
-  (`packages/opencode/src/team/concurrency-controller.ts::ConcurrencyController.apply`)
+  (`packages/unifia/src/team/concurrency-controller.ts::ConcurrencyController.apply`)
 
 The certification is grounded in real measurements, not synthetic
 benchmarks. Every number in this document was produced by an actual
 test execution; the test code lives in
-`packages/opencode/test/team/perf-benchmarks.test.ts` and is part of
+`packages/unifia/test/team/perf-benchmarks.test.ts` and is part of
 this card's commit.
 
 ## Hardware / Software
@@ -102,7 +102,7 @@ This is well within the routing SLO budget (200 ms for 1000 endpoints)
 because the scheduler is called once per batch, not once per endpoint.
 The full F01 candidate-generator (which calls the scheduler over 1000
 endpoints) has been measured at **p95 = 0.25 ms** end-to-end
-(`packages/opencode/test/team/candidate-generator.test.ts` records this
+(`packages/unifia/test/team/candidate-generator.test.ts` records this
 in the F01 card's run report), so the cumulative cost including
 scheduling stays at ~0.5 ms per 1000 endpoints.
 
@@ -192,7 +192,7 @@ integrations:
 
 - 2 + 2 + 2 = 6 files added (3 production modules + 3 test files)
 - 1 file modified (task-scheduler.ts was modified by K02)
-- 0 files outside `packages/opencode/src/team/` or `packages/opencode/test/team/` touched
+- 0 files outside `packages/unifia/src/team/` or `packages/unifia/test/team/` touched
 - All scope manifests honoured
 - All forbidden-import checks clean (no model-intelligence, multi-model, or provider imports introduced)
 

@@ -111,7 +111,7 @@ case "$MODE" in
         info "Pour tester sans build:"
         echo "  bun install && bun turbo build"
         echo "  ou"
-        echo "  cd packages/opencode && bun run build"
+        echo "  cd packages/unifia && bun run build"
         exit 0
         ;;
 esac

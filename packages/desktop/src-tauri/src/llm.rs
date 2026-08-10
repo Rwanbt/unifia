@@ -504,7 +504,7 @@ const MULTIMODAL_ARCHITECTURES: &[&str] = &[
 /// full GPU offload or full CPU. Confirmed on Ornith-1.0-9B (GGUF
 /// general.architecture = "qwen35", a hybrid SSM/Gated-Delta-Net model).
 /// Mirrors NO_PARTIAL_OFFLOAD_ARCHITECTURES in
-/// packages/opencode/src/local-llm-server/auto-config.ts — keep both in sync.
+/// packages/unifia/src/local-llm-server/auto-config.ts — keep both in sync.
 const NO_PARTIAL_OFFLOAD_ARCHITECTURES: &[&str] = &["qwen35"];
 
 /// Minimal GGUF metadata: `general.architecture` and `<arch>.block_count`.
@@ -514,7 +514,7 @@ struct GgufMeta {
 }
 
 /// Minimal GGUF metadata reader, mirroring the TS sidecar's `readGgufMeta`
-/// (packages/opencode/src/local-llm-server/auto-config.ts). Returns fields as
+/// (packages/unifia/src/local-llm-server/auto-config.ts). Returns fields as
 /// None on any parse failure (caller decides the safe default). GGUF spec v2/v3.
 fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
     use std::io::{Read, Seek, SeekFrom};
@@ -1131,7 +1131,7 @@ pub async fn check_llm_health(app: AppHandle, _port: Option<u16>) -> bool {
 }
 
 /// Adaptive llama-server config written by the TypeScript sidecar
-/// (packages/opencode/src/local-llm-server/auto-config.ts) into
+/// (packages/unifia/src/local-llm-server/auto-config.ts) into
 /// `{tmpdir}/opencode-llm-14097/llm_config.json`. All fields optional —
 /// we only override defaults when the sidecar has something to say.
 #[derive(Debug, Default, serde::Deserialize)]

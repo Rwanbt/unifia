@@ -5,7 +5,7 @@ import { $ } from "bun"
 import { fileURLToPath } from "url"
 
 // Upstream's full release: it commits, tags and force-pushes, then hands off to
-// packages/opencode/script/publish.ts, which targets registries this fork does
+// packages/unifia/script/publish.ts, which targets registries this fork does
 // not own. Unreachable here by workflow gating (.github/workflows/publish.yml
 // runs only on `anomalyco/opencode`), and kept byte-compatible so the monthly
 // upstream sync stays conflict-free — but a manual run would still fire.
@@ -13,7 +13,7 @@ import { fileURLToPath } from "url"
 if (!process.env["UNIFIA_ALLOW_UPSTREAM_PUBLISH"]) {
   throw new Error(
     "script/publish.ts is upstream's release path and pushes to infrastructure this fork does not own. " +
-      "Unifia releases via .github/workflows/fork-release.yml; npm alone via packages/opencode/script/publish-npm.ts.",
+      "Unifia releases via .github/workflows/fork-release.yml; npm alone via packages/unifia/script/publish-npm.ts.",
   )
 }
 
@@ -86,7 +86,7 @@ if (Script.release) {
 }
 
 console.log("\n=== cli ===\n")
-await import(`../packages/opencode/script/publish.ts`)
+await import(`../packages/unifia/script/publish.ts`)
 
 // Dependency order: sdk-shared depends on sdk, and plugin on both. npm rejects
 // nothing here, but a consumer installing an earlier one would hit a 404 on the

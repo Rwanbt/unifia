@@ -241,7 +241,7 @@ Dans `packages/app/src/context/editor.tsx`, dans `write()` AJOUTE :
 console.log('[editor] backend-write-send', filePath, 'len=', content.length, 'first50=', content.slice(0, 50), 'expectedHash=', effectiveHash)
 ```
 
-Dans `packages/opencode/src/file/index.ts`, dans `atomicWrite()` AJOUTE :
+Dans `packages/unifia/src/file/index.ts`, dans `atomicWrite()` AJOUTE :
 
 ```ts
 console.log('[backend] atomicWrite', full, 'len=', input.content.length, 'first50=', input.content.slice(0, 50))

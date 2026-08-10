@@ -171,7 +171,7 @@ Unifia Workbench kører AI-modeller lokalt på forbrugerhardware (8 GB VRAM / 16
 
 **Inferensmotor (llama.cpp b8731)**
 - Vulkan GPU-backend, auto-downloadet ved første modelindlæsning
-- **Adaptiv runtime-konfiguration** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, tråde, batch/ubatch-størrelse, KV-cache-kvantisering og kontekststørrelse udledes fra detekteret VRAM, ledig RAM, big.LITTLE CPU-opdeling, GPU-backend (CUDA/ROCm/Vulkan/Metal/OpenCL) og termisk tilstand. Erstatter den gamle hardkodede `--n-gpu-layers 99` — en 4 GB Android kører nu i CPU-fallback i stedet for at blive OOM-dræbt, flagskib-desktops får et tunet batch i stedet for standard 512.
+- **Adaptiv runtime-konfiguration** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, tråde, batch/ubatch-størrelse, KV-cache-kvantisering og kontekststørrelse udledes fra detekteret VRAM, ledig RAM, big.LITTLE CPU-opdeling, GPU-backend (CUDA/ROCm/Vulkan/Metal/OpenCL) og termisk tilstand. Erstatter den gamle hardkodede `--n-gpu-layers 99` — en 4 GB Android kører nu i CPU-fallback i stedet for at blive OOM-dræbt, flagskib-desktops får et tunet batch i stedet for standard 512.
 - `--flash-attn on` — Flash Attention for hukommelseseffektivitet
 - `--cache-type-k/v` — KV-cache med -rotation; adaptivt niveau (f16 / q8_0 / q4_0) baseret på VRAM-margen
 - `--fit on` — fork-kun sekundær VRAM-justering (opt-in via `UNIFIA_LLAMA_ENABLE_FIT=1`)

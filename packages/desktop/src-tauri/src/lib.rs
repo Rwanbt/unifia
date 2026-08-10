@@ -801,7 +801,7 @@ fn sqlite_file_exists() -> bool {
 
 /// Where the sidecar actually creates its database.
 ///
-/// This must mirror `Global.Path.data` in packages/opencode/src/global/index.ts,
+/// This must mirror `Global.Path.data` in packages/unifia/src/global/index.ts,
 /// which joins the XDG data home with the product's data directory name. It
 /// previously joined "opencode" — the official install's directory — so the
 /// probe read a file this application never writes: with OpenCode installed the

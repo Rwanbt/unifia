@@ -23,19 +23,19 @@ Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les déc
 
 | Domaine | Fork Unifia (Rwanbt) | OpenWork (upstream) | Open Cowork (upstream) | Autorité cible Unifia |
 |---|---|---|---|---|
-| **Runtime agentique (boucle)** | `packages/opencode/src/runtime/` (existant) | `apps/server/` + côté OpenCode embarqué | `agent runner` (NE PAS reprendre — Plan V3 §3.2) | **CORE** |
-| **Session manager** | `packages/opencode/src/session/` | `apps/server/sessions` | NE PAS reprendre | **CORE** |
-| **Provider routing** | `packages/opencode/src/provider/` (10 fichiers TS) | UNVERIFIED côté OpenCode | NE PAS reprendre | **CORE** |
+| **Runtime agentique (boucle)** | `packages/unifia/src/runtime/` (existant) | `apps/server/` + côté OpenCode embarqué | `agent runner` (NE PAS reprendre — Plan V3 §3.2) | **CORE** |
+| **Session manager** | `packages/unifia/src/session/` | `apps/server/sessions` | NE PAS reprendre | **CORE** |
+| **Provider routing** | `packages/unifia/src/provider/` (10 fichiers TS) | UNVERIFIED côté OpenCode | NE PAS reprendre | **CORE** |
 | **Provider MiniMax (M3)** | à ajouter | ❌ | ❌ | **CORE** (BD-6) |
-| **Tools (MCP, registry)** | `packages/opencode/src/tool/`, `mcp/` | `apps/server/mcp` | UNVERIFIED | **CORE** |
-| **Memory** | `packages/opencode/src/memory/` (à confirmer) | `apps/server/memory` | NE PAS reprendre tel quel → migrer idées vers MemoryRuntime | **APP** (MemoryRuntime) |
-| **Workspace identity** | `packages/opencode/src/workspace/` (à confirmer) | `apps/server/workspaces` | `ROADMAP.md` mentionne workspaces | **APP** (WorkspaceRuntime) |
+| **Tools (MCP, registry)** | `packages/unifia/src/tool/`, `mcp/` | `apps/server/mcp` | UNVERIFIED | **CORE** |
+| **Memory** | `packages/unifia/src/memory/` (à confirmer) | `apps/server/memory` | NE PAS reprendre tel quel → migrer idées vers MemoryRuntime | **APP** (MemoryRuntime) |
+| **Workspace identity** | `packages/unifia/src/workspace/` (à confirmer) | `apps/server/workspaces` | `ROADMAP.md` mentionne workspaces | **APP** (WorkspaceRuntime) |
 | **File sessions** | UNVERIFIED | `apps/server/file-sessions` | ❌ | **APP** (WorkspaceRuntime) |
 | **Multi-workspace** | ❌ (mono) | ✅ (multi-app + workspaces) | UNVERIFIED | **APP** (WorkspaceRuntime) |
 | **Artifacts (DOCX, PPTX, XLSX, PDF)** | ❌ (XSD 78 fichiers dans Open Cowork, pas dans Unifia) | UNVERIFIED (XSD-like) | ✅ (78 `.xsd` = schémas de docs) | **APP** (ArtifactRuntime) + **Capability Packs** |
-| **Skills (manifest typé)** | `packages/opencode/src/skill/` (à confirmer) | `apps/server/skills` | UNVERIFIED | **APP** (CapabilityRegistry) |
-| **Permissions / Policy** | `packages/opencode/src/permission/` | UNVERIFIED | UNVERIFIED | **GOV** (PolicyEngine) |
-| **Approvals** | `packages/opencode/src/approval/` (à confirmer) | `apps/server/approvals` | UNVERIFIED | **GOV** (ApprovalBroker) |
+| **Skills (manifest typé)** | `packages/unifia/src/skill/` (à confirmer) | `apps/server/skills` | UNVERIFIED | **APP** (CapabilityRegistry) |
+| **Permissions / Policy** | `packages/unifia/src/permission/` | UNVERIFIED | UNVERIFIED | **GOV** (PolicyEngine) |
+| **Approvals** | `packages/unifia/src/approval/` (à confirmer) | `apps/server/approvals` | UNVERIFIED | **GOV** (ApprovalBroker) |
 | **Secrets** | UNVERIFIED | `.infisical.json` (externe) | UNVERIFIED | **GOV** (SecretStore) |
 | **Audit / EventLog** | UNVERIFIED | `STATS.md` (télémétrie) | UNVERIFIED | **GOV** (AuditRuntime) |
 | **Trace Panel** | UNVERIFIED | `apps/desktop/` UI | UNVERIFIED (sandbox) | **WB** (Trace UI alimenté par EventLog) |
@@ -47,7 +47,7 @@ Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les déc
 | **Remote bridges (Slack/Feishu)** | `packages/slack/` (1 package) | UNVERIFIED (Slack UNVERIFIED) | `eigent-ai/eigent` mentionne Feishu | **WB** (RemoteRuntime) |
 | **Remote commands authorization** | UNVERIFIED | `apps/server/remote` | UNVERIFIED | **GOV** (RemoteTransport) |
 | **Desktop shell (UI)** | `packages/app/` (SolidJS), `packages/desktop/` (Tauri), `packages/desktop-electron/` (legacy) | `apps/desktop/` | UNVERIFIED | **WB** (Shell Unifia) |
-| **CLI** | `packages/opencode/bin/opencode` | UNVERIFIED | UNVERIFIED | **WB** (CLI Unifia) |
+| **CLI** | `packages/unifia/bin/opencode` | UNVERIFIED | UNVERIFIED | **WB** (CLI Unifia) |
 | **i18n** | 21 langues (en, fr, de, …) dans `packages/desktop/src/i18n/*.ts` + racine | `TRANSLATIONS.md` UNVERIFIED | UNVERIFIED (à vérifier) | **WB** (Shell i18n) — cf. `P-1-I18N-USER-SOURCE` |
 | **Mobile iOS/Android** | `packages/mobile/` (Tauri 2) | Swift natif (12 fichiers) | UNVERIFIED | **WB** (mobile) |
 | **macOS natif** | (Tauri) | Swift natif | UNVERIFIED | **WB** (Tauri préféré) |
@@ -59,9 +59,9 @@ Les mentions UNVERIFIED, UNVERIFIED ou ssumed ne sont pas des preuves. Les déc
 | Domaine | Fork Unifia | OpenWork | Open Cowork | Décision |
 |---|---|---|---|---|
 | Server headless | ❌ (pas dans Rwanbt) | ✅ `apps/server/` | ❌ | **ADOPT** OpenWork |
-| Agent loop | `packages/opencode/src/runtime/` | ✅ OpenCode embarqué | ❌ | **ADAPT** (Unifia RuntimeAdapter) |
-| Provider management | `packages/opencode/src/provider/` | UNVERIFIED | ❌ | **CORE** (unifier dans Unifia Core) |
-| Skills/plugins | `packages/opencode/src/skill/` | `apps/server/skills` | UNVERIFIED | **ADOPT** OpenWork + Capability Packs |
+| Agent loop | `packages/unifia/src/runtime/` | ✅ OpenCode embarqué | ❌ | **ADAPT** (Unifia RuntimeAdapter) |
+| Provider management | `packages/unifia/src/provider/` | UNVERIFIED | ❌ | **CORE** (unifier dans Unifia Core) |
+| Skills/plugins | `packages/unifia/src/skill/` | `apps/server/skills` | UNVERIFIED | **ADOPT** OpenWork + Capability Packs |
 | Remote transport | ❌ | `apps/server/remote` | Feishu/Slack | **ADOPT** OpenWork + **ADAPT** Open Cowork |
 | Browser control | ❌ | UNVERIFIED | UNVERIFIED | **ADAPT** tardif (Phase 10) |
 | Computer use | ❌ | UNVERIFIED | UNVERIFIED (Python) | **ADAPT** tardif (Phase 10) avec broker |

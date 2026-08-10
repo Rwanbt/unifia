@@ -4,7 +4,7 @@
  * Why: the Phase 4.3 SDK regen (commit cc8816f188) replaced top-level model
  * types (Message, Part, Session, FileNode, FileContent, ...) with route-shaped
  * wrappers (*Data/*Response) only. Consumers across packages/app,
- * packages/ui, packages/plugin, and packages/opencode still reference the old
+ * packages/ui, packages/plugin, and packages/unifia still reference the old
  * names — this file restores them as structural type aliases sourced from the
  * route shapes, so consumer code can stay source-compatible while the SDK
  * evolves toward thin route types.
@@ -57,7 +57,7 @@ export type UserMessage = Extract<Message, { role: "user" }>
 export type AssistantMessage = Extract<Message, { role: "assistant" }>
 
 // Part subtypes — discriminated on `type`. Same backend Zod source
-// (packages/opencode/src/session/message-v2.ts).
+// (packages/unifia/src/session/message-v2.ts).
 export type TextPart = Extract<Part, { type: "text" }>
 export type FilePart = Extract<Part, { type: "file" }>
 export type AgentPart = Extract<Part, { type: "agent" }>
@@ -147,7 +147,7 @@ export type QuestionRequest = {
 
 // QuestionInfo / QuestionAnswer are derived fields on a question request.
 // QuestionAnswer is a per-question array of selected option labels (the
-// consumer at packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
+// consumer at packages/unifia/src/cli/cmd/tui/routes/session/question.tsx
 // treats each answer entry as a string[]: indexOf/push/splice/filter and
 // passes it directly to sdk.client.question.reply which expects
 // `answers: string[][]`). The previous `{ answer?: string }` shape was the
@@ -179,7 +179,7 @@ export type EventMessagePartUpdated = Extract<Event, { type: "message.part.updat
 export type EventMessagePartDelta = Extract<Event, { type: "message.part.delta" }>
 // ToolStatePending / ToolStateRunning — discriminated variants of
 // ToolPart["state"]. Mirrors the Zod schemas in
-// packages/opencode/src/session/message-v2.ts (ToolStatePending/Running).
+// packages/unifia/src/session/message-v2.ts (ToolStatePending/Running).
 // The shim can only expose structural shapes; tightening to the exact Zod
 // payload requires backend-side exposure of the typed schemas.
 export type ToolStatePending = Extract<ToolPart["state"], { status: "pending" }>
@@ -207,7 +207,7 @@ export type FormatterStatus = FormatterStatusResponses[200][number]
 // ----- MCP resource -----
 // McpResource was a top-level alias pre-regen. The SDK does not expose a
 // typed shape post-regen. Fall back to a permissive shape so consumers
-// in packages/opencode/src/cli/cmd/tui/context/sync.tsx can read fields
+// in packages/unifia/src/cli/cmd/tui/context/sync.tsx can read fields
 // without a TS7006 cascade. Tighten once the SDK surfaces the typed shape.
 export type McpResource = {
   [key: string]: any
@@ -233,14 +233,14 @@ export type Project = ProjectListResponses[200][number] & {
   source?: { value: string; start: number; end: number }
 }
 // Agent — the backend Zod schema in
-// packages/opencode/src/agent/agent.ts (Agent.Info) is the runtime contract:
+// packages/unifia/src/agent/agent.ts (Agent.Info) is the runtime contract:
 //   { name, description?, mode: "subagent"|"primary"|"all", native?, hidden?,
 //     cli_hidden?, app_hidden?, topP?, temperature?, color?, permission?, model?, variant?,
 //     prompt?, options?, steps?, mcp? }
 // The previous shim derived Agent from ProjectListResponses[200][number]
 // which has fields the runtime Agent.Info never carries (id, worktree, time,
 // sandboxes), causing TS2345 cascade at setStore("agent", reconcile(...))
-// in packages/opencode/src/cli/cmd/tui/context/sync.tsx:414. Redefine Agent
+// in packages/unifia/src/cli/cmd/tui/context/sync.tsx:414. Redefine Agent
 // explicitly so consumer code stays source-compatible. Keep [key: string]:
 // unknown so consumers can reach any future Zod extension without an extra
 // round-trip through the shim.
@@ -312,7 +312,7 @@ export type Provider = Omit<ProviderListResponses[200]["all"][number] | Provider
 // Also re-export `Model` directly because some plugin imports use
 // `import { Model as ModelV2 }` syntax and need the source name visible.
 //
-// Phase 7.3 widening: the backend (packages/opencode/src/provider/
+// Phase 7.3 widening: the backend (packages/unifia/src/provider/
 // provider.ts + plugin/github-copilot/*) constructs Model objects at runtime
 // that extend the v1 shape with fields the SDK doesn't model yet
 // (capabilities.interleaved, limit.input, family, release_date, variants).

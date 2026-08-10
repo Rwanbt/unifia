@@ -34,9 +34,9 @@
 | `docs/autonomy/` | Mes propres livrables où "opencode" est contextuellement correct (références au fork upstream, sources, etc.) |
 | `docs/adr/` | Architecture Decision Records historiques (Plan V3 §3.1, etc.) |
 | `packages/enterprise/` | BD-2 VIOLATED — décision utilisateur requise |
-| `packages/opencode/src/cli/cmd/tui/component/logo.tsx` etc. | CLI/TUI lockup différé Phase P1.3 (cf. CLI_TUI_DEFERRED_IMPLEMENTATION.md) |
+| `packages/unifia/src/cli/cmd/tui/component/logo.tsx` etc. | CLI/TUI lockup différé Phase P1.3 (cf. CLI_TUI_DEFERRED_IMPLEMENTATION.md) |
 | URLs upstream (github.com/.../opencode) | Whitelist conservée |
-| Paths packages/opencode/ | Whitelist conservée |
+| Paths packages/unifia/ | Whitelist conservée |
 | Sidecar opencode-cli | Whitelist conservée |
 | @unifia/ (package scope) | Whitelist conservée |
 | localStorage keys opencode-theme-id, opencode-model-config, etc. | Migration = breaking change |

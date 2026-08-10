@@ -105,7 +105,7 @@ Source : QA utilisateur réel 2026-04-19, détail dans `NEXT_SESSION_PLAN.md`.
 | 2 | HAUTE    | `vim` → `toybox: unknown command vi` (bundler busybox-static) | `packages/mobile/src-tauri/assets/runtime/bin/` + `runtime.rs` |
 | 3 | HAUTE    | Kokoro TTS download silencieux mobile (surfacer erreurs/progress) | `packages/mobile/src-tauri/src/speech.rs` + `use-speech.ts` |
 | 4 | HAUTE    | Voice clone desktop sans son (désync ttsVoice + test button) | `packages/desktop/src-tauri/src/speech.rs` + `settings-audio.tsx` |
-| 5 | WONT-FIX | OAuth Gemini + Anthropic impossibles (API-key only, voir NEXT_SESSION_PLAN.md) | `packages/opencode/src/plugin/codex.ts` (pattern de référence) |
+| 5 | WONT-FIX | OAuth Gemini + Anthropic impossibles (API-key only, voir NEXT_SESSION_PLAN.md) | `packages/unifia/src/plugin/codex.ts` (pattern de référence) |
 | 6 | HAUTE    | CLI TUI ne spawn pas llama-server à la sélection modèle local | `cli/cmd/tui/component/dialog-model.tsx` |
 | 7 | MOY      | Panneau git changes lent (memoization + virtualization) | `packages/app/src/pages/session/session-side-panel.tsx` |
 | 8 | CRITIQUE | QR internet mode "impossible de joindre" (bind 0.0.0.0 + fingerprint + /health) | `packages/desktop/src-tauri/src/server.rs` + `tls.rs` |

@@ -28,7 +28,7 @@ Les mentions UNVERIFIED, UNVERIFIED ou assumed ne sont pas des preuves. Les déc
 - **Source :** `https://github.com/different-ai/openwork@2c558bcff` (HEAD verrouillé)
 - **Verdict :** `ADAPT`
 - **Phase cible :** 5
-- **Risque :** DOUBLON_FORT avec `packages/opencode/src/runtime/`
+- **Risque :** DOUBLON_FORT avec `packages/unifia/src/runtime/`
 - **Adaptation requise :** Refactorer en `OpenCodeRuntimeAdapter` (Plan V3 §7.1). Préserver la multi-workspace (à conserver comme feature Unifia).
 - **Justification :** OpenWork est identifié par Plan V3 §3.1 comme « donneur structurel principal ».
 - **Critères de succès :** OpenCodeRuntimeAdapter passe la conformance suite Phase 1.

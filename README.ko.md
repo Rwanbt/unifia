@@ -171,7 +171,7 @@ OpenCode는 소비자용 하드웨어(VRAM 8 GB / RAM 16 GB)에서 AI 모델을 
 
 **추론 엔진 (llama.cpp b8731)**
 - Vulkan GPU 백엔드, 첫 모델 로드 시 자동 다운로드
-- **런타임 적응형 설정** (`packages/opencode/src/local-llm-server/auto-config.ts`): 감지된 VRAM, 여유 RAM, big.LITTLE CPU 분할, GPU 백엔드 (CUDA/ROCm/Vulkan/Metal/OpenCL), 온도 상태로부터 `n_gpu_layers`, 스레드, batch/ubatch 크기, KV 캐시 양자화, 컨텍스트 크기를 도출합니다. 기존의 하드코딩된 `--n-gpu-layers 99`를 대체 — 4 GB Android는 OOM 종료 대신 CPU 폴백으로 실행되고, 플래그십 데스크톱은 기본 512 대신 조정된 batch 값을 얻습니다.
+- **런타임 적응형 설정** (`packages/unifia/src/local-llm-server/auto-config.ts`): 감지된 VRAM, 여유 RAM, big.LITTLE CPU 분할, GPU 백엔드 (CUDA/ROCm/Vulkan/Metal/OpenCL), 온도 상태로부터 `n_gpu_layers`, 스레드, batch/ubatch 크기, KV 캐시 양자화, 컨텍스트 크기를 도출합니다. 기존의 하드코딩된 `--n-gpu-layers 99`를 대체 — 4 GB Android는 OOM 종료 대신 CPU 폴백으로 실행되고, 플래그십 데스크톱은 기본 512 대신 조정된 batch 값을 얻습니다.
 - `--flash-attn on` — 메모리 효율을 위한 Flash Attention
 - `--cache-type-k/v` —  회전 KV 캐시; VRAM 여유에 따른 적응형 계층 (f16 / q8_0 / q4_0)
 - `--fit on` — 포크 전용 보조 VRAM 조정 (`UNIFIA_LLAMA_ENABLE_FIT=1`로 옵트인)

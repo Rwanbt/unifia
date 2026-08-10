@@ -86,7 +86,7 @@ jobs:
       - name: Run structured-output integration tests (non-blocking, real API)
         if: matrix.settings.name == 'linux'
         continue-on-error: true
-        working-directory: packages/opencode
+        working-directory: packages/unifia
         run: mkdir -p .artifacts/integration && bun test test/session/structured-output-integration.test.ts --timeout 180000 --reporter=junit --reporter-outfile=.artifacts/integration/junit-structured-output.xml
         env:
           # @ai-sdk/google only reads GOOGLE_GENERATIVE_AI_API_KEY itself, so
@@ -100,7 +100,7 @@ jobs:
         with:
           # Keep optional external-integration reports out of the blocking unit check.
           # The structured-output report is stored under .artifacts/integration.
-          report_paths: packages/opencode/.artifacts/unit/junit.xml,packages/app/.artifacts/unit/junit.xml,packages/mobile/.artifacts/unit/junit.xml
+          report_paths: packages/unifia/.artifacts/unit/junit.xml,packages/app/.artifacts/unit/junit.xml,packages/mobile/.artifacts/unit/junit.xml
           check_name: "unit results (${{ matrix.settings.name }})"
           detailed_summary: true
           include_time_in_summary: true

@@ -11,7 +11,7 @@
 | 2 | MEDIUM | 9/10 | DOMPurify 3.3.1 vulnérable (7 CVEs mXSS, require >=3.3.2) | `packages/ui/package.json:56` |
 | 3 | HIGH | 8/10 | Action CI unpinnée `anomalyco/opencode@latest` + `UNIFIA_API_KEY` exposée | `.github/workflows/opencode.yml:29` |
 | 4 | HIGH | 8/10 | Action CI unpinnée `mitchellh/vouch@main` + `issues:write` | `.github/workflows/vouch-manage-by-issue.yml:32` |
-| 5 | HIGH | 8/10 | Fastify content-type bypass dans `unifia-gitlab-auth` (CVE GHSA-247c-9743-5963) | `packages/opencode/package.json` |
+| 5 | HIGH | 8/10 | Fastify content-type bypass dans `unifia-gitlab-auth` (CVE GHSA-247c-9743-5963) | `packages/unifia/package.json` |
 | 6 | MEDIUM | 8/10 | TLS `rejectUnauthorized: false` sur la DB console (MySQL prod) | `packages/console/core/drizzle.config.ts:17` |
 | 7 | LOW | 8/10 | `.gstack/` non gitignored → rapports sécurité exposables | `.gitignore` (**corrigé** lors de l'audit) |
 
@@ -192,8 +192,8 @@ tags = ["key", "anthropic"]
 
 [allowlist]
 paths = [
-  "packages/opencode/src/security/scanner.ts",
-  "packages/opencode/test/security/",
+  "packages/unifia/src/security/scanner.ts",
+  "packages/unifia/test/security/",
   ".gstack/",
 ]
 ```

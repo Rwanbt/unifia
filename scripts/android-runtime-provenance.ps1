@@ -42,7 +42,7 @@ $files = foreach ($root in $runtimeRoots) {
   }
 }
 
-$package = Get-Content -Raw (Join-Path $RepositoryRoot 'packages/opencode/package.json') | ConvertFrom-Json
+$package = Get-Content -Raw (Join-Path $RepositoryRoot 'packages/unifia/package.json') | ConvertFrom-Json
 $report = [ordered]@{
   generated_at_utc = [DateTime]::UtcNow.ToString('o')
   repository = $RepositoryRoot

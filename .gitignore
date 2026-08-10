@@ -50,7 +50,7 @@ packages/mobile/src-tauri/assets/runtime/lib/
 crates/opencode-kokoro-shared/Cargo.lock
 
 # Local LLM eval results
-packages/opencode/test/tool/eval-results/
+packages/unifia/test/tool/eval-results/
 
 # Claude Code / Unifia agent workspace
 .claudeignore
@@ -77,7 +77,7 @@ keystore.properties
 !gradle.properties.template
 
 # Benchmark artefacts (audit §7)
-packages/opencode/bench/results/
+packages/unifia/bench/results/
 *.bench.json
 
 # OS / IDE

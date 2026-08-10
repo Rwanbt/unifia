@@ -18,7 +18,7 @@ Carte de possession des modules. Mise à jour après chaque extraction majeure.
 | `src/components/prompt-input.tsx` | Fork (LOC reduction) | 2026-05-27 |
 | `src/components/prompt-input/keyboard-handler.ts` | Fork | 2026-05-27 |
 
-## packages/opencode/ — Backend TypeScript
+## packages/unifia/ — Backend TypeScript
 
 | Module | Responsable | Notes |
 |--------|-------------|-------|

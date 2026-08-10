@@ -171,7 +171,7 @@ Unifia Workbench はコンシューマー向けハードウェア（VRAM 8 GB / 
 
 **推論エンジン (llama.cpp b8731)**
 - Vulkan GPU バックエンド、初回モデルロード時に自動ダウンロード
-- **ランタイム適応設定**（`packages/opencode/src/local-llm-server/auto-config.ts`）: 検出された VRAM、空き RAM、big.LITTLE CPU 分割、GPU バックエンド（CUDA/ROCm/Vulkan/Metal/OpenCL）、温度状態から `n_gpu_layers`、スレッド数、batch/ubatch サイズ、KV キャッシュ量子化、コンテキストサイズを導出。以前のハードコードされた `--n-gpu-layers 99` を置き換え — 4 GB の Android は OOM キルされる代わりに CPU フォールバックで動作し、ハイエンドデスクトップはデフォルトの 512 ではなく調整された batch を取得します。
+- **ランタイム適応設定**（`packages/unifia/src/local-llm-server/auto-config.ts`）: 検出された VRAM、空き RAM、big.LITTLE CPU 分割、GPU バックエンド（CUDA/ROCm/Vulkan/Metal/OpenCL）、温度状態から `n_gpu_layers`、スレッド数、batch/ubatch サイズ、KV キャッシュ量子化、コンテキストサイズを導出。以前のハードコードされた `--n-gpu-layers 99` を置き換え — 4 GB の Android は OOM キルされる代わりに CPU フォールバックで動作し、ハイエンドデスクトップはデフォルトの 512 ではなく調整された batch を取得します。
 - `--flash-attn on` — メモリ効率向上のための Flash Attention
 - `--cache-type-k/v` —  回転 KV キャッシュ；VRAM 余裕に応じた適応階層（f16 / q8_0 / q4_0）
 - `--fit on` — フォーク専用の VRAM 二次調整（`UNIFIA_LLAMA_ENABLE_FIT=1` でオプトイン）

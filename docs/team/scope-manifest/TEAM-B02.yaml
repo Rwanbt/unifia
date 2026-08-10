@@ -11,19 +11,19 @@ worktree: D:\App\OpenCode\.team-worktrees\B02-d7b7efa5
 fencing_token_provisional: 147
 
 allowed_create:
-  - packages/opencode/src/multi-model/provider-discovery.ts
-  - packages/opencode/test/multi-model/provider-discovery.integration.test.ts # tests d'intégration (mock runtime discovery surface)
-  - packages/opencode/test/multi-model/provider-discovery.bench.test.ts # benchmarks + mode offline determinism
+  - packages/unifia/src/multi-model/provider-discovery.ts
+  - packages/unifia/test/multi-model/provider-discovery.integration.test.ts # tests d'intégration (mock runtime discovery surface)
+  - packages/unifia/test/multi-model/provider-discovery.bench.test.ts # benchmarks + mode offline determinism
 allowed_modify_existing:
-  - packages/opencode/src/collective/provider-discovery.ts # adapter mince uniquement, ne pas changer le comportement Debate
-  - packages/opencode/test/multi-model/provider-discovery.test.ts # tests unitaires du nouveau substrat canonique
+  - packages/unifia/src/collective/provider-discovery.ts # adapter mince uniquement, ne pas changer le comportement Debate
+  - packages/unifia/test/multi-model/provider-discovery.test.ts # tests unitaires du nouveau substrat canonique
   - docs/team/scope-manifest/TEAM-B02.yaml
 
 forbidden:
-  - packages/opencode/src/model-intelligence/** # scope C01, figé
-  - packages/opencode/src/team/** # scope G01/G02, figé
-  - packages/opencode/src/multi-model/{types,model-ref}.ts # scope B01, figé — consommer, ne jamais réécrire
-  - packages/opencode/src/multi-model/{model-invoker,usage-normalizer,cost-catalog,prompt-registry}.ts # B03/B04 futurs
+  - packages/unifia/src/model-intelligence/** # scope C01, figé
+  - packages/unifia/src/team/** # scope G01/G02, figé
+  - packages/unifia/src/multi-model/{types,model-ref}.ts # scope B01, figé — consommer, ne jamais réécrire
+  - packages/unifia/src/multi-model/{model-invoker,usage-normalizer,cost-catalog,prompt-registry}.ts # B03/B04 futurs
   - toute branche protégée: main, dev, opti-ui, Team
 
 acceptance_criteria:
@@ -35,7 +35,7 @@ acceptance_criteria:
 
 validations_required:
   before_commit:
-    - "cd packages/opencode && bunx tsc --noEmit -p ."
+    - "cd packages/unifia && bunx tsc --noEmit -p ."
     - "bun test test/multi-model/ test/collective/ (si présents)"
     - "git diff --check"
   before_integration:

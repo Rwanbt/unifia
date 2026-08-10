@@ -13,12 +13,12 @@ dans un terminal.
 Deux mécanismes existaient déjà et ont été délibérément **réutilisés, pas
 dupliqués** :
 
-1. `packages/opencode/src/git/credentials.ts` + `settings-git-auth.tsx` —
+1. `packages/unifia/src/git/credentials.ts` + `settings-git-auth.tsx` —
    configuration manuelle (n'importe quel host) HTTPS token / clé SSH, stockée
    en clair (0o600) dans `git-credentials.json`. Reste inchangée ; le nouveau
    flux GitHub est un **fallback**, utilisé uniquement quand aucune credential
    manuelle n'est configurée.
-2. `packages/opencode/src/auth/index.ts` — stockage sécurisé multi-backend déjà
+2. `packages/unifia/src/auth/index.ts` — stockage sécurisé multi-backend déjà
    construit pour les clés API fournisseurs LLM (`KeychainStorage` via
    `keyring` Rust — Windows Credential Manager / macOS Keychain / libsecret ;
    `encrypted-file` AES-256-GCM par défaut sur mobile).
@@ -32,7 +32,7 @@ dupliqués** :
 `cli/cmd/providers.ts`, l'export GDPR). Y ajouter une entrée `"github"` aurait
 silencieusement corrompu ces listes — trouvé par audit avant tout code écrit.
 
-Précédent existant dans le repo : `packages/opencode/src/mcp/auth.ts`
+Précédent existant dans le repo : `packages/unifia/src/mcp/auth.ts`
 (`McpAuth`) est déjà un store **séparé** pour les credentials MCP, même
 principe. `github/auth.ts` suit ce patron : son propre fichier
 (`github-auth.json` / `github-auth.enc.json`), mais en réutilisant le
@@ -73,7 +73,7 @@ reste à faire (voir Limites).
 
 ### 4. Redaction centralisée réutilisée
 
-`packages/opencode/src/security/dlp.ts::redact()` existait déjà avec une règle
+`packages/unifia/src/security/dlp.ts::redact()` existait déjà avec une règle
 `github-token` (formats `ghp_`/`gho_`/`ghu_`/`ghs_`/`github_pat_`). Réutilisée
 telle quelle dans `github/client.ts`, `github/auth.ts`, `github/diagnostics.ts`
 pour toute erreur réseau/git avant retour à l'appelant — pas de nouvelle regex.
@@ -91,12 +91,12 @@ appel réseau réel (AGENTS.md interdit la dépendance réseau en test unitaire)
 
 ## Conséquences
 
-- Nouveau module `packages/opencode/src/github/{schema,client,auth,credentials,diagnostics}.ts`.
-- Nouvelle route `packages/opencode/src/server/routes/github.ts`, montée sur
+- Nouveau module `packages/unifia/src/github/{schema,client,auth,credentials,diagnostics}.ts`.
+- Nouvelle route `packages/unifia/src/server/routes/github.ts`, montée sur
   `/github` dans `server/instance.ts`.
-- `packages/opencode/src/auth/index.ts` : `KeychainStorage` paramétrée par
+- `packages/unifia/src/auth/index.ts` : `KeychainStorage` paramétrée par
   `service` + méthode `delete()` (rétrocompatible, défaut inchangé).
-- `packages/opencode/src/git/index.ts::getAuthEnv` prend `(cwd, remote)` au
+- `packages/unifia/src/git/index.ts::getAuthEnv` prend `(cwd, remote)` au
   lieu de `()` — fallback GitHub uniquement si aucune credential manuelle.
 - `packages/mobile/src-tauri/src/runtime/toolchain.rs` : `git` + section
   git-core ajoutés au wrap.

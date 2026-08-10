@@ -46,7 +46,7 @@ async function waitForHealth(url: string) {
 const appDir = process.cwd()
 const repoDir = path.resolve(appDir, "../..")
 
-// The package is named `unifia`, but its directory is still `packages/opencode`
+// The package is named `unifia`, but its directory is still `packages/unifia`
 // — the rebrand renamed the string here without renaming the folder. Nothing
 // caught it, because posix_spawn reports a missing cwd as ENOENT *on the
 // executable*: `e2e (linux)` failed with `ENOENT: posix_spawn 'bun'` and read
@@ -54,7 +54,7 @@ const repoDir = path.resolve(appDir, "../..")
 // instead of a misdirection.
 const serverDir = path.join(repoDir, "packages", "opencode")
 if (!existsSync(serverDir)) {
-  throw new Error(`Server package directory not found: ${serverDir}. Was packages/opencode renamed?`)
+  throw new Error(`Server package directory not found: ${serverDir}. Was packages/unifia renamed?`)
 }
 
 const extraArgs = (() => {

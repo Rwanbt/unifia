@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile)
 // loads this config under Node, and that module reads the CLI manifest through
 // Bun's API at import time. The literal is the same one `extraResources` filters
 // on a few lines below, and the same one src/main/cli.ts resolves at runtime.
-const SIDECAR_BASENAME = `opencode-cli${process.platform === "win32" ? ".exe" : ""}`
+const SIDECAR_BASENAME = `unifia-cli${process.platform === "win32" ? ".exe" : ""}`
 const sidecarStagingPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "resources", SIDECAR_BASENAME)
 
 // A package with no sidecar builds, signs and installs without a single
@@ -63,7 +63,7 @@ const getBase = (): Configuration => ({
     {
       from: "resources/",
       to: "",
-      filter: ["opencode-cli*"],
+      filter: ["unifia-cli*"],
     },
     {
       from: "native/",

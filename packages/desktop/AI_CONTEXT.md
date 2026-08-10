@@ -16,7 +16,7 @@ Le frontend SolidJS est servi depuis `packages/app`.
 | TLS proxy | Async task | `tls.rs` — certificats auto-signés |
 
 ## Constraints
-- Le sidecar `unifia-cli.exe` N'est PAS recompilé par `bun tauri build` — toujours `bun run build --single --baseline` dans `packages/opencode` d'abord, puis copier dans `sidecars/`
+- Le sidecar `unifia-cli.exe` N'est PAS recompilé par `bun tauri build` — toujours `bun run build --single --baseline` dans `packages/unifia` d'abord, puis copier dans `sidecars/`
 - `debuggable=true` en release via `build.gradle.kts buildTypes.release`, PAS dans le manifest
 - `bun tauri build` (pas `cargo build --release`) — sinon webview cassée (devUrl localhost:1430)
 - La config LLM est poussée via `invoke("set_llm_config", {...})` — les 12 champs sont obligatoires

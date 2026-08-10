@@ -24,7 +24,7 @@ related: [[OpenCode/AGENTS|Unifia AGENTS.md]], [[OpenCode/INDEX|Unifia INDEX]], 
 
 | Cible | Artefact | Résultat |
 |---|---|---|
-| CLI Windows x64 | `packages/opencode/dist/opencode-windows-x64/bin/opencode.exe` | Généré, 198038528 octets, SHA-256 `DD35E685A487B2CDFBB1943A637F08D42B03BF05E463CC4817B39F76D98058D7` |
+| CLI Windows x64 | `packages/unifia/dist/opencode-windows-x64/bin/opencode.exe` | Généré, 198038528 octets, SHA-256 `DD35E685A487B2CDFBB1943A637F08D42B03BF05E463CC4817B39F76D98058D7` |
 | Desktop Tauri Windows | `packages/desktop/src-tauri/target/release/OpenCode.exe` | Généré, 50454528 octets, SHA-256 `42BD47A88A10D196D4BA957582DCA81AFD94B04283B4B8EB299670ED9A5A304A` |
 | Sidecar desktop | `packages/desktop/src-tauri/sidecars/opencode-cli-x86_64-pc-windows-msvc.exe` | Même SHA-256 que le CLI, donc sidecar rafraîchi |
 | Android ARM64 | `app-dev-20260716-signed.apk` | Signature v2/v3 valide, SHA-256 `EAFA2855A26E9533C3D517039B87514793635FA6EAB7091CDF2FDD495E629923` |

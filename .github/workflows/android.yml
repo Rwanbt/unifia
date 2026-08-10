@@ -5,7 +5,7 @@ on:
     branches: [dev]
     paths:
       - 'packages/mobile/**'
-      - 'packages/opencode/**'
+      - 'packages/unifia/**'
       - 'packages/app/**'
       - '.github/workflows/android.yml'
   workflow_dispatch:
@@ -228,12 +228,12 @@ jobs:
           echo '{"name":"@parcel/watcher","version":"0.0.0","main":"wrapper.js"}' > "$RUNTIME/node_modules/@parcel/watcher/package.json"
 
           # Copy to gen/android assets
-          cp "$RUNTIME/opencode-cli.js" "$ASSETS/opencode-cli.js"
+          cp "$RUNTIME/unifia-cli.js" "$ASSETS/unifia-cli.js"
           cp -r "$RUNTIME/node_modules" "$ASSETS/"
           # Copy wasm files if present
           cp "$RUNTIME"/*.wasm "$ASSETS/" 2>/dev/null || true
 
-          echo "CLI bundle: $(du -sh "$RUNTIME/opencode-cli.js" | cut -f1)"
+          echo "CLI bundle: $(du -sh "$RUNTIME/unifia-cli.js" | cut -f1)"
 
       # ─── Build APK ────────────────────────────────────────────────
       - name: Install Tauri CLI

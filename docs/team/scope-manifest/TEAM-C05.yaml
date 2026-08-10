@@ -11,18 +11,18 @@ worktree: D:\App\OpenCode\.team-worktrees\C05-3fd48b42
 fencing_token: 152
 
 allowed_create:
-  - packages/opencode/src/model-intelligence/benchmarks.ts
-  - packages/opencode/test/model-intelligence/benchmarks.test.ts
+  - packages/unifia/src/model-intelligence/benchmarks.ts
+  - packages/unifia/test/model-intelligence/benchmarks.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-C05.yaml
 
 forbidden:
-  - packages/opencode/src/model-intelligence/registry.ts   # C01 core, figé — import/lecture seule
-  - packages/opencode/src/model-intelligence/schema.ts     # C01 core, figé — import/lecture seule
-  - packages/opencode/src/model-intelligence/connectors/**  # C02/C03 domaine, figé — import seulement si nécessaire
-  - packages/opencode/src/model-intelligence/pricing.ts    # C04, en cours cette même vague, ne pas toucher/importer
-  - packages/opencode/src/multi-model/**                   # domaine B, figé
-  - packages/opencode/src/team/**                          # figé
+  - packages/unifia/src/model-intelligence/registry.ts   # C01 core, figé — import/lecture seule
+  - packages/unifia/src/model-intelligence/schema.ts     # C01 core, figé — import/lecture seule
+  - packages/unifia/src/model-intelligence/connectors/**  # C02/C03 domaine, figé — import seulement si nécessaire
+  - packages/unifia/src/model-intelligence/pricing.ts    # C04, en cours cette même vague, ne pas toucher/importer
+  - packages/unifia/src/multi-model/**                   # domaine B, figé
+  - packages/unifia/src/team/**                          # figé
   - toute branche protégée: main, dev, opti-ui, Team
 
 acceptance_criteria:
@@ -37,7 +37,7 @@ acceptance_criteria:
 
 validations_required:
   before_commit:
-    - "cd packages/opencode && bunx tsc --noEmit -p ."
+    - "cd packages/unifia && bunx tsc --noEmit -p ."
     - "bun test test/model-intelligence/benchmarks.test.ts --timeout 60000 (100% pass)"
     - "bun test test/model-intelligence/ --timeout 60000 (baseline 198 [197 pass + 1 flaky connue] maintenue + 32 nouveaux tests, 0 régression)"
     - "bunx biome check src/model-intelligence/benchmarks.ts"

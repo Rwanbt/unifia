@@ -37,12 +37,12 @@ Utilisateur (UI SolidJS)
     │
     │  POST /session/:id/stream (SSE)
     ▼
-packages/opencode/src/server.ts
+packages/unifia/src/server.ts
     │
     ├─ Session.send() → SessionProcessor → LLM.stream()
     │
     ▼
-packages/opencode/src/session/llm.ts
+packages/unifia/src/session/llm.ts
     │
     ├─ Provider.getProvider() → resolve cloud ou local-llm
     ├─ getLocalLLMAdaptiveLimits()  (/props fetch)
@@ -65,7 +65,7 @@ Anthropic/OpenAI/...         local-llm-server:14097
 
 ## 3. Sidecar llama-server (local inference)
 
-Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages/opencode/src/local-llm-server/index.ts).
+Orchestration dans [packages/unifia/src/local-llm-server/index.ts](../packages/unifia/src/local-llm-server/index.ts).
 
 **Cycle de vie** :
 1. `ensureRunning(modelID)` — entry point idempotent (single-flight + lock inter-process).
@@ -87,7 +87,7 @@ Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages
 
 ## 4. Providers
 
-**Cloud** : définis dans `packages/opencode/src/provider/` + `transform.ts`. 20+ providers bundlés statiquement (Anthropic, OpenAI, Google, Mistral, Bedrock, Azure, Groq, Together, Cohere, Perplexity, XAI, Fireworks, Cerebras, DeepInfra, etc.).
+**Cloud** : définis dans `packages/unifia/src/provider/` + `transform.ts`. 20+ providers bundlés statiquement (Anthropic, OpenAI, Google, Mistral, Bedrock, Azure, Groq, Together, Cohere, Perplexity, XAI, Fireworks, Cerebras, DeepInfra, etc.).
 
 **Local** : pseudo-provider `local-llm` qui pointe vers `http://127.0.0.1:14097/v1`, compatible OpenAI (llama-server).
 
@@ -97,7 +97,7 @@ Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages
 
 ## 5. Session & compaction
 
-[packages/opencode/src/session/](../packages/opencode/src/session/)
+[packages/unifia/src/session/](../packages/unifia/src/session/)
 
 - **`session.ts`** — entry, stockage messages, événements Bus.
 - **`llm.ts`** — stream principal, adaptive limits, transform providers.
@@ -115,7 +115,7 @@ Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages
 
 - **Config cascade** : MDM (macOS managed prefs) → user (`~/.opencode/config.json`) → project (`./opencode.json`).
 - **DB** : JSON-based migrations via `JsonMigration.run()` au boot.
-- **Auth** : `packages/opencode/src/auth/` — tokens OAuth/API stockés chiffrés.
+- **Auth** : `packages/unifia/src/auth/` — tokens OAuth/API stockés chiffrés.
 
 ---
 
@@ -153,8 +153,8 @@ Orchestration dans [packages/opencode/src/local-llm-server/index.ts](../packages
 
 Ajoutés session 2026-04-17 :
 
-- **`Vcs.Event.BranchBehind`** — [packages/opencode/src/project/vcs.ts](../packages/opencode/src/project/vcs.ts) lance un probe fork-scoped (warm-up 30 s, interval 5 min) qui fait `git fetch --quiet --prune` + `rev-list --count HEAD..upstream` et `upstream..HEAD`. Publie quand la divergence change, déduplique par snapshot. UI handler : [packages/app/src/context/notification.tsx](../packages/app/src/context/notification.tsx) → `platform.notify()` (desktop + mobile natif).
-- **`Pty.CreateInput.cols/rows`** — [packages/opencode/src/pty/index.ts](../packages/opencode/src/pty/index.ts) — le frontend ([`context/terminal.tsx::estimateTerminalSize`](../packages/app/src/context/terminal.tsx)) mesure `window.innerWidth/innerHeight` avant `pty.create()`, le shell démarre à sa taille finale (fix first-prompt invisible sur mobile mksh/bash).
+- **`Vcs.Event.BranchBehind`** — [packages/unifia/src/project/vcs.ts](../packages/unifia/src/project/vcs.ts) lance un probe fork-scoped (warm-up 30 s, interval 5 min) qui fait `git fetch --quiet --prune` + `rev-list --count HEAD..upstream` et `upstream..HEAD`. Publie quand la divergence change, déduplique par snapshot. UI handler : [packages/app/src/context/notification.tsx](../packages/app/src/context/notification.tsx) → `platform.notify()` (desktop + mobile natif).
+- **`Pty.CreateInput.cols/rows`** — [packages/unifia/src/pty/index.ts](../packages/unifia/src/pty/index.ts) — le frontend ([`context/terminal.tsx::estimateTerminalSize`](../packages/app/src/context/terminal.tsx)) mesure `window.innerWidth/innerHeight` avant `pty.create()`, le shell démarre à sa taille finale (fix first-prompt invisible sur mobile mksh/bash).
 
 ---
 
@@ -171,7 +171,7 @@ Ajoutés session 2026-04-17 :
 
 ## 10. Commandes CLI (yargs)
 
-~30 commandes exposées par le sidecar [packages/opencode/src/index.ts:54-189](../packages/opencode/src/index.ts#L54-L189). Middleware global : `Log.init()`, `Heap.start()`, handlers unhandled rejection/exception (lines 42-52).
+~30 commandes exposées par le sidecar [packages/unifia/src/index.ts:54-189](../packages/unifia/src/index.ts#L54-L189). Middleware global : `Log.init()`, `Heap.start()`, handlers unhandled rejection/exception (lines 42-52).
 
 Exemples : `serve`, `auth login`, `models list`, `mcp add`, `agent create`, `session export`.
 

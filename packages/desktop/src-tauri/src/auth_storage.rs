@@ -1,7 +1,7 @@
 //! OS keychain-backed credential storage for OpenCode (B1 — Sprint 4).
 //!
 //! Exposes four Tauri commands consumed by the TypeScript sidecar's
-//! `KeychainStorage` adapter (see `packages/opencode/src/auth/index.ts`).
+//! `KeychainStorage` adapter (see `packages/unifia/src/auth/index.ts`).
 //!
 //! Backends (via the `keyring` crate v3):
 //!   - Windows : Credential Manager (wincred)

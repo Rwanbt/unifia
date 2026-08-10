@@ -171,7 +171,7 @@ Unifia Workbench รันโมเดล AI แบบโลคัลบนฮ�
 
 **เอนจินอนุมาน (llama.cpp b8731)**
 - Vulkan GPU backend ดาวน์โหลดอัตโนมัติเมื่อโหลดโมเดลครั้งแรก
-- **การกำหนดค่าแบบปรับตัวที่ runtime** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, threads, ขนาด batch/ubatch, การคำนวณ KV cache quantization และขนาดบริบท อนุมานจาก VRAM ที่ตรวจพบ, RAM ว่าง, การแบ่ง CPU big.LITTLE, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) และสถานะความร้อน ทดแทน `--n-gpu-layers 99` ที่ hardcode เดิม — Android 4 GB ตอนนี้ทำงานใน CPU fallback แทนที่จะถูก OOM-killed, desktop ระดับเรือธงได้รับ batch ที่ปรับแต่งแล้วแทนค่าเริ่มต้น 512
+- **การกำหนดค่าแบบปรับตัวที่ runtime** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, threads, ขนาด batch/ubatch, การคำนวณ KV cache quantization และขนาดบริบท อนุมานจาก VRAM ที่ตรวจพบ, RAM ว่าง, การแบ่ง CPU big.LITTLE, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) และสถานะความร้อน ทดแทน `--n-gpu-layers 99` ที่ hardcode เดิม — Android 4 GB ตอนนี้ทำงานใน CPU fallback แทนที่จะถูก OOM-killed, desktop ระดับเรือธงได้รับ batch ที่ปรับแต่งแล้วแทนค่าเริ่มต้น 512
 - `--flash-attn on` — Flash Attention เพื่อประสิทธิภาพหน่วยความจำ
 - `--cache-type-k/v` — KV cache พร้อม  rotation; ระดับปรับตัว (f16 / q8_0 / q4_0) ตาม margin VRAM
 - `--fit on` — การปรับ VRAM รองเฉพาะ fork (เลือกใช้ผ่าน `UNIFIA_LLAMA_ENABLE_FIT=1`)

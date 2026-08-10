@@ -90,7 +90,7 @@ Ce fichier liste les **chemins et composants explicitement interdits d'import** 
 | Tout import Swift natif | Conflit Tauri | DEFER Phase 19+ |
 | Tout import d'un nouveau provider de modèles | Sécurité (prompt injection) | Audit ApprovalBroker |
 | Tout import de binaire (`.so`, `.dll`, `.dylib`) | Risque supply chain | Build local obligatoire |
-| Tout import qui modifie un package du workspace `packages/opencode/` | Cœur d'Unifia | Revue MiniMax + carte dédiée |
+| Tout import qui modifie un package du workspace `packages/unifia/` | Cœur d'Unifia | Revue MiniMax + carte dédiée |
 
 ## 6. Verrous techniques à implémenter
 

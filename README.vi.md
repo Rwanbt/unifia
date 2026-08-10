@@ -171,7 +171,7 @@ Unifia Workbench chạy các mô hình AI cục bộ trên phần cứng tiêu d
 
 **Engine Suy luận (llama.cpp b8731)**
 - Vulkan GPU backend, tự động tải về lần đầu nạp mô hình
-- **Cấu hình thích ứng lúc runtime** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, thread, kích thước batch/ubatch, lượng tử hóa KV cache và kích thước ngữ cảnh suy ra từ VRAM phát hiện được, RAM rảnh, phân chia CPU big.LITTLE, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) và trạng thái nhiệt. Thay thế `--n-gpu-layers 99` hardcode cũ — Android 4 GB nay chạy ở chế độ CPU fallback thay vì bị OOM giết, desktop flagship nhận batch được điều chỉnh thay vì mặc định 512.
+- **Cấu hình thích ứng lúc runtime** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, thread, kích thước batch/ubatch, lượng tử hóa KV cache và kích thước ngữ cảnh suy ra từ VRAM phát hiện được, RAM rảnh, phân chia CPU big.LITTLE, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) và trạng thái nhiệt. Thay thế `--n-gpu-layers 99` hardcode cũ — Android 4 GB nay chạy ở chế độ CPU fallback thay vì bị OOM giết, desktop flagship nhận batch được điều chỉnh thay vì mặc định 512.
 - `--flash-attn on` — Flash Attention cho hiệu quả bộ nhớ
 - `--cache-type-k/v` — KV cache với  rotation; cấp thích ứng (f16 / q8_0 / q4_0) dựa trên dư địa VRAM
 - `--fit on` — điều chỉnh VRAM phụ chỉ có trong fork (opt-in qua `UNIFIA_LLAMA_ENABLE_FIT=1`)

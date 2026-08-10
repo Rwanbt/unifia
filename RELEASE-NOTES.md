@@ -38,7 +38,7 @@
 
 ### Code
 - ✅ **~3200 fichiers** rebrandés dans 14 zones (app, console, desktop, mobile, opencode core, etc.)
-- ✅ **Binaire CLI** : `packages/opencode/bin/unifia`
+- ✅ **Binaire CLI** : `packages/unifia/bin/unifia`
 - ✅ **Sidecar** : `unifia-cli` (Tauri externalBin)
 - ✅ **Provider core** : `Flag.OPENCODE_*` → `Flag.UNIFIA_*`, marker `unifiaCacheInternal`
 - ✅ **Workflows CI** : 31/42 rebrandés (env vars + labels)
@@ -116,7 +116,7 @@ bun install
 bun run build
 
 # Lancer la CLI
-bun packages/opencode/bin/unifia --version
+bun packages/unifia/bin/unifia --version
 ```
 
 ### Utilisateurs existants (migration automatique)

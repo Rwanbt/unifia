@@ -24,7 +24,7 @@ Stratégie           : > 150k → multi-phases (cartographie → lectures ciblé
 **24 des 25 paquets ne sont importés par aucun code produit.**
 
 Un seul paquet V3, `@unifia/contracts`, est importé par du code produit, depuis
-exactement **deux fichiers** : `packages/opencode/src/unifia/opencode-runtime-backend.ts`
+exactement **deux fichiers** : `packages/unifia/src/unifia/opencode-runtime-backend.ts`
 et `packages/slack/src/remote-adapter.ts`.
 
 > `@unifia/app` apparaît aussi dans les imports du desktop et du mobile, mais c'est

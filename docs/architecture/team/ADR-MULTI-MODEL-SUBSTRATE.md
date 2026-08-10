@@ -50,7 +50,7 @@ Le plan §4.1 prescrit 8 modules substrat cibles :
 `cost-catalog.ts`, `usage-normalizer.ts`, `prompt-registry.ts`, `types.ts`.
 
 L'audit A03 (cf. `AUDIT-DEBATE-SUBSTRATE.md`) a établi :
-- `packages/opencode/src/multi-model/**` **n'existe pas** aujourd'hui.
+- `packages/unifia/src/multi-model/**` **n'existe pas** aujourd'hui.
 - 4 modules substrat ont une ébauche dans `collective/`
   (`provider-discovery.ts`, `budget-tracker.ts` pour costs,
   `metrics.ts` pour usage, `events.ts` partiel).
@@ -99,7 +99,7 @@ futur `multi-model/**`.
 
 ### 3.1 Namespace et emplacement du substrat canonique
 
-**Proposition :** `packages/opencode/src/multi-model/`
+**Proposition :** `packages/unifia/src/multi-model/`
 
 ```
 multi-model/
@@ -354,7 +354,7 @@ doit passer par `AuthStorage` (auth/index.ts) via `CredentialBroker`
 | # | Décision | Owner / carte propriétaire | Gate cible | Précondition | Critère de fermeture vérifiable | Statut |
 |---|---|---|---|---|---|---|
 | 1 | **Frontière exacte** entre `collective/**` et `multi-model/**` | A06 (architecture globale) | T0 / A06 | Aucune (à fixer en A06) | Document `docs/architecture/team/SUBSTRATE-BOUNDARY.md` listant chaque symbole de `collective/` avec son affectation (collective-only / multi-model / dupliqué-explicite-justifié) | OPEN |
-| 2 | **Namespace et emplacement** du substrat canonique | A06 | T0 / A06 | Décision n°1 | `packages/opencode/src/multi-model/` créé vide au HEAD de Team post-A06 ; `pnpm ls --filter multi-model` fonctionne | OPEN |
+| 2 | **Namespace et emplacement** du substrat canonique | A06 | T0 / A06 | Décision n°1 | `packages/unifia/src/multi-model/` créé vide au HEAD de Team post-A06 ; `pnpm ls --filter multi-model` fonctionne | OPEN |
 | 3 | **Contrats génériques** d'un modèle, d'un provider, d'une invocation et d'un résultat | D03 (PermissionBroker) | T3 | Décisions n°1, n°2 | `multi-model/types.ts` exporte `ModelRef, Capabilities, Cost, Usage, InvocationRequest, InvocationResult` versionnés (Schemas Zod) ; les consumers (Debate, Team workers) migrent sans breaking change | OPEN |
 | 4 | **Représentation des capacités et limitations** | D03 | T3 | Décision n°3 | `multi-model/model-health.ts` lit les capabilities depuis C01 et expose `HealthStatus` par `ModelRef` ; tests d'isolement substrat passent | OPEN |
 | 5 | **Représentation des coûts et budgets** | C01 (registry) + D03 (consommateur) | T3 (C01) puis T3 (D03) | C01 livré | `multi-model/cost-catalog.ts` consomme C01 ; aucun catalogue statique (array ou Record) dans le runtime ; `MODEL_COSTS` supprimé de `budget-tracker.ts` | OPEN |

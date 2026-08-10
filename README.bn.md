@@ -171,7 +171,7 @@ Unifia Workbench ভোক্তা হার্ডওয়্যারে (8 G
 
 **ইনফারেন্স ইঞ্জিন (llama.cpp b8731)**
 - Vulkan GPU ব্যাকএন্ড, প্রথম মডেল লোডে স্বয়ংক্রিয় ডাউনলোড
-- **রানটাইম অভিযোজিত কনফিগারেশন** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, থ্রেড, batch/ubatch সাইজ, KV ক্যাশ কোয়ান্টাইজেশন এবং কনটেক্সট সাইজ সনাক্তকৃত VRAM, ফ্রি RAM, big.LITTLE CPU বিভাজন, GPU ব্যাকএন্ড (CUDA/ROCm/Vulkan/Metal/OpenCL) এবং থার্মাল স্টেট থেকে নির্ণীত হয়। পুরানো হার্ডকোড করা `--n-gpu-layers 99`-কে প্রতিস্থাপন করে — 4 GB Android এখন OOM-কিল হওয়ার পরিবর্তে CPU ফলব্যাকে চলে, ফ্ল্যাগশিপ ডেস্কটপ ডিফল্ট 512-এর পরিবর্তে টিউন করা batch পায়।
+- **রানটাইম অভিযোজিত কনফিগারেশন** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, থ্রেড, batch/ubatch সাইজ, KV ক্যাশ কোয়ান্টাইজেশন এবং কনটেক্সট সাইজ সনাক্তকৃত VRAM, ফ্রি RAM, big.LITTLE CPU বিভাজন, GPU ব্যাকএন্ড (CUDA/ROCm/Vulkan/Metal/OpenCL) এবং থার্মাল স্টেট থেকে নির্ণীত হয়। পুরানো হার্ডকোড করা `--n-gpu-layers 99`-কে প্রতিস্থাপন করে — 4 GB Android এখন OOM-কিল হওয়ার পরিবর্তে CPU ফলব্যাকে চলে, ফ্ল্যাগশিপ ডেস্কটপ ডিফল্ট 512-এর পরিবর্তে টিউন করা batch পায়।
 - `--flash-attn on` — মেমরি দক্ষতার জন্য Flash Attention
 - `--cache-type-k/v` —  রোটেশন সহ KV ক্যাশ; VRAM মার্জিনের উপর নির্ভর করে অভিযোজিত স্তর (f16 / q8_0 / q4_0)
 - `--fit on` — কেবল ফর্কে দ্বিতীয় VRAM সমন্বয় (`UNIFIA_LLAMA_ENABLE_FIT=1` এর মাধ্যমে অপ্ট-ইন)

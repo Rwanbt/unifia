@@ -12,20 +12,20 @@ fencing_token_provisional: 151
 assignment_generation: post-t0-005-v1
 
 allowed_create:
-  - packages/opencode/src/model-intelligence/pricing.ts
-  - packages/opencode/test/model-intelligence/pricing.test.ts
+  - packages/unifia/src/model-intelligence/pricing.ts
+  - packages/unifia/test/model-intelligence/pricing.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-C04.yaml
 
 forbidden:
-  - packages/opencode/src/model-intelligence/registry.ts # C01 core, figé — consommer seulement
-  - packages/opencode/src/model-intelligence/schema.ts # C01 core, figé
-  - packages/opencode/src/model-intelligence/connectors/types.ts # C02 contrat, figé — importer seulement
-  - packages/opencode/src/model-intelligence/connectors/registry.ts # C02 contrat, figé — importer seulement
-  - packages/opencode/src/model-intelligence/connectors/http-connector.ts # C03, figé — importer seulement
-  - packages/opencode/src/model-intelligence/connectors/snapshot-manager.ts # C03, figé — importer seulement
-  - packages/opencode/src/multi-model/** # scope B01/B02/B03/B04, simultanée cette vague
-  - packages/opencode/src/team/** # figé
+  - packages/unifia/src/model-intelligence/registry.ts # C01 core, figé — consommer seulement
+  - packages/unifia/src/model-intelligence/schema.ts # C01 core, figé
+  - packages/unifia/src/model-intelligence/connectors/types.ts # C02 contrat, figé — importer seulement
+  - packages/unifia/src/model-intelligence/connectors/registry.ts # C02 contrat, figé — importer seulement
+  - packages/unifia/src/model-intelligence/connectors/http-connector.ts # C03, figé — importer seulement
+  - packages/unifia/src/model-intelligence/connectors/snapshot-manager.ts # C03, figé — importer seulement
+  - packages/unifia/src/multi-model/** # scope B01/B02/B03/B04, simultanée cette vague
+  - packages/unifia/src/team/** # figé
   - toute branche protégée: main, dev, opti-ui, Team
 
 acceptance_criteria:
@@ -42,13 +42,13 @@ acceptance_criteria:
 
 validations_required:
   before_commit:
-    - "cd packages/opencode && bunx tsc --noEmit -p ."
+    - "cd packages/unifia && bunx tsc --noEmit -p ."
     - "bun test test/model-intelligence/pricing.test.ts --timeout 60000"
     - "bun test test/model-intelligence/ --timeout 60000 (baseline 337 = 59+80+198 maintenue)"
     - "git diff --check"
     - "marker commit : '[PROVISIONAL][UNREVIEWED][TEAM-C04]'"
-    - "grep -r 'from.*multi-model/' packages/opencode/src/model-intelligence/pricing.ts — 0 résultat"
-    - "grep -r 'from.*\/team\/' packages/opencode/src/model-intelligence/pricing.ts — 0 résultat"
+    - "grep -r 'from.*multi-model/' packages/unifia/src/model-intelligence/pricing.ts — 0 résultat"
+    - "grep -r 'from.*\/team\/' packages/unifia/src/model-intelligence/pricing.ts — 0 résultat"
   before_integration:
     - "E2 review APPROVED ou APPROVED_WITH_FOLLOWUP, reviewer distinct de B03 reviewer ET distinct de Claude Sonnet 4 (vague 004) — rotation D-010 §6"
     - "validations before_commit re-exécutées dans worktree integration (post-cherry-pick)"

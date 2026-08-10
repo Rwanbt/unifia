@@ -57,7 +57,7 @@ async write({ path: filePath, content, expectedHash, format }) {
 ### B2 — MAJEUR : séparateurs Windows ignorés (operations.ts)
 **Fichier** : `packages/app/src/context/file/operations.ts` l.12-20 (`parentDir`/`basename`), impact aussi `tree-store.ts:91`.
 **Preuve** :
-- Backend `list()` (`packages/opencode/src/file/index.ts:696`) : `file = path.relative(Instance.directory, absolute)`. Sur win32, `path.relative` produit des **backslashes** (comportement Node.js déterministe, `import path from "node:path"` = platform-default).
+- Backend `list()` (`packages/unifia/src/file/index.ts:696`) : `file = path.relative(Instance.directory, absolute)`. Sur win32, `path.relative` produit des **backslashes** (comportement Node.js déterministe, `import path from "node:path"` = platform-default).
 - Donc `FileNode.path` = `packages\app\foo.ts` sur Windows.
 - `parentDir` (`lastIndexOf("/")`) retourne `""` pour tout chemin imbriqué. `basename` retourne le chemin complet.
 **Conséquences** :
@@ -131,7 +131,7 @@ for (const profile of ["debug", "release"]) {
 }
 ```
 Puis `beforeBuildCommand`: `bun run build && bun run precopy:sidecar`.
-Prérequis : le sidecar frais doit exister dans `sidecars/` (construit par `predev.ts` en dev, ou `bun run build --single` dans packages/opencode).
+Prérequis : le sidecar frais doit exister dans `sidecars/` (construit par `predev.ts` en dev, ou `bun run build --single` dans packages/unifia).
 **Fix B (robustesse runtime, défense en profondeur)** — `cli.rs get_sidecar_path` : si le sibling est absent/stale, fallback vers `src-tauri/sidecars/opencode-cli-<triple>`. Nécessite recompile Rust. Optionnel si Fix A est fiable.
 
 ---

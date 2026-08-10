@@ -226,7 +226,7 @@ if (marginalGain < 0.1 && marginalCost > 0.2) → STOP
 ### Architecture
 
 ```
-packages/opencode/src/collective/
+packages/unifia/src/collective/
 ├── index.ts              — Export public, enregistrement de l'agent
 ├── types.ts              — Claim, DebateReport, DebateError, DebateConfig
 ├── debate-agent.ts       — Agent natif (Agent.Info)

@@ -4,9 +4,9 @@
 # Auto-label issues and PRs based on file paths.
 
 # Package-level labels
-- label: "area: packages/opencode"
+- label: "area: packages/unifia"
   paths:
-    - "packages/opencode/**"
+    - "packages/unifia/**"
 - label: "area: packages/app"
   paths:
     - "packages/app/**"
