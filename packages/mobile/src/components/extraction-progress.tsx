@@ -27,7 +27,7 @@ export function ExtractionProgress(props: Props) {
     })
 
     try {
-      // Phase 1: base runtime (bun, rg, opencode-cli, tree-sitter)
+      // Phase 1: base runtime (bun, rg, unifia-cli, tree-sitter)
       await extractRuntime()
       // Phase 2: extended env (Alpine + proot + 30 tools via apk).
       // Skipped if rootfs is COMPLETE (rootfs + git binary present). If a

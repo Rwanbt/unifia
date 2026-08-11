@@ -595,7 +595,7 @@ graph TB
 - **ملفات ثنائية ثابتة في APK** — Bun، Git، Bash، Ripgrep (aarch64-linux-musl) تُستخرج عند أول تشغيل (~15 ثانية)
 - **CLI مُجمَّع** — Unifia Workbench CLI كحزمة JS يشغّلها Bun المدمج، لا حاجة للشبكة للنواة
 - **إطلاق عمليات مباشر** — بدون Termux، بدون intents — `std::process::Command` من Rust مباشرة
-- **تشغيل تلقائي للخادم** — `bun opencode-cli.js serve` على localhost مع مصادقة UUID، مثل sidecar سطح المكتب
+- **تشغيل تلقائي للخادم** — `bun unifia-cli.js serve` على localhost مع مصادقة UUID، مثل sidecar سطح المكتب
 
 **الطبقة 2 — استدلال LLM على الجهاز:**
 - **llama.cpp عبر JNI** — Kotlin LlamaEngine يحمّل مكتبات .so الأصلية عبر جسر JNI

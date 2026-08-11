@@ -72,7 +72,7 @@ execSync(cmd, { stdio: "inherit", cwd: ROOT })
 
 // Rename output
 const outputPath = join(outdir, "mobile-entry.js")
-const finalPath = join(outdir, "opencode-cli.js")
+const finalPath = join(outdir, "unifia-cli.js")
 if (existsSync(outputPath)) {
   renameSync(outputPath, finalPath)
 }
@@ -90,7 +90,7 @@ writeFileSync(finalPath, prefix + bundle)
 
 // ── 4. Copy to gen/android assets ───────────────────────────────────
 mkdirSync(assetsDir, { recursive: true })
-cpSync(finalPath, join(assetsDir, "opencode-cli.js"))
+cpSync(finalPath, join(assetsDir, "unifia-cli.js"))
 
 // ── 5. Verify ───────────────────────────────────────────────────────
 const content = readFileSync(finalPath, "utf8")

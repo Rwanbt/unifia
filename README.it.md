@@ -595,7 +595,7 @@ App nativa Android/iOS tramite Tauri 2.0 con **runtime integrato** — un singol
 - **Binari statici nell'APK** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl) estratti al primo avvio (~15s)
 - **CLI integrata** — CLI Unifia Workbench come bundle JS eseguito dal Bun integrato, nessuna rete richiesta per il core
 - **Spawn diretto dei processi** — Nessun Termux, nessun intent — `std::process::Command` da Rust direttamente
-- **Avvio automatico del server** — `bun opencode-cli.js serve` su localhost con autenticazione UUID, come il sidecar desktop
+- **Avvio automatico del server** — `bun unifia-cli.js serve` su localhost con autenticazione UUID, come il sidecar desktop
 
 **Layer 2 — Inferenza LLM sul Dispositivo:**
 - **llama.cpp via JNI** — Kotlin LlamaEngine carica librerie native .so con bridge JNI

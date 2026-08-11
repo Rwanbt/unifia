@@ -43,6 +43,7 @@ use extraction::is_runtime_ready;
 const DEFAULT_PORT: u32 = 14096;
 const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(2);
 const RUNTIME_SUBDIR: &str = "runtime";
+const CLI_BUNDLE_FILE: &str = "unifia-cli.js";
 // Bump this when the rootfs layout, wrapper scripts, or binary ABI changes
 // in a way that requires a clean re-extraction. Models directory is preserved.
 const RUNTIME_SCHEMA_VERSION: u32 = 1;
@@ -120,9 +121,9 @@ pub async fn check_runtime(app: AppHandle) -> RuntimeInfo {
     // Log debug info
     if let Some(nlib) = native_lib_dir(&dir) {
         log::debug!("[OpenCode] nativeLibDir={}, bun_exists={}, cli_exists={}",
-            nlib.display(), nlib.join("libbun_exec.so").exists(), dir.join("opencode-cli.js").exists());
+            nlib.display(), nlib.join("libbun_exec.so").exists(), dir.join(CLI_BUNDLE_FILE).exists());
     } else {
-        log::debug!("[OpenCode] nativeLibDir not found, cli_exists={}", dir.join("opencode-cli.js").exists());
+        log::debug!("[OpenCode] nativeLibDir not found, cli_exists={}", dir.join(CLI_BUNDLE_FILE).exists());
     }
 
     RuntimeInfo {
@@ -389,8 +390,8 @@ mod tests {
     #[test]
     fn is_ready_without_schema_check_missing_native_lib_dir() {
         let dir = temp_test_dir("missing_nld");
-        // Create opencode-cli.js but NOT .native_lib_dir
-        std::fs::write(dir.join("opencode-cli.js"), b"// cli").unwrap();
+        // Create unifia-cli.js but NOT .native_lib_dir
+        std::fs::write(dir.join(CLI_BUNDLE_FILE), b"// cli").unwrap();
         let result = is_ready_without_schema_check(&dir);
         let _ = std::fs::remove_dir_all(&dir);
         assert!(!result, "missing .native_lib_dir should return false");
@@ -403,7 +404,7 @@ mod tests {
         let nlib_dir = temp_test_dir("nlib_ok");
         std::fs::write(nlib_dir.join("libbun_exec.so"), b"ELF").unwrap();
 
-        std::fs::write(dir.join("opencode-cli.js"), b"// cli").unwrap();
+        std::fs::write(dir.join(CLI_BUNDLE_FILE), b"// cli").unwrap();
         std::fs::write(dir.join(".native_lib_dir"), nlib_dir.to_str().unwrap()).unwrap();
 
         let result = is_ready_without_schema_check(&dir);
@@ -433,7 +434,7 @@ mod tests {
     /// Helper: populate `dir` with the minimal structure for is_runtime_ready,
     /// using `nlib_dir` as the nativeLibraryDir (must contain libbun_exec.so).
     fn setup_runtime_files(dir: &Path, nlib_dir: &Path) {
-        std::fs::write(dir.join("opencode-cli.js"), b"// cli").unwrap();
+        std::fs::write(dir.join(CLI_BUNDLE_FILE), b"// cli").unwrap();
         std::fs::write(dir.join(".native_lib_dir"), nlib_dir.to_str().unwrap()).unwrap();
         std::fs::write(nlib_dir.join("libbun_exec.so"), b"ELF").unwrap();
     }

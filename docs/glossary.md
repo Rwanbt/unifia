@@ -42,4 +42,4 @@ Model Context Protocol — protocole JSON-RPC permettant aux LLMs d'appeler des 
 
 ## Sidecar
 
-Le binaire TypeScript `opencode-cli` compilé avec Bun (`bun run build --single --baseline`). Embarqué dans l'application Tauri, expose l'API REST + SSE sur le port local.
+Le binaire TypeScript `unifia-cli` compilé avec Bun (`bun run build --single --baseline`). Embarqué dans l'application Tauri, expose l'API REST + SSE sur le port local.

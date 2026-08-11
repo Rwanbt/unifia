@@ -126,7 +126,7 @@ Orchestration dans [packages/unifia/src/local-llm-server/index.ts](../packages/u
 - **`tls.rs`** — génération de certificat self-signed (rcgen, SHA-256, 10 ans), fingerprint dans `AppLocalData/tls/fingerprint.txt`.
 - **`server.rs`** — `RemoteConfig` persistant (UUID + password), toggle `tls_enabled`.
 - **`speech.rs`** — STT (Parakeet ONNX) + TTS (Pocket TTS sidecar + Kokoro ONNX) ; voice clone via WAV stockage `speech/voices/`.
-- **Sidecars** : `llama-server`, `opencode-cli` bundlés. `pocket-tts` détecté via `find_pocket_tts()` (Python requis).
+- **Sidecars** : `llama-server`, `unifia-cli` bundlés. `pocket-tts` détecté via `find_pocket_tts()` (Python requis).
 - **Deep-link** : schémas `unifia://open-project`, `unifia://new-session`, `unifia://connect` (QR pairing), `unifia://oauth/callback` (finalisation OAuth). Parseurs dans [`packages/app/src/pages/layout/deep-links.ts`](../packages/app/src/pages/layout/deep-links.ts).
 - **Devtools** : non force-enable — comportement Tauri par défaut (debug-only) restauré (cf. [SECURITY_AUDIT.md](../SECURITY_AUDIT.md) §1).
 

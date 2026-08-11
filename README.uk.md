@@ -595,7 +595,7 @@ graph TB
 - **Статичні бінарники в APK** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), розпакування при першому запуску (~15с)
 - **Вбудований CLI** — Unifia Workbench CLI як JS-бандл, запускається вбудованим Bun, мережа не потрібна для ядра
 - **Прямий запуск процесів** — Без Termux, без intents — `std::process::Command` з Rust напряму
-- **Автозапуск сервера** — `bun opencode-cli.js serve` на localhost з UUID-автентифікацією, як десктопний sidecar
+- **Автозапуск сервера** — `bun unifia-cli.js serve` на localhost з UUID-автентифікацією, як десктопний sidecar
 
 **Рівень 2 — Локальний вивід LLM на пристрої:**
 - **llama.cpp через JNI** — Kotlin LlamaEngine завантажує нативні .so бібліотеки через JNI-міст

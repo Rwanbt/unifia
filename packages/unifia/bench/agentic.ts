@@ -60,7 +60,7 @@ const CLI = (() => {
   const candidates = [
     path.join(import.meta.dir, "..", "dist", "unifia-windows-x64", "bin", "unifia.exe"),
     path.join(import.meta.dir, "..", "dist", "unifia-windows-x64", "bin", "unifia"),
-    path.join(import.meta.dir, "..", "..", "desktop", "src-tauri", "sidecars", "opencode-cli-x86_64-pc-windows-msvc.exe"),
+    path.join(import.meta.dir, "..", "..", "desktop", "src-tauri", "sidecars", "unifia-cli-x86_64-pc-windows-msvc.exe"),
   ]
   for (const c of candidates) if (existsSync(c)) return c
   return "unifia"

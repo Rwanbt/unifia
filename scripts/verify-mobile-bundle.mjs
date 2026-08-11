@@ -3,8 +3,8 @@ import { join } from "node:path"
 
 const root = process.cwd()
 const migrationRoot = join(root, "packages/unifia/migration")
-const bundlePath = join(root, "packages/mobile/src-tauri/assets/runtime/opencode-cli.js")
-const generatedBundlePath = join(root, "packages/mobile/src-tauri/gen/android/app/src/main/assets/runtime/opencode-cli.js")
+const bundlePath = join(root, "packages/mobile/src-tauri/assets/runtime/unifia-cli.js")
+const generatedBundlePath = join(root, "packages/mobile/src-tauri/gen/android/app/src/main/assets/runtime/unifia-cli.js")
 const migrations = (await readdir(migrationRoot, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)

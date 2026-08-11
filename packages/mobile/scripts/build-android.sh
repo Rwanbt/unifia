@@ -7,7 +7,7 @@ echo "Building Unifia Mobile for Android..."
 echo "Requires: Android SDK, NDK, and JAVA_HOME set"
 echo ""
 
-# Prepare embedded runtime binaries (bun, git, bash, rg, opencode-cli.js)
+# Prepare embedded runtime binaries (bun, git, bash, rg, unifia-cli.js)
 if [ ! -f "$SCRIPT_DIR/../src-tauri/assets/runtime/bin/bun" ]; then
   echo "Preparing Android runtime (first build)..."
   bash "$SCRIPT_DIR/prepare-android-runtime.sh"

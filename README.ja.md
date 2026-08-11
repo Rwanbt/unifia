@@ -595,7 +595,7 @@ Tauri 2.0 による Android/iOS ネイティブアプリ、**組み込みラン�
 - **APK 内の静的バイナリ** — Bun、Bash、Ripgrep、Toybox (aarch64-linux-musl)、初回起動時に展開（~15秒）
 - **バンドル済み CLI** — 組み込み Bun で実行される JS バンドルとしての Unifia Workbench CLI、コア機能にネットワーク不要
 - **直接プロセス起動** — Termux なし、intent なし — Rust から直接 `std::process::Command`
-- **サーバー自動起動** — `bun opencode-cli.js serve`、デスクトップサイドカーと同じ UUID 認証付き localhost
+- **サーバー自動起動** — `bun unifia-cli.js serve`、デスクトップサイドカーと同じ UUID 認証付き localhost
 
 **レイヤー 2 — オンデバイス LLM 推論：**
 - **JNI 経由の llama.cpp** — Kotlin LlamaEngine が JNI ブリッジ付きネイティブ .so ライブラリをロード

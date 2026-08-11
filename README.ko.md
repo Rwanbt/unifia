@@ -595,7 +595,7 @@ Tauri 2.0을 통한 Android/iOS 네이티브 앱, **임베디드 런타임** —
 - **APK 내 정적 바이너리** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), 첫 실행 시 추출 (~15초)
 - **번들 CLI** — 임베디드 Bun으로 실행되는 JS 번들로서의 Unifia Workbench CLI, 코어 기능에 네트워크 불필요
 - **직접 프로세스 생성** — Termux 없음, intent 없음 — Rust에서 직접 `std::process::Command`
-- **서버 자동 시작** — `bun opencode-cli.js serve`, 데스크톱 사이드카와 동일한 UUID 인증 포함 localhost
+- **서버 자동 시작** — `bun unifia-cli.js serve`, 데스크톱 사이드카와 동일한 UUID 인증 포함 localhost
 
 **레이어 2 — 온디바이스 LLM 추론:**
 - **JNI를 통한 llama.cpp** — Kotlin LlamaEngine이 JNI 브리지로 네이티브 .so 라이브러리 로드

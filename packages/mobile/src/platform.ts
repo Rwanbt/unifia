@@ -327,7 +327,7 @@ export async function createPlatform(): Promise<Platform> {
     // The Tauri Android dialog plugin does not actually support directory
     // selection — it returns null silently. Leaving this property undefined
     // makes the frontend (home.tsx / layout.tsx) fall through to the in-app
-    // DialogSelectDirectory, which uses the opencode-cli /file API.
+    // DialogSelectDirectory, which uses the unifia-cli /file API.
 
     // List navigable storage roots on Android (internal storage, SD cards,
     // OTG drives, unifia home). The dialog uses these as starting points

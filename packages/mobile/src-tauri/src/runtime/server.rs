@@ -94,7 +94,7 @@ pub async fn start_embedded_server(
 
     let dir = runtime_dir(&app);
     let home_dir = dir.join("home");
-    let cli_path = dir.join("opencode-cli.js");
+    let cli_path = dir.join(CLI_BUNDLE_FILE);
 
     let auth_key = auth_storage_key().map_err(|e| format!("Secure auth storage unavailable: {e}"))?;
 
@@ -116,7 +116,7 @@ pub async fn start_embedded_server(
     }
 
     if !cli_path.exists() {
-        return Err("opencode-cli.js not found.".to_string());
+        return Err(format!("{CLI_BUNDLE_FILE} not found."));
     }
 
     // Ensure home directory exists
@@ -1139,11 +1139,12 @@ mod tests {
 
     #[test]
     fn build_server_command_via_musl_linker_with_preload() {
+        let cli_path = format!("/data/{CLI_BUNDLE_FILE}");
         let (cmd, args) = build_server_command(
             Path::new("/nlib/libmusl_linker.so"),
             true,
             Path::new("/nlib/libbun_exec.so"),
-            Path::new("/data/opencode-cli.js"),
+            Path::new(&cli_path),
             "/lib:/usr/lib",
             Some(Path::new("/nlib/libresolv_override.so")),
             14096,
@@ -1158,7 +1159,7 @@ mod tests {
                 "--preload",
                 "/nlib/libresolv_override.so",
                 "/nlib/libbun_exec.so",
-                "/data/opencode-cli.js",
+                cli_path.as_str(),
                 "serve",
                 "--hostname",
                 "127.0.0.1",

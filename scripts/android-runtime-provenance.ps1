@@ -37,7 +37,7 @@ $runtimeRoots = @(
 $files = foreach ($root in $runtimeRoots) {
   if (Test-Path -LiteralPath $root) {
     Get-ChildItem -LiteralPath $root -Recurse -File |
-      Where-Object { $_.Extension -in @('.so', '.apk', '.aab', '.tgz', '.wasm') -or $_.Name -in @('bun', 'bash', 'rg', 'opencode-cli.js') } |
+      Where-Object { $_.Extension -in @('.so', '.apk', '.aab', '.tgz', '.wasm') -or $_.Name -in @('bun', 'bash', 'rg', 'unifia-cli.js') } |
       ForEach-Object { Get-FileRecord $_.FullName }
   }
 }

@@ -286,7 +286,7 @@ class MainActivity : TauriActivity() {
     // The APK version marker alone is insufficient: a previous install may have
     // skipped rootfs extraction while leaving the CLI bundle present.
     val rootfsVersionFile = File(runtimeDir, ".rootfs_version")
-    val needsExtract = !File(runtimeDir, "opencode-cli.js").exists() ||
+    val needsExtract = !File(runtimeDir, "unifia-cli.js").exists() ||
       installedVersion != currentVersion || !rootfsVersionFile.exists()
     if (needsExtract) {
       Thread {

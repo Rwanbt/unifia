@@ -123,6 +123,9 @@ _bench/
 # Local output of scripts/unifia-conformance.mjs --json
 unifia-conformance.json
 
+# Local scratch archive (PR body drafts, migration notes) — never tracked
+.unifia-archives/
+
 # Release build outputs: android-runtime-provenance.json records the absolute
 # repository path and per-machine tool versions, so it is a local record rather
 # than something to track.

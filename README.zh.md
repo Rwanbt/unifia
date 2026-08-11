@@ -595,7 +595,7 @@ graph TB
 - **APK 中的静态二进制文件** — Bun、Bash、Ripgrep、Toybox (aarch64-linux-musl)，首次启动时解压（约 15 秒）
 - **捆绑 CLI** — Unifia Workbench CLI 作为 JS 包由内嵌 Bun 运行，核心功能无需网络
 - **直接进程生成** — 无 Termux、无 intent — 从 Rust 直接 `std::process::Command`
-- **自动启动服务器** — `bun opencode-cli.js serve`，与桌面 sidecar 相同的 UUID 认证，localhost
+- **自动启动服务器** — `bun unifia-cli.js serve`，与桌面 sidecar 相同的 UUID 认证，localhost
 
 **第 2 层 — 设备端 LLM 推理：**
 - **通过 JNI 的 llama.cpp** — Kotlin LlamaEngine 通过 JNI 桥接加载原生 .so 库

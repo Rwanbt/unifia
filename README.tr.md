@@ -596,7 +596,7 @@ Tauri 2.0 ile **gömülü çalışma zamanına** sahip yerel Android/iOS uygulam
 - **APK'da statik ikili dosyalar** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl) ilk başlatmada çıkarılır (~15s)
 - **Paketlenmiş CLI** — Gömülü Bun tarafından çalıştırılan JS paketi olarak Unifia Workbench CLI, çekirdek için ağ gerekmez
 - **Doğrudan süreç başlatma** — Termux yok, intent yok — Rust'tan doğrudan `std::process::Command`
-- **Sunucu otomatik başlatma** — UUID kimlik doğrulamalı localhost'ta `bun opencode-cli.js serve`, masaüstü sidecar ile aynı
+- **Sunucu otomatik başlatma** — UUID kimlik doğrulamalı localhost'ta `bun unifia-cli.js serve`, masaüstü sidecar ile aynı
 
 **Katman 2 — Cihaz Üzerinde LLM Çıkarımı:**
 - **JNI üzerinden llama.cpp** — Kotlin LlamaEngine, JNI köprüsü ile yerel .so kütüphanelerini yükler
