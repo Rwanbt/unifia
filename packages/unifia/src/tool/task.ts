@@ -412,7 +412,8 @@ export const TaskTool = Tool.define("task", async (ctx) => {
       const capturePolicy = resolveCapturePolicy((await Config.get()).experimental?.observability)
       const observability = capturePolicy.enabled ? ObservabilityRuntime.service() : undefined
       const agentTraceId = ObservabilityId.create()
-      const agentStartedAtMs = Date.now()
+      // The span's start time is startAgent()'s own event timestamp, so the
+      // duration finishAgent() computes matches the recorded event exactly.
       let agentSpan: { trace: TraceContext; startedAtMs: number } | undefined
       if (observability) {
         const started = startAgent({ traceId: agentTraceId, sessionId: session.id, projectId: session.projectID })

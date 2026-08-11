@@ -27,12 +27,10 @@ export const NotFoundError = NamedError.create(
 
 const log = Log.create({ service: "db" })
 
-// Brand-aligned database file name. The legacy "opencode.db" stays as the
-// source of a one-shot copy so existing installs (and any concurrent upstream
-// install) keep working. See Runbook-Autonome-Independance-Unifia-2026-08-10
-// §3 (carte C8-A) for the migration design.
-export const DATABASE_FILE = "unifia.db"
-export const LEGACY_DATABASE_FILE = "opencode.db"
+// Names live in ./db-file so drizzle.config.ts can read them without importing
+// the database runtime. Re-exported here: importers keep using storage/db.
+import { DATABASE_FILE, LEGACY_DATABASE_FILE } from "./db-file"
+export { DATABASE_FILE, LEGACY_DATABASE_FILE }
 
 function channelFileNames() {
   if (["latest", "beta"].includes(CHANNEL) || Flag.UNIFIA_DISABLE_CHANNEL_DB) {

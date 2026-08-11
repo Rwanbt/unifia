@@ -108,7 +108,7 @@ export async function runOpenCodeTeam(request: OpenCodeTeamRequest, signal: Abor
     const workerResults = new Map<string, TeamWorkerResult>()
     const workerAdapter = createWorkerAdapter(request, selection.models, config, agents, taskById, workerWorkspaces, workerResults, options.onWorkerStarted)
     const reviewerSelector = createReviewerSelector(request.parentSessionId as SessionID, selection.models)
-    const integrationAdapter = createIntegrationAdapter(integrationWorkspace, workerResults)
+    const integrationAdapter = createIntegrationAdapter(integrationWorkspace)
     const openedStore = options.store ?? TeamStore.open(path.join(Global.Path.data, "team.db"))
     store = openedStore
     const service = new TeamApplicationService(openedStore, workerAdapter, reviewerSelector, integrationAdapter)
@@ -284,7 +284,7 @@ function reviewModel(parentSessionId: SessionID, model: ModelRef): ReviewModel {
   }
 }
 
-function createIntegrationAdapter(workspace: Workspace.Info, results: ReadonlyMap<string, TeamWorkerResult>): TeamIntegrationAdapter {
+function createIntegrationAdapter(workspace: Workspace.Info): TeamIntegrationAdapter {
   return {
     async execute(plan: IntegrationPlan) {
       if (!workspace.directory) return { status: "FAILED", proofRefs: [], rollbackStatus: "FAILED", error: "integration worktree has no directory" }
