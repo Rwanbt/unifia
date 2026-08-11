@@ -299,10 +299,13 @@ export namespace LSPClient {
         // dispose() a few lines down — an unhandled rejection with nothing
         // left to catch it. Must be awaited to actually catch it.
         try { await connection.sendNotification("exit") } catch {}
-        // Small delay to let the notification flush through the stream
-        await new Promise((r) => setTimeout(r, 50))
-        try { connection.end() } catch {}
+        // Disposing first stops new request handlers without closing stdin.
+        // Closing the stream via connection.end() can race a response that a
+        // handler already queued, which Bun reports as ERR_STREAM_DESTROYED.
+        // The process shutdown below owns the stream close after that queue has
+        // had a bounded chance to drain.
         try { connection.dispose() } catch {}
+        await new Promise((r) => setTimeout(r, 50))
         await Process.stop(input.server.process).catch(() => {})
         l.info("shutdown")
       },

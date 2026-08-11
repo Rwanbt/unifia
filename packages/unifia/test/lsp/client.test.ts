@@ -92,4 +92,28 @@ describe("LSPClient interop", () => {
 
     await client.shutdown()
   })
+
+  test("shuts down while server requests are still in flight", async () => {
+    const handle = spawnFakeServer() as any
+
+    const client = await Instance.provide({
+      directory: process.cwd(),
+      fn: () =>
+        LSPClient.create({
+          serverID: "fake",
+          server: handle as unknown as LSPServer.Handle,
+          root: process.cwd(),
+        }),
+    })
+
+    await Promise.all(
+      Array.from({ length: 32 }, () =>
+        client.connection.sendNotification("test/trigger", {
+          method: "workspace/workspaceFolders",
+        }),
+      ),
+    )
+
+    await expect(client.shutdown()).resolves.toBeUndefined()
+  })
 })
