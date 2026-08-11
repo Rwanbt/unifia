@@ -1444,7 +1444,7 @@ export type SyncEvent = {
 export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR"
 
 /**
- * Server configuration for opencode serve and web commands
+ * Server configuration for unifia serve and web commands
  */
 export type ServerConfig = {
   /**
@@ -1460,7 +1460,7 @@ export type ServerConfig = {
    */
   mdns?: boolean
   /**
-   * Custom domain name for mDNS service (default: opencode.local)
+   * Custom domain name for mDNS service (default: unifia.local)
    */
   mdnsDomain?: string
   /**
@@ -1562,41 +1562,7 @@ export type AgentConfig = {
      */
     deny?: Array<string>
   }
-  [key: string]:
-    | unknown
-    | string
-    | number
-    | {
-        [key: string]: boolean
-      }
-    | boolean
-    | "subagent"
-    | "primary"
-    | "all"
-    | {
-        [key: string]: unknown
-      }
-    | string
-    | "primary"
-    | "secondary"
-    | "accent"
-    | "success"
-    | "warning"
-    | "error"
-    | "info"
-    | number
-    | PermissionConfig
-    | {
-        /**
-         * MCP server names this agent may use
-         */
-        allow?: Array<string>
-        /**
-         * MCP server names this agent may NOT use
-         */
-        deny?: Array<string>
-      }
-    | undefined
+  [key: string]: unknown
 }
 
 export type ProviderConfig = {
@@ -1662,7 +1628,7 @@ export type ProviderConfig = {
            * Disable this variant for the model
            */
           disabled?: boolean
-          [key: string]: unknown | boolean | undefined
+          [key: string]: unknown
         }
       }
     }
@@ -1688,7 +1654,7 @@ export type ProviderConfig = {
      * Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.
      */
     chunkTimeout?: number
-    [key: string]: unknown | string | boolean | number | false | number | undefined
+    [key: string]: unknown
   }
 }
 
@@ -1774,7 +1740,7 @@ export type Config = {
   logLevel?: LogLevel
   server?: ServerConfig
   /**
-   * Command configuration, see https://opencode.ai/docs/commands
+   * Command configuration, see https://github.com/Rwanbt/unifia
    */
   command?: {
     [key: string]: {
@@ -1859,7 +1825,7 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
-   * Agent configuration, see https://opencode.ai/docs/agents
+   * Agent configuration, see https://github.com/Rwanbt/unifia
    */
   agent?: {
     plan?: AgentConfig
@@ -2228,7 +2194,7 @@ export type Config = {
        */
       inject_context?: boolean
       /**
-       * Expose OpenCode tools as AnythingLLM Agent Skills via HTTP API
+       * Expose Unifia tools as AnythingLLM Agent Skills via HTTP API
        */
       expose_tools?: boolean
       /**

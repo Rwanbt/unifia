@@ -4,7 +4,7 @@
 // see server/routes/github.ts and github/{auth,client,credentials,diagnostics}.ts
 // for the backend side.
 import { createResource, createSignal, Match, onCleanup, Show, Switch } from "solid-js"
-import { Button } from "@opencode-ai/ui/button"
+import { Button } from "@unifia/ui/button"
 import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"

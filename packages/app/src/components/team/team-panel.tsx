@@ -12,8 +12,8 @@
 // =============================================================================
 
 import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js"
-import { TeamGraph, wavesFor, type TeamGraphTask, type TeamGraphWave } from "@opencode-ai/ui/team-graph"
-import { Button } from "@opencode-ai/ui/button"
+import { TeamGraph, wavesFor, type TeamGraphTask, type TeamGraphWave } from "@unifia/ui/team-graph"
+import { Button } from "@unifia/ui/button"
 import { useTeam } from "@/context/team"
 import { CollectionView, type CollectionLabels } from "./collection-view"
 import { LifecycleNotice } from "./lifecycle-notice"

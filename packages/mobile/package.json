@@ -1,5 +1,5 @@
 {
-  "name": "@opencode-ai/mobile",
+  "name": "@unifia/mobile",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -17,8 +17,8 @@
     "test:ci": "mkdir -p .artifacts/unit && bun test --max-concurrency=1 --preload ./happydom.ts ./src --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml"
   },
   "dependencies": {
-    "@opencode-ai/app": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
+    "@unifia/app": "workspace:*",
+    "@unifia/ui": "workspace:*",
     "@solid-primitives/i18n": "2.2.1",
     "@solid-primitives/storage": "catalog:",
     "@solidjs/meta": "catalog:",

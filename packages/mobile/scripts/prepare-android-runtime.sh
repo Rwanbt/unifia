@@ -133,19 +133,19 @@ else
   echo "  WARNING: Static bash not available, skipping."
 fi
 
-# ─── OpenCode CLI Bundle ─────────────────────────────────────────────
+# ─── Unifia CLI Bundle ─────────────────────────────────────────────
 # DEBT: D-17 — single source of truth for CLI bundling is
 # scripts/bundle-mobile.mjs. It inlines the SQL migrations by PREPENDING
-# `globalThis.OPENCODE_MIGRATIONS = …` (the `--define` approach used here
+# `globalThis.UNIFIA_MIGRATIONS = …` (the `--define` approach used here
 # before did not survive bun's module reordering, so db.ts could init before
 # the migrations were defined — see the script header) and syncs the bundle
 # into the gen/android assets dir. Maintaining a second `bun build` here risked
 # shipping a stale CLI on local builds vs CI.
-echo "[5/6] Bundling OpenCode CLI (via scripts/bundle-mobile.mjs)..."
-OPENCODE_DIR="$(cd "$MOBILE_DIR/../opencode" && pwd)"
+echo "[5/6] Bundling Unifia CLI (via scripts/bundle-mobile.mjs)..."
+UNIFIA_DIR="$(cd "$MOBILE_DIR/../unifia" && pwd)"
 REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
 
-if [ -f "$OPENCODE_DIR/src/mobile-entry.ts" ]; then
+if [ -f "$UNIFIA_DIR/src/mobile-entry.ts" ]; then
   node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$RUNTIME_DIR"
 
   # Create shim for @parcel/watcher (native module not available on Android).
@@ -154,10 +154,10 @@ if [ -f "$OPENCODE_DIR/src/mobile-entry.ts" ]; then
   echo 'export function createWrapper() { return undefined }' > "$RUNTIME_DIR/node_modules/@parcel/watcher/wrapper.js"
   echo '{"name":"@parcel/watcher","version":"0.0.0","main":"wrapper.js"}' > "$RUNTIME_DIR/node_modules/@parcel/watcher/package.json"
 
-  echo "  CLI: $(du -sh "$RUNTIME_DIR/opencode-cli.js" 2>/dev/null | cut -f1 || echo "error")"
+  echo "  CLI: $(du -sh "$RUNTIME_DIR/unifia-cli.js" 2>/dev/null | cut -f1 || echo "error")"
 else
-  echo "  WARNING: mobile-entry.ts not found at $OPENCODE_DIR/src/mobile-entry.ts"
-  echo "  Make sure packages/opencode/src/mobile-entry.ts exists."
+  echo "  WARNING: mobile-entry.ts not found at $UNIFIA_DIR/src/mobile-entry.ts"
+  echo "  Make sure packages/unifia/src/mobile-entry.ts exists."
 fi
 
 echo ""

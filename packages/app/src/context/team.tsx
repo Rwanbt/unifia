@@ -26,7 +26,7 @@
 
 import { createMemo, createResource, createSignal } from "solid-js"
 import { createStore } from "solid-js/store"
-import { createSimpleContext } from "@opencode-ai/ui/context"
+import { createSimpleContext } from "@unifia/ui/context"
 import { Persist, persisted } from "@/utils/persist"
 import { useSDK } from "./sdk"
 

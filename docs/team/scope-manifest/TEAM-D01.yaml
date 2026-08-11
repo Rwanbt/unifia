@@ -10,24 +10,24 @@ worktree: D:\App\OpenCode\.team-worktrees\D01-d144b530
 depends_on:
   - TEAM-C08 (CLOSED+INTEGRATED, D-063)
 allowed_create:
-  - packages/opencode/src/team/types.ts
-  - packages/opencode/test/team/types.test.ts
+  - packages/unifia/src/team/types.ts
+  - packages/unifia/test/team/types.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-D01.yaml
 forbidden:
-  - packages/opencode/src/team/lock-manager.ts
-  - packages/opencode/src/team/worktree-manager.ts
-  - packages/opencode/src/team/fencing.ts
-  - packages/opencode/src/team/hooks.ts
-  - packages/opencode/src/team/team-cli.ts
-  - packages/opencode/src/team/scope-monitor.ts
-  - packages/opencode/src/team/index.ts
-  - packages/opencode/src/team/db/**
-  - packages/opencode/src/model-intelligence/**
-  - packages/opencode/src/multi-model/**
+  - packages/unifia/src/team/lock-manager.ts
+  - packages/unifia/src/team/worktree-manager.ts
+  - packages/unifia/src/team/fencing.ts
+  - packages/unifia/src/team/hooks.ts
+  - packages/unifia/src/team/team-cli.ts
+  - packages/unifia/src/team/scope-monitor.ts
+  - packages/unifia/src/team/index.ts
+  - packages/unifia/src/team/db/**
+  - packages/unifia/src/model-intelligence/**
+  - packages/unifia/src/multi-model/**
   - main, dev, opti-ui, Team branches
 notes: |
-  Aucun fichier existant de packages/opencode/src/team/ (lock-manager.ts,
+  Aucun fichier existant de packages/unifia/src/team/ (lock-manager.ts,
   worktree-manager.ts, fencing.ts, hooks.ts, team-cli.ts, scope-monitor.ts,
   index.ts) n'importe ni ne référence TeamConfig/Task/Plan/Attempt/Handoff/Gate/
   RoutingDecision/Report — vérifié par grep par l'orchestrateur avant dispatch.
@@ -41,7 +41,7 @@ deviations_from_spec: |
   rather than the Effect-Schema-based ProviderID/ModelID pattern in
   provider/schema.ts. Rationale: that pattern is built on `effect`'s
   Schema.brand + a `withStatics` helper designed for Effect-Schema-first
-  modules exposing a Zod interop shim; nothing in packages/opencode/src/team/**
+  modules exposing a Zod interop shim; nothing in packages/unifia/src/team/**
   depends on `effect` today, and model-intelligence/schema.ts (the file this
   card was explicitly pointed at for versioning/error conventions) doesn't
   brand its own ids either (plain z.string().min(1)). Using Zod's own
@@ -57,8 +57,8 @@ deviations_from_spec: |
   and the forbidden cross-import from model-intelligence/**.
 scope_respected: |
   Only the two allowed_create files were created
-  (packages/opencode/src/team/types.ts,
-  packages/opencode/test/team/types.test.ts) plus this manifest update
+  (packages/unifia/src/team/types.ts,
+  packages/unifia/test/team/types.test.ts) plus this manifest update
   (allowed_modify_existing). No forbidden file was touched. `bun install`
   incidentally modified .husky/_/.gitignore (husky postinstall hook,
   repo-root file outside this card's scope) — reverted via

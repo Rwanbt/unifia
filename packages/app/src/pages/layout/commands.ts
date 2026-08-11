@@ -5,11 +5,11 @@
  * inside the Layout component after all local functions are defined.
  */
 import type { Accessor } from "solid-js"
-import { showToast } from "@opencode-ai/ui/toast"
+import { showToast } from "@unifia/ui/toast"
 import type { useCommand, CommandOption } from "@/context/command"
 import type { useLayout } from "@/context/layout"
 import type { useLanguage } from "@/context/language"
-import type { useTheme, ColorScheme } from "@opencode-ai/ui/theme/context"
+import type { useTheme, ColorScheme } from "@unifia/ui/theme/context"
 import type { Session } from "../../types/sdk-shim"
 import type { LocalProject } from "@/context/layout"
 

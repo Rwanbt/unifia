@@ -1,13 +1,13 @@
 import { createMemo, For, Match, Switch } from "solid-js"
-import { Button } from "@opencode-ai/ui/button"
-import { Logo } from "@opencode-ai/ui/logo"
+import { Button } from "@unifia/ui/button"
+import { Logo } from "@unifia/ui/logo"
 import { useLayout } from "@/context/layout"
 import { useNavigate } from "@solidjs/router"
-import { base64Encode } from "@opencode-ai/util/encode"
-import { Icon } from "@opencode-ai/ui/icon"
+import { base64Encode } from "@unifia/util/encode"
+import { Icon } from "@unifia/ui/icon"
 import { usePlatform } from "@/context/platform"
 import { DateTime } from "luxon"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useDialog } from "@unifia/ui/context/dialog"
 import { DialogSelectDirectory } from "@/components/dialog-select-directory"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { useServer } from "@/context/server"
@@ -70,7 +70,10 @@ export default function Home() {
 
   return (
     <div class="mx-auto mt-55 w-full md:w-auto px-4">
-      <Logo class="md:w-xl opacity-12" />
+      {/* mx-auto + an explicit narrow-viewport width: the logo carried neither,
+          so below `md` it fell back to the SVG's default intrinsic width and sat
+          left-aligned in the full-width container instead of centred. */}
+      <Logo class="mx-auto w-64 md:w-xl opacity-12" />
       <Button
         size="large"
         variant="ghost"

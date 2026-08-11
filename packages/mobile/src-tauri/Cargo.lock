@@ -2908,46 +2908,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opencode-kokoro-shared"
-version = "0.0.0"
-
-[[package]]
-name = "opencode-mobile"
-version = "0.1.0"
-dependencies = [
- "android_logger",
- "bincode",
- "futures-util",
- "hound",
- "jni",
- "log",
- "ndarray",
- "ndk-context",
- "opencode-kokoro-shared",
- "ort",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-haptics",
- "tauri-plugin-http",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-process",
- "tauri-plugin-store",
- "tauri-plugin-window-state",
- "tokio",
- "tracing",
- "url",
- "zip",
-]
-
-[[package]]
 name = "openssl"
 version = "0.10.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5721,6 +5681,46 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unifia-kokoro-shared"
+version = "0.0.0"
+
+[[package]]
+name = "unifia-mobile"
+version = "0.1.0"
+dependencies = [
+ "android_logger",
+ "bincode",
+ "futures-util",
+ "hound",
+ "jni",
+ "log",
+ "ndarray",
+ "ndk-context",
+ "ort",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-haptics",
+ "tauri-plugin-http",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-process",
+ "tauri-plugin-store",
+ "tauri-plugin-window-state",
+ "tokio",
+ "tracing",
+ "unifia-kokoro-shared",
+ "url",
+ "zip",
+]
 
 [[package]]
 name = "untrusted"

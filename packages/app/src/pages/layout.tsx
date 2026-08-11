@@ -15,7 +15,7 @@ import { useLayout, type LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
 import { decode64 } from "@/utils/base64"
-import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
+import { ResizeHandle } from "@unifia/ui/resize-handle"
 import type { Session } from "../types/sdk-shim"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
@@ -23,21 +23,22 @@ import { createStore, produce } from "solid-js/store"
 
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
-import { showToast, Toast } from "@opencode-ai/ui/toast"
+import { showToast, Toast } from "@unifia/ui/toast"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { useNotification } from "@/context/notification"
 import { usePermission } from "@/context/permission"
-import { getFilename } from "@opencode-ai/util/path"
+import { getFilename } from "@unifia/util/path"
 import { createAim } from "@/utils/aim"
 import { setNavigate } from "@/utils/notification-click"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
 
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme/context"
+import { useDialog } from "@unifia/ui/context/dialog"
+import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
 import { useCommand } from "@/context/command"
 import { getDraggableId } from "@/utils/solid-dnd"
 import { DebugBar } from "@/components/debug-bar"
+import { e2eActive } from "@/testing/active"
 import { Titlebar } from "@/components/titlebar"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
@@ -979,7 +980,7 @@ export default function Layout(props: ParentProps) {
       settingsKeybind={() => command.keybind("settings.open")}
       onOpenSettings={openSettings}
       helpLabel={() => language.t("sidebar.help")}
-      onOpenHelp={() => platform.openLink("https://github.com/Rwanbt/opencode")}
+      onOpenHelp={() => platform.openLink("https://github.com/Rwanbt/unifia")}
       renderPanel={() =>
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
@@ -1130,7 +1131,13 @@ export default function Layout(props: ParentProps) {
             </div>
           </div>
         </div>
-        {import.meta.env.DEV && <DebugBar />}
+        {/* Not rendered under the e2e harness. The bar is `fixed bottom-3
+            right-3 z-50 pointer-events-auto` and 324px wide, which puts it
+            squarely on top of the composer's Send button: Playwright logged
+            "208 × retrying click action" against it, so every fallback click
+            on Send burned the whole test timeout. It is a dev-only telemetry
+            HUD, never shipped, and nothing in the suite exercises it. */}
+        {import.meta.env.DEV && !e2eActive() && <DebugBar />}
       </div>
       <Toast.Region />
     </div>

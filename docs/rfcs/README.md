@@ -1,4 +1,4 @@
-# RFC Process — OpenCode Fork
+# RFC Process — Unifia Fork
 
 Un RFC (Request for Comments) est requis avant toute modification architecturale majeure.
 

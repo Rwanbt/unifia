@@ -1,5 +1,5 @@
 import { onMount } from "solid-js"
-import { Dialog } from "@opencode-ai/ui/dialog"
+import { Dialog } from "@unifia/ui/dialog"
 import { useLanguage } from "@/context/language"
 import { useTeam } from "@/context/team"
 import { teamLabels } from "@/i18n/team-labels"

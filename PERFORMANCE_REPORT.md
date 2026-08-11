@@ -1,4 +1,4 @@
-# PERFORMANCE REPORT — OpenCode Fork (2026-04-17)
+# PERFORMANCE REPORT — Unifia Fork (2026-04-17)
 
 > Analyse de la logique algorithmique et propositions de benchmarks.
 > Cible : agent réactif pour LLMs locaux (llama-server:14097) et cloud, fonctionnant de la montre connectée au desktop 128 Go.
@@ -9,12 +9,12 @@
 
 | # | Localisation | Observé | Impact estimé |
 |---|---|---|---|
-| HP1 | [packages/opencode/src/provider/transform.ts](packages/opencode/src/provider/transform.ts) (monolithe) + `models-snapshot.js` 1.75 MB | 20+ SDKs importés statiquement, snapshot JSON chargé au boot | **+400 ms cold start CLI**, +1-2 s mobile |
-| HP2 | [packages/opencode/src/session/llm.ts:43-70](packages/opencode/src/session/llm.ts#L43-L70) | `fetch /props` à chaque stream request, pas de cache | 20-80 ms de latence par message |
-| HP3 | [packages/opencode/src/session/compaction.ts:124-143](packages/opencode/src/session/compaction.ts#L124-L143) | Itération backward complète pour trouver `PRUNE_PROTECT` tokens | O(n·m) où n=messages, m=parts |
-| HP4 | [packages/opencode/src/util/token.ts](packages/opencode/src/util/token.ts) | `length/4` partout dans le chemin chaud | Erreur ±30 % sur budget tokens |
-| HP5 | [packages/opencode/src/local-llm-server/index.ts:262-281](packages/opencode/src/local-llm-server/index.ts#L262-L281) | `pruneStaleRefs()` sur chaque `ensureRunning` | lecture disque + filter, négligeable mais cumulatif |
-| HP6 | [packages/opencode/src/session/processor.ts](packages/opencode/src/session/processor.ts) | SessionProcessor + layer Effect composé à chaque message | Cold start layer : profiler |
+| HP1 | [packages/unifia/src/provider/transform.ts](packages/unifia/src/provider/transform.ts) (monolithe) + `models-snapshot.js` 1.75 MB | 20+ SDKs importés statiquement, snapshot JSON chargé au boot | **+400 ms cold start CLI**, +1-2 s mobile |
+| HP2 | [packages/unifia/src/session/llm.ts:43-70](packages/unifia/src/session/llm.ts#L43-L70) | `fetch /props` à chaque stream request, pas de cache | 20-80 ms de latence par message |
+| HP3 | [packages/unifia/src/session/compaction.ts:124-143](packages/unifia/src/session/compaction.ts#L124-L143) | Itération backward complète pour trouver `PRUNE_PROTECT` tokens | O(n·m) où n=messages, m=parts |
+| HP4 | [packages/unifia/src/util/token.ts](packages/unifia/src/util/token.ts) | `length/4` partout dans le chemin chaud | Erreur ±30 % sur budget tokens |
+| HP5 | [packages/unifia/src/local-llm-server/index.ts:262-281](packages/unifia/src/local-llm-server/index.ts#L262-L281) | `pruneStaleRefs()` sur chaque `ensureRunning` | lecture disque + filter, négligeable mais cumulatif |
+| HP6 | [packages/unifia/src/session/processor.ts](packages/unifia/src/session/processor.ts) | SessionProcessor + layer Effect composé à chaque message | Cold start layer : profiler |
 | HP7 | Provider SDKs bundlés | openai, anthropic, google, mistral, bedrock, azure… tous chargés | Taille bundle mobile |
 | HP8 | [packages/app/src/utils/agent.ts:13-23](packages/app/src/utils/agent.ts#L13-L23) + autres utils | `.find` dans boucle | O(n·m) potentiel sur rendu listes longues |
 
@@ -25,8 +25,8 @@
 ### 2.1 — État actuel
 
 Ce qui existe :
-- **Adaptive context window** via `/props` ([llm.ts:43-70](packages/opencode/src/session/llm.ts#L43-L70)) : lit `n_ctx` réel du serveur, scale output 40 %, thinking 10 %.
-- **Pruning thresholds** scalés à `model.limit.context` ([compaction.ts:41-47](packages/opencode/src/session/compaction.ts#L41-L47)).
+- **Adaptive context window** via `/props` ([llm.ts:43-70](packages/unifia/src/session/llm.ts#L43-L70)) : lit `n_ctx` réel du serveur, scale output 40 %, thinking 10 %.
+- **Pruning thresholds** scalés à `model.limit.context` ([compaction.ts:41-47](packages/unifia/src/session/compaction.ts#L41-L47)).
 - **Mémoire device** : `get_memory_info` côté Rust ([use-auto-start-llm.ts:91-98](packages/mobile/src/hooks/use-auto-start-llm.ts#L91-L98)) — utilisée pour l'affichage uniquement.
 - **Preset LLM mobile** : `kvCacheType: "q4_0", flashAttn: true, offloadMode: "auto"` — hardcodé ([use-auto-start-llm.ts:11-17](packages/mobile/src/hooks/use-auto-start-llm.ts#L11-L17)).
 
@@ -39,7 +39,7 @@ Ce qui existe :
 
 ### 2.3 — Proposition d'architecture
 
-**Nouveau module** `packages/opencode/src/device/` :
+**Nouveau module** `packages/unifia/src/device/` :
 
 ```
 device/
@@ -92,7 +92,7 @@ function chooseGpuLayers(model: ModelInfo, profile: DeviceProfile): number {
 
 ## 3. Benchmarks à mettre en place
 
-Nouveau dossier `packages/opencode/test/bench/` :
+Nouveau dossier `packages/unifia/test/bench/` :
 
 ### 3.1 — `bench-tokenize.ts`
 Compare 3 méthodes sur 100 prompts réels (du dataset `test/fixtures/prompts.json`) :
@@ -125,7 +125,7 @@ Scan d'un monorepo fictif (10 K fichiers, 500 K LOC). Measure : time to index, R
 // package.json (racine) — ajouter scripts
 {
   "scripts": {
-    "bench": "bun test --coverage=false packages/opencode/test/bench",
+    "bench": "bun test --coverage=false packages/unifia/test/bench",
     "bench:save": "bun run bench --reporter=json > test/bench/results.json",
     "bench:compare": "bun run scripts/compare-bench.ts test/bench/baseline.json test/bench/results.json"
   }
@@ -140,9 +140,9 @@ CI : `.github/workflows/bench.yml` exécute `bench:compare` sur PR et commente r
 
 | Quick win | Fichier | Gain estimé |
 |---|---|---|
-| Dynamic import des provider SDKs | [packages/opencode/src/provider/transform.ts](packages/opencode/src/provider/transform.ts) | -500 à -800 KB cold start |
-| Lazy load `models-snapshot.js` via streaming JSON | `packages/opencode/src/provider/` | -200 ms boot mobile |
-| Cache `/props` (keyed by baseURL) | [llm.ts:50](packages/opencode/src/session/llm.ts#L50) | -50 ms par stream |
+| Dynamic import des provider SDKs | [packages/unifia/src/provider/transform.ts](packages/unifia/src/provider/transform.ts) | -500 à -800 KB cold start |
+| Lazy load `models-snapshot.js` via streaming JSON | `packages/unifia/src/provider/` | -200 ms boot mobile |
+| Cache `/props` (keyed by baseURL) | [llm.ts:50](packages/unifia/src/session/llm.ts#L50) | -50 ms par stream |
 | AbortController sur HF search | [dialog-local-llm.tsx:141](packages/app/src/components/dialog-local-llm.tsx#L141) | UX — résultats dans l'ordre |
 | Memo map agents → color | [utils/agent.ts](packages/app/src/utils/agent.ts) | marginal sur listes <50 items |
 | Backoff health polling | [dialog-local-llm.tsx:157](packages/app/src/components/dialog-local-llm.tsx#L157) | -50 % calls Tauri sur idle |

@@ -1,13 +1,17 @@
 [CmdletBinding()]
 param(
   [switch]$UnsignedOnly,
-  [string]$KeystorePath = $env:OPENCODE_ANDROID_KEYSTORE,
-  [string]$KeystoreAlias = $env:OPENCODE_ANDROID_KEY_ALIAS,
-  [string]$KeystorePassword = $env:OPENCODE_ANDROID_KEYSTORE_PASSWORD,
-  [string]$KeyPassword = $env:OPENCODE_ANDROID_KEY_PASSWORD
+  [string]$KeystorePath = $env:UNIFIA_ANDROID_KEYSTORE,
+  [string]$KeystoreAlias = $env:UNIFIA_ANDROID_KEY_ALIAS,
+  [string]$KeystorePassword = $env:UNIFIA_ANDROID_KEYSTORE_PASSWORD,
+  [string]$KeyPassword = $env:UNIFIA_ANDROID_KEY_PASSWORD,
+  [string]$ExpectedCertificateSha256 = $env:UNIFIA_ANDROID_CERT_SHA256
 )
 
 $ErrorActionPreference = 'Stop'
+$signingLibrary = Join-Path $PSScriptRoot 'lib/android-signing.ps1'
+. $signingLibrary
+
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $mobile = Join-Path $repo 'packages/mobile'
 $tauri = Join-Path $mobile 'src-tauri'
@@ -36,7 +40,7 @@ try {
 
 $unsigned = Get-ChildItem -LiteralPath $apkRoot -Recurse -File -Filter '*unsigned.apk' | Select-Object -First 1
 if (-not $unsigned) { throw "No unsigned APK found below $apkRoot" }
-$unsignedOut = Join-Path $artifactDir 'opencode-mobile-unsigned.apk'
+$unsignedOut = Join-Path $artifactDir 'unifia-mobile-unsigned.apk'
 Copy-Item -LiteralPath $unsigned.FullName -Destination $unsignedOut -Force
 
 & pwsh -NoProfile -File (Join-Path $repo 'scripts/android-runtime-provenance.ps1') -OutputPath 'artifacts/android-release/provenance.json'
@@ -48,13 +52,14 @@ if ($UnsignedOnly) {
 }
 
 if ([string]::IsNullOrWhiteSpace($KeystorePath) -or -not (Test-Path -LiteralPath $KeystorePath)) {
-  throw 'Release keystore is required. Set OPENCODE_ANDROID_KEYSTORE or use -UnsignedOnly.'
+  throw 'Release keystore is required. Set UNIFIA_ANDROID_KEYSTORE or use -UnsignedOnly.'
 }
 if ([string]::IsNullOrWhiteSpace($KeystoreAlias) -or [string]::IsNullOrWhiteSpace($KeystorePassword)) {
   throw 'Release keystore alias and password are required.'
 }
+$expectedCertificates = @(Get-ExpectedCertificateSha256 $ExpectedCertificateSha256)
 
-$signedOut = Join-Path $artifactDir 'opencode-mobile-release.apk'
+$signedOut = Join-Path $artifactDir 'unifia-mobile-release.apk'
 Copy-Item -LiteralPath $unsignedOut -Destination $signedOut -Force
 $apksigner = Get-Command apksigner -ErrorAction SilentlyContinue
 if (-not $apksigner) { throw 'apksigner is required to sign and verify release APKs.' }
@@ -65,6 +70,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Release APK signing failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Release APK signature verification failed' }
 
 $metadata = & $apksigner.Source verify --print-certs $signedOut 2>&1 | Out-String
-if ($metadata -match '(?i)CN=Android Debug|androiddebugkey') { throw 'Debug-signed APK rejected' }
-Get-FileHash -LiteralPath $signedOut -Algorithm SHA256 | ConvertTo-Json | Set-Content (Join-Path $artifactDir 'opencode-mobile-release.apk.sha256.json')
+if ($LASTEXITCODE -ne 0) { throw 'Release APK certificate inspection failed' }
+Assert-ApkCertificateAllowed $metadata $expectedCertificates
+Get-FileHash -LiteralPath $signedOut -Algorithm SHA256 | ConvertTo-Json | Set-Content (Join-Path $artifactDir 'unifia-mobile-release.apk.sha256.json')
 Write-Host "Release APK: $signedOut"

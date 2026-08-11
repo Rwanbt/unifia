@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.1",
   "info": {
-    "title": "opencode",
-    "description": "opencode api",
+    "title": "unifia",
+    "description": "unifia api",
     "version": "1.0.0"
   },
   "paths": {
@@ -94,7 +94,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.register({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.register({\n  ...\n})"
           }
         ]
       }
@@ -162,7 +162,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.login({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.login({\n  ...\n})"
           }
         ]
       }
@@ -227,7 +227,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.refresh({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.refresh({\n  ...\n})"
           }
         ]
       }
@@ -267,7 +267,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.logout({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.logout({\n  ...\n})"
           }
         ]
       }
@@ -301,7 +301,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.wsTicket({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.wsTicket({\n  ...\n})"
           }
         ]
       }
@@ -359,7 +359,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.me({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.me({\n  ...\n})"
           }
         ]
       }
@@ -420,7 +420,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.listUsers({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.listUsers({\n  ...\n})"
           }
         ]
       }
@@ -429,7 +429,7 @@
       "get": {
         "operationId": "global.health",
         "summary": "Get health",
-        "description": "Get health information about the OpenCode server.",
+        "description": "Get health information about the Unifia server.",
         "responses": {
           "200": {
             "description": "Health information",
@@ -455,7 +455,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.health({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.health({\n  ...\n})"
           }
         ]
       }
@@ -464,7 +464,7 @@
       "get": {
         "operationId": "global.event",
         "summary": "Get global events",
-        "description": "Subscribe to global events from the OpenCode system using server-sent events.",
+        "description": "Subscribe to global events from the Unifia system using server-sent events.",
         "responses": {
           "200": {
             "description": "Event stream",
@@ -480,7 +480,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.event({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.event({\n  ...\n})"
           }
         ]
       }
@@ -505,7 +505,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.sync-event.subscribe({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.sync-event.subscribe({\n  ...\n})"
           }
         ]
       }
@@ -514,7 +514,7 @@
       "get": {
         "operationId": "global.config.get",
         "summary": "Get global configuration",
-        "description": "Retrieve the current global OpenCode configuration settings and preferences.",
+        "description": "Retrieve the current global Unifia configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Get global config info",
@@ -530,14 +530,14 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.config.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.config.get({\n  ...\n})"
           }
         ]
       },
       "patch": {
         "operationId": "global.config.update",
         "summary": "Update global configuration",
-        "description": "Update global OpenCode configuration settings and preferences.",
+        "description": "Update global Unifia configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Successfully updated global config",
@@ -572,7 +572,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.config.update({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.config.update({\n  ...\n})"
           }
         ]
       }
@@ -581,7 +581,7 @@
       "post": {
         "operationId": "global.dispose",
         "summary": "Dispose instance",
-        "description": "Clean up and dispose all OpenCode instances, releasing all resources.",
+        "description": "Clean up and dispose all Unifia instances, releasing all resources.",
         "responses": {
           "200": {
             "description": "Global disposed",
@@ -597,7 +597,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.dispose({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.dispose({\n  ...\n})"
           }
         ]
       }
@@ -605,8 +605,8 @@
     "/global/upgrade": {
       "post": {
         "operationId": "global.upgrade",
-        "summary": "Upgrade opencode",
-        "description": "Upgrade opencode to the specified version or latest if not specified.",
+        "summary": "Upgrade unifia",
+        "description": "Upgrade unifia to the specified version or latest if not specified.",
         "responses": {
           "200": {
             "description": "Upgrade result",
@@ -673,7 +673,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.global.upgrade({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.global.upgrade({\n  ...\n})"
           }
         ]
       }
@@ -727,7 +727,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.auth.set({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.auth.set({\n  ...\n})"
           }
         ]
       },
@@ -770,7 +770,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.auth.remove({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.auth.remove({\n  ...\n})"
           }
         ]
       }
@@ -854,7 +854,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.app.log({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.app.log({\n  ...\n})"
           }
         ]
       }
@@ -879,7 +879,7 @@
           }
         ],
         "summary": "List all projects",
-        "description": "Get a list of projects that have been opened with OpenCode.",
+        "description": "Get a list of projects that have been opened with Unifia.",
         "responses": {
           "200": {
             "description": "List of projects",
@@ -898,7 +898,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.project.list({\n  ...\n})"
           }
         ]
       }
@@ -923,7 +923,7 @@
           }
         ],
         "summary": "Get current project",
-        "description": "Retrieve the currently active project that OpenCode is working with.",
+        "description": "Retrieve the currently active project that Unifia is working with.",
         "responses": {
           "200": {
             "description": "Current project information",
@@ -939,7 +939,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.current({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.project.current({\n  ...\n})"
           }
         ]
       }
@@ -980,7 +980,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.initGit({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.project.initGit({\n  ...\n})"
           }
         ]
       }
@@ -1086,7 +1086,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.update({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.project.update({\n  ...\n})"
           }
         ]
       }
@@ -1111,7 +1111,7 @@
           }
         ],
         "summary": "List PTY sessions",
-        "description": "Get a list of all active pseudo-terminal (PTY) sessions managed by OpenCode.",
+        "description": "Get a list of all active pseudo-terminal (PTY) sessions managed by Unifia.",
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -1130,7 +1130,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.list({\n  ...\n})"
           }
         ]
       },
@@ -1228,7 +1228,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.create({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.create({\n  ...\n})"
           }
         ]
       }
@@ -1288,7 +1288,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.get({\n  ...\n})"
           }
         ]
       },
@@ -1372,7 +1372,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.update({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.update({\n  ...\n})"
           }
         ]
       },
@@ -1430,7 +1430,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.remove({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.remove({\n  ...\n})"
           }
         ]
       }
@@ -1499,7 +1499,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.tail({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.tail({\n  ...\n})"
           }
         ]
       }
@@ -1559,7 +1559,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.pty.connect({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.pty.connect({\n  ...\n})"
           }
         ]
       }
@@ -1584,7 +1584,7 @@
           }
         ],
         "summary": "Get configuration",
-        "description": "Retrieve the current OpenCode configuration settings and preferences.",
+        "description": "Retrieve the current Unifia configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Get config info",
@@ -1600,7 +1600,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.config.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.config.get({\n  ...\n})"
           }
         ]
       },
@@ -1623,7 +1623,7 @@
           }
         ],
         "summary": "Update configuration",
-        "description": "Update OpenCode configuration settings and preferences.",
+        "description": "Update Unifia configuration settings and preferences.",
         "responses": {
           "200": {
             "description": "Successfully updated config",
@@ -1658,7 +1658,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.config.update({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.config.update({\n  ...\n})"
           }
         ]
       }
@@ -1717,7 +1717,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.config.providers({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.config.providers({\n  ...\n})"
           }
         ]
       }
@@ -1775,7 +1775,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.console.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.console.get({\n  ...\n})"
           }
         ]
       }
@@ -1846,7 +1846,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.console.listOrgs({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.console.listOrgs({\n  ...\n})"
           }
         ]
       }
@@ -1871,7 +1871,7 @@
           }
         ],
         "summary": "Switch active Console org",
-        "description": "Persist a new active Console account/org selection for the current local OpenCode state.",
+        "description": "Persist a new active Console account/org selection for the current local Unifia state.",
         "responses": {
           "200": {
             "description": "Switch success",
@@ -1905,7 +1905,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.console.switchOrg({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.console.switchOrg({\n  ...\n})"
           }
         ]
       }
@@ -1956,7 +1956,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tool.ids({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tool.ids({\n  ...\n})"
           }
         ]
       }
@@ -2023,7 +2023,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tool.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tool.list({\n  ...\n})"
           }
         ]
       }
@@ -2121,7 +2121,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.workspace.create({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.workspace.create({\n  ...\n})"
           }
         ]
       },
@@ -2163,7 +2163,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.workspace.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.workspace.list({\n  ...\n})"
           }
         ]
       }
@@ -2223,7 +2223,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.workspace.remove({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.workspace.remove({\n  ...\n})"
           }
         ]
       }
@@ -2283,7 +2283,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.worktree.create({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.worktree.create({\n  ...\n})"
           }
         ]
       },
@@ -2325,7 +2325,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.worktree.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.worktree.list({\n  ...\n})"
           }
         ]
       },
@@ -2383,7 +2383,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.worktree.remove({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.worktree.remove({\n  ...\n})"
           }
         ]
       }
@@ -2443,7 +2443,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.worktree.reset({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.worktree.reset({\n  ...\n})"
           }
         ]
       }
@@ -2517,7 +2517,7 @@
           }
         ],
         "summary": "List sessions",
-        "description": "Get a list of all OpenCode sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
+        "description": "Get a list of all Unifia sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -2536,7 +2536,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.session.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.session.list({\n  ...\n})"
           }
         ]
       }
@@ -2583,7 +2583,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.resource.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.experimental.resource.list({\n  ...\n})"
           }
         ]
       }
@@ -2641,7 +2641,7 @@
           }
         ],
         "summary": "List sessions",
-        "description": "Get a list of all OpenCode sessions, sorted by most recently updated.",
+        "description": "Get a list of all Unifia sessions, sorted by most recently updated.",
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -2660,7 +2660,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.list({\n  ...\n})"
           }
         ]
       },
@@ -2683,7 +2683,7 @@
           }
         ],
         "summary": "Create session",
-        "description": "Create a new OpenCode session for interacting with AI assistants and managing conversations.",
+        "description": "Create a new Unifia session for interacting with AI assistants and managing conversations.",
         "responses": {
           "200": {
             "description": "Successfully created session",
@@ -2734,7 +2734,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.create({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.create({\n  ...\n})"
           }
         ]
       }
@@ -2791,7 +2791,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.status({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.status({\n  ...\n})"
           }
         ]
       }
@@ -2825,7 +2825,7 @@
           }
         ],
         "summary": "Get session",
-        "description": "Retrieve detailed information about a specific OpenCode session.",
+        "description": "Retrieve detailed information about a specific Unifia session.",
         "tags": ["Session"],
         "responses": {
           "200": {
@@ -2862,7 +2862,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.get({\n  ...\n})"
           }
         ]
       },
@@ -2930,7 +2930,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.delete({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.delete({\n  ...\n})"
           }
         ]
       },
@@ -3020,7 +3020,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.update({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.update({\n  ...\n})"
           }
         ]
       }
@@ -3094,7 +3094,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.children({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.children({\n  ...\n})"
           }
         ]
       }
@@ -3167,7 +3167,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.todo({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.todo({\n  ...\n})"
           }
         ]
       }
@@ -3259,7 +3259,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.init({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.init({\n  ...\n})"
           }
         ]
       }
@@ -3324,7 +3324,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.fork({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.fork({\n  ...\n})"
           }
         ]
       }
@@ -3394,7 +3394,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.abort({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.abort({\n  ...\n})"
           }
         ]
       }
@@ -3464,7 +3464,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.share({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.share({\n  ...\n})"
           }
         ]
       },
@@ -3532,7 +3532,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.unshare({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.unshare({\n  ...\n})"
           }
         ]
       }
@@ -3593,7 +3593,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.diff({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.diff({\n  ...\n})"
           }
         ]
       }
@@ -3685,7 +3685,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.summarize({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.summarize({\n  ...\n})"
           }
         ]
       }
@@ -3787,7 +3787,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.messages({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.messages({\n  ...\n})"
           }
         ]
       },
@@ -3939,7 +3939,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.prompt({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.prompt({\n  ...\n})"
           }
         ]
       }
@@ -4030,7 +4030,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.message({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.message({\n  ...\n})"
           }
         ]
       },
@@ -4107,7 +4107,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.deleteMessage({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.deleteMessage({\n  ...\n})"
           }
         ]
       }
@@ -4194,7 +4194,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.part.delete({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.part.delete({\n  ...\n})"
           }
         ]
       },
@@ -4288,7 +4288,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.part.update({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.part.update({\n  ...\n})"
           }
         ]
       }
@@ -4423,7 +4423,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.prompt_async({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.prompt_async({\n  ...\n})"
           }
         ]
       }
@@ -4569,7 +4569,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.command({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.command({\n  ...\n})"
           }
         ]
       }
@@ -4673,7 +4673,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.shell({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.shell({\n  ...\n})"
           }
         ]
       }
@@ -4763,7 +4763,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.revert({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.revert({\n  ...\n})"
           }
         ]
       }
@@ -4833,7 +4833,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.unrevert({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.session.unrevert({\n  ...\n})"
           }
         ]
       }
@@ -4929,7 +4929,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.permission.respond({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.permission.respond({\n  ...\n})"
           }
         ]
       }
@@ -5009,7 +5009,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.list({\n  ...\n})"
           }
         ]
       }
@@ -5079,7 +5079,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.get({\n  ...\n})"
           }
         ]
       }
@@ -5174,7 +5174,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.messages({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.messages({\n  ...\n})"
           }
         ]
       }
@@ -5244,7 +5244,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.cancel({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.cancel({\n  ...\n})"
           }
         ]
       }
@@ -5329,7 +5329,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.resume({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.resume({\n  ...\n})"
           }
         ]
       }
@@ -5415,7 +5415,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.followup({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.followup({\n  ...\n})"
           }
         ]
       }
@@ -5512,7 +5512,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.promote({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.promote({\n  ...\n})"
           }
         ]
       }
@@ -5647,7 +5647,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.task.team({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.task.team({\n  ...\n})"
           }
         ]
       }
@@ -5672,7 +5672,7 @@
           }
         ],
         "summary": "List agent skills",
-        "description": "List available OpenCode tools in AnythingLLM Agent Skill format.",
+        "description": "List available Unifia tools in AnythingLLM Agent Skill format.",
         "responses": {
           "200": {
             "description": "Available skills",
@@ -5710,7 +5710,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.agentSkills.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.agentSkills.list({\n  ...\n})"
           }
         ]
       }
@@ -5743,7 +5743,7 @@
           }
         ],
         "summary": "Execute agent skill",
-        "description": "Execute an OpenCode tool by ID. Returns the tool output.",
+        "description": "Execute an Unifia tool by ID. Returns the tool output.",
         "responses": {
           "200": {
             "description": "Execution result",
@@ -5823,7 +5823,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.agentSkills.execute({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.agentSkills.execute({\n  ...\n})"
           }
         ]
       }
@@ -5912,7 +5912,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.permission.reply({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.permission.reply({\n  ...\n})"
           }
         ]
       }
@@ -5956,7 +5956,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.permission.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.permission.list({\n  ...\n})"
           }
         ]
       }
@@ -6000,7 +6000,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.question.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.question.list({\n  ...\n})"
           }
         ]
       }
@@ -6089,7 +6089,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.question.reply({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.question.reply({\n  ...\n})"
           }
         ]
       }
@@ -6159,7 +6159,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.question.reject({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.question.reject({\n  ...\n})"
           }
         ]
       }
@@ -6428,7 +6428,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.provider.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.provider.list({\n  ...\n})"
           }
         ]
       }
@@ -6453,7 +6453,7 @@
           }
         ],
         "summary": "Force-refresh the models.dev catalog",
-        "description": "Force a refresh of the cached models.dev provider/model catalog, bypassing the freshness TTL. Returns ok:false with an explanatory message if the catalog is managed externally (OPENCODE_MODELS_PATH), fetching is disabled (OPENCODE_DISABLE_MODELS_FETCH), or the fetch itself failed.",
+        "description": "Force a refresh of the cached models.dev provider/model catalog, bypassing the freshness TTL. Returns ok:false with an explanatory message if the catalog is managed externally (UNIFIA_MODELS_PATH), fetching is disabled (UNIFIA_DISABLE_MODELS_FETCH), or the fetch itself failed.",
         "responses": {
           "200": {
             "description": "Refresh result",
@@ -6478,7 +6478,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.provider.refresh({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.provider.refresh({\n  ...\n})"
           }
         ]
       }
@@ -6528,7 +6528,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.provider.auth({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.provider.auth({\n  ...\n})"
           }
         ]
       }
@@ -6614,7 +6614,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.provider.oauth.authorize({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.provider.oauth.authorize({\n  ...\n})"
           }
         ]
       }
@@ -6694,7 +6694,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.provider.oauth.callback({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.provider.oauth.callback({\n  ...\n})"
           }
         ]
       }
@@ -7205,7 +7205,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.start({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.start({\n  ...\n})"
           }
         ]
       },
@@ -7245,7 +7245,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.list({\n  ...\n})"
           }
         ]
       }
@@ -7363,7 +7363,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.config({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.config({\n  ...\n})"
           }
         ]
       },
@@ -7443,7 +7443,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.getConfig({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.getConfig({\n  ...\n})"
           }
         ]
       }
@@ -7569,7 +7569,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.sessionConfig({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.sessionConfig({\n  ...\n})"
           }
         ]
       },
@@ -7657,7 +7657,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.getSessionConfig({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.getSessionConfig({\n  ...\n})"
           }
         ]
       }
@@ -7833,7 +7833,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.estimate({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.estimate({\n  ...\n})"
           }
         ]
       }
@@ -7880,7 +7880,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.get({\n  ...\n})"
           }
         ]
       }
@@ -7963,7 +7963,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.debate.feedback({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.debate.feedback({\n  ...\n})"
           }
         ]
       }
@@ -8033,7 +8033,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.getConfig({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.getConfig({\n  ...\n})"
           }
         ]
       },
@@ -8141,7 +8141,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.config({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.config({\n  ...\n})"
           }
         ]
       }
@@ -8320,7 +8320,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.startRun({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.startRun({\n  ...\n})"
           }
         ]
       },
@@ -8455,7 +8455,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listRuns({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.listRuns({\n  ...\n})"
           }
         ]
       }
@@ -8530,7 +8530,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.pauseRun({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.pauseRun({\n  ...\n})"
           }
         ]
       }
@@ -8605,7 +8605,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.resumeRun({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.resumeRun({\n  ...\n})"
           }
         ]
       }
@@ -8680,7 +8680,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.cancelRun({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.cancelRun({\n  ...\n})"
           }
         ]
       }
@@ -8778,7 +8778,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.getRun({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.getRun({\n  ...\n})"
           }
         ]
       }
@@ -8891,7 +8891,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listTasks({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.listTasks({\n  ...\n})"
           }
         ]
       }
@@ -9030,7 +9030,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listEvents({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.listEvents({\n  ...\n})"
           }
         ]
       }
@@ -9144,7 +9144,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.team.listGates({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.team.listGates({\n  ...\n})"
           }
         ]
       }
@@ -9292,7 +9292,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.listModels({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.listModels({\n  ...\n})"
           }
         ]
       }
@@ -9416,7 +9416,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.listProviders({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.listProviders({\n  ...\n})"
           }
         ]
       }
@@ -9503,7 +9503,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.getModel({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.getModel({\n  ...\n})"
           }
         ]
       }
@@ -9582,7 +9582,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.resolveAlias({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.resolveAlias({\n  ...\n})"
           }
         ]
       }
@@ -9651,7 +9651,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.snapshot({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.snapshot({\n  ...\n})"
           }
         ]
       }
@@ -9717,7 +9717,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.licenses({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.licenses({\n  ...\n})"
           }
         ]
       }
@@ -9767,7 +9767,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.health({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.health({\n  ...\n})"
           }
         ]
       }
@@ -9838,7 +9838,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.modelIntelligence.sync({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.modelIntelligence.sync({\n  ...\n})"
           }
         ]
       }
@@ -9968,7 +9968,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.health({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.health({\n  ...\n})"
           }
         ]
       }
@@ -10048,7 +10048,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.settings({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.settings({\n  ...\n})"
           }
         ]
       }
@@ -10122,7 +10122,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.sessions.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.sessions.list({\n  ...\n})"
           }
         ]
       }
@@ -10330,7 +10330,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.events.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.events.list({\n  ...\n})"
           }
         ]
       }
@@ -10499,7 +10499,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.events.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.events.get({\n  ...\n})"
           }
         ]
       }
@@ -10689,7 +10689,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.trace.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.trace.get({\n  ...\n})"
           }
         ]
       }
@@ -10804,7 +10804,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.summary({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.summary({\n  ...\n})"
           }
         ]
       }
@@ -10919,7 +10919,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.privacy.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.privacy.get({\n  ...\n})"
           }
         ]
       },
@@ -11030,7 +11030,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.privacy.set({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.privacy.set({\n  ...\n})"
           }
         ]
       }
@@ -11120,7 +11120,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.privacy.revoke({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.privacy.revoke({\n  ...\n})"
           }
         ]
       }
@@ -11275,7 +11275,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.compare({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.compare({\n  ...\n})"
           }
         ]
       }
@@ -11404,7 +11404,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.data.delete({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.data.delete({\n  ...\n})"
           }
         ]
       }
@@ -11516,7 +11516,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.export({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.export({\n  ...\n})"
           }
         ]
       }
@@ -11634,7 +11634,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.summaryAggregate({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.summaryAggregate({\n  ...\n})"
           }
         ]
       }
@@ -11730,7 +11730,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.exporters.config({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.exporters.config({\n  ...\n})"
           }
         ]
       }
@@ -11944,7 +11944,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.exporters.preview({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.exporters.preview({\n  ...\n})"
           }
         ]
       }
@@ -12009,7 +12009,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.observability.exporters.test({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.observability.exporters.test({\n  ...\n})"
           }
         ]
       }
@@ -12078,7 +12078,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.collab.presence({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.collab.presence({\n  ...\n})"
           }
         ]
       }
@@ -12115,7 +12115,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.gdpr.export({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.gdpr.export({\n  ...\n})"
           }
         ]
       }
@@ -12159,7 +12159,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.gdpr.delete({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.gdpr.delete({\n  ...\n})"
           }
         ]
       }
@@ -12263,7 +12263,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.gdpr.audit.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.gdpr.audit.list({\n  ...\n})"
           }
         ]
       }
@@ -12366,7 +12366,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.find.text({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.find.text({\n  ...\n})"
           }
         ]
       }
@@ -12443,7 +12443,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.find.files({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.find.files({\n  ...\n})"
           }
         ]
       }
@@ -12495,7 +12495,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.find.symbols({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.find.symbols({\n  ...\n})"
           }
         ]
       }
@@ -12547,7 +12547,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.list({\n  ...\n})"
           }
         ]
       },
@@ -12610,7 +12610,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.delete({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.delete({\n  ...\n})"
           }
         ]
       }
@@ -12659,7 +12659,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.read({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.read({\n  ...\n})"
           }
         ]
       }
@@ -12703,7 +12703,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.status({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.status({\n  ...\n})"
           }
         ]
       }
@@ -12765,7 +12765,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.mkdir({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.mkdir({\n  ...\n})"
           }
         ]
       }
@@ -12835,7 +12835,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.readRaw({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.readRaw({\n  ...\n})"
           }
         ]
       }
@@ -12924,7 +12924,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.write({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.write({\n  ...\n})"
           }
         ]
       }
@@ -12998,7 +12998,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.rename({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.rename({\n  ...\n})"
           }
         ]
       }
@@ -13072,7 +13072,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.file.move({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.file.move({\n  ...\n})"
           }
         ]
       }
@@ -13113,7 +13113,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.event.subscribe({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.event.subscribe({\n  ...\n})"
           }
         ]
       }
@@ -13160,7 +13160,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.status({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.status({\n  ...\n})"
           }
         ]
       },
@@ -13240,7 +13240,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.add({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.add({\n  ...\n})"
           }
         ]
       }
@@ -13316,7 +13316,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.auth.start({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.auth.start({\n  ...\n})"
           }
         ]
       },
@@ -13380,7 +13380,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.auth.remove({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.auth.remove({\n  ...\n})"
           }
         ]
       }
@@ -13465,7 +13465,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.auth.callback({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.auth.callback({\n  ...\n})"
           }
         ]
       }
@@ -13534,7 +13534,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.auth.authenticate({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.auth.authenticate({\n  ...\n})"
           }
         ]
       }
@@ -13582,7 +13582,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.connect({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.connect({\n  ...\n})"
           }
         ]
       }
@@ -13630,7 +13630,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.disconnect({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.disconnect({\n  ...\n})"
           }
         ]
       }
@@ -13696,7 +13696,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.remove({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.mcp.remove({\n  ...\n})"
           }
         ]
       }
@@ -13762,7 +13762,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.appendPrompt({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.appendPrompt({\n  ...\n})"
           }
         ]
       }
@@ -13803,7 +13803,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.openHelp({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.openHelp({\n  ...\n})"
           }
         ]
       }
@@ -13844,7 +13844,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.openSessions({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.openSessions({\n  ...\n})"
           }
         ]
       }
@@ -13885,7 +13885,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.openThemes({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.openThemes({\n  ...\n})"
           }
         ]
       }
@@ -13926,7 +13926,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.openModels({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.openModels({\n  ...\n})"
           }
         ]
       }
@@ -13967,7 +13967,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.submitPrompt({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.submitPrompt({\n  ...\n})"
           }
         ]
       }
@@ -14008,7 +14008,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.clearPrompt({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.clearPrompt({\n  ...\n})"
           }
         ]
       }
@@ -14074,7 +14074,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.executeCommand({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.executeCommand({\n  ...\n})"
           }
         ]
       }
@@ -14142,7 +14142,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.showToast({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.showToast({\n  ...\n})"
           }
         ]
       }
@@ -14215,7 +14215,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.publish({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.publish({\n  ...\n})"
           }
         ]
       }
@@ -14293,7 +14293,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.selectSession({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.selectSession({\n  ...\n})"
           }
         ]
       }
@@ -14341,7 +14341,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.control.next({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.control.next({\n  ...\n})"
           }
         ]
       }
@@ -14389,7 +14389,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.tui.control.response({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.tui.control.response({\n  ...\n})"
           }
         ]
       }
@@ -14414,7 +14414,7 @@
           }
         ],
         "summary": "Dispose instance",
-        "description": "Clean up and dispose the current OpenCode instance, releasing all resources.",
+        "description": "Clean up and dispose the current Unifia instance, releasing all resources.",
         "responses": {
           "200": {
             "description": "Instance disposed",
@@ -14430,7 +14430,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.instance.dispose({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.instance.dispose({\n  ...\n})"
           }
         ]
       }
@@ -14485,7 +14485,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.disk.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.disk.get({\n  ...\n})"
           }
         ]
       }
@@ -14510,7 +14510,7 @@
           }
         ],
         "summary": "Get paths",
-        "description": "Retrieve the current working directory and related path information for the OpenCode instance.",
+        "description": "Retrieve the current working directory and related path information for the Unifia instance.",
         "responses": {
           "200": {
             "description": "Path",
@@ -14526,7 +14526,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.path.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.path.get({\n  ...\n})"
           }
         ]
       }
@@ -14567,7 +14567,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.vcs.get({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.vcs.get({\n  ...\n})"
           }
         ]
       }
@@ -14620,7 +14620,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.vcs.diff({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.vcs.diff({\n  ...\n})"
           }
         ]
       }
@@ -14645,7 +14645,7 @@
           }
         ],
         "summary": "List commands",
-        "description": "Get a list of all available commands in the OpenCode system.",
+        "description": "Get a list of all available commands in the Unifia system.",
         "responses": {
           "200": {
             "description": "List of commands",
@@ -14664,7 +14664,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.command.list({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.command.list({\n  ...\n})"
           }
         ]
       }
@@ -14689,7 +14689,7 @@
           }
         ],
         "summary": "List agents",
-        "description": "Get a list of all available AI agents in the OpenCode system.",
+        "description": "Get a list of all available AI agents in the Unifia system.",
         "responses": {
           "200": {
             "description": "List of agents",
@@ -14708,7 +14708,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.app.agents({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.app.agents({\n  ...\n})"
           }
         ]
       }
@@ -14733,7 +14733,7 @@
           }
         ],
         "summary": "List skills",
-        "description": "Get a list of all available skills in the OpenCode system.",
+        "description": "Get a list of all available skills in the Unifia system.",
         "responses": {
           "200": {
             "description": "List of skills",
@@ -14767,7 +14767,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.app.skills({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.app.skills({\n  ...\n})"
           }
         ]
       }
@@ -14845,7 +14845,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.app.skillInstall({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.app.skillInstall({\n  ...\n})"
           }
         ]
       }
@@ -14891,7 +14891,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.app.skillUninstall({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.app.skillUninstall({\n  ...\n})"
           }
         ]
       }
@@ -14935,7 +14935,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.status({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.status({\n  ...\n})"
           }
         ]
       }
@@ -14993,7 +14993,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.diagnostics({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.diagnostics({\n  ...\n})"
           }
         ]
       }
@@ -15072,7 +15072,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.hover({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.hover({\n  ...\n})"
           }
         ]
       }
@@ -15154,7 +15154,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.definition({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.definition({\n  ...\n})"
           }
         ]
       }
@@ -15236,7 +15236,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.references({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.references({\n  ...\n})"
           }
         ]
       }
@@ -15319,7 +15319,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.rename({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.rename({\n  ...\n})"
           }
         ]
       }
@@ -15408,7 +15408,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.codeAction({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.codeAction({\n  ...\n})"
           }
         ]
       }
@@ -15493,7 +15493,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.executeCommand({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.executeCommand({\n  ...\n})"
           }
         ]
       }
@@ -15575,7 +15575,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.completion({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.completion({\n  ...\n})"
           }
         ]
       }
@@ -15645,7 +15645,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.lsp.documentSymbol({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.lsp.documentSymbol({\n  ...\n})"
           }
         ]
       }
@@ -15689,7 +15689,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.workingStatus({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.workingStatus({\n  ...\n})"
           }
         ]
       }
@@ -15758,7 +15758,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.add({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.add({\n  ...\n})"
           }
         ]
       }
@@ -15827,7 +15827,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.reset({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.reset({\n  ...\n})"
           }
         ]
       }
@@ -15901,7 +15901,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.commit({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.commit({\n  ...\n})"
           }
         ]
       }
@@ -15962,7 +15962,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.push({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.push({\n  ...\n})"
           }
         ]
       }
@@ -16023,7 +16023,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.pull({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.pull({\n  ...\n})"
           }
         ]
       }
@@ -16075,7 +16075,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.log({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.log({\n  ...\n})"
           }
         ]
       }
@@ -16138,7 +16138,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.blame({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.blame({\n  ...\n})"
           }
         ]
       }
@@ -16182,7 +16182,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.branches({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.branches({\n  ...\n})"
           }
         ]
       }
@@ -16259,7 +16259,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.branch({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.branch({\n  ...\n})"
           }
         ]
       }
@@ -16304,7 +16304,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.getCredentials({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.getCredentials({\n  ...\n})"
           }
         ]
       },
@@ -16406,7 +16406,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.git.setCredentials({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.git.setCredentials({\n  ...\n})"
           }
         ]
       }
@@ -16447,7 +16447,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.status({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.status({\n  ...\n})"
           }
         ]
       }
@@ -16491,7 +16491,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.deviceStart({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.deviceStart({\n  ...\n})"
           }
         ]
       }
@@ -16532,7 +16532,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.devicePoll({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.devicePoll({\n  ...\n})"
           }
         ]
       }
@@ -16565,7 +16565,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.deviceCancel({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.deviceCancel({\n  ...\n})"
           }
         ]
       }
@@ -16599,7 +16599,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.disconnect({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.disconnect({\n  ...\n})"
           }
         ]
       }
@@ -16643,7 +16643,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.testConnection({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.testConnection({\n  ...\n})"
           }
         ]
       }
@@ -16684,7 +16684,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.github.diagnostics({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.github.diagnostics({\n  ...\n})"
           }
         ]
       }
@@ -16728,7 +16728,7 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.formatter.status({\n  ...\n})"
+            "source": "import { createUnifiaClient } from \"@unifia/sdk\n\nconst client = createUnifiaClient()\nawait client.formatter.status({\n  ...\n})"
           }
         ]
       }
@@ -20907,7 +20907,7 @@
         "enum": ["DEBUG", "INFO", "WARN", "ERROR"]
       },
       "ServerConfig": {
-        "description": "Server configuration for opencode serve and web commands",
+        "description": "Server configuration for unifia serve and web commands",
         "type": "object",
         "properties": {
           "port": {
@@ -20925,7 +20925,7 @@
             "type": "boolean"
           },
           "mdnsDomain": {
-            "description": "Custom domain name for mDNS service (default: opencode.local)",
+            "description": "Custom domain name for mDNS service (default: unifia.local)",
             "type": "string"
           },
           "cors": {
@@ -21518,7 +21518,7 @@
             "$ref": "#/components/schemas/ServerConfig"
           },
           "command": {
-            "description": "Command configuration, see https://opencode.ai/docs/commands",
+            "description": "Command configuration, see https://github.com/Rwanbt/unifia",
             "type": "object",
             "propertyNames": {
               "type": "string"
@@ -21672,7 +21672,7 @@
             }
           },
           "agent": {
-            "description": "Agent configuration, see https://opencode.ai/docs/agents",
+            "description": "Agent configuration, see https://github.com/Rwanbt/unifia",
             "type": "object",
             "properties": {
               "plan": {
@@ -22297,7 +22297,7 @@
                     "type": "boolean"
                   },
                   "expose_tools": {
-                    "description": "Expose OpenCode tools as AnythingLLM Agent Skills via HTTP API",
+                    "description": "Expose Unifia tools as AnythingLLM Agent Skills via HTTP API",
                     "default": false,
                     "type": "boolean"
                   },

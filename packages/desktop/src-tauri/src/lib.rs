@@ -1,6 +1,8 @@
 mod auth_storage;
 mod cli;
 mod constants;
+mod child_processes;
+mod identity_generated;
 mod llm;
 mod util;
 mod validate;
@@ -26,7 +28,7 @@ use std::{
     env,
     future::Future,
     net::TcpListener,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::{Arc, Mutex, OnceLock},
     time::Duration,
@@ -387,21 +389,14 @@ pub fn run() {
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     export_types(&builder);
 
-    // FIX: Kill orphaned sidecar from a previous session on all desktop platforms.
-    // macOS: killall by name. Windows: taskkill by image name.
-    #[cfg(all(target_os = "macos", not(debug_assertions)))]
-    let _ = std::process::Command::new("killall")
-        .arg("opencode-cli")
-        .output();
-
-    #[cfg(all(windows, not(debug_assertions)))]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = std::process::Command::new("taskkill")
-            .args(["/F", "/IM", "opencode-cli.exe"])
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .output();
-    }
+    // Reclaim children left behind by a previous session that did not exit
+    // cleanly. Renaming the sidecar was not enough to make killing by image name
+    // safe: `llama-server` is llama.cpp's name rather than ours, and even
+    // `unifia-cli` is shared by every channel, so `taskkill /F /IM` reached
+    // processes belonging to the user or to another Unifia install. Leases make
+    // the blast radius exactly the set of processes we can prove we started.
+    let child_processes = child_processes::ChildProcesses::default();
+    child_processes.recover_orphans();
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -440,6 +435,7 @@ pub fn run() {
             // Hold the guard in managed state so it lives for the app's lifetime,
             // ensuring all buffered logs are flushed on shutdown.
             handle.manage(logging::init(&log_dir));
+            handle.manage(child_processes);
             handle.manage(llm::LlmServerState::new());
             handle.manage(speech::SpeechState::new());
 
@@ -486,23 +482,12 @@ pub fn run() {
                 // call start_kill(). Use a synchronous OS-level kill as fallback.
                 kill_sidecar(app.clone());
 
-                #[cfg(windows)]
-                {
-                    use std::os::windows::process::CommandExt;
-                    for process in ["opencode-cli.exe", "llama-server.exe"] {
-                        let _ = std::process::Command::new("taskkill")
-                            .args(["/F", "/IM", process])
-                            .creation_flags(0x08000000)
-                            .output();
-                    }
-                }
-                #[cfg(target_os = "macos")]
-                {
-                    for process in ["opencode-cli", "llama-server"] {
-                        let _ = std::process::Command::new("killall")
-                            .arg(process)
-                            .output();
-                    }
+                // Stops the sidecar and llama-server by PID, after checking each
+                // one is still the process we spawned. This used to kill by image
+                // name, which also ended the llama-server belonging to the user's
+                // genuine OpenCode install.
+                if let Some(children) = app.try_state::<child_processes::ChildProcesses>() {
+                    children.stop_all();
                 }
             }
         });
@@ -599,28 +584,11 @@ struct LoadingWindowComplete;
 async fn initialize(app: AppHandle) {
     tracing::info!("Initializing app");
 
-    // Defensive cleanup: nuke any stray opencode-cli / llama-server processes
-    // left by a previous app instance that didn't exit cleanly (Tauri
-    // `RunEvent::Exit` can skip firing on abrupt close, crash, or
-    // close-via-tray-menu with state preserved). Without this, the new
-    // sidecar fails to bind its port and the app hangs at startup. Counterpart
-    // of the shutdown taskkill in the `RunEvent::Exit` arm below.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        for process in ["opencode-cli.exe", "llama-server.exe"] {
-            let _ = std::process::Command::new("taskkill")
-                .args(["/F", "/IM", process])
-                .creation_flags(0x08000000)
-                .output();
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        for process in ["opencode-cli", "llama-server"] {
-            let _ = std::process::Command::new("killall").arg(process).output();
-        }
-    }
+    // Stray children from an instance that didn't exit cleanly (Tauri's
+    // `RunEvent::Exit` can skip firing on abrupt close, crash, or close-via-tray
+    // with state preserved) are already reclaimed by the lease sweep in `run()`,
+    // which happens before this point. Repeating it here would only re-scan the
+    // same, now-empty, lease directory.
 
     let (init_tx, init_rx) = watch::channel(InitStep::ServerWaiting);
 
@@ -669,6 +637,16 @@ async fn initialize(app: AppHandle) {
         password: Some(password),
     });
     app.manage(SidecarReady(ready_rx.shared()));
+
+    // Take the lease now: if the app is killed before this runs, the next start
+    // has no record of the sidecar and will leave it alone rather than guess.
+    if let Some(children) = app.try_state::<child_processes::ChildProcesses>() {
+        match child.pid() {
+            Some(pid) => children.adopt(pid),
+            None => tracing::warn!("sidecar reported no pid; it will not be reclaimed after a crash"),
+        }
+    }
+
     app.manage(ServerState {
         child: Arc::new(Mutex::new(Some(child))),
     });
@@ -681,7 +659,7 @@ async fn initialize(app: AppHandle) {
     let needs_migration = !sqlite_file_exists();
     let sqlite_done = needs_migration.then(|| {
         tracing::info!(
-            path = %opencode_db_path().expect("failed to get db path").display(),
+            path = %sidecar_db_path().expect("failed to get db path").display(),
             "Sqlite file not found, waiting for it to be generated"
         );
 
@@ -766,8 +744,17 @@ async fn initialize(app: AppHandle) {
 }
 
 fn setup_app(app: &tauri::AppHandle, init_rx: watch::Receiver<InitStep>) {
+    // Registers the schemes in tauri.conf.json — only `unifia`; `opencode` is
+    // parsed by the import flow but never claimed, so signing in from a browser
+    // cannot silently take the handler away from an OpenCode install.
+    //
+    // The failure used to be discarded with `.ok()`. When registration fails the
+    // app keeps running but every deep link — OAuth callbacks included — lands
+    // nowhere, and nothing anywhere says why.
     #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
-    app.deep_link().register_all().ok();
+    if let Err(error) = app.deep_link().register_all() {
+        tracing::error!(%error, "failed to register the unifia:// scheme — deep links and OAuth callbacks will not arrive");
+    }
 
     app.manage(InitState { current: init_rx });
 }
@@ -805,14 +792,29 @@ fn get_sidecar_port() -> u32 {
 }
 
 fn sqlite_file_exists() -> bool {
-    let Ok(path) = opencode_db_path() else {
+    let Ok(path) = sidecar_db_path() else {
         return true;
     };
 
     path.exists()
 }
 
-fn opencode_db_path() -> Result<PathBuf, &'static str> {
+/// Where the sidecar actually creates its database.
+///
+/// This must mirror `Global.Path.data` in packages/unifia/src/global/index.ts,
+/// which joins the XDG data home with the product's data directory name. It
+/// previously joined "opencode" — the official install's directory — so the
+/// probe read a file this application never writes: with OpenCode installed the
+/// migration window was skipped even on a first run, and without it the window
+/// appeared on every start even once Unifia's own database existed.
+///
+/// The file inside is now named `unifia.db` on both sides (TypeScript and
+/// Rust). On first access, if a legacy `opencode.db` is present and no
+/// `unifia.db` exists yet, the legacy file (and its `-wal` / `-shm` siblings)
+/// is copied to the new location. The copy is never a move, so a concurrent
+/// upstream install keeps working and the legacy file remains as a backup.
+/// See Runbook-Autonome-Independance-Unifia-2026-08-10 §3 (carte C8-A).
+fn sidecar_db_path() -> Result<PathBuf, &'static str> {
     let xdg_data_home = env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty());
 
     let data_home = match xdg_data_home {
@@ -823,7 +825,56 @@ fn opencode_db_path() -> Result<PathBuf, &'static str> {
         }
     };
 
-    Ok(data_home.join("opencode").join("opencode.db"))
+    let data_dir = data_home.join(crate::identity_generated::DATA_DIR_NAME);
+    let new_path = data_dir.join("unifia.db");
+    let old_path = data_dir.join("opencode.db");
+
+    migrate_legacy_db(&new_path, &old_path)?;
+
+    Ok(new_path)
+}
+
+/// Copy a legacy `opencode.db` (and its `-wal` / `-shm` siblings) to the new
+/// `unifia.db` path. Idempotent: bails out if the destination already exists
+/// (so a second startup is a no-op) or if the source is missing (so a fresh
+/// install does not error). Never deletes the source. Returns an error if a
+/// copy itself fails, so the caller can refuse to start on a half-migrated
+/// database rather than boot on an empty one.
+fn migrate_legacy_db(new_path: &Path, old_path: &Path) -> Result<(), &'static str> {
+    if new_path.exists() {
+        return Ok(());
+    }
+    if !old_path.exists() {
+        return Ok(());
+    }
+    tracing::info!(
+        "migrating legacy database file from {} to {}",
+        old_path.display(),
+        new_path.display()
+    );
+    for suffix in ["", "-wal", "-shm"] {
+        let src = append_suffix(old_path, suffix);
+        let dst = append_suffix(new_path, suffix);
+        if !src.exists() {
+            continue;
+        }
+        if let Err(e) = std::fs::copy(&src, &dst) {
+            tracing::error!(
+                "failed to copy {} to {}: {}",
+                src.display(),
+                dst.display(),
+                e
+            );
+            return Err("failed to migrate legacy database file");
+        }
+    }
+    Ok(())
+}
+
+fn append_suffix(p: &Path, suffix: &str) -> PathBuf {
+    let mut s = p.as_os_str().to_owned();
+    s.push(suffix);
+    PathBuf::from(s)
 }
 
 // Creates a `once` listener for the specified event and returns a future that resolves
@@ -839,5 +890,93 @@ fn event_once_fut<T: tauri_specta::Event + serde::de::DeserializeOwned>(
     });
     async {
         let _ = rx.await;
+    }
+}
+
+#[cfg(test)]
+mod db_migration_tests {
+    use super::{append_suffix, migrate_legacy_db};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn unique_tmpdir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let seq = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!(
+            "unifia-{label}-{nanos}-{seq}-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("create tempdir");
+        dir
+    }
+
+    #[test]
+    fn copies_legacy_db_to_new_path() {
+        let dir = unique_tmpdir("db-copy");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+        fs::write(&old, b"legacy").unwrap();
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert_eq!(fs::read(&new).unwrap(), b"legacy");
+        assert!(old.exists(), "legacy file is preserved (copy, not move)");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn copies_wal_and_shm_siblings() {
+        let dir = unique_tmpdir("db-siblings");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+        fs::write(&old, b"main").unwrap();
+        fs::write(append_suffix(&old, "-wal"), b"wal").unwrap();
+        fs::write(append_suffix(&old, "-shm"), b"shm").unwrap();
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert_eq!(fs::read(&new).unwrap(), b"main");
+        assert_eq!(fs::read(append_suffix(&new, "-wal")).unwrap(), b"wal");
+        assert_eq!(fs::read(append_suffix(&new, "-shm")).unwrap(), b"shm");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn idempotent_when_new_already_exists() {
+        let dir = unique_tmpdir("db-idempotent");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+        fs::write(&old, b"legacy").unwrap();
+        fs::write(&new, b"current").unwrap();
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert_eq!(fs::read(&new).unwrap(), b"current", "new file is not overwritten");
+        assert!(old.exists(), "legacy file is untouched");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn noop_when_legacy_is_absent() {
+        let dir = unique_tmpdir("db-noop");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert!(!new.exists(), "new file is not created without a source");
+        assert!(!old.exists(), "nothing to migrate");
+
+        fs::remove_dir_all(&dir).ok();
     }
 }

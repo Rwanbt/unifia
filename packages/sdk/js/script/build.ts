@@ -25,7 +25,7 @@ await createClient({
     },
     {
       name: "@hey-api/sdk",
-      instance: "OpencodeClient",
+      instance: "UnifiaClient",
       exportFromIndex: false,
       auth: false,
       paramsStructure: "flat",
@@ -40,6 +40,7 @@ await createClient({
 
 await $`bun prettier --write src/gen`
 await $`bun prettier --write src/v2`
-await $`rm -rf dist`
-await $`bun tsc`
+// Via the script so the stale tsbuildinfo goes with dist: tsc is incremental
+// here (composite), and left alone it reports success while emitting nothing.
+await $`bun run compile`
 await $`rm openapi.json`

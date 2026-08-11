@@ -1,14 +1,14 @@
 import { type Component, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
-import { Button } from "@opencode-ai/ui/button"
-import { Collapsible } from "@opencode-ai/ui/collapsible"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Select } from "@opencode-ai/ui/select"
-import { Switch } from "@opencode-ai/ui/switch"
-import { TextField } from "@opencode-ai/ui/text-field"
-import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme/context"
-import { showToast } from "@opencode-ai/ui/toast"
+import { Button } from "@unifia/ui/button"
+import { Collapsible } from "@unifia/ui/collapsible"
+import { Icon } from "@unifia/ui/icon"
+import { Select } from "@unifia/ui/select"
+import { Switch } from "@unifia/ui/switch"
+import { TextField } from "@unifia/ui/text-field"
+import { Tooltip } from "@unifia/ui/tooltip"
+import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
+import { showToast } from "@unifia/ui/toast"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -47,7 +47,7 @@ const ConfigExportImport: Component = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = "opencode-config.json"
+      a.download = "unifia-config.json"
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
