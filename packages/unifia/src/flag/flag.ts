@@ -249,6 +249,22 @@ export namespace Flag {
   export declare const UNIFIA_KEYCHAIN_URL: string | undefined
   export declare const UNIFIA_KEYCHAIN_TOKEN: string | undefined
   export const UNIFIA_DISABLE_LSP_DOWNLOAD = unifiaTruthy("DISABLE_LSP_DOWNLOAD", OPENCODE_DISABLE_LSP_DOWNLOAD)
+
+  /**
+   * Start no language server at all.
+   *
+   * Distinct from UNIFIA_DISABLE_LSP_DOWNLOAD, which only stops *fetching* a
+   * missing server: the ones already present on the machine still start, and
+   * each one that fails to hand back an `initialize` response costs the full
+   * 45 s timeout. In CI that is what makes the e2e suite unstable — rust,
+   * typescript and julials each burn 45 s while Playwright's own timers run.
+   *
+   * Fork-owned, so there is no OPENCODE_ spelling to fall back to. Config
+   * `lsp: false` remains the way to express this in a project's config file;
+   * this exists for callers that have no config to edit, such as the e2e
+   * runner.
+   */
+  export const UNIFIA_DISABLE_LSP = truthy("UNIFIA_DISABLE_LSP")
 }
 // Dynamic getter for OPENCODE_DISABLE_PROJECT_CONFIG
 // This must be evaluated at access time, not module load time,

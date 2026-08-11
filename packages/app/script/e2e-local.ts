@@ -68,6 +68,12 @@ const serverEnv = {
   ...process.env,
   UNIFIA_DISABLE_SHARE: process.env.UNIFIA_DISABLE_SHARE ?? "true",
   UNIFIA_DISABLE_LSP_DOWNLOAD: "true",
+  // DOWNLOAD alone was not enough: it stops fetching a missing server, but the
+  // ones the runner image already has still start, and rust, typescript and
+  // julials each spend the full 45 s initialize timeout before giving up.
+  // That runs concurrently with Playwright's own timers and is the mechanism
+  // behind the suite's flakiness. The e2e suite exercises no LSP feature.
+  UNIFIA_DISABLE_LSP: process.env.UNIFIA_DISABLE_LSP ?? "true",
   UNIFIA_DISABLE_DEFAULT_PLUGINS: "true",
   UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
   UNIFIA_TEST_HOME: path.join(sandbox, "home"),

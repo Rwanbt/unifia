@@ -300,8 +300,8 @@ export namespace LSP {
 
           const servers: Record<string, LSPServer.Info> = {}
 
-          if (cfg.lsp === false) {
-            log.info("all LSPs are disabled")
+          if (cfg.lsp === false || Flag.UNIFIA_DISABLE_LSP) {
+            log.info("all LSPs are disabled", { reason: cfg.lsp === false ? "config" : "UNIFIA_DISABLE_LSP" })
           } else {
             for (const server of Object.values(LSPServer)) {
               servers[server.id] = server
