@@ -10,7 +10,7 @@
 | Phase | Statut | Commit | Notes |
 |-------|--------|--------|-------|
 | Phase 0 (R3 build) | ⏸ à faire | — | Bloquant. copy-sidecar.ts déjà amélioré par GLM mais pas les 3 autres sous-étapes. |
-| **Phase 1 (R2 canonical)** | **✅ FAIT 2026-06-25** | `f46824090a` + `b1d2ac3131` | canonical.ts (frontend) + toCanonicalRelative (backend). 19 tests frontend + 3 tests backend. 129/129 packages/opencode/test/file/ verts. Reste : tools (write/edit/apply_patch) migrés en Phase 2. |
+| **Phase 1 (R2 canonical)** | **✅ FAIT 2026-06-25** | `f46824090a` + `b1d2ac3131` | canonical.ts (frontend) + toCanonicalRelative (backend). 19 tests frontend + 3 tests backend. 129/129 packages/unifia/test/file/ verts. Reste : tools (write/edit/apply_patch) migrés en Phase 2. |
 | Phase 2.1 (FileDoc contrat) | **✅ FAIT 2026-06-25** | `a93d6c6199` | Stamp gardé dans editor/store.ts. Stale absorbé dans `conflict`. Content = string + vcs séparé. 14 tests. 488/488 packages/app + 129/129 backend verts. |
 | Phase 2.2 (trim backend retiré) | **✅ FAIT 2026-06-25** | `76efa186a7` | `.trim()` retiré à `file/index.ts:633`. Pas de `readText()` créé (audit : aucun consumer ne veut le trim). 3 tests backend patchés (ils asservaient le bug R1). 129/129 backend + 488/488 packages/app verts. |
 | Phase 2.3 (unifier read/readRaw) | **✅ FAIT 2026-06-25** | `d8f8c1e998` | `read()` appelle `readRaw()` interne (via `Effect.promise` + `Effect.catch`). VCS mémo paresseux sera dans `FileDoc.vcs` côté frontend (2.4). 488/488 packages/app + 129/129 backend verts. |
@@ -228,7 +228,7 @@ Sans ça, aucun fix n'est vérifiable.
 1. **Réparer le pipeline sidecar** : `copy-sidecar.ts` doit résoudre la source fraîche
    (pas via junction). Vérifier le junction (`Get-Item ... | Select LinkType,Target`) ;
    si présent, pointer la source vers le résolu réel
-   `packages/opencode/dist/opencode-windows-x64/bin/opencode.exe`.
+   `packages/unifia/dist/opencode-windows-x64/bin/opencode.exe`.
 2. **`beforeBuildCommand`** = `bun run build && bun run precopy:sidecar` (frontend + sidecar).
 3. **`cli.rs get_sidecar_path`** : fallback défense-en-profondeur vers `sidecars/` si le sibling
    est absent/stale (vérif : chaîne `File changed on disk since it was last read` présente).

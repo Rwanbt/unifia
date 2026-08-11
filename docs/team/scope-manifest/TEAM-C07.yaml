@@ -13,21 +13,21 @@ depends_on:
   - TEAM-C05 (CLOSED+INTEGRATED, D-053)
   - TEAM-C06 (CLOSED+INTEGRATED, D-054)
 allowed_create:
-  - packages/opencode/src/model-intelligence/sync.ts
-  - packages/opencode/test/model-intelligence/sync.test.ts
+  - packages/unifia/src/model-intelligence/sync.ts
+  - packages/unifia/test/model-intelligence/sync.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-C07.yaml
 forbidden_modify:
-  - packages/opencode/src/model-intelligence/registry.ts   # JAMAIS réécrit, import type-only si besoin
-  - packages/opencode/src/model-intelligence/schema.ts       # import-only
-  - packages/opencode/src/model-intelligence/storage.ts      # import-only (StorageManager/StorageBackend exportés, réutilisables)
-  - packages/opencode/src/model-intelligence/ingestion.ts    # import-only (ingest/buildRegistry exportés)
-  - packages/opencode/src/model-intelligence/connectors/**   # import-only
-  - packages/opencode/src/model-intelligence/pricing.ts      # import-only
-  - packages/opencode/src/model-intelligence/benchmarks.ts   # import-only
-  - packages/opencode/src/model-intelligence/health.ts       # import-only
-  - packages/opencode/src/multi-model/**
-  - packages/opencode/src/team/**
+  - packages/unifia/src/model-intelligence/registry.ts   # JAMAIS réécrit, import type-only si besoin
+  - packages/unifia/src/model-intelligence/schema.ts       # import-only
+  - packages/unifia/src/model-intelligence/storage.ts      # import-only (StorageManager/StorageBackend exportés, réutilisables)
+  - packages/unifia/src/model-intelligence/ingestion.ts    # import-only (ingest/buildRegistry exportés)
+  - packages/unifia/src/model-intelligence/connectors/**   # import-only
+  - packages/unifia/src/model-intelligence/pricing.ts      # import-only
+  - packages/unifia/src/model-intelligence/benchmarks.ts   # import-only
+  - packages/unifia/src/model-intelligence/health.ts       # import-only
+  - packages/unifia/src/multi-model/**
+  - packages/unifia/src/team/**
   - main, dev, opti-ui, Team branches
 notes: |
   Risque CRITIQUE. TENSION ARCHITECTURALE DÉCOUVERTE PAR L'ORCHESTRATEUR (à
@@ -99,8 +99,8 @@ deviations_from_spec: |
   This is not a modification of storage.ts (untouched), just avoiding one of
   its documented-here-not-there code paths for the transactional commit.
 scope_respected: |
-  Yes. Only created packages/opencode/src/model-intelligence/sync.ts and
-  packages/opencode/test/model-intelligence/sync.test.ts, and modified this
+  Yes. Only created packages/unifia/src/model-intelligence/sync.ts and
+  packages/unifia/test/model-intelligence/sync.test.ts, and modified this
   scope-manifest file. registry.ts never touched (verified: no git diff on
   it). All model-intelligence/** and connectors/** imports in sync.ts are
   read-only (no modification). No import of multi-model/** or team/**

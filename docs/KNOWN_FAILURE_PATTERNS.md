@@ -10,7 +10,7 @@
 #### Sidecar stale après modification TypeScript
 **Symptôme** : l'app desktop se comporte comme avant la modification, sans erreur.
 **Cause** : `bun tauri build` ne recompile pas `opencode-cli.exe` automatiquement.
-**Fix** : `bun run build --single --baseline` dans `packages/opencode`, puis copier dans `sidecars/`.
+**Fix** : `bun run build --single --baseline` dans `packages/unifia`, puis copier dans `sidecars/`.
 **Fichier** : [packages/desktop/src-tauri/src/server.rs](../packages/desktop/src-tauri/src/server.rs)
 
 #### Android build hang sur pipe
@@ -46,7 +46,7 @@
 **Symptôme** : `cargo check`/`build` échouent systématiquement en agent mode, 5+ retries identiques.
 **Cause** : Gemma-4 E4B envoie `dry_run` au lieu de `description` requis dans le schema bash tool.
 **Fix** : patcher `tool/bash.ts` — field `description` obligatoire, ignorer `dry_run`.
-**Fichier** : [packages/opencode/src/tool/bash.ts](../packages/opencode/src/tool/bash.ts)
+**Fichier** : [packages/unifia/src/tool/bash.ts](../packages/unifia/src/tool/bash.ts)
 
 #### OpenCL Adreno K-quants crash
 **Symptôme** : llama-server exit 134 (`SET_ROWS`) avec Q4_K_M sur Adreno.
@@ -195,12 +195,12 @@ Deux étages :
 
 #### CORS regex trop permissif
 **Pattern** : `*.opencode.ai` accepte des sous-domaines arbitraires.
-**Fichier** : [packages/opencode/src/server/server.ts](../packages/opencode/src/server/server.ts)
+**Fichier** : [packages/unifia/src/server/server.ts](../packages/unifia/src/server/server.ts)
 
 #### WebSocket auth en query param
 **Pattern** : `?authorization=` visible dans les logs réseau.
-**Fichier** : [packages/opencode/src/server/auth-jwt.ts](../packages/opencode/src/server/auth-jwt.ts)
+**Fichier** : [packages/unifia/src/server/auth-jwt.ts](../packages/unifia/src/server/auth-jwt.ts)
 
 #### `auth.json` plaintext
 **Pattern** : tokens stockés en clair avec mode 0o600.
-**Fichier** : [packages/opencode/src/auth/index.ts](../packages/opencode/src/auth/index.ts)
+**Fichier** : [packages/unifia/src/auth/index.ts](../packages/unifia/src/auth/index.ts)

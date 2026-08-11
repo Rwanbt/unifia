@@ -15,7 +15,7 @@
 
 Avant de commencer le QA, vérifier :
 
-- [ ] `bun run build --single` dans `packages/opencode` effectué
+- [ ] `bun run build --single` dans `packages/unifia` effectué
       (sidecar TS recompilé — voir memory `feedback_opencode_build_process`).
 - [ ] `ORT_LIB_LOCATION` exporté (voir memory `reference_ort_android_build`).
 - [ ] `bun tauri android build` exit 0 (5+ min, ne pas compiler sans

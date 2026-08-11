@@ -40,7 +40,7 @@ node scripts/install-brand.mjs --repo /opt/data/work/unifia-sandbox/repo --apply
 
 Whitelist stricte qui protège :
 - URLs upstream (`github.com/.../opencode`)
-- Paths packages (`packages/opencode/`)
+- Paths packages (`packages/unifia/`)
 - Workspace deps (`opencode-ai/*`)
 - localStorage keys (`opencode.global.dat:language`)
 - Theme IDs (`opencode-theme-id`)
@@ -48,7 +48,7 @@ Whitelist stricte qui protège :
 Patterns à protéger (regex) :
 - `https?://[^\s\)\]"'`]*opencode[^\s\)\]"'`]*`
 - `github\.com/[^\s]*`
-- `packages/opencode...`
+- `packages/unifia...`
 - `opencode-cli...`
 - `@unifia/...`
 - `Rwanbt/unifia`, `anomalyco/opencode`

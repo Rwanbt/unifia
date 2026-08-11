@@ -171,7 +171,7 @@ Unifia Workbench uruchamia modele AI lokalnie na sprzęcie konsumenckim (8 GB VR
 
 **Silnik Inferencji (llama.cpp b8731)**
 - Backend GPU Vulkan, automatycznie pobierany przy pierwszym ładowaniu modelu
-- **Adaptacyjna konfiguracja runtime** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, wątki, rozmiar batch/ubatch, kwantyzacja cache KV i rozmiar kontekstu wyprowadzane z wykrytej VRAM, wolnej RAM, podziału CPU big.LITTLE, backendu GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) oraz stanu termicznego. Zastępuje dawne zakodowane na stałe `--n-gpu-layers 99` — 4 GB Android działa teraz w trybie awaryjnym CPU zamiast być zabijany przez OOM, flagowe desktopy otrzymują dostrojony batch zamiast domyślnego 512.
+- **Adaptacyjna konfiguracja runtime** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, wątki, rozmiar batch/ubatch, kwantyzacja cache KV i rozmiar kontekstu wyprowadzane z wykrytej VRAM, wolnej RAM, podziału CPU big.LITTLE, backendu GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) oraz stanu termicznego. Zastępuje dawne zakodowane na stałe `--n-gpu-layers 99` — 4 GB Android działa teraz w trybie awaryjnym CPU zamiast być zabijany przez OOM, flagowe desktopy otrzymują dostrojony batch zamiast domyślnego 512.
 - `--flash-attn on` — Flash Attention dla efektywności pamięci
 - `--cache-type-k/v` — Cache KV z rotacją a; adaptacyjny poziom (f16 / q8_0 / q4_0) w zależności od zapasu VRAM
 - `--fit on` — wtórna korekta VRAM dostępna tylko w forku (opt-in przez `UNIFIA_LLAMA_ENABLE_FIT=1`)
@@ -595,7 +595,7 @@ Natywna aplikacja Android/iOS przez Tauri 2.0 z **wbudowanym runtime** — jeden
 - **Statyczne binaria w APK** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl) wyodrębniane przy pierwszym uruchomieniu (~15s)
 - **Dołączone CLI** — CLI Unifia Workbench jako bundle JS uruchamiany przez wbudowany Bun, bez sieci wymaganej dla core
 - **Bezpośredni spawn procesów** — Bez Termux, bez intentów — `std::process::Command` z Rusta bezpośrednio
-- **Automatyczny start serwera** — `bun opencode-cli.js serve` na localhost z uwierzytelnianiem UUID, tak samo jak sidecar desktopowy
+- **Automatyczny start serwera** — `bun unifia-cli.js serve` na localhost z uwierzytelnianiem UUID, tak samo jak sidecar desktopowy
 
 **Layer 2 — Inferencja LLM na Urządzeniu:**
 - **llama.cpp via JNI** — Kotlin LlamaEngine ładuje natywne biblioteki .so z mostem JNI

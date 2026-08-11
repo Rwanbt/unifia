@@ -159,7 +159,7 @@ slsa-verifier verify-artifact <artifact> \
 | `<unifia-desktop-x86_64.msi>` | `<fill in from .sha256>` |
 | `<unifia-desktop-aarch64.dmg>` | `<fill in from .sha256>` |
 | `<unifia-mobile.apk>` | `<fill in from .sha256>` |
-| `<opencode-cli-linux.tar.gz>` | `<fill in from .sha256>` |
+| `<unifia-cli-linux.tar.gz>` | `<fill in from .sha256>` |
 
 ### References
 

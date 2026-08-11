@@ -59,7 +59,7 @@ I Unifia: LlamaEngine initialized
 
 La **logique de fallback SoC ancien → CPU-only** (adaptive runtime
 auto-config.ts) fonctionne correctement. C'est exactement le comportement
-documenté dans `packages/opencode/src/local-llm-server/auto-config.ts`.
+documenté dans `packages/unifia/src/local-llm-server/auto-config.ts`.
 
 ### T3. IPC llm_ipc command loop
 

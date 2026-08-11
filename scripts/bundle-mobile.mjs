@@ -33,7 +33,7 @@ const runtimeVersion = process.env.UNIFIA_VERSION || process.env.OPENCODE_VERSIO
 const runtimeChannel = process.env.UNIFIA_CHANNEL || process.env.OPENCODE_CHANNEL || "local"
 
 // ── 1. Read SQL migrations ──────────────────────────────────────────
-const migrationDir = join(ROOT, "packages/opencode/migration")
+const migrationDir = join(ROOT, "packages/unifia/migration")
 const dirs = readdirSync(migrationDir, { withFileTypes: true })
   .filter((e) => e.isDirectory())
   .map((e) => e.name)
@@ -60,7 +60,7 @@ mkdirSync(outdir, { recursive: true })
 
 const cmd = [
   "bun", "build",
-  join(ROOT, "packages/opencode/src/mobile-entry.ts"),
+  join(ROOT, "packages/unifia/src/mobile-entry.ts"),
   "--target=bun",
   `--outdir=${outdir}`,
   '--external', '@opentui/core',
@@ -72,7 +72,7 @@ execSync(cmd, { stdio: "inherit", cwd: ROOT })
 
 // Rename output
 const outputPath = join(outdir, "mobile-entry.js")
-const finalPath = join(outdir, "opencode-cli.js")
+const finalPath = join(outdir, "unifia-cli.js")
 if (existsSync(outputPath)) {
   renameSync(outputPath, finalPath)
 }
@@ -90,7 +90,7 @@ writeFileSync(finalPath, prefix + bundle)
 
 // ── 4. Copy to gen/android assets ───────────────────────────────────
 mkdirSync(assetsDir, { recursive: true })
-cpSync(finalPath, join(assetsDir, "opencode-cli.js"))
+cpSync(finalPath, join(assetsDir, "unifia-cli.js"))
 
 // ── 5. Verify ───────────────────────────────────────────────────────
 const content = readFileSync(finalPath, "utf8")

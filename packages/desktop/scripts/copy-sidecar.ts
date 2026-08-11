@@ -18,8 +18,8 @@ const sidecarConfig = getCurrentSidecar(target)
 // the pre-rebrand `bin/opencode`, they never matched and every build silently
 // recycled that stale copy instead of the freshly built binary.
 const candidates = [
-  windowsify(`../opencode/dist/${sidecarConfig.ocBinary}/bin/${cliPackageName}`),
-  windowsify(`../opencode/dist/${sidecarConfig.ocBinary.replace("-baseline", "")}/bin/${cliPackageName}`),
+  windowsify(`../unifia/dist/${sidecarConfig.ocBinary}/bin/${cliPackageName}`),
+  windowsify(`../unifia/dist/${sidecarConfig.ocBinary.replace("-baseline", "")}/bin/${cliPackageName}`),
   windowsify(`src-tauri/sidecars/unifia-cli-${target}`),
 ]
 

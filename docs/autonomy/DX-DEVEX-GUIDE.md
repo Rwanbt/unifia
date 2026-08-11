@@ -43,7 +43,7 @@ Welcome ! Ce guide vous accompagne dans vos premières contributions.
 bun turbo test
 
 # Single package
-cd packages/opencode
+cd packages/unifia
 bun test
 
 # E2E

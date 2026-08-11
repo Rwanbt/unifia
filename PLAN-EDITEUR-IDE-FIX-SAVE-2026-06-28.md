@@ -461,13 +461,13 @@ Mon analyse dit que les edits sont perdus après close (EditorTabCleanup supprim
    console.log('[editor] backend-write-send', filePath, 'len=', content.length, 'first50=', content.slice(0, 50), 'expectedHash=', effectiveHash)
    ```
 
-   **`packages/opencode/src/file/index.ts` ligne ~1018** (backend) :
+   **`packages/unifia/src/file/index.ts` ligne ~1018** (backend) :
    ```ts
    await atomicWrite(full, input.content)
    console.log('[backend] atomicWrite', full, 'len=', input.content.length, 'first50=', input.content.slice(0, 50))
    ```
 
-   **`packages/opencode/src/server/routes/file.ts` ligne ~319** :
+   **`packages/unifia/src/server/routes/file.ts` ligne ~319** :
    ```ts
    const result = await File.write(body)
    console.log('[route] file.write-OK', body.path, 'result.content.length=', result.content.length, 'first50=', result.content.slice(0, 50))

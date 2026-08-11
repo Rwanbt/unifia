@@ -31,12 +31,22 @@ const CHANNEL = await (async () => {
 })()
 const IS_PREVIEW = CHANNEL !== "latest"
 
+// Kept in step with NPM_PACKAGE in packages/unifia/src/installation/index.ts:
+// the version a release is cut from and the package the CLI upgrades itself
+// through have to be the same product.
+const NPM_PACKAGE = "unifia-ai"
+
 const VERSION = await (async () => {
   if (env.UNIFIA_VERSION) return env.UNIFIA_VERSION
   if (IS_PREVIEW) return `0.0.0-${CHANNEL}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}`
-  const version = await fetch("https://registry.npmjs.org/opencode-ai/latest")
+  // This fork's own package. It read upstream's `opencode-ai`, so a release cut
+  // without UNIFIA_VERSION took upstream's latest and bumped that — 1.18.16
+  // against this product's 1.3.x. The 404 before the first `unifia-ai` publish
+  // is deliberate: guessing a version from an empty registry is how a release
+  // silently lands on the wrong number.
+  const version = await fetch(`https://registry.npmjs.org/${NPM_PACKAGE}/latest`)
     .then((res) => {
-      if (!res.ok) throw new Error(res.statusText)
+      if (!res.ok) throw new Error(`${NPM_PACKAGE}: ${res.statusText} — pass UNIFIA_VERSION to set it explicitly`)
       return res.json()
     })
     .then((data: any) => data.version)

@@ -13,13 +13,13 @@ Pour valider qu'Unifia fonctionne avec OpenCode legacy, Unifia runtime, et un Fa
 
 ### P1-C100a — FakeRuntimeAdapter
 - **Statut :** `READY`
-- **Scope :** `packages/opencode/src/runtime/fake.ts` (~200 lignes)
+- **Scope :** `packages/unifia/src/runtime/fake.ts` (~200 lignes)
 - **Livrable :** FakeRuntime qui simule sessions, prompts, events, permissions
 - **Acceptance :** tous les tests peuvent utiliser FakeRuntime sans I/O
 
 ### P1-C100b — OpenCodeRuntimeAdapter test fixture
 - **Statut :** `PROPOSED`
-- **Scope :** `packages/opencode/src/runtime/opencode-fixture.ts` (~150 lignes)
+- **Scope :** `packages/unifia/src/runtime/opencode-fixture.ts` (~150 lignes)
 - **Livrable :** Mock de l'API OpenCode legacy pour tester l'adapter
 - **Acceptance :** OpenCodeRuntimeAdapter passe la conformance suite
 
@@ -41,7 +41,7 @@ Pour valider qu'Unifia fonctionne avec OpenCode legacy, Unifia runtime, et un Fa
 
 ### P1-C100d — Recording/Replay
 - **Statut :** `PROPOSED`
-- **Scope :** `packages/opencode/src/runtime/recording.ts` (~250 lignes)
+- **Scope :** `packages/unifia/src/runtime/recording.ts` (~250 lignes)
 - **Livrable :** System qui enregistre les events d'une session et les rejoue
 - **Acceptance :** un recording peut être rejoué bit-pour-bit par n'importe quel adapter
 

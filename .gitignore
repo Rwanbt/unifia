@@ -13,6 +13,9 @@ playground
 tmp
 dist
 ts-dist
+# npm tarballs produced by `bun pm pack` during a publish
+packages/*/*.tgz
+packages/*/*/*.tgz
 .turbo
 **/.serena
 .serena/
@@ -47,7 +50,7 @@ packages/mobile/src-tauri/assets/runtime/lib/
 crates/opencode-kokoro-shared/Cargo.lock
 
 # Local LLM eval results
-packages/opencode/test/tool/eval-results/
+packages/unifia/test/tool/eval-results/
 
 # Claude Code / Unifia agent workspace
 .claudeignore
@@ -74,7 +77,7 @@ keystore.properties
 !gradle.properties.template
 
 # Benchmark artefacts (audit §7)
-packages/opencode/bench/results/
+packages/unifia/bench/results/
 *.bench.json
 
 # OS / IDE
@@ -119,6 +122,9 @@ _bench/
 
 # Local output of scripts/unifia-conformance.mjs --json
 unifia-conformance.json
+
+# Local scratch archive (PR body drafts, migration notes) — never tracked
+.unifia-archives/
 
 # Release build outputs: android-runtime-provenance.json records the absolute
 # repository path and per-machine tool versions, so it is a local record rather

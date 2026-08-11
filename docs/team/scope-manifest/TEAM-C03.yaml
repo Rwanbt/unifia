@@ -11,20 +11,20 @@ worktree: D:\App\OpenCode\.team-worktrees\C03-d0d2cfd8
 fencing_token_provisional: 151
 
 allowed_create:
-  - packages/opencode/src/model-intelligence/connectors/http-connector.ts
-  - packages/opencode/src/model-intelligence/connectors/snapshot-manager.ts
-  - packages/opencode/test/model-intelligence/connectors/http.test.ts
-  - packages/opencode/test/model-intelligence/connectors/snapshot-manager.test.ts
+  - packages/unifia/src/model-intelligence/connectors/http-connector.ts
+  - packages/unifia/src/model-intelligence/connectors/snapshot-manager.ts
+  - packages/unifia/test/model-intelligence/connectors/http.test.ts
+  - packages/unifia/test/model-intelligence/connectors/snapshot-manager.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-C03.yaml
 
 forbidden:
-  - packages/opencode/src/model-intelligence/registry.ts   # C01 core, figé
-  - packages/opencode/src/model-intelligence/schema.ts     # C01 core, figé
-  - packages/opencode/src/model-intelligence/connectors/types.ts   # C02 contrat, figé — importer seulement
-  - packages/opencode/src/model-intelligence/connectors/registry.ts # C02 contrat, figé — importer seulement
-  - packages/opencode/src/multi-model/**                  # B01/B02/B03 simultanée cette vague
-  - packages/opencode/src/team/**                         # G01/G02 figé
+  - packages/unifia/src/model-intelligence/registry.ts   # C01 core, figé
+  - packages/unifia/src/model-intelligence/schema.ts     # C01 core, figé
+  - packages/unifia/src/model-intelligence/connectors/types.ts   # C02 contrat, figé — importer seulement
+  - packages/unifia/src/model-intelligence/connectors/registry.ts # C02 contrat, figé — importer seulement
+  - packages/unifia/src/multi-model/**                  # B01/B02/B03 simultanée cette vague
+  - packages/unifia/src/team/**                         # G01/G02 figé
   - toute branche protégée: main, dev, opti-ui, Team
 
 acceptance_criteria:
@@ -39,7 +39,7 @@ acceptance_criteria:
 
 validations_required:
   before_commit:
-    - "cd packages/opencode && bunx tsgo --noEmit"
+    - "cd packages/unifia && bunx tsgo --noEmit"
     - "bun test test/model-intelligence/connectors/ (baseline 80 tests C02 maintenue + nouveaux tests C03)"
     - "bunx biome check src/model-intelligence/connectors/"
     - "git diff --check"

@@ -171,7 +171,7 @@ OpenCode는 소비자용 하드웨어(VRAM 8 GB / RAM 16 GB)에서 AI 모델을 
 
 **추론 엔진 (llama.cpp b8731)**
 - Vulkan GPU 백엔드, 첫 모델 로드 시 자동 다운로드
-- **런타임 적응형 설정** (`packages/opencode/src/local-llm-server/auto-config.ts`): 감지된 VRAM, 여유 RAM, big.LITTLE CPU 분할, GPU 백엔드 (CUDA/ROCm/Vulkan/Metal/OpenCL), 온도 상태로부터 `n_gpu_layers`, 스레드, batch/ubatch 크기, KV 캐시 양자화, 컨텍스트 크기를 도출합니다. 기존의 하드코딩된 `--n-gpu-layers 99`를 대체 — 4 GB Android는 OOM 종료 대신 CPU 폴백으로 실행되고, 플래그십 데스크톱은 기본 512 대신 조정된 batch 값을 얻습니다.
+- **런타임 적응형 설정** (`packages/unifia/src/local-llm-server/auto-config.ts`): 감지된 VRAM, 여유 RAM, big.LITTLE CPU 분할, GPU 백엔드 (CUDA/ROCm/Vulkan/Metal/OpenCL), 온도 상태로부터 `n_gpu_layers`, 스레드, batch/ubatch 크기, KV 캐시 양자화, 컨텍스트 크기를 도출합니다. 기존의 하드코딩된 `--n-gpu-layers 99`를 대체 — 4 GB Android는 OOM 종료 대신 CPU 폴백으로 실행되고, 플래그십 데스크톱은 기본 512 대신 조정된 batch 값을 얻습니다.
 - `--flash-attn on` — 메모리 효율을 위한 Flash Attention
 - `--cache-type-k/v` —  회전 KV 캐시; VRAM 여유에 따른 적응형 계층 (f16 / q8_0 / q4_0)
 - `--fit on` — 포크 전용 보조 VRAM 조정 (`UNIFIA_LLAMA_ENABLE_FIT=1`로 옵트인)
@@ -595,7 +595,7 @@ Tauri 2.0을 통한 Android/iOS 네이티브 앱, **임베디드 런타임** —
 - **APK 내 정적 바이너리** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), 첫 실행 시 추출 (~15초)
 - **번들 CLI** — 임베디드 Bun으로 실행되는 JS 번들로서의 Unifia Workbench CLI, 코어 기능에 네트워크 불필요
 - **직접 프로세스 생성** — Termux 없음, intent 없음 — Rust에서 직접 `std::process::Command`
-- **서버 자동 시작** — `bun opencode-cli.js serve`, 데스크톱 사이드카와 동일한 UUID 인증 포함 localhost
+- **서버 자동 시작** — `bun unifia-cli.js serve`, 데스크톱 사이드카와 동일한 UUID 인증 포함 localhost
 
 **레이어 2 — 온디바이스 LLM 추론:**
 - **JNI를 통한 llama.cpp** — Kotlin LlamaEngine이 JNI 브리지로 네이티브 .so 라이브러리 로드

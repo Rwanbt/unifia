@@ -284,7 +284,7 @@ export function DialogLocalLLM() {
       const modelConfig = configRaw ? JSON.parse(configRaw) : {}
 
       // "auto" must match the ceiling actually passed to llama-server via
-      // --ctx-size (packages/opencode/src/local-llm-server/auto-config.ts
+      // --ctx-size (packages/unifia/src/local-llm-server/auto-config.ts
       // ::deriveConfig — RAM-tiered, maxes out at 16384). Advertising the
       // model's much larger native context (e.g. 131072) here caused
       // compaction to plan around a budget the server was never configured

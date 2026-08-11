@@ -61,15 +61,15 @@ Tous les éléments visibles et fonctionnels sont rebranded :
 |---|---|---|
 | `docs/autonomy/` (190 occurrences) | Mes propres livrables où "opencode" est contextuellement correct (références upstream dans Plan V3, FINAL-STATUS, etc.) | Aucune — c'est de la doc méta |
 | `docs/adr/` | Architecture Decision Records historiques | Aucune |
-| `packages/opencode/src/` (62 occurrences) | **Contrats techniques persistants** : `opencode.db` (chemin DB), `opencode.jsonc` (config), `opencode.trace` (observability), `User-Agent: opencode`, `scriptName("opencode")` (yargs), etc. | **MIGRATION-PLAN.md** documente la stratégie dual-support v1.0 → cleanup v2.0 |
-| `packages/opencode/src/cli/cmd/tui/component/logo.tsx` | CLI/TUI lockup différé Phase P1.3 (cf. CLI_TUI_DEFERRED_IMPLEMENTATION.md) | Carte dédiée future |
+| `packages/unifia/src/` (62 occurrences) | **Contrats techniques persistants** : `opencode.db` (chemin DB), `opencode.jsonc` (config), `opencode.trace` (observability), `User-Agent: opencode`, `scriptName("opencode")` (yargs), etc. | **MIGRATION-PLAN.md** documente la stratégie dual-support v1.0 → cleanup v2.0 |
+| `packages/unifia/src/cli/cmd/tui/component/logo.tsx` | CLI/TUI lockup différé Phase P1.3 (cf. CLI_TUI_DEFERRED_IMPLEMENTATION.md) | Carte dédiée future |
 | `packages/enterprise/` | BD-2 EXCLUDE — décision utilisateur requise | A/B/C dans BLOCKED-DECISIONS.md |
 | `themes/opencode.json` (id) | Theme identifier persistant | Conservé (breaking change si rebrand) |
 | `localStorage` keys (5) | Migration = breaking change pour utilisateurs | MIGRATION-PLAN.md §4.3 |
 | `packages/web/package.json` (devDep) | Workspace dep contractuel | Conservé (sinon casse bun install) |
-| `packages/opencode/package.json` (name) | Workspace dep contractuel | Conservé (cf. P0-C004 partial rebrand) |
+| `packages/unifia/package.json` (name) | Workspace dep contractuel | Conservé (cf. P0-C004 partial rebrand) |
 | URLs upstream (github.com/.../opencode) | Whitelist conservée | Aucune |
-| Paths packages/opencode/ | Whitelist conservée | Aucune |
+| Paths packages/unifia/ | Whitelist conservée | Aucune |
 | Sidecar opencode-cli | Whitelist conservée | Aucune |
 | @unifia/ (package scope) | Whitelist conservée | Aucune |
 | RELEASE-NOTES.md (13 occurrences) | Doc qui parle de la migration opencode → unifia | Aucune — c'est le sujet du doc |

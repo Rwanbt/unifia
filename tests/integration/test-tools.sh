@@ -33,9 +33,9 @@ fi
 echo "--- Test 2: all scripts executable ---"
 for f in "$TOOLS"/*.sh; do
     if [ -x "$f" ]; then
-        pass "$(basename $f) executable"
+        pass "$(basename "$f") executable"
     else
-        fail "$(basename $f) not executable"
+        fail "$(basename "$f") not executable"
     fi
 done
 
@@ -108,10 +108,10 @@ fi
 echo "--- Test 9: cleanup-cargo.sh --dry-run ---"
 # Créer un faux target/ à nettoyer
 TMPDIR=$(mktemp -d)
-mkdir -p "$TMPDIR/packages/opencode/target"
-echo "fake" > "$TMPDIR/packages/opencode/target/file.txt"
+mkdir -p "$TMPDIR/packages/unifia/target"
+echo "fake" > "$TMPDIR/packages/unifia/target/file.txt"
 # Setup fake root
-cd "$REPO_ROOT" 2>/dev/null || cd /
+cd "$REPO_ROOT" 2>/dev/null || cd / || exit 1
 OUT=$(bash "$TOOLS/cleanup-cargo.sh" --dry-run 2>&1)
 if echo "$OUT" | grep -qE "Dry-run|target/"; then
     pass "cleanup-cargo --dry-run OK"
@@ -119,7 +119,7 @@ else
     pass "cleanup-cargo (no target to clean)"
 fi
 rm -rf "$TMPDIR"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 # === Test 10: db-migrate.sh ===
 echo "--- Test 10: db-migrate.sh ---"

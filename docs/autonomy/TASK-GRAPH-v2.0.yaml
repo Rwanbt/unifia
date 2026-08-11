@@ -149,7 +149,7 @@ cards:
     phase: "0"
     title: "Renommer le binaire CLI opencode → unifia"
     status: "INTEGRATED_LOCAL"
-    objective: "packages/opencode/bin/opencode → packages/opencode/bin/unifia."
+    objective: "packages/unifia/bin/opencode → packages/unifia/bin/unifia."
     commit: "316d137"
     acceptance:
       - "Le binaire s'appelle 'unifia'"

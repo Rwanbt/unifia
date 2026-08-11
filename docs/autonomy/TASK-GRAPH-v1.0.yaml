@@ -177,20 +177,20 @@ cards:
     phase: "0"
     title: "Renommer le binaire CLI opencode → unifia"
     status: "PROPOSED"
-    objective: "packages/opencode/bin/opencode → packages/opencode/bin/unifia. Adapt imports internes."
+    objective: "packages/unifia/bin/opencode → packages/unifia/bin/unifia. Adapt imports internes."
     rationale: "Le binaire CLI est le premier point de contact utilisateur."
     scope:
-      allowed_paths: ["packages/opencode/package.json", "packages/opencode/bin/**"]
+      allowed_paths: ["packages/unifia/package.json", "packages/unifia/bin/**"]
       max_changed_non_generated_lines: 50
       max_implementation_files: 4
     commands:
-      preflight: ["ls packages/opencode/bin/"]
-      targeted_tests: ["cd packages/opencode && bun test --timeout 30000 --filter cli"]
-      static_checks: ["cd packages/opencode && tsgo --noEmit"]
+      preflight: ["ls packages/unifia/bin/"]
+      targeted_tests: ["cd packages/unifia && bun test --timeout 30000 --filter cli"]
+      static_checks: ["cd packages/unifia && tsgo --noEmit"]
     acceptance:
       - id: "AC-1"
         statement: "Le binaire s'appelle 'unifia'"
-        evidence: "test: bunx ./packages/opencode/bin/unifia --version exit 0"
+        evidence: "test: bunx ./packages/unifia/bin/unifia --version exit 0"
     rollback:
       strategy: "Revert atomique"
     review:

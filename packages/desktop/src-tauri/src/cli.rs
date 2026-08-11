@@ -675,9 +675,9 @@ pub fn serve(
     // WARN was too aggressive — it silently dropped every log.info() call
     // across the whole sidecar (including local-llm-server's "llama-server
     // ready" confirmation) before it ever reached this pipe, confirmed via
-    // packages/opencode/src/util/log.ts's shouldLog() gate. But omitting
+    // packages/unifia/src/util/log.ts's shouldLog() gate. But omitting
     // --log-level entirely defaults to DEBUG in local dev builds (see
-    // packages/opencode/src/index.ts's Log.init() call) — verified
+    // packages/unifia/src/index.ts's Log.init() call) — verified
     // regression: DEBUG-level output during startup is heavy enough that
     // the sidecar never finished initializing within the health-check
     // timeout (100+s CPU burned, HTTP server never started listening).

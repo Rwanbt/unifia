@@ -12,7 +12,7 @@ Native mobile app for Android (and future iOS), powered by Tauri 2.0. Supports b
 - On-device inference via llama.cpp with JNI bridge (GPU optional: OpenCL/Vulkan)
 - Adaptive runtime config: `n_gpu_layers` / threads / batch size derived from
   device profile (RAM, big.LITTLE CPU, GPU backend, thermal state) via
-  `packages/opencode/src/local-llm-server/auto-config.ts`
+  `packages/unifia/src/local-llm-server/auto-config.ts`
 - Model management: download GGUF models from HuggingFace, load/unload/delete
 - **Resumable downloads**: HTTP `Range` header picks up where a 4G interruption
   left off (4 GB GGUF doesn't restart from zero when signal drops)

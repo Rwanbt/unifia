@@ -5,7 +5,7 @@ on:
     branches: [dev]
     paths:
       - 'packages/mobile/**'
-      - 'packages/opencode/**'
+      - 'packages/unifia/**'
       - 'packages/app/**'
       - '.github/workflows/android.yml'
   workflow_dispatch:
@@ -228,12 +228,12 @@ jobs:
           echo '{"name":"@parcel/watcher","version":"0.0.0","main":"wrapper.js"}' > "$RUNTIME/node_modules/@parcel/watcher/package.json"
 
           # Copy to gen/android assets
-          cp "$RUNTIME/opencode-cli.js" "$ASSETS/opencode-cli.js"
+          cp "$RUNTIME/unifia-cli.js" "$ASSETS/unifia-cli.js"
           cp -r "$RUNTIME/node_modules" "$ASSETS/"
           # Copy wasm files if present
           cp "$RUNTIME"/*.wasm "$ASSETS/" 2>/dev/null || true
 
-          echo "CLI bundle: $(du -sh "$RUNTIME/opencode-cli.js" | cut -f1)"
+          echo "CLI bundle: $(du -sh "$RUNTIME/unifia-cli.js" | cut -f1)"
 
       # ─── Build APK ────────────────────────────────────────────────
       - name: Install Tauri CLI
@@ -282,14 +282,7 @@ jobs:
       # ─── Sign APK ─────────────────────────────────────────────────
       - name: Sign APK with release key
         env:
-          # Dual-read while the secret is renamed. The other three signing
-          # secrets already use the UNIFIA_ prefix; this one does not, and a
-          # repository secret cannot be renamed from here — it has to be
-          # re-created in the repository settings. Reading both means CI keeps
-          # signing whichever name exists, so the migration is not a flag day.
-          # Drop OPENCODE_ANDROID_KEYSTORE_B64 once UNIFIA_ANDROID_KEYSTORE_B64
-          # is set.
-          ANDROID_KEYSTORE_B64: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_B64 || secrets.OPENCODE_ANDROID_KEYSTORE_B64 }}
+          UNIFIA_ANDROID_KEYSTORE_B64: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_B64 }}
           UNIFIA_ANDROID_KEY_ALIAS: ${{ secrets.UNIFIA_ANDROID_KEY_ALIAS }}
           UNIFIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEYSTORE_PASSWORD }}
           UNIFIA_ANDROID_KEY_PASSWORD: ${{ secrets.UNIFIA_ANDROID_KEY_PASSWORD }}
@@ -301,9 +294,9 @@ jobs:
           test -n "$APKSIGNER" || { echo "Android apksigner was not found"; exit 1; }
           echo "Using apksigner: $APKSIGNER"
           cp "$APK" "$SIGNED"
-          if [ -n "${ANDROID_KEYSTORE_B64}" ] && [ -n "${UNIFIA_ANDROID_KEY_ALIAS}" ] && [ -n "${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${UNIFIA_ANDROID_KEY_PASSWORD}" ]; then
+          if [ -n "${UNIFIA_ANDROID_KEYSTORE_B64}" ] && [ -n "${UNIFIA_ANDROID_KEY_ALIAS}" ] && [ -n "${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${UNIFIA_ANDROID_KEY_PASSWORD}" ]; then
             echo "Signing APK with configured release key"
-            echo "${ANDROID_KEYSTORE_B64}" | base64 --decode > /tmp/unifia-release.keystore
+            echo "${UNIFIA_ANDROID_KEYSTORE_B64}" | base64 --decode > /tmp/unifia-release.keystore
             "$APKSIGNER" sign --ks /tmp/unifia-release.keystore --ks-key-alias "${UNIFIA_ANDROID_KEY_ALIAS}" --ks-pass pass:"${UNIFIA_ANDROID_KEYSTORE_PASSWORD}" --key-pass pass:"${UNIFIA_ANDROID_KEY_PASSWORD}" "$SIGNED"
             rm -f /tmp/unifia-release.keystore
           else

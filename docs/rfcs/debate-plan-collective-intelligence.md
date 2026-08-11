@@ -27,7 +27,7 @@ problèmes différents.
 ## Architecture existante d'Unifia (résumé technique)
 
 ```
-packages/opencode/src/
+packages/unifia/src/
 ├── provider/provider.ts    — 20+ providers, Vercel AI SDK, Effect runtime
 ├── agent/agent.ts          — Agents natifs: build, plan, explore, orchestrator, critic
 ├── session/prompt.ts       — Boucle de session, routing de modèles

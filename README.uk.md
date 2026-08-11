@@ -171,7 +171,7 @@ Unifia Workbench запускає AI-моделі локально на спож
 
 **Двигун виводу (llama.cpp b8731)**
 - GPU-бекенд Vulkan, автоматичне завантаження при першому запуску моделі
-- **Адаптивна конфігурація під час виконання** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, потоки, розмір batch/ubatch, квантування KV-кешу та розмір контексту виводяться з виявленої VRAM, вільної RAM, розподілу CPU big.LITTLE, GPU-бекенда (CUDA/ROCm/Vulkan/Metal/OpenCL) і теплового стану. Замінює старий жорстко зашитий `--n-gpu-layers 99` — Android із 4 ГБ тепер працює у CPU-відкатному режимі замість OOM-убивства, флагманські десктопи отримують налаштований batch замість типового 512.
+- **Адаптивна конфігурація під час виконання** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, потоки, розмір batch/ubatch, квантування KV-кешу та розмір контексту виводяться з виявленої VRAM, вільної RAM, розподілу CPU big.LITTLE, GPU-бекенда (CUDA/ROCm/Vulkan/Metal/OpenCL) і теплового стану. Замінює старий жорстко зашитий `--n-gpu-layers 99` — Android із 4 ГБ тепер працює у CPU-відкатному режимі замість OOM-убивства, флагманські десктопи отримують налаштований batch замість типового 512.
 - `--flash-attn on` — Flash Attention для ефективного використання пам'яті
 - `--cache-type-k/v` — KV-кеш з обертанням Адамара; адаптивний рівень (f16 / q8_0 / q4_0) залежно від запасу VRAM
 - `--fit on` — вторинне коригування VRAM лише у форку (opt-in через `UNIFIA_LLAMA_ENABLE_FIT=1`)
@@ -595,7 +595,7 @@ graph TB
 - **Статичні бінарники в APK** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), розпакування при першому запуску (~15с)
 - **Вбудований CLI** — Unifia Workbench CLI як JS-бандл, запускається вбудованим Bun, мережа не потрібна для ядра
 - **Прямий запуск процесів** — Без Termux, без intents — `std::process::Command` з Rust напряму
-- **Автозапуск сервера** — `bun opencode-cli.js serve` на localhost з UUID-автентифікацією, як десктопний sidecar
+- **Автозапуск сервера** — `bun unifia-cli.js serve` на localhost з UUID-автентифікацією, як десктопний sidecar
 
 **Рівень 2 — Локальний вивід LLM на пристрої:**
 - **llama.cpp через JNI** — Kotlin LlamaEngine завантажує нативні .so бібліотеки через JNI-міст

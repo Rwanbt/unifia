@@ -172,7 +172,7 @@ Unifia Workbench exécute des modèles IA localement sur du matériel grand publ
 
 **Moteur d'inférence (llama.cpp b8731)**
 - Backend GPU Vulkan, téléchargé automatiquement au premier chargement de modèle
-- **Configuration adaptative à l'exécution** (`packages/opencode/src/local-llm-server/auto-config.ts`) :
+- **Configuration adaptative à l'exécution** (`packages/unifia/src/local-llm-server/auto-config.ts`) :
 _gpu_layers`, threads, taille de batch/ubatch, quantification du cache KV et taille du contexte dérivées de la VRAM détectée, de la RAM libre, du découpage CPU big.LITTLE, du backend GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) et de l'état thermique. Remplace l'ancien `--n-gpu-layers 99` codé en dur — un Android 4 Go fonctionne désormais en repli CPU au lieu d'être tué par OOM, les desktops haut de gamme obtiennent un batch ajusté au lieu du 512 par défaut.
 - `--flash-attn on` — Flash Attention pour l'efficacité mémoire
 - `--cache-type-k/v` — palier adaptatif de quantification llama.cpp standard (f16 / q8_0 / q4_0) selon la marge VRAM

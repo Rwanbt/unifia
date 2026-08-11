@@ -1,4 +1,4 @@
-# AUDIT-PROVIDER-AUTH-V2 — `packages/opencode/src/auth/` + `packages/opencode/src/provider/`
+# AUDIT-PROVIDER-AUTH-V2 — `packages/unifia/src/auth/` + `packages/unifia/src/provider/`
 
 > **Carte :** TEAM-A02 (Lot A, Gate T0) — **tentative 2**
 > **Worktree :** `D:\App\OpenCode\.team-worktrees\A02-015e1c84`
@@ -74,7 +74,7 @@ clé sécurisée, le CLI doit :
 > H05 doit démontrer qu'aucun environnement complet n'est transmis ; N01 doit
 > couvrir les tests d'exfiltration et de régression.
 
-Preuve — `packages/opencode/src/provider/loaders.ts:172-182` :
+Preuve — `packages/unifia/src/provider/loaders.ts:172-182` :
 ```ts
 // TODO: Using process.env directly because Env.set only updates a process.env shallow copy,
 // until the scope of the Env API is clarified (test only or runtime?)
@@ -105,7 +105,7 @@ const awsBearerToken = iife(() => {
 > temporaire éventuelle doit être explicitement activée, émettre un audit de
 > sécurité et afficher une échéance de suppression vérifiable.
 
-Preuve — `packages/opencode/src/server/auth-jwt.ts:99-203` :
+Preuve — `packages/unifia/src/server/auth-jwt.ts:99-203` :
 - Commentaire ligne 99 reconnaît explicitement « leaks into access logs ».
 - Lignes 151, 203 : compat legacy `?authorization=Bearer+<jwt>` acceptée par
   défaut.
@@ -141,7 +141,7 @@ génériques, AWS, Slack, Stripe, GitHub (6 patterns), Google, Anthropic, OpenAI
   anythingllm/*, rag/*, ops/*, local-models/*, rag/embed.ts, rag/index.ts,
   share/share-next.ts, git/credentials.ts).
 - Action : sprint-durcissement, exécuter `rg -n 'x-api-key|PRIVATE-TOKEN|Authorization'` sur
-  `packages/opencode/src/plugin/**` et vérifier le cleanup avant chaque send.
+  `packages/unifia/src/plugin/**` et vérifier le cleanup avant chaque send.
 
 ---
 

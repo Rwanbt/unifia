@@ -1,8 +1,8 @@
 import { test as base, expect, type Page } from "@playwright/test"
 import { ManagedRuntime } from "effect"
 import type { E2EWindow } from "../src/testing/terminal"
-import type { Item, Reply, Usage } from "../../opencode/test/lib/llm-server"
-import { TestLLMServer } from "../../opencode/test/lib/llm-server"
+import type { Item, Reply, Usage } from "../../unifia/test/lib/llm-server"
+import { TestLLMServer } from "../../unifia/test/lib/llm-server"
 import { startBackend } from "./backend"
 import {
   healthPhase,

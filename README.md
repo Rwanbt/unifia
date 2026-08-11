@@ -254,7 +254,7 @@ Unifia runs AI models locally on consumer hardware (8 GB VRAM / 16 GB RAM), with
 
 **Inference Engine (llama.cpp b8731)**
 - Vulkan GPU backend, auto-downloaded on first model load
-- **Runtime adaptive config** (`packages/opencode/src/local-llm-server/auto-config.ts`):
+- **Runtime adaptive config** (`packages/unifia/src/local-llm-server/auto-config.ts`):
 _gpu_layers`, threads, batch/ubatch size, KV cache quant and context size derived from detected VRAM, free RAM, big.LITTLE CPU split, GPU backend (CUDA/ROCm/Vulkan/Metal/OpenCL) and thermal state. Replaces the old hardcoded `--n-gpu-layers 99` — a 4 GB Android now runs in CPU fallback instead of OOM-killing, flagship desktops get tuned batch instead of the 512 default.
 - `--flash-attn on` — Flash Attention for memory efficiency (desktop; mobile auto-disables when GPU is off or KV is unquantized)
 - `--cache-type-k/v` — standard llama.cpp KV-cache quantization; adaptive tier (f16 / q8_0 / q4_0) selected from detected VRAM headroom
@@ -301,7 +301,7 @@ _gpu_layers`, threads, batch/ubatch size, KV cache quant and context size derive
 
 #### Debate mode
 
-`debate` is a native primary agent wired into `packages/opencode/src/agent/agent.ts`. It uses the collective-intelligence orchestrator in `packages/opencode/src/collective/` and is exposed through the `debate` tool and `/debate` server routes. It runs multiple models in parallel, extracts atomic claims, detects blind spots, can red-team the result, and produces a persisted synthesis report. Tiers include `free`, `quick`, `standard`, and `deep`.
+`debate` is a native primary agent wired into `packages/unifia/src/agent/agent.ts`. It uses the collective-intelligence orchestrator in `packages/unifia/src/collective/` and is exposed through the `debate` tool and `/debate` server routes. It runs multiple models in parallel, extracts atomic claims, detects blind spots, can red-team the result, and produces a persisted synthesis report. Tiers include `free`, `quick`, `standard`, and `deep`.
 
 #### Auto mode
 
@@ -763,7 +763,7 @@ Use a fork release artifact from [Rwanbt/unifia/releases](https://github.com/Rwa
 git clone https://github.com/Rwanbt/unifia.git
 cd unifia
 bun install
-bun run --cwd packages/opencode build --single
+bun run --cwd packages/unifia build --single
 ```
 
 The upstream installer, npm package, Homebrew formula, Scoop package and `unifia.ai/download` are intentionally not used for this fork. Fork-specific package channels will be added after the rebrand.

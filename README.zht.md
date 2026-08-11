@@ -171,7 +171,7 @@ Unifia Workbench 在消費級硬體（VRAM 8 GB / RAM 16 GB）上本地執行 AI
 
 **推理引擎 (llama.cpp b8731)**
 - Vulkan GPU 後端，首次模型載入時自動下載
-- **執行時自適應配置**（`packages/opencode/src/local-llm-server/auto-config.ts`）：`n_gpu_layers`、執行緒數、batch/ubatch 大小、KV 快取量化與上下文大小，皆根據偵測到的 VRAM、可用 RAM、big.LITTLE CPU 拆分、GPU 後端（CUDA/ROCm/Vulkan/Metal/OpenCL）與熱狀態推導而來。取代舊的硬編碼 `--n-gpu-layers 99` — 4 GB Android 現在以 CPU 回退執行而非被 OOM 殺死，旗艦桌機取得調校後的 batch 而非預設的 512。
+- **執行時自適應配置**（`packages/unifia/src/local-llm-server/auto-config.ts`）：`n_gpu_layers`、執行緒數、batch/ubatch 大小、KV 快取量化與上下文大小，皆根據偵測到的 VRAM、可用 RAM、big.LITTLE CPU 拆分、GPU 後端（CUDA/ROCm/Vulkan/Metal/OpenCL）與熱狀態推導而來。取代舊的硬編碼 `--n-gpu-layers 99` — 4 GB Android 現在以 CPU 回退執行而非被 OOM 殺死，旗艦桌機取得調校後的 batch 而非預設的 512。
 - `--flash-attn on` — Flash Attention 提升記憶體效率
 - `--cache-type-k/v` — llama.cpp 標準量化；根據 VRAM 餘量自適應分層（f16 / q8_0 / q4_0）
 - `--fit on` — 僅分支版本的次要 VRAM 調整（透過 `UNIFIA_LLAMA_ENABLE_FIT=1` 啟用）
@@ -595,7 +595,7 @@ graph TB
 - **APK 中的靜態二進位檔** — Bun、Bash、Ripgrep、Toybox (aarch64-linux-musl)，首次啟動時解壓（約 15 秒）
 - **捆綁 CLI** — Unifia Workbench CLI 作為 JS 套件由內嵌 Bun 執行，核心功能無需網路
 - **直接處理程序生成** — 無 Termux、無 intent — 從 Rust 直接 `std::process::Command`
-- **自動啟動伺服器** — `bun opencode-cli.js serve`，與桌面 sidecar 相同的 UUID 認證，localhost
+- **自動啟動伺服器** — `bun unifia-cli.js serve`，與桌面 sidecar 相同的 UUID 認證，localhost
 
 **第 2 層 — 裝置端 LLM 推理：**
 - **透過 JNI 的 llama.cpp** — Kotlin LlamaEngine 透過 JNI 橋接載入原生 .so 函式庫

@@ -5,7 +5,7 @@
       "entry": ["sst.config.ts", "turbo.json", "script/**/*.{ts,js,sh}"],
       "project": ["*.ts", "*.js"]
     },
-    "packages/opencode": {
+    "packages/unifia": {
       "entry": [
         "src/index.ts",
         "src/cli/**/*.ts",

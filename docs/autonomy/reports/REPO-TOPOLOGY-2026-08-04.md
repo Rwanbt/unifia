@@ -74,7 +74,7 @@ suivantes ne sont pas remplies.
 
 - **vers `main` : fusion propre, zéro conflit.**
 - **vers `dev` : exactement 2 fichiers en conflit** —
-  `packages/opencode/src/auth/index.ts` et
+  `packages/unifia/src/auth/index.ts` et
   `packages/ui/src/pierre/opencode-theme.ts`.
   Les 39 autres fichiers touchés des deux côtés fusionnent automatiquement.
 

@@ -10,24 +10,24 @@ worktree: D:\App\OpenCode\.team-worktrees\C08-f408cb34
 depends_on:
   - TEAM-C07 (CLOSED+INTEGRATED, D-060)
 allowed_create:
-  - packages/opencode/src/model-intelligence/lifecycle.ts
-  - packages/opencode/src/model-intelligence/collections.ts
-  - packages/opencode/test/model-intelligence/lifecycle.test.ts
-  - packages/opencode/test/model-intelligence/collections.test.ts
+  - packages/unifia/src/model-intelligence/lifecycle.ts
+  - packages/unifia/src/model-intelligence/collections.ts
+  - packages/unifia/test/model-intelligence/lifecycle.test.ts
+  - packages/unifia/test/model-intelligence/collections.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-C08.yaml
 forbidden:
-  - packages/opencode/src/model-intelligence/registry.ts
-  - packages/opencode/src/model-intelligence/schema.ts
-  - packages/opencode/src/model-intelligence/storage.ts
-  - packages/opencode/src/model-intelligence/ingestion.ts
-  - packages/opencode/src/model-intelligence/connectors/**
-  - packages/opencode/src/model-intelligence/pricing.ts
-  - packages/opencode/src/model-intelligence/benchmarks.ts
-  - packages/opencode/src/model-intelligence/health.ts
-  - packages/opencode/src/model-intelligence/sync.ts
-  - packages/opencode/src/multi-model/**
-  - packages/opencode/src/team/**
+  - packages/unifia/src/model-intelligence/registry.ts
+  - packages/unifia/src/model-intelligence/schema.ts
+  - packages/unifia/src/model-intelligence/storage.ts
+  - packages/unifia/src/model-intelligence/ingestion.ts
+  - packages/unifia/src/model-intelligence/connectors/**
+  - packages/unifia/src/model-intelligence/pricing.ts
+  - packages/unifia/src/model-intelligence/benchmarks.ts
+  - packages/unifia/src/model-intelligence/health.ts
+  - packages/unifia/src/model-intelligence/sync.ts
+  - packages/unifia/src/multi-model/**
+  - packages/unifia/src/team/**
   - main, dev, opti-ui, Team branches
 notes: |
   schema.ts:106-115 (C01, gelé) définit déjà l'enum LifecycleStage à 8 états :

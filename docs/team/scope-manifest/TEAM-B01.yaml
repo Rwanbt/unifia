@@ -9,20 +9,20 @@ scope_manifest:
   base_sha: fe6f85aebe2b537be4158b4cce8ebd5934115223
   fencing_token: 12
   reviewer_required_distinct_from: [TEAM-A06, TEAM-G01, TEAM-C01, TEAM-C01-RETRY, TEAM-G02]
-  architectural_constraint: "packages/opencode/src/multi-model/ — premier fichier de ce namespace, doit servir de référence pour B02..B05"
+  architectural_constraint: "packages/unifia/src/multi-model/ — premier fichier de ce namespace, doit servir de référence pour B02..B05"
 
 allowed_files:
   create:
-    - path: "packages/opencode/src/multi-model/types.ts"
+    - path: "packages/unifia/src/multi-model/types.ts"
       role: "ModelRef, EndpointRef, InvocationRequest/Result, erreurs partagées (canonique plan §B01 ligne 1511)"
       line_budget_max: 400  # heuristique
-    - path: "packages/opencode/src/multi-model/model-ref.ts"
+    - path: "packages/unifia/src/multi-model/model-ref.ts"
       role: "Branded IDs (ModelRef, EndpointRef) + helpers parsing/validation"
       line_budget_max: 300
   create_optional:
-    - path: "packages/opencode/test/multi-model/types.test.ts"
+    - path: "packages/unifia/test/multi-model/types.test.ts"
       role: "Parsing + aliases + invalid inputs (Critères d'acceptation §B01 ligne 1536)"
-    - path: "packages/opencode/test/multi-model/model-ref.test.ts"
+    - path: "packages/unifia/test/multi-model/model-ref.test.ts"
       role: "Branded IDs round-trip"
   modify_existing_allowed:
     - path: "docs/team/scope-manifest/TEAM-B01.yaml"
@@ -31,17 +31,17 @@ allowed_files:
 
 forbidden_paths:
   do_not_touch:
-    - "packages/opencode/src/model-intelligence/**"  # C01, figé D-036
-    - "packages/opencode/src/team/**"                 # G01/G02, figé D-032/D-037
-    - "packages/opencode/src/collective/**"           # B0X futur (B02..B05)
-    - "packages/opencode/src/multi-model/{provider-discovery,model-invoker,usage-normalizer,cost-catalog,prompt-registry}.ts"  # B02..B04 futurs
-    - "packages/opencode/migration/**"                # schéma C01, ne pas toucher
+    - "packages/unifia/src/model-intelligence/**"  # C01, figé D-036
+    - "packages/unifia/src/team/**"                 # G01/G02, figé D-032/D-037
+    - "packages/unifia/src/collective/**"           # B0X futur (B02..B05)
+    - "packages/unifia/src/multi-model/{provider-discovery,model-invoker,usage-normalizer,cost-catalog,prompt-registry}.ts"  # B02..B04 futurs
+    - "packages/unifia/migration/**"                # schéma C01, ne pas toucher
     - ".github/workflows/**"                          # CI, hors scope
     - "Execution/Handoffs/G0*-*"
     - "Execution/Handoffs/C0*-*"
   do_not_create_registries:
-    - "packages/opencode/src/registry/**"
-    - "packages/opencode/src/models-registry/**"
+    - "packages/unifia/src/registry/**"
+    - "packages/unifia/src/models-registry/**"
 
 scope_objectives:
   primary:
@@ -58,8 +58,8 @@ tests:
   minimum:
     unit: "≥ 4 tests (parsing 1 cas valide + 3 cas invalides par type, par fichier)"
   commands:
-    typecheck: "bunx tsc --noEmit -p packages/opencode"
-    unit: "bun test packages/opencode/test/multi-model/ --timeout 30000"
+    typecheck: "bunx tsc --noEmit -p packages/unifia"
+    unit: "bun test packages/unifia/test/multi-model/ --timeout 30000"
   expected:
     unit: "100% PASS sur les tests présents (pas de test NOT RUN)"
     tsc_clean_in_scope: "0 erreur dans src/multi-model/**"
@@ -91,7 +91,7 @@ f2_g02_verification_protocol:  # OBLIGATOIRE avant d'accepter B01-READY.flag
     - "git log c-B01/d0b09496 → ≥1 commit au-dessus de fe6f85aebe"
     - "git rev-parse <commit>^ = fe6f85aebe (parent == base_sha D-007)"
     - "scope_manifest_check (git diff --name-only vs allowed_files)"
-    - "bunx tsc --noEmit -p packages/opencode → 0 erreur dans scope"
+    - "bunx tsc --noEmit -p packages/unifia → 0 erreur dans scope"
     - "bun test test/multi-model/ → 100% PASS sur tests présents"
     - "branch livrée == c-B01/d0b09496 (pas une autre branche)"
     - "fencing_token attribué == 12"

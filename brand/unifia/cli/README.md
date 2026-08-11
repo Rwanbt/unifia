@@ -11,4 +11,4 @@ Version terminal finale approuvée le 2026-07-19.
 - Le fichier JSON est la source canonique ; le TXT est la prévisualisation sans couleur.
 - Les PNG du dossier reference documentent la construction Affinity et le rendu cible.
 
-Pour OpenCode, utiliser les fichiers installables du Drop-In sous drop-in/packages/opencode/.
+Pour OpenCode, utiliser les fichiers installables du Drop-In sous drop-in/packages/unifia/.

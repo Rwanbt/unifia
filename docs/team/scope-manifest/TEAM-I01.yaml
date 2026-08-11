@@ -5,16 +5,16 @@ base_sha: e651c583d756430e0018a8dab12580e29812f9ae
 scope_mode: E2_REQUIRED
 allowed_files:
   - docs/team/scope-manifest/TEAM-I01.yaml
-  - packages/opencode/src/team/review-runtime.ts
-  - packages/opencode/src/team/prompts/reviewer.txt
-  - packages/opencode/test/team/review-runtime.test.ts
+  - packages/unifia/src/team/review-runtime.ts
+  - packages/unifia/src/team/prompts/reviewer.txt
+  - packages/unifia/test/team/review-runtime.test.ts
 protected_files:
-  - packages/opencode/src/team/worker-runtime.ts
-  - packages/opencode/src/team/cli-worker-runtime.ts
-  - packages/opencode/src/team/permission-broker.ts
-  - packages/opencode/src/team/types.ts
-  - packages/opencode/src/team/scope-monitor.ts
-  - packages/opencode/src/team/rollback-manager.ts
+  - packages/unifia/src/team/worker-runtime.ts
+  - packages/unifia/src/team/cli-worker-runtime.ts
+  - packages/unifia/src/team/permission-broker.ts
+  - packages/unifia/src/team/types.ts
+  - packages/unifia/src/team/scope-monitor.ts
+  - packages/unifia/src/team/rollback-manager.ts
 reserved_paths: []
 symlink_policy: REJECT
 case_policy: REJECT_DUPLICATE_CASE

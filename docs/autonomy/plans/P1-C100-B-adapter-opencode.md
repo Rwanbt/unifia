@@ -12,10 +12,10 @@ Implémenter `OpenCodeHarnessAdapter` qui wrappe le runtime OpenCode existant et
 
 | OpenCode | Unifia |
 |---|---|
-| `packages/opencode/src/cli/cmd/run.ts` | `RuntimeAdapter.sendPrompt` |
-| `packages/opencode/src/session/index.ts` | `RuntimeAdapter.createSession` |
-| `packages/opencode/src/server/server.ts` | `RuntimeHarness.start` |
-| `packages/opencode/src/provider/loaders.ts` | `CapabilityDescriptor` |
+| `packages/unifia/src/cli/cmd/run.ts` | `RuntimeAdapter.sendPrompt` |
+| `packages/unifia/src/session/index.ts` | `RuntimeAdapter.createSession` |
+| `packages/unifia/src/server/server.ts` | `RuntimeHarness.start` |
+| `packages/unifia/src/provider/loaders.ts` | `CapabilityDescriptor` |
 
 ## Stratégie
 
@@ -40,7 +40,7 @@ export class OpenCodeHarnessAdapter implements RuntimeHarness {
 
   async start(config: HarnessConfig): Promise<HarnessHandle> {
     this.proc = spawn({
-      cmd: ["bun", "run", "packages/opencode/src/index.ts"],
+      cmd: ["bun", "run", "packages/unifia/src/index.ts"],
       env: { ...process.env, UNIFIA_API_KEY: config.apiKey },
     })
     return { id: this.id, process: this.proc }

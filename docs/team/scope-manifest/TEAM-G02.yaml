@@ -7,22 +7,22 @@ base_sha: 4ed89083c8d19089df9401f8b39f3dea870fff68
 scope_mode: E2_REQUIRED
 
 allowed_files:
-  - packages/opencode/src/team/worktree-manager.ts
-  - packages/opencode/src/team/hooks.ts
-  - packages/opencode/src/team/team-cli.ts
-  - packages/opencode/src/team/index.ts
-  - packages/opencode/test/team/worktree-manager.test.ts
-  - packages/opencode/test/team/hooks.test.ts
-  - packages/opencode/test/team/integration/wt-01-creation.test.ts
-  - packages/opencode/test/team/integration/wt-02-double-creation.test.ts
-  - packages/opencode/test/team/integration/wt-03-attach-existing.test.ts
-  - packages/opencode/test/team/integration/wt-04-detach-clean.test.ts
-  - packages/opencode/test/team/integration/wt-05-detach-dirty.test.ts
-  - packages/opencode/test/team/integration/wt-06-hooks-pre-commit.test.ts
-  - packages/opencode/test/team/integration/wt-07-hooks-pre-push.test.ts
-  - packages/opencode/test/team/integration/wt-08-fail-closed-path.test.ts
-  - packages/opencode/test/team/integration/wt-09-concurrent-creation.test.ts
-  - packages/opencode/test/team/integration/wt-10-base-sha-mismatch.test.ts
+  - packages/unifia/src/team/worktree-manager.ts
+  - packages/unifia/src/team/hooks.ts
+  - packages/unifia/src/team/team-cli.ts
+  - packages/unifia/src/team/index.ts
+  - packages/unifia/test/team/worktree-manager.test.ts
+  - packages/unifia/test/team/hooks.test.ts
+  - packages/unifia/test/team/integration/wt-01-creation.test.ts
+  - packages/unifia/test/team/integration/wt-02-double-creation.test.ts
+  - packages/unifia/test/team/integration/wt-03-attach-existing.test.ts
+  - packages/unifia/test/team/integration/wt-04-detach-clean.test.ts
+  - packages/unifia/test/team/integration/wt-05-detach-dirty.test.ts
+  - packages/unifia/test/team/integration/wt-06-hooks-pre-commit.test.ts
+  - packages/unifia/test/team/integration/wt-07-hooks-pre-push.test.ts
+  - packages/unifia/test/team/integration/wt-08-fail-closed-path.test.ts
+  - packages/unifia/test/team/integration/wt-09-concurrent-creation.test.ts
+  - packages/unifia/test/team/integration/wt-10-base-sha-mismatch.test.ts
   - docs/team/worktrees.md
   - .husky/_/.gitignore
 
@@ -47,11 +47,11 @@ forbidden_files:
   - "**/build/**"
 
 reserved_files:
-  - packages/opencode/src/team/lock-manager.ts
-  - packages/opencode/src/team/fencing.ts
-  - packages/opencode/src/team/scope-monitor.ts
-  - packages/opencode/src/team/db/migrations/001_leases.sql
-  - packages/opencode/src/team/db/migrations/002_fencing.sql
+  - packages/unifia/src/team/lock-manager.ts
+  - packages/unifia/src/team/fencing.ts
+  - packages/unifia/src/team/scope-monitor.ts
+  - packages/unifia/src/team/db/migrations/001_leases.sql
+  - packages/unifia/src/team/db/migrations/002_fencing.sql
 
 symlink_policy: REJECT
 case_policy: REJECT_DUPLICATE_CASE

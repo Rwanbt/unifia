@@ -171,7 +171,7 @@ Unifia Workbench запускает AI-модели локально на пот
 
 **Движок вывода (llama.cpp b8731)**
 - GPU-бэкенд Vulkan, автоматическая загрузка при первом запуске модели
-- **Адаптивная конфигурация во время выполнения** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, потоки, размер batch/ubatch, квантование KV-кэша и размер контекста выводятся из обнаруженной VRAM, свободной RAM, разбиения CPU big.LITTLE, бэкенда GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) и теплового состояния. Заменяет старый жёстко зашитый `--n-gpu-layers 99` — Android с 4 ГБ теперь работает в CPU-откате вместо OOM-убийства, флагманские десктопы получают настроенный batch вместо стандартного 512.
+- **Адаптивная конфигурация во время выполнения** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, потоки, размер batch/ubatch, квантование KV-кэша и размер контекста выводятся из обнаруженной VRAM, свободной RAM, разбиения CPU big.LITTLE, бэкенда GPU (CUDA/ROCm/Vulkan/Metal/OpenCL) и теплового состояния. Заменяет старый жёстко зашитый `--n-gpu-layers 99` — Android с 4 ГБ теперь работает в CPU-откате вместо OOM-убийства, флагманские десктопы получают настроенный batch вместо стандартного 512.
 - `--flash-attn on` — Flash Attention для эффективного использования памяти
 - `--cache-type-k/v` — KV-кэш с поворотом Адамара; адаптивный уровень (f16 / q8_0 / q4_0) в зависимости от запаса VRAM
 - `--fit on` — вторичная корректировка VRAM только в форке (opt-in через `UNIFIA_LLAMA_ENABLE_FIT=1`)
@@ -595,7 +595,7 @@ graph TB
 - **Статические бинарники в APK** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl), извлечение при первом запуске (~15с)
 - **Встроенный CLI** — Unifia Workbench CLI как JS-бандл, запускаемый встроенным Bun, сеть не требуется для ядра
 - **Прямой запуск процессов** — Без Termux, без intents — `std::process::Command` из Rust напрямую
-- **Автозапуск сервера** — `bun opencode-cli.js serve` на localhost с UUID-аутентификацией, как десктопный sidecar
+- **Автозапуск сервера** — `bun unifia-cli.js serve` на localhost с UUID-аутентификацией, как десктопный sidecar
 
 **Уровень 2 — Локальный вывод LLM на устройстве:**
 - **llama.cpp через JNI** — Kotlin LlamaEngine загружает нативные .so библиотеки через JNI-мост

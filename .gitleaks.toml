@@ -17,7 +17,7 @@ tags = ["key", "anthropic"]
 
 [allowlist]
 paths = [
-  "packages/opencode/src/security/scanner.ts",
-  "packages/opencode/test/security/",
+  "packages/unifia/src/security/scanner.ts",
+  "packages/unifia/test/security/",
   ".gstack/",
 ]

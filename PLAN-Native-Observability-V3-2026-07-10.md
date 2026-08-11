@@ -546,7 +546,7 @@ Aucune dépendance à OTel/Langfuse dans le cœur. Phase 4 exporters reçoivent 
 
 ## 5. Schéma SQL Phase 1
 
-Fichier: `packages/opencode/src/observability/observability.sql.ts`.
+Fichier: `packages/unifia/src/observability/observability.sql.ts`.
 
 ```ts
 export const observabilityEvent = sqliteTable("observability_event", {
@@ -990,7 +990,7 @@ Rollback:
 - documenter la commande SQL et le risque de perte.
 
 Desktop/mobile:
-- Phase 1 cible `packages/opencode` backend.
+- Phase 1 cible `packages/unifia` backend.
 - Desktop Tauri: vérifier chemin config/secret et accès DB via même backend.
 - Mobile Android: hors support Phase 1 sauf preuve que le chemin storage/secret est compatible. Documenter “observability native mobile deferred” si non vérifié.
 

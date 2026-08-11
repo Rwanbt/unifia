@@ -40,10 +40,10 @@ Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH d
 
 - Desktop build: `cd packages/desktop && bun tauri build`
 - Desktop deploy: copy `packages/desktop/src-tauri/target/release/Unifia.exe` to `C:/Users/barat/AppData/Local/Unifia Dev/Unifia.exe`
-- NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/@unifia-aidesktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
+- NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/opencode-desktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
 - Android build: `cd packages/mobile && bun tauri android build --target aarch64` (requires `ORT_LIB_LOCATION=D:/tmp/ort-android`)
 - Android native libs: `gen/android/.../jniLibs/arm64-v8a` holds 30 prebuilt `.so` that are **gitignored inside a generated directory**, so a fresh clone starts empty. 13 are built by `.github/workflows/android.yml` (downloads plus llama.cpp and `pty_server.c` compiled from source); the other 17 — Hexagon skels, OpenCL/Vulkan backends, the specialised llama servers — have **no producer in this repo** and were vendored by hand. `prepare-android-runtime.sh` covers only part of the CI set, which is why a local build can be short where CI is not. `bun scripts/check-android-runtime.mjs` (wired into `build:android`) fails up front and lists what is missing.
-- Sidecar (required before desktop build): `cd packages/opencode && bun run build --single --baseline`, then copy the result to `packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`. That is where `tauri.conf.json`'s `externalBin` resolves; `packages/desktop/sidecars/` is only a cache and a build there fails with "resource path doesn't exist".
+- Sidecar (required before desktop build): `cd packages/unifia && bun run build --single --baseline`, then copy the result to `packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`. That is where `tauri.conf.json`'s `externalBin` resolves; `packages/desktop/sidecars/` is only a cache and a build there fails with "resource path doesn't exist".
 - NEVER touch Antigravity (the IDE). NEVER kill processes that aren't ours.
 
 ---
@@ -80,7 +80,7 @@ bun run dev:desktop      # Tauri desktop with hot reload
 bun run dev:mobile-android  # Android dev build
 
 # Build
-cd packages/opencode && bun run build --single --baseline  # rebranded CLI binary is `unifia`   # CLI sidecar
+cd packages/unifia && bun run build --single --baseline  # rebranded CLI binary is `unifia`   # CLI sidecar
 cd packages/desktop && bun tauri build                       # Desktop release
 cd packages/mobile && bun tauri android build --target aarch64  # Android APK
 
@@ -88,8 +88,8 @@ cd packages/mobile && bun tauri android build --target aarch64  # Android APK
 bun run typecheck
 
 # Testing — MUST run from the package directory, not root
-cd packages/opencode && bun test --timeout 30000
-cd packages/opencode && bun test --filter <name> --timeout 30000
+cd packages/unifia && bun test --timeout 30000
+cd packages/unifia && bun test --filter <name> --timeout 30000
 cd packages/app && bun test --preload ./happydom.ts ./src
 
 # Linting / formatting
@@ -97,7 +97,7 @@ bun run lint
 bun run format
 ```
 
-**Critical**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline  # rebranded CLI binary is `unifia`` in `packages/opencode` first and copy the output manually.
+**Critical**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline  # rebranded CLI binary is `unifia`` in `packages/unifia` first and copy the output manually.
 
 ---
 
@@ -129,7 +129,7 @@ SolidJS UI  →  POST /session/:id/stream (SSE, Hono server)
             →  Cloud API  OR  llama-server:14097 (local, C++ GPU sidecar)
 ```
 
-### Key modules in `packages/opencode/src/`
+### Key modules in `packages/unifia/src/`
 
 | Module | Role |
 |--------|------|
@@ -186,7 +186,7 @@ SolidJS 1.9.10 + Tailwind 4. Entry: `entry.tsx`. Key dirs: `pages/`, `components
 
 - typecheck: bun turbo typecheck
 - lint: bunx biome check .
-- test: cd packages/opencode && bun test --timeout 30000
+- test: cd packages/unifia && bun test --timeout 30000
 - deadcode: bunx knip --no-progress
 - shell: shellcheck scripts/*.sh
 - rust: cargo check --manifest-path packages/desktop/src-tauri/Cargo.toml

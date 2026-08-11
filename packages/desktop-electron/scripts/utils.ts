@@ -5,13 +5,13 @@ export type Channel = "dev" | "beta" | "prod"
 /**
  * Name of the compiled CLI binary, read from the CLI package's own manifest.
  *
- * WHY not a literal: packages/opencode/script/build.ts writes the binary to
+ * WHY not a literal: packages/unifia/script/build.ts writes the binary to
  * `dist/<dir>/bin/<package name>`. The rebrand moved that to `bin/unifia` while
  * every consumer here kept asking for `bin/opencode`, so the sidecar was never
  * found and the packaged app shipped with no backend at all.
  */
 export const cliPackageName: string = (
-  (await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }
+  (await Bun.file(new URL("../../unifia/package.json", import.meta.url)).json()) as { name: string }
 ).name
 
 export function resolveChannel(): Channel {
@@ -88,11 +88,11 @@ export async function resolveSidecarBinaryPath(dir: string, ocBinary: string) {
 /**
  * Absolute path the packaged app expects the sidecar at, before packaging.
  *
- * `electron-builder.config.ts` copies `resources/opencode-cli*` into
+ * `electron-builder.config.ts` copies `resources/unifia-cli*` into
  * `process.resourcesPath`, which is where `src/main/cli.ts`'s `getSidecarPath()`
  * looks. Keeping the name in one place is what stops those two from drifting.
  */
-export const SIDECAR_STAGING_PATH = windowsify("resources/opencode-cli")
+export const SIDECAR_STAGING_PATH = windowsify("resources/unifia-cli")
 
 export async function copyBinaryToSidecarFolder(source: string) {
   await $`mkdir -p resources`
@@ -115,12 +115,12 @@ export async function copyBinaryToSidecarFolder(source: string) {
  */
 export async function stageSidecar({ rebuild = false }: { rebuild?: boolean } = {}) {
   const sidecarConfig = getCurrentSidecar()
-  const dir = "../opencode/dist"
+  const dir = "../unifia/dist"
 
   if (rebuild) {
     await (sidecarConfig.ocBinary.includes("-baseline")
-      ? $`cd ../opencode && bun run build --single --baseline`
-      : $`cd ../opencode && bun run build --single`)
+      ? $`cd ../unifia && bun run build --single --baseline`
+      : $`cd ../unifia && bun run build --single`)
   }
 
   let source: string

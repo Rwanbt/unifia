@@ -64,18 +64,9 @@ export function SessionSidePanel(props: {
   const isMobile = createMemo(() => !isDesktop())
   const isMobileDevice = createMemo(() => platform.platform === "mobile")
 
-  // On mobile, panels are mutually exclusive and default to closed.
-  // The desktop defaults (fileTree=true, reviewPanel=true) cause the 50vh
-  // overlay to show at launch with the file tree at 100% width hiding review.
-  // Fix: on mobile, fileOpen is suppressed when reviewOpen is active, and
-  // neither panel opens the overlay without an explicit user toggle.
   const reviewOpen = createMemo(() => view().reviewPanel.opened())
   const fileOpen = createMemo(() => layout.fileTree.opened())
-  const open = createMemo(() => {
-    if (isMobile()) return reviewOpen() || fileOpen()
-    return reviewOpen() || fileOpen()
-  })
-  const reviewTab = createMemo(() => true)
+  const open = createMemo(() => reviewOpen() || fileOpen())
   const bothOpen = createMemo(() => reviewOpen() && fileOpen())
   const panelWidth = createMemo(() => {
     if (!open()) return "0px"
@@ -155,7 +146,7 @@ export function SessionSidePanel(props: {
     tabs,
     pathFromTab: file.pathFromTab,
     normalizeTab,
-    review: reviewTab,
+    review: () => true,
     hasReview: props.canReview,
   })
   const contextOpen = tabState.contextOpen
@@ -348,7 +339,7 @@ export function SessionSidePanel(props: {
                         onCleanup(stop)
                       }}
                     >
-                      <Show when={reviewTab() && props.canReview()}>
+                      <Show when={props.canReview()}>
                         <Tabs.Trigger value="review">
                           <div class="flex items-center gap-1.5">
                             <div>{language.t("session.tab.review")}</div>
@@ -414,7 +405,7 @@ export function SessionSidePanel(props: {
                     </Tabs.List>
                   </div>
 
-                  <Show when={reviewTab() && props.canReview()}>
+                  <Show when={props.canReview()}>
                     <Tabs.Content value="review" class="flex flex-col h-full overflow-hidden contain-strict">
                       <Show when={activeTab() === "review"}>{props.reviewPanel()}</Show>
                     </Tabs.Content>

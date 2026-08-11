@@ -23,7 +23,7 @@ function sortSchemas(value: unknown): unknown {
 }
 
 export async function generateOpenApi(outputPath: string): Promise<void> {
-  const generated = await $`bun run dev generate`.cwd(path.resolve(import.meta.dir, "../../../opencode")).text()
+  const generated = await $`bun run dev generate`.cwd(path.resolve(import.meta.dir, "../../../unifia")).text()
   const document = JSON.parse(generated)
   await Bun.write(outputPath, JSON.stringify(sortSchemas(document), null, 2) + "\n")
 }

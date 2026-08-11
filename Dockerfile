@@ -9,7 +9,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json bun.lock ./
 COPY packages/contracts/package.json packages/contracts/
-COPY packages/opencode/package.json packages/opencode/
+COPY packages/unifia/package.json packages/unifia/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
@@ -30,7 +30,7 @@ RUN apk add --no-cache git curl bash
 
 # Copy built artifacts
 COPY --from=builder /app/packages/contracts/dist /app/packages/contracts/dist
-COPY --from=builder /app/packages/opencode/bin /app/bin
+COPY --from=builder /app/packages/unifia/bin /app/bin
 COPY --from=builder /app/scripts /app/scripts
 
 # Make scripts executable

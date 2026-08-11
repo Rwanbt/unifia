@@ -111,23 +111,23 @@ cards:
     phase: "0"
     title: "Renommer le binaire CLI opencode → unifia"
     status: "PROPOSED"
-    objective: "packages/opencode/package.json : bin.opencode = './bin/opencode' → './bin/unifia'. Renommer le fichier entry. Adapter les imports internes qui référencent 'opencode' comme nom de binaire."
+    objective: "packages/unifia/package.json : bin.opencode = './bin/opencode' → './bin/unifia'. Renommer le fichier entry. Adapter les imports internes qui référencent 'opencode' comme nom de binaire."
     rationale: "Le binaire CLI est le premier point de contact utilisateur (commande shell)."
     scope:
-      allowed_paths: ["packages/opencode/package.json", "packages/opencode/bin/**"]
+      allowed_paths: ["packages/unifia/package.json", "packages/unifia/bin/**"]
       max_changed_non_generated_lines: 50
       max_implementation_files: 4
     commands:
-      preflight: ["ls packages/opencode/bin/"]
-      targeted_tests: ["cd packages/opencode && bun test --timeout 30000 --filter cli"]
-      static_checks: ["cd packages/opencode && tsgo --noEmit"]
+      preflight: ["ls packages/unifia/bin/"]
+      targeted_tests: ["cd packages/unifia && bun test --timeout 30000 --filter cli"]
+      static_checks: ["cd packages/unifia && tsgo --noEmit"]
     acceptance:
       - id: "AC-1"
         statement: "Le binaire s'appelle 'unifia'"
-        evidence: "test: bunx ./packages/opencode/bin/unifia --version exit 0"
+        evidence: "test: bunx ./packages/unifia/bin/unifia --version exit 0"
       - id: "AC-2"
         statement: "Plus aucune référence 'opencode' dans bin/"
-        evidence: "grep -r 'opencode' packages/opencode/bin/ | wc -l == 0"
+        evidence: "grep -r 'opencode' packages/unifia/bin/ | wc -l == 0"
     rollback:
       strategy: "Revert atomique"
     review:
@@ -307,15 +307,15 @@ cards:
     phase: "1"
     title: "Provider opencode : renommage interne du provider par défaut"
     status: "PROPOSED"
-    objective: "packages/opencode/src/provider/provider.ts et modèles : adapter le nom de provider par défaut 'opencode' → 'unifia'. Conserver la compatibilité ascendante (alias 'opencode' → 'unifia')."
+    objective: "packages/unifia/src/provider/provider.ts et modèles : adapter le nom de provider par défaut 'opencode' → 'unifia'. Conserver la compatibilité ascendante (alias 'opencode' → 'unifia')."
     rationale: "Le provider par défaut est référencé dans toute l'app."
     scope:
-      allowed_paths: ["packages/opencode/src/provider/**"]
+      allowed_paths: ["packages/unifia/src/provider/**"]
       max_changed_non_generated_lines: 200
       max_implementation_files: 6
     commands:
-      targeted_tests: ["cd packages/opencode && bun test --timeout 60000 --filter provider"]
-      static_checks: ["cd packages/opencode && tsgo --noEmit"]
+      targeted_tests: ["cd packages/unifia && bun test --timeout 60000 --filter provider"]
+      static_checks: ["cd packages/unifia && tsgo --noEmit"]
     acceptance:
       - id: "AC-1"
         statement: "Provider 'unifia' résolu correctement, alias 'opencode' fonctionne toujours"

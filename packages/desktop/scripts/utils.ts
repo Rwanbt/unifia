@@ -4,14 +4,14 @@ import { $ } from "bun"
  * Name of the CLI package, read from its manifest rather than repeated here.
  *
  * WHY: the sidecar's dist directory is `<package name>-<os>-<arch>[-baseline]`,
- * composed by packages/opencode/script/build.ts from the package name. This file
+ * composed by packages/unifia/script/build.ts from the package name. This file
  * used to hardcode the whole directory name, so the two drifted the moment the
  * rebrand touched one and not the other: the build wrote `opencode-windows-x64`
  * while this side looked for `unifia-windows-x64`, and every desktop build
  * failed with "resource path sidecars\... doesn't exist". Deriving it keeps one
  * authoritative source for the name.
  */
-export const cliPackageName: string = ((await Bun.file(new URL("../../opencode/package.json", import.meta.url)).json()) as { name: string }).name
+export const cliPackageName: string = ((await Bun.file(new URL("../../unifia/package.json", import.meta.url)).json()) as { name: string }).name
 
 export const SIDECAR_BINARIES: Array<{ rustTarget: string; platform: string; assetExt: string }> = [
   { rustTarget: "aarch64-apple-darwin", platform: "darwin-arm64", assetExt: "zip" },

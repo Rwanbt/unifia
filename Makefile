@@ -11,7 +11,7 @@ install:  ## Install dependencies
 
 test:  ## Run unit tests per package
 	@echo "⚠️  Run from package dirs, not root (AGENTS.md)"
-	@echo "  cd packages/opencode && bun test"
+	@echo "  cd packages/unifia && bun test"
 	@echo "  cd packages/contracts && bun test"
 
 test-integration:  ## Run integration tests (bash functional)

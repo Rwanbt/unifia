@@ -65,7 +65,7 @@ The composer's "+" button already exists and accepts images:
 ### Desktop backend ❓
 
 - llama-server is started by the TypeScript sidecar
-  ([`packages/opencode/src/local-llm-server/index.ts`](../packages/opencode/src/local-llm-server/index.ts)).
+  ([`packages/unifia/src/local-llm-server/index.ts`](../packages/unifia/src/local-llm-server/index.ts)).
 - No `--mmproj` flag is currently passed.
 - `/v1/chat/completions` is reachable but the agent doesn't construct
   the multimodal `image_url` content blocks.

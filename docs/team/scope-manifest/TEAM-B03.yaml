@@ -17,21 +17,21 @@ findings_to_correct:
   F-B03-003: "INFO — duplicate worktrees B03-5d89de12 + B03-0ec8bc6f exist. USE ONLY this worktree B03-8d3bfc1d. Previous worktrees are dormant (D-008 stricte) but worker MUST NOT touch them."
 
 allowed_create:
-  - packages/opencode/src/multi-model/model-invoker.ts
-  - packages/opencode/src/multi-model/usage-normalizer.ts
-  - packages/opencode/src/multi-model/cost-catalog.ts
-  - packages/opencode/test/multi-model/invoker.test.ts
+  - packages/unifia/src/multi-model/model-invoker.ts
+  - packages/unifia/src/multi-model/usage-normalizer.ts
+  - packages/unifia/src/multi-model/cost-catalog.ts
+  - packages/unifia/test/multi-model/invoker.test.ts
 allowed_modify_existing:
   - docs/team/scope-manifest/TEAM-B03.yaml
 
 forbidden:
-  - packages/opencode/src/model-intelligence/** # scope C01/C02/C03/C04, figé
-  - packages/opencode/src/team/** # scope G01/G02, figé
-  - packages/opencode/src/collective/** # scope Debate, figé
-  - packages/opencode/src/multi-model/provider-discovery.ts # B02, consommer seulement
-  - packages/opencode/src/multi-model/types.ts # B01, consommer seulement
-  - packages/opencode/src/multi-model/model-ref.ts # B01, consommer seulement
-  - packages/opencode/src/multi-model/prompt-registry.ts # B04 future carte, figé pour cette vague
+  - packages/unifia/src/model-intelligence/** # scope C01/C02/C03/C04, figé
+  - packages/unifia/src/team/** # scope G01/G02, figé
+  - packages/unifia/src/collective/** # scope Debate, figé
+  - packages/unifia/src/multi-model/provider-discovery.ts # B02, consommer seulement
+  - packages/unifia/src/multi-model/types.ts # B01, consommer seulement
+  - packages/unifia/src/multi-model/model-ref.ts # B01, consommer seulement
+  - packages/unifia/src/multi-model/prompt-registry.ts # B04 future carte, figé pour cette vague
   - toute branche protégée: main, dev, opti-ui, Team
   - previous worktrees B03-5d89de12 and B03-0ec8bc6f (D-008 stricte — dormants, jamais toucher)
 
@@ -48,13 +48,13 @@ acceptance_criteria:
 
 validations_required:
   before_commit:
-    - "cd packages/opencode && bunx tsc --noEmit -p ."
+    - "cd packages/unifia && bunx tsc --noEmit -p ."
     - "bun test test/multi-model/ --timeout 60000"
     - "git diff --check"
     - "marker commit : '[PROVISIONAL][UNREVIEWED][TEAM-B03]'"
-    - "grep -r 'from.*team/' packages/opencode/src/multi-model/ — 0 résultat"
-    - "grep -r 'from.*collective/' packages/opencode/src/multi-model/ — 0 résultat"
-    - "grep -r 'from.*model-intelligence/' packages/opencode/src/multi-model/ — 0 résultat"
+    - "grep -r 'from.*team/' packages/unifia/src/multi-model/ — 0 résultat"
+    - "grep -r 'from.*collective/' packages/unifia/src/multi-model/ — 0 résultat"
+    - "grep -r 'from.*model-intelligence/' packages/unifia/src/multi-model/ — 0 résultat"
   before_integration:
     - "E2 review APPROVED ou APPROVED_WITH_FOLLOWUP, reviewer distinct de OpenCode-Agent Claude Sonnet 4 (vague 004) — rotation D-010 §6"
     - "validations before_commit re-exécutées dans worktree integration (post-cherry-pick)"
@@ -64,10 +64,10 @@ execution_record:
   status: DONE
   worker_id: MM2
   files_created:
-    - packages/opencode/src/multi-model/model-invoker.ts
-    - packages/opencode/src/multi-model/usage-normalizer.ts
-    - packages/opencode/src/multi-model/cost-catalog.ts
-    - packages/opencode/test/multi-model/invoker.test.ts
+    - packages/unifia/src/multi-model/model-invoker.ts
+    - packages/unifia/src/multi-model/usage-normalizer.ts
+    - packages/unifia/src/multi-model/cost-catalog.ts
+    - packages/unifia/test/multi-model/invoker.test.ts
   files_modified:
     - docs/team/scope-manifest/TEAM-B03.yaml
   design_decisions:

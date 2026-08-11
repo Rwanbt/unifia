@@ -24,7 +24,7 @@ Unifia doit supporter **plusieurs providers de modèles** (Anthropic, OpenAI, et
 **Provider natif** (par défaut, BD-6 recommandation).
 
 ```typescript
-// packages/opencode/src/provider/native/unifia.ts
+// packages/unifia/src/provider/native/unifia.ts
 export const UnifiaProvider: Provider = {
   id: "unifia",
   name: "Unifia",
@@ -82,7 +82,7 @@ export const UnifiaProvider: Provider = {
 
 ## Plan d'implémentation
 
-- **Phase 1** : interface Provider dans `packages/opencode/src/provider/`
+- **Phase 1** : interface Provider dans `packages/unifia/src/provider/`
 - **Phase 1** : UnifiaProvider scaffold (route vers RuntimeAdapter)
 - **Phase 2** : intégration RuntimeAdapter (cf. ADR-0001)
 - **Phase 2** : tests avec FakeRuntime

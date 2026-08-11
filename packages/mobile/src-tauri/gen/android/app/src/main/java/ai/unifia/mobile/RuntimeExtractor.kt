@@ -66,7 +66,7 @@ object RuntimeExtractor {
      * Extract non-executable runtime files from APK assets.
      * Executables (bun, bash, rg, musl libs) are packaged as JNI libs
      * and installed by Android to nativeLibraryDir with execute permission.
-     * We extract: opencode-cli.js, node_modules shims, wasm files, rootfs.tar.gz.
+     * We extract: unifia-cli.js, node_modules shims, wasm files, rootfs.tar.gz.
      * Returns empty string on success, error message on failure.
      */
     @JvmStatic
@@ -79,9 +79,9 @@ object RuntimeExtractor {
             nmDir.mkdirs()
 
             // Extract CLI JS bundle
-            val cliTarget = File(targetDir, "opencode-cli.js").absolutePath
-            if (!extractAsset(context, "runtime/opencode-cli.js", cliTarget)) {
-                return "Failed to extract opencode-cli.js"
+            val cliTarget = File(targetDir, "unifia-cli.js").absolutePath
+            if (!extractAsset(context, "runtime/unifia-cli.js", cliTarget)) {
+                return "Failed to extract unifia-cli.js"
             }
 
             // Extract node_modules shims

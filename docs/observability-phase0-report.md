@@ -18,7 +18,7 @@ Phase 0 est validée pour une fondation Phase 1 metadata-only : aucune donnée l
 
 - Suite observability/server : 186 pass, 0 fail.
 - Suite complète observability/session/server : 468 pass, 4 skip, 0 fail.
-- Typecheck `packages/opencode` et `packages/app` : vert.
+- Typecheck `packages/unifia` et `packages/app` : vert.
 - Migration additive, rollback sur copie, queue bornée, SQLite BUSY/FULL, crash SIGKILL, sanitizer, privacy et no-network : testés.
 - SDK drift : gate CI dédié ajouté dans `.github/workflows/observability-sdk-drift.yml`.
 - UI : panneau desktop atteignable, compteurs santé, warning SQLite non chiffré et badge orphaned implémentés.

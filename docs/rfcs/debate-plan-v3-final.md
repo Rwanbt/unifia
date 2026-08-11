@@ -14,7 +14,7 @@
 ## Ce qui est définitivement acquis (Rounds 1 + 2)
 
 ### Architecture (unanime, verrouillé)
-- Agent natif dans un module dédié `packages/opencode/src/collective/`
+- Agent natif dans un module dédié `packages/unifia/src/collective/`
 - Exposé via skill `/debate [prompt]`
 - Auth hybrid : env var → credential file → CLI subprocess (cascade Effect)
 - Pipeline **Extract-then-Target** en 4 phases :

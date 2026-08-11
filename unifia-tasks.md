@@ -55,7 +55,7 @@ Then in order:
 
 | Package | Path |
 |---|---|
-| CLI | `packages/opencode/` |
+| CLI | `packages/unifia/` |
 | App | `packages/app/` |
 | Desktop | `packages/desktop/` |
 | Mobile | `packages/mobile/` |

@@ -152,12 +152,12 @@ Aucun test runtime — design inline dans `auth/index.ts`. Implémentation Sprin
 ## Tests transverses avant merge
 
 ### Typecheck
-- [ ] `cd packages/opencode && bun run typecheck` → 0 erreurs.
+- [ ] `cd packages/unifia && bun run typecheck` → 0 erreurs.
 - [ ] `bun run typecheck` root → 0 erreurs sur les packages touchés.
 
 ### Tests unitaires
-- [ ] `bun test packages/opencode/test/security` → tous verts.
-- [ ] `bun test packages/opencode/test/e2e/dag-team.test.ts` → 3 passed.
+- [ ] `bun test packages/unifia/test/security` → tous verts.
+- [ ] `bun test packages/unifia/test/e2e/dag-team.test.ts` → 3 passed.
 - [ ] Suite globale `bun turbo test:ci` → vert.
 
 ### Rust
@@ -166,7 +166,7 @@ Aucun test runtime — design inline dans `auth/index.ts`. Implémentation Sprin
 - [ ] `cargo clippy -- -D warnings` → propre.
 
 ### Build
-- [ ] `cd packages/opencode && bun run build --single` → sidecar TS à jour (prérequis avant tauri build, cf. CLAUDE.md).
+- [ ] `cd packages/unifia && bun run build --single` → sidecar TS à jour (prérequis avant tauri build, cf. CLAUDE.md).
 - [ ] `bun tauri build` desktop → APK/MSI/dmg signés (quand cosign sera ajouté).
 - [ ] `bun tauri android build` → APK release (ORT_LIB_LOCATION à positionner, cf. memory).
 

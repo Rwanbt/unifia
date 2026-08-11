@@ -278,7 +278,7 @@ une contrainte architecturale, pas juste une question.
 - Audit des ghost models au lancement
 
 ### Phase 1 — MVP Minimal (2 providers suffisent)
-- Agent natif `debate` dans `packages/opencode/src/agent/debate/`
+- Agent natif `debate` dans `packages/unifia/src/agent/debate/`
 - Skill `/debate [prompt]` comme point d'entrée
 - Pipeline 2 phases : diverge parallèle → synthèse directe
 - Format JSON + Markdown

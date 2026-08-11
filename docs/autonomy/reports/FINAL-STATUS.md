@@ -99,13 +99,13 @@ Le fork `Rwanbt/opencode` a été rebranded en `Unifia` selon le Plan V3 captur�
 |---|---|
 | `docs/autonomy/` (138 occurrences) | Mes propres livrables où "opencode" est contextuellement correct (références upstream dans Plan V3, etc.) |
 | `docs/adr/` | Architecture Decision Records historiques |
-| `packages/opencode/src/` (23 occurrences) | **Contrats techniques persistants** : `opencode.db` (chemin DB), `opencode.jsonc` (config), `opencode.trace` (observability), `User-Agent: opencode`, `scriptName("opencode")` (yargs), etc. |
-| `packages/opencode/src/cli/cmd/tui/component/logo.tsx` | CLI/TUI lockup différé Phase P1.3 (cf. CLI_TUI_DEFERRED_IMPLEMENTATION.md) |
+| `packages/unifia/src/` (23 occurrences) | **Contrats techniques persistants** : `opencode.db` (chemin DB), `opencode.jsonc` (config), `opencode.trace` (observability), `User-Agent: opencode`, `scriptName("opencode")` (yargs), etc. |
+| `packages/unifia/src/cli/cmd/tui/component/logo.tsx` | CLI/TUI lockup différé Phase P1.3 (cf. CLI_TUI_DEFERRED_IMPLEMENTATION.md) |
 | `packages/enterprise/` (sauf package.json) | BD-2 EXCLUDE — décision utilisateur requise |
 | `themes/opencode.json` (id) | Theme identifier persistant |
 | `localStorage` keys (5) | Migration = breaking change pour utilisateurs |
 | URLs upstream (github.com/.../opencode) | Whitelist conservée |
-| Paths packages/opencode/ | Whitelist conservée |
+| Paths packages/unifia/ | Whitelist conservée |
 | Sidecar opencode-cli | Whitelist conservée |
 | @unifia/ (package scope) | Whitelist conservée |
 

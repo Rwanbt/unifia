@@ -171,7 +171,7 @@ Unifia Workbench führt KI-Modelle lokal auf Consumer-Hardware aus (8 GB VRAM / 
 
 **Inferenz-Engine (llama.cpp b8731)**
 - Vulkan GPU-Backend, automatisch heruntergeladen beim ersten Modell-Load
-- **Adaptive Laufzeitkonfiguration** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, Threads, Batch/Ubatch-Größe, KV-Cache-Quantisierung und Kontextgröße werden aus erkannter VRAM, freiem RAM, big.LITTLE-CPU-Aufteilung, GPU-Backend (CUDA/ROCm/Vulkan/Metal/OpenCL) und Wärmezustand abgeleitet. Ersetzt das alte fest codierte `--n-gpu-layers 99` — ein 4 GB Android läuft jetzt im CPU-Fallback statt mit OOM beendet zu werden, Flaggschiff-Desktops erhalten einen abgestimmten Batch statt des Standardwerts 512.
+- **Adaptive Laufzeitkonfiguration** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, Threads, Batch/Ubatch-Größe, KV-Cache-Quantisierung und Kontextgröße werden aus erkannter VRAM, freiem RAM, big.LITTLE-CPU-Aufteilung, GPU-Backend (CUDA/ROCm/Vulkan/Metal/OpenCL) und Wärmezustand abgeleitet. Ersetzt das alte fest codierte `--n-gpu-layers 99` — ein 4 GB Android läuft jetzt im CPU-Fallback statt mit OOM beendet zu werden, Flaggschiff-Desktops erhalten einen abgestimmten Batch statt des Standardwerts 512.
 - `--flash-attn on` — Flash Attention für Speichereffizienz
 - `--cache-type-k/v` — KV-Cache mit -Rotation; adaptive Stufe (f16 / q8_0 / q4_0) je nach VRAM-Reserve
 - `--fit on` — fork-exklusive sekundäre VRAM-Anpassung (opt-in via `UNIFIA_LLAMA_ENABLE_FIT=1`)

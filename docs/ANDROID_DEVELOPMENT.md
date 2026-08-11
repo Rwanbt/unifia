@@ -227,7 +227,7 @@ via `onOpenUrl`) ou dès le démarrage (cold-start via `getCurrentDeepLink`).
 2. Service → `Process.Builder("llama-server", ...).start()` avec les bons env vars (`LLAMA_OPENCL_PLATFORM=0`, etc.).
 3. Sidecar TS se connecte via `http://127.0.0.1:14097` (même loopback, WebView et service partagent le stack TCP local).
 
-**Ports** : `14097` pour llama-server, `14099` pour opencode-cli (définis dans `runtime/server.rs` — ne pas changer sans mettre à jour les deux côtés).
+**Ports** : `14097` pour llama-server, `14099` pour unifia-cli (définis dans `runtime/server.rs` — ne pas changer sans mettre à jour les deux côtés).
 
 **Model storage** : `/sdcard/Android/data/ai.opencode.mobile/files/models/*.gguf` (scoped storage).
 

@@ -163,7 +163,7 @@ L'API v1 était rejetée pour :
 ### 4.2 API v2 (esquisse)
 
 ```ts
-// packages/opencode/src/team/permission-broker.ts (cible D03)
+// packages/unifia/src/team/permission-broker.ts (cible D03)
 
 export const HandleID = Schema.UUID.pipe(Schema.brand<"HandleID">())
 export type HandleID = Schema.Schema.Type<typeof HandleID>

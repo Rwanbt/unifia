@@ -37,12 +37,12 @@ $runtimeRoots = @(
 $files = foreach ($root in $runtimeRoots) {
   if (Test-Path -LiteralPath $root) {
     Get-ChildItem -LiteralPath $root -Recurse -File |
-      Where-Object { $_.Extension -in @('.so', '.apk', '.aab', '.tgz', '.wasm') -or $_.Name -in @('bun', 'bash', 'rg', 'opencode-cli.js') } |
+      Where-Object { $_.Extension -in @('.so', '.apk', '.aab', '.tgz', '.wasm') -or $_.Name -in @('bun', 'bash', 'rg', 'unifia-cli.js') } |
       ForEach-Object { Get-FileRecord $_.FullName }
   }
 }
 
-$package = Get-Content -Raw (Join-Path $RepositoryRoot 'packages/opencode/package.json') | ConvertFrom-Json
+$package = Get-Content -Raw (Join-Path $RepositoryRoot 'packages/unifia/package.json') | ConvertFrom-Json
 $report = [ordered]@{
   generated_at_utc = [DateTime]::UtcNow.ToString('o')
   repository = $RepositoryRoot

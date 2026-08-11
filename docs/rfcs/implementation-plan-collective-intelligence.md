@@ -38,7 +38,7 @@ Suit les mêmes patterns que `orchestrator`, `critic`, `build`.
 ### Arbre de fichiers à créer
 
 ```
-packages/opencode/src/collective/
+packages/unifia/src/collective/
 ├── index.ts                — Export public + enregistrement agent
 ├── types.ts                — Claim, DebateReport, DebateConfig, DebateError
 ├── debate-agent.ts         — Agent.Info declaration (comme build/plan/critic)
@@ -65,7 +65,7 @@ packages/opencode/src/collective/
 ### Skill file
 
 ```
-packages/opencode/skills/debate/SKILL.md
+packages/unifia/skills/debate/SKILL.md
 ```
 
 YAML frontmatter: `name: debate`, `triggers: ["/debate", "/blind-spots"]`

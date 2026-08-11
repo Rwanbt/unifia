@@ -11,10 +11,10 @@ Référence : `PRODUCTION_REVIEW_2026-04.md`
 | Item | Statut | Fichier(s) touché(s) |
 |------|--------|----------------------|
 | B3 — Android cleartext LAN-only | FAIT (ajustement) | `packages/mobile/src-tauri/gen/android/app/src/main/res/xml/network_security_config.xml` |
-| B4 — fetch sans timeout | FAIT (partiel, écart rapport) | `packages/opencode/src/local-models/ollama.ts` |
+| B4 — fetch sans timeout | FAIT (partiel, écart rapport) | `packages/unifia/src/local-models/ollama.ts` |
 | W5 — circuit breaker `ensureCorrectModel` | NO-OP (déjà implémenté) | — |
-| W7 — MCP scoping collision préfixe | FAIT | `packages/opencode/src/mcp/index.ts` |
-| W8 — CORS allowlist explicite | FAIT (ajustement) | `packages/opencode/src/server/server.ts` |
+| W7 — MCP scoping collision préfixe | FAIT | `packages/unifia/src/mcp/index.ts` |
+| W8 — CORS allowlist explicite | FAIT (ajustement) | `packages/unifia/src/server/server.ts` |
 | W9 — shell env allowlist | FAIT | `packages/desktop/src-tauri/src/cli.rs` |
 | B5 — symlink bypass `File.read` | NO-OP (déjà implémenté) | — |
 | B6 — dependabot + codeql + SBOM | FAIT | `.github/dependabot.yml`, `.github/workflows/codeql.yml`, `.github/workflows/sbom.yml` |
@@ -41,7 +41,7 @@ Ajout effectué : les plages RFC1918 comme domain-config cleartext. `network_sec
 
 ### B4 — fetch sans timeout (FAIT partiel)
 
-**ÉCART RAPPORT/CODE** : le rapport cite `packages/opencode/src/mcp/oauth-callback.ts` — ce fichier n'expose **aucun** `fetch()` sortant, uniquement `Bun.serve({ fetch(req) { ... } })` (handler serveur entrant, aucun timeout à poser). Pas d'action. Le POST token OAuth effectif passe par le SDK MCP et n'est pas dans ce fichier.
+**ÉCART RAPPORT/CODE** : le rapport cite `packages/unifia/src/mcp/oauth-callback.ts` — ce fichier n'expose **aucun** `fetch()` sortant, uniquement `Bun.serve({ fetch(req) { ... } })` (handler serveur entrant, aucun timeout à poser). Pas d'action. Le POST token OAuth effectif passe par le SDK MCP et n'est pas dans ce fichier.
 
 `ollama.ts` : ajout `AbortSignal.timeout(15000)` sur `isRunning` (déjà présent avec 2000ms, conservé), `listModels`, `show`, `remove`. `pull()` intentionnellement laissé sans timeout global car c'est un stream NDJSON long (plusieurs minutes sur gros modèles) — un timeout 15s casserait la feature. Un commentaire explicite le pourquoi.
 
@@ -169,9 +169,9 @@ Déjà implémenté via `assertInsideProject` qui appelle `AppFileSystem.resolve
 
 Modifiés :
 - `packages/mobile/src-tauri/gen/android/app/src/main/res/xml/network_security_config.xml`
-- `packages/opencode/src/local-models/ollama.ts`
-- `packages/opencode/src/mcp/index.ts`
-- `packages/opencode/src/server/server.ts`
+- `packages/unifia/src/local-models/ollama.ts`
+- `packages/unifia/src/mcp/index.ts`
+- `packages/unifia/src/server/server.ts`
 - `packages/desktop/src-tauri/src/cli.rs`
 
 Créés :

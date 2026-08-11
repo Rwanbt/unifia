@@ -171,7 +171,7 @@ Unifia Workbench, AI modellerini tüketici donanımında (8 GB VRAM / 16 GB RAM)
 
 **Çıkarım Motoru (llama.cpp b8731)**
 - Vulkan GPU arka ucu, ilk model yüklemesinde otomatik indirilir
-- **Çalışma zamanı uyarlamalı yapılandırma** (`packages/opencode/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, iş parçacıkları, batch/ubatch boyutu, KV önbellek kuantizasyonu ve bağlam boyutu algılanan VRAM, boş RAM, big.LITTLE CPU bölünmesi, GPU arka ucu (CUDA/ROCm/Vulkan/Metal/OpenCL) ve termal durumdan türetilir. Eski sabit kodlanmış `--n-gpu-layers 99`'un yerine geçer — 4 GB'lık bir Android artık OOM ile öldürülmek yerine CPU geri dönüşünde çalışır, amiral gemisi masaüstleri varsayılan 512 yerine ayarlı batch alır.
+- **Çalışma zamanı uyarlamalı yapılandırma** (`packages/unifia/src/local-llm-server/auto-config.ts`): `n_gpu_layers`, iş parçacıkları, batch/ubatch boyutu, KV önbellek kuantizasyonu ve bağlam boyutu algılanan VRAM, boş RAM, big.LITTLE CPU bölünmesi, GPU arka ucu (CUDA/ROCm/Vulkan/Metal/OpenCL) ve termal durumdan türetilir. Eski sabit kodlanmış `--n-gpu-layers 99`'un yerine geçer — 4 GB'lık bir Android artık OOM ile öldürülmek yerine CPU geri dönüşünde çalışır, amiral gemisi masaüstleri varsayılan 512 yerine ayarlı batch alır.
 - `--flash-attn on` — Bellek verimliliği için Flash Attention
 - `--cache-type-k/v` —  rotasyonlu KV önbelleği; VRAM payına göre uyarlamalı katman (f16 / q8_0 / q4_0)
 - `--fit on` — fork'a özel ikincil VRAM ayarı (`UNIFIA_LLAMA_ENABLE_FIT=1` ile opt-in)
@@ -596,7 +596,7 @@ Tauri 2.0 ile **gömülü çalışma zamanına** sahip yerel Android/iOS uygulam
 - **APK'da statik ikili dosyalar** — Bun, Bash, Ripgrep, Toybox (aarch64-linux-musl) ilk başlatmada çıkarılır (~15s)
 - **Paketlenmiş CLI** — Gömülü Bun tarafından çalıştırılan JS paketi olarak Unifia Workbench CLI, çekirdek için ağ gerekmez
 - **Doğrudan süreç başlatma** — Termux yok, intent yok — Rust'tan doğrudan `std::process::Command`
-- **Sunucu otomatik başlatma** — UUID kimlik doğrulamalı localhost'ta `bun opencode-cli.js serve`, masaüstü sidecar ile aynı
+- **Sunucu otomatik başlatma** — UUID kimlik doğrulamalı localhost'ta `bun unifia-cli.js serve`, masaüstü sidecar ile aynı
 
 **Katman 2 — Cihaz Üzerinde LLM Çıkarımı:**
 - **JNI üzerinden llama.cpp** — Kotlin LlamaEngine, JNI köprüsü ile yerel .so kütüphanelerini yükler

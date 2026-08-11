@@ -15,12 +15,12 @@ console.log(`Updated package.json version to ${Script.version}`)
 // WHY two paths: this script only knew how to pull the CLI out of a GitHub
 // Actions artifact. Run outside CI — which is how the local Windows packages
 // are produced — the download failed, nothing landed in `resources/`, and
-// electron-builder's `opencode-cli*` filter matched zero files. The app
+// electron-builder's `unifia-cli*` filter matched zero files. The app
 // packaged and installed fine and then had no backend to spawn at all, which
 // the UI reports as "cannot reach the local server".
 if (process.env.GITHUB_RUN_ID) {
   const sidecarConfig = getCurrentSidecar()
-  const artifact = process.env.UNIFIA_CLI_ARTIFACT ?? "opencode-cli"
+  const artifact = process.env.UNIFIA_CLI_ARTIFACT ?? "unifia-cli"
   const dir = "resources/opencode-binaries"
 
   await $`mkdir -p ${dir}`

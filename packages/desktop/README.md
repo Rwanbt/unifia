@@ -37,7 +37,7 @@ Custom GGUF models downloadable from HuggingFace with VRAM-based recommendations
 
 #### llama-server Flags
 
-Most numeric flags are derived at runtime by `packages/opencode/src/local-llm-server/auto-config.ts` (`deriveConfig()`) from the detected device profile (total/free RAM, big CPU cores, GPU backend + VRAM, thermal state). Environment variables let advanced users pin specific values.
+Most numeric flags are derived at runtime by `packages/unifia/src/local-llm-server/auto-config.ts` (`deriveConfig()`) from the detected device profile (total/free RAM, big CPU cores, GPU backend + VRAM, thermal state). Environment variables let advanced users pin specific values.
 
 | Flag | Value | Purpose |
 |------|-------|---------|
@@ -145,11 +145,11 @@ otherwise abuse.
 
 ```bash
 # 1. Build CLI sidecar
-cd packages/opencode && bun run build --single
+cd packages/unifia && bun run build --single
 
 # 2. Copy sidecar
 mkdir -p packages/desktop/src-tauri/sidecars
-cp packages/opencode/dist/opencode-windows-x64/bin/opencode.exe \
+cp packages/unifia/dist/opencode-windows-x64/bin/opencode.exe \
    packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe
 
 # 3. Build (requires MSVC on Windows for ONNX Runtime)

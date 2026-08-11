@@ -46,15 +46,11 @@ async function waitForHealth(url: string) {
 const appDir = process.cwd()
 const repoDir = path.resolve(appDir, "../..")
 
-// The package is named `unifia`, but its directory is still `packages/opencode`
-// — the rebrand renamed the string here without renaming the folder. Nothing
-// caught it, because posix_spawn reports a missing cwd as ENOENT *on the
-// executable*: `e2e (linux)` failed with `ENOENT: posix_spawn 'bun'` and read
-// as a PATH problem. The check below turns the next such drift into a sentence
-// instead of a misdirection.
-const serverDir = path.join(repoDir, "packages", "opencode")
+// A missing cwd is reported as an executable spawn failure, so validate the
+// renamed server package explicitly to keep path drift actionable.
+const serverDir = path.join(repoDir, "packages", "unifia")
 if (!existsSync(serverDir)) {
-  throw new Error(`Server package directory not found: ${serverDir}. Was packages/opencode renamed?`)
+  throw new Error(`Server package directory not found: ${serverDir}. Was packages/unifia renamed?`)
 }
 
 const extraArgs = (() => {
@@ -164,16 +160,16 @@ try {
     process.env.OPENCODE = "1"
     process.env.UNIFIA_PID = String(process.pid)
 
-    const log = await import("../../opencode/src/util/log")
-    const install = await import("../../opencode/src/installation")
+    const log = await import("../../unifia/src/util/log")
+    const install = await import("../../unifia/src/installation")
     await log.Log.init({
       print: true,
       dev: install.Installation.isLocal(),
       level: "WARN",
     })
 
-    const servermod = await import("../../opencode/src/server/server")
-    inst = await import("../../opencode/src/project/instance")
+    const servermod = await import("../../unifia/src/server/server")
+    inst = await import("../../unifia/src/project/instance")
     server = servermod.Server.listen({ port: serverPort, hostname: "127.0.0.1" })
     console.log(`unifia server listening on http://127.0.0.1:${serverPort}`)
 

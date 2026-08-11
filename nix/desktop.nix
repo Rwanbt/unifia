@@ -94,7 +94,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   meta = {
     description = "Unifia Desktop App";
-    homepage = "https://opencode.ai";
+    homepage = "https://github.com/Rwanbt/unifia";
     license = lib.licenses.mit;
     mainProgram = "unifia-desktop";
     inherit (unifia.meta) platforms;

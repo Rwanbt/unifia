@@ -28,7 +28,7 @@ use std::{
     env,
     future::Future,
     net::TcpListener,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::{Arc, Mutex, OnceLock},
     time::Duration,
@@ -801,16 +801,19 @@ fn sqlite_file_exists() -> bool {
 
 /// Where the sidecar actually creates its database.
 ///
-/// This must mirror `Global.Path.data` in packages/opencode/src/global/index.ts,
+/// This must mirror `Global.Path.data` in packages/unifia/src/global/index.ts,
 /// which joins the XDG data home with the product's data directory name. It
 /// previously joined "opencode" — the official install's directory — so the
 /// probe read a file this application never writes: with OpenCode installed the
 /// migration window was skipped even on a first run, and without it the window
 /// appeared on every start even once Unifia's own database existed.
 ///
-/// The file inside is still named opencode.db on both sides. Renaming it to
-/// match identity.json's `databaseFile` would strand existing data, so it is
-/// the import bridge's job, not a rename in place.
+/// The file inside is now named `unifia.db` on both sides (TypeScript and
+/// Rust). On first access, if a legacy `opencode.db` is present and no
+/// `unifia.db` exists yet, the legacy file (and its `-wal` / `-shm` siblings)
+/// is copied to the new location. The copy is never a move, so a concurrent
+/// upstream install keeps working and the legacy file remains as a backup.
+/// See Runbook-Autonome-Independance-Unifia-2026-08-10 §3 (carte C8-A).
 fn sidecar_db_path() -> Result<PathBuf, &'static str> {
     let xdg_data_home = env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty());
 
@@ -822,9 +825,56 @@ fn sidecar_db_path() -> Result<PathBuf, &'static str> {
         }
     };
 
-    Ok(data_home
-        .join(crate::identity_generated::DATA_DIR_NAME)
-        .join("opencode.db"))
+    let data_dir = data_home.join(crate::identity_generated::DATA_DIR_NAME);
+    let new_path = data_dir.join("unifia.db");
+    let old_path = data_dir.join("opencode.db");
+
+    migrate_legacy_db(&new_path, &old_path)?;
+
+    Ok(new_path)
+}
+
+/// Copy a legacy `opencode.db` (and its `-wal` / `-shm` siblings) to the new
+/// `unifia.db` path. Idempotent: bails out if the destination already exists
+/// (so a second startup is a no-op) or if the source is missing (so a fresh
+/// install does not error). Never deletes the source. Returns an error if a
+/// copy itself fails, so the caller can refuse to start on a half-migrated
+/// database rather than boot on an empty one.
+fn migrate_legacy_db(new_path: &Path, old_path: &Path) -> Result<(), &'static str> {
+    if new_path.exists() {
+        return Ok(());
+    }
+    if !old_path.exists() {
+        return Ok(());
+    }
+    tracing::info!(
+        "migrating legacy database file from {} to {}",
+        old_path.display(),
+        new_path.display()
+    );
+    for suffix in ["", "-wal", "-shm"] {
+        let src = append_suffix(old_path, suffix);
+        let dst = append_suffix(new_path, suffix);
+        if !src.exists() {
+            continue;
+        }
+        if let Err(e) = std::fs::copy(&src, &dst) {
+            tracing::error!(
+                "failed to copy {} to {}: {}",
+                src.display(),
+                dst.display(),
+                e
+            );
+            return Err("failed to migrate legacy database file");
+        }
+    }
+    Ok(())
+}
+
+fn append_suffix(p: &Path, suffix: &str) -> PathBuf {
+    let mut s = p.as_os_str().to_owned();
+    s.push(suffix);
+    PathBuf::from(s)
 }
 
 // Creates a `once` listener for the specified event and returns a future that resolves
@@ -840,5 +890,93 @@ fn event_once_fut<T: tauri_specta::Event + serde::de::DeserializeOwned>(
     });
     async {
         let _ = rx.await;
+    }
+}
+
+#[cfg(test)]
+mod db_migration_tests {
+    use super::{append_suffix, migrate_legacy_db};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn unique_tmpdir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let seq = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!(
+            "unifia-{label}-{nanos}-{seq}-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("create tempdir");
+        dir
+    }
+
+    #[test]
+    fn copies_legacy_db_to_new_path() {
+        let dir = unique_tmpdir("db-copy");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+        fs::write(&old, b"legacy").unwrap();
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert_eq!(fs::read(&new).unwrap(), b"legacy");
+        assert!(old.exists(), "legacy file is preserved (copy, not move)");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn copies_wal_and_shm_siblings() {
+        let dir = unique_tmpdir("db-siblings");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+        fs::write(&old, b"main").unwrap();
+        fs::write(append_suffix(&old, "-wal"), b"wal").unwrap();
+        fs::write(append_suffix(&old, "-shm"), b"shm").unwrap();
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert_eq!(fs::read(&new).unwrap(), b"main");
+        assert_eq!(fs::read(append_suffix(&new, "-wal")).unwrap(), b"wal");
+        assert_eq!(fs::read(append_suffix(&new, "-shm")).unwrap(), b"shm");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn idempotent_when_new_already_exists() {
+        let dir = unique_tmpdir("db-idempotent");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+        fs::write(&old, b"legacy").unwrap();
+        fs::write(&new, b"current").unwrap();
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert_eq!(fs::read(&new).unwrap(), b"current", "new file is not overwritten");
+        assert!(old.exists(), "legacy file is untouched");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn noop_when_legacy_is_absent() {
+        let dir = unique_tmpdir("db-noop");
+        let old = dir.join("opencode.db");
+        let new = dir.join("unifia.db");
+
+        migrate_legacy_db(&new, &old).expect("migration ok");
+
+        assert!(!new.exists(), "new file is not created without a source");
+        assert!(!old.exists(), "nothing to migrate");
+
+        fs::remove_dir_all(&dir).ok();
     }
 }

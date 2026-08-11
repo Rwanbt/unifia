@@ -142,7 +142,7 @@ fi
 # into the gen/android assets dir. Maintaining a second `bun build` here risked
 # shipping a stale CLI on local builds vs CI.
 echo "[5/6] Bundling Unifia CLI (via scripts/bundle-mobile.mjs)..."
-UNIFIA_DIR="$(cd "$MOBILE_DIR/../opencode" && pwd)"
+UNIFIA_DIR="$(cd "$MOBILE_DIR/../unifia" && pwd)"
 REPO_ROOT="$(cd "$MOBILE_DIR/../.." && pwd)"
 
 if [ -f "$UNIFIA_DIR/src/mobile-entry.ts" ]; then
@@ -154,10 +154,10 @@ if [ -f "$UNIFIA_DIR/src/mobile-entry.ts" ]; then
   echo 'export function createWrapper() { return undefined }' > "$RUNTIME_DIR/node_modules/@parcel/watcher/wrapper.js"
   echo '{"name":"@parcel/watcher","version":"0.0.0","main":"wrapper.js"}' > "$RUNTIME_DIR/node_modules/@parcel/watcher/package.json"
 
-  echo "  CLI: $(du -sh "$RUNTIME_DIR/opencode-cli.js" 2>/dev/null | cut -f1 || echo "error")"
+  echo "  CLI: $(du -sh "$RUNTIME_DIR/unifia-cli.js" 2>/dev/null | cut -f1 || echo "error")"
 else
   echo "  WARNING: mobile-entry.ts not found at $UNIFIA_DIR/src/mobile-entry.ts"
-  echo "  Make sure packages/opencode/src/mobile-entry.ts exists."
+  echo "  Make sure packages/unifia/src/mobile-entry.ts exists."
 fi
 
 echo ""

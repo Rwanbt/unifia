@@ -17,7 +17,7 @@ Status: **LOCAL VALIDATION PASSED — NOT A PRODUCTION SECURITY CERTIFICATION**
 
 - `bun test test/team --timeout 30000`: 814 passed, 0 failed.
 - `bun test test/server/team-routes.test.ts --timeout 30000`: lifecycle and redaction route coverage.
-- `bun run typecheck` in `packages/opencode` and `packages/app`: passed.
+- `bun run typecheck` in `packages/unifia` and `packages/app`: passed.
 
 ## Boundaries not certified
 

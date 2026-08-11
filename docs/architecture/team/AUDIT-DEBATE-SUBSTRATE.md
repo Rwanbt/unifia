@@ -1,4 +1,4 @@
-# AUDIT-DEBATE-SUBSTRATE — `packages/opencode/src/collective/**`
+# AUDIT-DEBATE-SUBSTRATE — `packages/unifia/src/collective/**`
 
 > **Carte :** TEAM-A03 (Lot A, Gate T0)
 > **Worktree :** `D:\App\OpenCode\.team-worktrees\A03-9a25e1d2`
@@ -14,8 +14,8 @@
 
 ## 0. Méthode
 
-1. Énumération `packages/opencode/src/collective/**` (**20 fichiers TS uniques**, ~160 KB ; doublon `metrics.ts` supprimé — voir §1.0 ci-dessous).
-2. Vérification `packages/opencode/src/multi-model/**` : **n'existe pas** (FAIT PROUVÉ).
+1. Énumération `packages/unifia/src/collective/**` (**20 fichiers TS uniques**, ~160 KB ; doublon `metrics.ts` supprimé — voir §1.0 ci-dessous).
+2. Vérification `packages/unifia/src/multi-model/**` : **n'existe pas** (FAIT PROUVÉ).
 3. Recherche `from "../multi-model"` et `from "../team"` dans `collective/**` : **0 match** (FAIT PROUVÉ — pas de couplage circulaire existant).
 4. Recherche consommateurs directs hors `collective/` :
    - `agent/agent.ts:22` : `createDebateAgent` (sub-agent LSP).
@@ -227,7 +227,7 @@ Le substrat doit donc :
 
 ### 3.13 Tests existants
 
-Recherche `packages/opencode/test/collective/**` :
+Recherche `packages/unifia/test/collective/**` :
 
 | Fichier | Statut |
 |---|---|
@@ -318,7 +318,7 @@ Recherche `packages/opencode/test/collective/**` :
 
 ## 5. Recommandations architecturales (non décisions)
 
-1. **Substrat canonique `packages/opencode/src/multi-model/`** créé ex nihilo (répertoire vide aujourd'hui). Huit modules cibles (cf. §2).
+1. **Substrat canonique `packages/unifia/src/multi-model/`** créé ex nihilo (répertoire vide aujourd'hui). Huit modules cibles (cf. §2).
 2. **Pas de duplication** avec `collective/` ni avec `team/`. Chaque symbole appartient à un seul sous-système.
 3. **AuthStorage canonique** (A02-V2 ADR §3.1) est l'autorité unique pour les secrets. `multi-model/provider-discovery.ts` n'implémente ni `CLI_AUTH_CONFIGS` ni `CREDENTIAL_FILE_PATHS` — il interroge `AuthStorage`.
 4. **Coûts** : le tracker `budget-tracker.ts` est ré-utilisable, mais **MODEL_COSTS doit provenir du registry C01 (Lot C)**. Aucun enum statique central dans `multi-model/`.
@@ -334,7 +334,7 @@ Recherche `packages/opencode/test/collective/**` :
 ## 6. Décisions à reporter (A06 + D03 + C01)
 
 1. Frontière exacte entre `collective/**` et futur substrat commun.
-2. Namespace et emplacement du substrat canonique (proposition : `packages/opencode/src/multi-model/`).
+2. Namespace et emplacement du substrat canonique (proposition : `packages/unifia/src/multi-model/`).
 3. Contrats génériques d'un modèle, d'un provider, d'une invocation et d'un résultat.
 4. Représentation des capacités et limitations.
 5. Représentation des coûts et budgets.

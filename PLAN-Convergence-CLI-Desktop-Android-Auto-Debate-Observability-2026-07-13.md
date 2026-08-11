@@ -96,8 +96,8 @@ Les composants et la navigation mobile existent déjà. Le travail commence donc
 
 **Fichiers probables**
 
-- `packages/opencode/src/agent/agent.ts`
-- `packages/opencode/src/config/config-schema.ts`
+- `packages/unifia/src/agent/agent.ts`
+- `packages/unifia/src/config/config-schema.ts`
 - `packages/app/src/context/local.tsx`
 - génération SDK si le schéma public change
 - tests ciblés agent et contexte local
@@ -248,7 +248,7 @@ Chaque PR vise moins de 400 LOC modifiées. Si le configurateur Debate dépasse 
 
 **Commandes minimales par PR**
 
-- `packages/opencode`: `bun typecheck`, tests ciblés `agent` et `debate`, puis test TUI Debate existant ;
+- `packages/unifia`: `bun typecheck`, tests ciblés `agent` et `debate`, puis test TUI Debate existant ;
 - `packages/app`: `bun typecheck`, `bun test`, puis Playwright ciblé si le parcours traverse un redémarrage ;
 - `packages/mobile`: `bun test`, build Android `aarch64`, installation et smoke test ;
 - après modification des relations de modules : `graphify update .`.

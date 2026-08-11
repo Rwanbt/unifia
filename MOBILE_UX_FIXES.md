@@ -130,7 +130,7 @@ After: expected ~3–4 s (rough — needs on-device measurement).
 
 **Status**: PARTIAL / SKIP.
 
-**Diagnostic** (`packages/opencode/src/local-llm-server/auto-config.ts`):
+**Diagnostic** (`packages/unifia/src/local-llm-server/auto-config.ts`):
 - `deriveConfig` already sets `nThreads = clamp(2, 6, cpuCores.big)` — big
   cores only, no tweak needed.
 - sm8250 has no Vulkan/OpenCL driver exposed to userland (Android 11 base)
