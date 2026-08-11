@@ -1562,41 +1562,7 @@ export type AgentConfig = {
      */
     deny?: Array<string>
   }
-  [key: string]:
-    | unknown
-    | string
-    | number
-    | {
-        [key: string]: boolean
-      }
-    | boolean
-    | "subagent"
-    | "primary"
-    | "all"
-    | {
-        [key: string]: unknown
-      }
-    | string
-    | "primary"
-    | "secondary"
-    | "accent"
-    | "success"
-    | "warning"
-    | "error"
-    | "info"
-    | number
-    | PermissionConfig
-    | {
-        /**
-         * MCP server names this agent may use
-         */
-        allow?: Array<string>
-        /**
-         * MCP server names this agent may NOT use
-         */
-        deny?: Array<string>
-      }
-    | undefined
+  [key: string]: unknown
 }
 
 export type ProviderConfig = {
@@ -1662,7 +1628,7 @@ export type ProviderConfig = {
            * Disable this variant for the model
            */
           disabled?: boolean
-          [key: string]: unknown | boolean | undefined
+          [key: string]: unknown
         }
       }
     }
@@ -1688,7 +1654,7 @@ export type ProviderConfig = {
      * Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.
      */
     chunkTimeout?: number
-    [key: string]: unknown | string | boolean | number | false | number | undefined
+    [key: string]: unknown
   }
 }
 

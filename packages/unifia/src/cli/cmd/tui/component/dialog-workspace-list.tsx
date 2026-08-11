@@ -59,7 +59,11 @@ async function openWorkspace(input: {
       })
       return
     }
-    if (result.response.status >= 500 && result.response.status < 600) {
+    // WHY: `response` is absent when the failure happened before a reply existed
+    // (request construction or network error). Those are not retryable 5xx, so
+    // they fall through to the `!result.data` branch instead of looping forever.
+    const status = result.response?.status
+    if (status !== undefined && status >= 500 && status < 600) {
       await sleep(1000)
       continue
     }
@@ -115,7 +119,7 @@ function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) => Promi
     if (creating()) return
     setCreating(type)
 
-    const result = await sdk.client.experimental.workspace.create({ type, branch: null }).catch((err) => {
+    const result = await sdk.client.experimental.workspace.create({ type, branch: null, extra: null }).catch((err) => {
       console.log(err)
       return undefined
     })
