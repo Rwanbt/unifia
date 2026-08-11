@@ -29,7 +29,7 @@ close que si la preuve citée existe et est reproductible. Rien ici ne peut
 | G2 | CI — unit, rust, identity, brand, conformance, SDK, LOC, mobile | automatique | **PASS** | 18 checks verts sur la PR #25 |
 | G3 | CI — `e2e (linux)` | automatique | **FAIL, préexistant** | Échoue aussi sur la branche de base : run 31411233633 (13 tests) vs 31480610511 (14 tests), 11 échecs communs. Les 2 échecs propres à la tête passent en local. **Non causé par le rebrand** — dette de `feat/unifia-rebrand-complete` |
 | G4 | Revue sécurité humaine (CodeQL P3) | **humaine** | **OUVERTE** | 2 critical + 1 high + 1 medium ouverts. Tous les chemins d'alerte sont en `packages/opencode/`, c.-à-d. antérieurs au renommage C9 : le scan doit être rejoué avant revue. Aucune auto-revue n'a été faite |
-| G5 | Protections de branche GitHub | **humaine** | **OUVERTE** | `main` et `dev` : 0 approbation requise, aucun required status check, CODEOWNERS non requis, admins non soumis, signatures non exigées. Force-push et suppression déjà interdits ; résolution des conversations déjà exigée. JSON de durcissement prêt (§0bis) — non appliqué, car exiger 1 approbation sur un dépôt mono-mainteneur peut le verrouiller |
+| G5 | Protections de branche GitHub | **humaine → appliquée** | **PASS (partiel)** | Appliqué le 2026-08-11 sur `main` **et** `dev`, sur décision d'Erwan : 8 required status checks, 1 approbation, `dismiss_stale_reviews`, `required_linear_history`, force-push et suppression interdits, résolution des conversations exigée. `enforce_admins: false` **délibérément** (§0bis) et `require_code_owner_reviews: false`. Reste ouvert : signatures de commit non exigées, et la revue par CODEOWNERS n'est pas contraignante tant que le dépôt est mono-mainteneur |
 | G6 | Dependabot | automatique | **PASS (activation)** / triage ouvert | Alertes et security updates **activées le 2026-08-11** (vérifié : `dependabot_security_updates: enabled`). 26 alertes ouvertes : 6 high, 16 medium, 4 low. Aucune PR de dépendance fusionnée |
 | G7 | Signature APK release + preuve device | **humaine** | **BLOCKED_HUMAN_INPUT** | Le script exige `UNIFIA_ANDROID_CERT_SHA256` et refuse la clé debug. Keystore réel, mot de passe et device ADB non fournis à cette session. Aucun APK construit, aucune empreinte fabriquée |
 | G8 | Identité produit | automatique | **PARTIEL** | Gate `identity` verte (surfaces, app IDs, adaptateurs générés). Résidus produit corrigés dans le runtime livré ; reste classé §0ter, dont `packages/web` bloqué par G9 |
@@ -41,17 +41,28 @@ pas être fusionnée tant que G4, G5, G7 et G9 sont ouvertes. G3 est une dette
 de la branche de base : elle doit être traitée pour elle-même, pas en bloquant
 les lots qui ne l'ont pas causée.
 
-### 0bis. Durcissement de branche préparé, non appliqué
+### 0bis. Durcissement de branche appliqué — et pourquoi `enforce_admins` reste `false`
 
 Contrainte structurelle : le dépôt a **un seul mainteneur**. GitHub interdit
 d'approuver sa propre PR, donc `required_approving_review_count: 1` combiné à
-`enforce_admins: true` verrouille définitivement `main` et `dev`. Les deux
-options tenables sont donc :
+`enforce_admins: true` verrouillerait définitivement `main` et `dev` — aucune
+PR ne pourrait plus être fusionnée par personne. La posture retenue est donc
+**1 approbation avec `enforce_admins: false`** : la règle est visible et
+s'imposera à tout contributeur futur, tandis que l'admin conserve une porte de
+sortie explicite. `enforce_admins: true` ne devra être activé qu'à partir du
+moment où un second mainteneur peut approuver.
 
-- **1 approbation + `enforce_admins: false`** — la règle est visible et
-  s'applique à tout contributeur futur, l'admin garde une porte de sortie.
-- **0 approbation + required status checks** — aucune porte de sortie
-  nécessaire, mais aucune revue imposée.
+`require_code_owner_reviews` reste `false` pour la même raison, bien que
+`.github/CODEOWNERS` soit désormais correct : l'activer aujourd'hui ne ferait
+qu'ajouter une exigence que seul l'admin peut contourner.
+
+`strict: false` (branche pas obligatoirement à jour avant fusion) est
+délibéré : avec des PR empilées, `strict: true` impose un rebase à chaque
+fusion en amont de la pile.
+
+Configuration exacte appliquée : `D:\tmp\unifia-gov\protection-target.json`.
+État antérieur sauvegardé dans `protection-main.json` et `protection-dev.json`
+du même dossier, hors dépôt — le changement est donc réversible.
 
 Checks retenus comme exigibles : présents sur les PR #23, #24 **et** #25 —
 donc non filtrés par chemin — et actuellement verts :
