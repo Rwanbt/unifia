@@ -21518,7 +21518,7 @@
             "$ref": "#/components/schemas/ServerConfig"
           },
           "command": {
-            "description": "Command configuration, see https://opencode.ai/docs/commands",
+            "description": "Command configuration, see https://github.com/Rwanbt/unifia",
             "type": "object",
             "propertyNames": {
               "type": "string"
@@ -21672,7 +21672,7 @@
             }
           },
           "agent": {
-            "description": "Agent configuration, see https://opencode.ai/docs/agents",
+            "description": "Agent configuration, see https://github.com/Rwanbt/unifia",
             "type": "object",
             "properties": {
               "plan": {
