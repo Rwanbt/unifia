@@ -185,3 +185,39 @@ test("session persists across module state via the file backend (survives a fres
   expect(raw.login).toBe("persisted-user")
   expect(raw.accessToken).toBe("gho_persisted")
 })
+
+test("a stale temp file cannot become the token's permissions (CodeQL js/http-to-file-access)", async () => {
+  // The old write reused a fixed `${file}.tmp`. Left behind by a crash with
+  // loose permissions, `mode: 0o600` was then a no-op — writeFile only applies
+  // mode when it creates the file — and the token was persisted world-readable.
+  const stale = `${file}.tmp`
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.writeFile(stale, "stale leftover", { mode: 0o644 })
+
+  stubFetch((url) => {
+    if (url === "https://github.com/login/device/code") {
+      return json({ device_code: "dc-7", user_code: "STALE-TMP", verification_uri: "https://github.com/login/device", expires_in: 900, interval: 5 })
+    }
+    if (url === "https://github.com/login/oauth/access_token") return json({ access_token: "gho_mode_check", token_type: "bearer", scope: "repo" })
+    if (url === "https://api.github.com/user") {
+      return json({ login: "mode-user", html_url: "https://github.com/mode-user" }, 200, { "x-oauth-scopes": "repo" })
+    }
+    throw new Error(`unexpected fetch: ${url}`)
+  })
+
+  try {
+    const GithubAuth = await import("../../src/github/auth")
+    await GithubAuth.startDeviceFlow()
+    await GithubAuth.pollDeviceFlow()
+
+    expect(JSON.parse(await fs.readFile(file, "utf8")).accessToken).toBe("gho_mode_check")
+    // The stale file is untouched: it was never the write target.
+    expect(await fs.readFile(stale, "utf8")).toBe("stale leftover")
+    // Windows has no POSIX mode bits to assert — node reports 0o666 there.
+    if (process.platform !== "win32") {
+      expect((await fs.stat(file)).mode & 0o777).toBe(0o600)
+    }
+  } finally {
+    await fs.rm(stale, { force: true })
+  }
+})

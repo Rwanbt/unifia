@@ -38,6 +38,7 @@ import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
 import { useCommand } from "@/context/command"
 import { getDraggableId } from "@/utils/solid-dnd"
 import { DebugBar } from "@/components/debug-bar"
+import { e2eActive } from "@/testing/active"
 import { Titlebar } from "@/components/titlebar"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
@@ -1130,7 +1131,13 @@ export default function Layout(props: ParentProps) {
             </div>
           </div>
         </div>
-        {import.meta.env.DEV && <DebugBar />}
+        {/* Not rendered under the e2e harness. The bar is `fixed bottom-3
+            right-3 z-50 pointer-events-auto` and 324px wide, which puts it
+            squarely on top of the composer's Send button: Playwright logged
+            "208 × retrying click action" against it, so every fallback click
+            on Send burned the whole test timeout. It is a dev-only telemetry
+            HUD, never shipped, and nothing in the suite exercises it. */}
+        {import.meta.env.DEV && !e2eActive() && <DebugBar />}
       </div>
       <Toast.Region />
     </div>

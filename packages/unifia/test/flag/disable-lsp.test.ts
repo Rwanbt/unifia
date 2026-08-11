@@ -5,11 +5,11 @@
 
 import { describe, expect, test, afterEach } from "bun:test"
 
-// UNIFIA_DISABLE_LSP is what the e2e runner uses to stop language servers from
-// starting at all. UNIFIA_DISABLE_LSP_DOWNLOAD is a different setting — it only
-// stops fetching a server that is missing — so the two must not be conflated:
-// a build where DOWNLOAD alone were enough would still pay 45 s per already
-// installed server, which is the flakiness this flag exists to remove.
+// UNIFIA_DISABLE_LSP is an explicit way to stop installed language servers from
+// starting. UNIFIA_DISABLE_LSP_DOWNLOAD only prevents missing servers from being
+// fetched, so it cannot avoid startup costs for servers already on disk. The E2E
+// runner deliberately leaves the stronger flag opt-in because measurement did
+// not establish LSP startup as the source of its flakes.
 
 const touched: string[] = []
 

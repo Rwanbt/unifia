@@ -27,9 +27,8 @@ import {
 } from "../../src/team/worktree-manager";
 import { getDbInMemory } from "../../src/team/lock-manager";
 
-// We force every test to use its own in-memory DB by monkey-patching the
-// underlying `getDb` to return the in-memory instance. This keeps the tests
-// hermetic without touching the on-disk leases.db.
+// Every database-reaching case receives its own in-memory DB explicitly. This
+// keeps the tests hermetic without touching the on-disk leases.db.
 let _isolatedDb: Database | null = null;
 
 beforeEach(() => {
@@ -37,6 +36,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  _isolatedDb?.close();
   _isolatedDb = null;
 });
 
@@ -241,11 +241,14 @@ describe("worktree-manager — detachWorktree validation", () => {
   });
 
   test("detachWorktree without remove_worktree requires no repo_root", () => {
-    const r = detachWorktree({
-      lease_id: "LEASE-DOES-NOT-EXIST",
-      worker_id: "MM2",
-      remove_worktree: false,
-    });
+    const r = detachWorktree(
+      {
+        lease_id: "LEASE-DOES-NOT-EXIST",
+        worker_id: "MM2",
+        remove_worktree: false,
+      },
+      _isolatedDb!,
+    );
     // Should return INTERNAL because lease not found (release fails).
     expect(r.ok).toBe(false);
     if (!r.ok) expect(["INTERNAL", "INVALID_INPUT"]).toContain(r.code);
@@ -292,24 +295,27 @@ describe("worktree-manager — inspectWorktree", () => {
 
 describe("worktree-manager — validateWorktreeScope", () => {
   test("validateWorktreeScope rejects when lease not found", () => {
-    const r = validateWorktreeScope({
-      lease_id: "LEASE-NONEXISTENT",
-      expected_fencing_token: 1,
-      manifest: {
-        schema_version: "1.0.0",
-        card_id: "TEAM-G02",
+    const r = validateWorktreeScope(
+      {
         lease_id: "LEASE-NONEXISTENT",
-        base_sha: "0".repeat(40),
-        scope_mode: "E2_REQUIRED",
-        allowed_files: [],
-        protected_files: [],
-        reserved_paths: [],
-        symlink_policy: "REJECT",
-        case_policy: "REJECT_DUPLICATE_CASE",
-        long_path_policy: "FAIL_OVER_260",
-        eol_policy: "LF_NORMALIZED",
+        expected_fencing_token: 1,
+        manifest: {
+          schema_version: "1.0.0",
+          card_id: "TEAM-G02",
+          lease_id: "LEASE-NONEXISTENT",
+          base_sha: "0".repeat(40),
+          scope_mode: "E2_REQUIRED",
+          allowed_files: [],
+          protected_files: [],
+          reserved_paths: [],
+          symlink_policy: "REJECT",
+          case_policy: "REJECT_DUPLICATE_CASE",
+          long_path_policy: "FAIL_OVER_260",
+          eol_policy: "LF_NORMALIZED",
+        },
       },
-    });
+      _isolatedDb!,
+    );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe("INTERNAL");
   });

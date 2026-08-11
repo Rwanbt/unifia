@@ -68,12 +68,17 @@ const serverEnv = {
   ...process.env,
   UNIFIA_DISABLE_SHARE: process.env.UNIFIA_DISABLE_SHARE ?? "true",
   UNIFIA_DISABLE_LSP_DOWNLOAD: "true",
-  // DOWNLOAD alone was not enough: it stops fetching a missing server, but the
-  // ones the runner image already has still start, and rust, typescript and
-  // julials each spend the full 45 s initialize timeout before giving up.
-  // That runs concurrently with Playwright's own timers and is the mechanism
-  // behind the suite's flakiness. The e2e suite exercises no LSP feature.
-  UNIFIA_DISABLE_LSP: process.env.UNIFIA_DISABLE_LSP ?? "true",
+  // UNIFIA_DISABLE_LSP is deliberately NOT defaulted here — it is inherited
+  // from process.env above, so it stays available as an opt-in and nothing
+  // more.
+  //
+  // It was briefly defaulted to "true" on the claim that language servers were
+  // "the mechanism behind the suite's flakiness". Measurement refuted that:
+  // three local runs of the same two tests gave LSP on -> pass (43.7 s), LSP
+  // off -> fail, LSP off -> pass (37.3 s). The flag does remove four 45 s
+  // `initialize` timeouts and every `spawned lsp server` line, so it shortens
+  // the run — it does not make it deterministic. Defaulting it on would only
+  // have hidden any LSP regression from the suite for good.
   UNIFIA_DISABLE_DEFAULT_PLUGINS: "true",
   UNIFIA_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
   UNIFIA_TEST_HOME: path.join(sandbox, "home"),
@@ -84,7 +89,7 @@ const serverEnv = {
   OPENCODE_E2E_PROJECT_DIR: repoDir,
   OPENCODE_E2E_SESSION_TITLE: "E2E Session",
   OPENCODE_E2E_MESSAGE: "Seeded for UI e2e",
-  OPENCODE_E2E_MODEL: process.env.OPENCODE_E2E_MODEL ?? "opencode/gpt-5-nano",
+  ...(process.env.OPENCODE_E2E_MODEL ? { OPENCODE_E2E_MODEL: process.env.OPENCODE_E2E_MODEL } : {}),
   UNIFIA_CLIENT: "app",
   UNIFIA_STRICT_CONFIG_DEPS: "true",
 } satisfies Record<string, string>

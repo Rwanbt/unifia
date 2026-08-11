@@ -316,6 +316,58 @@ export async function openSettings(page: Page) {
   return dialog
 }
 
+/**
+ * Waits until the composer has committed both an agent and a model.
+ *
+ * `submit.ts` refuses the prompt outright when either is missing — it shows the
+ * "Choose an agent and model before sending a prompt" toast and returns, so
+ * nothing is sent and no request reaches the mock LLM. A visible prompt input
+ * is not proof that the composer will act on Enter: the agent and model are
+ * resolved from the provider list the backend serves, which arrives after the
+ * input renders. Typing before then is the race, not a slow machine.
+ *
+ * Waits on the committed probe state rather than on any DOM intermediate, per
+ * "Prefer semantic app state over transient DOM visibility" in AGENTS.md.
+ */
+export async function waitPromptReady(
+  page: Page,
+  expectedModel: { providerID: string; modelID: string },
+  timeout = DEFAULT_TIMEOUT,
+) {
+  const assertion = expect
+    .poll(
+      async () => {
+        await assertHealthy(page, "waitPromptReady")
+        return page
+          .evaluate(() => {
+            const current = (window as E2EWindow).__opencode_e2e?.model?.current
+            if (!current?.agent || !current.model) return null
+            return {
+              agentReady: true,
+              providerID: current.model.providerID,
+              modelID: current.model.modelID,
+            }
+          })
+          .catch(() => null)
+      },
+      { timeout },
+    )
+    .toEqual({ agentReady: true, ...expectedModel })
+
+  await assertion.catch(async (error) => {
+    const diagnostic = await page.evaluate(() => {
+      const current = (window as E2EWindow).__opencode_e2e?.model?.current
+      return {
+        current,
+        defaultServerUrl: localStorage.getItem("unifia.settings.dat:defaultServerUrl"),
+        servers: localStorage.getItem("unifia.global.dat:server"),
+        seededModels: localStorage.getItem("unifia.global.dat:model"),
+      }
+    })
+    throw new Error(`Composer readiness timed out: ${JSON.stringify(diagnostic)}`, { cause: error })
+  })
+}
+
 export async function createTestProject(input?: { serverUrl?: string }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "unifia-e2e-project-"))
   const id = `e2e-${path.basename(root)}`

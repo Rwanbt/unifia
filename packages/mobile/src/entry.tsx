@@ -8,6 +8,7 @@ import {
   PlatformProvider,
   ServerConnection,
   checkServerReachable,
+  normalizeServerUrl,
 } from "@unifia/app"
 import "@unifia/app/index.css"
 import "./mobile.css"
@@ -141,7 +142,12 @@ function App() {
   async function handleRemoteConnect() {
     const url = remoteUrl().trim()
     if (!url) return
-    const normalized = (/^https?:\/\//.test(url) ? url : `http://${url}`).replace(/\/+$/, "")
+    // WHY the shared helper rather than the same two lines inline: this was a
+    // verbatim copy of normalizeServerUrl, and its trailing-slash trim carried
+    // the quadratic regex CodeQL reported on the desktop path (js/polynomial-redos).
+    // One owner means the next fix does not have to be found twice.
+    const normalized = normalizeServerUrl(url)
+    if (!normalized) return
     const p = await ensurePlatform()
     const username = remoteUsername().trim() || undefined
     const password = remotePassword() || undefined

@@ -256,13 +256,18 @@ export namespace Flag {
    * Distinct from UNIFIA_DISABLE_LSP_DOWNLOAD, which only stops *fetching* a
    * missing server: the ones already present on the machine still start, and
    * each one that fails to hand back an `initialize` response costs the full
-   * 45 s timeout. In CI that is what makes the e2e suite unstable — rust,
-   * typescript and julials each burn 45 s while Playwright's own timers run.
+   * 45 s timeout — rust, typescript and julials each burn 45 s.
+   *
+   * That cost is real, but it is a cost and not a cause. This comment used to
+   * claim the timeouts were what made the e2e suite unstable; three runs of
+   * the same two tests refuted it (LSP on -> pass, LSP off -> fail, LSP off ->
+   * pass). Do not reach for this flag to stabilise a test — turning it on in
+   * the e2e runner buys a shorter run and blinds the suite to every LSP
+   * regression.
    *
    * Fork-owned, so there is no OPENCODE_ spelling to fall back to. Config
    * `lsp: false` remains the way to express this in a project's config file;
-   * this exists for callers that have no config to edit, such as the e2e
-   * runner.
+   * this exists for callers that have no config to edit.
    */
   export const UNIFIA_DISABLE_LSP = truthy("UNIFIA_DISABLE_LSP")
 }
