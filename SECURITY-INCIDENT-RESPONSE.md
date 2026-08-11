@@ -50,7 +50,7 @@ Ce document décrit le **process de réponse** aux incidents de sécurité d'Uni
 
 - **Sources** : audit interne, rapport utilisateur, CVE database, scanner
 - **Action** : créer un ticket privé (NE PAS ouvrir d'issue publique)
-- **Destinataires** : security@unifia.ai (BDFL + 2 maintainers)
+- **Destinataires** : [signalement privé GitHub](https://github.com/Rwanbt/unifia/security/advisories/new) (le projet ne contrôle aucun domaine, donc aucune adresse e-mail)
 
 ### 2. Triage (15-60 min)
 
@@ -99,7 +99,7 @@ Ce document décrit le **process de réponse** aux incidents de sécurité d'Uni
 
 - Slack #security-incidents
 - PagerDuty (SEV-1, SEV-2)
-- Email security@unifia.ai
+- Signalement privé GitHub (aucune adresse e-mail : aucun domaine contrôlé)
 
 ### Externe
 
@@ -181,9 +181,12 @@ Nous suivons **90 days** comme standard depuis la découverte :
 
 ## Security contacts
 
-- **Email** : security@unifia.ai
-- **PGP key** : [à publier]
-- **Twitter** : @Unifia (SEV-1 only)
+- **Signalement privé** : https://github.com/Rwanbt/unifia/security/advisories/new
+- **Mainteneur** : [@Rwanbt](https://github.com/Rwanbt)
+
+Le projet ne contrôle ni nom de domaine ni compte de réseau social ; il n'expose
+donc ni adresse e-mail ni handle. Tout canal en `@unifia.ai` ou `@Unifia` serait
+usurpable par un tiers.
 
 ## Hall of Fame
 

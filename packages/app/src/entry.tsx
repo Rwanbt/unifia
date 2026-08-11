@@ -98,7 +98,9 @@ if (!(root instanceof HTMLElement) && import.meta.env.DEV) {
 }
 
 const getCurrentUrl = () => {
-  if (location.hostname.includes("unifia.ai")) return "http://localhost:4096"
+  // WHY no marketing-host branch: upstream special-cased its own site host to
+  // fall back to a local server. This fork controls no domain and publishes no
+  // site (see PROD_READINESS.md G9), so that branch was unreachable here.
   if (import.meta.env.DEV)
     return `http://${import.meta.env.VITE_OPENCODE_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_OPENCODE_SERVER_PORT ?? "4096"}`
   return location.origin

@@ -74,7 +74,7 @@ export namespace Server {
             )
               return input
 
-            // Explicit unifia.ai origins we actually use — narrower than
+            // Explicit upstream opencode.ai origins we actually use — narrower than
             // the previous *.opencode.ai regex, which would accept anything
             // user-controlled at a hostile subdomain (e.g. evil.opencode.ai).
             const ALLOWED_OPENCODE_ORIGINS = [

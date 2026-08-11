@@ -54,8 +54,10 @@ jobs:
 
       - name: Configure git identity
         run: |
-          git config --global user.email "bot@unifia.ai"
-          git config --global user.name "unifia"
+          # WHY noreply: no Unifia domain is controlled, so an @unifia.ai
+          # author address would be unroutable. This is GitHub's own bot identity.
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
       - name: Cache Turbo
         uses: actions/cache@v4
