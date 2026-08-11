@@ -1,6 +1,13 @@
 # Production Readiness — Unifia Workbench v1.0.0
 
-**Statut :** `DRAFT` — checklist de readiness
+> [!IMPORTANT]
+> **SUPERSÉDÉ — ne pas utiliser pour décider d'une release.**
+> Le document canonique est [`PROD_READINESS.md`](PROD_READINESS.md), dont le
+> §0 porte le registre de gates faisant autorité. Ce fichier est conservé
+> comme checklist thématique : ses cases n'ont jamais été renseignées et ne
+> reflètent aucun état vérifié.
+
+**Statut :** `SUPERSÉDÉ` (était `DRAFT`)
 **Date :** 2026-07-31
 **Cible :** Gate A (Workbench headless stable)
 
