@@ -12,6 +12,7 @@ import {
   setHealthPhase,
   sessionIDFromUrl,
   waitSession,
+  waitPromptReady,
   waitSessionIdle,
   waitSessionSaved,
   waitSlug,
@@ -423,6 +424,11 @@ function makeProject(
     const prompt = page.locator(promptSelector).first()
     const submit = async () => {
       await expect(prompt).toBeVisible()
+      // The composer discards Enter until an agent and a model are committed.
+      // Without this the send is silently refused, `started` never moves, and
+      // the fallback below spends the whole test timeout clicking a button
+      // whose click a toast is intercepting.
+      await waitPromptReady(page)
       await prompt.click()
       if (input.shell) {
         await page.keyboard.type("!")
