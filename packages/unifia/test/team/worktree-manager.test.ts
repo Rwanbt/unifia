@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Database } from "bun:sqlite";
@@ -21,6 +21,7 @@ import {
   createWorktree,
   attachWorktree,
   detachWorktree,
+  ensureHuskyBootstrapMarker,
   listWorktrees,
   inspectWorktree,
   validateWorktreeScope,
@@ -321,5 +322,59 @@ describe("worktree-manager — validateWorktreeScope", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe("INVALID_INPUT");
+  });
+});
+
+describe("ensureHuskyBootstrapMarker — exclusive create", () => {
+  const markerOf = (root: string) => join(root, ".husky", "_", ".bootstrap-marker");
+
+  test("creates the marker and records the worktree it belongs to", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "wtm-husky-"));
+    try {
+      ensureHuskyBootstrapMarker(tmp);
+      expect(existsSync(markerOf(tmp))).toBe(true);
+      expect(readFileSync(markerOf(tmp), "utf8")).toContain(`worktree=${tmp}`);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("never rewrites a marker another worker already created", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "wtm-husky-"));
+    try {
+      mkdirSync(join(tmp, ".husky", "_"), { recursive: true });
+      writeFileSync(markerOf(tmp), "written by the worker that got there first\n");
+
+      ensureHuskyBootstrapMarker(tmp);
+
+      expect(readFileSync(markerOf(tmp), "utf8")).toBe("written by the worker that got there first\n");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  // The TOCTOU this replaced (CodeQL js/file-system-race) was `existsSync` then
+  // `writeFileSync`: a marker path planted as a symlink reads as absent, and the
+  // unguarded write then follows it and creates the target. POSIX open(2)
+  // specifies that O_CREAT|O_EXCL fails with EEXIST on a symbolic link
+  // "regardless of the contents of the symbolic link", so `wx` refuses instead.
+  //
+  // Windows is excluded on measurement, not on principle: CreateFile with
+  // CREATE_NEW follows the reparse point and still creates the target, so the
+  // flag buys nothing there and the assertion below would fail for a reason
+  // that has nothing to do with this code.
+  test.skipIf(process.platform === "win32")("refuses to write through a planted symlink", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "wtm-husky-"));
+    try {
+      const victim = join(tmp, "victim.txt");
+      mkdirSync(join(tmp, ".husky", "_"), { recursive: true });
+      symlinkSync(victim, markerOf(tmp), "file");
+
+      ensureHuskyBootstrapMarker(tmp);
+
+      expect(existsSync(victim)).toBe(false);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

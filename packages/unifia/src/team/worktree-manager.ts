@@ -718,16 +718,27 @@ export function relativeTo(worktreePath: string, absFilePath: string): string {
 /**
  * Force-write a deterministic .husky/_/placeholder file inside a worktree so
  * downstream hooks tests can rely on a known marker. Idempotent.
+ *
+ * WHY the `wx` flag instead of `if (!existsSync(marker))`: this module exists to
+ * let several workers act on worktrees at once, so a check followed by a write
+ * is a TOCTOU — two workers both observe "absent" and both write, and whichever
+ * lands second silently overwrites a marker another worker is already reading
+ * (CodeQL `js/file-system-race`). `wx` is `O_CREAT | O_EXCL`: the kernel decides
+ * the winner in one call. EEXIST is the idempotent path and the only error
+ * swallowed; anything else (no permission, read-only mount) still surfaces.
  */
 export function ensureHuskyBootstrapMarker(worktreePath: string): void {
   const dir = join(worktreePath, ".husky", "_");
   mkdirSync(dir, { recursive: true });
   const marker = join(dir, ".bootstrap-marker");
-  if (!existsSync(marker)) {
+  try {
     writeFileSync(
       marker,
       `# Created by WorktreeManager at ${new Date().toISOString()}\n` +
         `worktree=${worktreePath}\n`,
+      { flag: "wx" },
     );
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code !== "EEXIST") throw err;
   }
 }

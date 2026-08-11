@@ -99,9 +99,22 @@ async function writePlain(session: GithubSession | undefined): Promise<void> {
     await fs.rm(file, { force: true })
     return
   }
-  const tmp = `${file}.tmp`
-  await fs.writeFile(tmp, JSON.stringify(session, null, 2), { mode: 0o600 })
-  await fs.rename(tmp, file)
+  // WHY a uniquely named temp file opened with `wx`: `mode` is only applied
+  // when writeFile creates the file. A fixed `github-auth.json.tmp` left behind
+  // by a crash — or planted by anything else that can write this directory — is
+  // reused as-is, and the OAuth access token then lands in a file whose
+  // permissions we never set. `wx` is O_CREAT|O_EXCL, so the write either
+  // creates the file it hardens or fails; the unique suffix keeps that from
+  // turning a stale leftover into a permanent failure.
+  const crypto = await import("node:crypto")
+  const tmp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`
+  try {
+    await fs.writeFile(tmp, JSON.stringify(session, null, 2), { mode: 0o600, flag: "wx" })
+    await fs.rename(tmp, file)
+  } catch (cause) {
+    await fs.rm(tmp, { force: true })
+    throw cause
+  }
 }
 
 async function readSession(): Promise<GithubSession | undefined> {
