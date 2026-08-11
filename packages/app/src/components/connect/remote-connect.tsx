@@ -1,4 +1,5 @@
 import type { Platform } from "../../context/platform"
+import { trimTrailingSlashes } from "../../utils/url"
 
 export type CheckServerResult =
   | { ok: true }
@@ -10,17 +11,6 @@ export type CheckServerResult =
  * l'appelant puisse afficher un message contextuel au lieu d'un opaque
  * "impossible de joindre" une fois l'utilisateur déjà dans l'app principale.
  */
-/**
- * `replace(/\/+$/, "")` costs O(n²) on a long run of slashes — the engine
- * retries the anchored `+` from every offset (CodeQL `js/polynomial-redos`).
- * One backward walk, and no allocation when there is nothing to trim.
- */
-function trimTrailingSlashes(value: string): string {
-  let end = value.length
-  while (end > 0 && value[end - 1] === "/") end--
-  return end === value.length ? value : value.slice(0, end)
-}
-
 export async function checkServerReachable(
   platform: Pick<Platform, "fetch">,
   url: string,
