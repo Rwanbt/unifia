@@ -14,7 +14,7 @@ describe.skipIf(skipOnWindowsCI)("plugin.auth-override", () => {
   test("user plugin overrides built-in github-copilot auth", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        const pluginDir = path.join(dir, ".opencode", "plugin")
+        const pluginDir = path.join(dir, ".unifia", "plugin")
         await fs.mkdir(pluginDir, { recursive: true })
 
         await Bun.write(
