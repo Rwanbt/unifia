@@ -72,15 +72,45 @@ type AssistantFixture = {
 
 export const settingsKey = "settings.v3"
 
-const seedModel = (() => {
-  const [providerID = "unifia", modelID = "big-pickle"] = (
-    process.env.OPENCODE_E2E_MODEL ?? "opencode/big-pickle"
-  ).split("/")
-  return {
-    providerID: providerID || "unifia",
-    modelID: modelID || "big-pickle",
-  }
-})()
+type SeedModel = { providerID: string; modelID: string }
+
+/**
+ * Resolves the model to seed into the browser from the backend that browser
+ * will talk to.
+ *
+ * This used to be a constant derived from OPENCODE_E2E_MODEL, defaulting to
+ * `opencode/gpt-5-nano`. That was a producer with no matching consumer: the
+ * variable is set by `script/e2e-local.ts` for `seed-e2e.ts`, which only writes
+ * a message record on the *shared* backend, while the browser talks to the
+ * isolated per-worker backend started by `e2e/backend.ts`. Asked what it
+ * serves, that backend answers one provider:
+ *
+ *     provider=local-llm models=1 gemma-4-E4B-it
+ *
+ * No `opencode` provider, no `gpt-5-nano` — the Zen provider is dropped for
+ * having zero models without credentials. So the composer could never select
+ * the seeded model, `local.model.current()` stayed undefined, and
+ * `submit.ts:306` refused every prompt with "Choose an agent and model before
+ * sending a prompt". Which model it is does not matter for routing: with
+ * OPENCODE_E2E_LLM_URL set, `provider.ts:797` sends every model to the mock.
+ * What matters is that the id exists in the list the composer reads.
+ *
+ * The env override is still honoured when the backend actually serves it, so
+ * pointing the suite at a specific model keeps working.
+ */
+async function resolveSeedModel(baseUrl: string): Promise<SeedModel> {
+  const res = await fetch(`${baseUrl}/config/providers`)
+  if (!res.ok) throw new Error(`Failed to read providers from ${baseUrl}: HTTP ${res.status}`)
+  const body = (await res.json()) as { providers?: { id: string; models?: Record<string, unknown> }[] }
+  const served: SeedModel[] = (body.providers ?? []).flatMap((provider) =>
+    Object.keys(provider.models ?? {}).map((modelID) => ({ providerID: provider.id, modelID })),
+  )
+  if (!served.length) throw new Error(`Backend ${baseUrl} serves no models — the composer cannot send anything`)
+
+  const [providerID, modelID] = (process.env.OPENCODE_E2E_MODEL ?? "").split("/")
+  const requested = served.find((item) => item.providerID === providerID && item.modelID === modelID)
+  return requested ?? served[0]!
+}
 
 function clean(value: string | null) {
   return (value ?? "").replace(/\u200B/g, "").trim()
@@ -152,6 +182,7 @@ type WorkerFixtures = {
   backend: {
     url: string
     sdk: (directory?: string) => ReturnType<typeof createSdk>
+    model: SeedModel
   }
   directory: string
   slug: string
@@ -198,6 +229,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         await use({
           url: handle.url,
           sdk: (directory?: string) => createSdk(directory, handle.url),
+          model: await resolveSeedModel(handle.url),
         })
       } finally {
         await handle.stop()
@@ -286,7 +318,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await use(backend.sdk(directory))
   },
   gotoSession: async ({ page, directory, backend }, use) => {
-    await seedStorage(page, { directory, serverUrl: backend.url })
+    await seedStorage(page, { directory, model: backend.model, serverUrl: backend.url })
 
     const gotoSession = async (sessionID?: string) => {
       await visit(page, sessionPath(directory, sessionID))
@@ -312,7 +344,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 function makeProject(
   page: Page,
   llm: LLMFixture,
-  backend: { url: string; sdk: (directory?: string) => ReturnType<typeof createSdk> },
+  backend: { url: string; sdk: (directory?: string) => ReturnType<typeof createSdk>; model: SeedModel },
 ) {
   let state:
     | {
@@ -360,7 +392,7 @@ function makeProject(
     await seedStorage(page, {
       directory,
       extra: options?.extra,
-      model: options?.model,
+      model: options?.model ?? backend.model,
       serverUrl: backend.url,
     })
     state = {
@@ -542,7 +574,9 @@ async function seedStorage(
   input: {
     directory: string
     extra?: string[]
-    model?: { providerID: string; modelID: string }
+    // Required: seeding a model the backend does not serve leaves the composer
+    // without a selection, and every prompt is then refused before it is sent.
+    model: SeedModel
     serverUrl?: string
   },
 ) {
@@ -603,7 +637,7 @@ async function seedStorage(
       }
       localStorage.setItem("unifia.global.dat:model", JSON.stringify({ recent: [args.model], user: [], variant: {} }))
     },
-    { directory: input.directory, serverUrl: origin, extra: input.extra ?? [], model: input.model ?? seedModel },
+    { directory: input.directory, serverUrl: origin, extra: input.extra ?? [], model: input.model },
   )
 }
 
