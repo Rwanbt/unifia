@@ -7,6 +7,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { LANGUAGE_EXTENSIONS } from "../../lsp/language"
 import { Filesystem } from "../../util/filesystem"
+import { ConfigPaths } from "../../config/paths"
 
 const PROVIDER_PRESETS: Record<string, { env: string; label: string }> = {
   anthropic: { env: "ANTHROPIC_API_KEY", label: "Anthropic (Claude)" },
@@ -98,15 +99,19 @@ export const InitCommand = cmd({
       }),
   async handler(args) {
     const dir = process.cwd()
-    const configDir = path.join(dir, ".opencode")
+    // ConfigPaths.PROJECT_DIRECTORY, not `.opencode`: the legacy directory is
+    // read-only by contract because it also belongs to a separately-installed
+    // OpenCode, and creating a config there wrote into that product's project.
+    const configDir = path.join(dir, ConfigPaths.PROJECT_DIRECTORY)
     const configPath = path.join(configDir, "unifia.jsonc")
+    const configLabel = `${ConfigPaths.PROJECT_DIRECTORY}/unifia.jsonc`
 
     UI.println(UI.Style.TEXT_HIGHLIGHT_BOLD + "Unifia Init" + UI.Style.TEXT_NORMAL)
     UI.empty()
 
     // Check existing config
     if (!args.force && (await Filesystem.exists(configPath))) {
-      UI.println(UI.Style.TEXT_WARNING + "Config already exists at .opencode/opencode.jsonc" + UI.Style.TEXT_NORMAL)
+      UI.println(UI.Style.TEXT_WARNING + `Config already exists at ${configLabel}` + UI.Style.TEXT_NORMAL)
       UI.println("Use --force to overwrite.")
       return
     }
@@ -234,7 +239,7 @@ export const InitCommand = cmd({
     await fs.writeFile(configPath, jsonContent.join(EOL), "utf-8")
 
     UI.empty()
-    UI.println(UI.Style.TEXT_SUCCESS_BOLD + "Config written to .opencode/opencode.jsonc" + UI.Style.TEXT_NORMAL)
+    UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Config written to ${configLabel}` + UI.Style.TEXT_NORMAL)
     UI.empty()
 
     if (providerChoice !== "ollama" && providerChoice !== "lmstudio") {

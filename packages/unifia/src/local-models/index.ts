@@ -1,4 +1,5 @@
 import { Log } from "../util/log"
+import { ConfigPaths } from "../config/paths"
 import { Filesystem } from "../util/filesystem"
 import path from "node:path"
 import fs from "node:fs/promises"
@@ -68,8 +69,11 @@ export namespace LocalModels {
     modelName: string,
     opts: { baseUrl?: string; configDir?: string } = {},
   ): Promise<string> {
-    const dir = opts.configDir ?? path.join(process.cwd(), ".opencode")
-    const configPath = path.join(dir, "opencode.jsonc")
+    // Write target, so the current brand — `.opencode` is read-only by contract
+    // (see ConfigPaths.PROJECT_DIRECTORY) because it is also the separately
+    // installed OpenCode's directory.
+    const dir = opts.configDir ?? path.join(process.cwd(), ConfigPaths.PROJECT_DIRECTORY)
+    const configPath = path.join(dir, "unifia.jsonc")
     const baseUrl = (opts.baseUrl ?? "http://localhost:11434") + "/v1"
 
     await fs.mkdir(dir, { recursive: true })

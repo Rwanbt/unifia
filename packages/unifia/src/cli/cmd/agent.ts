@@ -7,6 +7,7 @@ import { Provider } from "../../provider/provider"
 import path from "node:path"
 import fs from "node:fs/promises"
 import { Filesystem } from "../../util/filesystem"
+import { ConfigPaths } from "../../config/paths"
 import matter from "gray-matter"
 import { Instance } from "../../project/instance"
 import { EOL } from "node:os"
@@ -86,8 +87,11 @@ const AgentCreateCommand = cmd({
             if (prompts.isCancel(scopeResult)) throw new UI.CancelledError()
             scope = scopeResult
           }
+          // Write target, so the current brand — see ConfigPaths.PROJECT_DIRECTORY:
+          // `.opencode` is read for compatibility but belongs to the separately
+          // installed OpenCode, so creating agents there wrote into its project.
           targetPath = path.join(
-            scope === "global" ? Global.Path.config : path.join(Instance.worktree, ".opencode"),
+            scope === "global" ? Global.Path.config : path.join(Instance.worktree, ConfigPaths.PROJECT_DIRECTORY),
             "agent",
           )
         }
