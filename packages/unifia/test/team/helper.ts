@@ -28,7 +28,7 @@ export function createTempGitRepo(opts?: { branch?: string }): {
   // --initial-branch keeps newer git from complaining on Windows.
   const branch = opts?.branch ?? "main";
   execSync("git init -q -b " + branch, { cwd: dir });
-  execSync(`git config user.email "mm2@unifia.ai"`, { cwd: dir });
+  execSync(`git config user.email "mm2@unifia.invalid"`, { cwd: dir });
   execSync(`git config user.name "MM2-IMPLEMENTATION-LANE-A"`, { cwd: dir });
   execSync(`git config commit.gpgsign false`, { cwd: dir });
   // Make Windows tolerant.

@@ -1,10 +1,12 @@
 # unifia VS Code Extension
 
-A Visual Studio Code extension that integrates [unifia](https://opencode.ai) directly into your development workflow.
+A Visual Studio Code extension that integrates [unifia](https://github.com/Rwanbt/unifia) directly into your development workflow.
 
 ## Prerequisites
 
-This extension requires the [unifia CLI](https://opencode.ai) to be installed on your system. Visit [unifia.ai](https://opencode.ai) for installation instructions.
+This extension requires the [unifia CLI](https://github.com/Rwanbt/unifia) to be installed on your system. See
+[the repository README](https://github.com/Rwanbt/unifia#readme) for installation instructions. This fork controls no
+domain and does not use upstream's installer — see `docs/FORK-DISTRIBUTION.md`.
 
 ## Features
 

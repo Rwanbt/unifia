@@ -121,9 +121,9 @@ export function persistGitRef(
         env: {
           ...process.env,
           GIT_AUTHOR_NAME: "team-fencing",
-          GIT_AUTHOR_EMAIL: "team-fencing@unifia.ai",
+          GIT_AUTHOR_EMAIL: "team-fencing@unifia.invalid",
           GIT_COMMITTER_NAME: "team-fencing",
-          GIT_COMMITTER_EMAIL: "team-fencing@unifia.ai",
+          GIT_COMMITTER_EMAIL: "team-fencing@unifia.invalid",
           GIT_AUTHOR_DATE: "2026-07-21T00:00:00Z",
           GIT_COMMITTER_DATE: "2026-07-21T00:00:00Z",
         },

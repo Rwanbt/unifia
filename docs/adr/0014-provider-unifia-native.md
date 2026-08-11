@@ -47,7 +47,7 @@ export const UnifiaProvider: Provider = {
 {
   "provider": "unifia",
   "unifia": {
-    "endpoint": "local",  // ou "https://api.unifia.ai"
+    "endpoint": "local",  // ou l'URL d'un runtime distant que vous hébergez
     "apiKey": null  // pas requis pour local
   }
 }

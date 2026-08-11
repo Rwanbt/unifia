@@ -35,7 +35,12 @@ Les mainteneurs de projet sont responsables de clarifier et faire respecter nos 
 
 ## Signalement
 
-Pour signaler un comportement inacceptable, contactez : **conduct@unifia.ai**
+Pour signaler un comportement inacceptable, utilisez un signalement privé sur
+GitHub : [nouveau signalement privé](https://github.com/Rwanbt/unifia/security/advisories/new),
+ou contactez directement le mainteneur [@Rwanbt](https://github.com/Rwanbt).
+
+Le projet ne contrôle aucun nom de domaine et n'expose donc aucune adresse de
+contact e-mail ; toute adresse en `@unifia.ai` serait invalide.
 
 Toutes les complaints seront revues et traitées rapidement et équitablement.
 

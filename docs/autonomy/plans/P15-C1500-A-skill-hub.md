@@ -25,7 +25,7 @@ interface SkillRegistry {
 ### Distribution
 
 - **Local** : `~/.config/unifia/skills/`
-- **Remote** : `unifia.ai/skills/{name}`
+- **Remote** : non planifié — le projet ne contrôle aucun domaine (voir G9)
 - **Git** : `github.com/{user}/{skill}`
 
 ### Package format

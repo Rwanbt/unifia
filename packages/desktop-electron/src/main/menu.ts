@@ -120,7 +120,7 @@ export function createMenu(deps: Deps) {
     {
       label: "Help",
       submenu: [
-        { label: "Unifia Documentation", click: () => shell.openExternal("https://unifia.ai/docs") },
+        { label: "Unifia Documentation", click: () => shell.openExternal("https://github.com/Rwanbt/unifia#readme") },
         { label: "Support Forum", click: () => shell.openExternal("https://github.com/Rwanbt/unifia") },
         { type: "separator" },
         { type: "separator" },

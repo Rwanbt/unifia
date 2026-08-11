@@ -33,11 +33,12 @@ close que si la preuve citée existe et est reproductible. Rien ici ne peut
 | G6 | Dependabot | automatique | **PASS (activation)** / triage ouvert | Alertes et security updates **activées le 2026-08-11** (vérifié : `dependabot_security_updates: enabled`). 26 alertes ouvertes : 6 high, 16 medium, 4 low. Aucune PR de dépendance fusionnée |
 | G7 | Signature APK release + preuve device | **humaine** | **BLOCKED_HUMAN_INPUT** — blocage précisé | Ce qui est **disponible** : device ADB `b7163823` (Mi 10 Pro, `cmi_eea`) connecté, `ai.unifia.mobile` et `ai.opencode.mobile` y coexistent déjà ; `apksigner` présent en `%LOCALAPPDATA%\Android\Sdk\build-tools\35.0.0\` (hors PATH). Ce qui **manque** : aucun keystore Unifia n'existe sur cette machine (seuls `opencode-release.keystore` dans le checkout `D:\App\OpenCode\opencode` et `~/.android/debug.keystore`), et aucune des variables `UNIFIA_ANDROID_KEYSTORE`, `_KEY_ALIAS`, `_KEYSTORE_PASSWORD`, `_KEY_PASSWORD`, `_CERT_SHA256` n'est définie. **Conséquence à anticiper** : l'app installée est signée `848419ed` et marquée `DEBUGGABLE` (`lastUpdateTime=2026-08-10 01:05:04`) — un APK release ne s'installera pas par-dessus, il faudra désinstaller d'abord et perdre les données de l'app. Aucun keystore n'a été généré et aucune empreinte fabriquée : créer la clé de signature est une décision d'identité durable qui appartient au propriétaire. **Ce qui est prouvé le 2026-08-11, sur décision d'Erwan (build non signé uniquement)** : `bun run build:android` passe de bout en bout, bundle mobile régénéré compris — APK `app-universal-release-unsigned.apk`, 1067 Mo, 2026-08-11 16:19:45, SHA-256 `8E4EFD5C4BCB86F0132147D2CB1F789B29AF73A9E0954D9645BF80EA4C6291E3`. `apksigner verify` répond `DOES NOT VERIFY — Missing META-INF/MANIFEST.MF`, ce qui **prouve qu'aucune clé n'a été utilisée**, en particulier pas la clé debug. La chaîne de build n'est donc pas le blocage ; seule la clé l'est |
 | G8 | Identité produit | automatique | **PARTIEL** | Gate `identity` verte (surfaces, app IDs, adaptateurs générés). Résidus produit corrigés dans le runtime livré ; reste classé §0ter, dont `packages/web` bloqué par G9 |
-| G9 | Domaine / site de documentation | **humaine** | **BLOQUÉE** | Le fork ne contrôle aucun domaine. `packages/web` référence massivement `opencode.ai`. Décision requise : acquérir un domaine, ou tout pointer vers `github.com/Rwanbt/unifia`. **`unifia.ai` ne doit jamais être écrit** — non contrôlé |
+| G9 | Domaine / site de documentation | **humaine** | **DÉCIDÉE le 2026-08-11 — appliquée aux surfaces livrées** | Décision du propriétaire : **aucun domaine acquis**, le projet ne publie pas de site et sa localisation canonique est `github.com/Rwanbt/unifia`. Voir §0quater pour le périmètre exact, ce qui a été purgé et ce qui reste délibérément hors périmètre |
 | G10 | Publication externe | **humaine** | **NON DEMANDÉE** | Aucun paquet npm publié, aucune release GitHub créée, aucun APK/image Docker publié, `UNIFIA_ALLOW_UPSTREAM_PUBLISH` jamais défini |
 
 **Règle de promotion.** `feat/unifia-rebrand-complete → dev` (PR #23) ne peut
-pas être fusionnée tant que G4, G5, G7 et G9 sont ouvertes. G3 est une dette
+pas être fusionnée tant que G4, G5 et G7 sont ouvertes. G9 est close depuis le
+2026-08-11 (§0quater). G3 est une dette
 de la branche de base : elle doit être traitée pour elle-même, pas en bloquant
 les lots qui ne l'ont pas causée.
 
@@ -103,9 +104,41 @@ justifiée**. Classement des occurrences restantes :
 | **C — compatibilité** | `.opencode` en lecture, `LEGACY_CONFIG_FILES`, `LEGACY_DATABASE_FILE`, `opencode-<canal>.db`, `OPENCODE=1` (marqueur lu par des scripts utilisateurs, aucun consommateur interne) | **Conserver en lecture, écrire en Unifia** |
 | **E — amont** | `docs/autonomy/UPSTREAM-*`, `github-remote.test.ts`, `script/publish.ts` gardé par `UNIFIA_ALLOW_UPSTREAM_PUBLISH`, mentions explicites d'OpenCode dans README/SECURITY/AGENTS | **Conserver, marqué comme amont** |
 | **F — généré** | `assets/runtime/unifia-cli.js` et sa copie `gen/android/…` (contiennent encore `OPENCODE_CLIENT`) | **Aucune action** : `build:android` lance `bundle-mobile.mjs` avant tout build, donc la copie suivie est un cache régénéré, pas ce qui ship |
-| **G — web/domaine** | `packages/web/**` (~600 occurrences), i18n console | **Bloqué par G9** |
+| **G — web/domaine** | `packages/web/**`, `packages/console/**` | **Hors périmètre par décision G9** — surfaces de site non publiées par le fork ; voir §0quater |
 | **B — interne, différé** | ~50 tags de service Effect `@opencode/*` (clés de DI, jamais persistées ni visibles), thèmes `opencode.json`, `team/opencode-application.ts` | **Différé** : renommage mécanique à risque non nul et gain nul côté utilisateur ; ne pas le faire pour faire tomber un compteur |
 | **H — incertain** | `runtime/server.rs` exporte `UNIFIA_SERVER_USERNAME="opencode"` | **Ne pas toucher sans preuve device** : le nom d'utilisateur est saisi côté app ; le changer sans vérifier le chemin complet casserait l'auth mobile |
+
+### 0quater. Décision G9 — aucun domaine, localisation canonique GitHub
+
+**Décision du propriétaire, 2026-08-11** : le projet n'acquiert aucun domaine, ne
+publie aucun site, et sa localisation canonique est `github.com/Rwanbt/unifia`.
+
+Le point de départ était pire que « `packages/web` cite `opencode.ai` ». Le
+rebrand avait **fabriqué** `unifia.ai` dans des surfaces exécutables, alors que
+ce domaine n'est enregistré par personne — donc revendicable par un tiers.
+Corrigé ici :
+
+| Surface | Ce qui était écrit | Correctif |
+|---|---|---|
+| `infra/stage.ts` | `unifia.ai` comme domaine de production | Garde `UNIFIA_ALLOW_UPSTREAM_DEPLOY`, sur le modèle de `script/publish.ts` ; le domaine de production redevient celui d'amont, atteignable uniquement sous opt-in |
+| `.github/workflows/deploy.yml` | `push: [dev, production]` | `workflow_dispatch` avec confirmation explicite. **C'était le risque le plus concret : fusionner la PR #23 dans `dev` déclenchait un `sst deploy` vers une infrastructure qui n'est pas la nôtre** |
+| `CODE_OF_CONDUCT.md`, `SECURITY-INCIDENT-RESPONSE.md` | `conduct@` / `security@unifia.ai`, handle `@Unifia` | Signalement privé GitHub ; aucune adresse ni handle exposés |
+| `packages/desktop`, `packages/desktop-electron` | menu Documentation → `https://unifia.ai/docs` | → `github.com/Rwanbt/unifia#readme` |
+| `packages/app/src/i18n/*` (17 locales) | libellé `unifia.ai/zen` **alors que le `href` pointait sur `opencode.ai/zen`** | Libellé aligné sur la destination réelle |
+| `packages/app/src/entry.tsx` | branche `hostname.includes("unifia.ai")` | Supprimée : code mort, le fork ne sert depuis aucun domaine |
+| `packages/unifia/src/team/fencing.ts`, test helper | identités git `@unifia.ai` | `.invalid` (RFC 2606), non résoluble par construction |
+| TUI `tips-view`, ADR-0014, plan P15, README VS Code | domaine cité comme destination | Mention du domaine retirée |
+
+Un motif s'est répété : le rebrand a renommé le **texte** sans le **lien**
+(`[unifia.ai/zen](https://opencode.ai/zen)`, bouton copiant `opencode.ai/install`
+sous un libellé `unifia.ai/install`). Vérifier les deux sens à chaque renommage.
+
+**Délibérément hors périmètre** : `packages/web` et `packages/console` sont les
+surfaces de site. Le fork ne les publie pas et leur déploiement est neutralisé
+ci-dessus ; les réécrire n'apporterait rien tant qu'aucun site n'existe. Elles
+restent classées **G**. Les occurrences subsistant ailleurs sont **descriptives**
+(rapports d'audit, plans, interdictions explicites) et ne dirigent personne vers
+le domaine.
 
 ---
 
