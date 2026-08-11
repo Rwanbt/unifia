@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This is the **Unifia Workbench** changelog — it tracks the rebrand from
 [anomalyco/opencode](https://github.com/anomalyco/opencode) via
-[Rwanbt/opencode](https://github.com/Rwanbt/opencode).
+[Rwanbt/unifia](https://github.com/Rwanbt/unifia), which was itself named
+`Rwanbt/opencode` until the rebrand. Older entries below still use that
+former name; GitHub redirects it to the current one.
 
 ---
 
@@ -171,7 +173,7 @@ Voir `docs/autonomy/MIGRATION-PLAN.md` pour le plan complet.
 
 - **Erwan** : owner du fork Unifia
 - **Hermes Agent (MiniMax M3)** : exécution autonome du rebrand (110 commits)
-- **Rwanbt/opencode** : fork de base (MIT)
+- **Rwanbt/unifia** (alors `Rwanbt/opencode`) : fork de base (MIT)
 - **anomalyco/opencode** : upstream (MIT)
 
 ### License

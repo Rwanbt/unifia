@@ -11,7 +11,7 @@
 <p align="center">The open source AI coding agent.</p>
 <p align="center">
   <a href="https://github.com/Rwanbt/unifia/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Rwanbt/unifia?display_name=tag&style=flat-square" /></a>
-  <a href="https://github.com/Rwanbt/unifia/actions/workflows/fork-release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/fork-release.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/Rwanbt/unifia/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/Rwanbt/unifia/release.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@
 
 
 > [!WARNING]
-> **Unofficial fork notice:** this repository is an independent, unofficial fork of [Unifia](https://github.com/anomalyco/opencode), maintained by [Rwanbt/unifia](https://github.com/Rwanbt/unifia). It is not built, operated, endorsed, or supported by the upstream Unifia team.
+> **Unofficial fork notice:** this repository is an independent, unofficial fork of [OpenCode](https://github.com/anomalyco/opencode), maintained by [Rwanbt/unifia](https://github.com/Rwanbt/unifia). It is not built, operated, endorsed, or supported by the upstream OpenCode team.
 
 Releases, binaries, issues, roadmap, and support for this fork are maintained here.
 ---
@@ -50,7 +50,7 @@ Releases, binaries, issues, roadmap, and support for this fork are maintained he
 
 ## ⚡ At a glance
 
-Unifia Workbench — an orchestrated AI coding agent that runs on **desktop, server, and phone**, with local models end-to-end and governance primitives built into the fork. It is based on [upstream Unifia](https://github.com/anomalyco/opencode) and distributed from the [Rwanbt fork](https://github.com/Rwanbt/unifia). The final product name is not fixed yet.
+Unifia Workbench — an orchestrated AI coding agent that runs on **desktop, server, and phone**, with local models end-to-end and governance primitives built into the fork. It is based on [upstream OpenCode](https://github.com/anomalyco/opencode) and distributed from the [Rwanbt fork](https://github.com/Rwanbt/unifia).
 
 ### Install
 
@@ -239,8 +239,8 @@ Kick off 5 tasks in isolated worktrees from a laptop. Check their progress from 
 
 ## Fork Features
 
-> This is a working-name fork of [upstream Unifia](https://github.com/anomalyco/opencode), maintained in [Rwanbt/unifia](https://github.com/Rwanbt/unifia).
-> See [`docs/FORK-DISTRIBUTION.md`](docs/FORK-DISTRIBUTION.md) for the temporary naming and distribution boundary.
+> This is a fork of [upstream OpenCode](https://github.com/anomalyco/opencode), maintained in [Rwanbt/unifia](https://github.com/Rwanbt/unifia).
+> See [`docs/FORK-DISTRIBUTION.md`](docs/FORK-DISTRIBUTION.md) for the distribution boundary.
 
 #### Local-First AI
 
@@ -803,7 +803,7 @@ If you're interested in contributing to Unifia, please read our [contributing do
 It's very similar to Claude Code in terms of capability. Here are the key differences:
 
 - 100% open source
-- Not coupled to any provider. Although we recommend the models we provide through upstream Unifia Zen, Unifia can be used with Claude, OpenAI, Google, or even local models. As models evolve, the gaps between them will close and pricing will drop, so being provider-agnostic is important.
+- Not coupled to any provider. Although we recommend the models we provide through upstream OpenCode Zen, Unifia can be used with Claude, OpenAI, Google, or even local models. As models evolve, the gaps between them will close and pricing will drop, so being provider-agnostic is important.
 - Out-of-the-box LSP support
 - A focus on TUI. Unifia is built by neovim users and the creators of [terminal.shop](https://terminal.shop); we are going to push the limits of what's possible in the terminal.
 - A client/server architecture. This, for example, can allow Unifia to run on your computer while you drive it remotely from a mobile app, meaning that the TUI frontend is just one of the possible clients.
@@ -812,4 +812,4 @@ It's very similar to Claude Code in terms of capability. Here are the key differ
 </details>
 ---
 
-**Community**: use the [fork issues](https://github.com/Rwanbt/unifia/issues) for fork support. The [upstream Discord](https://discord.gg/opencode) is for upstream Unifia and may not reflect fork releases.
+**Community**: use the [fork issues](https://github.com/Rwanbt/unifia/issues) for fork support. The [upstream Discord](https://discord.gg/opencode) is for upstream OpenCode and may not reflect fork releases.

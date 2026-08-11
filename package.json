@@ -23,8 +23,6 @@
     "deadcode": "bunx knip --no-progress",
     "test:ai": "bun turbo typecheck",
     "prepare": "husky",
-    "random": "echo 'Random script'",
-    "hello": "echo 'Hello World!'",
     "test": "echo 'do not run tests from root' && exit 1",
     "test:unifia": "cd packages/unifia && bun test",
     "test:session": "cd packages/unifia && bun test --filter session"
