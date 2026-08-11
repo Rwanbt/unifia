@@ -68,11 +68,9 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), `unifia-e2e-${label}-`))
   const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
   const repoDir = path.resolve(appDir, "../..")
-  // packages/unifia, not packages/unifia: the package is named `unifia` but
-  // its directory was never renamed. See the same fix in script/e2e-local.ts —
-  // a missing cwd surfaces as `ENOENT: posix_spawn '<executable>'`, which does
-  // not look like a path problem at all.
-  const serverDir = path.join(repoDir, "packages", "opencode")
+  // A missing cwd is reported as an executable spawn failure, so validate the
+  // renamed server package explicitly to keep path drift actionable.
+  const serverDir = path.join(repoDir, "packages", "unifia")
   if (!existsSync(serverDir)) {
     throw new Error(`Server package directory not found: ${serverDir}. Was packages/unifia renamed?`)
   }
