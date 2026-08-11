@@ -515,6 +515,7 @@ export function DialogConnectProvider(props: { provider: string }) {
       }
 
       setFormStore("error", undefined)
+      if (store.methodIndex === undefined) return
       const result = await globalSDK.client.provider.oauth
         .callback({
           providerID: props.provider,
@@ -568,6 +569,7 @@ export function DialogConnectProvider(props: { provider: string }) {
 
     onMount(() => {
       void (async () => {
+        if (store.methodIndex === undefined) return
         const result = await globalSDK.client.provider.oauth
           .callback({
             providerID: props.provider,
