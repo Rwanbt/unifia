@@ -316,7 +316,7 @@ function cmd(shell: string, name: string, command: string, cwd: string, env: Nod
   // ignored by the musl-static bash 5.2.15 build we ship; --init-file
   // is the reliable workaround.
   if (
-    env["OPENCODE_CLIENT"] === "mobile-embedded" &&
+    env["UNIFIA_CLIENT"] === "mobile-embedded" &&
     env["BASH_ENV"] &&
     (shell.endsWith("/bash") || shell.endsWith("\\bash"))
   ) {

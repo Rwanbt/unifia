@@ -915,7 +915,7 @@ export namespace LocalLLMServer {
     // But we still need to block here until the model has finished loading,
     // otherwise the caller hits /v1/chat/completions too early and gets 503
     // `{"status":"loading"}` which the AI SDK gives up on after 3 retries.
-    if (process.env.OPENCODE_CLIENT === "mobile-embedded") {
+    if (process.env.UNIFIA_CLIENT === "mobile-embedded") {
       // Fail-fast on circuit-breaker block: when Kotlin refuses to reload a
       // model that has OOM-crashed the app repeatedly, port 14097 never opens,
       // so a blind /health poll would always run out the startup timeout and

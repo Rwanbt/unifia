@@ -26,6 +26,7 @@ import type { Argv } from "yargs"
 import path from "node:path"
 import fs from "node:fs/promises"
 import { cmd } from "./cmd"
+import { Flag } from "../../flag/flag"
 import { Global } from "../../global"
 import {
   TeamStore,
@@ -157,10 +158,14 @@ async function readJsonFile(file: string, what: string): Promise<unknown> {
   }
 }
 
+// Must match what server/auth-jwt.ts validates: the isolated UNIFIA_SERVER_*
+// pair, defaulting to "unifia". Reading the legacy OPENCODE_ spelling here left
+// this the only client that could not authenticate — no shell emits it, and the
+// default username disagreed with the server's on top of that.
 function authHeaders(): HeadersInit {
-  const password = process.env.OPENCODE_SERVER_PASSWORD
+  const password = Flag.UNIFIA_SERVER_PASSWORD
   if (!password) return { "content-type": "application/json" }
-  const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
+  const username = Flag.UNIFIA_SERVER_USERNAME ?? "unifia"
   return {
     "content-type": "application/json",
     authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
@@ -196,9 +201,9 @@ async function teamRequest(attach: string, route: string, body?: unknown): Promi
 
 const TeamStartCommand = cmd({
   command: "start",
-  describe: "start a durable Team plan through a running OpenCode server",
+  describe: "start a durable Team plan through a running Unifia server",
   builder: (yargs: Argv) => yargs
-    .option("attach", { type: "string", demandOption: true, describe: "OpenCode server URL" })
+    .option("attach", { type: "string", demandOption: true, describe: "Unifia server URL" })
     .option("plan", { type: "string", demandOption: true, describe: "TaskPlan JSON file" })
     .option("max-agents", { type: "number", default: 5 })
     .option("max-cost", { type: "number" })
@@ -230,10 +235,10 @@ const TeamStartCommand = cmd({
 function controlCommand(operation: "pause" | "resume" | "cancel") {
   return cmd({
     command: `${operation} <runID>`,
-    describe: `${operation} an active Team run through a running OpenCode server`,
+    describe: `${operation} an active Team run through a running Unifia server`,
     builder: (yargs: Argv) => yargs
       .positional("runID", { type: "string", demandOption: true })
-      .option("attach", { type: "string", demandOption: true, describe: "OpenCode server URL" })
+      .option("attach", { type: "string", demandOption: true, describe: "Unifia server URL" })
       .option("json", { type: "boolean" }),
     handler: async (args) => run(async () => {
       const payload = await teamRequest(args.attach as string, `/runs/${args.runID}/${operation}`)

@@ -523,7 +523,7 @@ export const Info = z
     command: z
       .record(z.string(), Command)
       .optional()
-      .describe("Command configuration, see https://opencode.ai/docs/commands"),
+      .describe("Command configuration, see https://github.com/Rwanbt/unifia"),
     skills: Skills.optional().describe("Additional skill folder paths"),
     watcher: z
       .object({
@@ -596,7 +596,7 @@ export const Info = z
       })
       .catchall(Agent)
       .optional()
-      .describe("Agent configuration, see https://opencode.ai/docs/agents"),
+      .describe("Agent configuration, see https://github.com/Rwanbt/unifia"),
     provider: z
       .record(z.string(), Provider)
       .optional()

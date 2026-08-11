@@ -22,14 +22,14 @@ beforeEach(async () => {
   repoDir = await fs.mkdtemp(path.join(os.tmpdir(), "oc-github-cred-"))
   await execFileAsync("git", ["init", "-q"], { cwd: repoDir })
   realFetch = globalThis.fetch
-  savedBackend = process.env.OPENCODE_AUTH_STORAGE
-  process.env.OPENCODE_AUTH_STORAGE = "file"
+  savedBackend = process.env.UNIFIA_AUTH_STORAGE
+  process.env.UNIFIA_AUTH_STORAGE = "file"
 })
 
 afterEach(async () => {
   globalThis.fetch = realFetch
-  if (savedBackend === undefined) delete process.env.OPENCODE_AUTH_STORAGE
-  else process.env.OPENCODE_AUTH_STORAGE = savedBackend
+  if (savedBackend === undefined) delete process.env.UNIFIA_AUTH_STORAGE
+  else process.env.UNIFIA_AUTH_STORAGE = savedBackend
   await fs.rm(repoDir, { recursive: true, force: true })
   const { Global } = await import("../../src/global")
   await fs.rm(path.join(Global.Path.data, "github-auth.json"), { force: true })
@@ -127,17 +127,17 @@ let savedClient: string | undefined
 beforeEach(async () => {
   fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), "oc-github-gitconfig-home-"))
   savedHome = process.env.HOME
-  savedClient = process.env.OPENCODE_CLIENT
+  savedClient = process.env.UNIFIA_CLIENT
   process.env.HOME = fakeHome
-  process.env.OPENCODE_CLIENT = "mobile-embedded"
+  process.env.UNIFIA_CLIENT = "mobile-embedded"
   _resetGitInvocationCacheForTests()
 })
 
 afterEach(async () => {
   if (savedHome === undefined) delete process.env.HOME
   else process.env.HOME = savedHome
-  if (savedClient === undefined) delete process.env.OPENCODE_CLIENT
-  else process.env.OPENCODE_CLIENT = savedClient
+  if (savedClient === undefined) delete process.env.UNIFIA_CLIENT
+  else process.env.UNIFIA_CLIENT = savedClient
   _resetGitInvocationCacheForTests()
   await fs.rm(fakeHome, { recursive: true, force: true })
 })
@@ -147,7 +147,7 @@ async function readGitconfig(): Promise<string> {
 }
 
 test("persistGithubGitConfigForTerminal is a no-op on desktop", async () => {
-  process.env.OPENCODE_CLIENT = "desktop"
+  process.env.UNIFIA_CLIENT = "desktop"
   await connectFakeSession("gho_desktop_should_not_persist")
 
   const { persistGithubGitConfigForTerminal } = await import("../../src/github/credentials")

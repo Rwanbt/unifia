@@ -87,7 +87,7 @@ export async function buildGithubAuthEnv(cwd: string, remote: string): Promise<{
  *  precedence rule in git/index.ts::getAuthEnv — manual config always wins,
  *  so we don't silently override a token/key the user set up on purpose). */
 export async function persistGithubGitConfigForTerminal(): Promise<void> {
-  if (process.env.OPENCODE_CLIENT !== "mobile-embedded") return
+  if (process.env.UNIFIA_CLIENT !== "mobile-embedded") return
   try {
     const manual = await readManualGitCredentials()
     if (manual.type !== "none") return

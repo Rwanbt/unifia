@@ -170,7 +170,7 @@ process.on("uncaughtException", (e) => {
 const args = hideBin(process.argv)
 
 const cli = yargs(args)
-  .scriptName("opencode")
+  .scriptName("unifia")
   .wrap(100)
   .help("help")
   .version(Installation.VERSION)
@@ -185,9 +185,13 @@ const cli = yargs(args)
 
     process.env.AGENT = "1"
     process.env.OPENCODE = "1"
-    process.env.OPENCODE_CLIENT = process.env.OPENCODE_CLIENT ?? "mobile-embedded"
+    // UNIFIA_CLIENT is the canonical name every other launcher exports (the
+    // mobile Rust runtime, Tauri, Electron). It is an isolated flag, so the
+    // legacy OPENCODE_CLIENT cannot feed it — setting the old name here left
+    // Flag.UNIFIA_CLIENT reading "cli" inside the mobile sidecar.
+    process.env.UNIFIA_CLIENT = process.env.UNIFIA_CLIENT ?? "mobile-embedded"
 
-    Log.Default.info("opencode-mobile", {
+    Log.Default.info("unifia-mobile", {
       version: Installation.VERSION,
       args: process.argv.slice(2),
     })
