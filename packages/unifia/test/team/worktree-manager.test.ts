@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Database } from "bun:sqlite";
@@ -21,16 +21,14 @@ import {
   createWorktree,
   attachWorktree,
   detachWorktree,
-  ensureHuskyBootstrapMarker,
   listWorktrees,
   inspectWorktree,
   validateWorktreeScope,
 } from "../../src/team/worktree-manager";
 import { getDbInMemory } from "../../src/team/lock-manager";
 
-// We force every test to use its own in-memory DB by monkey-patching the
-// underlying `getDb` to return the in-memory instance. This keeps the tests
-// hermetic without touching the on-disk leases.db.
+// Every database-reaching case receives its own in-memory DB explicitly. This
+// keeps the tests hermetic without touching the on-disk leases.db.
 let _isolatedDb: Database | null = null;
 
 beforeEach(() => {
@@ -38,6 +36,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  _isolatedDb?.close();
   _isolatedDb = null;
 });
 
@@ -242,11 +241,14 @@ describe("worktree-manager — detachWorktree validation", () => {
   });
 
   test("detachWorktree without remove_worktree requires no repo_root", () => {
-    const r = detachWorktree({
-      lease_id: "LEASE-DOES-NOT-EXIST",
-      worker_id: "MM2",
-      remove_worktree: false,
-    });
+    const r = detachWorktree(
+      {
+        lease_id: "LEASE-DOES-NOT-EXIST",
+        worker_id: "MM2",
+        remove_worktree: false,
+      },
+      _isolatedDb!,
+    );
     // Should return INTERNAL because lease not found (release fails).
     expect(r.ok).toBe(false);
     if (!r.ok) expect(["INTERNAL", "INVALID_INPUT"]).toContain(r.code);
@@ -293,24 +295,27 @@ describe("worktree-manager — inspectWorktree", () => {
 
 describe("worktree-manager — validateWorktreeScope", () => {
   test("validateWorktreeScope rejects when lease not found", () => {
-    const r = validateWorktreeScope({
-      lease_id: "LEASE-NONEXISTENT",
-      expected_fencing_token: 1,
-      manifest: {
-        schema_version: "1.0.0",
-        card_id: "TEAM-G02",
+    const r = validateWorktreeScope(
+      {
         lease_id: "LEASE-NONEXISTENT",
-        base_sha: "0".repeat(40),
-        scope_mode: "E2_REQUIRED",
-        allowed_files: [],
-        protected_files: [],
-        reserved_paths: [],
-        symlink_policy: "REJECT",
-        case_policy: "REJECT_DUPLICATE_CASE",
-        long_path_policy: "FAIL_OVER_260",
-        eol_policy: "LF_NORMALIZED",
+        expected_fencing_token: 1,
+        manifest: {
+          schema_version: "1.0.0",
+          card_id: "TEAM-G02",
+          lease_id: "LEASE-NONEXISTENT",
+          base_sha: "0".repeat(40),
+          scope_mode: "E2_REQUIRED",
+          allowed_files: [],
+          protected_files: [],
+          reserved_paths: [],
+          symlink_policy: "REJECT",
+          case_policy: "REJECT_DUPLICATE_CASE",
+          long_path_policy: "FAIL_OVER_260",
+          eol_policy: "LF_NORMALIZED",
+        },
       },
-    });
+      _isolatedDb!,
+    );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe("INTERNAL");
   });
@@ -322,59 +327,5 @@ describe("worktree-manager — validateWorktreeScope", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe("INVALID_INPUT");
-  });
-});
-
-describe("ensureHuskyBootstrapMarker — exclusive create", () => {
-  const markerOf = (root: string) => join(root, ".husky", "_", ".bootstrap-marker");
-
-  test("creates the marker and records the worktree it belongs to", () => {
-    const tmp = mkdtempSync(join(tmpdir(), "wtm-husky-"));
-    try {
-      ensureHuskyBootstrapMarker(tmp);
-      expect(existsSync(markerOf(tmp))).toBe(true);
-      expect(readFileSync(markerOf(tmp), "utf8")).toContain(`worktree=${tmp}`);
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
-  test("never rewrites a marker another worker already created", () => {
-    const tmp = mkdtempSync(join(tmpdir(), "wtm-husky-"));
-    try {
-      mkdirSync(join(tmp, ".husky", "_"), { recursive: true });
-      writeFileSync(markerOf(tmp), "written by the worker that got there first\n");
-
-      ensureHuskyBootstrapMarker(tmp);
-
-      expect(readFileSync(markerOf(tmp), "utf8")).toBe("written by the worker that got there first\n");
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
-  // The TOCTOU this replaced (CodeQL js/file-system-race) was `existsSync` then
-  // `writeFileSync`: a marker path planted as a symlink reads as absent, and the
-  // unguarded write then follows it and creates the target. POSIX open(2)
-  // specifies that O_CREAT|O_EXCL fails with EEXIST on a symbolic link
-  // "regardless of the contents of the symbolic link", so `wx` refuses instead.
-  //
-  // Windows is excluded on measurement, not on principle: CreateFile with
-  // CREATE_NEW follows the reparse point and still creates the target, so the
-  // flag buys nothing there and the assertion below would fail for a reason
-  // that has nothing to do with this code.
-  test.skipIf(process.platform === "win32")("refuses to write through a planted symlink", () => {
-    const tmp = mkdtempSync(join(tmpdir(), "wtm-husky-"));
-    try {
-      const victim = join(tmp, "victim.txt");
-      mkdirSync(join(tmp, ".husky", "_"), { recursive: true });
-      symlinkSync(victim, markerOf(tmp), "file");
-
-      ensureHuskyBootstrapMarker(tmp);
-
-      expect(existsSync(victim)).toBe(false);
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
   });
 });

@@ -34,6 +34,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import type { Database } from "bun:sqlite";
 import {
   existsSync,
   lstatSync,
@@ -42,7 +43,6 @@ import {
   realpathSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
@@ -467,7 +467,7 @@ export function attachWorktree(opts: AttachWorktreeOpts): WorktreeManagerResult<
 // detachWorktree
 // --------------------------------------------------------------------------------------
 
-export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<WorktreeView> {
+export function detachWorktree(opts: DetachWorktreeOpts, database?: Database): WorktreeManagerResult<WorktreeView> {
   if (!opts.lease_id || !opts.worker_id) {
     return ko("INVALID_INPUT", "missing required field");
   }
@@ -480,7 +480,7 @@ export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<
   // ownership belongs to release(), which does it atomically inside a
   // transaction; checking here as well would be a second, racier answer to the
   // same question. Token 0 is passed because the caller does not hold one.
-  validate(opts.lease_id, /* expected_fencing_token */ 0);
+  validate(opts.lease_id, /* expected_fencing_token */ 0, database);
 
   // Pre-check dirtiness if we'll remove.
   if (opts.remove_worktree) {
@@ -489,7 +489,7 @@ export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<
     if (!repoRoot) {
       return ko("INVALID_INPUT", "repo_root required for remove_worktree");
     }
-    const leaseRow = getDb()
+    const leaseRow = (database ?? getDb())
       .prepare(`SELECT worktree, status FROM leases WHERE lease_id = ?`)
       .get(opts.lease_id) as { worktree: string; status: string } | undefined;
     if (!leaseRow) {
@@ -497,7 +497,7 @@ export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<
     }
     if (!existsSync(leaseRow.worktree)) {
       // Already gone; just release the lease.
-      const rel = release(opts.lease_id, opts.worker_id, "WORKTREE_GONE");
+      const rel = release(opts.lease_id, opts.worker_id, "WORKTREE_GONE", database);
       if (!rel.ok) return ko("INTERNAL", rel.message);
       return { ok: true, value: emptyView(leaseRow.worktree, opts.lease_id) };
     }
@@ -527,7 +527,12 @@ export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<
   }
 
   // Release the lease.
-  const rel = release(opts.lease_id, opts.worker_id, opts.remove_worktree ? "DETACH_AND_REMOVE" : "DETACH_KEEP");
+  const rel = release(
+    opts.lease_id,
+    opts.worker_id,
+    opts.remove_worktree ? "DETACH_AND_REMOVE" : "DETACH_KEEP",
+    database,
+  );
   if (!rel.ok) {
     return ko("INTERNAL", rel.message);
   }
@@ -538,7 +543,7 @@ export function detachWorktree(opts: DetachWorktreeOpts): WorktreeManagerResult<
 // validateWorktreeScope
 // --------------------------------------------------------------------------------------
 
-export function validateWorktreeScope(opts: ValidateScopeOpts): WorktreeManagerResult<{
+export function validateWorktreeScope(opts: ValidateScopeOpts, database?: Database): WorktreeManagerResult<{
   ok: boolean;
   violations: unknown[];
   warnings: string[];
@@ -547,7 +552,7 @@ export function validateWorktreeScope(opts: ValidateScopeOpts): WorktreeManagerR
   if (!manifest) {
     return ko("INVALID_INPUT", "manifest override required (lock-manager does not store manifest body)");
   }
-  const valid = validate(opts.lease_id, opts.expected_fencing_token);
+  const valid = validate(opts.lease_id, opts.expected_fencing_token, database);
   if (!valid.ok) {
     return ko("INTERNAL", valid.message);
   }
@@ -713,32 +718,4 @@ function ko(code: WorktreeManagerKo["code"], message: string, details?: unknown)
  */
 export function relativeTo(worktreePath: string, absFilePath: string): string {
   return relative(worktreePath, absFilePath).split(sep).join("/");
-}
-
-/**
- * Force-write a deterministic .husky/_/placeholder file inside a worktree so
- * downstream hooks tests can rely on a known marker. Idempotent.
- *
- * WHY the `wx` flag instead of `if (!existsSync(marker))`: this module exists to
- * let several workers act on worktrees at once, so a check followed by a write
- * is a TOCTOU — two workers both observe "absent" and both write, and whichever
- * lands second silently overwrites a marker another worker is already reading
- * (CodeQL `js/file-system-race`). `wx` is `O_CREAT | O_EXCL`: the kernel decides
- * the winner in one call. EEXIST is the idempotent path and the only error
- * swallowed; anything else (no permission, read-only mount) still surfaces.
- */
-export function ensureHuskyBootstrapMarker(worktreePath: string): void {
-  const dir = join(worktreePath, ".husky", "_");
-  mkdirSync(dir, { recursive: true });
-  const marker = join(dir, ".bootstrap-marker");
-  try {
-    writeFileSync(
-      marker,
-      `# Created by WorktreeManager at ${new Date().toISOString()}\n` +
-        `worktree=${worktreePath}\n`,
-      { flag: "wx" },
-    );
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code !== "EEXIST") throw err;
-  }
 }

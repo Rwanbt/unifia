@@ -19,6 +19,7 @@ import {
 } from "./actions"
 import { promptSelector } from "./selectors"
 import { createSdk, dirSlug, getWorktree, serverUrl, sessionPath } from "./utils"
+import { resolveE2ESeedModel, type E2EModel } from "../src/testing/e2e-provider"
 
 type LLMFixture = {
   url: string
@@ -72,7 +73,7 @@ type AssistantFixture = {
 
 export const settingsKey = "settings.v3"
 
-type SeedModel = { providerID: string; modelID: string }
+type SeedModel = E2EModel
 
 /**
  * Resolves the model to seed into the browser from the backend that browser
@@ -83,33 +84,29 @@ type SeedModel = { providerID: string; modelID: string }
  * variable is set by `script/e2e-local.ts` for `seed-e2e.ts`, which only writes
  * a message record on the *shared* backend, while the browser talks to the
  * isolated per-worker backend started by `e2e/backend.ts`. Asked what it
- * serves, that backend answers one provider:
+ * serves, that backend answers one hermetic provider:
  *
- *     provider=local-llm models=1 gemma-4-E4B-it
+ *     provider=e2e models=1 test-model
  *
  * No `opencode` provider, no `gpt-5-nano` — the Zen provider is dropped for
- * having zero models without credentials. So the composer could never select
- * the seeded model, `local.model.current()` stayed undefined, and
- * `submit.ts:306` refused every prompt with "Choose an agent and model before
- * sending a prompt". Which model it is does not matter for routing: with
+ * having zero models without credentials. The isolated backend owns this
+ * provider configuration so temporary projects do not depend on repository
+ * config discovery. Which model it is does not matter for routing: with
  * OPENCODE_E2E_LLM_URL set, `provider.ts:797` sends every model to the mock.
  * What matters is that the id exists in the list the composer reads.
  *
- * The env override is still honoured when the backend actually serves it, so
- * pointing the suite at a specific model keeps working.
+ * An explicit env override must be served by the backend. Falling back from a
+ * misspelled override would let the suite pass against a different model and
+ * hide provider regressions.
  */
 async function resolveSeedModel(baseUrl: string): Promise<SeedModel> {
   const res = await fetch(`${baseUrl}/config/providers`)
   if (!res.ok) throw new Error(`Failed to read providers from ${baseUrl}: HTTP ${res.status}`)
-  const body = (await res.json()) as { providers?: { id: string; models?: Record<string, unknown> }[] }
-  const served: SeedModel[] = (body.providers ?? []).flatMap((provider) =>
-    Object.keys(provider.models ?? {}).map((modelID) => ({ providerID: provider.id, modelID })),
-  )
-  if (!served.length) throw new Error(`Backend ${baseUrl} serves no models — the composer cannot send anything`)
-
-  const [providerID, modelID] = (process.env.OPENCODE_E2E_MODEL ?? "").split("/")
-  const requested = served.find((item) => item.providerID === providerID && item.modelID === modelID)
-  return requested ?? served[0]!
+  try {
+    return resolveE2ESeedModel(await res.json(), process.env.OPENCODE_E2E_MODEL)
+  } catch (error) {
+    throw new Error(`Failed to resolve an E2E model from ${baseUrl}`, { cause: error })
+  }
 }
 
 function clean(value: string | null) {
@@ -351,6 +348,7 @@ function makeProject(
         directory: string
         slug: string
         sdk: ReturnType<typeof createSdk>
+        model: SeedModel
         sessions: Map<string, string>
         dirs: Set<string>
       }
@@ -389,16 +387,18 @@ function makeProject(
     const directory = await createTestProject({ serverUrl: backend.url })
     const sdk = backend.sdk(directory)
     await options?.setup?.(directory)
+    const model = options?.model ?? backend.model
     await seedStorage(page, {
       directory,
       extra: options?.extra,
-      model: options?.model ?? backend.model,
+      model,
       serverUrl: backend.url,
     })
     state = {
       directory,
       slug: "",
       sdk,
+      model,
       sessions: new Map(),
       dirs: new Set(),
     }
@@ -460,7 +460,7 @@ function makeProject(
       // Without this the send is silently refused, `started` never moves, and
       // the fallback below spends the whole test timeout clicking a button
       // whose click a toast is intercepting.
-      await waitPromptReady(page)
+      await waitPromptReady(page, need().model)
       await prompt.click()
       if (input.shell) {
         await page.keyboard.type("!")

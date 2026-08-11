@@ -5,6 +5,7 @@ import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { createE2EProviderConfig } from "../src/testing/e2e-provider"
 
 type Handle = {
   url: string
@@ -74,6 +75,12 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   if (!existsSync(serverDir)) {
     throw new Error(`Server package directory not found: ${serverDir}. Was packages/unifia renamed?`)
   }
+  const configDir = path.join(sandbox, "config", "unifia")
+  await fs.mkdir(configDir, { recursive: true })
+  await fs.writeFile(
+    path.join(configDir, "unifia.json"),
+    JSON.stringify(createE2EProviderConfig(input?.llmUrl ?? "http://127.0.0.1:1/v1")),
+  )
   const env = {
     ...process.env,
     UNIFIA_DISABLE_LSP_DOWNLOAD: "true",
