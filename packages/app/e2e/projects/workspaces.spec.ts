@@ -124,6 +124,11 @@ test("non-git projects keep workspace mode disabled", async ({ page, project }) 
 
     await openSidebar(page)
     await expect(page.getByRole("button", { name: "New workspace" })).toHaveCount(0)
+
+    const reviewToggle = page.getByRole("button", { name: "Toggle review" }).first()
+    await expect(reviewToggle).toBeVisible()
+    if ((await reviewToggle.getAttribute("aria-expanded")) !== "true") await reviewToggle.click()
+    await expect(reviewToggle).toHaveAttribute("aria-expanded", "true")
     await expect(page.getByRole("button", { name: "Create Git repository" })).toBeVisible()
   } finally {
     await cleanupTestProject(nonGit)
