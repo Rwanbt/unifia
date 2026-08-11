@@ -25,9 +25,9 @@ const encryptedFile = path.join(Global.Path.data, "github-auth.enc.json")
 type Backend = "file" | "keychain" | "encrypted-file"
 
 function backend(): Backend {
-  const override = process.env.OPENCODE_AUTH_STORAGE?.toLowerCase()
+  const override = process.env.UNIFIA_AUTH_STORAGE?.toLowerCase()
   if (override === "file" || override === "keychain" || override === "encrypted-file") return override
-  return process.env.OPENCODE_CLIENT === "mobile-embedded" ? "encrypted-file" : "file"
+  return process.env.UNIFIA_CLIENT === "mobile-embedded" ? "encrypted-file" : "file"
 }
 
 function keychain(): KeychainStorage | undefined {

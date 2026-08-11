@@ -20,20 +20,20 @@ let savedBackend: string | undefined
 
 beforeEach(async () => {
   realFetch = globalThis.fetch
-  savedClient = process.env.OPENCODE_CLIENT
-  savedBackend = process.env.OPENCODE_AUTH_STORAGE
-  delete process.env.OPENCODE_CLIENT
-  process.env.OPENCODE_AUTH_STORAGE = "file"
+  savedClient = process.env.UNIFIA_CLIENT
+  savedBackend = process.env.UNIFIA_AUTH_STORAGE
+  delete process.env.UNIFIA_CLIENT
+  process.env.UNIFIA_AUTH_STORAGE = "file"
   await fs.rm(file, { force: true })
   await fs.rm(encryptedFile, { force: true })
 })
 
 afterEach(async () => {
   globalThis.fetch = realFetch
-  if (savedClient === undefined) delete process.env.OPENCODE_CLIENT
-  else process.env.OPENCODE_CLIENT = savedClient
-  if (savedBackend === undefined) delete process.env.OPENCODE_AUTH_STORAGE
-  else process.env.OPENCODE_AUTH_STORAGE = savedBackend
+  if (savedClient === undefined) delete process.env.UNIFIA_CLIENT
+  else process.env.UNIFIA_CLIENT = savedClient
+  if (savedBackend === undefined) delete process.env.UNIFIA_AUTH_STORAGE
+  else process.env.UNIFIA_AUTH_STORAGE = savedBackend
   await fs.rm(file, { force: true })
   await fs.rm(encryptedFile, { force: true })
 })
