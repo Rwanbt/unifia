@@ -29,7 +29,7 @@ close que si la preuve citée existe et est reproductible. Rien ici ne peut
 | G2 | CI — unit, rust, identity, brand, conformance, SDK, LOC, mobile | automatique | **PASS** | 18 checks verts sur la PR #25 |
 | G3 | CI — `e2e (linux)` | automatique | **FAIL, préexistant** | Échoue aussi sur la branche de base : run 31411233633 (13 tests) vs 31480610511 (14 tests), 11 échecs communs. Les 2 échecs propres à la tête passent en local. **Non causé par le rebrand** — dette de `feat/unifia-rebrand-complete` |
 | G4 | Revue sécurité humaine (CodeQL P3) | **humaine** | **OUVERTE** | 2 critical + 1 high + 1 medium ouverts. Tous les chemins d'alerte sont en `packages/opencode/`, c.-à-d. antérieurs au renommage C9 : le scan doit être rejoué avant revue. Aucune auto-revue n'a été faite |
-| G5 | Protections de branche GitHub | **humaine → appliquée** | **PASS (partiel)** | Appliqué le 2026-08-11 sur `main` **et** `dev`, sur décision d'Erwan : 8 required status checks, 1 approbation, `dismiss_stale_reviews`, `required_linear_history`, force-push et suppression interdits, résolution des conversations exigée. `enforce_admins: false` **délibérément** (§0bis) et `require_code_owner_reviews: false`. Reste ouvert : signatures de commit non exigées, et la revue par CODEOWNERS n'est pas contraignante tant que le dépôt est mono-mainteneur |
+| G5 | Protections de branche GitHub | **humaine → appliquée** | **PASS (partiel)** | Appliqué le 2026-08-11 sur `main` **et** `dev`, sur décision d'Erwan : 7 required status checks, 1 approbation, `dismiss_stale_reviews`, `required_linear_history`, force-push et suppression interdits, résolution des conversations exigée. `enforce_admins: false` **délibérément** (§0bis) et `require_code_owner_reviews: false`. Reste ouvert : signatures de commit non exigées, et la revue par CODEOWNERS n'est pas contraignante tant que le dépôt est mono-mainteneur |
 | G6 | Dependabot | automatique | **PASS (activation)** / triage ouvert | Alertes et security updates **activées le 2026-08-11** (vérifié : `dependabot_security_updates: enabled`). 26 alertes ouvertes : 6 high, 16 medium, 4 low. Aucune PR de dépendance fusionnée |
 | G7 | Signature APK release + preuve device | **humaine** | **BLOCKED_HUMAN_INPUT** | Le script exige `UNIFIA_ANDROID_CERT_SHA256` et refuse la clé debug. Keystore réel, mot de passe et device ADB non fournis à cette session. Aucun APK construit, aucune empreinte fabriquée |
 | G8 | Identité produit | automatique | **PARTIEL** | Gate `identity` verte (surfaces, app IDs, adaptateurs générés). Résidus produit corrigés dans le runtime livré ; reste classé §0ter, dont `packages/web` bloqué par G9 |
@@ -64,21 +64,33 @@ Configuration exacte appliquée : `D:\tmp\unifia-gov\protection-target.json`.
 État antérieur sauvegardé dans `protection-main.json` et `protection-dev.json`
 du même dossier, hors dépôt — le changement est donc réversible.
 
-Checks retenus comme exigibles : présents sur les PR #23, #24 **et** #25 —
-donc non filtrés par chemin — et actuellement verts :
+Checks exigés — chacun vérifié **dans son fichier de workflow** comme ayant un
+déclencheur `pull_request` (ou `pull_request_target`) **sans filtre `paths`**,
+donc exécuté sur toute PR :
 
 ```
-check-compliance, check-standards, conformance, rust unit tests,
-sdk in sync with server, sdk-drift, unit (linux), unit (windows)
+check-compliance, check-standards   ← pr-standards.yml       (pull_request_target)
+conformance                          ← unifia-conformance.yml (paths sur push seulement)
+rust unit tests, unit (linux), unit (windows) ← test.yml      (pull_request nu)
+sdk in sync with server              ← sdk-sync.yml           (pull_request nu)
 ```
+
+> **Piège évité, à ne pas réintroduire.** `sdk-drift` avait d'abord été retenu
+> parce qu'il apparaissait sur les PR #23, #24 et #25. Il ne s'est pas déclenché
+> sur la PR #28 : son workflow `observability-sdk-drift.yml` est filtré par
+> `paths` sur `pull_request`. Un check requis qui ne se déclenche pas reste
+> éternellement « Expected — waiting for status », donc **bloque définitivement**
+> toute PR ne touchant pas ces chemins. Constater qu'un check apparaît sur
+> quelques PR ne prouve pas qu'il est inconditionnel : seul le fichier de
+> workflow le prouve.
 
 Exclus délibérément : `e2e (linux)` (G3, échec permanent — l'exiger bloque
-tout), `check` (nom ambigu, porté par deux workflows), `unit results (*)`
+tout), `sdk-drift` (filtré par chemin, voir ci-dessus), `check` (nom ambigu,
+porté par les workflows `identity` **et** `brand`), `unit results (*)`
 (check-runs de reporting), et tout check filtré par chemin (`typecheck`,
 `CodeQL`, `nix-eval`, `storybook build`, `android cross-compile check`,
 `license-upstream`, `app LOC budget`, `schema-and-snapshot`,
-`snapshot-freshness`, `runtime.rs unit tests`) qui bloquerait les PR ne
-touchant pas ces chemins.
+`snapshot-freshness`, `runtime.rs unit tests`).
 
 ### 0ter. Références `opencode` restantes — classement
 
