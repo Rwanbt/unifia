@@ -1,12 +1,5 @@
 <p align="center">
-  <img src="Bannière UnifiaX.png" alt="RBannière UnifiaX" >
-  <a href="https://github.com/Rwanbt/unifia">
-    <picture>
-      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Logo Unifia Workbench">
-    </picture>
-  </a>
+  <img src="banniere_unifia.png" alt="Bannière Unifia Workbench">
 </p>
 <p align="center">L'agent de codage IA open source.</p>
 <p align="center">
