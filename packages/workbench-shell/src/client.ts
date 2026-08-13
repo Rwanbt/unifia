@@ -1,0 +1,166 @@
+/* SPDX-License-Identifier: MIT */
+
+import {
+  EVENT_MERGE_RULES,
+  WIRE_PROTOCOL_VERSION,
+  createIdempotencyKey,
+  parseHandshakeResponse,
+  parseWorkspaceEvent,
+  type HandshakeResponse,
+  type IdempotencyKey,
+  type OpaqueCursor,
+  type TokenRotation,
+  type WorkbenchEventType,
+  type WorkspaceEvent,
+} from "@unifia/contracts/workbench-wire"
+
+export type TokenProvider = {
+  current(): string | undefined
+  refresh(): Promise<string>
+  applyRotation?(rotation: TokenRotation): void
+}
+
+export type WorkbenchClientOptions = {
+  baseUrl: string
+  instanceId: string
+  token: TokenProvider
+  fetchImpl?: typeof fetch
+  now?: () => number
+}
+
+export type RequestOptions = {
+  method?: "GET" | "POST" | "PUT" | "DELETE"
+  body?: unknown
+  idempotencyKey?: IdempotencyKey
+  signal?: AbortSignal
+}
+
+export class WorkbenchHttpError extends Error {
+  readonly status: number
+  readonly retryable: boolean
+
+  constructor(status: number, retryable: boolean) {
+    super(`workbench request failed: ${status}`)
+    this.name = "WorkbenchHttpError"
+    this.status = status
+    this.retryable = retryable
+  }
+}
+
+type EventListener = (event: WorkspaceEvent) => void
+
+/** Merges the single SSE stream into one observable state per workspace. */
+export class WorkbenchEventDispatcher {
+  readonly #listeners = new Set<EventListener>()
+  readonly #replace = new Map<WorkbenchEventType, WorkspaceEvent>()
+  readonly #lastWins = new Map<WorkbenchEventType, WorkspaceEvent>()
+  readonly #appendOnly: WorkspaceEvent[] = []
+  #workspaceId: string | undefined
+  #lastSequence = 0
+  #resyncRequired = false
+
+  get lastSequence(): number { return this.#lastSequence }
+  get resyncRequired(): boolean { return this.#resyncRequired }
+  get events(): readonly WorkspaceEvent[] { return [...this.#appendOnly, ...this.#replace.values(), ...this.#lastWins.values()] }
+
+  subscribe(listener: EventListener): () => void {
+    this.#listeners.add(listener)
+    return () => this.#listeners.delete(listener)
+  }
+
+  apply(value: unknown): WorkspaceEvent {
+    const event = parseWorkspaceEvent(value)
+    if (this.#workspaceId && this.#workspaceId !== event.workspaceId) throw new Error("event workspace does not match dispatcher")
+    this.#workspaceId = event.workspaceId
+    if (event.sequenceId > this.#lastSequence + 1) this.#resyncRequired = true
+    this.#lastSequence = Math.max(this.#lastSequence, event.sequenceId)
+    const rule = EVENT_MERGE_RULES[event.type]
+    if (rule === "append-only") this.#appendOnly.push(event)
+    else if (rule === "replace") this.#replace.set(event.type, event)
+    else if (rule === "last-wins" || rule === "state-snapshot") this.#lastWins.set(event.type, event)
+    for (const listener of this.#listeners) listener(event)
+    return event
+  }
+
+  markResynced(sequence: number, cursor?: OpaqueCursor): void {
+    if (!Number.isInteger(sequence) || sequence < 0) throw new Error("invalid resync sequence")
+    this.#lastSequence = sequence
+    this.#resyncRequired = false
+    void cursor
+  }
+}
+
+/** Typed transport with fail-closed retries: mutant POSTs never replay implicitly. */
+export class WorkbenchClient {
+  readonly #baseUrl: string
+  readonly #instanceId: string
+  readonly #token: TokenProvider
+  readonly #fetch: typeof fetch
+  readonly #now: () => number
+
+  constructor(options: WorkbenchClientOptions) {
+    this.#baseUrl = options.baseUrl.replace(/\/$/, "")
+    this.#instanceId = options.instanceId
+    this.#token = options.token
+    this.#fetch = options.fetchImpl ?? fetch
+    this.#now = options.now ?? (() => Date.now())
+  }
+
+  async handshake(): Promise<HandshakeResponse> {
+    const response = await this.#fetch(`${this.#baseUrl}/v1/handshake`, { method: "POST", headers: this.#headers() })
+    const payload = await response.json()
+    return parseHandshakeResponse(payload)
+  }
+
+  async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const method = options.method ?? "GET"
+    const canRetry = method === "GET" || method === "DELETE" || options.idempotencyKey !== undefined
+    let token = this.#token.current()
+    let response = await this.#send(path, method, token, options)
+    if (response.status === 401 && canRetry) {
+      token = await this.#token.refresh()
+      response = await this.#send(path, method, token, options)
+    }
+    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    return (await response.json()) as T
+  }
+
+  async *events(workspaceId: string, dispatcher: WorkbenchEventDispatcher, signal?: AbortSignal): AsyncGenerator<WorkspaceEvent> {
+    const cursor = dispatcher.lastSequence > 0 ? `?after=${encodeURIComponent(String(dispatcher.lastSequence))}` : ""
+    const response = await this.#fetch(`${this.#baseUrl}/v1/workspaces/${encodeURIComponent(workspaceId)}/events${cursor}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
+    if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500)
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    try {
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        buffer += decoder.decode(chunk.value, { stream: true })
+        const frames = buffer.split("\n\n")
+        buffer = frames.pop() ?? ""
+        for (const frame of frames) {
+          const data = frame.split("\n").find((line) => line.startsWith("data: "))?.slice(6)
+          if (!data) continue
+          const event = dispatcher.apply(JSON.parse(data))
+          yield event
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
+  #headers(token = this.#token.current()): Record<string, string> {
+    return { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), "x-unifia-instance-id": this.#instanceId, "x-unifia-client-time": String(this.#now()) }
+  }
+
+  #send(path: string, method: RequestOptions["method"], token: string | undefined, options: RequestOptions): Promise<Response> {
+    const headers: Record<string, string> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}) }
+    return this.#fetch(`${this.#baseUrl}${path}`, { method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: options.signal })
+  }
+}
+
+export function newRequestId(now = Date.now()): IdempotencyKey {
+  return createIdempotencyKey(now)
+}

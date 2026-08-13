@@ -6,9 +6,9 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M1c`
-- Status: `BLOCKED_ON_HUMAN_DEVICE_GATE`
-- Commit or push performed: no
+- Current card: `M4`
+- Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
+- Commit or push performed: yes (`138e3b87b2`, `5b3b46e39c`)
 
 ## Cards
 
@@ -22,6 +22,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M2b | completed | Persistent per-directory mode context, four-mode rail, sibling routes, local state page, and app tests | No network client or server route introduced. |
 | M3 | completed | `@unifia/contracts/workbench-wire` typecheck + 5 tests | Executable wire schemas, reconciliation rules, cursor/idempotency/token policies, binary references, handshake and rate limits. |
 | M1c | blocked on human device gate | workbench-server typecheck + security 2 tests + preflight 1 test + server 72/72 + bootstrap 40/40 + topology 3/3 | CORS/origin/preflight and aligned mobile CSP implemented. Native token injection/rotation and real Android WebView SVG proof remain required before M4. |
+| M4 | implemented with deferred human proofs | workbench-shell typecheck + shell 122/122 + modes 4/4 + client 7/7 | Typed client, bounded retry policy, SSE cursor resume, token refresh hook, event dispatcher and merge/gap rules. Native bridge and packaged WebView proofs remain pending by explicit user decision. |
 
 ## Manual verification register
 
@@ -59,9 +60,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - Android build warnings remain: Gradle reports a debuggable release build and the native ORT sync reports a Windows file-lock warning. These require review before treating the artifact as release-ready.
 - No APK installation, device execution, signing, commit, push, merge, or publication was performed; MV-03/MV-04 and all other human gates remain pending.
 - M1c token implementation → `ScopedTokenIssuer` now owns workspace + instance + capability scoped tokens, short TTL, rotation grace, and close-time revocation; focused auth/security/preflight/topology validation passes (6 tests, 0 failures).
+- M4 implementation → `packages/workbench-shell/src/client.ts` adds `WorkbenchClient`, `WorkbenchEventDispatcher`, bounded authentication retry, idempotency-aware mutation handling, SSE parsing, cursor continuation, and token-rotation hook; client contract test passes 7/7.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M1c is partially implemented; the server-side issuer is present, but do not start M4 until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M4 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
