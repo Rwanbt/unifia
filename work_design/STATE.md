@@ -24,6 +24,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c | blocked on human device gate | workbench-server typecheck + security 2 tests + preflight 1 test + server 72/72 + bootstrap 40/40 + topology 3/3 | CORS/origin/preflight and aligned mobile CSP implemented. Native token injection/rotation and real Android WebView SVG proof remain required before M4. |
 | M4 | implemented with deferred human proofs | workbench-shell typecheck + shell 122/122 + modes 4/4 + client 7/7 | Typed client, bounded retry policy, SSE cursor resume, token refresh hook, event dispatcher and merge/gap rules. Native bridge and packaged WebView proofs remain pending by explicit user decision. |
 | M5 | implemented with deferred human proofs | workbench-shell typecheck + shell 122/122 + modes 4/4 + client 7/7 + routes 11/11 | Total typed route registry with compile-time Work V1 coverage and explicit work/document versus design/render lineage. |
+| M6 | implemented with deferred human proofs | workbench-server typecheck + server 72/72 + bootstrap 40/40 + security/preflight/topology + operations 2/2 | Reconnectable session SSE remains cursor-based; long prompt operations now receive idempotent operation IDs and can be cancelled through a scoped route. |
 
 ## Manual verification register
 
@@ -63,9 +64,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M1c token implementation → `ScopedTokenIssuer` now owns workspace + instance + capability scoped tokens, short TTL, rotation grace, and close-time revocation; focused auth/security/preflight/topology validation passes (6 tests, 0 failures).
 - M4 implementation → `packages/workbench-shell/src/client.ts` adds `WorkbenchClient`, `WorkbenchEventDispatcher`, bounded authentication retry, idempotency-aware mutation handling, SSE parsing, cursor continuation, and token-rotation hook; client contract test passes 7/7.
 - M5 implementation → `packages/workbench-shell/src/routes.ts` adds total `WORKBENCH_ROUTE_REGISTRY`, route helpers, capability/event mapping, and artifact lineage discriminants; route contract passes 11/11.
+- M6 implementation → operation registry adds idempotent operation tracking, asynchronous prompt execution, scoped cancellation, and typed M6 route registration; operation tests pass 2/2 and existing server suites remain green.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M5 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M6 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.

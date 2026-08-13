@@ -2,4 +2,4 @@
 export { DESTRUCTIVE_ACTIONS, READ_ONLY_FUNCTIONS, SHELL_MODES, WORK_V1_FUNCTIONS, isDestructive, isReadOnly, type DestructiveAction, type ShellMode, type WorkFunction } from "./modes.js"
 export { ShellError, WorkbenchShell, surface, type ArtifactRef, type PreviewToken, type Provenance, type ShellOptions, type ShellRefusal, type ShellResult } from "./shell.js"
 export { WorkbenchClient, WorkbenchEventDispatcher, WorkbenchHttpError, newRequestId, type RequestOptions, type TokenProvider, type WorkbenchClientOptions } from "./client.js"
-export { WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage, type ArtifactLineage, type WorkbenchRoute, type WorkbenchTransportMethod } from "./routes.js"
+export { M6_SERVER_ROUTE_REGISTRY, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage, type ArtifactLineage, type WorkbenchRoute, type WorkbenchServerRoute, type WorkbenchTransportMethod } from "./routes.js"

@@ -45,5 +45,18 @@ export function routesForLineage(lineage: ArtifactLineage): readonly WorkbenchRo
   return WORKBENCH_ROUTE_OPERATIONS.map((operation) => WORKBENCH_ROUTE_REGISTRY[operation]).filter((route) => route.lineage === lineage)
 }
 
+export type WorkbenchServerRoute = {
+  readonly method: WorkbenchTransportMethod
+  readonly route: `/v1/${string}`
+  readonly capability: string
+  readonly event: string
+}
+
+/** M6 routes are registered here before the server implementation consumes them. */
+export const M6_SERVER_ROUTE_REGISTRY = {
+  sessionEvents: { method: "GET", route: "/v1/sessions/:sessionId/events", capability: "workspace.watch", event: "trace.appended" },
+  operationCancel: { method: "POST", route: "/v1/operations/:operationId/cancel", capability: "workspace.watch", event: "operation.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

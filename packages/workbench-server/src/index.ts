@@ -13,11 +13,14 @@ import type {
   WorkspacePort,
 } from "@unifia/contracts"
 
+import { randomUUID } from "node:crypto"
 import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter } from "./auth.js"
+import { OperationRegistry } from "./operations.js"
 import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
 
 export * from "./auth.js"
 export * from "./security.js"
+export * from "./operations.js"
 
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
@@ -84,6 +87,7 @@ export class WorkbenchServer {
   readonly #skillHub?: SkillRegistry
   readonly #auth: PrincipalAuthenticator
   readonly #rateLimiter: RateLimiter
+  readonly #operations = new OperationRegistry(() => `operation-${randomUUID()}`)
 
   constructor(dependencies: ServerDependencies) {
     this.#auth = dependencies.auth
@@ -137,6 +141,7 @@ export class WorkbenchServer {
       if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
+      if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
@@ -223,9 +228,32 @@ export class WorkbenchServer {
     if (!token || !workspaceId) return this.#deny("session.prompt.scope", 403)
     const input = await body(request)
     if (typeof input.prompt !== "string") return this.#deny("session.prompt", 400)
-    await this.#runtime.sendPrompt({ sessionId, prompt: input.prompt })
+    const operation = this.#operations.start(workspaceId, sessionId, typeof input.idempotencyKey === "string" ? input.idempotencyKey : undefined)
+    if (operation.state === "completed") return json(202, { accepted: true, workspaceId, operationId: operation.id })
+    void this.#runPrompt(operation.id, sessionId, input.prompt)
     this.#allow("session.prompt")
-    return json(202, { accepted: true, workspaceId })
+    return json(202, { accepted: true, workspaceId, operationId: operation.id })
+  }
+
+  async #runPrompt(operationId: string, sessionId: string, prompt: string): Promise<void> {
+    try {
+      await this.#runtime.sendPrompt({ sessionId, prompt })
+      this.#operations.complete(operationId)
+    } catch (error) {
+      this.#operations.fail(operationId, error)
+    }
+  }
+
+  async #cancelOperation(request: Request, operationId: string): Promise<Response> {
+    const operation = this.#operations.get(operationId)
+    if (!operation || !this.#authorize(request, operation.workspaceId)) return this.#deny("operation.cancel.scope", 403)
+    const gate = await this.#checkCapability("workspace.watch", operation.workspaceId)
+    if (gate) return gate
+    const cancelled = this.#operations.cancel(operationId)
+    if (!cancelled) return this.#deny("operation.cancel", 409)
+    await this.#runtime.cancelSession(operation.sessionId)
+    this.#allow("operation.cancel")
+    return json(200, { operation: cancelled })
   }
 
   async #files(request: Request, operation: "read" | "write"): Promise<Response> {
