@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: MIT */
+
+import { WORK_V1_FUNCTIONS, type WorkFunction } from "./modes.js"
+
+export type ArtifactLineage = "work/document" | "design/render"
+export type WorkbenchTransportMethod = "GET" | "POST" | "DELETE"
+
+export type WorkbenchRoute = {
+  readonly surface: "work" | "design"
+  readonly operation: WorkFunction
+  readonly method: WorkbenchTransportMethod
+  readonly route: `/v1/${string}`
+  readonly capability: string
+  readonly event: string
+  readonly lineage?: ArtifactLineage
+}
+
+type RouteByWorkFunction = { readonly [FunctionName in WorkFunction]: WorkbenchRoute }
+
+/**
+ * The route matrix is intentionally a total mapped type. Adding a Work V1
+ * function without registering its route is a compile-time error.
+ */
+export const WORKBENCH_ROUTE_REGISTRY: RouteByWorkFunction = {
+  "workspace-switcher": { surface: "work", operation: "workspace-switcher", method: "GET", route: "/v1/workspaces", capability: "workspace.open", event: "workspace.changed" },
+  "session-chat": { surface: "work", operation: "session-chat", method: "POST", route: "/v1/sessions/:sessionId/prompt", capability: "session.prompt", event: "operation.updated" },
+  files: { surface: "work", operation: "files", method: "GET", route: "/v1/files/read", capability: "workspace.read", event: "workspace.changed" },
+  search: { surface: "work", operation: "search", method: "GET", route: "/v1/files/search", capability: "workspace.read", event: "workspace.changed" },
+  artifacts: { surface: "work", operation: "artifacts", method: "GET", route: "/v1/artifacts", capability: "workspace.read", event: "catalog.updated", lineage: "work/document" },
+  documents: { surface: "work", operation: "documents", method: "GET", route: "/v1/documents", capability: "workspace.read", event: "catalog.updated", lineage: "work/document" },
+  trace: { surface: "work", operation: "trace", method: "GET", route: "/v1/trace", capability: "trace.read", event: "trace.appended" },
+  approvals: { surface: "work", operation: "approvals", method: "GET", route: "/v1/approvals", capability: "approval.read", event: "approval.updated" },
+  "activity-log": { surface: "work", operation: "activity-log", method: "GET", route: "/v1/activity", capability: "trace.read", event: "trace.appended" },
+  "capability-picker": { surface: "work", operation: "capability-picker", method: "GET", route: "/v1/capabilities", capability: "capability.read", event: "catalog.updated" },
+  export: { surface: "design", operation: "export", method: "POST", route: "/v1/artifacts/export", capability: "artifact.export", event: "operation.updated", lineage: "design/render" },
+}
+
+export const WORKBENCH_ROUTE_OPERATIONS = Object.keys(WORKBENCH_ROUTE_REGISTRY) as WorkFunction[]
+
+export function routeFor(operation: WorkFunction): WorkbenchRoute {
+  return WORKBENCH_ROUTE_REGISTRY[operation]
+}
+
+export function routesForLineage(lineage: ArtifactLineage): readonly WorkbenchRoute[] {
+  return WORKBENCH_ROUTE_OPERATIONS.map((operation) => WORKBENCH_ROUTE_REGISTRY[operation]).filter((route) => route.lineage === lineage)
+}
+
+const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
+if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)
