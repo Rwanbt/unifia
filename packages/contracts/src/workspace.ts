@@ -49,11 +49,20 @@ export interface FileEvent {
   timestamp: number
 }
 
+export interface WorkspaceEntry {
+  path: string
+  kind: "file" | "directory"
+  size: number
+  modifiedAt: number
+}
+
 export interface WorkspacePort {
   register(input: { name: string; path: string }): Promise<Workspace>
   open(id: WorkspaceId): Promise<WorkspaceHandle>
   read(session: FileSessionId, paths: string[]): Promise<FileReadResult[]>
   write(session: FileSessionId, writes: FileWrite[]): Promise<FileWriteResult[]>
+  list(session: FileSessionId, prefix?: string): Promise<readonly WorkspaceEntry[]>
+  search(session: FileSessionId, query: string, prefix?: string): Promise<readonly WorkspaceEntry[]>
   watch(session: FileSessionId): AsyncIterable<FileEvent>
   close(session: FileSessionId): Promise<void>
 }

@@ -14,6 +14,7 @@ import type {
   WorkspaceHandle,
   WorkspaceId,
   WorkspacePort,
+  WorkspaceEntry,
 } from "@unifia/contracts"
 
 type Session = { workspace: Workspace; token: string; closed: boolean; watchers: Set<() => void> }
@@ -22,10 +23,12 @@ export type WorkspaceRuntimeOptions = {
   maxReadBytes?: number
   maxWriteBytes?: number
   now?: () => number
+  maxEntries?: number
 }
 
 const DEFAULT_MAX_READ_BYTES = 4 * 1024 * 1024
 const DEFAULT_MAX_WRITE_BYTES = 4 * 1024 * 1024
+const DEFAULT_MAX_ENTRIES = 2_000
 
 function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex")
@@ -56,12 +59,14 @@ export class WorkspaceRuntime implements WorkspacePort {
   readonly #now: () => number
   readonly #maxReadBytes: number
   readonly #maxWriteBytes: number
+  readonly #maxEntries: number
   readonly #queues = new Map<WorkspaceId, DurableQueue<FileEvent>>()
 
   constructor(options: WorkspaceRuntimeOptions = {}) {
     this.#now = options.now ?? Date.now
     this.#maxReadBytes = options.maxReadBytes ?? DEFAULT_MAX_READ_BYTES
     this.#maxWriteBytes = options.maxWriteBytes ?? DEFAULT_MAX_WRITE_BYTES
+    this.#maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES
   }
 
   async register(input: { name: string; path: string }): Promise<Workspace> {
@@ -122,6 +127,20 @@ export class WorkspaceRuntime implements WorkspacePort {
       results.push({ path: input.path, bytesWritten: content.byteLength, sha: sha256(content) })
     }
     return results
+  }
+
+  async list(sessionId: FileSessionId, prefix = "."): Promise<readonly WorkspaceEntry[]> {
+    const session = this.#session(sessionId)
+    const directory = await this.#resolveDirectory(session.workspace.path, prefix)
+    return this.#walkEntries(session.workspace.path, directory, undefined)
+  }
+
+  async search(sessionId: FileSessionId, query: string, prefix = "."): Promise<readonly WorkspaceEntry[]> {
+    const normalizedQuery = query.trim().toLocaleLowerCase()
+    if (!normalizedQuery || normalizedQuery.length > 256 || normalizedQuery.includes("\0")) throw new Error("workspace search query is invalid")
+    const session = this.#session(sessionId)
+    const directory = await this.#resolveDirectory(session.workspace.path, prefix)
+    return this.#walkEntries(session.workspace.path, directory, normalizedQuery)
   }
   watch(sessionId: FileSessionId): AsyncIterable<FileEvent> {
     const session = this.#session(sessionId)
@@ -220,6 +239,34 @@ export class WorkspaceRuntime implements WorkspacePort {
     const stat = await fs.stat(candidate)
     if (!stat.isFile()) throw new Error("workspace path is not a file")
     return candidate
+  }
+
+  async #resolveDirectory(root: string, relative: string): Promise<string> {
+    assertRelative(relative)
+    const candidate = await fs.realpath(path.resolve(root, relative))
+    if (!isInside(root, candidate)) throw new Error("workspace path escapes root")
+    const stat = await fs.stat(candidate)
+    if (!stat.isDirectory()) throw new Error("workspace path is not a directory")
+    return candidate
+  }
+
+  async #walkEntries(root: string, directory: string, query: string | undefined): Promise<WorkspaceEntry[]> {
+    const results: WorkspaceEntry[] = []
+    const visit = async (current: string): Promise<void> => {
+      const children = await fs.readdir(current, { withFileTypes: true })
+      for (const child of children) {
+        const absolute = await fs.realpath(path.join(current, child.name))
+        if (!isInside(root, absolute)) throw new Error("workspace path escapes root")
+        const stat = await fs.stat(absolute)
+        const relative = path.relative(root, absolute).replaceAll("\\", "/")
+        const entry: WorkspaceEntry = { path: relative, kind: stat.isDirectory() ? "directory" : "file", size: stat.isFile() ? stat.size : 0, modifiedAt: stat.mtimeMs }
+        if (!query || relative.toLocaleLowerCase().includes(query)) results.push(entry)
+        if (results.length > this.#maxEntries) throw new Error("workspace listing quota exceeded")
+        if (stat.isDirectory()) await visit(absolute)
+      }
+    }
+    await visit(directory)
+    return results
   }
 
   #session(id: FileSessionId): Session {

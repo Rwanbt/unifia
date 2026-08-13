@@ -50,6 +50,14 @@ try {
   if (listed.status !== 200) throw new Error("scoped session list failed")
   const read = await server.fetch(new Request("http://localhost/v1/files/read", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, paths: ["README.md"] }) }))
   if (read.status !== 200) throw new Error("scoped file read failed")
+  const fileList = await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (fileList.status !== 200) throw new Error("scoped file list failed")
+  const fileListBody = await fileList.json() as { entries: readonly { path: string }[] }
+  if (!fileListBody.entries.some((entry) => entry.path === "README.md")) throw new Error("file list did not return README.md")
+  const fileSearch = await server.fetch(new Request(`http://localhost/v1/files/search?workspaceId=${handle.id}&query=readme`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (fileSearch.status !== 200) throw new Error("scoped file search failed")
+  const fileSearchBody = await fileSearch.json() as { entries: readonly { path: string }[] }
+  if (fileSearchBody.entries.length !== 1 || fileSearchBody.entries[0]?.path !== "README.md") throw new Error("file search did not filter README.md")
   capabilityDecision = "deny"
   const deniedWrite = await server.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "README.md", content: "blocked" }] }) }))
   if (deniedWrite.status !== 403) throw new Error("capability gate did not deny write")
@@ -282,4 +290,3 @@ try {
 } finally {
   await rm(root, { recursive: true, force: true })
 }
-

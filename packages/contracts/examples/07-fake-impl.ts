@@ -80,6 +80,8 @@ class FakeWorkspacePort implements WorkspacePort {
       return { path: w.path, bytesWritten: content.length, sha: "fake-sha" }
     })
   }
+  async list() { return [] }
+  async search() { return [] }
   async *watch(_session: string) {
     // No events in fake
   }

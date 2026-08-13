@@ -56,6 +56,8 @@ class MemWorkspace implements WorkspacePort {
       return { path: w.path, bytesWritten: c.length, sha: "x" }
     })
   }
+  async list() { return [] }
+  async search() { return [] }
   async *watch() {}
   async close() {}
 }

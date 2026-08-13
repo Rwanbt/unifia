@@ -143,6 +143,7 @@ export class WorkbenchServer {
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
       if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
+      if (segments[1] === "files" && (segments[2] === "list" || segments[2] === "search") && request.method === "GET") return this.#fileIndex(request, segments[2])
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
@@ -274,6 +275,22 @@ export class WorkbenchServer {
     const results = await this.#workspace.write(token, input.writes as FileWrite[])
     this.#allow("workspace.write")
     return json(200, { results: results as unknown as JsonRecord[] })
+  }
+
+  async #fileIndex(request: Request, operation: "list" | "search"): Promise<Response> {
+    const url = new URL(request.url)
+    const workspaceId = url.searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny(`workspace.${operation}`, 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
+    const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId)
+    if (capabilityResponse) return capabilityResponse
+    const prefix = url.searchParams.get("prefix") ?? "."
+    const entries = operation === "list"
+      ? await this.#workspace.list(token, prefix)
+      : await this.#workspace.search(token, url.searchParams.get("query") ?? "", prefix)
+    this.#allow(`workspace.${operation}`)
+    return json(200, { entries })
   }
 
   async #browserAction(request: Request, action: string): Promise<Response> {

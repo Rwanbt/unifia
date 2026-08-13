@@ -71,6 +71,8 @@ describe("@unifia/contracts", () => {
         open: async () => ({ id: "w1", token: "tok" }),
         read: async () => [],
         write: async () => [],
+        list: async () => [],
+        search: async () => [],
         watch: async function* () {},
         close: async () => {},
       }

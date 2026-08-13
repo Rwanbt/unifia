@@ -58,5 +58,11 @@ export const M6_SERVER_ROUTE_REGISTRY = {
   operationCancel: { method: "POST", route: "/v1/operations/:operationId/cancel", capability: "workspace.watch", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M7 file index routes are registered before the server implementation consumes them. */
+export const M7_SERVER_ROUTE_REGISTRY = {
+  filesList: { method: "GET", route: "/v1/files/list", capability: "workspace.read", event: "workspace.changed" },
+  filesSearch: { method: "GET", route: "/v1/files/search", capability: "workspace.read", event: "workspace.changed" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

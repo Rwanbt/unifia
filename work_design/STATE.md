@@ -6,9 +6,9 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M4`
+- Current card: `M7`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
-- Commit or push performed: yes (`138e3b87b2`, `5b3b46e39c`)
+- Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
 ## Cards
 
@@ -25,6 +25,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M4 | implemented with deferred human proofs | workbench-shell typecheck + shell 122/122 + modes 4/4 + client 7/7 | Typed client, bounded retry policy, SSE cursor resume, token refresh hook, event dispatcher and merge/gap rules. Native bridge and packaged WebView proofs remain pending by explicit user decision. |
 | M5 | implemented with deferred human proofs | workbench-shell typecheck + shell 122/122 + modes 4/4 + client 7/7 + routes 11/11 | Total typed route registry with compile-time Work V1 coverage and explicit work/document versus design/render lineage. |
 | M6 | implemented with deferred human proofs | workbench-server typecheck + server 72/72 + bootstrap 40/40 + security/preflight/topology + operations 2/2 | Reconnectable session SSE remains cursor-based; long prompt operations now receive idempotent operation IDs and can be cancelled through a scoped route. |
+| M7 | implemented with deferred human proofs | contracts/workspace + workspace-runtime typecheck/tests + server 72/72 + shell typecheck + security guard | Bounded, root-confined file listing/search and protected `GET /v1/files/list` and `GET /v1/files/search` routes. |
 
 ## Manual verification register
 
@@ -65,9 +66,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M4 implementation → `packages/workbench-shell/src/client.ts` adds `WorkbenchClient`, `WorkbenchEventDispatcher`, bounded authentication retry, idempotency-aware mutation handling, SSE parsing, cursor continuation, and token-rotation hook; client contract test passes 7/7.
 - M5 implementation → `packages/workbench-shell/src/routes.ts` adds total `WORKBENCH_ROUTE_REGISTRY`, route helpers, capability/event mapping, and artifact lineage discriminants; route contract passes 11/11.
 - M6 implementation → operation registry adds idempotent operation tracking, asynchronous prompt execution, scoped cancellation, and typed M6 route registration; operation tests pass 2/2 and existing server suites remain green.
+- M7 implementation → `WorkspacePort` now exposes bounded listing/search; `WorkspaceRuntime` resolves real paths inside the registered root, refuses escapes and enforces an entry quota; Workbench routes apply workspace auth and `workspace.read`; runtime and server assertions cover list/search.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M6 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M7 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
