@@ -5,11 +5,12 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./modes": "./src/modes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/shell.test.ts"
+    "test": "bun test/shell.test.ts && bun test/modes-contract.test.ts"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*"
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
+    "@unifia/spec-runtime": "workspace:*",
     "typescript": "catalog:",
     "@tsconfig/node22": "22.0.2"
   }

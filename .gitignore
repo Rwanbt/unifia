@@ -130,3 +130,4 @@ unifia-conformance.json
 # repository path and per-machine tool versions, so it is a local record rather
 # than something to track.
 artifacts/
+packages/mobile/src-tauri/ort-runtime/

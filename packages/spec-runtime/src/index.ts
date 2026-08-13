@@ -26,6 +26,7 @@
 import type { ArtifactInput } from "@unifia/artifact-runtime"
 
 export type SpecTarget = "code" | "work" | "design" | "automate"
+export const SPEC_TARGETS = ["code", "work", "design", "automate"] as const
 
 export type SpecRule = { id: string; statement: string }
 
@@ -69,7 +70,7 @@ const VERSION = /^\d+\.\d+\.\d+$/
 const CAPABILITY = /^[a-z][a-z0-9._-]{1,63}$/
 const COLOR = /^#[0-9a-f]{6}$/i
 const TOKEN_NAME = /^[a-z][a-z0-9-]{0,31}$/
-const TARGETS: ReadonlySet<string> = new Set<SpecTarget>(["code", "work", "design", "automate"])
+const TARGETS: ReadonlySet<string> = new Set<SpecTarget>(SPEC_TARGETS)
 const MAX_RULES = 256
 const MAX_STATEMENT_LENGTH = 2048
 

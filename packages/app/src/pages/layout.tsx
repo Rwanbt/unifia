@@ -55,6 +55,7 @@ import type {
 import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
 import { SidebarPanel, type SidebarPanelContext } from "./layout/sidebar-panel"
 import { SidebarContent } from "./layout/sidebar-shell"
+import { useMode } from "@/context/mode"
 import { DialogDeleteWorkspace, DialogResetWorkspace } from "./layout/dialog-workspace"
 import { createPrefetchSystem } from "./layout/prefetch"
 import { useUpdatePolling, useSDKNotificationToasts } from "./layout/notifications"
@@ -959,6 +960,7 @@ export default function Layout(props: ParentProps) {
   }
 
   const projects = () => layout.projects.list()
+  const mode = useMode()
   const projectOverlay = () => <ProjectDragOverlay projects={projects} activeProject={() => store.activeProject} />
   const sidebarContent = (mobile?: boolean) => (
     <SidebarContent
@@ -984,6 +986,9 @@ export default function Layout(props: ParentProps) {
       renderPanel={() =>
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
+      modes={mode.modes}
+      activeMode={mode.active}
+      onMode={mode.select}
     />
   )
 

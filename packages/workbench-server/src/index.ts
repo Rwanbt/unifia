@@ -14,8 +14,10 @@ import type {
 } from "@unifia/contracts"
 
 import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter } from "./auth.js"
+import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
 
 export * from "./auth.js"
+export * from "./security.js"
 
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
@@ -113,7 +115,10 @@ export class WorkbenchServer {
    */
   async fetch(request: Request): Promise<Response> {
     try {
-      return await this.#route(request)
+      const origin = checkRequestOrigin(request.headers.get("origin"))
+      if (!origin.allowed) return addSecurityHeaders(json(403, { error: "origin not allowed" }))
+      if (request.method === "OPTIONS") return addSecurityHeaders(new Response(null, { status: 204 }), origin.origin)
+      return addSecurityHeaders(await this.#route(request), origin.origin)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
       return json(400, { error: error instanceof Error ? error.message : "request failed" })

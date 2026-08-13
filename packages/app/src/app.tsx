@@ -36,6 +36,7 @@ import { HighlightsProvider } from "@/context/highlights"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
+import { ModeProvider } from "@/context/mode"
 import { NotificationProvider } from "@/context/notification"
 import { PermissionProvider } from "@/context/permission"
 import { PromptProvider } from "@/context/prompt"
@@ -64,6 +65,7 @@ const SessionRoute = () => (
 )
 
 const SessionIndexRoute = () => <Navigate href="session" />
+const WorkbenchModeRoute = lazy(() => import("@/pages/workbench-mode"))
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()
@@ -95,7 +97,9 @@ function AppShellProviders(props: ParentProps) {
         <NotificationProvider>
           <CommandProvider>
             <HighlightsProvider>
-              <Layout>{props.children}</Layout>
+              <ModeProvider>
+                <Layout>{props.children}</Layout>
+              </ModeProvider>
             </HighlightsProvider>
             <CommandPaletteMount />
           </CommandProvider>
@@ -406,6 +410,7 @@ export function AppInterface(props: {
       <Route path="/:dir" component={DirectoryLayout}>
         <Route path="/" component={SessionIndexRoute} />
         <Route path="/session/:id?" component={SessionRoute} />
+        <Route path="/:mode" component={WorkbenchModeRoute} />
       </Route>
     </Dynamic>
   )

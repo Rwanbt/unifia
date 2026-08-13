@@ -11,6 +11,7 @@ import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import type { LocalProject } from "@/context/layout"
+import type { ShellMode } from "@unifia/workbench-shell/modes"
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -31,6 +32,9 @@ export const SidebarContent = (props: {
   helpLabel: Accessor<string>
   onOpenHelp: () => void
   renderPanel: () => JSX.Element
+  modes: readonly ShellMode[]
+  activeMode: Accessor<ShellMode>
+  onMode: (mode: ShellMode) => void
 }): JSX.Element => {
   const expanded = createMemo(() => !!props.mobile || props.opened())
   const placement = () => (props.mobile ? "bottom" : "right")
@@ -63,6 +67,19 @@ export const SidebarContent = (props: {
             <DragDropSensors />
             <ConstrainDragXAxis />
             <div class="h-full w-full flex flex-col items-center gap-3 px-3 py-3 overflow-y-auto no-scrollbar">
+              <For each={props.modes}>
+                {(mode) => (
+                  <Tooltip placement={placement()} value={`${mode} mode`}>
+                    <IconButton
+                      icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
+                      variant={props.activeMode() === mode ? "primary" : "ghost"}
+                      size="large"
+                      onClick={() => props.onMode(mode)}
+                      aria-label={`${mode} mode`}
+                    />
+                  </Tooltip>
+                )}
+              </For>
               <SortableProvider ids={props.projects().map((p) => p.worktree)}>
                 <For each={props.projects()}>{(project) => props.renderProject(project)}</For>
               </SortableProvider>

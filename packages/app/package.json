@@ -43,6 +43,7 @@
     "@kobalte/core": "catalog:",
     "@unifia/sdk": "workspace:*",
     "@unifia/sdk-shared": "workspace:*",
+    "@unifia/workbench-shell": "workspace:*",
     "@unifia/ui": "workspace:*",
     "@unifia/util": "workspace:*",
     "@shikijs/transformers": "3.9.2",
