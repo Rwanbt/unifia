@@ -17,7 +17,7 @@ import { appendFileSync, mkdirSync } from "node:fs"
 import path from "node:path"
 import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
-import { FixedWindowRateLimiter, HmacTokenAuthenticator } from "./auth.js"
+import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer } from "./index.js"
 
 export type WorkbenchRuntimeKind = "fake" | "opencode"
@@ -111,6 +111,7 @@ export function loadConfigFromEnv(env: Record<string, string | undefined> = proc
 export type WorkbenchApp = {
   readonly server: WorkbenchServer
   readonly authenticator: HmacTokenAuthenticator
+  readonly tokenIssuer: ScopedTokenIssuer
   readonly audit: FileAuditSink
   readonly workspace: WorkspaceRuntime
 }
@@ -129,6 +130,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
   if (config.runtime === "opencode" && !backend) throw new Error("runtime=opencode requires an OpenCodeRuntimeBackend")
   const runtime: RuntimeAdapter = config.runtime === "opencode" ? new OpenCodeRuntimeAdapter(backend as OpenCodeRuntimeBackend) : new FakeRuntimeAdapter()
   const authenticator = new HmacTokenAuthenticator(config.signingKey, config.issuer, config.audience)
+  const tokenIssuer = new ScopedTokenIssuer(config.signingKey, 5 * 60_000, 30_000)
   const audit = new FileAuditSink(config.auditLogPath)
   const workspace = new WorkspaceRuntime()
   const server = new WorkbenchServer({
@@ -141,7 +143,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
   })
-  return { server, authenticator, audit, workspace }
+  return { server, authenticator, tokenIssuer, audit, workspace }
 }
 
 /** Starts the HTTP listener and returns a handle that shuts it down cleanly. */

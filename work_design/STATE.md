@@ -58,9 +58,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - `bun scripts/check-android-runtime.mjs` from `packages/mobile` → PASS: rootfs and 30 native libraries present. The ORT binary was supplied from an existing local prepared worktree through an ignored hardlink; no source checkout was modified.
 - Android build warnings remain: Gradle reports a debuggable release build and the native ORT sync reports a Windows file-lock warning. These require review before treating the artifact as release-ready.
 - No APK installation, device execution, signing, commit, push, merge, or publication was performed; MV-03/MV-04 and all other human gates remain pending.
+- M1c token implementation → `ScopedTokenIssuer` now owns workspace + instance + capability scoped tokens, short TTL, rotation grace, and close-time revocation; focused auth/security/preflight/topology validation passes (6 tests, 0 failures).
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M1c is partially implemented; do not start M4 until the native short-lived token bridge/rotation and real Android `<img src="data:…">` proof are supplied.
+3. M1c is partially implemented; the server-side issuer is present, but do not start M4 until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.

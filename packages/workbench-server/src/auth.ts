@@ -18,7 +18,7 @@
  * proven locally. See docs/autonomy/reports/GATE-C-STATUS-2026-08-03.md.
  */
 
-import { createHmac, timingSafeEqual } from "node:crypto"
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 
 export type Principal = {
   readonly id: string
@@ -31,9 +31,125 @@ export type PrincipalAuthenticator = {
   authenticate(request: Request): Promise<Principal | undefined>
 }
 
+export type ScopedTokenRequest = {
+  readonly principalId: string
+  readonly workspaceId: string
+  readonly instanceId: string
+  readonly capabilities: readonly string[]
+}
+
+export type ScopedToken = ScopedTokenRequest & {
+  readonly token: string
+  readonly tokenId: string
+  readonly issuedAt: number
+  readonly expiresAt: number
+}
+
+type ScopedTokenClaims = ScopedTokenRequest & {
+  readonly kind: "unifia-workbench"
+  readonly tokenId: string
+  readonly issuedAt: number
+  readonly expiresAt: number
+}
+
+type TokenLease = {
+  current: ScopedTokenClaims
+  previous?: { claims: ScopedTokenClaims; acceptedUntil: number }
+}
+
 export type RateLimiter = {
   /** Returns false when the caller exceeded its budget for this window. */
   take(key: string): boolean
+}
+
+/**
+ * Mints short-lived, workspace-scoped bearer tokens while keeping the signing
+ * key inside the native/server process. Rotation accepts the previous token
+ * only during the explicit grace period; closing a scope revokes both tokens.
+ */
+export class ScopedTokenIssuer {
+  readonly #key: Buffer
+  readonly #ttlMs: number
+  readonly #gracePeriodMs: number
+  readonly #now: () => number
+  readonly #leases = new Map<string, TokenLease>()
+
+  constructor(key: string | Uint8Array, ttlMs: number, gracePeriodMs: number, now: () => number = Date.now) {
+    const material = typeof key === "string" ? Buffer.from(key, "utf8") : Buffer.from(key)
+    if (material.length < 32) throw new Error("signing key must be at least 32 bytes")
+    if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0) throw new Error("token ttl must be a positive integer")
+    if (!Number.isSafeInteger(gracePeriodMs) || gracePeriodMs < 0) throw new Error("token grace period must be a non-negative integer")
+    this.#key = material
+    this.#ttlMs = ttlMs
+    this.#gracePeriodMs = gracePeriodMs
+    this.#now = now
+  }
+
+  issue(request: ScopedTokenRequest): ScopedToken {
+    const claims = this.#claims(request)
+    this.#leases.set(this.#scope(request), { current: claims })
+    return this.#public(claims)
+  }
+
+  rotate(request: ScopedTokenRequest): { token: ScopedToken; previousToken: string | null; gracePeriodMs: number } {
+    const scope = this.#scope(request)
+    const previous = this.#leases.get(scope)?.current
+    const claims = this.#claims(request)
+    this.#leases.set(scope, { current: claims, previous: previous ? { claims: previous, acceptedUntil: claims.issuedAt + this.#gracePeriodMs } : undefined })
+    return { token: this.#public(claims), previousToken: previous ? this.#encode(previous) : null, gracePeriodMs: this.#gracePeriodMs }
+  }
+
+  verify(token: string): ScopedToken | undefined {
+    const claims = this.#decode(token)
+    if (!claims) return undefined
+    const now = this.#now()
+    if (now >= claims.expiresAt) return undefined
+    const lease = this.#leases.get(this.#scope(claims))
+    if (!lease || lease.current.tokenId === claims.tokenId) return lease?.current.tokenId === claims.tokenId ? this.#public(claims) : undefined
+    if (lease.previous?.claims.tokenId !== claims.tokenId || now >= lease.previous.acceptedUntil) return undefined
+    return this.#public(claims)
+  }
+
+  revoke(request: Pick<ScopedTokenRequest, "workspaceId" | "instanceId">): void {
+    this.#leases.delete(this.#scope(request))
+  }
+
+  #claims(request: ScopedTokenRequest): ScopedTokenClaims {
+    if (!request.principalId || !request.workspaceId || !request.instanceId) throw new Error("token scope identifiers are required")
+    const issuedAt = this.#now()
+    return { ...request, capabilities: [...new Set(request.capabilities)], kind: "unifia-workbench", tokenId: randomUUID(), issuedAt, expiresAt: issuedAt + this.#ttlMs }
+  }
+
+  #scope(value: Pick<ScopedTokenRequest, "workspaceId" | "instanceId">): string {
+    return `${value.workspaceId}\u0000${value.instanceId}`
+  }
+
+  #public(claims: ScopedTokenClaims): ScopedToken {
+    return { ...claims, token: this.#encode(claims) }
+  }
+
+  #encode(claims: ScopedTokenClaims): string {
+    const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")
+    const payload = Buffer.from(JSON.stringify(claims)).toString("base64url")
+    const data = `${header}.${payload}`
+    return `${data}.${createHmac("sha256", this.#key).update(data).digest("base64url")}`
+  }
+
+  #decode(token: string): ScopedTokenClaims | undefined {
+    const parts = token.split(".")
+    if (parts.length !== 3 || !BASE64URL.test(parts[0]) || !BASE64URL.test(parts[1]) || !BASE64URL.test(parts[2])) return undefined
+    const supplied = Buffer.from(parts[2], "base64url")
+    const expected = createHmac("sha256", this.#key).update(`${parts[0]}.${parts[1]}`).digest()
+    if (!signaturesMatch(expected, supplied)) return undefined
+    try {
+      const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")) as { alg?: unknown; typ?: unknown }
+      const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as ScopedTokenClaims
+      if (header.alg !== "HS256" || header.typ !== "JWT" || claims.kind !== "unifia-workbench") return undefined
+      if (typeof claims.tokenId !== "string" || typeof claims.workspaceId !== "string" || typeof claims.instanceId !== "string" || typeof claims.principalId !== "string") return undefined
+      if (!Number.isSafeInteger(claims.issuedAt) || !Number.isSafeInteger(claims.expiresAt) || !Array.isArray(claims.capabilities) || !claims.capabilities.every((capability) => typeof capability === "string")) return undefined
+      return claims
+    } catch { return undefined }
+  }
 }
 
 export function principalCanRegister(principal: Principal): boolean {
