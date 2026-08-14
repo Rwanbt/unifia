@@ -1,9 +1,8 @@
-import { createMemo, For, Match, Switch } from "solid-js"
+import { createEffect, createMemo, For, Match, Switch } from "solid-js"
 import { Button } from "@unifia/ui/button"
 import { Logo } from "@unifia/ui/logo"
 import { useLayout } from "@/context/layout"
 import { useNavigate } from "@solidjs/router"
-import { base64Encode } from "@unifia/util/encode"
 import { Icon } from "@unifia/ui/icon"
 import { usePlatform } from "@/context/platform"
 import { DateTime } from "luxon"
@@ -13,6 +12,7 @@ import { DialogSelectServer } from "@/components/dialog-select-server"
 import { useServer } from "@/context/server"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
+import { useMode } from "@/context/mode"
 
 export default function Home() {
   const sync = useGlobalSync()
@@ -22,6 +22,7 @@ export default function Home() {
   const navigate = useNavigate()
   const server = useServer()
   const language = useLanguage()
+  const mode = useMode()
   const homedir = createMemo(() => sync.data.path.home)
   const recent = createMemo(() => {
     return sync.data.project
@@ -38,13 +39,18 @@ export default function Home() {
   })
 
   function openProject(directory: string) {
+    const requestedMode = mode.takePendingMode()
     layout.projects.open(directory)
     server.projects.touch(directory)
-    navigate(`/${base64Encode(directory)}`)
+    navigate(mode.hrefFor(directory, requestedMode ?? mode.preferredMode(directory)) ?? "/")
   }
 
   async function chooseProject() {
     function resolve(result: string | string[] | null) {
+      if (!result) {
+        mode.cancelPendingMode()
+        return
+      }
       if (Array.isArray(result)) {
         for (const directory of result) {
           openProject(directory)
@@ -63,9 +69,17 @@ export default function Home() {
     } else {
       dialog.show(
         () => <DialogSelectDirectory multiple={true} onSelect={resolve} />,
-        () => resolve(null),
+        () => {
+          mode.cancelPendingMode()
+          resolve(null)
+        },
       )
     }
+
+  createEffect(() => {
+    if (!mode.pendingMode()) return
+    void chooseProject()
+  })
   }
 
   return (

@@ -17,6 +17,7 @@ import { LspDiagnosticsProvider } from "@/context/lsp-diagnostics"
 // FileStoreProvider lives at directory scope (sibling of SDKProvider) so EditorProvider
 // (which calls useFileStore) sees it as an ancestor. Fix: pre-flight-0-filestore-scope.
 import { FileStoreProvider } from "@/context/file/store"
+import { WorkspaceWorkbenchProvider } from "@/context/workbench/provider"
 
 function DirectoryDataProvider(props: ParentProps<{ directory: string }>) {
   const location = useLocation()
@@ -93,7 +94,9 @@ export default function Layout(props: ParentProps) {
             <SyncProvider>
               <LspDiagnosticsProvider>
                 <TeamProvider>
-                  <DirectoryDataProvider directory={resolved}>{props.children}</DirectoryDataProvider>
+                  <DirectoryDataProvider directory={resolved}>
+                    <WorkspaceWorkbenchProvider workspacePath={resolved} codeSessionId={params.id}>{props.children}</WorkspaceWorkbenchProvider>
+                  </DirectoryDataProvider>
                 </TeamProvider>
               </LspDiagnosticsProvider>
             </SyncProvider>

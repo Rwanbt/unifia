@@ -33,7 +33,6 @@ export const SidebarContent = (props: {
   onOpenHelp: () => void
   renderPanel: () => JSX.Element
   modes: readonly ShellMode[]
-  modesEnabled: Accessor<boolean>
   activeMode: Accessor<ShellMode>
   onMode: (mode: ShellMode) => void
 }): JSX.Element => {
@@ -75,7 +74,6 @@ export const SidebarContent = (props: {
                       icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
                       variant={props.activeMode() === mode ? "primary" : "ghost"}
                       size="large"
-                      disabled={!props.modesEnabled()}
                       onClick={() => props.onMode(mode)}
                       aria-label={`${mode} mode`}
                     />

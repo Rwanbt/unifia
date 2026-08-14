@@ -14,6 +14,14 @@ export type Platform = {
   /** Platform discriminator */
   platform: "web" | "desktop" | "mobile"
 
+  /** Desktop-only window controls; provided by the host adapter. */
+  windowControls?: {
+    startDragging?(): Promise<void>
+    minimize?(): Promise<void>
+    toggleMaximize?(): Promise<void>
+    close?(): Promise<void>
+  }
+
   /** OS (Tauri desktop/mobile) */
   os?: "macos" | "windows" | "linux" | "ios" | "android"
 

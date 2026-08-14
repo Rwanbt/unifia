@@ -20,6 +20,7 @@ import type { Session } from "../types/sdk-shim"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { createStore, produce } from "solid-js/store"
+import { TitlebarSlotsProvider } from "@/context/titlebar-slots"
 
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
@@ -987,14 +988,14 @@ export default function Layout(props: ParentProps) {
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
       modes={mode.modes}
-      modesEnabled={() => !!mode.directory()}
       activeMode={mode.active}
       onMode={mode.select}
     />
   )
 
   return (
-    <div class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
+    <TitlebarSlotsProvider>
+      <div class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
@@ -1088,6 +1089,7 @@ export default function Layout(props: ParentProps) {
               }}
             >
               <main
+                data-workbench-mode={mode.active()}
                 classList={{
                   "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base xl:border-l xl:rounded-tl-[12px]": true,
                 }}
@@ -1146,6 +1148,7 @@ export default function Layout(props: ParentProps) {
         {import.meta.env.DEV && !e2eActive() && <DebugBar />}
       </div>
       <Toast.Region />
-    </div>
+      </div>
+    </TitlebarSlotsProvider>
   )
 }

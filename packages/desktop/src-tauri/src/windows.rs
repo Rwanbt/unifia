@@ -78,12 +78,6 @@ impl MainWindow {
 
         setup_window_state_listener(app, &window);
 
-        #[cfg(windows)]
-        {
-            use tauri_plugin_decorum::WebviewWindowExt;
-            let _ = window.create_overlay_titlebar();
-        }
-
         Ok(Self(window))
     }
 }

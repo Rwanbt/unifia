@@ -52,7 +52,6 @@ futures = "0.3.31"
 semver = "1.0.27"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "multipart"] }
 uuid = { version = "1.19.0", features = ["v4"] }
-tauri-plugin-decorum = "1.1.1"
 comrak = { version = "0.50", default-features = false }
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"

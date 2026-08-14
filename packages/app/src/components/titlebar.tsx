@@ -12,10 +12,13 @@ import { usePlatform } from "@/context/platform"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { applyPath, backPath, forwardPath } from "./titlebar-history"
+import { useTitlebarSlots } from "@/context/titlebar-slots"
 
 type TauriDesktopWindow = {
   startDragging?: () => Promise<void>
+  minimize?: () => Promise<void>
   toggleMaximize?: () => Promise<void>
+  close?: () => Promise<void>
 }
 
 type TauriThemeWindow = {
@@ -44,6 +47,7 @@ export function Titlebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
+  const slots = useTitlebarSlots()
 
   const mac = createMemo(() => platform.platform === "desktop" && platform.os === "macos")
   const windows = createMemo(() => platform.platform === "desktop" && platform.os === "windows")
@@ -110,10 +114,7 @@ export function Titlebar() {
     },
   ])
 
-  const getWin = () => {
-    if (platform.platform !== "desktop") return
-    return currentDesktopWindow()
-  }
+  const getWin = () => platform.platform === "desktop" ? platform.windowControls : undefined
 
   createEffect(() => {
     if (platform.platform !== "desktop") return
@@ -151,7 +152,7 @@ export function Titlebar() {
   const maximize = (e: MouseEvent) => {
     if (platform.platform !== "desktop") return
     if (interactive(e.target)) return
-    if (e.target instanceof Element && e.target.closest("[data-tauri-decorum-tb]")) return
+    if (e.target instanceof Element && e.target.closest("[data-window-controls]")) return
 
     const win = getWin()
     if (!win?.toggleMaximize) return
@@ -290,7 +291,7 @@ export function Titlebar() {
       </div>
 
       <div class="min-w-0 flex items-center justify-center pointer-events-none">
-        <div id="unifia-titlebar-center" class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full" />
+        <div ref={slots.registerCenter} class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full" />
       </div>
 
       <div
@@ -301,10 +302,40 @@ export function Titlebar() {
         data-tauri-drag-region
         onMouseDown={drag}
       >
-        <div id="unifia-titlebar-right" class="flex items-center gap-1 shrink-0 justify-end" />
-        <Show when={windows()}>
-          {!tauriApi() && <div class="w-36 shrink-0" />}
-          <div data-tauri-decorum-tb class="flex flex-row" />
+        <div ref={slots.registerRight} class="flex items-center gap-1 shrink-0 justify-end" />
+        <Show when={platform.windowControls}>
+          <div data-window-controls class="flex flex-row shrink-0">
+            <button
+              data-window-control="minimize"
+              class="h-8 w-[58px] shrink-0 border-0 bg-transparent p-0 text-12-regular text-text-weak hover:bg-surface-raised-base-active"
+              type="button"
+              title="Minimize"
+              aria-label="Minimize"
+              onClick={() => void getWin()?.minimize?.().catch(() => undefined)}
+            >
+              <span aria-hidden="true">−</span>
+            </button>
+            <button
+              data-window-control="maximize"
+              class="h-8 w-[58px] shrink-0 border-0 bg-transparent p-0 text-12-regular text-text-weak hover:bg-surface-raised-base-active"
+              type="button"
+              title="Maximize"
+              aria-label="Maximize"
+              onClick={() => void getWin()?.toggleMaximize?.().catch(() => undefined)}
+            >
+              <span aria-hidden="true">□</span>
+            </button>
+            <button
+              data-window-control="close"
+              class="h-8 w-[58px] shrink-0 border-0 bg-transparent p-0 text-12-regular text-text-weak hover:bg-red-600 hover:text-white"
+              type="button"
+              title="Close"
+              aria-label="Close"
+              onClick={() => void getWin()?.close?.().catch(() => undefined)}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
         </Show>
       </div>
     </header>

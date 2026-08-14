@@ -93,6 +93,15 @@ const createPlatform = (): Platform => {
     platform: "desktop",
     os,
     version: pkg.version,
+    windowControls:
+      os === "windows"
+        ? {
+            startDragging: () => getCurrentWindow().startDragging(),
+            minimize: () => getCurrentWindow().minimize(),
+            toggleMaximize: () => getCurrentWindow().toggleMaximize(),
+            close: () => getCurrentWindow().close(),
+          }
+        : undefined,
     workbench: createDesktopWorkbenchBridge(),
 
     async openDirectoryPickerDialog(opts) {

@@ -1,7 +1,13 @@
 /* SPDX-License-Identifier: MIT */
 
 import { base64Decode, base64Encode } from "@unifia/util/encode"
-import type { ShellMode } from "@unifia/workbench-shell/modes"
+import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
+
+export type ModeLocation =
+  | { kind: "home"; directory: ""; mode: undefined; sessionId?: undefined }
+  | { kind: "workspace-root"; directory: string; mode: "code"; sessionId?: string }
+  | { kind: "mode"; directory: string; mode: Exclude<ShellMode, "code">; sessionId?: string }
+  | { kind: "invalid"; directory: string; mode: undefined; reason: "workspace" | "mode" | "session" }
 
 export function routeDirectoryFromPathname(pathname: string): string {
   return pathname.split("/").filter(Boolean)[0] ?? ""
@@ -10,6 +16,47 @@ export function routeDirectoryFromPathname(pathname: string): string {
 export function sessionSearchFromLocation(search: string): string {
   const session = new URLSearchParams(search).get("session")
   return session ? `?session=${encodeURIComponent(session)}` : ""
+}
+
+export function parseModeLocation(pathname: string, search = ""): ModeLocation {
+  const segments = pathname.split("/").filter(Boolean)
+  if (segments.length === 0) return { kind: "home", directory: "", mode: undefined }
+
+  let directory: string
+  try {
+    directory = base64Decode(segments[0]!)
+  } catch {
+    return { kind: "invalid", directory: "", mode: undefined, reason: "workspace" }
+  }
+  if (!directory) return { kind: "invalid", directory, mode: undefined, reason: "workspace" }
+  if (segments.length === 1) return { kind: "workspace-root", directory, mode: "code" }
+
+  const route = segments[1]
+  if (route === "session") {
+    if (segments.length > 3) return { kind: "invalid", directory, mode: undefined, reason: "session" }
+    const pathSession = segments[2]
+    const querySession = new URLSearchParams(search).get("session") ?? undefined
+    if (pathSession && querySession && pathSession !== querySession) {
+      return { kind: "invalid", directory, mode: undefined, reason: "session" }
+    }
+    return { kind: "workspace-root", directory, mode: "code", sessionId: pathSession ?? querySession }
+  }
+  if (!SHELL_MODES.includes(route as ShellMode) || route === "code" || segments.length > 2) {
+    return { kind: "invalid", directory, mode: undefined, reason: "mode" }
+  }
+
+  const session = new URLSearchParams(search).get("session") ?? undefined
+  return { kind: "mode", directory, mode: route as Exclude<ShellMode, "code">, sessionId: session }
+}
+
+export function modeHref(current: ModeLocation, targetMode: ShellMode): string | undefined {
+  if (!current.directory || current.kind === "invalid" || current.kind === "home") return
+  const directory = base64Encode(current.directory)
+  if (targetMode === "code") {
+    return `/${directory}/session${current.sessionId ? `/${encodeURIComponent(current.sessionId)}` : ""}`
+  }
+  const query = current.sessionId ? `?session=${encodeURIComponent(current.sessionId)}` : ""
+  return `/${directory}/${targetMode}${query}`
 }
 
 export function resolveModeDirectory(routeDirectory: string | undefined): string {

@@ -16,6 +16,7 @@ import {
 } from "@unifia/contracts/workbench-wire"
 import type { WorkspaceManifest } from "@unifia/contracts"
 import { createNativeTokenProvider, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
+import { WorkbenchCleanupError } from "./lifecycle.js"
 
 export type TokenProvider = {
   current(): string | undefined
@@ -38,6 +39,7 @@ export type WorkbenchConnectionOptions = Omit<WorkbenchClientOptions, "instanceI
 
 export type WorkbenchConnection = {
   client: WorkbenchClient
+  serverOrigin: string
   instanceId: string
   workspaceId: string
   revoke(): Promise<void>
@@ -52,7 +54,12 @@ export type RequestOptions = {
 
 export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
 export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[] }
+export type WorkspaceFileRead = { path: string; content: string; encoding: "utf-8" | "base64" }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string> }
+export type ArtifactDocument = { artifact: ArtifactSummary; content: string; encoding: "base64" }
+export type AcceptedOperation = { accepted: true; operationId: string; approvalId?: string | null }
+export type ApprovalDecision = { decision: { kind: "allow" | "deny" | "approval_required"; [key: string]: unknown } }
+export type WorkflowState = { workflowId: string; status: string; [key: string]: unknown }
 export type AuditEvent = { sequence: number; timestamp: number; actor: string; capability: string; decision: "allow" | "deny" | "approval_required"; previousHash: string; hash: string }
 export type AuditPage = { kind: "trace" | "activity"; events: readonly AuditEvent[]; nextCursor: number | null }
 export type ApprovalRequest = { id: string; capability: string; resource: string; expiresAt: number; status: "pending" | "allow" | "deny" | "cancelled" }
@@ -131,7 +138,7 @@ export class WorkbenchClient {
     this.#now = options.now ?? (() => Date.now())
   }
 
-  async handshake(): Promise<HandshakeResponse> {
+  async handshake(signal?: AbortSignal): Promise<HandshakeResponse> {
     const response = await this.#fetch(`${this.#baseUrl}/v1/handshake`, {
       method: "POST",
       headers: { ...this.#headers(), "content-type": "application/json" },
@@ -141,6 +148,7 @@ export class WorkbenchClient {
         supportedVersions: [WIRE_PROTOCOL_VERSION],
         clientInstanceId: this.#instanceId,
       }),
+      signal,
     })
     const payload = await response.json()
     return parseHandshakeResponse(payload)
@@ -172,12 +180,25 @@ export class WorkbenchClient {
     return this.request<WorkspaceFilePage>(`/v1/files/search?${params}`, { signal })
   }
 
+  async readFiles(workspaceId: string, paths: readonly string[], signal?: AbortSignal): Promise<{ results: readonly WorkspaceFileRead[] }> {
+    return this.request(`/v1/files/read`, { method: "POST", body: { workspaceId, paths }, idempotencyKey: newRequestId(), signal })
+  }
+
   async listDesignSystems(workspaceId: string, signal?: AbortSignal): Promise<WorkspaceManifest> {
     return this.request<WorkspaceManifest>(`/v1/design-systems?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {
     return this.request(`/v1/artifacts?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async getArtifact(workspaceId: string, artifactId: string, signal?: AbortSignal): Promise<ArtifactDocument> {
+    const params = new URLSearchParams({ workspaceId })
+    return this.request<ArtifactDocument>(`/v1/artifacts/${encodeURIComponent(artifactId)}?${params}`, { signal })
+  }
+
+  async createArtifact(input: { workspaceId: string; kind: string; filename: string; content: string; artifactId?: string; metadata?: Record<string, string>; provenance?: Record<string, string> }, signal?: AbortSignal): Promise<{ artifact: ArtifactSummary }> {
+    return this.request(`/v1/artifacts`, { method: "POST", body: input, idempotencyKey: newRequestId(), signal })
   }
 
   async listDocuments(workspaceId: string, signal?: AbortSignal): Promise<{ documents: readonly ArtifactSummary[] }> {
@@ -206,8 +227,24 @@ export class WorkbenchClient {
     return this.request(`/v1/capabilities/search?${params}`, { signal })
   }
 
-  async exportArtifact(workspaceId: string, artifactId: string, options: { outbox?: string; metadata?: "keep" | "strip" } = {}, signal?: AbortSignal): Promise<{ exported: ExportedArtifact }> {
+  async exportArtifact(workspaceId: string, artifactId: string, options: { outbox?: string; metadata?: "keep" | "strip" } = {}, signal?: AbortSignal): Promise<{ exported: ExportedArtifact } | AcceptedOperation> {
     return this.request(`/v1/artifacts/export`, { method: "POST", body: { workspaceId, artifactId, ...options }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async resolveApproval(approvalId: string, decision: "allow" | "deny", signal?: AbortSignal): Promise<ApprovalDecision> {
+    return this.request(`/v1/approvals/${encodeURIComponent(approvalId)}`, { method: "POST", body: { decision }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async cancelApproval(approvalId: string, signal?: AbortSignal): Promise<ApprovalDecision> {
+    return this.request(`/v1/approvals/${encodeURIComponent(approvalId)}`, { method: "DELETE", idempotencyKey: newRequestId(), signal })
+  }
+
+  async startWorkflow(workspaceId: string, definition: Record<string, unknown>, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+    return this.request(`/v1/workflows/start`, { method: "POST", body: { workspaceId, definition }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async updateWorkflow(workflowId: string, action: "resume" | "cancel", signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+    return this.request(`/v1/workflows/${action}`, { method: "POST", body: { workflowId }, idempotencyKey: newRequestId(), signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -262,16 +299,24 @@ export class WorkbenchClient {
 
 /** Creates the live client only after the native lease and server identity agree. */
 export async function connectWorkbench(options: WorkbenchConnectionOptions): Promise<WorkbenchConnection> {
-  const adapted = await createNativeTokenProvider(options.bridge, options.tokenRequest)
-  const token = adapted.provider.current()
-  if (!token) throw new Error("native bridge returned no current token")
-  const client = new WorkbenchClient({ ...options, instanceId: adapted.instanceId, token: adapted.provider })
-  const handshake = await client.handshake()
-  if (!handshake.accepted || handshake.instanceId !== adapted.instanceId) {
-    await adapted.revoke()
-    throw new Error("workbench server identity mismatch")
+  let adapted: Awaited<ReturnType<typeof createNativeTokenProvider>> | undefined
+  try {
+    adapted = await createNativeTokenProvider(options.bridge, options.tokenRequest)
+    const token = adapted.provider.current()
+    if (!token) throw new Error("native bridge returned no current token")
+    const client = new WorkbenchClient({ ...options, instanceId: adapted.instanceId, token: adapted.provider })
+    const handshake = await client.handshake()
+    if (!handshake.accepted || handshake.instanceId !== adapted.instanceId) throw new Error("workbench server identity mismatch")
+    return { client, serverOrigin: new URL(options.baseUrl).origin, instanceId: adapted.instanceId, workspaceId: adapted.workspaceId, revoke: adapted.revoke }
+  } catch (primary) {
+    if (!adapted) throw primary
+    try {
+      await adapted.revoke()
+    } catch (cleanup) {
+      throw new WorkbenchCleanupError(primary, cleanup)
+    }
+    throw primary
   }
-  return { client, instanceId: adapted.instanceId, workspaceId: adapted.workspaceId, revoke: adapted.revoke }
 }
 
 export function newRequestId(now = Date.now()): IdempotencyKey {

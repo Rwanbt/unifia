@@ -8,7 +8,7 @@ import { Spinner } from "@unifia/ui/spinner"
 import { showToast } from "@unifia/ui/toast"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { getFilename } from "@unifia/util/path"
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
@@ -18,6 +18,7 @@ import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
+import { useTitlebarSlots } from "@/context/titlebar-slots"
 import { focusTerminalById } from "@/pages/session/helpers"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { messageAgentColor } from "@/utils/agent"
@@ -136,6 +137,7 @@ export function SessionHeader() {
   const language = useLanguage()
   const sync = useSync()
   const terminal = useTerminal()
+  const titlebarSlots = useTitlebarSlots()
   const { params, view } = useSessionLayout()
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
@@ -263,12 +265,9 @@ export function SessionHeader() {
       .catch((err: unknown) => showRequestError(language, err))
   }
 
-  const centerMount = createMemo(() => document.getElementById("unifia-titlebar-center"))
-  const rightMount = createMemo(() => document.getElementById("unifia-titlebar-right"))
-
   return (
     <>
-      <Show when={centerMount()}>
+      <Show when={titlebarSlots.center()}>
         {(mount) => (
           <Portal mount={mount()}>
             <Button
@@ -298,7 +297,7 @@ export function SessionHeader() {
           </Portal>
         )}
       </Show>
-      <Show when={rightMount()}>
+      <Show when={titlebarSlots.right()}>
         {(mount) => (
           <Portal mount={mount()}>
             <div class="flex items-center gap-2">

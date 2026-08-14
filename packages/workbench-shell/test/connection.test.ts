@@ -29,3 +29,20 @@ if (connection.instanceId !== instanceId || connection.workspaceId !== "workspac
 await connection.revoke()
 if (revoked !== 1) throw new Error("connection did not revoke its native lease")
 console.log("WorkbenchConnection: 2/2 passed")
+
+let handshakeRevoked = 0
+let rejected = false
+try {
+  await connectWorkbench({
+    baseUrl: "http://127.0.0.1:7444",
+    bridge: {
+      issue: async () => ({ token, instanceId, workspaceId: "workspace-1", expiresAt: Date.now() + 60_000 }),
+      rotate: async () => ({ token, instanceId, workspaceId: "workspace-1", expiresAt: Date.now() + 60_000 }),
+      revoke: async () => { handshakeRevoked += 1 },
+    },
+    tokenRequest: { workspaceId: "workspace-1", capabilities: ["workspace.read"] },
+    fetchImpl: async () => new Response(JSON.stringify({ kind: "workbench.handshake.rejected", accepted: false, protocolVersion: WIRE_PROTOCOL_VERSION, supportedVersions: [WIRE_PROTOCOL_VERSION], instanceId }), { status: 200 }),
+  })
+} catch { rejected = true }
+if (!rejected || handshakeRevoked !== 1) throw new Error("handshake rejection did not revoke the issued lease")
+console.log("WorkbenchConnection: rollback passed")
