@@ -61,6 +61,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - `bun test packages/workbench-server/test/bootstrap.test.ts` → PASS (40/40)
 - `bun test packages/workbench-server/test/topology.test.ts` → PASS (3/3)
 - `node scripts/check-workbench-security.mjs` → PASS locally; CI guard added for server/desktop/mobile Origin and CSP alignment
+- `node scripts/unifia-conformance.mjs --json unifia-conformance.json` → PASS (8/8) after adding SPDX headers to seven owned test files that the CI gate correctly required.
 - Android runtime preparation → PASS: Alpine `rootfs.tgz` generated at 824426778 bytes; the WSL branch and Bun-unavailable bundle reuse path in `packages/mobile/scripts/prepare-android-runtime.sh` were exercised.
 - Android release build → PASS (exit 0): unsigned APK and AAB generated under `packages/mobile/src-tauri/gen/android/app/build/outputs/`; APK size 1115164803 bytes, AAB size 1066480647 bytes.
 - `bun scripts/check-android-runtime.mjs` from `packages/mobile` → PASS: rootfs and 30 native libraries present. The ORT binary was supplied from an existing local prepared worktree through an ignored hardlink; no source checkout was modified.

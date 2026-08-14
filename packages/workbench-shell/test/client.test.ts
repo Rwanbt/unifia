@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { WorkbenchClient, WorkbenchEventDispatcher, WorkbenchHttpError, newRequestId } from "../src/index.js"
 
 let checks = 0

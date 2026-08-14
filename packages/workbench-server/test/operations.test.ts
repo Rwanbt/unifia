@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { describe, expect, test } from "bun:test"
 import { OperationRegistry } from "../src/operations.js"
 

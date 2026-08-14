@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage } from "../src/index.js"
 
 const expected = ["workspace-switcher", "session-chat", "files", "search", "artifacts", "documents", "trace", "approvals", "activity-log", "capability-picker", "export"]

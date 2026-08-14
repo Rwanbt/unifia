@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { describe, expect, it } from "vitest"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import os from "node:os"
