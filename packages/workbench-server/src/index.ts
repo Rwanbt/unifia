@@ -88,6 +88,7 @@ export class WorkbenchServer {
   readonly #uiAllowedActions?: ReadonlySet<string>
   readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
+  readonly #nativeTokens = new Map<string, Set<string>>()
   readonly #sessionOwners = new Map<string, string>()
   readonly #skillHub?: SkillRegistry
   readonly #auth: PrincipalAuthenticator
@@ -147,6 +148,7 @@ export class WorkbenchServer {
   issueNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): ScopedToken {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     const token = this.#tokenIssuer.issue({ ...request, instanceId: this.#instanceId })
+    this.#registerNativeToken(token)
     this.#allow("token.issue")
     return token
   }
@@ -154,6 +156,8 @@ export class WorkbenchServer {
   rotateNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): { token: ScopedToken; previousToken: string | null; gracePeriodMs: number } {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     const rotation = this.#tokenIssuer.rotate({ ...request, instanceId: this.#instanceId })
+    this.#registerNativeToken(rotation.token)
+    if (rotation.previousToken) this.#registerNativeToken({ ...rotation.token, token: rotation.previousToken })
     this.#allow("token.rotate")
     return rotation
   }
@@ -161,6 +165,8 @@ export class WorkbenchServer {
   revokeNativeScopedToken(workspaceId: string): void {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     this.#tokenIssuer.revoke({ workspaceId, instanceId: this.#instanceId })
+    for (const token of this.#nativeTokens.get(workspaceId) ?? []) this.#tokens.delete(token)
+    this.#nativeTokens.delete(workspaceId)
     this.#allow("token.revoke")
   }
 
@@ -168,7 +174,7 @@ export class WorkbenchServer {
       const url = new URL(request.url)
       const segments = url.pathname.split("/").filter(Boolean)
       if (segments[0] !== "v1") return this.#deny("route.unknown", 404)
-      const principal = await this.#auth.authenticate(request)
+      const principal = await this.#authenticate(request)
       if (!principal) return this.#deny("auth.principal", 401)
       if (!this.#rateLimiter.take(principal.id)) return this.#deny("auth.rate-limit", 429)
       if (request.method === "POST" && segments[1] === "handshake") return this.#handshake(request)
@@ -199,6 +205,27 @@ export class WorkbenchServer {
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
       return this.#deny("route.unknown", 404)
+  }
+
+  async #authenticate(request: Request): Promise<Principal | undefined> {
+    const principal = await this.#auth.authenticate(request)
+    if (principal) return principal
+    const bearer = this.#bearer(request)
+    if (!bearer || !this.#tokenIssuer) return undefined
+    const token = this.#tokenIssuer.verify(bearer)
+    if (!token) return undefined
+    return {
+      id: token.principalId,
+      scopes: new Set(["workspace.open", ...token.capabilities]),
+      workspaces: new Set([token.workspaceId]),
+    }
+  }
+
+  #registerNativeToken(token: ScopedToken): void {
+    this.#tokens.set(token.token, { id: token.workspaceId, token: token.token })
+    const tokens = this.#nativeTokens.get(token.workspaceId) ?? new Set<string>()
+    tokens.add(token.token)
+    this.#nativeTokens.set(token.workspaceId, tokens)
   }
 
   async #handshake(request: Request): Promise<Response> {

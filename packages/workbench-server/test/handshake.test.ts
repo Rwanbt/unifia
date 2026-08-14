@@ -47,9 +47,25 @@ if (invalid.status !== 400) throw new Error(`invalid handshake returned ${invali
 if (!audit.includes("handshake.accept") || !audit.includes("handshake.unsupported-version")) throw new Error("handshake decisions were not audited")
 
 const issued = server.issueNativeScopedToken({ principalId: "client-1", workspaceId: "workspace-1", capabilities: ["workspace.read"] })
-if (issued.instanceId !== "server-instance-1" || server.openFileSessions !== 0) throw new Error("native token issue did not bind the server instance")
+if (issued.instanceId !== "server-instance-1" || server.openFileSessions !== 1) throw new Error("native token issue did not bind the server instance")
 const rotation = server.rotateNativeScopedToken({ principalId: "client-1", workspaceId: "workspace-1", capabilities: ["workspace.read"] })
 if (!rotation.previousToken || rotation.gracePeriodMs !== 30_000) throw new Error("native token rotation did not preserve the grace contract")
 server.revokeNativeScopedToken("workspace-1")
+if (Number(server.openFileSessions) !== 0) throw new Error("native token revoke did not close the scoped session")
 
-console.log("WorkbenchServer handshake: 4/4 passed")
+const nativeServer = new WorkbenchServer({
+  auth: { authenticate: async () => undefined },
+  instanceId: "native-instance-1",
+  tokenIssuer: new ScopedTokenIssuer("y".repeat(32), 60_000, 30_000),
+  workspace: { list: async () => [] } as never,
+  runtime: {} as never,
+  audit: { record: () => undefined },
+  capability: { check: async () => "allow" },
+})
+const nativeToken = nativeServer.issueNativeScopedToken({ principalId: "native-client", workspaceId: "workspace-2", capabilities: ["workspace.read"] })
+const nativeRead = await nativeServer.fetch(new Request("http://127.0.0.1/v1/files/list?workspaceId=workspace-2", {
+  headers: { "x-unifia-file-session": nativeToken.token },
+}))
+if (nativeRead.status !== 200) throw new Error(`native scoped token was not accepted by the server: ${nativeRead.status}`)
+
+console.log("WorkbenchServer handshake: 5/5 passed")
