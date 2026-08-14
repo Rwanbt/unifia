@@ -6,6 +6,7 @@ import type { ArtifactStore } from "@unifia/artifact-runtime"
 import { parseSpec, resolveEffectiveCapabilities } from "@unifia/spec-runtime"
 import type { SkillRegistry } from "@unifia/skill-hub"
 import { renderGenerativeUi, type UiNode } from "@unifia/contracts"
+import { WIRE_PROTOCOL_VERSION, parseHandshakeRequest } from "@unifia/contracts/workbench-wire"
 import type {
   FileReadResult,
   FileWrite,
@@ -28,7 +29,7 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -91,10 +92,12 @@ export class WorkbenchServer {
   readonly #skillHub?: SkillRegistry
   readonly #auth: PrincipalAuthenticator
   readonly #rateLimiter: RateLimiter
+  readonly #instanceId: string
   readonly #operations = new OperationRegistry(() => `operation-${randomUUID()}`)
 
   constructor(dependencies: ServerDependencies) {
     this.#auth = dependencies.auth
+    this.#instanceId = dependencies.instanceId ?? randomUUID()
     // WHY: a limiter is always installed. An absent `rateLimiter` must mean
     // "use the default budget", never "no limit" — omission must not disable a
     // control.
@@ -141,6 +144,7 @@ export class WorkbenchServer {
       const principal = await this.#auth.authenticate(request)
       if (!principal) return this.#deny("auth.principal", 401)
       if (!this.#rateLimiter.take(principal.id)) return this.#deny("auth.rate-limit", 429)
+      if (request.method === "POST" && segments[1] === "handshake") return this.#handshake(request)
       if (request.method === "POST" && segments[1] === "workspaces" && segments[2] === "register") return this.#register(request, principal)
       if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2], principal)
       if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
@@ -168,6 +172,30 @@ export class WorkbenchServer {
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
       return this.#deny("route.unknown", 404)
+  }
+
+  async #handshake(request: Request): Promise<Response> {
+    const input = parseHandshakeRequest(await body(request))
+    const supported = input.protocolVersion === WIRE_PROTOCOL_VERSION && input.supportedVersions.includes(WIRE_PROTOCOL_VERSION)
+    if (!supported) {
+      this.#audit.record("workbench-server", "handshake.unsupported-version", "deny")
+      return json(200, {
+        kind: "workbench.handshake.refused",
+        accepted: false,
+        protocolVersion: null,
+        supportedVersions: [WIRE_PROTOCOL_VERSION],
+        instanceId: this.#instanceId,
+        reason: "unsupported-version",
+      })
+    }
+    this.#audit.record("workbench-server", "handshake.accept", "allow")
+    return json(200, {
+      kind: "workbench.handshake.accepted",
+      accepted: true,
+      protocolVersion: WIRE_PROTOCOL_VERSION,
+      supportedVersions: [WIRE_PROTOCOL_VERSION],
+      instanceId: this.#instanceId,
+    })
   }
 
   async #register(request: Request, principal: Principal): Promise<Response> {

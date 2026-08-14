@@ -116,7 +116,16 @@ export class WorkbenchClient {
   }
 
   async handshake(): Promise<HandshakeResponse> {
-    const response = await this.#fetch(`${this.#baseUrl}/v1/handshake`, { method: "POST", headers: this.#headers() })
+    const response = await this.#fetch(`${this.#baseUrl}/v1/handshake`, {
+      method: "POST",
+      headers: { ...this.#headers(), "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "workbench.handshake",
+        protocolVersion: WIRE_PROTOCOL_VERSION,
+        supportedVersions: [WIRE_PROTOCOL_VERSION],
+        clientInstanceId: this.#instanceId,
+      }),
+    })
     const payload = await response.json()
     return parseHandshakeResponse(payload)
   }

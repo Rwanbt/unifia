@@ -10,7 +10,7 @@ const check = (condition: boolean, message: string): void => {
 
 let token = "expired"
 let refreshes = 0
-const requests: Array<{ url: string }> = []
+const requests: Array<{ url: string; init?: RequestInit }> = []
 const client = new WorkbenchClient({
   baseUrl: "http://127.0.0.1:7444",
   instanceId: "instance-1",
@@ -19,10 +19,12 @@ const client = new WorkbenchClient({
     refresh: async () => { refreshes += 1; token = "fresh"; return token },
   },
   fetchImpl: async (input, init) => {
-    requests.push({ url: new URL(String(input)).pathname + new URL(String(input)).search })
+    requests.push({ url: new URL(String(input)).pathname + new URL(String(input)).search, init })
     if (init?.headers && token === "expired") return new Response(null, { status: 401 })
     const path = new URL(String(input)).pathname
-    const payload = path === "/v1/trace" ? { kind: "trace", events: [], nextCursor: null } : path === "/v1/activity" ? { kind: "activity", events: [], nextCursor: null } : { ok: true, entries: [] }
+    const payload = path === "/v1/handshake"
+      ? { kind: "workbench.handshake.accepted", accepted: true, protocolVersion: 1, supportedVersions: [1], instanceId: "server-instance-1" }
+      : path === "/v1/trace" ? { kind: "trace", events: [], nextCursor: null } : path === "/v1/activity" ? { kind: "activity", events: [], nextCursor: null } : { ok: true, entries: [] }
     return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } })
   },
 })
@@ -49,6 +51,12 @@ await client.searchCapabilities("workspace-1", { tag: "design", trustLevel: "ver
 check(requests.at(-1)?.url === "/v1/capabilities/search?workspaceId=workspace-1&tag=design&trustLevel=verified&enabledOnly=true", "capability search client route was not encoded deterministically")
 await client.exportArtifact("workspace-1", "artifact-123", { metadata: "strip" })
 check(requests.at(-1)?.url === "/v1/artifacts/export", "artifact export client route was not selected")
+
+const handshake = await client.handshake()
+const handshakeRequest = requests.at(-1)
+const handshakeBody = JSON.parse(String(handshakeRequest?.init?.body)) as Record<string, unknown>
+check(handshake.kind === "workbench.handshake.accepted", "client did not parse the handshake response")
+check(handshakeRequest?.url === "/v1/handshake" && handshakeBody.kind === "workbench.handshake" && handshakeBody.clientInstanceId === "instance-1", "client handshake request was not encoded with the wire contract")
 
 check((await client.request<{ ok: boolean }>("/v1/read")).ok, "a GET did not retry after token refresh")
 check(refreshes === 1, "GET refresh count was not exactly one")

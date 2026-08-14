@@ -16,12 +16,14 @@
 - Static CSP extraction: PASS for explicit Tauri origins, loopback/IPC scoping, `img-src data:`, `object-src 'none'`, and `frame-ancestors 'none'`; the runtime server remains self/data-only for `connect-src`. MV-09 still requires packaged-bundle extraction and interactive allow/deny checks.
 - Workbench UI wiring: PASS for the existing route composition; Work renders and selects from the shared eleven-function registry, while Design offers editable validation diagnostics and three responsive SVG previews through image sources. App typecheck and 704 unit tests pass.
 - App production bundle: PASS; Vite build completed successfully, with existing chunk-size, CSS minifier, and dynamic-import warnings recorded but no build error.
+- Workbench protocol handshake: PASS; server accepts/refuses the versioned payload, returns its authoritative instance id, audits the decision, and the client now sends the complete request body.
+- Workbench Server test command: corrected to run the two Vitest suites with `vitest`; the previous mixed Bun/Vitest script failure was runner configuration, not a handshake regression.
 
 ## Human gates
 
 `work_design/MANUAL-VERIFICATION.md` remains authoritative. MV-01 through MV-10 are still `PENDING`; in particular no complete desktop/native bridge, Android lifecycle, SVG WebView, merge, or publication claim is made by this candidate.
 
-`work_design/BLOCKERS.md` records the verified code-level blockers: native token issuer injection/rotation, missing live Workbench client wiring, instance/single-writer proof, packaged Android WebView proof, and the unresolved G6 catalog authority.
+`work_design/BLOCKERS.md` records the verified code-level blockers: native token issuer injection/rotation, missing live Workbench client wiring, instance/single-writer proof, packaged Android WebView proof, and the unresolved G6 catalog authority. The versioned handshake itself is implemented and tested.
 
 Partial device evidence now exists for MV-03: a debug-signed local copy installed and launched on `b7163823`, with healthy loopback runtime. The full Android Work/Design, lifecycle and SVG inert procedures remain pending.
 

@@ -14,6 +14,7 @@
  */
 
 import { appendFileSync, mkdirSync } from "node:fs"
+import { randomUUID } from "node:crypto"
 import path from "node:path"
 import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
@@ -135,6 +136,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
   const runtime: RuntimeAdapter = config.runtime === "opencode" ? new OpenCodeRuntimeAdapter(backend as OpenCodeRuntimeBackend) : new FakeRuntimeAdapter()
   const authenticator = new HmacTokenAuthenticator(config.signingKey, config.issuer, config.audience)
   const tokenIssuer = new ScopedTokenIssuer(config.signingKey, 5 * 60_000, 30_000)
+  const instanceId = randomUUID()
   const audit = new FileAuditSink(config.auditLogPath)
   const workspace = new WorkspaceRuntime()
   const server = new WorkbenchServer({
@@ -143,6 +145,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     workspace,
     runtime,
     audit,
+    instanceId,
     capability: new ApprovalCapabilityGate(new ApprovalBroker(), config.allowlistedCapabilities),
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,

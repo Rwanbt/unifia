@@ -4,8 +4,8 @@ This register separates missing implementation from evidence that requires a rea
 
 | Gate | Root cause verified in code | Minimal unlock | Owner/status |
 |---|---|---|---|
-| M1c / MV-01 | `ScopedTokenIssuer` is constructed by `createWorkbenchApp()` but is not injected into `WorkbenchServer`; `packages/app/src/pages/workbench-mode.tsx` does not construct `WorkbenchClient`; desktop only exposes existing sidecar initialization credentials. | Define one native-only issue/rotate/revoke bridge, inject the issuer behind that boundary, keep signing material native/server-side, add redacted audit events and tests for scope, expiry, rotation and close-time revocation. | Code architecture + native integration; open |
-| MV-02 | `WorkbenchClient` has a token refresh hook, but no server rotation route/event is wired. | Connect native rotation to `TokenRotation`, pause mutant requests while rotating, accept the previous token only for the configured grace period, then prove rejection. | Code + desktop trace; open |
+| M1c / MV-01 | The versioned `/v1/handshake` route and client payload now exist, but `ScopedTokenIssuer` is still not injected into `WorkbenchServer`; `packages/app/src/pages/workbench-mode.tsx` does not construct `WorkbenchClient`; desktop only exposes existing sidecar initialization credentials. | Define one native-only issue/rotate/revoke bridge, inject the issuer behind that boundary, keep signing material native/server-side, add redacted audit events and tests for scope, expiry, rotation and close-time revocation. | Handshake code complete; native bridge open |
+| MV-02 | `WorkbenchClient` has a token refresh hook, and the wire `TokenRotation` contract exists, but no server rotation route/event is wired. | Connect native rotation to `TokenRotation`, pause mutant requests while rotating, accept the previous token only for the configured grace period, then prove rejection. | Code + desktop trace; open |
 | MV-03 | Android runtime health is proven on `b7163823`, but the full current Work → Design and lifecycle flow was not exercised; MIUI rejected `adb shell input`. | Build/sign/install the current APK, use an authorized interactive device path such as scrcpy UHID or human taps, capture one runtime PID before/after backgrounding and both mode screens. | Device interaction; blocked by input policy |
 | MV-04 | Renderer and CSP are static-safe, but packaged Android WebView behavior and external-request absence are unproven. | Load a hostile SVG through the real `<img src="data:…">` path, inspect WebView/network logs, and archive a redacted capture. | Device/WebView interaction; open |
 | MV-05 | `projectReadOnly()` is proven headless, but the UI has no live Workbench client/approval flow. | Wire the native client, attempt a write, verify default refusal, approve the exact request, then inspect the redacted audit event. | Code + device; blocked behind M1c |
@@ -19,7 +19,7 @@ This register separates missing implementation from evidence that requires a rea
 ## Current safe order
 
 1. Decide the native token bridge contract and G6.
-2. Implement and test issuer injection/rotation before live client calls.
+2. Implement and test issuer injection/rotation before live client calls; the protocol handshake is now available as the first interoperable step.
 3. Add the instance/single-writer proof required by the selected topology.
 4. Build the current Android candidate and perform the authorized device checks.
 5. Run the desktop E2E/deep-link/CSP matrix.

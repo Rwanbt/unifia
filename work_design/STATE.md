@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M24`
+- Current card: `M1c-a` (protocol handshake)
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes; latest pushed SHA is `a04be041fa`.
 
@@ -46,6 +46,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M22 | implemented with deferred human proofs | shell typecheck + MobileNavigation 4/4 | Mobile navigation uses the shared route registry, switches drawer/rail by viewport, and carries Work/Design counts. |
 | M23 | implemented with deferred human proofs | full Workbench Shell suite: 11 files, 0 failures; remote typecheck 35/35; release candidate file | Candidate release checklist is recorded; MV-01 through MV-10 remain pending and no signing/merge/publication is claimed. |
 | M24 | implemented with deferred human proofs | app typecheck + app unit suite 704/704 + production build | Existing Workbench route renders the shared Work registry with operation selection and Design with editable validation diagnostics plus inert responsive SVG previews; native, lifecycle, and publication gates remain pending. |
+| M1c-a | implemented with deferred native proof | workbench-server handshake 4/4 + shell client 22/22 + server typecheck; unsupported versions are refused and decisions are audited | `/v1/handshake` now exchanges the versioned wire payload and preserves a server instance id. Native token issue/rotate/revoke remains the M1c blocker. |
 
 ## Manual verification register
 
@@ -56,7 +57,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
-- `git log -1 --oneline` → `a04be041fa feat(app): make Work Design surfaces interactive`
+- `git log -1 --oneline` → update after the handshake commit
 - `bash scripts/check-pr-size.sh dev` → 152 changed lines, under the 400-line limit
 - `.github/workflows/work-design-integrity.yml` → merge-tree, size, and whitespace checks declared
 - `DECISIONS.md` M1a gate table → nine plan decisions recorded
