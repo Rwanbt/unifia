@@ -48,6 +48,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M24 | implemented with deferred human proofs | app typecheck + app unit suite 704/704 + production build | Existing Workbench route renders the shared Work registry with operation selection and Design with editable validation diagnostics plus inert responsive SVG previews; native, lifecycle, and publication gates remain pending. |
 | M1c-a | implemented with deferred native proof | workbench-server handshake 4/4 + shell client 22/22 + server typecheck; unsupported versions are refused and decisions are audited | `/v1/handshake` now exchanges the versioned wire payload and preserves a server instance id. Native token issue/rotate/revoke remains the M1c blocker. |
 | M1c-b | implemented with deferred native proof | shell typecheck + client 26/26 | `WorkbenchClient.applyTokenRotation()` validates the executable wire contract and serializes requests until the native provider completes rotation; native bridge and server acceptance proof remain pending. |
+| M1c-c | implemented with deferred native proof | workbench-server typecheck + handshake 4/4 + server 72/72 + bootstrap 40/40 + topology 3/3 + security/preflight 4/4 | `ScopedTokenAuthority` is injected into `WorkbenchServer`; internal native-only issue/rotate/revoke methods bind tokens to the process instance and audit decisions. No HTTP token route is exposed. |
 
 ## Manual verification register
 

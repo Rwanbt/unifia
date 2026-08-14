@@ -17,7 +17,7 @@ import type {
 } from "@unifia/contracts"
 
 import { randomUUID } from "node:crypto"
-import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter } from "./auth.js"
+import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter, type ScopedToken, type ScopedTokenAuthority, type ScopedTokenRequest } from "./auth.js"
 import { OperationRegistry } from "./operations.js"
 import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
 
@@ -29,7 +29,7 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -93,11 +93,13 @@ export class WorkbenchServer {
   readonly #auth: PrincipalAuthenticator
   readonly #rateLimiter: RateLimiter
   readonly #instanceId: string
+  readonly #tokenIssuer?: ScopedTokenAuthority
   readonly #operations = new OperationRegistry(() => `operation-${randomUUID()}`)
 
   constructor(dependencies: ServerDependencies) {
     this.#auth = dependencies.auth
     this.#instanceId = dependencies.instanceId ?? randomUUID()
+    this.#tokenIssuer = dependencies.tokenIssuer
     // WHY: a limiter is always installed. An absent `rateLimiter` must mean
     // "use the default budget", never "no limit" — omission must not disable a
     // control.
@@ -135,6 +137,31 @@ export class WorkbenchServer {
       this.#audit.record("workbench-server", "request.error", "deny")
       return json(400, { error: error instanceof Error ? error.message : "request failed" })
     }
+  }
+
+  /**
+   * Native bridge boundary for short-lived scoped credentials.
+   * WHY this is a method instead of an HTTP route: the signing key and issuer
+   * must remain inside the native/server process and never become WebView data.
+   */
+  issueNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): ScopedToken {
+    if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
+    const token = this.#tokenIssuer.issue({ ...request, instanceId: this.#instanceId })
+    this.#allow("token.issue")
+    return token
+  }
+
+  rotateNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): { token: ScopedToken; previousToken: string | null; gracePeriodMs: number } {
+    if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
+    const rotation = this.#tokenIssuer.rotate({ ...request, instanceId: this.#instanceId })
+    this.#allow("token.rotate")
+    return rotation
+  }
+
+  revokeNativeScopedToken(workspaceId: string): void {
+    if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
+    this.#tokenIssuer.revoke({ workspaceId, instanceId: this.#instanceId })
+    this.#allow("token.revoke")
   }
 
   async #route(request: Request): Promise<Response> {

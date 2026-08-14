@@ -152,6 +152,9 @@ export class ScopedTokenIssuer {
   }
 }
 
+/** Native-only authority boundary; never expose this port to the WebView. */
+export type ScopedTokenAuthority = Pick<ScopedTokenIssuer, "issue" | "rotate" | "verify" | "revoke">
+
 export function principalCanRegister(principal: Principal): boolean {
   return principal.scopes.has("workspace.register")
 }

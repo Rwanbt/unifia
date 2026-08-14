@@ -2,12 +2,14 @@
 
 import { WIRE_PROTOCOL_VERSION } from "@unifia/contracts/workbench-wire"
 import { UnauthenticatedPrincipal } from "../src/auth.js"
+import { ScopedTokenIssuer } from "../src/auth.js"
 import { WorkbenchServer } from "../src/index.js"
 
 const audit: string[] = []
 const server = new WorkbenchServer({
   auth: new UnauthenticatedPrincipal(),
   instanceId: "server-instance-1",
+  tokenIssuer: new ScopedTokenIssuer("x".repeat(32), 60_000, 30_000),
   workspace: {} as never,
   runtime: {} as never,
   audit: { record: (_actor, capability) => { audit.push(capability) } },
@@ -43,5 +45,11 @@ if (refusedBody.accepted !== false || refusedBody.reason !== "unsupported-versio
 const invalid = await request({ kind: "not-a-handshake" })
 if (invalid.status !== 400) throw new Error(`invalid handshake returned ${invalid.status}`)
 if (!audit.includes("handshake.accept") || !audit.includes("handshake.unsupported-version")) throw new Error("handshake decisions were not audited")
+
+const issued = server.issueNativeScopedToken({ principalId: "client-1", workspaceId: "workspace-1", capabilities: ["workspace.read"] })
+if (issued.instanceId !== "server-instance-1" || server.openFileSessions !== 0) throw new Error("native token issue did not bind the server instance")
+const rotation = server.rotateNativeScopedToken({ principalId: "client-1", workspaceId: "workspace-1", capabilities: ["workspace.read"] })
+if (!rotation.previousToken || rotation.gracePeriodMs !== 30_000) throw new Error("native token rotation did not preserve the grace contract")
+server.revokeNativeScopedToken("workspace-1")
 
 console.log("WorkbenchServer handshake: 4/4 passed")

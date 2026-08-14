@@ -146,6 +146,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     runtime,
     audit,
     instanceId,
+    tokenIssuer,
     capability: new ApprovalCapabilityGate(new ApprovalBroker(), config.allowlistedCapabilities),
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
