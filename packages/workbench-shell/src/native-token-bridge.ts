@@ -22,7 +22,7 @@ function assertIssuedToken(value: NativeIssuedToken, request: NativeTokenRequest
 }
 
 /** Adapts the native bridge without exposing signing material to the WebView. */
-export async function createNativeTokenProvider(bridge: NativeTokenBridge, request: NativeTokenRequest): Promise<{ provider: TokenProvider; revoke(): Promise<void> }> {
+export async function createNativeTokenProvider(bridge: NativeTokenBridge, request: NativeTokenRequest): Promise<{ provider: TokenProvider; instanceId: string; workspaceId: string; revoke(): Promise<void> }> {
   let issued = assertIssuedToken(await bridge.issue(request), request)
   const provider: TokenProvider = {
     current: () => issued.token,
@@ -35,5 +35,5 @@ export async function createNativeTokenProvider(bridge: NativeTokenBridge, reque
     },
     applyRotation: (rotation) => { issued = { ...issued, token: rotation.token } },
   }
-  return { provider, revoke: () => bridge.revoke(request.workspaceId) }
+  return { provider, instanceId: issued.instanceId, workspaceId: issued.workspaceId, revoke: () => bridge.revoke(request.workspaceId) }
 }

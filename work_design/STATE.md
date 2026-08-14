@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M1c-h` (native rotation payload validation)
+- Current card: `M1c-i` (opaque native lease metadata)
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes; latest pushed SHA is `a04be041fa`.
 
@@ -54,6 +54,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c-f | implemented with deferred platform proof | shell 13 scripts: WorkbenchConnection 2/2, Client 26/26, NativeTokenBridge 4/4; shell typecheck PASS | `connectWorkbench` creates the client only after decoding the native lease identity, completing the handshake, and checking server instance continuity; close remains explicit through native revoke. |
 | M1c-g | implemented with deferred platform proof | app typecheck PASS + 704/704 tests + production build PASS | `Platform.workbench.connect` is now an explicit native-only injection point; Workbench mode consumes it when present, shows pending state otherwise, and revokes on cleanup. |
 | M1c-h | implemented with deferred platform proof | NativeTokenBridge 5/5 + WorkbenchConnection 2/2 + shell typecheck PASS | Rotation accepts the structured server lease or an adapted string, while issue/rotation reject wrong-workspace and expired leases. |
+| M1c-i | implemented with deferred platform proof | WorkbenchShell 13 scripts + typecheck PASS | `connectWorkbench` now uses validated metadata returned by the native adapter and never decodes JWT payloads in the WebView. |
 | M8-a | implemented with deferred process proof | WorkbenchTopology 4/4 | Two concurrent automatic-port listeners receive distinct ports and process identities; occupied-port rejection and restart identity remain covered. |
 | M9-a | implemented with deferred packaged interaction proof | `node scripts/check-workbench-security.mjs` PASS | The guard now parses desktop/mobile CSP JSON and asserts loopback connect-src, data images, object-src none, and frame-ancestors none. |
 | M7-a | implemented with deferred process proof | server typecheck + topology 3/3 | `WorkbenchHandle` now exposes the process `instanceId`; restart tests prove the released port is reusable without reusing the previous process identity. |
@@ -128,6 +129,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M8-a validation → WorkbenchTopology 4/4 confirms two automatic-port servers do not share a listener or process identity; the full cross-process desktop proof remains pending.
 - M9-a validation → WorkbenchSecurityGuard parses both packaged configuration CSPs and passes explicit origin, loopback, data-image, object and frame policies; MV-09 still needs packaged artifact extraction and interactive URL checks.
 - M1c-h validation → NativeTokenBridge 5/5, WorkbenchConnection 2/2, and shell typecheck PASS; concrete platform bridge and manual scope/expiry evidence remain pending.
+- M1c-i validation → WorkbenchShell 13 scripts pass, NativeTokenBridge 5/5, WorkbenchConnection 2/2, and typecheck PASS; concrete platform bridge and manual evidence remain pending.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.

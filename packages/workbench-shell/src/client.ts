@@ -260,33 +260,13 @@ export async function connectWorkbench(options: WorkbenchConnectionOptions): Pro
   const adapted = await createNativeTokenProvider(options.bridge, options.tokenRequest)
   const token = adapted.provider.current()
   if (!token) throw new Error("native bridge returned no current token")
-  const claims = decodeTokenMetadata(token)
-  const client = new WorkbenchClient({ ...options, instanceId: claims.instanceId, token: adapted.provider })
+  const client = new WorkbenchClient({ ...options, instanceId: adapted.instanceId, token: adapted.provider })
   const handshake = await client.handshake()
-  if (!handshake.accepted || handshake.instanceId !== claims.instanceId) {
+  if (!handshake.accepted || handshake.instanceId !== adapted.instanceId) {
     await adapted.revoke()
     throw new Error("workbench server identity mismatch")
   }
-  return { client, instanceId: claims.instanceId, workspaceId: options.tokenRequest.workspaceId, revoke: adapted.revoke }
-}
-
-function decodeTokenMetadata(token: string): { instanceId: string } {
-  const payload = token.split(".")[1]
-  if (!payload) throw new Error("native bridge returned an invalid token")
-  try {
-    const claims = JSON.parse(new TextDecoder().decode(decodeBase64Url(payload))) as { instanceId?: unknown }
-    if (typeof claims.instanceId !== "string" || claims.instanceId.length === 0) throw new Error("missing instance id")
-    return { instanceId: claims.instanceId }
-  } catch {
-    throw new Error("native bridge returned a token without a valid instance id")
-  }
-}
-
-function decodeBase64Url(value: string): Uint8Array {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/")
-  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
-  const binary = atob(padded)
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+  return { client, instanceId: adapted.instanceId, workspaceId: adapted.workspaceId, revoke: adapted.revoke }
 }
 
 export function newRequestId(now = Date.now()): IdempotencyKey {
