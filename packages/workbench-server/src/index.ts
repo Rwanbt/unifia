@@ -97,6 +97,7 @@ export class WorkbenchServer {
   readonly #ui?: McpUiControlBroker
   readonly #uiAllowedActions?: ReadonlySet<string>
   readonly #workflowOwners = new Map<string, string>()
+  readonly #workflowOwnerLimit = 1_000
   readonly #tokens = new Map<string, WorkspaceHandle>()
   readonly #runtimeTokens = new Map<string, string>()
   readonly #nativeTokens = new Map<string, Set<string>>()
@@ -468,6 +469,11 @@ export class WorkbenchServer {
       const definition = { ...(input.definition as WorkflowDefinition), workspaceId: input.workspaceId }
       const state = await this.#workflow.start(definition)
       this.#workflowOwners.set(state.workflowId, input.workspaceId)
+      while (this.#workflowOwners.size > this.#workflowOwnerLimit) {
+        const oldest = this.#workflowOwners.keys().next().value
+        if (typeof oldest !== "string") break
+        this.#workflowOwners.delete(oldest)
+      }
       this.#allow("workflow.start")
       return json(202, { state })
     }
@@ -476,6 +482,7 @@ export class WorkbenchServer {
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("workflow.scope", 403)
     const state = action === "resume" ? await this.#workflow.resume(input.workflowId) : action === "cancel" ? await this.#workflow.cancel(input.workflowId) : undefined
     if (!state) return this.#deny("workflow.action", 400)
+    if (action === "cancel" || state.status === "completed" || state.status === "failed" || state.status === "cancelled") this.#workflowOwners.delete(input.workflowId)
     this.#allow(`workflow.${action}`)
     return json(200, { state })
   }

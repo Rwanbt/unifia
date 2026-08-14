@@ -1,27 +1,51 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createSimpleContext } from "@unifia/ui/context"
-import { createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
-import { createEffect, createSignal, onCleanup, type ParentProps } from "solid-js"
+import { WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
+import { useQueryClient } from "@tanstack/solid-query"
+import { createSignal, onCleanup, type ParentProps } from "solid-js"
 import { usePlatform } from "@/context/platform"
 
-const READ_CAPABILITIES = ["workspace.read", "workspace.watch", "artifact.export"] as const
+const READ_CAPABILITIES = ["workspace.read", "workspace.watch"] as const
+const EVENT_RETRY_DELAY_MS = 1_000
 
 const { use, provider: WorkbenchContextProvider } = createSimpleContext({
   name: "WorkspaceWorkbench",
   init: (props: { workspacePath: string; codeSessionId?: string }) => {
     const platform = usePlatform()
+    const queryClient = useQueryClient()
     const lifecycle = new WorkbenchLifecycle()
     const [connection, setConnection] = createSignal<WorkbenchConnection>()
     const [phase, setPhase] = createSignal<WorkbenchLifecyclePhase>("initializing")
     const [error, setError] = createSignal<unknown>()
     let pending: Promise<WorkbenchConnection> | undefined
+    let eventsAbort = new AbortController()
+    let eventsTask: Promise<void> | undefined
     const [identity, setIdentity] = createSignal<WorkbenchTaskIdentity>(createWorkbenchTaskIdentity({ codeSessionId: props.codeSessionId, workbenchSessionId: crypto.randomUUID() }))
 
     const unsubscribe = lifecycle.subscribe((state) => {
       setPhase(state.phase)
       if (state.error !== undefined) setError(state.error)
     })
+
+    const startEvents = (value: WorkbenchConnection) => {
+      if (eventsTask) return
+      const dispatcher = new WorkbenchEventDispatcher()
+      eventsTask = (async () => {
+        while (!eventsAbort.signal.aborted) {
+          try {
+            for await (const event of value.client.events(value.workspaceId, dispatcher, eventsAbort.signal)) {
+              if (event.workspaceId !== value.workspaceId) continue
+              await queryClient.invalidateQueries({ queryKey: ["workbench", value.serverOrigin, value.instanceId, value.workspaceId] })
+            }
+          } catch (reason) {
+            if (eventsAbort.signal.aborted) return
+            console.warn("Workbench event stream disconnected; retrying", reason)
+          }
+          if (!eventsAbort.signal.aborted) await new Promise((resolve) => setTimeout(resolve, EVENT_RETRY_DELAY_MS))
+        }
+      })().finally(() => { eventsTask = undefined })
+    }
 
     const ensureConnected = (): Promise<WorkbenchConnection> => {
       const current = connection()
@@ -43,6 +67,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
         setIdentity(createWorkbenchTaskIdentity({ codeSessionId: props.codeSessionId, workbenchSessionId: crypto.randomUUID() }))
         updatePhase("handshaking")
         setConnection(value)
+        startEvents(value)
         return value
       })
       const currentPending = pending
@@ -53,6 +78,9 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     }
 
     const retryConnection = async (): Promise<void> => {
+      eventsAbort.abort()
+      await eventsTask?.catch(() => undefined)
+      eventsAbort = new AbortController()
       await lifecycle.retry(props.workspacePath)
       setConnection(undefined)
       setError(undefined)
@@ -61,6 +89,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
 
     onCleanup(() => {
       unsubscribe()
+      eventsAbort.abort()
       void lifecycle.shutdown()
     })
 

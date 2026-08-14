@@ -22,7 +22,9 @@ const client = new WorkbenchClient({
     requests.push({ url: new URL(String(input)).pathname + new URL(String(input)).search, init })
     if (init?.headers && token === "expired") return new Response(null, { status: 401 })
     const path = new URL(String(input)).pathname
-    const payload = path === "/v1/handshake"
+    const payload = path === "/v1/specs/validate"
+      ? { valid: true, spec: {}, capabilities: { granted: [], denied: [] } }
+      : path === "/v1/handshake"
       ? { kind: "workbench.handshake.accepted", accepted: true, protocolVersion: 1, supportedVersions: [1], instanceId: "server-instance-1" }
       : path === "/v1/trace" ? { kind: "trace", events: [], nextCursor: null } : path === "/v1/activity" ? { kind: "activity", events: [], nextCursor: null } : path === "/v1/design-systems" ? { version: 1, designSystems: [] } : { ok: true, entries: [] }
     return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } })
@@ -61,6 +63,8 @@ await client.createArtifact({ workspaceId: "workspace-1", kind: "text", filename
 check(requests.at(-1)?.url === "/v1/artifacts", "artifact create client route was not selected")
 await client.startWorkflow("workspace-1", { kind: "test" })
 check(requests.at(-1)?.url === "/v1/workflows/start", "workflow start client route was not selected")
+await client.validateSpec("workspace-1", { kind: "design" })
+check(requests.at(-1)?.url === "/v1/specs/validate", "spec validation client route was not selected")
 await client.resolveApproval("approval-1", "allow")
 check(requests.at(-1)?.url === "/v1/approvals/approval-1", "approval resolution client route was not selected")
 

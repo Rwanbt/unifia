@@ -35,7 +35,6 @@ type TauriApi = {
 }
 
 const tauriApi = () => (window as unknown as { __TAURI__?: TauriApi }).__TAURI__
-const currentDesktopWindow = () => tauriApi()?.window?.getCurrentWindow?.()
 const currentThemeWindow = () => tauriApi()?.webviewWindow?.getCurrentWebviewWindow?.()
 
 export function Titlebar() {

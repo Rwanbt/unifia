@@ -118,6 +118,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   const url = `http://127.0.0.1:${port}`
   try {
     await waitForHealth(url)
+    await waitForHealth(url, "/config/providers")
   } catch (error) {
     proc.kill("SIGTERM")
     await fs.rm(sandbox, { recursive: true, force: true }).catch(() => undefined)

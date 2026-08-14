@@ -136,6 +136,12 @@ function DesignSurface() {
   const [source, setSource] = createSignal("")
   const spec = createMemo(() => createDesignSpecPanelState({ kind: "inline", value: source() }))
   const preview = createMemo(() => createDesignPreviewPanelState(spec()))
+  const validation = createQuery(() => ({
+    queryKey: workbenchQueryKey(connection(), "spec-validation", { source: source() }),
+    enabled: !!connection() && source().trim().length > 0 && spec().diagnostics.length === 0,
+    staleTime: 5_000,
+    queryFn: () => connection()!.client.validateSpec(connection()!.workspaceId, source()),
+  }))
   const connectionError = () => { const error = workbench.error(); return error instanceof Error ? error.message : error ? String(error) : "" }
 
   return (
@@ -189,7 +195,16 @@ function DesignSurface() {
             </For>
           </aside>
         </Show>
-        <Show when={preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message}</p>}>
+        <Show when={validation.isLoading}>
+          <p data-design-validation="loading" class="text-12-regular text-text-weak">Validating the spec against the workspace policy…</p>
+        </Show>
+        <Show when={validation.error}>
+          <p data-design-validation="failed" class="text-14-regular text-text-danger">{validation.error instanceof Error ? validation.error.message : String(validation.error)}</p>
+        </Show>
+        <Show when={validation.data?.capabilities.denied.length}>
+          <p data-design-validation="denied" class="text-14-regular text-text-danger">The spec requests capabilities that are not granted: {validation.data!.capabilities.denied.join(", ")}.</p>
+        </Show>
+        <Show when={validation.data?.valid === true && validation.data.capabilities.denied.length === 0 && preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message ?? "Enter a valid workspace design spec to render a preview."}</p>}>
           <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={preview().previews.length}>
             <For each={preview().previews}>
               {(item) => (
@@ -214,7 +229,26 @@ function AutomateSurface() {
   const [selectedDefinition, setSelectedDefinition] = createSignal<string>()
   const [workflowState, setWorkflowState] = createSignal<string>()
   const [workflowError, setWorkflowError] = createSignal<string>()
+  const [approvalId, setApprovalId] = createSignal<string>()
+  const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
   const definitionFile = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "file", { path: selectedDefinition() ?? "" }), enabled: !!connection() && !!selectedDefinition(), queryFn: () => connection()!.client.readFiles(connection()!.workspaceId, [selectedDefinition()!]) }))
+  async function startDefinition(definition: Record<string, unknown>): Promise<void> {
+    const current = connection()
+    if (!current) return
+    workbench.beginOperation()
+    const result = await current.client.startWorkflow(current.workspaceId, definition)
+    if ("approvalRequired" in result) {
+      setApprovalId(result.approvalId)
+      setPendingDefinition(definition)
+      setWorkflowState("approval_required")
+      return
+    }
+    setApprovalId(undefined)
+    setPendingDefinition(undefined)
+    setWorkflowState(result.state.status)
+    setWorkflowError(undefined)
+  }
+
   async function startSelectedWorkflow(): Promise<void> {
     const current = connection()
     const file = definitionFile.data?.results[0]
@@ -222,12 +256,38 @@ function AutomateSurface() {
     try {
       const definition = JSON.parse(decodeFile(file)) as Record<string, unknown>
       if (typeof definition.id !== "string" || definition.version !== 1 || !Array.isArray(definition.steps)) throw new Error("Workflow definition must contain id, version 1 and steps")
-      workbench.beginOperation()
-      const result = await current.client.startWorkflow(current.workspaceId, definition)
-      setWorkflowState(result.state.status)
-      setWorkflowError(undefined)
+      await startDefinition(definition)
     } catch (error) {
       setWorkflowError(error instanceof Error ? error.message : "Workflow start failed")
+    }
+  }
+  async function resolveWorkflowApproval(decision: "allow" | "deny"): Promise<void> {
+    const current = connection()
+    const id = approvalId()
+    if (!current || !id) return
+    try {
+      const result = await current.client.resolveApproval(id, decision)
+      if (decision === "allow" && result.decision.kind === "allow" && pendingDefinition()) await startDefinition(pendingDefinition()!)
+      else {
+        setApprovalId(undefined)
+        setPendingDefinition(undefined)
+        setWorkflowState(result.decision.kind)
+      }
+    } catch (error) {
+      setWorkflowError(error instanceof Error ? error.message : "Approval decision failed")
+    }
+  }
+  async function cancelWorkflowApproval(): Promise<void> {
+    const current = connection()
+    const id = approvalId()
+    if (!current || !id) return
+    try {
+      await current.client.cancelApproval(id)
+      setApprovalId(undefined)
+      setPendingDefinition(undefined)
+      setWorkflowState("cancelled")
+    } catch (error) {
+      setWorkflowError(error instanceof Error ? error.message : "Approval cancellation failed")
     }
   }
   const connectionError = () => { const error = workbench.error(); return error instanceof Error ? error.message : error ? String(error) : "" }
@@ -261,6 +321,13 @@ function AutomateSurface() {
           <div class="rounded-lg border border-border-base bg-background-stronger p-4" data-automate-selected={selectedDefinition()}>
             <p class="text-12-regular text-text-weak">Selected workflow definition is read through the shared Workbench session.</p>
             <button type="button" class="mt-3 rounded border border-border-base px-3 py-2 text-12-medium" disabled={definitionFile.isLoading || !definitionFile.data} onClick={() => void startSelectedWorkflow()}>Start with approval gates</button>
+            <Show when={approvalId()}>
+              <div class="mt-3 flex flex-wrap gap-2" data-automate-approval={approvalId()}>
+                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("allow")}>Allow workflow</button>
+                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("deny")}>Deny workflow</button>
+                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void cancelWorkflowApproval()}>Cancel approval</button>
+              </div>
+            </Show>
             <Show when={workflowState()}><p class="mt-2 text-12-regular text-text-success">Workflow state: {workflowState()}</p></Show>
             <Show when={workflowError()}><p class="mt-2 text-12-regular text-text-danger">{workflowError()}</p></Show>
           </div>

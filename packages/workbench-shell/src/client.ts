@@ -60,6 +60,8 @@ export type ArtifactDocument = { artifact: ArtifactSummary; content: string; enc
 export type AcceptedOperation = { accepted: true; operationId: string; approvalId?: string | null }
 export type ApprovalDecision = { decision: { kind: "allow" | "deny" | "approval_required"; [key: string]: unknown } }
 export type WorkflowState = { workflowId: string; status: string; [key: string]: unknown }
+export type WorkflowStartResult = { state: WorkflowState } | { approvalRequired: true; approvalId: string; capability: string }
+export type DesignSpecValidation = { valid: boolean; spec: unknown; capabilities: { granted: readonly string[]; denied: readonly string[] } }
 export type AuditEvent = { sequence: number; timestamp: number; actor: string; capability: string; decision: "allow" | "deny" | "approval_required"; previousHash: string; hash: string }
 export type AuditPage = { kind: "trace" | "activity"; events: readonly AuditEvent[]; nextCursor: number | null }
 export type ApprovalRequest = { id: string; capability: string; resource: string; expiresAt: number; status: "pending" | "allow" | "deny" | "cancelled" }
@@ -239,8 +241,12 @@ export class WorkbenchClient {
     return this.request(`/v1/approvals/${encodeURIComponent(approvalId)}`, { method: "DELETE", idempotencyKey: newRequestId(), signal })
   }
 
-  async startWorkflow(workspaceId: string, definition: Record<string, unknown>, signal?: AbortSignal): Promise<{ state: WorkflowState }> {
+  async startWorkflow(workspaceId: string, definition: Record<string, unknown>, signal?: AbortSignal): Promise<WorkflowStartResult> {
     return this.request(`/v1/workflows/start`, { method: "POST", body: { workspaceId, definition }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async validateSpec(workspaceId: string, spec: string | Record<string, unknown>, signal?: AbortSignal): Promise<DesignSpecValidation> {
+    return this.request(`/v1/specs/validate`, { method: "POST", body: { workspaceId, spec }, signal })
   }
 
   async updateWorkflow(workflowId: string, action: "resume" | "cancel", signal?: AbortSignal): Promise<{ state: WorkflowState }> {
