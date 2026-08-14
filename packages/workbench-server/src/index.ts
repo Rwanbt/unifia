@@ -2,6 +2,7 @@ import type { ApprovalBroker, ApprovalRequestRecord, AuditEvent, CapabilityRegis
 /* SPDX-License-Identifier: MIT */
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
+import type { ArtifactStore } from "@unifia/artifact-runtime"
 import type { SkillRegistry } from "@unifia/skill-hub"
 import { renderGenerativeUi, type UiNode } from "@unifia/contracts"
 import type {
@@ -26,7 +27,7 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -75,6 +76,7 @@ export class WorkbenchServer {
   readonly #runtime: RuntimeAdapter
   readonly #audit: AuditPort
   readonly #capability: CapabilityGate
+  readonly #artifacts?: ArtifactStore
   readonly #browser?: BrowserAutomationBroker
   readonly #desktop?: DesktopAutomationBroker
   readonly #workflow?: WorkflowRuntime
@@ -100,6 +102,7 @@ export class WorkbenchServer {
     this.#runtime = dependencies.runtime
     this.#audit = dependencies.audit
     this.#capability = dependencies.capability
+    this.#artifacts = dependencies.artifacts
     this.#browser = dependencies.browser
     this.#desktop = dependencies.desktop
     this.#workflow = dependencies.workflow
@@ -150,6 +153,7 @@ export class WorkbenchServer {
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
       if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
+      if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2])
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
       if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
@@ -470,6 +474,19 @@ export class WorkbenchServer {
     if (!page) return this.#deny(`${kind}.unavailable`, 503)
     this.#allow(`${kind}.read`)
     return json(200, { kind, ...page })
+  }
+  async #artifactRead(request: Request, artifactId?: string): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("artifact.read.unavailable", 503)
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.read.scope", 403)
+    const gate = await this.#checkCapability("workspace.read", workspaceId)
+    if (gate) return gate
+    if (!artifactId) { this.#allow("artifact.list"); return json(200, { artifacts: await this.#artifacts.list() }) }
+    const artifact = await this.#artifacts.latest(artifactId)
+    if (!artifact) return this.#deny("artifact.not-found", 404)
+    const content = await this.#artifacts.read(artifact)
+    this.#allow("artifact.read")
+    return json(200, { artifact, content: Buffer.from(content).toString("base64"), encoding: "base64" })
   }
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)

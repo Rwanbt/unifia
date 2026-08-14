@@ -71,5 +71,11 @@ export const M8_SERVER_ROUTE_REGISTRY = {
   activityPage: { method: "GET", route: "/v1/activity", capability: "trace.read", event: "trace.appended" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M9a artifact read routes are registered before server consumption. */
+export const M9A_SERVER_ROUTE_REGISTRY = {
+  artifactsList: { method: "GET", route: "/v1/artifacts", capability: "workspace.read", event: "catalog.updated" },
+  artifactDetail: { method: "GET", route: "/v1/artifacts/:artifactId", capability: "workspace.read", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

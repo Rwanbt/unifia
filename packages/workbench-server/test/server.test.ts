@@ -5,6 +5,7 @@ import os from "node:os"
 import path from "node:path"
 import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter } from "@unifia/contracts"
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
+import { ArtifactStore } from "@unifia/artifact-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
@@ -36,9 +37,10 @@ const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
 try {
   await writeFile(path.join(root, "README.md"), "hello")
   const workspace = new WorkspaceRuntime()
+  const artifacts = new ArtifactStore(root, () => 1_000)
   const audit = new AuditRuntimeDouble(() => 1_000)
   let capabilityDecision: "allow" | "deny" = "allow"
-  const server = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
+  const server = new WorkbenchServer({ auth: testAuth, workspace, artifacts, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
   const registered = await server.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "fixture", path: root }) }))
   if (registered.status !== 201) throw new Error("workspace register route failed")
   const registeredBody = await registered.json() as { id: string }
@@ -58,6 +60,11 @@ try {
   if (fileSearch.status !== 200) throw new Error("scoped file search failed")
   const fileSearchBody = await fileSearch.json() as { entries: readonly { path: string }[] }
   if (fileSearchBody.entries.length !== 1 || fileSearchBody.entries[0]?.path !== "README.md") throw new Error("file search did not filter README.md")
+  const artifact = await artifacts.create({ kind: "text", filename: "result.txt", content: "artifact result", provenance: { sourceTool: "test" } })
+  const artifactList = await server.fetch(new Request(`http://localhost/v1/artifacts?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (artifactList.status !== 200 || !((await artifactList.json()) as { artifacts: readonly { artifactId: string }[] }).artifacts.some((entry) => entry.artifactId === artifact.artifactId)) throw new Error("artifact list route failed")
+  const artifactDetail = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifact.artifactId}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (artifactDetail.status !== 200 || ((await artifactDetail.json()) as { encoding: string }).encoding !== "base64") throw new Error("artifact detail route failed")
   capabilityDecision = "deny"
   const deniedWrite = await server.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "README.md", content: "blocked" }] }) }))
   if (deniedWrite.status !== 403) throw new Error("capability gate did not deny write")

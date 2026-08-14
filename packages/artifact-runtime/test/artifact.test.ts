@@ -39,6 +39,7 @@ try {
   const history = await store.history(artifact.artifactId)
   check(history.length === 2 && history[0].version === 1 && history[1].version === 2, `history reported ${history.map((entry) => entry.version).join(",")}`)
   check((await store.latest(artifact.artifactId))?.version === 2, "latest did not return the head")
+  check((await store.list()).some((entry) => entry.artifactId === artifact.artifactId && entry.version === 2), "artifact list did not return the latest lineage head")
 
   // Both revisions remain readable: a new version must not destroy its predecessor.
   check(new TextDecoder().decode(await store.read(history[0])) === "hello", "the first revision was lost when the second was written")

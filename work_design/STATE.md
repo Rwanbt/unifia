@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M8`
+- Current card: `M9a`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -27,6 +27,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M6 | implemented with deferred human proofs | workbench-server typecheck + server 72/72 + bootstrap 40/40 + security/preflight/topology + operations 2/2 | Reconnectable session SSE remains cursor-based; long prompt operations now receive idempotent operation IDs and can be cancelled through a scoped route. |
 | M7 | implemented with deferred human proofs | contracts/workspace + workspace-runtime typecheck/tests + server 72/72 + shell typecheck + security guard | Bounded, root-confined file listing/search and protected `GET /v1/files/list` and `GET /v1/files/search` routes. |
 | M8 | implemented with deferred human proofs | server typecheck + server 72/72 + security 3/3 + P3 C8/C9 7/7 | Pending approval listing scoped to a workspace, cursor/limit audit pages for trace/activity, and a distinct redacted/level-filtered rolling server logger. |
+| M9a | implemented with deferred human proofs | artifact-runtime 38/38 + server 72/72 + typechecks + route registry | Artifact lineage listing/detail with provenance and base64 content, scoped by workspace read capability. |
 
 ## Manual verification register
 
@@ -69,9 +70,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M6 implementation → operation registry adds idempotent operation tracking, asynchronous prompt execution, scoped cancellation, and typed M6 route registration; operation tests pass 2/2 and existing server suites remain green.
 - M7 implementation → `WorkspacePort` now exposes bounded listing/search; `WorkspaceRuntime` resolves real paths inside the registered root, refuses escapes and enforces an entry quota; Workbench routes apply workspace auth and `workspace.read`; runtime and server assertions cover list/search.
 - M8 implementation → `ApprovalBroker.pending()` and `GET /v1/approvals` expose only live requests for the authorized workspace; audit pages support bounded cursors for `/v1/trace` and `/v1/activity`; `ServerLogger` is separate from audit, defaults to info, redacts sensitive fields, filters debug, and rotates at a size limit.
+- M9a implementation → `ArtifactStore.list()` returns latest heads from the authoritative on-disk lineage manifests; Workbench artifact list/detail routes enforce workspace scope and `workspace.read`, expose provenance, and encode bytes explicitly as base64.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M8 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M9a code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.

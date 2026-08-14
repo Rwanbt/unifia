@@ -233,6 +233,20 @@ export class ArtifactStore {
     return (await this.history(artifactId)).at(-1)
   }
 
+  async list(): Promise<readonly ArtifactVersion[]> {
+    let ids: string[]
+    try { ids = await fs.readdir(this.#artifactsRoot) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+      throw error
+    }
+    const latest: ArtifactVersion[] = []
+    for (const id of ids) if (ARTIFACT_ID.test(id)) {
+      const version = await this.latest(id)
+      if (version) latest.push(version)
+    }
+    return latest.sort((left, right) => right.createdAt - left.createdAt)
+  }
+
   /**
    * Copies a version into the workspace outbox, applying the metadata policy.
    *
