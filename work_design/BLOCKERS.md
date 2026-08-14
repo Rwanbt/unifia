@@ -14,12 +14,11 @@ This register separates missing implementation from evidence that requires a rea
 | MV-08 | Occupied-port behavior, concurrent automatic-port listeners, and independently spawned worker identities are now tested; the actual desktop service ownership lifecycle is not. | Run the real desktop service twice with configured/automatic ports and capture the owner/lock identity plus rejection of the stale generation. | Cross-process worker proof complete; desktop lifecycle proof open |
 | MV-09 | Source/config CSP parsing now asserts loopback, data-image, object and frame directives; packaged-bundle extraction and allow/deny URL checks are still missing. | Extract CSP from desktop and Android bundles, assert exact directives, then test allowed loopback/IPC and forbidden external/frame/object cases. | Static config complete; package/runtime check open |
 | MV-10 | This is an intentional human publication gate. | Human reviews diff, license/SPDX, rollback and confirms no merge/publication; no automation can sign this gate. | Human decision; open |
-| G6 | No authoritative Design System catalog source was selected; inventing one would violate the plan. | Decide one source and format (workspace manifest, global config, registry, or bundle), then implement M20a/b against that authority. | Human architecture decision; open |
 
 ## Current safe order
 
 1. Run MV-01/MV-02 against the desktop adapter and archive the redacted traces.
-2. Decide G6 and complete the remaining package/device/manual gates.
+2. Complete the remaining package/device/manual gates.
 3. Add the instance/single-writer proof required by the selected topology.
 4. Build the current Android candidate and perform the authorized device checks.
 5. Run the desktop E2E/deep-link/CSP matrix.

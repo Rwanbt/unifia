@@ -52,7 +52,7 @@ The following decisions are adopted from the reviewed Unifia Work/Design plan. T
 | G3 | Work and Code share an explicit single-writer boundary; the kill switch scope is operation, workspace, or server and must be visible in the audit contract. |
 | G4 | The workbench server runs as a minimal local service with one instance identity, an allocated/discoverable loopback port, and single-writer persistence. |
 | G5 | Design v0 renders deterministic inert SVG and previews it through an image element; no scripts, external resources, or `foreignObject`. |
-| G6 | The spec format and design-system catalog source must be explicit before their implementation cards; no card may infer a source during editing. |
+| G6 | The spec format and design-system catalog source must be explicit before their implementation cards; the workspace authority is `.unifia/workspace.json`, JSON manifest version `1`, with multiple catalogs and no global/bundle fallback. |
 | G7 | User vocabulary distinguishes the existing git worktree meaning of “workspace” from the workbench workspace concept through labels and help text. |
 | G8 | Mobile integration uses the existing embedded JavaScript runtime and native bridge; it does not introduce a competing runtime. |
 | G9 | Audit and artifact retention, rotation, compaction, eviction, and persistence-failure behavior are explicit before production-facing storage work. |

@@ -88,6 +88,7 @@ const TEST_ENTRYPOINTS = [
   "packages/spec-runtime/test/spec.test.ts",
   "packages/workbench-orchestrator/test/orchestrator.test.ts",
   "packages/workbench-shell/test/shell.test.ts",
+  "packages/workbench-shell/test/design-system.test.ts",
   "packages/workbench-server/test/server.test.ts",
   "packages/workbench-server/test/bootstrap.test.ts",
   "packages/unifia/test/server/workbench-bridge.test.ts",

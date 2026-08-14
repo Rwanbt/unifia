@@ -1,4 +1,4 @@
-import type { ApprovalBroker, ApprovalRequestRecord, AuditEvent, CapabilityRegistry, BrowserAutomationBroker, McpUiControlBroker, UiAction, CapabilityManifest, DesktopAutomationBroker } from "@unifia/contracts"
+import type { ApprovalBroker, ApprovalRequestRecord, AuditEvent, CapabilityRegistry, BrowserAutomationBroker, McpUiControlBroker, UiAction, CapabilityManifest, DesktopAutomationBroker, WorkspaceManifest } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
@@ -15,6 +15,7 @@ import type {
   WorkspaceHandle,
   WorkspacePort,
 } from "@unifia/contracts"
+import { migrateWorkspaceManifest, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
 
 import { randomUUID } from "node:crypto"
 import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter, type ScopedToken, type ScopedTokenAuthority, type ScopedTokenRequest } from "./auth.js"
@@ -38,6 +39,15 @@ type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
+}
+
+function isMissingFile(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "ENOENT")
+}
+
+function parseManifestResult(content: string | Uint8Array): WorkspaceManifest {
+  const raw = typeof content === "string" ? content : new TextDecoder().decode(content)
+  return migrateWorkspaceManifest(JSON.parse(raw))
 }
 
 /**
@@ -191,6 +201,7 @@ export class WorkbenchServer {
       if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "list" || segments[2] === "search") && request.method === "GET") return this.#fileIndex(request, segments[2])
+      if (segments[1] === "design-systems" && request.method === "GET") return this.#designSystems(request)
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       if (segments[1] === "approvals" && request.method === "GET") return this.#approvalList(request)
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
@@ -393,6 +404,30 @@ export class WorkbenchServer {
       : await this.#workspace.search(this.#runtimeToken(token), url.searchParams.get("query") ?? "", prefix)
     this.#allow("workspace.read")
     return json(200, { entries })
+  }
+
+  async #designSystems(request: Request): Promise<Response> {
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("design-system.manifest", 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("design-system.manifest.scope", 403)
+    const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId)
+    if (capabilityResponse) return capabilityResponse
+    let result: FileReadResult | undefined
+    try {
+      result = (await this.#workspace.read(this.#runtimeToken(token), [WORKSPACE_MANIFEST_PATH]))[0]
+    } catch (error) {
+      if (isMissingFile(error)) return this.#deny("design-system.manifest.missing", 404)
+      throw error
+    }
+    if (!result) return this.#deny("design-system.manifest.missing", 404)
+    try {
+      const manifest = parseManifestResult(result.content)
+      this.#allow("workspace.read")
+      return json(200, manifest as unknown as JsonRecord)
+    } catch {
+      return this.#deny("design-system.manifest.invalid", 400)
+    }
   }
 
   async #browserAction(request: Request, action: string): Promise<Response> {

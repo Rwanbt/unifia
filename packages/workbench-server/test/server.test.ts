@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 import { createHash } from "node:crypto"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { ArtifactStore } from "@unifia/artifact-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
@@ -36,6 +36,11 @@ const skillDigest = (name: string) => createHash("sha256").update(skillArtifact(
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-server-"))
 try {
   await writeFile(path.join(root, "README.md"), "hello")
+  await mkdir(path.dirname(path.join(root, WORKSPACE_MANIFEST_PATH)), { recursive: true })
+  await writeFile(path.join(root, WORKSPACE_MANIFEST_PATH), JSON.stringify({ version: 1, designSystems: [
+    { id: "unifia-system", name: "Unifia", version: "1.0.0", source: "workspace://unifia-system", tokens: { colors: { primary: "#ffffff" }, spacing: { gutter: 24 }, typography: { body: "Inter" } } },
+    { id: "alpha-system", name: "Alpha", version: "2.0.0", source: "workspace://alpha-system", tokens: { colors: { primary: "#000000" }, spacing: { gutter: 16 }, typography: { body: "Arial" } } },
+  ] }))
   const workspace = new WorkspaceRuntime()
   const artifacts = new ArtifactStore(root, () => 1_000)
   const audit = new AuditRuntimeDouble(() => 1_000)
@@ -46,6 +51,11 @@ try {
   const registeredBody = await registered.json() as { id: string }
   const opened = await server.fetch(new Request(`http://localhost/v1/workspaces/${registeredBody.id}/open`, { method: "POST" }))
   const handle = await opened.json() as { id: string; token: string }
+  const designSystems = await server.fetch(new Request(`http://localhost/v1/design-systems?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (designSystems.status !== 200 || ((await designSystems.json()) as { designSystems: readonly unknown[] }).designSystems.length !== 2) throw new Error("workspace manifest did not expose both design systems")
+  await rm(path.join(root, WORKSPACE_MANIFEST_PATH))
+  const missingDesignSystems = await server.fetch(new Request(`http://localhost/v1/design-systems?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (missingDesignSystems.status !== 404) throw new Error("design-system route invented a fallback when the manifest was absent")
   const denied = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/sessions`))
   if (denied.status !== 403) throw new Error("unscoped session request was accepted")
   const listed = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/sessions`, { headers: { authorization: `Bearer ${handle.token}` } }))

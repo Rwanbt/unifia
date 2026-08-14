@@ -14,6 +14,7 @@ import {
   type WorkbenchEventType,
   type WorkspaceEvent,
 } from "@unifia/contracts/workbench-wire"
+import type { WorkspaceManifest } from "@unifia/contracts"
 import { createNativeTokenProvider, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
 
 export type TokenProvider = {
@@ -169,6 +170,10 @@ export class WorkbenchClient {
   async searchFiles(workspaceId: string, query: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
     const params = new URLSearchParams({ workspaceId, query, prefix })
     return this.request<WorkspaceFilePage>(`/v1/files/search?${params}`, { signal })
+  }
+
+  async listDesignSystems(workspaceId: string, signal?: AbortSignal): Promise<WorkspaceManifest> {
+    return this.request<WorkspaceManifest>(`/v1/design-systems?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {

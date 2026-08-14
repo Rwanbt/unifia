@@ -24,7 +24,7 @@ const client = new WorkbenchClient({
     const path = new URL(String(input)).pathname
     const payload = path === "/v1/handshake"
       ? { kind: "workbench.handshake.accepted", accepted: true, protocolVersion: 1, supportedVersions: [1], instanceId: "server-instance-1" }
-      : path === "/v1/trace" ? { kind: "trace", events: [], nextCursor: null } : path === "/v1/activity" ? { kind: "activity", events: [], nextCursor: null } : { ok: true, entries: [] }
+      : path === "/v1/trace" ? { kind: "trace", events: [], nextCursor: null } : path === "/v1/activity" ? { kind: "activity", events: [], nextCursor: null } : path === "/v1/design-systems" ? { version: 1, designSystems: [] } : { ok: true, entries: [] }
     return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } })
   },
 })
@@ -39,6 +39,8 @@ await client.listArtifacts("workspace-1")
 check(requests.at(-1)?.url === "/v1/artifacts?workspaceId=workspace-1", "artifact list client route was not encoded deterministically")
 await client.listDocuments("workspace-1")
 check(requests.at(-1)?.url === "/v1/documents?workspaceId=workspace-1", "document list client route was not encoded deterministically")
+const designSystems = await client.listDesignSystems("workspace-1")
+check(requests.at(-1)?.url === "/v1/design-systems?workspaceId=workspace-1" && designSystems.version === 1, "design-system manifest client route was not encoded deterministically")
 const trace = await client.trace("workspace-1", 4, 2)
 check(requests.at(-1)?.url === "/v1/trace?workspaceId=workspace-1&after=4&limit=2", "trace client route was not encoded deterministically")
 check(trace.kind === "trace" && trace.events.length === 0, "trace client did not decode the typed page")

@@ -97,5 +97,10 @@ export const M15_SERVER_ROUTE_REGISTRY = {
   capabilitySearch: { method: "GET", route: "/v1/capabilities/search", capability: "package.install", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M20 Design System catalogs are read from the explicit workspace manifest. */
+export const M20_SERVER_ROUTE_REGISTRY = {
+  designSystems: { method: "GET", route: "/v1/design-systems", capability: "workspace.read", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

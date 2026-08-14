@@ -27,10 +27,10 @@
 
 `work_design/MANUAL-VERIFICATION.md` remains authoritative. MV-01 through MV-10 are still `PENDING`; in particular no complete desktop/native bridge, Android lifecycle, SVG WebView, merge, or publication claim is made by this candidate.
 
-`work_design/BLOCKERS.md` records the verified code-level blockers: desktop/mobile runtime traces, packaged Android WebView proof, desktop lifecycle evidence, and the unresolved G6 catalog authority. The versioned handshake, server issuer boundary, private sidecar RPC, Tauri commands, shell client and app injection point are implemented and tested.
+`work_design/BLOCKERS.md` records the verified code-level blockers: desktop/mobile runtime traces, packaged Android WebView proof, and desktop lifecycle evidence. The versioned handshake, server issuer boundary, private sidecar RPC, Tauri commands, shell client, app injection point, and workspace-manifest Design System authority are implemented and tested.
 
 Partial device evidence now exists for MV-03: a debug-signed local copy installed and launched on `b7163823`, with healthy loopback runtime. The full Android Work/Design, lifecycle and SVG inert procedures remain pending.
 
 ## Scope completed
 
-M14–M22 now provide typed audit/approval/capability/export client flows, spec diagnostics, deterministic SVG and responsive previews, file and Design System models, artifact version/diff/provenance state, and shared mobile navigation. G6 remains open because no Design System catalog authority was invented.
+M14–M22 now provide typed audit/approval/capability/export client flows, spec diagnostics, deterministic SVG and responsive previews, file and Design System models, versioned workspace-manifest catalog loading, artifact version/diff/provenance state, and shared mobile navigation.

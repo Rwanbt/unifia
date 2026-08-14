@@ -30,7 +30,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M9a | implemented with deferred human proofs | artifact-runtime 38/38 + server 72/72 + typechecks + route registry | Artifact lineage listing/detail with provenance and base64 content, scoped by workspace read capability. |
 | M9b | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Artifact creation and revision route delegates to the persistent ArtifactStore under `artifact.create`. |
 | M10 | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Local artifact export route is capability-gated by `artifact.export`; destination stays inside ArtifactStore outbox and metadata defaults to strip. |
-| M11 | implemented with deferred human proofs | spec/server/shell typechecks + server 72/72 | Server-side JSON spec validation delegates to `SpecRuntime`; requested capabilities are intersected with an empty workspace grant and never elevated. Design-system catalog source remains open under G6. |
+| M11 | implemented with deferred human proofs | spec/server/shell typechecks + server 72/72 | Server-side JSON spec validation delegates to `SpecRuntime`; requested capabilities are intersected with an empty workspace grant and never elevated. |
 | M12 | implemented with deferred human proofs | shell typecheck + shell 122/122 + modes 4/4 + client 11/11 + routes 11/11 | Typed client methods for bounded file listing/search, URL encoding, response typing, and export of all server route registries. |
 | M13 | implemented with deferred human proofs | server 72/72 + shell 122/122 + client 13/13 + modes/routes contracts | Documents list route filters persisted artifact heads; client exposes typed artifact and document catalogs. |
 | M14 | implemented with deferred human proofs | shell typecheck + client 17/17 | Client exposes typed bounded trace and activity pages with explicit cursors and page kinds. |
@@ -40,11 +40,12 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M18 | implemented with deferred human proofs | shell typecheck + DesignPreviewPanel 4/4 | Preview model exposes mobile/tablet/desktop SVG data sources and refuses invalid specs while preserving diagnostics. |
 | M19a | implemented with deferred human proofs | shell typecheck + DesignFiles 5/5 | Workspace file page adapts to a sorted Design catalog with asset/component/style classification and safe selection. |
 | M19b | implemented with deferred human proofs | shell typecheck + DesignFiles 6/6 | Design file rows expose stable labels, kinds, and selected state for a UI surface. |
-| M20a | implemented with deferred human proofs | shell typecheck + DesignSystem 3/3 | Explicit injected Design System catalog schema validates id/version/source/tokens without discovering a new authority. |
-| M20b | implemented with deferred human proofs | shell typecheck + DesignSystem 3/3 | Picker rows sort catalogs deterministically and preserve a validated selected id. |
+| M20a | implemented with deferred human proofs | contracts + shell typecheck + DesignSystem 6/6 + server 72/72 | Versioned `.unifia/workspace.json` manifests validate catalog id/version/source/tokens and reject unknown versions or duplicate ids. |
+| M20b | implemented with deferred human proofs | shell typecheck + DesignSystem 6/6 + WorkbenchClient 27/27 | Picker rows sort multiple manifest catalogs deterministically and preserve a validated selected id. |
+| M20c | implemented with deferred human proofs | server route + WorkbenchServer 72/72 + route registry | `GET /v1/design-systems` reads the authorized workspace manifest and returns 404 when absent; no fallback authority exists. |
 | M21 | implemented with deferred human proofs | shell typecheck + ArtifactVersionPanel 4/4 | Artifact history ordering, structural diff, provenance display, and explicit export approval state are modeled from persisted artifact summaries. |
 | M22 | implemented with deferred human proofs | shell typecheck + MobileNavigation 4/4 | Mobile navigation uses the shared route registry, switches drawer/rail by viewport, and carries Work/Design counts. |
-| M23 | implemented with deferred human proofs | full Workbench Shell suite: 11 files, 0 failures; remote typecheck 35/35; release candidate file | Candidate release checklist is recorded; MV-01 through MV-10 remain pending and no signing/merge/publication is claimed. |
+| M23 | implemented with deferred human proofs | full Workbench Shell suite + 45-suite conformance; remote typecheck 35/35; release candidate file | Candidate release checklist is recorded; MV-01 through MV-10 remain pending and no signing/merge/publication is claimed. |
 | M24 | implemented with deferred human proofs | app typecheck + app unit suite 704/704 + production build | Existing Workbench route renders the shared Work registry with operation selection and Design with editable validation diagnostics plus inert responsive SVG previews; native, lifecycle, and publication gates remain pending. |
 | M1c-a | implemented with deferred native proof | workbench-server handshake 4/4 + shell client 22/22 + server typecheck; unsupported versions are refused and decisions are audited | `/v1/handshake` now exchanges the versioned wire payload and preserves a server instance id. Native token issue/rotate/revoke remains the M1c blocker. |
 | M1c-b | implemented with deferred native proof | shell typecheck + client 26/26 | `WorkbenchClient.applyTokenRotation()` validates the executable wire contract and serializes requests until the native provider completes rotation; native bridge and server acceptance proof remain pending. |
@@ -109,7 +110,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M9a implementation → `ArtifactStore.list()` returns latest heads from the authoritative on-disk lineage manifests; Workbench artifact list/detail routes enforce workspace scope and `workspace.read`, expose provenance, and encode bytes explicitly as base64.
 - M9b implementation → `POST /v1/artifacts` creates a new lineage or version, validates the workspace bearer scope and `artifact.create`, and delegates persistence/provenance/versioning to `ArtifactStore`.
 - M10 implementation → `POST /v1/artifacts/export` checks `artifact.export` before exporting the verified latest version through `ArtifactStore`; outbox names remain path-safe and metadata is stripped unless explicitly kept.
-- M11 implementation → `POST /v1/specs/validate` parses untrusted specs through `SpecRuntime`, returns explicit denied capabilities, and does not infer or create a design-system catalog source while G6 remains open.
+- M11 implementation → `POST /v1/specs/validate` parses untrusted specs through `SpecRuntime` and returns explicit denied capabilities without widening the workspace grant.
 - M12 implementation → `WorkbenchClient.listFiles/searchFiles` consume the protected M7 routes with typed entries, deterministic query parameters and abort signals; the shell index now exports M6–M11 route registries.
 - M13 implementation → `GET /v1/documents` exposes non-binary persisted artifact heads under workspace read scope; the client adds typed artifact/document catalog methods without creating a second store.
 - M14 implementation → `WorkbenchClient.trace/activity` consume the existing scoped audit pages with typed events, bounded cursors, and deterministic query parameters.
@@ -119,11 +120,12 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M18 implementation → `createDesignPreviewPanelState` derives three canonical responsive previews from the renderer and never emits an image for invalid input.
 - M19a implementation → `adaptDesignFiles` is the sole adapter from the bounded workspace index to Design file categories; directories and absent selections are excluded.
 - M19b implementation → `renderDesignFileRows` projects the adapted catalog into stable panel rows and marks only the validated selection.
-- M20a implementation → `parseDesignSystemCatalog` validates an explicitly supplied catalog and keeps G6 open by requiring its source rather than inventing one.
-- M20b implementation → `createDesignSystemPickerRows` provides deterministic labels, versions, sources, and selection state.
+- M20a implementation → `.unifia/workspace.json` is the explicit version-1 workspace authority; contracts validate multiple unique catalogs and reject missing/unknown versions.
+- M20b implementation → `createDesignSystemPickerRows` provides deterministic labels, versions, sources, and selection state from the manifest catalogs.
+- M20c implementation → `GET /v1/design-systems` reads the authorized manifest and returns 404 without fallback when it is absent.
 - M21 implementation → `createArtifactVersionPanelState` and `diffArtifactVersions` expose ordered history, provenance, changed fields, and an export state that is false until an approved export result exists.
 - M22 implementation → `createMobileNavigationModel` reuses the shared eleven-route registry for mobile and exposes deterministic drawer/rail and Work/Design surface counts.
-- M23 implementation → `work_design/RELEASE-CANDIDATE.md` records the completed implementation scope, automated evidence, open G6 decision, and all human release gates without declaring release readiness.
+- M23 implementation → `work_design/RELEASE-CANDIDATE.md` records the completed implementation scope, automated evidence, and all human release gates without declaring release readiness.
 - Fresh conformance rerun → PASS 8/8: 43 suites, 25 owned packages lint clean, typecheck 35/35; browser E2E remains explicitly skipped and Gate C remains NO-GO on its documented external conditions.
 - M1c-d validation → shell suite 5 scripts, including NativeTokenBridge 4/4; app typecheck and production build PASS; Workbench security guard and conformance 8/8 PASS; browser/device/manual gates remain pending.
 - M1c-e validation → Workbench Server handshake 5/5, server 72/72, bootstrap 40/40, topology 3/3, security/CORS 4/4, and typecheck PASS; platform bridge and browser/device/manual gates remain pending.
@@ -134,7 +136,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M1c-h validation → NativeTokenBridge 5/5, WorkbenchConnection 2/2, and shell typecheck PASS; concrete platform bridge and manual scope/expiry evidence remain pending.
 - M1c-i validation → WorkbenchShell 13 scripts pass, NativeTokenBridge 5/5, WorkbenchConnection 2/2, and typecheck PASS; concrete platform bridge and manual evidence remain pending.
 - M1c-l validation → the mounted native bridge now proves issue → rotate with previous-token grace → revoke; `WorkbenchNativeBridge: 8/8 passed`.
-- Current checkpoint → `e549815907 test(conformance): include native workbench bridge`; branch `work-design`, remote typecheck 35/35.
+- Current checkpoint → G6 implementation pending commit; workspace-manifest contract documented in `work_design/WORKSPACE-MANIFEST.md`; branch `work-design`, remote typecheck 35/35.
 - Full conformance validation → `45 suites passed` with `--with-browser`, including `GenerativeUiBrowserE2E: 10/10`; final verdict `PASS: 8/8`.
 - GitHub Actions → run `31796360360` for `e549815907` completed `success`; the preceding `31795371897` failed only in desktop typecheck before the green rerun.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
