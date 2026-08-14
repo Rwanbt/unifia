@@ -90,6 +90,7 @@ const TEST_ENTRYPOINTS = [
   "packages/workbench-shell/test/shell.test.ts",
   "packages/workbench-server/test/server.test.ts",
   "packages/workbench-server/test/bootstrap.test.ts",
+  "packages/unifia/test/server/workbench-bridge.test.ts",
   "packages/workflow-catalog/test/catalog.test.ts",
   "packages/workflow-runtime/test/workflow-runtime.test.ts",
   "packages/workspace-runtime/test/queue.test.ts",
@@ -300,4 +301,3 @@ if (jsonIndex >= 0 && args[jsonIndex + 1]) writeFileSync(path.resolve(repoRoot, 
 
 process.stdout.write(`\n${report.verdict}: ${results.length - failedCount}/${results.length} conformance checks passed\n`)
 process.exit(failedCount === 0 ? 0 : 1)
-

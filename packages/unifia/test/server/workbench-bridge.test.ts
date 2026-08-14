@@ -7,8 +7,10 @@ import { createWorkbenchBridge } from "../../src/server/workbench"
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-workbench-bridge-"))
 const previousPassword = process.env.UNIFIA_SERVER_PASSWORD
 const previousToken = process.env.UNIFIA_KEYCHAIN_TOKEN
+const previousAuditLog = process.env.UNIFIA_WORKBENCH_AUDIT_LOG
 process.env.UNIFIA_SERVER_PASSWORD = "unifia-workbench-bridge-password-0123456789"
 process.env.UNIFIA_KEYCHAIN_TOKEN = "private-ipc-token"
+process.env.UNIFIA_WORKBENCH_AUDIT_LOG = path.join(root, "workbench-audit.jsonl")
 
 try {
   const bridge = createWorkbenchBridge()
@@ -73,5 +75,7 @@ try {
   else process.env.UNIFIA_SERVER_PASSWORD = previousPassword
   if (previousToken === undefined) delete process.env.UNIFIA_KEYCHAIN_TOKEN
   else process.env.UNIFIA_KEYCHAIN_TOKEN = previousToken
+  if (previousAuditLog === undefined) delete process.env.UNIFIA_WORKBENCH_AUDIT_LOG
+  else process.env.UNIFIA_WORKBENCH_AUDIT_LOG = previousAuditLog
   await rm(root, { recursive: true, force: true })
 }
