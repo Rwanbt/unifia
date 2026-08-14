@@ -8,7 +8,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
 - Current card: `M23`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
-- Commit or push performed: yes (through M7; latest SHA recorded after commit)
+- Commit or push performed: yes; latest pushed SHA is `57fd6f45f8`.
 
 ## Cards
 
@@ -106,6 +106,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M21 implementation → `createArtifactVersionPanelState` and `diffArtifactVersions` expose ordered history, provenance, changed fields, and an export state that is false until an approved export result exists.
 - M22 implementation → `createMobileNavigationModel` reuses the shared eleven-route registry for mobile and exposes deterministic drawer/rail and Work/Design surface counts.
 - M23 implementation → `work_design/RELEASE-CANDIDATE.md` records the completed implementation scope, automated evidence, open G6 decision, and all human release gates without declaring release readiness.
+- Fresh conformance rerun → PASS 8/8: 43 suites, 25 owned packages lint clean, typecheck 35/35; browser E2E remains explicitly skipped and Gate C remains NO-GO on its documented external conditions.
 
 ## Resume first
 

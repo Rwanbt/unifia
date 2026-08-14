@@ -11,6 +11,7 @@
 - Workbench Shell full suite: 11 files, 0 failures; WorkbenchShell 122/122, client 20/20, DesignSpecPanel 5/5, DesignRenderer 5/5, DesignPreviewPanel 4/4, DesignFiles 6/6, DesignSystem 3/3, ArtifactVersionPanel 4/4, MobileNavigation 4/4, modes 4/4, routes 11/11.
 - Remote turbo typecheck on the latest push: 35/35 successful.
 - CI conformance repair remains green at 8/8; the non-blocking Node 20/24 action warning remains known.
+- Fresh local conformance rerun: PASS 8/8, 43 suites (41 Bun + 2 Vitest), 25 owned packages lint clean; browser E2E is explicitly skipped because it requires a real browser.
 
 ## Human gates
 
