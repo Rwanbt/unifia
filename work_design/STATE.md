@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M15`
+- Current card: `M16`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -35,6 +35,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M13 | implemented with deferred human proofs | server 72/72 + shell 122/122 + client 13/13 + modes/routes contracts | Documents list route filters persisted artifact heads; client exposes typed artifact and document catalogs. |
 | M14 | implemented with deferred human proofs | shell typecheck + client 17/17 | Client exposes typed bounded trace and activity pages with explicit cursors and page kinds. |
 | M15 | implemented with deferred human proofs | shell typecheck + client 20/20 + routes 11/11 | Client exposes scoped approvals, capability search filters, and idempotent artifact export; capability-picker registry now points to the real search route. |
+| M16 | implemented with deferred human proofs | shell typecheck + DesignSpecPanel 5/5 | Pure spec panel model preserves inline/file provenance, reports line/column diagnostics, and resolves requested capabilities against an empty grant. |
 
 ## Manual verification register
 
@@ -86,9 +87,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M13 implementation → `GET /v1/documents` exposes non-binary persisted artifact heads under workspace read scope; the client adds typed artifact/document catalog methods without creating a second store.
 - M14 implementation → `WorkbenchClient.trace/activity` consume the existing scoped audit pages with typed events, bounded cursors, and deterministic query parameters.
 - M15 implementation → `WorkbenchClient.listApprovals/searchCapabilities/exportArtifact` consumes the existing server authorities; capability search is explicitly `package.install` gated and export uses an idempotency key.
+- M16 implementation → `createDesignSpecPanelState` is the shared pure model for Design spec input and diagnostics; it delegates validation to `SpecRuntime` and never elevates capabilities.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M15 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M16 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
