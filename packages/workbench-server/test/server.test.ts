@@ -65,6 +65,8 @@ try {
   if (artifactList.status !== 200 || !((await artifactList.json()) as { artifacts: readonly { artifactId: string }[] }).artifacts.some((entry) => entry.artifactId === artifact.artifactId)) throw new Error("artifact list route failed")
   const artifactDetail = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifact.artifactId}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
   if (artifactDetail.status !== 200 || ((await artifactDetail.json()) as { encoding: string }).encoding !== "base64") throw new Error("artifact detail route failed")
+  const artifactRevision = await server.fetch(new Request("http://localhost/v1/artifacts", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, kind: "text", filename: "result.txt", content: "artifact revision", artifactId: artifact.artifactId, provenance: { sourceTool: "server-test" } }) }))
+  if (artifactRevision.status !== 201 || ((await artifactRevision.json()) as { artifact: { version: number } }).artifact.version !== 2) throw new Error("artifact revision route failed")
   capabilityDecision = "deny"
   const deniedWrite = await server.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "README.md", content: "blocked" }] }) }))
   if (deniedWrite.status !== 403) throw new Error("capability gate did not deny write")

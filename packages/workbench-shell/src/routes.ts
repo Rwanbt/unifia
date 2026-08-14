@@ -77,5 +77,10 @@ export const M9A_SERVER_ROUTE_REGISTRY = {
   artifactDetail: { method: "GET", route: "/v1/artifacts/:artifactId", capability: "workspace.read", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M9b artifact lineage write route is registered before server consumption. */
+export const M9B_SERVER_ROUTE_REGISTRY = {
+  artifactCreate: { method: "POST", route: "/v1/artifacts", capability: "artifact.create", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)
