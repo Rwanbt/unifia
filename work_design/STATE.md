@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M23`
+- Current card: `M24`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes; latest pushed SHA is `a518ef2f7a`.
 
@@ -45,6 +45,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M21 | implemented with deferred human proofs | shell typecheck + ArtifactVersionPanel 4/4 | Artifact history ordering, structural diff, provenance display, and explicit export approval state are modeled from persisted artifact summaries. |
 | M22 | implemented with deferred human proofs | shell typecheck + MobileNavigation 4/4 | Mobile navigation uses the shared route registry, switches drawer/rail by viewport, and carries Work/Design counts. |
 | M23 | implemented with deferred human proofs | full Workbench Shell suite: 11 files, 0 failures; remote typecheck 35/35; release candidate file | Candidate release checklist is recorded; MV-01 through MV-10 remain pending and no signing/merge/publication is claimed. |
+| M24 | implemented with deferred human proofs | app typecheck + app unit suite 704/704 | Existing Workbench route now renders the shared Work registry for Work and validated inert responsive SVG previews for Design; native, lifecycle, and publication gates remain pending. |
 
 ## Manual verification register
 
@@ -111,9 +112,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.
 - CSP static extraction → desktop and mobile Tauri configurations declare explicit loopback/IPC origins, `img-src data:`, `object-src 'none'`, and `frame-ancestors 'none'`; the runtime server CSP is self/data-only. Packaged-bundle and interactive URL checks remain MV-09.
+- M24 UI wiring → `packages/app/src/pages/workbench-mode.tsx` now composes `createMobileNavigationModel`, `createDesignSpecPanelState`, and `createDesignPreviewPanelState`; app typecheck passes and the unit suite reports 704/704.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M23 implementation is complete by explicit user override; keep MV-01 through MV-10 pending until their described evidence exists. Do not sign, merge, publish, or mark the candidate release-ready from automated checks alone.
+3. M24 UI wiring is implemented; keep MV-01 through MV-10 pending until their described evidence exists. Do not sign, merge, publish, or mark the candidate release-ready from automated checks alone.
