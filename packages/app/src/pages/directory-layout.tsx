@@ -18,6 +18,7 @@ import { LspDiagnosticsProvider } from "@/context/lsp-diagnostics"
 // (which calls useFileStore) sees it as an ancestor. Fix: pre-flight-0-filestore-scope.
 import { FileStoreProvider } from "@/context/file/store"
 import { WorkspaceWorkbenchProvider } from "@/context/workbench/provider"
+import { useMode } from "@/context/mode"
 
 function DirectoryDataProvider(props: ParentProps<{ directory: string }>) {
   const location = useLocation()
@@ -60,6 +61,7 @@ function DirectoryDataProvider(props: ParentProps<{ directory: string }>) {
 
 export default function Layout(props: ParentProps) {
   const params = useParams()
+  const mode = useMode()
   const language = useLanguage()
   const navigate = useNavigate()
   let invalid = ""
@@ -95,7 +97,7 @@ export default function Layout(props: ParentProps) {
               <LspDiagnosticsProvider>
                 <TeamProvider>
                   <DirectoryDataProvider directory={resolved}>
-                    <WorkspaceWorkbenchProvider workspacePath={resolved} codeSessionId={params.id}>{props.children}</WorkspaceWorkbenchProvider>
+                    <WorkspaceWorkbenchProvider workspacePath={resolved} codeSessionId={mode.sessionId()}>{props.children}</WorkspaceWorkbenchProvider>
                   </DirectoryDataProvider>
                 </TeamProvider>
               </LspDiagnosticsProvider>
