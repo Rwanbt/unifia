@@ -59,7 +59,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
-- `git log -1 --oneline` → `efbca769b2 feat(workbench): serialize client token rotation`
+- `git log -1 --oneline` → `6e8e676549 feat(workbench): inject native scoped token authority`
 - `bash scripts/check-pr-size.sh dev` → 152 changed lines, under the 400-line limit
 - `.github/workflows/work-design-integrity.yml` → merge-tree, size, and whitespace checks declared
 - `DECISIONS.md` M1a gate table → nine plan decisions recorded
