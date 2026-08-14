@@ -31,6 +31,10 @@ check(listRequest.entries.length === 0, "file list client did not decode the res
 const searchRequest = await client.searchFiles("workspace-1", "main.ts")
 check(requests.at(-1)?.url === "/v1/files/search?workspaceId=workspace-1&query=main.ts&prefix=.", "file search client route was not encoded deterministically")
 check(searchRequest.entries.length === 0, "file search client did not decode the response")
+await client.listArtifacts("workspace-1")
+check(requests.at(-1)?.url === "/v1/artifacts?workspaceId=workspace-1", "artifact list client route was not encoded deterministically")
+await client.listDocuments("workspace-1")
+check(requests.at(-1)?.url === "/v1/documents?workspaceId=workspace-1", "document list client route was not encoded deterministically")
 
 check((await client.request<{ ok: boolean }>("/v1/read")).ok, "a GET did not retry after token refresh")
 check(refreshes === 1, "GET refresh count was not exactly one")

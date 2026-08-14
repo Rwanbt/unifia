@@ -157,6 +157,7 @@ export class WorkbenchServer {
       if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2])
       if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request)
       if (segments[1] === "artifacts" && request.method === "POST") return this.#artifactWrite(request)
+      if (segments[1] === "documents" && request.method === "GET") return this.#documents(request)
       if (segments[1] === "specs" && segments[2] === "validate" && request.method === "POST") return this.#specValidate(request)
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
@@ -517,6 +518,17 @@ export class WorkbenchServer {
     const exported = await this.#artifacts.export(artifact, { outbox: typeof input.outbox === "string" ? input.outbox : undefined, metadata: input.metadata === "keep" ? "keep" : "strip" })
     this.#allow("artifact.export")
     return json(200, { exported })
+  }
+  async #documents(request: Request): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("documents.unavailable", 503)
+    const url = new URL(request.url)
+    const workspaceId = url.searchParams.get("workspaceId")
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("documents.scope", 403)
+    const gate = await this.#checkCapability("workspace.read", workspaceId)
+    if (gate) return gate
+    const documents = (await this.#artifacts.list()).filter((artifact) => artifact.kind !== "binary")
+    this.#allow("documents.list")
+    return json(200, { documents })
   }
   async #specValidate(request: Request): Promise<Response> {
     const input = await body(request)

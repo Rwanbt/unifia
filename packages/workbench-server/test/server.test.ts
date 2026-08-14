@@ -71,6 +71,8 @@ try {
   if (artifactExport.status !== 200 || !((await artifactExport.json()) as { exported: { relativePath: string } }).exported.relativePath.includes("server-test")) throw new Error("artifact export route failed")
   const specValidation = await server.fetch(new Request("http://localhost/v1/specs/validate", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, spec: { id: "server-spec", version: "1.0.0", target: "design", title: "Server spec", capabilities: ["artifact.export"], rules: [] } }) }))
   if (specValidation.status !== 200 || ((await specValidation.json()) as { capabilities: { granted: readonly string[]; denied: readonly string[] } }).capabilities.denied[0] !== "artifact.export") throw new Error("spec validation route widened capabilities")
+  const documents = await server.fetch(new Request(`http://localhost/v1/documents?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+  if (documents.status !== 200 || !((await documents.json()) as { documents: readonly { artifactId: string }[] }).documents.some((entry) => entry.artifactId === artifact.artifactId)) throw new Error("document list route failed")
   capabilityDecision = "deny"
   const deniedWrite = await server.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "README.md", content: "blocked" }] }) }))
   if (deniedWrite.status !== 403) throw new Error("capability gate did not deny write")

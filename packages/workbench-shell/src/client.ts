@@ -37,6 +37,7 @@ export type RequestOptions = {
 
 export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
 export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[] }
+export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string> }
 
 export class WorkbenchHttpError extends Error {
   readonly status: number
@@ -123,6 +124,14 @@ export class WorkbenchClient {
   async searchFiles(workspaceId: string, query: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
     const params = new URLSearchParams({ workspaceId, query, prefix })
     return this.request<WorkspaceFilePage>(`/v1/files/search?${params}`, { signal })
+  }
+
+  async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {
+    return this.request(`/v1/artifacts?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async listDocuments(workspaceId: string, signal?: AbortSignal): Promise<{ documents: readonly ArtifactSummary[] }> {
+    return this.request(`/v1/documents?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {

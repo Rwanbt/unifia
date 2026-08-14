@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M12`
+- Current card: `M13`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -32,6 +32,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M10 | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Local artifact export route is capability-gated by `artifact.export`; destination stays inside ArtifactStore outbox and metadata defaults to strip. |
 | M11 | implemented with deferred human proofs | spec/server/shell typechecks + server 72/72 | Server-side JSON spec validation delegates to `SpecRuntime`; requested capabilities are intersected with an empty workspace grant and never elevated. Design-system catalog source remains open under G6. |
 | M12 | implemented with deferred human proofs | shell typecheck + shell 122/122 + modes 4/4 + client 11/11 + routes 11/11 | Typed client methods for bounded file listing/search, URL encoding, response typing, and export of all server route registries. |
+| M13 | implemented with deferred human proofs | server 72/72 + shell 122/122 + client 13/13 + modes/routes contracts | Documents list route filters persisted artifact heads; client exposes typed artifact and document catalogs. |
 
 ## Manual verification register
 
@@ -80,9 +81,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M10 implementation → `POST /v1/artifacts/export` checks `artifact.export` before exporting the verified latest version through `ArtifactStore`; outbox names remain path-safe and metadata is stripped unless explicitly kept.
 - M11 implementation → `POST /v1/specs/validate` parses untrusted specs through `SpecRuntime`, returns explicit denied capabilities, and does not infer or create a design-system catalog source while G6 remains open.
 - M12 implementation → `WorkbenchClient.listFiles/searchFiles` consume the protected M7 routes with typed entries, deterministic query parameters and abort signals; the shell index now exports M6–M11 route registries.
+- M13 implementation → `GET /v1/documents` exposes non-binary persisted artifact heads under workspace read scope; the client adds typed artifact/document catalog methods without creating a second store.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M12 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M13 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
