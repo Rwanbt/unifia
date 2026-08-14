@@ -24,3 +24,24 @@ test("unknown mode never renders an empty projection", async ({ page, directory 
   await page.goto(`${dirPath(directory)}/unknown-mode`)
   await expect(page.locator("[data-workbench-error], [data-workbench-mode=code]").first()).toBeVisible()
 })
+
+test("workbench surfaces fail closed before a native bridge is available", async ({ page, directory }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+  await page.goto(`${dirPath(directory)}/session`)
+
+  await page.getByRole("button", { name: "work mode" }).click()
+  await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
+  await expect(page.locator("[data-workbench-connection]")).toBeVisible()
+  await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
+  await page.locator('[data-workbench-operation="export"]').click()
+  await expect(page.locator("[data-workbench-export]")).toBeDisabled()
+
+  await page.getByRole("button", { name: "design mode" }).click()
+  await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()
+  await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
+  await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()
+
+  await page.getByRole("button", { name: "automate mode" }).click()
+  await expect(page.locator('[data-workbench-surface="automate"]')).toBeVisible()
+  await expect(page.locator("[data-automate-connection]")).toBeVisible()
+})

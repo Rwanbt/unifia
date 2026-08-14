@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "exports": { ".": "./src/index.ts", "./bootstrap": "./src/bootstrap.ts" },
-  "scripts": { "typecheck": "bun x tsc --noEmit", "test": "bun test/handshake.test.ts && bun test/server.test.ts && bun test/bootstrap.test.ts && bun test/topology.test.ts && bunx vitest run test/security.test.ts test/cors-preflight.test.ts", "start": "bun src/bootstrap.ts" },
+  "scripts": { "typecheck": "bun x tsc --noEmit", "test": "bun test test/handshake.test.ts test/server.test.ts test/bootstrap.test.ts test/topology.test.ts test/auth.test.ts test/operations.test.ts && bunx vitest run --pool=threads --poolOptions.threads.singleThread test/security.test.ts test/cors-preflight.test.ts", "start": "bun src/bootstrap.ts" },
   "dependencies": { "@unifia/artifact-runtime": "workspace:*", "@unifia/contracts": "workspace:*", "@unifia/spec-runtime": "workspace:*", "@unifia/workspace-runtime": "workspace:*", "@unifia/workflow-runtime": "workspace:*", "@unifia/memory-runtime": "workspace:*", "@unifia/skill-hub": "workspace:*" },
   "devDependencies": { "@types/bun": "catalog:", "@types/node": "catalog:", "typescript": "catalog:" }
 }

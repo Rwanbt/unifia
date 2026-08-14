@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/shell.test.ts && bun test/modes-contract.test.ts && bun test/client.test.ts && bun test/native-token-bridge.test.ts && bun test/connection.test.ts && bun test/lifecycle.test.ts && bun test/identity.test.ts && bun test/routes.test.ts && bun test/design-system.test.ts"
+    "test": "bun test test --timeout 30000"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*"

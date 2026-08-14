@@ -28,4 +28,3 @@ export function renderDesignSpecSvg(spec: Spec, options: DesignRenderOptions = {
   }).join("")
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${escapeXml(spec.title)}"><rect width="${width}" height="${height}" fill="${escapeXml(primary)}"/><text x="${gutter}" y="${titleY}" fill="${escapeXml(foreground)}" font-family="sans-serif" font-size="28" font-weight="600">${escapeXml(spec.title)}</text>${rules}</svg>`
 }
-

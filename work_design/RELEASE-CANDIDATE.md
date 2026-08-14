@@ -1,8 +1,8 @@
 # Unifia Work/Design release candidate
 
-**Branch**: `work-design`  
-**Base**: `dev` at `91daa35a26a8e44d7f35b539c91030ec1e230c54`  
-**Candidate commit**: the commit containing this file on `work-design`  
+**Branch**: `work-design`
+**Base**: `dev` at `91daa35a26a8e44d7f35b539c91030ec1e230c54`
+**Candidate commit**: the commit containing this file on `work-design`
 **Status**: implementation complete; human release gates pending
 
 ## Automated evidence
