@@ -51,6 +51,8 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentionally pending until a human runs the desktop, Android, UI, lifecycle, CSP, and publication checks.
 
+See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock order.
+
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
