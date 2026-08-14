@@ -136,8 +136,9 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M1c-h validation → NativeTokenBridge 5/5, WorkbenchConnection 2/2, and shell typecheck PASS; concrete platform bridge and manual scope/expiry evidence remain pending.
 - M1c-i validation → WorkbenchShell 13 scripts pass, NativeTokenBridge 5/5, WorkbenchConnection 2/2, and typecheck PASS; concrete platform bridge and manual evidence remain pending.
 - M1c-l validation → the mounted native bridge now proves issue → rotate with previous-token grace → revoke; `WorkbenchNativeBridge: 8/8 passed`.
-- Current checkpoint → `80be385804 feat(workbench): make workspace manifest the design authority`; workspace-manifest contract documented in `work_design/WORKSPACE-MANIFEST.md`; branch `work-design`, remote typecheck 35/35.
+- Current checkpoint → `619d9a4fc5 docs(work-design): close design system authority gate`; workspace-manifest contract documented in `work_design/WORKSPACE-MANIFEST.md`; branch `work-design`, remote typecheck 35/35.
 - G6 validation → workspace manifest contract, M20 route, no-fallback 404, and multiple-catalog tests pass; full conformance is `46 suites`, `PASS: 8/8` with browser.
+- GitHub Actions → run `31801998229` completed `success` for the G6 implementation.
 - Full conformance validation → `45 suites passed` with `--with-browser`, including `GenerativeUiBrowserE2E: 10/10`; final verdict `PASS: 8/8`.
 - GitHub Actions → run `31796360360` for `e549815907` completed `success`; the preceding `31795371897` failed only in desktop typecheck before the green rerun.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
