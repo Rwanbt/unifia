@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M22`
+- Current card: `M23`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -44,6 +44,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M20b | implemented with deferred human proofs | shell typecheck + DesignSystem 3/3 | Picker rows sort catalogs deterministically and preserve a validated selected id. |
 | M21 | implemented with deferred human proofs | shell typecheck + ArtifactVersionPanel 4/4 | Artifact history ordering, structural diff, provenance display, and explicit export approval state are modeled from persisted artifact summaries. |
 | M22 | implemented with deferred human proofs | shell typecheck + MobileNavigation 4/4 | Mobile navigation uses the shared route registry, switches drawer/rail by viewport, and carries Work/Design counts. |
+| M23 | implemented with deferred human proofs | full Workbench Shell suite: 11 files, 0 failures; remote typecheck 35/35; release candidate file | Candidate release checklist is recorded; MV-01 through MV-10 remain pending and no signing/merge/publication is claimed. |
 
 ## Manual verification register
 
@@ -104,9 +105,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M20b implementation → `createDesignSystemPickerRows` provides deterministic labels, versions, sources, and selection state.
 - M21 implementation → `createArtifactVersionPanelState` and `diffArtifactVersions` expose ordered history, provenance, changed fields, and an export state that is false until an approved export result exists.
 - M22 implementation → `createMobileNavigationModel` reuses the shared eleven-route registry for mobile and exposes deterministic drawer/rail and Work/Design surface counts.
+- M23 implementation → `work_design/RELEASE-CANDIDATE.md` records the completed implementation scope, automated evidence, open G6 decision, and all human release gates without declaring release readiness.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M22 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M23 implementation is complete by explicit user override; keep MV-01 through MV-10 pending until their described evidence exists. Do not sign, merge, publish, or mark the candidate release-ready from automated checks alone.
