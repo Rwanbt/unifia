@@ -45,7 +45,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M21 | implemented with deferred human proofs | shell typecheck + ArtifactVersionPanel 4/4 | Artifact history ordering, structural diff, provenance display, and explicit export approval state are modeled from persisted artifact summaries. |
 | M22 | implemented with deferred human proofs | shell typecheck + MobileNavigation 4/4 | Mobile navigation uses the shared route registry, switches drawer/rail by viewport, and carries Work/Design counts. |
 | M23 | implemented with deferred human proofs | full Workbench Shell suite: 11 files, 0 failures; remote typecheck 35/35; release candidate file | Candidate release checklist is recorded; MV-01 through MV-10 remain pending and no signing/merge/publication is claimed. |
-| M24 | implemented with deferred human proofs | app typecheck + app unit suite 704/704 | Existing Workbench route now renders the shared Work registry for Work and validated inert responsive SVG previews for Design; native, lifecycle, and publication gates remain pending. |
+| M24 | implemented with deferred human proofs | app typecheck + app unit suite 704/704 + production build | Existing Workbench route renders the shared Work registry with operation selection and Design with editable validation diagnostics plus inert responsive SVG previews; native, lifecycle, and publication gates remain pending. |
 
 ## Manual verification register
 
@@ -114,6 +114,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - CSP static extraction → desktop and mobile Tauri configurations declare explicit loopback/IPC origins, `img-src data:`, `object-src 'none'`, and `frame-ancestors 'none'`; the runtime server CSP is self/data-only. Packaged-bundle and interactive URL checks remain MV-09.
 - M24 UI wiring → `packages/app/src/pages/workbench-mode.tsx` now composes `createMobileNavigationModel`, `createDesignSpecPanelState`, and `createDesignPreviewPanelState`; app typecheck passes and the unit suite reports 704/704.
 - M24 production bundle → `bun run --cwd packages/app build` PASS; Vite emitted only pre-existing chunk-size, CSS minifier, and dynamic-import warnings.
+- M24 interaction → Work operation cards now select a scoped operation; Design spec editing recomputes line/column diagnostics and previews without executing markup. Typecheck, 704/704 unit tests, and production build pass.
 
 ## Resume first
 

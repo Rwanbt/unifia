@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from "solid-js"
+import { For, Show, createMemo, createSignal } from "solid-js"
 import { useMode } from "@/context/mode"
 import {
   createDesignPreviewPanelState,
@@ -27,8 +27,9 @@ const SAMPLE_SPEC = JSON.stringify(
 const labelFor = (operation: WorkFunction) => operation.replaceAll("-", " ")
 
 function WorkSurface() {
+  const [activeOperation, setActiveOperation] = createSignal<WorkFunction>("documents")
   const navigation = createMemo(() =>
-    createMobileNavigationModel({ viewportWidth: window.innerWidth, documents: 0, designPreviews: 3, active: "documents" }),
+    createMobileNavigationModel({ viewportWidth: window.innerWidth, documents: 0, designPreviews: 3, active: activeOperation() }),
   )
 
   return (
@@ -42,19 +43,31 @@ function WorkSurface() {
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-workbench-navigation={navigation().layout}>
           <For each={WORK_V1_FUNCTIONS}>
             {(operation) => (
-              <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-workbench-operation={operation}>
+              <button
+                type="button"
+                class="w-full rounded-lg border border-border-base bg-background-stronger p-4 text-left transition-colors hover:bg-background-strong"
+                classList={{ "border-border-focus": activeOperation() === operation }}
+                data-workbench-operation={operation}
+                aria-pressed={activeOperation() === operation}
+                onClick={() => setActiveOperation(operation)}
+              >
                 <div class="flex items-center justify-between gap-3">
                   <h2 class="text-14-medium capitalize">{labelFor(operation)}</h2>
-                  <Show when={navigation().entries.find((entry) => entry.operation === operation)?.selected}>
+                  <Show when={activeOperation() === operation}>
                     <span class="text-12-medium text-text-success">Active</span>
                   </Show>
                 </div>
                 <p class="mt-2 text-12-regular text-text-weak">
                   {operation === "documents" ? `${navigation().workCount} documents` : operation === "export" ? "Approval required" : "Scoped to this workspace"}
                 </p>
-              </article>
+              </button>
             )}
           </For>
+        </div>
+        <div class="rounded-lg border border-border-base bg-background-stronger p-5" data-workbench-selected-operation={activeOperation()}>
+          <p class="text-12-medium uppercase tracking-wide text-text-weak">Selected operation</p>
+          <h2 class="mt-2 text-18-medium capitalize">{labelFor(activeOperation())}</h2>
+          <p class="mt-2 text-14-regular text-text-weak">This surface keeps the operation scoped to the active workspace and routes writes through the existing approval boundary.</p>
         </div>
       </div>
     </section>
@@ -62,7 +75,8 @@ function WorkSurface() {
 }
 
 function DesignSurface() {
-  const spec = createMemo(() => createDesignSpecPanelState({ kind: "inline", value: SAMPLE_SPEC }))
+  const [source, setSource] = createSignal(SAMPLE_SPEC)
+  const spec = createMemo(() => createDesignSpecPanelState({ kind: "inline", value: source() }))
   const preview = createMemo(() => createDesignPreviewPanelState(spec()))
 
   return (
@@ -73,6 +87,24 @@ function DesignSurface() {
           <h1 class="text-24-medium">Validated responsive preview</h1>
           <p class="max-w-2xl text-14-regular text-text-weak">The preview is produced only after spec validation and is loaded as an inert image source.</p>
         </header>
+        <label class="block space-y-2" for="workbench-design-spec">
+          <span class="text-14-medium">Design spec</span>
+          <textarea
+            id="workbench-design-spec"
+            class="min-h-48 w-full rounded-lg border border-border-base bg-background-stronger p-4 font-mono text-12-regular text-text-base"
+            value={source()}
+            onInput={(event) => setSource(event.currentTarget.value)}
+            spellcheck={false}
+          />
+        </label>
+        <Show when={spec().diagnostics.length > 0}>
+          <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
+            <h2 class="text-14-medium text-text-danger">Spec diagnostics</h2>
+            <For each={spec().diagnostics}>
+              {(diagnostic) => <p class="mt-2 text-12-regular text-text-weak">Line {diagnostic.line}, column {diagnostic.column}: {diagnostic.message}</p>}
+            </For>
+          </aside>
+        </Show>
         <Show when={preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message}</p>}>
           <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={preview().previews.length}>
             <For each={preview().previews}>
