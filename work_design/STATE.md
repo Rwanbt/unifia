@@ -134,7 +134,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M1c-h validation → NativeTokenBridge 5/5, WorkbenchConnection 2/2, and shell typecheck PASS; concrete platform bridge and manual scope/expiry evidence remain pending.
 - M1c-i validation → WorkbenchShell 13 scripts pass, NativeTokenBridge 5/5, WorkbenchConnection 2/2, and typecheck PASS; concrete platform bridge and manual evidence remain pending.
 - M1c-l validation → the mounted native bridge now proves issue → rotate with previous-token grace → revoke; `WorkbenchNativeBridge: 8/8 passed`.
-- Current checkpoint → `55d40d7864 feat(desktop): add Workbench platform adapter`; worktree clean, branch `work-design`, remote typecheck 35/35.
+- Current checkpoint → `b84739f816 test(workbench): cover native token rotation lifecycle`; worktree clean, branch `work-design`, remote typecheck 35/35.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.
