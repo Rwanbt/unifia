@@ -17,6 +17,7 @@
 - Workbench UI wiring: PASS for the existing route composition; Work renders and selects from the shared eleven-function registry, while Design offers editable validation diagnostics and three responsive SVG previews through image sources. App typecheck and 704 unit tests pass.
 - App production bundle: PASS; Vite build completed successfully, with existing chunk-size, CSS minifier, and dynamic-import warnings recorded but no build error.
 - Workbench protocol handshake: PASS; server accepts/refuses the versioned payload, returns its authoritative instance id, audits the decision, and the client now sends the complete request body.
+- Client token rotation handoff: PASS at the client boundary; `TokenRotation` is parsed at runtime and requests wait for the provider-owned rotation to complete. Native/server grace-period evidence remains pending.
 - Workbench Server test command: corrected to run the two Vitest suites with `vitest`; the previous mixed Bun/Vitest script failure was runner configuration, not a handshake regression.
 
 ## Human gates

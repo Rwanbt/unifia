@@ -58,6 +58,30 @@ const handshakeBody = JSON.parse(String(handshakeRequest?.init?.body)) as Record
 check(handshake.kind === "workbench.handshake.accepted", "client did not parse the handshake response")
 check(handshakeRequest?.url === "/v1/handshake" && handshakeBody.kind === "workbench.handshake" && handshakeBody.clientInstanceId === "instance-1", "client handshake request was not encoded with the wire contract")
 
+let releaseRotation: (() => void) | undefined
+let rotationApplied = false
+let resolveRotation = new Promise<void>((resolve) => { releaseRotation = resolve })
+const rotating = new WorkbenchClient({
+  baseUrl: "http://127.0.0.1:7444",
+  instanceId: "instance-rotation",
+  token: {
+    current: () => "current",
+    refresh: async () => "refreshed",
+    applyRotation: async () => { await resolveRotation; rotationApplied = true },
+  },
+  fetchImpl: async (_input, init) => {
+    check(rotationApplied, "request escaped before token rotation completed")
+    check(String(init?.headers && new Headers(init.headers).get("authorization")) === "Bearer current", "request did not preserve the provider-owned token")
+    return new Response(JSON.stringify({ ok: true }), { status: 200 })
+  },
+})
+rotating.applyTokenRotation({ state: "rotating", token: "next", previousToken: "current", gracePeriodMs: 30_000, expiresAt: Date.now() + 60_000 })
+const pendingRotationRequest = rotating.request<{ ok: boolean }>("/v1/read")
+await new Promise((resolve) => setTimeout(resolve, 0))
+check(!rotationApplied, "rotation completed synchronously instead of waiting for the native provider")
+releaseRotation?.()
+check((await pendingRotationRequest).ok, "request after token rotation did not complete")
+
 check((await client.request<{ ok: boolean }>("/v1/read")).ok, "a GET did not retry after token refresh")
 check(refreshes === 1, "GET refresh count was not exactly one")
 

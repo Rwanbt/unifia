@@ -5,6 +5,7 @@ import {
   WIRE_PROTOCOL_VERSION,
   createIdempotencyKey,
   parseHandshakeResponse,
+  parseTokenRotation,
   parseWorkspaceEvent,
   type HandshakeResponse,
   type IdempotencyKey,
@@ -106,6 +107,7 @@ export class WorkbenchClient {
   readonly #token: TokenProvider
   readonly #fetch: typeof fetch
   readonly #now: () => number
+  #rotation: Promise<void> | undefined
 
   constructor(options: WorkbenchClientOptions) {
     this.#baseUrl = options.baseUrl.replace(/\/$/, "")
@@ -128,6 +130,22 @@ export class WorkbenchClient {
     })
     const payload = await response.json()
     return parseHandshakeResponse(payload)
+  }
+
+  /**
+   * Applies a native rotation before allowing another request to leave the
+   * client. The native provider remains the only token owner; this method only
+   * serializes the handoff so concurrent requests cannot race the transition.
+   */
+  applyTokenRotation(value: unknown): TokenRotation {
+    const rotation = parseTokenRotation(value)
+    if (this.#token.applyRotation) {
+      this.#rotation = Promise.resolve()
+        .then(() => this.#token.applyRotation?.(rotation))
+        .then(() => undefined)
+        .finally(() => { this.#rotation = undefined })
+    }
+    return rotation
   }
 
   async listFiles(workspaceId: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
@@ -175,6 +193,7 @@ export class WorkbenchClient {
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    await this.#rotation
     const method = options.method ?? "GET"
     const canRetry = method === "GET" || method === "DELETE" || options.idempotencyKey !== undefined
     let token = this.#token.current()
