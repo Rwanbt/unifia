@@ -154,3 +154,13 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
 3. M24 UI wiring is implemented; M1c-g injects the live connection point into the app, and M8-a strengthens automatic-port ownership evidence. Native platform bindings and MV-01 through MV-10 remain open. Do not sign, merge, publish, or mark the candidate release-ready from automated checks alone.
+
+## 2026-08-14 UI repair continuation
+
+- P0-A through P0-D completed against the current `745aa86b82` baseline; see `docs/autonomy/WORK-DESIGN-UI-REPAIR-2026-08-14.md`.
+- W1 fixed workspace resolution outside route params and preserves `?session=` during mode navigation.
+- W2 added visible bridge failure/retry states and real Work reads plus artifact export.
+- The Workbench connection is now owned once by `ModeProvider` at workspace scope and shared by all three non-Code surfaces.
+- Design now reads the authoritative `.unifia/workspace.json` manifest through `GET /v1/design-systems`; `SAMPLE_SPEC` is no longer a production source.
+- Automate v0 is a real read-only `.unifia/workflows` file-index surface; workflow execution remains unavailable by explicit ADR.
+- Automated gates are green; MV-01, MV-02, MV-06, MV-07, MV-08, MV-09 and MV-10 remain pending human/runtime gates.
