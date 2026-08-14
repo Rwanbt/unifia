@@ -1,4 +1,4 @@
-import type { ApprovalBroker, CapabilityRegistry, BrowserAutomationBroker, McpUiControlBroker, UiAction, CapabilityManifest, DesktopAutomationBroker } from "@unifia/contracts"
+import type { ApprovalBroker, ApprovalRequestRecord, AuditEvent, CapabilityRegistry, BrowserAutomationBroker, McpUiControlBroker, UiAction, CapabilityManifest, DesktopAutomationBroker } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
@@ -21,10 +21,11 @@ import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
 export * from "./auth.js"
 export * from "./security.js"
 export * from "./operations.js"
+export * from "./logging.js"
 
-type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown }
+type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
-export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
+export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
 type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
 
 /** Requests per principal per window when the caller injects no limiter. */
@@ -145,7 +146,10 @@ export class WorkbenchServer {
       if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
       if (segments[1] === "files" && (segments[2] === "list" || segments[2] === "search") && request.method === "GET") return this.#fileIndex(request, segments[2])
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
+      if (segments[1] === "approvals" && request.method === "GET") return this.#approvalList(request)
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
+      if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
+      if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
       if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
@@ -445,6 +449,28 @@ export class WorkbenchServer {
     this.#audit.record("workbench-server", "approval.resolve", (decision as { kind?: string }).kind === "allow" ? "allow" : "deny")
     return json(200, { decision })
   }
+  async #approvalList(request: Request): Promise<Response> {
+    const url = new URL(request.url)
+    const workspaceId = url.searchParams.get("workspaceId")
+    const token = workspaceId ? this.#authorize(request, workspaceId) : undefined
+    if (!workspaceId || !token) return this.#deny("approval.list.scope", 403)
+    const approvals = this.#capability.listApprovals?.(workspaceId)
+    if (!approvals) return this.#deny("approval.list.unavailable", 503)
+    this.#allow("approval.list")
+    return json(200, { approvals })
+  }
+  async #auditPage(request: Request, kind: "trace" | "activity"): Promise<Response> {
+    const url = new URL(request.url)
+    const workspaceId = url.searchParams.get("workspaceId")
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(`${kind}.scope`, 403)
+    const after = Number(url.searchParams.get("after") ?? "0")
+    const requestedLimit = Number(url.searchParams.get("limit") ?? "50")
+    const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50
+    const page = this.#audit.page?.(Number.isSafeInteger(after) && after > 0 ? after : 0, limit)
+    if (!page) return this.#deny(`${kind}.unavailable`, 503)
+    this.#allow(`${kind}.read`)
+    return json(200, { kind, ...page })
+  }
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)
     if (!supplied || supplied !== token || !this.#tokens.has(token)) return this.#deny("workspace.close.scope", 403)
@@ -537,6 +563,7 @@ export class ApprovalCapabilityGate implements CapabilityGate {
     return { kind: "approval_required", approvalId: request.id }
   }
   getApproval(id: string) { return this.#broker.get(id) }
+  listApprovals(resource: string) { return this.#broker.pending(resource) }
   resolve(id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) { return this.#broker.resolve(id, decision, actor, grantedResource) }
   cancel(id: string) { return this.#broker.cancel(id) }
 }

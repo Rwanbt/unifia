@@ -64,5 +64,12 @@ export const M7_SERVER_ROUTE_REGISTRY = {
   filesSearch: { method: "GET", route: "/v1/files/search", capability: "workspace.read", event: "workspace.changed" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M8 approval and audit read routes are registered before server consumption. */
+export const M8_SERVER_ROUTE_REGISTRY = {
+  approvalsList: { method: "GET", route: "/v1/approvals", capability: "approval.read", event: "approval.updated" },
+  tracePage: { method: "GET", route: "/v1/trace", capability: "trace.read", event: "trace.appended" },
+  activityPage: { method: "GET", route: "/v1/activity", capability: "trace.read", event: "trace.appended" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

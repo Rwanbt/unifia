@@ -15,7 +15,7 @@
 
 import { appendFileSync, mkdirSync } from "node:fs"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer } from "./index.js"
@@ -72,6 +72,10 @@ export class FileAuditSink {
 
   events(): readonly unknown[] {
     return this.#chain.events()
+  }
+
+  page(afterSequence = 0, limit = 50): { events: readonly AuditEvent[]; nextCursor: number | null } {
+    return this.#chain.page(afterSequence, limit)
   }
 }
 

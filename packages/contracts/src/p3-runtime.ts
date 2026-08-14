@@ -26,6 +26,13 @@ export class AuditRuntimeDouble {
   }
 
   public events(): readonly AuditEvent[] { return this.entries.map((event) => ({ ...event })) }
+
+  public page(afterSequence = 0, limit = 50): { events: readonly AuditEvent[]; nextCursor: number | null } {
+    const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 100)
+    const events = this.entries.filter((event) => event.sequence > afterSequence).slice(0, safeLimit).map((event) => ({ ...event }))
+    const last = events.at(-1)?.sequence
+    return { events, nextCursor: events.length === safeLimit && last !== undefined ? last : null }
+  }
 }
 
 export type SecretHandle = { id: string; name: string; scope: string }

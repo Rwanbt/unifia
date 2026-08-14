@@ -50,6 +50,13 @@ export class ApprovalBroker {
     return request ? { ...request } : undefined
   }
 
+  pending(resource?: string): readonly ApprovalRequestRecord[] {
+    const now = this.#now()
+    return [...this.#requests.values()]
+      .filter((request) => request.status === "pending" && request.expiresAt > now && (resource === undefined || request.resource === resource))
+      .map((request) => ({ ...request }))
+  }
+
   #close(request: ApprovalRequestRecord, status: ApprovalRequestState, decision: P3Decision): P3Decision {
     request.status = status
     this.#observe?.({ ...request }, decision)
