@@ -12,6 +12,7 @@
 - Remote turbo typecheck on the latest push: 35/35 successful.
 - CI conformance repair remains green at 8/8; the non-blocking Node 20/24 action warning remains known.
 - Fresh local conformance rerun: PASS 8/8, 43 suites (41 Bun + 2 Vitest), 25 owned packages lint clean; browser E2E is explicitly skipped because it requires a real browser.
+- GitHub Actions confirmation: run `31761195329` completed `success` for `unifia-conformance` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; later documentation-only pushes do not match the workflow path filter.
 - Static CSP extraction: PASS for explicit Tauri origins, loopback/IPC scoping, `img-src data:`, `object-src 'none'`, and `frame-ancestors 'none'`; the runtime server remains self/data-only for `connect-src`. MV-09 still requires packaged-bundle extraction and interactive allow/deny checks.
 
 ## Human gates
