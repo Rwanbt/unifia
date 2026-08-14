@@ -22,6 +22,7 @@ try {
   await first.stop()
   const second = await startWorkbench({ ...config, port })
   if (second.port !== port) throw new Error("the server did not restart on the released port")
+  if (second.instanceId === first.instanceId) throw new Error("the restarted server reused the previous process instance id")
   await second.stop()
 
   const app = createWorkbenchApp(config)

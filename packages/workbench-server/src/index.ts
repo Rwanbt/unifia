@@ -633,6 +633,10 @@ export class WorkbenchServer {
     return this.#tokens.size
   }
 
+  get instanceId(): string {
+    return this.#instanceId
+  }
+
   #authorize(request: Request, workspaceId: string): string | undefined {
     const token = this.#bearer(request)
     const handle = token ? this.#tokens.get(token) : undefined

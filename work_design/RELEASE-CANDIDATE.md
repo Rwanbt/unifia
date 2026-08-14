@@ -20,6 +20,7 @@
 - Client token rotation handoff: PASS at the client boundary; `TokenRotation` is parsed at runtime and requests wait for the provider-owned rotation to complete. Native/server grace-period evidence remains pending.
 - Native token authority boundary: PASS at the server boundary; issuer injection and internal issue/rotate/revoke methods are instance-bound and audited without exposing an HTTP minting route. Platform bridge and runtime evidence remain pending.
 - Native token shell adapter: PASS; `createNativeTokenProvider` validates the platform lease and adapts issue/rotate/revoke to the typed client provider. No desktop/mobile implementation is claimed.
+- Instance restart identity: PASS at the headless boundary; a released port can be reused only by a new process instance id. Cross-process desktop workspace contamination remains a manual/runtime gate.
 - Workbench Server test command: corrected to run the two Vitest suites with `vitest`; the previous mixed Bun/Vitest script failure was runner configuration, not a handshake regression.
 
 ## Human gates

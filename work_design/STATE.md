@@ -50,6 +50,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c-b | implemented with deferred native proof | shell typecheck + client 26/26 | `WorkbenchClient.applyTokenRotation()` validates the executable wire contract and serializes requests until the native provider completes rotation; native bridge and server acceptance proof remain pending. |
 | M1c-c | implemented with deferred native proof | workbench-server typecheck + handshake 4/4 + server 72/72 + bootstrap 40/40 + topology 3/3 + security/preflight 4/4 | `ScopedTokenAuthority` is injected into `WorkbenchServer`; internal native-only issue/rotate/revoke methods bind tokens to the process instance and audit decisions. No HTTP token route is exposed. |
 | M1c-d | implemented with deferred platform proof | shell typecheck + NativeTokenBridge 4/4 + client 26/26 | `createNativeTokenProvider` adapts issue/rotate/revoke to the shell `TokenProvider`, validates returned lease data, and keeps signing material outside the WebView. Platform bindings remain pending. |
+| M7-a | implemented with deferred process proof | server typecheck + topology 3/3 | `WorkbenchHandle` now exposes the process `instanceId`; restart tests prove the released port is reusable without reusing the previous process identity. |
 
 ## Manual verification register
 
@@ -60,7 +61,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
-- `git log -1 --oneline` → update after the shell test-script checkpoint commit
+- `git log -1 --oneline` → update after the instance identity checkpoint commit
 - `bash scripts/check-pr-size.sh dev` → 152 changed lines, under the 400-line limit
 - `.github/workflows/work-design-integrity.yml` → merge-tree, size, and whitespace checks declared
 - `DECISIONS.md` M1a gate table → nine plan decisions recorded

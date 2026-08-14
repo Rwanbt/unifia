@@ -40,6 +40,7 @@ export type WorkbenchConfig = {
 export type WorkbenchHandle = {
   readonly url: string
   readonly port: number
+  readonly instanceId: string
   stop(): Promise<void>
 }
 
@@ -185,7 +186,7 @@ export async function startWorkbench(config: WorkbenchConfig, surfaces: Workbenc
     await app.server.shutdown()
     await listener.stop(true)
   }
-  return { url: `http://${config.host}:${boundPort}`, port: boundPort, stop }
+  return { url: `http://${config.host}:${boundPort}`, port: boundPort, instanceId: app.server.instanceId, stop }
 }
 
 /** Process entry point: starts from the environment and stops on a signal. */
