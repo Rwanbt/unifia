@@ -10,6 +10,7 @@ const check = (condition: boolean, message: string): void => {
 
 let token = "expired"
 let refreshes = 0
+const requests: Array<{ url: string }> = []
 const client = new WorkbenchClient({
   baseUrl: "http://127.0.0.1:7444",
   instanceId: "instance-1",
@@ -17,11 +18,19 @@ const client = new WorkbenchClient({
     current: () => token,
     refresh: async () => { refreshes += 1; token = "fresh"; return token },
   },
-  fetchImpl: async (_input, init) => {
+  fetchImpl: async (input, init) => {
+    requests.push({ url: new URL(String(input)).pathname + new URL(String(input)).search })
     if (init?.headers && token === "expired") return new Response(null, { status: 401 })
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })
+    return new Response(JSON.stringify({ ok: true, entries: [] }), { status: 200, headers: { "content-type": "application/json" } })
   },
 })
+
+const listRequest = await client.listFiles("workspace-1", "src")
+check(requests.at(-1)?.url === "/v1/files/list?workspaceId=workspace-1&prefix=src", "file list client route was not encoded deterministically")
+check(listRequest.entries.length === 0, "file list client did not decode the response")
+const searchRequest = await client.searchFiles("workspace-1", "main.ts")
+check(requests.at(-1)?.url === "/v1/files/search?workspaceId=workspace-1&query=main.ts&prefix=.", "file search client route was not encoded deterministically")
+check(searchRequest.entries.length === 0, "file search client did not decode the response")
 
 check((await client.request<{ ok: boolean }>("/v1/read")).ok, "a GET did not retry after token refresh")
 check(refreshes === 1, "GET refresh count was not exactly one")

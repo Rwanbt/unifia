@@ -35,6 +35,9 @@ export type RequestOptions = {
   signal?: AbortSignal
 }
 
+export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
+export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[] }
+
 export class WorkbenchHttpError extends Error {
   readonly status: number
   readonly retryable: boolean
@@ -110,6 +113,16 @@ export class WorkbenchClient {
     const response = await this.#fetch(`${this.#baseUrl}/v1/handshake`, { method: "POST", headers: this.#headers() })
     const payload = await response.json()
     return parseHandshakeResponse(payload)
+  }
+
+  async listFiles(workspaceId: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
+    const params = new URLSearchParams({ workspaceId, prefix })
+    return this.request<WorkspaceFilePage>(`/v1/files/list?${params}`, { signal })
+  }
+
+  async searchFiles(workspaceId: string, query: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
+    const params = new URLSearchParams({ workspaceId, query, prefix })
+    return this.request<WorkspaceFilePage>(`/v1/files/search?${params}`, { signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
