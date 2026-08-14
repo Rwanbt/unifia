@@ -28,4 +28,5 @@ Cette liste est la source de vérité des contrôles qui nécessitent une machin
 - Installation : package `ai.unifia.mobile`, version `0.1.0`, `lastUpdateTime=2026-08-14 09:43:38`.
 - Runtime : `ai.unifia.mobile/.MainActivity` résumée au premier plan ; les logs montrent `/global/health` complété avec `healthy=true`, version `local` et port loopback `127.0.0.1:14096`.
 - Capture locale : `D:\App\OpenCode\.build-temp\unifia-device-proof-2.png` montre l’application Unifia avec le sélecteur « Ouvrir un projet » et le runtime disponible.
+- Sous-test lifecycle : PID `6866` avant/après la relance et `MainActivity` résumée ; l’injection réelle de `KEYCODE_HOME` a été refusée par MIUI (`SecurityException`, permission `INJECT_EVENTS` manquante), donc le passage arrière-plan n’est pas prouvé.
 - Statut inchangé : MV-03 et MV-04 restent `PENDING`, car l’observation n’a pas encore couvert tout le parcours Work/Design, arrière-plan/reprise et le test SVG inert demandé.
