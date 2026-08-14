@@ -8,7 +8,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
 - Current card: `M24`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
-- Commit or push performed: yes; latest pushed SHA is `0f0d4823ab`.
+- Commit or push performed: yes; latest pushed SHA is `a04be041fa`.
 
 ## Cards
 
@@ -54,7 +54,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
-- `git log -1 --oneline` → `0f0d4823ab feat(app): wire Work Design surfaces`
+- `git log -1 --oneline` → `a04be041fa feat(app): make Work Design surfaces interactive`
 - `bash scripts/check-pr-size.sh dev` → 152 changed lines, under the 400-line limit
 - `.github/workflows/work-design-integrity.yml` → merge-tree, size, and whitespace checks declared
 - `DECISIONS.md` M1a gate table → nine plan decisions recorded
