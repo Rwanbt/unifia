@@ -8,7 +8,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
 - Current card: `M23`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
-- Commit or push performed: yes; latest pushed SHA is `57fd6f45f8`.
+- Commit or push performed: yes; latest pushed SHA is `a518ef2f7a`.
 
 ## Cards
 
@@ -53,7 +53,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
-- `git log -1 --oneline` → `91daa35a26 feat: complete the Unifia rebrand and repair the desync it left behind (#23)`
+- `git log -1 --oneline` → `a518ef2f7a docs(workbench): record Android lifecycle permission boundary`
 - `bash scripts/check-pr-size.sh dev` → 152 changed lines, under the 400-line limit
 - `.github/workflows/work-design-integrity.yml` → merge-tree, size, and whitespace checks declared
 - `DECISIONS.md` M1a gate table → nine plan decisions recorded
@@ -81,7 +81,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - Android release build → PASS (exit 0): unsigned APK and AAB generated under `packages/mobile/src-tauri/gen/android/app/build/outputs/`; APK size 1115164803 bytes, AAB size 1066480647 bytes.
 - `bun scripts/check-android-runtime.mjs` from `packages/mobile` → PASS: rootfs and 30 native libraries present. The ORT binary was supplied from an existing local prepared worktree through an ignored hardlink; no source checkout was modified.
 - Android build warnings remain: Gradle reports a debuggable release build and the native ORT sync reports a Windows file-lock warning. These require review before treating the artifact as release-ready.
-- No APK installation, device execution, signing, commit, push, merge, or publication was performed; MV-03/MV-04 and all other human gates remain pending.
+- The source APK remains unsigned; a local debug-signed copy was installed and executed on `b7163823`. No release signing, merge, or publication was performed; MV-03/MV-04 and all other human gates remain pending.
 - M1c token implementation → `ScopedTokenIssuer` now owns workspace + instance + capability scoped tokens, short TTL, rotation grace, and close-time revocation; focused auth/security/preflight/topology validation passes (6 tests, 0 failures).
 - M4 implementation → `packages/workbench-shell/src/client.ts` adds `WorkbenchClient`, `WorkbenchEventDispatcher`, bounded authentication retry, idempotency-aware mutation handling, SSE parsing, cursor continuation, and token-rotation hook; client contract test passes 7/7.
 - M5 implementation → `packages/workbench-shell/src/routes.ts` adds total `WORKBENCH_ROUTE_REGISTRY`, route helpers, capability/event mapping, and artifact lineage discriminants; route contract passes 11/11.
@@ -109,6 +109,7 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - Fresh conformance rerun → PASS 8/8: 43 suites, 25 owned packages lint clean, typecheck 35/35; browser E2E remains explicitly skipped and Gate C remains NO-GO on its documented external conditions.
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.
+- CSP static extraction → desktop and mobile Tauri configurations declare explicit loopback/IPC origins, `img-src data:`, `object-src 'none'`, and `frame-ancestors 'none'`; the runtime server CSP is self/data-only. Packaged-bundle and interactive URL checks remain MV-09.
 
 ## Resume first
 

@@ -12,6 +12,7 @@
 - Remote turbo typecheck on the latest push: 35/35 successful.
 - CI conformance repair remains green at 8/8; the non-blocking Node 20/24 action warning remains known.
 - Fresh local conformance rerun: PASS 8/8, 43 suites (41 Bun + 2 Vitest), 25 owned packages lint clean; browser E2E is explicitly skipped because it requires a real browser.
+- Static CSP extraction: PASS for explicit Tauri origins, loopback/IPC scoping, `img-src data:`, `object-src 'none'`, and `frame-ancestors 'none'`; the runtime server remains self/data-only for `connect-src`. MV-09 still requires packaged-bundle extraction and interactive allow/deny checks.
 
 ## Human gates
 
