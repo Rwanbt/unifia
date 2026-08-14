@@ -82,5 +82,10 @@ export const M9B_SERVER_ROUTE_REGISTRY = {
   artifactCreate: { method: "POST", route: "/v1/artifacts", capability: "artifact.create", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M10 export route remains approval-gated by the server capability broker. */
+export const M10_SERVER_ROUTE_REGISTRY = {
+  artifactExport: { method: "POST", route: "/v1/artifacts/export", capability: "artifact.export", event: "operation.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

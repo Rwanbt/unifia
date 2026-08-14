@@ -154,6 +154,7 @@ export class WorkbenchServer {
       if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
       if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
       if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2])
+      if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request)
       if (segments[1] === "artifacts" && request.method === "POST") return this.#artifactWrite(request)
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
@@ -500,6 +501,20 @@ export class WorkbenchServer {
     const artifact = await this.#artifacts.create({ kind: input.kind as Parameters<ArtifactStore["create"]>[0]["kind"], filename: input.filename, content: input.content, artifactId: typeof input.artifactId === "string" ? input.artifactId : undefined, metadata: input.metadata as Record<string, string> | undefined, provenance: input.provenance as Parameters<ArtifactStore["create"]>[0]["provenance"] })
     this.#allow("artifact.create")
     return json(201, { artifact })
+  }
+  async #artifactExport(request: Request): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("artifact.export.unavailable", 503)
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string" || typeof input.artifactId !== "string") return this.#deny("artifact.export", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("artifact.export.scope", 403)
+    const gate = await this.#checkCapability("artifact.export", input.workspaceId)
+    if (gate) return gate
+    const artifact = await this.#artifacts.latest(input.artifactId)
+    if (!artifact) return this.#deny("artifact.export.not-found", 404)
+    const exported = await this.#artifacts.export(artifact, { outbox: typeof input.outbox === "string" ? input.outbox : undefined, metadata: input.metadata === "keep" ? "keep" : "strip" })
+    this.#allow("artifact.export")
+    return json(200, { exported })
   }
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)
