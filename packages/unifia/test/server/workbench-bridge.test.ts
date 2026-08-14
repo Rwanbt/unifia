@@ -38,13 +38,36 @@ try {
   }))
   if (listed.status !== 200) throw new Error(`native lease was not accepted by the mounted Workbench route: ${listed.status} ${await listed.text()}`)
 
+  const rotated = await bridge.native(new Request("http://127.0.0.1/workbench/native/token", {
+    method: "POST", headers: nativeHeaders,
+    body: JSON.stringify({ action: "rotate", workspaceId: workspace.workspaceId, capabilities: ["workspace.read"] }),
+  }))
+  if (rotated.status !== 200) throw new Error(`native token rotation failed: ${rotated.status}`)
+  const rotation = await rotated.json() as { token?: string; previousToken?: string | null; gracePeriodMs?: number }
+  if (!rotation.token || rotation.previousToken !== lease.token || !rotation.gracePeriodMs) throw new Error("native rotation did not return the previous token grace lease")
+
+  const previousStillWorks = await bridge.fetch(new Request(`http://127.0.0.1/workbench/v1/files/list?workspaceId=${encodeURIComponent(workspace.workspaceId)}`, {
+    headers: { "x-unifia-file-session": rotation.previousToken },
+  }))
+  if (previousStillWorks.status !== 200) throw new Error(`previous native token was not accepted during grace: ${previousStillWorks.status}`)
+
+  const revoked = await bridge.native(new Request("http://127.0.0.1/workbench/native/token", {
+    method: "POST", headers: nativeHeaders,
+    body: JSON.stringify({ action: "revoke", workspaceId: workspace.workspaceId }),
+  }))
+  if (revoked.status !== 200) throw new Error(`native token revocation failed: ${revoked.status}`)
+  const revokedLease = await bridge.fetch(new Request(`http://127.0.0.1/workbench/v1/files/list?workspaceId=${encodeURIComponent(workspace.workspaceId)}`, {
+    headers: { "x-unifia-file-session": rotation.token },
+  }))
+  if (revokedLease.status === 200) throw new Error("revoked native token remained usable")
+
   const denied = await bridge.native(new Request("http://127.0.0.1/workbench/native/token", {
     method: "POST", headers: { ...nativeHeaders, "x-unifia-keychain-token": "wrong" },
     body: JSON.stringify({ action: "issue", workspaceId: workspace.workspaceId }),
   }))
   if (denied.status !== 401) throw new Error(`invalid native IPC token was accepted: ${denied.status}`)
   await bridge.app.server.shutdown()
-  console.log("WorkbenchNativeBridge: 4/4 passed")
+  console.log("WorkbenchNativeBridge: 8/8 passed")
 } finally {
   if (previousPassword === undefined) delete process.env.UNIFIA_SERVER_PASSWORD
   else process.env.UNIFIA_SERVER_PASSWORD = previousPassword
