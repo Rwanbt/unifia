@@ -25,9 +25,16 @@ try {
   if (second.instanceId === first.instanceId) throw new Error("the restarted server reused the previous process instance id")
   await second.stop()
 
+  const automaticA = await startWorkbench({ ...config, port: 0 })
+  const automaticB = await startWorkbench({ ...config, port: 0 })
+  if (automaticA.port === automaticB.port) throw new Error("automatic-port servers shared a listener")
+  if (automaticA.instanceId === automaticB.instanceId) throw new Error("automatic-port servers shared a process identity")
+  await automaticA.stop()
+  await automaticB.stop()
+
   const app = createWorkbenchApp(config)
   if ((await app.server.shutdown()).length !== 0) throw new Error("an unstarted server did not shut down cleanly")
-  console.log("WorkbenchTopology: 3/3 passed")
+  console.log("WorkbenchTopology: 4/4 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }
