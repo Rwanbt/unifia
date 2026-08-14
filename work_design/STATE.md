@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M1c-a` (protocol handshake)
+- Current card: `M1c-d` (native bridge shell adapter)
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes; latest pushed SHA is `a04be041fa`.
 
@@ -49,6 +49,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c-a | implemented with deferred native proof | workbench-server handshake 4/4 + shell client 22/22 + server typecheck; unsupported versions are refused and decisions are audited | `/v1/handshake` now exchanges the versioned wire payload and preserves a server instance id. Native token issue/rotate/revoke remains the M1c blocker. |
 | M1c-b | implemented with deferred native proof | shell typecheck + client 26/26 | `WorkbenchClient.applyTokenRotation()` validates the executable wire contract and serializes requests until the native provider completes rotation; native bridge and server acceptance proof remain pending. |
 | M1c-c | implemented with deferred native proof | workbench-server typecheck + handshake 4/4 + server 72/72 + bootstrap 40/40 + topology 3/3 + security/preflight 4/4 | `ScopedTokenAuthority` is injected into `WorkbenchServer`; internal native-only issue/rotate/revoke methods bind tokens to the process instance and audit decisions. No HTTP token route is exposed. |
+| M1c-d | implemented with deferred platform proof | shell typecheck + NativeTokenBridge 4/4 + client 26/26 | `createNativeTokenProvider` adapts issue/rotate/revoke to the shell `TokenProvider`, validates returned lease data, and keeps signing material outside the WebView. Platform bindings remain pending. |
 
 ## Manual verification register
 
@@ -59,7 +60,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 ## Validation log
 
 - `git status --short --branch` → clean on `work-design`
-- `git log -1 --oneline` → `6e8e676549 feat(workbench): inject native scoped token authority`
+- `git log -1 --oneline` → update after the native bridge adapter commit
 - `bash scripts/check-pr-size.sh dev` → 152 changed lines, under the 400-line limit
 - `.github/workflows/work-design-integrity.yml` → merge-tree, size, and whitespace checks declared
 - `DECISIONS.md` M1a gate table → nine plan decisions recorded

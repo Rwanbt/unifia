@@ -2,6 +2,7 @@
 export { DESTRUCTIVE_ACTIONS, READ_ONLY_FUNCTIONS, SHELL_MODES, WORK_V1_FUNCTIONS, isDestructive, isReadOnly, type DestructiveAction, type ShellMode, type WorkFunction } from "./modes.js"
 export { ShellError, WorkbenchShell, surface, type ArtifactRef, type PreviewToken, type Provenance, type ShellOptions, type ShellRefusal, type ShellResult } from "./shell.js"
 export { WorkbenchClient, WorkbenchEventDispatcher, WorkbenchHttpError, newRequestId, type ApprovalRequest, type ArtifactSummary, type AuditEvent, type AuditPage, type CapabilityRecord, type ExportedArtifact, type RequestOptions, type TokenProvider, type WorkbenchClientOptions, type WorkspaceFileEntry, type WorkspaceFilePage } from "./client.js"
+export { createNativeTokenProvider, type NativeIssuedToken, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
 export { createDesignSpecPanelState, type DesignSpecDiagnostic, type DesignSpecPanelState, type DesignSpecSource } from "./design-spec.js"
 export { renderDesignSpecSvg, type DesignRenderOptions } from "./design-renderer.js"
 export { createDesignPreviewPanelState, type DesignPreview, type DesignPreviewPanelState } from "./design-preview.js"
