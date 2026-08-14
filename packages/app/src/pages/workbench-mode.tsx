@@ -1,5 +1,6 @@
-import { For, Show, createMemo, createSignal } from "solid-js"
+import { For, Show, createMemo, createResource, createSignal, onCleanup } from "solid-js"
 import { useMode } from "@/context/mode"
+import { usePlatform } from "@/context/platform"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -27,6 +28,13 @@ const SAMPLE_SPEC = JSON.stringify(
 const labelFor = (operation: WorkFunction) => operation.replaceAll("-", " ")
 
 function WorkSurface() {
+  const platform = usePlatform()
+  const mode = useMode()
+  const [connection] = createResource(
+    () => platform.workbench && mode.directory(),
+    async (workspacePath) => platform.workbench?.connect({ workspacePath, capabilities: ["workspace.read", "workspace.watch"] }),
+  )
+  onCleanup(() => { void connection()?.revoke() })
   const [activeOperation, setActiveOperation] = createSignal<WorkFunction>("documents")
   const navigation = createMemo(() =>
     createMobileNavigationModel({ viewportWidth: window.innerWidth, documents: 0, designPreviews: 3, active: activeOperation() }),
@@ -39,6 +47,9 @@ function WorkSurface() {
           <p class="text-12-medium uppercase tracking-wide text-text-weak">Work</p>
           <h1 class="text-24-medium">Workspace operations</h1>
           <p class="max-w-2xl text-14-regular text-text-weak">Read-only workspace surfaces are derived from the shared Work registry and keep their scope explicit.</p>
+          <p data-workbench-connection={connection()?.instanceId ? "connected" : "native-bridge-pending"} class="text-12-regular text-text-weak">
+            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : "Native Workbench bridge pending"}
+          </p>
         </header>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-workbench-navigation={navigation().layout}>
           <For each={WORK_V1_FUNCTIONS}>

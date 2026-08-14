@@ -2,6 +2,7 @@ import { createSimpleContext } from "@unifia/ui/context"
 import type { AsyncStorage, SyncStorage } from "@solid-primitives/storage"
 import type { Accessor } from "solid-js"
 import type { ServerConnection } from "./server"
+import type { WorkbenchConnection } from "@unifia/workbench-shell"
 
 type PickerPaths = string | string[] | null
 type OpenDirectoryPickerOptions = { title?: string; multiple?: boolean }
@@ -129,6 +130,11 @@ export type Platform = {
 
   /** Stop the local CLI server */
   stopLocalServer?(): Promise<void>
+
+  /** Native-only Workbench connection; signing material never enters the WebView. */
+  workbench?: {
+    connect(input: { workspacePath: string; capabilities: readonly string[] }): Promise<WorkbenchConnection>
+  }
 }
 
 export type DisplayBackend = "auto" | "wayland"
