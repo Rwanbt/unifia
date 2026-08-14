@@ -5,6 +5,7 @@ import type { WorkspaceFileEntry, WorkspaceFilePage } from "./client.js"
 export type DesignFileKind = "asset" | "component" | "style" | "unknown"
 export type DesignFile = Omit<WorkspaceFileEntry, "kind"> & { kind: DesignFileKind }
 export type DesignFilesPanelState = { files: readonly DesignFile[]; selectedPath?: string }
+export type DesignFileRow = { path: string; label: string; kind: DesignFileKind; selected: boolean }
 
 function fileKind(path: string): DesignFileKind {
   const extension = path.split(".").at(-1)?.toLowerCase()
@@ -22,4 +23,8 @@ export function adaptDesignFiles(page: WorkspaceFilePage): readonly DesignFile[]
 export function createDesignFilesPanelState(page: WorkspaceFilePage, selectedPath?: string): DesignFilesPanelState {
   const files = adaptDesignFiles(page)
   return { files, selectedPath: files.some((file) => file.path === selectedPath) ? selectedPath : undefined }
+}
+
+export function renderDesignFileRows(state: DesignFilesPanelState): readonly DesignFileRow[] {
+  return state.files.map((file) => ({ path: file.path, label: file.path.split("/").at(-1) ?? file.path, kind: file.kind, selected: file.path === state.selectedPath }))
 }

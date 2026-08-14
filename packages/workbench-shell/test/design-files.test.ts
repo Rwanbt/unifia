@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { adaptDesignFiles, createDesignFilesPanelState } from "../src/design-files.js"
+import { adaptDesignFiles, createDesignFilesPanelState, renderDesignFileRows } from "../src/design-files.js"
 
 const page = { entries: [
   { path: "zeta.ts", kind: "file" as const, size: 1, modifiedAt: 2 },
@@ -14,5 +14,7 @@ if (files.length !== 4 || files[0]?.path !== "assets/logo.svg") throw new Error(
 if (files.find((file) => file.path === "assets/logo.svg")?.kind !== "asset") throw new Error("asset kind was not inferred")
 if (files.find((file) => file.path === "components/Card.tsx")?.kind !== "component") throw new Error("component kind was not inferred")
 if (createDesignFilesPanelState(page, "missing.ts").selectedPath !== undefined) throw new Error("panel selected an absent file")
-if (createDesignFilesPanelState(page, "styles/theme.css").selectedPath !== "styles/theme.css") throw new Error("panel did not preserve a valid selection")
-console.log("DesignFiles: 5/5 passed")
+const selected = createDesignFilesPanelState(page, "styles/theme.css")
+if (selected.selectedPath !== "styles/theme.css") throw new Error("panel did not preserve a valid selection")
+if (renderDesignFileRows(selected).find((row) => row.path === "styles/theme.css")?.selected !== true) throw new Error("panel did not render the selected row")
+console.log("DesignFiles: 6/6 passed")
