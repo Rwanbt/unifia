@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test/shell.test.ts && bun test/modes-contract.test.ts && bun test/client.test.ts && bun test/native-token-bridge.test.ts && bun test/routes.test.ts"
+    "test": "bun test/shell.test.ts && bun test/modes-contract.test.ts && bun test/client.test.ts && bun test/native-token-bridge.test.ts && bun test/connection.test.ts && bun test/routes.test.ts"
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*"

@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M1c-e` (native token consumption boundary)
+- Current card: `M1c-f` (live Workbench connection controller)
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes; latest pushed SHA is `a04be041fa`.
 
@@ -51,6 +51,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c-c | implemented with deferred native proof | workbench-server typecheck + handshake 4/4 + server 72/72 + bootstrap 40/40 + topology 3/3 + security/preflight 4/4 | `ScopedTokenAuthority` is injected into `WorkbenchServer`; internal native-only issue/rotate/revoke methods bind tokens to the process instance and audit decisions. No HTTP token route is exposed. |
 | M1c-d | implemented with deferred platform proof | shell typecheck + NativeTokenBridge 4/4 + client 26/26 | `createNativeTokenProvider` adapts issue/rotate/revoke to the shell `TokenProvider`, validates returned lease data, and keeps signing material outside the WebView. Platform bindings remain pending. |
 | M1c-e | implemented with deferred platform proof | Workbench Server handshake 5/5 + server 72/72 + bootstrap 40/40 + topology 3/3 + security/CORS 4/4 + typecheck | Native scoped tokens are now registered as workspace sessions, accepted through issuer fallback, preserved across rotation grace, and fully removed on revoke. |
+| M1c-f | implemented with deferred platform proof | shell 13 scripts: WorkbenchConnection 2/2, Client 26/26, NativeTokenBridge 4/4; shell typecheck PASS | `connectWorkbench` creates the client only after decoding the native lease identity, completing the handshake, and checking server instance continuity; close remains explicit through native revoke. |
 | M7-a | implemented with deferred process proof | server typecheck + topology 3/3 | `WorkbenchHandle` now exposes the process `instanceId`; restart tests prove the released port is reusable without reusing the previous process identity. |
 
 ## Manual verification register
@@ -118,6 +119,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - Fresh conformance rerun → PASS 8/8: 43 suites, 25 owned packages lint clean, typecheck 35/35; browser E2E remains explicitly skipped and Gate C remains NO-GO on its documented external conditions.
 - M1c-d validation → shell suite 5 scripts, including NativeTokenBridge 4/4; app typecheck and production build PASS; Workbench security guard and conformance 8/8 PASS; browser/device/manual gates remain pending.
 - M1c-e validation → Workbench Server handshake 5/5, server 72/72, bootstrap 40/40, topology 3/3, security/CORS 4/4, and typecheck PASS; platform bridge and browser/device/manual gates remain pending.
+- M1c-f validation → WorkbenchShell 13 scripts pass, including WorkbenchConnection 2/2; shell typecheck PASS. Desktop/mobile concrete bridge bindings and browser/device/manual gates remain pending.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.
@@ -130,4 +132,4 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M24 UI wiring is implemented; M1c-e closes the server-side native-token consumption boundary. Keep MV-01 through MV-10 pending until their described evidence exists. Do not sign, merge, publish, or mark the candidate release-ready from automated checks alone.
+3. M24 UI wiring is implemented; M1c-f adds the live connection controller but platform bindings are still open. Keep MV-01 through MV-10 pending until their described evidence exists. Do not sign, merge, publish, or mark the candidate release-ready from automated checks alone.

@@ -14,6 +14,7 @@ import {
   type WorkbenchEventType,
   type WorkspaceEvent,
 } from "@unifia/contracts/workbench-wire"
+import { createNativeTokenProvider, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
 
 export type TokenProvider = {
   current(): string | undefined
@@ -27,6 +28,18 @@ export type WorkbenchClientOptions = {
   token: TokenProvider
   fetchImpl?: typeof fetch
   now?: () => number
+}
+
+export type WorkbenchConnectionOptions = Omit<WorkbenchClientOptions, "instanceId" | "token"> & {
+  bridge: NativeTokenBridge
+  tokenRequest: NativeTokenRequest
+}
+
+export type WorkbenchConnection = {
+  client: WorkbenchClient
+  instanceId: string
+  workspaceId: string
+  revoke(): Promise<void>
 }
 
 export type RequestOptions = {
@@ -240,6 +253,40 @@ export class WorkbenchClient {
     const headers: Record<string, string> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}) }
     return this.#fetch(`${this.#baseUrl}${path}`, { method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: options.signal })
   }
+}
+
+/** Creates the live client only after the native lease and server identity agree. */
+export async function connectWorkbench(options: WorkbenchConnectionOptions): Promise<WorkbenchConnection> {
+  const adapted = await createNativeTokenProvider(options.bridge, options.tokenRequest)
+  const token = adapted.provider.current()
+  if (!token) throw new Error("native bridge returned no current token")
+  const claims = decodeTokenMetadata(token)
+  const client = new WorkbenchClient({ ...options, instanceId: claims.instanceId, token: adapted.provider })
+  const handshake = await client.handshake()
+  if (!handshake.accepted || handshake.instanceId !== claims.instanceId) {
+    await adapted.revoke()
+    throw new Error("workbench server identity mismatch")
+  }
+  return { client, instanceId: claims.instanceId, workspaceId: options.tokenRequest.workspaceId, revoke: adapted.revoke }
+}
+
+function decodeTokenMetadata(token: string): { instanceId: string } {
+  const payload = token.split(".")[1]
+  if (!payload) throw new Error("native bridge returned an invalid token")
+  try {
+    const claims = JSON.parse(new TextDecoder().decode(decodeBase64Url(payload))) as { instanceId?: unknown }
+    if (typeof claims.instanceId !== "string" || claims.instanceId.length === 0) throw new Error("missing instance id")
+    return { instanceId: claims.instanceId }
+  } catch {
+    throw new Error("native bridge returned a token without a valid instance id")
+  }
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/")
+  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
+  const binary = atob(padded)
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
 }
 
 export function newRequestId(now = Date.now()): IdempotencyKey {
