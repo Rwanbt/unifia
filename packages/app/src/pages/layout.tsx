@@ -987,6 +987,7 @@ export default function Layout(props: ParentProps) {
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
       modes={mode.modes}
+      modesEnabled={() => !!mode.directory()}
       activeMode={mode.active}
       onMode={mode.select}
     />

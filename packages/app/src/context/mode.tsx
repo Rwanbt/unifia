@@ -3,10 +3,9 @@ import { createStore } from "solid-js/store"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
-import { base64Encode } from "@unifia/util/encode"
 import { Persist, persisted } from "@/utils/persist"
 import { usePlatform } from "./platform"
-import { resolveModeDirectory, routeDirectoryFromPathname, sessionSearchFromLocation } from "./mode-directory"
+import { modeNavigationPath, resolveModeDirectory, routeDirectoryFromPathname, sessionSearchFromLocation } from "./mode-directory"
 
 const isMode = (value: string | undefined): value is ShellMode => !!value && SHELL_MODES.includes(value as ShellMode)
 
@@ -37,11 +36,8 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
 
     function select(mode: ShellMode): void {
       setStore("value", mode)
-      if (mode === "code") {
-        navigate(`/${base64Encode(directory())}/session${sessionSearch()}`)
-        return
-      }
-      navigate(`/${base64Encode(directory())}/${mode}${sessionSearch()}`)
+      const path = modeNavigationPath(directory(), mode, sessionSearch())
+      if (path) navigate(path)
     }
 
     return { modes: SHELL_MODES, active, select, directory, connection, retryConnection }
