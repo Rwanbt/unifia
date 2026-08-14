@@ -31,7 +31,7 @@ export const WORKBENCH_ROUTE_REGISTRY: RouteByWorkFunction = {
   trace: { surface: "work", operation: "trace", method: "GET", route: "/v1/trace", capability: "trace.read", event: "trace.appended" },
   approvals: { surface: "work", operation: "approvals", method: "GET", route: "/v1/approvals", capability: "approval.read", event: "approval.updated" },
   "activity-log": { surface: "work", operation: "activity-log", method: "GET", route: "/v1/activity", capability: "trace.read", event: "trace.appended" },
-  "capability-picker": { surface: "work", operation: "capability-picker", method: "GET", route: "/v1/capabilities", capability: "capability.read", event: "catalog.updated" },
+  "capability-picker": { surface: "work", operation: "capability-picker", method: "GET", route: "/v1/capabilities/search", capability: "package.install", event: "catalog.updated" },
   export: { surface: "design", operation: "export", method: "POST", route: "/v1/artifacts/export", capability: "artifact.export", event: "operation.updated", lineage: "design/render" },
 }
 
@@ -90,6 +90,11 @@ export const M10_SERVER_ROUTE_REGISTRY = {
 /** M11 validates untrusted specs without granting their requested capabilities. */
 export const M11_SERVER_ROUTE_REGISTRY = {
   specValidate: { method: "POST", route: "/v1/specs/validate", capability: "workspace.read", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
+/** M15 capability picker consumes the scoped server search route. */
+export const M15_SERVER_ROUTE_REGISTRY = {
+  capabilitySearch: { method: "GET", route: "/v1/capabilities/search", capability: "package.install", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))

@@ -43,6 +43,12 @@ check(trace.kind === "trace" && trace.events.length === 0, "trace client did not
 const activity = await client.activity("workspace-1")
 check(requests.at(-1)?.url === "/v1/activity?workspaceId=workspace-1&after=0&limit=50", "activity client route did not apply bounded defaults")
 check(activity.kind === "activity", "activity client did not preserve the page kind")
+await client.listApprovals("workspace-1")
+check(requests.at(-1)?.url === "/v1/approvals?workspaceId=workspace-1", "approval list client route was not encoded deterministically")
+await client.searchCapabilities("workspace-1", { tag: "design", trustLevel: "verified", enabledOnly: true })
+check(requests.at(-1)?.url === "/v1/capabilities/search?workspaceId=workspace-1&tag=design&trustLevel=verified&enabledOnly=true", "capability search client route was not encoded deterministically")
+await client.exportArtifact("workspace-1", "artifact-123", { metadata: "strip" })
+check(requests.at(-1)?.url === "/v1/artifacts/export", "artifact export client route was not selected")
 
 check((await client.request<{ ok: boolean }>("/v1/read")).ok, "a GET did not retry after token refresh")
 check(refreshes === 1, "GET refresh count was not exactly one")

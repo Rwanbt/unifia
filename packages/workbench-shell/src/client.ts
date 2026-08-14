@@ -40,6 +40,9 @@ export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[] }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string> }
 export type AuditEvent = { sequence: number; timestamp: number; actor: string; capability: string; decision: "allow" | "deny" | "approval_required"; previousHash: string; hash: string }
 export type AuditPage = { kind: "trace" | "activity"; events: readonly AuditEvent[]; nextCursor: number | null }
+export type ApprovalRequest = { id: string; capability: string; resource: string; expiresAt: number; status: "pending" | "allow" | "deny" | "cancelled" }
+export type CapabilityRecord = { manifest: { descriptor: { id: string; name: string; description: string; version: string; author: string; license: string; schema: Record<string, unknown>; tags: string[]; trustLevel: "untrusted" | "verified" | "official" }; digest: string; sourceRepo: string; sourceCommit: string; license: string; attribution?: string; remoteCode: boolean; signature?: string }; state: "registered" | "approved" | "enabled" | "revoked" }
+export type ExportedArtifact = { artifactId: string; version: number; relativePath: string; sha256: string; metadata: Record<string, string> }
 
 export class WorkbenchHttpError extends Error {
   readonly status: number
@@ -144,6 +147,22 @@ export class WorkbenchClient {
   async activity(workspaceId: string, after = 0, limit = 50, signal?: AbortSignal): Promise<AuditPage> {
     const params = new URLSearchParams({ workspaceId, after: String(after), limit: String(limit) })
     return this.request<AuditPage>(`/v1/activity?${params}`, { signal })
+  }
+
+  async listApprovals(workspaceId: string, signal?: AbortSignal): Promise<{ approvals: readonly ApprovalRequest[] }> {
+    return this.request(`/v1/approvals?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async searchCapabilities(workspaceId: string, filters: { tag?: string; trustLevel?: "untrusted" | "verified" | "official"; enabledOnly?: boolean } = {}, signal?: AbortSignal): Promise<{ records: readonly CapabilityRecord[] }> {
+    const params = new URLSearchParams({ workspaceId })
+    if (filters.tag) params.set("tag", filters.tag)
+    if (filters.trustLevel) params.set("trustLevel", filters.trustLevel)
+    if (filters.enabledOnly !== undefined) params.set("enabledOnly", String(filters.enabledOnly))
+    return this.request(`/v1/capabilities/search?${params}`, { signal })
+  }
+
+  async exportArtifact(workspaceId: string, artifactId: string, options: { outbox?: string; metadata?: "keep" | "strip" } = {}, signal?: AbortSignal): Promise<{ exported: ExportedArtifact }> {
+    return this.request(`/v1/artifacts/export`, { method: "POST", body: { workspaceId, artifactId, ...options }, idempotencyKey: newRequestId(), signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
