@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M10`
+- Current card: `M11`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -30,6 +30,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M9a | implemented with deferred human proofs | artifact-runtime 38/38 + server 72/72 + typechecks + route registry | Artifact lineage listing/detail with provenance and base64 content, scoped by workspace read capability. |
 | M9b | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Artifact creation and revision route delegates to the persistent ArtifactStore under `artifact.create`. |
 | M10 | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Local artifact export route is capability-gated by `artifact.export`; destination stays inside ArtifactStore outbox and metadata defaults to strip. |
+| M11 | implemented with deferred human proofs | spec/server/shell typechecks + server 72/72 | Server-side JSON spec validation delegates to `SpecRuntime`; requested capabilities are intersected with an empty workspace grant and never elevated. Design-system catalog source remains open under G6. |
 
 ## Manual verification register
 
@@ -76,9 +77,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M9a implementation → `ArtifactStore.list()` returns latest heads from the authoritative on-disk lineage manifests; Workbench artifact list/detail routes enforce workspace scope and `workspace.read`, expose provenance, and encode bytes explicitly as base64.
 - M9b implementation → `POST /v1/artifacts` creates a new lineage or version, validates the workspace bearer scope and `artifact.create`, and delegates persistence/provenance/versioning to `ArtifactStore`.
 - M10 implementation → `POST /v1/artifacts/export` checks `artifact.export` before exporting the verified latest version through `ArtifactStore`; outbox names remain path-safe and metadata is stripped unless explicitly kept.
+- M11 implementation → `POST /v1/specs/validate` parses untrusted specs through `SpecRuntime`, returns explicit denied capabilities, and does not infer or create a design-system catalog source while G6 remains open.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M10 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M11 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.

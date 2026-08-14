@@ -3,6 +3,7 @@ import type { ApprovalBroker, ApprovalRequestRecord, AuditEvent, CapabilityRegis
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
 import type { ArtifactStore } from "@unifia/artifact-runtime"
+import { parseSpec, resolveEffectiveCapabilities } from "@unifia/spec-runtime"
 import type { SkillRegistry } from "@unifia/skill-hub"
 import { renderGenerativeUi, type UiNode } from "@unifia/contracts"
 import type {
@@ -156,6 +157,7 @@ export class WorkbenchServer {
       if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2])
       if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request)
       if (segments[1] === "artifacts" && request.method === "POST") return this.#artifactWrite(request)
+      if (segments[1] === "specs" && segments[2] === "validate" && request.method === "POST") return this.#specValidate(request)
       if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
       if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
       if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
@@ -515,6 +517,18 @@ export class WorkbenchServer {
     const exported = await this.#artifacts.export(artifact, { outbox: typeof input.outbox === "string" ? input.outbox : undefined, metadata: input.metadata === "keep" ? "keep" : "strip" })
     this.#allow("artifact.export")
     return json(200, { exported })
+  }
+  async #specValidate(request: Request): Promise<Response> {
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string" || (typeof input.spec !== "string" && (!input.spec || typeof input.spec !== "object"))) return this.#deny("spec.validate", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("spec.validate.scope", 403)
+    const gate = await this.#checkCapability("workspace.read", input.workspaceId)
+    if (gate) return gate
+    const spec = parseSpec(input.spec)
+    const resolution = resolveEffectiveCapabilities(spec, [])
+    this.#allow("spec.validate")
+    return json(200, { valid: true, spec, capabilities: resolution })
   }
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)

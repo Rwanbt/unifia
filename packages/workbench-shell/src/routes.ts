@@ -87,5 +87,10 @@ export const M10_SERVER_ROUTE_REGISTRY = {
   artifactExport: { method: "POST", route: "/v1/artifacts/export", capability: "artifact.export", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** M11 validates untrusted specs without granting their requested capabilities. */
+export const M11_SERVER_ROUTE_REGISTRY = {
+  specValidate: { method: "POST", route: "/v1/specs/validate", capability: "workspace.read", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)
