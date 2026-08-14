@@ -20,3 +20,12 @@ Cette liste est la source de vérité des contrôles qui nécessitent une machin
 - `PENDING` → `PASS` uniquement avec la preuve décrite.
 - `PENDING` → `BLOCKED` si l’environnement ou l’autorisation manque ; noter la cause et ne pas contourner.
 - Les secrets, certificats, tokens et captures doivent être redacted avant archivage.
+
+## Observations appareil — 2026-08-14
+
+- Appareil détecté : `b7163823` — Xiaomi Mi 10 Pro (`adb devices -l`).
+- Copie locale signée avec `C:\Users\barat\.android\debug.keystore` : signature APK v2/v3 vérifiée ; l’APK source reste unsigned et inchangé.
+- Installation : package `ai.unifia.mobile`, version `0.1.0`, `lastUpdateTime=2026-08-14 09:43:38`.
+- Runtime : `ai.unifia.mobile/.MainActivity` résumée au premier plan ; les logs montrent `/global/health` complété avec `healthy=true`, version `local` et port loopback `127.0.0.1:14096`.
+- Capture locale : `D:\App\OpenCode\.build-temp\unifia-device-proof-2.png` montre l’application Unifia avec le sélecteur « Ouvrir un projet » et le runtime disponible.
+- Statut inchangé : MV-03 et MV-04 restent `PENDING`, car l’observation n’a pas encore couvert tout le parcours Work/Design, arrière-plan/reprise et le test SVG inert demandé.
