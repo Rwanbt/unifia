@@ -17,4 +17,11 @@ adapted.provider.applyRotation?.({ state: "rotating", token: "third", previousTo
 if (adapted.provider.current() !== "third") throw new Error("native provider did not apply an incoming rotation")
 await adapted.revoke()
 if (revoked !== 1) throw new Error("native provider did not revoke its workspace lease")
-console.log("NativeTokenBridge: 4/4 passed")
+let rejected = false
+try {
+  await createNativeTokenProvider({ ...bridge, issue: async () => ({ token: "wrong", instanceId: "instance-1", workspaceId: "other-workspace", expiresAt: Date.now() + 60_000 }) }, { workspaceId: "workspace-1", capabilities: [] })
+} catch {
+  rejected = true
+}
+if (!rejected) throw new Error("native provider accepted a token for another workspace")
+console.log("NativeTokenBridge: 5/5 passed")
