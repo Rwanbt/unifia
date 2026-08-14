@@ -6,4 +6,5 @@ export { createDesignSpecPanelState, type DesignSpecDiagnostic, type DesignSpecP
 export { renderDesignSpecSvg, type DesignRenderOptions } from "./design-renderer.js"
 export { createDesignPreviewPanelState, type DesignPreview, type DesignPreviewPanelState } from "./design-preview.js"
 export { adaptDesignFiles, createDesignFilesPanelState, renderDesignFileRows, type DesignFile, type DesignFileKind, type DesignFileRow, type DesignFilesPanelState } from "./design-files.js"
+export { createDesignSystemPickerRows, parseDesignSystemCatalog, type DesignSystemCatalog, type DesignSystemPickerRow, type DesignSystemTokens } from "./design-system.js"
 export { M6_SERVER_ROUTE_REGISTRY, M7_SERVER_ROUTE_REGISTRY, M8_SERVER_ROUTE_REGISTRY, M9A_SERVER_ROUTE_REGISTRY, M9B_SERVER_ROUTE_REGISTRY, M10_SERVER_ROUTE_REGISTRY, M11_SERVER_ROUTE_REGISTRY, M15_SERVER_ROUTE_REGISTRY, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage, type ArtifactLineage, type WorkbenchRoute, type WorkbenchServerRoute, type WorkbenchTransportMethod } from "./routes.js"

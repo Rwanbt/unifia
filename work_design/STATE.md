@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M19b`
+- Current card: `M20b`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -40,6 +40,8 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M18 | implemented with deferred human proofs | shell typecheck + DesignPreviewPanel 4/4 | Preview model exposes mobile/tablet/desktop SVG data sources and refuses invalid specs while preserving diagnostics. |
 | M19a | implemented with deferred human proofs | shell typecheck + DesignFiles 5/5 | Workspace file page adapts to a sorted Design catalog with asset/component/style classification and safe selection. |
 | M19b | implemented with deferred human proofs | shell typecheck + DesignFiles 6/6 | Design file rows expose stable labels, kinds, and selected state for a UI surface. |
+| M20a | implemented with deferred human proofs | shell typecheck + DesignSystem 3/3 | Explicit injected Design System catalog schema validates id/version/source/tokens without discovering a new authority. |
+| M20b | implemented with deferred human proofs | shell typecheck + DesignSystem 3/3 | Picker rows sort catalogs deterministically and preserve a validated selected id. |
 
 ## Manual verification register
 
@@ -96,9 +98,11 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M18 implementation → `createDesignPreviewPanelState` derives three canonical responsive previews from the renderer and never emits an image for invalid input.
 - M19a implementation → `adaptDesignFiles` is the sole adapter from the bounded workspace index to Design file categories; directories and absent selections are excluded.
 - M19b implementation → `renderDesignFileRows` projects the adapted catalog into stable panel rows and marks only the validated selection.
+- M20a implementation → `parseDesignSystemCatalog` validates an explicitly supplied catalog and keeps G6 open by requiring its source rather than inventing one.
+- M20b implementation → `createDesignSystemPickerRows` provides deterministic labels, versions, sources, and selection state.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M19b code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M20b code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
