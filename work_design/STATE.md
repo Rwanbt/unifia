@@ -6,7 +6,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M17`
+- Current card: `M18`
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
 - Commit or push performed: yes (through M7; latest SHA recorded after commit)
 
@@ -37,6 +37,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M15 | implemented with deferred human proofs | shell typecheck + client 20/20 + routes 11/11 | Client exposes scoped approvals, capability search filters, and idempotent artifact export; capability-picker registry now points to the real search route. |
 | M16 | implemented with deferred human proofs | shell typecheck + DesignSpecPanel 5/5 | Pure spec panel model preserves inline/file provenance, reports line/column diagnostics, and resolves requested capabilities against an empty grant. |
 | M17 | implemented with deferred human proofs | shell typecheck + DesignRenderer 5/5 | Canonical escaped SVG renderer consumes validated spec/tokens with deterministic dimensions and output. |
+| M18 | implemented with deferred human proofs | shell typecheck + DesignPreviewPanel 4/4 | Preview model exposes mobile/tablet/desktop SVG data sources and refuses invalid specs while preserving diagnostics. |
 
 ## Manual verification register
 
@@ -90,9 +91,10 @@ See `work_design/MANUAL-VERIFICATION.md`. Items MV-01 through MV-10 are intentio
 - M15 implementation → `WorkbenchClient.listApprovals/searchCapabilities/exportArtifact` consumes the existing server authorities; capability search is explicitly `package.install` gated and export uses an idempotency key.
 - M16 implementation → `createDesignSpecPanelState` is the shared pure model for Design spec input and diagnostics; it delegates validation to `SpecRuntime` and never elevates capabilities.
 - M17 implementation → `renderDesignSpecSvg` is the shared deterministic SVG authority; it escapes spec text and applies only validated token values.
+- M18 implementation → `createDesignPreviewPanelState` derives three canonical responsive previews from the renderer and never emits an image for invalid input.
 
 ## Resume first
 
 1. Read this file, `DECISIONS.md`, and `../INTEGRATION.md`.
 2. Review the M0b diff and run the CI workflow on the first PR.
-3. M17 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
+3. M18 code is present by explicit user override; keep MV-01 through MV-04 pending until platform-native bridge/rotation wiring and real Android `<img src="data:…">` proof are supplied.
