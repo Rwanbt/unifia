@@ -6,9 +6,9 @@ This file is the durable execution state for the Unifia Work/Design integration.
 
 - Branch: `work-design`
 - Base commit: `91daa35a26a8e44d7f35b539c91030ec1e230c54`
-- Current card: `M1c-i` (opaque native lease metadata)
+- Current card: `M8-b` (cross-process topology proof)
 - Status: `IMPLEMENTED_WITH_DEFERRED_HUMAN_PROOFS`
-- Commit or push performed: yes; latest pushed SHA is `a04be041fa`.
+- Commit or push performed: yes; latest pushed SHA is tracked after this slice.
 
 ## Cards
 
@@ -26,7 +26,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M5 | implemented with deferred human proofs | workbench-shell typecheck + shell 122/122 + modes 4/4 + client 7/7 + routes 11/11 | Total typed route registry with compile-time Work V1 coverage and explicit work/document versus design/render lineage. |
 | M6 | implemented with deferred human proofs | workbench-server typecheck + server 72/72 + bootstrap 40/40 + security/preflight/topology + operations 2/2 | Reconnectable session SSE remains cursor-based; long prompt operations now receive idempotent operation IDs and can be cancelled through a scoped route. |
 | M7 | implemented with deferred human proofs | contracts/workspace + workspace-runtime typecheck/tests + server 72/72 + shell typecheck + security guard | Bounded, root-confined file listing/search and protected `GET /v1/files/list` and `GET /v1/files/search` routes. |
-| M8 | implemented with deferred human proofs | server typecheck + server 72/72 + security 3/3 + P3 C8/C9 7/7 + topology 4/4 | Pending approval listing scoped to a workspace, cursor/limit audit pages for trace/activity, distinct redacted server logging, and automatic-port ownership evidence are implemented; cross-process and manual checks remain. |
+| M8 | implemented with deferred human proofs | server typecheck + server 72/72 + security 3/3 + P3 C8/C9 7/7 + topology 5/5 | Pending approval listing scoped to a workspace, cursor/limit audit pages for trace/activity, distinct redacted server logging, and automatic-port ownership evidence are implemented; desktop lifecycle and manual checks remain. |
 | M9a | implemented with deferred human proofs | artifact-runtime 38/38 + server 72/72 + typechecks + route registry | Artifact lineage listing/detail with provenance and base64 content, scoped by workspace read capability. |
 | M9b | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Artifact creation and revision route delegates to the persistent ArtifactStore under `artifact.create`. |
 | M10 | implemented with deferred human proofs | server typecheck + shell typecheck + server 72/72 | Local artifact export route is capability-gated by `artifact.export`; destination stays inside ArtifactStore outbox and metadata defaults to strip. |
@@ -56,6 +56,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c-h | implemented with deferred platform proof | NativeTokenBridge 5/5 + WorkbenchConnection 2/2 + shell typecheck PASS | Rotation accepts the structured server lease or an adapted string, while issue/rotation reject wrong-workspace and expired leases. |
 | M1c-i | implemented with deferred platform proof | WorkbenchShell 13 scripts + typecheck PASS | `connectWorkbench` now uses validated metadata returned by the native adapter and never decodes JWT payloads in the WebView. |
 | M8-a | implemented with deferred process proof | WorkbenchTopology 4/4 | Two concurrent automatic-port listeners receive distinct ports and process identities; occupied-port rejection and restart identity remain covered. |
+| M8-b | implemented with deferred desktop proof | WorkbenchTopology 5/5 + Workbench Server typecheck | Two independently spawned Workbench workers receive distinct automatic ports and process identities; the actual desktop service lifecycle remains a manual gate. |
 | M9-a | implemented with deferred packaged interaction proof | `node scripts/check-workbench-security.mjs` PASS | The guard now parses desktop/mobile CSP JSON and asserts loopback connect-src, data images, object-src none, and frame-ancestors none. |
 | M7-a | implemented with deferred process proof | server typecheck + topology 3/3 | `WorkbenchHandle` now exposes the process `instanceId`; restart tests prove the released port is reusable without reusing the previous process identity. |
 
@@ -130,7 +131,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M9-a validation → WorkbenchSecurityGuard parses both packaged configuration CSPs and passes explicit origin, loopback, data-image, object and frame policies; MV-09 still needs packaged artifact extraction and interactive URL checks.
 - M1c-h validation → NativeTokenBridge 5/5, WorkbenchConnection 2/2, and shell typecheck PASS; concrete platform bridge and manual scope/expiry evidence remain pending.
 - M1c-i validation → WorkbenchShell 13 scripts pass, NativeTokenBridge 5/5, WorkbenchConnection 2/2, and typecheck PASS; concrete platform bridge and manual evidence remain pending.
-- Current checkpoint → `e2a82c953e refactor(workbench): keep native lease metadata opaque`; worktree clean, branch `work-design`, remote typecheck 35/35.
+- Current checkpoint → latest pushed topology-proof commit; worktree clean, branch `work-design`, remote typecheck 35/35.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.
