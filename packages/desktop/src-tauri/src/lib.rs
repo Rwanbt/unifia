@@ -79,6 +79,85 @@ struct ServerState {
 /// Resolves with sidecar credentials as soon as the sidecar is spawned (before health check).
 struct SidecarReady(futures::future::Shared<oneshot::Receiver<ServerReadyData>>);
 
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchWorkspace {
+    workspace_id: String,
+    instance_id: String,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchLease {
+    token: String,
+    token_id: String,
+    instance_id: String,
+    workspace_id: String,
+    capabilities: Vec<String>,
+    issued_at: u64,
+    expires_at: u64,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct WorkbenchRotation {
+    token: WorkbenchLease,
+    previous_token: Option<String>,
+    grace_period_ms: u64,
+}
+
+async fn workbench_native_request(
+    ready: &SidecarReady,
+    action: &str,
+    workspace_path: Option<&str>,
+    workspace_id: Option<&str>,
+    capabilities: &[String],
+) -> Result<serde_json::Value, String> {
+    let server = ready.0.clone().await.map_err(|_| "sidecar readiness channel closed".to_string())?;
+    let ipc = auth_storage::endpoint().ok_or_else(|| "native keychain IPC is unavailable".to_string())?;
+    let url = format!("{}/workbench/native/token", server.url.trim_end_matches('/'));
+    let body = serde_json::json!({
+        "action": action,
+        "workspacePath": workspace_path,
+        "workspaceId": workspace_id,
+        "capabilities": capabilities,
+    });
+    let client = reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(10)).build().map_err(|e| format!("native Workbench client: {e}"))?;
+    let response = client.post(url).header("x-unifia-keychain-token", &ipc.token).json(&body).send().await.map_err(|e| format!("native Workbench request: {e}"))?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| format!("native Workbench response: {e}"))?;
+    let value = serde_json::from_str::<serde_json::Value>(&text).map_err(|e| format!("native Workbench invalid response: {e}"))?;
+    if !status.is_success() { return Err(value.get("error").and_then(serde_json::Value::as_str).unwrap_or("native Workbench request failed").to_string()) }
+    Ok(value)
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_open_workspace(state: State<'_, SidecarReady>, workspace_path: String) -> Result<WorkbenchWorkspace, String> {
+    let value = workbench_native_request(&state, "open", Some(&workspace_path), None, &[]).await?;
+    serde_json::from_value(value).map_err(|e| format!("native Workbench workspace response: {e}"))
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_issue_token(state: State<'_, SidecarReady>, workspace_id: String, capabilities: Vec<String>) -> Result<WorkbenchLease, String> {
+    let value = workbench_native_request(&state, "issue", None, Some(&workspace_id), &capabilities).await?;
+    serde_json::from_value(value).map_err(|e| format!("native Workbench lease response: {e}"))
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_rotate_token(state: State<'_, SidecarReady>, workspace_id: String, capabilities: Vec<String>) -> Result<WorkbenchRotation, String> {
+    let value = workbench_native_request(&state, "rotate", None, Some(&workspace_id), &capabilities).await?;
+    serde_json::from_value(value).map_err(|e| format!("native Workbench rotation response: {e}"))
+}
+
+#[tauri::command]
+#[specta::specta]
+async fn workbench_revoke_token(state: State<'_, SidecarReady>, workspace_id: String) -> Result<(), String> {
+    workbench_native_request(&state, "revoke", None, Some(&workspace_id), &[]).await.map(|_| ())
+}
+
 #[tauri::command]
 #[specta::specta]
 fn kill_sidecar(app: AppHandle) {
@@ -501,6 +580,10 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             kill_sidecar,
             cli::install_cli,
             await_initialization,
+            workbench_open_workspace,
+            workbench_issue_token,
+            workbench_rotate_token,
+            workbench_revoke_token,
             server::get_default_server_url,
             server::set_default_server_url,
             server::get_wsl_config,
@@ -583,6 +666,16 @@ struct LoadingWindowComplete;
 
 async fn initialize(app: AppHandle) {
     tracing::info!("Initializing app");
+
+    // The sidecar must receive the private IPC token before it is spawned.
+    // The setup hook starts the same idempotent endpoint eagerly, but awaiting
+    // here closes the startup race that would otherwise disable the Workbench
+    // bridge on a fast machine.
+    if auth_storage::endpoint().is_none() {
+        if let Err(error) = auth_storage::start_keychain_endpoint(app.clone()).await {
+            tracing::warn!("keychain endpoint unavailable before sidecar spawn: {error}");
+        }
+    }
 
     // Stray children from an instance that didn't exit cleanly (Tauri's
     // `RunEvent::Exit` can skip firing on abrupt close, crash, or close-via-tray

@@ -68,6 +68,33 @@ fn auth_storage_key() -> Result<String, String> {
     Ok(value)
 }
 
+/// Native-only Workbench control RPC. The WebView supplies a loopback URL and
+/// request data, but the Android keystore token is read here and never enters
+/// JavaScript storage, logs, or the request payload visible to the WebView.
+#[tauri::command]
+pub async fn workbench_native_request(
+    server_url: String,
+    action: String,
+    workspace_path: Option<String>,
+    workspace_id: Option<String>,
+    capabilities: Vec<String>,
+) -> Result<serde_json::Value, String> {
+    let parsed = reqwest::Url::parse(&server_url).map_err(|e| format!("invalid Workbench server URL: {e}"))?;
+    let loopback = parsed.host_str().is_some_and(|host| host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()));
+    if !loopback || !matches!(parsed.scheme(), "http" | "https") { return Err("Workbench native RPC requires a loopback HTTP(S) URL".to_string()) }
+    if !matches!(action.as_str(), "open" | "issue" | "rotate" | "revoke") { return Err("unsupported Workbench native action".to_string()) }
+    let auth_key = auth_storage_key()?;
+    let url = format!("{}/workbench/native/token", server_url.trim_end_matches('/'));
+    let body = serde_json::json!({ "action": action, "workspacePath": workspace_path, "workspaceId": workspace_id, "capabilities": capabilities });
+    let client = reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(10)).build().map_err(|e| format!("Workbench native client: {e}"))?;
+    let response = client.post(url).header("x-unifia-keychain-token", auth_key).json(&body).send().await.map_err(|e| format!("Workbench native request: {e}"))?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| format!("Workbench native response: {e}"))?;
+    let value = serde_json::from_str::<serde_json::Value>(&text).map_err(|e| format!("Workbench native invalid response: {e}"))?;
+    if !status.is_success() { return Err(value.get("error").and_then(serde_json::Value::as_str).unwrap_or("Workbench native request failed").to_string()) }
+    Ok(value)
+}
+
 /// Non-Android unix targets have no Keystore-backed storage; the embedded
 /// server is Android-only at runtime, but this crate still compiles for
 /// desktop unix targets so `cargo test` can run without an Android target.
@@ -237,7 +264,7 @@ pub async fn start_embedded_server(
     let bash_path = bin_link_dir.join("bash");
     let bash_env_path = home_dir.join(".bashrc");
     let env_content = format!(
-        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT=14098\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\nUNIFIA_AUTH_ENCRYPTION_KEY={auth_key}\nOPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
+        "HOME={home}\nTERM=xterm-256color\nENV={home}/.mkshrc\nBASH_ENV={bash_env}\nSSL_CERT_FILE={cert}\nNODE_EXTRA_CA_CERTS={cert}\nexport RESOLV_CONF={resolv}\nSHELL={shell}\nBUN_PTY_LIB={pty}\nUNIFIA_PTY_PORT=14098\nUNIFIA_SERVER_USERNAME=opencode\nUNIFIA_SERVER_PASSWORD={pw}\nUNIFIA_CLIENT=mobile-embedded\nUNIFIA_AUTH_STORAGE=encrypted-file\nUNIFIA_AUTH_ENCRYPTION_KEY={auth_key}\nUNIFIA_KEYCHAIN_TOKEN={auth_key}\nOPENCODE_DISABLE_LSP_DOWNLOAD=false\nTMPDIR={tmp}\nTMP={tmp}\nTEMP={tmp}\nXDG_DATA_HOME={xdg_data}\nXDG_STATE_HOME={xdg_state}\nXDG_CACHE_HOME={xdg_cache}\nXDG_CONFIG_HOME={xdg_config}\nPATH={path_val}\nLD_LIBRARY_PATH={lib_path_val}\nexport HTTP_PROXY={proxy}\nexport HTTPS_PROXY={proxy}\nexport http_proxy={proxy}\nexport https_proxy={proxy}\nexport OPENCODE_MOBILE_MUSL_LINKER={musl_linker}\nexport OPENCODE_MOBILE_ROOTFS_DIR={rootfs}\n",
         home = home_dir.display(),
         bash_env = bash_env_path.display(),
         cert = ca_bundle_path.display(),
@@ -311,6 +338,7 @@ pub async fn start_embedded_server(
         .env("UNIFIA_CLIENT", "mobile-embedded")
         .env("UNIFIA_AUTH_STORAGE", "encrypted-file")
         .env("UNIFIA_AUTH_ENCRYPTION_KEY", &auth_key)
+        .env("UNIFIA_KEYCHAIN_TOKEN", &auth_key)
         .env("OPENCODE_CARGO_PROXY", if cargo_proxy_active { "1" } else { "0" })
         // musl's getaddrinfo can't resolve DNS on Android (see proxy.rs) —
         // without these, mobile-entry.ts's fetch() proxy-patch never

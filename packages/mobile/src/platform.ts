@@ -1,13 +1,34 @@
 import type { Platform } from "@unifia/app"
+import { connectWorkbench, type NativeTokenBridge, type WorkbenchConnection } from "@unifia/workbench-shell"
 import { checkRuntime, extractRuntime, startEmbeddedServer, checkLocalHealth, stopLocalServer as stopLocal, writeDebugLog } from "./runtime"
 
 // Fingerprint du serveur privé (reçu via QR en mode Internet).
 // Quand défini, les requêtes HTTPS passent par la commande Rust
 // fetch_private_server qui accepte les certs self-signed.
 let _privateFp: string | null = null
+let _embeddedServerUrl: string | null = null
 
 export function setPrivateServerFp(fp: string | null) {
   _privateFp = fp
+}
+
+type NativeLease = { token: string; tokenId: string; instanceId: string; workspaceId: string; capabilities: string[]; issuedAt: number; expiresAt: number }
+type NativeRotation = { token: NativeLease; previousToken: string | null; gracePeriodMs: number }
+
+function mobileWorkbenchBridge(serverUrl: string): NonNullable<Platform["workbench"]> {
+  const request = (action: string, workspacePath?: string, workspaceId?: string, capabilities: readonly string[] = []) =>
+    import("@tauri-apps/api/core").then(({ invoke }) => invoke<unknown>("workbench_native_request", { serverUrl, action, workspacePath, workspaceId, capabilities: [...capabilities] }))
+  const bridge: NativeTokenBridge = {
+    issue: async (input) => await request("issue", undefined, input.workspaceId, input.capabilities) as NativeLease,
+    rotate: async (input) => await request("rotate", undefined, input.workspaceId, input.capabilities) as NativeRotation,
+    revoke: async (workspaceId) => { await request("revoke", undefined, workspaceId) },
+  }
+  return {
+    async connect(input): Promise<WorkbenchConnection> {
+      const opened = await request("open", input.workspacePath) as { workspaceId: string; instanceId: string }
+      return connectWorkbench({ baseUrl: `${serverUrl}/workbench`, bridge, tokenRequest: { workspaceId: opened.workspaceId, capabilities: [...input.capabilities] } })
+    },
+  }
 }
 
 // IPs RFC1918 + loopback + IPv6 ULA. Utilisé comme fallback quand l'utilisateur
@@ -447,7 +468,8 @@ export async function createPlatform(): Promise<Platform> {
         await writeDebugLog(`server_running=true savedPw=${savedPw ? savedPw.slice(0,8)+"..." : "null"}`)
         if (savedPw) {
           await writeDebugLog(`returning cached: url=http://127.0.0.1:${port} pw=${savedPw.slice(0,8)}...`)
-          return { url: `http://127.0.0.1:${port}`, username: "unifia", password: savedPw }
+          _embeddedServerUrl = `http://127.0.0.1:${port}`
+          return { url: _embeddedServerUrl, username: "unifia", password: savedPw }
         }
         await writeDebugLog("server running but no saved password, restarting...")
         try { await stopLocal(port) } catch {}
@@ -476,11 +498,19 @@ export async function createPlatform(): Promise<Platform> {
         await writeDebugLog(`checkLocalHealth(${i+1}): ${healthy}`)
         if (healthy) {
           await writeDebugLog(`returning: url=http://127.0.0.1:${port} pw=${password.slice(0,8)}...`)
-          return { url: `http://127.0.0.1:${port}`, username: "unifia", password }
+          _embeddedServerUrl = `http://127.0.0.1:${port}`
+          return { url: _embeddedServerUrl, username: "unifia", password }
         }
       }
       await writeDebugLog("health check timed out after 30s")
       return null
+    },
+
+    workbench: {
+      connect(input) {
+        if (!_embeddedServerUrl) throw new Error("Workbench native bridge requires the embedded local server")
+        return mobileWorkbenchBridge(_embeddedServerUrl).connect(input)
+      },
     },
 
     async stopLocalServer() {
@@ -492,4 +522,3 @@ export async function createPlatform(): Promise<Platform> {
     },
   }
 }
-

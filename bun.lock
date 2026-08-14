@@ -284,6 +284,7 @@
         "@tauri-apps/plugin-window-state": "2.4.1",
         "@unifia/app": "workspace:*",
         "@unifia/ui": "workspace:*",
+        "@unifia/workbench-shell": "workspace:*",
         "solid-js": "catalog:",
       },
       "devDependencies": {
@@ -449,6 +450,7 @@
         "@tauri-apps/plugin-store": "~2.4",
         "@unifia/app": "workspace:*",
         "@unifia/ui": "workspace:*",
+        "@unifia/workbench-shell": "workspace:*",
         "solid-js": "catalog:",
       },
       "devDependencies": {
@@ -768,6 +770,7 @@
         "@unifia/sdk": "workspace:*",
         "@unifia/sdk-shared": "workspace:*",
         "@unifia/util": "workspace:*",
+        "@unifia/workbench-server": "workspace:*",
         "@zip.js/zip.js": "2.7.62",
         "ai": "catalog:",
         "ai-gateway-provider": "3.1.2",
@@ -910,9 +913,11 @@
       "name": "@unifia/workbench-server",
       "version": "0.1.0",
       "dependencies": {
+        "@unifia/artifact-runtime": "workspace:*",
         "@unifia/contracts": "workspace:*",
         "@unifia/memory-runtime": "workspace:*",
         "@unifia/skill-hub": "workspace:*",
+        "@unifia/spec-runtime": "workspace:*",
         "@unifia/workflow-runtime": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },

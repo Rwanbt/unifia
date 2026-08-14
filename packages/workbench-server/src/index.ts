@@ -88,6 +88,7 @@ export class WorkbenchServer {
   readonly #uiAllowedActions?: ReadonlySet<string>
   readonly #workflowOwners = new Map<string, string>()
   readonly #tokens = new Map<string, WorkspaceHandle>()
+  readonly #runtimeTokens = new Map<string, string>()
   readonly #nativeTokens = new Map<string, Set<string>>()
   readonly #sessionOwners = new Map<string, string>()
   readonly #skillHub?: SkillRegistry
@@ -145,27 +146,31 @@ export class WorkbenchServer {
    * WHY this is a method instead of an HTTP route: the signing key and issuer
    * must remain inside the native/server process and never become WebView data.
    */
-  issueNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): ScopedToken {
+  async issueNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): Promise<ScopedToken> {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     const token = this.#tokenIssuer.issue({ ...request, instanceId: this.#instanceId })
-    this.#registerNativeToken(token)
+    await this.#registerNativeToken(token)
     this.#allow("token.issue")
     return token
   }
 
-  rotateNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): { token: ScopedToken; previousToken: string | null; gracePeriodMs: number } {
+  async rotateNativeScopedToken(request: Omit<ScopedTokenRequest, "instanceId">): Promise<{ token: ScopedToken; previousToken: string | null; gracePeriodMs: number }> {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     const rotation = this.#tokenIssuer.rotate({ ...request, instanceId: this.#instanceId })
-    this.#registerNativeToken(rotation.token)
-    if (rotation.previousToken) this.#registerNativeToken({ ...rotation.token, token: rotation.previousToken })
+    await this.#registerNativeToken(rotation.token)
+    if (rotation.previousToken) await this.#registerNativeToken({ ...rotation.token, token: rotation.previousToken })
     this.#allow("token.rotate")
     return rotation
   }
 
-  revokeNativeScopedToken(workspaceId: string): void {
+  async revokeNativeScopedToken(workspaceId: string): Promise<void> {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     this.#tokenIssuer.revoke({ workspaceId, instanceId: this.#instanceId })
-    for (const token of this.#nativeTokens.get(workspaceId) ?? []) this.#tokens.delete(token)
+    for (const token of this.#nativeTokens.get(workspaceId) ?? []) {
+      await this.#workspace.close(this.#runtimeTokens.get(token) ?? token).catch(() => undefined)
+      this.#runtimeTokens.delete(token)
+      this.#tokens.delete(token)
+    }
     this.#nativeTokens.delete(workspaceId)
     this.#allow("token.revoke")
   }
@@ -221,8 +226,10 @@ export class WorkbenchServer {
     }
   }
 
-  #registerNativeToken(token: ScopedToken): void {
+  async #registerNativeToken(token: ScopedToken): Promise<void> {
+    const runtimeHandle = await this.#workspace.open(token.workspaceId)
     this.#tokens.set(token.token, { id: token.workspaceId, token: token.token })
+    this.#runtimeTokens.set(token.token, runtimeHandle.token)
     const tokens = this.#nativeTokens.get(token.workspaceId) ?? new Set<string>()
     tokens.add(token.token)
     this.#nativeTokens.set(token.workspaceId, tokens)
@@ -362,12 +369,12 @@ export class WorkbenchServer {
     const capabilityResponse = await this.#checkCapability(capability, workspaceId)
     if (capabilityResponse) return capabilityResponse
     if (operation === "read") {
-      const results = await this.#workspace.read(token, input.paths as string[])
+      const results = await this.#workspace.read(this.#runtimeToken(token), input.paths as string[])
       this.#allow("workspace.read")
       return json(200, { results: results.map(encodeReadResult) })
     }
     if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
-    const results = await this.#workspace.write(token, input.writes as FileWrite[])
+    const results = await this.#workspace.write(this.#runtimeToken(token), input.writes as FileWrite[])
     this.#allow("workspace.write")
     return json(200, { results: results as unknown as JsonRecord[] })
   }
@@ -382,9 +389,9 @@ export class WorkbenchServer {
     if (capabilityResponse) return capabilityResponse
     const prefix = url.searchParams.get("prefix") ?? "."
     const entries = operation === "list"
-      ? await this.#workspace.list(token, prefix)
-      : await this.#workspace.search(token, url.searchParams.get("query") ?? "", prefix)
-    this.#allow(`workspace.${operation}`)
+      ? await this.#workspace.list(this.#runtimeToken(token), prefix)
+      : await this.#workspace.search(this.#runtimeToken(token), url.searchParams.get("query") ?? "", prefix)
+    this.#allow("workspace.read")
     return json(200, { entries })
   }
 
@@ -627,7 +634,8 @@ export class WorkbenchServer {
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)
     if (!supplied || supplied !== token || !this.#tokens.has(token)) return this.#deny("workspace.close.scope", 403)
-    await this.#workspace.close(token)
+    await this.#workspace.close(this.#runtimeToken(token))
+    this.#runtimeTokens.delete(token)
     this.#tokens.delete(token)
     this.#allow("workspace.close")
     return json(200, { closed: true })
@@ -645,11 +653,12 @@ export class WorkbenchServer {
     const failures: string[] = []
     for (const token of [...this.#tokens.keys()]) {
       try {
-        await this.#workspace.close(token)
+        await this.#workspace.close(this.#runtimeToken(token))
       } catch (error) {
         failures.push(error instanceof Error ? error.message : "close failed")
       }
       this.#tokens.delete(token)
+      this.#runtimeTokens.delete(token)
     }
     this.#audit.record("workbench-server", "workspace.shutdown", failures.length === 0 ? "allow" : "deny")
     return failures
@@ -658,6 +667,10 @@ export class WorkbenchServer {
   /** Number of file sessions currently open. Exposed for shutdown assertions. */
   get openFileSessions(): number {
     return this.#tokens.size
+  }
+
+  #runtimeToken(token: string): string {
+    return this.#runtimeTokens.get(token) ?? token
   }
 
   get instanceId(): string {

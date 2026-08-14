@@ -18,6 +18,7 @@ import { errorHandler } from "./middleware"
 import { InstanceRoutes } from "./instance"
 import { initProjectors } from "./projectors"
 import { initShadowDaemon } from "../collective/shadow-integration"
+import { createWorkbenchBridge } from "./workbench"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -39,9 +40,15 @@ export namespace Server {
 
   export const ControlPlaneRoutes = (opts?: { cors?: string[] }): Hono => {
     const app = new Hono()
+    const workbench = createWorkbenchBridge()
     return app
       .onError(errorHandler(log))
-      .use(JwtAuth.middleware())
+      .use(async (c, next) => {
+        if (workbench && c.req.path.startsWith("/workbench/")) return next()
+        return JwtAuth.middleware()(c, next)
+      })
+      .all("/workbench/native/token", async (c) => workbench ? workbench.native(c.req.raw) : c.json({ error: "Workbench native bridge unavailable" }, 404))
+      .all("/workbench/*", async (c) => workbench ? workbench.fetch(c.req.raw) : c.json({ error: "Workbench unavailable" }, 404))
       .use(async (c, next) => {
         const skip = c.req.path === "/log"
         if (!skip) {

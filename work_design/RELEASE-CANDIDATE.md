@@ -18,8 +18,8 @@
 - App production bundle: PASS; Vite build completed successfully, with existing chunk-size, CSS minifier, and dynamic-import warnings recorded but no build error.
 - Workbench protocol handshake: PASS; server accepts/refuses the versioned payload, returns its authoritative instance id, audits the decision, and the client now sends the complete request body.
 - Client token rotation handoff: PASS at the client boundary; `TokenRotation` is parsed at runtime and requests wait for the provider-owned rotation to complete. Native/server grace-period evidence remains pending.
-- Native token authority boundary: PASS at the server boundary; issuer injection and internal issue/rotate/revoke methods are instance-bound and audited without exposing an HTTP minting route. Platform bridge and runtime evidence remain pending.
-- Native token shell adapter: PASS; `createNativeTokenProvider` validates structured leases, scope and expiry, while `connectWorkbench` checks native metadata against the server handshake. No concrete desktop/mobile bridge implementation is claimed.
+- Native token authority boundary: PASS at the server boundary; issuer injection and internal issue/rotate/revoke methods are instance-bound and audited without exposing a public HTTP minting route. The private sidecar RPC is protected by the existing keychain IPC token.
+- Native token shell adapter: PASS; `createNativeTokenProvider` validates structured leases, scope and expiry, while `connectWorkbench` checks native metadata against the server handshake. Desktop Tauri commands, Android Keystore RPC, and desktop/mobile `Platform.workbench` adapters are implemented; runtime evidence remains pending.
 - Instance restart identity: PASS at the headless boundary; a released port can be reused only by a new process instance id. Cross-process desktop workspace contamination remains a manual/runtime gate.
 - Workbench Server test command: corrected to run the two Vitest suites with `vitest`; the previous mixed Bun/Vitest script failure was runner configuration, not a handshake regression.
 
@@ -27,7 +27,7 @@
 
 `work_design/MANUAL-VERIFICATION.md` remains authoritative. MV-01 through MV-10 are still `PENDING`; in particular no complete desktop/native bridge, Android lifecycle, SVG WebView, merge, or publication claim is made by this candidate.
 
-`work_design/BLOCKERS.md` records the verified code-level blockers: concrete native platform IPC, platform rotation trace, packaged Android WebView proof, cross-process ownership evidence, and the unresolved G6 catalog authority. The versioned handshake, server issuer boundary, shell client and app injection point are implemented and tested.
+`work_design/BLOCKERS.md` records the verified code-level blockers: desktop/mobile runtime traces, packaged Android WebView proof, desktop lifecycle evidence, and the unresolved G6 catalog authority. The versioned handshake, server issuer boundary, private sidecar RPC, Tauri commands, shell client and app injection point are implemented and tested.
 
 Partial device evidence now exists for MV-03: a debug-signed local copy installed and launched on `b7163823`, with healthy loopback runtime. The full Android Work/Design, lifecycle and SVG inert procedures remain pending.
 

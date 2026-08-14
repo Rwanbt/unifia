@@ -124,6 +124,7 @@
     "@unifia/sdk": "workspace:*",
     "@unifia/sdk-shared": "workspace:*",
     "@unifia/util": "workspace:*",
+    "@unifia/workbench-server": "workspace:*",
     "@zip.js/zip.js": "2.7.62",
     "ai": "catalog:",
     "ai-gateway-provider": "3.1.2",

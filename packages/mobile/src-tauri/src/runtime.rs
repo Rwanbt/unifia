@@ -60,9 +60,9 @@ mod server;
 #[cfg(unix)]
 #[allow(unused_imports)]
 pub use server::{
-    __cmd__check_local_health, __cmd__read_server_logs, __cmd__start_embedded_server,
+    __cmd__check_local_health, __cmd__read_server_logs, __cmd__start_embedded_server, __cmd__workbench_native_request,
     __cmd__stop_local_server, check_local_health, read_server_logs, start_embedded_server,
-    stop_local_server,
+    stop_local_server, workbench_native_request,
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

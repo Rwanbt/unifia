@@ -37,6 +37,7 @@ import { webviewZoom } from "./webview-zoom"
 import "./styles.css"
 import { Channel } from "@tauri-apps/api/core"
 import { commands, type InitStep, type RemoteConnectionInfo } from "./bindings"
+import { createDesktopWorkbenchBridge } from "./workbench"
 
 function toRemoteAccessInfo(info: RemoteConnectionInfo) {
   return { ...info, tlsFingerprint: info.tlsFingerprint ?? undefined }
@@ -92,6 +93,7 @@ const createPlatform = (): Platform => {
     platform: "desktop",
     os,
     version: pkg.version,
+    workbench: createDesktopWorkbenchBridge(),
 
     async openDirectoryPickerDialog(opts) {
       const defaultPath = await wslHome()

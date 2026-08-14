@@ -4,11 +4,11 @@ This register separates missing implementation from evidence that requires a rea
 
 | Gate | Root cause verified in code | Minimal unlock | Owner/status |
 |---|---|---|---|
-| M1c / MV-01 | The versioned handshake, issuer boundary, server-side native-token consumption, shell `NativeTokenBridge` with structured rotation/lease validation, opaque metadata handoff, `connectWorkbench` controller, and app injection point now exist; desktop/mobile expose no concrete implementation of the bridge. | Connect one platform bridge to the internal issue/rotate/revoke methods, keep signing material native/server-side, then prove scope, expiry, rotation and close-time revocation through the real desktop/mobile path. | Server/shell/app contracts complete; native platform implementation open |
-| MV-02 | `WorkbenchClient` now validates `TokenRotation` and serializes requests behind the native provider handoff; the server now accepts the current and grace-period previous native token and revokes both, but no platform rotation trace is wired. | Connect native rotation to `TokenRotation`, pause mutant requests while rotating, accept the previous token only for the configured grace period, then prove rejection. | Server/client contract complete; native platform trace open |
+| M1c / MV-01 | The versioned handshake, issuer boundary, server-side native-token consumption, shell `NativeTokenBridge`, opaque metadata handoff, `connectWorkbench` controller, app injection point, private sidecar RPC, desktop Tauri commands, desktop adapter, Android Keystore RPC and mobile adapter now exist. | Run the real desktop and Android apps and prove scope, expiry, rotation and close-time revocation without exposing signing material or the IPC token to the WebView. | Desktop/mobile implementation complete; MV-01 runtime proof open |
+| MV-02 | Native issue/rotate/revoke now traverses the desktop Tauri command, private sidecar RPC, Workbench issuer and shell rotation hook; the real SSE rotation trace is not recorded. | Maintain an SSE stream in the desktop app, trigger rotation, verify grace-period acceptance and post-grace rejection. | Desktop implementation complete; runtime trace open |
 | MV-03 | Android runtime health is proven on `b7163823`, but the full current Work → Design and lifecycle flow was not exercised; MIUI rejected `adb shell input`. | Build/sign/install the current APK, use an authorized interactive device path such as scrcpy UHID or human taps, capture one runtime PID before/after backgrounding and both mode screens. | Device interaction; blocked by input policy |
 | MV-04 | Renderer and CSP are static-safe, but packaged Android WebView behavior and external-request absence are unproven. | Load a hostile SVG through the real `<img src="data:…">` path, inspect WebView/network logs, and archive a redacted capture. | Device/WebView interaction; open |
-| MV-05 | `projectReadOnly()` is proven headless, but the UI has no live Workbench client/approval flow. | Wire the native client, attempt a write, verify default refusal, approve the exact request, then inspect the redacted audit event. | Code + device; blocked behind M1c |
+| MV-05 | `projectReadOnly()` is proven headless and the desktop Workbench client can now connect, but no live approval interaction has been recorded. | Attempt a write, verify default refusal, approve the exact request, then inspect the redacted audit event. | Desktop runtime proof open |
 | MV-06 | Mode routes and persistence are implemented; no complete UI/deep-link/reopen matrix has been recorded. | Run desktop E2E/manual matrix across two directories and four modes, including reload and deep links. | Desktop interaction; open |
 | MV-07 | Server shutdown closes file sessions and restart now exposes a fresh process `instanceId`, but cross-process workspace generations are not yet exercised through the actual desktop service. | Stop/restart the actual local service and compare workspace generations, then verify no old scoped token survives the new instance. | Automated identity check complete; desktop process proof open |
 | MV-08 | Occupied-port behavior, concurrent automatic-port listeners, and independently spawned worker identities are now tested; the actual desktop service ownership lifecycle is not. | Run the real desktop service twice with configured/automatic ports and capture the owner/lock identity plus rejection of the stale generation. | Cross-process worker proof complete; desktop lifecycle proof open |
@@ -18,8 +18,8 @@ This register separates missing implementation from evidence that requires a rea
 
 ## Current safe order
 
-1. Decide the native token bridge contract and G6.
-2. Implement and test issuer injection/rotation before live client calls; the protocol handshake is now available as the first interoperable step.
+1. Run MV-01/MV-02 against the desktop adapter and archive the redacted traces.
+2. Decide G6 and complete the remaining package/device/manual gates.
 3. Add the instance/single-writer proof required by the selected topology.
 4. Build the current Android candidate and perform the authorized device checks.
 5. Run the desktop E2E/deep-link/CSP matrix.
