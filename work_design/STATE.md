@@ -54,6 +54,7 @@ This file is the durable execution state for the Unifia Work/Design integration.
 | M1c-f | implemented with deferred platform proof | shell 13 scripts: WorkbenchConnection 2/2, Client 26/26, NativeTokenBridge 4/4; shell typecheck PASS | `connectWorkbench` creates the client only after decoding the native lease identity, completing the handshake, and checking server instance continuity; close remains explicit through native revoke. |
 | M1c-g | implemented with deferred platform proof | app typecheck PASS + 704/704 tests + production build PASS | `Platform.workbench.connect` is now an explicit native-only injection point; Workbench mode consumes it when present, shows pending state otherwise, and revokes on cleanup. |
 | M8-a | implemented with deferred process proof | WorkbenchTopology 4/4 | Two concurrent automatic-port listeners receive distinct ports and process identities; occupied-port rejection and restart identity remain covered. |
+| M9-a | implemented with deferred packaged interaction proof | `node scripts/check-workbench-security.mjs` PASS | The guard now parses desktop/mobile CSP JSON and asserts loopback connect-src, data images, object-src none, and frame-ancestors none. |
 | M7-a | implemented with deferred process proof | server typecheck + topology 3/3 | `WorkbenchHandle` now exposes the process `instanceId`; restart tests prove the released port is reusable without reusing the previous process identity. |
 
 ## Manual verification register
@@ -124,6 +125,7 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - M1c-f validation → WorkbenchShell 13 scripts pass, including WorkbenchConnection 2/2; shell typecheck PASS. Desktop/mobile concrete bridge bindings and browser/device/manual gates remain pending.
 - M1c-g validation → app typecheck PASS, 704/704 tests, production build PASS with existing Vite warnings. Desktop/mobile concrete bridge bindings and browser/device/manual gates remain pending.
 - M8-a validation → WorkbenchTopology 4/4 confirms two automatic-port servers do not share a listener or process identity; the full cross-process desktop proof remains pending.
+- M9-a validation → WorkbenchSecurityGuard parses both packaged configuration CSPs and passes explicit origin, loopback, data-image, object and frame policies; MV-09 still needs packaged artifact extraction and interactive URL checks.
 - GitHub Actions → run `31761195329` (`unifia-conformance`) completed `success` on code commit `aede7fc1c5fba75e7b857a657ce8b70f90a5ffd5`; subsequent pushes `54abaa8394` are documentation-only and outside the workflow path filter.
 - Device observation → APK debug source remained unsigned; a local debug-signed copy installed on `b7163823`, `MainActivity` resumed, and `/global/health` returned `healthy=true` on loopback `127.0.0.1:14096`; MV-03/MV-04 remain pending for their full procedures.
 - Lifecycle sub-test → same PID `6866` and resumed `MainActivity` after relaunch; MIUI refused `adb shell input keyevent` with missing `INJECT_EVENTS`, so true background/foreground behavior remains unproven.
