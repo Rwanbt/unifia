@@ -38,6 +38,8 @@ export type RequestOptions = {
 export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
 export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[] }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string> }
+export type AuditEvent = { sequence: number; timestamp: number; actor: string; capability: string; decision: "allow" | "deny" | "approval_required"; previousHash: string; hash: string }
+export type AuditPage = { kind: "trace" | "activity"; events: readonly AuditEvent[]; nextCursor: number | null }
 
 export class WorkbenchHttpError extends Error {
   readonly status: number
@@ -132,6 +134,16 @@ export class WorkbenchClient {
 
   async listDocuments(workspaceId: string, signal?: AbortSignal): Promise<{ documents: readonly ArtifactSummary[] }> {
     return this.request(`/v1/documents?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async trace(workspaceId: string, after = 0, limit = 50, signal?: AbortSignal): Promise<AuditPage> {
+    const params = new URLSearchParams({ workspaceId, after: String(after), limit: String(limit) })
+    return this.request<AuditPage>(`/v1/trace?${params}`, { signal })
+  }
+
+  async activity(workspaceId: string, after = 0, limit = 50, signal?: AbortSignal): Promise<AuditPage> {
+    const params = new URLSearchParams({ workspaceId, after: String(after), limit: String(limit) })
+    return this.request<AuditPage>(`/v1/activity?${params}`, { signal })
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {

@@ -21,7 +21,9 @@ const client = new WorkbenchClient({
   fetchImpl: async (input, init) => {
     requests.push({ url: new URL(String(input)).pathname + new URL(String(input)).search })
     if (init?.headers && token === "expired") return new Response(null, { status: 401 })
-    return new Response(JSON.stringify({ ok: true, entries: [] }), { status: 200, headers: { "content-type": "application/json" } })
+    const path = new URL(String(input)).pathname
+    const payload = path === "/v1/trace" ? { kind: "trace", events: [], nextCursor: null } : path === "/v1/activity" ? { kind: "activity", events: [], nextCursor: null } : { ok: true, entries: [] }
+    return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } })
   },
 })
 
@@ -35,6 +37,12 @@ await client.listArtifacts("workspace-1")
 check(requests.at(-1)?.url === "/v1/artifacts?workspaceId=workspace-1", "artifact list client route was not encoded deterministically")
 await client.listDocuments("workspace-1")
 check(requests.at(-1)?.url === "/v1/documents?workspaceId=workspace-1", "document list client route was not encoded deterministically")
+const trace = await client.trace("workspace-1", 4, 2)
+check(requests.at(-1)?.url === "/v1/trace?workspaceId=workspace-1&after=4&limit=2", "trace client route was not encoded deterministically")
+check(trace.kind === "trace" && trace.events.length === 0, "trace client did not decode the typed page")
+const activity = await client.activity("workspace-1")
+check(requests.at(-1)?.url === "/v1/activity?workspaceId=workspace-1&after=0&limit=50", "activity client route did not apply bounded defaults")
+check(activity.kind === "activity", "activity client did not preserve the page kind")
 
 check((await client.request<{ ok: boolean }>("/v1/read")).ok, "a GET did not retry after token refresh")
 check(refreshes === 1, "GET refresh count was not exactly one")
