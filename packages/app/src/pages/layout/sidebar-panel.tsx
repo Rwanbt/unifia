@@ -284,15 +284,22 @@ export function SidebarPanel(props: SidebarPanelProps) {
                       {language.t("command.session.new")}
                     </Button>
                   </div>
-                  <div class="flex-1 min-h-0">
-                    <LocalWorkspace
-                      ctx={ctx.workspaceSidebarCtx}
-                      project={project()!}
-                      sortNow={ctx.sortNow}
-                      mobile={props.mobile}
-                      popover={popover()}
-                    />
-                  </div>
+                  <Show
+                    when={project()}
+                    fallback={<div class="flex-1 min-h-0 px-4 py-6 text-12-regular text-text-weak">Loading workspace…</div>}
+                  >
+                    {(item) => (
+                      <div class="flex-1 min-h-0">
+                        <LocalWorkspace
+                          ctx={ctx.workspaceSidebarCtx}
+                          project={item()}
+                          sortNow={ctx.sortNow}
+                          mobile={props.mobile}
+                          popover={popover()}
+                        />
+                      </div>
+                    )}
+                  </Show>
                 </>
               }
             >

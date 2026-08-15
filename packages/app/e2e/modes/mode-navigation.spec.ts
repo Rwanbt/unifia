@@ -13,6 +13,10 @@ test("multimode navigation keeps the route and projection aligned", async ({ pag
     await page.getByRole("button", { name: `${mode} mode` }).click()
     await expect(page).toHaveURL(new RegExp(`/${slug}/${mode}(?:[/?#]|$)`))
     await expect(page.locator(`[data-workbench-mode="${mode}"]`).first()).toBeVisible()
+    await expect(page.locator(`[data-workbench-chat="${mode}"]`)).toBeVisible()
+    await expect(page.locator("[data-workbench-chat-input]")).toBeVisible()
+    await page.locator("[data-workbench-chat-suggestion]").click()
+    await expect(page.locator("[data-workbench-chat-input]")).not.toHaveValue("")
   }
 
   await page.getByRole("button", { name: "code mode" }).click()
@@ -31,6 +35,7 @@ test("workbench surfaces fail closed before a native bridge is available", async
 
   await page.getByRole("button", { name: "work mode" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
+  await expect(page.getByText("Chat remains available")).toBeVisible()
   await expect(page.locator("[data-workbench-connection]")).toBeVisible()
   await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
   await page.locator('[data-workbench-operation="export"]').click()

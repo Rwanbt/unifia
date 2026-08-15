@@ -5,6 +5,7 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { base64Encode } from "@unifia/util/encode"
 import { useNavigate } from "@solidjs/router"
+import { WorkbenchChat } from "./workbench-chat"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -66,8 +67,6 @@ function WorkSurface() {
     navigate(target)
   }
 
-  const connectionError = () => { const error = workbench.error(); return error instanceof Error ? error.message : error ? String(error) : "" }
-
   return (
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="work">
       <div class="mx-auto max-w-5xl space-y-8">
@@ -76,12 +75,19 @@ function WorkSurface() {
           <h1 class="text-24-medium">Workspace operations</h1>
           <p class="max-w-2xl text-14-regular text-text-weak">Read-only workspace surfaces are derived from the shared Work registry and keep their scope explicit.</p>
           <p data-workbench-connection={connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"} class="text-12-regular text-text-weak">
-            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : connectionError() || "Native Workbench bridge unavailable"}
+            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations."}
           </p>
           <Show when={workbench.error()}>
             <button type="button" data-workbench-retry class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => retryConnection()}>Retry connection</button>
           </Show>
         </header>
+        <WorkbenchChat
+          mode="work"
+          directory={mode.directory()}
+          sessionId={mode.sessionId()}
+          prompt="Summarize the current workspace and suggest the next safe action."
+          description="Ask for a workspace summary, inspect files, or prepare a safe next step."
+        />
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-workbench-navigation={navigation().layout}>
           <For each={WORK_V1_FUNCTIONS}>
             {(operation) => (
@@ -128,6 +134,7 @@ function WorkSurface() {
 }
 
 function DesignSurface() {
+  const mode = useMode()
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   const retryConnection = workbench.retryConnection
@@ -142,8 +149,6 @@ function DesignSurface() {
     staleTime: 5_000,
     queryFn: () => connection()!.client.validateSpec(connection()!.workspaceId, source()),
   }))
-  const connectionError = () => { const error = workbench.error(); return error instanceof Error ? error.message : error ? String(error) : "" }
-
   return (
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="design">
       <div class="mx-auto max-w-6xl space-y-8">
@@ -152,8 +157,15 @@ function DesignSurface() {
           <h1 class="text-24-medium">Validated responsive preview</h1>
           <p class="max-w-2xl text-14-regular text-text-weak">The preview is produced only after workspace manifest and spec validation and is loaded as an inert image source.</p>
         </header>
+        <WorkbenchChat
+          mode="design"
+          directory={mode.directory()}
+          sessionId={mode.sessionId()}
+          prompt="Create a responsive design spec for the current workspace."
+          description="Describe the interface you want, then refine the validated spec below."
+        />
         <p data-design-connection={connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"} class="text-12-regular text-text-weak">
-          {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : connectionError() || "Native Workbench bridge unavailable"}
+          {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations."}
         </p>
         <Show when={workbench.error()}>
           <button type="button" data-design-retry class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => retryConnection()}>Retry connection</button>
@@ -222,6 +234,7 @@ function DesignSurface() {
 }
 
 function AutomateSurface() {
+  const mode = useMode()
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
@@ -290,8 +303,6 @@ function AutomateSurface() {
       setWorkflowError(error instanceof Error ? error.message : "Approval cancellation failed")
     }
   }
-  const connectionError = () => { const error = workbench.error(); return error instanceof Error ? error.message : error ? String(error) : "" }
-
   return (
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate">
       <div class="mx-auto max-w-5xl space-y-8">
@@ -300,9 +311,16 @@ function AutomateSurface() {
           <h1 class="text-24-medium">Workspace automation definitions</h1>
           <p class="max-w-2xl text-14-regular text-text-weak">Automation v0 reads only validated workflow definitions from the active workspace. Execution is unavailable until an explicit workflow contract is provided.</p>
           <p data-automate-connection={connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"} class="text-12-regular text-text-weak">
-            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : connectionError() || "Native Workbench bridge unavailable"}
+            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations."}
           </p>
         </header>
+        <WorkbenchChat
+          mode="automate"
+          directory={mode.directory()}
+          sessionId={mode.sessionId()}
+          prompt="Create a safe workflow for the next approved workspace task."
+          description="Ask for a workflow draft, review its approval gates, then run only an explicit definition."
+        />
         <Show when={definitions.error}>
           <p data-automate-definitions="failed" class="text-14-regular text-text-danger">{definitions.error instanceof Error ? definitions.error.message : String(definitions.error)}</p>
         </Show>
