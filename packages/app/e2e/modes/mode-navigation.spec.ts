@@ -8,7 +8,9 @@ test("multimode navigation keeps the route and projection aligned", async ({ pag
   await page.goto(`${dirPath(directory)}/session`)
   await expect(page).toHaveURL(new RegExp(`/${slug}/session(?:[/?#]|$)`))
 
-  const modes = ["work", "design", "automate"] as const
+  // ADR-1033: automate is not on the production rail; only work/design are
+  // reachable through the mode buttons this test drives.
+  const modes = ["work", "design"] as const
   for (const mode of modes) {
     await page.getByRole("button", { name: `${mode} mode` }).click()
     await expect(page).toHaveURL(new RegExp(`/${slug}/${mode}(?:[/?#]|$)`))
@@ -45,8 +47,4 @@ test("workbench surfaces fail closed before a native bridge is available", async
   await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()
   await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
   await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()
-
-  await page.getByRole("button", { name: "automate mode" }).click()
-  await expect(page.locator('[data-workbench-surface="automate"]')).toBeVisible()
-  await expect(page.locator("[data-automate-connection]")).toBeVisible()
 })

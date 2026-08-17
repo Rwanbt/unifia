@@ -9,7 +9,8 @@ test("each workspace mode accepts a prompt on the active session", async ({ page
 
   await project.open()
   const sessionID = await project.user("Create the temporary E2E session and do not modify files.")
-  const modes = ["code", "work", "design", "automate"] as const
+  // ADR-1033: automate is not on the production rail.
+  const modes = ["code", "work", "design"] as const
 
   for (const mode of modes) {
     const token = `MODE_${mode.toUpperCase()}_${Date.now()}`
