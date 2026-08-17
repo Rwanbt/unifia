@@ -177,7 +177,8 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
   - C5-4: ARCH-001 Automate removed from production interface ✅
   - C6-1: A11Y-001 mode rail — aria-pressed, nav landmark, i18n 17 locales; commit `5cce04fc08` ✅
   - C6-4: ARCH-002 test script in contracts ✅
-- **C6-2 complete** (UX-001): `ConnectionBanner` derives the visible message and static connection selector from the same `failed` phase; 17 locales carry distinct retry copy; `packages/app` typecheck passes, unit tests pass (718/718), and `e2e/modes` passes (5/5). Commit: pending in this checkpoint.
+- **C6-2 complete** (UX-001): `ConnectionBanner` derives the visible message and static connection selector from the same `failed` phase; 17 locales carry distinct retry copy; `packages/app` typecheck passes, unit tests pass (718/718), and `e2e/modes` passes (5/5). Commit: `cec8868341`.
+- **C6-3 complete** (TEST-003 + REL-001): `check-mode-registry.mjs` excludes the generated Android runtime bundle by explicit path; `unifia-conformance.yml` runs the guard and watches all `packages/**` changes; `work-design-integrity.yml` also watches all package changes. Mode registry and security guards pass locally; the Bash PR-size wrapper remains unexecutable on this Windows host (`E_ACCESSDENIED`) and is CI/Linux evidence.
 - **C4-1 (GATE-M native)**: build prepared in `C:\Users\barat\AppData\Local\Unifia Dev\Unifia.exe`, awaits user manual inspection (devtools, network, origins, events, capabilities).
-- **Remaining high-volume**: C3-1 (EPIC 2 PR harnais E2E transport réel), C5-3a/b/c (EPIC 3 PR Design), C3-2 (E2E), C6-3/C6-5 (CI/tests), C7-1/C7-2 (GATE-M final).
+- **Remaining high-volume**: C3-1 (EPIC 2 PR harnais E2E transport réel), C5-3a/b/c (EPIC 3 PR Design), C3-2 (E2E), C6-5 (CI/tests), C7-1/C7-2 (GATE-M final).
 - **Zero commits pushed.** All local, guards/tests passing at each step, no parallel regressions.

@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 
 const roots = ["packages"]
+const generatedRoots = new Set([path.normalize("packages/mobile/src-tauri/assets/runtime")])
 const allowed = new Set([
   path.normalize("packages/workbench-shell/src/modes.ts"),
   path.normalize("packages/spec-runtime/src/index.ts"),
@@ -16,7 +17,12 @@ async function visit(dir) {
       // Generated Electron/Android output can contain bundled copies of the
       // registry. It is not an authoritative source and must not make this
       // source guard depend on a previous local build.
-      if (!["node_modules", "dist", "build", "out", "gen", "generated"].includes(entry.name)) await visit(file)
+      const normalizedDirectory = path.normalize(file)
+      if (
+        !generatedRoots.has(normalizedDirectory) &&
+        !["node_modules", "dist", "build", "out", "gen", "generated"].includes(entry.name)
+      )
+        await visit(file)
       continue
     }
     if (!/\.(?:ts|tsx|js|mjs)$/.test(entry.name)) continue

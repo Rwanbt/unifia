@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [dev]
     paths:
+      - "packages/**"
       - "work_design/**"
       - "INTEGRATION.md"
       - "scripts/check-pr-size.sh"
