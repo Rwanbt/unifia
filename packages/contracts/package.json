@@ -12,7 +12,8 @@
   "license": "MIT",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "test": "bun test test"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
