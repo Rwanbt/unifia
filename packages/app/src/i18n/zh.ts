@@ -1773,6 +1773,7 @@ export const dict = {
   "workbench.connection.unavailable": "原生 Workbench 桥接不可用。聊天仍可用,重新连接后可解锁工作区操作。",
   "workbench.connection.retry": "重新连接",
   "workbench.connection.retryHint": "重新启动到原生 Workbench 桥接的连接。不会删除任何工作区数据。",
+  "workbench.connection.failed": "连接原生 Workbench 桥接失败。聊天仍可用,重新连接以重试。",
   "workbench.work.title": "工作",
   "workbench.work.heading": "工作区操作",
   "workbench.work.description": "只读界面源自共享的 Work 注册表,并保持明确的范围。",

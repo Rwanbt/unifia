@@ -1707,6 +1707,7 @@ export const dict = {
   "workbench.connection.unavailable": "Yerel Workbench köprüsü kullanılamıyor. Sohbet hâlâ kullanılabilir; çalışma alanı işlemlerini açmak için yeniden bağlanın.",
   "workbench.connection.retry": "Yeniden bağlan",
   "workbench.connection.retryHint": "Yerel Workbench köprüsüne bağlantıyı yeniden başlatır. Çalışma alanı verileri silinmez.",
+  "workbench.connection.failed": "Yerel Workbench köprüsüne bağlantı başarısız oldu. Sohbet hâlâ kullanılabilir; yeniden denemek için tekrar bağlanın.",
   "workbench.work.title": "Çalışma",
   "workbench.work.heading": "Çalışma alanı işlemleri",
   "workbench.work.description": "Salt okunur yüzeyler paylaşılan Work kayıt defterinden türetilir ve kapsamlarını açıkça korur.",

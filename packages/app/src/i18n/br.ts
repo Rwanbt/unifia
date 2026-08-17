@@ -1708,6 +1708,7 @@ export const dict = {
   "workbench.connection.unavailable": "Ponte nativa do Workbench indisponível. O chat segue disponível; reconecte para liberar as operações do espaço.",
   "workbench.connection.retry": "Tentar novamente",
   "workbench.connection.retryHint": "Reinicia a conexão com a ponte nativa do Workbench. Nenhum dado do espaço de trabalho é apagado.",
+  "workbench.connection.failed": "Falha na conexão com a ponte nativa do Workbench. O chat segue disponível; reconecte para tentar novamente.",
   "workbench.work.title": "Trabalho",
   "workbench.work.heading": "Operações do espaço de trabalho",
   "workbench.work.description": "As superfícies somente leitura vêm do registro Work compartilhado e mantêm seu escopo explícito.",

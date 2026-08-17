@@ -1706,6 +1706,7 @@ export const dict = {
   "workbench.connection.unavailable": "Natywny most Workbench jest niedostępny. Czat pozostaje dostępny; połącz się ponownie, aby odblokować operacje obszaru.",
   "workbench.connection.retry": "Połącz ponownie",
   "workbench.connection.retryHint": "Ponownie uruchamia połączenie z natywnym mostem Workbench. Żadne dane obszaru nie zostaną usunięte.",
+  "workbench.connection.failed": "Połączenie z natywnym mostem Workbench nie powiodło się. Czat pozostaje dostępny; połącz się ponownie, aby spróbować jeszcze raz.",
   "workbench.work.title": "Praca",
   "workbench.work.heading": "Operacje obszaru roboczego",
   "workbench.work.description": "Powierzchnie tylko do odczytu są wywodzone ze wspólnego rejestru Work i zachowują jawny zakres.",

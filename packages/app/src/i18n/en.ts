@@ -1706,6 +1706,7 @@ export const dict = {
   "workbench.connection.unavailable": "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations.",
   "workbench.connection.retry": "Retry connection",
   "workbench.connection.retryHint": "Restart the connection to the native Workbench bridge. No workspace data is deleted.",
+  "workbench.connection.failed": "Native Workbench bridge connection failed. Chat remains available; reconnect to retry.",
   "workbench.work.title": "Work",
   "workbench.work.heading": "Workspace operations",
   "workbench.work.description": "Read-only workspace surfaces are derived from the shared Work registry and keep their scope explicit.",

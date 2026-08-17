@@ -1784,6 +1784,7 @@ export const dict = {
   "workbench.connection.unavailable": "Izvorni Workbench most nije dostupan. Ćaskanje ostaje dostupno; ponovo se povežite da biste otključali operacije radnog prostora.",
   "workbench.connection.retry": "Pokušaj ponovo",
   "workbench.connection.retryHint": "Ponovo pokreće vezu s izvornim Workbench mostom. Nijedan podatak radnog prostora neće biti obrisan.",
+  "workbench.connection.failed": "Povezivanje s izvornim Workbench mostom nije uspjelo. Ćaskanje ostaje dostupno; ponovo se povežite da biste pokušali ponovo.",
   "workbench.work.title": "Rad",
   "workbench.work.heading": "Operacije radnog prostora",
   "workbench.work.description": "Površine samo za čitanje izvedene su iz zajedničkog Work registra i zadržavaju izričit opseg.",

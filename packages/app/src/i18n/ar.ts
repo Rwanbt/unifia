@@ -1696,6 +1696,7 @@ export const dict = {
   "workbench.connection.unavailable": "جسر Workbench الأصلي غير متاح. يبقى الدردشة متاحة؛ أعِد الاتصال لفتح عمليات مساحة العمل.",
   "workbench.connection.retry": "إعادة الاتصال",
   "workbench.connection.retryHint": "يعيد تشغيل الاتصال بجسر Workbench الأصلي. لا تُحذف أي بيانات لمساحة العمل.",
+  "workbench.connection.failed": "فشل الاتصال بجسر Workbench الأصلي. تبقى الدردشة متاحة؛ أعِد الاتصال للمحاولة مجددًا.",
   "workbench.work.title": "العمل",
   "workbench.work.heading": "عمليات مساحة العمل",
   "workbench.work.description": "تُشتق الواجهات للقراءة فقط من سجل Work المشترك وتحافظ على نطاقها بشكل صريح.",

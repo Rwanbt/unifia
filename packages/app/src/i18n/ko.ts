@@ -1702,6 +1702,7 @@ export const dict = {
   "workbench.connection.unavailable": "네이티브 Workbench 브리지를 사용할 수 없습니다. 채팅은 계속 사용할 수 있으며, 다시 연결하면 워크스페이스 작업이 잠금 해제됩니다.",
   "workbench.connection.retry": "다시 연결",
   "workbench.connection.retryHint": "네이티브 Workbench 브리지로의 연결을 다시 시작합니다. 워크스페이스 데이터는 삭제되지 않습니다.",
+  "workbench.connection.failed": "네이티브 Workbench 브리지 연결에 실패했습니다. 채팅은 계속 사용할 수 있습니다. 다시 연결하여 재시도하세요.",
   "workbench.work.title": "워크",
   "workbench.work.heading": "워크스페이스 작업",
   "workbench.work.description": "읽기 전용 화면은 공유 Work 레지스트리에서 파생되며 범위를 명시적으로 유지합니다.",

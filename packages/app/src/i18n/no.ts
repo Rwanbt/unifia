@@ -1703,6 +1703,7 @@ export const dict = {
   "workbench.connection.unavailable": "Den opprinnelige Workbench-broen er utilgjengelig. Chatten er fortsatt tilgjengelig; koble til igjen for å låse opp arbeidsområde-handlinger.",
   "workbench.connection.retry": "Prøv igjen",
   "workbench.connection.retryHint": "Starter forbindelsen til den opprinnelige Workbench-broen på nytt. Ingen arbeidsområde-data slettes.",
+  "workbench.connection.failed": "Tilkoblingen til den opprinnelige Workbench-broen mislyktes. Chatten er fortsatt tilgjengelig; koble til igjen for å prøve på nytt.",
   "workbench.work.title": "Arbeid",
   "workbench.work.heading": "Arbeidsområde-handlinger",
   "workbench.work.description": "Skrivebeskyttede flater avledes fra den delte Work-registeret og beholder omfanget sitt eksplisitt.",

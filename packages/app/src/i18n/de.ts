@@ -1723,6 +1723,7 @@ export const dict = {
   "workbench.connection.unavailable": "Native Workbench-Brücke nicht verfügbar. Der Chat bleibt verfügbar; verbinde dich erneut, um Arbeitsbereich-Operationen freizuschalten.",
   "workbench.connection.retry": "Verbindung wiederherstellen",
   "workbench.connection.retryHint": "Startet die Verbindung zur nativen Workbench-Brücke neu. Es werden keine Arbeitsbereich-Daten gelöscht.",
+  "workbench.connection.failed": "Verbindung zur nativen Workbench-Brücke fehlgeschlagen. Der Chat bleibt verfügbar; verbinde dich erneut, um es noch einmal zu versuchen.",
   "workbench.work.title": "Arbeit",
   "workbench.work.heading": "Arbeitsbereich-Operationen",
   "workbench.work.description": "Schreibgeschützte Oberflächen werden aus der gemeinsamen Work-Registrierung abgeleitet und behalten ihren Umfang explizit.",

@@ -1710,6 +1710,7 @@ export const dict = {
   "workbench.connection.unavailable": "Нативный мост Workbench недоступен. Чат остаётся доступным; переподключитесь, чтобы разблокировать операции рабочего пространства.",
   "workbench.connection.retry": "Переподключиться",
   "workbench.connection.retryHint": "Перезапускает подключение к нативному мосту Workbench. Данные рабочего пространства не удаляются.",
+  "workbench.connection.failed": "Не удалось подключиться к нативному мосту Workbench. Чат остаётся доступным; переподключитесь, чтобы повторить попытку.",
   "workbench.work.title": "Работа",
   "workbench.work.heading": "Операции рабочего пространства",
   "workbench.work.description": "Поверхности только для чтения выводятся из общего реестра Work и сохраняют явную область действия.",

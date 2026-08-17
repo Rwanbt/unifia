@@ -1702,6 +1702,7 @@ export const dict = {
   "workbench.connection.unavailable": "ネイティブ Workbench ブリッジは利用できません。チャットは引き続き利用可能で、再接続でワークスペース操作を解放できます。",
   "workbench.connection.retry": "再接続",
   "workbench.connection.retryHint": "ネイティブ Workbench ブリッジへの接続を再起動します。ワークスペースのデータは削除されません。",
+  "workbench.connection.failed": "ネイティブ Workbench ブリッジへの接続に失敗しました。チャットは引き続き利用可能です。再接続して再試行してください。",
   "workbench.work.title": "ワーク",
   "workbench.work.heading": "ワークスペース操作",
   "workbench.work.description": "読み取り専用のサーフェスは共有 Work レジストリから派生し、スコープを明示的に保ちます。",

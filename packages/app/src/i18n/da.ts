@@ -1778,6 +1778,7 @@ export const dict = {
   "workbench.connection.unavailable": "Den native Workbench-bro er ikke tilgængelig. Chat forbliver tilgængelig; genopret forbindelse for at frigøre arbejdsområde-handlinger.",
   "workbench.connection.retry": "Prøv igen",
   "workbench.connection.retryHint": "Genstarter forbindelsen til den native Workbench-bro. Ingen arbejdsområde-data slettes.",
+  "workbench.connection.failed": "Forbindelsen til den native Workbench-bro mislykkedes. Chat forbliver tilgængelig; genopret forbindelse for at prøve igen.",
   "workbench.work.title": "Arbejde",
   "workbench.work.heading": "Arbejdsområde-handlinger",
   "workbench.work.description": "Skrivebeskyttede overflader afledes af det delte Work-register og bevarer deres anvendelsesområde eksplicit.",

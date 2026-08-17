@@ -164,3 +164,20 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - Design now reads the authoritative `.unifia/workspace.json` manifest through `GET /v1/design-systems`; `SAMPLE_SPEC` is no longer a production source.
 - Automate v0 was a real read-only `.unifia/workflows` file-index surface, but it reached a `startWorkflow` call with no `workflow.run` capability ever granted in this branch (audit finding ARCH-001). Per ADR-1033 (supersedes ADR-0033, 2026-08-17), Automate is now absent from the production interface — filtered from the rail and unresolved as a route — behind a developer-only, build-time-eliminated flag. `SHELL_MODES` still declares all four modes as the shared navigation contract.
 - Automated gates are green; MV-01, MV-02, MV-06, MV-07, MV-08, MV-09 and MV-10 remain pending human/runtime gates.
+
+## 2026-08-17 — Plan de remédiation audit, Phase 1–2
+
+- **Audit independent** (2026-08-17) found 17 findings, 5 HIGH (verdict NO-GO, score 43/100) on worktree `work-design` @ `b7add2bbaf`.
+- **Remediation plan v2** tracks 27 gate cards + 8 Automate successor cards + 11 deferred debt items.
+- **Phase 1–2 cards complete** (15 commits local):
+  - C0-1/C0-2: baseline checkpoints & Bun 1.3.11 gates ✅
+  - C1-1 through C1-4: red tests (CORS, routes, capabilities, listing) ✅
+  - C2-1 through C2-5: frontière fixes (FUNC-002 CORS, FUNC-001 SSE+backoff, SEC-001 capabilities, SEC-002 error headers, approval expiry) ✅
+  - C5-1/C5-2: FUNC-004 pagination listing, FUNC-005 missing-prefix ✅
+  - C5-4: ARCH-001 Automate removed from production interface ✅
+  - C6-1: A11Y-001 mode rail — aria-pressed, nav landmark, i18n 17 locales; commit `5cce04fc08` ✅
+  - C6-4: ARCH-002 test script in contracts ✅
+- **C6-2 complete** (UX-001): `ConnectionBanner` derives the visible message and static connection selector from the same `failed` phase; 17 locales carry distinct retry copy; `packages/app` typecheck passes, unit tests pass (718/718), and `e2e/modes` passes (5/5). Commit: pending in this checkpoint.
+- **C4-1 (GATE-M native)**: build prepared in `C:\Users\barat\AppData\Local\Unifia Dev\Unifia.exe`, awaits user manual inspection (devtools, network, origins, events, capabilities).
+- **Remaining high-volume**: C3-1 (EPIC 2 PR harnais E2E transport réel), C5-3a/b/c (EPIC 3 PR Design), C3-2 (E2E), C6-3/C6-5 (CI/tests), C7-1/C7-2 (GATE-M final).
+- **Zero commits pushed.** All local, guards/tests passing at each step, no parallel regressions.

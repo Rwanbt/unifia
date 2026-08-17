@@ -1723,6 +1723,7 @@ export const dict = {
   "workbench.connection.unavailable": "Pont Workbench natif indisponible. Le chat reste disponible ; reconnectez-vous pour débloquer les opérations.",
   "workbench.connection.retry": "Reconnecter",
   "workbench.connection.retryHint": "Relance la connexion au pont Workbench natif. Aucune donnée du workspace ne sera supprimée.",
+  "workbench.connection.failed": "Échec de la connexion au pont Workbench natif. Le chat reste disponible ; reconnectez-vous pour réessayer.",
   "workbench.work.title": "Travail",
   "workbench.work.heading": "Opérations de l’espace de travail",
   "workbench.work.description": "Les surfaces en lecture seule sont dérivées du registre Work partagé et conservent un périmètre explicite.",

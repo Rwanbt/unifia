@@ -1774,6 +1774,7 @@ export const dict = {
   "workbench.connection.unavailable": "สะพาน Workbench ดั้งเดิมไม่พร้อมใช้งาน แชทยังคงใช้งานได้ เชื่อมต่อใหม่เพื่อปลดล็อกการทำงานของพื้นที่",
   "workbench.connection.retry": "ลองเชื่อมต่ออีกครั้ง",
   "workbench.connection.retryHint": "เริ่มการเชื่อมต่อกับสะพาน Workbench ดั้งเดิมใหม่ ข้อมูลพื้นที่ทำงานจะไม่ถูกลบ",
+  "workbench.connection.failed": "การเชื่อมต่อกับสะพาน Workbench ดั้งเดิมล้มเหลว แชทยังคงใช้งานได้ เชื่อมต่อใหม่เพื่อลองอีกครั้ง",
   "workbench.work.title": "ทำงาน",
   "workbench.work.heading": "การทำงานของพื้นที่ทำงาน",
   "workbench.work.description": "พื้นผิวแบบอ่านอย่างเดียวได้มาจากเรจิสทรี Work ที่ใช้ร่วมกัน และคงขอบเขตไว้อย่างชัดเจน",

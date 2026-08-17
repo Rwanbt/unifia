@@ -1769,6 +1769,7 @@ export const dict = {
   "workbench.connection.unavailable": "原生 Workbench 橋接無法使用。聊天仍可使用,重新連線後可解鎖工作區作業。",
   "workbench.connection.retry": "重新連線",
   "workbench.connection.retryHint": "重新啟動至原生 Workbench 橋接的連線。不會刪除任何工作區資料。",
+  "workbench.connection.failed": "連線至原生 Workbench 橋接失敗。聊天仍可使用,重新連線以重試。",
   "workbench.work.title": "工作",
   "workbench.work.heading": "工作區作業",
   "workbench.work.description": "唯讀介面衍生自共用的 Work 註冊表,並維持明確的範圍。",

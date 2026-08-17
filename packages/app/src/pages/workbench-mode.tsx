@@ -41,6 +41,14 @@ function ConnectionBanner(props: { dataAttr: "workbench-connection" | "design-co
   const t = language.t
   const connection = workbench.connection
   const phase = () => connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"
+  const phaseText = () => {
+    switch (phase()) {
+      case "connected": return t("workbench.connection.connected", { instanceId: connection()!.instanceId })
+      case "connecting": return t("workbench.connection.connecting")
+      case "failed": return t("workbench.connection.failed")
+      default: return t("workbench.connection.unavailable")
+    }
+  }
   return (
     <>
       <p
@@ -49,11 +57,7 @@ function ConnectionBanner(props: { dataAttr: "workbench-connection" | "design-co
         data-automate-connection={props.dataAttr === "automate-connection" ? phase() : undefined}
         class="text-12-regular text-text-weak"
       >
-        {connection()?.instanceId
-          ? t("workbench.connection.connected", { instanceId: connection()!.instanceId })
-          : workbench.loading()
-            ? t("workbench.connection.connecting")
-            : t("workbench.connection.unavailable")}
+        {phaseText()}
       </p>
       <Show when={workbench.error()}>
         <button

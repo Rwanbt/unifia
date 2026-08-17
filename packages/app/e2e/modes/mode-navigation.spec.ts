@@ -52,8 +52,12 @@ test("workbench surfaces fail closed before a native bridge is available", async
 
   await page.getByRole("button", { name: "work mode" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
+  // No native bridge in this harness: the lifecycle sets phase=failed (an
+  // explicit error), not phase=unavailable (never attempted) — UX-001, the
+  // banner text must say so, not the generic "unavailable" copy.
+  await expect(page.locator('[data-workbench-connection="failed"]')).toBeVisible()
+  await expect(page.getByText(/workbench bridge connection failed/i)).toBeVisible()
   await expect(page.getByText("Chat remains available")).toBeVisible()
-  await expect(page.locator("[data-workbench-connection]")).toBeVisible()
   await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
   await page.locator('[data-workbench-operation="export"]').click()
   await expect(page.locator("[data-workbench-export]")).toBeDisabled()
