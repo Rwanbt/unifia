@@ -88,7 +88,11 @@ try {
 
   // --- Real HTTP over a real socket ------------------------------------------
   const signer = new HmacTokenAuthenticator(validKey, config.issuer, config.audience)
-  const admin: Principal = { id: "admin", scopes: new Set(["workspace.register", "workspace.open"]), workspaces: "*" }
+  // workspace.read added — SEC-001/C2-3 now checks the token's own scopes
+  // before the capability gate runs. This test's subject is the gate's
+  // process-level default-deny (nothing allowlisted, so even a properly
+  // scoped read needs approval below) — unchanged by that token-scope layer.
+  const admin: Principal = { id: "admin", scopes: new Set(["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]), workspaces: "*" }
   const token = signer.sign(admin, Date.now() + 300_000)
   const bearer = { authorization: `Bearer ${token}` }
 

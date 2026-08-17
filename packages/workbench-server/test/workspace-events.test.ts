@@ -48,7 +48,7 @@ describe("GET /v1/workspaces/:workspaceId/events (C2-2/FUNC-001)", () => {
 
   it("fans in events from every session that exists when the stream opens", async () => {
     const runtime = new FakeRuntimeAdapter(() => 1_000)
-    const server = new WorkbenchServer({ auth: new UnauthenticatedPrincipal(), workspace: new WorkspaceRuntime(), runtime, audit: { record: () => undefined }, capability: { check: async () => "allow" } })
+    const server = new WorkbenchServer({ auth: new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]), workspace: new WorkspaceRuntime(), runtime, audit: { record: () => undefined }, capability: { check: async () => "allow" } })
     const handle = await open(server)
     const sessionA = await runtime.createSession({ workspaceId: handle.id })
     const sessionB = await runtime.createSession({ workspaceId: handle.id })
@@ -67,7 +67,7 @@ describe("GET /v1/workspaces/:workspaceId/events (C2-2/FUNC-001)", () => {
   it("joins a session created after the stream opened, within one poll interval", async () => {
     const runtime = new FakeRuntimeAdapter(() => 1_000)
     const server = new WorkbenchServer({
-      auth: new UnauthenticatedPrincipal(),
+      auth: new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]),
       workspace: new WorkspaceRuntime(),
       runtime,
       audit: { record: () => undefined },
@@ -90,7 +90,7 @@ describe("GET /v1/workspaces/:workspaceId/events (C2-2/FUNC-001)", () => {
   })
 
   it("rejects a caller without a valid workspace token", async () => {
-    const server = new WorkbenchServer({ auth: new UnauthenticatedPrincipal(), workspace: new WorkspaceRuntime(), runtime: new FakeRuntimeAdapter(() => 1_000), audit: { record: () => undefined }, capability: { check: async () => "allow" } })
+    const server = new WorkbenchServer({ auth: new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]), workspace: new WorkspaceRuntime(), runtime: new FakeRuntimeAdapter(() => 1_000), audit: { record: () => undefined }, capability: { check: async () => "allow" } })
     const handle = await open(server)
     const response = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/events`))
     expect(response.status).toBe(403)

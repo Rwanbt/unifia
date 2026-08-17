@@ -38,6 +38,21 @@ const DEFAULT_RATE_BUDGET = 240
 const DEFAULT_RATE_WINDOW_MS = 60_000
 /** How often GET /v1/workspaces/:id/events re-lists sessions to fan new ones into the stream (C2-2/FUNC-001). */
 const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
+/**
+ * SEC-001/C2-3 capability matrix, decided 2026-08-17. workspace.read and
+ * workspace.watch are granted at connection (READ_CAPABILITIES,
+ * provider.tsx) and always in principal.scopes already — they don't need
+ * to be listed here. Every capability NOT in principal.scopes and NOT
+ * listed here is refused before #checkCapability's gate ever runs:
+ * workspace.write, workflow.run, desktop.control, desktop.observe,
+ * browser.navigate, package.install have no legitimate caller in this
+ * branch (workflow.run in particular: Automate is out of scope, see
+ * ADR-1033/C5-4). artifact.create and artifact.export are the only two
+ * step-up-eligible capabilities — Design/Work trigger them for real
+ * (save/export), so a base-scoped token must still be able to reach the
+ * approval gate for these two, not fail closed outright.
+ */
+const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set(["artifact.create", "artifact.export"])
 /** Sentinel racing every session's next() promise so a newly-discovered session can interrupt an in-flight wait. */
 const WAKE = Symbol("workspace-events-wake")
 type JsonRecord = Record<string, unknown>
@@ -212,29 +227,29 @@ export class WorkbenchServer {
       if (request.method === "POST" && segments[1] === "workspaces" && segments[2] === "register") return this.#register(request, principal)
       if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2], principal)
       if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
-      if (segments[1] === "workspaces" && segments[3] === "events" && request.method === "GET") return this.#workspaceEvents(request, segments[2])
+      if (segments[1] === "workspaces" && segments[3] === "events" && request.method === "GET") return this.#workspaceEvents(request, segments[2], principal)
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
-      if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
-      if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2])
-      if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2])
-      if (segments[1] === "files" && (segments[2] === "list" || segments[2] === "search") && request.method === "GET") return this.#fileIndex(request, segments[2])
-      if (segments[1] === "design-systems" && request.method === "GET") return this.#designSystems(request)
+      if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2], principal)
+      if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2], principal)
+      if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2], principal)
+      if (segments[1] === "files" && (segments[2] === "list" || segments[2] === "search") && request.method === "GET") return this.#fileIndex(request, segments[2], principal)
+      if (segments[1] === "design-systems" && request.method === "GET") return this.#designSystems(request, principal)
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
       if (segments[1] === "approvals" && request.method === "GET") return this.#approvalList(request)
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
       if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
-      if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2])
-      if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request)
-      if (segments[1] === "artifacts" && request.method === "POST") return this.#artifactWrite(request)
-      if (segments[1] === "documents" && request.method === "GET") return this.#documents(request)
-      if (segments[1] === "specs" && segments[2] === "validate" && request.method === "POST") return this.#specValidate(request)
-      if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2])
-      if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2])
-      if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2])
-      if (segments[1] === "memory" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) return this.#memoryAction(request, segments[2])
-      if (segments[1] === "capabilities" && (request.method === "GET" || request.method === "POST")) return this.#capabilityAction(request, segments[2])
-      if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request)
+      if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2], principal)
+      if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request, principal)
+      if (segments[1] === "artifacts" && request.method === "POST") return this.#artifactWrite(request, principal)
+      if (segments[1] === "documents" && request.method === "GET") return this.#documents(request, principal)
+      if (segments[1] === "specs" && segments[2] === "validate" && request.method === "POST") return this.#specValidate(request, principal)
+      if (segments[1] === "browser" && request.method === "POST") return this.#browserAction(request, segments[2], principal)
+      if (segments[1] === "desktop" && request.method === "POST") return this.#desktopAction(request, segments[2], principal)
+      if (segments[1] === "workflows" && request.method === "POST") return this.#workflowAction(request, segments[2], principal)
+      if (segments[1] === "memory" && (request.method === "GET" || request.method === "POST" || request.method === "DELETE")) return this.#memoryAction(request, segments[2], principal)
+      if (segments[1] === "capabilities" && (request.method === "GET" || request.method === "POST")) return this.#capabilityAction(request, segments[2], principal)
+      if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request, principal)
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
       return this.#deny("route.unknown", 404)
@@ -322,10 +337,10 @@ export class WorkbenchServer {
     return this.#deny("session.method", 405)
   }
 
-  async #events(request: Request, sessionId: string): Promise<Response> {
+  async #events(request: Request, sessionId: string, principal: Principal): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("session.events.scope", 403)
-    const eventGate = await this.#checkCapability("workspace.watch", workspaceId)
+    const eventGate = await this.#checkCapability("workspace.watch", workspaceId, principal)
     if (eventGate) return eventGate
     const requestedCursor = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? "0")
     const afterSequence = Number.isSafeInteger(requestedCursor) && requestedCursor > 0 ? requestedCursor : 0
@@ -371,10 +386,10 @@ export class WorkbenchServer {
    * acceptable for now; a composite per-session cursor is future work if
    * that turns out to matter.
    */
-  async #workspaceEvents(request: Request, workspaceId: string): Promise<Response> {
+  async #workspaceEvents(request: Request, workspaceId: string, principal: Principal): Promise<Response> {
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny("workspace.events.scope", 403)
-    const eventGate = await this.#checkCapability("workspace.watch", workspaceId)
+    const eventGate = await this.#checkCapability("workspace.watch", workspaceId, principal)
     if (eventGate) return eventGate
 
     const encoder = new TextEncoder()
@@ -452,10 +467,10 @@ export class WorkbenchServer {
     }
   }
 
-  async #cancelOperation(request: Request, operationId: string): Promise<Response> {
+  async #cancelOperation(request: Request, operationId: string, principal: Principal): Promise<Response> {
     const operation = this.#operations.get(operationId)
     if (!operation || !this.#authorize(request, operation.workspaceId)) return this.#deny("operation.cancel.scope", 403)
-    const gate = await this.#checkCapability("workspace.watch", operation.workspaceId)
+    const gate = await this.#checkCapability("workspace.watch", operation.workspaceId, principal)
     if (gate) return gate
     const cancelled = this.#operations.cancel(operationId)
     if (!cancelled) return this.#deny("operation.cancel", 409)
@@ -464,14 +479,14 @@ export class WorkbenchServer {
     return json(200, { operation: cancelled })
   }
 
-  async #files(request: Request, operation: "read" | "write"): Promise<Response> {
+  async #files(request: Request, operation: "read" | "write", principal: Principal): Promise<Response> {
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || !Array.isArray(input.paths) && operation === "read") return this.#deny(`workspace.${operation}`, 400)
     const workspaceId = input.workspaceId
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
     const capability = `workspace.${operation}` as P3Capability
-    const capabilityResponse = await this.#checkCapability(capability, workspaceId)
+    const capabilityResponse = await this.#checkCapability(capability, workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     if (operation === "read") {
       const results = await this.#workspace.read(this.#runtimeToken(token), input.paths as string[])
@@ -484,13 +499,13 @@ export class WorkbenchServer {
     return json(200, { results: results as unknown as JsonRecord[] })
   }
 
-  async #fileIndex(request: Request, operation: "list" | "search"): Promise<Response> {
+  async #fileIndex(request: Request, operation: "list" | "search", principal: Principal): Promise<Response> {
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
     if (!workspaceId) return this.#deny(`workspace.${operation}`, 400)
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
-    const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId)
+    const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     const prefix = url.searchParams.get("prefix") ?? "."
     const entries = operation === "list"
@@ -500,12 +515,12 @@ export class WorkbenchServer {
     return json(200, { entries })
   }
 
-  async #designSystems(request: Request): Promise<Response> {
+  async #designSystems(request: Request, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId) return this.#deny("design-system.manifest", 400)
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny("design-system.manifest.scope", 403)
-    const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId)
+    const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     let result: FileReadResult | undefined
     try {
@@ -524,13 +539,13 @@ export class WorkbenchServer {
     }
   }
 
-  async #browserAction(request: Request, action: string): Promise<Response> {
+  async #browserAction(request: Request, action: string, principal: Principal): Promise<Response> {
     if (!this.#browser) return this.#deny("browser.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string") return this.#deny("browser.scope", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("browser.scope", 403)
-    const gate = await this.#checkCapability("browser.navigate", input.workspaceId)
+    const gate = await this.#checkCapability("browser.navigate", input.workspaceId, principal)
     if (gate) return gate
     if (action === "navigate" && typeof input.url === "string") { await this.#browser.navigate(input.workspaceId, input.url); this.#allow("browser.navigate"); return json(202, { accepted: true }) }
     if (action === "snapshot") { const snapshot = await this.#browser.snapshot(input.workspaceId); this.#allow("browser.snapshot"); return json(200, { snapshot }) }
@@ -538,26 +553,26 @@ export class WorkbenchServer {
     return this.#deny("browser.action", 400)
   }
 
-  async #desktopAction(request: Request, action: string): Promise<Response> {
+  async #desktopAction(request: Request, action: string, principal: Principal): Promise<Response> {
     if (!this.#desktop) return this.#deny("desktop.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || typeof input.appId !== "string") return this.#deny("desktop.scope", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("desktop.scope", 403)
     const target = { appId: input.appId, windowId: typeof input.windowId === "string" ? input.windowId : undefined }
-    if (action === "observe") { const gate = await this.#checkCapability("desktop.observe", input.workspaceId); if (gate) return gate; const observation = await this.#desktop.observe(target); this.#allow("desktop.observe"); return json(200, { observation }) }
-    if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) { const gate = await this.#checkCapability("desktop.control", input.workspaceId); if (gate) return gate; await this.#desktop.control(target, input.action, input.payload); this.#allow("desktop.control"); return json(202, { accepted: true }) }
+    if (action === "observe") { const gate = await this.#checkCapability("desktop.observe", input.workspaceId, principal); if (gate) return gate; const observation = await this.#desktop.observe(target); this.#allow("desktop.observe"); return json(200, { observation }) }
+    if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) { const gate = await this.#checkCapability("desktop.control", input.workspaceId, principal); if (gate) return gate; await this.#desktop.control(target, input.action, input.payload); this.#allow("desktop.control"); return json(202, { accepted: true }) }
     return this.#deny("desktop.action", 400)
   }
 
-  async #workflowAction(request: Request, action: string): Promise<Response> {
+  async #workflowAction(request: Request, action: string, principal: Principal): Promise<Response> {
     if (!this.#workflow) return this.#deny("workflow.unavailable", 503)
     const input = await body(request)
     if (action === "start") {
       if (typeof input.workspaceId !== "string" || !input.definition || typeof input.definition !== "object") return this.#deny("workflow.start", 400)
       const token = this.#authorize(request, input.workspaceId)
       if (!token) return this.#deny("workflow.scope", 403)
-      const gate = await this.#checkCapability("workflow.run", input.workspaceId)
+      const gate = await this.#checkCapability("workflow.run", input.workspaceId, principal)
       if (gate) return gate
       const definition = { ...(input.definition as WorkflowDefinition), workspaceId: input.workspaceId }
       const state = await this.#workflow.start(definition)
@@ -580,25 +595,25 @@ export class WorkbenchServer {
     return json(200, { state })
   }
 
-  async #memoryAction(request: Request, action: string): Promise<Response> {
+  async #memoryAction(request: Request, action: string, principal: Principal): Promise<Response> {
     if (!this.#memory) return this.#deny("memory.unavailable", 503)
     const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
     if (typeof input.workspaceId !== "string") return this.#deny("memory.scope", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("memory.scope", 403)
-    if (request.method === "POST" && action === "remember") { const gate = await this.#checkCapability("workspace.write", input.workspaceId); if (gate) return gate; if (typeof input.content !== "string" || (input.source !== "user" && input.source !== "agent" && input.source !== "import")) return this.#deny("memory.remember", 400); const record = await this.#memory.remember({ workspaceId: input.workspaceId, content: input.content, source: input.source, tags: Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined, id: typeof input.id === "string" ? input.id : undefined }); this.#allow("memory.remember"); return json(201, { record }) }
-    if (request.method === "GET" && action === "search") { const gate = await this.#checkCapability("workspace.read", input.workspaceId); if (gate) return gate; const records = await this.#memory.search({ workspaceId: input.workspaceId, text: typeof input.text === "string" ? input.text : undefined }); this.#allow("memory.search"); return json(200, { records }) }
-    if (request.method === "DELETE" && action === "remove" && typeof input.id === "string") { const gate = await this.#checkCapability("workspace.write", input.workspaceId); if (gate) return gate; const removed = await this.#memory.remove(input.workspaceId, input.id); this.#allow("memory.remove"); return json(200, { removed }) }
+    if (request.method === "POST" && action === "remember") { const gate = await this.#checkCapability("workspace.write", input.workspaceId, principal); if (gate) return gate; if (typeof input.content !== "string" || (input.source !== "user" && input.source !== "agent" && input.source !== "import")) return this.#deny("memory.remember", 400); const record = await this.#memory.remember({ workspaceId: input.workspaceId, content: input.content, source: input.source, tags: Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined, id: typeof input.id === "string" ? input.id : undefined }); this.#allow("memory.remember"); return json(201, { record }) }
+    if (request.method === "GET" && action === "search") { const gate = await this.#checkCapability("workspace.read", input.workspaceId, principal); if (gate) return gate; const records = await this.#memory.search({ workspaceId: input.workspaceId, text: typeof input.text === "string" ? input.text : undefined }); this.#allow("memory.search"); return json(200, { records }) }
+    if (request.method === "DELETE" && action === "remove" && typeof input.id === "string") { const gate = await this.#checkCapability("workspace.write", input.workspaceId, principal); if (gate) return gate; const removed = await this.#memory.remove(input.workspaceId, input.id); this.#allow("memory.remove"); return json(200, { removed }) }
     return this.#deny("memory.action", 400)
   }
 
-  async #capabilityAction(request: Request, action: string): Promise<Response> {
+  async #capabilityAction(request: Request, action: string, principal: Principal): Promise<Response> {
     if (!this.#capabilities) return this.#deny("capability.unavailable", 503)
     const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
     if (typeof input.workspaceId !== "string") return this.#deny("capability.scope", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("capability.scope", 403)
-    const gate = await this.#checkCapability("package.install", input.workspaceId)
+    const gate = await this.#checkCapability("package.install", input.workspaceId, principal)
     if (gate) return gate
     if (action === "register" && input.manifest && typeof input.manifest === "object") { this.#capabilities.register(input.manifest as CapabilityManifest); this.#allow("capability.register"); return json(201, { registered: true }) }
     if (action === "approve" && typeof input.digest === "string") { this.#capabilities.approve(input.digest); this.#allow("capability.approve"); return json(200, { approved: true }) }
@@ -608,13 +623,13 @@ export class WorkbenchServer {
     return this.#deny("capability.action", 400)
   }
 
-  async #uiAction(request: Request): Promise<Response> {
+  async #uiAction(request: Request, principal: Principal): Promise<Response> {
     if (!this.#ui) return this.#deny("ui.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || !input.action || typeof input.action !== "object") return this.#deny("ui.scope", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("ui.scope", 403)
-    const gate = await this.#checkCapability("desktop.control", input.workspaceId)
+    const gate = await this.#checkCapability("desktop.control", input.workspaceId, principal)
     if (gate) return gate
     const result = await this.#ui.execute(input.action as UiAction)
     this.#allow("ui.action")
@@ -704,11 +719,11 @@ export class WorkbenchServer {
     this.#allow(`${kind}.read`)
     return json(200, { kind, ...page })
   }
-  async #artifactRead(request: Request, artifactId?: string): Promise<Response> {
+  async #artifactRead(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("artifact.read.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.read.scope", 403)
-    const gate = await this.#checkCapability("workspace.read", workspaceId)
+    const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
     if (!artifactId) { this.#allow("artifact.list"); return json(200, { artifacts: await this.#artifacts.list() }) }
     const artifact = await this.#artifacts.latest(artifactId)
@@ -717,25 +732,25 @@ export class WorkbenchServer {
     this.#allow("artifact.read")
     return json(200, { artifact, content: Buffer.from(content).toString("base64"), encoding: "base64" })
   }
-  async #artifactWrite(request: Request): Promise<Response> {
+  async #artifactWrite(request: Request, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("artifact.create.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || typeof input.kind !== "string" || typeof input.filename !== "string" || typeof input.content !== "string") return this.#deny("artifact.create", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("artifact.create.scope", 403)
-    const gate = await this.#checkCapability("artifact.create", input.workspaceId)
+    const gate = await this.#checkCapability("artifact.create", input.workspaceId, principal)
     if (gate) return gate
     const artifact = await this.#artifacts.create({ kind: input.kind as Parameters<ArtifactStore["create"]>[0]["kind"], filename: input.filename, content: input.content, artifactId: typeof input.artifactId === "string" ? input.artifactId : undefined, metadata: input.metadata as Record<string, string> | undefined, provenance: input.provenance as Parameters<ArtifactStore["create"]>[0]["provenance"] })
     this.#allow("artifact.create")
     return json(201, { artifact })
   }
-  async #artifactExport(request: Request): Promise<Response> {
+  async #artifactExport(request: Request, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("artifact.export.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || typeof input.artifactId !== "string") return this.#deny("artifact.export", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("artifact.export.scope", 403)
-    const gate = await this.#checkCapability("artifact.export", input.workspaceId)
+    const gate = await this.#checkCapability("artifact.export", input.workspaceId, principal)
     if (gate) return gate
     const artifact = await this.#artifacts.latest(input.artifactId)
     if (!artifact) return this.#deny("artifact.export.not-found", 404)
@@ -743,23 +758,23 @@ export class WorkbenchServer {
     this.#allow("artifact.export")
     return json(200, { exported })
   }
-  async #documents(request: Request): Promise<Response> {
+  async #documents(request: Request, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("documents.unavailable", 503)
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("documents.scope", 403)
-    const gate = await this.#checkCapability("workspace.read", workspaceId)
+    const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
     const documents = (await this.#artifacts.list()).filter((artifact) => artifact.kind !== "binary")
     this.#allow("documents.list")
     return json(200, { documents })
   }
-  async #specValidate(request: Request): Promise<Response> {
+  async #specValidate(request: Request, principal: Principal): Promise<Response> {
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || (typeof input.spec !== "string" && (!input.spec || typeof input.spec !== "object"))) return this.#deny("spec.validate", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("spec.validate.scope", 403)
-    const gate = await this.#checkCapability("workspace.read", input.workspaceId)
+    const gate = await this.#checkCapability("workspace.read", input.workspaceId, principal)
     if (gate) return gate
     const spec = parseSpec(input.spec)
     const resolution = resolveEffectiveCapabilities(spec, [])
@@ -836,7 +851,28 @@ export class WorkbenchServer {
     return value?.startsWith("Bearer ") ? value.slice(7) : undefined
   }
 
-  async #checkCapability(capability: P3Capability, resource: string): Promise<Response | undefined> {
+  /**
+   * SEC-001: the principal's own granted scopes (built from
+   * ScopedTokenRequest.capabilities at #authenticate) are checked FIRST,
+   * before the injected CapabilityGate ever runs. Before this fix, a token
+   * scoped to ["workspace.read", "workspace.watch"] could still reach the
+   * gate for "workflow.run" and get 202 approvalRequired — the gate's
+   * server-wide allowlist has no idea what was actually granted to the
+   * calling token. A capability the token was never issued must fail
+   * closed at 403 without ever creating an approval — UNLESS the
+   * capability is step-up eligible (STEP_UP_ELIGIBLE_CAPABILITIES): the
+   * base connection lease only ever carries workspace.read/watch (see
+   * READ_CAPABILITIES in provider.tsx), so artifact.create/export — real
+   * operations Design/Work trigger — must still be able to reach the
+   * approval gate below, or "saved"/"exported" break outright instead of
+   * asking for confirmation. Every other capability (workspace.write,
+   * workflow.run, desktop.control/observe, browser.navigate,
+   * package.install) has no legitimate caller in this branch and is
+   * refused before the gate runs, so it can never create an approval
+   * either — see 2026-08-17 decision, capability-scope.test.ts.
+   */
+  async #checkCapability(capability: P3Capability, resource: string, principal: Principal): Promise<Response | undefined> {
+    if (!principal.scopes.has(capability) && !STEP_UP_ELIGIBLE_CAPABILITIES.has(capability)) return this.#deny(capability, 403)
     const decision = await this.#capability.check(capability, resource, "workbench-server")
     if (decision === "allow") return undefined
     if (typeof decision === "object") {

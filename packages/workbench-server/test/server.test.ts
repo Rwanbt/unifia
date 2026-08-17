@@ -3,7 +3,7 @@ import { createHash } from "node:crypto"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, BrowserAutomationBroker, CapabilityRegistry, DesktopAutomationBroker, McpUiControlBroker, FakeRuntimeAdapter, P3_CAPABILITIES, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
 import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { ArtifactStore } from "@unifia/artifact-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
@@ -16,8 +16,16 @@ import { ApprovalCapabilityGate, FixedWindowRateLimiter, HmacTokenAuthenticator,
  * file-session token in `Authorization`. They run against an explicitly
  * unauthenticated principal; the dedicated auth block at the end of this file
  * exercises the real HMAC authenticator, scopes and rate limiting.
+ *
+ * SEC-001/C2-3: #checkCapability now requires the calling principal to hold
+ * the capability being checked (or for it to be step-up eligible) before it
+ * ever reaches the CapabilityGate. This suite exercises the gate's own
+ * allow/deny/approval behavior (capabilityDecision below), not per-token
+ * scope enforcement — that is capability-scope.test.ts's job — so testAuth
+ * is granted every P3 capability plus the two non-P3 scopes
+ * (workspace.register/open) legacy assertions below still need.
  */
-const testAuth = new UnauthenticatedPrincipal()
+const testAuth = new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", ...P3_CAPABILITIES])
 
 /**
  * WHY: the summary line used to be a hardcoded string. `check()` counts every
@@ -267,7 +275,11 @@ try {
   const clock = { value: 10_000 }
   const now = () => clock.value
   const signer = new HmacTokenAuthenticator("unifia-test-signing-key-0123456789abcdef", "unifia-local", "workbench", now)
-  const admin = { id: "admin", scopes: new Set(["workspace.register", "workspace.open"]), workspaces: "*" as const }
+  // workspace.read added for the file-read assertion below (line ~312) —
+  // SEC-001/C2-3 now requires it in principal.scopes before the capability
+  // gate runs; this block tests HMAC signing/expiry/rate-limiting, not
+  // per-token scope enforcement (capability-scope.test.ts covers that).
+  const admin = { id: "admin", scopes: new Set(["workspace.register", "workspace.open", "workspace.read"]), workspaces: "*" as const }
   const adminToken = signer.sign(admin, clock.value + 60_000)
   const authed = new WorkbenchServer({ auth: signer, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => "allow" } })
   const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
