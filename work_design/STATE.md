@@ -186,3 +186,13 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - **Remaining high-volume**: C3-1 (EPIC 2 PR harnais E2E transport réel), C5-3a/b/c (EPIC 3 PR Design), C3-2 (E2E), C7-1/C7-2 (GATE-M final).
 - **Next implementation slice**: rejouer le Chromium réel de C3-1 PR1 en CI ou sur un runtime fonctionnel; après cette preuve, cocher C3-1 et poursuivre C3-2.
 - **Zero commits pushed.** All local, guards/tests passing at each step, no parallel regressions.
+
+## 2026-08-17 — Continuation C5-3 / C3-2 / C7
+
+- **C5-3a complete**: Design drafts persist in a versioned IndexedDB store with workspace key, revision conflict detection, and debounced UI recovery state.
+- **C5-3b complete**: Design saves canonical `design-spec.json` artifacts, reads version history/provenance through the production Workbench client, and renders deterministic version diffs.
+- **C5-3c complete**: SVG is a guarded artifact kind; unsafe script/event-handler/external-reference content is rejected, while approved Design renders export through the existing artifact outbox with provenance.
+- **C3-2 implementation proof complete**: a connected WorkbenchServer + WorkbenchClient test traverses Code session/prompt, Work file listing, and Design spec validation through the real route authorities. This is transport/application proof, not browser proof.
+- **C7-1 remains unverified**: owned SPDX, lint, focused package tests, mode/security/boundary guards pass; the global `tsgo` typecheck exhausts machine memory (`fatal error: runtime: cannot allocate memory`). The isolated legacy TypeScript check exposed and fixed a pre-existing `TS2589` deep-instantiation hotspot in `packages/unifia/src/config/config.ts`; `tsc --noEmit -p packages/unifia/tsconfig.json` now passes. Native `tsgo` still needs a machine/runtime with sufficient memory before C7 can be green.
+- **C7-2 remains open**: no fresh desktop executable/manual C4-1 evidence and no fresh Chromium/device gate. `C:\Users\barat\AppData\Local\Unifia Dev\Unifia.exe` is absent on this host; no release/sign/push/publication action was taken.
+- **Current checkpoint**: branch `work-design`, local commits ahead of origin, untracked `.unifia/` and `test-results/` runtime artifacts preserved. Plan is not complete: only C3-1 Chromium proof, C4-1 manual runtime proof, C7-1 native typecheck/conformance, and C7-2 final human gates remain.
