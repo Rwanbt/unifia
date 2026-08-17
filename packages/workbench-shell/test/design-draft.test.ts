@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { describe, expect, it } from "vitest"
 import { createDesignDraftRecord, designDraftKey } from "../src/design-draft.js"
 
