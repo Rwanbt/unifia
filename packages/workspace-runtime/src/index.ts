@@ -13,6 +13,7 @@ import type {
   Workspace,
   WorkspaceHandle,
   WorkspaceId,
+  WorkspaceListPage,
   WorkspacePort,
   WorkspaceEntry,
 } from "@unifia/contracts"
@@ -23,12 +24,25 @@ export type WorkspaceRuntimeOptions = {
   maxReadBytes?: number
   maxWriteBytes?: number
   now?: () => number
+  /** Safety ceiling on entries collected in one list()/search() traversal — stops collecting silently, never throws (FUNC-004/C5-1). */
   maxEntries?: number
+  /** Entries returned per list() page. */
+  pageSize?: number
+  /** Directory recursion depth ceiling. */
+  maxDepth?: number
+  /** Directory names never listed or descended into. */
+  excludedNames?: ReadonlySet<string>
 }
 
 const DEFAULT_MAX_READ_BYTES = 4 * 1024 * 1024
 const DEFAULT_MAX_WRITE_BYTES = 4 * 1024 * 1024
-const DEFAULT_MAX_ENTRIES = 2_000
+// FUNC-004/C5-1: was 2_000 and a hard throw. Now a silent collection
+// ceiling (see #walkEntries) — the criterion is "50k files returns a first
+// page without throwing", so the ceiling itself must clear that bar.
+const DEFAULT_MAX_ENTRIES = 50_000
+const DEFAULT_PAGE_SIZE = 500
+const DEFAULT_MAX_DEPTH = 32
+const DEFAULT_EXCLUDED_NAMES: ReadonlySet<string> = new Set(["node_modules", ".git", "dist", "build"])
 
 function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex")
@@ -43,6 +57,34 @@ function assertRelative(input: string): void {
 function isInside(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate)
   return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "ENOENT")
+}
+
+/**
+ * FUNC-004/C5-1: opaque, server-validated, bound to the workspace + prefix
+ * that produced it. A cursor minted for a different workspace or a
+ * different prefix is refused (list() below), not silently reinterpreted
+ * against whatever tree happens to be at that offset.
+ */
+type ListCursor = { workspaceId: WorkspaceId; prefix: string; offset: number }
+
+function encodeListCursor(cursor: ListCursor): string {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function decodeListCursor(value: string): ListCursor | undefined {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"))
+    if (!parsed || typeof parsed !== "object") return undefined
+    const candidate = parsed as Record<string, unknown>
+    if (typeof candidate.workspaceId !== "string" || typeof candidate.prefix !== "string" || !Number.isInteger(candidate.offset) || (candidate.offset as number) < 0) return undefined
+    return { workspaceId: candidate.workspaceId, prefix: candidate.prefix, offset: candidate.offset as number }
+  } catch {
+    return undefined
+  }
 }
 
 function mimeFor(filePath: string): string {
@@ -60,6 +102,9 @@ export class WorkspaceRuntime implements WorkspacePort {
   readonly #maxReadBytes: number
   readonly #maxWriteBytes: number
   readonly #maxEntries: number
+  readonly #pageSize: number
+  readonly #maxDepth: number
+  readonly #excludedNames: ReadonlySet<string>
   readonly #queues = new Map<WorkspaceId, DurableQueue<FileEvent>>()
 
   constructor(options: WorkspaceRuntimeOptions = {}) {
@@ -67,6 +112,9 @@ export class WorkspaceRuntime implements WorkspacePort {
     this.#maxReadBytes = options.maxReadBytes ?? DEFAULT_MAX_READ_BYTES
     this.#maxWriteBytes = options.maxWriteBytes ?? DEFAULT_MAX_WRITE_BYTES
     this.#maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES
+    this.#pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE
+    this.#maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH
+    this.#excludedNames = options.excludedNames ?? DEFAULT_EXCLUDED_NAMES
   }
 
   async register(input: { name: string; path: string }): Promise<Workspace> {
@@ -129,10 +177,21 @@ export class WorkspaceRuntime implements WorkspacePort {
     return results
   }
 
-  async list(sessionId: FileSessionId, prefix = "."): Promise<readonly WorkspaceEntry[]> {
+  async list(sessionId: FileSessionId, prefix = ".", cursor?: string): Promise<WorkspaceListPage> {
     const session = this.#session(sessionId)
+    const workspaceId = session.workspace.id
+    let offset = 0
+    if (cursor !== undefined) {
+      const decoded = decodeListCursor(cursor)
+      if (!decoded || decoded.workspaceId !== workspaceId || decoded.prefix !== prefix) throw new Error("workspace listing cursor is invalid for this workspace or prefix")
+      offset = decoded.offset
+    }
     const directory = await this.#resolveDirectory(session.workspace.path, prefix)
-    return this.#walkEntries(session.workspace.path, directory, undefined)
+    if (!directory) return { entries: [], skipped: 0 }
+    const { entries: all, skipped } = await this.#walkEntries(session.workspace.path, directory, undefined)
+    const page = all.slice(offset, offset + this.#pageSize)
+    const nextCursor = offset + this.#pageSize < all.length ? encodeListCursor({ workspaceId, prefix, offset: offset + this.#pageSize }) : undefined
+    return { entries: page, nextCursor, skipped }
   }
 
   async search(sessionId: FileSessionId, query: string, prefix = "."): Promise<readonly WorkspaceEntry[]> {
@@ -140,7 +199,8 @@ export class WorkspaceRuntime implements WorkspacePort {
     if (!normalizedQuery || normalizedQuery.length > 256 || normalizedQuery.includes("\0")) throw new Error("workspace search query is invalid")
     const session = this.#session(sessionId)
     const directory = await this.#resolveDirectory(session.workspace.path, prefix)
-    return this.#walkEntries(session.workspace.path, directory, normalizedQuery)
+    if (!directory) return []
+    return (await this.#walkEntries(session.workspace.path, directory, normalizedQuery)).entries
   }
   watch(sessionId: FileSessionId): AsyncIterable<FileEvent> {
     const session = this.#session(sessionId)
@@ -241,32 +301,65 @@ export class WorkspaceRuntime implements WorkspacePort {
     return candidate
   }
 
-  async #resolveDirectory(root: string, relative: string): Promise<string> {
+  /**
+   * FUNC-004/C5-1: returns undefined for a missing prefix instead of
+   * throwing ENOENT — callers (list/search) treat that as an empty result,
+   * distinct from "exists but is not a directory" (a real error) and from
+   * "escapes root" (a security violation, still thrown).
+   */
+  async #resolveDirectory(root: string, relative: string): Promise<string | undefined> {
     assertRelative(relative)
-    const candidate = await fs.realpath(path.resolve(root, relative))
+    let candidate: string
+    try {
+      candidate = await fs.realpath(path.resolve(root, relative))
+    } catch (error) {
+      if (isMissingFileError(error)) return undefined
+      throw error
+    }
     if (!isInside(root, candidate)) throw new Error("workspace path escapes root")
     const stat = await fs.stat(candidate)
     if (!stat.isDirectory()) throw new Error("workspace path is not a directory")
     return candidate
   }
 
-  async #walkEntries(root: string, directory: string, query: string | undefined): Promise<WorkspaceEntry[]> {
+  /**
+   * FUNC-004/C5-1: a symlink/junction whose realpath resolves outside the
+   * workspace root is skipped (counted in `skipped`) instead of aborting
+   * the whole traversal. Children are sorted so paginated offsets stay
+   * stable across calls as long as the tree itself is unchanged. Excluded
+   * directory names are neither listed nor descended into. Depth and
+   * maxEntries bound the walk without throwing — see list()'s pagination.
+   */
+  async #walkEntries(root: string, directory: string, query: string | undefined): Promise<{ entries: WorkspaceEntry[]; skipped: number }> {
     const results: WorkspaceEntry[] = []
-    const visit = async (current: string): Promise<void> => {
+    let skipped = 0
+    const visit = async (current: string, depth: number): Promise<void> => {
+      if (results.length >= this.#maxEntries) return
       const children = await fs.readdir(current, { withFileTypes: true })
+      children.sort((a, b) => a.name.localeCompare(b.name))
       for (const child of children) {
-        const absolute = await fs.realpath(path.join(current, child.name))
-        if (!isInside(root, absolute)) throw new Error("workspace path escapes root")
+        if (results.length >= this.#maxEntries) return
+        if (this.#excludedNames.has(child.name)) continue
+        let absolute: string
+        try {
+          absolute = await fs.realpath(path.join(current, child.name))
+        } catch {
+          skipped += 1
+          continue
+        }
+        if (!isInside(root, absolute)) {
+          skipped += 1
+          continue
+        }
         const stat = await fs.stat(absolute)
         const relative = path.relative(root, absolute).replaceAll("\\", "/")
         const entry: WorkspaceEntry = { path: relative, kind: stat.isDirectory() ? "directory" : "file", size: stat.isFile() ? stat.size : 0, modifiedAt: stat.mtimeMs }
         if (!query || relative.toLocaleLowerCase().includes(query)) results.push(entry)
-        if (results.length > this.#maxEntries) throw new Error("workspace listing quota exceeded")
-        if (stat.isDirectory()) await visit(absolute)
+        if (stat.isDirectory() && depth < this.#maxDepth) await visit(absolute, depth + 1)
       }
     }
-    await visit(directory)
-    return results
+    await visit(directory, 0)
+    return { entries: results, skipped }
   }
 
   #session(id: FileSessionId): Session {

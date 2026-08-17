@@ -56,12 +56,27 @@ export interface WorkspaceEntry {
   modifiedAt: number
 }
 
+/**
+ * FUNC-004/C5-1: `list()` is paginated instead of throwing past a quota.
+ * `nextCursor` is opaque and bound to the workspace + prefix that produced
+ * it — passing it back with a different prefix (or against a different
+ * workspace's session) is refused, not silently reinterpreted. `skipped`
+ * counts entries omitted because their real path resolved outside the
+ * workspace root (a symlink/junction escape) — the listing completes
+ * instead of aborting.
+ */
+export interface WorkspaceListPage {
+  entries: readonly WorkspaceEntry[]
+  nextCursor?: string
+  skipped: number
+}
+
 export interface WorkspacePort {
   register(input: { name: string; path: string }): Promise<Workspace>
   open(id: WorkspaceId): Promise<WorkspaceHandle>
   read(session: FileSessionId, paths: string[]): Promise<FileReadResult[]>
   write(session: FileSessionId, writes: FileWrite[]): Promise<FileWriteResult[]>
-  list(session: FileSessionId, prefix?: string): Promise<readonly WorkspaceEntry[]>
+  list(session: FileSessionId, prefix?: string, cursor?: string): Promise<WorkspaceListPage>
   search(session: FileSessionId, query: string, prefix?: string): Promise<readonly WorkspaceEntry[]>
   watch(session: FileSessionId): AsyncIterable<FileEvent>
   close(session: FileSessionId): Promise<void>

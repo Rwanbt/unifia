@@ -66,7 +66,12 @@ export type RequestOptions = {
 }
 
 export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: number }
-export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[] }
+// FUNC-004/C5-1: nextCursor is opaque and bound server-side to the
+// workspaceId + prefix that produced it; round-trip it back into
+// listFiles() unmodified to fetch the next page. skipped counts entries
+// omitted because they resolved outside the workspace root (a
+// symlink/junction escape) — the listing still completes.
+export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[]; nextCursor?: string; skipped: number }
 export type WorkspaceFileRead = { path: string; content: string; encoding: "utf-8" | "base64" }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string> }
 export type ArtifactDocument = { artifact: ArtifactSummary; content: string; encoding: "base64" }
@@ -185,8 +190,8 @@ export class WorkbenchClient {
     return rotation
   }
 
-  async listFiles(workspaceId: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
-    const params = new URLSearchParams({ workspaceId, prefix })
+  async listFiles(workspaceId: string, prefix = ".", cursor?: string, signal?: AbortSignal): Promise<WorkspaceFilePage> {
+    const params = new URLSearchParams({ workspaceId, prefix, ...(cursor ? { cursor } : {}) })
     return this.request<WorkspaceFilePage>(`${M7_SERVER_ROUTE_REGISTRY.filesList.route}?${params}`, { signal })
   }
 

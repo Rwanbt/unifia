@@ -508,11 +508,17 @@ export class WorkbenchServer {
     const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     const prefix = url.searchParams.get("prefix") ?? "."
-    const entries = operation === "list"
-      ? await this.#workspace.list(this.#runtimeToken(token), prefix)
-      : await this.#workspace.search(this.#runtimeToken(token), url.searchParams.get("query") ?? "", prefix)
+    if (operation === "search") {
+      const entries = await this.#workspace.search(this.#runtimeToken(token), url.searchParams.get("query") ?? "", prefix)
+      this.#allow("workspace.read")
+      return json(200, { entries })
+    }
+    // FUNC-004/C5-1: list is paginated — cursor is opaque and round-tripped
+    // via the query string exactly as WorkspacePort.list() returned it.
+    const cursor = url.searchParams.get("cursor") ?? undefined
+    const page = await this.#workspace.list(this.#runtimeToken(token), prefix, cursor)
     this.#allow("workspace.read")
-    return json(200, { entries })
+    return json(200, { entries: page.entries, nextCursor: page.nextCursor, skipped: page.skipped })
   }
 
   async #designSystems(request: Request, principal: Principal): Promise<Response> {
