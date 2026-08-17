@@ -12,6 +12,7 @@ import {
   type OpaqueCursor,
   type TokenRotation,
   type WorkbenchEventType,
+  type WorkbenchRequestHeader,
   type WorkspaceEvent,
 } from "@unifia/contracts/workbench-wire"
 import type { WorkspaceManifest } from "@unifia/contracts"
@@ -293,12 +294,16 @@ export class WorkbenchClient {
     }
   }
 
-  #headers(token = this.#token.current()): Record<string, string> {
+  // Typed against WorkbenchRequestHeader (the single header allowlist shared
+  // with the server's access-control-allow-headers, see @unifia/contracts):
+  // an undeclared header name here is a type error, not a runtime CORS
+  // failure discovered later (FUNC-002).
+  #headers(token = this.#token.current()): Partial<Record<WorkbenchRequestHeader, string>> {
     return { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), "x-unifia-instance-id": this.#instanceId, "x-unifia-client-time": String(this.#now()) }
   }
 
   #send(path: string, method: RequestOptions["method"], token: string | undefined, options: RequestOptions): Promise<Response> {
-    const headers: Record<string, string> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}) }
+    const headers: Partial<Record<WorkbenchRequestHeader, string>> = { ...this.#headers(token), ...(options.body === undefined ? {} : { "content-type": "application/json" }), ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}) }
     return this.#fetch(`${this.#baseUrl}${path}`, { method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: options.signal })
   }
 }

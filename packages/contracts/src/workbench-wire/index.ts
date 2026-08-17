@@ -38,6 +38,26 @@ export const WIRE_POLICY = {
 export type OpaqueCursor = string & { readonly __opaqueCursor: unique symbol }
 export type IdempotencyKey = string & { readonly __idempotencyKey: unique symbol }
 
+/**
+ * Every request header a legitimate caller (browser WorkbenchClient or the
+ * native/sidecar bridge) sends to the workbench server. Single source of
+ * truth for both sides of the CORS contract (FUNC-002): the client types its
+ * header maps against `WorkbenchRequestHeader` so an undeclared header
+ * becomes a type error, and the server derives `access-control-allow-headers`
+ * from this same list instead of a hand-maintained string that can drift.
+ */
+export const WORKBENCH_REQUEST_HEADERS = [
+  "accept",
+  "authorization",
+  "content-type",
+  "x-unifia-instance-id",
+  "x-unifia-client-time",
+  "idempotency-key",
+  "last-event-id",
+  "x-unifia-file-session",
+] as const
+export type WorkbenchRequestHeader = (typeof WORKBENCH_REQUEST_HEADERS)[number]
+
 export interface HandshakeRequest {
   kind: "workbench.handshake"
   protocolVersion: number

@@ -30,7 +30,7 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; allowedOrigins?: readonly string[] }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -108,11 +108,13 @@ export class WorkbenchServer {
   readonly #instanceId: string
   readonly #tokenIssuer?: ScopedTokenAuthority
   readonly #operations = new OperationRegistry(() => `operation-${randomUUID()}`)
+  readonly #allowedOrigins?: readonly string[]
 
   constructor(dependencies: ServerDependencies) {
     this.#auth = dependencies.auth
     this.#instanceId = dependencies.instanceId ?? randomUUID()
     this.#tokenIssuer = dependencies.tokenIssuer
+    this.#allowedOrigins = dependencies.allowedOrigins
     // WHY: a limiter is always installed. An absent `rateLimiter` must mean
     // "use the default budget", never "no limit" — omission must not disable a
     // control.
@@ -142,7 +144,7 @@ export class WorkbenchServer {
    */
   async fetch(request: Request): Promise<Response> {
     try {
-      const origin = checkRequestOrigin(request.headers.get("origin"))
+      const origin = checkRequestOrigin(request.headers.get("origin"), this.#allowedOrigins)
       if (!origin.allowed) return addSecurityHeaders(json(403, { error: "origin not allowed" }))
       if (request.method === "OPTIONS") return addSecurityHeaders(new Response(null, { status: 204 }), origin.origin)
       return addSecurityHeaders(await this.#route(request), origin.origin)
