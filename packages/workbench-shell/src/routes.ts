@@ -24,7 +24,10 @@ type RouteByWorkFunction = { readonly [FunctionName in WorkFunction]: WorkbenchR
 export const WORKBENCH_ROUTE_REGISTRY: RouteByWorkFunction = {
   "workspace-switcher": { surface: "work", operation: "workspace-switcher", method: "GET", route: "/v1/workspaces", capability: "workspace.open", event: "workspace.changed" },
   "session-chat": { surface: "work", operation: "session-chat", method: "POST", route: "/v1/sessions/:sessionId/prompt", capability: "session.prompt", event: "operation.updated" },
-  files: { surface: "work", operation: "files", method: "GET", route: "/v1/files/read", capability: "workspace.read", event: "workspace.changed" },
+  // C1-2/C2-2: the server only ever accepted POST here (index.ts's #files
+  // handler); the client's real readFiles() already sends POST. This entry
+  // declared GET, which is what made it drift-detectable in the first place.
+  files: { surface: "work", operation: "files", method: "POST", route: "/v1/files/read", capability: "workspace.read", event: "workspace.changed" },
   search: { surface: "work", operation: "search", method: "GET", route: "/v1/files/search", capability: "workspace.read", event: "workspace.changed" },
   artifacts: { surface: "work", operation: "artifacts", method: "GET", route: "/v1/artifacts", capability: "workspace.read", event: "catalog.updated", lineage: "work/document" },
   documents: { surface: "work", operation: "documents", method: "GET", route: "/v1/documents", capability: "workspace.read", event: "catalog.updated", lineage: "work/document" },
@@ -55,6 +58,10 @@ export type WorkbenchServerRoute = {
 /** M6 routes are registered here before the server implementation consumes them. */
 export const M6_SERVER_ROUTE_REGISTRY = {
   sessionEvents: { method: "GET", route: "/v1/sessions/:sessionId/events", capability: "workspace.watch", event: "trace.appended" },
+  // C2-2/FUNC-001: the client connects once per workspace, not per session
+  // (see WorkbenchClient.events()); the server fans in every session's
+  // events into one stream for this route.
+  workspaceEvents: { method: "GET", route: "/v1/workspaces/:workspaceId/events", capability: "workspace.watch", event: "trace.appended" },
   operationCancel: { method: "POST", route: "/v1/operations/:operationId/cancel", capability: "workspace.watch", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 

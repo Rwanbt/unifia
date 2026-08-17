@@ -12,6 +12,7 @@ import type {
   FileWrite,
   P3Capability,
   RuntimeAdapter,
+  RuntimeEvent,
   WorkspaceHandle,
   WorkspacePort,
 } from "@unifia/contracts"
@@ -30,11 +31,15 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; allowedOrigins?: readonly string[] }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
 const DEFAULT_RATE_WINDOW_MS = 60_000
+/** How often GET /v1/workspaces/:id/events re-lists sessions to fan new ones into the stream (C2-2/FUNC-001). */
+const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
+/** Sentinel racing every session's next() promise so a newly-discovered session can interrupt an in-flight wait. */
+const WAKE = Symbol("workspace-events-wake")
 type JsonRecord = Record<string, unknown>
 
 function json(status: number, body: JsonRecord): Response {
@@ -109,12 +114,14 @@ export class WorkbenchServer {
   readonly #tokenIssuer?: ScopedTokenAuthority
   readonly #operations = new OperationRegistry(() => `operation-${randomUUID()}`)
   readonly #allowedOrigins?: readonly string[]
+  readonly #workspaceEventsPollMs: number
 
   constructor(dependencies: ServerDependencies) {
     this.#auth = dependencies.auth
     this.#instanceId = dependencies.instanceId ?? randomUUID()
     this.#tokenIssuer = dependencies.tokenIssuer
     this.#allowedOrigins = dependencies.allowedOrigins
+    this.#workspaceEventsPollMs = dependencies.workspaceEventsPollMs ?? DEFAULT_WORKSPACE_EVENTS_POLL_MS
     // WHY: a limiter is always installed. An absent `rateLimiter` must mean
     // "use the default budget", never "no limit" — omission must not disable a
     // control.
@@ -205,6 +212,7 @@ export class WorkbenchServer {
       if (request.method === "POST" && segments[1] === "workspaces" && segments[2] === "register") return this.#register(request, principal)
       if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2], principal)
       if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
+      if (segments[1] === "workspaces" && segments[3] === "events" && request.method === "GET") return this.#workspaceEvents(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2])
       if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2])
@@ -345,6 +353,83 @@ export class WorkbenchServer {
     this.#allow("session.events")
     return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive" } })
   }
+
+  /**
+   * FUNC-001/C2-2: the client connects once per workspace and expects one
+   * merged event stream across every session in it — there is no
+   * "workspace-scoped" primitive on RuntimeAdapter, every implementation
+   * (Fake/OpenCode/Unifia) is session-scoped. This fans in each known
+   * session's subscribeEvents() into one SSE stream, and periodically
+   * re-lists sessions (no "session created" push notification exists on
+   * RuntimeAdapter) to join sessions created after the stream opened.
+   *
+   * Sequence numbers are per-session (see FakeRuntimeAdapter), not
+   * comparable across sessions, so v1 does not support cross-session
+   * resumption: every session (initial or discovered later) always starts
+   * its own subscription at afterSequence 0. A dropped connection restarts
+   * every session's stream from 0 rather than replaying only the gap —
+   * acceptable for now; a composite per-session cursor is future work if
+   * that turns out to matter.
+   */
+  async #workspaceEvents(request: Request, workspaceId: string): Promise<Response> {
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("workspace.events.scope", 403)
+    const eventGate = await this.#checkCapability("workspace.watch", workspaceId)
+    if (eventGate) return eventGate
+
+    const encoder = new TextEncoder()
+    const iterators = new Map<string, AsyncIterator<RuntimeEvent>>()
+    const pending = new Map<string | typeof WAKE, Promise<{ sessionId: string | typeof WAKE; result?: IteratorResult<RuntimeEvent> }>>()
+    let pollTimer: ReturnType<typeof setInterval> | undefined
+
+    const arm = (sessionId: string, iterator: AsyncIterator<RuntimeEvent>) => {
+      pending.set(sessionId, iterator.next().then((result) => ({ sessionId, result })))
+    }
+    const armWake = () => {
+      pending.set(WAKE, new Promise((resolve) => { wakeResolve = () => resolve({ sessionId: WAKE }) }))
+    }
+    let wakeResolve: () => void = () => {}
+    armWake()
+
+    const addSession = (sessionId: string) => {
+      if (iterators.has(sessionId)) return
+      const iterator = this.#runtime.subscribeEvents({ sessionId, afterSequence: 0 })[Symbol.asyncIterator]()
+      iterators.set(sessionId, iterator)
+      arm(sessionId, iterator)
+      wakeResolve()
+      armWake()
+    }
+    for (const session of await this.#runtime.listSessions({ workspaceId })) addSession(session.id)
+
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        controller.enqueue(encoder.encode(": unifia stream open\n\n"))
+        pollTimer = setInterval(() => {
+          this.#runtime.listSessions({ workspaceId }).then((sessions) => {
+            for (const session of sessions) addSession(session.id)
+          }).catch(() => { /* transient listSessions failure: keep streaming already-known sessions */ })
+        }, this.#workspaceEventsPollMs)
+      },
+      pull: async (controller) => {
+        while (true) {
+          const winner = await Promise.race(pending.values())
+          if (winner.sessionId === WAKE) continue // a session was added mid-race; re-race with the updated set
+          pending.delete(winner.sessionId)
+          if (!winner.result || winner.result.done) { iterators.delete(winner.sessionId); continue }
+          arm(winner.sessionId, iterators.get(winner.sessionId)!)
+          controller.enqueue(encoder.encode(sseFrame(winner.result.value)))
+          return
+        }
+      },
+      cancel: async () => {
+        if (pollTimer) clearInterval(pollTimer)
+        await Promise.all([...iterators.values()].map((iterator) => iterator.return?.()))
+      },
+    })
+    this.#allow("workspace.events")
+    return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive" } })
+  }
+
   async #prompt(request: Request, sessionId: string): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
     const token = workspaceId ? this.#authorize(request, workspaceId) : undefined

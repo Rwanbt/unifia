@@ -18,6 +18,18 @@ import {
 import type { WorkspaceManifest } from "@unifia/contracts"
 import { createNativeTokenProvider, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
 import { WorkbenchCleanupError } from "./lifecycle.js"
+import {
+  M6_SERVER_ROUTE_REGISTRY,
+  M7_SERVER_ROUTE_REGISTRY,
+  M8_SERVER_ROUTE_REGISTRY,
+  M9A_SERVER_ROUTE_REGISTRY,
+  M9B_SERVER_ROUTE_REGISTRY,
+  M10_SERVER_ROUTE_REGISTRY,
+  M11_SERVER_ROUTE_REGISTRY,
+  M15_SERVER_ROUTE_REGISTRY,
+  M20_SERVER_ROUTE_REGISTRY,
+  WORKBENCH_ROUTE_REGISTRY,
+} from "./routes.js"
 
 export type TokenProvider = {
   current(): string | undefined
@@ -175,51 +187,52 @@ export class WorkbenchClient {
 
   async listFiles(workspaceId: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
     const params = new URLSearchParams({ workspaceId, prefix })
-    return this.request<WorkspaceFilePage>(`/v1/files/list?${params}`, { signal })
+    return this.request<WorkspaceFilePage>(`${M7_SERVER_ROUTE_REGISTRY.filesList.route}?${params}`, { signal })
   }
 
   async searchFiles(workspaceId: string, query: string, prefix = ".", signal?: AbortSignal): Promise<WorkspaceFilePage> {
     const params = new URLSearchParams({ workspaceId, query, prefix })
-    return this.request<WorkspaceFilePage>(`/v1/files/search?${params}`, { signal })
+    return this.request<WorkspaceFilePage>(`${M7_SERVER_ROUTE_REGISTRY.filesSearch.route}?${params}`, { signal })
   }
 
   async readFiles(workspaceId: string, paths: readonly string[], signal?: AbortSignal): Promise<{ results: readonly WorkspaceFileRead[] }> {
-    return this.request(`/v1/files/read`, { method: "POST", body: { workspaceId, paths }, idempotencyKey: newRequestId(), signal })
+    return this.request(WORKBENCH_ROUTE_REGISTRY.files.route, { method: WORKBENCH_ROUTE_REGISTRY.files.method, body: { workspaceId, paths }, idempotencyKey: newRequestId(), signal })
   }
 
   async listDesignSystems(workspaceId: string, signal?: AbortSignal): Promise<WorkspaceManifest> {
-    return this.request<WorkspaceManifest>(`/v1/design-systems?${new URLSearchParams({ workspaceId })}`, { signal })
+    return this.request<WorkspaceManifest>(`${M20_SERVER_ROUTE_REGISTRY.designSystems.route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {
-    return this.request(`/v1/artifacts?${new URLSearchParams({ workspaceId })}`, { signal })
+    return this.request(`${M9A_SERVER_ROUTE_REGISTRY.artifactsList.route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async getArtifact(workspaceId: string, artifactId: string, signal?: AbortSignal): Promise<ArtifactDocument> {
     const params = new URLSearchParams({ workspaceId })
-    return this.request<ArtifactDocument>(`/v1/artifacts/${encodeURIComponent(artifactId)}?${params}`, { signal })
+    const route = M9A_SERVER_ROUTE_REGISTRY.artifactDetail.route.replace(":artifactId", encodeURIComponent(artifactId))
+    return this.request<ArtifactDocument>(`${route}?${params}`, { signal })
   }
 
   async createArtifact(input: { workspaceId: string; kind: string; filename: string; content: string; artifactId?: string; metadata?: Record<string, string>; provenance?: Record<string, string> }, signal?: AbortSignal): Promise<{ artifact: ArtifactSummary }> {
-    return this.request(`/v1/artifacts`, { method: "POST", body: input, idempotencyKey: newRequestId(), signal })
+    return this.request(M9B_SERVER_ROUTE_REGISTRY.artifactCreate.route, { method: "POST", body: input, idempotencyKey: newRequestId(), signal })
   }
 
   async listDocuments(workspaceId: string, signal?: AbortSignal): Promise<{ documents: readonly ArtifactSummary[] }> {
-    return this.request(`/v1/documents?${new URLSearchParams({ workspaceId })}`, { signal })
+    return this.request(`${WORKBENCH_ROUTE_REGISTRY.documents.route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async trace(workspaceId: string, after = 0, limit = 50, signal?: AbortSignal): Promise<AuditPage> {
     const params = new URLSearchParams({ workspaceId, after: String(after), limit: String(limit) })
-    return this.request<AuditPage>(`/v1/trace?${params}`, { signal })
+    return this.request<AuditPage>(`${M8_SERVER_ROUTE_REGISTRY.tracePage.route}?${params}`, { signal })
   }
 
   async activity(workspaceId: string, after = 0, limit = 50, signal?: AbortSignal): Promise<AuditPage> {
     const params = new URLSearchParams({ workspaceId, after: String(after), limit: String(limit) })
-    return this.request<AuditPage>(`/v1/activity?${params}`, { signal })
+    return this.request<AuditPage>(`${M8_SERVER_ROUTE_REGISTRY.activityPage.route}?${params}`, { signal })
   }
 
   async listApprovals(workspaceId: string, signal?: AbortSignal): Promise<{ approvals: readonly ApprovalRequest[] }> {
-    return this.request(`/v1/approvals?${new URLSearchParams({ workspaceId })}`, { signal })
+    return this.request(`${M8_SERVER_ROUTE_REGISTRY.approvalsList.route}?${new URLSearchParams({ workspaceId })}`, { signal })
   }
 
   async searchCapabilities(workspaceId: string, filters: { tag?: string; trustLevel?: "untrusted" | "verified" | "official"; enabledOnly?: boolean } = {}, signal?: AbortSignal): Promise<{ records: readonly CapabilityRecord[] }> {
@@ -227,13 +240,17 @@ export class WorkbenchClient {
     if (filters.tag) params.set("tag", filters.tag)
     if (filters.trustLevel) params.set("trustLevel", filters.trustLevel)
     if (filters.enabledOnly !== undefined) params.set("enabledOnly", String(filters.enabledOnly))
-    return this.request(`/v1/capabilities/search?${params}`, { signal })
+    return this.request(`${M15_SERVER_ROUTE_REGISTRY.capabilitySearch.route}?${params}`, { signal })
   }
 
   async exportArtifact(workspaceId: string, artifactId: string, options: { outbox?: string; metadata?: "keep" | "strip" } = {}, signal?: AbortSignal): Promise<{ exported: ExportedArtifact } | AcceptedOperation> {
-    return this.request(`/v1/artifacts/export`, { method: "POST", body: { workspaceId, artifactId, ...options }, idempotencyKey: newRequestId(), signal })
+    return this.request(M10_SERVER_ROUTE_REGISTRY.artifactExport.route, { method: "POST", body: { workspaceId, artifactId, ...options }, idempotencyKey: newRequestId(), signal })
   }
 
+  // No registry entry exists for /v1/approvals/:id (M8_SERVER_ROUTE_REGISTRY
+  // only declares the plain listing route) or for /v1/workflows/* — adding
+  // one for routes nothing else references would be speculative, so these
+  // stay literal until a real registry entry exists.
   async resolveApproval(approvalId: string, decision: "allow" | "deny", signal?: AbortSignal): Promise<ApprovalDecision> {
     return this.request(`/v1/approvals/${encodeURIComponent(approvalId)}`, { method: "POST", body: { decision }, idempotencyKey: newRequestId(), signal })
   }
@@ -247,7 +264,7 @@ export class WorkbenchClient {
   }
 
   async validateSpec(workspaceId: string, spec: string | Record<string, unknown>, signal?: AbortSignal): Promise<DesignSpecValidation> {
-    return this.request(`/v1/specs/validate`, { method: "POST", body: { workspaceId, spec }, signal })
+    return this.request(M11_SERVER_ROUTE_REGISTRY.specValidate.route, { method: "POST", body: { workspaceId, spec }, signal })
   }
 
   async updateWorkflow(workflowId: string, action: "resume" | "cancel", signal?: AbortSignal): Promise<{ state: WorkflowState }> {
@@ -270,7 +287,8 @@ export class WorkbenchClient {
 
   async *events(workspaceId: string, dispatcher: WorkbenchEventDispatcher, signal?: AbortSignal): AsyncGenerator<WorkspaceEvent> {
     const cursor = dispatcher.lastSequence > 0 ? `?after=${encodeURIComponent(String(dispatcher.lastSequence))}` : ""
-    const response = await this.#fetch(`${this.#baseUrl}/v1/workspaces/${encodeURIComponent(workspaceId)}/events${cursor}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
+    const route = M6_SERVER_ROUTE_REGISTRY.workspaceEvents.route.replace(":workspaceId", encodeURIComponent(workspaceId))
+    const response = await this.#fetch(`${this.#baseUrl}${route}${cursor}`, { method: "GET", headers: { ...this.#headers(), accept: "text/event-stream" }, signal })
     if (!response.ok || !response.body) throw new WorkbenchHttpError(response.status, response.status >= 500)
     const reader = response.body.getReader()
     const decoder = new TextDecoder()

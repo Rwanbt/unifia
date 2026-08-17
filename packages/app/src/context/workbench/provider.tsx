@@ -6,9 +6,11 @@ import { useQueryClient } from "@tanstack/solid-query"
 import { createSignal, onCleanup, type ParentProps } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import { decideEventRetry } from "./event-retry"
 
 const READ_CAPABILITIES = ["workspace.read", "workspace.watch"] as const
-const EVENT_RETRY_DELAY_MS = 1_000
+/** Delay before reconnecting after the stream closes cleanly (not an error, so decideEventRetry's backoff does not apply). */
+const EVENT_RECONNECT_DELAY_MS = 1_000
 
 const { use, provider: WorkbenchContextProvider } = createSimpleContext({
   name: "WorkspaceWorkbench",
@@ -35,17 +37,30 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       if (eventsTask) return
       const dispatcher = new WorkbenchEventDispatcher()
       eventsTask = (async () => {
+        let attempt = 0
         while (!eventsAbort.signal.aborted) {
           try {
             for await (const event of value.client.events(value.workspaceId, dispatcher, eventsAbort.signal)) {
               if (event.workspaceId !== value.workspaceId) continue
+              attempt = 0
               await queryClient.invalidateQueries({ queryKey: ["workbench", value.serverOrigin, value.instanceId, value.workspaceId] })
             }
+            attempt = 0
           } catch (reason) {
             if (eventsAbort.signal.aborted) return
             console.warn(t("workbench.errors.eventStreamDisconnected"), reason)
+            attempt += 1
+            const decision = decideEventRetry(attempt, reason)
+            if (decision.action === "stop") {
+              setError(reason)
+              return
+            }
+            if (eventsAbort.signal.aborted) return
+            await new Promise((resolve) => setTimeout(resolve, decision.delayMs))
+            continue
           }
-          if (!eventsAbort.signal.aborted) await new Promise((resolve) => setTimeout(resolve, EVENT_RETRY_DELAY_MS))
+          if (eventsAbort.signal.aborted) return
+          await new Promise((resolve) => setTimeout(resolve, EVENT_RECONNECT_DELAY_MS))
         }
       })().finally(() => { eventsTask = undefined })
     }
