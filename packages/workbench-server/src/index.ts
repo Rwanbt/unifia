@@ -239,6 +239,7 @@ export class WorkbenchServer {
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
       if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
+      if (segments[1] === "artifacts" && segments[3] === "history" && request.method === "GET") return this.#artifactHistory(request, segments[2], principal)
       if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2], principal)
       if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request, principal)
       if (segments[1] === "artifacts" && request.method === "POST") return this.#artifactWrite(request, principal)
@@ -737,6 +738,16 @@ export class WorkbenchServer {
     const content = await this.#artifacts.read(artifact)
     this.#allow("artifact.read")
     return json(200, { artifact, content: Buffer.from(content).toString("base64"), encoding: "base64" })
+  }
+  async #artifactHistory(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("artifact.history.unavailable", 503)
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.history.scope", 403)
+    const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
+    if (gate) return gate
+    if (!artifactId) return this.#deny("artifact.history.id", 400)
+    this.#allow("artifact.history")
+    return json(200, { history: await this.#artifacts.history(artifactId) })
   }
   async #artifactWrite(request: Request, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("artifact.create.unavailable", 503)

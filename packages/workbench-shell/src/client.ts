@@ -73,7 +73,7 @@ export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; siz
 // symlink/junction escape) — the listing still completes.
 export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[]; nextCursor?: string; skipped: number }
 export type WorkspaceFileRead = { path: string; content: string; encoding: "utf-8" | "base64" }
-export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string> }
+export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; relativePath: string; sha256: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string>; scan?: "clean" | "unscanned" }
 export type ArtifactDocument = { artifact: ArtifactSummary; content: string; encoding: "base64" }
 export type AcceptedOperation = { accepted: true; operationId: string; approvalId?: string | null }
 export type ApprovalDecision = { decision: { kind: "allow" | "deny" | "approval_required"; [key: string]: unknown } }
@@ -216,6 +216,12 @@ export class WorkbenchClient {
     const params = new URLSearchParams({ workspaceId })
     const route = M9A_SERVER_ROUTE_REGISTRY.artifactDetail.route.replace(":artifactId", encodeURIComponent(artifactId))
     return this.request<ArtifactDocument>(`${route}?${params}`, { signal })
+  }
+
+  async artifactHistory(workspaceId: string, artifactId: string, signal?: AbortSignal): Promise<{ history: readonly ArtifactSummary[] }> {
+    const params = new URLSearchParams({ workspaceId })
+    const route = M9A_SERVER_ROUTE_REGISTRY.artifactHistory.route.replace(":artifactId", encodeURIComponent(artifactId))
+    return this.request(`${route}?${params}`, { signal })
   }
 
   async createArtifact(input: { workspaceId: string; kind: string; filename: string; content: string; artifactId?: string; metadata?: Record<string, string>; provenance?: Record<string, string> }, signal?: AbortSignal): Promise<{ artifact: ArtifactSummary }> {

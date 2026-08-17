@@ -77,6 +77,9 @@ try {
   // --- Safety -----------------------------------------------------------------
   await rejects(() => store.create({ kind: "text", filename: "../escape.txt", content: "no" }), "artifact traversal filename was accepted")
   await rejects(() => store.create({ kind: "text", filename: "large.txt", content: "x".repeat(101) }), "artifact quota was not enforced")
+  await rejects(() => store.create({ kind: "svg", filename: "unsafe.svg", content: '<svg><script>alert(1)</script></svg>' }), "unsafe SVG was accepted")
+  const safeSvg = await store.create({ kind: "svg", filename: "safe.svg", content: '<svg xmlns="http://www.w3.org/2000/svg"><text>safe</text></svg>' })
+  check(safeSvg.kind === "svg", "safe SVG did not keep its render kind")
 
 
   // --- Provenance and the optional scanner (§26) ---------------------------------

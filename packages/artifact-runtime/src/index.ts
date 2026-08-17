@@ -21,7 +21,7 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import { DurableQueue } from "@unifia/workspace-runtime"
 
-export type ArtifactKind = "docx" | "pptx" | "xlsx" | "pdf" | "binary" | "text"
+export type ArtifactKind = "docx" | "pptx" | "xlsx" | "pdf" | "svg" | "binary" | "text"
 
 export type ArtifactVersion = {
   artifactId: string
@@ -115,6 +115,13 @@ function hash(content: Uint8Array): string {
   return createHash("sha256").update(content).digest("hex")
 }
 
+export function assertSafeVectorRender(content: string | Uint8Array): void {
+  const source = typeof content === "string" ? content : new TextDecoder().decode(content)
+  if (/<\s*script\b/i.test(source)) throw new Error("SVG render rejected: scripts are not allowed")
+  if (/\bon[a-z][\w:-]*\s*=/i.test(source)) throw new Error("SVG render rejected: event handlers are not allowed")
+  if (/(?:href|src|xlink:href)\s*=\s*["']\s*(?:https?:|\/\/|javascript:|data:text\/html)/i.test(source)) throw new Error("SVG render rejected: external or executable references are not allowed")
+}
+
 function safeFilename(filename: string): string {
   if (!filename || filename.includes("\0") || path.basename(filename) !== filename || filename === "." || filename === "..") {
     throw new Error("artifact filename must be a single safe path component")
@@ -168,6 +175,7 @@ export class ArtifactStore {
     const filename = safeFilename(input.filename)
     const content = Buffer.from(typeof input.content === "string" ? Buffer.from(input.content) : input.content)
     if (content.byteLength > this.#maxBytes) throw new Error("artifact quota exceeded")
+    if (input.kind === "svg") assertSafeVectorRender(content)
     const sha256 = hash(content)
     // Scanned before anything is written: a rejected artefact must leave no
     // version directory behind for a later reader to find.

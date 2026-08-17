@@ -18,7 +18,7 @@ import { createStoredZipFromBytes, readStoredZip, type ZipBinaryEntry } from "@u
 import { isJpeg, isPng, isSupportedImage, stripImageMetadata, type ImageStripResult } from "./images.js"
 import { attribute, filterElements, textOf } from "./xml.js"
 
-export type StudioFormat = "docx" | "pptx" | "xlsx" | "pdf" | "text" | "binary"
+export type StudioFormat = "docx" | "pptx" | "xlsx" | "pdf" | "svg" | "text" | "binary"
 
 const OOXML: ReadonlySet<StudioFormat> = new Set<StudioFormat>(["docx", "pptx", "xlsx"])
 

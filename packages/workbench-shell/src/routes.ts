@@ -82,6 +82,7 @@ export const M8_SERVER_ROUTE_REGISTRY = {
 export const M9A_SERVER_ROUTE_REGISTRY = {
   artifactsList: { method: "GET", route: "/v1/artifacts", capability: "workspace.read", event: "catalog.updated" },
   artifactDetail: { method: "GET", route: "/v1/artifacts/:artifactId", capability: "workspace.read", event: "catalog.updated" },
+  artifactHistory: { method: "GET", route: "/v1/artifacts/:artifactId/history", capability: "workspace.read", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
 /** M9b artifact lineage write route is registered before server consumption. */
