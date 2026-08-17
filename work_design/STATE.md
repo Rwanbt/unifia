@@ -184,5 +184,5 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - **C3-1 PR2 implemented**: `check-workbench-test-boundary.mjs` is wired into both CI workflows and rejects transport-harness references in production source roots; the guard passes locally. Commit `09dca6f533`. C3-1 remains open only for the real Chromium preflight execution.
 - **C4-1 (GATE-M native)**: build prepared in `C:\Users\barat\AppData\Local\Unifia Dev\Unifia.exe`, awaits user manual inspection (devtools, network, origins, events, capabilities).
 - **Remaining high-volume**: C3-1 (EPIC 2 PR harnais E2E transport réel), C5-3a/b/c (EPIC 3 PR Design), C3-2 (E2E), C7-1/C7-2 (GATE-M final).
-- **Next implementation slice**: C3-1 PR2 — exclusion du harnais de transport du bundle de production et garde anti-fuite; le Chromium réel de C3-1 PR1 reste à rejouer en CI.
+- **Next implementation slice**: rejouer le Chromium réel de C3-1 PR1 en CI ou sur un runtime fonctionnel; après cette preuve, cocher C3-1 et poursuivre C3-2.
 - **Zero commits pushed.** All local, guards/tests passing at each step, no parallel regressions.
