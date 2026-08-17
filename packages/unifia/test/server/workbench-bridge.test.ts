@@ -68,8 +68,19 @@ try {
     body: JSON.stringify({ action: "issue", workspaceId: workspace.workspaceId }),
   }))
   if (denied.status !== 401) throw new Error(`invalid native IPC token was accepted: ${denied.status}`)
+
+  // SEC-001/C2-3: readInput() checks capability names against
+  // P3_CAPABILITIES, not just "is it an array of strings".
+  const unknownCapability = await bridge.native(new Request("http://127.0.0.1/workbench/native/token", {
+    method: "POST", headers: nativeHeaders,
+    body: JSON.stringify({ action: "issue", workspaceId: workspace.workspaceId, capabilities: ["workspace.read", "not-a-real-capability"] }),
+  }))
+  if (unknownCapability.status !== 400) throw new Error(`an unknown capability name was accepted: ${unknownCapability.status}`)
+  const unknownBody = await unknownCapability.json() as { error?: string }
+  if (!unknownBody.error?.includes("not-a-real-capability")) throw new Error(`error did not name the rejected capability: ${unknownBody.error}`)
+
   await bridge.app.server.shutdown()
-  console.log("WorkbenchNativeBridge: 8/8 passed")
+  console.log("WorkbenchNativeBridge: 9/9 passed")
 } finally {
   if (previousPassword === undefined) delete process.env.UNIFIA_SERVER_PASSWORD
   else process.env.UNIFIA_SERVER_PASSWORD = previousPassword

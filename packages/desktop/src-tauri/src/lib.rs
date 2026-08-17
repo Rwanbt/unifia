@@ -138,9 +138,28 @@ async fn workbench_open_workspace(state: State<'_, SidecarReady>, workspace_path
     serde_json::from_value(value).map_err(|e| format!("native Workbench workspace response: {e}"))
 }
 
+/// SEC-001/C2-3: the connection lease only ever carries read/watch — see the
+/// same allowlist boundary server-side (STEP_UP_ELIGIBLE_CAPABILITIES,
+/// workbench-server/src/index.ts). Step-up capabilities (artifact.create,
+/// artifact.export) are granted by the server's approval flow when a
+/// sensitive operation is called, never by requesting a broader token here.
+/// Before this fix `capabilities: Vec<String>` passed through to the sidecar
+/// completely unvalidated.
+const ALLOWED_CONNECTION_CAPABILITIES: &[&str] = &["workspace.read", "workspace.watch"];
+
+fn reject_disallowed_capabilities(requested: &[String]) -> Result<(), String> {
+    for capability in requested {
+        if !ALLOWED_CONNECTION_CAPABILITIES.contains(&capability.as_str()) {
+            return Err(format!("capability not allowed at connection: {capability}"));
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
 async fn workbench_issue_token(state: State<'_, SidecarReady>, workspace_id: String, capabilities: Vec<String>) -> Result<WorkbenchLease, String> {
+    reject_disallowed_capabilities(&capabilities)?;
     let value = workbench_native_request(&state, "issue", None, Some(&workspace_id), &capabilities).await?;
     serde_json::from_value(value).map_err(|e| format!("native Workbench lease response: {e}"))
 }
@@ -148,8 +167,38 @@ async fn workbench_issue_token(state: State<'_, SidecarReady>, workspace_id: Str
 #[tauri::command]
 #[specta::specta]
 async fn workbench_rotate_token(state: State<'_, SidecarReady>, workspace_id: String, capabilities: Vec<String>) -> Result<WorkbenchRotation, String> {
+    reject_disallowed_capabilities(&capabilities)?;
     let value = workbench_native_request(&state, "rotate", None, Some(&workspace_id), &capabilities).await?;
     serde_json::from_value(value).map_err(|e| format!("native Workbench rotation response: {e}"))
+}
+
+#[cfg(test)]
+mod capability_allowlist_tests {
+    use super::reject_disallowed_capabilities;
+
+    #[test]
+    fn accepts_the_read_watch_connection_lease() {
+        let requested = vec!["workspace.read".to_string(), "workspace.watch".to_string()];
+        assert!(reject_disallowed_capabilities(&requested).is_ok());
+    }
+
+    #[test]
+    fn accepts_an_empty_request() {
+        assert!(reject_disallowed_capabilities(&[]).is_ok());
+    }
+
+    #[test]
+    fn refuses_a_capability_outside_the_allowlist() {
+        let requested = vec!["workflow.run".to_string()];
+        let error = reject_disallowed_capabilities(&requested).expect_err("workflow.run must be refused");
+        assert!(error.contains("workflow.run"), "error should name the refused capability: {error}");
+    }
+
+    #[test]
+    fn refuses_a_mixed_request_containing_one_disallowed_capability() {
+        let requested = vec!["workspace.read".to_string(), "desktop.control".to_string()];
+        assert!(reject_disallowed_capabilities(&requested).is_err());
+    }
 }
 
 #[tauri::command]

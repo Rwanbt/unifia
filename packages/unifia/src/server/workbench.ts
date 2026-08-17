@@ -3,15 +3,17 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
-import type { P3Capability } from "@unifia/contracts"
+import { P3_CAPABILITIES, type P3Capability } from "@unifia/contracts"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 
 type NativeTokenInput = {
   action: "open" | "issue" | "rotate" | "revoke"
   workspacePath?: string
   workspaceId?: string
-  capabilities?: string[]
+  capabilities?: P3Capability[]
 }
+
+const KNOWN_CAPABILITIES: ReadonlySet<string> = new Set(P3_CAPABILITIES)
 
 type WorkbenchBridge = {
   app: WorkbenchApp
@@ -38,12 +40,24 @@ function readInput(value: unknown): NativeTokenInput {
   const action = input.action
   if (action !== "open" && action !== "issue" && action !== "rotate" && action !== "revoke") throw new Error("unsupported native Workbench action")
   const capabilities = input.capabilities
-  if (capabilities !== undefined && (!Array.isArray(capabilities) || !capabilities.every((item) => typeof item === "string"))) throw new Error("native Workbench capabilities are invalid")
+  // SEC-001/C2-3: "array of strings" alone let any string through as a
+  // capability name, including ones that don't exist at all — this checks
+  // membership in the canonical P3_CAPABILITIES list too. It does not
+  // enforce the narrower connection-time allowlist (workspace.read/watch);
+  // that is workbench-server's #checkCapability, which owns the actual
+  // authorization decision.
+  if (capabilities !== undefined) {
+    if (!Array.isArray(capabilities) || !capabilities.every((item): item is string => typeof item === "string")) {
+      throw new Error("native Workbench capabilities are invalid")
+    }
+    const unknown = capabilities.filter((item) => !KNOWN_CAPABILITIES.has(item))
+    if (unknown.length > 0) throw new Error(`native Workbench capabilities are unknown: ${unknown.join(", ")}`)
+  }
   return {
     action,
     workspacePath: typeof input.workspacePath === "string" ? input.workspacePath : undefined,
     workspaceId: typeof input.workspaceId === "string" ? input.workspaceId : undefined,
-    capabilities: capabilities as string[] | undefined,
+    capabilities: capabilities as P3Capability[] | undefined,
   }
 }
 
