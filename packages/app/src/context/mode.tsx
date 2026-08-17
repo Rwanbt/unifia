@@ -4,16 +4,23 @@ import { useLocation, useNavigate } from "@solidjs/router"
 import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
 import { modeHref, parseModeLocation } from "./mode-directory"
+import { isAutomateAccessible, readAutomateDevFlag } from "./automate-flag"
 import { Persist, persisted } from "@/utils/persist"
 
-const isMode = (value: string | undefined): value is ShellMode => !!value && SHELL_MODES.includes(value as ShellMode)
+// ADR-1033: SHELL_MODES stays the 4-entry contract (check-mode-registry
+// depends on it); production only ever exposes automate behind this flag.
+const automateAccessible = isAutomateAccessible(import.meta.env.DEV, readAutomateDevFlag())
+const visibleModes: readonly ShellMode[] = automateAccessible ? SHELL_MODES : SHELL_MODES.filter((mode) => mode !== "automate")
+
+const isMode = (value: string | undefined): value is ShellMode =>
+  !!value && SHELL_MODES.includes(value as ShellMode) && (value !== "automate" || automateAccessible)
 
 const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
   name: "Mode",
   init: () => {
     const location = useLocation()
     const navigate = useNavigate()
-    const route = createMemo(() => parseModeLocation(location.pathname, location.search))
+    const route = createMemo(() => parseModeLocation(location.pathname, location.search, automateAccessible))
     const directory = createMemo(() => route().directory)
     const sessionId = createMemo(() => {
       const current = route()
@@ -50,7 +57,7 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
     }
 
     return {
-      modes: SHELL_MODES,
+      modes: visibleModes,
       active,
       select,
       directory,

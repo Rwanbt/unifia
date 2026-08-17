@@ -162,5 +162,5 @@ See `work_design/BLOCKERS.md` for the code-level causes and the safe unlock orde
 - W2 added visible bridge failure/retry states and real Work reads plus artifact export.
 - The Workbench connection is now owned once by `ModeProvider` at workspace scope and shared by all three non-Code surfaces.
 - Design now reads the authoritative `.unifia/workspace.json` manifest through `GET /v1/design-systems`; `SAMPLE_SPEC` is no longer a production source.
-- Automate v0 is a real read-only `.unifia/workflows` file-index surface; workflow execution remains unavailable by explicit ADR.
+- Automate v0 was a real read-only `.unifia/workflows` file-index surface, but it reached a `startWorkflow` call with no `workflow.run` capability ever granted in this branch (audit finding ARCH-001). Per ADR-1033 (supersedes ADR-0033, 2026-08-17), Automate is now absent from the production interface — filtered from the rail and unresolved as a route — behind a developer-only, build-time-eliminated flag. `SHELL_MODES` still declares all four modes as the shared navigation contract.
 - Automated gates are green; MV-01, MV-02, MV-06, MV-07, MV-08, MV-09 and MV-10 remain pending human/runtime gates.

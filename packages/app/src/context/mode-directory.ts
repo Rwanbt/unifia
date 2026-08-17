@@ -18,7 +18,7 @@ export function sessionSearchFromLocation(search: string): string {
   return session ? `?session=${encodeURIComponent(session)}` : ""
 }
 
-export function parseModeLocation(pathname: string, search = ""): ModeLocation {
+export function parseModeLocation(pathname: string, search = "", automateAccessible = false): ModeLocation {
   const segments = pathname.split("/").filter(Boolean)
   if (segments.length === 0) return { kind: "home", directory: "", mode: undefined }
 
@@ -40,6 +40,12 @@ export function parseModeLocation(pathname: string, search = ""): ModeLocation {
       return { kind: "invalid", directory, mode: undefined, reason: "session" }
     }
     return { kind: "workspace-root", directory, mode: "code", sessionId: pathSession ?? querySession }
+  }
+  // ADR-1033: automate is a valid SHELL_MODES entry but an unresolved route
+  // outside the dev flag — it must fail closed like an unknown mode, not
+  // fall through to a route that only fails later at render time.
+  if (route === "automate" && !automateAccessible) {
+    return { kind: "invalid", directory, mode: undefined, reason: "mode" }
   }
   if (!SHELL_MODES.includes(route as ShellMode) || route === "code" || segments.length > 2) {
     return { kind: "invalid", directory, mode: undefined, reason: "mode" }

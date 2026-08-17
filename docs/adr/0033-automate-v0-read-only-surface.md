@@ -3,9 +3,14 @@
 ---
 id: 0033
 title: Automate v0 read-only workspace surface
-status: ACCEPTED
+status: SUPERSEDED
+superseded-by: 1033
 date: 2026-08-14
 ---
+
+> **Superseded by [ADR-1033](./1033-automate-removed-from-production.md)
+> (2026-08-17).** Automate is no longer part of the production surface; see
+> that ADR for the current state and rationale.
 
 # ADR-0033: Automate v0 read-only workspace surface
 
