@@ -2,6 +2,9 @@
 
 import { WIRE_PROTOCOL_VERSION } from "@unifia/contracts/workbench-wire"
 import { connectWorkbench } from "../src/client.js"
+import { test } from "bun:test"
+
+test('connection.test', async () => {
 
 const encode = (value: unknown) => {
   const bytes = new TextEncoder().encode(JSON.stringify(value))
@@ -46,3 +49,4 @@ try {
 } catch { rejected = true }
 if (!rejected || handshakeRevoked !== 1) throw new Error("handshake rejection did not revoke the issued lease")
 console.log("WorkbenchConnection: rollback passed")
+})

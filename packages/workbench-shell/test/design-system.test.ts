@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createDesignSystemPickerRows, migrateWorkspaceManifest, parseDesignSystemCatalog } from "../src/design-system.js"
+import { test } from "bun:test"
+
+test('design-system.test', async () => {
 
 const catalog = parseDesignSystemCatalog({ id: "unifia-system", name: "Unifia", version: "1.0.0", source: "workspace://design-system", tokens: { colors: { primary: "#ffffff" }, spacing: { gutter: 24 }, typography: { body: "Inter" } } })
 if (catalog.tokens.spacing.gutter !== 24 || catalog.source !== "workspace://design-system") throw new Error("design system contract lost tokens/source")
@@ -18,3 +21,4 @@ let rejectedVersion = false
 try { migrateWorkspaceManifest({ version: 2, designSystems: [catalog] }) } catch { rejectedVersion = true }
 if (!rejectedVersion) throw new Error("workspace manifest accepted an unsupported version")
 console.log("DesignSystem: 6/6 passed")
+})

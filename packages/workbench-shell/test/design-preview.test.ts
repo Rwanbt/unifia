@@ -2,6 +2,9 @@
 
 import { createDesignPreviewPanelState } from "../src/design-preview.js"
 import { createDesignSpecPanelState } from "../src/design-spec.js"
+import { test } from "bun:test"
+
+test('design-preview.test', async () => {
 
 const valid = createDesignSpecPanelState({ kind: "inline", value: JSON.stringify({ id: "preview-card", version: "1.0.0", target: "design", title: "Preview", rules: [] }) })
 const preview = createDesignPreviewPanelState(valid)
@@ -13,3 +16,4 @@ const invalid = createDesignSpecPanelState({ kind: "inline", value: "{}" })
 const blocked = createDesignPreviewPanelState(invalid)
 if (blocked.previews.length !== 0 || blocked.diagnostics.length !== 1) throw new Error("invalid spec was rendered")
 console.log("DesignPreviewPanel: 4/4 passed")
+})

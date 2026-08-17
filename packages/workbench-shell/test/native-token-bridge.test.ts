@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createNativeTokenProvider } from "../src/native-token-bridge.js"
+import { test } from "bun:test"
+
+test('native-token-bridge.test', async () => {
 
 let issued = 0
 let rotated = 0
@@ -25,3 +28,4 @@ try {
 }
 if (!rejected) throw new Error("native provider accepted a token for another workspace")
 console.log("NativeTokenBridge: 5/5 passed")
+})

@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createDesignSpecPanelState } from "../src/design-spec.js"
+import { test } from "bun:test"
+
+test('design-spec.test', async () => {
 
 let checks = 0
 const check = (condition: boolean, message: string): void => { checks += 1; if (!condition) throw new Error(message) }
@@ -18,3 +21,4 @@ const malformed = createDesignSpecPanelState({ kind: "inline", value: '{\n  "id"
 check(malformed.diagnostics[0]?.line === 2 && malformed.diagnostics[0]?.column > 1, "JSON syntax diagnostic lost line/column")
 
 console.log(`DesignSpecPanel: ${checks}/${checks} passed`)
+})

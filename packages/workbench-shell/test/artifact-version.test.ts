@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createArtifactVersionPanelState, diffArtifactVersions, type ArtifactVersionSummary } from "../src/artifact-version.js"
+import { test } from "bun:test"
+
+test('artifact-version.test', async () => {
 
 const base: ArtifactVersionSummary = { artifactId: "artifact-123", version: 1, kind: "text", filename: "design.md", bytes: 10, createdAt: 1, metadata: { owner: "user" }, provenance: { sourceTool: "editor" }, relativePath: ".unifia/artifacts/artifact-123/v1/design.md", sha256: "a", scan: "clean" }
 const next = { ...base, version: 2, bytes: 11, sha256: "b" }
@@ -11,3 +14,4 @@ const diff = diffArtifactVersions(base, next)
 if (!diff.changed.includes("bytes") || !diff.changed.includes("sha256")) throw new Error("artifact structural diff missed changed fields")
 if (diffArtifactVersions(undefined, next).added[0] !== "artifact") throw new Error("artifact diff did not report an addition")
 console.log("ArtifactVersionPanel: 4/4 passed")
+})

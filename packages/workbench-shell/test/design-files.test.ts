@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { adaptDesignFiles, createDesignFilesPanelState, renderDesignFileRows } from "../src/design-files.js"
+import { test } from "bun:test"
+
+test('design-files.test', async () => {
 
 const page = { entries: [
   { path: "zeta.ts", kind: "file" as const, size: 1, modifiedAt: 2 },
@@ -18,3 +21,4 @@ const selected = createDesignFilesPanelState(page, "styles/theme.css")
 if (selected.selectedPath !== "styles/theme.css") throw new Error("panel did not preserve a valid selection")
 if (renderDesignFileRows(selected).find((row) => row.path === "styles/theme.css")?.selected !== true) throw new Error("panel did not render the selected row")
 console.log("DesignFiles: 6/6 passed")
+})

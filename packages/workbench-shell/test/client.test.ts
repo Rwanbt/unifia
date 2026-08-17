@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { WorkbenchClient, WorkbenchEventDispatcher, WorkbenchHttpError, newRequestId } from "../src/index.js"
+import { test } from "bun:test"
+
+test('client.test', async () => {
 
 let checks = 0
 const check = (condition: boolean, message: string): void => {
@@ -119,3 +122,4 @@ check(dispatcher.events.filter((event) => event.type === "operation.updated").le
 check(newRequestId().includes("-7"), "idempotency key was not UUID v7")
 
 console.log(`WorkbenchClient: ${checks}/${checks} passed`)
+})

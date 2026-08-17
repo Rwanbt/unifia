@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { WorkbenchCleanupError, WorkbenchLifecycle } from "../src/lifecycle.js"
+import { test } from "bun:test"
+
+test('lifecycle.test', async () => {
 
 const lifecycle = new WorkbenchLifecycle()
 const phases: string[] = []
@@ -48,3 +51,4 @@ try {
 if (!cleanupFailed || lifecycle.state("instance-3/workspace-1")?.phase !== "cleanup_failed") throw new Error("cleanup failure was not terminal")
 
 console.log("WorkbenchLifecycle: 4/4 passed")
+})

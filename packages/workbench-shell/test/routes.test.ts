@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
 import { M20_SERVER_ROUTE_REGISTRY, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage } from "../src/index.js"
+import { test } from "bun:test"
+
+test('routes.test', async () => {
 
 const expected = ["workspace-switcher", "session-chat", "files", "search", "artifacts", "documents", "trace", "approvals", "activity-log", "capability-picker", "export"]
 if (WORKBENCH_ROUTE_OPERATIONS.length !== expected.length) throw new Error("route registry cardinality changed")
@@ -13,3 +16,4 @@ if (routesForLineage("work/document").some((route) => route.lineage !== "work/do
 if (routesForLineage("design/render").some((route) => route.lineage !== "design/render")) throw new Error("design lineage crossed")
 if (M20_SERVER_ROUTE_REGISTRY.designSystems.route !== "/v1/design-systems") throw new Error("M20 Design System route is not registered")
 console.log(`WorkbenchRoutes: ${expected.length}/${expected.length} entries aligned`)
+})

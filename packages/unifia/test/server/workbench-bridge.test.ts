@@ -3,6 +3,9 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { createWorkbenchBridge } from "../../src/server/workbench"
+import { test } from "bun:test"
+
+test('workbench-bridge.test', async () => {
 
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-workbench-bridge-"))
 const previousPassword = process.env.UNIFIA_SERVER_PASSWORD
@@ -90,3 +93,4 @@ try {
   else process.env.UNIFIA_WORKBENCH_AUDIT_LOG = previousAuditLog
   await rm(root, { recursive: true, force: true })
 }
+})
