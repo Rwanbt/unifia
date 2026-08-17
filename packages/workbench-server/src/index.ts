@@ -143,14 +143,20 @@ export class WorkbenchServer {
    * an audited 400. In-memory tests never rejected, so nothing revealed it.
    */
   async fetch(request: Request): Promise<Response> {
+    // WHY hoisted above the try: SEC-002 — a handler that throws after origin
+    // validation (e.g. a malformed JSON body) must still get nosniff and
+    // access-control-allow-origin on its error response, or a fetch from an
+    // allowed origin fails opaquely in the browser instead of surfacing the
+    // real 400.
+    let origin: ReturnType<typeof checkRequestOrigin> | undefined
     try {
-      const origin = checkRequestOrigin(request.headers.get("origin"), this.#allowedOrigins)
+      origin = checkRequestOrigin(request.headers.get("origin"), this.#allowedOrigins)
       if (!origin.allowed) return addSecurityHeaders(json(403, { error: "origin not allowed" }))
       if (request.method === "OPTIONS") return addSecurityHeaders(new Response(null, { status: 204 }), origin.origin)
       return addSecurityHeaders(await this.#route(request), origin.origin)
     } catch (error) {
       this.#audit.record("workbench-server", "request.error", "deny")
-      return json(400, { error: error instanceof Error ? error.message : "request failed" })
+      return addSecurityHeaders(json(400, { error: error instanceof Error ? error.message : "request failed" }), origin?.allowed ? origin.origin : undefined)
     }
   }
 
