@@ -4,6 +4,7 @@ import { createSimpleContext } from "@unifia/ui/context"
 import { WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
 import { useQueryClient } from "@tanstack/solid-query"
 import { createSignal, onCleanup, type ParentProps } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 
 const READ_CAPABILITIES = ["workspace.read", "workspace.watch"] as const
@@ -14,6 +15,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
   init: (props: { workspacePath: string; codeSessionId?: string }) => {
     const platform = usePlatform()
     const queryClient = useQueryClient()
+    const language = useLanguage()
+    const t = language.t
     const lifecycle = new WorkbenchLifecycle()
     const [connection, setConnection] = createSignal<WorkbenchConnection>()
     const [phase, setPhase] = createSignal<WorkbenchLifecyclePhase>("initializing")
@@ -40,7 +43,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
             }
           } catch (reason) {
             if (eventsAbort.signal.aborted) return
-            console.warn("Workbench event stream disconnected; retrying", reason)
+            console.warn(t("workbench.errors.eventStreamDisconnected"), reason)
           }
           if (!eventsAbort.signal.aborted) await new Promise((resolve) => setTimeout(resolve, EVENT_RETRY_DELAY_MS))
         }
@@ -52,7 +55,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       if (current) return Promise.resolve(current)
       if (pending) return pending
       if (!platform.workbench) {
-        const unavailable = new Error("Workbench bridge is unavailable for this workspace")
+        const unavailable = new Error(t("workbench.errors.bridgeUnavailable"))
         setError(unavailable)
         setPhase("failed")
         return Promise.reject(unavailable)

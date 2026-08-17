@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 
@@ -12,11 +13,11 @@ type WorkbenchChatProps = {
   description: string
 }
 
-const modeLabel: Record<WorkbenchChatProps["mode"], string> = {
-  work: "Work assistant",
-  design: "Design assistant",
-  automate: "Automation assistant",
-}
+const MODE_KEY = {
+  work: "workbench.chat.work",
+  design: "workbench.chat.design",
+  automate: "workbench.chat.automate",
+} as const
 
 function messageText(parts: readonly { type: string; text?: string }[] | undefined): string {
   return (parts ?? [])
@@ -29,10 +30,15 @@ function messageText(parts: readonly { type: string; text?: string }[] | undefin
 export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
   const sdk = useSDK()
   const sync = useSync()
+  const language = useLanguage()
+  const t = language.t
   const [input, setInput] = createSignal("")
   const [activeSessionId, setActiveSessionId] = createSignal(props.sessionId)
   const [sending, setSending] = createSignal(false)
   const [error, setError] = createSignal<string>()
+
+  const modeTitle = () => t(MODE_KEY[props.mode])
+  const modeTitleSession = () => t("workbench.chat.sessionTitle", { mode: modeTitle() })
 
   createEffect(() => {
     const incomingSessionId = props.sessionId
@@ -62,9 +68,9 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
     try {
       let sessionId = activeSessionId()
       if (!sessionId) {
-        const result = await sdk.client.session.create({ directory: props.directory, title: `${modeLabel[props.mode]} session` })
+        const result = await sdk.client.session.create({ directory: props.directory, title: modeTitleSession() })
         sessionId = result.data?.id
-        if (!sessionId) throw new Error("Unable to create a workspace session")
+        if (!sessionId) throw new Error(t("workbench.errors.sessionCreation"))
         setActiveSessionId(sessionId)
       }
       await sdk.client.session.prompt({ sessionID: sessionId, agent: "build", parts: [{ type: "text", text }] })
@@ -85,11 +91,11 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
     <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-workbench-chat={props.mode}>
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-16-medium">{modeLabel[props.mode]}</h2>
+          <h2 class="text-16-medium">{modeTitle()}</h2>
           <p class="mt-1 text-12-regular text-text-weak">{props.description}</p>
         </div>
         <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" data-workbench-chat-suggestion onClick={applySuggestion}>
-          Try an example
+          {t("workbench.chat.tryExample")}
         </button>
       </div>
       <Show when={messages().length > 0}>
@@ -97,7 +103,7 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
           <For each={messages()}>
             {(message) => (
               <article class="rounded-md border border-border-weak-base bg-background-base px-3 py-2" data-workbench-chat-message={message.role}>
-                <p class="text-12-medium text-text-weak">{message.role === "user" ? "You" : "Assistant"}</p>
+                <p class="text-12-medium text-text-weak">{message.role === "user" ? t("workbench.chat.you") : t("workbench.chat.assistant")}</p>
                 <p class="mt-1 whitespace-pre-wrap text-14-regular text-text-base">{message.text}</p>
               </article>
             )}
@@ -105,7 +111,7 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
         </div>
       </Show>
       <form class="mt-4 flex flex-col gap-2" onSubmit={(event) => { event.preventDefault(); void submit() }}>
-        <label class="sr-only" for={`workbench-chat-${props.mode}`}>Message for {modeLabel[props.mode]}</label>
+        <label class="sr-only" for={`workbench-chat-${props.mode}`}>{t("workbench.chat.messageFor", { mode: modeTitle() })}</label>
         <textarea
           id={`workbench-chat-${props.mode}`}
           class="min-h-24 w-full resize-y rounded-md border border-border-base bg-background-base p-3 text-14-regular text-text-base"
@@ -116,9 +122,9 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
           disabled={sending()}
         />
         <div class="flex items-center justify-between gap-3">
-          <p class="text-12-regular text-text-weak">Enter a request, then review the result in this workspace.</p>
+          <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
           <button type="submit" class="rounded bg-surface-inset-base px-3 py-2 text-12-medium text-text-strong" data-workbench-chat-submit disabled={!input().trim() || sending()}>
-            {sending() ? "Sending…" : "Send"}
+            {sending() ? t("workbench.chat.sending") : t("workbench.chat.send")}
           </button>
         </div>
       </form>

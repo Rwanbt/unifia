@@ -1,6 +1,9 @@
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
+/* SPDX-License-Identifier: MIT */
+
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
 import { useMode } from "@/context/mode"
+import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { base64Encode } from "@unifia/util/encode"
@@ -14,15 +17,68 @@ import {
   type WorkFunction,
 } from "@unifia/workbench-shell"
 
-const labelFor = (operation: WorkFunction) => operation.replaceAll("-", " ")
 const decodeFile = (value: { content: string; encoding: "utf-8" | "base64" }) => value.encoding === "utf-8" ? value.content : new TextDecoder().decode(Uint8Array.from(atob(value.content), (char) => char.charCodeAt(0)))
+
+const OPERATION_I18N_KEY: Record<WorkFunction, string> = {
+  "workspace-switcher": "workbench.operations.workspaceSwitcher",
+  "session-chat": "workbench.operations.sessionChat",
+  "files": "workbench.operations.files",
+  "search": "workbench.operations.search",
+  "artifacts": "workbench.operations.artifacts",
+  "documents": "workbench.operations.documents",
+  "trace": "workbench.operations.trace",
+  "approvals": "workbench.operations.approvals",
+  "activity-log": "workbench.operations.activityLog",
+  "capability-picker": "workbench.operations.capabilityPicker",
+  "export": "workbench.operations.export",
+}
+
+const labelFor = (t: (key: string) => string, operation: WorkFunction) => t(OPERATION_I18N_KEY[operation])
+
+function ConnectionBanner(props: { dataAttr: "workbench-connection" | "design-connection" | "automate-connection"; dataRetryAttr: "workbench-retry" | "design-retry" | "automate-retry" }): JSX.Element {
+  const language = useLanguage()
+  const workbench = useWorkspaceWorkbench()
+  const t = language.t
+  const connection = workbench.connection
+  const phase = () => connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"
+  return (
+    <>
+      <p
+        data-workbench-connection={props.dataAttr === "workbench-connection" ? phase() : undefined}
+        data-design-connection={props.dataAttr === "design-connection" ? phase() : undefined}
+        data-automate-connection={props.dataAttr === "automate-connection" ? phase() : undefined}
+        class="text-12-regular text-text-weak"
+      >
+        {connection()?.instanceId
+          ? t("workbench.connection.connected", { instanceId: connection()!.instanceId })
+          : workbench.loading()
+            ? t("workbench.connection.connecting")
+            : t("workbench.connection.unavailable")}
+      </p>
+      <Show when={workbench.error()}>
+        <button
+          type="button"
+          data-workbench-retry={props.dataRetryAttr === "workbench-retry" ? "" : undefined}
+          data-design-retry={props.dataRetryAttr === "design-retry" ? "" : undefined}
+          data-automate-retry={props.dataRetryAttr === "automate-retry" ? "" : undefined}
+          class="rounded border border-border-base px-3 py-2 text-12-medium"
+          aria-label={t("workbench.connection.retryHint")}
+          onClick={() => workbench.retryConnection()}
+        >
+          {t("workbench.connection.retry")}
+        </button>
+      </Show>
+    </>
+  )
+}
 
 function WorkSurface() {
   const mode = useMode()
+  const language = useLanguage()
+  const t = language.t
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   const navigate = useNavigate()
-  const retryConnection = workbench.retryConnection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const [activeOperation, setActiveOperation] = createSignal<WorkFunction>("documents")
   const [exportState, setExportState] = createSignal<"idle" | "running" | "success" | "error">("idle")
@@ -45,17 +101,17 @@ function WorkSurface() {
       const result = await current.client.exportArtifact(current.workspaceId, artifact.artifactId)
       if ("approvalId" in result && result.approvalId) {
         setExportState("error")
-        setExportMessage(`Approval required: ${result.approvalId}`)
+        setExportMessage(t("workbench.export.approvalRequired", { approvalId: result.approvalId }))
       } else if ("exported" in result) {
         setExportState("success")
-        setExportMessage(`Exported ${result.exported.relativePath}`)
+        setExportMessage(t("workbench.export.exported", { path: result.exported.relativePath }))
       } else {
         setExportState("error")
-        setExportMessage("Export was accepted but has no result yet")
+        setExportMessage(t("workbench.export.noResult"))
       }
     } catch (error) {
       setExportState("error")
-      setExportMessage(error instanceof Error ? error.message : "Artifact export failed")
+      setExportMessage(error instanceof Error ? error.message : t("workbench.export.failed"))
     }
   }
 
@@ -71,22 +127,17 @@ function WorkSurface() {
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="work">
       <div class="mx-auto max-w-5xl space-y-8">
         <header class="space-y-2">
-          <p class="text-12-medium uppercase tracking-wide text-text-weak">Work</p>
-          <h1 class="text-24-medium">Workspace operations</h1>
-          <p class="max-w-2xl text-14-regular text-text-weak">Read-only workspace surfaces are derived from the shared Work registry and keep their scope explicit.</p>
-          <p data-workbench-connection={connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"} class="text-12-regular text-text-weak">
-            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations."}
-          </p>
-          <Show when={workbench.error()}>
-            <button type="button" data-workbench-retry class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => retryConnection()}>Retry connection</button>
-          </Show>
+          <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.work.title")}</p>
+          <h1 class="text-24-medium">{t("workbench.work.heading")}</h1>
+          <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.work.description")}</p>
+          <ConnectionBanner dataAttr="workbench-connection" dataRetryAttr="workbench-retry" />
         </header>
         <WorkbenchChat
           mode="work"
           directory={mode.directory()}
           sessionId={mode.sessionId()}
-          prompt="Summarize the current workspace and suggest the next safe action."
-          description="Ask for a workspace summary, inspect files, or prepare a safe next step."
+          prompt={t("workbench.work.chatPrompt")}
+          description={t("workbench.work.chatDescription")}
         />
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-workbench-navigation={navigation().layout}>
           <For each={WORK_V1_FUNCTIONS}>
@@ -100,28 +151,32 @@ function WorkSurface() {
                 onClick={() => setActiveOperation(operation)}
               >
                 <div class="flex items-center justify-between gap-3">
-                  <h2 class="text-14-medium capitalize">{labelFor(operation)}</h2>
+                  <h2 class="text-14-medium">{labelFor(t, operation)}</h2>
                   <Show when={activeOperation() === operation}>
-                    <span class="text-12-medium text-text-success">Active</span>
+                    <span class="text-12-medium text-text-success">{t("workbench.operations.active")}</span>
                   </Show>
                 </div>
                 <p class="mt-2 text-12-regular text-text-weak">
-                  {operation === "documents" ? `${navigation().workCount} documents` : operation === "artifacts" ? `${artifacts.data?.artifacts.length ?? 0} artifacts` : operation === "files" ? `${files.data?.entries.length ?? 0} files` : operation === "export" ? "Exports the first persisted artifact" : "Scoped to this workspace"}
+                  {operation === "documents" ? t("workbench.operations.documentsCount", { count: navigation().workCount })
+                    : operation === "artifacts" ? t("workbench.operations.artifactsCount", { count: artifacts.data?.artifacts.length ?? 0 })
+                    : operation === "files" ? t("workbench.operations.filesCount", { count: files.data?.entries.length ?? 0 })
+                    : operation === "export" ? t("workbench.operations.exportDescription")
+                    : t("workbench.operations.scopedToWorkspace")}
                 </p>
               </button>
             )}
           </For>
         </div>
         <div class="rounded-lg border border-border-base bg-background-stronger p-5" data-workbench-selected-operation={activeOperation()}>
-          <p class="text-12-medium uppercase tracking-wide text-text-weak">Selected operation</p>
-          <h2 class="mt-2 text-18-medium capitalize">{labelFor(activeOperation())}</h2>
-          <p class="mt-2 text-14-regular text-text-weak">This surface keeps the operation scoped to the active workspace and routes writes through the existing approval boundary.</p>
+          <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.operations.selectedLabel")}</p>
+          <h2 class="mt-2 text-18-medium">{labelFor(t, activeOperation())}</h2>
+          <p class="mt-2 text-14-regular text-text-weak">{t("workbench.operations.selectedDescription")}</p>
           <Show when={activeOperation() === "export"}>
             <button type="button" data-workbench-open-artifact class="mt-4 mr-2 rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!artifacts.data?.artifacts.length} onClick={openArtifactInCode}>
-              Open artifact in Code
+              {t("workbench.export.openInCode")}
             </button>
             <button type="button" data-workbench-export class="mt-4 rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!artifacts.data?.artifacts.length || exportState() === "running"} onClick={() => void exportFirstArtifact()}>
-              {exportState() === "running" ? "Exporting…" : "Export first artifact"}
+              {exportState() === "running" ? t("workbench.export.exporting") : t("workbench.export.exportFirst")}
             </button>
             <Show when={exportMessage()}>
               <p data-workbench-export-result={exportState()} class="mt-3 text-12-regular text-text-weak">{exportMessage()}</p>
@@ -135,9 +190,10 @@ function WorkSurface() {
 
 function DesignSurface() {
   const mode = useMode()
+  const language = useLanguage()
+  const t = language.t
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
-  const retryConnection = workbench.retryConnection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifest = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-systems"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSystems(connection()!.workspaceId) }))
   const [source, setSource] = createSignal("")
@@ -153,23 +209,18 @@ function DesignSurface() {
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="design">
       <div class="mx-auto max-w-6xl space-y-8">
         <header class="space-y-2">
-          <p class="text-12-medium uppercase tracking-wide text-text-weak">Design</p>
-          <h1 class="text-24-medium">Validated responsive preview</h1>
-          <p class="max-w-2xl text-14-regular text-text-weak">The preview is produced only after workspace manifest and spec validation and is loaded as an inert image source.</p>
+          <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.design.title")}</p>
+          <h1 class="text-24-medium">{t("workbench.design.heading")}</h1>
+          <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.design.description")}</p>
         </header>
         <WorkbenchChat
           mode="design"
           directory={mode.directory()}
           sessionId={mode.sessionId()}
-          prompt="Create a responsive design spec for the current workspace."
-          description="Describe the interface you want, then refine the validated spec below."
+          prompt={t("workbench.design.chatPrompt")}
+          description={t("workbench.design.chatDescription")}
         />
-        <p data-design-connection={connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"} class="text-12-regular text-text-weak">
-          {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations."}
-        </p>
-        <Show when={workbench.error()}>
-          <button type="button" data-design-retry class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => retryConnection()}>Retry connection</button>
-        </Show>
+        <ConnectionBanner dataAttr="design-connection" dataRetryAttr="design-retry" />
         <Show when={manifest.error}>
           <p data-design-manifest="failed" class="text-14-regular text-text-danger">{manifest.error instanceof Error ? manifest.error.message : String(manifest.error)}</p>
         </Show>
@@ -179,21 +230,21 @@ function DesignSurface() {
               {(catalog) => (
                 <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-catalog={catalog.id}>
                   <h2 class="text-14-medium">{catalog.name} · {catalog.version}</h2>
-                  <p class="mt-2 text-12-regular text-text-weak">Source: {catalog.source}</p>
+                  <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.source", { source: catalog.source })}</p>
                 </article>
               )}
             </For>
           </div>
         </Show>
         <Show when={!manifest.isLoading && !manifest.error && manifest.data?.designSystems.length === 0}>
-          <p data-design-manifest="empty" class="text-14-regular text-text-danger">No validated design-system manifest is available for this workspace.</p>
+          <p data-design-manifest="empty" class="text-14-regular text-text-danger">{t("workbench.design.noManifest")}</p>
         </Show>
         <label class="block space-y-2" for="workbench-design-spec">
-          <span class="text-14-medium">Design spec</span>
+          <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
           <textarea
             id="workbench-design-spec"
             class="min-h-48 w-full rounded-lg border border-border-base bg-background-stronger p-4 font-mono text-12-regular text-text-base"
-            placeholder="Paste a validated workspace design spec"
+            placeholder={t("workbench.design.specPlaceholder")}
             value={source()}
             onInput={(event) => setSource(event.currentTarget.value)}
             spellcheck={false}
@@ -201,28 +252,28 @@ function DesignSurface() {
         </label>
         <Show when={spec().diagnostics.length > 0}>
           <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
-            <h2 class="text-14-medium text-text-danger">Spec diagnostics</h2>
+            <h2 class="text-14-medium text-text-danger">{t("workbench.design.diagnostics")}</h2>
             <For each={spec().diagnostics}>
-              {(diagnostic) => <p class="mt-2 text-12-regular text-text-weak">Line {diagnostic.line}, column {diagnostic.column}: {diagnostic.message}</p>}
+              {(diagnostic) => <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.diagnosticLine", { line: diagnostic.line, column: diagnostic.column, message: diagnostic.message })}</p>}
             </For>
           </aside>
         </Show>
         <Show when={validation.isLoading}>
-          <p data-design-validation="loading" class="text-12-regular text-text-weak">Validating the spec against the workspace policy…</p>
+          <p data-design-validation="loading" class="text-12-regular text-text-weak">{t("workbench.design.validating")}</p>
         </Show>
         <Show when={validation.error}>
           <p data-design-validation="failed" class="text-14-regular text-text-danger">{validation.error instanceof Error ? validation.error.message : String(validation.error)}</p>
         </Show>
         <Show when={validation.data?.capabilities.denied.length}>
-          <p data-design-validation="denied" class="text-14-regular text-text-danger">The spec requests capabilities that are not granted: {validation.data!.capabilities.denied.join(", ")}.</p>
+          <p data-design-validation="denied" class="text-14-regular text-text-danger">{t("workbench.design.capabilitiesDenied", { list: validation.data!.capabilities.denied.join(", ") })}</p>
         </Show>
-        <Show when={validation.data?.valid === true && validation.data.capabilities.denied.length === 0 && preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message ?? "Enter a valid workspace design spec to render a preview."}</p>}>
+        <Show when={validation.data?.valid === true && validation.data.capabilities.denied.length === 0 && preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message ?? t("workbench.design.specEmpty")}</p>}>
           <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={preview().previews.length}>
             <For each={preview().previews}>
               {(item) => (
                 <figure class="overflow-hidden rounded-lg border border-border-base bg-background-stronger p-3">
-                  <img class="w-full rounded-md" src={item.src} width={item.width} alt={`${item.label} preview`} />
-                  <figcaption class="mt-3 text-12-medium capitalize text-text-weak">{item.label} · {item.width}px</figcaption>
+                  <img class="w-full rounded-md" src={item.src} width={item.width} alt={t("workbench.design.previewAlt", { label: item.label })} />
+                  <figcaption class="mt-3 text-12-medium text-text-weak">{t("workbench.design.previewCaption", { label: item.label, width: item.width })}</figcaption>
                 </figure>
               )}
             </For>
@@ -235,6 +286,8 @@ function DesignSurface() {
 
 function AutomateSurface() {
   const mode = useMode()
+  const language = useLanguage()
+  const t = language.t
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
@@ -268,10 +321,10 @@ function AutomateSurface() {
     if (!current || !file) return
     try {
       const definition = JSON.parse(decodeFile(file)) as Record<string, unknown>
-      if (typeof definition.id !== "string" || definition.version !== 1 || !Array.isArray(definition.steps)) throw new Error("Workflow definition must contain id, version 1 and steps")
+      if (typeof definition.id !== "string" || definition.version !== 1 || !Array.isArray(definition.steps)) throw new Error(t("workbench.automate.invalidDefinition"))
       await startDefinition(definition)
     } catch (error) {
-      setWorkflowError(error instanceof Error ? error.message : "Workflow start failed")
+      setWorkflowError(error instanceof Error ? error.message : t("workbench.automate.startFailed"))
     }
   }
   async function resolveWorkflowApproval(decision: "allow" | "deny"): Promise<void> {
@@ -287,7 +340,7 @@ function AutomateSurface() {
         setWorkflowState(result.decision.kind)
       }
     } catch (error) {
-      setWorkflowError(error instanceof Error ? error.message : "Approval decision failed")
+      setWorkflowError(error instanceof Error ? error.message : t("workbench.automate.approvalFailed"))
     }
   }
   async function cancelWorkflowApproval(): Promise<void> {
@@ -300,27 +353,25 @@ function AutomateSurface() {
       setPendingDefinition(undefined)
       setWorkflowState("cancelled")
     } catch (error) {
-      setWorkflowError(error instanceof Error ? error.message : "Approval cancellation failed")
+      setWorkflowError(error instanceof Error ? error.message : t("workbench.automate.cancelFailed"))
     }
   }
   return (
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate">
       <div class="mx-auto max-w-5xl space-y-8">
         <header class="space-y-2">
-          <p class="text-12-medium uppercase tracking-wide text-text-weak">Automate</p>
-          <h1 class="text-24-medium">Workspace automation definitions</h1>
-          <p class="max-w-2xl text-14-regular text-text-weak">Automation v0 reads only validated workflow definitions from the active workspace. Execution is unavailable until an explicit workflow contract is provided.</p>
-          <p data-automate-connection={connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"} class="text-12-regular text-text-weak">
-            {connection()?.instanceId ? `Connected to Workbench instance ${connection()!.instanceId}` : workbench.loading() ? "Connecting to the native Workbench bridge" : "Native Workbench bridge unavailable. Chat remains available; reconnect to unlock workspace operations."}
-          </p>
+          <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.automate.title")}</p>
+          <h1 class="text-24-medium">{t("workbench.automate.heading")}</h1>
+          <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.automate.description")}</p>
         </header>
         <WorkbenchChat
           mode="automate"
           directory={mode.directory()}
           sessionId={mode.sessionId()}
-          prompt="Create a safe workflow for the next approved workspace task."
-          description="Ask for a workflow draft, review its approval gates, then run only an explicit definition."
+          prompt={t("workbench.automate.chatPrompt")}
+          description={t("workbench.automate.chatDescription")}
         />
+        <ConnectionBanner dataAttr="automate-connection" dataRetryAttr="automate-retry" />
         <Show when={definitions.error}>
           <p data-automate-definitions="failed" class="text-14-regular text-text-danger">{definitions.error instanceof Error ? definitions.error.message : String(definitions.error)}</p>
         </Show>
@@ -329,7 +380,7 @@ function AutomateSurface() {
             <For each={definitions.data!.entries.filter((entry) => entry.kind === "file")}>
               {(entry) => (
                 <li class="rounded-lg border border-border-base bg-background-stronger p-4" data-automate-definition={entry.path}>
-                  <div class="flex items-center justify-between gap-3"><span>{entry.path}</span><button type="button" class="rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => { setSelectedDefinition(entry.path); setWorkflowError(undefined) }}>Inspect</button></div>
+                  <div class="flex items-center justify-between gap-3"><span>{entry.path}</span><button type="button" class="rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => { setSelectedDefinition(entry.path); setWorkflowError(undefined) }}>{t("workbench.automate.inspect")}</button></div>
                 </li>
               )}
             </For>
@@ -337,21 +388,21 @@ function AutomateSurface() {
         </Show>
         <Show when={selectedDefinition()}>
           <div class="rounded-lg border border-border-base bg-background-stronger p-4" data-automate-selected={selectedDefinition()}>
-            <p class="text-12-regular text-text-weak">Selected workflow definition is read through the shared Workbench session.</p>
-            <button type="button" class="mt-3 rounded border border-border-base px-3 py-2 text-12-medium" disabled={definitionFile.isLoading || !definitionFile.data} onClick={() => void startSelectedWorkflow()}>Start with approval gates</button>
+            <p class="text-12-regular text-text-weak">{t("workbench.automate.selectedDescription")}</p>
+            <button type="button" class="mt-3 rounded border border-border-base px-3 py-2 text-12-medium" disabled={definitionFile.isLoading || !definitionFile.data} onClick={() => void startSelectedWorkflow()}>{t("workbench.automate.startWithApproval")}</button>
             <Show when={approvalId()}>
               <div class="mt-3 flex flex-wrap gap-2" data-automate-approval={approvalId()}>
-                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("allow")}>Allow workflow</button>
-                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("deny")}>Deny workflow</button>
-                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void cancelWorkflowApproval()}>Cancel approval</button>
+                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("allow")}>{t("workbench.automate.allow")}</button>
+                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("deny")}>{t("workbench.automate.deny")}</button>
+                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void cancelWorkflowApproval()}>{t("workbench.automate.cancel")}</button>
               </div>
             </Show>
-            <Show when={workflowState()}><p class="mt-2 text-12-regular text-text-success">Workflow state: {workflowState()}</p></Show>
+            <Show when={workflowState()}><p class="mt-2 text-12-regular text-text-success">{t("workbench.automate.workflowState", { state: workflowState() ?? "" })}</p></Show>
             <Show when={workflowError()}><p class="mt-2 text-12-regular text-text-danger">{workflowError()}</p></Show>
           </div>
         </Show>
         <Show when={!definitions.isLoading && !definitions.error && definitions.data?.entries.length === 0}>
-          <p data-automate-definitions="empty" class="text-14-regular text-text-weak">No workflow definitions are present in this workspace.</p>
+          <p data-automate-definitions="empty" class="text-14-regular text-text-weak">{t("workbench.automate.noDefinitions")}</p>
         </Show>
       </div>
     </section>
@@ -360,12 +411,14 @@ function AutomateSurface() {
 
 export default function WorkbenchMode() {
   const mode = useMode()
+  const language = useLanguage()
+  const t = language.t
   return (
     <main class="size-full min-h-0 bg-background-base" data-workbench-mode={mode.active()}>
       <Show when={mode.routeKind() === "invalid"}>
         <section class="size-full p-6" data-workbench-error="invalid-route">
-          <h1 class="text-18-medium">Invalid workspace mode</h1>
-          <p class="mt-2 text-14-regular text-text-weak">The requested workspace mode is not available.</p>
+          <h1 class="text-18-medium">{t("workbench.errors.invalidMode")}</h1>
+          <p class="mt-2 text-14-regular text-text-weak">{t("workbench.errors.invalidModeDescription")}</p>
         </section>
       </Show>
       <Show when={mode.active() === "work"}>

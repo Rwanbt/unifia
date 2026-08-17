@@ -55,6 +55,12 @@ const AUDITED_SCOPE_PREFIXES = [
   "dialog.debate.",
   "dialog.model.",
   "provider.",
+  // 2026-08-16: Workbench multimode (Work / Design / Automate) surfaces and
+  // connection lifecycle. Every locale must translate these keys, not fall
+  // back to English, otherwise a French user sees "Retry connection" instead
+  // of "Reconnecter" and "Selected operation" instead of "Opération
+  // sélectionnée" in the new V3 §20 surfaces.
+  "workbench.",
 ]
 
 // Legitimately identical across en/fr/zh: technical acronyms, proper nouns,
@@ -128,6 +134,25 @@ const TECHNICAL_ALLOWLIST = new Set([
   "settings.fork.githubAuth.diagnosticsHttpsHelperLabel",
   "settings.fork.githubAuth.gitHttpsStatusLabel",
   "settings.fork.githubAuth.apiStatusLabel",
+  // 2026-08-16: Workbench Design preview caption. {{label}} · {{width}}px is
+  // a templated visual figure caption; the middle-dot separator and the px
+  // unit are typographic constants shared across all locales, so the
+  // string itself is intentionally identical to the English source.
+  "workbench.design.previewCaption",
+  // 2026-08-16: International technical loan-words. "Design" (fr/de/ja/ko
+  // surface forms may differ, but pt-BR/bs/da/keep the English token as a
+  // lexical borrowing), "Trace" (used in de/no/ru as an engineering
+  // term), "Export" (fr/de/ru/ja surface forms are the same English
+  // spelling), and "Send" (the imperative of "to send" in da/no), plus
+  // "Assistant" and "Documents" which are identical in fr. These are
+  // legitimate identical spellings, not silent fallbacks.
+  "workbench.design.title",
+  "workbench.operations.trace",
+  "workbench.operations.export",
+  "workbench.chat.send",
+  "workbench.chat.assistant",
+  "workbench.operations.documents",
+  "workbench.operations.documentsCount",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
