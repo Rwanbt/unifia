@@ -631,15 +631,13 @@ export namespace Config {
         })
 
         const loadGlobal = Effect.fnUntraced(function* () {
-          let result: Info = pipe(
-            {},
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "config.json"))),
-            // Legacy before current: mergeDeep applies in order, last wins.
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.json"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.json"))),
-            mergeDeep(yield* loadFile(path.join(Global.Path.config, "unifia.jsonc"))),
-          )
+          let result: Info = {}
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "config.json")))
+          // Legacy before current: mergeDeep applies in order, last wins.
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "opencode.json")))
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "opencode.jsonc")))
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "unifia.json")))
+          result = mergeDeep(result, yield* loadFile(path.join(Global.Path.config, "unifia.jsonc")))
 
           const legacy = path.join(Global.Path.config, "config")
           if (existsSync(legacy)) {
