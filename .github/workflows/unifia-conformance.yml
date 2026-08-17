@@ -22,6 +22,7 @@ on:
       - "packages/workflow-runtime/**"
       - "packages/workspace-runtime/**"
       - "scripts/unifia-conformance.mjs"
+      - "scripts/check-workbench-test-boundary.mjs"
       - ".github/workflows/unifia-conformance.yml"
   pull_request:
   workflow_dispatch:
@@ -55,6 +56,9 @@ jobs:
 
       - name: Mode registry guard
         run: node scripts/check-mode-registry.mjs
+
+      - name: Workbench test boundary guard
+        run: node scripts/check-workbench-test-boundary.mjs
 
       - name: Upload conformance report
         if: always()

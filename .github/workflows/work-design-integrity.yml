@@ -8,6 +8,7 @@ on:
       - "work_design/**"
       - "INTEGRATION.md"
       - "scripts/check-pr-size.sh"
+      - "scripts/check-workbench-test-boundary.mjs"
       - ".github/workflows/work-design-integrity.yml"
 
 permissions:
@@ -35,3 +36,6 @@ jobs:
 
       - name: Check Workbench security policy
         run: node scripts/check-workbench-security.mjs
+
+      - name: Check Workbench test boundary
+        run: node scripts/check-workbench-test-boundary.mjs
