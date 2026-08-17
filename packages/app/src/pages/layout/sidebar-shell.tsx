@@ -35,6 +35,8 @@ export const SidebarContent = (props: {
   modes: readonly ShellMode[]
   activeMode: Accessor<ShellMode>
   onMode: (mode: ShellMode) => void
+  modesLabel: string
+  modeLabel: (mode: ShellMode) => string
 }): JSX.Element => {
   const expanded = createMemo(() => !!props.mobile || props.opened())
   const placement = () => (props.mobile ? "bottom" : "right")
@@ -67,19 +69,22 @@ export const SidebarContent = (props: {
             <DragDropSensors />
             <ConstrainDragXAxis />
             <div class="h-full w-full flex flex-col items-center gap-3 px-3 py-3 overflow-y-auto no-scrollbar">
-              <For each={props.modes}>
-                {(mode) => (
-                  <Tooltip placement={placement()} value={`${mode} mode`}>
-                    <IconButton
-                      icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
-                      variant={props.activeMode() === mode ? "primary" : "ghost"}
-                      size="large"
-                      onClick={() => props.onMode(mode)}
-                      aria-label={`${mode} mode`}
-                    />
-                  </Tooltip>
-                )}
-              </For>
+              <nav aria-label={props.modesLabel} class="flex flex-col items-center gap-3">
+                <For each={props.modes}>
+                  {(mode) => (
+                    <Tooltip placement={placement()} value={props.modeLabel(mode)}>
+                      <IconButton
+                        icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
+                        variant={props.activeMode() === mode ? "primary" : "ghost"}
+                        size="large"
+                        onClick={() => props.onMode(mode)}
+                        aria-label={props.modeLabel(mode)}
+                        aria-pressed={props.activeMode() === mode}
+                      />
+                    </Tooltip>
+                  )}
+                </For>
+              </nav>
               <SortableProvider ids={props.projects().map((p) => p.worktree)}>
                 <For each={props.projects()}>{(project) => props.renderProject(project)}</For>
               </SortableProvider>

@@ -990,6 +990,8 @@ export default function Layout(props: ParentProps) {
       modes={mode.modes}
       activeMode={mode.active}
       onMode={mode.select}
+      modesLabel={language.t("workbench.modes.railLabel")}
+      modeLabel={(m) => language.t(`workbench.modes.${m}`)}
     />
   )
 
