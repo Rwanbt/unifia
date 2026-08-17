@@ -27,7 +27,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { ArtifactStore } from "@unifia/artifact-runtime"
-import { ApprovalBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter, type RuntimeEvent, type Session, type SendPromptInput } from "@unifia/contracts"
+import { ApprovalBroker, P3_CAPABILITIES, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter, type RuntimeEvent, type Session, type SendPromptInput } from "@unifia/contracts"
 import { ApprovalCapabilityGate, HmacTokenAuthenticator, WorkbenchServer, type Principal } from "@unifia/workbench-server"
 import { WorkspaceRuntime, WorkspaceStorage } from "@unifia/workspace-runtime"
 
@@ -94,7 +94,14 @@ const WRITE_TARGET = "conformance.txt"
 async function createFixture(adapter: RuntimeAdapter, root: string): Promise<Fixture> {
   await writeFile(path.join(root, WRITE_TARGET), "seed")
   const authenticator = new HmacTokenAuthenticator(SIGNING_KEY, "unifia-local", "conformance")
-  const principal: Principal = { id: "conformance", scopes: new Set(["workspace.register", "workspace.open"]), workspaces: "*" }
+  // SEC-001/C2-3: WorkbenchServer#checkCapability now requires the calling
+  // principal to hold the capability being checked before the gate ever
+  // runs. This suite conformance-tests the gate/broker mechanism itself
+  // across all three runtime backends (Plan V3 §13) — it is not exercising
+  // work-design's specific capability policy — so the fixture principal is
+  // granted every P3 capability rather than the narrower set an app
+  // connection would actually request.
+  const principal: Principal = { id: "conformance", scopes: new Set<string>(["workspace.register", "workspace.open", ...P3_CAPABILITIES]), workspaces: "*" }
   const server = new WorkbenchServer({
     auth: authenticator,
     workspace: new WorkspaceRuntime(),

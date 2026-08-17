@@ -886,21 +886,33 @@ export class WorkbenchServer {
   #deny(capability: string, status: number): Response { this.#audit.record("workbench-server", capability, "deny"); return json(status, { error: "denied", capability }) }
 }
 
+/** How long a granted decision stays honored before a sensitive operation needs re-approval (C2-5/D-2). Distinct from ttlMs, which only bounds the pending window. */
+const DEFAULT_GRANT_TTL_MS = 5 * 60_000
+
 export class ApprovalCapabilityGate implements CapabilityGate {
   readonly #broker: ApprovalBroker
   readonly #allowlisted: ReadonlySet<P3Capability>
   readonly #ttlMs: number
-  constructor(broker: ApprovalBroker, allowlisted: ReadonlySet<P3Capability> = new Set(), ttlMs = 30_000) {
+  readonly #grantTtlMs: number
+  readonly #now: () => number
+  constructor(broker: ApprovalBroker, allowlisted: ReadonlySet<P3Capability> = new Set(), ttlMs = 30_000, grantTtlMs = DEFAULT_GRANT_TTL_MS, now: () => number = Date.now) {
     this.#broker = broker
     this.#allowlisted = allowlisted
     this.#ttlMs = ttlMs
+    this.#grantTtlMs = grantTtlMs
+    this.#now = now
   }
   async check(capability: P3Capability, resource: string, _actor: string): Promise<CapabilityDecision> {
     if (this.#allowlisted.has(capability)) return "allow"
     const existing = this.#broker.find(capability, resource)
-    if (existing?.status === "allow") return "allow"
+    // C2-5/D-2: a granted decision only stays honored for grantTtlMs from
+    // when it was resolved — otherwise one approval would authorize the
+    // capability for the rest of the session, defeating step-up (C2-3).
+    // An expired grant falls through to request a fresh approval, same as
+    // if none had ever existed.
+    if (existing?.status === "allow" && existing.resolvedAt !== undefined && this.#now() - existing.resolvedAt < this.#grantTtlMs) return "allow"
     if (existing?.status === "pending") return { kind: "approval_required", approvalId: existing.id }
-    const request = this.#broker.request(capability, resource, Date.now() + this.#ttlMs)
+    const request = this.#broker.request(capability, resource, this.#now() + this.#ttlMs)
     return { kind: "approval_required", approvalId: request.id }
   }
   getApproval(id: string) { return this.#broker.get(id) }

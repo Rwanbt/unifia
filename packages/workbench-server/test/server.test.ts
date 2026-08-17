@@ -130,7 +130,10 @@ try {
   const pending = await new ApprovalCapabilityGate(new ApprovalBroker(() => 1_000)).check("workspace.write", handle.id, "actor")
   if (typeof pending !== "object" || pending.kind !== "approval_required") throw new Error("ApprovalCapabilityGate did not require approval")
   const approvalBroker = new ApprovalBroker(() => 1_000)
-  const approvalServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: new ApprovalCapabilityGate(approvalBroker) })
+  // C2-5: the gate's own clock must match the broker's, or resolvedAt (set
+  // from the broker's clock) is compared against a different clock and a
+  // freshly granted approval reads as already expired.
+  const approvalServer = new WorkbenchServer({ auth: testAuth, workspace, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: new ApprovalCapabilityGate(approvalBroker, undefined, undefined, undefined, () => 1_000) })
   const approvalOpen = await approvalServer.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/open`, { method: "POST" }))
   const approvalHandle = await approvalOpen.json() as { id: string; token: string }
   const approvalRequestResponse = await approvalServer.fetch(new Request("http://localhost/v1/files/write", { method: "POST", headers: { authorization: `Bearer ${approvalHandle.token}` }, body: JSON.stringify({ workspaceId: approvalHandle.id, writes: [{ path: "README.md", content: "approved" }] }) }))

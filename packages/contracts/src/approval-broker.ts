@@ -2,7 +2,13 @@
 import type { P3Capability, P3Decision } from "./p3.js"
 
 export type ApprovalRequestState = "pending" | "allow" | "deny" | "cancelled"
-export type ApprovalRequestRecord = { id: string; capability: P3Capability; resource: string; expiresAt: number; status: ApprovalRequestState }
+// C2-5/D-2: `expiresAt` bounds only the PENDING window (the deadline by
+// which the request must be resolved). `resolvedAt` records when the
+// request left "pending" — the gate that owns grant-validity policy
+// (ApprovalCapabilityGate) uses it to decide how long a granted "allow"
+// stays honored, distinct from and typically longer than the pending
+// window it replaces.
+export type ApprovalRequestRecord = { id: string; capability: P3Capability; resource: string; expiresAt: number; status: ApprovalRequestState; resolvedAt?: number }
 type ApprovalObserver = (request: ApprovalRequestRecord, decision: P3Decision) => void
 
 export class ApprovalBroker {
@@ -59,6 +65,7 @@ export class ApprovalBroker {
 
   #close(request: ApprovalRequestRecord, status: ApprovalRequestState, decision: P3Decision): P3Decision {
     request.status = status
+    request.resolvedAt = this.#now()
     this.#observe?.({ ...request }, decision)
     return decision
   }
