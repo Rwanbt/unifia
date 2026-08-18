@@ -10,6 +10,12 @@ import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace } from "@/pages/workbench/design-workspace"
+import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
+import {
+  createArtifactStreamController,
+  activeStreamedArtifact,
+  type StreamedArtifact,
+} from "@/pages/workbench/use-artifact-stream"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -38,6 +44,83 @@ export function DesignSurface(): JSX.Element {
   const draftStore = createIndexedDbDesignDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
+
+  // P15 — Moteur de streaming des artefacts produits par l'agent Design.
+  // L'agent lui-même (capability "design-agent") émettra `artifact:start/chunk/end`
+  // via le SDK quand il sera branché ; en attendant, le controller est prêt et
+  // exposé au reste de la surface (panneau live + persistance automatique).
+  const stream = createArtifactStreamController({ debounceMs: 100 })
+  const [streamPersisted, setStreamPersisted] = createSignal<ReadonlySet<string>>(new Set())
+  let lastConnectionPhase: ReturnType<typeof workbench.phase> | undefined
+  createEffect(() => {
+    const phase = workbench.phase()
+    if (lastConnectionPhase === phase) return
+    const wasConnected = lastConnectionPhase === "ready" || lastConnectionPhase === undefined
+    if (phase === "failed" || phase === "rolling_back" || phase === "cleanup_failed") {
+      // Spec P15 §6 : la connexion qui tombe en cours de flux NE VIDE PAS
+      // le rendu déjà obtenu. On pose juste un bandeau ; les byId restent intacts.
+      if (wasConnected) stream.setConnectionError(t("workbench.errors.eventStreamDisconnected"))
+    } else if (phase === "ready" && !wasConnected) {
+      stream.setConnectionError(undefined)
+    }
+    lastConnectionPhase = phase
+  })
+  // Persistance automatique : quand une entry passe `complete: true`, on la
+  // sauvegarde via `client.createArtifact` avec la provenance `design-agent`.
+  // Idempotent : on garde un Set des ids déjà persistés pour éviter les doubles POST.
+  createEffect(() => {
+    const persisted = streamPersisted()
+    const state = stream.state()
+    const current = connection()
+    if (!current) return
+    for (const entry of state.byId.values()) {
+      if (!entry.complete || persisted.has(entry.artifactId)) continue
+      if (entry.error) continue
+      const filename = entry.filename
+      const kind = entry.kind
+      const content = entry.content
+      setStreamPersisted((set) => {
+        if (set.has(entry.artifactId)) return set
+        const next = new Set(set)
+        next.add(entry.artifactId)
+        return next
+      })
+      void current.client
+        .createArtifact({
+          workspaceId: current.workspaceId,
+          kind,
+          filename,
+          content,
+          metadata: { source: "design-agent-stream", sessionId: state.activeId ?? "" },
+          provenance: { sourceTool: "design-agent", capabilityPack: "workbench-design" },
+        })
+        .then((result) => {
+          setSaveMessage(`Artefact ${result.artifact.filename} persisté (v${result.artifact.version})`)
+        })
+        .catch((error) => {
+          setSaveMessage(`Persistance échouée : ${error instanceof Error ? error.message : String(error)}`)
+          setStreamPersisted((set) => {
+            const next = new Set(set)
+            next.delete(entry.artifactId)
+            return next
+          })
+        })
+    }
+  })
+  // Démo end-to-end : un agent "design-agent" n'est pas encore branché, donc
+  // pour prouver visuellement que le moteur fonctionne on injecte un flux
+  // synthétique via le controller. À retirer quand l'agent réel pousse ses events.
+  function pushDemoStream(): void {
+    const id = `demo-${Date.now()}`
+    stream.push({ type: "artifact:start", artifactId: id, filename: `${id}.html`, kind: "html", sessionId: "demo" })
+    let i = 0
+    const chunks = ["<h1>Bonjour</h1>", "<p>Streaming en cours…</p>", "<button>OK</button>"]
+    const tick = setInterval(() => {
+      if (i >= chunks.length) { clearInterval(tick); stream.push({ type: "artifact:end", artifactId: id, reason: "complete" }); return }
+      stream.push({ type: "artifact:chunk", artifactId: id, chunk: chunks[i] ?? "" })
+      i += 1
+    }, 60)
+  }
   onMount(() => {
     createEffect(() => {
       const workspaceId = connection()?.workspaceId
@@ -159,7 +242,12 @@ export function DesignSurface(): JSX.Element {
         }
         workspace={
           <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6">
-            <DesignWorkspace />
+            <Show
+              when={!activeStreamedArtifact(stream.renderState())}
+              fallback={<StreamedArtifactPanel entry={activeStreamedArtifact(stream.renderState())!} connectionError={stream.renderState().connectionError} onClose={() => stream.reset()} onDemo={pushDemoStream} />}
+            >
+              <DesignWorkspace />
+            </Show>
             <Show when={manifest.error}>
               <p data-design-manifest="failed" class="text-14-regular text-text-danger">{manifest.error instanceof Error ? manifest.error.message : String(manifest.error)}</p>
             </Show>
@@ -239,5 +327,81 @@ export function DesignSurface(): JSX.Element {
         }
       />
     </section>
+  )
+}
+
+/**
+ * P15 — Panneau d'aperçu live pour les artefacts en cours de streaming.
+ * Remplace temporairement le `DesignWorkspace` quand un artefact est actif ;
+ * l'agent "design-agent" pousse ses events via `stream.push(...)` et le
+ * panel se reconstruit à chaque tick debouncé (100 ms). À la fin du
+ * flux, l'artefact est persisté automatiquement (cf. effect dans
+ * `DesignSurface`). Le bouton "Démo" injecte un flux synthétique pour
+ * vérifier visuellement le moteur tant que l'agent réel n'est pas branché.
+ */
+function StreamedArtifactPanel(props: {
+  entry: StreamedArtifact
+  connectionError: string | undefined
+  onClose: () => void
+  onDemo: () => void
+}): JSX.Element {
+  return (
+    <div
+      class="flex h-full min-h-0 flex-col gap-3"
+      data-design-stream-panel={props.entry.artifactId}
+      data-design-stream-complete={props.entry.complete ? "true" : "false"}
+      data-design-stream-error={props.entry.error ? "true" : "false"}
+    >
+      <div
+        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-base bg-background-stronger px-3 py-2"
+        data-design-stream-header
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-12-medium">{props.entry.filename}</span>
+          <span class="text-12-regular text-text-weak">·</span>
+          <span class="text-12-regular text-text-weak">{props.entry.kind}</span>
+          <Show when={!props.entry.complete}>
+            <span class="text-12-regular text-text-weak" data-design-stream-status="streaming">streaming…</span>
+          </Show>
+          <Show when={props.entry.complete}>
+            <span class="text-12-regular text-text-weak" data-design-stream-status="complete">complet · {props.entry.content.length} caractères</span>
+          </Show>
+          <Show when={props.entry.error}>
+            <span class="text-12-regular text-text-danger" data-design-stream-error-msg>{props.entry.error}</span>
+          </Show>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="rounded border border-border-base px-2 py-1 text-12-regular"
+            data-design-stream-demo
+            onClick={() => props.onDemo()}
+            title="Injecte un flux synthétique (start → 3 chunks → end) pour vérifier le moteur"
+          >
+            Démo flux
+          </button>
+          <button
+            type="button"
+            class="rounded border border-border-base px-2 py-1 text-12-regular"
+            data-design-stream-close
+            onClick={() => props.onClose()}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+      <Show when={props.connectionError}>
+        <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-stream-connection-error role="alert">
+          Connexion perdue — l'aperçu reste figé sur le dernier état reçu. {props.connectionError}
+        </p>
+      </Show>
+      <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-base" data-design-stream-mount>
+        <ArtifactPreview
+          artifactId={props.entry.artifactId}
+          workspaceId=""
+          source={props.entry.content}
+        />
+      </div>
+    </div>
   )
 }

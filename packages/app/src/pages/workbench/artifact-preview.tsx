@@ -68,6 +68,14 @@ export function ArtifactPreview(props: {
   // edits to the source (in a future P13+ draft editor) re-mount the
   // iframe with the new content. The buildSrcdoc call is pure.
   //
+  // P15 — Rechargement à chaud : dans le mode streaming, `source` est
+  // rafraîchi toutes les ~100 ms (debounce du controller). Chaque
+  // rebuild ré-instancie l'iframe, ce qui **perd la position de
+  // défilement**. C'est accepté en v1 (runbook P15 §« Spécification
+  // exacte » alinéa 5) — on ne tente PAS de préserver le scroll
+  // par une astuce (postMessage vers l'iframe, MutationObserver, etc.) ;
+  // la persistance du scroll est hors scope v1.
+  //
   // The P12 heuristics decide whether the storage shim and the focus
   // guard must be injected. We delegate to the pure functions in
   // `@unifia/artifact-render` so the rules are testable in isolation
