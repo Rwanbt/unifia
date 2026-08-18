@@ -39,3 +39,16 @@ export {
   type SnapshotRequest,
   type SnapshotResult,
 } from "./bridges/snapshot"
+export {
+  ANCESTOR_FOR_DIV,
+  EXCLUDED_TAGS,
+  STRUCTURAL_TAGS,
+  annotateSelectableElements,
+  computePathId,
+} from "./annotate"
+export {
+  SELECTION_BRIDGE_SCRIPT,
+  type SelectionMessage,
+  type SelectModeRequest,
+  type SelectTargetMessage,
+} from "./bridges/selection"

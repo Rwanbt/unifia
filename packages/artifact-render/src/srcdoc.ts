@@ -3,6 +3,8 @@
 import { STORAGE_SHIM_SCRIPT } from "./bridges/storage-shim"
 import { FOCUS_GUARD_SCRIPT } from "./bridges/focus-guard"
 import { SNAPSHOT_BRIDGE_SCRIPT } from "./bridges/snapshot"
+import { SELECTION_BRIDGE_SCRIPT } from "./bridges/selection"
+import { annotateSelectableElements } from "./annotate"
 
 // ADR-1035: the iframe runs scripts-only; the storage shim and focus
 // guard exist specifically to keep artifacts usable under that policy.
@@ -14,6 +16,10 @@ export type SrcdocOptions = {
   focusGuard?: boolean
   /** Inject the snapshot bridge (default false — opt-in, consommé par P17+). */
   snapshotBridge?: boolean
+  /** Inject the selection bridge (default false — opt-in, consommé par P18+). */
+  selectionBridge?: boolean
+  /** Auto-annotate selectable elements with data-unifia-id (default false). */
+  annotate?: boolean
   /** Optional base href to set on the document; only applied to wrapped fragments. */
   baseHref?: string
 }
@@ -22,6 +28,8 @@ const DEFAULTS: Required<SrcdocOptions> = {
   storageShim: true,
   focusGuard: true,
   snapshotBridge: false,
+  selectionBridge: false,
+  annotate: false,
   baseHref: "",
 }
 
@@ -89,31 +97,37 @@ export function buildSrcdoc(html: string, options: SrcdocOptions = {}): string {
 
   const document_ = isFullDocument ? html : wrapFragment(trimmed, opts.baseHref)
 
+  // P18 — auto-annotation des éléments structurels avant injection des
+  // bridges. Doit se faire sur le HTML complet (pas fragment-only) car
+  // les ids sont calculés depuis l'arbre.
+  const annotated = opts.annotate ? annotateSelectableElements(document_) : document_
+
   const insertion: string[] = []
   if (opts.storageShim) insertion.push(STORAGE_SHIM_SCRIPT)
   if (opts.focusGuard) insertion.push(FOCUS_GUARD_SCRIPT)
   if (opts.snapshotBridge) insertion.push(SNAPSHOT_BRIDGE_SCRIPT)
-  if (insertion.length === 0) return document_
+  if (opts.selectionBridge) insertion.push(SELECTION_BRIDGE_SCRIPT)
+  if (insertion.length === 0) return annotated
 
-  const headOpenEnd = findHeadOpenEnd(document_)
+  const headOpenEnd = findHeadOpenEnd(annotated)
   if (headOpenEnd !== -1) {
     return (
-      document_.slice(0, headOpenEnd) +
+      annotated.slice(0, headOpenEnd) +
       insertion.join("") +
-      document_.slice(headOpenEnd)
+      annotated.slice(headOpenEnd)
     )
   }
 
-  const bodyOpen = findBodyOpenOutsideScript(document_)
+  const bodyOpen = findBodyOpenOutsideScript(annotated)
   if (bodyOpen !== -1) {
     return (
-      document_.slice(0, bodyOpen) +
+      annotated.slice(0, bodyOpen) +
       insertion.join("") +
-      document_.slice(bodyOpen)
+      annotated.slice(bodyOpen)
     )
   }
 
-  return insertion.join("") + document_
+  return insertion.join("") + annotated
 }
 
 function wrapFragment(fragment: string, baseHref: string): string {
