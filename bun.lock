@@ -103,6 +103,7 @@
       "name": "@unifia/artifact-runtime",
       "version": "0.1.0",
       "dependencies": {
+        "@unifia/contracts": "workspace:*",
         "@unifia/workspace-runtime": "workspace:*",
       },
       "devDependencies": {
@@ -275,6 +276,19 @@
       "devDependencies": {
         "typescript": "^5.6.0",
         "vitest": "3.2.7",
+      },
+    },
+    "packages/design-system-runtime": {
+      "name": "@unifia/design-system-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
       },
     },
     "packages/desktop": {
@@ -2931,6 +2945,8 @@
     "@unifia/console-resource": ["@unifia/console-resource@workspace:packages/console/resource"],
 
     "@unifia/contracts": ["@unifia/contracts@workspace:packages/contracts"],
+
+    "@unifia/design-system-runtime": ["@unifia/design-system-runtime@workspace:packages/design-system-runtime"],
 
     "@unifia/desktop": ["@unifia/desktop@workspace:packages/desktop"],
 

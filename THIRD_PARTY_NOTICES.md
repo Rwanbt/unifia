@@ -19,6 +19,34 @@ Source registry snapshot is bundled with this release.
 
 ---
 
+## P21 — Open Design design-system catalogues (P21, 2026-08-18)
+
+The workspace manifest `.unifia/workspace.json` is populated by
+`scripts/import-design-systems.mjs`, which reads the design-system catalogues
+shipped with [Open Design 0.10.0](https://github.com/anomalyco/open-design).
+The catalogues are imported as data: only the directory layout, the
+`DESIGN.md` content, and the `manifest.json` metadata are read; the
+importer does not copy code from Open Design. Each catalogue is referenced
+by `id` in the workspace manifest, and the runtime resolves the `DESIGN.md`
+content at the `source` URI the manifest declares.
+
+- License: Apache-2.0
+- Source: https://github.com/anomalyco/open-design
+- Local read-only root: `D:\App\open-design-main\design-systems\`
+- Imported by: `packages/design-system-runtime/src/import-catalog.ts` (this repo)
+- Manifest written to: `.unifia/workspace.json` (this repo, ignored by Git)
+- Attribution: per-catalogue names and versions are preserved; the
+  Unifia-side `name` and `version` shown in the picker are exactly the
+  values carried by `manifest.json` upstream.
+
+The catalogues are the design systems' descriptions, not their source code.
+No file from `D:\App\open-design-main` is copied into the Unifia
+repository; the workspace manifest holds references only. If a catalogue
+is removed from Open Design, removing its entry from
+`.unifia/workspace.json` is enough to take it out of the picker.
+
+---
+
 ## Verification
 
 ```bash
