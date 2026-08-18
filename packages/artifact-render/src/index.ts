@@ -9,3 +9,7 @@ export {
   shouldUrlLoad,
   type RenderDecision,
 } from "./render-mode"
+export {
+  createArtifactParser,
+  type ArtifactEvent,
+} from "./stream-parser"
