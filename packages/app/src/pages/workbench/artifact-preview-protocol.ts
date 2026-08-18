@@ -41,6 +41,11 @@ export const ALLOWED_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   "unifia:ready",
   "unifia:select-target",
   "unifia:snapshot-result",
+  // Without this entry a failed capture is dropped by the filter and the
+  // host waits for a result that never arrives. The snapshot bridge
+  // reports refusals (empty-render, timeout, …) on this type; an honest
+  // failure has to reach the host, per ADR-1037 §4.
+  "unifia:snapshot-error",
 ])
 
 /**
@@ -56,7 +61,69 @@ export const ALLOWED_SENT_TYPES: ReadonlySet<string> = new Set([
   "unifia:ready",
   "unifia:select-target",
   "unifia:snapshot-result",
+  "unifia:snapshot-error",
 ])
+
+/** Rectangle reported alongside a picked element, in iframe viewport coordinates. */
+export type PreviewRect = { x: number; y: number; width: number; height: number }
+
+/**
+ * The messages the host accepts from the artifact iframe, after validation.
+ * Anything that does not narrow to one of these is dropped.
+ */
+export type PreviewInboundMessage =
+  | { type: "unifia:ready" }
+  | { type: "unifia:select-target"; elementId: string; rect: PreviewRect }
+  | { type: "unifia:snapshot-result"; id: string; dataUrl: string; w: number; h: number }
+  | { type: "unifia:snapshot-error"; id: string; error: string }
+
+function isRect(value: unknown): value is PreviewRect {
+  if (typeof value !== "object" || value === null) return false
+  const rect = value as Record<string, unknown>
+  return (
+    Number.isFinite(rect.x) && Number.isFinite(rect.y) &&
+    Number.isFinite(rect.width) && Number.isFinite(rect.height)
+  )
+}
+
+/**
+ * Validates an untrusted `postMessage` payload coming from the artifact
+ * iframe and narrows it to a known message, or returns `undefined`.
+ *
+ * WHY the host re-validates rather than trusting the bridge it injected:
+ * the iframe runs agent-authored JavaScript. That script can forge any
+ * message the bridge can send, so shape-checking every field here is the
+ * only thing standing between a hostile artifact and the host's state.
+ * `ALLOWED_MESSAGE_TYPES` gates the type; this gates the payload.
+ *
+ * Pure on purpose — no DOM, no Solid — so the whole matrix of malformed
+ * payloads is testable without a browser.
+ */
+export function parsePreviewMessage(raw: unknown): PreviewInboundMessage | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined
+  const data = raw as Record<string, unknown>
+  if (typeof data.type !== "string") return undefined
+  if (!ALLOWED_MESSAGE_TYPES.has(data.type)) return undefined
+  switch (data.type) {
+    case "unifia:ready":
+      return { type: "unifia:ready" }
+    case "unifia:select-target":
+      if (typeof data.elementId !== "string" || data.elementId.length === 0) return undefined
+      if (!isRect(data.rect)) return undefined
+      return { type: "unifia:select-target", elementId: data.elementId, rect: data.rect }
+    case "unifia:snapshot-result":
+      if (typeof data.id !== "string" || data.id.length === 0) return undefined
+      if (typeof data.dataUrl !== "string" || !data.dataUrl.startsWith("data:image/")) return undefined
+      if (!Number.isFinite(data.w) || !Number.isFinite(data.h)) return undefined
+      return { type: "unifia:snapshot-result", id: data.id, dataUrl: data.dataUrl, w: data.w as number, h: data.h as number }
+    case "unifia:snapshot-error":
+      if (typeof data.id !== "string" || data.id.length === 0) return undefined
+      if (typeof data.error !== "string" || data.error.length === 0) return undefined
+      return { type: "unifia:snapshot-error", id: data.id, error: data.error }
+    default:
+      return undefined
+  }
+}
 
 /**
  * The strict-default-opposite sandbox token, composed at runtime so the

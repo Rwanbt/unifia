@@ -8,6 +8,7 @@ import {
   shouldUrlLoad,
   DEFAULT_VIEWPORT,
   DEFAULT_ZOOM,
+  SNAPSHOT_TIMEOUT_MS,
   effectiveScale,
   findViewport,
   type RenderDecision,
@@ -22,6 +23,8 @@ import {
   ALLOWED_MESSAGE_TYPES,
   ALLOWED_SENT_TYPES,
   PREVIEW_SANDBOX,
+  parsePreviewMessage,
+  type PreviewRect,
 } from "@/pages/workbench/artifact-preview-protocol"
 import type { DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 
@@ -47,6 +50,22 @@ export function ArtifactPreview(props: {
   viewport?: ViewportId
   /** P16 — multiplicateur zoom utilisateur en % (50/75/100/125/150/200). */
   zoom?: number
+  /**
+   * P18 — quand vrai, le pont de sélection est injecté et armé : survol
+   * surligné, clic renvoie l'élément. Les éléments structurels sans
+   * identité reçoivent un `data-unifia-id` calculé (annotate), sinon un
+   * HTML importé n'offrirait aucune cible cliquable.
+   */
+  selectMode?: boolean
+  /** P18 — appelé quand l'utilisateur pique un élément dans le rendu. */
+  onSelectTarget?: (elementId: string, rect: PreviewRect) => void
+  /**
+   * P17 — reçoit la fonction de capture une fois l'iframe montée. Le parent
+   * la garde et l'appelle depuis sa barre d'outils ; elle résout avec le
+   * dataUrl ou rejette avec le motif exact renvoyé par le pont (jamais une
+   * image vide silencieuse).
+   */
+  onSnapshotReady?: (request: () => Promise<{ dataUrl: string; w: number; h: number }>) => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -99,6 +118,14 @@ export function ArtifactPreview(props: {
     const heuristicOptions: SrcdocOptions = {
       storageShim: htmlNeedsStorageShim(body),
       focusGuard: htmlNeedsFocusGuard(body),
+      // P17/P18 — le pont snapshot est toujours injecté : le lier à une
+      // option forcerait une reconstruction du srcDoc à chaque capture,
+      // donc un clignotement visible. Le pont de sélection et
+      // l'auto-annotation suivent le mode, parce qu'ils ajoutent des
+      // écouteurs et des attributs au document rendu.
+      snapshotBridge: true,
+      selectionBridge: props.selectMode === true,
+      annotate: props.selectMode === true,
     }
     return buildSrcdoc(body, { ...heuristicOptions, ...props.srcdocOptions })
   }
@@ -125,25 +152,91 @@ export function ArtifactPreview(props: {
   // preview instance and tear it down on cleanup. Messages whose type
   // is not in ALLOWED_MESSAGE_TYPES are dropped silently (no logging
   // of the payload).
+  // Déclaré ici et non plus bas : les effets de sélection et de capture
+  // ci-dessous le référencent au setup, et une déclaration plus tardive
+  // les ferait tomber dans la zone morte temporelle du `let`.
+  let frame: HTMLIFrameElement | undefined
   const [lastMessage, setLastMessage] = createSignal<{ type: string; data: unknown } | undefined>()
+  // P17 — captures en vol, indexées par id. Une capture qui ne revient pas
+  // dans le délai est rejetée explicitement plutôt que laissée pendante.
+  const pending = new Map<string, { resolve: (r: { dataUrl: string; w: number; h: number }) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+  function settle(id: string): { resolve: (r: { dataUrl: string; w: number; h: number }) => void; reject: (e: Error) => void } | undefined {
+    const entry = pending.get(id)
+    if (!entry) return undefined
+    clearTimeout(entry.timer)
+    pending.delete(id)
+    return entry
+  }
   createEffect(() => {
     function onMessage(event: MessageEvent): void {
-      if (typeof event.data !== "object" || event.data === null) return
-      const data = event.data as { type?: unknown; [key: string]: unknown }
-      if (typeof data.type !== "string") return
-      if (!ALLOWED_MESSAGE_TYPES.has(data.type)) return
-      setLastMessage({ type: data.type, data })
+      const message = parsePreviewMessage(event.data)
+      if (!message) return
+      setLastMessage({ type: message.type, data: message })
+      if (message.type === "unifia:select-target") {
+        props.onSelectTarget?.(message.elementId, message.rect)
+        return
+      }
+      if (message.type === "unifia:snapshot-result") {
+        settle(message.id)?.resolve({ dataUrl: message.dataUrl, w: message.w, h: message.h })
+        return
+      }
+      if (message.type === "unifia:snapshot-error") {
+        settle(message.id)?.reject(new Error(message.error))
+      }
     }
     window.addEventListener("message", onMessage)
-    onCleanup(() => window.removeEventListener("message", onMessage))
+    onCleanup(() => {
+      window.removeEventListener("message", onMessage)
+      for (const [, entry] of pending) {
+        clearTimeout(entry.timer)
+        entry.reject(new Error("preview-unmounted"))
+      }
+      pending.clear()
+    })
+  })
+
+  let snapshotCounter = 0
+  function requestSnapshot(): Promise<{ dataUrl: string; w: number; h: number }> {
+    const target = frame?.contentWindow
+    if (!target) return Promise.reject(new Error("no-frame"))
+    const id = `snap-${++snapshotCounter}`
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pending.delete(id)
+        reject(new Error("timeout"))
+      }, SNAPSHOT_TIMEOUT_MS)
+      pending.set(id, { resolve, reject, timer })
+      try {
+        target.postMessage({ type: "unifia:snapshot", id, full: false }, "*")
+      } catch {
+        settle(id)
+        reject(new Error("post-failed"))
+      }
+    })
+  }
+
+  // P18 — (dés)armer le pont à chaque bascule. Le srcDoc est reconstruit
+  // quand `selectMode` change (il pilote l'injection), et le pont boote
+  // déjà armé ; ce postMessage couvre le cas où le mode change sans que
+  // le document soit reconstruit.
+  createEffect(() => {
+    const enabled = props.selectMode === true
+    const target = frame?.contentWindow
+    if (!target) return
+    try {
+      target.postMessage({ type: "unifia:select-mode", enabled, tool: "picker" }, "*")
+    } catch {
+      // L'iframe peut être en cours de swap de srcDoc ; le boot armé du
+      // pont prend le relais. Silencieux par contrat (ADR-1037 §3).
+    }
   })
 
   // Send `unifia:ready` once the iframe has actually mounted, so the
   // host can synchronise with the artifact's reported state. This
   // mirrors the v1 catalogue in ADR-1037.
-  let frame: HTMLIFrameElement | undefined
   function onMount(element: HTMLIFrameElement): void {
     frame = element
+    props.onSnapshotReady?.(requestSnapshot)
     queueMicrotask(() => {
       try {
         if (frame && frame.contentWindow) {

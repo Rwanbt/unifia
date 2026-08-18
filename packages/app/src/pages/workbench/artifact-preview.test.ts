@@ -6,6 +6,7 @@ import {
   ALLOWED_SENT_TYPES,
   FORBIDDEN_SANDBOX_TOKEN,
   PREVIEW_SANDBOX,
+  parsePreviewMessage,
 } from "@/pages/workbench/artifact-preview-protocol"
 
 describe("PREVIEW_SANDBOX", () => {
@@ -36,7 +37,7 @@ describe("PREVIEW_SANDBOX", () => {
 describe("ALLOWED_MESSAGE_TYPES", () => {
   test("contient exactement le catalogue v1 de l'ADR-1037", () => {
     expect([...ALLOWED_MESSAGE_TYPES].sort()).toEqual(
-      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result"].sort()
+      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result", "unifia:snapshot-error"].sort()
     )
   })
 
@@ -50,7 +51,7 @@ describe("ALLOWED_MESSAGE_TYPES", () => {
 describe("ALLOWED_SENT_TYPES", () => {
   test("contient exactement les types émis par l'hôte vers l'iframe en v1", () => {
     expect([...ALLOWED_SENT_TYPES].sort()).toEqual(
-      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result"].sort()
+      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result", "unifia:snapshot-error"].sort()
     )
   })
 
@@ -58,5 +59,68 @@ describe("ALLOWED_SENT_TYPES", () => {
     for (const type of ALLOWED_SENT_TYPES) {
       expect(ALLOWED_MESSAGE_TYPES.has(type)).toBe(true)
     }
+  })
+})
+
+describe("parsePreviewMessage", () => {
+  const RECT = { x: 1, y: 2, width: 3, height: 4 }
+
+  test("accepte unifia:ready", () => {
+    expect(parsePreviewMessage({ type: "unifia:ready" })).toEqual({ type: "unifia:ready" })
+  })
+
+  test("accepte une cible de sélection bien formée", () => {
+    const parsed = parsePreviewMessage({ type: "unifia:select-target", elementId: "path-0-3", rect: RECT })
+    expect(parsed).toEqual({ type: "unifia:select-target", elementId: "path-0-3", rect: RECT })
+  })
+
+  test("accepte un résultat de snapshot bien formé", () => {
+    const parsed = parsePreviewMessage({ type: "unifia:snapshot-result", id: "s1", dataUrl: "data:image/png;base64,AAA", w: 10, h: 20 })
+    expect(parsed).toEqual({ type: "unifia:snapshot-result", id: "s1", dataUrl: "data:image/png;base64,AAA", w: 10, h: 20 })
+  })
+
+  test("accepte une erreur de snapshot — un échec doit atteindre l'hôte", () => {
+    const parsed = parsePreviewMessage({ type: "unifia:snapshot-error", id: "s1", error: "empty-render" })
+    expect(parsed).toEqual({ type: "unifia:snapshot-error", id: "s1", error: "empty-render" })
+  })
+
+  // --- Rejets. L'iframe exécute du JS écrit par un agent : elle peut forger
+  // n'importe quel message que le pont sait émettre. Chaque champ compte.
+  test("rejette un type hors allow-list", () => {
+    expect(parsePreviewMessage({ type: "unifia:evil", elementId: "x", rect: RECT })).toBeUndefined()
+  })
+
+  test("rejette une valeur non-objet", () => {
+    expect(parsePreviewMessage(null)).toBeUndefined()
+    expect(parsePreviewMessage("unifia:ready")).toBeUndefined()
+    expect(parsePreviewMessage(42)).toBeUndefined()
+  })
+
+  test("rejette une cible sans elementId exploitable", () => {
+    expect(parsePreviewMessage({ type: "unifia:select-target", elementId: "", rect: RECT })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:select-target", rect: RECT })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:select-target", elementId: 7, rect: RECT })).toBeUndefined()
+  })
+
+  test("rejette un rect malformé ou non numérique", () => {
+    expect(parsePreviewMessage({ type: "unifia:select-target", elementId: "a", rect: { x: 1, y: 2, width: 3 } })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:select-target", elementId: "a", rect: { x: "1", y: 2, width: 3, height: 4 } })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:select-target", elementId: "a", rect: null })).toBeUndefined()
+  })
+
+  test("rejette un dataUrl qui n'est pas une image — pas de javascript: déguisé", () => {
+    expect(parsePreviewMessage({ type: "unifia:snapshot-result", id: "s", dataUrl: "javascript:alert(1)", w: 1, h: 1 })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:snapshot-result", id: "s", dataUrl: "https://evil.example/x.png", w: 1, h: 1 })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:snapshot-result", id: "s", dataUrl: "data:text/html,<script>", w: 1, h: 1 })).toBeUndefined()
+  })
+
+  test("rejette des dimensions non finies", () => {
+    expect(parsePreviewMessage({ type: "unifia:snapshot-result", id: "s", dataUrl: "data:image/png;base64,A", w: Number.NaN, h: 1 })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:snapshot-result", id: "s", dataUrl: "data:image/png;base64,A", w: 1, h: Number.POSITIVE_INFINITY })).toBeUndefined()
+  })
+
+  test("rejette une erreur de snapshot sans id ou sans motif", () => {
+    expect(parsePreviewMessage({ type: "unifia:snapshot-error", id: "", error: "empty-render" })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:snapshot-error", id: "s" })).toBeUndefined()
   })
 })

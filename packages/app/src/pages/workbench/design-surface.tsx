@@ -4,6 +4,8 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, 
 import { createQuery } from "@tanstack/solid-query"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
+import { useSDK } from "@/context/sdk"
+import { useSync } from "@/context/sync"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { WorkbenchChat } from "@/pages/workbench-chat"
@@ -36,6 +38,8 @@ export function DesignSurface(): JSX.Element {
   const t = language.t
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
+  const sdk = useSDK()
+  const sync = useSync()
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifest = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-systems"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSystems(connection()!.workspaceId) }))
   const [source, setSource] = createSignal("")
@@ -84,15 +88,43 @@ export function DesignSurface(): JSX.Element {
   const [commentTarget, setCommentTarget] = createSignal<string | undefined>(undefined)
   const [commentArtifactId, setCommentArtifactId] = createSignal<string>("")
   const [commentEntryFile, setCommentEntryFile] = createSignal<string>("design/index.html")
+  // Session dédiée au raffinement Design, créée à la première demande.
+  const [designSessionId, setDesignSessionId] = createSignal<string | undefined>(mode.sessionId())
+  /**
+   * P20 — envoi réel du prompt de raffinement à l'agent.
+   *
+   * Passe par `session.prompt`, la même route que le chat Workbench :
+   * aucune capacité nouvelle n'est requise et l'envoi reste gouverné.
+   * La session est créée à la volée si le mode Design n'en porte pas
+   * encore, exactement comme `workbench-chat.tsx`.
+   */
+  async function sendRefinePrompt(prompt: string, label: string): Promise<void> {
+    const directory = mode.directory()
+    if (!directory) {
+      setSaveMessage("Aucun workspace actif : impossible d'envoyer le prompt")
+      return
+    }
+    setSaveMessage(`Envoi ${label}…`)
+    try {
+      let sessionId = designSessionId()
+      if (!sessionId) {
+        const created = await sdk.client.session.create({ directory, title: t("workbench.chat.design") })
+        sessionId = created.data?.id
+        if (!sessionId) throw new Error(t("workbench.errors.sessionCreation"))
+        setDesignSessionId(sessionId)
+      }
+      await sdk.client.session.prompt({ sessionID: sessionId, agent: "build", parts: [{ type: "text", text: prompt }] })
+      await sync.session.sync(sessionId, { force: true })
+      setSaveMessage(`Prompt ${label} envoyé (${prompt.length} caractères)`)
+    } catch (error) {
+      setSaveMessage(`Envoi échoué : ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
   function handleSendBatch(prompt: string): void {
-    // P20 — câblage effectif au session.prompt. Stub pour l'instant :
-    // on logge le prompt dans saveMessage. Le vrai prompt
-    // (via session.prompt avec agent "build") sera ajouté quand
-    // le pipeline sera complet.
-    setSaveMessage(`Prompt batch (${prompt.length} caractères) prêt à envoyer`)
+    void sendRefinePrompt(prompt, "groupé")
   }
   function handleSendOne(prompt: string): void {
-    setSaveMessage(`Prompt ciblé (${prompt.length} caractères) prêt à envoyer`)
+    void sendRefinePrompt(prompt, "ciblé")
   }
   let lastConnectionPhase: ReturnType<typeof workbench.phase> | undefined
   createEffect(() => {
@@ -287,7 +319,19 @@ export function DesignSurface(): JSX.Element {
           <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6">
             <Show
               when={!activeStreamedArtifact(stream.renderState())}
-              fallback={<StreamedArtifactPanel entry={activeStreamedArtifact(stream.renderState())!} connectionError={stream.renderState().connectionError} onClose={() => stream.reset()} onDemo={pushDemoStream} />}
+              fallback={
+                <StreamedArtifactPanel
+                  entry={activeStreamedArtifact(stream.renderState())!}
+                  connectionError={stream.renderState().connectionError}
+                  onClose={() => stream.reset()}
+                  onDemo={pushDemoStream}
+                  onSelectTarget={(elementId, artifactId, entryFile) => {
+                    setCommentTarget(elementId)
+                    setCommentArtifactId(artifactId)
+                    setCommentEntryFile(entryFile)
+                  }}
+                />
+              }
             >
               <DesignWorkspace onDemo={pushDemoStream} />
             </Show>
@@ -417,6 +461,8 @@ function StreamedArtifactPanel(props: {
   connectionError: string | undefined
   onClose: () => void
   onDemo: () => void
+  /** P18 → P19 — remonte l'élément piqué au panneau de commentaires. */
+  onSelectTarget: (elementId: string, artifactId: string, entryFile: string) => void
 }): JSX.Element {
   // P16 — état local pour viewport, zoom et mode de visualisation.
   const [viewport, setViewport] = createSignal<ViewportId>(DEFAULT_VIEWPORT)
@@ -428,15 +474,26 @@ function StreamedArtifactPanel(props: {
   // via un custom event "unifia:snapshot-request" — l'implémentation complète
   // viendra quand l'iframe sera réellement montée (cf. P22+).
   const [snapshot, setSnapshot] = createSignal<DesignToolbarSnapshotState>({ kind: "idle" })
+  // P17 — la capture s'exécute DANS l'iframe (pas d'accès à contentDocument
+  // depuis l'hôte, l'iframe n'est pas same-origin). ArtifactPreview nous
+  // remonte la fonction au montage ; on la garde ici.
+  let capture: (() => Promise<{ dataUrl: string; w: number; h: number }>) | undefined
   function requestSnapshot(): void {
     if (snapshot().kind === "capturing") return
+    if (!capture) {
+      setSnapshot({ kind: "error", error: "preview-not-mounted" })
+      return
+    }
     setSnapshot({ kind: "capturing" })
-    // Stub : on bascule immédiatement en error pour signaler qu'aucun
-    // consommateur n'est encore branché. Quand artifact-preview écoutera
-    // vraiment le custom event, ce stub sera remplacé par un vrai
-    // dispatch + listener.
-    setTimeout(() => setSnapshot({ kind: "error", error: "snapshot-bridge-not-wired" }), 250)
+    void capture()
+      .then((result) => setSnapshot({ kind: "ready", dataUrl: result.dataUrl, w: result.w, h: result.h }))
+      // Un refus du pont (empty-render, timeout…) remonte tel quel : mieux
+      // vaut un échec nommé qu'un PNG uniforme livré en silence.
+      .catch((error: unknown) => setSnapshot({ kind: "error", error: error instanceof Error ? error.message : "snapshot-failed" }))
   }
+  // P18 — mode sélection. Piloté ici parce qu'il change l'injection du
+  // srcDoc (pont + annotation), donc il appartient au panneau, pas à l'iframe.
+  const [selectMode, setSelectMode] = createSignal(false)
   return (
     <div
       class="flex h-full min-h-0 flex-col gap-3"
@@ -463,6 +520,20 @@ function StreamedArtifactPanel(props: {
           </Show>
         </div>
         <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="rounded border px-2 py-1 text-12-regular"
+            classList={{
+              "border-border-focus text-text-base": selectMode(),
+              "border-border-base text-text-weak": !selectMode(),
+            }}
+            data-design-select-mode={selectMode() ? "on" : "off"}
+            aria-pressed={selectMode()}
+            onClick={() => setSelectMode((value) => !value)}
+            title="Arme le pont de sélection : survole pour surligner, clique pour cibler un élément"
+          >
+            {selectMode() ? "Sélection active…" : "Sélectionner un élément"}
+          </button>
           <button
             type="button"
             class="rounded border border-border-base px-2 py-1 text-12-regular"
@@ -506,6 +577,16 @@ function StreamedArtifactPanel(props: {
           mode={mode()}
           viewport={viewport()}
           zoom={zoom()}
+          selectMode={selectMode()}
+          onSelectTarget={(elementId) => {
+            props.onSelectTarget(elementId, props.entry.artifactId, props.entry.filename)
+            // Un pick vaut confirmation : on désarme pour que le rendu
+            // redevienne cliquable normalement.
+            setSelectMode(false)
+          }}
+          onSnapshotReady={(request) => {
+            capture = request
+          }}
         />
       </div>
     </div>
