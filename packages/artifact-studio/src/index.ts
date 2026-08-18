@@ -18,7 +18,7 @@ import { createStoredZipFromBytes, readStoredZip, type ZipBinaryEntry } from "@u
 import { isJpeg, isPng, isSupportedImage, stripImageMetadata, type ImageStripResult } from "./images.js"
 import { attribute, filterElements, textOf } from "./xml.js"
 
-export type StudioFormat = "docx" | "pptx" | "xlsx" | "pdf" | "svg" | "text" | "binary"
+export type StudioFormat = "docx" | "pptx" | "xlsx" | "pdf" | "svg" | "text" | "binary" | "html"
 
 const OOXML: ReadonlySet<StudioFormat> = new Set<StudioFormat>(["docx", "pptx", "xlsx"])
 
@@ -284,3 +284,4 @@ function diffUnits(before: readonly string[], after: readonly string[]): DiffOpe
 }
 
 export { isJpeg, isPng, isSupportedImage, stripImageMetadata, type ImageStripResult }
+export { exportStandaloneHtml, type AssetResolver, type ExportStandaloneResult } from "./export-html.js"

@@ -47,6 +47,8 @@ export function DesignToolbar(props: {
   onZoom: (zoom: number) => void
   onMode: (mode: DesignToolbarMode) => void
   onSnapshot: () => void
+  onExportHtml?: () => void
+  exportState?: { kind: "idle" | "exporting" | "exported" | "error"; error?: string }
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -132,6 +134,23 @@ export function DesignToolbar(props: {
         >
           {t("workbench.design.toolbar.source")}
         </button>
+      </div>
+      <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+      <div class="flex items-center gap-1" data-design-toolbar-group="export">
+        <button
+          type="button"
+          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
+          disabled={!props.onExportHtml || (props.exportState?.kind === "exporting")}
+          data-design-toolbar-export-html
+          data-design-toolbar-export-state={props.exportState?.kind ?? "idle"}
+          onClick={() => props.onExportHtml?.()}
+          title="Inline CSS, scripts, and images into a single self-contained HTML file"
+        >
+          {props.exportState?.kind === "exporting" ? "Exporting…" : "Export HTML"}
+        </button>
+        <Show when={props.exportState?.kind === "error"}>
+          <span data-design-toolbar-export-error class="text-12-regular text-text-danger">{props.exportState?.error ?? "export failed"}</span>
+        </Show>
       </div>
       <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
       <div class="flex items-center gap-1" data-design-toolbar-group="snapshot">
