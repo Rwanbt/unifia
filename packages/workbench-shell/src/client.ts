@@ -26,6 +26,7 @@ import {
   M9B_SERVER_ROUTE_REGISTRY,
   M10_SERVER_ROUTE_REGISTRY,
   M11_SERVER_ROUTE_REGISTRY,
+  P10_SERVER_ROUTE_REGISTRY,
   M15_SERVER_ROUTE_REGISTRY,
   M20_SERVER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
@@ -256,6 +257,37 @@ export class WorkbenchClient {
 
   async exportArtifact(workspaceId: string, artifactId: string, options: { outbox?: string; metadata?: "keep" | "strip" } = {}, signal?: AbortSignal): Promise<{ exported: ExportedArtifact } | AcceptedOperation> {
     return this.request(M10_SERVER_ROUTE_REGISTRY.artifactExport.route, { method: "POST", body: { workspaceId, artifactId, ...options }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /**
+   * P10 raw artifact read. Returns the raw `Response` (not a parsed
+   * JSON envelope) so the P11 iframe mount can consume the bytes
+   * directly with the appropriate `Content-Type`. The iframe then
+   * applies its own CSP via the `<meta http-equiv>` injected by
+   * `buildSrcdoc` (ADR-1036 §1) and never lets the host read the
+   * document through `contentDocument` (ADR-1035 §4).
+   *
+   * Errors are surfaced as `WorkbenchHttpError` (consistent with the
+   * rest of the client) so callers can branch on `.status`. Success
+   * returns a `Response` whose body is the artifact's bytes and whose
+   * `content-type`, `x-content-type-options`, and (for HTML) `content-security-policy`
+   * are set by the server per ADR-1036.
+   */
+  async readArtifactRaw(workspaceId: string, artifactId: string, rawPath: string, signal?: AbortSignal): Promise<Response> {
+    await this.#rotation
+    const params = new URLSearchParams({ workspaceId })
+    const route = P10_SERVER_ROUTE_REGISTRY.artifactRaw.route
+      .replace(":artifactId", encodeURIComponent(artifactId))
+      .replace(":path", rawPath.split("/").map(encodeURIComponent).join("/"))
+    const canRetry = true
+    let token = this.#token.current()
+    let response = await this.#send(`${route}?${params}`, "GET", token, { signal })
+    if (response.status === 401 && canRetry) {
+      token = await this.#token.refresh()
+      response = await this.#send(`${route}?${params}`, "GET", token, { signal })
+    }
+    if (!response.ok) throw new WorkbenchHttpError(response.status, response.status === 429 || response.status >= 500)
+    return response
   }
 
   // No registry entry exists for /v1/approvals/:id (M8_SERVER_ROUTE_REGISTRY

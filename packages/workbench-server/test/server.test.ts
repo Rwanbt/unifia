@@ -89,6 +89,80 @@ try {
   if (artifactRevision.status !== 201 || ((await artifactRevision.json()) as { artifact: { version: number } }).artifact.version !== 2) throw new Error("artifact revision route failed")
   const artifactExport = await server.fetch(new Request("http://localhost/v1/artifacts/export", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, artifactId: artifact.artifactId, outbox: "server-test" }) }))
   if (artifactExport.status !== 200 || !((await artifactExport.json()) as { exported: { relativePath: string } }).exported.relativePath.includes("server-test")) throw new Error("artifact export route failed")
+
+  // P10 raw artifact read: 200 with the right Content-Type for the closed
+  // extension table. Each artifact is created with a filename whose
+  // extension picks the corresponding Content-Type. The route must also
+  // set X-Content-Type-Options: nosniff on every response.
+  const htmlArtifact = await artifacts.create({ kind: "text", filename: "page.html", content: "<!doctype html><title>hi</title>", provenance: { sourceTool: "p10-test" } })
+  const cssArtifact = await artifacts.create({ kind: "text", filename: "style.css", content: "body { color: red; }", provenance: { sourceTool: "p10-test" } })
+  const jsArtifact = await artifacts.create({ kind: "text", filename: "app.js", content: "console.log(1)", provenance: { sourceTool: "p10-test" } })
+  const svgArtifact = await artifacts.create({ kind: "text", filename: "icon.svg", content: "<svg></svg>", provenance: { sourceTool: "p10-test" } })
+  const pngArtifact = await artifacts.create({ kind: "binary", filename: "pixel.png", content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]), provenance: { sourceTool: "p10-test" } })
+  const unknownArtifact = await artifacts.create({ kind: "text", filename: "weird.qzx", content: "unknown", provenance: { sourceTool: "p10-test" } })
+
+  const checkRaw = async (artifactId: string, rawPath: string): Promise<{ status: number; contentType: string; disposition: string; body: string }> => {
+    const response = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifactId}/raw/${rawPath}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+    return {
+      status: response.status,
+      contentType: response.headers.get("content-type") ?? "",
+      disposition: response.headers.get("content-disposition") ?? "",
+      body: response.status === 200 ? new TextDecoder().decode(await response.arrayBuffer()) : "",
+    }
+  }
+  const checkNosniff = async (artifactId: string, rawPath: string): Promise<boolean> => {
+    const response = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifactId}/raw/${rawPath}?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
+    return response.headers.get("x-content-type-options") === "nosniff"
+  }
+
+  const htmlRaw = await checkRaw(htmlArtifact.artifactId, "page.html")
+  if (htmlRaw.status !== 200) throw new Error("P10: html raw did not return 200")
+  if (!htmlRaw.contentType.startsWith("text/html")) throw new Error(`P10: html raw content-type was ${htmlRaw.contentType}`)
+  if (htmlRaw.disposition !== 'inline; filename="page.html"') throw new Error(`P10: html raw disposition was ${htmlRaw.disposition}`)
+  if (!htmlRaw.body.includes("<title>hi</title>")) throw new Error("P10: html raw body did not contain the artifact bytes")
+  if (!(await checkNosniff(htmlArtifact.artifactId, "page.html"))) throw new Error("P10: html raw missing x-content-type-options: nosniff")
+
+  const cssRaw = await checkRaw(cssArtifact.artifactId, "style.css")
+  if (cssRaw.status !== 200 || !cssRaw.contentType.startsWith("text/css")) throw new Error(`P10: css raw ${cssRaw.status} ${cssRaw.contentType}`)
+
+  const jsRaw = await checkRaw(jsArtifact.artifactId, "app.js")
+  if (jsRaw.status !== 200 || !jsRaw.contentType.startsWith("text/javascript")) throw new Error(`P10: js raw ${jsRaw.status} ${jsRaw.contentType}`)
+
+  const svgRaw = await checkRaw(svgArtifact.artifactId, "icon.svg")
+  if (svgRaw.status !== 200 || !svgRaw.contentType.startsWith("image/svg+xml")) throw new Error(`P10: svg raw ${svgRaw.status} ${svgRaw.contentType}`)
+
+  const pngRaw = await checkRaw(pngArtifact.artifactId, "pixel.png")
+  if (pngRaw.status !== 200 || pngRaw.contentType !== "image/png") throw new Error(`P10: png raw ${pngRaw.status} ${pngRaw.contentType}`)
+
+  const unknownRaw = await checkRaw(unknownArtifact.artifactId, "weird.qzx")
+  if (unknownRaw.status !== 200) throw new Error(`P10: unknown ext did not return 200, got ${unknownRaw.status}`)
+  if (unknownRaw.contentType !== "application/octet-stream") throw new Error(`P10: unknown ext content-type was ${unknownRaw.contentType}`)
+  if (!unknownRaw.disposition.startsWith("attachment")) throw new Error(`P10: unknown ext disposition was ${unknownRaw.disposition}`)
+
+  // P10: a path that does not match the artifact's filename is rejected
+  // as 403 (not 404) so a caller cannot probe for artifacts they do not
+  // already have a token for.
+  const wrongPath = await checkRaw(htmlArtifact.artifactId, "wrong.html")
+  if (wrongPath.status !== 403) throw new Error(`P10: wrong path was ${wrongPath.status}, expected 403`)
+
+  // P10: .. and absolute paths are rejected as 403. The URL parser
+  // collapses literal `..` segments, so the percent-encoded form
+  // (`%2E%2E`) is what actually reaches the route — both shapes
+  // (literal and encoded) carry the same threat and the same
+  // rejection rule.
+  const dotdotPath = await checkRaw(htmlArtifact.artifactId, "%2E%2E%2Fetc%2Fpasswd")
+  if (dotdotPath.status !== 403) throw new Error(`P10: .. path was ${dotdotPath.status}, expected 403`)
+  const absolutePath = await checkRaw(htmlArtifact.artifactId, "%2Fetc%2Fpasswd")
+  if (absolutePath.status !== 403) throw new Error(`P10: absolute path was ${absolutePath.status}, expected 403`)
+
+  // P10: capability denied yields 403 even when the path and artifact
+  // would otherwise resolve. The denial happens before the artifact
+  // lookup, so a denied caller cannot probe for the existence of any
+  // artifact by its id either.
+  capabilityDecision = "deny"
+  const deniedRaw = await checkRaw(htmlArtifact.artifactId, "page.html")
+  if (deniedRaw.status !== 403) throw new Error(`P10: denied capability was ${deniedRaw.status}, expected 403`)
+  capabilityDecision = "allow"
   const specValidation = await server.fetch(new Request("http://localhost/v1/specs/validate", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, spec: { id: "server-spec", version: "1.0.0", target: "design", title: "Server spec", capabilities: ["artifact.export"], rules: [] } }) }))
   if (specValidation.status !== 200 || ((await specValidation.json()) as { capabilities: { granted: readonly string[]; denied: readonly string[] } }).capabilities.denied[0] !== "artifact.export") throw new Error("spec validation route widened capabilities")
   const documents = await server.fetch(new Request(`http://localhost/v1/documents?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))

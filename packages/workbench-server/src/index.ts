@@ -19,6 +19,7 @@ import type {
 import { migrateWorkspaceManifest, WORKSPACE_MANIFEST_PATH } from "@unifia/contracts"
 
 import { randomUUID } from "node:crypto"
+import { basename } from "node:path"
 import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter, type ScopedToken, type ScopedTokenAuthority, type ScopedTokenRequest } from "./auth.js"
 import { OperationRegistry } from "./operations.js"
 import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
@@ -56,6 +57,56 @@ const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set(["artif
 /** Sentinel racing every session's next() promise so a newly-discovered session can interrupt an in-flight wait. */
 const WAKE = Symbol("workspace-events-wake")
 type JsonRecord = Record<string, unknown>
+
+/**
+ * Content-Type by file extension, for the artifact raw read route (P10).
+ * Unknown extensions are served as `application/octet-stream` with
+ * `Content-Disposition: attachment` so the browser does not try to
+ * render arbitrary bytes as HTML or execute them as script.
+ *
+ * Kept narrow on purpose: every entry here is a content type we
+ * expect an agent-authored artifact to legitimately ship. Adding
+ * `text/html` to a `Content-Type` for an unknown extension would
+ * re-introduce the XSS surface the sandbox is supposed to close.
+ */
+const ARTIFACT_RAW_CONTENT_TYPES: Readonly<Record<string, string>> = {
+  html: "text/html; charset=utf-8",
+  htm: "text/html; charset=utf-8",
+  css: "text/css; charset=utf-8",
+  js: "text/javascript; charset=utf-8",
+  mjs: "text/javascript; charset=utf-8",
+  json: "application/json; charset=utf-8",
+  svg: "image/svg+xml; charset=utf-8",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  ico: "image/x-icon",
+  txt: "text/plain; charset=utf-8",
+  md: "text/markdown; charset=utf-8",
+}
+
+/**
+ * Content-Security-Policy applied to HTML responses from the artifact raw
+ * read route. Mirrors ADR-1036 §1 (the iframe's own CSP). The point
+ * of setting the header at the route level is defense in depth: even
+ * if a caller downloads the bytes to disk and opens the file in a
+ * regular browser, the same controls apply.
+ */
+const ARTIFACT_RAW_CSP = [
+  "default-src 'none'",
+  "script-src 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "media-src 'none'",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ")
 
 function json(status: number, body: JsonRecord): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
@@ -239,6 +290,7 @@ export class WorkbenchServer {
       if (segments[1] === "approvals" && (request.method === "POST" || request.method === "DELETE")) return this.#approval(request, segments[2])
       if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
       if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
+      if (segments[1] === "artifacts" && segments[3] === "raw" && request.method === "GET") return this.#artifactRaw(request, segments[2], segments.slice(4).join("/"), principal)
       if (segments[1] === "artifacts" && segments[3] === "history" && request.method === "GET") return this.#artifactHistory(request, segments[2], principal)
       if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2], principal)
       if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request, principal)
@@ -738,6 +790,61 @@ export class WorkbenchServer {
     const content = await this.#artifacts.read(artifact)
     this.#allow("artifact.read")
     return json(200, { artifact, content: Buffer.from(content).toString("base64"), encoding: "base64" })
+  }
+
+  /**
+   * P10 raw artifact read. Returns the raw bytes of a single artifact's
+   * file (with Content-Type derived from the requested path's extension)
+   * so the sandboxed iframe in P11 can mount agent-authored HTML
+   * without the host ever reading the bytes through `contentDocument`.
+   *
+   * Security, in order of checks:
+   *  1. path shape: no `..`, no leading `/` or `\`, no Windows drive
+   *     letter, no NUL — anything that would let the caller escape
+   *     the artifact directory.
+   *  2. workspace authorization and broker capability `artifact.preview`.
+   *  3. artifact existence: a missing artifact yields the same 403
+   *     as a path mismatch, so a caller cannot probe for artifact IDs
+   *     they do not already have a token for.
+   *  4. path within the artifact: the request path must match the
+   *     artifact's filename (single-file model). Bundles are a
+   *     future concern; the same `403 on mismatch` rule still
+   *     applies.
+   *  5. CSP for HTML responses (defense in depth — also catches the
+   *     "save to disk, open in a regular browser" attack path).
+   */
+  async #artifactRaw(request: Request, artifactId: string | undefined, rawPath: string | undefined, principal: Principal): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("artifact.raw.unavailable", 503)
+    if (!artifactId) return this.#deny("artifact.raw.id", 400)
+    if (!rawPath) return this.#deny("artifact.raw.path", 400)
+    if (rawPath.includes("..") || rawPath.startsWith("/") || rawPath.startsWith("\\") || /^[A-Za-z]:/.test(rawPath) || rawPath.includes("\0")) {
+      return this.#deny("artifact.raw.path-escape", 403)
+    }
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.raw.scope", 403)
+    const gate = await this.#checkCapability("artifact.preview", workspaceId, principal)
+    if (gate) return gate
+    const artifact = await this.#artifacts.latest(artifactId)
+    if (!artifact) return this.#deny("artifact.raw.path", 403)
+    const artifactFileName = basename(artifact.relativePath)
+    if (rawPath !== artifactFileName && rawPath !== artifact.relativePath) return this.#deny("artifact.raw.path", 403)
+    const content = await this.#artifacts.read(artifact)
+    const lower = rawPath.toLowerCase()
+    const lastDot = lower.lastIndexOf(".")
+    const ext = lastDot >= 0 ? lower.slice(lastDot + 1) : ""
+    const knownType = Object.hasOwn(ARTIFACT_RAW_CONTENT_TYPES, ext) ? ARTIFACT_RAW_CONTENT_TYPES[ext]! : null
+    const contentType = knownType ?? "application/octet-stream"
+    const disposition = knownType ? "inline" : "attachment"
+    const headers: Record<string, string> = {
+      "content-type": contentType,
+      "x-content-type-options": "nosniff",
+      "content-disposition": `${disposition}; filename="${rawPath.replace(/"/g, "")}"`,
+    }
+    if (ext === "html" || ext === "htm") {
+      headers["content-security-policy"] = ARTIFACT_RAW_CSP
+    }
+    this.#allow("artifact.preview")
+    return new Response(new Blob([new Uint8Array(content)]), { status: 200, headers })
   }
   async #artifactHistory(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("artifact.history.unavailable", 503)

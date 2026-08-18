@@ -95,6 +95,16 @@ export const M10_SERVER_ROUTE_REGISTRY = {
   artifactExport: { method: "POST", route: "/v1/artifacts/export", capability: "artifact.export", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/**
+ * P10 raw artifact read route. The iframe created in P11 fetches
+ * artifact bodies through this route to mount them as a sandboxed
+ * document (ADR-1035). Capability `artifact.preview` is step-up
+ * eligible per ADR-1038 — a per-request grant issued by the broker.
+ */
+export const P10_SERVER_ROUTE_REGISTRY = {
+  artifactRaw: { method: "GET", route: "/v1/artifacts/:artifactId/raw/:path", capability: "artifact.preview", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 /** M11 validates untrusted specs without granting their requested capabilities. */
 export const M11_SERVER_ROUTE_REGISTRY = {
   specValidate: { method: "POST", route: "/v1/specs/validate", capability: "workspace.read", event: "catalog.updated" },
