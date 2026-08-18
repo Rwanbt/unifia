@@ -250,12 +250,31 @@ function checkTests(withBrowser) {
     const packageDirectory = path.join(repoRoot, path.dirname(path.dirname(entry)))
     try {
       const relativeEntry = path.relative(packageDirectory, path.join(repoRoot, entry)).split(path.sep).join("/")
-      const output = run("bun", [...(SUITE_ARGS[entry] ?? []), relativeEntry], { cwd: packageDirectory })
+      // WHY the conditional: `bun test <file>` only matches filenames that contain
+      // `.test.`, `.spec.`, `_test_` or `_spec_`. Suites whose names follow a
+      // different convention (e.g. `*-smoke.ts`) and use top-level `await` instead
+      // of `test()` from `bun:test` must keep running as a script. The
+      // `test()`-style suites that legitimately fail outside the test runner are
+      // detected and routed through `bun test` so they actually run.
+      const isBunTestRunnerSuite = /\.test\.|\.spec\.|_test_|_spec_/.test(relativeEntry)
+      const args = isBunTestRunnerSuite ? ["test", ...(SUITE_ARGS[entry] ?? [])] : [...(SUITE_ARGS[entry] ?? [])]
+      // WHY the env override: the root `bunfig.toml` pins
+      // `[test].root = "./do-not-run-tests-from-root"` as a safeguard against
+      // accidental root-level `bun test` runs. When we cd into the package
+      // directory bun still walks up and applies that setting, so a targeted
+      // `bun test <file>` cannot resolve any root and bails out. Pointing
+      // BUN_CONFIG_TEST_ROOT at the package directory restores normal scanning.
+      const testEnv = isBunTestRunnerSuite
+        ? { ...process.env, BUN_CONFIG_TEST_ROOT: packageDirectory }
+        : process.env
+      const output = run("bun", [...args, relativeEntry], { cwd: packageDirectory, env: testEnv })
       const summary = output.trim().split("\n").filter(Boolean).at(-1) ?? "no output"
       process.stdout.write(`      ${entry} — ${summary}\n`)
     } catch (error) {
       failed += 1
-      process.stdout.write(`      ${entry} — FAILED: ${String(error.stdout ?? error.message).split("\n").slice(-3).join(" | ")}\n`)
+      const stderr = String(error.stderr ?? "").split("\n").filter(Boolean).slice(-5).join(" | ")
+      const stdoutTail = String(error.stdout ?? "").split("\n").filter(Boolean).slice(-3).join(" | ")
+      process.stdout.write(`      ${entry} — FAILED: ${stderr || stdoutTail || error.message}\n`)
     }
   }
   let vitestFiles = 0

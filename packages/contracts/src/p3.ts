@@ -183,7 +183,7 @@ export class SandboxPathDouble {
 }
 export const P3_CAPABILITY_EFFECTS: Readonly<Record<string, readonly string[]>> = {
   "workspace.read": ["filesystem.read"], "workspace.write": ["filesystem.write"], "workspace.watch": ["filesystem.watch"],
-  "artifact.create": ["artifact.create"], "artifact.export": ["artifact.export", "filesystem.write"],
+  "artifact.create": ["artifact.create"], "artifact.export": ["artifact.export", "filesystem.write"], "artifact.preview": ["filesystem.read"],
   "terminal.run": ["process.spawn"], "network.request": ["network.connect"], "browser.navigate": ["network.connect"],
   "desktop.observe": ["desktop.observe"], "desktop.control": ["desktop.control"], "remote.receive": ["remote.receive"],
   "remote.respond": ["remote.send"], "secret.read": ["secret.read"], "package.install": ["process.spawn", "filesystem.write"], "workflow.run": ["workflow.execute"],
