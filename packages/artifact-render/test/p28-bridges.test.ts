@@ -55,9 +55,9 @@ describe("P28 / inspection bridge", () => {
   test("filterInspectionOverrides drops unknown properties and empty values", () => {
     const filtered = filterInspectionOverrides([
       { selector: "h1", property: "color", value: "red" },
-      { selector: "h1", property: "onclick", value: "alert(1)" },
+      { selector: "h1", property: "onclick" as never, value: "alert(1)" },
       { selector: "", property: "color", value: "red" },
-      { selector: "h1", property: "color", value: "" as unknown as string },
+      { selector: "h1", property: "color", value: "" },
     ])
     expect(filtered).toEqual([{ selector: "h1", property: "color", value: "red" }])
   })
