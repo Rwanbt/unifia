@@ -48,10 +48,14 @@ test("mode location rejects unknown routes and contradictory sessions", () => {
   expect(parseModeLocation(`/${directory}/session/path-id`, "?session=query-id")).toMatchObject({ kind: "invalid", reason: "session" })
 })
 
-test("automate is accessible only under the dev flag in a dev build", () => {
-  expect(isAutomateAccessible(false, false)).toBe(false)
-  expect(isAutomateAccessible(false, true)).toBe(false)
-  expect(isAutomateAccessible(true, false)).toBe(false)
+test("automate surface is reachable whenever workflow.run is granted (ADR-1041)", () => {
+  // The dev flag was removed by ADR-1041. The Automate surface is now
+  // reachable from the rail whenever the workspace has `workflow.run`
+  // granted; the dev flag is kept only as a thin shim that returns true
+  // for callers that do not yet have a workbench context.
+  expect(isAutomateAccessible(false, false)).toBe(true)
+  expect(isAutomateAccessible(false, true)).toBe(true)
+  expect(isAutomateAccessible(true, false)).toBe(true)
   expect(isAutomateAccessible(true, true)).toBe(true)
 })
 
