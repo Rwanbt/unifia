@@ -4,12 +4,13 @@ import { useLocation, useNavigate } from "@solidjs/router"
 import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
 import { modeHref, parseModeLocation } from "./mode-directory"
-import { isAutomateAccessible, readAutomateDevFlag } from "./automate-flag"
+import { isAutomateAccessible, isAutomateSurfaceReachable } from "./automate-flag"
 import { Persist, persisted } from "@/utils/persist"
 
-// ADR-1033: SHELL_MODES stays the 4-entry contract (check-mode-registry
-// depends on it); production only ever exposes automate behind this flag.
-const automateAccessible = isAutomateAccessible(import.meta.env.DEV, readAutomateDevFlag())
+// ADR-1041 supersedes ADR-1033. SHELL_MODES is still the 4-entry contract
+// (check-mode-registry depends on it). The Automate surface is reachable
+// from the rail whenever the workspace has `workflow.run` granted.
+const automateAccessible = isAutomateSurfaceReachable(isAutomateAccessible(import.meta.env.DEV, false))
 const visibleModes: readonly ShellMode[] = automateAccessible ? SHELL_MODES : SHELL_MODES.filter((mode) => mode !== "automate")
 
 const isMode = (value: string | undefined): value is ShellMode =>
