@@ -11,6 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test test/"
   },
+  "dependencies": {
+    "@unifia/artifact-render": "workspace:*",
+    "@unifia/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@types/bun": "catalog:",
     "typescript": "catalog:",

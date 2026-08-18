@@ -626,6 +626,10 @@
     "packages/skill-hub": {
       "name": "@unifia/skill-hub",
       "version": "0.1.0",
+      "dependencies": {
+        "@unifia/artifact-render": "workspace:*",
+        "@unifia/contracts": "workspace:*",
+      },
       "devDependencies": {
         "@tsconfig/node22": "22.0.2",
         "@types/bun": "catalog:",
