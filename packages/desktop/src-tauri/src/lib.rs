@@ -94,8 +94,12 @@ struct WorkbenchLease {
     instance_id: String,
     workspace_id: String,
     capabilities: Vec<String>,
-    issued_at: u64,
-    expires_at: u64,
+    // f64: specta rejects u64 (BigIntForbidden); epoch milliseconds are exact
+    // in f64 up to 2^53 (year 285616). The TypeScript side already types these
+    // as `number` and validates them with Number.isSafeInteger — see
+    // packages/workbench-shell/src/native-token-bridge.ts.
+    issued_at: f64,
+    expires_at: f64,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -103,7 +107,9 @@ struct WorkbenchLease {
 struct WorkbenchRotation {
     token: WorkbenchLease,
     previous_token: Option<String>,
-    grace_period_ms: u64,
+    // f64: specta rejects u64 (BigIntForbidden); a grace period in milliseconds
+    // is orders of magnitude below f64's exact-integer range.
+    grace_period_ms: f64,
 }
 
 async fn workbench_native_request(

@@ -15,6 +15,7 @@
 			"packages/ui/src/**/*.ts",
 			"packages/ui/src/**/*.tsx",
 			"packages/desktop/src/**/*.ts",
+			"!packages/desktop/src/bindings.ts",
 			"packages/mobile/src/**/*.ts",
 			"packages/util/src/**/*.ts",
 			"packages/plugin/src/**/*.ts",
