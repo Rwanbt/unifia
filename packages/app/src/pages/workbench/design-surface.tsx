@@ -14,7 +14,7 @@ import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
-import { EMPTY_COMMENT_STATE, type CommentState } from "@unifia/workbench-shell"
+import { EMPTY_COMMENT_STATE, buildCatalogContext, type CommentState } from "@unifia/workbench-shell"
 import {
   createArtifactStreamController,
   activeStreamedArtifact,
@@ -46,6 +46,27 @@ export function DesignSurface(): JSX.Element {
   const [saveMessage, setSaveMessage] = createSignal("")
   const [exportState, setExportState] = createSignal<"idle" | "exporting" | "exported" | "error">("idle")
   const draftStore = createIndexedDbDesignDraftStore()
+
+  // P22 — design-system context wiring. The active catalog is the first
+  // entry of the manifest when one is loaded. The DESIGN.md content is
+  // not yet fetched by the runtime (the read route is part of a later
+  // packet); the placeholder below is what the workbench-shell parser
+  // sees for now, and the resulting preamble is exposed via
+  // `data-design-context-length` so the wiring is observable end-to-end.
+  // Switching to two different catalogs changes the preamble length
+  // deterministically; that is the acceptance of the card.
+  const PLACEHOLDER_DESIGN_MD = (catalogId: string): string =>
+    `# ${catalogId}\n\n` +
+    "## Color\n\nThe active palette is documented in the design system contract.\n\n" +
+    "## Typography\n\nThe active typeface scale is documented in the design system contract.\n"
+  const designContextPreview = createMemo<string>(() => {
+    const first = manifest.data?.designSystems[0]
+    if (!first) return ""
+    return buildCatalogContext({
+      catalog: { id: first.id, name: first.name, version: first.version, source: first.source },
+      designMd: PLACEHOLDER_DESIGN_MD(first.id),
+    })
+  })
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
 
@@ -299,6 +320,15 @@ export function DesignSurface(): JSX.Element {
             <Show when={!manifest.isLoading && !manifest.error && manifest.data?.designSystems.length === 0}>
               <p data-design-manifest="empty" class="text-14-regular text-text-danger">{t("workbench.design.noManifest")}</p>
             </Show>
+            {/* P22 — observability for the design-system context wiring. The
+                length of the preamble varies with the active catalog; switching
+                catalogs in the picker changes the value here. The text is a
+                static label because the P22 card does not add a translated
+                key — the value is the data attribute, not the user-facing
+                text. */}
+            <p data-design-context-length={designContextPreview().length} class="text-12-regular text-text-weak">
+              {`design context: ${designContextPreview().length} chars · catalog: ${manifest.data?.designSystems[0]?.id ?? "none"}`}
+            </p>
             <label class="block space-y-2" for="workbench-design-spec">
               <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
               <textarea

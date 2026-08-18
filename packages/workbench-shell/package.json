@@ -13,7 +13,8 @@
     "test": "bun test test --timeout 30000"
   },
   "dependencies": {
-    "@unifia/contracts": "workspace:*"
+    "@unifia/contracts": "workspace:*",
+    "@unifia/design-system-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

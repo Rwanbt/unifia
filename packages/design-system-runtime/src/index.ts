@@ -2,15 +2,20 @@
 
 export {
   DESIGN_SYSTEM_ID_REGEX,
+  DESIGN_SECTIONS,
   SKIP_REASONS,
+  buildDesignContext,
   importCatalogs,
   normaliseDesignMdPath,
-} from "./import-catalog"
+  parseDesignMd,
+} from "./index-internal"
 
 export type {
   CatalogSource,
+  DesignSection,
   ImportedCatalog,
-  SkippedCatalog,
   ImportResult,
+  ParsedDesignSystem,
+  SkippedCatalog,
   SkipReason,
-} from "./import-catalog"
+} from "./index-internal"
