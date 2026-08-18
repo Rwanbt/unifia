@@ -52,3 +52,43 @@ export {
   type SelectModeRequest,
   type SelectTargetMessage,
 } from "./bridges/selection"
+export {
+  INSPECTABLE_PROPERTIES,
+  INSPECT_STYLESHEET_ID,
+  filterInspectionOverrides,
+  inspectionEquals,
+  isInspectableProperty,
+  renderInspectionStylesheet,
+  type InspectOverride,
+  type InspectableProperty,
+} from "./bridges/inspect"
+export {
+  PALETTE_NODE_BUDGET,
+  PALETTE_RULE_BUDGET,
+  applyPalette,
+  hslToHex,
+  parseRgb,
+  readPaletteFromRoot,
+  revertPalette,
+  rgbToHsl,
+  shiftHue,
+  snapshotPalette,
+  type CssVariable,
+  type PaletteSnapshot,
+} from "./bridges/palette"
+export {
+  TWEAKS_BRIDGE_SCRIPT,
+  TWEAKS_PANEL_ATTRIBUTE,
+  TWEAKS_TOGGLE_MESSAGE_TYPE,
+  findTweaksPanel,
+  toggleTweaksPanel,
+  type TweaksPanel,
+} from "./bridges/tweaks"
+export {
+  formatUnifiaPath,
+  parseUnifiaPath,
+  pathOfUnifiaNode,
+  resolveUnifiaPath,
+  type PathIndex,
+  type TreeNode,
+} from "./bridges/manual-edit"
