@@ -6,6 +6,6 @@
   "license": "MIT",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "bun test/artifact.test.ts" },
-  "dependencies": { "@unifia/workspace-runtime": "workspace:*" },
+  "dependencies": { "@unifia/workspace-runtime": "workspace:*", "@unifia/contracts": "workspace:*" },
   "devDependencies": { "@types/bun": "catalog:", "@types/node": "catalog:", "typescript": "catalog:" }
 }

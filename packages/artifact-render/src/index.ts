@@ -13,3 +13,4 @@ export {
   createArtifactParser,
   type ArtifactEvent,
 } from "./stream-parser"
+export { resolveRenderer } from "./renderer-registry"

@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./workbench-wire": "./src/workbench-wire/index.ts"
+    "./workbench-wire": "./src/workbench-wire/index.ts",
+    "./artifact-manifest": "./src/artifact-manifest.ts"
   },
   "license": "MIT",
   "scripts": {

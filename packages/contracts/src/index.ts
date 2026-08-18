@@ -32,3 +32,5 @@ export * from "./mcp-ui.js"
 export * from "./generative-ui.js"
 export * from "./event-sequencer.js"
 export * from "./design-system.js"
+
+export * from "./artifact-manifest.js"

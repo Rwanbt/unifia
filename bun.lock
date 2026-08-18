@@ -89,6 +89,9 @@
     "packages/artifact-render": {
       "name": "@unifia/artifact-render",
       "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
       "devDependencies": {
         "@tsconfig/node22": "22.0.2",
         "@types/bun": "catalog:",

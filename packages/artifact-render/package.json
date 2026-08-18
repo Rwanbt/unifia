@@ -16,5 +16,8 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "@tsconfig/node22": "22.0.2"
+  },
+  "dependencies": {
+    "@unifia/contracts": "workspace:*"
   }
 }

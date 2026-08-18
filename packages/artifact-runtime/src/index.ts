@@ -20,6 +20,11 @@ import { createHash, randomBytes } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import { DurableQueue } from "@unifia/workspace-runtime"
+import {
+  inferManifest,
+  parseArtifactManifest,
+  type ArtifactManifest,
+} from "@unifia/contracts/artifact-manifest"
 
 export type ArtifactKind = "docx" | "pptx" | "xlsx" | "pdf" | "svg" | "binary" | "text"
 
@@ -65,6 +70,12 @@ export type ArtifactInput = {
   /** Omit to start a new lineage; pass an existing id to add a revision to it. */
   artifactId?: string
   provenance?: ArtifactProvenance
+  /**
+   * V1 artifact manifest (ADR-1039). When absent, the runtime infers one
+   * from the entry filename extension and stores the result under
+   * `metadata["manifest"]` so the renderer never has to guess.
+   */
+  manifest?: ArtifactManifest
 }
 
 /**
@@ -187,10 +198,25 @@ export class ArtifactStore {
     const head = input.artifactId ? await this.latest(artifactId) : undefined
     if (input.artifactId && !head) throw new Error("artifact lineage does not exist")
     if (head?.sha256 === sha256) return head
-    return this.#writeVersion(artifactId, (head?.version ?? 0) + 1, filename, content, sha256, input)
+    // Rule 5: a manifest is stored when the caller provides one or when
+    // we can infer it from the entry filename. If inference fails (unknown
+    // extension) and the caller did not pass a manifest, the version is
+    // created without a `manifest` key in metadata — a renderer that
+    // needs one will see the absence and ask the caller to set it. This
+    // is a deliberate best-effort: refusing to write would break the
+    // pre-P14 test suite that authors call `store.create` for arbitrary
+    // files (notably `.txt`), and a silent default would let unknown
+    // artefacts slip through unrenderable.
+    const manifest = input.manifest ?? inferManifest(filename)
+    if (manifest) {
+      // Validate the manifest at the storage boundary. The caller may
+      // have constructed it loosely.
+      parseArtifactManifest(manifest)
+    }
+    return this.#writeVersion(artifactId, (head?.version ?? 0) + 1, filename, content, sha256, input, manifest)
   }
 
-  async #writeVersion(artifactId: string, version: number, filename: string, content: Buffer, sha256: string, input: ArtifactInput): Promise<ArtifactVersion> {
+  async #writeVersion(artifactId: string, version: number, filename: string, content: Buffer, sha256: string, input: ArtifactInput, manifest: ArtifactManifest | null): Promise<ArtifactVersion> {
     const versionDirectory = path.join(this.#artifactsRoot, artifactId, `v${version}`)
     const relativePath = path.posix.join(".unifia", ARTIFACTS_DIRECTORY, artifactId, `v${version}`, filename)
     await fs.mkdir(versionDirectory, { recursive: true })
@@ -205,7 +231,13 @@ export class ArtifactStore {
       await fs.rm(temporary, { force: true })
       throw error
     }
-    const artifact: ArtifactVersion = { artifactId, version, kind: input.kind, filename, relativePath, sha256, bytes: content.byteLength, createdAt: this.#now(), metadata: { ...(input.metadata ?? {}) }, provenance: input.provenance ? { ...input.provenance } : { sourceTool: "unknown" }, scan: this.#scanner ? "clean" : "unscanned" }
+    // Rule 4: the manifest is stored in the version's metadata under a
+    // single reserved key. No sidecar file, no second store — that decision
+    // is locked by ADR-1039. When inference failed, the key is simply
+    // absent; the renderer is expected to detect that and refuse to render.
+    const metadata: Record<string, string> = { ...(input.metadata ?? {}) }
+    if (manifest) metadata.manifest = JSON.stringify(manifest)
+    const artifact: ArtifactVersion = { artifactId, version, kind: input.kind, filename, relativePath, sha256, bytes: content.byteLength, createdAt: this.#now(), metadata, provenance: input.provenance ? { ...input.provenance } : { sourceTool: "unknown" }, scan: this.#scanner ? "clean" : "unscanned" }
     await fs.writeFile(path.join(versionDirectory, MANIFEST), `${JSON.stringify(artifact, null, 2)}\n`, "utf8")
     await this.#outbox.enqueue("outbox", artifact)
     return artifact
