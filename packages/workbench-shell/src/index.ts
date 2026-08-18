@@ -15,5 +15,6 @@ export { createDesignDraftRecord, createIndexedDbDesignDraftStore, designDraftKe
 export { EMPTY_COMMENT_STATE, addComment, commentsForElement, markResolved, markSent, newCommentId, openComments, removeComment, updateComment, type CommentState, type CommentStatus, type DesignComment } from "./design-comments.js"
 export { buildRefineBatchPrompt, buildRefinePrompt, canSend, type RefineRequest } from "./design-refine.js"
 export { buildCatalogContext, combineCatalogContexts, parseDesignContext, type DesignContextSource } from "./design-context.js"
+export { countBlockedSkills, createSkillPickerRows, type SkillPickerInput, type SkillPickerRow } from "./skill-picker.js"
 export { createMobileNavigationModel, type MobileNavigationInput, type MobileNavigationModel } from "./mobile-navigation.js"
 export { M6_SERVER_ROUTE_REGISTRY, M7_SERVER_ROUTE_REGISTRY, M8_SERVER_ROUTE_REGISTRY, M9A_SERVER_ROUTE_REGISTRY, M9B_SERVER_ROUTE_REGISTRY, M10_SERVER_ROUTE_REGISTRY, M11_SERVER_ROUTE_REGISTRY, M15_SERVER_ROUTE_REGISTRY, M20_SERVER_ROUTE_REGISTRY, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage, type ArtifactLineage, type WorkbenchRoute, type WorkbenchServerRoute, type WorkbenchTransportMethod } from "./routes.js"

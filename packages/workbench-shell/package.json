@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@unifia/contracts": "workspace:*",
-    "@unifia/design-system-runtime": "workspace:*"
+    "@unifia/design-system-runtime": "workspace:*",
+    "@unifia/skill-hub": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

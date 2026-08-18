@@ -962,6 +962,8 @@
       "version": "0.1.0",
       "dependencies": {
         "@unifia/contracts": "workspace:*",
+        "@unifia/design-system-runtime": "workspace:*",
+        "@unifia/skill-hub": "workspace:*",
       },
       "devDependencies": {
         "@tsconfig/node22": "22.0.2",
