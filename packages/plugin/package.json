@@ -31,7 +31,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "compile": "rm -rf dist tsconfig.tsbuildinfo && tsc",
-    "build": "bun run compile"
+    "build": "bun run compile",
+    "test": "bun test test/"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -46,6 +47,7 @@
   "dependencies": {
     "@unifia/sdk": "workspace:*",
     "@unifia/sdk-shared": "workspace:*",
+    "@unifia/skill-hub": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

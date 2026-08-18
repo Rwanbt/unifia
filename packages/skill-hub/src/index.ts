@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { createHash } from "node:crypto"
 
-export { SKILL_MODES, SKILL_SCENARIOS, buildDesignSkillContext, canSkillRun, parseDesignSkillManifest, type DesignSkillFrontmatter, type DesignSkillManifest, type SkillMode, type SkillScenario } from "./skill-manifest"
+export { SKILL_MODES, SKILL_SCENARIOS, buildDesignSkillContext, canSkillRun, parseDesignSkillManifest, type DesignSkillFrontmatter, type DesignSkillManifest, type SkillMode, type SkillScenario } from "./skill-manifest.js"
 
 export type SkillTrust = "untrusted" | "verified" | "official"
 export type SkillManifest = { name: string; version: string; digest: string; trust: SkillTrust; tags: readonly string[]; capabilities: readonly string[]; readmeDigest?: string; signature?: string }

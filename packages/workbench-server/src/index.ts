@@ -305,6 +305,11 @@ export class WorkbenchServer {
       if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request, principal)
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
+      if (segments[1] === "plugins" && request.method === "GET" && !segments[2]) return this.#pluginsList(request, principal)
+      if (segments[1] === "plugins" && segments[2] && request.method === "GET" && !segments[3]) return this.#pluginRead(request, segments[2], principal)
+      if (segments[1] === "plugins" && segments[2] === "install" && request.method === "POST" && segments[3]) return this.#pluginInstall(request, segments[3], principal)
+      if (segments[1] === "plugins" && segments[2] === "apply" && request.method === "POST" && segments[3]) return this.#pluginApply(request, segments[3], principal)
+      if (segments[1] === "plugins" && segments[2] && request.method === "DELETE" && !segments[3]) return this.#pluginDelete(request, segments[2], principal)
       return this.#deny("route.unknown", 404)
   }
 
@@ -596,6 +601,91 @@ export class WorkbenchServer {
     } catch {
       return this.#deny("design-system.manifest.invalid", 400)
     }
+  }
+
+  // P29 — Marketplace plugin routes. The runtime keeps a small in-memory
+  // catalogue of installed plugins per workspace. The install is
+  // capability-gated; the apply is gated on the `plugin.apply` capability.
+  #pluginsByWorkspace = new Map<string, readonly { id: string; name: string; version: string; capabilities: readonly string[] }[]>()
+
+  async #pluginsList(request: Request, principal: Principal): Promise<Response> {
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("plugin.scope", 403)
+    const decision = await this.#checkCapability("workspace.read", workspaceId, principal)
+    if (decision) return decision
+    const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
+    this.#allow("workspace.read")
+    return json(200, { plugins })
+  }
+
+  async #pluginRead(request: Request, pluginId: string, principal: Principal): Promise<Response> {
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("plugin.scope", 403)
+    const decision = await this.#checkCapability("workspace.read", workspaceId, principal)
+    if (decision) return decision
+    const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
+    const plugin = plugins.find((p) => p.id === pluginId)
+    if (!plugin) return this.#deny("plugin.not-found", 404)
+    this.#allow("workspace.read")
+    return json(200, plugin as unknown as JsonRecord)
+  }
+
+  async #pluginInstall(request: Request, pluginId: string, principal: Principal): Promise<Response> {
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("plugin.scope", 403)
+    const decision = await this.#checkCapability("package.install", workspaceId, principal)
+    if (decision) return decision
+    const body = await request.json().catch(() => ({})) as { name?: string; version?: string; capabilities?: readonly string[] }
+    if (typeof body.name !== "string" || typeof body.version !== "string" || !Array.isArray(body.capabilities)) {
+      return this.#deny("plugin.invalid", 400)
+    }
+    const existing = this.#pluginsByWorkspace.get(workspaceId) ?? []
+    const without = existing.filter((p) => p.id !== pluginId)
+    this.#pluginsByWorkspace.set(workspaceId, [
+      ...without,
+      { id: pluginId, name: body.name, version: body.version, capabilities: body.capabilities },
+    ])
+    this.#allow("package.install")
+    return json(200, { ok: true, id: pluginId })
+  }
+
+  async #pluginApply(request: Request, pluginId: string, principal: Principal): Promise<Response> {
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("plugin.scope", 403)
+    // The "plugin.apply" capability is a string the runtime registers
+    // with the broker at install time. The contracts package only knows
+    // the canonical P3 capabilities; plugin-specific capabilities are
+    // added by the runtime through the capability broker. The
+    // type-cast is intentional and isolated to this one site.
+    const applyCapability = "plugin.apply" as never
+    const decision = await this.#checkCapability(applyCapability, workspaceId, principal)
+    if (decision) return decision
+    const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
+    const plugin = plugins.find((p) => p.id === pluginId)
+    if (!plugin) return this.#deny("plugin.not-found", 404)
+    this.#allow("plugin.apply")
+    return json(200, { ok: true, applied: pluginId })
+  }
+
+  async #pluginDelete(request: Request, pluginId: string, principal: Principal): Promise<Response> {
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    const token = this.#authorize(request, workspaceId)
+    if (!token) return this.#deny("plugin.scope", 403)
+    const decision = await this.#checkCapability("package.install", workspaceId, principal)
+    if (decision) return decision
+    const existing = this.#pluginsByWorkspace.get(workspaceId) ?? []
+    this.#pluginsByWorkspace.set(workspaceId, existing.filter((p) => p.id !== pluginId))
+    this.#allow("package.install")
+    return json(200, { ok: true })
   }
 
   async #browserAction(request: Request, action: string, principal: Principal): Promise<Response> {

@@ -8,7 +8,7 @@ export {
   importCatalogs,
   normaliseDesignMdPath,
   parseDesignMd,
-} from "./index-internal"
+} from "./index-internal.js"
 
 export type {
   CatalogSource,
@@ -18,4 +18,4 @@ export type {
   ParsedDesignSystem,
   SkippedCatalog,
   SkipReason,
-} from "./index-internal"
+} from "./index-internal.js"

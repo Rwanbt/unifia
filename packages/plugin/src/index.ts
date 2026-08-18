@@ -17,6 +17,17 @@ import type { BunShell } from "./shell.js"
 import type { ToolDefinition } from "./tool.js"
 
 export * from "./tool.js"
+export {
+  DEFAULT_PLUGIN_CAPABILITY,
+  PLUGIN_KINDS,
+  PLUGIN_SPEC_VERSION,
+  grantCapabilities,
+  parsePluginManifest,
+  type PluginKind,
+  type PluginManifestField,
+  type PluginManifest,
+  type PluginSpecVersion,
+} from "./plugin-manifest.js"
 
 export type ProviderContext = {
   source: "env" | "config" | "custom" | "api"
