@@ -48,6 +48,7 @@ export function DesignToolbar(props: {
   onMode: (mode: DesignToolbarMode) => void
   onSnapshot: () => void
   onExportHtml?: () => void
+  onExportPdf?: () => void
   exportState?: { kind: "idle" | "exporting" | "exported" | "error"; error?: string }
 }): JSX.Element {
   const language = useLanguage()
@@ -147,6 +148,16 @@ export function DesignToolbar(props: {
           title="Inline CSS, scripts, and images into a single self-contained HTML file"
         >
           {props.exportState?.kind === "exporting" ? "Exporting…" : "Export HTML"}
+        </button>
+        <button
+          type="button"
+          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
+          disabled={!props.onExportPdf || (props.exportState?.kind === "exporting")}
+          data-design-toolbar-export-pdf
+          onClick={() => props.onExportPdf?.()}
+          title="Build a PDF from the current page captures"
+        >
+          Export PDF
         </button>
         <Show when={props.exportState?.kind === "error"}>
           <span data-design-toolbar-export-error class="text-12-regular text-text-danger">{props.exportState?.error ?? "export failed"}</span>
