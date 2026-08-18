@@ -11,7 +11,7 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace } from "@/pages/workbench/design-workspace"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
-import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
+import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
 import {
   createArtifactStreamController,
@@ -361,6 +361,21 @@ function StreamedArtifactPanel(props: {
   const [viewport, setViewport] = createSignal<ViewportId>(DEFAULT_VIEWPORT)
   const [zoom, setZoom] = createSignal<number>(DEFAULT_ZOOM)
   const [mode, setMode] = createSignal<DesignToolbarMode>(DEFAULT_TOOLBAR_MODE)
+  // P17 — état du snapshot. Le bridge P17 envoie "unifia:snapshot" à
+  // l'iframe ; on écoute le retour et on stocke le dataUrl. Pour l'instant
+  // le câblage effectif (postMessage à l'iframe) est câblé dans artifact-preview
+  // via un custom event "unifia:snapshot-request" — l'implémentation complète
+  // viendra quand l'iframe sera réellement montée (cf. P22+).
+  const [snapshot, setSnapshot] = createSignal<DesignToolbarSnapshotState>({ kind: "idle" })
+  function requestSnapshot(): void {
+    if (snapshot().kind === "capturing") return
+    setSnapshot({ kind: "capturing" })
+    // Stub : on bascule immédiatement en error pour signaler qu'aucun
+    // consommateur n'est encore branché. Quand artifact-preview écoutera
+    // vraiment le custom event, ce stub sera remplacé par un vrai
+    // dispatch + listener.
+    setTimeout(() => setSnapshot({ kind: "error", error: "snapshot-bridge-not-wired" }), 250)
+  }
   return (
     <div
       class="flex h-full min-h-0 flex-col gap-3"
@@ -411,9 +426,11 @@ function StreamedArtifactPanel(props: {
         zoom={zoom()}
         mode={mode()}
         hasSource={props.entry.content.length > 0}
+        snapshot={snapshot()}
         onViewport={setViewport}
         onZoom={setZoom}
         onMode={setMode}
+        onSnapshot={requestSnapshot}
       />
       <Show when={props.connectionError}>
         <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-stream-connection-error role="alert">

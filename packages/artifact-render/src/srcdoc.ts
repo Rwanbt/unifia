@@ -2,6 +2,7 @@
 
 import { STORAGE_SHIM_SCRIPT } from "./bridges/storage-shim"
 import { FOCUS_GUARD_SCRIPT } from "./bridges/focus-guard"
+import { SNAPSHOT_BRIDGE_SCRIPT } from "./bridges/snapshot"
 
 // ADR-1035: the iframe runs scripts-only; the storage shim and focus
 // guard exist specifically to keep artifacts usable under that policy.
@@ -11,6 +12,8 @@ export type SrcdocOptions = {
   storageShim?: boolean
   /** Inject the focus-guard script (default true). */
   focusGuard?: boolean
+  /** Inject the snapshot bridge (default false — opt-in, consommé par P17+). */
+  snapshotBridge?: boolean
   /** Optional base href to set on the document; only applied to wrapped fragments. */
   baseHref?: string
 }
@@ -18,6 +21,7 @@ export type SrcdocOptions = {
 const DEFAULTS: Required<SrcdocOptions> = {
   storageShim: true,
   focusGuard: true,
+  snapshotBridge: false,
   baseHref: "",
 }
 
@@ -88,6 +92,7 @@ export function buildSrcdoc(html: string, options: SrcdocOptions = {}): string {
   const insertion: string[] = []
   if (opts.storageShim) insertion.push(STORAGE_SHIM_SCRIPT)
   if (opts.focusGuard) insertion.push(FOCUS_GUARD_SCRIPT)
+  if (opts.snapshotBridge) insertion.push(SNAPSHOT_BRIDGE_SCRIPT)
   if (insertion.length === 0) return document_
 
   const headOpenEnd = findHeadOpenEnd(document_)

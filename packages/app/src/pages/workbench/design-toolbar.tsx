@@ -31,14 +31,22 @@ import {
 
 export type DesignToolbarMode = "preview" | "source"
 
+export type DesignToolbarSnapshotState =
+  | { kind: "idle" }
+  | { kind: "capturing" }
+  | { kind: "ready"; dataUrl: string; w: number; h: number }
+  | { kind: "error"; error: string }
+
 export function DesignToolbar(props: {
   viewport: ViewportId
   zoom: number
   mode: DesignToolbarMode
   hasSource: boolean
+  snapshot: DesignToolbarSnapshotState
   onViewport: (id: ViewportId) => void
   onZoom: (zoom: number) => void
   onMode: (mode: DesignToolbarMode) => void
+  onSnapshot: () => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -124,6 +132,35 @@ export function DesignToolbar(props: {
         >
           {t("workbench.design.toolbar.source")}
         </button>
+      </div>
+      <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+      <div class="flex items-center gap-1" data-design-toolbar-group="snapshot">
+        <button
+          type="button"
+          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
+          disabled={props.snapshot.kind === "capturing"}
+          data-design-toolbar-snapshot-button
+          data-design-toolbar-snapshot-state={props.snapshot.kind}
+          onClick={() => props.onSnapshot()}
+          title="Envoie un message unifia:snapshot à l'iframe pour obtenir une image PNG du rendu"
+        >
+          {props.snapshot.kind === "capturing" ? "Capture…" : "Capture PNG"}
+        </button>
+        <Show when={props.snapshot.kind === "ready"}>
+          <a
+            href={props.snapshot.kind === "ready" ? props.snapshot.dataUrl : "#"}
+            download={`capture-${props.snapshot.kind === "ready" ? `${props.snapshot.w}x${props.snapshot.h}` : ""}.png`}
+            class="text-12-regular text-text-weak hover:text-text-base"
+            data-design-toolbar-snapshot-download
+          >
+            {props.snapshot.kind === "ready" ? `télécharger ${props.snapshot.w}×${props.snapshot.h}` : ""}
+          </a>
+        </Show>
+        <Show when={props.snapshot.kind === "error"}>
+          <span class="text-12-regular text-text-danger" data-design-toolbar-snapshot-error>
+            {props.snapshot.kind === "error" ? `échec : ${props.snapshot.error}` : ""}
+          </span>
+        </Show>
       </div>
     </div>
   )

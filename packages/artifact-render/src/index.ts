@@ -26,3 +26,16 @@ export {
   type ViewportId,
   type ViewportPreset,
 } from "./viewport"
+export {
+  INLINEABLE_PROPERTIES,
+  SNAPSHOT_BRIDGE_SCRIPT,
+  SNAPSHOT_ERROR_CODES,
+  SNAPSHOT_TIMEOUT_MS,
+  looksBlank,
+  type Rgba,
+  type SnapshotError,
+  type SnapshotErrorCode,
+  type SnapshotMessage,
+  type SnapshotRequest,
+  type SnapshotResult,
+} from "./bridges/snapshot"
