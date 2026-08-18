@@ -51,28 +51,38 @@ const REFINE_FOOTER = [
 ].join("\n")
 
 /**
+ * Plafond de recherche d'un identifiant de délimiteur libre. Chaque
+ * tentative allonge l'identifiant, donc la boucle converge ; ce plafond
+ * empêche seulement une boucle non bornée sur une entrée pathologique.
+ */
+const MAX_DELIMITER_ATTEMPTS = 64
+
+/**
  * Délimiteur de note utilisateur. On utilise un triple-backtick fence
  * ET un identifiant unique (le noteId) pour qu'une note contenant des
  * backticks ou des chevrons ne casse pas la délimitation. Si la note
  * elle-même contient la chaîne `<<<NOTE-...>>>`, on suffixe
  * jusqu'à trouver un identifiant libre.
  */
-function noteDelimiters(noteId: string): { open: string; close: string } {
-  let id = noteId
-  let suffix = 0
-  while (id.length > 0) {
+function noteDelimiters(baseId: string, note: string): { open: string; close: string } {
+  // Terminaison : chaque tour allonge l'identifiant d'un caractère au
+  // moins, donc une note de longueur finie ne peut pas contenir tous les
+  // candidats. Le plafond est défensif, jamais atteint en pratique.
+  for (let suffix = 0; suffix < MAX_DELIMITER_ATTEMPTS; suffix += 1) {
+    const id = suffix === 0 ? baseId : `${baseId}-${suffix}`
     const open = `<<<NOTE-${id}>>>`
     const close = `<<<END-NOTE-${id}>>>`
-    return { open, close }
+    if (!note.includes(open) && !note.includes(close)) return { open, close }
   }
-  return { open: `<<<NOTE>>>`, close: `<<<END-NOTE>>>` }
+  // Repli inatteignable pour une note de taille raisonnable. On préfère
+  // un identifiant dérivé de la longueur plutôt qu'un délimiteur nu, qui
+  // serait le plus facile à deviner.
+  const fallbackId = `${baseId}-x${note.length}`
+  return { open: `<<<NOTE-${fallbackId}>>>`, close: `<<<END-NOTE-${fallbackId}>>>` }
 }
 
-function uniqueNoteId(commentId: string, requestNote: string): string {
-  // Compose un id basé sur le comment id + hash court de la note.
-  // Si la collision se produit (extrêmement improbable), on suffixe.
-  const base = `n-${commentId.slice(0, 12)}`
-  return base
+function noteBaseId(commentId: string): string {
+  return `n-${commentId.slice(0, 12)}`
 }
 
 /**
@@ -81,8 +91,8 @@ function uniqueNoteId(commentId: string, requestNote: string): string {
  * de non-régression (modification ciblée uniquement).
  */
 export function buildRefinePrompt(request: RefineRequest): string {
-  const noteId = uniqueNoteId(request.artifactId + ":" + request.elementId, request.note)
-  const { open, close } = noteDelimiters(noteId)
+  const baseId = noteBaseId(`${request.artifactId}:${request.elementId}`)
+  const { open, close } = noteDelimiters(baseId, request.note)
   return [
     REFINE_HEADER,
     "",
