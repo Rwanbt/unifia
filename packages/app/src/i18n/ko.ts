@@ -1779,4 +1779,11 @@ export const dict = {
   "workbench.export.exported": "{{path}} 내보냄",
   "workbench.export.noResult": "내보내기는 수락되었지만 아직 결과가 없습니다",
   "workbench.export.failed": "아티팩트 내보내기 실패",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "뷰포트",
+  "workbench.design.toolbar.zoom": "확대/축소",
+  "workbench.design.toolbar.source": "소스",
+  "workbench.design.toolbar.preview": "미리보기",
+  "workbench.design.toolbar.sourceEmpty": "아직 사용 가능한 소스가 없습니다.",
 }

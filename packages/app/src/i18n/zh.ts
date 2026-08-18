@@ -1850,4 +1850,10 @@ export const dict = {
   "workbench.export.exported": "已导出 {{path}}",
   "workbench.export.noResult": "导出已被接受但尚无结果",
   "workbench.export.failed": "制品导出失败",
+  "workbench.design.toolbar.viewport": "视口",
+  "workbench.design.toolbar.zoom": "缩放",
+  "workbench.design.toolbar.source": "源",
+  "workbench.design.toolbar.preview": "预览",
+  "workbench.design.toolbar.sourceEmpty": "暂无可用源。",
+
 } satisfies Partial<Record<Keys, string>>

@@ -1800,4 +1800,10 @@ export const dict = {
   "workbench.export.exported": "{{path}} exporté",
   "workbench.export.noResult": "L’export a été accepté mais n’a pas encore de résultat",
   "workbench.export.failed": "Échec de l’export de l’artefact",
+
+  "workbench.design.toolbar.viewport": "Fenêtre d'affichage",
+  "workbench.design.toolbar.zoom": "Agrandissement",
+  "workbench.design.toolbar.source": "Source du contenu",
+  "workbench.design.toolbar.preview": "Aperçu",
+  "workbench.design.toolbar.sourceEmpty": "Pas de source disponible pour l'instant.",
 }

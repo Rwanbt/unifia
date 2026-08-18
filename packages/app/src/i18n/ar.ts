@@ -1773,4 +1773,11 @@ export const dict = {
   "workbench.export.exported": "تم تصدير {{path}}",
   "workbench.export.noResult": "قُبل التصدير لكن لا توجد نتيجة بعد",
   "workbench.export.failed": "فشل تصدير القطعة",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "إطار العرض",
+  "workbench.design.toolbar.zoom": "تكبير/تصغير",
+  "workbench.design.toolbar.source": "المصدر",
+  "workbench.design.toolbar.preview": "معاينة",
+  "workbench.design.toolbar.sourceEmpty": "لا يوجد مصدر متاح بعد.",
 }

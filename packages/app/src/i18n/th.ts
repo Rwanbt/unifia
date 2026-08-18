@@ -1851,4 +1851,11 @@ export const dict = {
   "workbench.export.exported": "ส่งออก {{path}} แล้ว",
   "workbench.export.noResult": "การส่งออกได้รับการยอมรับแล้ว แต่ยังไม่มีผลลัพธ์",
   "workbench.export.failed": "การส่งออกอาร์ติแฟกต์ล้มเหลว",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "วิวพอร์ต",
+  "workbench.design.toolbar.zoom": "การขยาย",
+  "workbench.design.toolbar.source": "แหล่งที่มา",
+  "workbench.design.toolbar.preview": "ตัวอย่าง",
+  "workbench.design.toolbar.sourceEmpty": "ยังไม่มีแหล่งที่มา",
 }

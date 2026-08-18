@@ -1779,4 +1779,11 @@ export const dict = {
   "workbench.export.exported": "{{path}} をエクスポートしました",
   "workbench.export.noResult": "エクスポートは受理されましたが、まだ結果がありません",
   "workbench.export.failed": "アーティファクトのエクスポートに失敗しました",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "ビューポート",
+  "workbench.design.toolbar.zoom": "拡大縮小",
+  "workbench.design.toolbar.source": "ソース",
+  "workbench.design.toolbar.preview": "プレビュー",
+  "workbench.design.toolbar.sourceEmpty": "ソースはまだ利用できません。",
 }

@@ -1846,4 +1846,10 @@ export const dict = {
   "workbench.export.exported": "已匯出 {{path}}",
   "workbench.export.noResult": "匯出已被接受但尚無結果",
   "workbench.export.failed": "構件匯出失敗",
+  "workbench.design.toolbar.viewport": "視窗",
+  "workbench.design.toolbar.zoom": "縮放",
+  "workbench.design.toolbar.source": "來源",
+  "workbench.design.toolbar.preview": "預覽",
+  "workbench.design.toolbar.sourceEmpty": "尚無可用來源。",
+
 } satisfies Partial<Record<Keys, string>>

@@ -14,3 +14,15 @@ export {
   type ArtifactEvent,
 } from "./stream-parser"
 export { resolveRenderer } from "./renderer-registry"
+export {
+  DEFAULT_VIEWPORT,
+  DEFAULT_ZOOM,
+  VIEWPORT_IDS,
+  VIEWPORT_PRESETS,
+  ZOOM_PRESETS,
+  effectiveScale,
+  findViewport,
+  fitScale,
+  type ViewportId,
+  type ViewportPreset,
+} from "./viewport"

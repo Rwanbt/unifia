@@ -1,0 +1,133 @@
+/* SPDX-License-Identifier: MIT */
+
+import { For, Show, type JSX, createMemo } from "solid-js"
+import { useLanguage } from "@/context/language"
+import {
+  DEFAULT_VIEWPORT,
+  DEFAULT_ZOOM,
+  VIEWPORT_PRESETS,
+  ZOOM_PRESETS,
+  findViewport,
+  type ViewportId,
+} from "@unifia/artifact-render"
+
+/**
+ * P16 — Barre d'outils au-dessus de l'aperçu d'artefact.
+ *
+ * Trois modes mutuellement exclusifs :
+ * - "preview" : l'iframe `ArtifactPreview` (comportement P11/P12)
+ * - "source"  : texte brut de l'artefact, dans le même esprit que la
+ *               section `data-code-artifact-viewer` du mode Code
+ *               (session.tsx ligne 909) — un simple `<pre>` readonly,
+ *               PAS un nouveau visualiseur (spec P16 §« Spécification
+ *               exacte » alinéa "l'onglet Source").
+ *
+ * Sélecteur de viewport + zoom (multiplicateur 50/75/100/125/150/200).
+ * Les changements sont remontés au parent via les callbacks `onViewport`
+ * et `onZoom` ; le parent passe ensuite `viewport` et `zoom` à
+ * `ArtifactPreview` qui les consomme pour wrapper l'iframe dans un
+ * container aux bonnes dimensions (transform: scale).
+ */
+
+export type DesignToolbarMode = "preview" | "source"
+
+export function DesignToolbar(props: {
+  viewport: ViewportId
+  zoom: number
+  mode: DesignToolbarMode
+  hasSource: boolean
+  onViewport: (id: ViewportId) => void
+  onZoom: (zoom: number) => void
+  onMode: (mode: DesignToolbarMode) => void
+}): JSX.Element {
+  const language = useLanguage()
+  const t = language.t
+  const viewportLabel = createMemo(() => findViewport(props.viewport).label)
+  return (
+    <div
+      class="flex h-9 shrink-0 flex-wrap items-center gap-2 border-b border-border-base bg-background-stronger px-2"
+      role="toolbar"
+      aria-label={t("workbench.design.toolbar.viewport")}
+      data-design-toolbar
+      data-design-toolbar-viewport={props.viewport}
+      data-design-toolbar-zoom={props.zoom}
+      data-design-toolbar-mode={props.mode}
+    >
+      <div class="flex items-center gap-1" data-design-toolbar-group="viewport">
+        <For each={VIEWPORT_PRESETS}>
+          {(preset) => (
+            <button
+              type="button"
+              class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+              classList={{
+                "bg-background-base text-text-base": preset.id === props.viewport,
+                "text-text-weak hover:bg-background-base": preset.id !== props.viewport,
+              }}
+              aria-pressed={preset.id === props.viewport}
+              data-design-toolbar-viewport-button={preset.id}
+              onClick={() => props.onViewport(preset.id)}
+              title={preset.label}
+            >
+              {preset.id}
+            </button>
+          )}
+        </For>
+        <span class="text-12-regular text-text-weak" data-design-toolbar-viewport-label>{viewportLabel()}</span>
+      </div>
+      <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+      <div class="flex items-center gap-1" data-design-toolbar-group="zoom">
+        <For each={ZOOM_PRESETS}>
+          {(zoom) => (
+            <button
+              type="button"
+              class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+              classList={{
+                "bg-background-base text-text-base": zoom === props.zoom,
+                "text-text-weak hover:bg-background-base": zoom !== props.zoom,
+              }}
+              aria-pressed={zoom === props.zoom}
+              data-design-toolbar-zoom-button={zoom}
+              onClick={() => props.onZoom(zoom)}
+              title={`${zoom}%`}
+            >
+              {zoom}%
+            </button>
+          )}
+        </For>
+      </div>
+      <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+      <div class="flex items-center gap-1" data-design-toolbar-group="mode">
+        <button
+          type="button"
+          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+          classList={{
+            "bg-background-base text-text-base": props.mode === "preview",
+            "text-text-weak hover:bg-background-base": props.mode !== "preview",
+          }}
+          aria-pressed={props.mode === "preview"}
+          data-design-toolbar-mode-button="preview"
+          onClick={() => props.onMode("preview")}
+        >
+          {t("workbench.design.toolbar.preview")}
+        </button>
+        <button
+          type="button"
+          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+          classList={{
+            "bg-background-base text-text-base": props.mode === "source",
+            "text-text-weak hover:bg-background-base": props.mode !== "source",
+          }}
+          aria-pressed={props.mode === "source"}
+          disabled={!props.hasSource}
+          data-design-toolbar-mode-button="source"
+          onClick={() => props.onMode("source")}
+        >
+          {t("workbench.design.toolbar.source")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export const DEFAULT_TOOLBAR_MODE: DesignToolbarMode = "preview"
+export { DEFAULT_VIEWPORT, DEFAULT_ZOOM }

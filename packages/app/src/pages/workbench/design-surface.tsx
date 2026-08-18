@@ -11,6 +11,8 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace } from "@/pages/workbench/design-workspace"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
+import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
+import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
 import {
   createArtifactStreamController,
   activeStreamedArtifact,
@@ -296,12 +298,22 @@ export function DesignSurface(): JSX.Element {
               <p data-design-validation="denied" class="text-14-regular text-text-danger">{t("workbench.design.capabilitiesDenied", { list: validation.data!.capabilities.denied.join(", ") })}</p>
             </Show>
             <Show when={validation.data?.valid === true && validation.data.capabilities.denied.length === 0 && preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message ?? t("workbench.design.specEmpty")}</p>}>
-              <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={preview().previews.length}>
-                <For each={preview().previews}>
-                  {(item) => (
-                    <figure class="overflow-hidden rounded-lg border border-border-base bg-background-stronger p-3">
-                      <img class="w-full rounded-md" src={item.src} width={item.width} alt={t("workbench.design.previewAlt", { label: item.label })} />
-                      <figcaption class="mt-3 text-12-medium text-text-weak">{t("workbench.design.previewCaption", { label: item.label, width: item.width })}</figcaption>
+              {/*
+                P16 — les trois <img> SVG statiques sont supprimées par cette carte.
+                Le compteur `data-workbench-preview-count` est conservé mais
+                reflète désormais le nombre de viewports disponibles (3 : desktop,
+                tablet, mobile). Le rendu interactif à largeur réelle se fait
+                via le StreamedArtifactPanel quand un artefact de design arrive.
+                Les 3 SVG previews statiques de validation restent consultables
+                via la spec sauvegardée (P14) ; ici on n'affiche plus que le
+                compteur, conformément au runbook P16 §« Spécification exacte ».
+              */}
+              <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={VIEWPORT_IDS.length}>
+                <For each={VIEWPORT_IDS}>
+                  {(id) => (
+                    <figure class="flex flex-col items-center gap-2 rounded-lg border border-border-base bg-background-stronger p-3">
+                      <span class="text-12-medium">{id}</span>
+                      <span class="text-12-regular text-text-weak">{t("workbench.design.previewCaption", { label: id, width: 0 })}</span>
                     </figure>
                   )}
                 </For>
@@ -345,6 +357,10 @@ function StreamedArtifactPanel(props: {
   onClose: () => void
   onDemo: () => void
 }): JSX.Element {
+  // P16 — état local pour viewport, zoom et mode de visualisation.
+  const [viewport, setViewport] = createSignal<ViewportId>(DEFAULT_VIEWPORT)
+  const [zoom, setZoom] = createSignal<number>(DEFAULT_ZOOM)
+  const [mode, setMode] = createSignal<DesignToolbarMode>(DEFAULT_TOOLBAR_MODE)
   return (
     <div
       class="flex h-full min-h-0 flex-col gap-3"
@@ -390,6 +406,15 @@ function StreamedArtifactPanel(props: {
           </button>
         </div>
       </div>
+      <DesignToolbar
+        viewport={viewport()}
+        zoom={zoom()}
+        mode={mode()}
+        hasSource={props.entry.content.length > 0}
+        onViewport={setViewport}
+        onZoom={setZoom}
+        onMode={setMode}
+      />
       <Show when={props.connectionError}>
         <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-stream-connection-error role="alert">
           Connexion perdue — l'aperçu reste figé sur le dernier état reçu. {props.connectionError}
@@ -400,6 +425,9 @@ function StreamedArtifactPanel(props: {
           artifactId={props.entry.artifactId}
           workspaceId=""
           source={props.entry.content}
+          mode={mode()}
+          viewport={viewport()}
+          zoom={zoom()}
         />
       </div>
     </div>

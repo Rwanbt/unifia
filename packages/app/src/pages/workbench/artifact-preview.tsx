@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Match, Show, Switch, createEffect, createSignal, onCleanup, type JSX } from "solid-js"
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import {
   buildSrcdoc,
   htmlNeedsFocusGuard,
   htmlNeedsStorageShim,
   shouldUrlLoad,
+  DEFAULT_VIEWPORT,
+  DEFAULT_ZOOM,
+  effectiveScale,
+  findViewport,
   type RenderDecision,
   type SrcdocOptions,
+  type ViewportId,
 } from "@unifia/artifact-render"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
@@ -18,6 +23,7 @@ import {
   ALLOWED_SENT_TYPES,
   PREVIEW_SANDBOX,
 } from "@/pages/workbench/artifact-preview-protocol"
+import type { DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 
 /**
  * Re-export of the protocol catalogue so other files in this folder
@@ -35,6 +41,12 @@ export function ArtifactPreview(props: {
   source?: string
   /** Forwarded to buildSrcdoc — storage shim and focus guard are on by default. */
   srcdocOptions?: SrcdocOptions
+  /** P16 — mode "preview" (iframe) ou "source" (texte readonly). */
+  mode?: DesignToolbarMode
+  /** P16 — viewport pour la mise à l'échelle du container iframe. */
+  viewport?: ViewportId
+  /** P16 — multiplicateur zoom utilisateur en % (50/75/100/125/150/200). */
+  zoom?: number
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -145,34 +157,94 @@ export function ArtifactPreview(props: {
     })
   }
 
+  // P16 — mode "preview" (par défaut) ou "source" ; viewport pour la mise
+  // à l'échelle du container iframe ; zoom utilisateur.
+  const currentMode = (): DesignToolbarMode => props.mode ?? "preview"
+  const currentViewport = (): ViewportId => props.viewport ?? DEFAULT_VIEWPORT
+  const currentZoom = (): number => props.zoom ?? DEFAULT_ZOOM
+  const preset = createMemo(() => findViewport(currentViewport()))
+  // Canvas size observed via ResizeObserver on the container wrapper.
+  const [canvas, setCanvas] = createSignal({ width: 0, height: 0 })
+  let container: HTMLDivElement | undefined
+  function onContainerMount(element: HTMLDivElement): void {
+    container = element
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      setCanvas({ width, height })
+    })
+    ro.observe(element)
+    onCleanup(() => ro.disconnect())
+  }
+  const scale = createMemo(() => effectiveScale(currentViewport(), canvas().width, canvas().height, currentZoom()))
+
   return (
-    <div class="flex h-full min-h-0 flex-col" data-design-preview-mount data-design-preview-render-mode={renderMode()}>
-      <Show
-        when={!rawQuery.error || inlineProvided()}
-        fallback={
-          <PreviewError
-            title={t("design.preview.errorTitle")}
-            message={
-              rawQuery.error instanceof Error
-                ? rawQuery.error.message
-                : t("design.preview.errorRead")
-            }
-          />
-        }
-      >
+    <div
+      class="flex h-full min-h-0 flex-col"
+      data-design-preview-mount
+      data-design-preview-render-mode={renderMode()}
+      data-design-preview-mode={currentMode()}
+      data-design-preview-viewport={currentViewport()}
+      data-design-preview-zoom={currentZoom()}
+    >
+      <Show when={currentMode() === "source"} fallback={
         <Show
-          when={source() !== undefined && source() !== ""}
-          fallback={<PreviewError title={t("design.preview.empty")} message={t("design.preview.emptyHint")} />}
+          when={!rawQuery.error || inlineProvided()}
+          fallback={
+            <PreviewError
+              title={t("design.preview.errorTitle")}
+              message={
+                rawQuery.error instanceof Error
+                  ? rawQuery.error.message
+                  : t("design.preview.errorRead")
+              }
+            />
+          }
         >
-          <iframe
-            ref={onMount}
-            sandbox={PREVIEW_SANDBOX}
-            srcdoc={srcdoc()}
-            data-design-preview="html"
-            title={t("design.preview.title")}
-            class="size-full border-0"
-          />
+          <Show
+            when={source() !== undefined && source() !== ""}
+            fallback={<PreviewError title={t("design.preview.empty")} message={t("design.preview.emptyHint")} />}
+          >
+            <div
+              ref={onContainerMount}
+              class="relative size-full overflow-auto"
+              data-design-preview-canvas={JSON.stringify(canvas)}
+              data-design-preview-scale={scale()}
+            >
+              <div
+                class="origin-top-center"
+                style={{
+                  width: `${preset().width}px`,
+                  height: `${preset().height}px`,
+                  transform: `scale(${scale()})`,
+                }}
+                data-design-preview-frame
+              >
+                <iframe
+                  ref={onMount}
+                  sandbox={PREVIEW_SANDBOX}
+                  srcdoc={srcdoc()}
+                  data-design-preview="html"
+                  title={t("design.preview.title")}
+                  class="size-full border-0"
+                />
+              </div>
+            </div>
+          </Show>
         </Show>
+      }>
+        <div
+          ref={onContainerMount}
+          class="size-full overflow-auto"
+          data-design-preview-source
+        >
+          <pre class="size-full whitespace-pre-wrap break-words p-4 font-mono text-12-regular text-text-base" data-design-preview-source-text>
+            <Show when={source() !== undefined && source() !== ""} fallback={t("workbench.design.toolbar.sourceEmpty")}>
+              {source()}
+            </Show>
+          </pre>
+        </div>
       </Show>
       <Show when={lastMessage()}>
         {(message) => (

@@ -1855,4 +1855,11 @@ export const dict = {
   "workbench.export.exported": "{{path}} eksporteret",
   "workbench.export.noResult": "Eksporten blev accepteret, men har intet resultat endnu",
   "workbench.export.failed": "Artefakteksport mislykkedes",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "Visningsvindue",
+  "workbench.design.toolbar.zoom": "Forstørrelse",
+  "workbench.design.toolbar.source": "Kilde",
+  "workbench.design.toolbar.preview": "Forhåndsvisning",
+  "workbench.design.toolbar.sourceEmpty": "Ingen kilde tilgængelig endnu.",
 }

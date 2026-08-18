@@ -1800,4 +1800,10 @@ export const dict = {
   "workbench.export.exported": "{{path}} exportiert",
   "workbench.export.noResult": "Export wurde akzeptiert, hat aber noch kein Ergebnis",
   "workbench.export.failed": "Artefakt-Export fehlgeschlagen",
+  "workbench.design.toolbar.viewport": "Ansichtsfenster",
+  "workbench.design.toolbar.zoom": "Vergrößerung",
+  "workbench.design.toolbar.source": "Quelle",
+  "workbench.design.toolbar.preview": "Vorschau",
+  "workbench.design.toolbar.sourceEmpty": "Noch keine Quelle verfügbar.",
+
 } satisfies Partial<Record<Keys, string>>

@@ -1787,4 +1787,11 @@ export const dict = {
   "workbench.export.exported": "Экспортировано: {{path}}",
   "workbench.export.noResult": "Экспорт принят, но результата пока нет",
   "workbench.export.failed": "Не удалось экспортировать артефакт",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "Область просмотра",
+  "workbench.design.toolbar.zoom": "Увеличение",
+  "workbench.design.toolbar.source": "Источник",
+  "workbench.design.toolbar.preview": "Предпросмотр",
+  "workbench.design.toolbar.sourceEmpty": "Источник пока недоступен.",
 }

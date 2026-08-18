@@ -1784,4 +1784,10 @@ export const dict = {
   "workbench.export.exported": "{{path}} dışa aktarıldı",
   "workbench.export.noResult": "Dışa aktarma kabul edildi ancak henüz sonuç yok",
   "workbench.export.failed": "Yapıt dışa aktarımı başarısız",
+  "workbench.design.toolbar.viewport": "Görüntü alanı",
+  "workbench.design.toolbar.zoom": "Büyütme",
+  "workbench.design.toolbar.source": "Kaynak",
+  "workbench.design.toolbar.preview": "Önizleme",
+  "workbench.design.toolbar.sourceEmpty": "Henüz kaynak yok.",
+
 } satisfies Partial<Record<Keys, string>>

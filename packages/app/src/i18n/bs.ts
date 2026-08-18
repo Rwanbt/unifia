@@ -1861,4 +1861,11 @@ export const dict = {
   "workbench.export.exported": "Izvezeno {{path}}",
   "workbench.export.noResult": "Izvoz je prihvaćen, ali još nema rezultata",
   "workbench.export.failed": "Izvoz artefakta nije uspio",
+
+  // P16 placeholder (English text) — translate before production
+  "workbench.design.toolbar.viewport": "Okvir",
+  "workbench.design.toolbar.zoom": "Uvećanje",
+  "workbench.design.toolbar.source": "Izvor",
+  "workbench.design.toolbar.preview": "Pregled",
+  "workbench.design.toolbar.sourceEmpty": "Izvor još nije dostupan.",
 }

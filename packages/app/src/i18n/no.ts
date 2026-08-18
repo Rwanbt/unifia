@@ -1780,4 +1780,10 @@ export const dict = {
   "workbench.export.exported": "{{path}} eksportert",
   "workbench.export.noResult": "Eksporten ble akseptert, men har ikke noe resultat ennå",
   "workbench.export.failed": "Artefakteksport feilet",
+  "workbench.design.toolbar.viewport": "Visningsvindu",
+  "workbench.design.toolbar.zoom": "Forstørrelse",
+  "workbench.design.toolbar.source": "Kilde",
+  "workbench.design.toolbar.preview": "Forhåndsvisning",
+  "workbench.design.toolbar.sourceEmpty": "Ingen kilde tilgjengelig ennå.",
+
 } satisfies Partial<Record<Keys, string>>
