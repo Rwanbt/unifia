@@ -8,7 +8,7 @@ import { InMemoryMemoryStore, MemoryRuntime } from "@unifia/memory-runtime"
 import { ArtifactStore } from "@unifia/artifact-runtime"
 import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
-import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub"
+import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub/node"
 import { ApprovalCapabilityGate, FixedWindowRateLimiter, HmacTokenAuthenticator, UnauthenticatedPrincipal, WorkbenchServer, sseFrame } from "../src/index.js"
 
 /**

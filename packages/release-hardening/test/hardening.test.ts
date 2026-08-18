@@ -73,7 +73,7 @@ const entries: HardeningEntry[] = [
     scenario: "malicious update manifest",
     kind: "executed",
     run: async () => {
-      const { InMemorySkillRegistry } = await import("@unifia/skill-hub")
+      const { InMemorySkillRegistry } = await import("@unifia/skill-hub/node")
       const registry = new InMemorySkillRegistry(() => 1_000)
       const artifact = new TextEncoder().encode("payload")
       // A manifest whose digest does not match its artefact is refused.

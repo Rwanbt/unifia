@@ -28,7 +28,7 @@ import { dirname, join, resolve, sep } from "node:path"
 import { argv, cwd, exit, stderr, stdout } from "node:process"
 import { fileURLToPath } from "node:url"
 
-import { importCatalogs, SKIP_REASONS } from "@unifia/design-system-runtime"
+import { importCatalogs, SKIP_REASONS } from "@unifia/design-system-runtime/node"
 import { migrateWorkspaceManifest } from "@unifia/contracts"
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..")
