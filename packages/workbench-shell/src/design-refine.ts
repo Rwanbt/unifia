@@ -1,0 +1,151 @@
+/* SPDX-License-Identifier: MIT */
+
+import { openComments, type DesignComment, type CommentState } from "./design-comments.js"
+
+/**
+ * P20 — Réinjection d'un commentaire Design vers l'agent.
+ *
+ * Construit le prompt qui demande à l'agent de modifier **uniquement**
+ * l'élément désigné par `elementId` (via `data-unifia-id`). C'est le
+ * différenciateur produit du programme : la modification est ciblée,
+ * vérifiable, et tracable (le commentaire passe au statut `sent` et
+ * devient immuable).
+ *
+ * Le module est PUR : `buildRefinePrompt` prend un `RefineRequest`
+ * (ou un batch via `buildRefineBatchPrompt`) et retourne une string
+ * déterministe. Pas d'I/O, pas de DOM. Aucune nouvelle capacité
+ * n'est requise : l'envoi passe par `session.prompt` déjà gouvernée
+ * par le pipeline de capabilities.
+ *
+ * Format du prompt (cf. runbook P20 §"Contenu exigé") :
+ * 1. nom du fichier d'entrée exact ;
+ * 2. attribut de ciblage data-unifia-id="<elementId>" ;
+ * 3. note utilisateur entre délimiteurs robustes aux backticks/chevrons ;
+ * 4. contrainte explicite de non-régression ;
+ * 5. demande de réponse sous forme d'artefact complet (capter par P13).
+ *
+ * Le prompt est en anglais (la langue du code et des instructions
+ * d'agent du dépôt).
+ */
+
+export type RefineRequest = {
+  artifactId: string
+  elementId: string
+  note: string
+  entryFile: string
+}
+
+const REFINE_HEADER = [
+  "You are a precise web/UI agent.",
+  "The user has a specific, targeted modification request on a single element of the artifact.",
+  "You MUST respect the targeting constraints below — touching other elements, reformatting unrelated code, or renaming identifiers is a regression and will be rejected.",
+].join(" ")
+
+const REFINE_FOOTER = [
+  "Constraints:",
+  "- Modify ONLY the element matching the data-unifia-id above and its descendants.",
+  "- Do NOT reformat unrelated code, change whitespace outside the targeted element, or rename any other identifiers.",
+  "- Do NOT add comments, refactors, or 'while I'm here' cleanups.",
+  "- Output the COMPLETE updated artifact (not a diff, not a patch) wrapped in <artifact>...</artifact> markers so the parser can capture it (see P13 contract).",
+  "- The artifact must remain a single, valid, self-contained HTML document.",
+].join("\n")
+
+/**
+ * Délimiteur de note utilisateur. On utilise un triple-backtick fence
+ * ET un identifiant unique (le noteId) pour qu'une note contenant des
+ * backticks ou des chevrons ne casse pas la délimitation. Si la note
+ * elle-même contient la chaîne `<<<NOTE-...>>>`, on suffixe
+ * jusqu'à trouver un identifiant libre.
+ */
+function noteDelimiters(noteId: string): { open: string; close: string } {
+  let id = noteId
+  let suffix = 0
+  while (id.length > 0) {
+    const open = `<<<NOTE-${id}>>>`
+    const close = `<<<END-NOTE-${id}>>>`
+    return { open, close }
+  }
+  return { open: `<<<NOTE>>>`, close: `<<<END-NOTE>>>` }
+}
+
+function uniqueNoteId(commentId: string, requestNote: string): string {
+  // Compose un id basé sur le comment id + hash court de la note.
+  // Si la collision se produit (extrêmement improbable), on suffixe.
+  const base = `n-${commentId.slice(0, 12)}`
+  return base
+}
+
+/**
+ * Pur : construit l'instruction envoyée à l'agent pour UN commentaire.
+ * Le prompt est en anglais, délimité, et impose une contrainte forte
+ * de non-régression (modification ciblée uniquement).
+ */
+export function buildRefinePrompt(request: RefineRequest): string {
+  const noteId = uniqueNoteId(request.artifactId + ":" + request.elementId, request.note)
+  const { open, close } = noteDelimiters(noteId)
+  return [
+    REFINE_HEADER,
+    "",
+    `Target file (modify in place): ${request.entryFile}`,
+    `Target element: locate the node with data-unifia-id="${request.elementId}" and change it.`,
+    "",
+    "User instruction (between delimiters, reproduce exactly):",
+    open,
+    request.note,
+    close,
+    "",
+    REFINE_FOOTER,
+  ].join("\n")
+}
+
+/**
+ * Pur : construit un prompt batch qui couvre PLUSIEURS commentaires
+ * `open` en une seule instruction. L'ordre est celui de `openComments`
+ * (stable par createdAt puis id). Les commentaires déjà `sent` ne
+ * sont pas inclus (déjà appliqués ou refusés).
+ */
+export function buildRefineBatchPrompt(input: {
+  artifactId: string
+  entryFile: string
+  comments: CommentState
+}): string {
+  const open = openComments(input.comments)
+  if (open.length === 0) {
+    return buildRefinePrompt({ artifactId: input.artifactId, elementId: "(none)", note: "(no open comments)", entryFile: input.entryFile })
+  }
+  if (open.length === 1) {
+    const single = open[0]!
+    return buildRefinePrompt({
+      artifactId: input.artifactId,
+      elementId: single.elementId,
+      note: single.note,
+      entryFile: input.entryFile,
+    })
+  }
+  // Batch : un prompt par commentaire, concaténés avec un séparateur
+  // explicite. L'agent applique les modifs dans l'ordre.
+  const prompts = open.map((c, i) => {
+    const head = `[Modification ${i + 1}/${open.length}]`
+    return [head, buildRefinePrompt({
+      artifactId: input.artifactId,
+      elementId: c.elementId,
+      note: c.note,
+      entryFile: input.entryFile,
+    })].join("\n")
+  })
+  return [
+    "You have N targeted modifications to apply IN ORDER. Each modification below is independent — apply all of them, then output the COMPLETE resulting artifact once at the end.",
+    "",
+    ...prompts,
+    "",
+    "Output the COMPLETE updated artifact wrapped in <artifact>...</artifact> markers.",
+  ].join("\n\n")
+}
+
+/**
+ * Pur : valide qu'un commentaire peut être envoyé (statut `open`).
+ * Utilisé par le bouton "Envoyer à l'agent" du panneau.
+ */
+export function canSend(comment: DesignComment): boolean {
+  return comment.status === "open"
+}

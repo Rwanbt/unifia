@@ -4,6 +4,8 @@ import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import {
   EMPTY_COMMENT_STATE,
   addComment,
+  buildRefineBatchPrompt,
+  canSend,
   commentsForElement,
   markResolved,
   markSent,
@@ -16,25 +18,30 @@ import {
 import { CommentPopover } from "@/pages/workbench/comment-popover"
 
 /**
- * P19 — Panneau latéral listant les commentaires Design d'un artefact.
+ * P19 + P20 — Panneau latéral listant les commentaires Design d'un
+ * artefact ET câblant l'envoi à l'agent.
  *
- * Trois zones : Ouverts (éditables), Envoyés (immutables, P20 câblera
- * l'envoi à l'agent), Résolus (immutables, traçabilité).
+ * Trois zones : Ouverts (éditables, envoyables), Envoyés (immutables,
+ * P20 marque `sent` après l'envoi), Résolus (immutables, traçabilité).
  *
- * Le popover (cf. comment-popover.tsx) est affiché inline quand
- * l'utilisateur clique "Ajouter un commentaire". Le commentaire est
- * attaché à l'élément passé via `targetElementId` (l'élément
- * sélectionné via P18 dans une carte future).
+ * P20 — Le bouton "Tout envoyer" duplique le contenu de chaque open
+ * via `buildRefineBatchPrompt` et appelle `props.onSendBatch(prompt)`.
+ * Le parent (design-surface) décide comment router le prompt vers
+ * l'agent (typiquement `session.prompt` avec un agent "build" dédié).
  */
 export function CommentPanel(props: {
   artifactId: string
   state: CommentState
+  entryFile: string
   targetElementId: string | undefined
   onChange: (state: CommentState) => void
+  onSendBatch: (prompt: string) => void
+  onSendOne: (prompt: string) => void
 }): JSX.Element {
   const [editingId, setEditingId] = createSignal<string | undefined>()
   const [draft, setDraft] = createSignal("")
   const [popoverOpen, setPopoverOpen] = createSignal(false)
+  const [sending, setSending] = createSignal(false)
 
   const open = createMemo(() => openComments(props.state))
   const sent = createMemo(() => props.state.comments.filter((c) => c.status === "sent"))
@@ -55,6 +62,38 @@ export function CommentPanel(props: {
     }
     props.onChange(addComment(props.state, comment))
     setPopoverOpen(false)
+  }
+
+  function sendOne(commentId: string): void {
+    const c = props.state.comments.find((x) => x.id === commentId)
+    if (!c || !canSend(c)) return
+    const prompt = buildRefineBatchPrompt({
+      artifactId: props.artifactId,
+      entryFile: props.entryFile,
+      comments: { comments: [c] },
+    })
+    setSending(true)
+    props.onSendOne(prompt)
+    props.onChange(markSent(props.state, commentId))
+    setSending(false)
+  }
+
+  function sendBatch(): void {
+    if (open().length === 0) return
+    const prompt = buildRefineBatchPrompt({
+      artifactId: props.artifactId,
+      entryFile: props.entryFile,
+      comments: props.state,
+    })
+    setSending(true)
+    props.onSendBatch(prompt)
+    // Marque tous les open comme sent
+    let next = props.state
+    for (const c of open()) {
+      next = markSent(next, c.id)
+    }
+    props.onChange(next)
+    setSending(false)
   }
 
   return (
@@ -92,7 +131,19 @@ export function CommentPanel(props: {
       </Show>
       <Show when={open().length > 0}>
         <section data-comment-section="open">
-          <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Ouverts ({open().length})</h3>
+          <div class="flex items-center justify-between">
+            <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Ouverts ({open().length})</h3>
+            <button
+              type="button"
+              class="rounded bg-primary px-2 py-1 text-12-medium text-primary-foreground disabled:opacity-50"
+              data-comment-panel-send-all
+              disabled={open().length === 0 || sending()}
+              onClick={() => sendBatch()}
+              title="Construit le prompt via buildRefineBatchPrompt et l'envoie à l'agent (P20)"
+            >
+              {sending() ? "Envoi…" : `Envoyer ${open().length} à l'agent`}
+            </button>
+          </div>
           <ul class="mt-2 flex flex-col gap-2">
             <For each={open()}>
               {(c) => (
@@ -106,10 +157,10 @@ export function CommentPanel(props: {
                     <div class="flex items-center gap-1">
                       <button
                         type="button"
-                        class="rounded px-1 text-10-regular text-text-weak hover:text-text-base"
-                        data-comment-row-send
-                        title="Marquer comme envoyé (P20 câblera le vrai prompt)"
-                        onClick={() => props.onChange(markSent(props.state, c.id))}
+                        class="rounded bg-primary px-1 text-10-medium text-primary-foreground disabled:opacity-50"
+                        data-comment-row-send-one
+                        title="Envoyer ce commentaire ciblé uniquement (markSent après)"
+                        onClick={() => sendOne(c.id)}
                       >
                         Envoyer
                       </button>

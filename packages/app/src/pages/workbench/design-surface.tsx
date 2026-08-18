@@ -12,7 +12,9 @@ import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace } from "@/pages/workbench/design-workspace"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
+import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
+import { EMPTY_COMMENT_STATE, type CommentState } from "@unifia/workbench-shell"
 import {
   createArtifactStreamController,
   activeStreamedArtifact,
@@ -53,6 +55,24 @@ export function DesignSurface(): JSX.Element {
   // exposé au reste de la surface (panneau live + persistance automatique).
   const stream = createArtifactStreamController({ debounceMs: 100 })
   const [streamPersisted, setStreamPersisted] = createSignal<ReadonlySet<string>>(new Set())
+
+  // P19 + P20 — Panneau de commentaires. Le `targetElementId` sera
+  // fourni par P18 (sélection) ; en attendant, le panneau affiche
+  // "selectionnez un élément".
+  const [commentState, setCommentState] = createSignal<CommentState>(EMPTY_COMMENT_STATE)
+  const [commentTarget, setCommentTarget] = createSignal<string | undefined>(undefined)
+  const [commentArtifactId, setCommentArtifactId] = createSignal<string>("")
+  const [commentEntryFile, setCommentEntryFile] = createSignal<string>("design/index.html")
+  function handleSendBatch(prompt: string): void {
+    // P20 — câblage effectif au session.prompt. Stub pour l'instant :
+    // on logge le prompt dans saveMessage. Le vrai prompt
+    // (via session.prompt avec agent "build") sera ajouté quand
+    // le pipeline sera complet.
+    setSaveMessage(`Prompt batch (${prompt.length} caractères) prêt à envoyer`)
+  }
+  function handleSendOne(prompt: string): void {
+    setSaveMessage(`Prompt ciblé (${prompt.length} caractères) prêt à envoyer`)
+  }
   let lastConnectionPhase: ReturnType<typeof workbench.phase> | undefined
   createEffect(() => {
     const phase = workbench.phase()
@@ -249,6 +269,17 @@ export function DesignSurface(): JSX.Element {
               fallback={<StreamedArtifactPanel entry={activeStreamedArtifact(stream.renderState())!} connectionError={stream.renderState().connectionError} onClose={() => stream.reset()} onDemo={pushDemoStream} />}
             >
               <DesignWorkspace />
+            </Show>
+            <Show when={activeStreamedArtifact(stream.renderState())}>
+              <CommentPanel
+                artifactId={activeStreamedArtifact(stream.renderState())?.artifactId ?? commentArtifactId()}
+                state={commentState()}
+                entryFile={commentEntryFile()}
+                targetElementId={commentTarget()}
+                onChange={setCommentState}
+                onSendBatch={handleSendBatch}
+                onSendOne={handleSendOne}
+              />
             </Show>
             <Show when={manifest.error}>
               <p data-design-manifest="failed" class="text-14-regular text-text-danger">{manifest.error instanceof Error ? manifest.error.message : String(manifest.error)}</p>
