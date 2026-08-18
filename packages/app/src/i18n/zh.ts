@@ -1856,4 +1856,16 @@ export const dict = {
   "workbench.design.toolbar.preview": "预览",
   "workbench.design.toolbar.sourceEmpty": "暂无可用源。",
 
+  "design.preview.title": "制品预览",
+  "design.preview.empty": "暂无预览",
+  "design.preview.emptyHint": "生成一个制品即可在此查看渲染结果。",
+  "design.preview.errorTitle": "预览不可用",
+  "design.preview.errorRead": "无法读取制品源文件。",
+  "design.preview.lastMessage": "最近的桥接消息：{{type}}",
+  "design.split.handle": "调整对话面板宽度",
+  "design.workspace.tabsLabel": "已打开的制品",
+  "design.workspace.closeTab": "关闭 {{title}}",
+  "design.workspace.empty": "尚未打开任何内容",
+  "design.workspace.emptyHint": "代理生成制品后将在此显示。",
+  "design.workspace.demo": "显示演示预览",
 } satisfies Partial<Record<Keys, string>>

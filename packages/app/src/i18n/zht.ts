@@ -1852,4 +1852,16 @@ export const dict = {
   "workbench.design.toolbar.preview": "預覽",
   "workbench.design.toolbar.sourceEmpty": "尚無可用來源。",
 
+  "design.preview.title": "製品預覽",
+  "design.preview.empty": "尚無預覽",
+  "design.preview.emptyHint": "產生一個製品即可在此檢視算繪結果。",
+  "design.preview.errorTitle": "預覽無法使用",
+  "design.preview.errorRead": "無法讀取製品原始檔。",
+  "design.preview.lastMessage": "最近的橋接訊息：{{type}}",
+  "design.split.handle": "調整對話面板寬度",
+  "design.workspace.tabsLabel": "已開啟的製品",
+  "design.workspace.closeTab": "關閉 {{title}}",
+  "design.workspace.empty": "尚未開啟任何內容",
+  "design.workspace.emptyHint": "代理產生製品後將在此顯示。",
+  "design.workspace.demo": "顯示示範預覽",
 } satisfies Partial<Record<Keys, string>>

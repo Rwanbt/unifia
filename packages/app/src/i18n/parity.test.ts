@@ -206,12 +206,22 @@ describe("i18n parity", () => {
     }
   })
 
-  test("every language.t() key referenced in components exists in en.ts or the UI package dictionary", () => {
-    const componentsDir = join(import.meta.dir, "..", "components")
-    const used = collectUsedKeys(componentsDir)
-    const missing = [...used].filter((key) => !(key in en) && !(key in uiEn)).sort()
-    expect(missing).toEqual([])
-  })
+  // WHY both trees are scanned: until 2026-08-18 this test walked only
+  // `components/`, so the twelve `design.*` keys introduced by the Workbench
+  // Design surfaces under `pages/workbench/` were never checked. They existed
+  // in no locale, `i18n.translator` returned undefined for each, and the whole
+  // right-hand column of Design mode rendered as blank paragraphs while every
+  // guard stayed green. Any directory that calls `language.t()` belongs here.
+  const T_CALLER_DIRS = ["components", "pages"] as const
+
+  for (const dirName of T_CALLER_DIRS) {
+    test(`every language.t() key referenced in ${dirName} exists in en.ts or the UI package dictionary`, () => {
+      const dir = join(import.meta.dir, "..", dirName)
+      const used = collectUsedKeys(dir)
+      const missing = [...used].filter((key) => !(key in en) && !(key in uiEn)).sort()
+      expect(missing, `${dirName}: keys used in code but absent from every dictionary`).toEqual([])
+    })
+  }
 
   test("audited settings scope (Audio/Configuration/Benchmark/Android/Plugins/RemoteAccess/GitAuth/LocalAI/Debate) has dedicated translations in every locale", () => {
     const scopeKeys = Object.keys(en).filter((key) => AUDITED_SCOPE_PREFIXES.some((prefix) => key.startsWith(prefix)))

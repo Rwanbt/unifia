@@ -1806,4 +1806,16 @@ export const dict = {
   "workbench.design.toolbar.preview": "Vorschau",
   "workbench.design.toolbar.sourceEmpty": "Noch keine Quelle verfügbar.",
 
+  "design.preview.title": "Artefakt-Vorschau",
+  "design.preview.empty": "Noch keine Vorschau",
+  "design.preview.emptyHint": "Erzeuge ein Artefakt, um es hier gerendert zu sehen.",
+  "design.preview.errorTitle": "Vorschau nicht verfügbar",
+  "design.preview.errorRead": "Die Artefaktquelle konnte nicht gelesen werden.",
+  "design.preview.lastMessage": "Letzte Bridge-Nachricht: {{type}}",
+  "design.split.handle": "Chat-Bereich anpassen",
+  "design.workspace.tabsLabel": "Geöffnete Artefakte",
+  "design.workspace.closeTab": "{{title}} schließen",
+  "design.workspace.empty": "Nichts geöffnet",
+  "design.workspace.emptyHint": "Ein Artefakt erscheint hier, sobald der Agent eines erzeugt.",
+  "design.workspace.demo": "Demo-Vorschau anzeigen",
 } satisfies Partial<Record<Keys, string>>

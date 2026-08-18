@@ -1786,4 +1786,16 @@ export const dict = {
   "workbench.design.toolbar.preview": "Forhåndsvisning",
   "workbench.design.toolbar.sourceEmpty": "Ingen kilde tilgjengelig ennå.",
 
+  "design.preview.title": "Forhåndsvisning av artefakt",
+  "design.preview.empty": "Ingen forhåndsvisning ennå",
+  "design.preview.emptyHint": "Generer et artefakt for å se det gjengitt her.",
+  "design.preview.errorTitle": "Forhåndsvisning utilgjengelig",
+  "design.preview.errorRead": "Kilden til artefaktet kunne ikke leses.",
+  "design.preview.lastMessage": "Siste bromelding: {{type}}",
+  "design.split.handle": "Endre størrelse på samtalepanelet",
+  "design.workspace.tabsLabel": "Åpne artefakter",
+  "design.workspace.closeTab": "Lukk {{title}}",
+  "design.workspace.empty": "Ingenting åpent",
+  "design.workspace.emptyHint": "Et artefakt vises her så snart agenten lager ett.",
+  "design.workspace.demo": "Vis demovisning",
 } satisfies Partial<Record<Keys, string>>

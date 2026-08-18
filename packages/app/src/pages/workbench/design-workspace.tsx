@@ -3,7 +3,6 @@
 import { For, Show, type JSX, createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
-import { useMode } from "@/context/mode"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import {
@@ -15,9 +14,18 @@ import {
   type DesignTabState,
 } from "@/pages/workbench/design-tabs"
 
-export function DesignWorkspace(): JSX.Element {
+/**
+ * P11/P15 — surface d'accueil de la colonne droite du mode Design.
+ *
+ * WHY `onDemo` : tant qu'aucun agent `design-agent` ne pousse d'events
+ * `artifact:*`, l'état vide était le seul état atteignable et l'iframe
+ * d'aperçu restait structurellement inaccessible depuis l'UI. Le seul
+ * déclencheur de flux vivait à l'intérieur du panneau qui n'existe que
+ * lorsqu'un flux est déjà actif — un cycle. Exposer le déclencheur ici
+ * casse ce cycle sans anticiper le câblage agent.
+ */
+export function DesignWorkspace(props: { onDemo?: () => void } = {}): JSX.Element {
   const language = useLanguage()
-  const mode = useMode()
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   const t = language.t
@@ -84,6 +92,16 @@ export function DesignWorkspace(): JSX.Element {
             >
               <p class="text-14-medium text-text-weak">{t("design.workspace.empty")}</p>
               <p class="text-12-regular text-text-weak">{t("design.workspace.emptyHint")}</p>
+              <Show when={props.onDemo}>
+                <button
+                  type="button"
+                  class="mt-2 rounded border border-border-base px-3 py-2 text-12-medium text-text-base hover:bg-background-stronger"
+                  data-design-workspace-demo
+                  onClick={() => props.onDemo?.()}
+                >
+                  {t("design.workspace.demo")}
+                </button>
+              </Show>
             </div>
           }
         >

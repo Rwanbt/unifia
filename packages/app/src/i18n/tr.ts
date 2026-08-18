@@ -1790,4 +1790,16 @@ export const dict = {
   "workbench.design.toolbar.preview": "Önizleme",
   "workbench.design.toolbar.sourceEmpty": "Henüz kaynak yok.",
 
+  "design.preview.title": "Yapı önizlemesi",
+  "design.preview.empty": "Henüz önizleme yok",
+  "design.preview.emptyHint": "Burada görmek için bir yapı üret.",
+  "design.preview.errorTitle": "Önizleme kullanılamıyor",
+  "design.preview.errorRead": "Yapının kaynağı okunamadı.",
+  "design.preview.lastMessage": "Son köprü mesajı: {{type}}",
+  "design.split.handle": "Sohbet panelini yeniden boyutlandır",
+  "design.workspace.tabsLabel": "Açık yapılar",
+  "design.workspace.closeTab": "{{title}} kapat",
+  "design.workspace.empty": "Açık bir şey yok",
+  "design.workspace.emptyHint": "Aracı bir yapı ürettiğinde burada görünür.",
+  "design.workspace.demo": "Tanıtım önizlemesini göster",
 } satisfies Partial<Record<Keys, string>>

@@ -289,7 +289,7 @@ export function DesignSurface(): JSX.Element {
               when={!activeStreamedArtifact(stream.renderState())}
               fallback={<StreamedArtifactPanel entry={activeStreamedArtifact(stream.renderState())!} connectionError={stream.renderState().connectionError} onClose={() => stream.reset()} onDemo={pushDemoStream} />}
             >
-              <DesignWorkspace />
+              <DesignWorkspace onDemo={pushDemoStream} />
             </Show>
             <Show when={activeStreamedArtifact(stream.renderState())}>
               <CommentPanel
