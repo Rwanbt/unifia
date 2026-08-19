@@ -5,9 +5,8 @@ import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
-import { WorkbenchChat } from "@/pages/workbench-chat"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
-import { ConnectionBanner } from "@/pages/workbench/connection-banner"
+import { WorkbenchThread } from "@/pages/workbench/workbench-thread"
 import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace } from "@/pages/workbench/design-workspace"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
@@ -279,19 +278,12 @@ export function DesignSurface(): JSX.Element {
     <section class="size-full" data-workbench-surface="design">
       <DesignSplit
         chat={
-          <div class="flex h-full min-h-0 flex-col gap-4 overflow-auto p-6">
-            <header class="space-y-2">
-              <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.design.title")}</p>
-              <h1 class="text-24-medium">{t("workbench.design.heading")}</h1>
-              <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.design.description")}</p>
-            </header>
-            <ConnectionBanner dataAttr="design-connection" dataRetryAttr="design-retry" />
-            <WorkbenchChat
-              mode="design"
-              prompt={t("workbench.design.chatPrompt")}
-              description={t("workbench.design.chatDescription")}
-            />
-          </div>
+          <WorkbenchThread
+            mode="design"
+            prompt={t("workbench.design.chatPrompt")}
+            description={t("workbench.design.description")}
+            connection={{ dataAttr: "design-connection", dataRetryAttr: "design-retry" }}
+          />
         }
         workspace={
           <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6">

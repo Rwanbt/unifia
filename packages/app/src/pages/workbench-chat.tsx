@@ -4,6 +4,7 @@ import { For, Show, createEffect, createMemo, createSignal, type JSX } from "sol
 import { useLanguage } from "@/context/language"
 import { useSync } from "@/context/sync"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
+import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
 
 type WorkbenchChatProps = {
   mode: "work" | "design" | "automate"
@@ -16,14 +17,6 @@ const MODE_KEY = {
   design: "workbench.chat.design",
   automate: "workbench.chat.automate",
 } as const
-
-function messageText(parts: readonly { type: string; text?: string }[] | undefined): string {
-  return (parts ?? [])
-    .filter((part) => part.type === "text" && part.text)
-    .map((part) => part.text)
-    .join("\n")
-    .trim()
-}
 
 export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
   const sync = useSync()
@@ -51,7 +44,7 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
     return (sync.data.message[sessionId] ?? []).map((message) => ({
       id: message.id,
       role: message.role,
-      text: messageText(sync.data.part[message.id]),
+      text: extractMessageText(sync.data.part[message.id]),
     })).filter((message) => message.text)
   })
 

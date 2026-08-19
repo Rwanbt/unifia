@@ -1,0 +1,290 @@
+/* SPDX-License-Identifier: MIT */
+
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
+import { useLanguage } from "@/context/language"
+import { useSync } from "@/context/sync"
+import { Markdown } from "@unifia/ui/markdown"
+import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
+import { ConnectionBanner } from "@/pages/workbench/connection-banner"
+import {
+  extractMessageText,
+  selectNextStepSuggestions,
+  type NextStepSuggestion,
+} from "@/pages/workbench/workbench-thread-shared"
+
+export type WorkbenchThreadProps = {
+  mode: "work" | "design" | "automate"
+  /** Placeholder shown in the composer; matches the chat semantics. */
+  prompt: string
+  /** Subtitle of the conversation header. */
+  description: string
+  /** Connection attribute names for the banner, taken from `ConnectionBanner` props. */
+  connection: {
+    dataAttr: "workbench-connection" | "design-connection" | "automate-connection"
+    dataRetryAttr: "workbench-retry" | "design-retry" | "automate-retry"
+  }
+}
+
+const MODE_KEY = {
+  work: "workbench.chat.work",
+  design: "workbench.chat.design",
+  automate: "workbench.chat.automate",
+} as const
+
+/**
+ * The Open Design chat column, ported for Unifia.
+ *
+ * Open Design is a conversation that owns the column: a sticky header, a
+ * scrolling list, and a composer that is a SIBLING of the list (not a
+ * descendant) so the input stays anchored while the messages scroll.
+ * Unifia previously inlined the same conversation inside a single card
+ * (`max-h-56` scrollable region inside a card), which made the editor read
+ * as a spec page with a chat widget instead of a conversation with an
+ * artifact atelier.
+ *
+ * Why the composer is a sibling of the list and not a child: a child composer
+ * inside a `flex-1 overflow-y-auto` list scrolls away with the last message,
+ * which is what we were seeing — the input disappeared the moment the
+ * assistant answered. Open Design avoids that by giving the composer its own
+ * row beneath the scrollable region.
+ */
+export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
+  const sync = useSync()
+  const language = useLanguage()
+  const t = language.t
+  const [input, setInput] = createSignal("")
+  const [sending, setSending] = createSignal(false)
+  const [error, setError] = createSignal<string>()
+  const [feedback, setFeedback] = createSignal<Record<string, "like" | "dislike" | undefined>>({})
+
+  const modeTitle = () => t(MODE_KEY[props.mode])
+  const modeTitleSession = () => t("workbench.chat.sessionTitle", { mode: modeTitle() })
+  // The session is owned by the route, not by this thread: every Workbench
+  // surface of the workspace shows the same conversation.
+  const session = createWorkbenchSession({ title: modeTitleSession })
+  const activeSessionId = session.id
+
+  createEffect(() => {
+    const sessionId = activeSessionId()
+    if (sessionId) void sync.session.sync(sessionId).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))
+  })
+
+  const messages = createMemo(() => {
+    const sessionId = activeSessionId()
+    if (!sessionId) return []
+    return (sync.data.message[sessionId] ?? [])
+      .map((message) => ({
+        id: message.id,
+        role: message.role,
+        text: extractMessageText(sync.data.part[message.id]),
+      }))
+      .filter((message) => message.text)
+  })
+
+  const lastAssistantId = createMemo(() => {
+    const list = messages()
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      if (list[i]?.role === "assistant") return list[i]?.id
+    }
+    return undefined
+  })
+
+  async function submit(): Promise<void> {
+    const text = input().trim()
+    if (!text || sending()) return
+    setSending(true)
+    setError(undefined)
+    try {
+      await session.prompt(text)
+      setInput("")
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  function applySuggestion(suggestion: NextStepSuggestion): void {
+    setInput(suggestion.prompt)
+  }
+
+  async function copyMessage(messageId: string, text: string): Promise<void> {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setFeedback((current) => ({ ...current, [messageId]: "like" }))
+    } catch {
+      // Clipboard refused (permissions, secure context missing): the user
+      // already sees the message, nothing actionable for us to surface.
+    }
+  }
+
+  function rate(messageId: string, value: "like" | "dislike"): void {
+    setFeedback((current) => ({ ...current, [messageId]: value }))
+  }
+
+  const suggestions = (): readonly NextStepSuggestion[] => selectNextStepSuggestions(props.mode)
+
+  return (
+    <section class="flex h-full min-h-0 flex-col" data-workbench-thread={props.mode}>
+      <header
+        class="sticky top-0 z-10 flex flex-wrap items-start justify-between gap-3 border-b border-border-base bg-background-stronger px-4 py-3"
+        data-workbench-thread-header
+      >
+        <div class="min-w-0">
+          <p class="text-12-medium uppercase tracking-wide text-text-weak">{modeTitle()}</p>
+          <h1 class="mt-1 truncate text-16-medium text-text-strong">{props.description}</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="rounded border border-border-base px-2 py-1 text-12-regular"
+            data-workbench-thread-comment
+            aria-label="Commenter la conversation"
+            title="Commenter la conversation"
+          >
+            Commenter
+          </button>
+        </div>
+      </header>
+      <div class="border-b border-border-base px-4 py-2" data-workbench-thread-connection>
+        <ConnectionBanner dataAttr={props.connection.dataAttr} dataRetryAttr={props.connection.dataRetryAttr} />
+      </div>
+      <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3" data-workbench-thread-history aria-live="polite">
+        <Show
+          when={messages().length > 0}
+          fallback={
+            <p class="text-12-regular text-text-weak" data-workbench-thread-empty>
+              Démarre la conversation par un message. Le fil reste affiché quand tu changes de mode.
+            </p>
+          }
+        >
+          <ul class="flex flex-col gap-3" data-workbench-thread-list>
+            <For each={messages()}>
+              {(message) => (
+                <li
+                  class="rounded-md border border-border-weak-base bg-background-base px-3 py-2"
+                  data-workbench-thread-message={message.role}
+                >
+                  <p class="text-12-medium text-text-weak">
+                    {message.role === "user" ? t("workbench.chat.you") : t("workbench.chat.assistant")}
+                  </p>
+                  <div class="mt-1 text-14-regular text-text-base" data-workbench-thread-message-body>
+                    <Markdown text={message.text} cacheKey={message.id} />
+                  </div>
+                  <Show when={message.role === "assistant" && message.id === lastAssistantId()}>
+                    <div class="mt-2 flex flex-wrap items-center gap-2" data-workbench-thread-execution>
+                      <button
+                        type="button"
+                        class="rounded border border-border-base px-2 py-1 text-12-regular"
+                        data-workbench-thread-action="copy"
+                        onClick={() => void copyMessage(message.id, message.text)}
+                      >
+                        Copier
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded border border-border-base px-2 py-1 text-12-regular"
+                        data-workbench-thread-action="regenerate"
+                        title="Régénérer la réponse (à brancher sur l'agent réel)"
+                        disabled
+                      >
+                        Régénérer
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded border border-border-base px-2 py-1 text-12-regular"
+                        classList={{ "border-border-focus": feedback()[message.id] === "like" }}
+                        data-workbench-thread-action="like"
+                        aria-pressed={feedback()[message.id] === "like"}
+                        onClick={() => rate(message.id, "like")}
+                        title="Réponse utile"
+                      >
+                        👍
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded border border-border-base px-2 py-1 text-12-regular"
+                        classList={{ "border-border-focus": feedback()[message.id] === "dislike" }}
+                        data-workbench-thread-action="dislike"
+                        aria-pressed={feedback()[message.id] === "dislike"}
+                        onClick={() => rate(message.id, "dislike")}
+                        title="Réponse à améliorer"
+                      >
+                        👎
+                      </button>
+                    </div>
+                  </Show>
+                </li>
+              )}
+            </For>
+          </ul>
+          <Show when={messages().length > 0}>
+            <section
+              class="mt-4 rounded-md border border-border-weak-base bg-background-stronger p-3"
+              data-workbench-thread-next-step
+            >
+              <p class="text-12-medium text-text-weak">Étapes suivantes</p>
+              <p class="mt-1 text-12-regular text-text-weak">
+                Quelques suggestions pour continuer la conversation.
+              </p>
+              <ul class="mt-2 flex flex-col gap-1">
+                <For each={suggestions()}>
+                  {(suggestion) => (
+                    <li>
+                      <button
+                        type="button"
+                        class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-left text-12-regular"
+                        data-workbench-thread-next-step-suggestion={suggestion.id}
+                        onClick={() => applySuggestion(suggestion)}
+                      >
+                        {suggestion.label}
+                      </button>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </section>
+          </Show>
+        </Show>
+      </div>
+      <form
+        class="flex flex-col gap-2 border-t border-border-base bg-background-stronger px-4 py-3"
+        data-workbench-thread-composer
+        onSubmit={(event) => {
+          event.preventDefault()
+          void submit()
+        }}
+      >
+        <label class="sr-only" for={`workbench-thread-${props.mode}`}>
+          {t("workbench.chat.messageFor", { mode: modeTitle() })}
+        </label>
+        <textarea
+          id={`workbench-thread-${props.mode}`}
+          class="min-h-24 w-full resize-y rounded-md border border-border-base bg-background-base p-3 text-14-regular text-text-base"
+          data-workbench-thread-input
+          placeholder={props.prompt}
+          value={input()}
+          onInput={(event) => setInput(event.currentTarget.value)}
+          disabled={sending()}
+        />
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
+          <button
+            type="submit"
+            class="rounded bg-surface-inset-base px-3 py-2 text-12-medium text-text-strong"
+            data-workbench-thread-submit
+            disabled={!input().trim() || sending()}
+          >
+            {sending() ? t("workbench.chat.sending") : t("workbench.chat.send")}
+          </button>
+        </div>
+        <Show when={error()}>
+          <p class="text-12-regular text-text-danger" role="alert" data-workbench-thread-error>
+            {error()}
+          </p>
+        </Show>
+      </form>
+    </section>
+  )
+}
