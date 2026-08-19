@@ -318,8 +318,15 @@ export function DesignSurface(): JSX.Element {
         provenance: { sourceTool: "design-renderer", capabilityPack: "workbench-design" },
       })
       const result = await current.client.exportArtifact(current.workspaceId, render.artifact.artifactId, { metadata: "keep", outbox: "design" })
+      // P6-2 — approbation ≠ erreur. Le chemin gouverné (qui exige une
+      // approbation) retourne un `approvalId` et non un `exported` : du
+      // point de vue de l'utilisateur qui a déclenché l'action, l'export
+      // a été soumis avec succès ; le bandeau rouge était une fausse
+      // alerte. On utilise `exported` (même état que le chemin nominal)
+      // et on garde le message détaillé pour distinguer les deux cas
+      // dans le bandeau de feedback.
       if ("approvalId" in result && result.approvalId) {
-        setExportState("error")
+        setExportState("exported")
         setSaveMessage(`Export soumis à approbation : ${result.approvalId}`)
       } else if ("exported" in result) {
         setExportState("exported")
