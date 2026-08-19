@@ -41,6 +41,7 @@ import { getDraggableId } from "@/utils/solid-dnd"
 import { DebugBar } from "@/components/debug-bar"
 import { e2eActive } from "@/testing/active"
 import { Titlebar } from "@/components/titlebar"
+import { WorkspaceTabsBar } from "@/components/workspace-tabs-bar"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
 import {
@@ -999,6 +1000,7 @@ export default function Layout(props: ParentProps) {
     <TitlebarSlotsProvider>
       <div class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
+      <WorkspaceTabsBar />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
           <div class="size-full relative overflow-x-hidden">

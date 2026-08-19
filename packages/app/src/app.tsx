@@ -37,6 +37,7 @@ import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
 import { ModeProvider } from "@/context/mode"
+import { WorkspaceTabsProvider } from "@/context/workspace-tabs-provider"
 import { NotificationProvider } from "@/context/notification"
 import { PermissionProvider } from "@/context/permission"
 import { PromptProvider } from "@/context/prompt"
@@ -98,7 +99,9 @@ function AppShellProviders(props: ParentProps) {
           <CommandProvider>
             <HighlightsProvider>
               <ModeProvider>
-                <Layout>{props.children}</Layout>
+                <WorkspaceTabsProvider>
+                  <Layout>{props.children}</Layout>
+                </WorkspaceTabsProvider>
               </ModeProvider>
             </HighlightsProvider>
             <CommandPaletteMount />
