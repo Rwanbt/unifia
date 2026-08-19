@@ -131,3 +131,24 @@ unifia-conformance.json
 # than something to track.
 artifacts/
 packages/mobile/src-tauri/ort-runtime/
+
+# Workbench runtime state (.unifia/workspace.json, audit logs) — local
+# record of the bridge between the Workbench sidecar and the Solid
+# surface, never tracked.
+.unifia/
+
+# Playwright / vitest results produced by `bun test --reporter=junit`
+# (or the conformance runner); safe to regenerate, not versionable.
+test-results/
+
+# Ad-hoc debug script kept around for the next time the flaky-test
+# investigation needs it. Rename or move under scripts/ if it earns
+# a permanent home.
+debug-flaky.mjs
+
+# Native-side sidecar test artifacts: the .err is the captured stderr
+# of a manual run, the .mjs is a one-off browser harness not yet
+# promoted to the proper test entrypoint. Both stay local until a
+# dedicated test contract lands.
+packages/desktop/sidecar-test.err
+packages/workbench-server/test/real-transport-browser.mjs
