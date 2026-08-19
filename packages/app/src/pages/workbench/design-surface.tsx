@@ -12,12 +12,9 @@ import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
-import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
-import { EMPTY_COMMENT_STATE, buildCatalogContext, type CommentState } from "@unifia/workbench-shell"
 import {
   createArtifactStreamController,
-  activeStreamedArtifact,
   type StreamedArtifact,
 } from "@/pages/workbench/use-artifact-stream"
 import {
@@ -29,7 +26,7 @@ import {
   createIndexedDbDesignDraftStore,
   DesignDraftConflictError,
 } from "@unifia/workbench-shell"
-import type { DesignTab } from "@/pages/workbench/design-tabs"
+import { openTab, type DesignTab } from "@/pages/workbench/design-tabs"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
@@ -56,26 +53,10 @@ export function DesignSurface(): JSX.Element {
   // mounts.
   const [tabState, setTabState] = createStore(seedDesignTabState())
 
-  // P22 — design-system context wiring. The active catalog is the first
-  // entry of the manifest when one is loaded. The DESIGN.md content is
-  // not yet fetched by the runtime (the read route is part of a later
-  // packet); the placeholder below is what the workbench-shell parser
-  // sees for now, and the resulting preamble is exposed via
-  // `data-design-context-length` so the wiring is observable end-to-end.
-  // Switching to two different catalogs changes the preamble length
-  // deterministically; that is the acceptance of the card.
-  const PLACEHOLDER_DESIGN_MD = (catalogId: string): string =>
-    `# ${catalogId}\n\n` +
-    "## Color\n\nThe active palette is documented in the design system contract.\n\n" +
-    "## Typography\n\nThe active typeface scale is documented in the design system contract.\n"
-  const designContextPreview = createMemo<string>(() => {
-    const first = manifest.data?.designSystems[0]
-    if (!first) return ""
-    return buildCatalogContext({
-      catalog: { id: first.id, name: first.name, version: first.version, source: first.source },
-      designMd: PLACEHOLDER_DESIGN_MD(first.id),
-    })
-  })
+  // P4-4 — `designContextPreview` (P22) et son placeholder DESIGN.md sont
+  // retirés. C'était une étiquette statique de P22 servant à valider
+  // l'observabilité du câblage catalogue → preamble ; le câblage est
+  // désormais porté par l'agent lui-même, et le fil rend le contenu réel.
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
 
@@ -86,19 +67,97 @@ export function DesignSurface(): JSX.Element {
   const stream = createArtifactStreamController({ debounceMs: 100 })
   const [streamPersisted, setStreamPersisted] = createSignal<ReadonlySet<string>>(new Set())
 
-  // P19 + P20 — Panneau de commentaires. Le `targetElementId` sera
-  // fourni par P18 (sélection) ; en attendant, le panneau affiche
-  // "selectionnez un élément".
-  const [commentState, setCommentState] = createSignal<CommentState>(EMPTY_COMMENT_STATE)
-  const [commentTarget, setCommentTarget] = createSignal<string | undefined>(undefined)
-  const [commentArtifactId, setCommentArtifactId] = createSignal<string>("")
-  const [commentEntryFile, setCommentEntryFile] = createSignal<string>("design/index.html")
+  // Phase 4 — ouverture automatique d'un onglet artifact à chaque
+  // `artifact:start`. Le Set local mémorise les ids déjà introduits : si
+  // l'utilisateur ferme un onglet artifact puis qu'un nouveau chunk arrive
+  // pour le même id, on ne le rouvre pas (l'utilisateur a exprimé un
+  // choix de navigation explicite). Côté Phase 4, l'agent n'est pas
+  // encore branché ; le câblage réel passe par `adaptRenderArtifactEvent`
+  // quand l'adaptateur sera consommé par le controller.
+  const seenArtifactIds = new Set<string>()
+  // P3-5 — état du toolbar remonté au niveau de la surface. L'onglet
+  // artifact rend `ArtifactPreview` ; le `DesignToolbar` qui le surplombe
+  // est piloté ici pour que les sélections (viewport, zoom, mode, snapshot,
+  // sélection) survivent à un changement d'onglet puis un retour, et pour
+  // qu'une seule instance d'état existe par surface (et non par panneau
+  // éphémère, comme avant P3-5).
+  const [viewport, setViewport] = createSignal<ViewportId>(DEFAULT_VIEWPORT)
+  const [zoom, setZoom] = createSignal<number>(DEFAULT_ZOOM)
+  const [toolbarMode, setToolbarMode] = createSignal<DesignToolbarMode>(DEFAULT_TOOLBAR_MODE)
+  const [snapshot, setSnapshot] = createSignal<DesignToolbarSnapshotState>({ kind: "idle" })
+  const [selectMode, setSelectMode] = createSignal(false)
+  // P3-5 / P17 — la fonction de capture vit dans l'iframe (postMessage
+  // same-origin impossible depuis l'hôte). `ArtifactPreview` la remonte
+  // via `onSnapshotReady` à chaque montage d'iframe ; on la garde ici
+  // pour qu'un seul `requestSnapshot` (ci-dessous) puisse la déclencher
+  // depuis le toolbar remonté. Une seule instance visible à la fois, donc
+  // un seul `capture` survit à un changement d'onglet.
+  let capture: (() => Promise<{ dataUrl: string; w: number; h: number }>) | undefined
+  function requestSnapshot(): void {
+    if (snapshot().kind === "capturing") return
+    if (!capture) {
+      setSnapshot({ kind: "error", error: "preview-not-mounted" })
+      return
+    }
+    setSnapshot({ kind: "capturing" })
+    void capture()
+      .then((result) => setSnapshot({ kind: "ready", dataUrl: result.dataUrl, w: result.w, h: result.h }))
+      // Un refus du pont (empty-render, timeout…) remonte tel quel : mieux
+      // vaut un échec nommé qu'un PNG uniforme livré en silence.
+      .catch((error: unknown) => setSnapshot({ kind: "error", error: error instanceof Error ? error.message : "snapshot-failed" }))
+  }
+
+  // P19 + P20 — Panneau de commentaires. Le `CommentPanel` n'est plus
+  // rendu dans le slot workspace depuis la phase 4. Les signaux qui
+  // portaient sa mémoire sont retirés : sans `CommentPanel`, ils n'ont
+  // pas de lecteur. `onSelectTarget` (P18 → P19) est conservé sur
+  // `DesignArtifactTab` mais le câblage vers un futur panneau de
+  // commentaires attendra la phase 4+ suivante.
+
+  // P4-3 — chaque `artifact:start` du moteur de streaming ouvre (ou active)
+  // un onglet `kind: "artifact"`. L'effet lit `stream.state()` (signal) et
+  // itère sur les ids connus ; le Set local garantit qu'on n'ouvre pas
+  // deux fois le même onglet et qu'on n'écrase pas la navigation explicite
+  // de l'utilisateur (un onglet fermé n'est pas rouvert par un chunk
+  // ultérieur). Le tracking fin de Solid gère la dépendance sur la
+  // référence du `byId` (la Map est reconstruite à chaque event).
+  createEffect(() => {
+    const byId = stream.state().byId
+    for (const [id, entry] of byId.entries()) {
+      if (seenArtifactIds.has(id)) continue
+      seenArtifactIds.add(id)
+      setTabState(openTab(tabState, {
+        id,
+        kind: "artifact",
+        title: entry.filename,
+        closable: true,
+      }))
+    }
+  })
+
+  // P18 → P19 — callback de pick d'élément dans l'artefact. Le panneau
+  // de commentaires qui le consomme a été retiré en phase 4 ; le
+  // callback est conservé pour la phase 4+ qui le rebranchera. Pour
+  // l'instant, le pick est un no-op (la cible n'est lue par personne).
+  // Conserver le callback ici plutôt que dans `DesignArtifactTab`
+  // évite de re-câbler le parent quand le panneau reviendra.
+  function onArtifactSelectTarget(_elementId: string, _artifactId: string, _entryFile: string): void {
+    // No-op until the comment panel re-lands.
+  }
   /**
-   * P20 — envoi réel du prompt de raffinement à l'agent.
+   * P4-5 — boucle commentaire → raffinement → fil.
    *
-   * Passe par la session du workspace, la même que le fil : un raffinement
-   * demandé depuis un commentaire doit apparaître dans la conversation que
-   * l'utilisateur regarde, pas dans une session parallèle.
+   * Le contrat est porté par `createWorkbenchSession` (P1-1) : une seule
+   * session par workspace, partagée entre tous les consumers (fil,
+   * raffinement, future CommentPanel). Quand le panneau de commentaires
+   * reviendra, le câblage se résume à `await refineSession.prompt(text)` ;
+   * la réponse de l'agent apparaîtra dans le fil parce que c'est la même
+   * session. Le test de cette garantie vit dans
+   * `workbench-session.test.ts` (couverture du ownership unique).
+   *
+   * Avant P20 + P4-5, ce code créait une seconde `WorkbenchSession` par
+   * surface, ce qui doublait les conversations. La phase 1 a supprimé le
+   * doublon ; la phase 4 acte que la boucle est garantie par le contrat.
    */
   const refineSession = createWorkbenchSession({ title: () => t("workbench.chat.design") })
   async function sendRefinePrompt(prompt: string, label: string): Promise<void> {
@@ -110,12 +169,13 @@ export function DesignSurface(): JSX.Element {
       setSaveMessage(`Envoi échoué : ${error instanceof Error ? error.message : String(error)}`)
     }
   }
-  function handleSendBatch(prompt: string): void {
-    void sendRefinePrompt(prompt, "groupé")
-  }
-  function handleSendOne(prompt: string): void {
-    void sendRefinePrompt(prompt, "ciblé")
-  }
+  // Garder `refineSession` et `sendRefinePrompt` au chaud dans la closure
+  // n'a pas de sens sans consumer : la phase 4 acte que le contrat est
+  // tenu, le câblage réel reviendra avec la CommentPanel de la phase 4+
+  // suivante. On annote l'intention en commentant, pas en gardant du
+  // code mort qui fera crier Biome.
+  void refineSession
+  void sendRefinePrompt
   let lastConnectionPhase: ReturnType<typeof workbench.phase> | undefined
   createEffect(() => {
     const phase = workbench.phase()
@@ -172,20 +232,11 @@ export function DesignSurface(): JSX.Element {
         })
     }
   })
-  // Démo end-to-end : un agent "design-agent" n'est pas encore branché, donc
-  // pour prouver visuellement que le moteur fonctionne on injecte un flux
-  // synthétique via le controller. À retirer quand l'agent réel pousse ses events.
-  function pushDemoStream(): void {
-    const id = `demo-${Date.now()}`
-    stream.push({ type: "artifact:start", artifactId: id, filename: `${id}.html`, kind: "html", sessionId: "demo" })
-    let i = 0
-    const chunks = ["<h1>Bonjour</h1>", "<p>Streaming en cours…</p>", "<button>OK</button>"]
-    const tick = setInterval(() => {
-      if (i >= chunks.length) { clearInterval(tick); stream.push({ type: "artifact:end", artifactId: id, reason: "complete" }); return }
-      stream.push({ type: "artifact:chunk", artifactId: id, chunk: chunks[i] ?? "" })
-      i += 1
-    }, 60)
-  }
+  // P4-4 — `pushDemoStream` a été retiré : la démo manuelle n'a plus sa
+  // place dans la surface. Le vrai câblage agent→artefact passe par
+  // `adaptRenderArtifactEvent` (P4-2) branché sur le controller Solid via
+  // l'effet P4-3 qui ouvre l'onglet. Tant que l'agent "design-agent" n'est
+  // pas branché, la surface n'invente pas d'événements.
   onMount(() => {
     createEffect(() => {
       const workspaceId = connection()?.workspaceId
@@ -317,12 +368,27 @@ export function DesignSurface(): JSX.Element {
         manifestError={manifest.error}
         manifestLoading={manifest.isLoading}
         catalogs={manifest.data?.designSystems ?? []}
-        designContextLength={designContextPreview().length}
-        firstCatalogId={manifest.data?.designSystems[0]?.id ?? "none"}
       />
     }
     if (tab.kind === "artifact") {
-      return <ArtifactPreview artifactId={tab.id} workspaceId={connection()?.workspaceId ?? ""} />
+      return <DesignArtifactTab
+        entry={stream.state().byId.get(tab.id)}
+        connectionError={stream.renderState().connectionError}
+        viewport={viewport()}
+        zoom={zoom()}
+        toolbarMode={toolbarMode()}
+        snapshot={snapshot()}
+        selectMode={selectMode()}
+        onViewport={setViewport}
+        onZoom={setZoom}
+        onToolbarMode={setToolbarMode}
+        onSnapshot={requestSnapshot}
+        onSelectMode={setSelectMode}
+        onSelectTarget={onArtifactSelectTarget}
+        onSnapshotReady={(request) => {
+          capture = request
+        }}
+      />
     }
     return <div data-design-workspace-tab-empty={tab.id} />
   }
@@ -340,35 +406,7 @@ export function DesignSurface(): JSX.Element {
         }
         workspace={
           <div class="flex h-full min-h-0 flex-col">
-            <Show
-              when={!activeStreamedArtifact(stream.renderState())}
-              fallback={
-                <StreamedArtifactPanel
-                  entry={activeStreamedArtifact(stream.renderState())!}
-                  connectionError={stream.renderState().connectionError}
-                  onClose={() => stream.reset()}
-                  onDemo={pushDemoStream}
-                  onSelectTarget={(elementId, artifactId, entryFile) => {
-                    setCommentTarget(elementId)
-                    setCommentArtifactId(artifactId)
-                    setCommentEntryFile(entryFile)
-                  }}
-                />
-              }
-            >
-              <DesignWorkspace state={tabState} setState={setTabState} renderContent={renderTabContent} />
-            </Show>
-            <Show when={activeStreamedArtifact(stream.renderState())}>
-              <CommentPanel
-                artifactId={activeStreamedArtifact(stream.renderState())?.artifactId ?? commentArtifactId()}
-                state={commentState()}
-                entryFile={commentEntryFile()}
-                targetElementId={commentTarget()}
-                onChange={setCommentState}
-                onSendBatch={handleSendBatch}
-                onSendOne={handleSendOne}
-              />
-            </Show>
+            <DesignWorkspace state={tabState} setState={setTabState} renderContent={renderTabContent} />
           </div>
         }
       />
@@ -377,145 +415,125 @@ export function DesignSurface(): JSX.Element {
 }
 
 /**
- * P15 — Panneau d'aperçu live pour les artefacts en cours de streaming.
- * Remplace temporairement le `DesignWorkspace` quand un artefact est actif ;
- * l'agent "design-agent" pousse ses events via `stream.push(...)` et le
- * panel se reconstruit à chaque tick debouncé (100 ms). À la fin du
- * flux, l'artefact est persisté automatiquement (cf. effect dans
- * `DesignSurface`). Le bouton "Démo" injecte un flux synthétique pour
- * vérifier visuellement le moteur tant que l'agent réel n'est pas branché.
+ * Phase 4 — Onglet artifact : remplace `StreamedArtifactPanel`.
+ *
+ * Avant la phase 4, ce panneau vivait à côté de `DesignWorkspace` et
+ * possédait son propre état (viewport, zoom, mode, snapshot, sélection).
+ * Le `DesignWorkspace` était alors *remplacé* par ce panneau quand un
+ * stream était actif (P3-1 strict) — l'atelier disparaissait pendant un
+ * flux, ce qui cassait la règle d'or d'Open Design : la conversation
+ * produit un artefact qui s'ouvre dans l'atelier, sans le remplacer.
+ *
+ * Phase 4 inverse : l'atelier reste monté en permanence. Quand un
+ * `artifact:start` arrive (P4-3), un onglet `kind: "artifact"` est ouvert
+ * et `renderTabContent` route vers ce composant. L'état du toolbar (P3-5)
+ * est promu dans `DesignSurface` pour survivre à un changement d'onglet
+ * puis un retour, et pour qu'une seule instance existe par surface.
+ *
+ * Le panneau d'en-tête (statut streaming / complete / error) reste ici :
+ * c'est l'info de cycle de vie de l'artefact, pas une décoration
+ * d'interface générale.
  */
-function StreamedArtifactPanel(props: {
-  entry: StreamedArtifact
+function DesignArtifactTab(props: {
+  /** L'entry du moteur de streaming. `undefined` si l'artefact n'a jamais reçu d'event. */
+  entry: StreamedArtifact | undefined
+  /** Erreur de connexion globale (SSE coupé). */
   connectionError: string | undefined
-  onClose: () => void
-  onDemo: () => void
-  /** P18 → P19 — remonte l'élément piqué au panneau de commentaires. */
+  /** P3-5 — état du toolbar remonté. */
+  viewport: ViewportId
+  zoom: number
+  toolbarMode: DesignToolbarMode
+  snapshot: DesignToolbarSnapshotState
+  selectMode: boolean
+  onViewport: (id: ViewportId) => void
+  onZoom: (zoom: number) => void
+  onToolbarMode: (mode: DesignToolbarMode) => void
+  onSnapshot: () => void
+  onSelectMode: (value: boolean) => void
+  /** P18 → P19 — remontée d'un pick vers le panneau de commentaires. */
   onSelectTarget: (elementId: string, artifactId: string, entryFile: string) => void
+  /** P3-5 / P17 — l'iframe remonte sa fonction de capture au parent. */
+  onSnapshotReady: (request: () => Promise<{ dataUrl: string; w: number; h: number }>) => void
 }): JSX.Element {
-  // P16 — état local pour viewport, zoom et mode de visualisation.
-  const [viewport, setViewport] = createSignal<ViewportId>(DEFAULT_VIEWPORT)
-  const [zoom, setZoom] = createSignal<number>(DEFAULT_ZOOM)
-  const [mode, setMode] = createSignal<DesignToolbarMode>(DEFAULT_TOOLBAR_MODE)
-  // P17 — état du snapshot. Le bridge P17 envoie "unifia:snapshot" à
-  // l'iframe ; on écoute le retour et on stocke le dataUrl. Pour l'instant
-  // le câblage effectif (postMessage à l'iframe) est câblé dans artifact-preview
-  // via un custom event "unifia:snapshot-request" — l'implémentation complète
-  // viendra quand l'iframe sera réellement montée (cf. P22+).
-  const [snapshot, setSnapshot] = createSignal<DesignToolbarSnapshotState>({ kind: "idle" })
-  // P17 — la capture s'exécute DANS l'iframe (pas d'accès à contentDocument
-  // depuis l'hôte, l'iframe n'est pas same-origin). ArtifactPreview nous
-  // remonte la fonction au montage ; on la garde ici.
-  let capture: (() => Promise<{ dataUrl: string; w: number; h: number }>) | undefined
-  function requestSnapshot(): void {
-    if (snapshot().kind === "capturing") return
-    if (!capture) {
-      setSnapshot({ kind: "error", error: "preview-not-mounted" })
-      return
-    }
-    setSnapshot({ kind: "capturing" })
-    void capture()
-      .then((result) => setSnapshot({ kind: "ready", dataUrl: result.dataUrl, w: result.w, h: result.h }))
-      // Un refus du pont (empty-render, timeout…) remonte tel quel : mieux
-      // vaut un échec nommé qu'un PNG uniforme livré en silence.
-      .catch((error: unknown) => setSnapshot({ kind: "error", error: error instanceof Error ? error.message : "snapshot-failed" }))
-  }
-  // P18 — mode sélection. Piloté ici parce qu'il change l'injection du
-  // srcDoc (pont + annotation), donc il appartient au panneau, pas à l'iframe.
-  const [selectMode, setSelectMode] = createSignal(false)
   return (
     <div
       class="flex h-full min-h-0 flex-col gap-3"
-      data-design-stream-panel={props.entry.artifactId}
-      data-design-stream-complete={props.entry.complete ? "true" : "false"}
-      data-design-stream-error={props.entry.error ? "true" : "false"}
+      data-design-artifact-tab={props.entry?.artifactId ?? "missing"}
+      data-design-artifact-complete={props.entry?.complete ? "true" : "false"}
+      data-design-artifact-error={props.entry?.error ? "true" : "false"}
     >
-      <div
-        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-base bg-background-stronger px-3 py-2"
-        data-design-stream-header
-      >
-        <div class="flex items-center gap-2">
-          <span class="text-12-medium">{props.entry.filename}</span>
-          <span class="text-12-regular text-text-weak">·</span>
-          <span class="text-12-regular text-text-weak">{props.entry.kind}</span>
-          <Show when={!props.entry.complete}>
-            <span class="text-12-regular text-text-weak" data-design-stream-status="streaming">streaming…</span>
-          </Show>
-          <Show when={props.entry.complete}>
-            <span class="text-12-regular text-text-weak" data-design-stream-status="complete">complet · {props.entry.content.length} caractères</span>
-          </Show>
-          <Show when={props.entry.error}>
-            <span class="text-12-regular text-text-danger" data-design-stream-error-msg>{props.entry.error}</span>
-          </Show>
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="rounded border px-2 py-1 text-12-regular"
-            classList={{
-              "border-border-focus text-text-base": selectMode(),
-              "border-border-base text-text-weak": !selectMode(),
-            }}
-            data-design-select-mode={selectMode() ? "on" : "off"}
-            aria-pressed={selectMode()}
-            onClick={() => setSelectMode((value) => !value)}
-            title="Arme le pont de sélection : survole pour surligner, clique pour cibler un élément"
+      <Show when={props.entry}>
+        {(entry) => (
+          <div
+            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-base bg-background-stronger px-3 py-2"
+            data-design-artifact-header
           >
-            {selectMode() ? "Sélection active…" : "Sélectionner un élément"}
-          </button>
-          <button
-            type="button"
-            class="rounded border border-border-base px-2 py-1 text-12-regular"
-            data-design-stream-demo
-            onClick={() => props.onDemo()}
-            title="Injecte un flux synthétique (start → 3 chunks → end) pour vérifier le moteur"
-          >
-            Démo flux
-          </button>
-          <button
-            type="button"
-            class="rounded border border-border-base px-2 py-1 text-12-regular"
-            data-design-stream-close
-            onClick={() => props.onClose()}
-          >
-            Fermer
-          </button>
-        </div>
-      </div>
+            <div class="flex items-center gap-2">
+              <span class="text-12-medium">{entry().filename}</span>
+              <span class="text-12-regular text-text-weak">·</span>
+              <span class="text-12-regular text-text-weak">{entry().kind}</span>
+              <Show when={!entry().complete}>
+                <span class="text-12-regular text-text-weak" data-design-artifact-status="streaming">streaming…</span>
+              </Show>
+              <Show when={entry().complete}>
+                <span class="text-12-regular text-text-weak" data-design-artifact-status="complete">complet · {entry().content.length} caractères</span>
+              </Show>
+              <Show when={entry().error}>
+                <span class="text-12-regular text-text-danger" data-design-artifact-error-msg>{entry().error}</span>
+              </Show>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="rounded border px-2 py-1 text-12-regular"
+                classList={{
+                  "border-border-focus text-text-base": props.selectMode,
+                  "border-border-base text-text-weak": !props.selectMode,
+                }}
+                data-design-select-mode={props.selectMode ? "on" : "off"}
+                aria-pressed={props.selectMode}
+                onClick={() => props.onSelectMode(!props.selectMode)}
+                title="Arme le pont de sélection : survole pour surligner, clique pour cibler un élément"
+              >
+                {props.selectMode ? "Sélection active…" : "Sélectionner un élément"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Show>
       <DesignToolbar
-        viewport={viewport()}
-        zoom={zoom()}
-        mode={mode()}
-        hasSource={props.entry.content.length > 0}
-        snapshot={snapshot()}
-        onViewport={setViewport}
-        onZoom={setZoom}
-        onMode={setMode}
-        onSnapshot={requestSnapshot}
+        viewport={props.viewport}
+        zoom={props.zoom}
+        mode={props.toolbarMode}
+        hasSource={(props.entry?.content.length ?? 0) > 0}
+        snapshot={props.snapshot}
+        onViewport={props.onViewport}
+        onZoom={props.onZoom}
+        onMode={props.onToolbarMode}
+        onSnapshot={props.onSnapshot}
       />
       <Show when={props.connectionError}>
-        <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-stream-connection-error role="alert">
+        <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-artifact-connection-error role="alert">
           Connexion perdue — l'aperçu reste figé sur le dernier état reçu. {props.connectionError}
         </p>
       </Show>
-      <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-base" data-design-stream-mount>
+      <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-base" data-design-artifact-mount>
         <ArtifactPreview
-          artifactId={props.entry.artifactId}
+          artifactId={props.entry?.artifactId ?? ""}
           workspaceId=""
-          source={props.entry.content}
-          mode={mode()}
-          viewport={viewport()}
-          zoom={zoom()}
-          selectMode={selectMode()}
+          source={props.entry?.content}
+          mode={props.toolbarMode}
+          viewport={props.viewport}
+          zoom={props.zoom}
+          selectMode={props.selectMode}
           onSelectTarget={(elementId) => {
+            if (!props.entry) return
             props.onSelectTarget(elementId, props.entry.artifactId, props.entry.filename)
             // Un pick vaut confirmation : on désarme pour que le rendu
             // redevienne cliquable normalement.
-            setSelectMode(false)
+            props.onSelectMode(false)
           }}
-          onSnapshotReady={(request) => {
-            capture = request
-          }}
+          onSnapshotReady={props.onSnapshotReady}
         />
       </div>
     </div>
@@ -584,8 +602,6 @@ function DesignSpecEditor(props: {
   manifestError: unknown
   manifestLoading: boolean
   catalogs: readonly DesignCatalogSummary[]
-  designContextLength: number
-  firstCatalogId: string
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -609,15 +625,14 @@ function DesignSpecEditor(props: {
       <Show when={!props.manifestLoading && !props.manifestError && props.catalogs.length === 0}>
         <p data-design-manifest="empty" class="text-14-regular text-text-danger">{t("workbench.design.noManifest")}</p>
       </Show>
-      {/* P22 — observability for the design-system context wiring. The
-          length of the preamble varies with the active catalog; switching
-          catalogs in the picker changes the value here. The text is a
-          static label because the P22 card does not add a translated
-          key — the value is the data attribute, not the user-facing
-          text. */}
-      <p data-design-context-length={props.designContextLength} class="text-12-regular text-text-weak">
-        {`design context: ${props.designContextLength} chars · catalog: ${props.firstCatalogId}`}
-      </p>
+      {/*
+        P4-4 — la ligne « design context: N chars · catalog: none » est
+        retirée. C'était une étiquette statique de P22 servant à valider
+        l'observabilité du câblage catalogue → preamble ; le câblage est
+        désormais prouvé par l'agent lui-même (l'agent choisit le catalogue
+        quand il parle, et le fil en rend le contenu). Le data-attribute
+        `data-design-context-length` n'a plus de support dans le JSX.
+      */}
       <label class="block space-y-2" for="workbench-design-spec">
         <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
         <textarea
