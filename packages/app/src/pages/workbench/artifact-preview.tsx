@@ -258,9 +258,7 @@ export function ArtifactPreview(props: {
   const preset = createMemo(() => findViewport(currentViewport()))
   // Canvas size observed via ResizeObserver on the container wrapper.
   const [canvas, setCanvas] = createSignal({ width: 0, height: 0 })
-  let container: HTMLDivElement | undefined
   function onContainerMount(element: HTMLDivElement): void {
-    container = element
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (!entry) return
