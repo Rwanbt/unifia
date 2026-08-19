@@ -103,3 +103,40 @@ describe("emptyDesignTabState", () => {
     expect(empty.activeId).toBeUndefined()
   })
 })
+
+describe("kind: spec", () => {
+  test("ouvre un onglet de kind 'spec' et l'active", () => {
+    const next = openTab(emptyDesignTabState(), { id: "spec", kind: "spec", title: "Spec", closable: false })
+    expect(next.tabs).toHaveLength(1)
+    expect(next.tabs[0]?.kind).toBe("spec")
+    expect(next.activeId).toBe("spec")
+  })
+
+  test("un onglet de kind 'spec' non-fermable survit à closeTab", () => {
+    const start: DesignTabState = { tabs: [{ id: "spec", kind: "spec", title: "Spec", closable: false }], activeId: "spec" }
+    const next = closeTab(start, "spec")
+    expect(next).toBe(start)
+  })
+
+  test("activateTab fonctionne pour un onglet de kind 'spec'", () => {
+    const start: DesignTabState = {
+      tabs: [
+        { id: "files", kind: "file", title: "Fichiers", closable: false },
+        { id: "spec", kind: "spec", title: "Spec", closable: false },
+      ],
+      activeId: "files",
+    }
+    const next = activateTab(start, "spec")
+    expect(next.activeId).toBe("spec")
+  })
+})
+
+describe("seedDesignTabState", () => {
+  test("est exporté depuis design-workspace, pas de design-tabs", async () => {
+    // The seed lives in design-workspace.tsx because it composes the
+    // openTab reducer with concrete tab descriptors. This guard exists so
+    // the indirection is not lost in a refactor.
+    const module = await import("@/pages/workbench/design-workspace")
+    expect(typeof module.seedDesignTabState).toBe("function")
+  })
+})

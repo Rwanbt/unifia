@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-export type DesignTabKind = "artifact" | "file" | "empty"
+export type DesignTabKind = "artifact" | "file" | "spec" | "empty"
 
 export type DesignTab = {
   id: string

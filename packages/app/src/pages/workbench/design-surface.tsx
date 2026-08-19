@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
+import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
@@ -8,7 +9,7 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { WorkbenchThread } from "@/pages/workbench/workbench-thread"
 import { DesignSplit } from "@/pages/workbench/design-split"
-import { DesignWorkspace } from "@/pages/workbench/design-workspace"
+import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
@@ -28,6 +29,7 @@ import {
   createIndexedDbDesignDraftStore,
   DesignDraftConflictError,
 } from "@unifia/workbench-shell"
+import type { DesignTab } from "@/pages/workbench/design-tabs"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
@@ -44,6 +46,15 @@ export function DesignSurface(): JSX.Element {
   const [saveMessage, setSaveMessage] = createSignal("")
   const [exportState, setExportState] = createSignal<"idle" | "exporting" | "exported" | "error">("idle")
   const draftStore = createIndexedDbDesignDraftStore()
+
+  // Phase 3 — `DesignSurface` holds the workshop's tab state. Before phase 3,
+  // `DesignWorkspace` owned its own store and `createDesignWorkspaceController`
+  // offered a sibling store that no caller ever imported (verified: zero
+  // consumers). Two stores means two truths and no way to open an artifact
+  // tab from a streaming event. The seed plants the two non-closable tabs
+  // ("Fichiers" + "Spec") so the workshop is never empty when the surface
+  // mounts.
+  const [tabState, setTabState] = createStore(seedDesignTabState())
 
   // P22 — design-system context wiring. The active catalog is the first
   // entry of the manifest when one is loaded. The DESIGN.md content is
@@ -274,6 +285,48 @@ export function DesignSurface(): JSX.Element {
     return diffArtifactVersions(versions.at(-2), versions.at(-1))
   })
 
+  // Phase 3 — `renderTabContent` resolves the body of the active tab. The
+  // workshop's `kind` enum drives the routing: the spec editor lives behind
+  // the "spec" tab (P3-4), the file listing will land in "file" (P-pending),
+  // and the artifact preview keeps the "artifact" slot. Keeping the routing
+  // in a single function makes the seam between tabs and the surface's own
+  // signals (source, manifest, validation, …) obvious at a glance.
+  function renderTabContent(tab: DesignTab): JSX.Element {
+    if (tab.kind === "file") {
+      return <DesignFilesTab />
+    }
+    if (tab.kind === "spec") {
+      return <DesignSpecEditor
+        source={source()}
+        onInput={updateDraft}
+        draftError={draftError()}
+        specDiagnostics={spec().diagnostics}
+        specEmpty={spec().diagnostics[0]?.message ?? t("workbench.design.specEmpty")}
+        validationLoading={validation.isLoading}
+        validationError={validation.error}
+        validationValid={validation.data?.valid === true}
+        validationDenied={validation.data?.capabilities.denied ?? []}
+        previews={preview().previews}
+        saveState={saveState()}
+        saveMessage={saveMessage()}
+        onSave={() => void saveDesignVersion()}
+        exportState={exportState()}
+        onExport={() => void exportDesignRender()}
+        versionPanel={versionPanel()}
+        latestDiff={latestDiff()}
+        manifestError={manifest.error}
+        manifestLoading={manifest.isLoading}
+        catalogs={manifest.data?.designSystems ?? []}
+        designContextLength={designContextPreview().length}
+        firstCatalogId={manifest.data?.designSystems[0]?.id ?? "none"}
+      />
+    }
+    if (tab.kind === "artifact") {
+      return <ArtifactPreview artifactId={tab.id} workspaceId={connection()?.workspaceId ?? ""} />
+    }
+    return <div data-design-workspace-tab-empty={tab.id} />
+  }
+
   return (
     <section class="size-full" data-workbench-surface="design">
       <DesignSplit
@@ -286,7 +339,7 @@ export function DesignSurface(): JSX.Element {
           />
         }
         workspace={
-          <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6">
+          <div class="flex h-full min-h-0 flex-col">
             <Show
               when={!activeStreamedArtifact(stream.renderState())}
               fallback={
@@ -303,7 +356,7 @@ export function DesignSurface(): JSX.Element {
                 />
               }
             >
-              <DesignWorkspace onDemo={pushDemoStream} />
+              <DesignWorkspace state={tabState} setState={setTabState} renderContent={renderTabContent} />
             </Show>
             <Show when={activeStreamedArtifact(stream.renderState())}>
               <CommentPanel
@@ -315,100 +368,6 @@ export function DesignSurface(): JSX.Element {
                 onSendBatch={handleSendBatch}
                 onSendOne={handleSendOne}
               />
-            </Show>
-            <Show when={manifest.error}>
-              <p data-design-manifest="failed" class="text-14-regular text-text-danger">{manifest.error instanceof Error ? manifest.error.message : String(manifest.error)}</p>
-            </Show>
-            <Show when={manifest.data?.designSystems.length}>
-              <div class="grid gap-3 md:grid-cols-2" data-design-catalog-count={manifest.data!.designSystems.length}>
-                <For each={manifest.data!.designSystems}>
-                  {(catalog) => (
-                    <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-catalog={catalog.id}>
-                      <h2 class="text-14-medium">{catalog.name} · {catalog.version}</h2>
-                      <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.source", { source: catalog.source })}</p>
-                    </article>
-                  )}
-                </For>
-              </div>
-            </Show>
-            <Show when={!manifest.isLoading && !manifest.error && manifest.data?.designSystems.length === 0}>
-              <p data-design-manifest="empty" class="text-14-regular text-text-danger">{t("workbench.design.noManifest")}</p>
-            </Show>
-            {/* P22 — observability for the design-system context wiring. The
-                length of the preamble varies with the active catalog; switching
-                catalogs in the picker changes the value here. The text is a
-                static label because the P22 card does not add a translated
-                key — the value is the data attribute, not the user-facing
-                text. */}
-            <p data-design-context-length={designContextPreview().length} class="text-12-regular text-text-weak">
-              {`design context: ${designContextPreview().length} chars · catalog: ${manifest.data?.designSystems[0]?.id ?? "none"}`}
-            </p>
-            <label class="block space-y-2" for="workbench-design-spec">
-              <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
-              <textarea
-                id="workbench-design-spec"
-                class="min-h-48 w-full rounded-lg border border-border-base bg-background-stronger p-4 font-mono text-12-regular text-text-base"
-                placeholder={t("workbench.design.specPlaceholder")}
-                value={source()}
-                onInput={(event) => updateDraft(event.currentTarget.value)}
-                spellcheck={false}
-              />
-            </label>
-            <Show when={draftError()}><p data-design-draft="error" class="text-12-regular text-text-danger">{draftError()}</p></Show>
-            <Show when={spec().diagnostics.length > 0}>
-              <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
-                <h2 class="text-14-medium text-text-danger">{t("workbench.design.diagnostics")}</h2>
-                <For each={spec().diagnostics}>
-                  {(diagnostic) => <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.diagnosticLine", { line: diagnostic.line, column: diagnostic.column, message: diagnostic.message })}</p>}
-                </For>
-              </aside>
-            </Show>
-            <Show when={validation.isLoading}>
-              <p data-design-validation="loading" class="text-12-regular text-text-weak">{t("workbench.design.validating")}</p>
-            </Show>
-            <Show when={validation.error}>
-              <p data-design-validation="failed" class="text-14-regular text-text-danger">{validation.error instanceof Error ? validation.error.message : String(validation.error)}</p>
-            </Show>
-            <Show when={validation.data?.capabilities.denied.length}>
-              <p data-design-validation="denied" class="text-14-regular text-text-danger">{t("workbench.design.capabilitiesDenied", { list: validation.data!.capabilities.denied.join(", ") })}</p>
-            </Show>
-            <Show when={validation.data?.valid === true && validation.data.capabilities.denied.length === 0 && preview().previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{spec().diagnostics[0]?.message ?? t("workbench.design.specEmpty")}</p>}>
-              {/*
-                P16 — les trois <img> SVG statiques sont supprimées par cette carte.
-                Le compteur `data-workbench-preview-count` est conservé mais
-                reflète désormais le nombre de viewports disponibles (3 : desktop,
-                tablet, mobile). Le rendu interactif à largeur réelle se fait
-                via le StreamedArtifactPanel quand un artefact de design arrive.
-                Les 3 SVG previews statiques de validation restent consultables
-                via la spec sauvegardée (P14) ; ici on n'affiche plus que le
-                compteur, conformément au runbook P16 §« Spécification exacte ».
-              */}
-              <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={VIEWPORT_IDS.length}>
-                <For each={VIEWPORT_IDS}>
-                  {(id) => (
-                    <figure class="flex flex-col items-center gap-2 rounded-lg border border-border-base bg-background-stronger p-3">
-                      <span class="text-12-medium">{id}</span>
-                      <span class="text-12-regular text-text-weak">{t("workbench.design.previewCaption", { label: id, width: 0 })}</span>
-                    </figure>
-                  )}
-                </For>
-              </div>
-            </Show>
-            <div class="flex flex-wrap items-center gap-3" data-design-versioning>
-              <button type="button" data-design-save-version class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!spec().spec || saveState() === "saving"} onClick={() => void saveDesignVersion()}>
-                {saveState() === "saving" ? "Enregistrement…" : "Enregistrer une version"}
-              </button>
-              <button type="button" data-design-export-render class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!spec().spec || exportState() === "exporting"} onClick={() => void exportDesignRender()}>
-                {exportState() === "exporting" ? "Export…" : "Exporter le rendu SVG"}
-              </button>
-              <Show when={saveMessage()}><span data-design-save-result={saveState()} class="text-12-regular text-text-weak">{saveMessage()}</span></Show>
-            </div>
-            <Show when={versionPanel().history.length > 0}>
-              <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-history>
-                <h2 class="text-14-medium">Historique Design</h2>
-                <p class="mt-2 text-12-regular text-text-weak">{versionPanel().history.length} version(s) · provenance : {versionPanel().provenance?.sourceTool ?? "inconnue"}</p>
-                <p data-design-diff class="mt-2 text-12-regular text-text-weak">Diff dernière version : {latestDiff().changed.join(", ") || "aucun changement structurel"}</p>
-              </section>
             </Show>
           </div>
         }
@@ -559,6 +518,163 @@ function StreamedArtifactPanel(props: {
           }}
         />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Phase 3 — Onglet "Fichiers".
+ *
+ * Le contenu de cet onglet est volontairement vide pour l'instant. Le but
+ * de P3-3 est de prouver qu'un onglet non-fermable, semé à l'ouverture,
+ * reste en place quand l'utilisateur ferme l'onglet actif. La liste de
+ * fichiers (avec recherche, sélection, ouverture d'un fichier comme
+ * artefact) viendra quand le runtime exposera la query
+ * `listFiles(connection.workspaceId, ".")` déjà consommée par Automate
+ * (`automate-surface.tsx:19`) — la parité est de ne pas dupliquer la
+ * requête ici sans raison.
+ */
+function DesignFilesTab(): JSX.Element {
+  const language = useLanguage()
+  const t = language.t
+  return (
+    <div class="flex h-full min-h-0 flex-col items-center justify-center gap-2 p-6 text-center" data-design-files-tab>
+      <p class="text-14-medium text-text-weak">{t("design.workspace.empty")}</p>
+      <p class="text-12-regular text-text-weak">{t("design.workspace.emptyHint")}</p>
+    </div>
+  )
+}
+
+type DesignCatalogSummary = {
+  id: string
+  name: string
+  version: string
+  source: string
+}
+
+/**
+ * Phase 3 — Onglet "Spec" : l'éditeur de spec historique migré tel quel
+ * (catalog, design context, textarea, diagnostics, validation, viewports,
+ * versioning, history). On n'a rien réécrit : le contenu existait, on
+ * l'a juste déplacé d'un slot inline vers un sous-composant adressable
+ * par le workshop via `kind: "spec"`. La migration donne une cible de
+ * tests (le sous-composant est importable, le slot inline ne l'était pas).
+ */
+function DesignSpecEditor(props: {
+  source: string
+  onInput: (value: string) => void
+  draftError: string | undefined
+  specDiagnostics: readonly { line: number; column: number; message: string }[]
+  specEmpty: string
+  validationLoading: boolean
+  validationError: unknown
+  validationValid: boolean
+  validationDenied: readonly string[]
+  previews: readonly unknown[]
+  saveState: "idle" | "saving" | "saved" | "error"
+  saveMessage: string
+  onSave: () => void
+  exportState: "idle" | "exporting" | "exported" | "error"
+  onExport: () => void
+  versionPanel: {
+    history: readonly unknown[]
+    provenance?: Record<string, string>
+  }
+  latestDiff: { changed: readonly string[]; added: readonly string[]; removed: readonly string[] }
+  manifestError: unknown
+  manifestLoading: boolean
+  catalogs: readonly DesignCatalogSummary[]
+  designContextLength: number
+  firstCatalogId: string
+}): JSX.Element {
+  const language = useLanguage()
+  const t = language.t
+  return (
+    <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6" data-design-spec-editor>
+      <Show when={props.manifestError}>
+        <p data-design-manifest="failed" class="text-14-regular text-text-danger">{props.manifestError instanceof Error ? props.manifestError.message : String(props.manifestError)}</p>
+      </Show>
+      <Show when={props.catalogs.length > 0}>
+        <div class="grid gap-3 md:grid-cols-2" data-design-catalog-count={props.catalogs.length}>
+          <For each={props.catalogs}>
+            {(catalog) => (
+              <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-catalog={catalog.id}>
+                <h2 class="text-14-medium">{catalog.name} · {catalog.version}</h2>
+                <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.source", { source: catalog.source })}</p>
+              </article>
+            )}
+          </For>
+        </div>
+      </Show>
+      <Show when={!props.manifestLoading && !props.manifestError && props.catalogs.length === 0}>
+        <p data-design-manifest="empty" class="text-14-regular text-text-danger">{t("workbench.design.noManifest")}</p>
+      </Show>
+      {/* P22 — observability for the design-system context wiring. The
+          length of the preamble varies with the active catalog; switching
+          catalogs in the picker changes the value here. The text is a
+          static label because the P22 card does not add a translated
+          key — the value is the data attribute, not the user-facing
+          text. */}
+      <p data-design-context-length={props.designContextLength} class="text-12-regular text-text-weak">
+        {`design context: ${props.designContextLength} chars · catalog: ${props.firstCatalogId}`}
+      </p>
+      <label class="block space-y-2" for="workbench-design-spec">
+        <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
+        <textarea
+          id="workbench-design-spec"
+          class="min-h-48 w-full rounded-lg border border-border-base bg-background-stronger p-4 font-mono text-12-regular text-text-base"
+          placeholder={t("workbench.design.specPlaceholder")}
+          value={props.source}
+          onInput={(event) => props.onInput(event.currentTarget.value)}
+          spellcheck={false}
+        />
+      </label>
+      <Show when={props.draftError}><p data-design-draft="error" class="text-12-regular text-text-danger">{props.draftError}</p></Show>
+      <Show when={props.specDiagnostics.length > 0}>
+        <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
+          <h2 class="text-14-medium text-text-danger">{t("workbench.design.diagnostics")}</h2>
+          <For each={props.specDiagnostics}>
+            {(diagnostic) => <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.diagnosticLine", { line: diagnostic.line, column: diagnostic.column, message: diagnostic.message })}</p>}
+          </For>
+        </aside>
+      </Show>
+      <Show when={props.validationLoading}>
+        <p data-design-validation="loading" class="text-12-regular text-text-weak">{t("workbench.design.validating")}</p>
+      </Show>
+      <Show when={props.validationError}>
+        <p data-design-validation="failed" class="text-14-regular text-text-danger">{props.validationError instanceof Error ? props.validationError.message : String(props.validationError)}</p>
+      </Show>
+      <Show when={props.validationDenied.length > 0}>
+        <p data-design-validation="denied" class="text-14-regular text-text-danger">{t("workbench.design.capabilitiesDenied", { list: props.validationDenied.join(", ") })}</p>
+      </Show>
+      <Show when={props.validationValid && props.validationDenied.length === 0 && props.previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{props.specEmpty}</p>}>
+        <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={VIEWPORT_IDS.length}>
+          <For each={VIEWPORT_IDS}>
+            {(id) => (
+              <figure class="flex flex-col items-center gap-2 rounded-lg border border-border-base bg-background-stronger p-3">
+                <span class="text-12-medium">{id}</span>
+                <span class="text-12-regular text-text-weak">{t("workbench.design.previewCaption", { label: id, width: 0 })}</span>
+              </figure>
+            )}
+          </For>
+        </div>
+      </Show>
+      <div class="flex flex-wrap items-center gap-3" data-design-versioning>
+        <button type="button" data-design-save-version class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.saveState === "saving"} onClick={props.onSave}>
+          {props.saveState === "saving" ? "Enregistrement…" : "Enregistrer une version"}
+        </button>
+        <button type="button" data-design-export-render class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.exportState === "exporting"} onClick={props.onExport}>
+          {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
+        </button>
+        <Show when={props.saveMessage}><span data-design-save-result={props.saveState} class="text-12-regular text-text-weak">{props.saveMessage}</span></Show>
+      </div>
+      <Show when={props.versionPanel.history.length > 0}>
+        <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-history>
+          <h2 class="text-14-medium">Historique Design</h2>
+          <p class="mt-2 text-12-regular text-text-weak">{props.versionPanel.history.length} version(s) · provenance : {props.versionPanel.provenance?.sourceTool ?? "inconnue"}</p>
+          <p data-design-diff class="mt-2 text-12-regular text-text-weak">Diff dernière version : {props.latestDiff.changed.join(", ") || "aucun changement structurel"}</p>
+        </section>
+      </Show>
     </div>
   )
 }

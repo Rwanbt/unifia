@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { For, Show, type JSX, createMemo } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createStore, type SetStoreFunction } from "solid-js/store"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
@@ -15,52 +15,72 @@ import {
 } from "@/pages/workbench/design-tabs"
 
 /**
- * P11/P15 — surface d'accueil de la colonne droite du mode Design.
+ * Phase 3 — atelier d'artefacts de la colonne droite du mode Design.
  *
- * WHY `onDemo` : tant qu'aucun agent `design-agent` ne pousse d'events
- * `artifact:*`, l'état vide était le seul état atteignable et l'iframe
- * d'aperçu restait structurellement inaccessible depuis l'UI. Le seul
- * déclencheur de flux vivait à l'intérieur du panneau qui n'existe que
- * lorsqu'un flux est déjà actif — un cycle. Exposer le déclencheur ici
- * casse ce cycle sans anticiper le câblage agent.
+ * Avant la phase 3, ce composant détenait son propre store d'onglets : la
+ * surface Design avait beau vivre à côté, elle n'avait aucun moyen de
+ * pousser un onglet depuis un événement de streaming. `createDesignWorkspaceController`
+ * offrait bien un `controller` retour, mais il créait un second store sans
+ * aucun consommateur (vérifié en P3-2 : zéro import hors ce fichier), donc
+ * deux vérités qui ne pouvaient pas se parler.
+ *
+ * Phase 3 inverse : `DesignSurface` détient l'unique store, le passe à
+ * `DesignWorkspace` via `state` + `setState`. Le composant ne pilote plus
+ * rien, il rend la barre d'onglets et route vers le contenu. Le contenu
+ * de chaque onglet est résolu par `props.renderContent(tab)` — `DesignSurface`
+ * connaît les kinds possibles et choisit le rendu. Sans props contrôlées,
+ * `DesignWorkspace` retombe sur un store interne (utile pour les tests et
+ * pour l'état vide legacy).
  */
-export function DesignWorkspace(props: { onDemo?: () => void } = {}): JSX.Element {
+export function DesignWorkspace(props: {
+  /** Store contrôlé par le parent. Si absent, le composant crée son propre store. */
+  state?: DesignTabState
+  setState?: SetStoreFunction<DesignTabState>
+  /**
+   * Rendu du contenu pour l'onglet actif. Le parent connaît le sens métier
+   * de chaque `kind` et fournit le composant adapté. Si absent, on rend
+   * un placeholder par kind.
+   */
+  renderContent?: (tab: DesignTab) => JSX.Element
+}): JSX.Element {
   const language = useLanguage()
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   const t = language.t
-  const [state, setState] = createStore<DesignTabState>(emptyDesignTabState())
+  const [internalState, setInternalState] = createStore<DesignTabState>(emptyDesignTabState())
+  const state = (): DesignTabState => props.state ?? internalState
+  const setState: SetStoreFunction<DesignTabState> = props.setState ?? setInternalState
 
-  const active = createMemo(() => state.tabs.find((tab) => tab.id === state.activeId))
-  const isEmpty = createMemo(() => state.activeId === undefined)
+  const active = createMemo(() => state().tabs.find((tab) => tab.id === state().activeId))
+  const isEmpty = createMemo(() => state().activeId === undefined)
 
   return (
     <div
       class="flex h-full min-h-0 flex-col"
       data-design-workspace={isEmpty() ? "empty" : "active"}
-      data-design-workspace-tab-count={state.tabs.length}
+      data-design-workspace-tab-count={state().tabs.length}
     >
-      <Show when={state.tabs.length > 0}>
+      <Show when={state().tabs.length > 0}>
         <div
           class="flex h-9 shrink-0 items-center gap-1 border-b border-border-base bg-background-stronger px-2"
           role="tablist"
           aria-label={t("design.workspace.tabsLabel")}
           data-design-workspace-tab-bar
         >
-          <For each={state.tabs}>
+          <For each={state().tabs}>
             {(item) => (
               <button
                 type="button"
                 role="tab"
-                aria-selected={item.id === state.activeId}
+                aria-selected={item.id === state().activeId}
                 class="flex h-7 items-center gap-2 rounded px-3 text-12-medium transition-colors"
                 classList={{
-                  "bg-background-base text-text-base": item.id === state.activeId,
-                  "text-text-weak hover:bg-background-base": item.id !== state.activeId,
+                  "bg-background-base text-text-base": item.id === state().activeId,
+                  "text-text-weak hover:bg-background-base": item.id !== state().activeId,
                 }}
                 data-design-workspace-tab={item.id}
                 data-design-workspace-tab-kind={item.kind}
-                onClick={() => setState("activeId", activateTab(state, item.id).activeId ?? undefined)}
+                onClick={() => setState("activeId", activateTab(state(), item.id).activeId ?? undefined)}
               >
                 <span>{item.title}</span>
                 <Show when={item.closable}>
@@ -71,7 +91,7 @@ export function DesignWorkspace(props: { onDemo?: () => void } = {}): JSX.Elemen
                     data-design-workspace-tab-close={item.id}
                     onClick={(event) => {
                       event.stopPropagation()
-                      setState(closeTab(state, item.id))
+                      setState(closeTab(state(), item.id))
                     }}
                   >
                     ×
@@ -92,16 +112,6 @@ export function DesignWorkspace(props: { onDemo?: () => void } = {}): JSX.Elemen
             >
               <p class="text-14-medium text-text-weak">{t("design.workspace.empty")}</p>
               <p class="text-12-regular text-text-weak">{t("design.workspace.emptyHint")}</p>
-              <Show when={props.onDemo}>
-                <button
-                  type="button"
-                  class="mt-2 rounded border border-border-base px-3 py-2 text-12-medium text-text-base hover:bg-background-stronger"
-                  data-design-workspace-demo
-                  onClick={() => props.onDemo?.()}
-                >
-                  {t("design.workspace.demo")}
-                </button>
-              </Show>
             </div>
           }
         >
@@ -112,12 +122,9 @@ export function DesignWorkspace(props: { onDemo?: () => void } = {}): JSX.Elemen
               data-design-workspace-active-kind={activeTab().kind}
               data-design-workspace-active-id={activeTab().id}
             >
-              <Show when={activeTab().kind === "artifact"}>
-                <ArtifactPreview
-                  artifactId={activeTab().id}
-                  workspaceId={connection()?.workspaceId ?? ""}
-                />
-              </Show>
+              {props.renderContent
+                ? props.renderContent(activeTab())
+                : defaultRenderContent(activeTab(), connection()?.workspaceId ?? "")}
             </div>
           )}
         </Show>
@@ -127,21 +134,40 @@ export function DesignWorkspace(props: { onDemo?: () => void } = {}): JSX.Elemen
 }
 
 /**
- * Public API to let parent components drive the tab state without exposing
- * the Solid store directly. P11+ will use this to open artifact tabs.
+ * Rendu par défaut quand le parent ne fournit pas `renderContent`. Préserve
+ * le comportement historique (ArtifactPreview pour les onglets artefact, vide
+ * pour les autres kinds) ; les phases 4+ câbleront l'agent et l'éditeur de
+ * spec depuis `DesignSurface` via `renderContent`.
  */
-export function createDesignWorkspaceController() {
-  const [state, setState] = createStore<DesignTabState>(emptyDesignTabState())
-  return {
-    state,
-    open(tab: DesignTab) {
-      setState(openTab(state, tab))
-    },
-    close(id: string) {
-      setState(closeTab(state, id))
-    },
-    activate(id: string) {
-      setState(activateTab(state, id))
-    },
-  }
+function defaultRenderContent(tab: DesignTab, workspaceId: string): JSX.Element {
+  return (
+    <Show when={tab.kind === "artifact"} fallback={<div data-design-workspace-default-empty />}>
+      <ArtifactPreview artifactId={tab.id} workspaceId={workspaceId} />
+    </Show>
+  )
+}
+
+/**
+ * Constructeur pur de l'état initial de l'atelier.
+ *
+ * WHY exported as a function rather than a constant: a frozen object is
+ * the wrong shape for a Solid store (mutations would be no-ops, and the
+ * reactivity would not propagate when a tab is added later). Returning a
+ * fresh `DesignTabState` lets the parent feed it to `createStore` and get
+ * a reactive tree from the first frame.
+ *
+ * Phase 3 seed: two non-closable tabs ("Fichiers" + "Spec"). The order
+ * reflects the workflow — Files is the broader surface, Spec is the
+ * focused editor — and the initial active is "files" because it is the
+ * first tab users see when they enter Design mode.
+ */
+export function seedDesignTabState(): DesignTabState {
+  const state: DesignTabState = emptyDesignTabState()
+  // Open "Spec" first so the final `openTab` for "Fichiers" makes it the
+  // active tab — `openTab` activates the tab it just added, so the order
+  // is the only way to land on "files" without an explicit `activateTab`
+  // after the fact. The order in the tab bar (left-to-right) follows the
+  // insertion order, so users see Fichiers on the left, Spec on the right.
+  const withSpec = openTab(state, { id: "spec", kind: "spec", title: "Spec", closable: false })
+  return openTab(withSpec, { id: "files", kind: "file", title: "Fichiers", closable: false })
 }
