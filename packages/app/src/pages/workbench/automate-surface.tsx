@@ -2,7 +2,6 @@
 
 import { For, Show, createEffect, createSignal, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
@@ -12,7 +11,6 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 const decodeFile = (value: { content: string; encoding: "utf-8" | "base64" }) => value.encoding === "utf-8" ? value.content : new TextDecoder().decode(Uint8Array.from(atob(value.content), (char) => char.charCodeAt(0)))
 
 export function AutomateSurface(): JSX.Element {
-  const mode = useMode()
   const language = useLanguage()
   const t = language.t
   const workbench = useWorkspaceWorkbench()
@@ -93,8 +91,6 @@ export function AutomateSurface(): JSX.Element {
         </header>
         <WorkbenchChat
           mode="automate"
-          directory={mode.directory()}
-          sessionId={mode.sessionId()}
           prompt={t("workbench.automate.chatPrompt")}
           description={t("workbench.automate.chatDescription")}
         />

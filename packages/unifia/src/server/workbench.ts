@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
 import { P3_CAPABILITIES, type P3Capability } from "@unifia/contracts"
+import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 
 type NativeTokenInput = {
@@ -79,7 +80,12 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     host: "127.0.0.1",
     port: 0,
     runtime: "opencode",
-    auditLogPath: process.env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(process.cwd(), ".unifia", "workbench-audit.jsonl"),
+    // WHY not process.cwd(): the sidecar inherits the launcher's working
+    // directory. Started from a desktop shortcut on Windows that is
+    // C:\WINDOWS\system32, where mkdir fails with EPERM and used to abort
+    // the whole sidecar at startup. The audit trail belongs to the user's
+    // data dir, which is writable and identical however the app was launched.
+    auditLogPath: process.env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(Global.Path.data, "workbench-audit.jsonl"),
     rateBudget: 240,
     rateWindowMs: 60_000,
     // Read/watch are the baseline capabilities requested by the native Work

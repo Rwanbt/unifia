@@ -155,7 +155,13 @@ export class WorkbenchClient {
     this.#baseUrl = options.baseUrl.replace(/\/$/, "")
     this.#instanceId = options.instanceId
     this.#token = options.token
-    this.#fetch = options.fetchImpl ?? fetch
+    // WHY the bind: stored on the instance, `this.#fetch(...)` calls with the
+    // client as receiver, and the browser's fetch refuses any receiver that is
+    // not the global — "Failed to execute 'fetch' on 'Window': Illegal
+    // invocation", which took down every Workbench handshake in the desktop
+    // WebView. Every test injects `fetchImpl`, so the default path this line
+    // guards was the one path never exercised.
+    this.#fetch = options.fetchImpl ?? globalThis.fetch.bind(globalThis)
     this.#now = options.now ?? (() => Date.now())
   }
 

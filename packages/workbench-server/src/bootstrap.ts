@@ -63,7 +63,19 @@ export class FileAuditSink {
 
   constructor(logPath: string) {
     this.#logPath = logPath
-    mkdirSync(path.dirname(logPath), { recursive: true })
+    try {
+      mkdirSync(path.dirname(logPath), { recursive: true })
+    } catch (cause) {
+      // The sink still refuses to exist without a writable destination — an
+      // audit trail nobody can write is worse than a refusal. But the raw
+      // errno is unreadable to whoever launched the process: it names neither
+      // the directory nor the knob that fixes it. Embedders that must not die
+      // on this are expected to catch, as the sidecar's control plane does.
+      throw new Error(
+        `audit log directory is not writable: ${path.dirname(logPath)} — set UNIFIA_WORKBENCH_AUDIT_LOG to a writable path`,
+        { cause },
+      )
+    }
   }
 
   record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown {
@@ -107,6 +119,10 @@ export function loadConfigFromEnv(env: Record<string, string | undefined> = proc
     host,
     port: Number(env.UNIFIA_WORKBENCH_PORT ?? DEFAULT_PORT),
     runtime,
+    // Relative to cwd on purpose: a standalone Workbench server is launched
+    // from the directory it serves. Anything spawned by another process (the
+    // desktop sidecar) inherits an arbitrary cwd instead and must pass an
+    // absolute path — see createWorkbenchBridge in packages/unifia.
     auditLogPath: env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(process.cwd(), ".unifia", "audit.jsonl"),
     rateBudget: Number(env.UNIFIA_WORKBENCH_RATE_BUDGET ?? DEFAULT_RATE_BUDGET),
     rateWindowMs: Number(env.UNIFIA_WORKBENCH_RATE_WINDOW_MS ?? DEFAULT_RATE_WINDOW_MS),

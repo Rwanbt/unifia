@@ -65,6 +65,23 @@ export function modeHref(current: ModeLocation, targetMode: ShellMode): string |
   return `/${directory}/${targetMode}${query}`
 }
 
+/**
+ * Where to move so the current location names `sessionId`, or `undefined` when
+ * it must not move.
+ *
+ * WHY it is a function of its own rather than three lines inside the mode
+ * context: this is the rule that keeps one conversation across a mode change.
+ * Left inline it could only be exercised through a router, so the cases that
+ * actually matter — a location that cannot carry a session, and a session
+ * already named — would go unchecked.
+ */
+export function sessionAdoptionPath(current: ModeLocation, mode: ShellMode, sessionId: string): string | undefined {
+  if (!sessionId) return
+  if (current.kind === "invalid" || current.kind === "home") return
+  if (current.sessionId === sessionId) return
+  return modeNavigationPath(current.directory, mode, `?session=${encodeURIComponent(sessionId)}`)
+}
+
 export function resolveModeDirectory(routeDirectory: string | undefined): string {
   if (routeDirectory === undefined) return ""
   try {

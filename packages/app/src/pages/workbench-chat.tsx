@@ -2,13 +2,11 @@
 
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
-import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 
 type WorkbenchChatProps = {
   mode: "work" | "design" | "automate"
-  directory: string | undefined
-  sessionId: string | undefined
   prompt: string
   description: string
 }
@@ -28,22 +26,19 @@ function messageText(parts: readonly { type: string; text?: string }[] | undefin
 }
 
 export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
-  const sdk = useSDK()
   const sync = useSync()
   const language = useLanguage()
   const t = language.t
   const [input, setInput] = createSignal("")
-  const [activeSessionId, setActiveSessionId] = createSignal(props.sessionId)
   const [sending, setSending] = createSignal(false)
   const [error, setError] = createSignal<string>()
 
   const modeTitle = () => t(MODE_KEY[props.mode])
   const modeTitleSession = () => t("workbench.chat.sessionTitle", { mode: modeTitle() })
-
-  createEffect(() => {
-    const incomingSessionId = props.sessionId
-    if (incomingSessionId && incomingSessionId !== activeSessionId()) setActiveSessionId(incomingSessionId)
-  })
+  // The session is owned by the route, not by this card: every Workbench
+  // surface of the workspace shows the same conversation.
+  const session = createWorkbenchSession({ title: modeTitleSession })
+  const activeSessionId = session.id
 
   createEffect(() => {
     const sessionId = activeSessionId()
@@ -62,20 +57,12 @@ export function WorkbenchChat(props: WorkbenchChatProps): JSX.Element {
 
   async function submit(): Promise<void> {
     const text = input().trim()
-    if (!text || sending() || !props.directory) return
+    if (!text || sending()) return
     setSending(true)
     setError(undefined)
     try {
-      let sessionId = activeSessionId()
-      if (!sessionId) {
-        const result = await sdk.client.session.create({ directory: props.directory, title: modeTitleSession() })
-        sessionId = result.data?.id
-        if (!sessionId) throw new Error(t("workbench.errors.sessionCreation"))
-        setActiveSessionId(sessionId)
-      }
-      await sdk.client.session.prompt({ sessionID: sessionId, agent: "build", parts: [{ type: "text", text }] })
+      await session.prompt(text)
       setInput("")
-      await sync.session.sync(sessionId, { force: true })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally {

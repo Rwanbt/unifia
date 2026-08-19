@@ -3,7 +3,7 @@ import { createStore } from "solid-js/store"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
-import { modeHref, parseModeLocation } from "./mode-directory"
+import { modeHref, parseModeLocation, sessionAdoptionPath } from "./mode-directory"
 import { isAutomateAccessible, isAutomateSurfaceReachable } from "./automate-flag"
 import { Persist, persisted } from "@/utils/persist"
 
@@ -48,6 +48,22 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
       navigate(path)
     }
 
+    /**
+     * Records a session the app just created into the current location.
+     *
+     * WHY it belongs here: the route is the only carrier that survives a mode
+     * change — `modeHref` already forwards `sessionId` both ways. A session
+     * created inside a surface and kept in that surface's own signal is
+     * invisible to the next mode, which then starts a second conversation for
+     * the same project. `replace` because the user did not navigate; the app
+     * is naming where it already is.
+     */
+    function adoptSession(sessionId: string): void {
+      const path = sessionAdoptionPath(route(), active(), sessionId)
+      if (!path) return
+      navigate(path, { replace: true })
+    }
+
     function hrefFor(workspace: string, mode: ShellMode): string | undefined {
       return modeHref({ kind: "workspace-root", directory: workspace, mode: "code" }, mode)
     }
@@ -63,6 +79,7 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
       select,
       directory,
       sessionId,
+      adoptSession,
       routeKind: () => route().kind,
       pendingMode,
       cancelPendingMode: () => setPendingMode(undefined),

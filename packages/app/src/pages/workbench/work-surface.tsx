@@ -90,8 +90,6 @@ export function WorkSurface(): JSX.Element {
         </header>
         <WorkbenchChat
           mode="work"
-          directory={mode.directory()}
-          sessionId={mode.sessionId()}
           prompt={t("workbench.work.chatPrompt")}
           description={t("workbench.work.chatDescription")}
         />

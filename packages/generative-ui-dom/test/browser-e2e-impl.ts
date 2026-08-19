@@ -55,6 +55,14 @@ const config = loadConfigFromEnv({ UNIFIA_WORKBENCH_SIGNING_KEY: SIGNING_KEY, UN
 // desktop.control is allowlisted so the capability gate does not intercept
 // before the UI broker is reached: this suite proves the broker's own refusal,
 // which server.test.ts does not cover end to end.
+//
+// The allowlist alone stopped being enough with the SEC-001/C2-3 matrix of
+// 2026-08-17: #checkCapability now refuses any capability absent from
+// principal.scopes BEFORE consulting the gate, and desktop.control is
+// deliberately not step-up eligible (see STEP_UP_ELIGIBLE_CAPABILITIES). The
+// principal below therefore carries the scope — which is what a caller with a
+// legitimate reason to drive the desktop holds — so the request reaches the
+// broker and the approval path stays under test rather than failing closed.
 const app = createWorkbenchApp(
   { ...config, allowlistedCapabilities: new Set(["desktop.control"]) },
   {
@@ -64,7 +72,7 @@ const app = createWorkbenchApp(
 )
 
 const signer = new HmacTokenAuthenticator(SIGNING_KEY, config.issuer, config.audience)
-const token = signer.sign({ id: "e2e", scopes: new Set(["workspace.register", "workspace.open"]), workspaces: "*" }, Date.now() + 600_000)
+const token = signer.sign({ id: "e2e", scopes: new Set(["workspace.register", "workspace.open", "desktop.control"]), workspaces: "*" }, Date.now() + 600_000)
 const bearer = { authorization: `Bearer ${token}`, "content-type": "application/json" }
 const call = (url: string, init: RequestInit) => app.server.fetch(new Request(`http://workbench${url}`, init))
 

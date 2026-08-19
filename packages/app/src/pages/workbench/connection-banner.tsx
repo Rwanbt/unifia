@@ -18,6 +18,17 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
       default: return t("workbench.connection.unavailable")
     }
   }
+  // The lifecycle already captured why the bridge refused; until now the
+  // banner replaced it with one fixed sentence, so the only actionable part
+  // of the failure never reached the person able to act on it. The text is a
+  // runtime message from the transport, not a translatable string — same
+  // treatment as the manifest error rendered by the Design surface.
+  const failureDetail = () => {
+    const reason = workbench.error()
+    if (!reason) return undefined
+    const message = reason instanceof Error ? reason.message : String(reason)
+    return message.trim() || undefined
+  }
   return (
     <>
       <p
@@ -28,6 +39,17 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
       >
         {phaseText()}
       </p>
+      <Show when={failureDetail()}>
+        {(detail) => (
+          <p
+            data-workbench-connection-detail={props.dataAttr}
+            class="text-12-regular text-text-danger"
+            role="alert"
+          >
+            {detail()}
+          </p>
+        )}
+      </Show>
       <Show when={workbench.error()}>
         <button
           type="button"

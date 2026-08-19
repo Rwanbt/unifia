@@ -2,13 +2,11 @@
 
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
-import { useSDK } from "@/context/sdk"
-import { useSync } from "@/context/sync"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { WorkbenchChat } from "@/pages/workbench-chat"
+import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace } from "@/pages/workbench/design-workspace"
@@ -33,13 +31,10 @@ import {
 } from "@unifia/workbench-shell"
 
 export function DesignSurface(): JSX.Element {
-  const mode = useMode()
   const language = useLanguage()
   const t = language.t
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
-  const sdk = useSDK()
-  const sync = useSync()
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifest = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-systems"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSystems(connection()!.workspaceId) }))
   const [source, setSource] = createSignal("")
@@ -88,33 +83,18 @@ export function DesignSurface(): JSX.Element {
   const [commentTarget, setCommentTarget] = createSignal<string | undefined>(undefined)
   const [commentArtifactId, setCommentArtifactId] = createSignal<string>("")
   const [commentEntryFile, setCommentEntryFile] = createSignal<string>("design/index.html")
-  // Session dédiée au raffinement Design, créée à la première demande.
-  const [designSessionId, setDesignSessionId] = createSignal<string | undefined>(mode.sessionId())
   /**
    * P20 — envoi réel du prompt de raffinement à l'agent.
    *
-   * Passe par `session.prompt`, la même route que le chat Workbench :
-   * aucune capacité nouvelle n'est requise et l'envoi reste gouverné.
-   * La session est créée à la volée si le mode Design n'en porte pas
-   * encore, exactement comme `workbench-chat.tsx`.
+   * Passe par la session du workspace, la même que le fil : un raffinement
+   * demandé depuis un commentaire doit apparaître dans la conversation que
+   * l'utilisateur regarde, pas dans une session parallèle.
    */
+  const refineSession = createWorkbenchSession({ title: () => t("workbench.chat.design") })
   async function sendRefinePrompt(prompt: string, label: string): Promise<void> {
-    const directory = mode.directory()
-    if (!directory) {
-      setSaveMessage("Aucun workspace actif : impossible d'envoyer le prompt")
-      return
-    }
     setSaveMessage(`Envoi ${label}…`)
     try {
-      let sessionId = designSessionId()
-      if (!sessionId) {
-        const created = await sdk.client.session.create({ directory, title: t("workbench.chat.design") })
-        sessionId = created.data?.id
-        if (!sessionId) throw new Error(t("workbench.errors.sessionCreation"))
-        setDesignSessionId(sessionId)
-      }
-      await sdk.client.session.prompt({ sessionID: sessionId, agent: "build", parts: [{ type: "text", text: prompt }] })
-      await sync.session.sync(sessionId, { force: true })
+      await refineSession.prompt(prompt)
       setSaveMessage(`Prompt ${label} envoyé (${prompt.length} caractères)`)
     } catch (error) {
       setSaveMessage(`Envoi échoué : ${error instanceof Error ? error.message : String(error)}`)
@@ -308,8 +288,6 @@ export function DesignSurface(): JSX.Element {
             <ConnectionBanner dataAttr="design-connection" dataRetryAttr="design-retry" />
             <WorkbenchChat
               mode="design"
-              directory={mode.directory()}
-              sessionId={mode.sessionId()}
               prompt={t("workbench.design.chatPrompt")}
               description={t("workbench.design.chatDescription")}
             />

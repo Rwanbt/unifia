@@ -125,6 +125,7 @@ const SUITE_ARGS = {
  */
 const BROWSER_SUITES = [
   "packages/generative-ui-dom/test/browser.e2e.ts",
+  "packages/workbench-server/test/real-transport.test.ts",
 ]
 
 const EXCLUDED_TESTS = {
