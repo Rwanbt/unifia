@@ -4,6 +4,8 @@ import { For, Show, createEffect, createMemo, createSignal, type JSX } from "sol
 import { useLanguage } from "@/context/language"
 import { useSync } from "@/context/sync"
 import { Markdown } from "@unifia/ui/markdown"
+import { Button } from "@unifia/ui/button"
+import { DockShellForm, DockTray } from "@unifia/ui/dock-surface"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import {
@@ -47,6 +49,20 @@ const MODE_KEY = {
  * which is what we were seeing — the input disappeared the moment the
  * assistant answered. Open Design avoids that by giving the composer its own
  * row beneath the scrollable region.
+ *
+ * Phase 7 — visual parity with the Code session chat. The message bubbles
+ * reuse the exact `[data-component="user-message"]` / `[data-component="text-part"]`
+ * slot markup that `@unifia/ui`'s `message-part.css` already styles for the
+ * Code mode timeline (see `packages/ui/src/components/message-part.css`).
+ * Reusing the CSS selectors gives pixel parity without importing `SessionTurn`
+ * itself — that component (and `message-part.tsx`) is wired to `useData()` /
+ * `useFileComponent()`, context providers that only exist above the Code
+ * session route. Importing it here would mean mounting that provider tree
+ * under Workbench too, which is an architecture change this pass doesn't
+ * need: the ask was visual parity, not functional parity with tool-call
+ * rendering. The composer shell reuses `DockShellForm` / `DockTray` from
+ * `@unifia/ui/dock-surface` for the same reason — same rounded-card chrome
+ * as `PromptInput`, zero context dependency.
  */
 export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
   const sync = useSync()
@@ -159,60 +175,72 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
             </p>
           }
         >
-          <ul class="flex flex-col gap-3" data-workbench-thread-list>
+          <ul class="flex flex-col gap-6" data-workbench-thread-list>
             <For each={messages()}>
               {(message) => (
-                <li
-                  class="rounded-md border border-border-weak-base bg-background-base px-3 py-2"
-                  data-workbench-thread-message={message.role}
-                >
-                  <p class="text-12-medium text-text-weak">
-                    {message.role === "user" ? t("workbench.chat.you") : t("workbench.chat.assistant")}
-                  </p>
-                  <div class="mt-1 text-14-regular text-text-base" data-workbench-thread-message-body>
-                    <Markdown text={message.text} cacheKey={message.id} />
-                  </div>
-                  <Show when={message.role === "assistant" && message.id === lastAssistantId()}>
-                    <div class="mt-2 flex flex-wrap items-center gap-2" data-workbench-thread-execution>
-                      <button
-                        type="button"
-                        class="rounded border border-border-base px-2 py-1 text-12-regular"
-                        data-workbench-thread-action="copy"
-                        onClick={() => void copyMessage(message.id, message.text)}
-                      >
-                        Copier
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded border border-border-base px-2 py-1 text-12-regular"
-                        data-workbench-thread-action="regenerate"
-                        title="Régénérer la réponse (à brancher sur l'agent réel)"
-                        disabled
-                      >
-                        Régénérer
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded border border-border-base px-2 py-1 text-12-regular"
-                        classList={{ "border-border-focus": feedback()[message.id] === "like" }}
-                        data-workbench-thread-action="like"
-                        aria-pressed={feedback()[message.id] === "like"}
-                        onClick={() => rate(message.id, "like")}
-                        title="Réponse utile"
-                      >
-                        👍
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded border border-border-base px-2 py-1 text-12-regular"
-                        classList={{ "border-border-focus": feedback()[message.id] === "dislike" }}
-                        data-workbench-thread-action="dislike"
-                        aria-pressed={feedback()[message.id] === "dislike"}
-                        onClick={() => rate(message.id, "dislike")}
-                        title="Réponse à améliorer"
-                      >
-                        👎
-                      </button>
+                <li data-workbench-thread-message={message.role}>
+                  <Show
+                    when={message.role === "user"}
+                    fallback={
+                      <div data-component="assistant-message" data-workbench-thread-message-body>
+                        <div data-component="text-part">
+                          <div data-slot="text-part-body">
+                            <Markdown text={message.text} cacheKey={message.id} />
+                          </div>
+                          <Show when={message.id === lastAssistantId()}>
+                            <div data-slot="text-part-copy-wrapper" data-workbench-thread-execution>
+                              <button
+                                type="button"
+                                class="rounded border border-border-base px-2 py-1 text-12-regular"
+                                data-workbench-thread-action="copy"
+                                onClick={() => void copyMessage(message.id, message.text)}
+                              >
+                                Copier
+                              </button>
+                              <button
+                                type="button"
+                                class="rounded border border-border-base px-2 py-1 text-12-regular"
+                                data-workbench-thread-action="regenerate"
+                                title="Régénérer la réponse (à brancher sur l'agent réel)"
+                                disabled
+                              >
+                                Régénérer
+                              </button>
+                              <button
+                                type="button"
+                                class="rounded border border-border-base px-2 py-1 text-12-regular"
+                                classList={{ "border-border-focus": feedback()[message.id] === "like" }}
+                                data-workbench-thread-action="like"
+                                aria-pressed={feedback()[message.id] === "like"}
+                                onClick={() => rate(message.id, "like")}
+                                title="Réponse utile"
+                              >
+                                👍
+                              </button>
+                              <button
+                                type="button"
+                                class="rounded border border-border-base px-2 py-1 text-12-regular"
+                                classList={{ "border-border-focus": feedback()[message.id] === "dislike" }}
+                                data-workbench-thread-action="dislike"
+                                aria-pressed={feedback()[message.id] === "dislike"}
+                                onClick={() => rate(message.id, "dislike")}
+                                title="Réponse à améliorer"
+                              >
+                                👎
+                              </button>
+                            </div>
+                          </Show>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div data-component="user-message" data-workbench-thread-message-body>
+                      <div data-slot="user-message-body">
+                        <div data-slot="user-message-text">{message.text}</div>
+                      </div>
+                      <div data-slot="user-message-copy-wrapper">
+                        <span data-slot="user-message-meta">{t("workbench.chat.you")}</span>
+                      </div>
                     </div>
                   </Show>
                 </li>
@@ -248,8 +276,8 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
           </Show>
         </Show>
       </div>
-      <form
-        class="flex flex-col gap-2 border-t border-border-base bg-background-stronger px-4 py-3"
+      <DockShellForm
+        class="mx-4 mb-3 mt-2 flex flex-col"
         data-workbench-thread-composer
         onSubmit={(event) => {
           event.preventDefault()
@@ -261,30 +289,31 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
         </label>
         <textarea
           id={`workbench-thread-${props.mode}`}
-          class="min-h-24 w-full resize-y rounded-md border border-border-base bg-background-base p-3 text-14-regular text-text-base"
+          class="min-h-24 w-full resize-y bg-transparent px-3 pt-3 text-14-regular text-text-strong placeholder:text-text-weak focus:outline-none"
           data-workbench-thread-input
           placeholder={props.prompt}
           value={input()}
           onInput={(event) => setInput(event.currentTarget.value)}
           disabled={sending()}
         />
-        <div class="flex items-center justify-between gap-3">
+        <DockTray attach="top" class="flex items-center justify-between gap-3 px-3 py-2">
           <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
-          <button
+          <Button
             type="submit"
-            class="rounded bg-surface-inset-base px-3 py-2 text-12-medium text-text-strong"
+            variant="primary"
+            size="normal"
             data-workbench-thread-submit
             disabled={!input().trim() || sending()}
           >
             {sending() ? t("workbench.chat.sending") : t("workbench.chat.send")}
-          </button>
-        </div>
-        <Show when={error()}>
-          <p class="text-12-regular text-text-danger" role="alert" data-workbench-thread-error>
-            {error()}
-          </p>
-        </Show>
-      </form>
+          </Button>
+        </DockTray>
+      </DockShellForm>
+      <Show when={error()}>
+        <p class="mx-4 mb-2 text-12-regular text-text-danger" role="alert" data-workbench-thread-error>
+          {error()}
+        </p>
+      </Show>
     </section>
   )
 }
