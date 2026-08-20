@@ -29,7 +29,11 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
     Persist.workspace(directory() ?? "", "design-split.v1"),
     createStore<{ chatWidth: number }>({ chatWidth: DEFAULT_CHAT_WIDTH }),
   )
-  const [focused, setFocused] = createSignal(false)
+  // WHY unused setter: `focused` is read for the workspace-focus layout
+  // (grid collapse, chat hidden) but nothing calls the setter yet — no UI
+  // trigger toggles focus mode. Kept as a stub so the layout branch stays
+  // exercised; see the spawned task for wiring a real trigger.
+  const [focused, _setFocused] = createSignal(false)
   const [resizing, setResizing] = createSignal(false)
 
   function startResize(event: PointerEvent): void {

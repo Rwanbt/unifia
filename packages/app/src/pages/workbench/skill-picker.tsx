@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { For, Show, type JSX } from "solid-js"
-import { createSkillPickerRows, type SkillPickerRow } from "@unifia/workbench-shell"
+import type { SkillPickerRow } from "@unifia/workbench-shell"
 
 export type SkillPickerProps = {
   rows: readonly SkillPickerRow[]
