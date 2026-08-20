@@ -4,19 +4,25 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, 
 import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
+import { useMode } from "@/context/mode"
+import { useSync } from "@/context/sync"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { WorkbenchThread } from "@/pages/workbench/workbench-thread"
 import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
+import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import { DesignToolbar, DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
+import { createArtifactParser } from "@unifia/artifact-render"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
 import {
   createArtifactStreamController,
   type StreamedArtifact,
 } from "@/pages/workbench/use-artifact-stream"
+import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
+import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -25,12 +31,17 @@ import {
   diffArtifactVersions,
   createIndexedDbDesignDraftStore,
   DesignDraftConflictError,
+  EMPTY_COMMENT_STATE,
+  type CommentState,
 } from "@unifia/workbench-shell"
+import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { openTab, type DesignTab } from "@/pages/workbench/design-tabs"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
   const t = language.t
+  const mode = useMode()
+  const sync = useSync()
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
@@ -42,6 +53,7 @@ export function DesignSurface(): JSX.Element {
   const [saveState, setSaveState] = createSignal<"idle" | "saving" | "saved" | "error">("idle")
   const [saveMessage, setSaveMessage] = createSignal("")
   const [exportState, setExportState] = createSignal<"idle" | "exporting" | "exported" | "error">("idle")
+  const [openState, setOpenState] = createSignal<"idle" | "opening" | "opened" | "error">("idle")
   const draftStore = createIndexedDbDesignDraftStore()
 
   // Phase 3 — `DesignSurface` holds the workshop's tab state. Before phase 3,
@@ -107,12 +119,15 @@ export function DesignSurface(): JSX.Element {
       .catch((error: unknown) => setSnapshot({ kind: "error", error: error instanceof Error ? error.message : "snapshot-failed" }))
   }
 
-  // P19 + P20 — Panneau de commentaires. Le `CommentPanel` n'est plus
-  // rendu dans le slot workspace depuis la phase 4. Les signaux qui
-  // portaient sa mémoire sont retirés : sans `CommentPanel`, ils n'ont
-  // pas de lecteur. `onSelectTarget` (P18 → P19) est conservé sur
-  // `DesignArtifactTab` mais le câblage vers un futur panneau de
-  // commentaires attendra la phase 4+ suivante.
+  // P19 + P20 — Panneau de commentaires, rebranché. `CommentState` est un
+  // registre plat (chaque `DesignComment` porte son propre `artifactId`),
+  // donc un seul signal suffit pour tous les onglets artefact — pas besoin
+  // d'un state par onglet. `commentTarget` mémorise le dernier élément
+  // piqué (P18) tant qu'aucun autre pick ne le remplace ; il survit à un
+  // changement d'onglet volontairement (revenir sur l'artefact retrouve
+  // la cible en cours).
+  const [commentState, setCommentState] = createSignal<CommentState>(EMPTY_COMMENT_STATE)
+  const [commentTarget, setCommentTarget] = createSignal<{ elementId: string; artifactId: string; entryFile: string }>()
 
   // P4-3 — chaque `artifact:start` du moteur de streaming ouvre (ou active)
   // un onglet `kind: "artifact"`. L'effet lit `stream.state()` (signal) et
@@ -135,29 +150,64 @@ export function DesignSurface(): JSX.Element {
     }
   })
 
-  // P18 → P19 — callback de pick d'élément dans l'artefact. Le panneau
-  // de commentaires qui le consomme a été retiré en phase 4 ; le
-  // callback est conservé pour la phase 4+ qui le rebranchera. Pour
-  // l'instant, le pick est un no-op (la cible n'est lue par personne).
-  // Conserver le callback ici plutôt que dans `DesignArtifactTab`
-  // évite de re-câbler le parent quand le panneau reviendra.
-  function onArtifactSelectTarget(_elementId: string, _artifactId: string, _entryFile: string): void {
-    // No-op until the comment panel re-lands.
+  // Phase 7 — P4-1 closed: the real producer. `WorkbenchThread` shows the
+  // same session this effect reads (`mode.sessionId()`); nothing here
+  // creates a session or duplicates `sync.session.sync` — the thread already
+  // keeps it warm. Every assistant message is fed, incrementally, through
+  // its own `createArtifactParser()` instance (one per message id, so two
+  // concurrent messages never share buffer state); the parser only sees the
+  // *new* slice of text since last run (`fed` tracks how much of the
+  // message has already been parsed — `feed()` is a streaming API, calling
+  // it with the full text again on every render would re-emit every event).
+  // `adaptRenderArtifactEvents` reuses the P4-2 adapter to translate into
+  // the shape `stream` expects. If the agent behind "build" ever answers
+  // with an `<artifact>` block, it renders here with no further wiring. If
+  // it never does, this effect simply never yields an event — a silent
+  // no-op, not a failure.
+  const messageParsers = new Map<string, { parser: ReturnType<typeof createArtifactParser>; fed: number }>()
+  let parsedSessionId: string | undefined
+  createEffect(() => {
+    const sessionId = mode.sessionId()
+    if (sessionId !== parsedSessionId) {
+      // A session switch starts every message's parse state over — a
+      // message id from a previous conversation is never revisited.
+      messageParsers.clear()
+      parsedSessionId = sessionId
+    }
+    if (!sessionId) return
+    const messages = sync.data.message[sessionId] ?? []
+    for (const message of messages) {
+      if (message.role !== "assistant") continue
+      const text = extractMessageText(sync.data.part[message.id])
+      if (!text) continue
+      let tracked = messageParsers.get(message.id)
+      if (!tracked) {
+        tracked = { parser: createArtifactParser(), fed: 0 }
+        messageParsers.set(message.id, tracked)
+      }
+      if (text.length <= tracked.fed) continue
+      const delta = text.slice(tracked.fed)
+      tracked.fed = text.length
+      for (const event of adaptRenderArtifactEvents(tracked.parser.feed(delta))) stream.push(event)
+    }
+  })
+
+  // P18 → P19 — callback de pick d'élément dans l'artefact : mémorise la
+  // cible pour que `CommentPanel` sache sur quel `data-unifia-id` le
+  // prochain "Ajouter" doit s'attacher.
+  function onArtifactSelectTarget(elementId: string, artifactId: string, entryFile: string): void {
+    setCommentTarget({ elementId, artifactId, entryFile })
   }
   /**
    * P4-5 — boucle commentaire → raffinement → fil.
    *
    * Le contrat est porté par `createWorkbenchSession` (P1-1) : une seule
    * session par workspace, partagée entre tous les consumers (fil,
-   * raffinement, future CommentPanel). Quand le panneau de commentaires
-   * reviendra, le câblage se résume à `await refineSession.prompt(text)` ;
-   * la réponse de l'agent apparaîtra dans le fil parce que c'est la même
-   * session. Le test de cette garantie vit dans
-   * `workbench-session.test.ts` (couverture du ownership unique).
-   *
-   * Avant P20 + P4-5, ce code créait une seconde `WorkbenchSession` par
-   * surface, ce qui doublait les conversations. La phase 1 a supprimé le
-   * doublon ; la phase 4 acte que la boucle est garantie par le contrat.
+   * raffinement, `CommentPanel`). `sendRefinePrompt` est le seul appelant
+   * de `refineSession.prompt` ; la réponse de l'agent apparaît dans le fil
+   * parce que c'est la même session — pas de câblage supplémentaire côté
+   * `WorkbenchThread`. Le test de l'ownership unique vit dans
+   * `workbench-session.test.ts`.
    */
   const refineSession = createWorkbenchSession({ title: () => t("workbench.chat.design") })
   async function sendRefinePrompt(prompt: string, label: string): Promise<void> {
@@ -169,13 +219,6 @@ export function DesignSurface(): JSX.Element {
       setSaveMessage(`Envoi échoué : ${error instanceof Error ? error.message : String(error)}`)
     }
   }
-  // Garder `refineSession` et `sendRefinePrompt` au chaud dans la closure
-  // n'a pas de sens sans consumer : la phase 4 acte que le contrat est
-  // tenu, le câblage réel reviendra avec la CommentPanel de la phase 4+
-  // suivante. On annote l'intention en commentant, pas en gardant du
-  // code mort qui fera crier Biome.
-  void refineSession
-  void sendRefinePrompt
   let lastConnectionPhase: ReturnType<typeof workbench.phase> | undefined
   createEffect(() => {
     const phase = workbench.phase()
@@ -337,6 +380,45 @@ export function DesignSurface(): JSX.Element {
       setSaveMessage(error instanceof Error ? error.message : "design render export failed")
     }
   }
+  /**
+   * Phase 7 — manual, production-grade artifact generation, no agent
+   * required. `exportDesignRender` above already proves the spec renders to
+   * a real, persisted SVG artifact; this reuses the same render call but,
+   * instead of sending it to the outbox, opens it in the workshop through
+   * the exact `stream` pipeline a real agent's `<artifact>` block would use
+   * (P4-2's target shape, applied directly — there's no markdown to parse,
+   * so the parser/adapter step is skipped, not reimplemented). The result
+   * is a real `DesignArtifactTab` showing a real, server-persisted artifact:
+   * this is the "generate a real artifact" affordance the design decided on
+   * for the case where no agent emits `<artifact>` tags yet.
+   */
+  async function openSpecInWorkshop(): Promise<void> {
+    const current = connection()
+    const designSpec = spec().spec
+    if (!current || !designSpec || openState() === "opening") return
+    setOpenState("opening")
+    setSaveMessage("")
+    try {
+      const content = renderDesignSpecSvg(designSpec, { width: 1440, height: 1080 })
+      const result = await current.client.createArtifact({
+        workspaceId: current.workspaceId,
+        kind: "svg",
+        filename: "design-preview.svg",
+        content,
+        metadata: { derivedFrom: artifactId() ?? "draft", format: "image/svg+xml" },
+        provenance: { sourceTool: "design-workshop-preview", capabilityPack: "workbench-design" },
+      })
+      const id = result.artifact.artifactId
+      stream.push({ type: "artifact:start", artifactId: id, filename: result.artifact.filename, kind: result.artifact.kind, sessionId: "manual" })
+      stream.push({ type: "artifact:chunk", artifactId: id, chunk: content })
+      stream.push({ type: "artifact:end", artifactId: id, reason: "complete" })
+      setOpenState("opened")
+      setSaveMessage(`Ouvert dans l'atelier : ${result.artifact.filename} (v${result.artifact.version})`)
+    } catch (error) {
+      setOpenState("error")
+      setSaveMessage(error instanceof Error ? error.message : "design preview could not be opened")
+    }
+  }
   const versionPanel = createMemo(() => createArtifactVersionPanelState(history.data?.history ?? []))
   const latestDiff = createMemo(() => {
     const versions = versionPanel().history
@@ -370,6 +452,8 @@ export function DesignSurface(): JSX.Element {
         onSave={() => void saveDesignVersion()}
         exportState={exportState()}
         onExport={() => void exportDesignRender()}
+        openState={openState()}
+        onOpenInWorkshop={() => void openSpecInWorkshop()}
         versionPanel={versionPanel()}
         latestDiff={latestDiff()}
         manifestError={manifest.error}
@@ -395,6 +479,11 @@ export function DesignSurface(): JSX.Element {
         onSnapshotReady={(request) => {
           capture = request
         }}
+        commentState={commentState()}
+        onCommentChange={setCommentState}
+        commentTarget={commentTarget()}
+        onSendCommentBatch={(prompt) => void sendRefinePrompt(prompt, "commentaires")}
+        onSendCommentOne={(prompt) => void sendRefinePrompt(prompt, "commentaire")}
       />
     }
     return <div data-design-workspace-tab-empty={tab.id} />
@@ -461,6 +550,13 @@ function DesignArtifactTab(props: {
   onSelectTarget: (elementId: string, artifactId: string, entryFile: string) => void
   /** P3-5 / P17 — l'iframe remonte sa fonction de capture au parent. */
   onSnapshotReady: (request: () => Promise<{ dataUrl: string; w: number; h: number }>) => void
+  /** P19 + P20 — état plat des commentaires, partagé entre tous les onglets artefact. */
+  commentState: CommentState
+  onCommentChange: (state: CommentState) => void
+  /** P18 → P19 — dernier élément piqué ; `undefined` tant qu'aucun pick n'a eu lieu. */
+  commentTarget: { elementId: string; artifactId: string; entryFile: string } | undefined
+  onSendCommentBatch: (prompt: string) => void
+  onSendCommentOne: (prompt: string) => void
 }): JSX.Element {
   return (
     <div
@@ -524,51 +620,51 @@ function DesignArtifactTab(props: {
           Connexion perdue — l'aperçu reste figé sur le dernier état reçu. {props.connectionError}
         </p>
       </Show>
-      <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-base" data-design-artifact-mount>
-        <ArtifactPreview
-          artifactId={props.entry?.artifactId ?? ""}
-          workspaceId=""
-          source={props.entry?.content}
-          mode={props.toolbarMode}
-          viewport={props.viewport}
-          zoom={props.zoom}
-          selectMode={props.selectMode}
-          onSelectTarget={(elementId) => {
-            if (!props.entry) return
-            props.onSelectTarget(elementId, props.entry.artifactId, props.entry.filename)
-            // Un pick vaut confirmation : on désarme pour que le rendu
-            // redevienne cliquable normalement.
-            props.onSelectMode(false)
-          }}
-          onSnapshotReady={props.onSnapshotReady}
-        />
+      <div class="flex h-full min-h-0 flex-1 gap-3">
+        <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base" data-design-artifact-mount>
+          <ArtifactPreview
+            artifactId={props.entry?.artifactId ?? ""}
+            workspaceId=""
+            source={props.entry?.content}
+            mode={props.toolbarMode}
+            viewport={props.viewport}
+            zoom={props.zoom}
+            selectMode={props.selectMode}
+            onSelectTarget={(elementId) => {
+              if (!props.entry) return
+              props.onSelectTarget(elementId, props.entry.artifactId, props.entry.filename)
+              // Un pick vaut confirmation : on désarme pour que le rendu
+              // redevienne cliquable normalement.
+              props.onSelectMode(false)
+            }}
+            onSnapshotReady={props.onSnapshotReady}
+          />
+        </div>
+        <Show when={props.entry}>
+          {(entry) => (
+            <div class="w-72 shrink-0 overflow-y-auto rounded-lg border border-border-base bg-background-stronger p-3" data-design-comment-sidebar>
+              <CommentPanel
+                artifactId={props.commentTarget?.artifactId ?? entry().artifactId}
+                state={props.commentState}
+                entryFile={props.commentTarget?.entryFile ?? entry().filename}
+                targetElementId={props.commentTarget?.elementId}
+                onChange={props.onCommentChange}
+                onSendBatch={props.onSendCommentBatch}
+                onSendOne={props.onSendCommentOne}
+              />
+            </div>
+          )}
+        </Show>
       </div>
     </div>
   )
 }
 
-/**
- * Phase 3 — Onglet "Fichiers".
- *
- * Le contenu de cet onglet est volontairement vide pour l'instant. Le but
- * de P3-3 est de prouver qu'un onglet non-fermable, semé à l'ouverture,
- * reste en place quand l'utilisateur ferme l'onglet actif. La liste de
- * fichiers (avec recherche, sélection, ouverture d'un fichier comme
- * artefact) viendra quand le runtime exposera la query
- * `listFiles(connection.workspaceId, ".")` déjà consommée par Automate
- * (`automate-surface.tsx:19`) — la parité est de ne pas dupliquer la
- * requête ici sans raison.
- */
-function DesignFilesTab(): JSX.Element {
-  const language = useLanguage()
-  const t = language.t
-  return (
-    <div class="flex h-full min-h-0 flex-col items-center justify-center gap-2 p-6 text-center" data-design-files-tab>
-      <p class="text-14-medium text-text-weak">{t("design.workspace.empty")}</p>
-      <p class="text-12-regular text-text-weak">{t("design.workspace.emptyHint")}</p>
-    </div>
-  )
-}
+// Phase 3 → Phase 7 — the "Fichiers" tab was a placeholder proving only that
+// a non-closable tab survives `closeTab` (P3-3). It's now `DesignFilesTab`
+// from `design-files-tab.tsx`, imported above: a real listing backed by
+// `listFiles(workspaceId, ".")`, the same client call Automate already used
+// (`automate-surface.tsx`) — no new server surface, no duplicated query.
 
 type DesignCatalogSummary = {
   id: string
@@ -601,6 +697,8 @@ function DesignSpecEditor(props: {
   onSave: () => void
   exportState: "idle" | "exporting" | "exported" | "error"
   onExport: () => void
+  openState: "idle" | "opening" | "opened" | "error"
+  onOpenInWorkshop: () => void
   versionPanel: {
     history: readonly unknown[]
     provenance?: Record<string, string>
@@ -687,6 +785,9 @@ function DesignSpecEditor(props: {
         </button>
         <button type="button" data-design-export-render class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.exportState === "exporting"} onClick={props.onExport}>
           {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
+        </button>
+        <button type="button" data-design-open-workshop class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.openState === "opening"} onClick={props.onOpenInWorkshop} title="Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier">
+          {props.openState === "opening" ? "Ouverture…" : "Ouvrir dans l'atelier"}
         </button>
         <Show when={props.saveMessage}><span data-design-save-result={props.saveState} class="text-12-regular text-text-weak">{props.saveMessage}</span></Show>
       </div>
