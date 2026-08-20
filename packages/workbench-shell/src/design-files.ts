@@ -7,7 +7,7 @@ export type DesignFile = Omit<WorkspaceFileEntry, "kind"> & { kind: DesignFileKi
 export type DesignFilesPanelState = { files: readonly DesignFile[]; selectedPath?: string }
 export type DesignFileRow = { path: string; label: string; kind: DesignFileKind; selected: boolean }
 
-function fileKind(path: string): DesignFileKind {
+export function fileKind(path: string): DesignFileKind {
   const extension = path.split(".").at(-1)?.toLowerCase()
   if (extension && ["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"].includes(extension)) return "asset"
   if (extension && ["tsx", "jsx", "vue", "svelte"].includes(extension)) return "component"
