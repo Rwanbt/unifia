@@ -40,6 +40,7 @@ import {
   type CommentTargetRect,
 } from "@unifia/workbench-shell"
 import { openTab, type DesignTab } from "@/pages/workbench/design-tabs"
+import { TerminalPanel } from "@/pages/session/terminal-panel"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
@@ -619,6 +620,7 @@ export function DesignSurface(): JSX.Element {
         onArtifactEdited={onArtifactEdited}
       />
     }
+    if (tab.kind === "terminal") return <TerminalPanel />
     return <div data-design-workspace-tab-empty={tab.id} />
   }
 
@@ -652,7 +654,12 @@ export function DesignSurface(): JSX.Element {
         }
         workspace={
           <div class="flex h-full min-h-0 flex-col">
-            <DesignWorkspace state={tabState} setState={setTabState} renderContent={renderTabContent} />
+            <DesignWorkspace
+              state={tabState}
+              setState={setTabState}
+              renderContent={renderTabContent}
+              onOpenTerminal={() => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))}
+            />
           </div>
         }
       />

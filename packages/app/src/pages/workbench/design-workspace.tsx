@@ -42,6 +42,7 @@ export function DesignWorkspace(props: {
    * un placeholder par kind.
    */
   renderContent?: (tab: DesignTab) => JSX.Element
+  onOpenTerminal?: () => void
 }): JSX.Element {
   const language = useLanguage()
   const workbench = useWorkspaceWorkbench()
@@ -67,6 +68,11 @@ export function DesignWorkspace(props: {
           aria-label={t("design.workspace.tabsLabel")}
           data-design-workspace-tab-bar
         >
+          <Show when={props.onOpenTerminal}>
+            <button type="button" class="ml-auto rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>
+              Terminal
+            </button>
+          </Show>
           <For each={state().tabs}>
             {(item) => (
               <button
