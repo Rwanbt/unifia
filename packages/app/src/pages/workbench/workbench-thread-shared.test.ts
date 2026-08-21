@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   addPendingSend,
+  buildThreadRenderItems,
   extractMessageText,
   findRegenerateTarget,
   markPendingSendFailed,
@@ -211,6 +212,69 @@ describe("ThreadMessage shape (contract)", () => {
       text: "Bonjour",
     }
     expect(Object.keys(sample).sort()).toEqual(["id", "role", "text"])
+  })
+})
+
+function pendingSend(overrides: Partial<PendingSend> = {}): PendingSend {
+  return { id: "p-1", text: "sending", status: "sending", ...overrides }
+}
+
+describe("buildThreadRenderItems (10.6 — virtualized list flattening)", () => {
+  test("empty messages and no pending sends produce an empty list (no next-step entry)", () => {
+    expect(buildThreadRenderItems([], [])).toEqual([])
+  })
+
+  test("messages come first, in order", () => {
+    const m1: ThreadMessage = { id: "m-1", role: "user", text: "a" }
+    const m2: ThreadMessage = { id: "m-2", role: "assistant", text: "b" }
+    const items = buildThreadRenderItems([m1, m2], [])
+    expect(items[0]).toEqual({ kind: "message", message: m1 })
+    expect(items[1]).toEqual({ kind: "message", message: m2 })
+  })
+
+  test("pending sends come after every message", () => {
+    const m1: ThreadMessage = { id: "m-1", role: "user", text: "a" }
+    const p1 = pendingSend({ id: "p-1" })
+    const items = buildThreadRenderItems([m1], [p1])
+    expect(items).toEqual([
+      { kind: "message", message: m1 },
+      { kind: "pending", pending: p1 },
+      { kind: "next-step" },
+    ])
+  })
+
+  test("a trailing next-step entry is appended when there is at least one real message", () => {
+    const items = buildThreadRenderItems([{ id: "m-1", role: "user", text: "a" }], [])
+    expect(items.at(-1)).toEqual({ kind: "next-step" })
+  })
+
+  test("no next-step entry when there are only pending sends and no synced messages yet", () => {
+    const items = buildThreadRenderItems([], [pendingSend()])
+    expect(items.some((i) => i.kind === "next-step")).toBe(false)
+  })
+
+  test("the next-step entry appears exactly once, after messages AND pending sends", () => {
+    const items = buildThreadRenderItems(
+      [
+        { id: "m-1", role: "user", text: "a" },
+        { id: "m-2", role: "assistant", text: "b" },
+      ],
+      [pendingSend({ id: "p-1" })],
+    )
+    expect(items).toHaveLength(4)
+    expect(items[2]).toEqual({ kind: "pending", pending: pendingSend({ id: "p-1" }) })
+    expect(items[3]).toEqual({ kind: "next-step" })
+  })
+
+  test("two independently-failed pending sends both appear, each with its own status", () => {
+    const p1 = pendingSend({ id: "p-1", status: "failed" })
+    const p2 = pendingSend({ id: "p-2", status: "failed" })
+    const items = buildThreadRenderItems([{ id: "m-1", role: "user", text: "a" }], [p1, p2])
+    const pendingItems = items.filter((i) => i.kind === "pending")
+    expect(pendingItems).toEqual([
+      { kind: "pending", pending: p1 },
+      { kind: "pending", pending: p2 },
+    ])
   })
 })
 

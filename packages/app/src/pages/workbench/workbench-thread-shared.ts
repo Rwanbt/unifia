@@ -125,6 +125,39 @@ export function removePendingSend(list: readonly PendingSend[], id: string): rea
   return list.filter((p) => p.id !== id)
 }
 
+export type ThreadRenderItem =
+  | { kind: "message"; message: ThreadMessage }
+  | { kind: "pending"; pending: PendingSend }
+  | { kind: "next-step" }
+
+/**
+ * Phase 10.6 — flattens the message history, in-flight sends, and the
+ * trailing "next step" suggestions section into ONE array so `VList`
+ * (virtua's Solid adapter, in workbench-thread-list.tsx) can virtualize
+ * the whole scrollable region as a single list, instead of three
+ * separately-scrolling pieces. The "next-step" entry only appears once,
+ * at the end, and only when there is at least one real message — same
+ * condition the pre-virtualization markup used
+ * (`<Show when={messages().length > 0}>`).
+ *
+ * Lives here (a plain .ts module with zero Solid-component imports),
+ * not in workbench-thread-list.tsx itself: importing a pure function
+ * from a .tsx file that pulls in `virtua/solid` and `@unifia/ui/markdown`
+ * breaks bun:test's happydom resolution (verified — the component-level
+ * import resolves solid-js's server build and fails with a missing `use`
+ * export). Every other pure helper in this file follows the same rule.
+ */
+export function buildThreadRenderItems(
+  messages: readonly ThreadMessage[],
+  pendingSends: readonly PendingSend[],
+): readonly ThreadRenderItem[] {
+  const items: ThreadRenderItem[] = []
+  for (const message of messages) items.push({ kind: "message", message })
+  for (const pending of pendingSends) items.push({ kind: "pending", pending })
+  if (messages.length > 0) items.push({ kind: "next-step" })
+  return items
+}
+
 /**
  * Static, mode-keyed next-step suggestions seeded into the thread footer.
  *

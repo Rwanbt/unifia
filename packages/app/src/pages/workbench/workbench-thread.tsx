@@ -3,13 +3,13 @@
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useSync } from "@/context/sync"
-import { Markdown } from "@unifia/ui/markdown"
 import { Button } from "@unifia/ui/button"
 import { DockShellForm, DockTray } from "@unifia/ui/dock-surface"
 import { buildAttachedCommentsPrompt, type AttachedComment, type CommentState } from "@unifia/workbench-shell"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { ThreadCommentAttachPanel } from "@/pages/workbench/thread-comment-attach-panel"
+import { WorkbenchThreadList } from "@/pages/workbench/workbench-thread-list"
 import {
   addComposerAttachment,
   buildAttachmentPath,
@@ -363,146 +363,20 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
       <div class="border-b border-border-base px-4 py-2" data-workbench-thread-connection>
         <ConnectionBanner dataAttr={props.connection.dataAttr} dataRetryAttr={props.connection.dataRetryAttr} />
       </div>
-      <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3" data-workbench-thread-history aria-live="polite">
-        <Show
-          when={messages().length > 0 || pendingSends().length > 0}
-          fallback={
-            <p class="text-12-regular text-text-weak" data-workbench-thread-empty>
-              Démarre la conversation par un message. Le fil reste affiché quand tu changes de mode.
-            </p>
-          }
-        >
-          <ul class="flex flex-col gap-6" data-workbench-thread-list>
-            <For each={messages()}>
-              {(message) => (
-                <li data-workbench-thread-message={message.role}>
-                  <Show
-                    when={message.role === "user"}
-                    fallback={
-                      <div data-component="assistant-message" data-workbench-thread-message-body>
-                        <div data-component="text-part">
-                          <div data-slot="text-part-body">
-                            <Markdown text={message.text} cacheKey={message.id} />
-                          </div>
-                          <Show when={message.id === lastAssistantId()}>
-                            <div data-slot="text-part-copy-wrapper" data-workbench-thread-execution>
-                              <button
-                                type="button"
-                                class="rounded border border-border-base px-2 py-1 text-12-regular"
-                                data-workbench-thread-action="copy"
-                                onClick={() => void copyMessage(message.id, message.text)}
-                              >
-                                Copier
-                              </button>
-                              <button
-                                type="button"
-                                class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
-                                data-workbench-thread-action="regenerate"
-                                title="Régénérer la réponse"
-                                disabled={regenerating()}
-                                onClick={() => void regenerate(message.id)}
-                              >
-                                Régénérer
-                              </button>
-                              <button
-                                type="button"
-                                class="rounded border border-border-base px-2 py-1 text-12-regular"
-                                classList={{ "border-border-focus": feedback()[message.id] === "like" }}
-                                data-workbench-thread-action="like"
-                                aria-pressed={feedback()[message.id] === "like"}
-                                onClick={() => rate(message.id, "like")}
-                                title="Réponse utile"
-                              >
-                                👍
-                              </button>
-                              <button
-                                type="button"
-                                class="rounded border border-border-base px-2 py-1 text-12-regular"
-                                classList={{ "border-border-focus": feedback()[message.id] === "dislike" }}
-                                data-workbench-thread-action="dislike"
-                                aria-pressed={feedback()[message.id] === "dislike"}
-                                onClick={() => rate(message.id, "dislike")}
-                                title="Réponse à améliorer"
-                              >
-                                👎
-                              </button>
-                            </div>
-                          </Show>
-                        </div>
-                      </div>
-                    }
-                  >
-                    <div data-component="user-message" data-workbench-thread-message-body>
-                      <div data-slot="user-message-body">
-                        <div data-slot="user-message-text">{message.text}</div>
-                      </div>
-                      <div data-slot="user-message-copy-wrapper">
-                        <span data-slot="user-message-meta">{t("workbench.chat.you")}</span>
-                      </div>
-                    </div>
-                  </Show>
-                </li>
-              )}
-            </For>
-            <For each={pendingSends()}>
-              {(pending) => (
-                <li data-workbench-thread-message="user" data-workbench-thread-pending={pending.status}>
-                  <div data-component="user-message" data-workbench-thread-message-body>
-                    <div data-slot="user-message-body">
-                      <div data-slot="user-message-text">{pending.text}</div>
-                    </div>
-                    <div data-slot="user-message-copy-wrapper">
-                      <span data-slot="user-message-meta">{t("workbench.chat.you")}</span>
-                    </div>
-                  </div>
-                  <Show when={pending.status === "failed"}>
-                    <div class="mt-1 flex items-center gap-2" data-workbench-thread-pending-error>
-                      <p class="text-12-regular text-text-danger" role="alert">
-                        {t("workbench.chat.sendFailed")}
-                      </p>
-                      <button
-                        type="button"
-                        class="rounded border border-border-base px-2 py-1 text-12-regular"
-                        data-workbench-thread-action="retry"
-                        onClick={() => retryPendingSend(pending.id)}
-                      >
-                        {t("workbench.chat.retry")}
-                      </button>
-                    </div>
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ul>
-          <Show when={messages().length > 0}>
-            <section
-              class="mt-4 rounded-md border border-border-weak-base bg-background-stronger p-3"
-              data-workbench-thread-next-step
-            >
-              <p class="text-12-medium text-text-weak">Étapes suivantes</p>
-              <p class="mt-1 text-12-regular text-text-weak">
-                Quelques suggestions pour continuer la conversation.
-              </p>
-              <ul class="mt-2 flex flex-col gap-1">
-                <For each={suggestions()}>
-                  {(suggestion) => (
-                    <li>
-                      <button
-                        type="button"
-                        class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-left text-12-regular"
-                        data-workbench-thread-next-step-suggestion={suggestion.id}
-                        onClick={() => applySuggestion(suggestion)}
-                      >
-                        {suggestion.label}
-                      </button>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </section>
-          </Show>
-        </Show>
-      </div>
+      <WorkbenchThreadList
+        messages={messages()}
+        pendingSends={pendingSends()}
+        lastAssistantId={lastAssistantId()}
+        feedback={feedback()}
+        regenerating={regenerating()}
+        suggestions={suggestions()}
+        t={t}
+        onCopy={(messageId, text) => void copyMessage(messageId, text)}
+        onRegenerate={(assistantMessageId) => void regenerate(assistantMessageId)}
+        onRate={rate}
+        onRetryPending={retryPendingSend}
+        onApplySuggestion={applySuggestion}
+      />
       <DockShellForm
         class="mx-4 mb-3 mt-2 flex flex-col"
         data-workbench-thread-composer
