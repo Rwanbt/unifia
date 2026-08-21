@@ -22,6 +22,7 @@ import {
   type StreamedArtifact,
 } from "@/pages/workbench/use-artifact-stream"
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
+import { deriveExportFilename } from "@/pages/workbench/design-artifact-export"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
 import {
   createDesignPreviewPanelState,
@@ -649,6 +650,62 @@ function DesignArtifactTab(props: {
   copyState: "idle" | "copying" | "copied" | "error"
   onCopySnapshot: () => void
 }): JSX.Element {
+  // Phase 9.5 — export HTML/PDF. Local state (not hoisted to DesignSurface
+  // like viewport/zoom/mode): this is transient feedback for a just-clicked
+  // button, not a sticky preference that needs to survive a tab switch —
+  // unlike those, there's no reason a re-visited tab should still show
+  // "exported!" from a click made minutes ago on a different artifact.
+  const [artifactExportState, setArtifactExportState] = createSignal<{ kind: "idle" | "exporting" | "exported" | "error"; error?: string }>({ kind: "idle" })
+
+  function exportArtifactHtml(): void {
+    const content = props.entry?.content
+    if (!content) return
+    setArtifactExportState({ kind: "exporting" })
+    try {
+      const blob = new Blob([content], { type: "text/html;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = deriveExportFilename(props.entry?.filename, "html")
+      link.click()
+      URL.revokeObjectURL(url)
+      setArtifactExportState({ kind: "exported" })
+    } catch (error) {
+      setArtifactExportState({ kind: "error", error: error instanceof Error ? error.message : "html export failed" })
+    }
+  }
+
+  /**
+   * No server-side headless renderer exists yet for HTML→PDF (verified —
+   * neither packages/unifia nor workbench-server wire one; @unifia/browser-runtime
+   * has Playwright as a real dependency but only for browser-automation
+   * sessions, not a stateless PDF render, and nothing consumes it
+   * server-side today). Adding that capability (route, server dependency,
+   * capability gate, a Chromium download) is a real follow-up, not this
+   * button's blocker — the porte for this phase only requires the HTML
+   * export to work. The browser's own native print-to-PDF, triggered on a
+   * fresh window holding the artifact's content, is a complete, working
+   * PDF export today: high-fidelity (it's the same rendering engine), no
+   * new dependency, no new server surface.
+   */
+  function exportArtifactPdf(): void {
+    const content = props.entry?.content
+    if (!content) return
+    setArtifactExportState({ kind: "exporting" })
+    const printWindow = window.open("", "_blank", "noopener")
+    if (!printWindow) {
+      setArtifactExportState({ kind: "error", error: "popup blocked — allow popups to export as PDF" })
+      return
+    }
+    printWindow.document.open()
+    printWindow.document.write(content)
+    printWindow.document.close()
+    printWindow.onload = () => {
+      printWindow.print()
+      setArtifactExportState({ kind: "exported" })
+    }
+  }
+
   return (
     <div
       class="flex h-full min-h-0 flex-col gap-3"
@@ -710,6 +767,9 @@ function DesignArtifactTab(props: {
         onToggleCommentPanel={props.onToggleCommentPanel}
         copyState={props.copyState}
         onCopySnapshot={props.onCopySnapshot}
+        onExportHtml={exportArtifactHtml}
+        onExportPdf={exportArtifactPdf}
+        exportState={artifactExportState()}
       />
       <Show when={props.connectionError}>
         <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-artifact-connection-error role="alert">

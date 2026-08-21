@@ -175,7 +175,7 @@ export function DesignToolbar(props: {
         <button
           type="button"
           class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
-          disabled={!props.onExportHtml || (props.exportState?.kind === "exporting")}
+          disabled={!props.onExportHtml || !props.hasSource || (props.exportState?.kind === "exporting")}
           data-design-toolbar-export-html
           data-design-toolbar-export-state={props.exportState?.kind ?? "idle"}
           onClick={() => props.onExportHtml?.()}
@@ -186,7 +186,7 @@ export function DesignToolbar(props: {
         <button
           type="button"
           class="flex h-7 items-center rounded px-2 text-12-medium transition-colors disabled:opacity-50"
-          disabled={!props.onExportPdf || (props.exportState?.kind === "exporting")}
+          disabled={!props.onExportPdf || !props.hasSource || (props.exportState?.kind === "exporting")}
           data-design-toolbar-export-pdf
           onClick={() => props.onExportPdf?.()}
           title="Build a PDF from the current page captures"
