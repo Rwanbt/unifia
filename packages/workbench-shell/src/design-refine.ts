@@ -159,3 +159,51 @@ export function buildRefineBatchPrompt(input: {
 export function canSend(comment: DesignComment): boolean {
   return comment.status === "open"
 }
+
+/**
+ * Phase 10.3 — un commentaire choisi explicitement par l'utilisateur pour
+ * être attaché à son prochain message ("Commenter la conversation").
+ * Contrairement à `CommentState` (scopé à UN artefact + son `entryFile`
+ * unique), un lot attaché peut couvrir PLUSIEURS artefacts — donc chaque
+ * commentaire porte ici son propre `entryFile`, résolu par l'appelant
+ * (typiquement depuis la map en mémoire des artefacts ouverts).
+ */
+export type AttachedComment = DesignComment & { entryFile: string }
+
+/**
+ * Pur : comme `buildRefineBatchPrompt`, mais pour un ensemble de
+ * commentaires choisis explicitement (pas nécessairement "open" — un
+ * commentaire déjà "sent" ou "resolved" reste attachable comme contexte
+ * conversationnel), pouvant appartenir à des artefacts différents. Chaque
+ * commentaire porte donc son propre `entryFile`, alors que
+ * `buildRefineBatchPrompt` en suppose un seul pour tout le lot.
+ *
+ * Retourne une chaîne vide pour un lot vide — c'est au caller (le
+ * composer) de ne préfixer le message utilisateur que si le résultat est
+ * non vide, exactement comme il ne préfixe rien quand `attachedIds` est
+ * vide.
+ */
+export function buildAttachedCommentsPrompt(comments: readonly AttachedComment[]): string {
+  if (comments.length === 0) return ""
+  if (comments.length === 1) {
+    const single = comments[0]!
+    return buildRefinePrompt({
+      artifactId: single.artifactId,
+      elementId: single.elementId,
+      note: single.note,
+      entryFile: single.entryFile,
+    })
+  }
+  const prompts = comments.map((c, i) => {
+    const head = `[Modification ${i + 1}/${comments.length}]`
+    return [
+      head,
+      buildRefinePrompt({ artifactId: c.artifactId, elementId: c.elementId, note: c.note, entryFile: c.entryFile }),
+    ].join("\n")
+  })
+  return [
+    "You have N targeted modifications to apply IN ORDER, possibly across different artifacts. Each modification below is independent — apply all of them, then output the COMPLETE resulting artifact(s), one <artifact>...</artifact> block per changed artifact, at the end.",
+    "",
+    ...prompts,
+  ].join("\n\n")
+}

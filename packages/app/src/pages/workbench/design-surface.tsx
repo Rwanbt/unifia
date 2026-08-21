@@ -20,6 +20,7 @@ import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
+import { toggleAttachedCommentId } from "@/pages/workbench/thread-comment-attach"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -152,6 +153,12 @@ export function DesignSurface(): JSX.Element {
   // la cible en cours).
   const [commentState, setCommentState] = createSignal<CommentState>(EMPTY_COMMENT_STATE)
   const [commentTarget, setCommentTarget] = createSignal<{ elementId: string; artifactId: string; entryFile: string; rect?: CommentTargetRect }>()
+  // Phase 10.3 — "Commenter la conversation" ; deliberately NOT a field on
+  // `CommentState` (see `thread-comment-attach.ts`'s doc comment): this is
+  // an ephemeral "will ride along with my next message" selection, not a
+  // persisted property of the comment, so it lives in its own signal and
+  // is never written to `commentStore` below.
+  const [attachedCommentIds, setAttachedCommentIds] = createSignal<ReadonlySet<string>>(new Set())
   // Phase 8.1 — clicking a pin scrolls the sidebar to its comment; the
   // scroll target is a DOM id derived from the comment id (see CommentPanel).
   const [highlightedCommentId, setHighlightedCommentId] = createSignal<string>()
@@ -587,6 +594,13 @@ export function DesignSurface(): JSX.Element {
             prompt={t("workbench.design.chatPrompt")}
             description={t("workbench.design.description")}
             connection={{ dataAttr: "design-connection", dataRetryAttr: "design-retry" }}
+            comments={{
+              state: commentState(),
+              attachedIds: attachedCommentIds(),
+              onToggleAttach: (commentId) => setAttachedCommentIds((ids) => toggleAttachedCommentId(ids, commentId)),
+              onClearAttached: () => setAttachedCommentIds(new Set()),
+              resolveEntryFile: (artifactId) => stream.state().byId.get(artifactId)?.filename,
+            }}
           />
         }
         workspace={

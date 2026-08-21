@@ -6,8 +6,10 @@ import { useSync } from "@/context/sync"
 import { Markdown } from "@unifia/ui/markdown"
 import { Button } from "@unifia/ui/button"
 import { DockShellForm, DockTray } from "@unifia/ui/dock-surface"
+import { buildAttachedCommentsPrompt, type AttachedComment, type CommentState } from "@unifia/workbench-shell"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
+import { ThreadCommentAttachPanel } from "@/pages/workbench/thread-comment-attach-panel"
 import {
   addPendingSend,
   extractMessageText,
@@ -30,6 +32,21 @@ export type WorkbenchThreadProps = {
   connection: {
     dataAttr: "workbench-connection" | "design-connection" | "automate-connection"
     dataRetryAttr: "workbench-retry" | "design-retry" | "automate-retry"
+  }
+  /**
+   * Phase 10.3 — "Commenter la conversation". Only Design mode has
+   * element comments to attach (they reference `data-unifia-id`s inside
+   * an artifact render); Work/Automate omit this prop entirely and the
+   * header button doesn't render — there is nothing to comment on there.
+   */
+  comments?: {
+    state: CommentState
+    attachedIds: ReadonlySet<string>
+    onToggleAttach: (commentId: string) => void
+    /** Called once the attached set has actually been consumed by a send. */
+    onClearAttached: () => void
+    /** Resolves the entryFile for a comment's artifactId (from the live stream of open artifacts). `undefined` if that artifact tab was never opened this session. */
+    resolveEntryFile: (artifactId: string) => string | undefined
   }
 }
 
@@ -83,6 +100,8 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
   // concurrent sends must be able to fail independently, each with its
   // own Retry button (see PendingSend in workbench-thread-shared.ts).
   const [pendingSends, setPendingSends] = createSignal<readonly PendingSend[]>([])
+  // Phase 10.3 — open state of the "Commenter la conversation" popover.
+  const [attachPanelOpen, setAttachPanelOpen] = createSignal(false)
 
   const modeTitle = () => t(MODE_KEY[props.mode])
   const modeTitleSession = () => t("workbench.chat.sessionTitle", { mode: modeTitle() })
@@ -116,10 +135,39 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
     return undefined
   })
 
+  /**
+   * Phase 10.3 — resolves the current attachedIds into a refine prompt and
+   * prefixes it onto the next outgoing message, mirroring exactly what
+   * `CommentPanel.sendBatch()` already does for its own "Envoyer" button
+   * (the technical prompt IS the message content that gets sent and, once
+   * synced, rendered as this user's own bubble — same precedent, not a
+   * new pattern). Returns "" when there's nothing to attach, or when none
+   * of the attached comments' artifacts could be resolved to an
+   * `entryFile` (their tab was never opened this session) — in that case
+   * `attachedIds` is left untouched so the user can retry once the tab is
+   * open. Clears `attachedIds` (optimistically, same as `sendBatch`'s
+   * immediate `markSent`) the moment at least one comment WAS resolved.
+   */
+  function buildAttachedPrefix(): string {
+    const comments = props.comments
+    if (!comments || comments.attachedIds.size === 0) return ""
+    const attached = comments.state.comments.filter((c) => comments.attachedIds.has(c.id))
+    const resolved: AttachedComment[] = []
+    for (const comment of attached) {
+      const entryFile = comments.resolveEntryFile(comment.artifactId)
+      if (entryFile) resolved.push({ ...comment, entryFile })
+    }
+    if (resolved.length === 0) return ""
+    comments.onClearAttached()
+    return buildAttachedCommentsPrompt(resolved)
+  }
+
   async function submit(): Promise<void> {
-    const text = input().trim()
-    if (!text) return
+    const raw = input().trim()
+    if (!raw) return
     setInput("")
+    const prefix = buildAttachedPrefix()
+    const text = prefix ? `${prefix}\n\n${raw}` : raw
     const id = crypto.randomUUID()
     setPendingSends((list) => addPendingSend(list, id, text))
     await sendPending(id, text)
@@ -202,15 +250,32 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
           <h1 class="mt-1 truncate text-16-medium text-text-strong">{props.description}</h1>
         </div>
         <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="rounded border border-border-base px-2 py-1 text-12-regular"
-            data-workbench-thread-comment
-            aria-label="Commenter la conversation"
-            title="Commenter la conversation"
-          >
-            Commenter
-          </button>
+          <Show when={props.comments}>
+            {(comments) => (
+              <div class="relative">
+                <button
+                  type="button"
+                  class="rounded border border-border-base px-2 py-1 text-12-regular"
+                  classList={{ "border-border-focus": comments().attachedIds.size > 0 }}
+                  data-workbench-thread-comment
+                  aria-label="Commenter la conversation"
+                  title="Commenter la conversation"
+                  onClick={() => setAttachPanelOpen((open) => !open)}
+                >
+                  Commenter{comments().attachedIds.size > 0 ? ` (${comments().attachedIds.size})` : ""}
+                </button>
+                <div class="absolute right-0 top-full z-20 mt-1">
+                  <ThreadCommentAttachPanel
+                    open={attachPanelOpen()}
+                    comments={comments().state.comments}
+                    attachedIds={comments().attachedIds}
+                    onToggle={comments().onToggleAttach}
+                    onClose={() => setAttachPanelOpen(false)}
+                  />
+                </div>
+              </div>
+            )}
+          </Show>
         </div>
       </header>
       <div class="border-b border-border-base px-4 py-2" data-workbench-thread-connection>

@@ -17,7 +17,7 @@ export { createIndexedDbCommentStore, type CommentStore } from "./design-comment
 export { EMPTY_ANNOTATION_STATE, addStroke, clearStrokes, newStrokeId, undoStroke, type AnnotationPoint, type AnnotationState, type AnnotationStroke } from "./design-annotation.js"
 export { createIndexedDbAnnotationStore, type AnnotationStore } from "./design-annotation-store.js"
 export { EMPTY_COMMENT_STATE, addComment, commentPins, commentsForElement, markResolved, markSent, newCommentId, openComments, pinCenter, removeComment, updateComment, type CommentState, type CommentStatus, type CommentTargetRect, type DesignComment } from "./design-comments.js"
-export { buildRefineBatchPrompt, buildRefinePrompt, canSend, type RefineRequest } from "./design-refine.js"
+export { buildAttachedCommentsPrompt, buildRefineBatchPrompt, buildRefinePrompt, canSend, type AttachedComment, type RefineRequest } from "./design-refine.js"
 export { buildCatalogContext, combineCatalogContexts, parseDesignContext, type DesignContextSource } from "./design-context.js"
 export { countBlockedSkills, createSkillPickerRows, type SkillPickerInput, type SkillPickerRow } from "./skill-picker.js"
 export { createMobileNavigationModel, type MobileNavigationInput, type MobileNavigationModel } from "./mobile-navigation.js"

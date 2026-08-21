@@ -2,9 +2,11 @@
 
 import { describe, expect, test } from "bun:test"
 import {
+  buildAttachedCommentsPrompt,
   buildRefinePrompt,
   buildRefineBatchPrompt,
   canSend,
+  type AttachedComment,
   type RefineRequest,
 } from "../src/design-refine"
 import { addComment, EMPTY_COMMENT_STATE, type DesignComment } from "../src/design-comments"
@@ -145,6 +147,47 @@ describe("buildRefineBatchPrompt", () => {
     const posC = prompt.indexOf("el-C")
     expect(posA).toBeLessThan(posB)
     expect(posB).toBeLessThan(posC)
+  })
+})
+
+function attached(overrides: Partial<AttachedComment> = {}): AttachedComment {
+  return { ...comment(), entryFile: "design/index.html", ...overrides }
+}
+
+describe("buildAttachedCommentsPrompt (10.3 — Commenter la conversation)", () => {
+  test("un lot vide produit une chaîne vide (le caller ne préfixe rien)", () => {
+    expect(buildAttachedCommentsPrompt([])).toBe("")
+  })
+
+  test("un seul commentaire attaché produit un prompt simple, quel que soit son statut", () => {
+    const prompt = buildAttachedCommentsPrompt([attached({ status: "sent", note: "already applied context" })])
+    expect(prompt).toContain("already applied context")
+    expect(prompt).not.toContain("[Modification")
+  })
+
+  test("plusieurs commentaires produisent N sections numérotées", () => {
+    const prompt = buildAttachedCommentsPrompt([
+      attached({ id: "c-1", elementId: "el-A", note: "fix A" }),
+      attached({ id: "c-2", elementId: "el-B", note: "fix B" }),
+    ])
+    expect(prompt).toContain("[Modification 1/2]")
+    expect(prompt).toContain("[Modification 2/2]")
+    expect(prompt).toContain('data-unifia-id="el-A"')
+    expect(prompt).toContain('data-unifia-id="el-B"')
+  })
+
+  test("chaque commentaire porte son propre entryFile, même issus d'artefacts différents", () => {
+    const prompt = buildAttachedCommentsPrompt([
+      attached({ id: "c-1", artifactId: "a-1", elementId: "el-A", entryFile: "design/a.html" }),
+      attached({ id: "c-2", artifactId: "a-2", elementId: "el-B", entryFile: "design/b.html" }),
+    ])
+    expect(prompt).toContain("design/a.html")
+    expect(prompt).toContain("design/b.html")
+  })
+
+  test("un commentaire resolved reste attachable (pas filtré comme le serait buildRefineBatchPrompt)", () => {
+    const prompt = buildAttachedCommentsPrompt([attached({ status: "resolved", elementId: "el-resolved" })])
+    expect(prompt).toContain("el-resolved")
   })
 })
 
