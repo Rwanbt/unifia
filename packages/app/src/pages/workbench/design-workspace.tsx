@@ -43,6 +43,8 @@ export function DesignWorkspace(props: {
    */
   renderContent?: (tab: DesignTab) => JSX.Element
   onOpenTerminal?: () => void
+  onOpenBrowser?: () => void
+  onOpenSketch?: () => void
 }): JSX.Element {
   const language = useLanguage()
   const workbench = useWorkspaceWorkbench()
@@ -68,11 +70,7 @@ export function DesignWorkspace(props: {
           aria-label={t("design.workspace.tabsLabel")}
           data-design-workspace-tab-bar
         >
-          <Show when={props.onOpenTerminal}>
-            <button type="button" class="ml-auto rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>
-              Terminal
-            </button>
-          </Show>
+          <div class="ml-auto flex gap-1"><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show><Show when={props.onOpenSketch}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-sketch onClick={() => props.onOpenSketch?.()}>Croquis</button></Show></div>
           <For each={state().tabs}>
             {(item) => (
               <button

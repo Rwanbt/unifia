@@ -41,6 +41,8 @@ import {
 } from "@unifia/workbench-shell"
 import { openTab, type DesignTab } from "@/pages/workbench/design-tabs"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
+import { DesignBrowserTab } from "@/pages/workbench/design-browser-tab"
+import { DesignSketchTab } from "@/pages/workbench/design-sketch-tab"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
@@ -621,6 +623,8 @@ export function DesignSurface(): JSX.Element {
       />
     }
     if (tab.kind === "terminal") return <TerminalPanel />
+    if (tab.kind === "browser") return <DesignBrowserTab />
+    if (tab.kind === "sketch") return <DesignSketchTab id={tab.id} />
     return <div data-design-workspace-tab-empty={tab.id} />
   }
 
@@ -659,6 +663,8 @@ export function DesignSurface(): JSX.Element {
               setState={setTabState}
               renderContent={renderTabContent}
               onOpenTerminal={() => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))}
+              onOpenBrowser={() => setTabState(openTab(tabState, { id: "browser", kind: "browser", title: "Navigateur", closable: true }))}
+              onOpenSketch={() => setTabState(openTab(tabState, { id: "sketch", kind: "sketch", title: "Croquis", closable: true }))}
             />
           </div>
         }
