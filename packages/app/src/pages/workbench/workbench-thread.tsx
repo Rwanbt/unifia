@@ -19,6 +19,7 @@ import {
   removeComposerAttachment,
   type ComposerAttachment,
 } from "@/pages/workbench/composer-attachment"
+import { buildActiveDesignSystemHint, type DesignCatalogRef } from "@/pages/workbench/context-chips"
 import {
   addPendingSend,
   extractMessageText,
@@ -68,6 +69,17 @@ export type WorkbenchThreadProps = {
    */
   files?: {
     upload: (path: string, file: File) => Promise<void>
+  }
+  /**
+   * Phase 10.5 — context-chips row under the composer: which design
+   * system(s) (from `manifest.data?.designSystems`, already loaded by
+   * `DesignSurface`) are marked active for the next message. Design-only,
+   * like `comments` above.
+   */
+  contextChips?: {
+    catalogs: readonly DesignCatalogRef[]
+    activeIds: ReadonlySet<string>
+    onToggleActive: (id: string) => void
   }
 }
 
@@ -194,8 +206,11 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
     if (!raw && uploaded.length === 0) return
     setInput("")
     const prefix = buildAttachedPrefix()
+    const designSystemHint = props.contextChips
+      ? buildActiveDesignSystemHint(props.contextChips.catalogs, props.contextChips.activeIds)
+      : ""
     const attachmentBlock = buildAttachmentReferences(attachments())
-    const text = [prefix, raw, attachmentBlock].filter((part) => part.length > 0).join("\n\n")
+    const text = [prefix, designSystemHint, raw, attachmentBlock].filter((part) => part.length > 0).join("\n\n")
     if (uploaded.length > 0) {
       // Already-referenced attachments are cleared immediately (same
       // optimistic timing as the comment-attach prefix above) — the files
@@ -595,6 +610,47 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
           </Button>
         </DockTray>
       </DockShellForm>
+      <Show when={(props.contextChips && props.contextChips.catalogs.length > 0) || attachments().some((a) => a.status === "uploaded")}>
+        <ul class="mx-4 mb-3 flex flex-wrap gap-2" data-workbench-thread-context-chips>
+          <Show when={props.contextChips}>
+            {(contextChips) => (
+              <For each={contextChips().catalogs}>
+                {(catalog) => {
+                  const active = () => contextChips().activeIds.has(catalog.id)
+                  return (
+                    <li>
+                      <button
+                        type="button"
+                        class="rounded-full border border-border-base px-2 py-0.5 text-10-regular"
+                        classList={{ "border-border-focus bg-background-base": active() }}
+                        data-workbench-thread-chip="design-system"
+                        data-workbench-thread-chip-active={active() ? "true" : "false"}
+                        aria-pressed={active()}
+                        title={`${catalog.name} v${catalog.version}`}
+                        onClick={() => contextChips().onToggleActive(catalog.id)}
+                      >
+                        {catalog.name}
+                      </button>
+                    </li>
+                  )
+                }}
+              </For>
+            )}
+          </Show>
+          <For each={attachments().filter((a) => a.status === "uploaded")}>
+            {(attachment) => (
+              <li>
+                <span
+                  class="rounded-full border border-border-weak-base px-2 py-0.5 text-10-regular text-text-weak"
+                  data-workbench-thread-chip="attachment"
+                >
+                  📎 {attachment.name}
+                </span>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Show>
       <Show when={error()}>
         <p class="mx-4 mb-2 text-12-regular text-text-danger" role="alert" data-workbench-thread-error>
           {error()}

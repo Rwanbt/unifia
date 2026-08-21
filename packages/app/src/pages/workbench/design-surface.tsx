@@ -21,6 +21,7 @@ import { createArtifactStreamController } from "@/pages/workbench/use-artifact-s
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
 import { toggleAttachedCommentId } from "@/pages/workbench/thread-comment-attach"
+import { toggleActiveDesignSystemId } from "@/pages/workbench/context-chips"
 import { encodeBase64 } from "@/pages/workbench/design-files-preview"
 import {
   createDesignPreviewPanelState,
@@ -160,6 +161,11 @@ export function DesignSurface(): JSX.Element {
   // persisted property of the comment, so it lives in its own signal and
   // is never written to `commentStore` below.
   const [attachedCommentIds, setAttachedCommentIds] = createSignal<ReadonlySet<string>>(new Set())
+  // Phase 10.5 — which design system(s) the user has marked "active" for
+  // context chips. Local/ephemeral, same reasoning as attachedCommentIds
+  // above: not a property of the workspace manifest, just a per-session
+  // UI selection.
+  const [activeDesignSystemIds, setActiveDesignSystemIds] = createSignal<ReadonlySet<string>>(new Set())
   // Phase 8.1 — clicking a pin scrolls the sidebar to its comment; the
   // scroll target is a DOM id derived from the comment id (see CommentPanel).
   const [highlightedCommentId, setHighlightedCommentId] = createSignal<string>()
@@ -617,6 +623,11 @@ export function DesignSurface(): JSX.Element {
               resolveEntryFile: (artifactId) => stream.state().byId.get(artifactId)?.filename,
             }}
             files={{ upload: uploadComposerAttachment }}
+            contextChips={{
+              catalogs: manifest.data?.designSystems ?? [],
+              activeIds: activeDesignSystemIds(),
+              onToggleActive: (id) => setActiveDesignSystemIds((ids) => toggleActiveDesignSystemId(ids, id)),
+            }}
           />
         }
         workspace={
