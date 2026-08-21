@@ -33,6 +33,7 @@ import {
   M21_SERVER_ROUTE_REGISTRY,
   M22_SERVER_ROUTE_REGISTRY,
   M23_SERVER_ROUTE_REGISTRY,
+  M24_SERVER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
 } from "./routes.js"
 
@@ -81,6 +82,8 @@ export type WorkspaceFileRead = { path: string; content: string; encoding: "utf-
 /** Same encoding convention as `WorkspaceFileRead` — base64 for an uploaded binary file, utf-8 (the default) for plain create/edit. */
 export type WorkspaceFileWrite = { path: string; content: string; encoding?: "utf-8" | "base64" }
 export type WorkspaceFileWriteResult = { path: string; bytesWritten: number; sha: string }
+export type WorkbenchPtyInfo = { id: string; title: string; command: string; args: readonly string[]; cwd: string; status: "running" | "exited"; pid: number }
+export type WorkbenchPtyCreateInput = { command?: string; args?: readonly string[]; cwd?: string; title?: string; cols?: number; rows?: number }
 /** `removed: false` means the path was already gone — remove() is idempotent, not an error on a repeat call. */
 export type WorkspaceFileRemoveResult = { path: string; removed: boolean }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; relativePath: string; sha256: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string>; scan?: "clean" | "unscanned" }
@@ -242,6 +245,24 @@ export class WorkbenchClient {
   async listDesignSkills(workspaceId: string, signal?: AbortSignal): Promise<{ skills: readonly DesignSkillManifest[] }> {
     const params = new URLSearchParams({ workspaceId })
     return this.request(`${M23_SERVER_ROUTE_REGISTRY.designSkills.route}?${params}`, { signal })
+  }
+
+  async listPty(workspaceId: string, signal?: AbortSignal): Promise<{ sessions: readonly WorkbenchPtyInfo[] }> {
+    return this.request(`${M24_SERVER_ROUTE_REGISTRY.ptyList.route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async createPty(workspaceId: string, input: WorkbenchPtyCreateInput, signal?: AbortSignal): Promise<{ session: WorkbenchPtyInfo }> {
+    return this.request(M24_SERVER_ROUTE_REGISTRY.ptyCreate.route, { method: "POST", body: { workspaceId, ...input }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async updatePty(workspaceId: string, ptyId: string, input: { title?: string; size?: { rows: number; cols: number } }, signal?: AbortSignal): Promise<{ session: WorkbenchPtyInfo }> {
+    const route = M24_SERVER_ROUTE_REGISTRY.ptyUpdate.route.replace(":ptyId", encodeURIComponent(ptyId))
+    return this.request(route, { method: "PUT", body: { workspaceId, ...input }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async removePty(workspaceId: string, ptyId: string, signal?: AbortSignal): Promise<{ removed: boolean }> {
+    const route = M24_SERVER_ROUTE_REGISTRY.ptyRemove.route.replace(":ptyId", encodeURIComponent(ptyId))
+    return this.request(route, { method: "DELETE", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
   }
 
   async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {

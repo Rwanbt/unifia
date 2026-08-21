@@ -3,7 +3,7 @@
 import { WORK_V1_FUNCTIONS, type WorkFunction } from "./modes.js"
 
 export type ArtifactLineage = "work/document" | "design/render"
-export type WorkbenchTransportMethod = "GET" | "POST" | "DELETE"
+export type WorkbenchTransportMethod = "GET" | "POST" | "PUT" | "DELETE"
 
 export type WorkbenchRoute = {
   readonly surface: "work" | "design"
@@ -152,6 +152,14 @@ export const M21_SERVER_ROUTE_REGISTRY = {
   filesCreate: { method: "POST", route: "/v1/files/create", capability: "workspace.write", event: "workspace.changed" },
   filesRemove: { method: "POST", route: "/v1/files/remove", capability: "workspace.write", event: "workspace.changed" },
   filesRename: { method: "POST", route: "/v1/files/rename", capability: "workspace.write", event: "workspace.changed" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
+/** P24 scoped PTY routes for the Design terminal surface. */
+export const M24_SERVER_ROUTE_REGISTRY = {
+  ptyList: { method: "GET", route: "/v1/pty", capability: "workspace.read", event: "operation.updated" },
+  ptyCreate: { method: "POST", route: "/v1/pty", capability: "workspace.write", event: "operation.updated" },
+  ptyUpdate: { method: "PUT", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
+  ptyRemove: { method: "DELETE", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
