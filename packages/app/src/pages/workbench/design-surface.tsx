@@ -16,6 +16,7 @@ import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
 import { DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 import { createArtifactParser } from "@unifia/artifact-render"
+import type { DesignSystemTokens } from "@unifia/contracts"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
@@ -31,6 +32,8 @@ import {
   diffArtifactVersions,
   createIndexedDbDesignDraftStore,
   createIndexedDbCommentStore,
+  addComment,
+  newCommentId,
   DesignDraftConflictError,
   EMPTY_COMMENT_STATE,
   type CommentState,
@@ -209,6 +212,17 @@ export function DesignSurface(): JSX.Element {
         setCommentPersistError(error instanceof Error ? error.message : "design comments could not be saved")
       })
     }, 250)
+  }
+
+  function addTokenComment(catalogId: string, elementId: string): void {
+    updateCommentState(addComment(commentState(), {
+      id: newCommentId(Date.now(), Math.random()),
+      artifactId: `design-system:${catalogId}`,
+      elementId,
+      note: `Réviser le token ${elementId}.`,
+      status: "open",
+      createdAt: new Date().toISOString(),
+    }))
   }
 
   // P4-3 — chaque `artifact:start` du moteur de streaming ouvre (ou active)
@@ -569,6 +583,7 @@ export function DesignSurface(): JSX.Element {
         manifestError={manifest.error}
         manifestLoading={manifest.isLoading}
         catalogs={manifest.data?.designSystems ?? []}
+        onAddTokenComment={addTokenComment}
       />
     }
     if (tab.kind === "artifact") {
@@ -656,6 +671,7 @@ type DesignCatalogSummary = {
   name: string
   version: string
   source: string
+  tokens: DesignSystemTokens
 }
 
 /**
@@ -692,6 +708,7 @@ function DesignSpecEditor(props: {
   manifestError: unknown
   manifestLoading: boolean
   catalogs: readonly DesignCatalogSummary[]
+  onAddTokenComment: (catalogId: string, elementId: string) => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -707,6 +724,7 @@ function DesignSpecEditor(props: {
               <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-catalog={catalog.id}>
                 <h2 class="text-14-medium">{catalog.name} · {catalog.version}</h2>
                 <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.source", { source: catalog.source })}</p>
+                <TokenReview catalog={catalog} onAdd={props.onAddTokenComment} />
               </article>
             )}
           </For>
@@ -783,6 +801,36 @@ function DesignSpecEditor(props: {
           <p data-design-diff class="mt-2 text-12-regular text-text-weak">Diff dernière version : {props.latestDiff.changed.join(", ") || "aucun changement structurel"}</p>
         </section>
       </Show>
+    </div>
+  )
+}
+
+function TokenReview(props: { catalog: DesignCatalogSummary; onAdd: (catalogId: string, elementId: string) => void }): JSX.Element {
+  const groups: readonly [keyof DesignSystemTokens, string][] = [["colors", "Colors"], ["spacing", "Spacing"], ["typography", "Typography"]]
+  return (
+    <div class="mt-4 space-y-3" data-design-token-review>
+      <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Token review</h3>
+      <For each={groups}>
+        {([group, label]) => (
+          <section data-design-token-group={group}>
+            <h4 class="text-12-medium">{label}</h4>
+            <ul class="mt-1 space-y-1">
+              <For each={Object.entries(props.catalog.tokens[group])}>
+                {([key, value]) => {
+                  const elementId = `${group}.${key}`
+                  return (
+                    <li class="flex items-center justify-between gap-2 text-12-regular" data-design-token={elementId}>
+                      <code>{elementId}</code>
+                      <span class="truncate text-text-weak">{String(value)}</span>
+                      <button type="button" class="shrink-0 rounded border border-border-base px-2 py-0.5" data-design-token-add={elementId} onClick={() => props.onAdd(props.catalog.id, elementId)}>Ajouter</button>
+                    </li>
+                  )
+                }}
+              </For>
+            </ul>
+          </section>
+        )}
+      </For>
     </div>
   )
 }
