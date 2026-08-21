@@ -15,7 +15,8 @@ import {
   type SrcdocOptions,
   type ViewportId,
 } from "@unifia/artifact-render"
-import { pinCenter } from "@unifia/workbench-shell"
+import { pinCenter, type AnnotationStroke } from "@unifia/workbench-shell"
+import { AnnotationOverlay } from "@/pages/workbench/annotation-overlay"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
@@ -90,6 +91,14 @@ export function ArtifactPreview(props: {
    */
   pins?: readonly { id: string; rect: PreviewRect; label: string }[]
   onPinClick?: (id: string) => void
+  /**
+   * Phase 9.1 — l'outil Annoter est armé : le canvas de dessin devient
+   * cliquable (`pointer-events: auto`) et capture les traits. `strokes`
+   * est le contenu déjà persisté à afficher même hors édition.
+   */
+  annotate?: boolean
+  annotationStrokes?: readonly AnnotationStroke[]
+  onAnnotationStroke?: (stroke: AnnotationStroke) => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -344,6 +353,13 @@ export function ArtifactPreview(props: {
                   data-design-preview="html"
                   title={t("design.preview.title")}
                   class="size-full border-0"
+                />
+                <AnnotationOverlay
+                  active={props.annotate === true}
+                  width={preset().width}
+                  height={preset().height}
+                  strokes={props.annotationStrokes ?? []}
+                  onStrokeComplete={(stroke) => props.onAnnotationStroke?.(stroke)}
                 />
                 <div class="pointer-events-none absolute inset-0" data-design-preview-pins>
                   <For each={props.pins ?? []}>

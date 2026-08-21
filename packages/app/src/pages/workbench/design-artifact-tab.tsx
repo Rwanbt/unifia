@@ -1,12 +1,24 @@
 /* SPDX-License-Identifier: MIT */
 
-import { Show, createSignal, type JSX } from "solid-js"
+import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { deriveExportFilename } from "@/pages/workbench/design-artifact-export"
 import { DesignToolbar, type DesignToolbarMode, type DesignToolbarSnapshotState } from "@/pages/workbench/design-toolbar"
 import type { StreamedArtifact } from "@/pages/workbench/use-artifact-stream"
-import { commentPins, openComments, type CommentState, type CommentTargetRect } from "@unifia/workbench-shell"
+import {
+  addStroke,
+  clearStrokes,
+  commentPins,
+  createIndexedDbAnnotationStore,
+  EMPTY_ANNOTATION_STATE,
+  openComments,
+  undoStroke,
+  type AnnotationState,
+  type AnnotationStroke,
+  type CommentState,
+  type CommentTargetRect,
+} from "@unifia/workbench-shell"
 import type { ViewportId } from "@unifia/artifact-render"
 
 /**
@@ -82,6 +94,52 @@ export function DesignArtifactTab(props: {
   // unlike those, there's no reason a re-visited tab should still show
   // "exported!" from a click made minutes ago on a different artifact.
   const [artifactExportState, setArtifactExportState] = createSignal<{ kind: "idle" | "exporting" | "exported" | "error"; error?: string }>({ kind: "idle" })
+
+  // Phase 9.1 — outil Annoter (dessin libre). Local like the export state
+  // above and for the same reason: `DesignArtifactTab` remounts fresh on
+  // every tab switch (unlike the P3-5 toolbar state, hoisted to
+  // DesignSurface specifically because it needs to survive that), so the
+  // porte ("changer d'onglet, revenir — le trait est toujours là") is met
+  // by reloading from IndexedDB on mount, not by in-memory persistence —
+  // same posture as 8.2's comment store, just keyed by artifactId instead
+  // of workspaceId since a stroke only means something against one
+  // artifact's rendered content.
+  const annotationStore = createIndexedDbAnnotationStore()
+  const [annotateMode, setAnnotateMode] = createSignal(false)
+  const [annotationState, setAnnotationState] = createSignal<AnnotationState>(EMPTY_ANNOTATION_STATE)
+  const [annotationPersistError, setAnnotationPersistError] = createSignal<string>()
+  let annotationLoadEpoch = 0
+  let annotationSaveTimer: ReturnType<typeof setTimeout> | undefined
+  createEffect(() => {
+    const artifactId = props.entry?.artifactId
+    if (!artifactId) return
+    const epoch = ++annotationLoadEpoch
+    void annotationStore
+      .load(artifactId)
+      .then((state) => {
+        if (epoch !== annotationLoadEpoch) return
+        setAnnotationState(state ?? EMPTY_ANNOTATION_STATE)
+      })
+      .catch((error) => setAnnotationPersistError(error instanceof Error ? error.message : "annotations could not be loaded"))
+  })
+  onCleanup(() => {
+    if (annotationSaveTimer) clearTimeout(annotationSaveTimer)
+  })
+  function persistAnnotationState(state: AnnotationState): void {
+    const artifactId = props.entry?.artifactId
+    if (!artifactId) return
+    if (annotationSaveTimer) clearTimeout(annotationSaveTimer)
+    annotationSaveTimer = setTimeout(() => {
+      void annotationStore.save(artifactId, state).catch((error) => {
+        setAnnotationPersistError(error instanceof Error ? error.message : "annotations could not be saved")
+      })
+    }, 250)
+  }
+  function onAnnotationStroke(stroke: AnnotationStroke): void {
+    const next = addStroke(annotationState(), stroke)
+    setAnnotationState(next)
+    persistAnnotationState(next)
+  }
 
   function exportArtifactHtml(): void {
     const content = props.entry?.content
@@ -174,9 +232,54 @@ export function DesignArtifactTab(props: {
               >
                 {props.selectMode ? "Sélection active…" : "Sélectionner un élément"}
               </button>
+              <button
+                type="button"
+                class="rounded border px-2 py-1 text-12-regular"
+                classList={{
+                  "border-border-focus text-text-base": annotateMode(),
+                  "border-border-base text-text-weak": !annotateMode(),
+                }}
+                data-design-annotate-mode={annotateMode() ? "on" : "off"}
+                aria-pressed={annotateMode()}
+                onClick={() => setAnnotateMode((value) => !value)}
+                title="Dessine librement par-dessus le rendu"
+              >
+                {annotateMode() ? "Annotation active…" : "Annoter"}
+              </button>
+              <Show when={annotateMode() && annotationState().strokes.length > 0}>
+                <button
+                  type="button"
+                  class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+                  data-design-annotate-undo
+                  onClick={() => {
+                    const next = undoStroke(annotationState())
+                    setAnnotationState(next)
+                    persistAnnotationState(next)
+                  }}
+                >
+                  Annuler le trait
+                </button>
+                <button
+                  type="button"
+                  class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+                  data-design-annotate-clear
+                  onClick={() => {
+                    const next = clearStrokes(annotationState())
+                    setAnnotationState(next)
+                    persistAnnotationState(next)
+                  }}
+                >
+                  Effacer
+                </button>
+              </Show>
             </div>
           </div>
         )}
+      </Show>
+      <Show when={annotationPersistError()}>
+        <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" role="alert" data-design-annotation-persist-error>
+          {annotationPersistError()}
+        </p>
       </Show>
       <DesignToolbar
         viewport={props.viewport}
@@ -222,6 +325,9 @@ export function DesignArtifactTab(props: {
             onSnapshotReady={props.onSnapshotReady}
             pins={commentPins(props.commentState).map((pin, index) => ({ ...pin, label: String(index + 1) }))}
             onPinClick={props.onPinClick}
+            annotate={annotateMode()}
+            annotationStrokes={annotationState().strokes}
+            onAnnotationStroke={onAnnotationStroke}
           />
         </div>
         <Show when={props.commentPanelOpen ? props.entry : undefined}>
