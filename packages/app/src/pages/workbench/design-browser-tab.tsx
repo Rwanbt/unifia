@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createSignal, type JSX } from "solid-js"
+import { invoke } from "@tauri-apps/api/core"
 
 const DEFAULT_URL = "https://example.com"
 const normalizeUrl = (value: string) => {
@@ -12,7 +13,7 @@ export function DesignBrowserTab(): JSX.Element {
   const [address, setAddress] = createSignal(DEFAULT_URL)
   const [url, setUrl] = createSignal(DEFAULT_URL)
   return <div class="flex h-full min-h-0 flex-col" data-design-browser>
-    <form class="flex shrink-0 gap-2 border-b border-border-base p-2" onSubmit={(event) => { event.preventDefault(); const next = normalizeUrl(address()); setAddress(next); setUrl(next) }}>
+    <form class="flex shrink-0 gap-2 border-b border-border-base p-2" onSubmit={(event) => { event.preventDefault(); const next = normalizeUrl(address()); setAddress(next); void invoke("open_design_browser", { url: next }).catch(() => setUrl(next)) }}>
       <input class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" aria-label="URL" value={address()} onInput={(event) => setAddress(event.currentTarget.value)} data-design-browser-address />
       <button type="submit" class="rounded border border-border-base px-2 py-1 text-12-medium" data-design-browser-go>Go</button>
     </form>

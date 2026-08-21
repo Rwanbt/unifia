@@ -3,6 +3,8 @@ use crate::{
     server::get_wsl_config,
 };
 use std::{ops::Deref, time::Duration};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_window_state::AppHandleExt;
 use tokio::sync::mpsc;
@@ -80,6 +82,31 @@ impl MainWindow {
 
         Ok(Self(window))
     }
+}
+
+/// Opens a browser tab as a real Tauri WebView window.
+/// WHY: the Design surface is a SolidJS WebView; embedding a second browser
+/// with an iframe would not exercise the native WebView2/WKWebView path and
+/// would inherit the host document's security boundary.
+pub fn open_design_browser<R: Runtime>(app: &AppHandle<R>, address: &str) -> Result<(), String> {
+    let parsed = url::Url::parse(address).map_err(|error| format!("invalid browser URL: {error}"))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("browser tabs only accept http(s) URLs".into());
+    }
+    let mut hasher = DefaultHasher::new();
+    address.hash(&mut hasher);
+    let label = format!("design-browser-{:x}", hasher.finish());
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
+        .title("Unifia Browser")
+        .inner_size(1200.0, 800.0)
+        .resizable(true)
+        .build()
+        .map(|_| ())
+        .map_err(|error| format!("failed to open browser WebView: {error}"))
 }
 
 fn setup_window_state_listener(app: &AppHandle, window: &WebviewWindow) {

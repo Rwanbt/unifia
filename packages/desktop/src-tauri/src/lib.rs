@@ -112,6 +112,12 @@ struct WorkbenchRotation {
     grace_period_ms: f64,
 }
 
+#[tauri::command]
+#[specta::specta]
+fn open_design_browser(app: AppHandle, url: String) -> Result<(), String> {
+    windows::open_design_browser(&app, &url)
+}
+
 async fn workbench_native_request(
     ready: &SidecarReady,
     action: &str,
@@ -657,6 +663,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             wsl_path,
             resolve_app_path,
             open_path,
+            open_design_browser,
             llm::list_models,
             llm::download_model,
             llm::delete_model,
