@@ -8,6 +8,7 @@ import {
   deserializeWorkspaceTabState,
   emptyWorkspaceTabState,
   openWorkspaceTab,
+  reorderWorkspaceTab,
   serializeWorkspaceTabState,
   touchWorkspaceTab,
   type WorkspaceTab,
@@ -144,6 +145,63 @@ describe("touchWorkspaceTab", () => {
     const next = touchWorkspaceTab(active, "p-1", 300)
     expect(next.activeId).toBe("p-2")
     expect(next.tabs.find((t) => t.id === "p-1")?.lastActiveAt).toBe(300)
+  })
+})
+
+describe("reorderWorkspaceTab", () => {
+  function threeProjects(): WorkspaceTabState {
+    const s1 = openWorkspaceTab(emptyWorkspaceTabState(), projectTab("p-1"), 1)
+    const s2 = openWorkspaceTab(s1, projectTab("p-2"), 2)
+    return openWorkspaceTab(s2, projectTab("p-3"), 3)
+  }
+
+  test("déplace un onglet vers une position ultérieure", () => {
+    const start = threeProjects() // [entry, p-1, p-2, p-3]
+    const next = reorderWorkspaceTab(start, "p-1", 3)
+    expect(next.tabs.map((t) => t.id)).toEqual([ENTRY_TAB_ID, "p-2", "p-3", "p-1"])
+  })
+
+  test("déplace un onglet vers une position antérieure", () => {
+    const start = threeProjects()
+    const next = reorderWorkspaceTab(start, "p-3", 1)
+    expect(next.tabs.map((t) => t.id)).toEqual([ENTRY_TAB_ID, "p-3", "p-1", "p-2"])
+  })
+
+  test("ne change pas activeId", () => {
+    const start = threeProjects() // actif = p-3 (dernier ouvert)
+    const next = reorderWorkspaceTab(start, "p-1", 3)
+    expect(next.activeId).toBe(start.activeId)
+  })
+
+  test("refuse de déplacer l'entry", () => {
+    const start = threeProjects()
+    const next = reorderWorkspaceTab(start, ENTRY_TAB_ID, 2)
+    expect(next).toBe(start)
+  })
+
+  test("un id inexistant renvoie l'état inchangé", () => {
+    const start = threeProjects()
+    const next = reorderWorkspaceTab(start, "missing", 1)
+    expect(next).toBe(start)
+  })
+
+  test("un toIndex identique au point de départ renvoie l'état inchangé", () => {
+    const start = threeProjects()
+    const next = reorderWorkspaceTab(start, "p-2", 2)
+    expect(next).toBe(start)
+  })
+
+  test("un toIndex hors bornes renvoie l'état inchangé", () => {
+    const start = threeProjects()
+    expect(reorderWorkspaceTab(start, "p-1", -1)).toBe(start)
+    expect(reorderWorkspaceTab(start, "p-1", 99)).toBe(start)
+  })
+
+  test("l'entry reste première même si toIndex viserait la position 0", () => {
+    const start = threeProjects()
+    const next = reorderWorkspaceTab(start, "p-2", 0)
+    expect(next.tabs[0]?.id).toBe(ENTRY_TAB_ID)
+    expect(next.tabs.map((t) => t.id)).toEqual([ENTRY_TAB_ID, "p-2", "p-1", "p-3"])
   })
 })
 

@@ -9,6 +9,7 @@ import {
   closeWorkspaceTab as reduceCloseTab,
   activateWorkspaceTab as reduceActivateTab,
   touchWorkspaceTab as reduceTouchTab,
+  reorderWorkspaceTab as reduceReorderTab,
   deserializeWorkspaceTabState,
   serializeWorkspaceTabState,
   WORKSPACE_TABS_STORAGE_KEY,
@@ -44,6 +45,8 @@ export type WorkspaceTabsApi = {
   close: (id: string) => void
   activate: (id: string) => void
   touch: (id: string) => void
+  /** Phase 11.1 — déplace l'onglet `id` à l'index `toIndex` (voir reorderWorkspaceTab). */
+  reorder: (id: string, toIndex: number) => void
   /** Recharge depuis localStorage. Utile pour les tests et le débogage. */
   reload: () => void
 }
@@ -115,6 +118,9 @@ export function WorkspaceTabsProvider(props: ParentProps): JSX.Element {
     touch(id) {
       setState(reduceTouchTab(state, id, Date.now()))
     },
+    reorder(id, toIndex) {
+      setState(reduceReorderTab(state, id, toIndex))
+    },
     reload() {
       const restored = readPersistedState()
       setState(restored)
@@ -159,6 +165,9 @@ function createDetachedApi(): WorkspaceTabsApi {
     },
     touch(id) {
       setState(reduceTouchTab(state, id, Date.now()))
+    },
+    reorder(id, toIndex) {
+      setState(reduceReorderTab(state, id, toIndex))
     },
     reload() {
       // No-op : pas de source persistante en mode détaché.

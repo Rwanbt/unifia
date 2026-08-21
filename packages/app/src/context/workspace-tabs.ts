@@ -165,6 +165,34 @@ export function touchWorkspaceTab(state: WorkspaceTabState, id: string, now: num
 }
 
 /**
+ * Phase 11.1 — déplace l'onglet `id` à l'index `toIndex` du tableau.
+ * L'entry n'est jamais déplaçable — même invariant que
+ * `openWorkspaceTab`/`closeWorkspaceTab` ("entry reste premier"). Le
+ * composant qui pilote le drag n'inclut de toute façon pas l'entry dans
+ * les ids passés à `SortableProvider` (elle n'apparaît jamais comme
+ * `draggable`), mais le réducteur reste correct même appelé directement
+ * (tests, débogage) : il refuse de déplacer l'entry, et si un
+ * déplacement d'un AUTRE onglet la pousse malgré tout hors de la
+ * première position, il la remet devant après coup.
+ */
+export function reorderWorkspaceTab(state: WorkspaceTabState, id: string, toIndex: number): WorkspaceTabState {
+  const fromIndex = state.tabs.findIndex((t) => t.id === id)
+  if (fromIndex === -1) return state
+  const target = state.tabs[fromIndex]
+  if (!target || target.kind === "entry") return state
+  if (toIndex < 0 || toIndex >= state.tabs.length || toIndex === fromIndex) return state
+  const next = [...state.tabs]
+  next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, target)
+  const entryIndex = next.findIndex((t) => t.kind === "entry")
+  if (entryIndex > 0) {
+    const [entry] = next.splice(entryIndex, 1)
+    if (entry) next.unshift(entry)
+  }
+  return { tabs: next, activeId: state.activeId }
+}
+
+/**
  * Sérialise l'état pour la persistance localStorage. La clé
  * `STORAGE_KEY` est versionnée — un changement de format de route
  * doit incrémenter la version.
