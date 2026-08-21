@@ -30,6 +30,7 @@ import {
   M15_SERVER_ROUTE_REGISTRY,
   M20_SERVER_ROUTE_REGISTRY,
   M21_SERVER_ROUTE_REGISTRY,
+  M22_SERVER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
 } from "./routes.js"
 
@@ -284,6 +285,12 @@ export class WorkbenchClient {
 
   async exportArtifact(workspaceId: string, artifactId: string, options: { outbox?: string; metadata?: "keep" | "strip" } = {}, signal?: AbortSignal): Promise<{ exported: ExportedArtifact } | AcceptedOperation> {
     return this.request(M10_SERVER_ROUTE_REGISTRY.artifactExport.route, { method: "POST", body: { workspaceId, artifactId, ...options }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /** Phase 9.4 — mints a signed, short-lived URL that serves the artifact with no further authentication; the caller opens it directly (window.open), it is never re-fetched through this client. */
+  async presentArtifactLink(workspaceId: string, artifactId: string, signal?: AbortSignal): Promise<{ url: string; expiresAt: number }> {
+    const route = M22_SERVER_ROUTE_REGISTRY.artifactPresentLink.route.replace(":artifactId", encodeURIComponent(artifactId))
+    return this.request(route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
   }
 
   /**

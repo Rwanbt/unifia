@@ -164,7 +164,8 @@ export function principalCanOpen(principal: Principal, workspaceId: string): boo
   return principal.workspaces === "*" || principal.workspaces.has(workspaceId)
 }
 
-const BASE64URL = /^[A-Za-z0-9_-]+$/
+/** Exported for reuse by other HMAC-signed-token modules in this package (e.g. present-link.ts) — one definition of "what base64url looks like", not a second copy. */
+export const BASE64URL = /^[A-Za-z0-9_-]+$/
 
 function decodeSegment(segment: string): unknown {
   if (!BASE64URL.test(segment)) throw new Error("token segment is not base64url")
@@ -178,7 +179,8 @@ function signingInput(token: string): { data: string; signature: Buffer } {
   return { data: `${parts[0]}.${parts[1]}`, signature: Buffer.from(parts[2], "base64url") }
 }
 
-function signaturesMatch(expected: Buffer, supplied: Buffer): boolean {
+/** Exported for the same reason as BASE64URL above. */
+export function signaturesMatch(expected: Buffer, supplied: Buffer): boolean {
   // WHY: timingSafeEqual throws on length mismatch, so the length is compared
   // first — but only after both buffers exist, to keep the comparison constant
   // time for equal-length forgeries.

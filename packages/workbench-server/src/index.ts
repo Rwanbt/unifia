@@ -21,6 +21,7 @@ import { migrateWorkspaceManifest, WORKSPACE_MANIFEST_PATH } from "@unifia/contr
 import { randomUUID } from "node:crypto"
 import { basename } from "node:path"
 import { FixedWindowRateLimiter, principalCanOpen, principalCanRegister, type Principal, type PrincipalAuthenticator, type RateLimiter, type ScopedToken, type ScopedTokenAuthority, type ScopedTokenRequest } from "./auth.js"
+import type { PresentLinkSigner } from "./present-link.js"
 import { OperationRegistry } from "./operations.js"
 import { addSecurityHeaders, checkRequestOrigin } from "./security.js"
 
@@ -32,7 +33,7 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -192,6 +193,7 @@ export class WorkbenchServer {
   readonly #rateLimiter: RateLimiter
   readonly #instanceId: string
   readonly #tokenIssuer?: ScopedTokenAuthority
+  readonly #presentLinks?: PresentLinkSigner
   readonly #operations = new OperationRegistry(() => `operation-${randomUUID()}`)
   readonly #allowedOrigins?: readonly string[]
   readonly #workspaceEventsPollMs: number
@@ -200,6 +202,7 @@ export class WorkbenchServer {
     this.#auth = dependencies.auth
     this.#instanceId = dependencies.instanceId ?? randomUUID()
     this.#tokenIssuer = dependencies.tokenIssuer
+    this.#presentLinks = dependencies.presentLinks
     this.#allowedOrigins = dependencies.allowedOrigins
     this.#workspaceEventsPollMs = dependencies.workspaceEventsPollMs ?? DEFAULT_WORKSPACE_EVENTS_POLL_MS
     // WHY: a limiter is always installed. An absent `rateLimiter` must mean
@@ -285,6 +288,12 @@ export class WorkbenchServer {
       const url = new URL(request.url)
       const segments = url.pathname.split("/").filter(Boolean)
       if (segments[0] !== "v1") return this.#deny("route.unknown", 404)
+      // Phase 9.4 — dispatched before the universal principal gate below:
+      // a present link's own signed token IS its authentication, verified
+      // inside the handler. Requiring a Bearer principal here would defeat
+      // the entire point of a link meant for someone who never
+      // authenticated with this server.
+      if (segments[1] === "artifacts" && segments[3] === "present" && request.method === "GET") return this.#artifactPresent(request, segments[2])
       const principal = await this.#authenticate(request)
       if (!principal) return this.#deny("auth.principal", 401)
       if (!this.#rateLimiter.take(principal.id)) return this.#deny("auth.rate-limit", 429)
@@ -305,6 +314,7 @@ export class WorkbenchServer {
       if (segments[1] === "trace" && request.method === "GET") return this.#auditPage(request, "trace")
       if (segments[1] === "activity" && request.method === "GET") return this.#auditPage(request, "activity")
       if (segments[1] === "artifacts" && segments[3] === "raw" && request.method === "GET") return this.#artifactRaw(request, segments[2], segments.slice(4).join("/"), principal)
+      if (segments[1] === "artifacts" && segments[3] === "present" && request.method === "POST") return this.#artifactPresentLink(request, segments[2], principal)
       if (segments[1] === "artifacts" && segments[3] === "history" && request.method === "GET") return this.#artifactHistory(request, segments[2], principal)
       if (segments[1] === "artifacts" && request.method === "GET") return this.#artifactRead(request, segments[2], principal)
       if (segments[1] === "artifacts" && segments[2] === "export" && request.method === "POST") return this.#artifactExport(request, principal)
@@ -975,6 +985,59 @@ export class WorkbenchServer {
     this.#allow("artifact.preview")
     return new Response(new Blob([new Uint8Array(content)]), { status: 200, headers })
   }
+  /**
+   * Phase 9.4 — mints a signed, short-lived link to `#artifactPresent`
+   * below. Authenticated and capability-gated exactly like
+   * `#artifactExport` ("même famille" — the plan's own wording): the
+   * caller must already hold `artifact.export` for this workspace. The
+   * minted link itself carries no such requirement — that's the whole
+   * point, it's what lets it be opened by someone else.
+   */
+  async #artifactPresentLink(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("artifact.present.unavailable", 503)
+    if (!this.#presentLinks) return this.#deny("artifact.present.unconfigured", 503)
+    if (!artifactId) return this.#deny("artifact.present.id", 400)
+    const input = await body(request)
+    if (typeof input.workspaceId !== "string") return this.#deny("artifact.present", 400)
+    const token = this.#authorize(request, input.workspaceId)
+    if (!token) return this.#deny("artifact.present.scope", 403)
+    const gate = await this.#checkCapability("artifact.export", input.workspaceId, principal)
+    if (gate) return gate
+    const artifact = await this.#artifacts.latest(artifactId)
+    if (!artifact) return this.#deny("artifact.present.missing", 404)
+    const { token: linkToken, expiresAt } = this.#presentLinks.sign(artifactId, input.workspaceId)
+    const origin = new URL(request.url).origin
+    this.#allow("artifact.export")
+    return json(200, { url: `${origin}/v1/artifacts/${encodeURIComponent(artifactId)}/present?token=${encodeURIComponent(linkToken)}`, expiresAt })
+  }
+
+  /**
+   * Phase 9.4 — serves the raw artifact for a valid present-link token.
+   * Deliberately reachable with NO principal (see `#route`'s early
+   * dispatch for this path, before the universal auth gate): the whole
+   * point of a present link is that the recipient never authenticated
+   * with this server. The signed, single-artifact, short-lived token
+   * verified below is the only access control this route has — and is
+   * meant to be the only one it needs.
+   */
+  async #artifactPresent(request: Request, artifactId: string | undefined): Promise<Response> {
+    if (!this.#artifacts) return this.#deny("artifact.present.unavailable", 503)
+    if (!this.#presentLinks) return this.#deny("artifact.present.unconfigured", 503)
+    if (!artifactId) return this.#deny("artifact.present.id", 400)
+    const suppliedToken = new URL(request.url).searchParams.get("token")
+    if (!suppliedToken) return this.#deny("artifact.present.token", 400)
+    const claims = this.#presentLinks.verify(suppliedToken)
+    if (!claims || claims.artifactId !== artifactId) return this.#deny("artifact.present.token", 403)
+    const artifact = await this.#artifacts.latest(artifactId)
+    if (!artifact) return this.#deny("artifact.present.missing", 404)
+    const content = await this.#artifacts.read(artifact)
+    this.#allow("artifact.present")
+    return new Response(new Blob([new Uint8Array(content)]), {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff", "content-security-policy": ARTIFACT_RAW_CSP },
+    })
+  }
+
   async #artifactHistory(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
     if (!this.#artifacts) return this.#deny("artifact.history.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")

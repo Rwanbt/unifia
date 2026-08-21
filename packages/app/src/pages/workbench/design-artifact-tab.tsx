@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 
-import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js"
+import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
+import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { deriveExportFilename } from "@/pages/workbench/design-artifact-export"
 import { DesignToolbar, type DesignToolbarMode, type DesignToolbarSnapshotState } from "@/pages/workbench/design-toolbar"
@@ -88,6 +89,37 @@ export function DesignArtifactTab(props: {
   copyState: "idle" | "copying" | "copied" | "error"
   onCopySnapshot: () => void
 }): JSX.Element {
+  const workbench = useWorkspaceWorkbench()
+  const connection = workbench.connection
+
+  // Phase 9.4 — Partager, "lien de partage" only: "sauvegarder" is already
+  // covered by the existing auto-persistence of every streamed artifact
+  // (design-surface.tsx's artifact-parser effect calls createArtifact as
+  // each artifact completes — there is no separate save action missing
+  // here), and "publier en ligne" is explicitly out of this phase's scope
+  // per the plan (Phase 18, real hosting infrastructure). The link itself
+  // is minted server-side (present-link.ts) and copied to the clipboard.
+  const [shareLinkState, setShareLinkState] = createSignal<
+    { kind: "idle" } | { kind: "minting" } | { kind: "ready"; url: string; expiresAt: number } | { kind: "error"; error: string }
+  >({ kind: "idle" })
+  const shareLinkError = createMemo(() => {
+    const state = shareLinkState()
+    return state.kind === "error" ? state.error : undefined
+  })
+  async function shareLink(): Promise<void> {
+    const current = connection()
+    const artifactId = props.entry?.artifactId
+    if (!current || !artifactId || shareLinkState().kind === "minting") return
+    setShareLinkState({ kind: "minting" })
+    try {
+      const { url, expiresAt } = await current.client.presentArtifactLink(current.workspaceId, artifactId)
+      await navigator.clipboard.writeText(url)
+      setShareLinkState({ kind: "ready", url, expiresAt })
+    } catch (error) {
+      setShareLinkState({ kind: "error", error: error instanceof Error ? error.message : "share link could not be created" })
+    }
+  }
+
   // Phase 9.5 — export HTML/PDF. Local state (not hoisted to DesignSurface
   // like viewport/zoom/mode): this is transient feedback for a just-clicked
   // button, not a sticky preference that needs to survive a tab switch —
@@ -353,6 +385,27 @@ export function DesignArtifactTab(props: {
               >
                 Nouvel onglet
               </button>
+              <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+              <button
+                type="button"
+                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak disabled:opacity-50"
+                disabled={shareLinkState().kind === "minting"}
+                data-design-share-link
+                onClick={() => void shareLink()}
+                title="Génère un lien signé (5 minutes) et le copie dans le presse-papiers"
+              >
+                {shareLinkState().kind === "minting" ? "Lien…" : "Lien de partage"}
+              </button>
+              <Show when={shareLinkState().kind === "ready"}>
+                <span class="text-12-regular text-text-weak" data-design-share-link-copied>Copié !</span>
+              </Show>
+              <Show when={shareLinkError()}>
+                {(error) => (
+                  <span class="text-12-regular text-text-danger" data-design-share-link-error>
+                    {error()}
+                  </span>
+                )}
+              </Show>
             </div>
           </div>
         )}

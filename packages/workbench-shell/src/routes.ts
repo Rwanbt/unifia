@@ -121,6 +121,18 @@ export const M20_SERVER_ROUTE_REGISTRY = {
 } as const satisfies Record<string, WorkbenchServerRoute>
 
 /**
+ * M22 — Phase 9.4 present links. Only the mint route is registered here:
+ * it's a normal, capability-gated, Bearer-authenticated call. The route
+ * it mints a token for (`GET /v1/artifacts/:artifactId/present?token=`)
+ * is deliberately unauthenticated (that's the point — see present-link.ts
+ * on the server) and is opened directly via the returned URL, never
+ * called through WorkbenchClient.
+ */
+export const M22_SERVER_ROUTE_REGISTRY = {
+  artifactPresentLink: { method: "POST", route: "/v1/artifacts/:artifactId/present", capability: "artifact.export", event: "operation.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
+/**
  * M21 — Design Files tab CRUD (parity Phase 7.3): create, delete, rename
  * (upload reuses create with base64-encoded content). Deliberately not
  * `/v1/files/write` — that route predates this registry (the server's

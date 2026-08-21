@@ -10,6 +10,7 @@ import { InMemoryWorkflowStore, WorkflowRuntime } from "@unifia/workflow-runtime
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { InMemorySkillRegistry, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust } from "@unifia/skill-hub/node"
 import { ApprovalCapabilityGate, FixedWindowRateLimiter, HmacTokenAuthenticator, UnauthenticatedPrincipal, WorkbenchServer, sseFrame } from "../src/index.js"
+import { PresentLinkSigner } from "../src/present-link.js"
 
 /**
  * The legacy assertions below predate principal authentication and carry the
@@ -53,7 +54,8 @@ try {
   const artifacts = new ArtifactStore(root, () => 1_000)
   const audit = new AuditRuntimeDouble(() => 1_000)
   let capabilityDecision: "allow" | "deny" = "allow"
-  const server = new WorkbenchServer({ auth: testAuth, workspace, artifacts, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision } })
+  const presentLinks = new PresentLinkSigner("x".repeat(32), 5 * 60_000)
+  const server = new WorkbenchServer({ auth: testAuth, workspace, artifacts, runtime: new FakeRuntimeAdapter(() => 1_000), audit, capability: { check: async () => capabilityDecision }, presentLinks })
   const registered = await server.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "fixture", path: root }) }))
   if (registered.status !== 201) throw new Error("workspace register route failed")
   const registeredBody = await registered.json() as { id: string }
@@ -186,6 +188,23 @@ try {
   const deniedRaw = await checkRaw(htmlArtifact.artifactId, "page.html")
   if (deniedRaw.status !== 403) throw new Error(`P10: denied capability was ${deniedRaw.status}, expected 403`)
   capabilityDecision = "allow"
+
+  // Phase 9.4 — present links: mint (authenticated, capability-gated) then
+  // fetch the minted URL with NO Authorization header at all — that's the
+  // point of the feature — and confirm it serves the exact artifact bytes.
+  const presentLinkMint = await server.fetch(new Request(`http://localhost/v1/artifacts/${htmlArtifact.artifactId}/present`, { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id }) }))
+  check(presentLinkMint.status === 200, "present link mint route failed")
+  const presentLinkBody = await presentLinkMint.json() as { url: string; expiresAt: number }
+  check(presentLinkBody.url.includes("/present?token="), "present link mint did not return a token URL")
+  const presentLinkPath = presentLinkBody.url.replace("http://localhost", "")
+  const presentedNoAuth = await server.fetch(new Request(`http://localhost${presentLinkPath}`))
+  check(presentedNoAuth.status === 200, "present link fetch without any Authorization header failed")
+  check((await presentedNoAuth.text()) === "<!doctype html><title>hi</title>", "present link did not serve the artifact's exact content")
+  const presentedWrongArtifact = await server.fetch(new Request(`http://localhost/v1/artifacts/${artifact.artifactId}/present?token=${encodeURIComponent(new URL(presentLinkBody.url).searchParams.get("token") ?? "")}`))
+  check(presentedWrongArtifact.status === 403, "a present token minted for one artifact was accepted for another")
+  const presentedNoToken = await server.fetch(new Request(`http://localhost/v1/artifacts/${htmlArtifact.artifactId}/present`))
+  check(presentedNoToken.status === 400, "present route without a token did not refuse")
+
   const specValidation = await server.fetch(new Request("http://localhost/v1/specs/validate", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, spec: { id: "server-spec", version: "1.0.0", target: "design", title: "Server spec", capabilities: ["artifact.export"], rules: [] } }) }))
   if (specValidation.status !== 200 || ((await specValidation.json()) as { capabilities: { granted: readonly string[]; denied: readonly string[] } }).capabilities.denied[0] !== "artifact.export") throw new Error("spec validation route widened capabilities")
   const documents = await server.fetch(new Request(`http://localhost/v1/documents?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))

@@ -107,6 +107,7 @@ describe("workbench route parity: registry and client vs the real server (C1-2/F
     await attempt(() => client.listApprovals("ws-1"))
     await attempt(() => client.searchCapabilities("ws-1"))
     await attempt(() => client.exportArtifact("ws-1", "artifact-1"))
+    await attempt(() => client.presentArtifactLink("ws-1", "artifact-1"))
     await attempt(() => client.resolveApproval("approval-1", "allow"))
     await attempt(() => client.cancelApproval("approval-1"))
     await attempt(() => client.startWorkflow("ws-1", { id: "wf-1", version: 1, steps: [] }))
