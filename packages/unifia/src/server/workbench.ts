@@ -6,6 +6,7 @@ import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/
 import { P3_CAPABILITIES, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
+import { discoverTemplates } from "@unifia/skill-hub/node"
 
 type NativeTokenInput = {
   action: "open" | "issue" | "rotate" | "revoke"
@@ -91,7 +92,14 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     // Read/watch are the baseline capabilities requested by the native Work
     // surface; writes and installs still go through the approval broker.
     allowlistedCapabilities: new Set(["workspace.read", "workspace.watch"] as P3Capability[]),
-  }, { backend: new OpenCodeSessionBackend() })
+  }, {
+    backend: new OpenCodeSessionBackend(),
+    designSkills: async () => {
+      const root = process.env.UNIFIA_DESIGN_TEMPLATES_DIR ?? path.join(process.cwd(), "templates", "design")
+      const discovered = await discoverTemplates(root)
+      return discovered.templates.map((template) => template.manifest)
+    },
+  })
 
   const native = async (request: Request): Promise<Response> => {
     if (request.method !== "POST" || !sameSecret(ipcToken, request.headers.get("x-unifia-keychain-token"))) return json(401, { error: "native Workbench authorization required" })

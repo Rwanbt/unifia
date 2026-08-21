@@ -5,7 +5,8 @@ import { useLanguage } from "@/context/language"
 import { useSync } from "@/context/sync"
 import { Button } from "@unifia/ui/button"
 import { DockShellForm, DockTray } from "@unifia/ui/dock-surface"
-import { buildAttachedCommentsPrompt, type AttachedComment, type CommentState } from "@unifia/workbench-shell"
+import { buildAttachedCommentsPrompt, createSkillPickerRows, type AttachedComment, type CommentState, type SkillPickerRow } from "@unifia/workbench-shell"
+import { buildDesignSkillContext, type DesignSkillManifest } from "@unifia/skill-hub"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { ThreadCommentAttachPanel } from "@/pages/workbench/thread-comment-attach-panel"
@@ -20,6 +21,7 @@ import {
   type ComposerAttachment,
 } from "@/pages/workbench/composer-attachment"
 import { buildActiveDesignSystemHint, type DesignCatalogRef } from "@/pages/workbench/context-chips"
+import { SkillPicker } from "@/pages/workbench/skill-picker"
 import {
   addPendingSend,
   extractMessageText,
@@ -81,6 +83,10 @@ export type WorkbenchThreadProps = {
     activeIds: ReadonlySet<string>
     onToggleActive: (id: string) => void
   }
+  skills?: {
+    skills: readonly DesignSkillManifest[]
+    hasDesignSystem: boolean
+  }
 }
 
 const MODE_KEY = {
@@ -139,6 +145,8 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
   // picked/dropped (not deferred to submit time) so the composer can show
   // a thumbnail and gate Send on the upload actually finishing.
   const [attachments, setAttachments] = createSignal<readonly ComposerAttachment[]>([])
+  const [activeSkillId, setActiveSkillId] = createSignal<string>()
+  const [skillPickerOpen, setSkillPickerOpen] = createSignal(false)
   let fileInputRef: HTMLInputElement | undefined
 
   const modeTitle = () => t(MODE_KEY[props.mode])
@@ -209,8 +217,10 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
     const designSystemHint = props.contextChips
       ? buildActiveDesignSystemHint(props.contextChips.catalogs, props.contextChips.activeIds)
       : ""
+    const activeSkill = props.skills?.skills.find((skill) => skill.name === activeSkillId())
+    const skillContext = activeSkill ? buildDesignSkillContext(activeSkill) : ""
     const attachmentBlock = buildAttachmentReferences(attachments())
-    const text = [prefix, designSystemHint, raw, attachmentBlock].filter((part) => part.length > 0).join("\n\n")
+    const text = [skillContext, prefix, designSystemHint, raw, attachmentBlock].filter((part) => part.length > 0).join("\n\n")
     if (uploaded.length > 0) {
       // Already-referenced attachments are cleared immediately (same
       // optimistic timing as the comment-attach prefix above) — the files
@@ -457,6 +467,34 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
         <DockTray attach="top" class="flex items-center justify-between gap-3 px-3 py-2">
           <div class="flex items-center gap-2">
             <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
+            <Show when={props.skills}>
+              {(skills) => {
+                const rows = () => createSkillPickerRows({ skills: skills().skills, selectedId: activeSkillId(), hasDesignSystem: skills().hasDesignSystem })
+                const active = () => skills().skills.find((skill) => skill.name === activeSkillId())
+                const selectSkill = (row: SkillPickerRow) => {
+                  setActiveSkillId(row.id)
+                  setSkillPickerOpen(false)
+                }
+                return (
+                  <div class="relative">
+                    <button
+                      type="button"
+                      class="rounded border border-border-base px-2 py-1 text-12-regular"
+                      data-workbench-skill-picker-trigger
+                      aria-expanded={skillPickerOpen()}
+                      onClick={() => setSkillPickerOpen((open) => !open)}
+                    >
+                      {active()?.name ?? "Aucun skill"}
+                    </button>
+                    <Show when={skillPickerOpen()}>
+                      <div class="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-lg border border-border-base bg-background-stronger p-3 shadow-lg">
+                        <SkillPicker rows={rows()} hasDesignSystem={skills().hasDesignSystem} onSelect={selectSkill} />
+                      </div>
+                    </Show>
+                  </div>
+                )
+              }}
+            </Show>
             <Show when={props.files}>
               <button
                 type="button"

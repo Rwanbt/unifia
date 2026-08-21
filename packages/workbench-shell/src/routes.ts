@@ -132,6 +132,11 @@ export const M22_SERVER_ROUTE_REGISTRY = {
   artifactPresentLink: { method: "POST", route: "/v1/artifacts/:artifactId/present", capability: "artifact.export", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** P23 design-skill manifests exposed to the Design composer picker. */
+export const M23_SERVER_ROUTE_REGISTRY = {
+  designSkills: { method: "GET", route: "/v1/design-skills", capability: "workspace.read", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 /**
  * M21 — Design Files tab CRUD (parity Phase 7.3): create, delete, rename
  * (upload reuses create with base64-encoded content). Deliberately not

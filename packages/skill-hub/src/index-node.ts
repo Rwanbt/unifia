@@ -12,3 +12,4 @@
 
 export * from "./index.js"
 export { InMemorySkillRegistry } from "./registry.js"
+export { discoverTemplates, templateReferenceLooksRenderable, type DiscoveredTemplate, type TemplateRegistryResult } from "./template-registry.js"

@@ -18,7 +18,7 @@ import { readdir, readFile, stat } from "node:fs/promises"
 import { join, resolve, sep } from "node:path"
 
 import { htmlNeedsFocusGuard, htmlNeedsStorageShim } from "@unifia/artifact-render"
-import { parseDesignSkillManifest, type DesignSkillManifest } from "./skill-manifest"
+import { parseDesignSkillManifest, type DesignSkillManifest } from "./skill-manifest.js"
 
 export const TEMPLATE_FILES = {
   skill: "SKILL.md",

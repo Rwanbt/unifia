@@ -17,6 +17,7 @@ import { appendFileSync, mkdirSync } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
+import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer } from "./index.js"
@@ -144,6 +145,7 @@ export type WorkbenchSurfaces = {
   ui?: McpUiControlBroker
   /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
   uiAllowedActions?: ReadonlySet<string>
+  designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
 }
 
 /** Assembles the object graph. No I/O beyond opening the audit log. */
@@ -167,6 +169,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     capability: new ApprovalCapabilityGate(new ApprovalBroker(), config.allowlistedCapabilities),
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
+    designSkills: surfaces.designSkills,
   })
   return { server, authenticator, tokenIssuer, audit, workspace }
 }

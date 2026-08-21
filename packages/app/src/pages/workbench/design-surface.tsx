@@ -47,6 +47,7 @@ export function DesignSurface(): JSX.Element {
   const connection = workbench.connection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifest = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-systems"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSystems(connection()!.workspaceId) }))
+  const skills = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-skills"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSkills(connection()!.workspaceId) }))
   const [source, setSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number | undefined>()
   const [draftError, setDraftError] = createSignal<string>()
@@ -627,6 +628,10 @@ export function DesignSurface(): JSX.Element {
               catalogs: manifest.data?.designSystems ?? [],
               activeIds: activeDesignSystemIds(),
               onToggleActive: (id) => setActiveDesignSystemIds((ids) => toggleActiveDesignSystemId(ids, id)),
+            }}
+            skills={{
+              skills: skills.data?.skills ?? [],
+              hasDesignSystem: (manifest.data?.designSystems.length ?? 0) > 0,
             }}
           />
         }

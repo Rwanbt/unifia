@@ -16,6 +16,7 @@ import {
   type WorkspaceEvent,
 } from "@unifia/contracts/workbench-wire"
 import type { WorkspaceManifest } from "@unifia/contracts"
+import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { createNativeTokenProvider, type NativeTokenBridge, type NativeTokenRequest } from "./native-token-bridge.js"
 import { WorkbenchCleanupError } from "./lifecycle.js"
 import {
@@ -31,6 +32,7 @@ import {
   M20_SERVER_ROUTE_REGISTRY,
   M21_SERVER_ROUTE_REGISTRY,
   M22_SERVER_ROUTE_REGISTRY,
+  M23_SERVER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
 } from "./routes.js"
 
@@ -235,6 +237,11 @@ export class WorkbenchClient {
 
   async listDesignSystems(workspaceId: string, signal?: AbortSignal): Promise<WorkspaceManifest> {
     return this.request<WorkspaceManifest>(`${M20_SERVER_ROUTE_REGISTRY.designSystems.route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async listDesignSkills(workspaceId: string, signal?: AbortSignal): Promise<{ skills: readonly DesignSkillManifest[] }> {
+    const params = new URLSearchParams({ workspaceId })
+    return this.request(`${M23_SERVER_ROUTE_REGISTRY.designSkills.route}?${params}`, { signal })
   }
 
   async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {

@@ -5,6 +5,7 @@ import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runti
 import type { ArtifactStore } from "@unifia/artifact-runtime"
 import { parseSpec, resolveEffectiveCapabilities } from "@unifia/spec-runtime"
 import type { SkillRegistry } from "@unifia/skill-hub"
+import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { renderGenerativeUi, type UiNode } from "@unifia/contracts"
 import { WIRE_PROTOCOL_VERSION, parseHandshakeRequest } from "@unifia/contracts/workbench-wire"
 import type {
@@ -33,7 +34,7 @@ export * from "./logging.js"
 type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -189,6 +190,7 @@ export class WorkbenchServer {
   readonly #nativeTokens = new Map<string, Set<string>>()
   readonly #sessionOwners = new Map<string, string>()
   readonly #skillHub?: SkillRegistry
+  readonly #designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
   readonly #auth: PrincipalAuthenticator
   readonly #rateLimiter: RateLimiter
   readonly #instanceId: string
@@ -222,6 +224,7 @@ export class WorkbenchServer {
     this.#ui = dependencies.ui
     this.#uiAllowedActions = dependencies.uiAllowedActions
     this.#skillHub = dependencies.skillHub
+    this.#designSkills = dependencies.designSkills
   }
 
   /**
@@ -329,6 +332,7 @@ export class WorkbenchServer {
       if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request, principal)
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
+      if (segments[1] === "design-skills" && request.method === "GET") return this.#designSkillsAction(request)
       if (segments[1] === "plugins" && request.method === "GET" && !segments[2]) return this.#pluginsList(request, principal)
       if (segments[1] === "plugins" && segments[2] && request.method === "GET" && !segments[3]) return this.#pluginRead(request, segments[2], principal)
       if (segments[1] === "plugins" && segments[2] === "install" && request.method === "POST" && segments[3]) return this.#pluginInstall(request, segments[3], principal)
@@ -876,6 +880,16 @@ export class WorkbenchServer {
       return json(200, { updated: updated ?? null })
     }
     return this.#deny("skill-hub.action", 400)
+  }
+
+  async #designSkillsAction(request: Request): Promise<Response> {
+    if (!this.#designSkills) return this.#deny("design-skills.unavailable", 503)
+    const workspaceId = new URL(request.url).searchParams.get("workspaceId")
+    if (!workspaceId) return this.#deny("design-skills.scope", 400)
+    if (!this.#authorize(request, workspaceId)) return this.#deny("design-skills.scope", 403)
+    const skills = await this.#designSkills(workspaceId)
+    this.#allow("design-skills.list")
+    return json(200, { skills })
   }
 
   async #approval(request: Request, id: string): Promise<Response> {
