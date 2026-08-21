@@ -1824,6 +1824,8 @@ export const dict = {
   "workbench.chat.reviewResult": "輸入要求,然後在此工作區檢視結果。",
   "workbench.chat.send": "傳送",
   "workbench.chat.sending": "傳送中…",
+  "workbench.chat.sendFailed": "傳送失敗",
+  "workbench.chat.retry": "重試",
   "workbench.operations.workspaceSwitcher": "工作區切換",
   "workbench.operations.sessionChat": "工作階段聊天",
   "workbench.operations.files": "檔案",

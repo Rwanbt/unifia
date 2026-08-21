@@ -1833,6 +1833,8 @@ export const dict = {
   "workbench.chat.reviewResult": "Indtast en anmodning, og gennemgå resultatet i dette arbejdsområde.",
   "workbench.chat.send": "Send",
   "workbench.chat.sending": "Sender…",
+  "workbench.chat.sendFailed": "Afsendelse mislykkedes",
+  "workbench.chat.retry": "Prøv igen",
   "workbench.operations.workspaceSwitcher": "Arbejdsområde-skifter",
   "workbench.operations.sessionChat": "Sessionschat",
   "workbench.operations.files": "Filer",

@@ -9,10 +9,15 @@ import { DockShellForm, DockTray } from "@unifia/ui/dock-surface"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import {
+  addPendingSend,
   extractMessageText,
   findRegenerateTarget,
+  markPendingSendFailed,
+  markPendingSendRetrying,
+  removePendingSend,
   selectNextStepSuggestions,
   type NextStepSuggestion,
+  type PendingSend,
 } from "@/pages/workbench/workbench-thread-shared"
 
 export type WorkbenchThreadProps = {
@@ -70,9 +75,14 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const [input, setInput] = createSignal("")
-  const [sending, setSending] = createSignal(false)
+  const [regenerating, setRegenerating] = createSignal(false)
   const [error, setError] = createSignal<string>()
   const [feedback, setFeedback] = createSignal<Record<string, "like" | "dislike" | undefined>>({})
+  // Phase 10.2 — each composer submission that hasn't landed in
+  // `sync.data` yet lives here, not behind a single `sending` gate: two
+  // concurrent sends must be able to fail independently, each with its
+  // own Retry button (see PendingSend in workbench-thread-shared.ts).
+  const [pendingSends, setPendingSends] = createSignal<readonly PendingSend[]>([])
 
   const modeTitle = () => t(MODE_KEY[props.mode])
   const modeTitleSession = () => t("workbench.chat.sessionTitle", { mode: modeTitle() })
@@ -108,17 +118,33 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
 
   async function submit(): Promise<void> {
     const text = input().trim()
-    if (!text || sending()) return
-    setSending(true)
-    setError(undefined)
+    if (!text) return
+    setInput("")
+    const id = crypto.randomUUID()
+    setPendingSends((list) => addPendingSend(list, id, text))
+    await sendPending(id, text)
+  }
+
+  /** Phase 10.2 — the actual send, shared by `submit()` and `retryPendingSend()`. */
+  async function sendPending(id: string, text: string): Promise<void> {
     try {
       await session.prompt(text)
-      setInput("")
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setSending(false)
+      setPendingSends((list) => removePendingSend(list, id))
+    } catch {
+      // The generic bottom-of-thread error banner is gone for send
+      // failures specifically — the failed bubble itself carries its own
+      // Retry button now (porte: two concurrent failures, two independent
+      // buttons). `error` stays reserved for non-send failures (session
+      // sync, below).
+      setPendingSends((list) => markPendingSendFailed(list, id))
     }
+  }
+
+  function retryPendingSend(id: string): void {
+    const target = pendingSends().find((p) => p.id === id)
+    if (!target) return
+    setPendingSends((list) => markPendingSendRetrying(list, id))
+    void sendPending(id, target.text)
   }
 
   function applySuggestion(suggestion: NextStepSuggestion): void {
@@ -133,10 +159,10 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
    * user message.
    */
   async function regenerate(assistantMessageId: string): Promise<void> {
-    if (sending()) return
+    if (regenerating()) return
     const target = findRegenerateTarget(messages(), assistantMessageId)
     if (!target) return
-    setSending(true)
+    setRegenerating(true)
     setError(undefined)
     try {
       await session.revert(target.userMessageId)
@@ -144,7 +170,7 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setSending(false)
+      setRegenerating(false)
     }
   }
 
@@ -192,7 +218,7 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3" data-workbench-thread-history aria-live="polite">
         <Show
-          when={messages().length > 0}
+          when={messages().length > 0 || pendingSends().length > 0}
           fallback={
             <p class="text-12-regular text-text-weak" data-workbench-thread-empty>
               Démarre la conversation par un message. Le fil reste affiché quand tu changes de mode.
@@ -226,7 +252,7 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
                                 class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
                                 data-workbench-thread-action="regenerate"
                                 title="Régénérer la réponse"
-                                disabled={sending()}
+                                disabled={regenerating()}
                                 onClick={() => void regenerate(message.id)}
                               >
                                 Régénérer
@@ -266,6 +292,35 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
                       <div data-slot="user-message-copy-wrapper">
                         <span data-slot="user-message-meta">{t("workbench.chat.you")}</span>
                       </div>
+                    </div>
+                  </Show>
+                </li>
+              )}
+            </For>
+            <For each={pendingSends()}>
+              {(pending) => (
+                <li data-workbench-thread-message="user" data-workbench-thread-pending={pending.status}>
+                  <div data-component="user-message" data-workbench-thread-message-body>
+                    <div data-slot="user-message-body">
+                      <div data-slot="user-message-text">{pending.text}</div>
+                    </div>
+                    <div data-slot="user-message-copy-wrapper">
+                      <span data-slot="user-message-meta">{t("workbench.chat.you")}</span>
+                    </div>
+                  </div>
+                  <Show when={pending.status === "failed"}>
+                    <div class="mt-1 flex items-center gap-2" data-workbench-thread-pending-error>
+                      <p class="text-12-regular text-text-danger" role="alert">
+                        {t("workbench.chat.sendFailed")}
+                      </p>
+                      <button
+                        type="button"
+                        class="rounded border border-border-base px-2 py-1 text-12-regular"
+                        data-workbench-thread-action="retry"
+                        onClick={() => retryPendingSend(pending.id)}
+                      >
+                        {t("workbench.chat.retry")}
+                      </button>
                     </div>
                   </Show>
                 </li>
@@ -319,7 +374,6 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
           placeholder={props.prompt}
           value={input()}
           onInput={(event) => setInput(event.currentTarget.value)}
-          disabled={sending()}
         />
         <DockTray attach="top" class="flex items-center justify-between gap-3 px-3 py-2">
           <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
@@ -328,9 +382,9 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
             variant="primary"
             size="normal"
             data-workbench-thread-submit
-            disabled={!input().trim() || sending()}
+            disabled={!input().trim()}
           >
-            {sending() ? t("workbench.chat.sending") : t("workbench.chat.send")}
+            {pendingSends().some((p) => p.status === "sending") ? t("workbench.chat.sending") : t("workbench.chat.send")}
           </Button>
         </DockTray>
       </DockShellForm>

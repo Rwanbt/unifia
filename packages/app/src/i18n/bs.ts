@@ -1839,6 +1839,8 @@ export const dict = {
   "workbench.chat.reviewResult": "Unesi zahtjev i pregledaj rezultat u ovom radnom prostoru.",
   "workbench.chat.send": "Pošalji",
   "workbench.chat.sending": "Slanje…",
+  "workbench.chat.sendFailed": "Slanje nije uspjelo",
+  "workbench.chat.retry": "Pokušaj ponovo",
   "workbench.operations.workspaceSwitcher": "Birač radnog prostora",
   "workbench.operations.sessionChat": "Ćaskanje sesije",
   "workbench.operations.files": "Datoteke",

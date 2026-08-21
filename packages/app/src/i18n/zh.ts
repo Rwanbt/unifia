@@ -1828,6 +1828,8 @@ export const dict = {
   "workbench.chat.reviewResult": "输入请求,然后在此工作区中查看结果。",
   "workbench.chat.send": "发送",
   "workbench.chat.sending": "发送中…",
+  "workbench.chat.sendFailed": "发送失败",
+  "workbench.chat.retry": "重试",
   "workbench.operations.workspaceSwitcher": "工作区切换",
   "workbench.operations.sessionChat": "会话聊天",
   "workbench.operations.files": "文件",

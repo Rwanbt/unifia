@@ -1757,6 +1757,8 @@ export const dict = {
   "workbench.chat.reviewResult": "リクエストを入力し、このワークスペースで結果を確認してください。",
   "workbench.chat.send": "送信",
   "workbench.chat.sending": "送信中…",
+  "workbench.chat.sendFailed": "送信に失敗しました",
+  "workbench.chat.retry": "再試行",
   "workbench.operations.workspaceSwitcher": "ワークスペース切替",
   "workbench.operations.sessionChat": "セッションチャット",
   "workbench.operations.files": "ファイル",

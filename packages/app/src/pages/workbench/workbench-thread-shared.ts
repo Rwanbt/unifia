@@ -83,6 +83,48 @@ export function findRegenerateTarget(
   return undefined
 }
 
+export type PendingSendStatus = "sending" | "failed"
+
+/**
+ * Phase 10.2 — a composer submission that hasn't landed in `sync.data`
+ * yet (or failed to). Purely client-side/local: a successful send is
+ * removed from this list the moment `session.prompt` resolves, because
+ * from then on the real message lives in `sync.data` and renders through
+ * the normal `messages()` memo instead.
+ */
+export type PendingSend = {
+  id: string
+  text: string
+  status: PendingSendStatus
+}
+
+/** Appends a new pending send in the "sending" state. */
+export function addPendingSend(list: readonly PendingSend[], id: string, text: string): readonly PendingSend[] {
+  return [...list, { id, text, status: "sending" }]
+}
+
+/**
+ * Marks a pending send as failed — this is what gives it its own
+ * independent Retry button. No-op (same reference) if `id` isn't in the
+ * list, so two concurrent failures never clobber each other's state.
+ */
+export function markPendingSendFailed(list: readonly PendingSend[], id: string): readonly PendingSend[] {
+  if (!list.some((p) => p.id === id)) return list
+  return list.map((p) => (p.id === id ? { ...p, status: "failed" } : p))
+}
+
+/** Moves a failed send back to "sending" (Retry was clicked). No-op if `id` isn't in the list. */
+export function markPendingSendRetrying(list: readonly PendingSend[], id: string): readonly PendingSend[] {
+  if (!list.some((p) => p.id === id)) return list
+  return list.map((p) => (p.id === id ? { ...p, status: "sending" } : p))
+}
+
+/** Removes a pending send (successful — the real message now lives in `sync.data`). No-op if `id` isn't in the list. */
+export function removePendingSend(list: readonly PendingSend[], id: string): readonly PendingSend[] {
+  if (!list.some((p) => p.id === id)) return list
+  return list.filter((p) => p.id !== id)
+}
+
 /**
  * Static, mode-keyed next-step suggestions seeded into the thread footer.
  *

@@ -1765,6 +1765,8 @@ export const dict = {
   "workbench.chat.reviewResult": "Introduce una solicitud y revisa el resultado en este espacio de trabajo.",
   "workbench.chat.send": "Enviar",
   "workbench.chat.sending": "Enviando…",
+  "workbench.chat.sendFailed": "Error al enviar",
+  "workbench.chat.retry": "Reintentar",
   "workbench.operations.workspaceSwitcher": "Selector de espacio de trabajo",
   "workbench.operations.sessionChat": "Chat de sesión",
   "workbench.operations.files": "Archivos",

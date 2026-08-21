@@ -1762,6 +1762,8 @@ export const dict = {
   "workbench.chat.reviewResult": "Bir istek girin ve sonucu bu çalışma alanında inceleyin.",
   "workbench.chat.send": "Gönder",
   "workbench.chat.sending": "Gönderiliyor…",
+  "workbench.chat.sendFailed": "Gönderme başarısız oldu",
+  "workbench.chat.retry": "Yeniden dene",
   "workbench.operations.workspaceSwitcher": "Çalışma alanı değiştirici",
   "workbench.operations.sessionChat": "Oturum sohbeti",
   "workbench.operations.files": "Dosyalar",

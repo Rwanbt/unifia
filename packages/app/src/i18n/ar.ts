@@ -1751,6 +1751,8 @@ export const dict = {
   "workbench.chat.reviewResult": "أدخل طلبًا ثم راجع النتيجة في مساحة العمل هذه.",
   "workbench.chat.send": "إرسال",
   "workbench.chat.sending": "جارٍ الإرسال…",
+  "workbench.chat.sendFailed": "فشل الإرسال",
+  "workbench.chat.retry": "إعادة المحاولة",
   "workbench.operations.workspaceSwitcher": "مبدّل مساحة العمل",
   "workbench.operations.sessionChat": "دردشة الجلسة",
   "workbench.operations.files": "الملفات",

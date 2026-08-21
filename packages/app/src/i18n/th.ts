@@ -1829,6 +1829,8 @@ export const dict = {
   "workbench.chat.reviewResult": "ป้อนคำขอแล้วตรวจสอบผลในพื้นที่ทำงานนี้",
   "workbench.chat.send": "ส่ง",
   "workbench.chat.sending": "กำลังส่ง…",
+  "workbench.chat.sendFailed": "ส่งไม่สำเร็จ",
+  "workbench.chat.retry": "ลองอีกครั้ง",
   "workbench.operations.workspaceSwitcher": "ตัวสลับพื้นที่ทำงาน",
   "workbench.operations.sessionChat": "แชทเซสชัน",
   "workbench.operations.files": "ไฟล์",

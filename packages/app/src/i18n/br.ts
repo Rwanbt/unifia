@@ -1763,6 +1763,8 @@ export const dict = {
   "workbench.chat.reviewResult": "Insira um pedido e revise o resultado neste espaço de trabalho.",
   "workbench.chat.send": "Enviar",
   "workbench.chat.sending": "Enviando…",
+  "workbench.chat.sendFailed": "Falha no envio",
+  "workbench.chat.retry": "Tentar novamente",
   "workbench.operations.workspaceSwitcher": "Seletor de espaço de trabalho",
   "workbench.operations.sessionChat": "Chat da sessão",
   "workbench.operations.files": "Arquivos",

@@ -2,10 +2,15 @@
 
 import { describe, expect, test } from "bun:test"
 import {
+  addPendingSend,
   extractMessageText,
   findRegenerateTarget,
+  markPendingSendFailed,
+  markPendingSendRetrying,
+  removePendingSend,
   selectNextStepSuggestions,
   type NextStepSuggestion,
+  type PendingSend,
   type ThreadMessage,
 } from "@/pages/workbench/workbench-thread-shared"
 
@@ -122,6 +127,72 @@ describe("findRegenerateTarget", () => {
       { id: "a2", role: "assistant", text: "Réponse 2" },
     ]
     expect(findRegenerateTarget(malformed, "a2")).toEqual({ userMessageId: "u1", userText: "Question" })
+  })
+})
+
+describe("pending send lifecycle (10.2 retry-per-message)", () => {
+  test("addPendingSend appends a new entry in the sending state", () => {
+    const list = addPendingSend([], "p1", "Bonjour")
+    expect(list).toEqual([{ id: "p1", text: "Bonjour", status: "sending" }])
+  })
+
+  test("addPendingSend does not disturb existing entries", () => {
+    const start: PendingSend[] = [{ id: "p1", text: "Premier", status: "sending" }]
+    const next = addPendingSend(start, "p2", "Second")
+    expect(next).toEqual([
+      { id: "p1", text: "Premier", status: "sending" },
+      { id: "p2", text: "Second", status: "sending" },
+    ])
+  })
+
+  test("markPendingSendFailed flips only the targeted entry", () => {
+    const start: PendingSend[] = [
+      { id: "p1", text: "Un", status: "sending" },
+      { id: "p2", text: "Deux", status: "sending" },
+    ]
+    const next = markPendingSendFailed(start, "p1")
+    expect(next).toEqual([
+      { id: "p1", text: "Un", status: "failed" },
+      { id: "p2", text: "Deux", status: "sending" },
+    ])
+  })
+
+  test("two concurrent failures produce two independent failed entries", () => {
+    const start: PendingSend[] = [
+      { id: "p1", text: "Un", status: "sending" },
+      { id: "p2", text: "Deux", status: "sending" },
+    ]
+    const next = markPendingSendFailed(markPendingSendFailed(start, "p1"), "p2")
+    expect(next.every((p) => p.status === "failed")).toBe(true)
+    expect(next.map((p) => p.id)).toEqual(["p1", "p2"])
+  })
+
+  test("markPendingSendFailed on an unknown id returns the list unchanged (same reference)", () => {
+    const start: PendingSend[] = [{ id: "p1", text: "Un", status: "sending" }]
+    expect(markPendingSendFailed(start, "missing")).toBe(start)
+  })
+
+  test("markPendingSendRetrying moves a failed entry back to sending", () => {
+    const start: PendingSend[] = [{ id: "p1", text: "Un", status: "failed" }]
+    expect(markPendingSendRetrying(start, "p1")).toEqual([{ id: "p1", text: "Un", status: "sending" }])
+  })
+
+  test("markPendingSendRetrying on an unknown id returns the list unchanged (same reference)", () => {
+    const start: PendingSend[] = [{ id: "p1", text: "Un", status: "failed" }]
+    expect(markPendingSendRetrying(start, "missing")).toBe(start)
+  })
+
+  test("removePendingSend drops the entry once the send succeeds", () => {
+    const start: PendingSend[] = [
+      { id: "p1", text: "Un", status: "sending" },
+      { id: "p2", text: "Deux", status: "failed" },
+    ]
+    expect(removePendingSend(start, "p1")).toEqual([{ id: "p2", text: "Deux", status: "failed" }])
+  })
+
+  test("removePendingSend on an unknown id returns the list unchanged (same reference)", () => {
+    const start: PendingSend[] = [{ id: "p1", text: "Un", status: "sending" }]
+    expect(removePendingSend(start, "missing")).toBe(start)
   })
 })
 

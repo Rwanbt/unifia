@@ -1758,6 +1758,8 @@ export const dict = {
   "workbench.chat.reviewResult": "Skriv inn en forespørsel og gjennomgå resultatet i dette arbeidsområdet.",
   "workbench.chat.send": "Send",
   "workbench.chat.sending": "Sender…",
+  "workbench.chat.sendFailed": "Sending mislyktes",
+  "workbench.chat.retry": "Prøv igjen",
   "workbench.operations.workspaceSwitcher": "Arbeidsområde-velger",
   "workbench.operations.sessionChat": "Økt-chat",
   "workbench.operations.files": "Filer",

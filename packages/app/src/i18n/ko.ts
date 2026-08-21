@@ -1757,6 +1757,8 @@ export const dict = {
   "workbench.chat.reviewResult": "요청을 입력하고 이 워크스페이스에서 결과를 검토하세요.",
   "workbench.chat.send": "보내기",
   "workbench.chat.sending": "보내는 중…",
+  "workbench.chat.sendFailed": "전송 실패",
+  "workbench.chat.retry": "재시도",
   "workbench.operations.workspaceSwitcher": "워크스페이스 전환",
   "workbench.operations.sessionChat": "세션 채팅",
   "workbench.operations.files": "파일",
