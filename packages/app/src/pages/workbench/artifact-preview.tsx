@@ -15,6 +15,7 @@ import {
   type SrcdocOptions,
   type ViewportId,
 } from "@unifia/artifact-render"
+import { pinCenter } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
@@ -77,6 +78,18 @@ export function ArtifactPreview(props: {
    * synchronously during document parse, strictly before `load`).
    */
   onFrameLoad?: () => void
+  /**
+   * Phase 8.1 — one numbered pin per open comment that carries a
+   * captured target rect (`commentPins`). Rendered as a child of the
+   * already-scaled `data-design-preview-frame` wrapper, in the same
+   * iframe-local coordinate units as `rect` itself — the browser's own
+   * CSS transform inheritance does the screen-pixel conversion, so a
+   * window resize (which only changes `scale()`, never the rect values
+   * themselves — the iframe's internal layout is always the fixed
+   * preset size) keeps every pin aligned with zero extra recomputation.
+   */
+  pins?: readonly { id: string; rect: PreviewRect; label: string }[]
+  onPinClick?: (id: string) => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -332,6 +345,25 @@ export function ArtifactPreview(props: {
                   title={t("design.preview.title")}
                   class="size-full border-0"
                 />
+                <div class="pointer-events-none absolute inset-0" data-design-preview-pins>
+                  <For each={props.pins ?? []}>
+                    {(pin) => {
+                      const center = () => pinCenter(pin.rect)
+                      return (
+                        <button
+                          type="button"
+                          class="pointer-events-auto absolute flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-background-base bg-primary text-10-medium text-primary-foreground shadow"
+                          style={{ left: `${center().x}px`, top: `${center().y}px` }}
+                          data-design-preview-pin={pin.id}
+                          title={`Commentaire : ${pin.label}`}
+                          onClick={() => props.onPinClick?.(pin.id)}
+                        >
+                          {pin.label}
+                        </button>
+                      )
+                    }}
+                  </For>
+                </div>
               </div>
             </div>
           </Show>
@@ -380,7 +412,7 @@ function PreviewError(props: { title: string; message: string }): JSX.Element {
 // Suppress an unused-import warning for the `Switch` and `Match` imports
 // (they are not used in this slice; the iframe rendering is single-branch).
 // We keep them imported so the future P15+ branches (select mode, snapshot
-// mode) can switch on the iframe's intent without a new import.
-void For
+// mode) can switch on the iframe's intent without a new import. `For` is
+// used by the Phase 8.1 pins overlay above — no longer unused.
 void Switch
 void Match

@@ -32,7 +32,9 @@ import {
   createIndexedDbDesignDraftStore,
   DesignDraftConflictError,
   EMPTY_COMMENT_STATE,
+  commentPins,
   type CommentState,
+  type CommentTargetRect,
 } from "@unifia/workbench-shell"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { openTab, type DesignTab } from "@/pages/workbench/design-tabs"
@@ -127,7 +129,10 @@ export function DesignSurface(): JSX.Element {
   // changement d'onglet volontairement (revenir sur l'artefact retrouve
   // la cible en cours).
   const [commentState, setCommentState] = createSignal<CommentState>(EMPTY_COMMENT_STATE)
-  const [commentTarget, setCommentTarget] = createSignal<{ elementId: string; artifactId: string; entryFile: string }>()
+  const [commentTarget, setCommentTarget] = createSignal<{ elementId: string; artifactId: string; entryFile: string; rect?: CommentTargetRect }>()
+  // Phase 8.1 — clicking a pin scrolls the sidebar to its comment; the
+  // scroll target is a DOM id derived from the comment id (see CommentPanel).
+  const [highlightedCommentId, setHighlightedCommentId] = createSignal<string>()
 
   // P4-3 — chaque `artifact:start` du moteur de streaming ouvre (ou active)
   // un onglet `kind: "artifact"`. L'effet lit `stream.state()` (signal) et
@@ -194,9 +199,10 @@ export function DesignSurface(): JSX.Element {
 
   // P18 → P19 — callback de pick d'élément dans l'artefact : mémorise la
   // cible pour que `CommentPanel` sache sur quel `data-unifia-id` le
-  // prochain "Ajouter" doit s'attacher.
-  function onArtifactSelectTarget(elementId: string, artifactId: string, entryFile: string): void {
-    setCommentTarget({ elementId, artifactId, entryFile })
+  // prochain "Ajouter" doit s'attacher. Phase 8.1 : le rect du pick est
+  // capturé ici aussi, pour que le commentaire créé porte une épingle.
+  function onArtifactSelectTarget(elementId: string, artifactId: string, entryFile: string, rect: CommentTargetRect): void {
+    setCommentTarget({ elementId, artifactId, entryFile, rect })
   }
   /**
    * P4-5 — boucle commentaire → raffinement → fil.
@@ -484,6 +490,8 @@ export function DesignSurface(): JSX.Element {
         commentTarget={commentTarget()}
         onSendCommentBatch={(prompt) => void sendRefinePrompt(prompt, "commentaires")}
         onSendCommentOne={(prompt) => void sendRefinePrompt(prompt, "commentaire")}
+        highlightedCommentId={highlightedCommentId()}
+        onPinClick={(id) => setHighlightedCommentId(id)}
       />
     }
     return <div data-design-workspace-tab-empty={tab.id} />
@@ -547,16 +555,19 @@ function DesignArtifactTab(props: {
   onSnapshot: () => void
   onSelectMode: (value: boolean) => void
   /** P18 → P19 — remontée d'un pick vers le panneau de commentaires. */
-  onSelectTarget: (elementId: string, artifactId: string, entryFile: string) => void
+  onSelectTarget: (elementId: string, artifactId: string, entryFile: string, rect: CommentTargetRect) => void
   /** P3-5 / P17 — l'iframe remonte sa fonction de capture au parent. */
   onSnapshotReady: (request: () => Promise<{ dataUrl: string; w: number; h: number }>) => void
   /** P19 + P20 — état plat des commentaires, partagé entre tous les onglets artefact. */
   commentState: CommentState
   onCommentChange: (state: CommentState) => void
   /** P18 → P19 — dernier élément piqué ; `undefined` tant qu'aucun pick n'a eu lieu. */
-  commentTarget: { elementId: string; artifactId: string; entryFile: string } | undefined
+  commentTarget: { elementId: string; artifactId: string; entryFile: string; rect?: CommentTargetRect } | undefined
   onSendCommentBatch: (prompt: string) => void
   onSendCommentOne: (prompt: string) => void
+  /** Phase 8.1 — id du commentaire à faire défiler en vue quand une épingle est cliquée. */
+  highlightedCommentId: string | undefined
+  onPinClick: (id: string) => void
 }): JSX.Element {
   return (
     <div
@@ -630,14 +641,16 @@ function DesignArtifactTab(props: {
             viewport={props.viewport}
             zoom={props.zoom}
             selectMode={props.selectMode}
-            onSelectTarget={(elementId) => {
+            onSelectTarget={(elementId, rect) => {
               if (!props.entry) return
-              props.onSelectTarget(elementId, props.entry.artifactId, props.entry.filename)
+              props.onSelectTarget(elementId, props.entry.artifactId, props.entry.filename, rect)
               // Un pick vaut confirmation : on désarme pour que le rendu
               // redevienne cliquable normalement.
               props.onSelectMode(false)
             }}
             onSnapshotReady={props.onSnapshotReady}
+            pins={commentPins(props.commentState).map((pin, index) => ({ ...pin, label: String(index + 1) }))}
+            onPinClick={props.onPinClick}
           />
         </div>
         <Show when={props.entry}>
@@ -648,6 +661,8 @@ function DesignArtifactTab(props: {
                 state={props.commentState}
                 entryFile={props.commentTarget?.entryFile ?? entry().filename}
                 targetElementId={props.commentTarget?.elementId}
+                targetRect={props.commentTarget?.rect}
+                highlightedCommentId={props.highlightedCommentId}
                 onChange={props.onCommentChange}
                 onSendBatch={props.onSendCommentBatch}
                 onSendOne={props.onSendCommentOne}

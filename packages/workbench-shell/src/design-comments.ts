@@ -24,6 +24,9 @@
 
 export type CommentStatus = "open" | "sent" | "resolved"
 
+/** Rect de l'élément ciblé au moment du pick, en coordonnées locales à l'iframe (mêmes unités que `PreviewRect`, P18). */
+export type CommentTargetRect = { x: number; y: number; width: number; height: number }
+
 export type DesignComment = {
   id: string
   artifactId: string
@@ -32,6 +35,13 @@ export type DesignComment = {
   status: CommentStatus
   /** ISO 8601 (createdAt sert de tie-breaker pour l'ordre stable). */
   createdAt: string
+  /**
+   * P19+ (Phase 8.1) — capturé au pick, pas re-dérivé. `undefined` pour un
+   * commentaire créé avant cette phase, ou si le pick n'a exceptionnellement
+   * pas fourni de rect : l'épingle correspondante ne s'affiche simplement
+   * pas (dégradation silencieuse, pas une erreur).
+   */
+  rect?: CommentTargetRect
 }
 
 export type CommentState = {
@@ -137,4 +147,23 @@ export function newCommentId(now: number = Date.now(), rand: number = Math.rando
   const ts = now.toString(36)
   const r = Math.floor(rand * 1e9).toString(36)
   return `c-${ts}-${r}`
+}
+
+/**
+ * Phase 8.1 — centre d'un rect, en coordonnées locales à l'iframe. C'est
+ * la position d'épingle : le pin overlay la rend comme enfant du wrapper
+ * déjà mis à l'échelle par `ArtifactPreview` (`transform: scale(...)`),
+ * donc la conversion vers des pixels écran est déléguée au CSS — cette
+ * fonction n'a besoin de rien connaître de `scale()` ou du redimensionnement
+ * de la fenêtre pour rester correcte après l'un ou l'autre.
+ */
+export function pinCenter(rect: CommentTargetRect): { x: number; y: number } {
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+}
+
+/** Épingles pour les commentaires ouverts qui portent un rect — un commentaire créé avant cette phase (ou sans rect pour une autre raison) n'en a simplement pas. */
+export function commentPins(state: CommentState): readonly { id: string; rect: CommentTargetRect }[] {
+  return openComments(state)
+    .filter((comment): comment is DesignComment & { rect: CommentTargetRect } => comment.rect !== undefined)
+    .map((comment) => ({ id: comment.id, rect: comment.rect }))
 }

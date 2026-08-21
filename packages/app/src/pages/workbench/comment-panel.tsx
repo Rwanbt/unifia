@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import {
   EMPTY_COMMENT_STATE,
   addComment,
@@ -13,6 +13,7 @@ import {
   removeComment,
   updateComment,
   type CommentState,
+  type CommentTargetRect,
   type DesignComment,
 } from "@unifia/workbench-shell"
 import { CommentPopover } from "@/pages/workbench/comment-popover"
@@ -34,6 +35,10 @@ export function CommentPanel(props: {
   state: CommentState
   entryFile: string
   targetElementId: string | undefined
+  /** Phase 8.1 — rect du pick en cours, attaché au commentaire créé pour que son épingle sache où se dessiner. */
+  targetRect: CommentTargetRect | undefined
+  /** Phase 8.1 — id du commentaire à faire défiler en vue (clic sur une épingle). */
+  highlightedCommentId: string | undefined
   onChange: (state: CommentState) => void
   onSendBatch: (prompt: string) => void
   onSendOne: (prompt: string) => void
@@ -42,6 +47,13 @@ export function CommentPanel(props: {
   const [draft, setDraft] = createSignal("")
   const [popoverOpen, setPopoverOpen] = createSignal(false)
   const [sending, setSending] = createSignal(false)
+  const rowRefs = new Map<string, HTMLLIElement>()
+
+  createEffect(() => {
+    const id = props.highlightedCommentId
+    if (!id) return
+    rowRefs.get(id)?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  })
 
   const open = createMemo(() => openComments(props.state))
   const sent = createMemo(() => props.state.comments.filter((c) => c.status === "sent"))
@@ -59,6 +71,7 @@ export function CommentPanel(props: {
       note,
       status: "open",
       createdAt: new Date().toISOString(),
+      rect: props.targetRect,
     }
     props.onChange(addComment(props.state, comment))
     setPopoverOpen(false)
@@ -148,7 +161,12 @@ export function CommentPanel(props: {
             <For each={open()}>
               {(c) => (
                 <li
-                  class="rounded border border-border-base bg-background-stronger p-2"
+                  ref={(element) => rowRefs.set(c.id, element)}
+                  class="rounded border p-2"
+                  classList={{
+                    "border-border-focus bg-background-base": props.highlightedCommentId === c.id,
+                    "border-border-base bg-background-stronger": props.highlightedCommentId !== c.id,
+                  }}
                   data-comment-row={c.id}
                   data-comment-row-status={c.status}
                 >

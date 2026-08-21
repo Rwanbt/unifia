@@ -4,11 +4,13 @@ import { describe, expect, test } from "bun:test"
 import {
   EMPTY_COMMENT_STATE,
   addComment,
+  commentPins,
   commentsForElement,
   markResolved,
   markSent,
   newCommentId,
   openComments,
+  pinCenter,
   removeComment,
   updateComment,
   type DesignComment,
@@ -218,5 +220,32 @@ describe("newCommentId", () => {
 
   test("commence par 'c-' (préfixe reconnu)", () => {
     expect(newCommentId()).toMatch(/^c-/)
+  })
+})
+
+describe("pinCenter", () => {
+  test("centre d'un rect connu", () => {
+    expect(pinCenter({ x: 10, y: 20, width: 100, height: 40 })).toEqual({ x: 60, y: 40 })
+  })
+  test("rect nul en largeur/hauteur : le centre est le coin", () => {
+    expect(pinCenter({ x: 5, y: 5, width: 0, height: 0 })).toEqual({ x: 5, y: 5 })
+  })
+})
+
+describe("commentPins", () => {
+  test("une épingle par commentaire ouvert portant un rect", () => {
+    const rect = { x: 1, y: 2, width: 3, height: 4 }
+    const s1 = addComment(EMPTY_COMMENT_STATE, comment({ id: "c-1", status: "open", rect }))
+    expect(commentPins(s1)).toEqual([{ id: "c-1", rect }])
+  })
+  test("un commentaire ouvert sans rect n'a pas d'épingle", () => {
+    const s1 = addComment(EMPTY_COMMENT_STATE, comment({ id: "c-1", status: "open" }))
+    expect(commentPins(s1)).toEqual([])
+  })
+  test("un commentaire sent ou resolved n'a pas d'épingle même avec un rect", () => {
+    const rect = { x: 1, y: 2, width: 3, height: 4 }
+    const s1 = addComment(EMPTY_COMMENT_STATE, comment({ id: "c-1", status: "sent", rect }))
+    const s2 = addComment(s1, comment({ id: "c-2", status: "resolved", rect }))
+    expect(commentPins(s2)).toEqual([])
   })
 })
