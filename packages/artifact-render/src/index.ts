@@ -53,6 +53,12 @@ export {
   type SelectTargetMessage,
 } from "./bridges/selection"
 export {
+  EDIT_BRIDGE_SCRIPT,
+  type EditMessage,
+  type EditModeRequest,
+  type EditResultMessage,
+} from "./bridges/edit"
+export {
   INSPECTABLE_PROPERTIES,
   INSPECT_STYLESHEET_ID,
   filterInspectionOverrides,

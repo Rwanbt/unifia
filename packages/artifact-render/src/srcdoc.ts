@@ -4,6 +4,7 @@ import { STORAGE_SHIM_SCRIPT } from "./bridges/storage-shim"
 import { FOCUS_GUARD_SCRIPT } from "./bridges/focus-guard"
 import { SNAPSHOT_BRIDGE_SCRIPT } from "./bridges/snapshot"
 import { SELECTION_BRIDGE_SCRIPT } from "./bridges/selection"
+import { EDIT_BRIDGE_SCRIPT } from "./bridges/edit"
 import { annotateSelectableElements } from "./annotate"
 
 // ADR-1035: the iframe runs scripts-only; the storage shim and focus
@@ -18,6 +19,8 @@ export type SrcdocOptions = {
   snapshotBridge?: boolean
   /** Inject the selection bridge (default false — opt-in, consommé par P18+). */
   selectionBridge?: boolean
+  /** Inject the manual-edit bridge (default false — opt-in, Phase 9.2). */
+  editBridge?: boolean
   /** Auto-annotate selectable elements with data-unifia-id (default false). */
   annotate?: boolean
   /** Optional base href to set on the document; only applied to wrapped fragments. */
@@ -29,6 +32,7 @@ const DEFAULTS: Required<SrcdocOptions> = {
   focusGuard: true,
   snapshotBridge: false,
   selectionBridge: false,
+  editBridge: false,
   annotate: false,
   baseHref: "",
 }
@@ -107,6 +111,7 @@ export function buildSrcdoc(html: string, options: SrcdocOptions = {}): string {
   if (opts.focusGuard) insertion.push(FOCUS_GUARD_SCRIPT)
   if (opts.snapshotBridge) insertion.push(SNAPSHOT_BRIDGE_SCRIPT)
   if (opts.selectionBridge) insertion.push(SELECTION_BRIDGE_SCRIPT)
+  if (opts.editBridge) insertion.push(EDIT_BRIDGE_SCRIPT)
   if (insertion.length === 0) return annotated
 
   const headOpenEnd = findHeadOpenEnd(annotated)

@@ -35,9 +35,9 @@ describe("PREVIEW_SANDBOX", () => {
 })
 
 describe("ALLOWED_MESSAGE_TYPES", () => {
-  test("contient exactement le catalogue v1 de l'ADR-1037", () => {
+  test("contient exactement le catalogue v1 de l'ADR-1037 + edit-result (Phase 9.2)", () => {
     expect([...ALLOWED_MESSAGE_TYPES].sort()).toEqual(
-      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result", "unifia:snapshot-error"].sort()
+      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result", "unifia:snapshot-error", "unifia:edit-result"].sort()
     )
   })
 
@@ -51,7 +51,7 @@ describe("ALLOWED_MESSAGE_TYPES", () => {
 describe("ALLOWED_SENT_TYPES", () => {
   test("contient exactement les types émis par l'hôte vers l'iframe en v1", () => {
     expect([...ALLOWED_SENT_TYPES].sort()).toEqual(
-      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result", "unifia:snapshot-error"].sort()
+      ["unifia:ready", "unifia:select-target", "unifia:snapshot-result", "unifia:snapshot-error", "unifia:edit-result"].sort()
     )
   })
 
@@ -82,6 +82,17 @@ describe("parsePreviewMessage", () => {
   test("accepte une erreur de snapshot — un échec doit atteindre l'hôte", () => {
     const parsed = parsePreviewMessage({ type: "unifia:snapshot-error", id: "s1", error: "empty-render" })
     expect(parsed).toEqual({ type: "unifia:snapshot-error", id: "s1", error: "empty-render" })
+  })
+
+  test("accepte un résultat d'édition bien formé (Phase 9.2)", () => {
+    const parsed = parsePreviewMessage({ type: "unifia:edit-result", html: "<!doctype html><p>edited</p>" })
+    expect(parsed).toEqual({ type: "unifia:edit-result", html: "<!doctype html><p>edited</p>" })
+  })
+
+  test("rejette un résultat d'édition sans html exploitable", () => {
+    expect(parsePreviewMessage({ type: "unifia:edit-result", html: "" })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:edit-result" })).toBeUndefined()
+    expect(parsePreviewMessage({ type: "unifia:edit-result", html: 7 })).toBeUndefined()
   })
 
   // --- Rejets. L'iframe exécute du JS écrit par un agent : elle peut forger

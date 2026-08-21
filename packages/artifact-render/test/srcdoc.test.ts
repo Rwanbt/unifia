@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   buildSrcdoc,
+  EDIT_BRIDGE_SCRIPT,
   FOCUS_GUARD_SCRIPT,
   STORAGE_SHIM_SCRIPT,
 } from "@unifia/artifact-render"
@@ -103,6 +104,16 @@ describe("buildSrcdoc", () => {
     const c = buildSrcdoc("<p>x</p>", { storageShim: false })
     const d = buildSrcdoc("<p>x</p>", { storageShim: false })
     expect(c).toBe(d)
+  })
+
+  test("editBridge: true injecte le pont d'édition manuelle (Phase 9.2)", () => {
+    const out = buildSrcdoc("<p>x</p>", { editBridge: true })
+    expect(out).toContain(EDIT_BRIDGE_SCRIPT)
+  })
+
+  test("editBridge est absent par défaut", () => {
+    const out = buildSrcdoc("<p>x</p>")
+    expect(out).not.toContain(EDIT_BRIDGE_SCRIPT)
   })
 
   test("fallback : insertion juste avant <body> quand il n'y a pas de <head>", () => {

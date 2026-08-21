@@ -99,6 +99,14 @@ export function ArtifactPreview(props: {
   annotate?: boolean
   annotationStrokes?: readonly AnnotationStroke[]
   onAnnotationStroke?: (stroke: AnnotationStroke) => void
+  /**
+   * Phase 9.2 — l'outil Modifier est armé : un clic sur un élément
+   * annoté (data-unifia-id) l'arme en contenteditable au lieu de juste
+   * rapporter sa cible comme le fait selectMode. `onEditResult` reçoit
+   * le document entier sérialisé au blur de l'élément édité.
+   */
+  editMode?: boolean
+  onEditResult?: (html: string) => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -158,7 +166,13 @@ export function ArtifactPreview(props: {
       // écouteurs et des attributs au document rendu.
       snapshotBridge: true,
       selectionBridge: props.selectMode === true,
-      annotate: props.selectMode === true,
+      // Phase 9.2 — editMode reuses the same data-unifia-id addressing as
+      // selectMode (P18): the edit bridge's click handler targets an
+      // element by that attribute exactly like the selection bridge does,
+      // so the auto-annotation pass has to run whenever either mode needs
+      // a clickable target, not just for selection.
+      editBridge: props.editMode === true,
+      annotate: props.selectMode === true || props.editMode === true,
     }
     return buildSrcdoc(body, { ...heuristicOptions, ...props.srcdocOptions })
   }
@@ -215,6 +229,10 @@ export function ArtifactPreview(props: {
       }
       if (message.type === "unifia:snapshot-error") {
         settle(message.id)?.reject(new Error(message.error))
+        return
+      }
+      if (message.type === "unifia:edit-result") {
+        props.onEditResult?.(message.html)
       }
     }
     window.addEventListener("message", onMessage)
@@ -261,6 +279,21 @@ export function ArtifactPreview(props: {
     } catch {
       // L'iframe peut être en cours de swap de srcDoc ; le boot armé du
       // pont prend le relais. Silencieux par contrat (ADR-1037 §3).
+    }
+  })
+
+  // Phase 9.2 — même schéma que le pont de sélection ci-dessus : le
+  // srcDoc se reconstruit déjà quand `editMode` change (il pilote
+  // l'injection du pont), ce postMessage couvre le cas où le mode
+  // change sans reconstruction du document.
+  createEffect(() => {
+    const enabled = props.editMode === true
+    const target = frame?.contentWindow
+    if (!target) return
+    try {
+      target.postMessage({ type: "unifia:edit-mode", enabled }, "*")
+    } catch {
+      // Silencieux par contrat, même raison que ci-dessus.
     }
   })
 

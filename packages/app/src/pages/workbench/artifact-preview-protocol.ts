@@ -46,6 +46,9 @@ export const ALLOWED_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   // reports refusals (empty-render, timeout, …) on this type; an honest
   // failure has to reach the host, per ADR-1037 §4.
   "unifia:snapshot-error",
+  // Phase 9.2 — the manual-edit bridge reports the full serialized
+  // document on blur of an edited element (bridges/edit.ts).
+  "unifia:edit-result",
 ])
 
 /**
@@ -62,6 +65,7 @@ export const ALLOWED_SENT_TYPES: ReadonlySet<string> = new Set([
   "unifia:select-target",
   "unifia:snapshot-result",
   "unifia:snapshot-error",
+  "unifia:edit-result",
 ])
 
 /** Rectangle reported alongside a picked element, in iframe viewport coordinates. */
@@ -76,6 +80,7 @@ export type PreviewInboundMessage =
   | { type: "unifia:select-target"; elementId: string; rect: PreviewRect }
   | { type: "unifia:snapshot-result"; id: string; dataUrl: string; w: number; h: number }
   | { type: "unifia:snapshot-error"; id: string; error: string }
+  | { type: "unifia:edit-result"; html: string }
 
 function isRect(value: unknown): value is PreviewRect {
   if (typeof value !== "object" || value === null) return false
@@ -120,6 +125,9 @@ export function parsePreviewMessage(raw: unknown): PreviewInboundMessage | undef
       if (typeof data.id !== "string" || data.id.length === 0) return undefined
       if (typeof data.error !== "string" || data.error.length === 0) return undefined
       return { type: "unifia:snapshot-error", id: data.id, error: data.error }
+    case "unifia:edit-result":
+      if (typeof data.html !== "string" || data.html.length === 0) return undefined
+      return { type: "unifia:edit-result", html: data.html }
     default:
       return undefined
   }

@@ -88,6 +88,8 @@ export function DesignArtifactTab(props: {
   onToggleCommentPanel: () => void
   copyState: "idle" | "copying" | "copied" | "error"
   onCopySnapshot: () => void
+  /** Phase 9.2 — a manual edit was persisted as a new artifact version; DesignSurface pushes it through the stream so entry.content stays in sync. */
+  onArtifactEdited: (artifactId: string, filename: string, kind: string, content: string) => void
 }): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
@@ -118,6 +120,43 @@ export function DesignArtifactTab(props: {
     } catch (error) {
       setShareLinkState({ kind: "error", error: error instanceof Error ? error.message : "share link could not be created" })
     }
+  }
+
+  // Phase 9.2 — Mode Modifier. The riskiest item in this phase: the bridge
+  // (packages/artifact-render/src/bridges/edit.ts) arms contenteditable
+  // directly on the clicked data-unifia-id element and, on blur, posts the
+  // WHOLE serialized document back (not just the edited element — a text
+  // change can imply attribute/structure changes the bridge shouldn't have
+  // to reason about). That result is persisted as a new artifact version
+  // via createArtifact (the same call design-surface.tsx's own
+  // artifact-parser effect already uses to auto-persist every streamed
+  // artifact) and, on success, handed to onArtifactEdited so DesignSurface
+  // can push it through the SAME artifact:start/chunk/end sequence
+  // openSpecInWorkshop already uses — the stream is DesignSurface's only
+  // write path for `entry.content`, so a manual edit has to go through it
+  // too or the next re-render would show the pre-edit content again.
+  const [editMode, setEditMode] = createSignal(false)
+  const [editSaveError, setEditSaveError] = createSignal<string>()
+  function onEditResult(html: string): void {
+    const current = connection()
+    const entry = props.entry
+    if (!current || !entry) return
+    setEditSaveError(undefined)
+    void current.client
+      .createArtifact({
+        workspaceId: current.workspaceId,
+        kind: entry.kind,
+        filename: entry.filename,
+        content: html,
+        artifactId: entry.artifactId,
+        provenance: { sourceTool: "manual-edit", capabilityPack: "workbench-design" },
+      })
+      .then((result) => {
+        props.onArtifactEdited(entry.artifactId, result.artifact.filename, result.artifact.kind, html)
+      })
+      .catch((error: unknown) => {
+        setEditSaveError(error instanceof Error ? error.message : "manual edit could not be saved")
+      })
   }
 
   // Phase 9.5 — export HTML/PDF. Local state (not hoisted to DesignSurface
@@ -333,6 +372,25 @@ export function DesignArtifactTab(props: {
               >
                 {annotateMode() ? "Annotation active…" : "Annoter"}
               </button>
+              <button
+                type="button"
+                class="rounded border px-2 py-1 text-12-regular"
+                classList={{
+                  "border-border-focus text-text-base": editMode(),
+                  "border-border-base text-text-weak": !editMode(),
+                }}
+                data-design-edit-mode={editMode() ? "on" : "off"}
+                aria-pressed={editMode()}
+                onClick={() => setEditMode((value) => !value)}
+                title="Clique un élément du rendu pour éditer son texte directement"
+              >
+                {editMode() ? "Modification active…" : "Modifier"}
+              </button>
+              <Show when={editSaveError()}>
+                <span class="text-12-regular text-text-danger" data-design-edit-save-error>
+                  {editSaveError()}
+                </span>
+              </Show>
               <Show when={annotateMode() && annotationState().strokes.length > 0}>
                 <button
                   type="button"
@@ -479,6 +537,8 @@ export function DesignArtifactTab(props: {
             annotate={annotateMode()}
             annotationStrokes={annotationState().strokes}
             onAnnotationStroke={onAnnotationStroke}
+            editMode={editMode()}
+            onEditResult={onEditResult}
           />
         </div>
         <Show when={props.commentPanelOpen ? props.entry : undefined}>

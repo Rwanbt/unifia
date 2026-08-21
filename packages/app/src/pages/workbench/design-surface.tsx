@@ -487,6 +487,19 @@ export function DesignSurface(): JSX.Element {
       setSaveMessage(error instanceof Error ? error.message : "design preview could not be opened")
     }
   }
+  /**
+   * Phase 9.2 — a manual edit was already persisted server-side (createArtifact,
+   * called from DesignArtifactTab, which owns the connection needed for
+   * that call). This just syncs entry.content with what was saved, same
+   * start/chunk/end sequence as openSpecInWorkshop above — the stream is
+   * the only write path DesignArtifactTab has for its own props.entry.
+   */
+  function onArtifactEdited(artifactId: string, filename: string, kind: string, content: string): void {
+    stream.push({ type: "artifact:start", artifactId, filename, kind, sessionId: "manual-edit" })
+    stream.push({ type: "artifact:chunk", artifactId, chunk: content })
+    stream.push({ type: "artifact:end", artifactId, reason: "complete" })
+  }
+
   const versionPanel = createMemo(() => createArtifactVersionPanelState(history.data?.history ?? []))
   const latestDiff = createMemo(() => {
     const versions = versionPanel().history
@@ -559,6 +572,7 @@ export function DesignSurface(): JSX.Element {
         onToggleCommentPanel={() => setCommentPanelOpen((value) => !value)}
         copyState={copyState()}
         onCopySnapshot={() => void copySnapshot()}
+        onArtifactEdited={onArtifactEdited}
       />
     }
     return <div data-design-workspace-tab-empty={tab.id} />
