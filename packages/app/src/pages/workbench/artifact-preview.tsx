@@ -66,6 +66,17 @@ export function ArtifactPreview(props: {
    * image vide silencieuse).
    */
   onSnapshotReady?: (request: () => Promise<{ dataUrl: string; w: number; h: number }>) => void
+  /**
+   * Phase 7.2 — fires on the iframe's native `load` event, which re-fires
+   * every time `srcdoc` changes (unlike `ref`, which only runs once at
+   * element creation). `onSnapshotReady`'s `request` function is captured
+   * once, at mount, but `requestSnapshot` reads `frame.contentWindow`
+   * freshly on every call — so calling it right after this fires is safe
+   * even for a `source` that changed after the initial mount, without
+   * racing the snapshot bridge script's own listener setup (which runs
+   * synchronously during document parse, strictly before `load`).
+   */
+  onFrameLoad?: () => void
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -316,6 +327,7 @@ export function ArtifactPreview(props: {
                   ref={onMount}
                   sandbox={PREVIEW_SANDBOX}
                   srcdoc={srcdoc()}
+                  onLoad={() => props.onFrameLoad?.()}
                   data-design-preview="html"
                   title={t("design.preview.title")}
                   class="size-full border-0"

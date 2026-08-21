@@ -12,7 +12,9 @@ import {
   collectRelativeAssetTargets,
   decodeWorkspaceFile,
   inlineRelativeAssets,
+  isRenderable,
 } from "@/pages/workbench/design-files-preview"
+import { FileThumbnail, ThumbnailHost, createThumbnailController, type ThumbnailController } from "@/pages/workbench/design-files-thumbnail"
 import {
   buildFileTree,
   createDesignFilesPanelState,
@@ -27,20 +29,6 @@ import {
   type DesignFilesTreeExpansion,
   type WorkspaceFilePage,
 } from "@unifia/workbench-shell"
-
-/**
- * Extensions `ArtifactPreview`'s iframe can actually render standalone.
- * SVG works too (it's valid srcdoc content), everything else — markdown,
- * source code, config — only ever makes sense as text, so the toggle does
- * not even offer "Aperçu" for those; showing an iframe over a `.ts` file
- * would just render the syntax-highlighted-looking text as a literal page.
- */
-const RENDERABLE_EXTENSIONS = new Set(["html", "htm", "svg"])
-
-function isRenderable(path: string): boolean {
-  const extension = path.split(".").at(-1)?.toLowerCase()
-  return !!extension && RENDERABLE_EXTENSIONS.has(extension)
-}
 
 /**
  * Phase 7 — "Fichiers" tab of the Design workshop.
@@ -95,7 +83,7 @@ async function collectFiles(
   return { entries, skipped, nextCursor: pages >= MAX_PAGES ? page.nextCursor : undefined }
 }
 
-function FileRow(props: { row: DesignFileRow; onSelect: (path: string) => void }): JSX.Element {
+function FileRow(props: { row: DesignFileRow; onSelect: (path: string) => void; thumbnails: ThumbnailController }): JSX.Element {
   return (
     <li>
       <button
@@ -110,6 +98,7 @@ function FileRow(props: { row: DesignFileRow; onSelect: (path: string) => void }
         <FileIcon node={{ path: props.row.path, type: "file" }} class="size-4 shrink-0" />
         <span class="min-w-0 flex-1 truncate">{props.row.label}</span>
       </button>
+      <FileThumbnail path={props.row.path} controller={props.thumbnails} />
     </li>
   )
 }
@@ -129,6 +118,7 @@ function TreeRow(props: {
   selectedPath?: string
   onToggle: (path: string) => void
   onSelect: (path: string) => void
+  thumbnails: ThumbnailController
 }): JSX.Element {
   const paddingLeft = `${TREE_BASE_PADDING_PX + props.depth * TREE_INDENT_PX}px`
 
@@ -150,6 +140,7 @@ function TreeRow(props: {
             <FileIcon node={{ path: props.node.path, type: "file" }} class="size-4 shrink-0" />
             <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
           </button>
+          <FileThumbnail path={props.node.path} controller={props.thumbnails} />
         </li>
       }
     >
@@ -180,6 +171,7 @@ function TreeRow(props: {
                     selectedPath={props.selectedPath}
                     onToggle={props.onToggle}
                     onSelect={props.onSelect}
+                    thumbnails={props.thumbnails}
                   />
                 )}
               </For>
@@ -198,6 +190,7 @@ export function DesignFilesTab(): JSX.Element {
   const [search, setSearch] = createSignal("")
   const [previewMode, setPreviewMode] = createSignal<DesignToolbarMode>(DEFAULT_TOOLBAR_MODE)
   const [expanded, setExpanded] = createSignal<DesignFilesTreeExpansion>(EMPTY_TREE_EXPANSION)
+  const thumbnails = createThumbnailController()
 
   // Expansion is scoped per workspace (two open workspaces must not share
   // which folders are open), so it reloads whenever the workspace changes —
@@ -329,7 +322,7 @@ export function DesignFilesTab(): JSX.Element {
             when={search().trim().length === 0}
             fallback={
               <ul class="flex flex-col gap-0.5">
-                <For each={rows()}>{(row) => <FileRow row={row} onSelect={setSelectedPath} />}</For>
+                <For each={rows()}>{(row) => <FileRow row={row} onSelect={setSelectedPath} thumbnails={thumbnails} />}</For>
               </ul>
             }
           >
@@ -343,6 +336,7 @@ export function DesignFilesTab(): JSX.Element {
                     selectedPath={selectedPath()}
                     onToggle={toggleDirectory}
                     onSelect={setSelectedPath}
+                    thumbnails={thumbnails}
                   />
                 )}
               </For>
@@ -350,6 +344,7 @@ export function DesignFilesTab(): JSX.Element {
           </Show>
         </div>
       </div>
+      <ThumbnailHost controller={thumbnails} />
       <div class="flex flex-1 min-h-0 flex-col" data-design-files-preview={selectedPath() ?? "none"}>
         <Show
           when={selectedPath()}

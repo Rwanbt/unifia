@@ -6,6 +6,7 @@ import {
   decodeWorkspaceFile,
   inlineRelativeAssets,
   isExternalAssetUrl,
+  isRenderable,
   resolveRelativeAssetPath,
 } from "./design-files-preview"
 
@@ -84,6 +85,25 @@ describe("inlineRelativeAssets", () => {
     const html = `<!doctype html><html><head><link rel="stylesheet" href="styles/missing.css"></head><body></body></html>`
     const result = inlineRelativeAssets(html, "index.html", new Map())
     expect(result).toContain('href="styles/missing.css"')
+  })
+})
+
+describe("isRenderable", () => {
+  test("html, htm and svg are renderable", () => {
+    expect(isRenderable("index.html")).toBe(true)
+    expect(isRenderable("legacy.htm")).toBe(true)
+    expect(isRenderable("icon.svg")).toBe(true)
+  })
+  test("is case-insensitive on the extension", () => {
+    expect(isRenderable("INDEX.HTML")).toBe(true)
+  })
+  test("source and config files are not renderable", () => {
+    expect(isRenderable("app.ts")).toBe(false)
+    expect(isRenderable("styles/base.css")).toBe(false)
+    expect(isRenderable("README.md")).toBe(false)
+  })
+  test("a path with no extension is not renderable", () => {
+    expect(isRenderable("Makefile")).toBe(false)
   })
 })
 

@@ -80,6 +80,21 @@ export function inlineRelativeAssets(html: string, basePath: string, contentByPa
   return `<!doctype html>${doc.documentElement?.outerHTML ?? html}`
 }
 
+/**
+ * Extensions `ArtifactPreview`'s iframe can actually render standalone.
+ * SVG works too (it's valid srcdoc content), everything else — markdown,
+ * source code, config — only ever makes sense as text, so callers don't
+ * even offer an "Aperçu" toggle for those. Shared between the file tab's
+ * own preview and the file-list thumbnail generator (Phase 7.2) — one
+ * definition of "renderable", not two that could drift apart.
+ */
+const RENDERABLE_EXTENSIONS = new Set(["html", "htm", "svg"])
+
+export function isRenderable(path: string): boolean {
+  const extension = path.split(".").at(-1)?.toLowerCase()
+  return !!extension && RENDERABLE_EXTENSIONS.has(extension)
+}
+
 export function decodeWorkspaceFile(file: Pick<WorkspaceFileRead, "content" | "encoding">): string {
   if (file.encoding === "utf-8") return file.content
   return new TextDecoder().decode(Uint8Array.from(atob(file.content), (char) => char.charCodeAt(0)))
