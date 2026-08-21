@@ -11,6 +11,15 @@ import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { ThreadCommentAttachPanel } from "@/pages/workbench/thread-comment-attach-panel"
 import {
+  addComposerAttachment,
+  buildAttachmentPath,
+  buildAttachmentReferences,
+  markComposerAttachmentFailed,
+  markComposerAttachmentUploaded,
+  removeComposerAttachment,
+  type ComposerAttachment,
+} from "@/pages/workbench/composer-attachment"
+import {
   addPendingSend,
   extractMessageText,
   findRegenerateTarget,
@@ -47,6 +56,18 @@ export type WorkbenchThreadProps = {
     onClearAttached: () => void
     /** Resolves the entryFile for a comment's artifactId (from the live stream of open artifacts). `undefined` if that artifact tab was never opened this session. */
     resolveEntryFile: (artifactId: string) => string | undefined
+  }
+  /**
+   * Phase 10.4 — composer file attachments. Only Design mode wires this
+   * (mirrors `comments` above): Work/Automate still render the older
+   * `WorkbenchChat` card, not this component, so there's nothing to wire
+   * there yet. `upload` writes `path` via the same route Phase 7.3's file
+   * tab uses (`createFiles`) — path generation itself
+   * (`buildAttachmentPath`) stays here so it's covered by this module's
+   * own tests rather than duplicated in every caller.
+   */
+  files?: {
+    upload: (path: string, file: File) => Promise<void>
   }
 }
 
@@ -102,6 +123,11 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
   const [pendingSends, setPendingSends] = createSignal<readonly PendingSend[]>([])
   // Phase 10.3 — open state of the "Commenter la conversation" popover.
   const [attachPanelOpen, setAttachPanelOpen] = createSignal(false)
+  // Phase 10.4 — composer file attachments, uploaded as soon as they're
+  // picked/dropped (not deferred to submit time) so the composer can show
+  // a thumbnail and gate Send on the upload actually finishing.
+  const [attachments, setAttachments] = createSignal<readonly ComposerAttachment[]>([])
+  let fileInputRef: HTMLInputElement | undefined
 
   const modeTitle = () => t(MODE_KEY[props.mode])
   const modeTitleSession = () => t("workbench.chat.sessionTitle", { mode: modeTitle() })
@@ -164,10 +190,20 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
 
   async function submit(): Promise<void> {
     const raw = input().trim()
-    if (!raw) return
+    const uploaded = attachments().filter((a) => a.status === "uploaded")
+    if (!raw && uploaded.length === 0) return
     setInput("")
     const prefix = buildAttachedPrefix()
-    const text = prefix ? `${prefix}\n\n${raw}` : raw
+    const attachmentBlock = buildAttachmentReferences(attachments())
+    const text = [prefix, raw, attachmentBlock].filter((part) => part.length > 0).join("\n\n")
+    if (uploaded.length > 0) {
+      // Already-referenced attachments are cleared immediately (same
+      // optimistic timing as the comment-attach prefix above) — the files
+      // themselves stay uploaded in the workspace regardless of whether
+      // this particular chat message send later fails and gets retried.
+      for (const a of uploaded) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl)
+      setAttachments((list) => list.filter((a) => a.status !== "uploaded"))
+    }
     const id = crypto.randomUUID()
     setPendingSends((list) => addPendingSend(list, id, text))
     await sendPending(id, text)
@@ -193,6 +229,37 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
     if (!target) return
     setPendingSends((list) => markPendingSendRetrying(list, id))
     void sendPending(id, target.text)
+  }
+
+  /** Phase 10.4 — uploads one picked/dropped file, tracking its own attachment row. */
+  function attachFile(file: File): void {
+    const id = crypto.randomUUID()
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined
+    setAttachments((list) => addComposerAttachment(list, { id, name: file.name, status: "uploading", previewUrl }))
+    const upload = props.files
+    if (!upload) {
+      setAttachments((list) => markComposerAttachmentFailed(list, id, "Pièces jointes indisponibles dans ce mode"))
+      return
+    }
+    const path = buildAttachmentPath(file.name)
+    void upload
+      .upload(path, file)
+      .then(() => setAttachments((list) => markComposerAttachmentUploaded(list, id, path)))
+      .catch((reason: unknown) =>
+        setAttachments((list) =>
+          markComposerAttachmentFailed(list, id, reason instanceof Error ? reason.message : String(reason)),
+        ),
+      )
+  }
+
+  function attachFiles(files: FileList | readonly File[]): void {
+    for (const file of Array.from(files)) attachFile(file)
+  }
+
+  function removeAttachment(id: string): void {
+    const target = attachments().find((a) => a.id === id)
+    if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl)
+    setAttachments((list) => removeComposerAttachment(list, id))
   }
 
   function applySuggestion(suggestion: NextStepSuggestion): void {
@@ -428,7 +495,65 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
           event.preventDefault()
           void submit()
         }}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault()
+          const files = event.dataTransfer?.files
+          if (files && files.length > 0) attachFiles(files)
+        }}
       >
+        <input
+          ref={(el) => {
+            fileInputRef = el
+          }}
+          type="file"
+          multiple
+          class="hidden"
+          data-workbench-thread-file-input
+          onChange={(event) => {
+            const files = event.currentTarget.files
+            if (files && files.length > 0) attachFiles(files)
+            event.currentTarget.value = ""
+          }}
+        />
+        <Show when={attachments().length > 0}>
+          <ul class="flex flex-wrap gap-2 px-3 pt-3" data-workbench-thread-attachments>
+            <For each={attachments()}>
+              {(attachment) => (
+                <li
+                  class="flex items-center gap-2 rounded border border-border-base bg-background-base px-2 py-1"
+                  data-workbench-thread-attachment={attachment.id}
+                  data-workbench-thread-attachment-status={attachment.status}
+                >
+                  <Show
+                    when={attachment.previewUrl}
+                    fallback={<span class="text-12-regular text-text-weak" aria-hidden="true">📎</span>}
+                  >
+                    {(url) => <img src={url()} alt="" class="size-6 rounded object-cover" />}
+                  </Show>
+                  <span class="max-w-[140px] truncate text-12-regular">{attachment.name}</span>
+                  <Show when={attachment.status === "uploading"}>
+                    <span class="text-10-regular text-text-weak">…</span>
+                  </Show>
+                  <Show when={attachment.status === "error"}>
+                    <span class="text-10-regular text-text-danger" title={attachment.error}>
+                      Échec
+                    </span>
+                  </Show>
+                  <button
+                    type="button"
+                    class="rounded px-1 text-10-regular text-text-weak hover:text-text-base"
+                    aria-label={`Retirer ${attachment.name}`}
+                    data-workbench-thread-attachment-remove={attachment.id}
+                    onClick={() => removeAttachment(attachment.id)}
+                  >
+                    ×
+                  </button>
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
         <label class="sr-only" for={`workbench-thread-${props.mode}`}>
           {t("workbench.chat.messageFor", { mode: modeTitle() })}
         </label>
@@ -441,13 +566,30 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
           onInput={(event) => setInput(event.currentTarget.value)}
         />
         <DockTray attach="top" class="flex items-center justify-between gap-3 px-3 py-2">
-          <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
+          <div class="flex items-center gap-2">
+            <p class="text-12-regular text-text-weak">{t("workbench.chat.reviewResult")}</p>
+            <Show when={props.files}>
+              <button
+                type="button"
+                class="rounded border border-border-base px-2 py-1 text-12-regular"
+                data-workbench-thread-attach
+                aria-label="Joindre un fichier"
+                title="Joindre un fichier"
+                onClick={() => fileInputRef?.click()}
+              >
+                📎
+              </button>
+            </Show>
+          </div>
           <Button
             type="submit"
             variant="primary"
             size="normal"
             data-workbench-thread-submit
-            disabled={!input().trim()}
+            disabled={
+              (!input().trim() && attachments().every((a) => a.status !== "uploaded")) ||
+              attachments().some((a) => a.status === "uploading")
+            }
           >
             {pendingSends().some((p) => p.status === "sending") ? t("workbench.chat.sending") : t("workbench.chat.send")}
           </Button>

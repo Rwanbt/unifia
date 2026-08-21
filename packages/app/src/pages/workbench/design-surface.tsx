@@ -21,6 +21,7 @@ import { createArtifactStreamController } from "@/pages/workbench/use-artifact-s
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
 import { toggleAttachedCommentId } from "@/pages/workbench/thread-comment-attach"
+import { encodeBase64 } from "@/pages/workbench/design-files-preview"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -507,6 +508,20 @@ export function DesignSurface(): JSX.Element {
     stream.push({ type: "artifact:end", artifactId, reason: "complete" })
   }
 
+  /**
+   * Phase 10.4 — uploads one composer attachment via the same route
+   * Phase 7.3's file tab already uses (`createFiles`, refuses on EEXIST —
+   * `WorkbenchThread` generates a timestamp-prefixed path precisely so
+   * this never collides). Rejects (surfaced as the attachment's own
+   * "Échec" state) when there's no live connection.
+   */
+  async function uploadComposerAttachment(path: string, file: File): Promise<void> {
+    const current = connection()
+    if (!current) throw new Error("Aucune connexion au workspace")
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    await current.client.createFiles(current.workspaceId, [{ path, content: encodeBase64(bytes), encoding: "base64" }])
+  }
+
   const versionPanel = createMemo(() => createArtifactVersionPanelState(history.data?.history ?? []))
   const latestDiff = createMemo(() => {
     const versions = versionPanel().history
@@ -601,6 +616,7 @@ export function DesignSurface(): JSX.Element {
               onClearAttached: () => setAttachedCommentIds(new Set()),
               resolveEntryFile: (artifactId) => stream.state().byId.get(artifactId)?.filename,
             }}
+            files={{ upload: uploadComposerAttachment }}
           />
         }
         workspace={
