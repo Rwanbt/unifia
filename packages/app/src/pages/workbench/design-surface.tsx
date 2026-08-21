@@ -34,6 +34,7 @@ import {
   DesignDraftConflictError,
   EMPTY_COMMENT_STATE,
   commentPins,
+  openComments,
   type CommentState,
   type CommentTargetRect,
 } from "@unifia/workbench-shell"
@@ -120,6 +121,32 @@ export function DesignSurface(): JSX.Element {
       // Un refus du pont (empty-render, timeout…) remonte tel quel : mieux
       // vaut un échec nommé qu'un PNG uniforme livré en silence.
       .catch((error: unknown) => setSnapshot({ kind: "error", error: error instanceof Error ? error.message : "snapshot-failed" }))
+  }
+
+  // Phase 8.3/9.6 — visibilité du panneau de commentaires, remontée au
+  // même niveau que le reste du toolbar (P3-5) pour survivre à un
+  // changement d'onglet. Ouvert par défaut : c'est le comportement
+  // observable avant cette phase (le panneau était toujours affiché).
+  const [commentPanelOpen, setCommentPanelOpen] = createSignal(true)
+
+  // Phase 9.6 — copie la dernière capture dans le presse-papiers, en plus
+  // du téléchargement déjà câblé. `ClipboardItem` attend un `Blob`, pas le
+  // `dataUrl` que le pont snapshot renvoie — `fetch(dataUrl)` est le
+  // moyen le plus direct de refaire cette conversion sans réimplémenter
+  // un décodeur base64 (un `data:` URI est un fetch same-document valide).
+  const [copyState, setCopyState] = createSignal<"idle" | "copying" | "copied" | "error">("idle")
+  async function copySnapshot(): Promise<void> {
+    const current = snapshot()
+    if (current.kind !== "ready" || copyState() === "copying") return
+    setCopyState("copying")
+    try {
+      const blob = await (await fetch(current.dataUrl)).blob()
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+      setCopyState("copied")
+      setTimeout(() => setCopyState((state) => (state === "copied" ? "idle" : state)), 2_000)
+    } catch {
+      setCopyState("error")
+    }
   }
 
   // P19 + P20 — Panneau de commentaires, rebranché. `CommentState` est un
@@ -534,6 +561,10 @@ export function DesignSurface(): JSX.Element {
         highlightedCommentId={highlightedCommentId()}
         onPinClick={(id) => setHighlightedCommentId(id)}
         commentPersistError={commentPersistError()}
+        commentPanelOpen={commentPanelOpen()}
+        onToggleCommentPanel={() => setCommentPanelOpen((value) => !value)}
+        copyState={copyState()}
+        onCopySnapshot={() => void copySnapshot()}
       />
     }
     return <div data-design-workspace-tab-empty={tab.id} />
@@ -612,6 +643,11 @@ function DesignArtifactTab(props: {
   onPinClick: (id: string) => void
   /** Phase 8.2 — erreur de chargement/sauvegarde IndexedDB, `undefined` tant que rien n'a échoué. */
   commentPersistError: string | undefined
+  /** Phase 8.3/9.6 — visibilité du panneau de commentaires, badge de comptage dans le toolbar. */
+  commentPanelOpen: boolean
+  onToggleCommentPanel: () => void
+  copyState: "idle" | "copying" | "copied" | "error"
+  onCopySnapshot: () => void
 }): JSX.Element {
   return (
     <div
@@ -669,6 +705,11 @@ function DesignArtifactTab(props: {
         onZoom={props.onZoom}
         onMode={props.onToolbarMode}
         onSnapshot={props.onSnapshot}
+        commentCount={openComments(props.commentState).length}
+        commentPanelOpen={props.commentPanelOpen}
+        onToggleCommentPanel={props.onToggleCommentPanel}
+        copyState={props.copyState}
+        onCopySnapshot={props.onCopySnapshot}
       />
       <Show when={props.connectionError}>
         <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-artifact-connection-error role="alert">
@@ -697,7 +738,7 @@ function DesignArtifactTab(props: {
             onPinClick={props.onPinClick}
           />
         </div>
-        <Show when={props.entry}>
+        <Show when={props.commentPanelOpen ? props.entry : undefined}>
           {(entry) => (
             <div class="w-72 shrink-0 overflow-y-auto rounded-lg border border-border-base bg-background-stronger p-3" data-design-comment-sidebar>
               <Show when={props.commentPersistError}>

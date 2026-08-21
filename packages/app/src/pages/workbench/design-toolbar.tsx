@@ -50,6 +50,13 @@ export function DesignToolbar(props: {
   onExportHtml?: () => void
   onExportPdf?: () => void
   exportState?: { kind: "idle" | "exporting" | "exported" | "error"; error?: string }
+  /** Phase 8.3/9.6 — nombre de commentaires ouverts, affiché en badge. */
+  commentCount?: number
+  commentPanelOpen?: boolean
+  onToggleCommentPanel?: () => void
+  /** Phase 9.6 — copie l'image dans le presse-papiers en plus du téléchargement. */
+  onCopySnapshot?: () => void
+  copyState?: "idle" | "copying" | "copied" | "error"
 }): JSX.Element {
   const language = useLanguage()
   const t = language.t
@@ -136,6 +143,33 @@ export function DesignToolbar(props: {
           {t("workbench.design.toolbar.source")}
         </button>
       </div>
+      <Show when={props.onToggleCommentPanel}>
+        <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+        <div class="flex items-center gap-1" data-design-toolbar-group="comments">
+          <button
+            type="button"
+            class="flex h-7 items-center gap-1 rounded px-2 text-12-medium transition-colors"
+            classList={{
+              "bg-background-base text-text-base": props.commentPanelOpen === true,
+              "text-text-weak hover:bg-background-base": props.commentPanelOpen !== true,
+            }}
+            aria-pressed={props.commentPanelOpen === true}
+            data-design-toolbar-comments-toggle
+            onClick={() => props.onToggleCommentPanel?.()}
+            title="Afficher ou masquer le panneau de commentaires"
+          >
+            Commentaires
+            <Show when={(props.commentCount ?? 0) > 0}>
+              <span
+                class="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-10-medium text-primary-foreground"
+                data-design-toolbar-comments-badge
+              >
+                {props.commentCount}
+              </span>
+            </Show>
+          </button>
+        </div>
+      </Show>
       <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
       <div class="flex items-center gap-1" data-design-toolbar-group="export">
         <button
@@ -185,6 +219,19 @@ export function DesignToolbar(props: {
           >
             {props.snapshot.kind === "ready" ? `télécharger ${props.snapshot.w}×${props.snapshot.h}` : ""}
           </a>
+          <Show when={props.onCopySnapshot}>
+            <button
+              type="button"
+              class="rounded px-2 text-12-regular text-text-weak hover:text-text-base disabled:opacity-50"
+              disabled={props.copyState === "copying"}
+              data-design-toolbar-snapshot-copy
+              data-design-toolbar-snapshot-copy-state={props.copyState ?? "idle"}
+              onClick={() => props.onCopySnapshot?.()}
+              title="Copier l'image dans le presse-papiers"
+            >
+              {props.copyState === "copying" ? "Copie…" : props.copyState === "copied" ? "Copié !" : "Copier"}
+            </button>
+          </Show>
         </Show>
         <Show when={props.snapshot.kind === "error"}>
           <span class="text-12-regular text-text-danger" data-design-toolbar-snapshot-error>
