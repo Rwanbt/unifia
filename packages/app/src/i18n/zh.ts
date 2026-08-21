@@ -101,6 +101,10 @@ export const dict = {
 
   "command.workspace.toggle": "切换工作区",
   "command.workspace.toggle.description": "在侧边栏启用或禁用多个工作区",
+  "command.workspaceTab.next": "下一个标签页",
+  "command.workspaceTab.previous": "上一个标签页",
+  "command.workspaceTab.close": "关闭标签页",
+  "command.workspaceTab.goto": "前往标签页 {{n}}",
 
   "command.session.undo": "撤销",
   "command.session.undo.description": "撤销上一条消息",

@@ -7,10 +7,14 @@ import {
   closeWorkspaceTab,
   deserializeWorkspaceTabState,
   emptyWorkspaceTabState,
+  isActiveWorkspaceTabClosable,
+  nextWorkspaceTabId,
   openWorkspaceTab,
+  previousWorkspaceTabId,
   reorderWorkspaceTab,
   serializeWorkspaceTabState,
   touchWorkspaceTab,
+  workspaceTabIdAtPosition,
   type WorkspaceTab,
   type WorkspaceTabState,
 } from "@/context/workspace-tabs"
@@ -202,6 +206,103 @@ describe("reorderWorkspaceTab", () => {
     const next = reorderWorkspaceTab(start, "p-2", 0)
     expect(next.tabs[0]?.id).toBe(ENTRY_TAB_ID)
     expect(next.tabs.map((t) => t.id)).toEqual([ENTRY_TAB_ID, "p-2", "p-1", "p-3"])
+  })
+})
+
+describe("nextWorkspaceTabId (raccourci ctrl+tab)", () => {
+  function threeProjects(): WorkspaceTabState {
+    const s1 = openWorkspaceTab(emptyWorkspaceTabState(), projectTab("p-1"), 1)
+    const s2 = openWorkspaceTab(s1, projectTab("p-2"), 2)
+    return openWorkspaceTab(s2, projectTab("p-3"), 3)
+  }
+
+  test("avance vers l'onglet suivant à droite", () => {
+    const state = activateWorkspaceTab(threeProjects(), "p-1", 4) // [entry, p-1*, p-2, p-3]
+    expect(nextWorkspaceTabId(state)).toBe("p-2")
+  })
+
+  test("boucle sur le premier onglet (entry) après le dernier", () => {
+    const state = activateWorkspaceTab(threeProjects(), "p-3", 4) // dernier onglet
+    expect(nextWorkspaceTabId(state)).toBe(ENTRY_TAB_ID)
+  })
+
+  test("un seul onglet ouvert (entry) boucle sur lui-même", () => {
+    const state = emptyWorkspaceTabState()
+    expect(nextWorkspaceTabId(state)).toBe(ENTRY_TAB_ID)
+  })
+
+  test("activeId introuvable retombe sur le premier onglet", () => {
+    const state: WorkspaceTabState = { tabs: threeProjects().tabs, activeId: "missing" }
+    expect(nextWorkspaceTabId(state)).toBe(ENTRY_TAB_ID)
+  })
+})
+
+describe("previousWorkspaceTabId (raccourci ctrl+shift+tab)", () => {
+  function threeProjects(): WorkspaceTabState {
+    const s1 = openWorkspaceTab(emptyWorkspaceTabState(), projectTab("p-1"), 1)
+    const s2 = openWorkspaceTab(s1, projectTab("p-2"), 2)
+    return openWorkspaceTab(s2, projectTab("p-3"), 3)
+  }
+
+  test("recule vers l'onglet précédent à gauche", () => {
+    const state = activateWorkspaceTab(threeProjects(), "p-2", 4) // [entry, p-1, p-2*, p-3]
+    expect(previousWorkspaceTabId(state)).toBe("p-1")
+  })
+
+  test("boucle sur le dernier onglet avant le premier (entry)", () => {
+    const state = activateWorkspaceTab(threeProjects(), ENTRY_TAB_ID, 4)
+    expect(previousWorkspaceTabId(state)).toBe("p-3")
+  })
+
+  test("activeId introuvable retombe sur le dernier onglet", () => {
+    const state: WorkspaceTabState = { tabs: threeProjects().tabs, activeId: "missing" }
+    expect(previousWorkspaceTabId(state)).toBe("p-3")
+  })
+})
+
+describe("workspaceTabIdAtPosition (raccourcis ctrl+1..ctrl+9)", () => {
+  function threeProjects(): WorkspaceTabState {
+    const s1 = openWorkspaceTab(emptyWorkspaceTabState(), projectTab("p-1"), 1)
+    const s2 = openWorkspaceTab(s1, projectTab("p-2"), 2)
+    return openWorkspaceTab(s2, projectTab("p-3"), 3)
+  }
+
+  test("position 1 cible toujours l'entry", () => {
+    expect(workspaceTabIdAtPosition(threeProjects(), 1)).toBe(ENTRY_TAB_ID)
+  })
+
+  test("position 2 cible le premier onglet project", () => {
+    expect(workspaceTabIdAtPosition(threeProjects(), 2)).toBe("p-1")
+  })
+
+  test("position 4 cible le dernier onglet ouvert", () => {
+    expect(workspaceTabIdAtPosition(threeProjects(), 4)).toBe("p-3")
+  })
+
+  test("une position au-delà du nombre d'onglets ouverts renvoie undefined (ctrl+9 avec 4 onglets)", () => {
+    expect(workspaceTabIdAtPosition(threeProjects(), 9)).toBeUndefined()
+  })
+
+  test("une position nulle ou négative renvoie undefined", () => {
+    expect(workspaceTabIdAtPosition(threeProjects(), 0)).toBeUndefined()
+    expect(workspaceTabIdAtPosition(threeProjects(), -1)).toBeUndefined()
+  })
+})
+
+describe("isActiveWorkspaceTabClosable (garde du raccourci ctrl+w)", () => {
+  test("true quand l'onglet actif est un project", () => {
+    const state = openWorkspaceTab(emptyWorkspaceTabState(), projectTab("p-1"), 1)
+    expect(isActiveWorkspaceTabClosable(state)).toBe(true)
+  })
+
+  test("refuse (false) quand l'onglet actif est l'entry", () => {
+    const state = emptyWorkspaceTabState()
+    expect(isActiveWorkspaceTabClosable(state)).toBe(false)
+  })
+
+  test("false quand activeId est introuvable", () => {
+    const state: WorkspaceTabState = { tabs: emptyWorkspaceTabState().tabs, activeId: "missing" }
+    expect(isActiveWorkspaceTabClosable(state)).toBe(false)
   })
 })
 

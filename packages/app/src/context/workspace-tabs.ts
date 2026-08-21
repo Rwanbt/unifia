@@ -193,6 +193,63 @@ export function reorderWorkspaceTab(state: WorkspaceTabState, id: string, toInde
 }
 
 /**
+ * Phase 11.2 — position de l'onglet actif dans `state.tabs`, ou -1 si
+ * `activeId` ne correspond à aucun onglet (état incohérent qui ne
+ * devrait pas survenir en pratique, mais les helpers ci-dessous s'en
+ * accommodent sans lancer).
+ */
+function activeWorkspaceTabIndex(state: WorkspaceTabState): number {
+  return state.tabs.findIndex((t) => t.id === state.activeId)
+}
+
+/**
+ * Phase 11.2 — id de l'onglet suivant (à droite de l'actif), avec
+ * bouclage sur le premier onglet après le dernier. Alimente le
+ * raccourci `ctrl+tab`. Si `activeId` est introuvable, on retombe sur
+ * le premier onglet plutôt que de ne rien faire.
+ */
+export function nextWorkspaceTabId(state: WorkspaceTabState): string | undefined {
+  if (state.tabs.length === 0) return undefined
+  const index = activeWorkspaceTabIndex(state)
+  if (index === -1) return state.tabs[0]?.id
+  return state.tabs[(index + 1) % state.tabs.length]?.id
+}
+
+/**
+ * Phase 11.2 — id de l'onglet précédent (à gauche de l'actif), avec
+ * bouclage sur le dernier onglet avant le premier. Alimente le
+ * raccourci `ctrl+shift+tab`.
+ */
+export function previousWorkspaceTabId(state: WorkspaceTabState): string | undefined {
+  if (state.tabs.length === 0) return undefined
+  const index = activeWorkspaceTabIndex(state)
+  if (index === -1) return state.tabs[state.tabs.length - 1]?.id
+  return state.tabs[(index - 1 + state.tabs.length) % state.tabs.length]?.id
+}
+
+/**
+ * Phase 11.2 — id de l'onglet à la position `position` (1-indexée,
+ * dans l'ordre visuel de la barre — entry comprise, donc `position: 1`
+ * cible toujours l'entry), ou `undefined` si `position` dépasse le
+ * nombre d'onglets ouverts. Alimente les raccourcis `ctrl+1`..`ctrl+9`.
+ */
+export function workspaceTabIdAtPosition(state: WorkspaceTabState, position: number): string | undefined {
+  if (position < 1) return undefined
+  return state.tabs[position - 1]?.id
+}
+
+/**
+ * Phase 11.2 — l'onglet actif est-il fermable ? Alimente le raccourci
+ * `ctrl+w`, qui ne doit rien faire sur l'entry — même invariant que
+ * `closeWorkspaceTab`, exposé ici pour que l'appelant puisse décider
+ * de no-op sans dupliquer la règle `closable`.
+ */
+export function isActiveWorkspaceTabClosable(state: WorkspaceTabState): boolean {
+  const active = state.tabs.find((t) => t.id === state.activeId)
+  return active?.closable ?? false
+}
+
+/**
  * Sérialise l'état pour la persistance localStorage. La clé
  * `STORAGE_KEY` est versionnée — un changement de format de route
  * doit incrémenter la version.

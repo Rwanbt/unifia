@@ -37,6 +37,7 @@ import { setSessionHandoff } from "@/pages/session/handoff"
 import { useDialog } from "@unifia/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
 import { useCommand } from "@/context/command"
+import { useWorkspaceTabs } from "@/context/workspace-tabs-provider"
 import { getDraggableId } from "@/utils/solid-dnd"
 import { DebugBar } from "@/components/debug-bar"
 import { e2eActive } from "@/testing/active"
@@ -98,6 +99,7 @@ export default function Layout(props: ParentProps) {
   const permission = usePermission()
   const navigate = useNavigate()
   setNavigate(navigate)
+  const workspaceTabs = useWorkspaceTabs()
   const providers = useProviders()
   const dialog = useDialog()
   const command = useCommand()
@@ -847,6 +849,8 @@ export default function Layout(props: ParentProps) {
     availableThemeEntries,
     colorSchemeOrder,
     colorSchemeLabel,
+    workspaceTabs,
+    navigateToHref: navigate,
     chooseProject,
     navigateProjectByOffset,
     navigateSessionByOffset,

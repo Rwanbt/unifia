@@ -12,6 +12,13 @@ import type { useLanguage } from "@/context/language"
 import type { useTheme, ColorScheme } from "@unifia/ui/theme/context"
 import type { Session } from "../../types/sdk-shim"
 import type { LocalProject } from "@/context/layout"
+import type { useWorkspaceTabs } from "@/context/workspace-tabs-provider"
+import {
+  isActiveWorkspaceTabClosable,
+  nextWorkspaceTabId,
+  previousWorkspaceTabId,
+  workspaceTabIdAtPosition,
+} from "@/context/workspace-tabs"
 
 export interface LayoutCommandsDeps {
   command: ReturnType<typeof useCommand>
@@ -30,6 +37,10 @@ export interface LayoutCommandsDeps {
   availableThemeEntries: Accessor<readonly (readonly [string, any])[]>
   colorSchemeOrder: ColorScheme[]
   colorSchemeLabel: (scheme: ColorScheme) => string
+  /** Phase 11.2 — état + mutateurs de la barre d'onglets d'espace de travail. */
+  workspaceTabs: ReturnType<typeof useWorkspaceTabs>
+  /** Navigue vers un `href` d'onglet (ex. `useNavigate()` de solid-router). */
+  navigateToHref: (href: string) => void
   // Action functions
   chooseProject: () => void
   navigateProjectByOffset: (offset: number) => void
@@ -47,6 +58,26 @@ export interface LayoutCommandsDeps {
   openTeam: () => void
 }
 
+/**
+ * Phase 11.2 — active un onglet et navigue vers son `href`. Utilisé par
+ * les raccourcis clavier (ctrl+tab / ctrl+shift+tab / ctrl+1..9), qui
+ * n'ont pas de bouton à cliquer comme la barre d'onglets : ils doivent
+ * reproduire le même couple activate+navigate que `WorkspaceTabsBar`.
+ * No-op si `id` est `undefined` (onglet cible introuvable) ou si
+ * l'onglet a disparu entre le calcul de l'id et l'exécution.
+ */
+function goToWorkspaceTab(
+  workspaceTabs: ReturnType<typeof useWorkspaceTabs>,
+  navigateToHref: (href: string) => void,
+  id: string | undefined,
+): void {
+  if (!id) return
+  const tab = workspaceTabs.state.tabs.find((t) => t.id === id)
+  if (!tab) return
+  workspaceTabs.activate(id)
+  navigateToHref(tab.href)
+}
+
 export function registerLayoutCommands(deps: LayoutCommandsDeps) {
   const {
     command,
@@ -60,6 +91,8 @@ export function registerLayoutCommands(deps: LayoutCommandsDeps) {
     availableThemeEntries,
     colorSchemeOrder,
     colorSchemeLabel,
+    workspaceTabs,
+    navigateToHref,
     chooseProject,
     navigateProjectByOffset,
     navigateSessionByOffset,
@@ -206,6 +239,34 @@ export function registerLayoutCommands(deps: LayoutCommandsDeps) {
         },
       },
       {
+        id: "workspaceTab.next",
+        title: language.t("command.workspaceTab.next"),
+        category: language.t("command.category.workspace"),
+        keybind: "ctrl+tab",
+        onSelect: () => goToWorkspaceTab(workspaceTabs, navigateToHref, nextWorkspaceTabId(workspaceTabs.state)),
+      },
+      {
+        id: "workspaceTab.previous",
+        title: language.t("command.workspaceTab.previous"),
+        category: language.t("command.category.workspace"),
+        keybind: "ctrl+shift+tab",
+        onSelect: () =>
+          goToWorkspaceTab(workspaceTabs, navigateToHref, previousWorkspaceTabId(workspaceTabs.state)),
+      },
+      {
+        id: "workspaceTab.close",
+        title: language.t("command.workspaceTab.close"),
+        category: language.t("command.category.workspace"),
+        keybind: "ctrl+w",
+        disabled: !isActiveWorkspaceTabClosable(workspaceTabs.state),
+        onSelect: () => {
+          if (!isActiveWorkspaceTabClosable(workspaceTabs.state)) return
+          workspaceTabs.close(workspaceTabs.state.activeId)
+          const active = workspaceTabs.state.tabs.find((t) => t.id === workspaceTabs.state.activeId)
+          if (active) navigateToHref(active.href)
+        },
+      },
+      {
         id: "theme.cycle",
         title: language.t("command.theme.cycle"),
         category: language.t("command.category.theme"),
@@ -213,6 +274,24 @@ export function registerLayoutCommands(deps: LayoutCommandsDeps) {
         onSelect: () => cycleTheme(1),
       },
     ]
+
+    // Phase 11.2 — ctrl+1..ctrl+9, un raccourci par position d'onglet
+    // (entry comprise, donc ctrl+1 cible toujours l'entry). `disabled`
+    // quand la position dépasse le nombre d'onglets ouverts : la
+    // commande reste dans la palette (visibilité) mais son keybind
+    // n'est pas enregistré (voir `keymap` dans context/command.tsx,
+    // qui ignore les options `disabled`).
+    for (let position = 1; position <= 9; position++) {
+      commands.push({
+        id: `workspaceTab.goto.${position}`,
+        title: language.t("command.workspaceTab.goto", { n: position }),
+        category: language.t("command.category.workspace"),
+        keybind: `ctrl+${position}`,
+        disabled: workspaceTabIdAtPosition(workspaceTabs.state, position) === undefined,
+        onSelect: () =>
+          goToWorkspaceTab(workspaceTabs, navigateToHref, workspaceTabIdAtPosition(workspaceTabs.state, position)),
+      })
+    }
 
     for (const [id] of availableThemeEntries()) {
       commands.push({
