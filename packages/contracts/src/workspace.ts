@@ -42,6 +42,17 @@ export interface FileWriteResult {
   sha: string
 }
 
+/**
+ * `removed: false` means the path was already gone — remove() is
+ * idempotent (deleting a file twice is not an error), matching
+ * `createArtifact`'s idempotency posture rather than `read`/`write`'s
+ * "must exist" one.
+ */
+export interface FileRemoveResult {
+  path: string
+  removed: boolean
+}
+
 export interface FileEvent {
   sequence?: number
   type: "created" | "modified" | "deleted" | "renamed"
@@ -76,6 +87,12 @@ export interface WorkspacePort {
   open(id: WorkspaceId): Promise<WorkspaceHandle>
   read(session: FileSessionId, paths: string[]): Promise<FileReadResult[]>
   write(session: FileSessionId, writes: FileWrite[]): Promise<FileWriteResult[]>
+  /** Refuses (not an upsert) if any target already exists — a distinct primitive from write(), mirroring createArtifact vs "modify an artifact". */
+  create(session: FileSessionId, creates: FileWrite[]): Promise<FileWriteResult[]>
+  /** Idempotent: a path that doesn't exist reports `removed: false`, not an error. */
+  remove(session: FileSessionId, paths: string[]): Promise<FileRemoveResult[]>
+  /** Refuses if `to` already exists — a silent overwrite-by-rename would lose data with no undo. */
+  rename(session: FileSessionId, from: string, to: string): Promise<FileWriteResult>
   list(session: FileSessionId, prefix?: string, cursor?: string): Promise<WorkspaceListPage>
   search(session: FileSessionId, query: string, prefix?: string): Promise<readonly WorkspaceEntry[]>
   watch(session: FileSessionId): AsyncIterable<FileEvent>

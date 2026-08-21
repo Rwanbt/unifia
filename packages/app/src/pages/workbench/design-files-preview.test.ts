@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test"
 import {
   collectRelativeAssetTargets,
   decodeWorkspaceFile,
+  encodeBase64,
   inlineRelativeAssets,
   isExternalAssetUrl,
   isRenderable,
@@ -113,5 +114,23 @@ describe("decodeWorkspaceFile", () => {
   })
   test("decodes base64 content", () => {
     expect(decodeWorkspaceFile({ content: btoa("hello"), encoding: "base64" })).toBe("hello")
+  })
+})
+
+describe("encodeBase64", () => {
+  test("round-trips through decodeWorkspaceFile", () => {
+    const bytes = new TextEncoder().encode("hello, upload")
+    const encoded = encodeBase64(bytes)
+    expect(decodeWorkspaceFile({ content: encoded, encoding: "base64" })).toBe("hello, upload")
+  })
+  test("handles an empty buffer", () => {
+    expect(encodeBase64(new Uint8Array(0))).toBe("")
+  })
+  test("handles a buffer larger than one chunk without overflowing the call stack", () => {
+    const bytes = new Uint8Array(200_000).fill(65) // 'A', well past BASE64_CHUNK_SIZE
+    const encoded = encodeBase64(bytes)
+    const decoded = decodeWorkspaceFile({ content: encoded, encoding: "base64" })
+    expect(decoded.length).toBe(200_000)
+    expect(decoded.startsWith("AAAA")).toBe(true)
   })
 })

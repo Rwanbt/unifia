@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { adaptDesignFiles, createDesignFilesPanelState, renderDesignFileRows } from "../src/design-files.js"
+import { adaptDesignFiles, createDesignFilesPanelState, nextSelectedPathAfterRemove, nextSelectedPathAfterRename, renderDesignFileRows } from "../src/design-files.js"
 import { test } from "bun:test"
 
 test('design-files.test', async () => {
@@ -20,5 +20,14 @@ if (createDesignFilesPanelState(page, "missing.ts").selectedPath !== undefined) 
 const selected = createDesignFilesPanelState(page, "styles/theme.css")
 if (selected.selectedPath !== "styles/theme.css") throw new Error("panel did not preserve a valid selection")
 if (renderDesignFileRows(selected).find((row) => row.path === "styles/theme.css")?.selected !== true) throw new Error("panel did not render the selected row")
-console.log("DesignFiles: 6/6 passed")
+
+// Phase 7.3 — porte: rename follows the open selection, delete clears it.
+if (nextSelectedPathAfterRename("styles/theme.css", "styles/theme.css", "styles/dark.css") !== "styles/dark.css") throw new Error("rename did not follow the selected path")
+if (nextSelectedPathAfterRename("components/Card.tsx", "styles/theme.css", "styles/dark.css") !== "components/Card.tsx") throw new Error("rename touched an unrelated selection")
+if (nextSelectedPathAfterRename(undefined, "styles/theme.css", "styles/dark.css") !== undefined) throw new Error("rename invented a selection out of nothing")
+if (nextSelectedPathAfterRemove("styles/theme.css", ["styles/theme.css"]) !== undefined) throw new Error("delete of the active file did not clear the selection")
+if (nextSelectedPathAfterRemove("components/Card.tsx", ["styles/theme.css"]) !== "components/Card.tsx") throw new Error("delete of an unrelated file touched the selection")
+if (nextSelectedPathAfterRemove(undefined, ["styles/theme.css"]) !== undefined) throw new Error("delete invented a selection out of nothing")
+
+console.log("DesignFiles: 12/12 passed")
 })

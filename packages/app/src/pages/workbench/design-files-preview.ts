@@ -99,3 +99,22 @@ export function decodeWorkspaceFile(file: Pick<WorkspaceFileRead, "content" | "e
   if (file.encoding === "utf-8") return file.content
   return new TextDecoder().decode(Uint8Array.from(atob(file.content), (char) => char.charCodeAt(0)))
 }
+
+const BASE64_CHUNK_SIZE = 0x8000
+
+/**
+ * Inverse of the base64 branch of `decodeWorkspaceFile` — used to upload
+ * an arbitrary (possibly binary) file as base64 text over JSON. Builds
+ * the intermediate binary string in chunks rather than
+ * `String.fromCharCode(...bytes)` on the whole buffer at once: that
+ * spreads the array as call arguments, which overflows the call stack
+ * on anything beyond a few tens of thousands of bytes — an image upload
+ * would hit that ceiling easily.
+ */
+export function encodeBase64(bytes: Uint8Array): string {
+  let binary = ""
+  for (let offset = 0; offset < bytes.length; offset += BASE64_CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + BASE64_CHUNK_SIZE))
+  }
+  return btoa(binary)
+}

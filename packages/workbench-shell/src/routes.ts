@@ -120,5 +120,22 @@ export const M20_SERVER_ROUTE_REGISTRY = {
   designSystems: { method: "GET", route: "/v1/design-systems", capability: "workspace.read", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/**
+ * M21 — Design Files tab CRUD (parity Phase 7.3): create, delete, rename
+ * (upload reuses create with base64-encoded content). Deliberately not
+ * `/v1/files/write` — that route predates this registry (the server's
+ * `#files` handler already dispatched it) but refuses to create a new
+ * path, an asserted safety invariant (`workspace-runtime/test/runtime.test.ts`
+ * — "silent file creation was not denied"); `create` is a distinct
+ * server capability with the opposite refusal (target must NOT exist),
+ * mirroring how `createArtifact` is already separate from "modify an
+ * artifact" elsewhere in this contract.
+ */
+export const M21_SERVER_ROUTE_REGISTRY = {
+  filesCreate: { method: "POST", route: "/v1/files/create", capability: "workspace.write", event: "workspace.changed" },
+  filesRemove: { method: "POST", route: "/v1/files/remove", capability: "workspace.write", event: "workspace.changed" },
+  filesRename: { method: "POST", route: "/v1/files/rename", capability: "workspace.write", event: "workspace.changed" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

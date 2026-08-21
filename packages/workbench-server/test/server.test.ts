@@ -78,6 +78,29 @@ try {
   if (fileSearch.status !== 200) throw new Error("scoped file search failed")
   const fileSearchBody = await fileSearch.json() as { entries: readonly { path: string }[] }
   if (fileSearchBody.entries.length !== 1 || fileSearchBody.entries[0]?.path !== "README.md") throw new Error("file search did not filter README.md")
+
+  // Phase 7.3 — Design Files tab CRUD, end-to-end through the real HTTP
+  // route (not the runtime directly): create → visible in the listing,
+  // rename → old path gone / new path present, remove → gone again.
+  const createdFile = await server.fetch(new Request("http://localhost/v1/files/create", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, writes: [{ path: "notes/created.txt", content: "hi there" }] }) }))
+  check(createdFile.status === 200, "file create route failed")
+  const listAfterCreateBody = await (await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))).json() as { entries: readonly { path: string }[] }
+  check(listAfterCreateBody.entries.some((entry) => entry.path === "notes/created.txt"), "created file did not appear in the listing")
+
+  const renamed = await server.fetch(new Request("http://localhost/v1/files/rename", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, from: "notes/created.txt", to: "notes/renamed.txt" }) }))
+  check(renamed.status === 200, "file rename route failed")
+  const renamedBody = await renamed.json() as { result: { path: string } }
+  check(renamedBody.result.path === "notes/renamed.txt", "rename route did not report the new path")
+  const listAfterRenameBody = await (await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))).json() as { entries: readonly { path: string }[] }
+  check(!listAfterRenameBody.entries.some((entry) => entry.path === "notes/created.txt"), "rename left the old path in the listing")
+  check(listAfterRenameBody.entries.some((entry) => entry.path === "notes/renamed.txt"), "rename did not add the new path to the listing")
+
+  const removed = await server.fetch(new Request("http://localhost/v1/files/remove", { method: "POST", headers: { authorization: `Bearer ${handle.token}` }, body: JSON.stringify({ workspaceId: handle.id, paths: ["notes/renamed.txt"] }) }))
+  check(removed.status === 200, "file remove route failed")
+  const removedBody = await removed.json() as { results: readonly { path: string; removed: boolean }[] }
+  check(removedBody.results[0]?.removed === true, "remove route did not report the file as removed")
+  const listAfterRemoveBody = await (await server.fetch(new Request(`http://localhost/v1/files/list?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))).json() as { entries: readonly { path: string }[] }
+  check(!listAfterRemoveBody.entries.some((entry) => entry.path === "notes/renamed.txt"), "removed file remained in the listing")
   const artifact = await artifacts.create({ kind: "text", filename: "result.txt", content: "artifact result", provenance: { sourceTool: "test" } })
   const artifactList = await server.fetch(new Request(`http://localhost/v1/artifacts?workspaceId=${handle.id}`, { headers: { authorization: `Bearer ${handle.token}` } }))
   if (artifactList.status !== 200 || !((await artifactList.json()) as { artifacts: readonly { artifactId: string }[] }).artifacts.some((entry) => entry.artifactId === artifact.artifactId)) throw new Error("artifact list route failed")

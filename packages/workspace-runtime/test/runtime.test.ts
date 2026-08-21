@@ -42,11 +42,41 @@ try {
   try { await runtime.write(handle.token, [{ path: "new.txt", content: "no" }]) } catch { missing = true }
   if (!missing) throw new Error("silent file creation was not denied")
 
+  // Phase 7.3 — create() is the deliberate opposite of write(): it must
+  // succeed for a genuinely new path (the case write() just refused) and
+  // refuse a path that already exists (write()'s job).
+  const created = await runtime.create(handle.token, [{ path: "notes/new.txt", content: "fresh" }])
+  if (created[0]?.bytesWritten !== Buffer.byteLength("fresh")) throw new Error("create did not report the written size")
+  if ((await readFile(path.join(root, "notes", "new.txt"), "utf8")) !== "fresh") throw new Error("create did not write the file, or a missing parent directory")
+  let collision = false
+  try { await runtime.create(handle.token, [{ path: "notes/new.txt", content: "clobber" }]) } catch { collision = true }
+  if (!collision) throw new Error("create silently overwrote an existing file")
+  if ((await readFile(path.join(root, "notes", "new.txt"), "utf8")) !== "fresh") throw new Error("a refused create still mutated the file")
+
+  // remove() is idempotent: the second call on the same path must not throw.
+  const removed = await runtime.remove(handle.token, ["notes/new.txt"])
+  if (removed[0]?.removed !== true) throw new Error("remove did not report the file as removed")
+  let stillThere = true
+  try { await readFile(path.join(root, "notes", "new.txt"), "utf8") } catch { stillThere = false }
+  if (stillThere) throw new Error("remove did not delete the file")
+  const removedAgain = await runtime.remove(handle.token, ["notes/new.txt"])
+  if (removedAgain[0]?.removed !== false) throw new Error("removing an already-gone path was not reported as a no-op")
+
+  const renamed = await runtime.rename(handle.token, "README.md", "docs/README.md")
+  if (renamed.path !== "docs/README.md") throw new Error("rename did not report the new path")
+  if ((await readFile(path.join(root, "docs", "README.md"), "utf8")) !== "# Fixture\n") throw new Error("rename did not move the content")
+  let readOldPath = true
+  try { await readFile(path.join(root, "README.md"), "utf8") } catch { readOldPath = false }
+  if (readOldPath) throw new Error("rename left the old path behind")
+  let renameCollision = false
+  try { await runtime.rename(handle.token, "docs/README.md", "src/main.ts") } catch { renameCollision = true }
+  if (!renameCollision) throw new Error("rename silently overwrote an existing destination")
+
   await runtime.close(handle.token)
   let revoked = false
   try { await runtime.read(handle.token, ["src/main.ts"]) } catch { revoked = true }
   if (!revoked) throw new Error("closed file session remained usable")
-  console.log("WorkspaceRuntime: 12/12 passed")
+  console.log("WorkspaceRuntime: 23/23 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

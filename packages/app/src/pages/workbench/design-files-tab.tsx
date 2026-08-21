@@ -11,6 +11,7 @@ import { DEFAULT_VIEWPORT, DEFAULT_ZOOM } from "@unifia/artifact-render"
 import {
   collectRelativeAssetTargets,
   decodeWorkspaceFile,
+  encodeBase64,
   inlineRelativeAssets,
   isRenderable,
 } from "@/pages/workbench/design-files-preview"
@@ -21,6 +22,8 @@ import {
   deserializeTreeExpansion,
   designFilesTreeStorageKey,
   EMPTY_TREE_EXPANSION,
+  nextSelectedPathAfterRemove,
+  nextSelectedPathAfterRename,
   renderDesignFileRows,
   serializeTreeExpansion,
   toggleTreeDirectory,
@@ -192,6 +195,79 @@ export function DesignFilesTab(): JSX.Element {
   const [expanded, setExpanded] = createSignal<DesignFilesTreeExpansion>(EMPTY_TREE_EXPANSION)
   const thumbnails = createThumbnailController()
 
+  // Phase 7.3 — create / rename / delete / upload. All four share one
+  // error slot and one in-flight flag: they're mutually exclusive user
+  // actions (you can't rename while a delete is in flight), so a single
+  // "busy" state is enough — no per-action tracking needed.
+  const [mutating, setMutating] = createSignal(false)
+  const [mutationError, setMutationError] = createSignal<string>()
+  const [showCreateForm, setShowCreateForm] = createSignal(false)
+  const [newFilePath, setNewFilePath] = createSignal("")
+  const [renameDraft, setRenameDraft] = createSignal<string>()
+  let uploadInput: HTMLInputElement | undefined
+
+  async function withMutation(run: () => Promise<void>): Promise<void> {
+    if (mutating()) return
+    setMutating(true)
+    setMutationError(undefined)
+    try {
+      await run()
+    } catch (error) {
+      setMutationError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setMutating(false)
+    }
+  }
+
+  async function createFile(rawPath: string): Promise<void> {
+    const current = connection()
+    const targetPath = rawPath.trim()
+    if (!current || !targetPath) return
+    await withMutation(async () => {
+      await current.client.createFiles(current.workspaceId, [{ path: targetPath, content: "" }])
+      await files.refetch()
+      setSelectedPath(targetPath)
+      setShowCreateForm(false)
+      setNewFilePath("")
+    })
+  }
+
+  async function renameSelected(rawPath: string): Promise<void> {
+    const current = connection()
+    const from = selectedPath()
+    const to = rawPath.trim()
+    if (!current || !from || !to || to === from) return
+    await withMutation(async () => {
+      await current.client.renameFile(current.workspaceId, from, to)
+      await files.refetch()
+      setSelectedPath(nextSelectedPathAfterRename(from, from, to))
+      setRenameDraft(undefined)
+    })
+  }
+
+  async function deleteSelected(): Promise<void> {
+    const current = connection()
+    const target = selectedPath()
+    if (!current || !target) return
+    if (typeof window !== "undefined" && !window.confirm(`Supprimer « ${target} » ?`)) return
+    await withMutation(async () => {
+      await current.client.removeFiles(current.workspaceId, [target])
+      await files.refetch()
+      setSelectedPath(nextSelectedPathAfterRemove(target, [target]))
+    })
+  }
+
+  async function uploadFile(file: File): Promise<void> {
+    const current = connection()
+    if (!current) return
+    await withMutation(async () => {
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      await current.client.createFiles(current.workspaceId, [{ path: file.name, content: encodeBase64(bytes), encoding: "base64" }])
+      await files.refetch()
+      setSelectedPath(file.name)
+    })
+  }
+
   // Expansion is scoped per workspace (two open workspaces must not share
   // which folders are open), so it reloads whenever the workspace changes —
   // not on every render, since `connection()` itself is stable across those.
@@ -292,15 +368,76 @@ export function DesignFilesTab(): JSX.Element {
   return (
     <div class="flex h-full min-h-0" data-design-files-tab data-design-files-count={rows().length}>
       <div class="flex w-64 shrink-0 flex-col border-r border-border-base">
-        <div class="border-b border-border-base p-2">
-          <input
-            type="search"
-            class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
-            placeholder="Rechercher un fichier…"
-            value={search()}
-            onInput={(event) => setSearch(event.currentTarget.value)}
-            data-design-files-search
-          />
+        <div class="flex flex-col gap-2 border-b border-border-base p-2">
+          <div class="flex items-center gap-1">
+            <input
+              type="search"
+              class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
+              placeholder="Rechercher un fichier…"
+              value={search()}
+              onInput={(event) => setSearch(event.currentTarget.value)}
+              data-design-files-search
+            />
+            <button
+              type="button"
+              class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
+              disabled={mutating()}
+              onClick={() => setShowCreateForm((value) => !value)}
+              title="Nouveau fichier"
+              data-design-files-new-button
+            >
+              +
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
+              disabled={mutating()}
+              onClick={() => uploadInput?.click()}
+              title="Importer un fichier"
+              data-design-files-upload-button
+            >
+              ↑
+            </button>
+            <input
+              ref={uploadInput}
+              type="file"
+              class="hidden"
+              data-design-files-upload-input
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0]
+                event.currentTarget.value = ""
+                if (file) void uploadFile(file)
+              }}
+            />
+          </div>
+          <Show when={showCreateForm()}>
+            <form
+              class="flex items-center gap-1"
+              data-design-files-create-form
+              onSubmit={(event) => {
+                event.preventDefault()
+                void createFile(newFilePath())
+              }}
+            >
+              <input
+                type="text"
+                class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
+                placeholder="chemin/du/fichier.ext"
+                value={newFilePath()}
+                onInput={(event) => setNewFilePath(event.currentTarget.value)}
+                data-design-files-new-path
+                autofocus
+              />
+              <button type="submit" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !newFilePath().trim()}>
+                Créer
+              </button>
+            </form>
+          </Show>
+          <Show when={mutationError()}>
+            <p class="text-12-regular text-text-danger" role="alert" data-design-files-mutation-error>
+              {mutationError()}
+            </p>
+          </Show>
         </div>
         <div class="flex-1 min-h-0 overflow-y-auto p-1">
           <Show when={files.isLoading}>
@@ -357,9 +494,60 @@ export function DesignFilesTab(): JSX.Element {
           {(path) => (
             <>
               <div class="flex items-center justify-between gap-2 border-b border-border-base px-3 py-2">
-                <span class="truncate text-12-medium" data-design-files-preview-path>
-                  {path()}
-                </span>
+                <Show
+                  when={renameDraft() !== undefined}
+                  fallback={
+                    <span class="truncate text-12-medium" data-design-files-preview-path>
+                      {path()}
+                    </span>
+                  }
+                >
+                  <form
+                    class="flex min-w-0 flex-1 items-center gap-1"
+                    data-design-files-rename-form
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void renameSelected(renameDraft() ?? "")
+                    }}
+                  >
+                    <input
+                      type="text"
+                      class="w-full min-w-0 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base focus:outline-none"
+                      value={renameDraft() ?? ""}
+                      onInput={(event) => setRenameDraft(event.currentTarget.value)}
+                      data-design-files-rename-input
+                      autofocus
+                    />
+                    <button type="submit" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !(renameDraft() ?? "").trim()}>
+                      Renommer
+                    </button>
+                    <button type="button" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => setRenameDraft(undefined)}>
+                      Annuler
+                    </button>
+                  </form>
+                </Show>
+                <div class="flex shrink-0 items-center gap-1">
+                  <Show when={renameDraft() === undefined}>
+                    <button
+                      type="button"
+                      class="rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
+                      disabled={mutating()}
+                      onClick={() => setRenameDraft(path())}
+                      data-design-files-rename-button
+                    >
+                      Renommer
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-border-base px-2 py-1 text-12-medium text-text-danger disabled:opacity-50"
+                      disabled={mutating()}
+                      onClick={() => void deleteSelected()}
+                      data-design-files-delete-button
+                    >
+                      Supprimer
+                    </button>
+                  </Show>
+                </div>
                 <Show when={isRenderable(path())}>
                   <div class="flex shrink-0 items-center gap-1 rounded border border-border-base p-0.5" role="group" aria-label="Aperçu ou source" data-design-files-mode-toggle>
                     <button

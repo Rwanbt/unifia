@@ -80,6 +80,23 @@ class FakeWorkspacePort implements WorkspacePort {
       return { path: w.path, bytesWritten: content.length, sha: "fake-sha" }
     })
   }
+  async create(_session: string, creates: any[]) {
+    return creates.map((w) => {
+      if (this.files.has(w.path)) throw new Error(`already exists: ${w.path}`)
+      const content = typeof w.content === "string" ? w.content : new TextDecoder().decode(w.content)
+      this.files.set(w.path, content)
+      return { path: w.path, bytesWritten: content.length, sha: "fake-sha" }
+    })
+  }
+  async remove(_session: string, paths: string[]) {
+    return paths.map((p) => ({ path: p, removed: this.files.delete(p) }))
+  }
+  async rename(_session: string, from: string, to: string) {
+    const content = this.files.get(from) ?? ""
+    this.files.delete(from)
+    this.files.set(to, content)
+    return { path: to, bytesWritten: content.length, sha: "fake-sha" }
+  }
   async list() { return [] }
   async search() { return [] }
   async *watch(_session: string) {

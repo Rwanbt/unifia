@@ -28,3 +28,26 @@ export function createDesignFilesPanelState(page: WorkspaceFilePage, selectedPat
 export function renderDesignFileRows(state: DesignFilesPanelState): readonly DesignFileRow[] {
   return state.files.map((file) => ({ path: file.path, label: file.path.split("/").at(-1) ?? file.path, kind: file.kind, selected: file.path === state.selectedPath }))
 }
+
+/**
+ * Phase 7.3 — rename → "the open tab follows the new path". There is no
+ * separate workspace tab per file here (selecting a file just sets this
+ * one signal), so "follows" is exactly: if the renamed path was the
+ * selected one, the selection moves to its new path; any other selection
+ * is untouched.
+ */
+export function nextSelectedPathAfterRename(selectedPath: string | undefined, from: string, to: string): string | undefined {
+  return selectedPath === from ? to : selectedPath
+}
+
+/**
+ * Phase 7.3 — delete → "the tab closes cleanly if it was the active
+ * file". Clearing the selection is exactly that close: `createDesignFilesPanelState`
+ * already refuses to keep a `selectedPath` that isn't in the current file
+ * list, so a deleted active file would self-correct on the next query
+ * refresh anyway — this makes the intent explicit and immediate instead
+ * of waiting on a refetch.
+ */
+export function nextSelectedPathAfterRemove(selectedPath: string | undefined, removedPaths: readonly string[]): string | undefined {
+  return selectedPath !== undefined && removedPaths.includes(selectedPath) ? undefined : selectedPath
+}

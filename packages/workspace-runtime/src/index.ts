@@ -7,6 +7,7 @@ import path from "node:path"
 import type {
   FileEvent,
   FileReadResult,
+  FileRemoveResult,
   FileSessionId,
   FileWrite,
   FileWriteResult,
@@ -177,6 +178,88 @@ export class WorkspaceRuntime implements WorkspacePort {
     return results
   }
 
+  /**
+   * Deliberately a separate primitive from `write()`, not an upsert
+   * flag on it: `write()`'s "must already exist" refusal is an asserted
+   * safety invariant (see `runtime.test.ts` — "silent file creation was
+   * not denied"), and mirrors how `createArtifact` is already a distinct
+   * primitive from "modify an artifact" elsewhere in this codebase.
+   * Refuses (EEXIST) if the target already exists — a Design Files tab
+   * "create" action landing on an existing path is a name collision to
+   * surface, not a silent overwrite.
+   */
+  async create(sessionId: FileSessionId, creates: FileWrite[]): Promise<FileWriteResult[]> {
+    const session = this.#session(sessionId)
+    const prepared: Array<{ input: FileWrite; absolute: string; content: Buffer }> = []
+    let total = 0
+    for (const input of creates) {
+      const absolute = await this.#resolveForWrite(session.workspace.path, input.path)
+      const content = typeof input.content === "string" ? Buffer.from(input.content) : Buffer.from(input.content)
+      total += content.byteLength
+      if (total > this.#maxWriteBytes) throw new Error("workspace write quota exceeded")
+      prepared.push({ input, absolute, content })
+    }
+    const results: FileWriteResult[] = []
+    for (const { input, absolute, content } of prepared) {
+      try {
+        await fs.writeFile(absolute, content, { flag: "wx" })
+      } catch (error) {
+        if (error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "EEXIST") {
+          throw new Error(`workspace create target already exists: ${input.path}`)
+        }
+        throw error
+      }
+      results.push({ path: input.path, bytesWritten: content.byteLength, sha: sha256(content) })
+    }
+    return results
+  }
+
+  /**
+   * Idempotent by design (matches `createArtifact`'s posture): a path
+   * that's already gone reports `removed: false` instead of throwing,
+   * so a double-click on "delete" or a stale row from another window
+   * never surfaces as an error.
+   */
+  async remove(sessionId: FileSessionId, paths: string[]): Promise<FileRemoveResult[]> {
+    const session = this.#session(sessionId)
+    const results: FileRemoveResult[] = []
+    for (const relative of paths) {
+      assertRelative(relative)
+      let absolute: string
+      try {
+        absolute = await fs.realpath(path.resolve(session.workspace.path, relative))
+      } catch (error) {
+        if (isMissingFileError(error)) {
+          results.push({ path: relative, removed: false })
+          continue
+        }
+        throw error
+      }
+      if (!isInside(session.workspace.path, absolute)) throw new Error("workspace path escapes root")
+      const stat = await fs.stat(absolute)
+      if (!stat.isFile()) throw new Error("workspace path is not a file")
+      await fs.rm(absolute, { force: true })
+      results.push({ path: relative, removed: true })
+    }
+    return results
+  }
+
+  /** Refuses when `to` already exists rather than silently overwriting it — a lost file from a rename collision has no undo. */
+  async rename(sessionId: FileSessionId, from: string, to: string): Promise<FileWriteResult> {
+    const session = this.#session(sessionId)
+    const source = await this.#resolveExisting(session.workspace.path, from)
+    const destination = await this.#resolveForWrite(session.workspace.path, to)
+    const destinationExists = await fs.access(destination).then(
+      () => true,
+      () => false,
+    )
+    if (destinationExists) throw new Error("workspace rename target already exists")
+    await fs.rename(source, destination)
+    const stat = await fs.stat(destination)
+    const content = await fs.readFile(destination)
+    return { path: to, bytesWritten: stat.size, sha: sha256(content) }
+  }
+
   async list(sessionId: FileSessionId, prefix = ".", cursor?: string): Promise<WorkspaceListPage> {
     const session = this.#session(sessionId)
     const workspaceId = session.workspace.id
@@ -299,6 +382,25 @@ export class WorkspaceRuntime implements WorkspacePort {
     const stat = await fs.stat(candidate)
     if (!stat.isFile()) throw new Error("workspace path is not a file")
     return candidate
+  }
+
+  /**
+   * Resolves a target for create-or-overwrite: unlike `#resolveExisting`,
+   * the path itself need not exist yet. Missing parent directories are
+   * created (a UI "new file in a not-yet-existing subfolder" is a normal
+   * flow), then the *parent's* real path is checked against root — a
+   * pre-existing symlinked ancestor is exactly the escape `isInside`
+   * guards elsewhere in this file, and it applies here too even though
+   * the leaf file itself can't be realpath'd before it exists.
+   */
+  async #resolveForWrite(root: string, relative: string): Promise<string> {
+    assertRelative(relative)
+    const target = path.resolve(root, relative)
+    const parent = path.dirname(target)
+    await fs.mkdir(parent, { recursive: true })
+    const realParent = await fs.realpath(parent)
+    if (!isInside(root, realParent)) throw new Error("workspace path escapes root")
+    return path.join(realParent, path.basename(target))
   }
 
   /**

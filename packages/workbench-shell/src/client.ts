@@ -29,6 +29,7 @@ import {
   P10_SERVER_ROUTE_REGISTRY,
   M15_SERVER_ROUTE_REGISTRY,
   M20_SERVER_ROUTE_REGISTRY,
+  M21_SERVER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
 } from "./routes.js"
 
@@ -74,6 +75,11 @@ export type WorkspaceFileEntry = { path: string; kind: "file" | "directory"; siz
 // symlink/junction escape) — the listing still completes.
 export type WorkspaceFilePage = { entries: readonly WorkspaceFileEntry[]; nextCursor?: string; skipped: number }
 export type WorkspaceFileRead = { path: string; content: string; encoding: "utf-8" | "base64" }
+/** Same encoding convention as `WorkspaceFileRead` — base64 for an uploaded binary file, utf-8 (the default) for plain create/edit. */
+export type WorkspaceFileWrite = { path: string; content: string; encoding?: "utf-8" | "base64" }
+export type WorkspaceFileWriteResult = { path: string; bytesWritten: number; sha: string }
+/** `removed: false` means the path was already gone — remove() is idempotent, not an error on a repeat call. */
+export type WorkspaceFileRemoveResult = { path: string; removed: boolean }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; relativePath: string; sha256: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string>; scan?: "clean" | "unscanned" }
 export type ArtifactDocument = { artifact: ArtifactSummary; content: string; encoding: "base64" }
 export type AcceptedOperation = { accepted: true; operationId: string; approvalId?: string | null }
@@ -209,6 +215,21 @@ export class WorkbenchClient {
 
   async readFiles(workspaceId: string, paths: readonly string[], signal?: AbortSignal): Promise<{ results: readonly WorkspaceFileRead[] }> {
     return this.request(WORKBENCH_ROUTE_REGISTRY.files.route, { method: WORKBENCH_ROUTE_REGISTRY.files.method, body: { workspaceId, paths }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /** Phase 7.3 — refuses if any path already exists (server-side, not an upsert). Upload is this same call with base64-encoded content. */
+  async createFiles(workspaceId: string, writes: readonly WorkspaceFileWrite[], signal?: AbortSignal): Promise<{ results: readonly WorkspaceFileWriteResult[] }> {
+    return this.request(M21_SERVER_ROUTE_REGISTRY.filesCreate.route, { method: "POST", body: { workspaceId, writes }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /** Phase 7.3 — idempotent: removing an already-gone path reports `removed: false`, not an error. */
+  async removeFiles(workspaceId: string, paths: readonly string[], signal?: AbortSignal): Promise<{ results: readonly WorkspaceFileRemoveResult[] }> {
+    return this.request(M21_SERVER_ROUTE_REGISTRY.filesRemove.route, { method: "POST", body: { workspaceId, paths }, idempotencyKey: newRequestId(), signal })
+  }
+
+  /** Phase 7.3 — refused server-side if `to` already exists. */
+  async renameFile(workspaceId: string, from: string, to: string, signal?: AbortSignal): Promise<{ result: WorkspaceFileWriteResult }> {
+    return this.request(M21_SERVER_ROUTE_REGISTRY.filesRename.route, { method: "POST", body: { workspaceId, from, to }, idempotencyKey: newRequestId(), signal })
   }
 
   async listDesignSystems(workspaceId: string, signal?: AbortSignal): Promise<WorkspaceManifest> {

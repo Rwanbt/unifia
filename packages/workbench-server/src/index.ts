@@ -146,6 +146,20 @@ export function encodeReadResult(result: FileReadResult): JsonRecord {
     : { ...rest, content: Buffer.from(content).toString("base64"), encoding: "base64" }
 }
 
+/**
+ * Inverse of `encodeReadResult`'s convention, for the write path — an
+ * uploaded image or other binary file arrives as base64 text (JSON has no
+ * binary type); `encoding` states which decode applies, defaulting to
+ * utf-8 for plain create/edit calls that never set it.
+ */
+function decodeWriteInput(entry: JsonRecord): FileWrite {
+  const path = entry.path
+  const content = entry.content
+  if (typeof path !== "string" || typeof content !== "string") throw new Error("invalid file write entry")
+  const bytes = entry.encoding === "base64" ? Buffer.from(content, "base64") : Buffer.from(content, "utf-8")
+  return { path, content: bytes }
+}
+
 async function body(request: Request): Promise<JsonRecord> {
   try {
     const value: unknown = await request.json()
@@ -282,7 +296,7 @@ export class WorkbenchServer {
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2], principal)
       if (segments[1] === "operations" && segments[3] === "cancel" && request.method === "POST") return this.#cancelOperation(request, segments[2], principal)
-      if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write") && request.method === "POST") return this.#files(request, segments[2], principal)
+      if (segments[1] === "files" && (segments[2] === "read" || segments[2] === "write" || segments[2] === "create" || segments[2] === "remove" || segments[2] === "rename") && request.method === "POST") return this.#files(request, segments[2], principal)
       if (segments[1] === "files" && (segments[2] === "list" || segments[2] === "search") && request.method === "GET") return this.#fileIndex(request, segments[2], principal)
       if (segments[1] === "design-systems" && request.method === "GET") return this.#designSystems(request, principal)
       if (segments[1] === "file-sessions" && request.method === "DELETE") return this.#closeFileSession(request, segments[2])
@@ -537,13 +551,18 @@ export class WorkbenchServer {
     return json(200, { operation: cancelled })
   }
 
-  async #files(request: Request, operation: "read" | "write", principal: Principal): Promise<Response> {
+  async #files(request: Request, operation: "read" | "write" | "create" | "remove" | "rename", principal: Principal): Promise<Response> {
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || !Array.isArray(input.paths) && operation === "read") return this.#deny(`workspace.${operation}`, 400)
+    if (typeof input.workspaceId !== "string" || (!Array.isArray(input.paths) && operation === "read")) return this.#deny(`workspace.${operation}`, 400)
     const workspaceId = input.workspaceId
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
-    const capability = `workspace.${operation}` as P3Capability
+    // create/remove/rename mutate the workspace filesystem exactly like
+    // write does — reusing "workspace.write" here keeps the P3 capability
+    // catalogue closed rather than adding a "workspace.delete" the
+    // capability broker, approval UI, and picker would all need to learn
+    // about for a distinction nothing downstream has asked for.
+    const capability = (operation === "read" ? "workspace.read" : "workspace.write") as P3Capability
     const capabilityResponse = await this.#checkCapability(capability, workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     if (operation === "read") {
@@ -551,10 +570,30 @@ export class WorkbenchServer {
       this.#allow("workspace.read")
       return json(200, { results: results.map(encodeReadResult) })
     }
-    if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
-    const results = await this.#workspace.write(this.#runtimeToken(token), input.writes as FileWrite[])
+    if (operation === "write") {
+      if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
+      const writes = (input.writes as JsonRecord[]).map(decodeWriteInput)
+      const results = await this.#workspace.write(this.#runtimeToken(token), writes)
+      this.#allow("workspace.write")
+      return json(200, { results: results as unknown as JsonRecord[] })
+    }
+    if (operation === "create") {
+      if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
+      const creates = (input.writes as JsonRecord[]).map(decodeWriteInput)
+      const results = await this.#workspace.create(this.#runtimeToken(token), creates)
+      this.#allow("workspace.write")
+      return json(200, { results: results as unknown as JsonRecord[] })
+    }
+    if (operation === "remove") {
+      if (!Array.isArray(input.paths)) return this.#deny("workspace.write", 400)
+      const results = await this.#workspace.remove(this.#runtimeToken(token), input.paths as string[])
+      this.#allow("workspace.write")
+      return json(200, { results: results as unknown as JsonRecord[] })
+    }
+    if (typeof input.from !== "string" || typeof input.to !== "string") return this.#deny("workspace.write", 400)
+    const result = await this.#workspace.rename(this.#runtimeToken(token), input.from, input.to)
     this.#allow("workspace.write")
-    return json(200, { results: results as unknown as JsonRecord[] })
+    return json(200, { result: result as unknown as JsonRecord })
   }
 
   async #fileIndex(request: Request, operation: "list" | "search", principal: Principal): Promise<Response> {
