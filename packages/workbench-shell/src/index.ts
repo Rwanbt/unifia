@@ -13,6 +13,7 @@ export { buildFileTree, deserializeTreeExpansion, designFilesTreeStorageKey, EMP
 export { createDesignSystemPickerRows, migrateWorkspaceManifest, parseDesignSystemCatalog, type DesignSystemCatalog, type DesignSystemPickerRow, type DesignSystemTokens } from "./design-system.js"
 export { createArtifactVersionPanelState, diffArtifactVersions, type ArtifactDiff, type ArtifactVersionPanelState, type ArtifactVersionSummary } from "./artifact-version.js"
 export { createDesignDraftRecord, createIndexedDbDesignDraftStore, designDraftKey, DesignDraftConflictError, type DesignDraftRecord, type DesignDraftStore } from "./design-draft.js"
+export { createIndexedDbCommentStore, type CommentStore } from "./design-comment-store.js"
 export { EMPTY_COMMENT_STATE, addComment, commentPins, commentsForElement, markResolved, markSent, newCommentId, openComments, pinCenter, removeComment, updateComment, type CommentState, type CommentStatus, type CommentTargetRect, type DesignComment } from "./design-comments.js"
 export { buildRefineBatchPrompt, buildRefinePrompt, canSend, type RefineRequest } from "./design-refine.js"
 export { buildCatalogContext, combineCatalogContexts, parseDesignContext, type DesignContextSource } from "./design-context.js"

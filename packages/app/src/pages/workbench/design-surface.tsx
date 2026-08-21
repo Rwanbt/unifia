@@ -30,6 +30,7 @@ import {
   createArtifactVersionPanelState,
   diffArtifactVersions,
   createIndexedDbDesignDraftStore,
+  createIndexedDbCommentStore,
   DesignDraftConflictError,
   EMPTY_COMMENT_STATE,
   commentPins,
@@ -133,6 +134,46 @@ export function DesignSurface(): JSX.Element {
   // Phase 8.1 — clicking a pin scrolls the sidebar to its comment; the
   // scroll target is a DOM id derived from the comment id (see CommentPanel).
   const [highlightedCommentId, setHighlightedCommentId] = createSignal<string>()
+
+  // Phase 8.2 — persistance IndexedDB, même forme que `draftStore` juste en
+  // dessous (epoch guard contre une réponse de `load` en retard qui
+  // écraserait un changement de workspace plus récent ; sauvegarde
+  // debouncée à 250 ms). `updateCommentState` est le seul chemin
+  // d'écriture passé en aval (`onCommentChange`) — chaque mutation de
+  // `CommentPanel` (add/update/remove/markSent/markResolved) passe par le
+  // même `props.onChange`, donc les intercepter tous ici suffit.
+  const commentStore = createIndexedDbCommentStore()
+  const [commentPersistError, setCommentPersistError] = createSignal<string>()
+  let commentLoadEpoch = 0
+  let commentSaveTimer: ReturnType<typeof setTimeout> | undefined
+  onMount(() => {
+    createEffect(() => {
+      const workspaceId = connection()?.workspaceId
+      if (!workspaceId) return
+      const epoch = ++commentLoadEpoch
+      void commentStore
+        .load(workspaceId)
+        .then((state) => {
+          if (epoch !== commentLoadEpoch || !state) return
+          setCommentState(state)
+        })
+        .catch((error) => setCommentPersistError(error instanceof Error ? error.message : "design comments could not be loaded"))
+    })
+  })
+  onCleanup(() => {
+    if (commentSaveTimer) clearTimeout(commentSaveTimer)
+  })
+  function updateCommentState(state: CommentState): void {
+    setCommentState(state)
+    const workspaceId = connection()?.workspaceId
+    if (!workspaceId) return
+    if (commentSaveTimer) clearTimeout(commentSaveTimer)
+    commentSaveTimer = setTimeout(() => {
+      void commentStore.save(workspaceId, state).catch((error) => {
+        setCommentPersistError(error instanceof Error ? error.message : "design comments could not be saved")
+      })
+    }, 250)
+  }
 
   // P4-3 — chaque `artifact:start` du moteur de streaming ouvre (ou active)
   // un onglet `kind: "artifact"`. L'effet lit `stream.state()` (signal) et
@@ -486,12 +527,13 @@ export function DesignSurface(): JSX.Element {
           capture = request
         }}
         commentState={commentState()}
-        onCommentChange={setCommentState}
+        onCommentChange={updateCommentState}
         commentTarget={commentTarget()}
         onSendCommentBatch={(prompt) => void sendRefinePrompt(prompt, "commentaires")}
         onSendCommentOne={(prompt) => void sendRefinePrompt(prompt, "commentaire")}
         highlightedCommentId={highlightedCommentId()}
         onPinClick={(id) => setHighlightedCommentId(id)}
+        commentPersistError={commentPersistError()}
       />
     }
     return <div data-design-workspace-tab-empty={tab.id} />
@@ -568,6 +610,8 @@ function DesignArtifactTab(props: {
   /** Phase 8.1 — id du commentaire à faire défiler en vue quand une épingle est cliquée. */
   highlightedCommentId: string | undefined
   onPinClick: (id: string) => void
+  /** Phase 8.2 — erreur de chargement/sauvegarde IndexedDB, `undefined` tant que rien n'a échoué. */
+  commentPersistError: string | undefined
 }): JSX.Element {
   return (
     <div
@@ -656,6 +700,11 @@ function DesignArtifactTab(props: {
         <Show when={props.entry}>
           {(entry) => (
             <div class="w-72 shrink-0 overflow-y-auto rounded-lg border border-border-base bg-background-stronger p-3" data-design-comment-sidebar>
+              <Show when={props.commentPersistError}>
+                <p class="mb-2 text-12-regular text-text-danger" role="alert" data-design-comment-persist-error>
+                  {props.commentPersistError}
+                </p>
+              </Show>
               <CommentPanel
                 artifactId={props.commentTarget?.artifactId ?? entry().artifactId}
                 state={props.commentState}
