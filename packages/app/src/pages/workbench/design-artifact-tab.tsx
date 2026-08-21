@@ -141,6 +141,61 @@ export function DesignArtifactTab(props: {
     persistAnnotationState(next)
   }
 
+  // Phase 9.3 — Présenter. Three flat buttons instead of a dropdown menu:
+  // no popover/menu primitive exists anywhere else in this toolbar family
+  // (viewport, zoom, mode are all flat button groups too), so a dropdown
+  // here would be a new UI pattern for the same three-choice shape those
+  // already solve. "Nouvel onglet" opens entry.content directly (the
+  // artifact's HTML is already in hand, streamed client-side) instead of
+  // the plan's proposed signed short-lived server URL: that URL exists
+  // only to solve "a plain window.open() navigation can't carry an
+  // Authorization header", which doesn't apply here since no re-fetch of
+  // readArtifactRaw happens at all — same no-new-server-surface posture
+  // as 9.5's PDF export, which this reuses via presentNewTab.
+  const [presentMode, setPresentMode] = createSignal<"idle" | "in-tab" | "fullscreen">("idle")
+  let previewMount: HTMLDivElement | undefined
+
+  function presentInTab(): void {
+    if (props.entry) setPresentMode("in-tab")
+  }
+  function exitPresent(): void {
+    setPresentMode("idle")
+  }
+  async function presentFullscreen(): Promise<void> {
+    if (!previewMount || !props.entry) return
+    try {
+      await previewMount.requestFullscreen()
+      setPresentMode("fullscreen")
+    } catch {
+      // Refused (no user gesture, permissions-policy denial, …) — the
+      // button itself is the only affordance; nothing else to fall back to.
+    }
+  }
+  function presentNewTab(): void {
+    const content = props.entry?.content
+    if (!content) return
+    const win = window.open("", "_blank", "noopener")
+    if (!win) return
+    win.document.open()
+    win.document.write(content)
+    win.document.close()
+  }
+
+  createEffect(() => {
+    function onKeydown(event: KeyboardEvent): void {
+      if (event.key === "Escape" && presentMode() === "in-tab") exitPresent()
+    }
+    window.addEventListener("keydown", onKeydown)
+    onCleanup(() => window.removeEventListener("keydown", onKeydown))
+  })
+  createEffect(() => {
+    function onFullscreenChange(): void {
+      if (!document.fullscreenElement) setPresentMode((mode) => (mode === "fullscreen" ? "idle" : mode))
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange)
+    onCleanup(() => document.removeEventListener("fullscreenchange", onFullscreenChange))
+  })
+
   function exportArtifactHtml(): void {
     const content = props.entry?.content
     if (!content) return
@@ -192,7 +247,7 @@ export function DesignArtifactTab(props: {
 
   return (
     <div
-      class="flex h-full min-h-0 flex-col gap-3"
+      class="relative flex h-full min-h-0 flex-col gap-3"
       data-design-artifact-tab={props.entry?.artifactId ?? "missing"}
       data-design-artifact-complete={props.entry?.complete ? "true" : "false"}
       data-design-artifact-error={props.entry?.error ? "true" : "false"}
@@ -272,6 +327,32 @@ export function DesignArtifactTab(props: {
                   Effacer
                 </button>
               </Show>
+              <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
+              <span class="text-12-regular text-text-weak">Présenter :</span>
+              <button
+                type="button"
+                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+                data-design-present-in-tab
+                onClick={presentInTab}
+              >
+                Dans l'onglet
+              </button>
+              <button
+                type="button"
+                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+                data-design-present-fullscreen
+                onClick={() => void presentFullscreen()}
+              >
+                Plein écran
+              </button>
+              <button
+                type="button"
+                class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+                data-design-present-new-tab
+                onClick={presentNewTab}
+              >
+                Nouvel onglet
+              </button>
             </div>
           </div>
         )}
@@ -306,7 +387,24 @@ export function DesignArtifactTab(props: {
         </p>
       </Show>
       <div class="flex h-full min-h-0 flex-1 gap-3">
-        <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base" data-design-artifact-mount>
+        <div
+          ref={previewMount}
+          class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base"
+          classList={{ "absolute inset-0 z-50 rounded-none border-0 bg-background-base": presentMode() === "in-tab" }}
+          data-design-artifact-mount
+          data-design-present-mode={presentMode()}
+        >
+          <Show when={presentMode() === "in-tab"}>
+            <button
+              type="button"
+              class="absolute right-3 top-3 z-10 rounded border border-border-base bg-background-stronger px-2 py-1 text-12-medium shadow"
+              data-design-present-exit
+              onClick={exitPresent}
+              title="Fermer (Échap)"
+            >
+              Fermer
+            </button>
+          </Show>
           <ArtifactPreview
             artifactId={props.entry?.artifactId ?? ""}
             workspaceId=""
