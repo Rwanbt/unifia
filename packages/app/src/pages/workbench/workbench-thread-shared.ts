@@ -46,6 +46,43 @@ export function extractMessageText(parts: readonly PartLike[] | undefined): stri
     .trim()
 }
 
+export type RegenerateTarget = {
+  /** The user message id to revert to and resend — never the assistant message itself. */
+  userMessageId: string
+  /** The exact text of that user message, resent verbatim via `session.prompt`. */
+  userText: string
+}
+
+/**
+ * Phase 10.1 — resolves what "Regenerate" must revert+resend for a given
+ * assistant message: the nearest preceding `user` message in `messages`
+ * (skipping over any other assistant messages in between, which can't
+ * happen in a well-formed thread but costs nothing to handle correctly).
+ *
+ * Pure by design: the actual revert (`session.revert`) and resend
+ * (`session.prompt`) are I/O and live in `WorkbenchThread`, which depends
+ * on the SDK/sync context tree. This resolver is the one piece of that
+ * flow with real branching logic, so it is the one piece worth testing
+ * without spinning up that tree — same split as `extractMessageText`.
+ *
+ * Returns `undefined` when `assistantMessageId` doesn't exist, isn't an
+ * assistant message, or has no preceding user message (first message in
+ * the thread) — all cases where "Regenerate" has nothing to act on.
+ */
+export function findRegenerateTarget(
+  messages: readonly ThreadMessage[],
+  assistantMessageId: string,
+): RegenerateTarget | undefined {
+  const index = messages.findIndex((m) => m.id === assistantMessageId)
+  if (index === -1) return undefined
+  if (messages[index]?.role !== "assistant") return undefined
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const candidate = messages[i]
+    if (candidate?.role === "user") return { userMessageId: candidate.id, userText: candidate.text }
+  }
+  return undefined
+}
+
 /**
  * Static, mode-keyed next-step suggestions seeded into the thread footer.
  *

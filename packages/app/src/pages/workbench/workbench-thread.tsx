@@ -10,6 +10,7 @@ import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import {
   extractMessageText,
+  findRegenerateTarget,
   selectNextStepSuggestions,
   type NextStepSuggestion,
 } from "@/pages/workbench/workbench-thread-shared"
@@ -124,6 +125,29 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
     setInput(suggestion.prompt)
   }
 
+  /**
+   * Phase 10.1 — reverts to the user message that prompted
+   * `assistantMessageId` (excluding it and the answer being regenerated
+   * from active history) and resends its exact text. See `revert`'s doc
+   * comment in `workbench-session.ts` for why this can't duplicate the
+   * user message.
+   */
+  async function regenerate(assistantMessageId: string): Promise<void> {
+    if (sending()) return
+    const target = findRegenerateTarget(messages(), assistantMessageId)
+    if (!target) return
+    setSending(true)
+    setError(undefined)
+    try {
+      await session.revert(target.userMessageId)
+      await session.prompt(target.userText)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setSending(false)
+    }
+  }
+
   async function copyMessage(messageId: string, text: string): Promise<void> {
     if (typeof navigator === "undefined" || !navigator.clipboard) return
     try {
@@ -199,10 +223,11 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
                               </button>
                               <button
                                 type="button"
-                                class="rounded border border-border-base px-2 py-1 text-12-regular"
+                                class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
                                 data-workbench-thread-action="regenerate"
-                                title="Régénérer la réponse (à brancher sur l'agent réel)"
-                                disabled
+                                title="Régénérer la réponse"
+                                disabled={sending()}
+                                onClick={() => void regenerate(message.id)}
                               >
                                 Régénérer
                               </button>

@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   extractMessageText,
+  findRegenerateTarget,
   selectNextStepSuggestions,
   type NextStepSuggestion,
   type ThreadMessage,
@@ -82,6 +83,45 @@ describe("selectNextStepSuggestions", () => {
         expect(suggestion.prompt).toBe(suggestion.prompt.trim())
       }
     }
+  })
+})
+
+describe("findRegenerateTarget", () => {
+  const thread: ThreadMessage[] = [
+    { id: "u1", role: "user", text: "Première question" },
+    { id: "a1", role: "assistant", text: "Première réponse" },
+    { id: "u2", role: "user", text: "Deuxième question" },
+    { id: "a2", role: "assistant", text: "Deuxième réponse" },
+  ]
+
+  test("resolves the immediately preceding user message", () => {
+    expect(findRegenerateTarget(thread, "a2")).toEqual({ userMessageId: "u2", userText: "Deuxième question" })
+  })
+
+  test("resolves correctly for an earlier assistant message too", () => {
+    expect(findRegenerateTarget(thread, "a1")).toEqual({ userMessageId: "u1", userText: "Première question" })
+  })
+
+  test("returns undefined for an unknown message id", () => {
+    expect(findRegenerateTarget(thread, "missing")).toBeUndefined()
+  })
+
+  test("returns undefined when the target id is a user message, not an assistant one", () => {
+    expect(findRegenerateTarget(thread, "u2")).toBeUndefined()
+  })
+
+  test("returns undefined when the assistant message is first (no preceding user message)", () => {
+    const orphan: ThreadMessage[] = [{ id: "a0", role: "assistant", text: "Bonjour" }]
+    expect(findRegenerateTarget(orphan, "a0")).toBeUndefined()
+  })
+
+  test("skips over an intervening assistant message to find the nearest user message", () => {
+    const malformed: ThreadMessage[] = [
+      { id: "u1", role: "user", text: "Question" },
+      { id: "a1", role: "assistant", text: "Réponse 1" },
+      { id: "a2", role: "assistant", text: "Réponse 2" },
+    ]
+    expect(findRegenerateTarget(malformed, "a2")).toEqual({ userMessageId: "u1", userText: "Question" })
   })
 })
 

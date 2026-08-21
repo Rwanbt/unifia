@@ -13,6 +13,19 @@ export type WorkbenchSession = {
   ensure: () => Promise<string>
   /** Sends a prompt to that session and refreshes it. */
   prompt: (text: string) => Promise<void>
+  /**
+   * Phase 10.1 — reverts the session so `messageId` and everything after
+   * it is excluded from active history, then refreshes. Same primitive
+   * Code mode's own undo/redo uses (`session.revert`, see
+   * `use-session-commands.tsx`). "Regenerate" passes the id of the USER
+   * message that prompted the answer being regenerated (never the
+   * assistant message itself) — that excludes both the user message AND
+   * the assistant answer after it. The caller then resends that user
+   * message's text via `prompt`, which appends a fresh user message; the
+   * excluded original is never resent, so exactly one copy of that user
+   * message stays visible — no duplicate.
+   */
+  revert: (messageId: string) => Promise<void>
 }
 
 /**
@@ -57,5 +70,12 @@ export function createWorkbenchSession(deps: { title: () => string }): Workbench
     await sync.session.sync(sessionId, { force: true })
   }
 
-  return { id, ensure, prompt }
+  async function revert(messageId: string): Promise<void> {
+    const sessionId = id()
+    if (!sessionId) return
+    await sdk.client.session.revert({ sessionID: sessionId, messageID: messageId })
+    await sync.session.sync(sessionId, { force: true })
+  }
+
+  return { id, ensure, prompt, revert }
 }
