@@ -162,5 +162,14 @@ export const M24_SERVER_ROUTE_REGISTRY = {
   ptyRemove: { method: "DELETE", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/** P25 GitHub account surface; tokens never cross this boundary. */
+export const M25_SERVER_ROUTE_REGISTRY = {
+  githubStatus: { method: "GET", route: "/v1/github/status", capability: "workspace.read", event: "catalog.updated" },
+  githubDeviceStart: { method: "POST", route: "/v1/github/device/start", capability: "workspace.write", event: "operation.updated" },
+  githubDevicePoll: { method: "POST", route: "/v1/github/device/poll", capability: "workspace.write", event: "operation.updated" },
+  githubDeviceCancel: { method: "POST", route: "/v1/github/device/cancel", capability: "workspace.write", event: "operation.updated" },
+  githubDisconnect: { method: "POST", route: "/v1/github/disconnect", capability: "workspace.write", event: "catalog.updated" },
+} as const satisfies Record<string, WorkbenchServerRoute>
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

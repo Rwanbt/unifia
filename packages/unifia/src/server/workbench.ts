@@ -9,6 +9,7 @@ import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
 import { Pty } from "../pty"
 import { PtyID } from "../pty/schema"
+import * as GithubAuth from "../github/auth"
 
 type NativeTokenInput = {
   action: "open" | "issue" | "rotate" | "revoke"
@@ -128,6 +129,30 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
         const root = workspaceRoots.get(workspaceId); const current = await Pty.get(PtyID.make(ptyId))
         if (!root || !current || (current.cwd !== root && !current.cwd.startsWith(`${root}${path.sep}`))) throw new Error("PTY is not owned by workspace")
         await Pty.remove(PtyID.make(ptyId)); return true
+      },
+    },
+    github: {
+      async status() {
+        const identity = await GithubAuth.getIdentity()
+        return {
+          connected: Boolean(identity),
+          configured: GithubAuth.isConfigured(),
+          ...(identity ? { identity } : {}),
+        }
+      },
+      async deviceStart() {
+        return { ...(await GithubAuth.startDeviceFlow()) }
+      },
+      async devicePoll() {
+        return { ...(await GithubAuth.pollDeviceFlow()) }
+      },
+      async deviceCancel() {
+        GithubAuth.cancelDeviceFlow()
+        return { ok: true }
+      },
+      async disconnect() {
+        await GithubAuth.disconnect()
+        return { ok: true }
       },
     },
   })

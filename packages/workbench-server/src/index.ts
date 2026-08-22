@@ -36,7 +36,8 @@ export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required";
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
 export type WorkbenchPtyInfo = { id: string; title: string; command: string; args: readonly string[]; cwd: string; status: "running" | "exited"; pid: number }
 export type WorkbenchPtySurface = { list(workspaceId: string): Promise<readonly WorkbenchPtyInfo[]>; create(workspaceId: string, input: Record<string, unknown>): Promise<WorkbenchPtyInfo>; update(workspaceId: string, ptyId: string, input: Record<string, unknown>): Promise<WorkbenchPtyInfo>; remove(workspaceId: string, ptyId: string): Promise<boolean> }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>; pty?: WorkbenchPtySurface; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
+export type WorkbenchGithubSurface = { status(workspaceId: string): Promise<Record<string, unknown>>; deviceStart(workspaceId: string): Promise<Record<string, unknown>>; devicePoll(workspaceId: string): Promise<Record<string, unknown>>; deviceCancel(workspaceId: string): Promise<{ ok: boolean }>; disconnect(workspaceId: string): Promise<{ ok: boolean }> }
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>; pty?: WorkbenchPtySurface; github?: WorkbenchGithubSurface; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -194,6 +195,7 @@ export class WorkbenchServer {
   readonly #skillHub?: SkillRegistry
   readonly #designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
   readonly #pty?: WorkbenchPtySurface
+  readonly #github?: WorkbenchGithubSurface
   readonly #auth: PrincipalAuthenticator
   readonly #rateLimiter: RateLimiter
   readonly #instanceId: string
@@ -229,6 +231,7 @@ export class WorkbenchServer {
     this.#skillHub = dependencies.skillHub
     this.#designSkills = dependencies.designSkills
     this.#pty = dependencies.pty
+    this.#github = dependencies.github
   }
 
   /**
@@ -341,6 +344,9 @@ export class WorkbenchServer {
       if (segments[1] === "pty" && request.method === "POST") return this.#ptyCreate(request)
       if (segments[1] === "pty" && segments[2] && request.method === "PUT") return this.#ptyUpdate(request, segments[2])
       if (segments[1] === "pty" && segments[2] && request.method === "DELETE") return this.#ptyRemove(request, segments[2])
+      if (segments[1] === "github" && segments[2] === "status" && request.method === "GET") return this.#githubAction(request, "status")
+      if (segments[1] === "github" && segments[2] === "device" && request.method === "POST") return this.#githubAction(request, segments[3] ?? "")
+      if (segments[1] === "github" && segments[2] === "disconnect" && request.method === "POST") return this.#githubAction(request, "disconnect")
       if (segments[1] === "plugins" && request.method === "GET" && !segments[2]) return this.#pluginsList(request, principal)
       if (segments[1] === "plugins" && segments[2] && request.method === "GET" && !segments[3]) return this.#pluginRead(request, segments[2], principal)
       if (segments[1] === "plugins" && segments[2] === "install" && request.method === "POST" && segments[3]) return this.#pluginInstall(request, segments[3], principal)
@@ -933,6 +939,19 @@ export class WorkbenchServer {
     const removed = await this.#pty.remove(workspaceId, ptyId)
     this.#allow("pty.remove")
     return json(200, { removed })
+  }
+
+  async #githubAction(request: Request, action: string): Promise<Response> {
+    if (!this.#github) return this.#deny("github.unavailable", 503)
+    const input = request.method === "GET" ? {} : await body(request)
+    const workspaceId = input.workspaceId
+    if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny("github.scope", 403)
+    if (action === "status") return json(200, await this.#github.status(workspaceId))
+    if (action === "start") return json(200, await this.#github.deviceStart(workspaceId))
+    if (action === "poll") return json(200, await this.#github.devicePoll(workspaceId))
+    if (action === "cancel") return json(200, await this.#github.deviceCancel(workspaceId))
+    if (action === "disconnect") return json(200, await this.#github.disconnect(workspaceId))
+    return this.#deny("github.action", 400)
   }
 
   async #approval(request: Request, id: string): Promise<Response> {

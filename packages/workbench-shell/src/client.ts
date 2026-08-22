@@ -34,6 +34,7 @@ import {
   M22_SERVER_ROUTE_REGISTRY,
   M23_SERVER_ROUTE_REGISTRY,
   M24_SERVER_ROUTE_REGISTRY,
+  M25_SERVER_ROUTE_REGISTRY,
   WORKBENCH_ROUTE_REGISTRY,
 } from "./routes.js"
 
@@ -84,6 +85,8 @@ export type WorkspaceFileWrite = { path: string; content: string; encoding?: "ut
 export type WorkspaceFileWriteResult = { path: string; bytesWritten: number; sha: string }
 export type WorkbenchPtyInfo = { id: string; title: string; command: string; args: readonly string[]; cwd: string; status: "running" | "exited"; pid: number }
 export type WorkbenchPtyCreateInput = { command?: string; args?: readonly string[]; cwd?: string; title?: string; cols?: number; rows?: number }
+export type GithubIdentity = { login: string; name?: string; avatarUrl?: string; profileUrl: string }
+export type GithubStatus = { connected: boolean; configured: boolean; identity?: GithubIdentity }
 /** `removed: false` means the path was already gone — remove() is idempotent, not an error on a repeat call. */
 export type WorkspaceFileRemoveResult = { path: string; removed: boolean }
 export type ArtifactSummary = { artifactId: string; version: number; kind: string; filename: string; relativePath: string; sha256: string; bytes: number; createdAt: number; metadata: Record<string, string>; provenance?: Record<string, string>; scan?: "clean" | "unscanned" }
@@ -263,6 +266,26 @@ export class WorkbenchClient {
   async removePty(workspaceId: string, ptyId: string, signal?: AbortSignal): Promise<{ removed: boolean }> {
     const route = M24_SERVER_ROUTE_REGISTRY.ptyRemove.route.replace(":ptyId", encodeURIComponent(ptyId))
     return this.request(route, { method: "DELETE", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async githubStatus(workspaceId: string, signal?: AbortSignal): Promise<GithubStatus> {
+    return this.request(`${M25_SERVER_ROUTE_REGISTRY.githubStatus.route}?${new URLSearchParams({ workspaceId })}`, { signal })
+  }
+
+  async githubDeviceStart(workspaceId: string, signal?: AbortSignal): Promise<{ userCode: string; verificationUri: string; verificationUriComplete?: string; expiresInSeconds: number; intervalSeconds: number }> {
+    return this.request(M25_SERVER_ROUTE_REGISTRY.githubDeviceStart.route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async githubDevicePoll(workspaceId: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
+    return this.request(M25_SERVER_ROUTE_REGISTRY.githubDevicePoll.route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async githubDeviceCancel(workspaceId: string, signal?: AbortSignal): Promise<{ ok: boolean }> {
+    return this.request(M25_SERVER_ROUTE_REGISTRY.githubDeviceCancel.route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
+  }
+
+  async githubDisconnect(workspaceId: string, signal?: AbortSignal): Promise<{ ok: boolean }> {
+    return this.request(M25_SERVER_ROUTE_REGISTRY.githubDisconnect.route, { method: "POST", body: { workspaceId }, idempotencyKey: newRequestId(), signal })
   }
 
   async listArtifacts(workspaceId: string, signal?: AbortSignal): Promise<{ artifacts: readonly ArtifactSummary[] }> {
