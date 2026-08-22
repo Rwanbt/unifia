@@ -160,6 +160,7 @@ export const M24_SERVER_ROUTE_REGISTRY = {
   ptyCreate: { method: "POST", route: "/v1/pty", capability: "workspace.write", event: "operation.updated" },
   ptyUpdate: { method: "PUT", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
   ptyRemove: { method: "DELETE", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
+  ptyConnect: { method: "GET", route: "/v1/pty/:ptyId/connect", capability: "workspace.watch", event: "operation.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
 /** P25 GitHub account surface; tokens never cross this boundary. */

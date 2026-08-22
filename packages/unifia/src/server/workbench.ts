@@ -3,6 +3,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
+import type { WorkbenchPtyConnection, WorkbenchPtySocket } from "@unifia/workbench-server"
 import { P3_CAPABILITIES, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
@@ -24,6 +25,7 @@ type WorkbenchBridge = {
   app: WorkbenchApp
   fetch(request: Request): Promise<Response>
   native(request: Request): Promise<Response>
+  ptyConnect(request: Request, workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number): Promise<WorkbenchPtyConnection | undefined>
 }
 
 const NATIVE_PRINCIPAL = "unifia-native-workbench"
@@ -130,6 +132,12 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
         if (!root || !current || (current.cwd !== root && !current.cwd.startsWith(`${root}${path.sep}`))) throw new Error("PTY is not owned by workspace")
         await Pty.remove(PtyID.make(ptyId)); return true
       },
+      async connect(workspaceId, ptyId, socket, cursor) {
+        const root = workspaceRoots.get(workspaceId)
+        const current = await Pty.get(PtyID.make(ptyId))
+        if (!root || !current || (current.cwd !== root && !current.cwd.startsWith(`${root}${path.sep}`))) return undefined
+        return Pty.connect(PtyID.make(ptyId), socket, cursor)
+      },
     },
     github: {
       async status() {
@@ -186,5 +194,8 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     const pathName = url.pathname.replace(/^\/workbench/, "") || "/"
     return app.server.fetch(new Request(new URL(`${pathName}${url.search}`, url), request))
   }
-  return { app, fetch, native }
+  const ptyConnect = (request: Request, workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number) => {
+    return app.server.connectPty(request, workspaceId, ptyId, socket, cursor)
+  }
+  return { app, fetch, native, ptyConnect }
 }

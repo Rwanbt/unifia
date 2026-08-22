@@ -35,7 +35,9 @@ type AuditPort = { record(actor: string, capability: string, decision: "allow" |
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
 export type WorkbenchPtyInfo = { id: string; title: string; command: string; args: readonly string[]; cwd: string; status: "running" | "exited"; pid: number }
-export type WorkbenchPtySurface = { list(workspaceId: string): Promise<readonly WorkbenchPtyInfo[]>; create(workspaceId: string, input: Record<string, unknown>): Promise<WorkbenchPtyInfo>; update(workspaceId: string, ptyId: string, input: Record<string, unknown>): Promise<WorkbenchPtyInfo>; remove(workspaceId: string, ptyId: string): Promise<boolean> }
+export type WorkbenchPtySocket = { readyState: number; send(data: string | Uint8Array | ArrayBuffer): void; close(code?: number, reason?: string): void }
+export type WorkbenchPtyConnection = { onMessage(message: string | ArrayBuffer): void; onClose(): void }
+export type WorkbenchPtySurface = { list(workspaceId: string): Promise<readonly WorkbenchPtyInfo[]>; create(workspaceId: string, input: Record<string, unknown>): Promise<WorkbenchPtyInfo>; update(workspaceId: string, ptyId: string, input: Record<string, unknown>): Promise<WorkbenchPtyInfo>; remove(workspaceId: string, ptyId: string): Promise<boolean>; connect?(workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number): Promise<WorkbenchPtyConnection | undefined> }
 export type WorkbenchGithubSurface = { status(workspaceId: string): Promise<Record<string, unknown>>; deviceStart(workspaceId: string): Promise<Record<string, unknown>>; devicePoll(workspaceId: string): Promise<Record<string, unknown>>; deviceCancel(workspaceId: string): Promise<{ ok: boolean }>; disconnect(workspaceId: string): Promise<{ ok: boolean }> }
 type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>; pty?: WorkbenchPtySurface; github?: WorkbenchGithubSurface; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
 
@@ -1219,6 +1221,11 @@ export class WorkbenchServer {
     return this.#instanceId
   }
 
+  async connectPty(request: Request, workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number): Promise<WorkbenchPtyConnection | undefined> {
+    if (!this.#pty?.connect || !this.#authorize(request, workspaceId)) return undefined
+    return this.#pty.connect(workspaceId, ptyId, socket, cursor)
+  }
+
   #authorize(request: Request, workspaceId: string): string | undefined {
     const token = this.#bearer(request)
     const handle = token ? this.#tokens.get(token) : undefined
@@ -1240,7 +1247,11 @@ export class WorkbenchServer {
     const scoped = request.headers.get("x-unifia-file-session")
     if (scoped) return scoped
     const value = request.headers.get("authorization")
-    return value?.startsWith("Bearer ") ? value.slice(7) : undefined
+    if (value?.startsWith("Bearer ")) return value.slice(7)
+    if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") return undefined
+    const protocols = request.headers.get("sec-websocket-protocol")?.split(",").map((part) => part.trim()) ?? []
+    const index = protocols.indexOf("bearer")
+    return index >= 0 ? protocols[index + 1] : undefined
   }
 
   /**
