@@ -9,7 +9,7 @@ import z from "zod"
 import { Auth } from "../auth"
 import { ProviderID } from "../provider/schema"
 import { WorkspaceRouterMiddleware } from "./router"
-import { upgradeWebSocket, websocket } from "hono/bun"
+import { websocket } from "hono/bun"
 import { errors } from "./error"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
@@ -82,33 +82,6 @@ export namespace Server {
       // headers — the contract asserted by workbench-server's cors-contract
       // and real-transport suites — and a second layer must not rewrite them.
       .all("/workbench/native/token", async (c) => workbench ? workbench.native(c.req.raw) : c.json({ error: "Workbench native bridge unavailable" }, 404))
-      .get("/workbench/v1/pty/:ptyId/connect", upgradeWebSocket(async (c) => {
-        const workspaceId = c.req.query("workspaceId")
-        const ptyId = c.req.param("ptyId")
-        const cursorValue = c.req.query("cursor")
-        const cursor = cursorValue === undefined ? undefined : Number(cursorValue)
-        let handler: { onMessage(message: string | ArrayBuffer): void; onClose(): void } | undefined
-        return {
-          async onOpen(_event, ws) {
-            const socket = ws.raw
-            if (!workbench || !workspaceId || !ptyId || !Number.isSafeInteger(cursor ?? 0) || (cursor !== undefined && cursor < -1) || !socket || typeof socket !== "object") {
-              ws.close(4403, "PTY access denied")
-              return
-            }
-            handler = await workbench.ptyConnect(c.req.raw, workspaceId, ptyId, socket as { readyState: number; send(data: string | Uint8Array | ArrayBuffer): void; close(code?: number, reason?: string): void }, cursor)
-            if (!handler) ws.close(4403, "PTY access denied")
-          },
-          onMessage(event) {
-            if (typeof event.data === "string") handler?.onMessage(event.data)
-          },
-          onClose() {
-            handler?.onClose()
-          },
-          onError() {
-            handler?.onClose()
-          },
-        }
-      }))
       .all("/workbench/*", async (c) => workbench ? workbench.fetch(c.req.raw) : c.json({ error: "Workbench unavailable" }, 404))
       .use(
         cors({

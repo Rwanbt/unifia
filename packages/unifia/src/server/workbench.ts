@@ -3,13 +3,10 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
-import type { WorkbenchPtyConnection, WorkbenchPtySocket } from "@unifia/workbench-server"
 import { P3_CAPABILITIES, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
 import { discoverTemplates } from "@unifia/skill-hub/node"
-import { Pty } from "../pty"
-import { PtyID } from "../pty/schema"
 import * as GithubAuth from "../github/auth"
 
 type NativeTokenInput = {
@@ -25,7 +22,6 @@ type WorkbenchBridge = {
   app: WorkbenchApp
   fetch(request: Request): Promise<Response>
   native(request: Request): Promise<Response>
-  ptyConnect(request: Request, workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number): Promise<WorkbenchPtyConnection | undefined>
 }
 
 const NATIVE_PRINCIPAL = "unifia-native-workbench"
@@ -79,7 +75,6 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   if (!password || !ipcToken) return undefined
 
   const signingKey = createHash("sha256").update(password, "utf8").digest("hex")
-  const workspaceRoots = new Map<string, string>()
   const app = createWorkbenchApp({
     signingKey,
     issuer: "unifia-local",
@@ -95,10 +90,10 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     auditLogPath: process.env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(Global.Path.data, "workbench-audit.jsonl"),
     rateBudget: 240,
     rateWindowMs: 60_000,
-    // The Design surface writes for real — Fichiers CRUD, composer uploads,
-    // opening a terminal — and none of those have an approval UI to answer a
-    // 202, so gating them on the broker turned every one into a silent 403.
-    // Installs, workflow runs and desktop control still go through it.
+    // The Design surface writes for real — Fichiers CRUD, composer uploads —
+    // and none of those have an approval UI able to answer a 202, so gating
+    // them on the broker turned every one into a silent 403. Installs,
+    // workflow runs and desktop control still go through it.
     allowlistedCapabilities: new Set(["workspace.read", "workspace.write", "workspace.watch"] as P3Capability[]),
   }, {
     backend: new OpenCodeSessionBackend(),
@@ -106,40 +101,6 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
       const root = process.env.UNIFIA_DESIGN_TEMPLATES_DIR ?? path.join(process.cwd(), "templates", "design")
       const discovered = await discoverTemplates(root)
       return discovered.templates.map((template) => template.manifest)
-    },
-    pty: {
-      async list(workspaceId) {
-        const root = workspaceRoots.get(workspaceId)
-        if (!root) return []
-        const sessions = await Pty.list()
-        return sessions.filter((session) => session.cwd === root || session.cwd.startsWith(`${root}${path.sep}`))
-      },
-      async create(workspaceId, input) {
-        const root = workspaceRoots.get(workspaceId)
-        if (!root) throw new Error("workspace is not registered for PTY")
-        const requested = typeof input.cwd === "string" ? input.cwd : "."
-        const cwd = path.resolve(root, requested)
-        if (cwd !== root && !cwd.startsWith(`${root}${path.sep}`)) throw new Error("PTY cwd escapes workspace")
-        return Pty.create({ ...input, cwd, args: Array.isArray(input.args) ? input.args.filter((arg): arg is string => typeof arg === "string") : undefined, command: typeof input.command === "string" ? input.command : undefined, title: typeof input.title === "string" ? input.title : undefined, cols: typeof input.cols === "number" ? input.cols : undefined, rows: typeof input.rows === "number" ? input.rows : undefined })
-      },
-      async update(workspaceId, ptyId, input) {
-        const root = workspaceRoots.get(workspaceId); const current = await Pty.get(PtyID.make(ptyId))
-        if (!root || !current || (current.cwd !== root && !current.cwd.startsWith(`${root}${path.sep}`))) throw new Error("PTY is not owned by workspace")
-        const updated = await Pty.update(PtyID.make(ptyId), { title: typeof input.title === "string" ? input.title : undefined, size: input.size && typeof input.size === "object" ? input.size as { rows: number; cols: number } : undefined })
-        if (!updated) throw new Error("PTY disappeared during update")
-        return updated
-      },
-      async remove(workspaceId, ptyId) {
-        const root = workspaceRoots.get(workspaceId); const current = await Pty.get(PtyID.make(ptyId))
-        if (!root || !current || (current.cwd !== root && !current.cwd.startsWith(`${root}${path.sep}`))) throw new Error("PTY is not owned by workspace")
-        await Pty.remove(PtyID.make(ptyId)); return true
-      },
-      async connect(workspaceId, ptyId, socket, cursor) {
-        const root = workspaceRoots.get(workspaceId)
-        const current = await Pty.get(PtyID.make(ptyId))
-        if (!root || !current || (current.cwd !== root && !current.cwd.startsWith(`${root}${path.sep}`))) return undefined
-        return Pty.connect(PtyID.make(ptyId), socket, cursor)
-      },
     },
     github: {
       async status() {
@@ -175,7 +136,6 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
       if (input.action === "open") {
         if (!input.workspacePath) return json(400, { error: "workspacePath is required" })
         const workspace = await app.workspace.register({ name: path.basename(input.workspacePath), path: input.workspacePath })
-        workspaceRoots.set(workspace.id, workspace.path)
         return json(200, { workspaceId: workspace.id, instanceId: app.server.instanceId })
       }
       if (!input.workspaceId) return json(400, { error: "workspaceId is required" })
@@ -196,8 +156,5 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     const pathName = url.pathname.replace(/^\/workbench/, "") || "/"
     return app.server.fetch(new Request(new URL(`${pathName}${url.search}`, url), request))
   }
-  const ptyConnect = (request: Request, workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number) => {
-    return app.server.connectPty(request, workspaceId, ptyId, socket, cursor)
-  }
-  return { app, fetch, native, ptyConnect }
+  return { app, fetch, native }
 }

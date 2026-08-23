@@ -20,7 +20,7 @@ import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntime
 import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
-import { ApprovalCapabilityGate, WorkbenchServer, type WorkbenchGithubSurface, type WorkbenchPtySurface } from "./index.js"
+import { ApprovalCapabilityGate, WorkbenchServer, type WorkbenchGithubSurface } from "./index.js"
 
 export type WorkbenchRuntimeKind = "fake" | "opencode"
 
@@ -146,7 +146,6 @@ export type WorkbenchSurfaces = {
   /** Actions a generated UI may reference. Absent means /v1/ui/render answers 503. */
   uiAllowedActions?: ReadonlySet<string>
   designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>
-  pty?: WorkbenchPtySurface
   github?: WorkbenchGithubSurface
 }
 
@@ -172,7 +171,6 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
     designSkills: surfaces.designSkills,
-    pty: surfaces.pty,
     github: surfaces.github,
   })
   return { server, authenticator, tokenIssuer, audit, workspace }

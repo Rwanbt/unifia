@@ -154,15 +154,6 @@ export const M21_SERVER_ROUTE_REGISTRY = {
   filesRename: { method: "POST", route: "/v1/files/rename", capability: "workspace.write", event: "workspace.changed" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
-/** P24 scoped PTY routes for the Design terminal surface. */
-export const M24_SERVER_ROUTE_REGISTRY = {
-  ptyList: { method: "GET", route: "/v1/pty", capability: "workspace.read", event: "operation.updated" },
-  ptyCreate: { method: "POST", route: "/v1/pty", capability: "workspace.write", event: "operation.updated" },
-  ptyUpdate: { method: "PUT", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
-  ptyRemove: { method: "DELETE", route: "/v1/pty/:ptyId", capability: "workspace.write", event: "operation.updated" },
-  ptyConnect: { method: "GET", route: "/v1/pty/:ptyId/connect", capability: "workspace.watch", event: "operation.updated" },
-} as const satisfies Record<string, WorkbenchServerRoute>
-
 /** P25 GitHub account surface; tokens never cross this boundary. */
 export const M25_SERVER_ROUTE_REGISTRY = {
   githubStatus: { method: "GET", route: "/v1/github/status", capability: "workspace.read", event: "catalog.updated" },
@@ -176,8 +167,8 @@ export const M25_SERVER_ROUTE_REGISTRY = {
  * Capabilities the Design/Work WebView leases at connection time.
  *
  * WHY workspace.write is here: the lease used to be read/watch only, which
- * predated the Fichiers CRUD (M21), composer attachments and the scoped PTY
- * routes (M24). #checkCapability refuses any capability absent from the
+ * predated the Fichiers CRUD (M21) and the composer attachments that reuse
+ * it. #checkCapability refuses any capability absent from the
  * calling token's scopes before the approval gate runs, so every one of those
  * routes answered 403 in the shipped app while passing its own tests against a
  * fully-scoped test principal. `SURFACE_LEASE_INVARIANT` below pins the lease
@@ -187,7 +178,7 @@ export const M25_SERVER_ROUTE_REGISTRY = {
 export const SURFACE_LEASE_CAPABILITIES = ["workspace.read", "workspace.write", "workspace.watch"] as const
 
 /** Registries whose capabilities the leased token must already carry (no step-up path exists for them). */
-const LEASE_BACKED_REGISTRIES = [M21_SERVER_ROUTE_REGISTRY, M24_SERVER_ROUTE_REGISTRY, M25_SERVER_ROUTE_REGISTRY] as const
+const LEASE_BACKED_REGISTRIES = [M21_SERVER_ROUTE_REGISTRY, M25_SERVER_ROUTE_REGISTRY] as const
 
 export const SURFACE_LEASE_INVARIANT: readonly string[] = [
   ...new Set(LEASE_BACKED_REGISTRIES.flatMap((registry) => Object.values(registry).map((route) => route.capability))),

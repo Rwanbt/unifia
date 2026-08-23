@@ -1,34 +1,27 @@
 /* SPDX-License-Identifier: MIT */
 
-// Phases 12/13/17 added the design-skills, PTY and GitHub surfaces. Each
-// declares a capability in the route registry (workbench-shell/routes.ts:
-// M23/M24/M25) but the handlers only ever called #authorize — the workspace
-// scope check — and never #checkCapability, the gate every other route in
-// this server pairs with it. A workspace-scoped token therefore reached
-// `POST /v1/pty` (spawn a real shell inside the workspace) and the GitHub
-// device flow with no capability decision taken at all, and a CapabilityGate
-// answering "deny" changed nothing.
+// Phases 12/17 added the design-skills and GitHub surfaces. Each declares a
+// capability in the route registry (workbench-shell/routes.ts: M23/M25) but
+// the handlers only ever called #authorize — the workspace scope check — and
+// never #checkCapability, the gate every other route in this server pairs
+// with it. A workspace-scoped token therefore reached the GitHub device flow
+// with no capability decision taken at all, and a CapabilityGate answering
+// "deny" changed nothing. (The scoped PTY mirror had the same hole; it was
+// removed outright — the Design terminal reaches the sidecar's own /pty
+// routes directly, so the mirror was unused duplication.)
 //
 // These tests pin the enforcement to the capability the registry declares.
 
 import { describe, expect, it } from "vitest"
-import { ScopedTokenIssuer, WorkbenchServer, type WorkbenchGithubSurface, type WorkbenchPtySurface } from "../src/index.js"
+import { ScopedTokenIssuer, WorkbenchServer, type WorkbenchGithubSurface } from "../src/index.js"
 
 const WORKSPACE_ID = "ws-1"
 const READ_ONLY_CAPABILITIES = ["workspace.read", "workspace.watch"]
 const WRITE_CAPABILITIES = [...READ_ONLY_CAPABILITIES, "workspace.write"]
 
-const PTY_SESSION = { id: "pty_1", title: "t", command: "sh", args: [] as readonly string[], cwd: ".", status: "running" as const, pid: 1 }
-
-function makeSurfaces(reached: string[]): { designSkills: () => Promise<never[]>; pty: WorkbenchPtySurface; github: WorkbenchGithubSurface } {
+function makeSurfaces(reached: string[]): { designSkills: () => Promise<never[]>; github: WorkbenchGithubSurface } {
   return {
     designSkills: async () => { reached.push("design-skills"); return [] },
-    pty: {
-      list: async () => { reached.push("pty.list"); return [PTY_SESSION] },
-      create: async () => { reached.push("pty.create"); return PTY_SESSION },
-      update: async () => { reached.push("pty.update"); return PTY_SESSION },
-      remove: async () => { reached.push("pty.remove"); return true },
-    },
     github: {
       status: async () => { reached.push("github.status"); return { connected: false, configured: false } },
       deviceStart: async () => { reached.push("github.deviceStart"); return { userCode: "TEST-CODE" } },
@@ -61,15 +54,11 @@ type Call = { name: string; method: "GET" | "POST" | "PUT" | "DELETE"; path: str
 /** Registry capability workspace.read — held by the base Design/Work lease (READ_CAPABILITIES, provider.tsx). */
 const READ_CALLS: readonly Call[] = [
   { name: "design-skills", method: "GET", path: `/v1/design-skills?workspaceId=${WORKSPACE_ID}`, surface: "design-skills" },
-  { name: "pty.list", method: "GET", path: `/v1/pty?workspaceId=${WORKSPACE_ID}`, surface: "pty.list" },
   { name: "github.status", method: "GET", path: `/v1/github/status?workspaceId=${WORKSPACE_ID}`, surface: "github.status" },
 ]
 
 /** Registry capability workspace.write — NOT held by the base lease and not step-up eligible, so it must fail closed. */
 const WRITE_CALLS: readonly Call[] = [
-  { name: "pty.create", method: "POST", path: "/v1/pty", body: { workspaceId: WORKSPACE_ID }, surface: "pty.create" },
-  { name: "pty.update", method: "PUT", path: "/v1/pty/pty_1", body: { workspaceId: WORKSPACE_ID, title: "x" }, surface: "pty.update" },
-  { name: "pty.remove", method: "DELETE", path: "/v1/pty/pty_1", body: { workspaceId: WORKSPACE_ID }, surface: "pty.remove" },
   { name: "github.device/start", method: "POST", path: "/v1/github/device/start", body: { workspaceId: WORKSPACE_ID }, surface: "github.deviceStart" },
   { name: "github.device/poll", method: "POST", path: "/v1/github/device/poll", body: { workspaceId: WORKSPACE_ID }, surface: "github.devicePoll" },
   { name: "github.device/cancel", method: "POST", path: "/v1/github/device/cancel", body: { workspaceId: WORKSPACE_ID }, surface: "github.deviceCancel" },
@@ -84,7 +73,7 @@ function send(server: WorkbenchServer, call: Call, token: string): Promise<Respo
   }))
 }
 
-describe("Phase 12/13/17 surfaces run through the capability gate", () => {
+describe("Phase 12/17 surfaces run through the capability gate", () => {
   it.each(READ_CALLS)("$name serves a read-scoped token when the gate allows", async (call) => {
     const reached: string[] = []
     const server = makeServer(reached, () => "allow")
