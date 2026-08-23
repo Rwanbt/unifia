@@ -38,12 +38,16 @@ Do NOT initiate Phase 2+ without an explicit user directive — see TASK-GRAPH d
 
 ## Deployment
 
-- Desktop build: `cd packages/desktop && bun tauri build`
-- Desktop deploy: copy `packages/desktop/src-tauri/target/release/Unifia.exe` to `C:/Users/barat/AppData/Local/Unifia Dev/Unifia.exe`
+- Desktop build: `cd packages/desktop && CARGO_BUILD_JOBS=1 bun tauri build` — on this machine the default job count makes `rustc-LLVM` and the Vite reporter die with "out of memory"; the failure is environmental, never a compile error.
+- Desktop deploy: copy **three** things from `packages/desktop/src-tauri/target/release/` to `C:/Users/barat/AppData/Local/Unifia Dev/`:
+  1. `Unifia.exe`
+  2. `unifia-cli.exe` — the sidecar. `get_sidecar_path` (cli.rs) resolves it as `<dir of the running exe>/unifia-cli`, so a deploy that copies only `Unifia.exe` leaves the app running whatever sidecar was there before. Every server-side change — Workbench routes, capability gate, artifact store — lives in this binary, so skipping it silently deploys none of them.
+  3. `templates/design/` — the Design skill templates, resolved through `BaseDirectory::Resource` (i.e. next to the exe). Without it the composer's skill picker is empty, with no error.
+  Verify with `sha256sum` on source and destination rather than trusting the copy.
 - NEVER deploy to `C:/Users/barat/AppData/Local/OpenCode` (no "Dev" suffix) or `C:/Users/barat/AppData/Local/Programs/opencode-desktop` — those are reserved for the genuine official Electron release (identifier `ai.opencode.desktop`, installed from github.com/anomalyco/opencode releases). This fork's Tauri build always uses identifier `ai.unifia.workbench.dev` / "Unifia Dev" (rebranded in P0-C005).
 - Android build: `cd packages/mobile && bun tauri android build --target aarch64` (requires `ORT_LIB_LOCATION=D:/tmp/ort-android`)
 - Android native libs: `gen/android/.../jniLibs/arm64-v8a` holds 30 prebuilt `.so` that are **gitignored inside a generated directory**, so a fresh clone starts empty. 13 are built by `.github/workflows/android.yml` (downloads plus llama.cpp and `pty_server.c` compiled from source); the other 17 — Hexagon skels, OpenCL/Vulkan backends, the specialised llama servers — have **no producer in this repo** and were vendored by hand. `prepare-android-runtime.sh` covers only part of the CI set, which is why a local build can be short where CI is not. `bun scripts/check-android-runtime.mjs` (wired into `build:android`) fails up front and lists what is missing.
-- Sidecar (required before desktop build): `cd packages/unifia && bun run build --single --baseline`, then copy the result to `packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`. That is where `tauri.conf.json`'s `externalBin` resolves; `packages/desktop/sidecars/` is only a cache and a build there fails with "resource path doesn't exist".
+- Sidecar (required before desktop build): `cd packages/unifia && bun run build --single`, then copy the result to `packages/desktop/src-tauri/sidecars/unifia-cli-x86_64-pc-windows-msvc.exe`. That is where `tauri.conf.json`'s `externalBin` resolves; `packages/desktop/sidecars/` is only a cache and a build there fails with "resource path doesn't exist".
 - NEVER touch Antigravity (the IDE). NEVER kill processes that aren't ours.
 
 ---
@@ -80,8 +84,8 @@ bun run dev:desktop      # Tauri desktop with hot reload
 bun run dev:mobile-android  # Android dev build
 
 # Build
-cd packages/unifia && bun run build --single --baseline  # rebranded CLI binary is `unifia`   # CLI sidecar
-cd packages/desktop && bun tauri build                       # Desktop release
+cd packages/unifia && bun run build --single                 # CLI sidecar (binary is `unifia`); --baseline fails on this machine
+cd packages/desktop && CARGO_BUILD_JOBS=1 bun tauri build    # Desktop release
 cd packages/mobile && bun tauri android build --target aarch64  # Android APK
 
 # Type checking (run before any build)
@@ -97,7 +101,7 @@ bun run lint
 bun run format
 ```
 
-**Critical**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single --baseline  # rebranded CLI binary is `unifia`` in `packages/unifia` first and copy the output manually.
+**Critical**: `bun tauri build` does NOT rebuild the TypeScript sidecar. Always run `bun run build --single` in `packages/unifia` first and copy the output manually, then remember the sidecar has to reach the deploy directory too — see Deployment above.
 
 ---
 
