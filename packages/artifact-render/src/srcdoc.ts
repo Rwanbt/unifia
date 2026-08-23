@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
-import { STORAGE_SHIM_SCRIPT } from "./bridges/storage-shim"
-import { FOCUS_GUARD_SCRIPT } from "./bridges/focus-guard"
-import { SNAPSHOT_BRIDGE_SCRIPT } from "./bridges/snapshot"
-import { SELECTION_BRIDGE_SCRIPT } from "./bridges/selection"
-import { EDIT_BRIDGE_SCRIPT } from "./bridges/edit"
-import { annotateSelectableElements } from "./annotate"
+import { STORAGE_SHIM_SCRIPT } from "./bridges/storage-shim.js"
+import { FOCUS_GUARD_SCRIPT } from "./bridges/focus-guard.js"
+import { SNAPSHOT_BRIDGE_SCRIPT } from "./bridges/snapshot.js"
+import { SELECTION_BRIDGE_SCRIPT } from "./bridges/selection.js"
+import { EDIT_BRIDGE_SCRIPT } from "./bridges/edit.js"
+import { annotateSelectableElements } from "./annotate.js"
 
 // ADR-1035: the iframe runs scripts-only; the storage shim and focus
 // guard exist specifically to keep artifacts usable under that policy.
