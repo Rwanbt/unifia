@@ -18,6 +18,7 @@ import { LspDiagnosticsProvider } from "@/context/lsp-diagnostics"
 // (which calls useFileStore) sees it as an ancestor. Fix: pre-flight-0-filestore-scope.
 import { FileStoreProvider } from "@/context/file/store"
 import { WorkspaceWorkbenchProvider } from "@/context/workbench/provider"
+import { TerminalProvider } from "@/context/terminal"
 import { useMode } from "@/context/mode"
 
 function DirectoryDataProvider(props: ParentProps<{ directory: string }>) {
@@ -97,7 +98,16 @@ export default function Layout(props: ParentProps) {
               <LspDiagnosticsProvider>
                 <TeamProvider>
                   <DirectoryDataProvider directory={resolved}>
-                    <WorkspaceWorkbenchProvider workspacePath={resolved} codeSessionId={mode.sessionId()}>{props.children}</WorkspaceWorkbenchProvider>
+                    {/* Terminals are workspace-scoped (getWorkspaceTerminalCacheKey keys
+                        on the directory, and the session id is optional), so the provider
+                        belongs to the directory, not to one route under it. It used to sit
+                        in SessionProviders, which wraps SessionRoute only — Design's
+                        Terminal tab therefore threw "Terminal context must be used within
+                        a context provider" the moment it mounted, and switching Code→Design
+                        disposed every open terminal. */}
+                    <TerminalProvider>
+                      <WorkspaceWorkbenchProvider workspacePath={resolved} codeSessionId={mode.sessionId()}>{props.children}</WorkspaceWorkbenchProvider>
+                    </TerminalProvider>
                   </DirectoryDataProvider>
                 </TeamProvider>
               </LspDiagnosticsProvider>

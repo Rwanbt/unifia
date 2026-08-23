@@ -44,7 +44,6 @@ import { PromptProvider } from "@/context/prompt"
 import { ServerConnection, ServerProvider, serverName, useServer } from "@/context/server"
 import { SDKProvider } from "@/context/sdk"
 import { SettingsProvider } from "@/context/settings"
-import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
 import { ErrorPage } from "./pages/error"
@@ -114,15 +113,16 @@ function AppShellProviders(props: ParentProps) {
 
 function SessionProviders(props: ParentProps) {
   return (
-    <TerminalProvider>
-      {/* FileStoreProvider moved to DirectoryLayout — it must wrap EditorProvider,
-          which is rendered above the SessionRoute. See fix/pre-flight-0-filestore-scope. */}
-      <FileProvider>
-        <PromptProvider>
-          <CommentsProvider>{props.children}</CommentsProvider>
-        </PromptProvider>
-      </FileProvider>
-    </TerminalProvider>
+    // TerminalProvider moved to DirectoryLayout — terminals are workspace-scoped
+    // and Design's Terminal tab lives under WorkbenchModeRoute, a sibling of
+    // SessionRoute that this wrapper never covered.
+    // FileStoreProvider moved to DirectoryLayout — it must wrap EditorProvider,
+    // which is rendered above the SessionRoute. See fix/pre-flight-0-filestore-scope.
+    <FileProvider>
+      <PromptProvider>
+        <CommentsProvider>{props.children}</CommentsProvider>
+      </PromptProvider>
+    </FileProvider>
   )
 }
 
