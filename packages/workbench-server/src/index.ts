@@ -341,14 +341,14 @@ export class WorkbenchServer {
       if (segments[1] === "ui" && segments[2] === "actions" && request.method === "POST") return this.#uiAction(request, principal)
       if (segments[1] === "ui" && segments[2] === "render" && request.method === "POST") return this.#renderUi(request)
       if (segments[1] === "skill-hub" && (segments[2] === "search" || segments[2] === "install" || segments[2] === "update") && ((request.method === "GET" && segments[2] === "search") || request.method === "POST")) return this.#skillHubAction(request, segments[2])
-      if (segments[1] === "design-skills" && request.method === "GET") return this.#designSkillsAction(request)
-      if (segments[1] === "pty" && request.method === "GET") return this.#ptyList(request)
-      if (segments[1] === "pty" && request.method === "POST") return this.#ptyCreate(request)
-      if (segments[1] === "pty" && segments[2] && request.method === "PUT") return this.#ptyUpdate(request, segments[2])
-      if (segments[1] === "pty" && segments[2] && request.method === "DELETE") return this.#ptyRemove(request, segments[2])
-      if (segments[1] === "github" && segments[2] === "status" && request.method === "GET") return this.#githubAction(request, "status")
-      if (segments[1] === "github" && segments[2] === "device" && request.method === "POST") return this.#githubAction(request, segments[3] ?? "")
-      if (segments[1] === "github" && segments[2] === "disconnect" && request.method === "POST") return this.#githubAction(request, "disconnect")
+      if (segments[1] === "design-skills" && request.method === "GET") return this.#designSkillsAction(request, principal)
+      if (segments[1] === "pty" && request.method === "GET") return this.#ptyList(request, principal)
+      if (segments[1] === "pty" && request.method === "POST") return this.#ptyCreate(request, principal)
+      if (segments[1] === "pty" && segments[2] && request.method === "PUT") return this.#ptyUpdate(request, segments[2], principal)
+      if (segments[1] === "pty" && segments[2] && request.method === "DELETE") return this.#ptyRemove(request, segments[2], principal)
+      if (segments[1] === "github" && segments[2] === "status" && request.method === "GET") return this.#githubAction(request, "status", principal)
+      if (segments[1] === "github" && segments[2] === "device" && request.method === "POST") return this.#githubAction(request, segments[3] ?? "", principal)
+      if (segments[1] === "github" && segments[2] === "disconnect" && request.method === "POST") return this.#githubAction(request, "disconnect", principal)
       if (segments[1] === "plugins" && request.method === "GET" && !segments[2]) return this.#pluginsList(request, principal)
       if (segments[1] === "plugins" && segments[2] && request.method === "GET" && !segments[3]) return this.#pluginRead(request, segments[2], principal)
       if (segments[1] === "plugins" && segments[2] === "install" && request.method === "POST" && segments[3]) return this.#pluginInstall(request, segments[3], principal)
@@ -898,62 +898,77 @@ export class WorkbenchServer {
     return this.#deny("skill-hub.action", 400)
   }
 
-  async #designSkillsAction(request: Request): Promise<Response> {
+  async #designSkillsAction(request: Request, principal: Principal): Promise<Response> {
     if (!this.#designSkills) return this.#deny("design-skills.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId) return this.#deny("design-skills.scope", 400)
     if (!this.#authorize(request, workspaceId)) return this.#deny("design-skills.scope", 403)
+    const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
+    if (gate) return gate
     const skills = await this.#designSkills(workspaceId)
     this.#allow("design-skills.list")
     return json(200, { skills })
   }
 
-  async #ptyList(request: Request): Promise<Response> {
+  async #ptyList(request: Request, principal: Principal): Promise<Response> {
     if (!this.#pty) return this.#deny("pty.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("pty.scope", 403)
+    const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
+    if (gate) return gate
     this.#allow("pty.list")
     return json(200, { sessions: await this.#pty.list(workspaceId) })
   }
 
-  async #ptyCreate(request: Request): Promise<Response> {
+  async #ptyCreate(request: Request, principal: Principal): Promise<Response> {
     if (!this.#pty) return this.#deny("pty.unavailable", 503)
     const input = await body(request); const workspaceId = input.workspaceId
     if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny("pty.scope", 403)
+    const gate = await this.#checkCapability("workspace.write", workspaceId, principal)
+    if (gate) return gate
     const session = await this.#pty.create(workspaceId, input)
     this.#allow("pty.create")
     return json(201, { session })
   }
 
-  async #ptyUpdate(request: Request, ptyId: string): Promise<Response> {
+  async #ptyUpdate(request: Request, ptyId: string, principal: Principal): Promise<Response> {
     if (!this.#pty) return this.#deny("pty.unavailable", 503)
     const input = await body(request); const workspaceId = input.workspaceId
     if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny("pty.scope", 403)
+    const gate = await this.#checkCapability("workspace.write", workspaceId, principal)
+    if (gate) return gate
     const session = await this.#pty.update(workspaceId, ptyId, input)
     this.#allow("pty.update")
     return json(200, { session })
   }
 
-  async #ptyRemove(request: Request, ptyId: string): Promise<Response> {
+  async #ptyRemove(request: Request, ptyId: string, principal: Principal): Promise<Response> {
     if (!this.#pty) return this.#deny("pty.unavailable", 503)
     const input = await body(request); const workspaceId = input.workspaceId
     if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny("pty.scope", 403)
+    const gate = await this.#checkCapability("workspace.write", workspaceId, principal)
+    if (gate) return gate
     const removed = await this.#pty.remove(workspaceId, ptyId)
     this.#allow("pty.remove")
     return json(200, { removed })
   }
 
-  async #githubAction(request: Request, action: string): Promise<Response> {
+  // status is a read; every other action mutates stored credentials for the
+  // account, so it carries the same capability as any other workspace write.
+  async #githubAction(request: Request, action: string, principal: Principal): Promise<Response> {
     if (!this.#github) return this.#deny("github.unavailable", 503)
-    const input = request.method === "GET" ? {} : await body(request)
-    const workspaceId = input.workspaceId
+    // GET carries no body: githubStatus() sends the workspace in the query
+    // string, so reading input.workspaceId here refused every status call.
+    const workspaceId = request.method === "GET" ? new URL(request.url).searchParams.get("workspaceId") : (await body(request)).workspaceId
     if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny("github.scope", 403)
+    if (action !== "status" && action !== "start" && action !== "poll" && action !== "cancel" && action !== "disconnect") return this.#deny("github.action", 400)
+    const gate = await this.#checkCapability(action === "status" ? "workspace.read" : "workspace.write", workspaceId, principal)
+    if (gate) return gate
     if (action === "status") return json(200, await this.#github.status(workspaceId))
     if (action === "start") return json(200, await this.#github.deviceStart(workspaceId))
     if (action === "poll") return json(200, await this.#github.devicePoll(workspaceId))
     if (action === "cancel") return json(200, await this.#github.deviceCancel(workspaceId))
-    if (action === "disconnect") return json(200, await this.#github.disconnect(workspaceId))
-    return this.#deny("github.action", 400)
+    return json(200, await this.#github.disconnect(workspaceId))
   }
 
   async #approval(request: Request, id: string): Promise<Response> {
@@ -1221,8 +1236,17 @@ export class WorkbenchServer {
     return this.#instanceId
   }
 
+  /**
+   * There is no Response to return on a WebSocket upgrade, so the capability
+   * decision collapses to connect-or-not: anything other than a plain "allow"
+   * (deny, or an approval the caller has no way to answer mid-handshake)
+   * refuses the socket.
+   */
   async connectPty(request: Request, workspaceId: string, ptyId: string, socket: WorkbenchPtySocket, cursor?: number): Promise<WorkbenchPtyConnection | undefined> {
     if (!this.#pty?.connect || !this.#authorize(request, workspaceId)) return undefined
+    const principal = await this.#authenticate(request)
+    if (!principal || !principal.scopes.has("workspace.watch")) return undefined
+    if (await this.#capability.check("workspace.watch", workspaceId, "workbench-server") !== "allow") return undefined
     return this.#pty.connect(workspaceId, ptyId, socket, cursor)
   }
 
