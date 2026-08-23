@@ -162,14 +162,30 @@ async fn workbench_open_workspace(state: State<'_, SidecarReady>, workspace_path
     serde_json::from_value(value).map_err(|e| format!("native Workbench workspace response: {e}"))
 }
 
-/// SEC-001/C2-3: the connection lease only ever carries read/watch — see the
-/// same allowlist boundary server-side (STEP_UP_ELIGIBLE_CAPABILITIES,
-/// workbench-server/src/index.ts). Step-up capabilities (artifact.create,
-/// artifact.export) are granted by the server's approval flow when a
-/// sensitive operation is called, never by requesting a broader token here.
-/// Before this fix `capabilities: Vec<String>` passed through to the sidecar
-/// completely unvalidated.
-const ALLOWED_CONNECTION_CAPABILITIES: &[&str] = &["workspace.read", "workspace.watch"];
+/// The capabilities a WebView may lease at connection time. This is a real
+/// second gate, not a mirror: before it existed, `capabilities: Vec<String>`
+/// reached the sidecar completely unvalidated, so a compromised WebView could
+/// simply ask for more.
+///
+/// It MUST equal `SURFACE_LEASE_CAPABILITIES` in
+/// packages/workbench-shell/src/routes.ts — the list the app actually
+/// requests. When it did not, `workbench_issue_token` refused the request and
+/// the whole Workbench connection failed, which no TypeScript test could see
+/// because the check lives here. `scripts/check-capability-lease-parity.mjs`
+/// compares the two files and is wired into the verification gates.
+///
+/// Widened beyond read/watch on 2026-08-23: the Fichiers CRUD, composer
+/// uploads and artifact preview are real Design operations, and none of them
+/// has an approval UI able to answer the 202 the broker would otherwise
+/// return. Step-up capabilities (artifact.create, artifact.export) stay OUT —
+/// the server grants those through its own gate when the operation is called,
+/// never by handing the WebView a broader token.
+const ALLOWED_CONNECTION_CAPABILITIES: &[&str] = &[
+    "workspace.read",
+    "workspace.write",
+    "workspace.watch",
+    "artifact.preview",
+];
 
 fn reject_disallowed_capabilities(requested: &[String]) -> Result<(), String> {
     for capability in requested {
@@ -204,6 +220,29 @@ mod capability_allowlist_tests {
     fn accepts_the_read_watch_connection_lease() {
         let requested = vec!["workspace.read".to_string(), "workspace.watch".to_string()];
         assert!(reject_disallowed_capabilities(&requested).is_ok());
+    }
+
+    /// The exact list packages/workbench-shell/src/routes.ts requests. A
+    /// mismatch here refuses the lease and breaks the whole connection, so it
+    /// is asserted verbatim rather than derived.
+    #[test]
+    fn accepts_the_full_surface_lease_the_app_requests() {
+        let requested = vec![
+            "workspace.read".to_string(),
+            "workspace.write".to_string(),
+            "workspace.watch".to_string(),
+            "artifact.preview".to_string(),
+        ];
+        assert!(reject_disallowed_capabilities(&requested).is_ok(), "the Rust allowlist drifted from SURFACE_LEASE_CAPABILITIES");
+    }
+
+    /// Step-up capabilities are granted by the server when the operation runs,
+    /// never leased at connection.
+    #[test]
+    fn refuses_step_up_capabilities_at_connection() {
+        for capability in ["artifact.create", "artifact.export"] {
+            assert!(reject_disallowed_capabilities(&[capability.to_string()]).is_err(), "{capability} must not be leasable");
+        }
     }
 
     #[test]

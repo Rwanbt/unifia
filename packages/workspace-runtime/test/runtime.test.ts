@@ -2,7 +2,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { WorkspaceRuntime } from "../src/index.js"
+import { WorkspaceRuntime, toWorkspacePath } from "../src/index.js"
 
 const root = await mkdtemp(path.join(os.tmpdir(), "unifia-workspace-"))
 try {
@@ -76,7 +76,19 @@ try {
   let revoked = false
   try { await runtime.read(handle.token, ["src/main.ts"]) } catch { revoked = true }
   if (!revoked) throw new Error("closed file session remained usable")
-  console.log("WorkspaceRuntime: 23/23 passed")
+  // Regression: the watcher normalised with one escape too many, so it looked
+  // for a doubled backslash and left every Windows event path unconverted
+  // while listings were already POSIX. The two must agree or no consumer can
+  // match an event against a listing.
+  if (toWorkspacePath("src\\main.ts") !== "src/main.ts") throw new Error("single backslash was not normalised")
+  if (toWorkspacePath("a\\b\\c.txt") !== "a/b/c.txt") throw new Error("nested backslashes were not normalised")
+  // The exact sequence the old inlined literal searched for: it must also
+  // collapse, otherwise the fix only moved the mistake.
+  if (toWorkspacePath("a\\\\b.txt") !== "a//b.txt") throw new Error("doubled backslashes were not normalised")
+  if (toWorkspacePath("src/main.ts") !== "src/main.ts") throw new Error("an already-POSIX path was altered")
+  if (toWorkspacePath("") !== "") throw new Error("empty path was altered")
+
+  console.log("WorkspaceRuntime: 28/28 passed")
 } finally {
   await rm(root, { recursive: true, force: true })
 }

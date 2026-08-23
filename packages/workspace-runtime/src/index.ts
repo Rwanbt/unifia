@@ -45,6 +45,23 @@ const DEFAULT_PAGE_SIZE = 500
 const DEFAULT_MAX_DEPTH = 32
 const DEFAULT_EXCLUDED_NAMES: ReadonlySet<string> = new Set(["node_modules", ".git", "dist", "build"])
 
+/**
+ * Workspace-relative paths are POSIX-separated everywhere this runtime reports
+ * them (`#walkEntries` normalises listings the same way), so watcher events
+ * must agree or a consumer can never match an event against a listing.
+ *
+ * WHY it is a named function: the watcher used to inline a replaceAll whose
+ * search literal carried one escape too many, so it looked for a doubled
+ * backslash — a sequence that never occurs in a Windows path — instead of the
+ * single one fs.watch actually reports. Every event on Windows therefore kept
+ * its backslashes while every listing had forward slashes. Pulling the rule
+ * out of the callback makes it testable instead of hiding an escaping mistake
+ * a reader has to decode by hand.
+ */
+export function toWorkspacePath(value: string): string {
+  return value.replaceAll("\\", "/")
+}
+
 function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex")
 }
@@ -300,7 +317,7 @@ export class WorkspaceRuntime implements WorkspacePort {
     }
     const watcher: FSWatcher = watchFiles(session.workspace.path, { recursive: true }, (eventType, filename) => {
       if (closed || !filename) return
-      const relative = filename.toString().replaceAll("\\\\", "/")
+      const relative = toWorkspacePath(filename.toString())
       const event: FileEvent = { type: eventType === "rename" ? "renamed" : "modified", path: relative, timestamp: this.#now() + sequence++ / 1000 }
       writeChain = writeChain.then(async () => {
         const stored = await this.appendFileEvent(session.workspace.id, event)
@@ -454,7 +471,7 @@ export class WorkspaceRuntime implements WorkspacePort {
           continue
         }
         const stat = await fs.stat(absolute)
-        const relative = path.relative(root, absolute).replaceAll("\\", "/")
+        const relative = toWorkspacePath(path.relative(root, absolute))
         const entry: WorkspaceEntry = { path: relative, kind: stat.isDirectory() ? "directory" : "file", size: stat.isFile() ? stat.size : 0, modifiedAt: stat.mtimeMs }
         if (!query || relative.toLocaleLowerCase().includes(query)) results.push(entry)
         if (stat.isDirectory() && depth < this.#maxDepth) await visit(absolute, depth + 1)
