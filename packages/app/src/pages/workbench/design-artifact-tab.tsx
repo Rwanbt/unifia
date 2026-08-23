@@ -104,6 +104,7 @@ export function DesignArtifactTab(props: {
   const [shareLinkState, setShareLinkState] = createSignal<
     { kind: "idle" } | { kind: "minting" } | { kind: "ready"; url: string; expiresAt: number } | { kind: "error"; error: string }
   >({ kind: "idle" })
+  const [presentLinkPending, setPresentLinkPending] = createSignal(false)
   const shareLinkError = createMemo(() => {
     const state = shareLinkState()
     return state.kind === "error" ? state.error : undefined
@@ -242,14 +243,27 @@ export function DesignArtifactTab(props: {
       // button itself is the only affordance; nothing else to fall back to.
     }
   }
-  function presentNewTab(): void {
-    const content = props.entry?.content
-    if (!content) return
-    const win = window.open("", "_blank", "noopener")
-    if (!win) return
-    win.document.open()
-    win.document.write(content)
-    win.document.close()
+  /**
+   * WHY the signed link and not document.write into a blank window: passing
+   * `noopener` makes window.open return null by specification, so the previous
+   * version opened a blank tab and wrote nothing into it — silently. Navigating
+   * to the Phase 9.4 present URL needs no window handle, so noopener keeps
+   * working, and the server serves the artifact with nosniff and a CSP instead
+   * of the host writing agent HTML into a window it owns.
+   */
+  async function presentNewTab(): Promise<void> {
+    const current = connection()
+    const artifactId = props.entry?.artifactId
+    if (!current || !artifactId || presentLinkPending()) return
+    setPresentLinkPending(true)
+    try {
+      const { url } = await current.client.presentArtifactLink(current.workspaceId, artifactId)
+      window.open(url, "_blank", "noopener")
+    } catch (error) {
+      setShareLinkState({ kind: "error", error: error instanceof Error ? error.message : "present link could not be created" })
+    } finally {
+      setPresentLinkPending(false)
+    }
   }
 
   createEffect(() => {
@@ -302,11 +316,16 @@ export function DesignArtifactTab(props: {
     const content = props.entry?.content
     if (!content) return
     setArtifactExportState({ kind: "exporting" })
-    const printWindow = window.open("", "_blank", "noopener")
+    // No `noopener` here: it makes window.open return null by specification,
+    // and print() needs the handle. The opener reference it would otherwise
+    // leave is severed manually instead, so the artifact's own script cannot
+    // reach back into the workshop.
+    const printWindow = window.open("", "_blank")
     if (!printWindow) {
       setArtifactExportState({ kind: "error", error: "popup blocked — allow popups to export as PDF" })
       return
     }
+    printWindow.opener = null
     printWindow.document.open()
     printWindow.document.write(content)
     printWindow.document.close()
@@ -439,7 +458,7 @@ export function DesignArtifactTab(props: {
                 type="button"
                 class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
                 data-design-present-new-tab
-                onClick={presentNewTab}
+                onClick={() => void presentNewTab()}
               >
                 Nouvel onglet
               </button>
