@@ -44,11 +44,15 @@ export function DesignBrowserTab(): JSX.Element {
       const opened = await invoke<string>("open_design_browser", { url: next })
       setLabel(opened)
       setFallbackUrl("")
-    } catch {
-      // No native host, or the window refused to build: show the page inline
-      // rather than leaving the tab blank.
+    } catch (cause) {
+      // No native host (web/dev build), or the window refused to build. The
+      // inline frame is a genuine fallback only off the desktop: the packaged
+      // app's CSP is `frame-src 'self' data:`, so a remote URL renders blank
+      // there and widening it would let any artifact embed remote content.
+      // Say so rather than leaving an unexplained empty panel.
       setLabel(undefined)
       setFallbackUrl(next)
+      setError(`Fenêtre native indisponible (${cause instanceof Error ? cause.message : String(cause)}). Affichage intégré — bloqué par la politique de sécurité dans l'application packagée.`)
     }
   }
 
