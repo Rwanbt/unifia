@@ -1804,4 +1804,10 @@ export const dict = {
   "design.workspace.empty": "열린 항목 없음",
   "design.workspace.emptyHint": "에이전트가 아티팩트를 만들면 여기에 표시됩니다.",
   "design.workspace.demo": "데모 미리보기 표시",
+  "design.github.state.loading": "GitHub: 확인 중…",
+  "design.github.state.error": "GitHub: 사용 불가",
+  "design.github.state.unconfigured": "GitHub: 미설정",
+  "design.github.state.disconnected": "GitHub: 연결 안 됨",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "설정에서 GitHub 계정을 연결하세요.",
 }

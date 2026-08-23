@@ -1810,4 +1810,10 @@ export const dict = {
   "design.workspace.empty": "Nada aberto",
   "design.workspace.emptyHint": "Um artefato aparece aqui assim que o agente produzir um.",
   "design.workspace.demo": "Mostrar pré-visualização de demonstração",
+  "design.github.state.loading": "GitHub: verificando…",
+  "design.github.state.error": "GitHub: indisponível",
+  "design.github.state.unconfigured": "GitHub: não configurado",
+  "design.github.state.disconnected": "GitHub: não conectado",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "Conecte uma conta do GitHub em Configurações.",
 }

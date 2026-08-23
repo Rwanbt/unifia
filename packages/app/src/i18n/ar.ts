@@ -1798,4 +1798,10 @@ export const dict = {
   "design.workspace.empty": "لا شيء مفتوح",
   "design.workspace.emptyHint": "سيظهر العنصر هنا بمجرد أن ينتجه الوكيل.",
   "design.workspace.demo": "عرض معاينة تجريبية",
+  "design.github.state.loading": "GitHub: جارٍ التحقق…",
+  "design.github.state.error": "GitHub: غير متاح",
+  "design.github.state.unconfigured": "GitHub: غير مُهيأ",
+  "design.github.state.disconnected": "GitHub: غير متصل",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "اربط حساب GitHub من الإعدادات.",
 }

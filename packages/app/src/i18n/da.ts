@@ -1880,4 +1880,10 @@ export const dict = {
   "design.workspace.empty": "Intet åbent",
   "design.workspace.emptyHint": "Et artefakt vises her, så snart agenten laver et.",
   "design.workspace.demo": "Vis demoforhåndsvisning",
+  "design.github.state.loading": "GitHub: kontrollerer…",
+  "design.github.state.error": "GitHub: utilgængelig",
+  "design.github.state.unconfigured": "GitHub: ikke konfigureret",
+  "design.github.state.disconnected": "GitHub: ikke forbundet",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "Forbind en GitHub-konto i Indstillinger.",
 }

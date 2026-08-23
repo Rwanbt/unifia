@@ -1804,4 +1804,10 @@ export const dict = {
   "design.workspace.empty": "Ingenting åpent",
   "design.workspace.emptyHint": "Et artefakt vises her så snart agenten lager ett.",
   "design.workspace.demo": "Vis demovisning",
+  "design.github.state.loading": "GitHub: sjekker…",
+  "design.github.state.error": "GitHub: utilgjengelig",
+  "design.github.state.unconfigured": "GitHub: ikke konfigurert",
+  "design.github.state.disconnected": "GitHub: ikke tilkoblet",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "Koble til en GitHub-konto i Innstillinger.",
 } satisfies Partial<Record<Keys, string>>

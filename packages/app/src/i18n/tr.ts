@@ -1808,4 +1808,10 @@ export const dict = {
   "design.workspace.empty": "Açık bir şey yok",
   "design.workspace.emptyHint": "Aracı bir yapı ürettiğinde burada görünür.",
   "design.workspace.demo": "Tanıtım önizlemesini göster",
+  "design.github.state.loading": "GitHub: denetleniyor…",
+  "design.github.state.error": "GitHub: kullanılamıyor",
+  "design.github.state.unconfigured": "GitHub: yapılandırılmadı",
+  "design.github.state.disconnected": "GitHub: bağlı değil",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "Ayarlar’dan bir GitHub hesabı bağlayın.",
 } satisfies Partial<Record<Keys, string>>

@@ -1804,4 +1804,10 @@ export const dict = {
   "design.workspace.empty": "何も開いていません",
   "design.workspace.emptyHint": "エージェントが生成すると、ここにアーティファクトが表示されます。",
   "design.workspace.demo": "デモプレビューを表示",
+  "design.github.state.loading": "GitHub: 確認中…",
+  "design.github.state.error": "GitHub: 利用不可",
+  "design.github.state.unconfigured": "GitHub: 未設定",
+  "design.github.state.disconnected": "GitHub: 未接続",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "設定から GitHub アカウントを接続してください。",
 }

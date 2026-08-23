@@ -1886,4 +1886,10 @@ export const dict = {
   "design.workspace.empty": "Ništa nije otvoreno",
   "design.workspace.emptyHint": "Artefakt se pojavljuje ovdje čim ga agent proizvede.",
   "design.workspace.demo": "Prikaži demonstracijski pregled",
+  "design.github.state.loading": "GitHub: provjera…",
+  "design.github.state.error": "GitHub: nedostupan",
+  "design.github.state.unconfigured": "GitHub: nije konfiguriran",
+  "design.github.state.disconnected": "GitHub: nije povezan",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "Poveži GitHub račun u Postavkama.",
 }

@@ -32,6 +32,7 @@ import {
   diffArtifactVersions,
   createIndexedDbDesignDraftStore,
   createIndexedDbCommentStore,
+  describeGithubConnection,
   addComment,
   newCommentId,
   DesignDraftConflictError,
@@ -54,6 +55,7 @@ export function DesignSurface(): JSX.Element {
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   const manifest = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-systems"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSystems(connection()!.workspaceId) }))
   const skills = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-skills"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSkills(connection()!.workspaceId) }))
+  const github = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "github-status"), enabled: !!connection(), queryFn: () => connection()!.client.githubStatus(connection()!.workspaceId) }))
   const [source, setSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number | undefined>()
   const [draftError, setDraftError] = createSignal<string>()
@@ -662,6 +664,7 @@ export function DesignSurface(): JSX.Element {
               state={tabState}
               setState={setTabState}
               renderContent={renderTabContent}
+              github={describeGithubConnection({ status: github.data, loading: github.isLoading, error: github.error })}
               onOpenTerminal={() => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))}
               onOpenBrowser={() => setTabState(openTab(tabState, { id: "browser", kind: "browser", title: "Navigateur", closable: true }))}
               onOpenSketch={() => setTabState(openTab(tabState, { id: "sketch", kind: "sketch", title: "Croquis", closable: true }))}

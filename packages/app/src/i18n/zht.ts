@@ -1870,4 +1870,10 @@ export const dict = {
   "design.workspace.empty": "尚未開啟任何內容",
   "design.workspace.emptyHint": "代理產生製品後將在此顯示。",
   "design.workspace.demo": "顯示示範預覽",
+  "design.github.state.loading": "GitHub：檢查中…",
+  "design.github.state.error": "GitHub：無法使用",
+  "design.github.state.unconfigured": "GitHub：未設定",
+  "design.github.state.disconnected": "GitHub：未連線",
+  "design.github.state.connected": "GitHub：{{login}}",
+  "design.github.state.hint": "在設定中連線 GitHub 帳號。",
 } satisfies Partial<Record<Keys, string>>

@@ -1876,4 +1876,10 @@ export const dict = {
   "design.workspace.empty": "ยังไม่มีสิ่งใดเปิดอยู่",
   "design.workspace.emptyHint": "อาร์ทิแฟกต์จะปรากฏที่นี่ทันทีที่เอเจนต์สร้างขึ้น",
   "design.workspace.demo": "แสดงตัวอย่างสาธิต",
+  "design.github.state.loading": "GitHub: กำลังตรวจสอบ…",
+  "design.github.state.error": "GitHub: ใช้งานไม่ได้",
+  "design.github.state.unconfigured": "GitHub: ยังไม่ตั้งค่า",
+  "design.github.state.disconnected": "GitHub: ยังไม่เชื่อมต่อ",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "เชื่อมต่อบัญชี GitHub จากการตั้งค่า",
 }

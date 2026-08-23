@@ -1824,4 +1824,10 @@ export const dict = {
   "design.workspace.empty": "Nichts geöffnet",
   "design.workspace.emptyHint": "Ein Artefakt erscheint hier, sobald der Agent eines erzeugt.",
   "design.workspace.demo": "Demo-Vorschau anzeigen",
+  "design.github.state.loading": "GitHub: wird geprüft…",
+  "design.github.state.error": "GitHub: nicht verfügbar",
+  "design.github.state.unconfigured": "GitHub: nicht konfiguriert",
+  "design.github.state.disconnected": "GitHub: nicht verbunden",
+  "design.github.state.connected": "GitHub: {{login}}",
+  "design.github.state.hint": "Verbinde ein GitHub-Konto in den Einstellungen.",
 } satisfies Partial<Record<Keys, string>>

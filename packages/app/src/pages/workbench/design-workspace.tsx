@@ -4,6 +4,7 @@ import { For, Show, type JSX, createMemo } from "solid-js"
 import { createStore, type SetStoreFunction } from "solid-js/store"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import type { GithubConnectionView } from "@unifia/workbench-shell"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
 import {
   activateTab,
@@ -45,6 +46,7 @@ export function DesignWorkspace(props: {
   onOpenTerminal?: () => void
   onOpenBrowser?: () => void
   onOpenSketch?: () => void
+  github?: GithubConnectionView
 }): JSX.Element {
   const language = useLanguage()
   const workbench = useWorkspaceWorkbench()
@@ -70,7 +72,7 @@ export function DesignWorkspace(props: {
           aria-label={t("design.workspace.tabsLabel")}
           data-design-workspace-tab-bar
         >
-          <div class="ml-auto flex gap-1"><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show><Show when={props.onOpenSketch}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-sketch onClick={() => props.onOpenSketch?.()}>Croquis</button></Show></div>
+          <div class="ml-auto flex items-center gap-1"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show><Show when={props.onOpenSketch}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-sketch onClick={() => props.onOpenSketch?.()}>Croquis</button></Show></div>
           <For each={state().tabs}>
             {(item) => (
               <button
@@ -174,4 +176,23 @@ export function seedDesignTabState(): DesignTabState {
   // insertion order, so users see Fichiers on the left, Spec on the right.
   const withSpec = openTab(state, { id: "spec", kind: "spec", title: "Spec", closable: false })
   return openTab(withSpec, { id: "files", kind: "file", title: "Fichiers", closable: false })
+}
+
+/**
+ * Phase 17 — read-only. Connecting lives in Settings → GitHub (the Device
+ * Flow panel that already owns the sidecar's /github routes); duplicating it
+ * here would be a second flow to keep correct for no new capability.
+ */
+function GithubBadge(props: { view: GithubConnectionView }): JSX.Element {
+  const language = useLanguage()
+  const t = language.t
+  const label = createMemo(() => props.view.kind === "connected"
+    ? t("design.github.state.connected", { login: props.view.login })
+    : t(`design.github.state.${props.view.kind}`))
+  const title = createMemo(() => props.view.kind === "disconnected" || props.view.kind === "unconfigured" ? t("design.github.state.hint") : label())
+  return <span
+    class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
+    data-design-github-state={props.view.kind}
+    title={title()}
+  >{label()}</span>
 }
