@@ -52,10 +52,19 @@ const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
  * provider.tsx) and always in principal.scopes already — they don't need
  * to be listed here. Every capability NOT in principal.scopes and NOT
  * listed here is refused before #checkCapability's gate ever runs:
- * workspace.write, workflow.run, desktop.control, desktop.observe,
- * browser.navigate, package.install have no legitimate caller in this
- * branch (workflow.run in particular: Automate is out of scope, see
- * ADR-1033/C5-4). artifact.create and artifact.export are the only two
+ * workflow.run, desktop.control, desktop.observe, browser.navigate and
+ * package.install have no legitimate caller in this branch (workflow.run
+ * in particular: Automate is out of scope, see ADR-1033/C5-4).
+ *
+ * workspace.write is deliberately NOT step-up eligible either, but it did
+ * acquire legitimate callers (Fichiers CRUD, composer uploads, the scoped
+ * PTY routes). Those are served by widening the lease the surface requests
+ * at connection — SURFACE_LEASE_CAPABILITIES in workbench-shell/routes.ts —
+ * so the capability is in principal.scopes and this gate passes it to the
+ * broker like any other granted capability. A token that was never issued
+ * workspace.write is still refused here without creating an approval.
+ *
+ * artifact.create and artifact.export remain the only two
  * step-up-eligible capabilities — Design/Work trigger them for real
  * (save/export), so a base-scoped token must still be able to reach the
  * approval gate for these two, not fail closed outright.

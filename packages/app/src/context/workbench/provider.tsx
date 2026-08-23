@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: MIT */
 
 import { createSimpleContext } from "@unifia/ui/context"
-import { WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
+import { SURFACE_LEASE_CAPABILITIES, WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
 import { useQueryClient } from "@tanstack/solid-query"
 import { createSignal, onCleanup, type ParentProps } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { decideEventRetry } from "./event-retry"
 
-const READ_CAPABILITIES = ["workspace.read", "workspace.watch"] as const
 /** Delay before reconnecting after the stream closes cleanly (not an error, so decideEventRetry's backoff does not apply). */
 const EVENT_RECONNECT_DELAY_MS = 1_000
 
@@ -80,7 +79,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
         updatePhase("initializing")
         if (signal.aborted) throw signal.reason
         updatePhase("opening")
-        const value = await platform.workbench!.connect({ workspacePath: props.workspacePath, capabilities: READ_CAPABILITIES })
+        const value = await platform.workbench!.connect({ workspacePath: props.workspacePath, capabilities: SURFACE_LEASE_CAPABILITIES })
         acquire(value.revoke)
         setIdentity(createWorkbenchTaskIdentity({ codeSessionId: props.codeSessionId, workbenchSessionId: crypto.randomUUID() }))
         updatePhase("handshaking")

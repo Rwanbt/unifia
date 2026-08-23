@@ -172,5 +172,29 @@ export const M25_SERVER_ROUTE_REGISTRY = {
   githubDisconnect: { method: "POST", route: "/v1/github/disconnect", capability: "workspace.write", event: "catalog.updated" },
 } as const satisfies Record<string, WorkbenchServerRoute>
 
+/**
+ * Capabilities the Design/Work WebView leases at connection time.
+ *
+ * WHY workspace.write is here: the lease used to be read/watch only, which
+ * predated the Fichiers CRUD (M21), composer attachments and the scoped PTY
+ * routes (M24). #checkCapability refuses any capability absent from the
+ * calling token's scopes before the approval gate runs, so every one of those
+ * routes answered 403 in the shipped app while passing its own tests against a
+ * fully-scoped test principal. `SURFACE_LEASE_INVARIANT` below pins the lease
+ * to what the registries actually demand, so adding a write route without
+ * widening the lease fails a test instead of shipping a dead button.
+ */
+export const SURFACE_LEASE_CAPABILITIES = ["workspace.read", "workspace.write", "workspace.watch"] as const
+
+/** Registries whose capabilities the leased token must already carry (no step-up path exists for them). */
+const LEASE_BACKED_REGISTRIES = [M21_SERVER_ROUTE_REGISTRY, M24_SERVER_ROUTE_REGISTRY, M25_SERVER_ROUTE_REGISTRY] as const
+
+export const SURFACE_LEASE_INVARIANT: readonly string[] = [
+  ...new Set(LEASE_BACKED_REGISTRIES.flatMap((registry) => Object.values(registry).map((route) => route.capability))),
+].sort()
+
+const uncoveredCapabilities = SURFACE_LEASE_INVARIANT.filter((capability) => !SURFACE_LEASE_CAPABILITIES.includes(capability as (typeof SURFACE_LEASE_CAPABILITIES)[number]))
+if (uncoveredCapabilities.length > 0) throw new Error(`surface lease is missing capabilities demanded by the route registry: ${uncoveredCapabilities.join(", ")}`)
+
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

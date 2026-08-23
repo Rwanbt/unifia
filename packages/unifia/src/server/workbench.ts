@@ -95,9 +95,11 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     auditLogPath: process.env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(Global.Path.data, "workbench-audit.jsonl"),
     rateBudget: 240,
     rateWindowMs: 60_000,
-    // Read/watch are the baseline capabilities requested by the native Work
-    // surface; writes and installs still go through the approval broker.
-    allowlistedCapabilities: new Set(["workspace.read", "workspace.watch"] as P3Capability[]),
+    // The Design surface writes for real — Fichiers CRUD, composer uploads,
+    // opening a terminal — and none of those have an approval UI to answer a
+    // 202, so gating them on the broker turned every one into a silent 403.
+    // Installs, workflow runs and desktop control still go through it.
+    allowlistedCapabilities: new Set(["workspace.read", "workspace.write", "workspace.watch"] as P3Capability[]),
   }, {
     backend: new OpenCodeSessionBackend(),
     designSkills: async () => {
