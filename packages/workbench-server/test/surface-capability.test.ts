@@ -13,7 +13,8 @@
 // These tests pin the enforcement to the capability the registry declares.
 
 import { describe, expect, it } from "vitest"
-import { ScopedTokenIssuer, WorkbenchServer, type WorkbenchGithubSurface } from "../src/index.js"
+import { SURFACE_GRANTED_CAPABILITIES, STEP_UP_ELIGIBLE, ScopedTokenIssuer, WorkbenchServer, type WorkbenchGithubSurface } from "../src/index.js"
+import { SURFACE_LEASE_CAPABILITIES, SURFACE_REQUIRED_CAPABILITIES } from "@unifia/workbench-shell"
 
 const WORKSPACE_ID = "ws-1"
 const READ_ONLY_CAPABILITIES = ["workspace.read", "workspace.watch"]
@@ -122,5 +123,23 @@ describe("Phase 12/17 surfaces run through the capability gate", () => {
 
     expect(response.status).toBe(403)
     expect(reached).toEqual([])
+  })
+})
+
+// The bug class this pins: a route can be perfectly implemented and still be
+// dead in the shipped app, because #checkCapability refuses anything the
+// calling token never carried (unless it is step-up eligible) and the gate
+// then answers 202 for anything it does not allowlist -- a status
+// WorkbenchClient reads as success. Both lists live away from the routes they
+// govern, so only a test can keep them honest.
+describe("the shipped surface can actually reach the routes it declares", () => {
+  it.each(SURFACE_REQUIRED_CAPABILITIES)("%s is granted by the sidecar gate", (capability) => {
+    expect(SURFACE_GRANTED_CAPABILITIES as readonly string[]).toContain(capability)
+  })
+
+  it.each(SURFACE_REQUIRED_CAPABILITIES)("%s is either leased to the WebView or step-up eligible", (capability) => {
+    const leased = (SURFACE_LEASE_CAPABILITIES as readonly string[]).includes(capability)
+    const stepUp = (STEP_UP_ELIGIBLE as readonly string[]).includes(capability)
+    expect(leased || stepUp).toBe(true)
   })
 })

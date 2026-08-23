@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { M20_SERVER_ROUTE_REGISTRY, SURFACE_LEASE_CAPABILITIES, SURFACE_LEASE_INVARIANT, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage } from "../src/index.js"
+import { M20_SERVER_ROUTE_REGISTRY, SURFACE_LEASE_CAPABILITIES, SURFACE_REQUIRED_CAPABILITIES, WORKBENCH_ROUTE_OPERATIONS, WORKBENCH_ROUTE_REGISTRY, routeFor, routesForLineage } from "../src/index.js"
 import { test } from "bun:test"
 
 test('routes.test', async () => {
@@ -18,9 +18,7 @@ if (M20_SERVER_ROUTE_REGISTRY.designSystems.route !== "/v1/design-systems") thro
 // A write route added without widening the lease answers 403 in the shipped
 // app while its own tests pass against a fully-scoped test principal — the
 // exact way the Fichiers CRUD, composer uploads and PTY routes shipped broken.
-for (const capability of SURFACE_LEASE_INVARIANT) {
-  if (!SURFACE_LEASE_CAPABILITIES.includes(capability as never)) throw new Error(`surface lease does not cover ${capability}`)
-}
+if (SURFACE_REQUIRED_CAPABILITIES.length === 0) throw new Error("no surface capabilities derived from the registries")
 if (!SURFACE_LEASE_CAPABILITIES.includes("workspace.write")) throw new Error("surface lease lost workspace.write")
-console.log(`WorkbenchRoutes: ${expected.length}/${expected.length} entries aligned, lease covers ${SURFACE_LEASE_INVARIANT.length} registry capabilities`)
+console.log(`WorkbenchRoutes: ${expected.length}/${expected.length} entries aligned, lease+grant cover ${SURFACE_REQUIRED_CAPABILITIES.length} registry capabilities`)
 })

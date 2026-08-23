@@ -35,7 +35,19 @@ type AuditPort = { record(actor: string, capability: string, decision: "allow" |
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
 export type WorkbenchGithubSurface = { status(workspaceId: string): Promise<Record<string, unknown>>; deviceStart(workspaceId: string): Promise<Record<string, unknown>>; devicePoll(workspaceId: string): Promise<Record<string, unknown>>; deviceCancel(workspaceId: string): Promise<{ ok: boolean }>; disconnect(workspaceId: string): Promise<{ ok: boolean }> }
-type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>; github?: WorkbenchGithubSurface; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
+/**
+ * Resolves the artifact lineage for one workspace.
+ *
+ * WHY a resolver and not one store: ArtifactStore.list() takes no workspace and
+ * reads a single directory, so a store shared by every workspace the sidecar
+ * serves would let workspace A list and read workspace B's artifacts. The
+ * routes all authorize a workspaceId already; this makes the storage honour the
+ * same boundary. Tests that only ever use one workspace may still pass a plain
+ * store.
+ */
+export type ArtifactStoreResolver = (workspaceId: string) => ArtifactStore
+
+type ServerDependencies = { auth: PrincipalAuthenticator; rateLimiter?: RateLimiter; workspace: WorkspacePort; runtime: RuntimeAdapter; audit: AuditPort; capability: CapabilityGate; instanceId?: string; tokenIssuer?: ScopedTokenAuthority; artifacts?: ArtifactStore | ArtifactStoreResolver; browser?: BrowserAutomationBroker; desktop?: DesktopAutomationBroker; workflow?: WorkflowRuntime; memory?: MemoryRuntime; capabilities?: CapabilityRegistry; ui?: McpUiControlBroker; uiAllowedActions?: ReadonlySet<string>; skillHub?: SkillRegistry; designSkills?: (workspaceId: string) => Promise<readonly DesignSkillManifest[]>; github?: WorkbenchGithubSurface; allowedOrigins?: readonly string[]; workspaceEventsPollMs?: number; presentLinks?: PresentLinkSigner }
 
 /** Requests per principal per window when the caller injects no limiter. */
 const DEFAULT_RATE_BUDGET = 240
@@ -66,6 +78,34 @@ const DEFAULT_WORKSPACE_EVENTS_POLL_MS = 5_000
  * approval gate for these two, not fail closed outright.
  */
 const STEP_UP_ELIGIBLE_CAPABILITIES: ReadonlySet<P3Capability> = new Set(["artifact.create", "artifact.export"])
+
+/**
+ * Capabilities the desktop sidecar's gate allows without an approval.
+ *
+ * WHY it is wider than the connection lease: reaching the gate is not passing
+ * it. artifact.create/export are step-up eligible, so a leased token reaches
+ * the broker — which answered 202 approvalRequired, and no Design surface has
+ * an approval UI able to answer one. WorkbenchClient treats 202 as success (it
+ * IS `response.ok`), so callers read `result.artifact` off an approval
+ * envelope and threw. artifact.preview is not step-up eligible at all and
+ * answered a flat 403, leaving ArtifactPreview unable to fetch bytes.
+ *
+ * Deliberately absent: package.install, workflow.run, desktop.observe,
+ * desktop.control, browser.navigate — those still go through the broker.
+ * surface-capability.test.ts pins this list against the route registries the
+ * Design/Work surfaces actually call.
+ */
+export const SURFACE_GRANTED_CAPABILITIES: readonly P3Capability[] = [
+  "workspace.read",
+  "workspace.write",
+  "workspace.watch",
+  "artifact.preview",
+  "artifact.create",
+  "artifact.export",
+]
+
+/** Exposed so the surface suite can assert the shell's lease agrees with what this server refuses before the gate. */
+export const STEP_UP_ELIGIBLE: readonly P3Capability[] = [...STEP_UP_ELIGIBLE_CAPABILITIES]
 /** Sentinel racing every session's next() promise so a newly-discovered session can interrupt an in-flight wait. */
 const WAKE = Symbol("workspace-events-wake")
 type JsonRecord = Record<string, unknown>
@@ -185,7 +225,7 @@ export class WorkbenchServer {
   readonly #runtime: RuntimeAdapter
   readonly #audit: AuditPort
   readonly #capability: CapabilityGate
-  readonly #artifacts?: ArtifactStore
+  readonly #artifacts?: ArtifactStore | ArtifactStoreResolver
   readonly #browser?: BrowserAutomationBroker
   readonly #desktop?: DesktopAutomationBroker
   readonly #workflow?: WorkflowRuntime
@@ -966,16 +1006,23 @@ export class WorkbenchServer {
     this.#allow(`${kind}.read`)
     return json(200, { kind, ...page })
   }
+  #artifactsFor(workspaceId: string): ArtifactStore | undefined {
+    const artifacts = this.#artifacts
+    if (!artifacts) return undefined
+    return typeof artifacts === "function" ? artifacts(workspaceId) : artifacts
+  }
+
   async #artifactRead(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.read.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.read.scope", 403)
+    const artifacts = this.#artifactsFor(workspaceId)
+    if (!artifacts) return this.#deny("artifact.read.unavailable", 503)
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
-    if (!artifactId) { this.#allow("artifact.list"); return json(200, { artifacts: await this.#artifacts.list() }) }
-    const artifact = await this.#artifacts.latest(artifactId)
+    if (!artifactId) { this.#allow("artifact.list"); return json(200, { artifacts: await artifacts.list() }) }
+    const artifact = await artifacts.latest(artifactId)
     if (!artifact) return this.#deny("artifact.not-found", 404)
-    const content = await this.#artifacts.read(artifact)
+    const content = await artifacts.read(artifact)
     this.#allow("artifact.read")
     return json(200, { artifact, content: Buffer.from(content).toString("base64"), encoding: "base64" })
   }
@@ -1002,7 +1049,6 @@ export class WorkbenchServer {
    *     "save to disk, open in a regular browser" attack path).
    */
   async #artifactRaw(request: Request, artifactId: string | undefined, rawPath: string | undefined, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.raw.unavailable", 503)
     if (!artifactId) return this.#deny("artifact.raw.id", 400)
     if (!rawPath) return this.#deny("artifact.raw.path", 400)
     if (rawPath.includes("..") || rawPath.startsWith("/") || rawPath.startsWith("\\") || /^[A-Za-z]:/.test(rawPath) || rawPath.includes("\0")) {
@@ -1010,13 +1056,15 @@ export class WorkbenchServer {
     }
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.raw.scope", 403)
+    const artifacts = this.#artifactsFor(workspaceId)
+    if (!artifacts) return this.#deny("artifact.raw.unavailable", 503)
     const gate = await this.#checkCapability("artifact.preview", workspaceId, principal)
     if (gate) return gate
-    const artifact = await this.#artifacts.latest(artifactId)
+    const artifact = await artifacts.latest(artifactId)
     if (!artifact) return this.#deny("artifact.raw.path", 403)
     const artifactFileName = basename(artifact.relativePath)
     if (rawPath !== artifactFileName && rawPath !== artifact.relativePath) return this.#deny("artifact.raw.path", 403)
-    const content = await this.#artifacts.read(artifact)
+    const content = await artifacts.read(artifact)
     const lower = rawPath.toLowerCase()
     const lastDot = lower.lastIndexOf(".")
     const ext = lastDot >= 0 ? lower.slice(lastDot + 1) : ""
@@ -1043,16 +1091,17 @@ export class WorkbenchServer {
    * point, it's what lets it be opened by someone else.
    */
   async #artifactPresentLink(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.present.unavailable", 503)
     if (!this.#presentLinks) return this.#deny("artifact.present.unconfigured", 503)
     if (!artifactId) return this.#deny("artifact.present.id", 400)
     const input = await body(request)
     if (typeof input.workspaceId !== "string") return this.#deny("artifact.present", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("artifact.present.scope", 403)
+    const artifacts = this.#artifactsFor(input.workspaceId)
+    if (!artifacts) return this.#deny("artifact.present.unavailable", 503)
     const gate = await this.#checkCapability("artifact.export", input.workspaceId, principal)
     if (gate) return gate
-    const artifact = await this.#artifacts.latest(artifactId)
+    const artifact = await artifacts.latest(artifactId)
     if (!artifact) return this.#deny("artifact.present.missing", 404)
     const { token: linkToken, expiresAt } = this.#presentLinks.sign(artifactId, input.workspaceId)
     const origin = new URL(request.url).origin
@@ -1070,16 +1119,19 @@ export class WorkbenchServer {
    * meant to be the only one it needs.
    */
   async #artifactPresent(request: Request, artifactId: string | undefined): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.present.unavailable", 503)
     if (!this.#presentLinks) return this.#deny("artifact.present.unconfigured", 503)
     if (!artifactId) return this.#deny("artifact.present.id", 400)
     const suppliedToken = new URL(request.url).searchParams.get("token")
     if (!suppliedToken) return this.#deny("artifact.present.token", 400)
     const claims = this.#presentLinks.verify(suppliedToken)
     if (!claims || claims.artifactId !== artifactId) return this.#deny("artifact.present.token", 403)
-    const artifact = await this.#artifacts.latest(artifactId)
+    // The workspace comes from the signed claims, so the link reaches exactly
+    // the lineage it was minted against and no other.
+    const artifacts = this.#artifactsFor(claims.workspaceId)
+    if (!artifacts) return this.#deny("artifact.present.unavailable", 503)
+    const artifact = await artifacts.latest(artifactId)
     if (!artifact) return this.#deny("artifact.present.missing", 404)
-    const content = await this.#artifacts.read(artifact)
+    const content = await artifacts.read(artifact)
     this.#allow("artifact.present")
     return new Response(new Blob([new Uint8Array(content)]), {
       status: 200,
@@ -1088,49 +1140,53 @@ export class WorkbenchServer {
   }
 
   async #artifactHistory(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.history.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.history.scope", 403)
+    const artifacts = this.#artifactsFor(workspaceId)
+    if (!artifacts) return this.#deny("artifact.history.unavailable", 503)
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
     if (!artifactId) return this.#deny("artifact.history.id", 400)
     this.#allow("artifact.history")
-    return json(200, { history: await this.#artifacts.history(artifactId) })
+    return json(200, { history: await artifacts.history(artifactId) })
   }
   async #artifactWrite(request: Request, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.create.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || typeof input.kind !== "string" || typeof input.filename !== "string" || typeof input.content !== "string") return this.#deny("artifact.create", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("artifact.create.scope", 403)
+    const artifacts = this.#artifactsFor(input.workspaceId)
+    if (!artifacts) return this.#deny("artifact.create.unavailable", 503)
     const gate = await this.#checkCapability("artifact.create", input.workspaceId, principal)
     if (gate) return gate
-    const artifact = await this.#artifacts.create({ kind: input.kind as Parameters<ArtifactStore["create"]>[0]["kind"], filename: input.filename, content: input.content, artifactId: typeof input.artifactId === "string" ? input.artifactId : undefined, metadata: input.metadata as Record<string, string> | undefined, provenance: input.provenance as Parameters<ArtifactStore["create"]>[0]["provenance"] })
+    const artifact = await artifacts.create({ kind: input.kind as Parameters<ArtifactStore["create"]>[0]["kind"], filename: input.filename, content: input.content, artifactId: typeof input.artifactId === "string" ? input.artifactId : undefined, metadata: input.metadata as Record<string, string> | undefined, provenance: input.provenance as Parameters<ArtifactStore["create"]>[0]["provenance"] })
     this.#allow("artifact.create")
     return json(201, { artifact })
   }
   async #artifactExport(request: Request, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("artifact.export.unavailable", 503)
     const input = await body(request)
     if (typeof input.workspaceId !== "string" || typeof input.artifactId !== "string") return this.#deny("artifact.export", 400)
     const token = this.#authorize(request, input.workspaceId)
     if (!token) return this.#deny("artifact.export.scope", 403)
+    const artifacts = this.#artifactsFor(input.workspaceId)
+    if (!artifacts) return this.#deny("artifact.export.unavailable", 503)
     const gate = await this.#checkCapability("artifact.export", input.workspaceId, principal)
     if (gate) return gate
-    const artifact = await this.#artifacts.latest(input.artifactId)
+    const artifact = await artifacts.latest(input.artifactId)
     if (!artifact) return this.#deny("artifact.export.not-found", 404)
-    const exported = await this.#artifacts.export(artifact, { outbox: typeof input.outbox === "string" ? input.outbox : undefined, metadata: input.metadata === "keep" ? "keep" : "strip" })
+    const exported = await artifacts.export(artifact, { outbox: typeof input.outbox === "string" ? input.outbox : undefined, metadata: input.metadata === "keep" ? "keep" : "strip" })
     this.#allow("artifact.export")
     return json(200, { exported })
   }
   async #documents(request: Request, principal: Principal): Promise<Response> {
-    if (!this.#artifacts) return this.#deny("documents.unavailable", 503)
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
     if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("documents.scope", 403)
+    const artifacts = this.#artifactsFor(workspaceId)
+    if (!artifacts) return this.#deny("documents.unavailable", 503)
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
-    const documents = (await this.#artifacts.list()).filter((artifact) => artifact.kind !== "binary")
+    const documents = (await artifacts.list()).filter((artifact) => artifact.kind !== "binary")
     this.#allow("documents.list")
     return json(200, { documents })
   }

@@ -16,11 +16,13 @@
 import { appendFileSync, mkdirSync } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
+import { ArtifactStore } from "@unifia/artifact-runtime"
 import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
 import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
 import { ApprovalCapabilityGate, WorkbenchServer, type WorkbenchGithubSurface } from "./index.js"
+import { PresentLinkSigner } from "./present-link.js"
 
 export type WorkbenchRuntimeKind = "fake" | "opencode"
 
@@ -36,6 +38,14 @@ export type WorkbenchConfig = {
   rateWindowMs: number
   /** Capabilities that bypass the approval broker. Empty means approve everything. */
   allowlistedCapabilities: ReadonlySet<P3Capability>
+  /**
+   * Where the artifact lineage is stored (the store appends `.unifia/artifacts`).
+   * Same reasoning as auditLogPath: a sidecar inherits the launcher's cwd, which
+   * on a Windows shortcut is C:\WINDOWS\system32 and is not writable.
+   */
+  artifactRoot: string
+  /** Lifetime of a Phase 9.4 share link. Short by design — a present link expires rather than being revoked. */
+  presentLinkTtlMs: number
 }
 
 export type WorkbenchHandle = {
@@ -50,6 +60,8 @@ const MIN_SIGNING_KEY_BYTES = 32
 const DEFAULT_PORT = 7444
 const DEFAULT_RATE_BUDGET = 240
 const DEFAULT_RATE_WINDOW_MS = 60_000
+/** Ten minutes: long enough to paste a link into a chat, short enough that a leaked one stops working. */
+const DEFAULT_PRESENT_LINK_TTL_MS = 10 * 60_000
 
 /**
  * Durable audit sink.
@@ -128,6 +140,8 @@ export function loadConfigFromEnv(env: Record<string, string | undefined> = proc
     rateBudget: Number(env.UNIFIA_WORKBENCH_RATE_BUDGET ?? DEFAULT_RATE_BUDGET),
     rateWindowMs: Number(env.UNIFIA_WORKBENCH_RATE_WINDOW_MS ?? DEFAULT_RATE_WINDOW_MS),
     allowlistedCapabilities: new Set(),
+    artifactRoot: env.UNIFIA_WORKBENCH_ARTIFACT_ROOT ?? process.cwd(),
+    presentLinkTtlMs: Number(env.UNIFIA_WORKBENCH_PRESENT_LINK_TTL_MS ?? DEFAULT_PRESENT_LINK_TTL_MS),
   }
 }
 
@@ -149,6 +163,24 @@ export type WorkbenchSurfaces = {
   github?: WorkbenchGithubSurface
 }
 
+/** One ArtifactStore per workspace, memoised so repeated calls reuse the instance. */
+export function artifactStoreResolver(root: string): (workspaceId: string) => ArtifactStore {
+  const stores = new Map<string, ArtifactStore>()
+  return (workspaceId) => {
+    const existing = stores.get(workspaceId)
+    if (existing) return existing
+    // The id is server-generated, but it lands in a filesystem path — refuse
+    // anything that could climb out of the root rather than trusting the
+    // generator to stay path-safe forever.
+    if (!/^[A-Za-z0-9._-]{1,128}$/.test(workspaceId) || workspaceId === "." || workspaceId === "..") {
+      throw new Error(`workspace id is not usable as an artifact directory: ${workspaceId}`)
+    }
+    const created = new ArtifactStore(path.join(root, "workspaces", workspaceId))
+    stores.set(workspaceId, created)
+    return created
+  }
+}
+
 /** Assembles the object graph. No I/O beyond opening the audit log. */
 export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchSurfaces = {}): WorkbenchApp {
   const backend = surfaces.backend
@@ -168,6 +200,16 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     instanceId,
     tokenIssuer,
     capability: new ApprovalCapabilityGate(new ApprovalBroker(), config.allowlistedCapabilities),
+    // WHY these two were absent: nothing constructed them, so every artifact
+    // route answered 503 artifact.*.unavailable in the shipped app — no
+    // persistence of streamed artifacts, no raw read, no history, no share
+    // link — while server.test.ts injected its own and passed.
+    //
+    // One store PER WORKSPACE, not one shared: ArtifactStore.list() reads a
+    // single directory and takes no workspace, so a shared root would let one
+    // workspace list and read another's artifacts.
+    artifacts: artifactStoreResolver(config.artifactRoot),
+    presentLinks: new PresentLinkSigner(config.signingKey, config.presentLinkTtlMs),
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
     designSkills: surfaces.designSkills,

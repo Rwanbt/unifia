@@ -164,28 +164,46 @@ export const M25_SERVER_ROUTE_REGISTRY = {
 } as const satisfies Record<string, WorkbenchServerRoute>
 
 /**
- * Capabilities the Design/Work WebView leases at connection time.
+ * Capabilities the Design/Work WebView leases at connection time — the scopes
+ * baked into the token the native bridge issues.
  *
  * WHY workspace.write is here: the lease used to be read/watch only, which
- * predated the Fichiers CRUD (M21) and the composer attachments that reuse
- * it. #checkCapability refuses any capability absent from the
- * calling token's scopes before the approval gate runs, so every one of those
- * routes answered 403 in the shipped app while passing its own tests against a
- * fully-scoped test principal. `SURFACE_LEASE_INVARIANT` below pins the lease
- * to what the registries actually demand, so adding a write route without
- * widening the lease fails a test instead of shipping a dead button.
+ * predated the Fichiers CRUD (M21) and the composer attachments that reuse it.
+ * #checkCapability refuses any capability absent from the calling token's
+ * scopes before the approval gate runs, so every one of those routes answered
+ * 403 in the shipped app while passing its own tests against a fully-scoped
+ * test principal.
+ *
+ * artifact.preview is here for the same reason and is narrower than
+ * workspace.read: it reads one artifact's bytes, not arbitrary workspace
+ * files. Without it ArtifactPreview's readArtifactRaw answered a flat 403,
+ * since artifact.preview is not step-up eligible either.
+ *
+ * Step-up eligible capabilities are deliberately NOT here: the server lets a
+ * base-scoped token reach the gate for those, so the lease does not need them.
  */
-export const SURFACE_LEASE_CAPABILITIES = ["workspace.read", "workspace.write", "workspace.watch"] as const
+export const SURFACE_LEASE_CAPABILITIES = ["workspace.read", "workspace.write", "workspace.watch", "artifact.preview"] as const
 
-/** Registries whose capabilities the leased token must already carry (no step-up path exists for them). */
-const LEASE_BACKED_REGISTRIES = [M21_SERVER_ROUTE_REGISTRY, M25_SERVER_ROUTE_REGISTRY] as const
+/** Registries whose routes the Design/Work surfaces actually call. */
+const SURFACE_REGISTRIES = [
+  M6_SERVER_ROUTE_REGISTRY,
+  M7_SERVER_ROUTE_REGISTRY,
+  M9A_SERVER_ROUTE_REGISTRY,
+  M9B_SERVER_ROUTE_REGISTRY,
+  M10_SERVER_ROUTE_REGISTRY,
+  M11_SERVER_ROUTE_REGISTRY,
+  M20_SERVER_ROUTE_REGISTRY,
+  M21_SERVER_ROUTE_REGISTRY,
+  M22_SERVER_ROUTE_REGISTRY,
+  M23_SERVER_ROUTE_REGISTRY,
+  M25_SERVER_ROUTE_REGISTRY,
+  P10_SERVER_ROUTE_REGISTRY,
+] as const
 
-export const SURFACE_LEASE_INVARIANT: readonly string[] = [
-  ...new Set(LEASE_BACKED_REGISTRIES.flatMap((registry) => Object.values(registry).map((route) => route.capability))),
+/** Every capability those registries demand, deduplicated. */
+export const SURFACE_REQUIRED_CAPABILITIES: readonly string[] = [
+  ...new Set(SURFACE_REGISTRIES.flatMap((registry) => Object.values(registry).map((route) => route.capability))),
 ].sort()
-
-const uncoveredCapabilities = SURFACE_LEASE_INVARIANT.filter((capability) => !SURFACE_LEASE_CAPABILITIES.includes(capability as (typeof SURFACE_LEASE_CAPABILITIES)[number]))
-if (uncoveredCapabilities.length > 0) throw new Error(`surface lease is missing capabilities demanded by the route registry: ${uncoveredCapabilities.join(", ")}`)
 
 const missingOperations = WORK_V1_FUNCTIONS.filter((operation) => !WORKBENCH_ROUTE_OPERATIONS.includes(operation))
 if (missingOperations.length > 0) throw new Error(`route registry is missing Work V1 operations: ${missingOperations.join(", ")}`)

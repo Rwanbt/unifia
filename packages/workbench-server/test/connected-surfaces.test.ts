@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 
+import { mkdtempSync } from "node:fs"
+import { tmpdir } from "node:os"
+
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -21,6 +24,8 @@ try {
     rateBudget: 240,
     rateWindowMs: 60_000,
     allowlistedCapabilities: new Set(P3_CAPABILITIES),
+    artifactRoot: mkdtempSync(path.join(tmpdir(), "unifia-artifacts-")),
+    presentLinkTtlMs: 60_000,
   }
   const app = createWorkbenchApp(config)
   const request = (input: RequestInfo | URL, init?: RequestInit) => app.server.fetch(new Request(input, init))

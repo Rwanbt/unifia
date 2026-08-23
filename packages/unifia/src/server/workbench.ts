@@ -3,6 +3,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
+import { SURFACE_GRANTED_CAPABILITIES } from "@unifia/workbench-server"
 import { P3_CAPABILITIES, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
@@ -17,6 +18,8 @@ type NativeTokenInput = {
 }
 
 const KNOWN_CAPABILITIES: ReadonlySet<string> = new Set(P3_CAPABILITIES)
+/** Ten minutes: long enough to paste a share link somewhere, short enough that a leaked one stops working. */
+const PRESENT_LINK_TTL_MS = 10 * 60_000
 
 type WorkbenchBridge = {
   app: WorkbenchApp
@@ -90,11 +93,16 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     auditLogPath: process.env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(Global.Path.data, "workbench-audit.jsonl"),
     rateBudget: 240,
     rateWindowMs: 60_000,
-    // The Design surface writes for real — Fichiers CRUD, composer uploads —
-    // and none of those have an approval UI able to answer a 202, so gating
-    // them on the broker turned every one into a silent 403. Installs,
-    // workflow runs and desktop control still go through it.
-    allowlistedCapabilities: new Set(["workspace.read", "workspace.write", "workspace.watch"] as P3Capability[]),
+    // The Design surface writes for real — Fichiers CRUD, composer uploads,
+    // artifact persistence, export, share links — and none of those have an
+    // approval UI able to answer a 202, so gating them on the broker turned
+    // every one into a silent 403 or a 202 the client read as success.
+    // SURFACE_GRANTED_CAPABILITIES is pinned to the route registries by
+    // workbench-shell's routes.test.ts. Installs, workflow runs and desktop
+    // control are absent from it and still go through the broker.
+    allowlistedCapabilities: new Set(SURFACE_GRANTED_CAPABILITIES),
+    artifactRoot: Global.Path.data,
+    presentLinkTtlMs: PRESENT_LINK_TTL_MS,
   }, {
     backend: new OpenCodeSessionBackend(),
     designSkills: async () => {

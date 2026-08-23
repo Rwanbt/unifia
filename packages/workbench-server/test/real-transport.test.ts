@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 
+import { mkdtempSync } from "node:fs"
+import { tmpdir } from "node:os"
+
 import { mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -29,6 +32,8 @@ test("real Workbench transport exercises client, loopback HTTP, and browser CORS
     rateBudget: 240,
     rateWindowMs: 60_000,
     allowlistedCapabilities: new Set(),
+    artifactRoot: mkdtempSync(path.join(tmpdir(), "unifia-artifacts-")),
+    presentLinkTtlMs: 60_000,
   }
   const app = createWorkbenchApp(config)
 
