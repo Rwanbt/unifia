@@ -4,7 +4,6 @@ import { describe, expect, test } from "bun:test"
 import { exportStandaloneHtml, type AssetResolver } from "../src/export-html"
 
 const enc = new TextEncoder()
-const dec = new TextDecoder()
 
 function bytes(text: string): Uint8Array {
   return enc.encode(text)

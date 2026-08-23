@@ -76,7 +76,7 @@ const escapeXml = (text: string): string =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
 
-const SLIDE_XML = (slide: PptxSlide, index: number): string => {
+const SLIDE_XML = (slide: PptxSlide): string => {
   const body = slide.body
     ? `<p:sp><p:nvSpPr><p:cNvPr id="2" name="Body"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:p><a:r><a:rPr lang="en-US"/><a:t>${escapeXml(slide.body)}</a:t></a:r></a:p></p:txBody></p:sp>`
     : ""
@@ -104,7 +104,7 @@ export function buildPptxBytes(slides: readonly PptxSlide[]): Uint8Array {
   for (let index = 0; index < slides.length; index += 1) {
     const slide = slides[index]
     if (!slide) continue
-    entries.push({ name: `ppt/slides/slide${index + 1}.xml`, content: enc.encode(SLIDE_XML(slide, index)) })
+    entries.push({ name: `ppt/slides/slide${index + 1}.xml`, content: enc.encode(SLIDE_XML(slide)) })
   }
   return createStoredZipFromBytes(entries)
 }

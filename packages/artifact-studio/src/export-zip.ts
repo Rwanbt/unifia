@@ -14,7 +14,7 @@
  * stumble onto.
  */
 
-import { createStoredZipFromBytes, readStoredZip, type ZipBinaryEntry } from "@unifia/document-packs/zip"
+import { createStoredZipFromBytes, readStoredZip } from "@unifia/document-packs/zip"
 
 export const EXECUTABLE_NAME_PATTERNS: readonly RegExp[] = [/\.bin$/i, /vbaProject/i, /\/Macros\//i]
 

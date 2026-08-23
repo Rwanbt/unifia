@@ -10,7 +10,7 @@
  * from the `./node` sub-export for server-only consumers.
  */
 import { hashBytes } from "./hash.js"
-import { skillManifestPayload, validateSkillManifest, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust, type SkillVerifier } from "./index.js"
+import { validateSkillManifest, type InstalledSkill, type SkillManifest, type SkillPackage, type SkillRegistry, type SkillTrust, type SkillVerifier } from "./index.js"
 
 const TRUST_RANK: Readonly<Record<SkillTrust, number>> = { untrusted: 0, verified: 1, official: 2 }
 const cloneManifest = (manifest: SkillManifest): SkillManifest => Object.freeze({ ...manifest, tags: Object.freeze([...manifest.tags]), capabilities: Object.freeze([...manifest.capabilities]) })
