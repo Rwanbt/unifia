@@ -464,6 +464,21 @@ pub fn spawn_command(
             app_data.join("models").to_string_lossy().to_string(),
         ),
     ];
+
+    // The sidecar otherwise resolves the Design skill templates against its own
+    // process.cwd(), which is whatever directory launched the app — for a
+    // Windows shortcut that is C:\WINDOWS\system32. discoverTemplates() answers
+    // "not a directory" by returning an empty list, so the composer's skill
+    // picker was simply always empty in an installed build, with no error to
+    // notice. Same class as the audit-log path, fixed the same way: hand the
+    // sidecar an absolute path instead of letting it guess from cwd.
+    match app.path().resolve("templates/design", BaseDirectory::Resource) {
+        Ok(templates) => envs.push((
+            "UNIFIA_DESIGN_TEMPLATES_DIR".to_string(),
+            templates.to_string_lossy().to_string(),
+        )),
+        Err(error) => tracing::warn!(%error, "design skill templates are not bundled; the skill picker will be empty"),
+    }
     envs.extend(
         extra_env
             .iter()

@@ -40,6 +40,7 @@
     "active": true,
     "targets": ["deb", "rpm", "dmg", "nsis", "app"],
     "externalBin": ["sidecars/unifia-cli"],
+    "resources": { "../../../templates/design": "templates/design" },
     "linux": {
       "rpm": {
         "compression": {
