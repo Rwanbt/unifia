@@ -7,13 +7,29 @@ const LOAD = "unifia:sketch-load"
 const CHANGE = "unifia:sketch-change"
 const PREFIX = "unifia-design-sketch:v1:"
 
+/**
+ * A corrupt entry used to throw out of the message handler, leaving the tab
+ * with an empty canvas and no way back: the bad value stayed in localStorage,
+ * so every reopen threw again. Dropping it here trades one lost sketch for a
+ * tab that recovers on its own.
+ */
+function readSnapshot(key: string): unknown {
+  const raw = localStorage.getItem(key)
+  if (!raw) return undefined
+  try {
+    return JSON.parse(raw)
+  } catch {
+    localStorage.removeItem(key)
+    return undefined
+  }
+}
+
 export function DesignSketchTab(props: { id: string }): JSX.Element {
   let frame!: HTMLIFrameElement
   const key = `${PREFIX}${props.id}`
   const receive = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.data?.type !== READY) return
-    const raw = localStorage.getItem(key)
-    frame.contentWindow?.postMessage({ type: LOAD, snapshot: raw ? JSON.parse(raw) : undefined }, "*")
+    frame.contentWindow?.postMessage({ type: LOAD, snapshot: readSnapshot(key) }, "*")
   }
   const persist = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.data?.type !== CHANGE) return

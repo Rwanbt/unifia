@@ -6,6 +6,7 @@ import {
   ALLOWED_SENT_TYPES,
   FORBIDDEN_SANDBOX_TOKEN,
   PREVIEW_SANDBOX,
+  isPreviewMessageSource,
   parsePreviewMessage,
 } from "@/pages/workbench/artifact-preview-protocol"
 
@@ -133,5 +134,38 @@ describe("parsePreviewMessage", () => {
   test("rejette une erreur de snapshot sans id ou sans motif", () => {
     expect(parsePreviewMessage({ type: "unifia:snapshot-error", id: "", error: "empty-render" })).toBeUndefined()
     expect(parsePreviewMessage({ type: "unifia:snapshot-error", id: "s" })).toBeUndefined()
+  })
+})
+
+// Regression: every ArtifactPreview instance listens on `window`, so without
+// a source check the hidden thumbnail host's frame could drive the artifact
+// tab's handlers — and unifia:edit-result is handed to createArtifact, which
+// would persist the sender's HTML as a new version of another artifact.
+describe("isPreviewMessageSource", () => {
+  const own = { name: "own-frame" }
+  const other = { name: "other-frame" }
+  const frame = { contentWindow: own }
+
+  test("accepte un message venant de l'iframe de cette instance", () => {
+    expect(isPreviewMessageSource(own, frame)).toBe(true)
+  })
+
+  test("rejette un message venant de l'iframe d'une autre instance", () => {
+    expect(isPreviewMessageSource(other, frame)).toBe(false)
+  })
+
+  test("rejette quand la source est absente (message injecté depuis la fenêtre hôte)", () => {
+    expect(isPreviewMessageSource(null, frame)).toBe(false)
+    expect(isPreviewMessageSource(undefined, frame)).toBe(false)
+  })
+
+  test("rejette quand l'iframe n'est pas montée ou n'a pas encore de contentWindow", () => {
+    expect(isPreviewMessageSource(own, undefined)).toBe(false)
+    expect(isPreviewMessageSource(own, null)).toBe(false)
+    expect(isPreviewMessageSource(own, { contentWindow: null })).toBe(false)
+  })
+
+  test("ne confond pas deux iframes démontées (contentWindow null des deux côtés)", () => {
+    expect(isPreviewMessageSource(null, { contentWindow: null })).toBe(false)
   })
 })

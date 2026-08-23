@@ -23,6 +23,7 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { createQuery } from "@tanstack/solid-query"
 import {
   ALLOWED_MESSAGE_TYPES,
+  isPreviewMessageSource,
   ALLOWED_SENT_TYPES,
   PREVIEW_SANDBOX,
   parsePreviewMessage,
@@ -216,6 +217,11 @@ export function ArtifactPreview(props: {
   }
   createEffect(() => {
     function onMessage(event: MessageEvent): void {
+      // Every preview instance listens on `window`, so a message from another
+      // preview's frame lands here too. Identity comes from the source window:
+      // these iframes are sandboxed without allow-same-origin, so their origin
+      // is the opaque "null" for all of them and cannot tell them apart.
+      if (!isPreviewMessageSource(event.source, frame)) return
       const message = parsePreviewMessage(event.data)
       if (!message) return
       setLastMessage({ type: message.type, data: message })

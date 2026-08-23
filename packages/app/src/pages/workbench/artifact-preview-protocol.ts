@@ -104,6 +104,30 @@ function isRect(value: unknown): value is PreviewRect {
  * Pure on purpose — no DOM, no Solid — so the whole matrix of malformed
  * payloads is testable without a browser.
  */
+/**
+ * True only when the message came from this preview's own iframe.
+ *
+ * WHY shape validation is not enough: every ArtifactPreview instance adds its
+ * listener to `window`, and several are mounted at once (the artifact tab plus
+ * the hidden thumbnail host the Fichiers tab reuses). A `message` event fires
+ * on every one of them regardless of which frame sent it, so without this
+ * check the content of ANY preview can drive ANOTHER preview's handlers — and
+ * `unifia:edit-result` is handed straight to `createArtifact`, which would
+ * persist the sender's HTML as a new version of an unrelated artifact.
+ * The iframes run agent-authored script under `allow-scripts`, so "the sender
+ * is one of our own frames" is not a trust statement; only "the sender is THE
+ * frame this listener belongs to" is.
+ *
+ * A sandboxed iframe without `allow-same-origin` has an opaque origin, so
+ * `event.origin` is the useless string "null" for all of them — identity has
+ * to come from the source window reference, not the origin.
+ */
+export function isPreviewMessageSource(source: unknown, frame: { contentWindow: unknown } | null | undefined): boolean {
+  const expected = frame?.contentWindow
+  if (!expected || !source) return false
+  return source === expected
+}
+
 export function parsePreviewMessage(raw: unknown): PreviewInboundMessage | undefined {
   if (typeof raw !== "object" || raw === null) return undefined
   const data = raw as Record<string, unknown>
