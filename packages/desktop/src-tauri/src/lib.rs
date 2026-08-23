@@ -114,8 +114,20 @@ struct WorkbenchRotation {
 
 #[tauri::command]
 #[specta::specta]
-fn open_design_browser(app: AppHandle, url: String) -> Result<(), String> {
+fn open_design_browser(app: AppHandle, url: String) -> Result<String, String> {
     windows::open_design_browser(&app, &url)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn navigate_design_browser(app: AppHandle, label: String, action: String) -> Result<(), String> {
+    windows::navigate_design_browser(&app, &label, &action)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn close_design_browser(app: AppHandle, label: String) -> Result<(), String> {
+    windows::close_design_browser(&app, &label)
 }
 
 async fn workbench_native_request(
@@ -664,6 +676,8 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             resolve_app_path,
             open_path,
             open_design_browser,
+            navigate_design_browser,
+            close_design_browser,
             llm::list_models,
             llm::download_model,
             llm::delete_model,
