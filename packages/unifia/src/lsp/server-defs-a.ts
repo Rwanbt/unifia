@@ -11,11 +11,13 @@ import { which } from "../util/which"
 import { Module } from "@unifia/util/module"
 import { spawn } from "./launch"
 import { Npm } from "@/npm"
-import { type Info, NearestRoot, run, log, } from "./server-shared"
+import { type Info, type RootFunction, type RootResolver, alreadyStrict, NearestRoot, run, log, } from "./server-shared"
 
 export const Deno: Info = {
   id: "deno",
-  root: async (file) => {
+  // Already strict by construction: returns undefined when neither deno.json
+  // nor deno.jsonc is found, so warmup can trust it to prove a Deno project.
+  root: alreadyStrict(async (file) => {
     const files = Filesystem.up({
       targets: ["deno.json", "deno.jsonc"],
       start: path.dirname(file),
@@ -25,7 +27,7 @@ export const Deno: Info = {
     await files.return()
     if (!first.value) return undefined
     return path.dirname(first.value)
-  },
+  }),
   extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs"],
   async spawn(root) {
     const deno = which("deno")
@@ -292,13 +294,24 @@ export const Biome: Info = {
   },
 }
 
+// go.work wins over go.mod; both probes share the shape, so the strict twin is
+// the same walk with strict probes. Without it warmup would skip Go entirely
+// and every first save in a Go module would pay gopls' cold start.
+const goWorkspace = NearestRoot(["go.work"])
+const goModule = NearestRoot(["go.mod", "go.sum"])
+
+const goRootWith = (pick: (probe: RootFunction) => RootResolver): RootResolver => async (file) => {
+  const work = await pick(goWorkspace)(file)
+  if (work) return work
+  return pick(goModule)(file)
+}
+
+const goRoot: RootFunction = goRootWith((probe) => probe)
+goRoot.strict = goRootWith((probe) => probe.strict ?? probe)
+
 export const Gopls: Info = {
   id: "gopls",
-  root: async (file) => {
-    const work = await NearestRoot(["go.work"])(file)
-    if (work) return work
-    return NearestRoot(["go.mod", "go.sum"])(file)
-  },
+  root: goRoot,
   extensions: [".go"],
   async spawn(root) {
     let bin = which("gopls")

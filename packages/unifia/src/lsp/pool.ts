@@ -120,7 +120,24 @@ export namespace LSPPool {
         for (const entry of entries) {
           if (entry.idleTimer) clearTimeout(entry.idleTimer)
         }
-        await Promise.all(entries.map((e) => e.client.shutdown().catch(() => {})))
+        // B13: wait for all shutdown attempts via allSettled (so a single failing
+        // client doesn't strand siblings), aggregate failures into one log entry,
+        // and clear the pool only after every attempt has resolved. The previous
+        // `.catch(() => {})` silently discarded every error, leaving the caller
+        // and the operator blind to stranded children.
+        const results = await Promise.allSettled(entries.map((e) => e.client.shutdown()))
+        const failures = results
+          .map((r, i) =>
+            r.status === "rejected" ? { entry: entries[i], reason: r.reason } : undefined,
+          )
+          .filter((x): x is { entry: Entry; reason: unknown } => x !== undefined)
+        if (failures.length > 0) {
+          log.warn("shutdownAll: failed to shutdown some LSP clients", {
+            total: entries.length,
+            failed: failures.length,
+            serverIDs: failures.map((f) => f.entry.serverID),
+          })
+        }
         pool.clear()
       },
 

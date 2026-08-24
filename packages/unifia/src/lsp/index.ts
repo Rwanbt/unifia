@@ -15,6 +15,7 @@ import { Effect, Layer, ServiceMap } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
 import { LSPPool } from "./pool"
+import { runBounded } from "./warmup-scheduler"
 
 export namespace LSP {
   const log = Log.create({ service: "lsp" })
@@ -442,16 +443,31 @@ export namespace LSP {
           // walks — run them concurrently instead of one-by-one. Sequentially
           // awaiting ~30+ servers' root() before ever reaching the first
           // ensureClient() call made warmup() itself slow (over a second on a
-          // Windows dev machine), defeating its own purpose.
-          await Promise.all(
-            Object.values(s.servers).map(async (server) => {
+          // Windows dev machine), defeating its own purpose. B12 caps the
+          // in-flight concurrency at 4 via `runBounded` to avoid fanning out
+          // all 30+ root() calls at once on slow filesystems.
+          await runBounded(
+            Object.values(s.servers).map((server) => async () => {
               if (!server.extensions.length) return
-              const root = await server.root(sentinel).catch(() => undefined)
+              // Warmup resolves the root STRICTLY: `server.root` falls back to
+              // the project directory when it finds no marker file, so it
+              // answers "yes" for every language and used to pre-spawn all 36
+              // servers on any project — 15 of them on a directory holding
+              // nothing but CSS and HTML. The strict twin returns undefined
+              // when no marker was found, which is the actual question warmup
+              // needs answered. A server with no strict twin (a hand-written
+              // composite root) cannot prove anything, so it is not
+              // pre-spawned; opening one of its files still starts it through
+              // touchFile, which keeps the lenient fallback on purpose.
+              const resolveRoot = server.root.strict
+              if (!resolveRoot) return
+              const root = await resolveRoot(sentinel).catch(() => undefined)
               if (!root) return
               void ensureClient(s, server, root).catch((err) =>
                 log.warn("warmup failed", { serverID: server.id, error: err }),
               )
             }),
+            4,
           )
         })
       })

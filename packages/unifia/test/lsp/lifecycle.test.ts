@@ -2,6 +2,7 @@ import { describe, expect, test, spyOn, beforeEach, afterEach } from "bun:test"
 import path from "path"
 import * as Lsp from "../../src/lsp/index"
 import { LSPServer } from "../../src/lsp/server"
+import { LSPPool } from "../../src/lsp/pool"
 import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 
@@ -143,5 +144,51 @@ describe("LSP.Diagnostic", () => {
       message: "Something wrong",
     } as any)
     expect(result).toBe("ERROR [1:1] Something wrong")
+  })
+})
+
+// B13 — memory/shutdown. shutdownAll now uses Promise.allSettled so a single
+// failing client doesn't strand siblings, and aggregates the failures into one
+// log entry instead of silently swallowing them.
+describe("LSPPool.shutdownAll aggregates errors (B13)", () => {
+  test("shutdownAll does not throw when a client fails (errors are aggregated)", async () => {
+    const ok = { shutdown: async () => {} }
+    const fail = { shutdown: async () => { throw new Error("boom") } }
+    const pool = LSPPool.create({ maxConcurrent: 4, idleTimeoutMs: 0 })
+    pool.track(ok as never, "s1", "/r1")
+    pool.track(fail as never, "s2", "/r2")
+    // Must not throw — allSettled waits for all attempts and the aggregated
+    // log is the only surface for the failure.
+    await pool.shutdownAll()
+    // Pool is cleared even on failure (no stranded siblings).
+    expect(pool.activeCount()).toBe(0)
+  })
+
+  test("shutdownAll clears pool when all shutdowns succeed", async () => {
+    const ok1 = { shutdown: async () => {} }
+    const ok2 = { shutdown: async () => {} }
+    const pool = LSPPool.create({ maxConcurrent: 4, idleTimeoutMs: 0 })
+    pool.track(ok1 as never, "s1", "/r1")
+    pool.track(ok2 as never, "s2", "/r2")
+    await pool.shutdownAll()
+    expect(pool.activeCount()).toBe(0)
+  })
+
+  test("shutdownAll awaits all attempts (slow shutdown doesn't strand siblings)", async () => {
+    let slowDone = false
+    const slow = {
+      shutdown: async () => {
+        await new Promise((r) => setTimeout(r, 50))
+        slowDone = true
+      },
+    }
+    const fast = { shutdown: async () => {} }
+    const pool = LSPPool.create({ maxConcurrent: 4, idleTimeoutMs: 0 })
+    pool.track(slow as never, "s1", "/r1")
+    pool.track(fast as never, "s2", "/r2")
+    await pool.shutdownAll()
+    // The slow shutdown must complete before pool.clear() is called — that's
+    // the "0 enfant" oracle: no orphan child processes.
+    expect(slowDone).toBe(true)
   })
 })

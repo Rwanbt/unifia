@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "
 import path from "path"
 import * as Lsp from "../../src/lsp/index"
 import { LSPServer } from "../../src/lsp/server"
+import { StrictNearestRoot } from "../../src/lsp/server-shared"
 import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 
@@ -112,10 +113,8 @@ describe("LSP.status() surfaces cooldown entries (P1)", () => {
 })
 
 describe("LSP.warmup() (P2)", () => {
-  // A bare tmpdir's root() resolves (falls back to Instance.directory) for
-  // every extension-filtered builtin server, not just Typescript — mock all
-  // of them so this test isn't at the mercy of ~30 real spawn attempts for
-  // whatever tools happen to be installed on the machine running it.
+  // Every builtin server is mocked so the test never depends on which language
+  // tools happen to be installed on the machine running it.
   let otherSpies: ReturnType<typeof spyOn>[]
   let typescriptSpy: ReturnType<typeof spyOn>
 
@@ -131,17 +130,44 @@ describe("LSP.warmup() (P2)", () => {
     typescriptSpy.mockRestore()
   })
 
+  // This pair is the regression guard for the warmup storm. The old assertion
+  // here was "a bare tmpdir spawns typescript", which encoded the defect: root()
+  // fell back to the project directory when it found no marker, so warmup
+  // pre-spawned every language on every project — measured at 15 servers on a
+  // directory holding nothing but CSS and HTML.
   test(
-    "spawns servers whose root resolves at the project directory, without any file touch",
+    "spawns nothing in a project with no marker file",
     withInstance(async () => {
       await Lsp.LSP.warmup()
-      // warmup() itself resolves once the fire-and-forget spawns are
-      // dispatched, not once they complete — give the microtask queue a
-      // tick to let the in-flight ensureClient() call reach spawn().
+      // warmup() resolves once the fire-and-forget spawns are dispatched, not
+      // once they complete — give the microtask queue a tick to let any
+      // in-flight ensureClient() reach spawn().
       await new Promise((r) => setTimeout(r, 20))
-      expect(typescriptSpy).toHaveBeenCalled()
+      expect(typescriptSpy).not.toHaveBeenCalled()
+      for (const spy of otherSpies) expect(spy).not.toHaveBeenCalled()
     }),
   )
+
+  // The other half: warmup must still do its job where there IS evidence,
+  // otherwise the ~49 s first-save stall that motivated it (commit 7d1e08a7b0)
+  // comes straight back.
+  test("spawns the matching server when the project carries its marker", async () => {
+    await using tmp = await tmpdir()
+    const { writeFile } = await import("fs/promises")
+    await writeFile(path.join(tmp.path, "bun.lock"), "")
+    try {
+      await Instance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          await Lsp.LSP.warmup()
+          await new Promise((r) => setTimeout(r, 20))
+          expect(typescriptSpy).toHaveBeenCalled()
+        },
+      })
+    } finally {
+      await Instance.disposeAll()
+    }
+  })
 
   test(
     "warmup() resolves quickly even if a server hangs on spawn",
@@ -173,6 +199,33 @@ describe("LSP.warmup() respects config (P2 edge case)", () => {
       }
     } finally {
       typescriptSpy.mockRestore()
+    }
+  })
+})
+
+// B11 — strict warmup foundation. The full warmup integration (passing the strict
+// option through `LSP.warmup()`) lives in B12. This describe block tests the
+// `StrictNearestRoot` contract directly: a server using the strict wrapper must
+// report `undefined` when no marker is found, so the future warmup can skip it.
+describe("StrictNearestRoot contract (B11)", () => {
+  test("strict mode returns undefined when no include match (no warmup would spawn)", async () => {
+    await using tmp = await tmpdir()
+    const noMarker = path.join(tmp.path, "no-marker")
+    const { mkdir, writeFile } = await import("fs/promises")
+    await mkdir(noMarker, { recursive: true })
+    const file = path.join(noMarker, "a.ts")
+    await writeFile(file, "")
+    try {
+      await Instance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const strictRoot = StrictNearestRoot(["Cargo.toml"])
+          const result = await strictRoot(file)
+          expect(result).toBeUndefined()
+        },
+      })
+    } finally {
+      await Instance.disposeAll()
     }
   })
 })
