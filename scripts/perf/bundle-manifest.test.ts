@@ -25,7 +25,7 @@ describe("H10 — bundle manifest", () => {
     const parsed = JSON.parse(readFileSync(MANIFEST, "utf8"))
     const mode = parsed.byKind["mode"]
     expect(mode).toBeDefined()
-    expect(mode.bytes).toBeLessThan(parsed.budgets["mode"])
+    expect(mode.maxGzipBytes).toBeLessThan(parsed.budgets["mode"])
   })
 
   test("the Work/Design/Automate surfaces are present as separate chunks (no monolithic mode bundle)", () => {
@@ -36,8 +36,10 @@ describe("H10 — bundle manifest", () => {
     const parsed = JSON.parse(readFileSync(MANIFEST, "utf8"))
     const mode = parsed.byKind["mode"]
     const names = mode.files.map((f: { name: string }) => f.name)
-    // At least one surface chunk exists.
-    expect(mode.count).toBeGreaterThan(0)
+    expect(mode.count).toBeGreaterThanOrEqual(3)
     expect(names.length).toBe(mode.count)
+    expect(names.some((name) => /work/i.test(name))).toBe(true)
+    expect(names.some((name) => /design/i.test(name))).toBe(true)
+    expect(names.some((name) => /automate/i.test(name))).toBe(true)
   })
 })

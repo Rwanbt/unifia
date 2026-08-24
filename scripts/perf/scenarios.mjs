@@ -1,6 +1,5 @@
-// SPDX-License-Identifier: MIT
-
 #!/usr/bin/env node
+// SPDX-License-Identifier: MIT
 // Canonical scenario registry for the Unifia performance harness (carte A01).
 // Each scenario id is referenced by measurement artifacts (see schema.mjs).
 // Pure data + lookup helpers; harness scripts (A02-A03) generate the artifacts.

@@ -53,6 +53,8 @@ const MUTATION_RESOURCE_KEY_BUILDERS: Record<
   file: (connection, id) => [
     workbenchQueryKey(connection, "files"),
     workbenchQueryKey(connection, "file", { path: id }),
+    workbenchQueryKey(connection, "design-files-tab"),
+    workbenchQueryKey(connection, "design-files-tab-content", { path: id }),
   ],
   "design-system": (connection) => [workbenchQueryKey(connection, "design-systems")],
   "design-skill": (connection) => [workbenchQueryKey(connection, "design-skills")],

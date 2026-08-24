@@ -1,6 +1,5 @@
-// SPDX-License-Identifier: MIT
-
 #!/usr/bin/env node
+// SPDX-License-Identifier: MIT
 // Measurement artifact JSON schema (carte A01).
 // Implements the 8 mandatory fields from
 // docs/perf-baselines/measurement-contract.md §3.

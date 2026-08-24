@@ -1,195 +1,248 @@
 {
-  "generatedAt": "2026-08-24T13:13:56.383Z",
+  "generatedAt": "2026-08-24T17:40:23.233Z",
   "distRoot": "D:\\App\\unifia\\unifia-work-design\\packages\\app\\dist",
-  "totalBytes": 17089044,
-  "totalFiles": 452,
+  "totalBytes": 17094883,
+  "totalGzipBytes": 4048510,
+  "totalFiles": 451,
   "byKind": {
     "other": {
-      "count": 438,
-      "bytes": 12857975,
+      "count": 436,
+      "bytes": 12773746,
+      "gzipBytes": 2769093,
+      "maxGzipBytes": 230149,
       "files": [
         {
           "name": "abap-BdImnpbu.js",
-          "bytes": 15852
+          "bytes": 15852,
+          "gzipBytes": 5900
         },
         {
           "name": "actionscript-3-CfeIJUat.js",
-          "bytes": 14049
+          "bytes": 14049,
+          "gzipBytes": 2572
         },
         {
           "name": "ada-bCR0ucgS.js",
-          "bytes": 48082
+          "bytes": 48082,
+          "gzipBytes": 5930
         },
         {
           "name": "alert-01-BJxg7Br3.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-02-B_yYorxz.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-03-DrFH92rH.js",
-          "bytes": 2195
+          "bytes": 2195,
+          "gzipBytes": 1601
         },
         {
           "name": "alert-04-BvTiGxWY.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-05-CFi_H2fs.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-06-IqbtOTTn.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-07-B2AcuX88.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-08-pIF0yjmQ.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "alert-09-CidmJWaA.js",
-          "bytes": 5171
+          "bytes": 5171,
+          "gzipBytes": 3776
         },
         {
           "name": "alert-10-84PPn2Zu.js",
-          "bytes": 62
+          "bytes": 62,
+          "gzipBytes": 82
         },
         {
           "name": "amoled-CTKLNjMY.js",
-          "bytes": 914
+          "bytes": 914,
+          "gzipBytes": 428
         },
         {
           "name": "andromeeda-C-Jbm3Hp.js",
-          "bytes": 8976
+          "bytes": 8976,
+          "gzipBytes": 2341
         },
         {
           "name": "angular-html-CU67Zn6k.js",
-          "bytes": 24287
+          "bytes": 24287,
+          "gzipBytes": 3967
         },
         {
           "name": "angular-ts-BwZT4LLn.js",
-          "bytes": 183820
+          "bytes": 183820,
+          "gzipBytes": 16285
         },
         {
           "name": "apache-Pmp26Uib.js",
-          "bytes": 12456
+          "bytes": 12456,
+          "gzipBytes": 3709
         },
         {
           "name": "apex-DDbsPZ6N.js",
-          "bytes": 46968
+          "bytes": 46968,
+          "gzipBytes": 6692
         },
         {
           "name": "apl-dKokRX4l.js",
-          "bytes": 24039
+          "bytes": 24039,
+          "gzipBytes": 4139
         },
         {
           "name": "applescript-Co6uUVPk.js",
-          "bytes": 29571
+          "bytes": 29571,
+          "gzipBytes": 5880
         },
         {
           "name": "ar-BBkUbD-U.js",
-          "bytes": 7334
+          "bytes": 7334,
+          "gzipBytes": 2429
         },
         {
           "name": "ar-BgGAmPxw.js",
-          "bytes": 125220
+          "bytes": 125220,
+          "gzipBytes": 30301
         },
         {
           "name": "ara-BRHolxvo.js",
-          "bytes": 6362
+          "bytes": 6362,
+          "gzipBytes": 1805
         },
         {
           "name": "asciidoc-Dv7Oe6Be.js",
-          "bytes": 131513
-        }
-      ]
-    },
-    "entry": {
-      "count": 11,
-      "bytes": 2564299,
-      "files": [
-        {
-          "name": "index-B4hQTLPS.js",
-          "bytes": 2457
-        },
-        {
-          "name": "index-B5pFIkPD.js",
-          "bytes": 26525
-        },
-        {
-          "name": "index-BOiLHigm.css",
-          "bytes": 298154
-        },
-        {
-          "name": "index-BOOBk0Jg.js",
-          "bytes": 86961
-        },
-        {
-          "name": "index-C5iuiRTP.js",
-          "bytes": 1932462
-        },
-        {
-          "name": "index-Cf-2H6IH.js",
-          "bytes": 45135
-        },
-        {
-          "name": "index-Ctsb4XlE.js",
-          "bytes": 28254
-        },
-        {
-          "name": "index-DegqsN5Y.js",
-          "bytes": 70843
-        },
-        {
-          "name": "index-DeLwW1ut.js",
-          "bytes": 28692
-        },
-        {
-          "name": "index-DvyIc7LO.js",
-          "bytes": 44285
-        },
-        {
-          "name": "index-FHBuKVHU.js",
-          "bytes": 531
-        }
-      ]
-    },
-    "terminal": {
-      "count": 2,
-      "bytes": 1494595,
-      "files": [
-        {
-          "name": "ghostty-web-BCkhWW1d.js",
-          "bytes": 1381478
-        },
-        {
-          "name": "terminal-panel-B6UHlIq7.js",
-          "bytes": 113117
+          "bytes": 131513,
+          "gzipBytes": 9267
         }
       ]
     },
     "mode": {
-      "count": 1,
-      "bytes": 172175,
+      "count": 4,
+      "bytes": 2065783,
+      "gzipBytes": 604253,
+      "maxGzipBytes": 421391,
       "files": [
         {
-          "name": "workbench-mode-C51i6F2Q.js",
-          "bytes": 172175
+          "name": "workbench-automate-SY82aKSB.js",
+          "bytes": 5440,
+          "gzipBytes": 1932
+        },
+        {
+          "name": "workbench-design-DLgHwfvw.js",
+          "bytes": 1377726,
+          "gzipBytes": 421391
+        },
+        {
+          "name": "workbench-mode-BPNuDEGN.js",
+          "bytes": 2043,
+          "gzipBytes": 849
+        },
+        {
+          "name": "workbench-work-CEp-t-Kj.js",
+          "bytes": 680574,
+          "gzipBytes": 180081
+        }
+      ]
+    },
+    "terminal": {
+      "count": 1,
+      "bytes": 1381486,
+      "gzipBytes": 423015,
+      "maxGzipBytes": 423015,
+      "files": [
+        {
+          "name": "ghostty-web-D7rejvbo.js",
+          "bytes": 1381486,
+          "gzipBytes": 423015
+        }
+      ]
+    },
+    "entry": {
+      "count": 10,
+      "bytes": 873868,
+      "gzipBytes": 252149,
+      "maxGzipBytes": 74090,
+      "files": [
+        {
+          "name": "index-B9SiVCKy.js",
+          "bytes": 26525,
+          "gzipBytes": 8797
+        },
+        {
+          "name": "index-Bmx5NDm0.js",
+          "bytes": 242499,
+          "gzipBytes": 74090
+        },
+        {
+          "name": "index-BOiLHigm.css",
+          "bytes": 298154,
+          "gzipBytes": 48401
+        },
+        {
+          "name": "index-CdK1_J46.js",
+          "bytes": 86970,
+          "gzipBytes": 34510
+        },
+        {
+          "name": "index-CebJIVMq.js",
+          "bytes": 45144,
+          "gzipBytes": 19170
+        },
+        {
+          "name": "index-DrWixFaJ.js",
+          "bytes": 70852,
+          "gzipBytes": 25840
+        },
+        {
+          "name": "index-Lk2OXbSq.js",
+          "bytes": 28701,
+          "gzipBytes": 11675
+        },
+        {
+          "name": "index-PV8Ug2uR.js",
+          "bytes": 2466,
+          "gzipBytes": 1530
+        },
+        {
+          "name": "index-w-6n2LQT.js",
+          "bytes": 28263,
+          "gzipBytes": 12761
+        },
+        {
+          "name": "index-ZjOcT-vf.js",
+          "bytes": 44294,
+          "gzipBytes": 15375
         }
       ]
     }
   },
   "budgets": {
-    "entry": 2500000,
+    "entry": 500000,
     "vendor-syntax": 500000,
     "locales": 250000,
     "terminal": 500000,
-    "mode": 1000000
+    "mode": 500000
   }
 }

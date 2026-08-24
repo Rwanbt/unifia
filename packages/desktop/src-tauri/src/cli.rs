@@ -566,7 +566,14 @@ pub fn spawn_command(
 
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
-    cmd.stdin(Stdio::null());
+    // A pipe, not null: the sidecar treats end-of-stdin as "my host is gone"
+    // and exits. This is the parent-death signal that actually works on
+    // Windows -- checking the parent pid does not, because a terminated
+    // process whose handle is still held stays openable, so OpenProcess (and
+    // therefore process.kill(pid, 0)) keeps reporting it alive. Measured
+    // 2026-08-24: exitCode 4294967295, not STILL_ACTIVE, yet OpenProcess
+    // succeeded. The OS closes this pipe when the host dies, however it dies.
+    cmd.stdin(Stdio::piped());
 
     let mut wrap = CommandWrap::from(cmd);
 

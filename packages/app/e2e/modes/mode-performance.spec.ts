@@ -39,7 +39,7 @@ import { dirPath } from "../utils"
  */
 
 test("10 mode cycles do not grow heap, listeners, or active queries", async ({ page, project, assistant }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(600_000)
 
   await project.open()
   const sessionID = await project.user("Create the temporary E2E session and do not modify files.")
@@ -51,6 +51,7 @@ test("10 mode cycles do not grow heap, listeners, or active queries", async ({ p
   const baseline = await page.evaluate(() => {
     const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
     const dev = (window as unknown as { __UNIFIA_PERF__?: { listeners: () => number; queries: () => number } }).__UNIFIA_PERF__
+    if (!memory || !dev) throw new Error("Performance instrumentation is unavailable; refusing a false-green measurement")
     return {
       heap: memory?.usedJSHeapSize ?? 0,
       listeners: dev?.listeners() ?? 0,
@@ -69,19 +70,22 @@ test("10 mode cycles do not grow heap, listeners, or active queries", async ({ p
       await page.goto(`${dirPath(project.directory)}/${mode}`)
       await expect(page.locator(`[data-workbench-mode="${mode}"]`).first()).toBeVisible()
     }
-    const callsBefore = await assistant.calls()
-    await project.sdk.session.prompt({
-      sessionID,
-      agent: "build",
-      parts: [{ type: "text", text: `Reply with exactly: ${token}` }],
-    })
-    await expect.poll(() => assistant.calls(), { timeout: 30_000 }).toBeGreaterThan(callsBefore)
-    await waitSessionIdle(project.sdk, sessionID, 30_000)
+    for (let message = 1; message <= 100; message += 1) {
+      const callsBefore = await assistant.calls()
+      await project.sdk.session.prompt({
+        sessionID,
+        agent: "build",
+        parts: [{ type: "text", text: `Reply with exactly: ${token}_${message}` }],
+      })
+      await expect.poll(() => assistant.calls(), { timeout: 30_000 }).toBeGreaterThan(callsBefore)
+      await waitSessionIdle(project.sdk, sessionID, 30_000)
+    }
   }
 
   const after = await page.evaluate(() => {
     const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
     const dev = (window as unknown as { __UNIFIA_PERF__?: { listeners: () => number; queries: () => number } }).__UNIFIA_PERF__
+    if (!memory || !dev) throw new Error("Performance instrumentation is unavailable; refusing a false-green measurement")
     return {
       heap: memory?.usedJSHeapSize ?? 0,
       listeners: dev?.listeners() ?? 0,

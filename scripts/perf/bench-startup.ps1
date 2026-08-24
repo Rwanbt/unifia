@@ -17,8 +17,20 @@ param(
 
     [string]$OutDir = "docs/perf-baselines/measurements",
 
-    [string]$SamplerScript = "scripts/perf/windows-process-sampler.ps1"
+    [string]$SamplerScript = "scripts/perf/windows-process-sampler.ps1",
+
+    [string]$ExecutablePath = $env:UNIFIA_STARTUP_EXECUTABLE,
+
+    [string]$Arguments = "",
+
+    [string]$ReadyUrl = "http://127.0.0.1:4096/global/health",
+
+    [int]$ReadyTimeoutSeconds = 60
 )
+
+if ([string]::IsNullOrWhiteSpace($ExecutablePath) -or -not (Test-Path -LiteralPath $ExecutablePath)) {
+    throw "A real Unifia executable is required. Pass -ExecutablePath or set UNIFIA_STARTUP_EXECUTABLE; the harness refuses to benchmark sampler overhead."
+}
 
 # 1. Contexte de l'environnement
 $commit = (& git rev-parse HEAD).Trim()
@@ -26,17 +38,34 @@ $shortSha = $commit.Substring(0, 7)
 $date = (Get-Date).ToUniversalTime().ToString("yyyyMMdd")
 $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
-# 2. N runs du sampler, mesure du temps écoulé
+# 2. N vrais démarrages Unifia, mesurés jusqu'au endpoint de readiness
 $runs = @()
 for ($i = 0; $i -lt $N; $i++) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $output = & pwsh -NoProfile -File $SamplerScript -Pids 4
+    $process = Start-Process -FilePath $ExecutablePath -ArgumentList $Arguments -PassThru
+    $ready = $false
+    $deadline = (Get-Date).AddSeconds($ReadyTimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = Invoke-WebRequest -Uri $ReadyUrl -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            if ($response.StatusCode -eq 200) { $ready = $true; break }
+        } catch { }
+        if ($process.HasExited) { break }
+        Start-Sleep -Milliseconds 100
+    }
     $sw.Stop()
-    $null = $output | ConvertFrom-Json  # valide la sortie JSON
+    if (-not $ready) {
+        if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+        throw "Unifia did not become ready at $ReadyUrl within ${ReadyTimeoutSeconds}s (run $($i + 1))."
+    }
+    $output = & pwsh -NoProfile -File $SamplerScript -Pids $process.Id
+    $null = $output | ConvertFrom-Json
     $runs += [ordered]@{
         run = $i + 1
         elapsedMs = [math]::Round($sw.Elapsed.TotalMilliseconds, 2)
+        pid = $process.Id
     }
+    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
 }
 
 # 3. Agrégation : p50/p95/p99 sur les elapsedMs
@@ -47,7 +76,7 @@ function Get-Percentile {
     return [double]$Sorted[$idx]
 }
 $variance = [ordered]@{
-    samplerElapsedMs = [ordered]@{
+        startupReadyMs = [ordered]@{
         p50 = Get-Percentile $elapsedSorted 0.50
         p95 = Get-Percentile $elapsedSorted 0.95
         p99 = Get-Percentile $elapsedSorted 0.99
@@ -84,6 +113,8 @@ $artifact = [ordered]@{
     timestamp = $timestamp
     artifact = $artifactPath
     scenario = $Scenario
+    executable = (Resolve-Path -LiteralPath $ExecutablePath).Path
+    readyUrl = $ReadyUrl
     runs = $runs
 }
 

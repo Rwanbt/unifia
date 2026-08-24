@@ -5,6 +5,7 @@ import { Flag } from "../../flag/flag"
 import { AuditLog } from "../../session/audit"
 import { initAuthStorage } from "../../auth"
 import { persistGithubGitConfigForTerminal } from "../../github/credentials"
+import { startParentWatchdog } from "../../util/parent-watchdog"
 
 export const ServeCommand = cmd({
   command: "serve",
@@ -25,6 +26,12 @@ export const ServeCommand = cmd({
     //   * Default (UNIFIA_AUTH_STORAGE=file) → migration rollback path runs
     //     if a prior `auth.json.migrated` exists.
     await initAuthStorage()
+
+    // Exit if the desktop host dies. The Windows job object is meant to cover
+    // this and does not (measured 2026-08-24: a hard-killed host left a
+    // 1 885 MB sidecar running); each leak costs the next launch that much
+    // memory. No-op outside the desktop, where UNIFIA_PARENT_PID is unset.
+    startParentWatchdog()
 
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)

@@ -43,7 +43,7 @@ test("5% inflation is below default 10% threshold", () => {
 
 test("missing variance does not crash", () => {
   const r = compareArtifacts({}, {})
-  expect(r.regression).toBe(false)
+  expect(r.regression).toBe(true)
   expect(r.reason).toBe("missing variance")
 })
 

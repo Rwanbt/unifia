@@ -12,6 +12,7 @@ import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import type { LocalProject } from "@/context/layout"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
+import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -78,6 +79,8 @@ export const SidebarContent = (props: {
                         variant={props.activeMode() === mode ? "primary" : "ghost"}
                         size="large"
                         onClick={() => props.onMode(mode)}
+                        onMouseEnter={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
+                        onFocus={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
                         aria-label={props.modeLabel(mode)}
                         aria-pressed={props.activeMode() === mode}
                       />

@@ -9,6 +9,12 @@ import { usePlatform } from "@/context/platform"
 import { decideEventRetry } from "./event-retry"
 import { createCoalescedInvalidate } from "./query-invalidation"
 
+let activeEventStreams = 0
+
+export function getWorkbenchListenerCount(): number {
+  return activeEventStreams
+}
+
 /** Delay before reconnecting after the stream closes cleanly (not an error, so decideEventRetry's backoff does not apply). */
 const EVENT_RECONNECT_DELAY_MS = 1_000
 
@@ -41,6 +47,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     const startEvents = (value: WorkbenchConnection) => {
       if (eventsTask) return
       const dispatcher = new WorkbenchEventDispatcher()
+      activeEventStreams += 1
       eventsTask = (async () => {
         let attempt = 0
         while (!eventsAbort.signal.aborted) {
@@ -73,7 +80,10 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
           if (eventsAbort.signal.aborted) return
           await new Promise((resolve) => setTimeout(resolve, EVENT_RECONNECT_DELAY_MS))
         }
-      })().finally(() => { eventsTask = undefined })
+      })().finally(() => {
+        activeEventStreams = Math.max(0, activeEventStreams - 1)
+        eventsTask = undefined
+      })
     }
 
     const ensureConnected = (): Promise<WorkbenchConnection> => {

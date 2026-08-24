@@ -9,10 +9,10 @@ export function workbenchQueryKey(
 ) {
   return [
     "workbench",
+    resource,
     connection?.serverOrigin ?? "unavailable",
     connection?.instanceId ?? "unavailable",
     connection?.workspaceId ?? "unavailable",
-    resource,
     params,
   ] as const
 }

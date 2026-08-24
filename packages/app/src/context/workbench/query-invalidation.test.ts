@@ -169,11 +169,11 @@ describe("E14 — createCoalescedInvalidate", () => {
     for (let i = 0; i < 100; i += 1) coalesced.enqueue(connection, event)
     // BEFORE the timer fires: no invalidation calls.
     expect(stub.calls.length).toBe(0)
-    // Flush: exactly 2 keys (files + file:{path}) are invalidated,
-    // and 100 events × 2 keys would have produced 200 calls without
+    // Flush: exactly 4 keys (shared files/content plus Design Files listing/content),
+    // and 100 events × 4 keys would have produced 400 calls without
     // coalescing.
     scheduler.runAll()
-    expect(stub.calls.length).toBe(2)
+    expect(stub.calls.length).toBe(4)
     // The keys are the workbench file-listing + file-content keys.
     expect(stub.calls).toContainEqual(workbenchQueryKey(connection, "files"))
     expect(stub.calls).toContainEqual(workbenchQueryKey(connection, "file", { path: "/a/b.txt" }))
@@ -187,8 +187,9 @@ describe("E14 — createCoalescedInvalidate", () => {
     coalesced.enqueue(connection, mutationEvent({ resource: { type: "file", id: "/b" } }))
     coalesced.enqueue(connection, mutationEvent({ resource: { type: "design-system", id: "figma" } }))
     scheduler.runAll()
-    // 4 keys: files (dedup'd to 1) + file:/a + file:/b + design-systems
-    expect(stub.calls.length).toBe(4)
+    // 7 keys: shared files (dedup'd to 1), two file paths, two Design Files
+    // listings/contents, and design-systems.
+    expect(stub.calls.length).toBe(7)
   })
 
   test("flush() forces an immediate drain without waiting for the timer", () => {
@@ -198,10 +199,10 @@ describe("E14 — createCoalescedInvalidate", () => {
     coalesced.enqueue(connection, mutationEvent({ resource: { type: "file", id: "/x" } }))
     expect(stub.calls.length).toBe(0)
     coalesced.flush()
-    expect(stub.calls.length).toBe(2)
+    expect(stub.calls.length).toBe(4)
     // The scheduled timer is cancelled by flush — running it does nothing.
     scheduler.runAll()
-    expect(stub.calls.length).toBe(2)
+    expect(stub.calls.length).toBe(4)
   })
 
   test("stop() prevents future enqueues and flushes", () => {

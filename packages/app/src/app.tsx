@@ -48,6 +48,8 @@ import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
+import { QUERY_FAMILY_STALE_TIME_MS, QUERY_DEFAULT_GC_TIME_MS, QUERY_DEFAULT_RETRY } from "@/context/workbench/query-invalidation"
+import { getWorkbenchListenerCount } from "@/context/workbench/provider"
 
 const HomeRoute = lazy(() => import("@/pages/home"))
 const loadSession = () => import("@/pages/session")
@@ -74,6 +76,10 @@ function UiI18nBridge(props: ParentProps) {
 
 declare global {
   interface Window {
+    __UNIFIA_PERF__?: {
+      listeners: () => number
+      queries: () => number
+    }
     __OPENCODE__?: {
       updaterEnabled?: boolean
       deepLinks?: string[]
@@ -95,14 +101,24 @@ function QueryProvider(props: ParentProps) {
     defaultOptions: {
       queries: {
         staleTime: 30_000,
-        gcTime: 30 * 60 * 1000,
-        retry: 2,
+        gcTime: QUERY_DEFAULT_GC_TIME_MS,
+        retry: QUERY_DEFAULT_RETRY,
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
       },
       mutations: { retry: 0 },
     },
   })
+  for (const [family, staleTime] of Object.entries(QUERY_FAMILY_STALE_TIME_MS)) {
+    client.setQueryDefaults(["workbench", family], { staleTime })
+  }
+  if (typeof window === "object") {
+    window.__UNIFIA_PERF__ = {
+      listeners: getWorkbenchListenerCount,
+      queries: () => client.getQueryCache().getAll().length,
+    }
+    onCleanup(() => { delete window.__UNIFIA_PERF__ })
+  }
   return <QueryClientProvider client={client}>{props.children}</QueryClientProvider>
 }
 

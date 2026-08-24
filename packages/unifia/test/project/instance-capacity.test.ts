@@ -81,4 +81,37 @@ describe("instance capacity", () => {
     // cap off, which is what `parseInt` returning NaN would do untreated.
     expect(Instance.residentDirectories()).toHaveLength(1)
   })
+
+  test("an active provide protects its instance without an explicit lease", async () => {
+    process.env[ENV_KEY] = "1"
+    await using a = await tmpdir()
+    await using b = await tmpdir()
+    let release!: () => void
+    let markStarted!: () => void
+    const entered = new Promise<void>((resolve) => { markStarted = resolve })
+    const started = new Promise<void>((resolve) => { release = resolve })
+    const active = Instance.provide({
+      directory: a.path,
+      fn: async () => {
+        markStarted()
+        await started
+        return "done"
+      },
+    })
+    await entered
+    await touch(b.path)
+    expect(Instance.residentDirectories()).toContain(a.path)
+    release()
+    await expect(active).resolves.toBe("done")
+  })
+
+  test("a light instance is promoted before a full request runs", async () => {
+    await using a = await tmpdir()
+    let light = 0
+    let full = 0
+    await Instance.provide({ directory: a.path, initKind: "light", init: async () => { light++ }, fn: () => undefined })
+    await Instance.provide({ directory: a.path, initKind: "full", init: async () => { full++ }, fn: () => undefined })
+    expect(light).toBe(1)
+    expect(full).toBe(1)
+  })
 })

@@ -12,9 +12,10 @@ import { WorkSurface } from "@/pages/workbench/work-surface"
 // helper `workbench-mode-loader.ts` exporte la même fonction de
 // préchargement pour le hover/focus et expose des compteurs testables
 // («Work ne charge pas Design/Automate» oracle du runbook).
-const DesignSurface = lazy(() => import("@/pages/workbench/design-surface").then((m) => ({ default: m.DesignSurface })))
-const AutomateSurface = lazy(() => import("@/pages/workbench/automate-surface").then((m) => ({ default: m.AutomateSurface })))
 import { ensureModeLoaded, MODE_LOADERS } from "./workbench-mode-loader"
+
+const DesignSurface = lazy(() => MODE_LOADERS.design.load() as Promise<{ default: (props: any) => JSX.Element }>)
+const AutomateSurface = lazy(() => MODE_LOADERS.automate.load() as Promise<{ default: (props: any) => JSX.Element }>)
 
 export default function WorkbenchMode(): JSX.Element {
   const mode = useMode()

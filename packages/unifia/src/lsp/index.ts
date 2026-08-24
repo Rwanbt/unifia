@@ -463,9 +463,9 @@ export namespace LSP {
               if (!resolveRoot) return
               const root = await resolveRoot(sentinel).catch(() => undefined)
               if (!root) return
-              void ensureClient(s, server, root).catch((err) =>
-                log.warn("warmup failed", { serverID: server.id, error: err }),
-              )
+              await ensureClient(s, server, root).catch((err) => {
+                log.warn("warmup failed", { serverID: server.id, error: err })
+              })
             }),
             4,
           )

@@ -119,6 +119,7 @@ export function createPollingFallback(
     } catch (reason) {
       stats.errors += 1
       log.warn("workspace-events: listSessions failed during polling fallback", reason)
+      delay = Math.min(delay * 2, POLL_MAX_DELAY_MS)
     }
     if (stopped) return
     const jitter = 1 + (Math.random() * 2 - 1) * POLL_JITTER

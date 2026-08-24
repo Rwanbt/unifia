@@ -17,6 +17,10 @@ export interface InstanceContext {
 const context = Context.create<InstanceContext>("instance")
 const cache = new Map<string, Promise<InstanceContext>>()
 const leaseCounts = new Map<string, number>()
+const activeCounts = new Map<string, number>()
+const pendingDisposals = new Set<string>()
+const bootstrapLevels = new Map<string, "light" | "full">()
+const promotions = new Map<string, Promise<void>>()
 /** Last time each directory was handed to `provide`, for LRU eviction. */
 const lastUsed = new Map<string, number>()
 
@@ -56,13 +60,31 @@ async function evictLeastRecentlyUsed(keep: string): Promise<void> {
   const cap = maxInstances()
   if (cap === 0) return
   const candidates = [...cache.keys()]
-    .filter((directory) => directory !== keep && (leaseCounts.get(directory) ?? 0) === 0)
+    .filter(
+      (directory) =>
+        directory !== keep &&
+        (leaseCounts.get(directory) ?? 0) === 0 &&
+        (activeCounts.get(directory) ?? 0) === 0,
+    )
     .sort((a, b) => (lastUsed.get(a) ?? 0) - (lastUsed.get(b) ?? 0))
   while (cache.size > cap && candidates.length > 0) {
     const victim = candidates.shift()
     if (!victim) break
     Log.Default.info("evicting least-recently-used instance", { directory: victim, resident: cache.size, cap })
     await Instance.disposeDirectory(victim)
+  }
+}
+
+async function releaseActive(directory: string): Promise<void> {
+  const active = (activeCounts.get(directory) ?? 0) - 1
+  if (active > 0) {
+    activeCounts.set(directory, active)
+    return
+  }
+  activeCounts.delete(directory)
+  if (pendingDisposals.has(directory) && (leaseCounts.get(directory) ?? 0) === 0) {
+    pendingDisposals.delete(directory)
+    await Instance.disposeDirectory(directory)
   }
 }
 
@@ -116,7 +138,7 @@ function track(directory: string, next: Promise<InstanceContext>) {
 }
 
 export const Instance = {
-  async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R; owner?: string; reason?: string }): Promise<R> {
+  async provide<R>(input: { directory: string; init?: () => Promise<any>; initKind?: "light" | "full"; fn: () => R; owner?: string; reason?: string }): Promise<R> {
     const directory = Filesystem.resolve(input.directory)
     let existing = cache.get(directory)
     if (!existing) {
@@ -133,16 +155,46 @@ export const Instance = {
           init: input.init,
         }),
       )
+      bootstrapLevels.set(directory, input.initKind ?? "full")
     }
+    activeCounts.set(directory, (activeCounts.get(directory) ?? 0) + 1)
     lastUsed.set(directory, Date.now())
-    const ctx = await existing
+    let ctx: InstanceContext
+    try {
+      ctx = await existing
+    } catch (error) {
+      await releaseActive(directory)
+      throw error
+    }
+    if (input.initKind === "full" && bootstrapLevels.get(directory) === "light") {
+      let promotion = promotions.get(directory)
+      if (!promotion) {
+        promotion = context.provide(ctx, async () => {
+          await input.init?.()
+          bootstrapLevels.set(directory, "full")
+        })
+        promotions.set(directory, promotion)
+        void promotion.then(
+          () => { promotions.delete(directory) },
+          () => { promotions.delete(directory) },
+        )
+      }
+      try {
+        await promotion
+      } catch (error) {
+        await releaseActive(directory)
+        throw error
+      }
+    }
     // Evicting after the instance is resolved keeps the just-requested
     // directory out of the candidate set and means a cold start never pays for
     // a teardown before it has served anything.
     await evictLeastRecentlyUsed(directory)
-    return context.provide(ctx, async () => {
-      return input.fn()
-    })
+    try {
+      return await context.provide(ctx, async () => input.fn())
+    } finally {
+      await releaseActive(directory)
+    }
   },
   /** Directories with a resident instance, for tests and diagnostics. */
   residentDirectories(): string[] {
@@ -209,6 +261,8 @@ export const Instance = {
     await Promise.all([State.dispose(directory), disposeInstance(directory)])
     cache.delete(directory)
     lastUsed.delete(directory)
+    bootstrapLevels.delete(directory)
+    promotions.delete(directory)
     // C10: drop the diagnostic record so the next `provide` on the same
     // directory gets a fresh `createdAt` and re-records its owner/reason.
     InstanceDiagnostics.clear(directory)
@@ -216,6 +270,10 @@ export const Instance = {
   },
   async disposeDirectory(input: string) {
     const directory = Filesystem.resolve(input)
+    if ((activeCounts.get(directory) ?? 0) > 0) {
+      pendingDisposals.add(directory)
+      return
+    }
     const existing = cache.get(directory)
     if (!existing) return
 
@@ -244,7 +302,8 @@ export const Instance = {
         const c = leaseCounts.get(dir) ?? 0
         if (c <= 1) {
           leaseCounts.delete(dir)
-          await Instance.disposeDirectory(dir)
+          if ((activeCounts.get(dir) ?? 0) > 0) pendingDisposals.add(dir)
+          else await Instance.disposeDirectory(dir)
         } else {
           leaseCounts.set(dir, c - 1)
         }

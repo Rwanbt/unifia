@@ -14,7 +14,7 @@ export function compareArtifacts(baseline, current, options = {}) {
   const metrics = []
 
   if (!baseline?.variance || !current?.variance) {
-    return { regression: false, metrics: [], threshold, reason: "missing variance" }
+    return { regression: true, metrics: [], threshold, reason: "missing variance" }
   }
 
   for (const metric of Object.keys(baseline.variance)) {

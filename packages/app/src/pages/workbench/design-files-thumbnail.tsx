@@ -10,11 +10,8 @@ import {
   inlineRelativeAssets,
   isRenderable,
 } from "@/pages/workbench/design-files-preview"
-import {
-  createSequentialQueue,
-  firstTextLines,
-  type ThumbnailPreview,
-} from "@/pages/workbench/design-files-thumbnail-model"
+import { firstTextLines, type ThumbnailPreview } from "@/pages/workbench/design-files-thumbnail-model"
+import { createThumbnailQueue } from "@/pages/workbench/design-files-thumbnail-queue"
 import type { ViewportId } from "@unifia/artifact-render"
 
 /**
@@ -72,33 +69,46 @@ export type ThumbnailController = {
 export function createThumbnailController(): ThumbnailController {
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
-  const queue = createSequentialQueue()
+  const queue = createThumbnailQueue({ cap: 64 })
   const [cache, setCache] = createStore<Record<string, ThumbnailPreview>>({})
   const requested = new Set<string>()
   const [job, setJob] = createSignal<ThumbnailJob>()
   let snapshotRequest: (() => Promise<{ dataUrl: string; w: number; h: number }>) | undefined
 
-  async function renderToDataUrl(source: string): Promise<string> {
+  async function renderToDataUrl(source: string, signal: AbortSignal): Promise<string> {
     return new Promise<string>((resolve, reject) => {
+      const abort = () => {
+        clearTimeout(timer)
+        reject(new DOMException("thumbnail generation cancelled", "AbortError"))
+      }
       const timer = setTimeout(() => reject(new Error("thumbnail-timeout")), THUMBNAIL_RENDER_TIMEOUT_MS)
+      if (signal.aborted) {
+        abort()
+        return
+      }
+      signal.addEventListener("abort", abort, { once: true })
       setJob({
         source,
         resolve: (dataUrl) => {
           clearTimeout(timer)
+          signal.removeEventListener("abort", abort)
           resolve(dataUrl)
         },
         reject: (error) => {
           clearTimeout(timer)
+          signal.removeEventListener("abort", abort)
           reject(error)
         },
       })
     })
   }
 
-  async function generate(path: string): Promise<ThumbnailPreview> {
+  async function generate(path: string, signal: AbortSignal): Promise<ThumbnailPreview> {
+    signal.throwIfAborted()
     const current = connection()
     if (!current) throw new Error("no-connection")
     const read = await current.client.readFiles(current.workspaceId, [path])
+    signal.throwIfAborted()
     const file = read.results[0]
     if (!file) throw new Error("file-missing")
     const text = decodeWorkspaceFile(file)
@@ -107,10 +117,11 @@ export function createThumbnailController(): ThumbnailController {
     const targets = collectRelativeAssetTargets(text, path)
     const assetPaths = [...new Set(targets.map((target) => target.path))]
     const assetContent = assetPaths.length > 0 ? await current.client.readFiles(current.workspaceId, assetPaths) : { results: [] }
+    signal.throwIfAborted()
     const byPath = new Map(assetContent.results.map((asset) => [asset.path, decodeWorkspaceFile(asset)]))
     const rendered = inlineRelativeAssets(text, path, byPath)
 
-    const dataUrl = await renderToDataUrl(rendered)
+    const dataUrl = await renderToDataUrl(rendered, signal)
     return { kind: "image", dataUrl }
   }
 
@@ -118,11 +129,13 @@ export function createThumbnailController(): ThumbnailController {
     if (requested.has(path) || path in cache) return
     requested.add(path)
     queue
-      .enqueue(() => generate(path))
+      .generate(path, (signal) => generate(path, signal))
       .then((preview) => setCache(path, preview))
       .catch(() => setCache(path, { kind: "error" }))
       .finally(() => setJob(undefined))
   }
+
+  onCleanup(() => queue.cancelAll())
 
   return {
     get: (path) => cache[path],

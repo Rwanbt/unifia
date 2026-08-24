@@ -176,13 +176,10 @@ function createGlobalSync() {
     // /instance/dispose. The server's lease/refcount (C12) handles the
     // actual disposal: the last release triggers the dispose.
     onServerDispose: (directory) => {
-      void fetch("/instance/dispose", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ directory }),
-      }).catch(() => {
-        // Best-effort: the frontend's local cleanup already ran. A failed
-        // server call is logged elsewhere by the SDK; here we just swallow.
+      void globalSDK.client.instance.dispose({ directory }).then((result) => {
+        if (result.error) console.warn("Failed to dispose server instance", result.error)
+      }).catch((error) => {
+        console.warn("Failed to dispose server instance", error)
       })
     },
     translate: language.t,

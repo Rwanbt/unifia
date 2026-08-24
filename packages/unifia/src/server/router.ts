@@ -57,6 +57,7 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
     return Instance.provide({
       directory,
       init: isReadOnlyRoute(c.req.method, url.pathname) ? InstanceBootstrapLight : InstanceBootstrap,
+      initKind: isReadOnlyRoute(c.req.method, url.pathname) ? "light" : "full",
       async fn() {
         return routes().fetch(c.req.raw, c.env)
       },
@@ -80,6 +81,7 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
     return Instance.provide({
       directory: workspace.directory!,
       init: isReadOnlyRoute(c.req.method, url.pathname) ? InstanceBootstrapLight : InstanceBootstrap,
+      initKind: isReadOnlyRoute(c.req.method, url.pathname) ? "light" : "full",
       async fn() {
         return routes().fetch(c.req.raw, c.env)
       },
