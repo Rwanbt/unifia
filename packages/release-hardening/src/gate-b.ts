@@ -120,6 +120,12 @@ export const GATE_B_GO: readonly GateEntry[] = [
         sendPrompt: async () => {},
         subscribeEvents: () => ({ [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true as const, value: undefined }) }) }),
         cancelSession: async () => {},
+        // E13i: this double predates the push hook and never emits a session,
+        // so it reports no push capability and hands back a no-op unsubscribe.
+        // The gate only asserts mode switching reuses one runtime; discovery
+        // is not exercised here.
+        onSessionCreated: () => () => {},
+        hasPushHook: false,
       }
       const shell = new WorkbenchShell({ runtime, runtimeId: "fake" })
       for (const mode of ["code", "work", "design", "automate"] as const) assert(shell.switchMode(mode) === runtime, `mode ${mode} produced a second runtime`)

@@ -117,8 +117,12 @@ try { await mutant.request("/v1/write", { method: "POST", body: { value: 1 } }) 
 check(postCalls === 1, "mutant POST was replayed without idempotency")
 
 const dispatcher = new WorkbenchEventDispatcher()
-dispatcher.apply({ eventId: "1", workspaceId: "ws", sequenceId: 1, cursor: "c1", type: "operation.updated", payload: { state: "running" } })
-dispatcher.apply({ eventId: "2", workspaceId: "ws", sequenceId: 3, cursor: "c3", type: "operation.updated", payload: { state: "done" } })
+// operation.updated is a MUTATION event: the wire contract requires a
+// `resource` naming the entity it targets, because the query-invalidation map
+// scopes the refetch on `resource.id` instead of dropping the whole workspace
+// cache. parseWorkspaceEvent refuses a mutation event without one.
+dispatcher.apply({ eventId: "1", workspaceId: "ws", sequenceId: 1, cursor: "c1", type: "operation.updated", resource: { type: "operation", id: "op-1" }, payload: { state: "running" } })
+dispatcher.apply({ eventId: "2", workspaceId: "ws", sequenceId: 3, cursor: "c3", type: "operation.updated", resource: { type: "operation", id: "op-1" }, payload: { state: "done" } })
 check(dispatcher.lastSequence === 3 && dispatcher.resyncRequired, "sequence gap did not request resync")
 check(dispatcher.events.filter((event) => event.type === "operation.updated").length === 1, "last-wins event was not merged")
 check(newRequestId().includes("-7"), "idempotency key was not UUID v7")
