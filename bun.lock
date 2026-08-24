@@ -852,6 +852,7 @@
         "hono-openapi": "catalog:",
         "ignore": "7.0.5",
         "js-tiktoken": "^1.0.20",
+        "js-yaml": "4.3.1",
         "jsonc-parser": "3.3.1",
         "mime-types": "3.0.2",
         "minimatch": "10.2.5",
