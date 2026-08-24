@@ -7,6 +7,7 @@ import { createSignal, onCleanup, type ParentProps } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { decideEventRetry } from "./event-retry"
+import { createCoalescedInvalidate } from "./query-invalidation"
 
 /** Delay before reconnecting after the stream closes cleanly (not an error, so decideEventRetry's backoff does not apply). */
 const EVENT_RECONNECT_DELAY_MS = 1_000
@@ -25,6 +26,11 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     let pending: Promise<WorkbenchConnection> | undefined
     let eventsAbort = new AbortController()
     let eventsTask: Promise<void> | undefined
+    // E14: one coalescer per provider instance. The window (50 ms by
+    // default) collapses bursts of identical events into a single
+    // invalidation batch, satisfying the E14 oracle
+    // « 100 événements identiques produisent un fetch utile ».
+    const coalesced = createCoalescedInvalidate(queryClient)
     const [identity, setIdentity] = createSignal<WorkbenchTaskIdentity>(createWorkbenchTaskIdentity({ codeSessionId: props.codeSessionId, workbenchSessionId: crypto.randomUUID() }))
 
     const unsubscribe = lifecycle.subscribe((state) => {
@@ -42,7 +48,13 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
             for await (const event of value.client.events(value.workspaceId, dispatcher, eventsAbort.signal)) {
               if (event.workspaceId !== value.workspaceId) continue
               attempt = 0
-              await queryClient.invalidateQueries({ queryKey: ["workbench", value.serverOrigin, value.instanceId, value.workspaceId] })
+              // E12 + E14: invalidation is scoped by `event.resource`
+              // (E12) AND batched within a 50 ms window (E14). The
+              // mapping is pure and unit-tested in
+              // query-invalidation.test.ts; this call site is
+              // intentionally a single line so the side-effecting
+              // path cannot drift.
+              coalesced.enqueue(value, event)
             }
             attempt = 0
           } catch (reason) {
@@ -107,6 +119,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     onCleanup(() => {
       unsubscribe()
       eventsAbort.abort()
+      coalesced.stop()
       void lifecycle.shutdown()
     })
 

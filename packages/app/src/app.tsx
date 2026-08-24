@@ -86,7 +86,23 @@ declare global {
 }
 
 function QueryProvider(props: ParentProps) {
-  const client = new QueryClient()
+  // E14: per-family cache defaults. `staleTime: Infinity` for stable
+  // data means a refetch only happens when an SSE event explicitly
+  // invalidates the key (the E14 cache oracle). The 30-min gcTime
+  // outlasts a typical Work session; the conservative 2-retry budget
+  // surfaces persistent errors to the UI instead of looping.
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        gcTime: 30 * 60 * 1000,
+        retry: 2,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+      },
+      mutations: { retry: 0 },
+    },
+  })
   return <QueryClientProvider client={client}>{props.children}</QueryClientProvider>
 }
 

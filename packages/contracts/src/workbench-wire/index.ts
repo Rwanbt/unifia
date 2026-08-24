@@ -12,6 +12,38 @@ export const WORKBENCH_EVENT_TYPES = [
 export type WorkbenchEventType = (typeof WORKBENCH_EVENT_TYPES)[number]
 export type EventMergeRule = "append-only" | "replace" | "last-wins" | "state-snapshot"
 
+/**
+ * WHY a separate MUTATION_EVENT_TYPES set: the wire contract distinguishes
+ * events that target ONE resource (workspace.changed, operation.updated,
+ * approval.updated) from events that target the WHOLE aggregate (catalog
+ * replacement, trace append). Only mutations must carry a `resource` field
+ * identifying the affected entity — without it, the event→query key
+ * invalidation map (E12) cannot scope the refetch to one TanStack key.
+ */
+export const MUTATION_EVENT_TYPES = [
+  "workspace.changed",
+  "operation.updated",
+  "approval.updated",
+] as const
+export type MutationEventType = (typeof MUTATION_EVENT_TYPES)[number]
+export const isMutationEventType = (type: WorkbenchEventType): type is MutationEventType =>
+  (MUTATION_EVENT_TYPES as readonly WorkbenchEventType[]).includes(type)
+
+/**
+ * Identifies the single resource a mutation event targets.
+ *
+ * WHY `type` is a free-form string (not a TS union): the set of resource
+ * types is owned by the producer side (server-side handlers emit
+ * "workspace" / "operation" / "approval" today; future handlers may add
+ * "design-skill", "file-session", etc.). Locking the union here would force
+ * the wire to track every producer; the parser only needs to know the
+ * `resource` is a non-empty object so the consumer's narrowing is sound.
+ */
+export interface ResourceRef {
+  type: string
+  id: string
+}
+
 export const EVENT_MERGE_RULES: Record<WorkbenchEventType, EventMergeRule> = {
   "workspace.changed": "state-snapshot",
   "operation.updated": "last-wins",
@@ -74,14 +106,40 @@ export interface HandshakeResponse {
   reason?: "unsupported-version" | "invalid-request"
 }
 
-export interface WorkspaceEvent {
+/**
+ * WHY a discriminated union rather than a flat interface with optional
+ * `resource`: TypeScript cannot enforce "this field is required when this
+ * discriminator matches" on a flat object. A consumer doing
+ * `if (event.type === "operation.updated") invalidate(event.resource.id)`
+ * must be statically guaranteed that `resource` is present — and the
+ * parser must throw when it is missing, otherwise the consumer gets
+ * `undefined` at runtime and refetches the whole workspace instead of
+ * the one key it should have.
+ *
+ * E11 oracle: « chaque mutation produit une ressource/ID ». Bulk events
+ * (catalog.updated, trace.appended) intentionally have no `resource`
+ * because the producer is the whole aggregate; the consumer falls back
+ * to coarse invalidation by design (catalog changes mean the cached
+ * catalog is stale; traces never need a refetch).
+ */
+export interface WorkspaceEventBase {
   eventId: string
   workspaceId: string
   sequenceId: number
   cursor: OpaqueCursor
-  type: WorkbenchEventType
   payload: unknown
 }
+
+export type WorkspaceMutationEvent =
+  | (WorkspaceEventBase & { type: "workspace.changed"; resource: ResourceRef })
+  | (WorkspaceEventBase & { type: "operation.updated"; resource: ResourceRef })
+  | (WorkspaceEventBase & { type: "approval.updated"; resource: ResourceRef })
+
+export type WorkspaceBulkEvent =
+  | (WorkspaceEventBase & { type: "catalog.updated" })
+  | (WorkspaceEventBase & { type: "trace.appended" })
+
+export type WorkspaceEvent = WorkspaceMutationEvent | WorkspaceBulkEvent
 
 export interface PageRequest {
   workspaceId: string
@@ -230,14 +288,28 @@ export const parseWorkspaceEvent = (value: unknown): WorkspaceEvent => {
   if (!isRecord(value) || !WORKBENCH_EVENT_TYPES.includes(value.type as WorkbenchEventType)) throw new TypeError("invalid workspace event")
   const sequenceId = requireFiniteNumber(value.sequenceId, "sequenceId")
   if (!Number.isInteger(sequenceId) || sequenceId < 0) throw new TypeError("sequenceId must be a non-negative integer")
-  return {
+  const base = {
     eventId: requireString(value.eventId, "eventId"),
     workspaceId: requireString(value.workspaceId, "workspaceId"),
     sequenceId,
     cursor: parseOpaqueCursor(value.cursor),
-    type: value.type as WorkbenchEventType,
     payload: value.payload,
   }
+  // WHY: the parser is the ONE place that decides whether a wire event
+  // carries a `resource`. Mutation events must always include it (the
+  // event→query key map in E12 scopes invalidation on `resource.id`).
+  // Bulk events are identified by their type alone — a present `resource`
+  // on a bulk event is silently ignored to keep producers honest about
+  // which kind of event they are emitting.
+  if (isMutationEventType(value.type as WorkbenchEventType)) {
+    if (!isRecord(value.resource)) throw new TypeError("resource must be an object for mutation events")
+    const resource: ResourceRef = {
+      type: requireString(value.resource.type, "resource.type"),
+      id: requireString(value.resource.id, "resource.id"),
+    }
+    return { ...base, type: value.type as MutationEventType, resource }
+  }
+  return { ...base, type: value.type as "catalog.updated" | "trace.appended" }
 }
 
 export const parseBinaryPayloadRef = (value: unknown): BinaryPayloadRef => {

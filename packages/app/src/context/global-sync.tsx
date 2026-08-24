@@ -172,6 +172,19 @@ function createGlobalSync() {
       clearProviderRev(directory)
       clearSessionPrefetchDirectory(directory)
     },
+    // C13: server-side dispose notification. Fire-and-forget fetch to
+    // /instance/dispose. The server's lease/refcount (C12) handles the
+    // actual disposal: the last release triggers the dispose.
+    onServerDispose: (directory) => {
+      void fetch("/instance/dispose", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ directory }),
+      }).catch(() => {
+        // Best-effort: the frontend's local cleanup already ran. A failed
+        // server call is logged elsewhere by the SDK; here we just swallow.
+      })
+    },
     translate: language.t,
   })
 

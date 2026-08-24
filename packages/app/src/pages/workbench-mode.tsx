@@ -1,11 +1,20 @@
 /* SPDX-License-Identifier: MIT */
 
-import { Show, type JSX } from "solid-js"
+import { Show, lazy, type JSX } from "solid-js"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
 import { WorkSurface } from "@/pages/workbench/work-surface"
-import { DesignSurface } from "@/pages/workbench/design-surface"
-import { AutomateSurface } from "@/pages/workbench/automate-surface"
+
+// F10 — frontière lazy par mode. Work reste synchrone (c'est le mode
+// par défaut, le coût d'un import statique est amorti dès le premier
+// workspace ouvert). Design et Automate sont lazy : leur chunk ne
+// rejoint l'entrée que lorsque `mode.active()` bascule dessus. Le
+// helper `workbench-mode-loader.ts` exporte la même fonction de
+// préchargement pour le hover/focus et expose des compteurs testables
+// («Work ne charge pas Design/Automate» oracle du runbook).
+const DesignSurface = lazy(() => import("@/pages/workbench/design-surface").then((m) => ({ default: m.DesignSurface })))
+const AutomateSurface = lazy(() => import("@/pages/workbench/automate-surface").then((m) => ({ default: m.AutomateSurface })))
+import { ensureModeLoaded, MODE_LOADERS } from "./workbench-mode-loader"
 
 export default function WorkbenchMode(): JSX.Element {
   const mode = useMode()
@@ -31,3 +40,7 @@ export default function WorkbenchMode(): JSX.Element {
     </main>
   )
 }
+
+// Re-export so existing imports keep resolving and so the test
+// (workbench-mode-loader.test.ts) can introspect the loaders table.
+export { ensureModeLoaded, MODE_LOADERS }

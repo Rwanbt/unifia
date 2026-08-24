@@ -5,7 +5,7 @@ import { Workspace } from "@/control-plane/workspace"
 import { lazy } from "@/util/lazy"
 import { Filesystem } from "@/util/filesystem"
 import { Instance } from "@/project/instance"
-import { InstanceBootstrap } from "@/project/bootstrap"
+import { InstanceBootstrap, InstanceBootstrapLight } from "@/project/bootstrap"
 import { InstanceRoutes } from "./instance"
 
 type Rule = { method?: string; path: string; exact?: boolean; action: "local" | "forward" }
@@ -14,6 +14,14 @@ const RULES: Array<Rule> = [
   { path: "/session/status", action: "forward" },
   { method: "GET", path: "/session", action: "local" },
 ]
+
+// C11: read-only paths (list, status, get metadata) use the light bootstrap
+// that does NOT spawn LSP servers, start the file watcher, or initialize
+// snapshots. Active paths keep the full bootstrap.
+export function isReadOnlyRoute(method: string, path: string): boolean {
+  if (method === "GET" && path === "/session") return true
+  return false
+}
 
 function local(method: string, path: string) {
   for (const rule of RULES) {
@@ -48,7 +56,7 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
   if (!workspaceParam) {
     return Instance.provide({
       directory,
-      init: InstanceBootstrap,
+      init: isReadOnlyRoute(c.req.method, url.pathname) ? InstanceBootstrapLight : InstanceBootstrap,
       async fn() {
         return routes().fetch(c.req.raw, c.env)
       },
@@ -71,7 +79,7 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
   if (workspace.type === "worktree") {
     return Instance.provide({
       directory: workspace.directory!,
-      init: InstanceBootstrap,
+      init: isReadOnlyRoute(c.req.method, url.pathname) ? InstanceBootstrapLight : InstanceBootstrap,
       async fn() {
         return routes().fetch(c.req.raw, c.env)
       },

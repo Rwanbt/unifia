@@ -40,3 +40,14 @@ export async function InstanceBootstrap() {
   })
 
 }
+
+// C11: light bootstrap for read-only routes (list recent, status, etc.).
+// Skips LSP warmup, FileWatcher, Snapshot, and ShareNext — none of which
+// are needed to read instance metadata. The full `InstanceBootstrap` is
+// unchanged and remains the path used for active operations (open file,
+// save, command, etc.).
+export async function InstanceBootstrapLight() {
+  Log.Default.info("bootstrapping (light)", { directory: Instance.directory })
+  await Plugin.init()
+  Format.init()
+}

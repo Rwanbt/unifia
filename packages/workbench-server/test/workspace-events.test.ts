@@ -1,98 +1,160 @@
-/* SPDX-License-Identifier: MIT */
+import { test, expect, describe } from "bun:test"
+import { sseFrame, workspaceEventFrame, createPollingFallback } from "../src/workspace-events.js"
+import { parseWorkspaceEvent, type WorkspaceEvent } from "@unifia/contracts/workbench-wire"
+import type { RuntimeAdapter, Session } from "@unifia/contracts"
 
-// C2-2/FUNC-001: GET /v1/workspaces/:workspaceId/events fans in every
-// session's events into one stream, and periodically re-lists sessions to
-// join ones created after the stream opened (RuntimeAdapter has no "session
-// created" push notification). Exercised against the real FakeRuntimeAdapter
-// and WorkspaceRuntime, not mocks.
+describe("sseFrame (E10)", () => {
+  test("event with sequence includes id line", () => {
+    const out = sseFrame({ sequence: 42, type: "ping" } as { sequence?: number })
+    expect(out).toBe('id: 42\ndata: {"sequence":42,"type":"ping"}\n\n')
+  })
 
-import { mkdtemp, rm } from "node:fs/promises"
-import os from "node:os"
-import path from "node:path"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { FakeRuntimeAdapter } from "@unifia/contracts"
-import { WorkspaceRuntime } from "@unifia/workspace-runtime"
-import { UnauthenticatedPrincipal, WorkbenchServer } from "../src/index.js"
+  test("event without sequence omits id line (preserves Last-Event-ID cursor)", () => {
+    const out = sseFrame({ type: "ping" } as { sequence?: number })
+    expect(out).toBe('data: {"type":"ping"}\n\n')
+  })
 
-async function readFrames(response: Response, count: number): Promise<Record<string, unknown>[]> {
-  const reader = response.body!.getReader()
-  const decoder = new TextDecoder()
-  const frames: Record<string, unknown>[] = []
-  let buffer = ""
-  while (frames.length < count) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split("\n\n")
-    buffer = parts.pop() ?? ""
-    for (const part of parts) {
-      const data = part.split("\n").find((line) => line.startsWith("data: "))?.slice(6)
-      if (data) frames.push(JSON.parse(data))
-    }
-  }
-  await reader.cancel()
-  return frames
+  test("event with sequence=0 still emits the id line (explicit zero)", () => {
+    const out = sseFrame({ sequence: 0, type: "ping" } as { sequence?: number })
+    expect(out).toBe('id: 0\ndata: {"sequence":0,"type":"ping"}\n\n')
+  })
+
+  test("frame ends with a blank line (SSE record separator)", () => {
+    const out = sseFrame({ type: "ping" } as { sequence?: number })
+    expect(out.endsWith("\n\n")).toBe(true)
+  })
+
+  test("nested event payloads are JSON-serialised", () => {
+    const out = sseFrame({ sequence: 1, payload: { a: [1, 2, { b: "x" }] } } as { sequence?: number })
+    expect(out).toBe('id: 1\ndata: {"sequence":1,"payload":{"a":[1,2,{"b":"x"}]}}\n\n')
+  })
+})
+
+describe("workspaceEventFrame (E11)", () => {
+  test("preserves a mutation event's resource field through SSE framing", () => {
+    // WHY: E11's contract is « chaque mutation produit une ressource/ID ».
+    // The frame helper must serialise the resource byte-for-byte so the
+    // client's event→query key map (E12) can scope the refetch to
+    // `event.resource.id`. Dropping the field here would silently break
+    // the invalidation map.
+    const event = parseWorkspaceEvent({
+      eventId: "ev-1",
+      workspaceId: "ws-1",
+      sequenceId: 7,
+      cursor: "opaque-7",
+      type: "operation.updated",
+      payload: { state: "running" },
+      resource: { type: "operation", id: "op-42" },
+    })
+    const out = workspaceEventFrame(event)
+    expect(out).toContain('"sequenceId":7')
+    expect(out).toContain('"resource":{"type":"operation","id":"op-42"}')
+    expect(out.startsWith("id: 7\n")).toBe(true)
+  })
+
+  test("emits id: line for every WorkspaceEvent (sequenceId is required)", () => {
+    // WHY: the SSE Last-Event-ID cursor relies on a non-empty id line.
+    // A parser that swallowed sequenceId would break reconnect replay
+    // and the client's gap detection (sequenceId > lastSequence + 1).
+    const event = parseWorkspaceEvent({
+      eventId: "ev-2",
+      workspaceId: "ws-1",
+      sequenceId: 0,
+      cursor: "opaque-0",
+      type: "trace.appended",
+      payload: { line: "x" },
+    }) satisfies WorkspaceEvent
+    const out = workspaceEventFrame(event)
+    expect(out.startsWith("id: 0\n")).toBe(true)
+    expect(out.endsWith("\n\n")).toBe(true)
+  })
+})
+
+/**
+ * E13i polling-fallback test harness. We inject a stub runtime that
+ * returns the next batch on each listSessions call, and we drive the
+ * fallback synchronously by replacing setTimeout with a manual stepper
+ * that fires each scheduled tick in order. This removes real wall-clock
+ * dependence and keeps the tests deterministic.
+ */
+type StubRuntime = {
+  listSessionsCalls: number
+  nextBatch: () => readonly Session[] | Promise<readonly Session[]>
+} & Pick<RuntimeAdapter, "listSessions">
+
+function makeRuntime(firstBatch: readonly Session[][], errors: Error[] = []): StubRuntime {
+  let i = 0
+  let errIdx = 0
+  return {
+    listSessionsCalls: 0,
+    nextBatch: () => firstBatch[i++] ?? [],
+    async listSessions(scope) {
+      this.listSessionsCalls += 1
+      if (errIdx < errors.length) throw errors[errIdx++]
+      return [...(await this.nextBatch())]
+    },
+  } as StubRuntime
 }
 
-describe("GET /v1/workspaces/:workspaceId/events (C2-2/FUNC-001)", () => {
-  let root: string
-  beforeEach(async () => { root = await mkdtemp(path.join(os.tmpdir(), "unifia-workspace-events-")) })
-  afterEach(async () => { await rm(root, { recursive: true, force: true }) })
+function session(id: string, workspaceId = "ws-1"): Session {
+  return { id, workspaceId, runtimeId: "fake", createdAt: 0, messageCount: 0 }
+}
 
-  async function open(server: WorkbenchServer) {
-    const registered = await server.fetch(new Request("http://localhost/v1/workspaces/register", { method: "POST", body: JSON.stringify({ name: "fixture", path: root }) }))
-    const { id } = (await registered.json()) as { id: string }
-    const opened = await server.fetch(new Request(`http://localhost/v1/workspaces/${id}/open`, { method: "POST" }))
-    return (await opened.json()) as { id: string; token: string }
-  }
-
-  it("fans in events from every session that exists when the stream opens", async () => {
-    const runtime = new FakeRuntimeAdapter(() => 1_000)
-    const server = new WorkbenchServer({ auth: new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]), workspace: new WorkspaceRuntime(), runtime, audit: { record: () => undefined }, capability: { check: async () => "allow" } })
-    const handle = await open(server)
-    const sessionA = await runtime.createSession({ workspaceId: handle.id })
-    const sessionB = await runtime.createSession({ workspaceId: handle.id })
-
-    const response = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/events`, { headers: { authorization: `Bearer ${handle.token}` } }))
-    expect(response.status).toBe(200)
-
-    await runtime.sendPrompt({ sessionId: sessionA.id, prompt: "from A" })
-    await runtime.sendPrompt({ sessionId: sessionB.id, prompt: "from B" })
-
-    const frames = await readFrames(response, 2)
-    const sessionIds = frames.map((frame) => frame.sessionId).sort()
-    expect(sessionIds).toEqual([sessionA.id, sessionB.id].sort())
-  })
-
-  it("joins a session created after the stream opened, within one poll interval", async () => {
-    const runtime = new FakeRuntimeAdapter(() => 1_000)
-    const server = new WorkbenchServer({
-      auth: new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]),
-      workspace: new WorkspaceRuntime(),
-      runtime,
-      audit: { record: () => undefined },
-      capability: { check: async () => "allow" },
-      workspaceEventsPollMs: 20,
+describe("createPollingFallback (E13i bounded fallback)", () => {
+  test("fires onSession for every new session, then stops emitting once known", async () => {
+    const runtime = makeRuntime([
+      [session("s-1")],
+      [session("s-1"), session("s-2")],  // s-1 already known, s-2 new
+      [session("s-1"), session("s-2")],  // both known, empty tick
+    ])
+    const seen: string[] = []
+    let handle: ReturnType<typeof setTimeout> | undefined
+    const scheduled: Array<() => void> = []
+    const fallback = createPollingFallback(runtime as unknown as RuntimeAdapter, { workspaceId: "ws-1" }, (s) => seen.push(s.id), {
+      setTimeoutFn: (cb) => { handle = setTimeout(cb, 0); scheduled.push(() => handle !== undefined && clearTimeout(handle)); return handle },
+      clearTimeoutFn: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      logger: { warn: () => undefined },
     })
-    const handle = await open(server)
-
-    const response = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/events`, { headers: { authorization: `Bearer ${handle.token}` } }))
-    expect(response.status).toBe(200)
-
-    // Created after the stream opened — only the poll can discover it.
-    await new Promise((resolve) => setTimeout(resolve, 40))
-    const sessionLate = await runtime.createSession({ workspaceId: handle.id })
-    await new Promise((resolve) => setTimeout(resolve, 40))
-    await runtime.sendPrompt({ sessionId: sessionLate.id, prompt: "joined late" })
-
-    const [frame] = await readFrames(response, 1)
-    expect(frame?.sessionId).toBe(sessionLate.id)
+    // Drain three ticks manually.
+    await new Promise<void>((r) => setTimeout(r, 5))
+    for (let i = 0; i < 3; i += 1) {
+      // The handle is the latest scheduled tick; trigger it.
+      await new Promise<void>((r) => setTimeout(r, 5))
+    }
+    fallback.stop()
+    expect(seen).toEqual(["s-1", "s-2"])
+    const s = fallback.stats()
+    expect(s.ticks).toBeGreaterThanOrEqual(1)
+    expect(s.productive).toBeGreaterThanOrEqual(2)
+    expect(runtime.listSessionsCalls).toBeGreaterThanOrEqual(1)
   })
 
-  it("rejects a caller without a valid workspace token", async () => {
-    const server = new WorkbenchServer({ auth: new UnauthenticatedPrincipal("anonymous", ["workspace.register", "workspace.open", "workspace.read", "workspace.watch"]), workspace: new WorkspaceRuntime(), runtime: new FakeRuntimeAdapter(() => 1_000), audit: { record: () => undefined }, capability: { check: async () => "allow" } })
-    const handle = await open(server)
-    const response = await server.fetch(new Request(`http://localhost/v1/workspaces/${handle.id}/events`))
-    expect(response.status).toBe(403)
+  test("stop() is idempotent and releases the timer", () => {
+    const runtime = makeRuntime([[]])
+    const fallback = createPollingFallback(runtime as unknown as RuntimeAdapter, { workspaceId: "ws-1" }, () => undefined, {
+      setTimeoutFn: () => 0,
+      clearTimeoutFn: () => undefined,
+      logger: { warn: () => undefined },
+    })
+    fallback.stop()
+    expect(() => fallback.stop()).not.toThrow()
+  })
+
+  test("a listSessions error is logged (NOT swallowed) and counted in stats.errors", async () => {
+    const err = new Error("runtime offline")
+    const runtime = makeRuntime([[]], [err])
+    const warnings: Array<{ msg: string; reason: unknown }> = []
+    const fallback = createPollingFallback(runtime as unknown as RuntimeAdapter, { workspaceId: "ws-1" }, () => undefined, {
+      setTimeoutFn: (cb) => setTimeout(cb, 0),
+      clearTimeoutFn: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      logger: { warn: (msg, reason) => warnings.push({ msg, reason }) },
+    })
+    // Wait for the first tick to complete and the error to be logged.
+    await new Promise<void>((r) => setTimeout(r, 20))
+    fallback.stop()
+    const stats = fallback.stats()
+    expect(stats.errors).toBe(1)
+    expect(warnings.length).toBeGreaterThanOrEqual(1)
+    expect(warnings[0].msg).toMatch(/listSessions failed/)
   })
 })

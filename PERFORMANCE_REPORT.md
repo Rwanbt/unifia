@@ -1,11 +1,26 @@
 # PERFORMANCE REPORT — Unifia Fork (2026-04-17)
 
+> **DOCUMENT LEGACY — superseded by [`docs/perf-baselines/measurement-contract.md`](docs/perf-baselines/measurement-contract.md) (carte A00, 2026-08-24).**
+>
+> Toute valeur numérique citée dans ce fichier est soit une **référence code**
+> (`file:line` colonne 2), soit une **estimation étiquetée** dans la colonne
+> impact. Aucune n'est une source de vérité tant qu'elle n'est pas promue
+> par un artefact JSON conforme au §3 du contrat de mesure.
+
 > Analyse de la logique algorithmique et propositions de benchmarks.
 > Cible : agent réactif pour LLMs locaux (llama-server:14097) et cloud, fonctionnant de la montre connectée au desktop 128 Go.
 
 ---
 
 ## 1. Hot paths identifiés
+
+> **Note (2026-08-24)** : toutes les valeurs de la colonne « Impact estimé »
+> sont `[ESTIMATE — pas de harnais]` au sens du
+> [`measurement-contract.md`](docs/perf-baselines/measurement-contract.md) §4.
+> Aucune n'est une mesure. La colonne « Localisation » est une référence
+> `file:line` (catégorie (a) du contrat §6) et n'a pas besoin de source
+> d'exécution. Les colonnes « Observé » et « Impact estimé » ne sont pas
+> sourcées et seront remplacées par des artefacts JSON après A03.
 
 | # | Localisation | Observé | Impact estimé |
 |---|---|---|---|
@@ -92,6 +107,10 @@ function chooseGpuLayers(model: ModelInfo, profile: DeviceProfile): number {
 
 ## 3. Benchmarks à mettre en place
 
+> **Note (2026-08-24)** : cette section est une **proposition** (« à mettre
+> en place »), pas une mesure. Étiquette : `[PROPOSAL — pas implémenté]`.
+> Voir cartes A01-A03 et E10+ pour le harnais réel qui remplace ce plan.
+
 Nouveau dossier `packages/unifia/test/bench/` :
 
 ### 3.1 — `bench-tokenize.ts`
@@ -138,6 +157,11 @@ CI : `.github/workflows/bench.yml` exécute `bench:compare` sur PR et commente r
 
 ## 4. Quick wins perf (faible coût, fort impact)
 
+> **Note (2026-08-24)** : la colonne « Gain estimé » est `[ESTIMATE — pas de
+> harnais]` au sens du
+> [`measurement-contract.md`](docs/perf-baselines/measurement-contract.md) §4.
+> Toute promotion en mesure requiert un artefact JSON conforme.
+
 | Quick win | Fichier | Gain estimé |
 |---|---|---|
 | Dynamic import des provider SDKs | [packages/unifia/src/provider/transform.ts](packages/unifia/src/provider/transform.ts) | -500 à -800 KB cold start |
@@ -155,6 +179,13 @@ CI : `.github/workflows/bench.yml` exécute `bench:compare` sur PR et commente r
 2. **Après**, comparer. Refuser le merge si régression non justifiée.
 3. Pour le mobile Android : `adb shell dumpsys meminfo ai.opencode.mobile` avant/après une session 30 min, observer `TOTAL PSS`.
 4. Heap snapshot WebView via Chrome DevTools Remote sur une session 100 messages avec 10 abort-and-retype : confirmer ou invalider A.3.
+
+> **Note (2026-08-24)** : la méthodologie ci-dessus est **antérieure au
+> contrat de mesure**. À partir de la carte A00, la méthodologie applicable
+> est celle du
+> [`docs/perf-baselines/measurement-contract.md`](docs/perf-baselines/measurement-contract.md).
+> Les quick wins et benchmarks listés ici ne sont acceptés comme seuils de
+> non-régression qu'après production d'un artefact JSON conforme.
 
 ---
 

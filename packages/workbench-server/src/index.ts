@@ -173,15 +173,12 @@ function parseManifestResult(content: string | Uint8Array): WorkspaceManifest {
   return migrateWorkspaceManifest(JSON.parse(raw))
 }
 
-/**
- * Serialise one runtime event as a wire-format SSE frame.
- * WHY: the `id:` line is omitted when no sequence exists — emitting an empty
- * `id:` would reset the client's Last-Event-ID and break cursor resumption.
- */
-export function sseFrame(event: { sequence?: number }): string {
-  const id = typeof event.sequence === "number" ? `id: ${event.sequence}\n` : ""
-  return `${id}data: ${JSON.stringify(event)}\n\n`
-}
+// E10: `sseFrame` extracted to ./workspace-events.js so the wire-format SSE
+// framing is testable in isolation. Re-imported AND re-exported so the
+// existing call sites in this file (line 497, 571) and external callers
+// (e.g. test/server.test.ts) both resolve.
+import { sseFrame, createPollingFallback } from "./workspace-events.js"
+export { sseFrame }
 
 /**
  * Encodes a file read result for the wire.
@@ -536,7 +533,11 @@ export class WorkbenchServer {
     const encoder = new TextEncoder()
     const iterators = new Map<string, AsyncIterator<RuntimeEvent>>()
     const pending = new Map<string | typeof WAKE, Promise<{ sessionId: string | typeof WAKE; result?: IteratorResult<RuntimeEvent> }>>()
-    let pollTimer: ReturnType<typeof setInterval> | undefined
+    // E13i: the legacy `setInterval(listSessions, 5_000)` is REPLACED by
+    // the push hook (primary) or the bounded polling fallback (when the
+    // backend pre-dates E13i). RFC-0001 documents the fallback contract
+    // (backoff 1s→30s, jitter, errors logged not swallowed).
+    let discoveryStop: (() => void) | undefined
 
     const arm = (sessionId: string, iterator: AsyncIterator<RuntimeEvent>) => {
       pending.set(sessionId, iterator.next().then((result) => ({ sessionId, result })))
@@ -560,11 +561,17 @@ export class WorkbenchServer {
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
         controller.enqueue(encoder.encode(": unifia stream open\n\n"))
-        pollTimer = setInterval(() => {
-          this.#runtime.listSessions({ workspaceId }).then((sessions) => {
-            for (const session of sessions) addSession(session.id)
-          }).catch(() => { /* transient listSessions failure: keep streaming already-known sessions */ })
-        }, this.#workspaceEventsPollMs)
+        // E13i: pick the discovery strategy once, at stream open.
+        // `hasPushHook` is the boundary adapter's static answer to
+        // "does my backend push new-session events?" — a backend that
+        // pre-dates E13i reports `false` and we use the bounded
+        // polling fallback instead. Mixing both (push + poll) would
+        // duplicate every new session and arm `addSession` twice.
+        if (this.#runtime.hasPushHook) {
+          discoveryStop = this.#runtime.onSessionCreated({ workspaceId }, (session) => addSession(session.id))
+        } else {
+          discoveryStop = createPollingFallback(this.#runtime, { workspaceId }, (session) => addSession(session.id)).stop
+        }
       },
       pull: async (controller) => {
         while (true) {
@@ -578,7 +585,7 @@ export class WorkbenchServer {
         }
       },
       cancel: async () => {
-        if (pollTimer) clearInterval(pollTimer)
+        if (discoveryStop) discoveryStop()
         await Promise.all([...iterators.values()].map((iterator) => iterator.return?.()))
       },
     })

@@ -266,4 +266,35 @@ describeWatcher("FileWatcher", () => {
       ),
     )
   })
+
+  // G10 — observability counters. The previous `if (err) return`
+  // was a swallowed error: a broken binding would manifest as
+  // "no events arrive" with no diagnostic. Now the watcher counts
+  // every published event and every callback error so a test
+  // (or a diagnostic page) can assert the watcher is healthy.
+  test("exposes stats: eventsPublished increments after a write", async () => {
+    await using tmp = await tmpdir({ git: true })
+    FileWatcher.resetStats()
+    const file = path.join(tmp.path, "stats.txt")
+    const fileKey = await Instance.provide({ directory: tmp.path, fn: () => File.toCanonicalRelative(file) })
+    await withWatcher(
+      tmp.path,
+      nextUpdate(
+        tmp.path,
+        (evt) => evt.file === fileKey,
+        Effect.promise(() => fs.writeFile(file, "first")),
+      ),
+    )
+    const stats = FileWatcher.getStats()
+    expect(stats.eventsPublished).toBeGreaterThanOrEqual(1)
+    expect(stats.callbackErrors).toBe(0)
+  })
+
+  test("getStats is a snapshot (mutating the returned object does not affect the live counters)", () => {
+    FileWatcher.resetStats()
+    const snapshot = FileWatcher.getStats()
+    ;(snapshot as { eventsPublished: number }).eventsPublished = 999
+    const fresh = FileWatcher.getStats()
+    expect(fresh.eventsPublished).not.toBe(999)
+  })
 })

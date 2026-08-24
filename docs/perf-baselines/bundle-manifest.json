@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-08-24T13:13:56.383Z",
+  "distRoot": "D:\\App\\unifia\\unifia-work-design\\packages\\app\\dist",
+  "totalBytes": 17089044,
+  "totalFiles": 452,
+  "byKind": {
+    "other": {
+      "count": 438,
+      "bytes": 12857975,
+      "files": [
+        {
+          "name": "abap-BdImnpbu.js",
+          "bytes": 15852
+        },
+        {
+          "name": "actionscript-3-CfeIJUat.js",
+          "bytes": 14049
+        },
+        {
+          "name": "ada-bCR0ucgS.js",
+          "bytes": 48082
+        },
+        {
+          "name": "alert-01-BJxg7Br3.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-02-B_yYorxz.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-03-DrFH92rH.js",
+          "bytes": 2195
+        },
+        {
+          "name": "alert-04-BvTiGxWY.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-05-CFi_H2fs.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-06-IqbtOTTn.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-07-B2AcuX88.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-08-pIF0yjmQ.js",
+          "bytes": 62
+        },
+        {
+          "name": "alert-09-CidmJWaA.js",
+          "bytes": 5171
+        },
+        {
+          "name": "alert-10-84PPn2Zu.js",
+          "bytes": 62
+        },
+        {
+          "name": "amoled-CTKLNjMY.js",
+          "bytes": 914
+        },
+        {
+          "name": "andromeeda-C-Jbm3Hp.js",
+          "bytes": 8976
+        },
+        {
+          "name": "angular-html-CU67Zn6k.js",
+          "bytes": 24287
+        },
+        {
+          "name": "angular-ts-BwZT4LLn.js",
+          "bytes": 183820
+        },
+        {
+          "name": "apache-Pmp26Uib.js",
+          "bytes": 12456
+        },
+        {
+          "name": "apex-DDbsPZ6N.js",
+          "bytes": 46968
+        },
+        {
+          "name": "apl-dKokRX4l.js",
+          "bytes": 24039
+        },
+        {
+          "name": "applescript-Co6uUVPk.js",
+          "bytes": 29571
+        },
+        {
+          "name": "ar-BBkUbD-U.js",
+          "bytes": 7334
+        },
+        {
+          "name": "ar-BgGAmPxw.js",
+          "bytes": 125220
+        },
+        {
+          "name": "ara-BRHolxvo.js",
+          "bytes": 6362
+        },
+        {
+          "name": "asciidoc-Dv7Oe6Be.js",
+          "bytes": 131513
+        }
+      ]
+    },
+    "entry": {
+      "count": 11,
+      "bytes": 2564299,
+      "files": [
+        {
+          "name": "index-B4hQTLPS.js",
+          "bytes": 2457
+        },
+        {
+          "name": "index-B5pFIkPD.js",
+          "bytes": 26525
+        },
+        {
+          "name": "index-BOiLHigm.css",
+          "bytes": 298154
+        },
+        {
+          "name": "index-BOOBk0Jg.js",
+          "bytes": 86961
+        },
+        {
+          "name": "index-C5iuiRTP.js",
+          "bytes": 1932462
+        },
+        {
+          "name": "index-Cf-2H6IH.js",
+          "bytes": 45135
+        },
+        {
+          "name": "index-Ctsb4XlE.js",
+          "bytes": 28254
+        },
+        {
+          "name": "index-DegqsN5Y.js",
+          "bytes": 70843
+        },
+        {
+          "name": "index-DeLwW1ut.js",
+          "bytes": 28692
+        },
+        {
+          "name": "index-DvyIc7LO.js",
+          "bytes": 44285
+        },
+        {
+          "name": "index-FHBuKVHU.js",
+          "bytes": 531
+        }
+      ]
+    },
+    "terminal": {
+      "count": 2,
+      "bytes": 1494595,
+      "files": [
+        {
+          "name": "ghostty-web-BCkhWW1d.js",
+          "bytes": 1381478
+        },
+        {
+          "name": "terminal-panel-B6UHlIq7.js",
+          "bytes": 113117
+        }
+      ]
+    },
+    "mode": {
+      "count": 1,
+      "bytes": 172175,
+      "files": [
+        {
+          "name": "workbench-mode-C51i6F2Q.js",
+          "bytes": 172175
+        }
+      ]
+    }
+  },
+  "budgets": {
+    "entry": 2500000,
+    "vendor-syntax": 500000,
+    "locales": 250000,
+    "terminal": 500000,
+    "mode": 1000000
+  }
+}

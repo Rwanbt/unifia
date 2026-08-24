@@ -65,6 +65,11 @@ impl ChildProcesses {
 
     /// Records a freshly spawned child. A PID we fail to adopt is one we will
     /// refuse to kill later, so the failure is logged rather than swallowed.
+    ///
+    /// D11 contract: the lease is **immediate** — `adopt` writes a file to the
+    /// lease directory synchronously before returning Ok. If `stop_all` is
+    /// called right after `adopt`, the lease is on disk and the supervisor
+    /// can verify ownership before killing.
     pub fn adopt(&self, pid: u32) {
         let Some(dir) = lease_dir() else { return };
         match Supervisor::new(dir).adopt(pid) {
@@ -78,6 +83,11 @@ impl ChildProcesses {
 
     /// Stops every child this run started, asking first and forcing only what
     /// is still provably ours.
+    ///
+    /// D11 contract: **kill-on-close** — every adopted child is killed when
+    /// the app exits, verified by the supervisor (PID + executable hash). PIDs
+    /// that no longer match the spawned image are reported as `Impostor` and
+    /// **left alive** (we never kill a process we don't own).
     pub fn stop_all(&self) {
         let Some(dir) = lease_dir() else { return };
         let leases: Vec<Lease> = std::mem::take(&mut *self.held.lock().expect("lease list poisoned"));
@@ -93,5 +103,39 @@ impl ChildProcesses {
                 ),
             }
         }
+    }
+}
+
+// D11 — contract tests for `ChildProcesses`. These exercise the public API
+// without spawning real child processes; the actual lease write / kill proof
+// lives in the G4 gate (HUMAN_RUNTIME) where the full Unifia desktop binary
+// is available.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_constructor_produces_usable_handle() {
+        let children = ChildProcesses::default();
+        // `stop_all` on an empty lease list must be a no-op.
+        children.stop_all();
+    }
+
+    #[test]
+    fn adopt_nonexistent_pid_does_not_panic() {
+        let children = ChildProcesses::default();
+        // 999_999 is not a running PID; the supervisor returns Err and we
+        // log a warning. The contract is: no panic, no leaked lock, no
+        // corrupt state.
+        children.adopt(999_999);
+        children.stop_all();
+    }
+
+    #[test]
+    fn multiple_stop_all_calls_are_idempotent() {
+        let children = ChildProcesses::default();
+        children.stop_all();
+        children.stop_all();
+        children.stop_all();
     }
 }

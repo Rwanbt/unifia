@@ -3,7 +3,9 @@
 import { describe, expect, it } from "vitest"
 import {
   EVENT_MERGE_RULES,
+  MUTATION_EVENT_TYPES,
   createIdempotencyKey,
+  isMutationEventType,
   parseAcceptedOperation,
   parseBinaryPayloadRef,
   parseHandshakeRequest,
@@ -38,9 +40,45 @@ describe("workbench wire contract", () => {
   })
 
   it("validates monotonic event identity and short-lived binary references", () => {
-    expect(parseWorkspaceEvent({ eventId: "event-1", workspaceId: "ws-1", sequenceId: 4, cursor: "opaque-4", type: "workspace.changed", payload: {} }).sequenceId).toBe(4)
+    expect(parseWorkspaceEvent({ eventId: "event-1", workspaceId: "ws-1", sequenceId: 4, cursor: "opaque-4", type: "workspace.changed", payload: {}, resource: { type: "workspace", id: "ws-1" } }).sequenceId).toBe(4)
     expect(parseBinaryPayloadRef({ kind: "binary-ref", url: "https://127.0.0.1/file", expiresAt: Date.now() + 1000, sha256: "abc", byteLength: 10 }).byteLength).toBe(10)
-    expect(() => parseWorkspaceEvent({ eventId: "event-1", workspaceId: "ws-1", sequenceId: -1, cursor: "opaque", type: "workspace.changed", payload: {} })).toThrow()
+    expect(() => parseWorkspaceEvent({ eventId: "event-1", workspaceId: "ws-1", sequenceId: -1, cursor: "opaque", type: "workspace.changed", payload: {}, resource: { type: "workspace", id: "ws-1" } })).toThrow()
+  })
+
+  it("exposes an explicit mutation-event set (E11)", () => {
+    expect(MUTATION_EVENT_TYPES).toEqual(["workspace.changed", "operation.updated", "approval.updated"])
+    expect(isMutationEventType("workspace.changed")).toBe(true)
+    expect(isMutationEventType("operation.updated")).toBe(true)
+    expect(isMutationEventType("approval.updated")).toBe(true)
+    expect(isMutationEventType("catalog.updated")).toBe(false)
+    expect(isMutationEventType("trace.appended")).toBe(false)
+  })
+
+  it("requires a resource on every mutation event (E11 oracle: chaque mutation produit une ressource/ID)", () => {
+    const resource = { type: "operation", id: "op-1" }
+    for (const type of MUTATION_EVENT_TYPES) {
+      const event = parseWorkspaceEvent({ eventId: "ev-1", workspaceId: "ws-1", sequenceId: 1, cursor: "c-1", type, payload: {}, resource })
+      // WHY: the parser is the ONE place that decides whether a wire event
+      // carries a resource — the consumer's `event.resource.id` access
+      // relies on this invariant. If the cast ever stops narrowing to
+      // `WorkspaceMutationEvent`, the test will fail to compile.
+      if (event.type === "operation.updated" || event.type === "approval.updated" || event.type === "workspace.changed") {
+        expect(event.resource).toEqual(resource)
+      }
+    }
+  })
+
+  it("rejects mutation events that omit the resource field", () => {
+    expect(() => parseWorkspaceEvent({ eventId: "ev-1", workspaceId: "ws-1", sequenceId: 1, cursor: "c-1", type: "operation.updated", payload: {} })).toThrow(/resource/)
+    expect(() => parseWorkspaceEvent({ eventId: "ev-1", workspaceId: "ws-1", sequenceId: 1, cursor: "c-1", type: "operation.updated", payload: {}, resource: { type: "" } })).toThrow(/resource\.type/)
+    expect(() => parseWorkspaceEvent({ eventId: "ev-1", workspaceId: "ws-1", sequenceId: 1, cursor: "c-1", type: "operation.updated", payload: {}, resource: "not-an-object" })).toThrow(/resource/)
+  })
+
+  it("accepts bulk events without a resource (whole aggregate)", () => {
+    const catalog = parseWorkspaceEvent({ eventId: "ev-2", workspaceId: "ws-1", sequenceId: 2, cursor: "c-2", type: "catalog.updated", payload: { version: 3 } })
+    expect(catalog.type).toBe("catalog.updated")
+    const trace = parseWorkspaceEvent({ eventId: "ev-3", workspaceId: "ws-1", sequenceId: 3, cursor: "c-3", type: "trace.appended", payload: { line: "x" } })
+    expect(trace.type).toBe("trace.appended")
   })
 
   it("keeps cursor, rotation, and rate limits explicit", () => {

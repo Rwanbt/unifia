@@ -14,7 +14,6 @@ import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
 import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
-import { DEFAULT_TOOLBAR_MODE, type DesignToolbarSnapshotState, type DesignToolbarMode } from "@/pages/workbench/design-toolbar"
 import { createArtifactParser } from "@unifia/artifact-render"
 import type { DesignSystemTokens } from "@unifia/contracts"
 import { DEFAULT_VIEWPORT, DEFAULT_ZOOM, VIEWPORT_IDS, type ViewportId } from "@unifia/artifact-render"
@@ -44,6 +43,8 @@ import { openTab, type DesignTab } from "@/pages/workbench/design-tabs"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { DesignBrowserTab } from "@/pages/workbench/design-browser-tab"
 import { DesignSketchTab } from "@/pages/workbench/design-sketch-tab"
+import { createDesignSnapshot } from "@/pages/workbench/design-snapshot"
+import { createDesignToolbarState } from "@/pages/workbench/design-toolbar-state"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
@@ -103,31 +104,28 @@ export function DesignSurface(): JSX.Element {
   // sélection) survivent à un changement d'onglet puis un retour, et pour
   // qu'une seule instance d'état existe par surface (et non par panneau
   // éphémère, comme avant P3-5).
-  const [viewport, setViewport] = createSignal<ViewportId>(DEFAULT_VIEWPORT)
-  const [zoom, setZoom] = createSignal<number>(DEFAULT_ZOOM)
-  const [toolbarMode, setToolbarMode] = createSignal<DesignToolbarMode>(DEFAULT_TOOLBAR_MODE)
-  const [snapshot, setSnapshot] = createSignal<DesignToolbarSnapshotState>({ kind: "idle" })
-  const [selectMode, setSelectMode] = createSignal(false)
+  // F11 — extracted to `design-toolbar-state.ts` so the surface file
+  // stays under the 800-LOC gate. The factory returns the same
+  // signals as before; the surface assigns them once and the
+  // toolbar receives the accessors + setters as before.
+  const { viewport, setViewport, zoom, setZoom, toolbarMode, setToolbarMode, selectMode, setSelectMode } = createDesignToolbarState()
+  // F11 — snapshot state machine extracted to `design-snapshot.ts`.
+  // The surface holds the controller (so it survives tab switches)
+  // and the iframe plugs `setCapture` once mounted. The controller
+  // owns Solid signals, so the toolbar re-renders on transitions
+  // without a polling tick.
+  const snapshotController = createDesignSnapshot()
   // P3-5 / P17 — la fonction de capture vit dans l'iframe (postMessage
   // same-origin impossible depuis l'hôte). `ArtifactPreview` la remonte
   // via `onSnapshotReady` à chaque montage d'iframe ; on la garde ici
   // pour qu'un seul `requestSnapshot` (ci-dessous) puisse la déclencher
   // depuis le toolbar remonté. Une seule instance visible à la fois, donc
   // un seul `capture` survit à un changement d'onglet.
-  let capture: (() => Promise<{ dataUrl: string; w: number; h: number }>) | undefined
-  function requestSnapshot(): void {
-    if (snapshot().kind === "capturing") return
-    if (!capture) {
-      setSnapshot({ kind: "error", error: "preview-not-mounted" })
-      return
-    }
-    setSnapshot({ kind: "capturing" })
-    void capture()
-      .then((result) => setSnapshot({ kind: "ready", dataUrl: result.dataUrl, w: result.w, h: result.h }))
-      // Un refus du pont (empty-render, timeout…) remonte tel quel : mieux
-      // vaut un échec nommé qu'un PNG uniforme livré en silence.
-      .catch((error: unknown) => setSnapshot({ kind: "error", error: error instanceof Error ? error.message : "snapshot-failed" }))
+  // F11: now wired through the controller's setCapture slot.
+  const setCapture = (fn: (() => Promise<{ dataUrl: string; w: number; h: number }>) | undefined) => {
+    snapshotController.setCapture(fn)
   }
+  const requestSnapshot = () => snapshotController.requestSnapshot()
 
   // Phase 8.3/9.6 — visibilité du panneau de commentaires, remontée au
   // même niveau que le reste du toolbar (P3-5) pour survivre à un
@@ -136,24 +134,10 @@ export function DesignSurface(): JSX.Element {
   const [commentPanelOpen, setCommentPanelOpen] = createSignal(true)
 
   // Phase 9.6 — copie la dernière capture dans le presse-papiers, en plus
-  // du téléchargement déjà câblé. `ClipboardItem` attend un `Blob`, pas le
-  // `dataUrl` que le pont snapshot renvoie — `fetch(dataUrl)` est le
-  // moyen le plus direct de refaire cette conversion sans réimplémenter
-  // un décodeur base64 (un `data:` URI est un fetch same-document valide).
-  const [copyState, setCopyState] = createSignal<"idle" | "copying" | "copied" | "error">("idle")
-  async function copySnapshot(): Promise<void> {
-    const current = snapshot()
-    if (current.kind !== "ready" || copyState() === "copying") return
-    setCopyState("copying")
-    try {
-      const blob = await (await fetch(current.dataUrl)).blob()
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
-      setCopyState("copied")
-      setTimeout(() => setCopyState((state) => (state === "copied" ? "idle" : state)), 2_000)
-    } catch {
-      setCopyState("error")
-    }
-  }
+  // du téléchargement déjà câblé. F11: the copy state machine lives in
+  // `design-snapshot.ts`; the toolbar reads `copyState()` and calls
+  // `copySnapshot()` on the controller.
+  const copySnapshot = () => snapshotController.copySnapshot()
 
   // P19 + P20 — Panneau de commentaires, rebranché. `CommentState` est un
   // registre plat (chaque `DesignComment` porte son propre `artifactId`),
@@ -598,7 +582,7 @@ export function DesignSurface(): JSX.Element {
         viewport={viewport()}
         zoom={zoom()}
         toolbarMode={toolbarMode()}
-        snapshot={snapshot()}
+        snapshot={snapshotController.snapshot()}
         selectMode={selectMode()}
         onViewport={setViewport}
         onZoom={setZoom}
@@ -606,9 +590,7 @@ export function DesignSurface(): JSX.Element {
         onSnapshot={requestSnapshot}
         onSelectMode={setSelectMode}
         onSelectTarget={onArtifactSelectTarget}
-        onSnapshotReady={(request) => {
-          capture = request
-        }}
+        onSnapshotReady={setCapture}
         commentState={commentState()}
         onCommentChange={updateCommentState}
         commentTarget={commentTarget()}
@@ -619,7 +601,7 @@ export function DesignSurface(): JSX.Element {
         commentPersistError={commentPersistError()}
         commentPanelOpen={commentPanelOpen()}
         onToggleCommentPanel={() => setCommentPanelOpen((value) => !value)}
-        copyState={copyState()}
+        copyState={snapshotController.copyState()}
         onCopySnapshot={() => void copySnapshot()}
         onArtifactEdited={onArtifactEdited}
       />

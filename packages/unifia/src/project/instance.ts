@@ -6,6 +6,7 @@ import { Log } from "@/util/log"
 import { Context } from "../util/context"
 import { Project } from "./project"
 import { State } from "./state"
+import { InstanceDiagnostics } from "./instance-diagnostics"
 
 export interface InstanceContext {
   directory: string
@@ -15,6 +16,7 @@ export interface InstanceContext {
 
 const context = Context.create<InstanceContext>("instance")
 const cache = new Map<string, Promise<InstanceContext>>()
+const leaseCounts = new Map<string, number>()
 
 const disposal = {
   all: undefined as Promise<void> | undefined,
@@ -63,11 +65,16 @@ function track(directory: string, next: Promise<InstanceContext>) {
 }
 
 export const Instance = {
-  async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R }): Promise<R> {
+  async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R; owner?: string; reason?: string }): Promise<R> {
     const directory = Filesystem.resolve(input.directory)
     let existing = cache.get(directory)
     if (!existing) {
       Log.Default.info("creating instance", { directory })
+      // C10: record owner/reason for this instance. Defaults are explicit so
+      // the oracle "chaque instance a un owner/reason" is always satisfied,
+      // even for call sites that haven't been updated yet (C11+ will narrow
+      // them down with meaningful values).
+      InstanceDiagnostics.record(directory, input.owner ?? "unknown", input.reason ?? "unspecified")
       existing = track(
         directory,
         boot({
@@ -141,6 +148,9 @@ export const Instance = {
     Log.Default.info("disposing instance", { directory })
     await Promise.all([State.dispose(directory), disposeInstance(directory)])
     cache.delete(directory)
+    // C10: drop the diagnostic record so the next `provide` on the same
+    // directory gets a fresh `createdAt` and re-records its owner/reason.
+    InstanceDiagnostics.clear(directory)
     emit(directory)
   },
   async disposeDirectory(input: string) {
@@ -154,6 +164,31 @@ export const Instance = {
     await context.provide(ctx, async () => {
       await Instance.dispose()
     })
+  },
+
+  // C12: lease/refcount for shared server-side consumers. Each call increments
+  // the per-directory refcount and returns a handle. Calling `release()` on the
+  // handle decrements the refcount; the last `release()` triggers a single
+  // `disposeDirectory` so disposal is idempotent (never called twice for the
+  // same directory while a single instance was alive). The per-handle `released`
+  // flag makes the handle itself idempotent — releasing twice is a no-op.
+  lease(directory: string): { release: () => Promise<void> } {
+    const dir = Filesystem.resolve(directory)
+    leaseCounts.set(dir, (leaseCounts.get(dir) ?? 0) + 1)
+    let released = false
+    return {
+      release: async () => {
+        if (released) return
+        released = true
+        const c = leaseCounts.get(dir) ?? 0
+        if (c <= 1) {
+          leaseCounts.delete(dir)
+          await Instance.disposeDirectory(dir)
+        } else {
+          leaseCounts.set(dir, c - 1)
+        }
+      },
+    }
   },
   async disposeAll() {
     if (disposal.all) return disposal.all
