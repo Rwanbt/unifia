@@ -17,6 +17,54 @@ export interface InstanceContext {
 const context = Context.create<InstanceContext>("instance")
 const cache = new Map<string, Promise<InstanceContext>>()
 const leaseCounts = new Map<string, number>()
+/** Last time each directory was handed to `provide`, for LRU eviction. */
+const lastUsed = new Map<string, number>()
+
+/**
+ * How many project instances stay resident.
+ *
+ * WHY a cap exists at all: an instance is not a cache entry, it is a running
+ * subsystem — file watchers, LSP clients, plugin state. `provide` is reached by
+ * ANY request carrying a `?directory=`, including read-only ones, so merely
+ * listing recent projects used to leave a full instance resident forever. Four
+ * projects were observed live after a cold start, none of them opened by the
+ * user.
+ *
+ * Four is chosen to cover the common "a few workspace tabs" case without being
+ * unbounded; `UNIFIA_MAX_INSTANCES` overrides it for anyone who genuinely works
+ * across more, and 0 disables eviction entirely.
+ */
+const DEFAULT_MAX_INSTANCES = 4
+
+function maxInstances(): number {
+  const raw = process.env["UNIFIA_MAX_INSTANCES"]
+  if (raw === undefined) return DEFAULT_MAX_INSTANCES
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_INSTANCES
+}
+
+/**
+ * Drops the least-recently-used instances until the cache fits the cap.
+ *
+ * Leased directories are never evicted: a lease means someone is mid-flight on
+ * that instance, and disposing it underneath them would tear down watchers and
+ * LSP clients a live caller still holds. If every resident instance is leased
+ * the cache is allowed to exceed the cap rather than break a caller — the cap
+ * is a memory target, not an invariant worth corrupting state for.
+ */
+async function evictLeastRecentlyUsed(keep: string): Promise<void> {
+  const cap = maxInstances()
+  if (cap === 0) return
+  const candidates = [...cache.keys()]
+    .filter((directory) => directory !== keep && (leaseCounts.get(directory) ?? 0) === 0)
+    .sort((a, b) => (lastUsed.get(a) ?? 0) - (lastUsed.get(b) ?? 0))
+  while (cache.size > cap && candidates.length > 0) {
+    const victim = candidates.shift()
+    if (!victim) break
+    Log.Default.info("evicting least-recently-used instance", { directory: victim, resident: cache.size, cap })
+    await Instance.disposeDirectory(victim)
+  }
+}
 
 const disposal = {
   all: undefined as Promise<void> | undefined,
@@ -57,7 +105,10 @@ function boot(input: { directory: string; init?: () => Promise<any>; project?: P
 
 function track(directory: string, next: Promise<InstanceContext>) {
   const task = next.catch((error) => {
-    if (cache.get(directory) === task) cache.delete(directory)
+    if (cache.get(directory) === task) {
+      cache.delete(directory)
+      lastUsed.delete(directory)
+    }
     throw error
   })
   cache.set(directory, task)
@@ -83,10 +134,19 @@ export const Instance = {
         }),
       )
     }
+    lastUsed.set(directory, Date.now())
     const ctx = await existing
+    // Evicting after the instance is resolved keeps the just-requested
+    // directory out of the candidate set and means a cold start never pays for
+    // a teardown before it has served anything.
+    await evictLeastRecentlyUsed(directory)
     return context.provide(ctx, async () => {
       return input.fn()
     })
+  },
+  /** Directories with a resident instance, for tests and diagnostics. */
+  residentDirectories(): string[] {
+    return [...cache.keys()]
   },
   get current() {
     return context.use()
@@ -148,6 +208,7 @@ export const Instance = {
     Log.Default.info("disposing instance", { directory })
     await Promise.all([State.dispose(directory), disposeInstance(directory)])
     cache.delete(directory)
+    lastUsed.delete(directory)
     // C10: drop the diagnostic record so the next `provide` on the same
     // directory gets a fresh `createdAt` and re-records its owner/reason.
     InstanceDiagnostics.clear(directory)
