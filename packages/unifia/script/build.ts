@@ -14,6 +14,7 @@ process.chdir(dir)
 
 import { Script } from "@unifia/script"
 import pkg from "../package.json"
+import pluginPkg from "../../plugin/package.json"
 
 const modelsUrl = process.env.UNIFIA_MODELS_URL || "https://models.dev"
 // Fetch and generate models.dev snapshot
@@ -249,6 +250,7 @@ for (const item of targets) {
     entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["unifia-web-ui.gen.ts"] : [])],
     define: {
       UNIFIA_VERSION: `'${Script.version}'`,
+      UNIFIA_PLUGIN_VERSION: `'${pluginPkg.version}'`,
       UNIFIA_MIGRATIONS: JSON.stringify(migrations),
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
       UNIFIA_WORKER_PATH: workerPath,
