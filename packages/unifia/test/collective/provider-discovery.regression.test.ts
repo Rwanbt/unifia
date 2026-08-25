@@ -325,6 +325,7 @@ describe("discover() cascade — adapter matches pre-B02 oracle exactly", () => 
     })
     mockAuthAll({})
     mockCredentialFile("not valid json {{{")
+    mockCliAuth(false)
     await loadFresh()
 
     process.env.FAKE_OPENAI_ENV_SET = "1"

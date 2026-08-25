@@ -88,7 +88,7 @@ function makeRuntime(firstBatch: readonly Session[][], errors: Error[] = []): St
   return {
     listSessionsCalls: 0,
     nextBatch: () => firstBatch[i++] ?? [],
-    async listSessions(scope) {
+    async listSessions(_scope) {
       this.listSessionsCalls += 1
       if (errIdx < errors.length) throw errors[errIdx++]
       return [...(await this.nextBatch())]

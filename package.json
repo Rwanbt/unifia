@@ -24,7 +24,7 @@
     "test:ai": "bun turbo typecheck",
     "prepare": "husky",
     "test": "echo 'do not run tests from root' && exit 1",
-    "test:unifia": "cd packages/unifia && bun test",
+    "test:unifia": "bun run --cwd packages/unifia test",
     "test:session": "cd packages/unifia && bun test --filter session"
   },
   "workspaces": {
