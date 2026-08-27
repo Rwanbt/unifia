@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
@@ -14,8 +14,8 @@ import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
 import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
-import { createArtifactParser, VIEWPORT_IDS } from "@unifia/artifact-render"
-import type { DesignSystemTokens } from "@unifia/contracts"
+import { DesignSpecEditor } from "@/pages/workbench/design-spec-editor"
+import { createArtifactParser } from "@unifia/artifact-render"
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
@@ -662,172 +662,5 @@ export function DesignSurface(): JSX.Element {
 // from `design-files-tab.tsx`, imported above: a real listing backed by
 // `listFiles(workspaceId, ".")`, the same client call Automate already used
 // (`automate-surface.tsx`) — no new server surface, no duplicated query.
-
-type DesignCatalogSummary = {
-  id: string
-  name: string
-  version: string
-  source: string
-  tokens: DesignSystemTokens
-}
-
-/**
- * Phase 3 — Onglet "Spec" : l'éditeur de spec historique migré tel quel
- * (catalog, design context, textarea, diagnostics, validation, viewports,
- * versioning, history). On n'a rien réécrit : le contenu existait, on
- * l'a juste déplacé d'un slot inline vers un sous-composant adressable
- * par le workshop via `kind: "spec"`. La migration donne une cible de
- * tests (le sous-composant est importable, le slot inline ne l'était pas).
- */
-function DesignSpecEditor(props: {
-  source: string
-  onInput: (value: string) => void
-  draftError: string | undefined
-  specDiagnostics: readonly { line: number; column: number; message: string }[]
-  specEmpty: string
-  validationLoading: boolean
-  validationError: unknown
-  validationValid: boolean
-  validationDenied: readonly string[]
-  previews: readonly unknown[]
-  saveState: "idle" | "saving" | "saved" | "error"
-  saveMessage: string
-  onSave: () => void
-  exportState: "idle" | "exporting" | "exported" | "error"
-  onExport: () => void
-  openState: "idle" | "opening" | "opened" | "error"
-  onOpenInWorkshop: () => void
-  versionPanel: {
-    history: readonly unknown[]
-    provenance?: Record<string, string>
-  }
-  latestDiff: { changed: readonly string[]; added: readonly string[]; removed: readonly string[] }
-  manifestError: unknown
-  manifestLoading: boolean
-  catalogs: readonly DesignCatalogSummary[]
-  onAddTokenComment: (catalogId: string, elementId: string) => void
-}): JSX.Element {
-  const language = useLanguage()
-  const t = language.t
-  return (
-    <div class="flex h-full min-h-0 flex-col gap-6 overflow-auto p-6" data-design-spec-editor>
-      <Show when={props.manifestError}>
-        <p data-design-manifest="failed" class="text-14-regular text-text-danger">{props.manifestError instanceof Error ? props.manifestError.message : String(props.manifestError)}</p>
-      </Show>
-      <Show when={props.catalogs.length > 0}>
-        <div class="grid gap-3 md:grid-cols-2" data-design-catalog-count={props.catalogs.length}>
-          <For each={props.catalogs}>
-            {(catalog) => (
-              <article class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-catalog={catalog.id}>
-                <h2 class="text-14-medium">{catalog.name} · {catalog.version}</h2>
-                <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.source", { source: catalog.source })}</p>
-                <TokenReview catalog={catalog} onAdd={props.onAddTokenComment} />
-              </article>
-            )}
-          </For>
-        </div>
-      </Show>
-      <Show when={!props.manifestLoading && !props.manifestError && props.catalogs.length === 0}>
-        <p data-design-manifest="empty" class="text-14-regular text-text-danger">{t("workbench.design.noManifest")}</p>
-      </Show>
-      {/*
-        P4-4 — la ligne « design context: N chars · catalog: none » est
-        retirée. C'était une étiquette statique de P22 servant à valider
-        l'observabilité du câblage catalogue → preamble ; le câblage est
-        désormais prouvé par l'agent lui-même (l'agent choisit le catalogue
-        quand il parle, et le fil en rend le contenu). Le data-attribute
-        `data-design-context-length` n'a plus de support dans le JSX.
-      */}
-      <label class="block space-y-2" for="workbench-design-spec">
-        <span class="text-14-medium">{t("workbench.design.specLabel")}</span>
-        <textarea
-          id="workbench-design-spec"
-          class="min-h-48 w-full rounded-lg border border-border-base bg-background-stronger p-4 font-mono text-12-regular text-text-base"
-          placeholder={t("workbench.design.specPlaceholder")}
-          value={props.source}
-          onInput={(event) => props.onInput(event.currentTarget.value)}
-          spellcheck={false}
-        />
-      </label>
-      <Show when={props.draftError}><p data-design-draft="error" class="text-12-regular text-text-danger">{props.draftError}</p></Show>
-      <Show when={props.specDiagnostics.length > 0}>
-        <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
-          <h2 class="text-14-medium text-text-danger">{t("workbench.design.diagnostics")}</h2>
-          <For each={props.specDiagnostics}>
-            {(diagnostic) => <p class="mt-2 text-12-regular text-text-weak">{t("workbench.design.diagnosticLine", { line: diagnostic.line, column: diagnostic.column, message: diagnostic.message })}</p>}
-          </For>
-        </aside>
-      </Show>
-      <Show when={props.validationLoading}>
-        <p data-design-validation="loading" class="text-12-regular text-text-weak">{t("workbench.design.validating")}</p>
-      </Show>
-      <Show when={props.validationError}>
-        <p data-design-validation="failed" class="text-14-regular text-text-danger">{props.validationError instanceof Error ? props.validationError.message : String(props.validationError)}</p>
-      </Show>
-      <Show when={props.validationDenied.length > 0}>
-        <p data-design-validation="denied" class="text-14-regular text-text-danger">{t("workbench.design.capabilitiesDenied", { list: props.validationDenied.join(", ") })}</p>
-      </Show>
-      <Show when={props.validationValid && props.validationDenied.length === 0 && props.previews.length > 0} fallback={<p class="text-14-regular text-text-danger">{props.specEmpty}</p>}>
-        <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={VIEWPORT_IDS.length}>
-          <For each={VIEWPORT_IDS}>
-            {(id) => (
-              <figure class="flex flex-col items-center gap-2 rounded-lg border border-border-base bg-background-stronger p-3">
-                <span class="text-12-medium">{id}</span>
-                <span class="text-12-regular text-text-weak">{t("workbench.design.previewCaption", { label: id, width: 0 })}</span>
-              </figure>
-            )}
-          </For>
-        </div>
-      </Show>
-      <div class="flex flex-wrap items-center gap-3" data-design-versioning>
-        <button type="button" data-design-save-version class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.saveState === "saving"} onClick={props.onSave}>
-          {props.saveState === "saving" ? "Enregistrement…" : "Enregistrer une version"}
-        </button>
-        <button type="button" data-design-export-render class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.exportState === "exporting"} onClick={props.onExport}>
-          {props.exportState === "exporting" ? "Export…" : "Exporter le rendu SVG"}
-        </button>
-        <button type="button" data-design-open-workshop class="rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!props.source || props.openState === "opening"} onClick={props.onOpenInWorkshop} title="Rend la spec en SVG, la persiste comme artefact, et l'ouvre dans l'onglet atelier">
-          {props.openState === "opening" ? "Ouverture…" : "Ouvrir dans l'atelier"}
-        </button>
-        <Show when={props.saveMessage}><span data-design-save-result={props.saveState} class="text-12-regular text-text-weak">{props.saveMessage}</span></Show>
-      </div>
-      <Show when={props.versionPanel.history.length > 0}>
-        <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-design-history>
-          <h2 class="text-14-medium">Historique Design</h2>
-          <p class="mt-2 text-12-regular text-text-weak">{props.versionPanel.history.length} version(s) · provenance : {props.versionPanel.provenance?.sourceTool ?? "inconnue"}</p>
-          <p data-design-diff class="mt-2 text-12-regular text-text-weak">Diff dernière version : {props.latestDiff.changed.join(", ") || "aucun changement structurel"}</p>
-        </section>
-      </Show>
-    </div>
-  )
-}
-
-function TokenReview(props: { catalog: DesignCatalogSummary; onAdd: (catalogId: string, elementId: string) => void }): JSX.Element {
-  const groups: readonly [keyof DesignSystemTokens, string][] = [["colors", "Colors"], ["spacing", "Spacing"], ["typography", "Typography"]]
-  return (
-    <div class="mt-4 space-y-3" data-design-token-review>
-      <h3 class="text-12-medium uppercase tracking-wide text-text-weak">Token review</h3>
-      <For each={groups}>
-        {([group, label]) => (
-          <section data-design-token-group={group}>
-            <h4 class="text-12-medium">{label}</h4>
-            <ul class="mt-1 space-y-1">
-              <For each={Object.entries(props.catalog.tokens[group])}>
-                {([key, value]) => {
-                  const elementId = `${group}.${key}`
-                  return (
-                    <li class="flex items-center justify-between gap-2 text-12-regular" data-design-token={elementId}>
-                      <code>{elementId}</code>
-                      <span class="truncate text-text-weak">{String(value)}</span>
-                      <button type="button" class="shrink-0 rounded border border-border-base px-2 py-0.5" data-design-token-add={elementId} onClick={() => props.onAdd(props.catalog.id, elementId)}>Ajouter</button>
-                    </li>
-                  )
-                }}
-              </For>
-            </ul>
-          </section>
-        )}
-      </For>
-    </div>
-  )
-}
+// V02 — spec editor + token review + their shared type live in
+// `design-spec-editor.tsx` and `design-token-review.tsx`.
