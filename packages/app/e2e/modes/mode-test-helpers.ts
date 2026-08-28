@@ -166,3 +166,88 @@ export async function measureModeSwitch(page: Page, mode: ModeName, timeout = 30
     return Math.round(w.__unifiaLat.t1 - w.__unifiaLat.t0)
   })
 }
+
+/**
+ * C4b2 — lecture des compteurs de ressources exposés en développement.
+ *
+ * Les noms suivent ce qu'ils comptent réellement (voir `perf-instrumentation.ts`) :
+ * `eventStreams` sont les flux SSE Workbench actifs, `queryObservers` la somme
+ * des observers TanStack abonnés, `queryCacheEntries` les entrées du cache. Un
+ * `onCleanup` manquant sur le chemin de bascule laisse un observer abonné et
+ * fait monter `queryObservers` ; `queryCacheEntries` ne le dirait pas, le cache
+ * gardant légitimement ses entrées pendant tout le `gcTime`.
+ *
+ * `heap` est secondaire et facultatif : `performance.memory` est spécifique à
+ * Chromium. Son absence ne doit jamais faire échouer un test — sinon un signal
+ * indicatif devient un gate dur par accident, ce que l'ancien spec faisait.
+ */
+export type PerfSnapshot = {
+  eventStreams: number
+  queryObservers: number
+  queryCacheEntries: number
+  heap: number | null
+}
+
+export async function readPerf(page: Page): Promise<PerfSnapshot> {
+  return page.evaluate(() => {
+    const perf = (
+      window as unknown as {
+        __UNIFIA_PERF__?: {
+          eventStreams: () => number
+          queryObservers: () => number
+          queryCacheEntries: () => number
+        }
+      }
+    ).__UNIFIA_PERF__
+    if (!perf) {
+      throw new Error("window.__UNIFIA_PERF__ absent : refus d'une mesure faussement verte")
+    }
+    const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+    return {
+      eventStreams: perf.eventStreams(),
+      queryObservers: perf.queryObservers(),
+      queryCacheEntries: perf.queryCacheEntries(),
+      heap: memory ? memory.usedJSHeapSize : null,
+    }
+  })
+}
+
+const sameCounters = (a: PerfSnapshot, b: PerfSnapshot): boolean =>
+  a.eventStreams === b.eventStreams &&
+  a.queryObservers === b.queryObservers &&
+  a.queryCacheEntries === b.queryCacheEntries
+
+/**
+ * Attend que les compteurs se stabilisent, plutôt que de dormir un temps
+ * arbitraire.
+ *
+ * WHY un plateau et pas un `sleep` : les nettoyages Solid et les désabonnements
+ * TanStack sont asynchrones. Un `sleep(3000)` est à la fois trop long dans le
+ * cas nominal et trop court sous charge, et il ne dit rien sur ce qu'il attend.
+ * Ici l'attente a un critère observable, et l'échec porte les échantillons.
+ */
+export async function waitForPerfPlateau(
+  page: Page,
+  options: { samples?: number; intervalMs?: number; timeoutMs?: number } = {},
+): Promise<PerfSnapshot> {
+  const samples = options.samples ?? 5
+  const intervalMs = options.intervalMs ?? 50
+  const timeoutMs = options.timeoutMs ?? 3_000
+  const deadline = Date.now() + timeoutMs
+  const window_: PerfSnapshot[] = []
+
+  for (;;) {
+    const snapshot = await readPerf(page)
+    window_.push(snapshot)
+    if (window_.length > samples) window_.shift()
+    if (window_.length === samples && window_.every((entry) => sameCounters(entry, window_[0]!))) {
+      return window_[window_.length - 1]!
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `compteurs non stabilisés en ${timeoutMs} ms — derniers échantillons : ${JSON.stringify(window_)}`,
+      )
+    }
+    await page.waitForTimeout(intervalMs)
+  }
+}
