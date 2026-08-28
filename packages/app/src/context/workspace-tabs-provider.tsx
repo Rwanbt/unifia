@@ -2,6 +2,8 @@
 
 import { type JSX, type ParentProps, createContext, createMemo, createSignal, onCleanup, onMount, useContext } from "solid-js"
 import { createStore, type SetStoreFunction } from "solid-js/store"
+import { createPersistWriteMonitor } from "@/utils/persist-write-monitor"
+import { createDebouncedPersist } from "./workspace-tabs-persist"
 import {
   ENTRY_TAB_ID,
   emptyWorkspaceTabState,
@@ -79,6 +81,7 @@ function writePersistedState(state: WorkspaceTabState): void {
 export function WorkspaceTabsProvider(props: ParentProps): JSX.Element {
   const [state, setState] = createStore<WorkspaceTabState>(readPersistedState())
   const [hydrated, setHydrated] = createSignal(false)
+  const writes = import.meta.env.DEV ? createPersistWriteMonitor() : undefined
 
   // Hydratation : la première lecture depuis localStorage est faite
   // dans `readPersistedState()`. On ne sérialise pas avant que
@@ -91,17 +94,21 @@ export function WorkspaceTabsProvider(props: ParentProps): JSX.Element {
   // Persistance debouncée. Le debounce est volontairement court : la
   // barre peut recevoir un événement toutes les 50–100 ms pendant un
   // drag, et 50 ms lisse les rafales sans risque de perte visible.
-  let writeTimer: ReturnType<typeof setTimeout> | undefined
+  // The write-storm counter lives on the request side (see
+  // createDebouncedPersist): counting after the debounce caps any key at
+  // 20 writes/s, which a 50/s threshold can never reach.
+  const persist = createDebouncedPersist<WorkspaceTabState>({
+    key: WORKSPACE_TABS_STORAGE_KEY,
+    write: writePersistedState,
+    writes,
+  })
   createMemo(() => {
     // Lire l'état pour s'abonner aux changements du store.
     const snapshot: WorkspaceTabState = { tabs: [...state.tabs], activeId: state.activeId }
     if (!hydrated()) return
-    if (writeTimer) clearTimeout(writeTimer)
-    writeTimer = setTimeout(() => writePersistedState(snapshot), 50)
+    persist.schedule(snapshot)
   })
-  onCleanup(() => {
-    if (writeTimer) clearTimeout(writeTimer)
-  })
+  onCleanup(() => persist.dispose())
 
   const api: WorkspaceTabsApi = {
     state,
