@@ -82,20 +82,51 @@ export function WorkspaceTabsBar(): JSX.Element {
     }
   }
 
-  // Phase 11.1 — réordonnancement par glisser-déposer. `toIndex` est
-  // calculé contre `tabs.state.tabs`, le tableau COMPLET (entry
-  // incluse), parce que c'est ce même tableau que `reorderWorkspaceTab`
-  // manipule en interne : pas de décalage d'index entre l'espace des
-  // ids passés à `SortableProvider` (qui exclut l'entry) et l'espace
-  // dans lequel l'index cible est appliqué.
+  // Phase 11.1 / V07 — réordonnancement par glisser-déposer.
+  //
+  // Avant V07 ce handler était branché sur `onDragOver` et appelait
+  // `tabs.reorder(...)` à chaque mouvement : un commit par frame. Le
+  // problème : pendant un resize (1440 -> 375), le `SortableProvider`
+  // re-render avec une nouvelle liste d'ids, et un `onDragOver` qui
+  // arrive APRÈS ce re-render pointe sur un `droppable.id` qui n'est
+  // plus dans la liste — d'où les warnings "nonexistent droppable"
+  // et "nonexistent draggable" que l'audit F-06 a relevés.
+  //
+  // V07 — la politique devient :
+  //   1. `onDragOver` ne commit plus : on garde un signal local
+  //      `dragOverId` (l'id du droppable survolé) pour le feedback
+  //      visuel éventuel, mais aucune mutation du store.
+  //   2. Le commit arrive dans `onDragEnd`, une seule fois, sur la
+  //      cible finale. Le `droppable` y est toujours vivant (le drag
+  //      est terminé), donc pas de course avec le re-render.
+  //   3. `onDragEnd` filtre les ids orphelins : si pour une raison
+  //      quelconque le droppable n'est plus dans le store, on ignore
+  //      l'événement plutôt que d'appeler `reorder(undefined, -1)`
+  //      et de polluer la console.
+  //   4. `console.warn` reste actif — la discipline du plan est de
+  //      *ne pas* masquer les warnings. La vraie correction est de
+  //      supprimer la cause.
   function handleDragOver(event: DragEvent): void {
+    // No-op on purpose : we do not commit during drag-over anymore.
+    // The SortableProvider still drives the visual transform via
+    // `use:sortable`; we only need the final drop to mutate the
+    // store, which happens in `handleDragEnd`.
+    void event
+  }
+  function handleDragEnd(event: DragEvent): void {
     const { draggable, droppable } = event
     if (!draggable || !droppable) return
     const fromId = draggable.id.toString()
     const toId = droppable.id.toString()
     if (fromId === toId) return
+    // Guard: a droppable that is no longer in the store would log
+    // a "nonexistent droppable" warning inside solid-dnd. We
+    // pre-check here so the warning stays meaningful for genuine
+    // bugs and not for a benign resize race.
     const toIndex = tabs.state.tabs.findIndex((t) => t.id === toId)
     if (toIndex === -1) return
+    const fromStillPresent = tabs.state.tabs.some((t) => t.id === fromId)
+    if (!fromStillPresent) return
     tabs.reorder(fromId, toIndex)
   }
 
@@ -164,7 +195,7 @@ export function WorkspaceTabsBar(): JSX.Element {
           />
         )}
       </Show>
-      <DragDropProvider onDragOver={handleDragOver} collisionDetector={closestCenter}>
+      <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetector={closestCenter}>
         <DragDropSensors />
         <ConstrainDragYAxis />
         <SortableProvider ids={projectIds()}>
