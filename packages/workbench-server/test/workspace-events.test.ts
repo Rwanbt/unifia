@@ -1,3 +1,4 @@
+﻿/* SPDX-License-Identifier: MIT */
 import { test, expect, describe } from "bun:test"
 import { sseFrame, workspaceEventFrame, createPollingFallback } from "../src/workspace-events.js"
 import { parseWorkspaceEvent, type WorkspaceEvent } from "@unifia/contracts/workbench-wire"
@@ -32,9 +33,9 @@ describe("sseFrame (E10)", () => {
 
 describe("workspaceEventFrame (E11)", () => {
   test("preserves a mutation event's resource field through SSE framing", () => {
-    // WHY: E11's contract is « chaque mutation produit une ressource/ID ».
+    // WHY: E11's contract is Â« chaque mutation produit une ressource/ID Â».
     // The frame helper must serialise the resource byte-for-byte so the
-    // client's event→query key map (E12) can scope the refetch to
+    // client's eventâ†’query key map (E12) can scope the refetch to
     // `event.resource.id`. Dropping the field here would silently break
     // the invalidation map.
     const event = parseWorkspaceEvent({

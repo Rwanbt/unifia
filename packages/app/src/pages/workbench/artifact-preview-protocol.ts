@@ -118,9 +118,10 @@ function isRect(value: unknown): value is PreviewRect {
  * is one of our own frames" is not a trust statement; only "the sender is THE
  * frame this listener belongs to" is.
  *
- * A sandboxed iframe without `allow-same-origin` has an opaque origin, so
- * `event.origin` is the useless string "null" for all of them — identity has
- * to come from the source window reference, not the origin.
+ * A sandboxed iframe without the `same-origin` token has an opaque
+ * origin, so `event.origin` is the useless string "null" for all of
+ * them — identity has to come from the source window reference, not
+ * the origin. The sandbox never grants the same-origin permission.
  */
 export function isPreviewMessageSource(source: unknown, frame: { contentWindow: unknown } | null | undefined): boolean {
   const expected = frame?.contentWindow

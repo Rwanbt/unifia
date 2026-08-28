@@ -219,8 +219,9 @@ export function ArtifactPreview(props: {
     function onMessage(event: MessageEvent): void {
       // Every preview instance listens on `window`, so a message from another
       // preview's frame lands here too. Identity comes from the source window:
-      // these iframes are sandboxed without allow-same-origin, so their origin
-      // is the opaque "null" for all of them and cannot tell them apart.
+      // these iframes are sandboxed without the `same-origin` permission, so
+      // their origin is the opaque "null" for all of them and cannot tell
+      // them apart.
       if (!isPreviewMessageSource(event.source, frame)) return
       const message = parsePreviewMessage(event.data)
       if (!message) return
