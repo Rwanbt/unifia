@@ -5,40 +5,39 @@ import { waitSessionIdle } from "../actions"
 import { dirPath } from "../utils"
 
 /**
- * F13 — performance regression scenario.
+ * Stability across full reloads, under session load.
  *
- * Runbook oracle: « 10 cycles de mode n'augmentent pas
- * heap/listeners/requêtes ».
+ * This spec was `mode-performance.spec.ts` and claimed "10 mode cycles do not
+ * grow heap, listeners, or active queries". It could not prove that: it changes
+ * mode with `page.goto()`, a full navigation. Every `goto` destroys the
+ * document — mounted components, listeners, stores, the QueryClient, down to
+ * the provider's module-level `activeEventStreams` counter. A leak caused by an
+ * SPA mode switch would read 20, 40, 60 through the rail; through `goto` it
+ * reads 20, 20, 20. The test was green by construction, and it is on that
+ * untested path that a mode switch could block the main thread for ~10 s
+ * without any test moving.
  *
- * The scenario:
- *   1. Open a workspace in Work mode.
- *   2. For 10 iterations, switch the mode Work → Design → Automate
- *      → Work, sending one assistant prompt per cycle and waiting
- *      for the reply.
- *   3. After each cycle, snapshot three counters:
- *        - `performance.memory.usedJSHeapSize` (heap)
- *        - the number of active event listeners (instrumented
- *          via a hook the app installs in dev only)
- *        - the count of active TanStack queries (also dev-instrumented)
- *   4. Assert that the deltas between cycle N+1 and cycle N stay
- *      within a budget (heap: < 1 MB, listeners: ≤ 0, queries: ≤ 0).
+ * What this spec does measure, and why it is worth keeping:
+ *   - counter stability across repeated full navigations;
+ *   - behaviour under session load (up to 1 000 prompts);
+ *   - the absence of monotonic growth from the start to the end of a long run.
  *
- * The dev-only instrumentation (heap via `performance.memory`,
- * listeners/queries via dev hooks) is what makes the test
- * deterministic; the production build strips it. The test
- * therefore runs in dev mode and is gated on `test.skip` in
- * production builds.
+ * What it does NOT measure: a leak caused by mode switches within one document.
+ * That is `mode-switch-resource-stability.spec.ts`, which stays in a single
+ * document and navigates through the rail.
  *
- * WHY a separate spec file (and not a new test in
- * `mode-navigation.spec.ts`): the scenario is heavier than
- * navigation tests and has different timing characteristics
- * (3 s sleep between cycles to give the WebView a chance to
- * reclaim deferred listeners). Splitting it out keeps the
- * navigation suite's flake rate low and lets CI run this
- * performance test on a slower cadence.
+ * Real volume: 10 cycles x 100 prompts, so up to 1 000 prompts — hence
+ * `test.setTimeout(600_000)`. The previous comment announced "one assistant
+ * prompt per cycle", which the implementation never did.
+ *
+ * Instrumentation: `performance.memory` (Chromium) and `window.__UNIFIA_PERF__`.
+ * That hook is dev-only since the card that renamed its counters; the previous
+ * comment already claimed "the production build strips it", which was false at
+ * the time — it was installed under a bare `typeof window === "object"`. This
+ * spec runs in dev, where `bun run dev` makes `import.meta.env.DEV` true.
  */
 
-test("10 mode cycles do not grow heap, listeners, or active queries", async ({ page, project, assistant }) => {
+test("10 reload cycles under session load do not grow event streams, query observers or cache entries", async ({ page, project, assistant }) => {
   test.setTimeout(600_000)
 
   await project.open()
@@ -108,10 +107,9 @@ test("10 mode cycles do not grow heap, listeners, or active queries", async ({ p
   // 100 KB = 1 MB of acceptable cache growth. Anything beyond
   // points to a leak in the mode-switch path.
   expect(after.heap - baseline.heap).toBeLessThan(1_000_000)
-  // Listeners and queries must NOT grow. A non-zero delta is a
-  // regression: every switch adds a provider and a query client,
-  // and the F10 lazy boundary + the E14 cache defaults are
-  // exactly the F-cards that prevent that.
+  // Structural counters must not grow. Scope reminder: on this path every cycle
+  // starts from a fresh document, so these assertions attest that a reload
+  // leaves nothing behind — not that an SPA switch is leak-free.
   expect(after.eventStreams).toBeLessThanOrEqual(baseline.eventStreams)
   expect(after.queryObservers).toBeLessThanOrEqual(baseline.queryObservers)
   expect(after.queryCacheEntries).toBeLessThanOrEqual(baseline.queryCacheEntries)

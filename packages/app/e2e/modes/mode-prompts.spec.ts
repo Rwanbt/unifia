@@ -9,7 +9,9 @@ test("each workspace mode accepts a prompt on the active session", async ({ page
 
   await project.open()
   const sessionID = await project.user("Create the temporary E2E session and do not modify files.")
-  // ADR-1033: automate is not on the production rail.
+  // ADR-1041 supersedes ADR-1033: Automate is reachable from the rail whenever
+  // `workflow.run` is granted, and always in a dev build. This test covers
+  // Code/Work/Design by choice of scope, not because Automate is unavailable.
   const modes = ["code", "work", "design"] as const
 
   for (const mode of modes) {
