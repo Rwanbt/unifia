@@ -552,8 +552,9 @@ export function DesignSurface(): JSX.Element {
         source={source()}
         onInput={updateDraft}
         draftError={draftError()}
+        empty={spec().empty}
         specDiagnostics={spec().diagnostics}
-        specEmpty={spec().diagnostics[0]?.message ?? t("workbench.design.specEmpty")}
+        specEmpty={spec().empty ? t("workbench.design.specEmpty") : (spec().diagnostics[0]?.message ?? t("workbench.design.specEmpty"))}
         validationLoading={validation.isLoading}
         validationError={validation.error}
         validationValid={validation.data?.valid === true}

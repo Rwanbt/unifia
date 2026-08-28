@@ -6,6 +6,14 @@ export type DesignSpecSource = { kind: "inline"; value: string } | { kind: "file
 export type DesignSpecDiagnostic = { severity: "error"; message: string; line: number; column: number }
 export type DesignSpecPanelState = {
   source: DesignSpecSource
+  // V04 — explicit terminal "empty" state. `true` means the source is
+  // blank or whitespace-only: no parse attempted, no diagnostic, no
+  // spec. The editor uses this to skip the danger banner and the
+  // fallback "JSON invalid" message so the user sees a neutral
+  // placeholder before typing. Distinguishing `empty` from
+  // `diagnostics.length === 0` (a *valid* spec) matters: both have
+  // no diagnostics but the empty state must not be treated as parsed.
+  empty: boolean
   spec?: Spec
   diagnostics: readonly DesignSpecDiagnostic[]
   capabilities: { granted: readonly string[]; denied: readonly string[] }
@@ -27,13 +35,22 @@ function syntaxLocation(source: string, message: string): { line: number; column
 
 /** Parses one untrusted design spec into a renderable panel state. */
 export function createDesignSpecPanelState(source: DesignSpecSource): DesignSpecPanelState {
+  // V04 — empty / whitespace input is a separate, neutral state. No
+  // parse attempt, no diagnostic, no spec. The audit caught the panel
+  // rendering "expected property name or '}'" as a red banner the
+  // moment the textarea was cleared. The remote validation query is
+  // already short-circuited on `source.trim().length > 0`; this brings
+  // the local model in line.
+  if (source.value.trim() === "") {
+    return { source, empty: true, diagnostics: [], capabilities: { granted: [], denied: [] } }
+  }
   try {
     const spec = parseSpec(source.value)
     const capabilities = resolveEffectiveCapabilities(spec, [])
-    return { source, spec, diagnostics: [], capabilities }
+    return { source, empty: false, spec, diagnostics: [], capabilities }
   } catch (error) {
     const message = error instanceof Error ? error.message : "spec validation failed"
     const position = message.includes("valid JSON") ? syntaxLocation(source.value, message) : location(source.value, 0)
-    return { source, diagnostics: [{ severity: "error", message, ...position }], capabilities: { granted: [], denied: [] } }
+    return { source, empty: false, diagnostics: [{ severity: "error", message, ...position }], capabilities: { granted: [], denied: [] } }
   }
 }

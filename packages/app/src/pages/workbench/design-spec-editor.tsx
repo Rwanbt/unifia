@@ -11,6 +11,7 @@ export function DesignSpecEditor(props: {
   source: string
   onInput: (value: string) => void
   draftError: string | undefined
+  empty: boolean
   specDiagnostics: readonly { line: number; column: number; message: string }[]
   specEmpty: string
   validationLoading: boolean
@@ -82,7 +83,11 @@ export function DesignSpecEditor(props: {
           {props.draftError}
         </p>
       </Show>
-      <Show when={props.specDiagnostics.length > 0}>
+      {/* V04 — diagnostics are hidden when the source is empty. The
+          audit caught the panel rendering "expected property name or
+          '}'" as a red banner the moment the textarea was cleared.
+          An empty spec is a neutral state, not a parse failure. */}
+      <Show when={!props.empty && props.specDiagnostics.length > 0}>
         <aside class="rounded-lg border border-border-danger bg-background-stronger p-4" data-workbench-diagnostics>
           <h2 class="text-14-medium text-text-danger">{t("workbench.design.diagnostics")}</h2>
           <For each={props.specDiagnostics}>
@@ -115,7 +120,18 @@ export function DesignSpecEditor(props: {
       </Show>
       <Show
         when={props.validationValid && props.validationDenied.length === 0 && props.previews.length > 0}
-        fallback={<p class="text-14-regular text-text-danger">{props.specEmpty}</p>}
+        fallback={
+          // V04 — the empty state is neutral, the rest are not. Two
+          // fallbacks: a quiet placeholder for an untouched spec, the
+          // original danger line for an attempted but invalid one.
+          props.empty ? (
+            <p class="text-14-regular text-text-weak" data-design-spec-empty-placeholder>
+              {props.specEmpty}
+            </p>
+          ) : (
+            <p class="text-14-regular text-text-danger">{props.specEmpty}</p>
+          )
+        }
       >
         <div class="grid gap-5 md:grid-cols-3" data-workbench-preview-count={VIEWPORT_IDS.length}>
           <For each={VIEWPORT_IDS}>
