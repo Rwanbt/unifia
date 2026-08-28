@@ -28,6 +28,11 @@ describe("V06 — DesignSurfaceSwitcher contract", () => {
     // navigation predictable and avoids the hidden panel stealing
     // focus (a screen reader would announce it as available).
     expect(source).toMatch(/tabindex=\{props\.surface === option\.id \? 0 : -1\}/)
+    expect(source).toMatch(/onKeyDown=\{\(event\) => moveFocus\(event, option\.id\)\}/)
+    expect(source).toMatch(/event\.key === "ArrowRight"/)
+    expect(source).toMatch(/event\.key === "ArrowLeft"/)
+    expect(source).toMatch(/event\.key === "Home"/)
+    expect(source).toMatch(/event\.key === "End"/)
   })
 
   test("uses translation keys for the surface labels (no hardcoded strings)", () => {

@@ -21,6 +21,23 @@ export function DesignSurfaceSwitcher(props: {
     { id: "assistant", label: t("workbench.design.surface.assistant") },
     { id: "atelier", label: t("workbench.design.surface.atelier") },
   ]
+  const moveFocus = (event: KeyboardEvent, current: Surface): void => {
+    const currentIndex = options.findIndex((option) => option.id === current)
+    let nextIndex: number | undefined
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (currentIndex + 1) % options.length
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (currentIndex - 1 + options.length) % options.length
+    if (event.key === "Home") nextIndex = 0
+    if (event.key === "End") nextIndex = options.length - 1
+    if (nextIndex === undefined) return
+
+    event.preventDefault()
+    const next = options[nextIndex]
+    props.onChange(next.id)
+    const currentTab = event.currentTarget as HTMLButtonElement
+    currentTab.parentElement
+      ?.querySelector<HTMLButtonElement>(`[data-design-surface-tab="${next.id}"]`)
+      ?.focus()
+  }
   return (
     <div
       role="tablist"
@@ -38,6 +55,7 @@ export function DesignSurfaceSwitcher(props: {
             class="min-h-11 flex-1 rounded border border-border-base px-3 py-2 text-14-medium aria-selected:border-border-focus aria-selected:bg-background-stronger"
             data-design-surface-tab={option.id}
             onClick={() => props.onChange(option.id)}
+            onKeyDown={(event) => moveFocus(event, option.id)}
           >
             {option.label}
           </button>

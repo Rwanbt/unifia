@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
-import { test, expect, type Page } from "@playwright/test"
+import { test, expect } from "../fixtures"
+import type { Page } from "@playwright/test"
+import { installWorkbenchMock } from "../fixtures/workbench-mock"
+import { dirPath } from "../utils"
 
 // V13 — deterministic visual regression harness for the design
 // surface.
@@ -12,19 +15,14 @@ import { test, expect, type Page } from "@playwright/test"
 // sur le même host".
 //
 // What this spec captures:
-//   - The Vite-rendered home + workbench chrome at 4 viewports
+//   - The Vite-rendered Design surface with a deterministic workbench mock at 4 viewports
 //     (375 / 768 / 1280 / 1440) × 2 themes (light / dark) = 8
 //     captures. These are the deterministic baseline: no LLM, no
 //     bridge, the same payload every run.
-//   - Animations are killed by a `*-animation-disable` stylesheet
-//     injected before navigation. Fonts are awaited via the
+//   - Animations are killed by an init-script stylesheet. Fonts are awaited via the
 //     `document.fonts.ready` promise before the first capture.
 //   - Time is pinned by overriding `Date.now` and `performance.now`
-//     to a constant. The clock is restored on cleanup.
-//
-// The full design surface (Vite + bridge + agent output) is out of
-// scope here — V14 (E2E mock) brings a mock bridge. V13 only
-// proves that the harness itself is deterministic.
+//     to a constant for the isolated browser page.
 
 const VIEWPORTS = [
   { name: "375", width: 375, height: 812 },
@@ -60,16 +58,8 @@ async function pinTime(page: Page): Promise<void> {
       FixedDate.now = () => epoch
       FixedDate.parse = OriginalDate.parse
       FixedDate.UTC = OriginalDate.UTC
-      FixedDate.prototype = OriginalDate.prototype
-      // @ts-expect-error - monkey-patch the global
       globalThis.Date = FixedDate
-      const originalPerf = performance.now.bind(performance)
       performance.now = () => 0
-      // Keep a reference so the test can still measure real elapsed
-      // time if it needs to (currently unused but documented for
-      // future maintenance).
-      // @ts-expect-error - hidden escape hatch
-      globalThis.__originalPerfNow = originalPerf
     },
     { epoch: PINNED_EPOCH },
   )
@@ -97,7 +87,7 @@ async function setTheme(page: Page, media: "light" | "dark"): Promise<void> {
   await page.emulateMedia({ colorScheme: media })
 }
 
-async function captureHome(page: Page, name: string): Promise<Buffer> {
+async function captureDesignSurface(page: Page, name: string): Promise<Buffer> {
   const path = `e2e/visual-snapshots/${name}.png`
   await page.screenshot({ path, fullPage: false })
   return await import("node:fs").then((fs) => fs.promises.readFile(path))
@@ -106,16 +96,25 @@ async function captureHome(page: Page, name: string): Promise<Buffer> {
 test.describe("V13 — design surface visual harness", () => {
   for (const theme of THEMES) {
     for (const viewport of VIEWPORTS) {
-      test(`deterministic capture — ${theme.name} ${viewport.name}×${viewport.height}`, async ({ page }) => {
+      test(`deterministic capture — ${theme.name} ${viewport.name}×${viewport.height}`, async ({ page, directory }) => {
         const name = `${theme.name}-${viewport.name}`
         await page.setViewportSize({ width: viewport.width, height: viewport.height })
         await setTheme(page, theme.media)
         await pinTime(page)
-        await page.addStyleTag({ content: ANIMATION_DISABLE_CSS })
-        await page.goto("/")
+        await page.addInitScript((css) => {
+          document.addEventListener("DOMContentLoaded", () => {
+            const style = document.createElement("style")
+            style.textContent = css
+            document.head.append(style)
+          })
+        }, ANIMATION_DISABLE_CSS)
+        await installWorkbenchMock(page)
+        await page.goto(`${dirPath(directory)}/design`)
+        await expect(page.locator('[data-workbench-connection="ready"]')).toBeVisible()
+        await expect(page.locator("[data-design-split]")).toBeVisible()
         await waitForFonts(page)
         await waitForLayout(page)
-        const buf = await captureHome(page, name)
+        const buf = await captureDesignSurface(page, name)
         // The PNG must be non-trivial (>1 KB) and a real PNG
         // (magic bytes 89 50 4E 47). Anything else means the
         // app failed to render and the snapshot would be useless.

@@ -15,10 +15,6 @@
 // mock is a follow-up card.
 
 import type { Page } from "@playwright/test"
-import type { WorkbenchConnection } from "@unifia/workbench-shell"
-
-type MockEvent = Record<string, unknown>
-
 export type WorkbenchMockOptions = {
   /** Manifests returned by listDesignSystems. Default: one empty system. */
   designSystems?: ReadonlyArray<{
@@ -30,96 +26,6 @@ export type WorkbenchMockOptions = {
   }>
   /** Skills returned by listDesignSkills. Default: empty list. */
   skills?: ReadonlyArray<Record<string, unknown>>
-  /** validateSpec return value. Default: { valid: true, granted: [], denied: [] }. */
-  validateSpec?: (spec: string | Record<string, unknown>) => {
-    valid: boolean
-    spec?: unknown
-    capabilities: { granted: readonly string[]; denied: readonly string[] }
-  }
-  /** createArtifact handler. Receives the createArtifact input,
-   *  returns the ArtifactSummary the surface stores. The mock
-   *  also queues an artifact:start/chunk/end sequence on the
-   *  event stream so the design surface can render the artifact. */
-  createArtifact?: (input: {
-    workspaceId: string
-    kind: string
-    filename: string
-    content: string
-    artifactId?: string
-    metadata?: Record<string, string>
-    provenance?: Record<string, string>
-  }) => {
-    artifact: {
-      artifactId: string
-      version: number
-      kind: string
-      filename: string
-      relativePath: string
-      sha256: string
-      bytes: number
-      createdAt: number
-      metadata: Record<string, string>
-      provenance?: Record<string, string>
-    }
-    /** Sequence of events to push on the stream after createArtifact returns. */
-    events?: ReadonlyArray<MockEvent>
-  }
-}
-
-/**
- * Build the platform.workbench value the harness injects.
- * Returned object is plain and serialisable: it lives inside an
- * `addInitScript` payload, so no live references (functions,
- * classes) are allowed. The client is a Proxy whose default
- * response for any method is `{ }` — overrides go through
- * the options above.
- */
-export function buildWorkbenchMock(opts: WorkbenchMockOptions = {}): {
-  workbench: {
-    connect: (input: { workspacePath: string; capabilities: readonly string[] }) => Promise<WorkbenchConnection>
-  }
-} {
-  // We expose the connection on a closure so createArtifact and
-  // exportArtifact can read its workspaceId and instanceId. The
-  // closure itself is created at build time, then serialised
-  // through `JSON.stringify` (allowed because the data is plain)
-  // and re-instantiated by the page's init script. To stay in
-  // the serialisable-only contract, the real client behaviour
-  // lives in the page (the e2e fixture) and we only pass the
-  // option overrides through.
-  const designSystems = opts.designSystems ?? [
-    {
-      id: "test-system",
-      name: "Test system",
-      version: "1.0.0",
-      source: "test",
-      tokens: { colors: {}, spacing: {}, typography: {} },
-    },
-  ]
-  const skills = opts.skills ?? []
-  // The harness reads these out of the closure to build the
-  // actual client on the page side. We can't ship a function
-  // through addInitScript, so the client itself is constructed
-  // there from a serialised description.
-  return {
-    workbench: {
-      connect: async (input) => {
-        // The page side rebuilds the connection from a serialised
-        // descriptor. This stub is the one called by `entry.tsx`'s
-        // PlatformProvider if (hypothetically) the global is read
-        // synchronously. In practice the addInitScript path replaces
-        // it before the app code runs.
-        throw new Error("workbench-mock: connect() must be installed via installWorkbenchMock(page) before navigation")
-      },
-      // marker for the install function below
-      __mockDescriptor: {
-        designSystems,
-        skills,
-        workspacePath: "",
-        capabilities: input.capabilities,
-      },
-    },
-  } as unknown as { workbench: { connect: (input: { workspacePath: string; capabilities: readonly string[] }) => Promise<WorkbenchConnection> } }
 }
 
 /**
@@ -218,8 +124,8 @@ export async function installWorkbenchMock(
   // Pass the descriptor through a single init script so the
   // page side can read it. Two scripts: first sets the
   // descriptor, second reads it and builds the platform.
-  await page.addInitScript(({ descriptor }) => {
-    ;(window as unknown as { __UNIFIA_MOCK_DESCRIPTOR__: unknown }).__UNIFIA_MOCK_DESCRIPTOR__ = descriptor
+  await page.addInitScript((value) => {
+    ;(window as unknown as { __UNIFIA_MOCK_DESCRIPTOR__: unknown }).__UNIFIA_MOCK_DESCRIPTOR__ = value
   }, descriptor)
   await page.addInitScript({
     content: workbenchMockInitScript(),

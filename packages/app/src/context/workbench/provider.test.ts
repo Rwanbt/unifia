@@ -79,6 +79,19 @@ describe("V03 — WorkbenchUiPhase (terminal + transient states)", () => {
     expect(setEnd).toBeGreaterThan(setStart)
   })
 
+  test("retryConnection starts a fresh bridge attempt after resetting the lifecycle", () => {
+    // A failed DesignSurface effect will not re-run merely because the
+    // connection signal is set to undefined again. The explicit retry must
+    // therefore invoke ensureConnected after lifecycle.retry has reset it.
+    const start = provider.indexOf("const retryConnection = async (): Promise<void> => {")
+    const end = provider.indexOf("\n    onCleanup", start)
+    const body = provider.slice(start, end)
+    const lifecycleRetry = body.indexOf("await lifecycle.retry(props.workspacePath)")
+    const freshAttempt = body.indexOf("await ensureConnected().catch(() => undefined)")
+    expect(lifecycleRetry).toBeGreaterThanOrEqual(0)
+    expect(freshAttempt).toBeGreaterThan(lifecycleRetry)
+  })
+
   test("the derived uiPhase resolves the five states in the documented order", () => {
     // Order is the contract:
     //   unsupported > retrying > ready > failed > connecting

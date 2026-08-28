@@ -76,8 +76,13 @@ test("V14 — mobile design mode exposes the assistant/atelier switcher (V06 clo
   // Default surface is assistant.
   await expect(page.locator("[data-design-split-assistant]")).toBeVisible()
 
-  // Switch to the workshop; the assistant surface leaves the DOM.
-  await tablist.getByRole("tab", { name: "Workshop" }).click()
+  // Roving-tab navigation must make the inactive Workshop tab reachable
+  // from the single natural tab stop. It is the only keyboard path to the
+  // Atelier surface on a mobile viewport.
+  const assistantTab = tablist.getByRole("tab", { name: "Assistant" })
+  await assistantTab.focus()
+  await assistantTab.press("ArrowRight")
+  await expect(tablist.getByRole("tab", { name: "Workshop" })).toBeFocused()
   await expect(page.locator("[data-design-split-atelier]")).toBeVisible()
   await expect(page.locator("[data-design-split-assistant]")).toHaveCount(0)
 })

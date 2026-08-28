@@ -153,6 +153,11 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
         setConnection(undefined)
         setError(undefined)
         setPhase("initializing")
+        // Resetting the lifecycle only makes a later caller eligible to
+        // connect again. A failed surface effect has no reactive dependency
+        // change to trigger itself, so the explicit retry must start the new
+        // attempt here.
+        await ensureConnected().catch(() => undefined)
       } finally {
         setRetrying(false)
       }
