@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, type JSX } from "solid-js"
+import { For, Show, createEffect, untrack, type JSX } from "solid-js"
 import { useLocation, useNavigate } from "@solidjs/router"
 import {
   closestCenter,
@@ -14,6 +14,7 @@ import { ConstrainDragYAxis } from "@/utils/solid-dnd"
 import { useWorkspaceTabs } from "@/context/workspace-tabs-provider"
 import { useGlobalSync } from "@/context/global-sync"
 import { ENTRY_TAB_ID, type WorkspaceTab } from "@/context/workspace-tabs"
+import { decodeBase64Segment, routeToWorkspaceTab } from "@/components/workspace-tabs-route"
 
 /**
  * Phase 5 / 11 — Barre d'onglets d'espace de travail.
@@ -135,30 +136,22 @@ export function WorkspaceTabsBar(): JSX.Element {
   // onglet. Quand la navigation arrive sur la home, on active
   // l'entry. L'effet lit `location.pathname` (signal), donc il se
   // déclenche à chaque changement d'URL.
+  /**
+   * WHY the body is `untrack`ed and lives in a pure module: `tabs.open` and
+   * `tabs.activate` READ the store before writing it, so running them inside
+   * the effect's tracking scope made the effect its own dependency. Every write
+   * produced a fresh state object, so the effect re-entered itself thousands of
+   * times per navigation — one mode switch blocked the main thread for ~10 s in
+   * a single task (measured 2026-08-28: ~9 700 base64 decodes and ~26 000
+   * attribute writes per switch, 0 network requests).
+   *
+   * The route is the only input; the store is a destination, never a source.
+   * The rule itself is unit-tested in `workspace-tabs-route.test.ts`.
+   */
   createEffect(() => {
     const path = location.pathname
-    if (path === "/" || path === "") {
-      tabs.activate(ENTRY_TAB_ID)
-      return
-    }
-    // Le premier segment est le directory encodé en base64.
-    // Décodé à la lecture pour produire un titre lisible.
-    const segments = path.split("/").filter(Boolean)
-    if (segments.length === 0) return
-    const encodedDir = segments[0]
-    if (!encodedDir) return
-    const title = decodeBase64Segment(encodedDir) ?? encodedDir
-    const rest = segments.slice(1).join("/")
-    const href = `/${encodedDir}${rest ? `/${rest}` : ""}${location.search}`
-    tabs.open({
-      id: encodedDir,
-      kind: "project",
-      title,
-      href,
-      closable: true,
-      createdAt: Date.now(),
-      lastActiveAt: Date.now(),
-    })
+    const search = location.search
+    untrack(() => routeToWorkspaceTab({ path, search, tabs, now: Date.now() }))
   })
 
   // Phase 11.3 — titre "amical" calculé à la lecture depuis la branche
@@ -293,28 +286,3 @@ function SortableTabRow(props: TabRowProps): JSX.Element {
   )
 }
 
-/**
- * Décodage best-effort d'un segment base64 vers un titre lisible.
- * Les segments viennent de `useParams` ou de `location.pathname`,
- * et `@unifia/util/encode` est l'encodeur canonique du projet. Si
- * le décodage échoue (segment non-base64), on retourne le segment
- * brut — c'est mieux qu'un titre vide ou `undefined`.
- */
-function decodeBase64Segment(segment: string): string | undefined {
-  // Le décodeur est paresseux : on ne veut pas importer un module
-  // partagé côté app juste pour un titre. `atob` (window) suffit
-  // pour les cas standards. Si le segment contient un caractère
-  // non-ASCII attendu, c'est que le caller a passé un titre déjà
-  // lisible, et le fallback `segment` le rend tel quel.
-  if (typeof atob === "undefined") return segment
-  try {
-    // base64 standard : on tente le décodage direct, puis on
-    // restaure le padding manquant (les encodeurs omettent
-    // souvent les `=` finaux).
-    const padded = segment + "=".repeat((4 - (segment.length % 4)) % 4)
-    const decoded = atob(padded)
-    return decoded || segment
-  } catch {
-    return segment
-  }
-}
