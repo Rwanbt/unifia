@@ -76,7 +76,7 @@ export function DesignToolbar(props: {
           {(preset) => (
             <button
               type="button"
-              class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+              class="flex min-h-11 min-w-11 items-center rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
               classList={{
                 "bg-background-base text-text-base": preset.id === props.viewport,
                 "text-text-weak hover:bg-background-base": preset.id !== props.viewport,
@@ -98,7 +98,7 @@ export function DesignToolbar(props: {
           {(zoom) => (
             <button
               type="button"
-              class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+              class="flex min-h-11 min-w-11 items-center rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
               classList={{
                 "bg-background-base text-text-base": zoom === props.zoom,
                 "text-text-weak hover:bg-background-base": zoom !== props.zoom,
@@ -117,7 +117,7 @@ export function DesignToolbar(props: {
       <div class="flex items-center gap-1" data-design-toolbar-group="mode">
         <button
           type="button"
-          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+          class="flex min-h-11 min-w-11 items-center rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
           classList={{
             "bg-background-base text-text-base": props.mode === "preview",
             "text-text-weak hover:bg-background-base": props.mode !== "preview",
@@ -130,7 +130,7 @@ export function DesignToolbar(props: {
         </button>
         <button
           type="button"
-          class="flex h-7 items-center rounded px-2 text-12-medium transition-colors"
+          class="flex min-h-11 min-w-11 items-center rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
           classList={{
             "bg-background-base text-text-base": props.mode === "source",
             "text-text-weak hover:bg-background-base": props.mode !== "source",

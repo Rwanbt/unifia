@@ -255,7 +255,7 @@ function TabInner(props: TabRowProps): JSX.Element {
 function TabRow(props: TabRowProps): JSX.Element {
   return (
     <div
-      class="flex h-7 items-center gap-1 rounded px-2 text-12-medium transition-colors"
+      class="flex min-h-11 items-center gap-1 rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-border-focus"
       classList={{
         "bg-background-base text-text-base": props.active,
         "text-text-weak hover:bg-background-base": !props.active,
@@ -276,7 +276,7 @@ function SortableTabRow(props: TabRowProps): JSX.Element {
   return (
     <div
       use:sortable
-      class="flex h-7 items-center gap-1 rounded px-2 text-12-medium transition-colors"
+      class="flex min-h-11 items-center gap-1 rounded px-2 text-12-medium transition-colors motion-reduce:transition-none focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-border-focus"
       classList={{
         "bg-background-base text-text-base": props.active,
         "text-text-weak hover:bg-background-base": !props.active,
