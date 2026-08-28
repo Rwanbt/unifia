@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, createSignal, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
@@ -16,13 +16,22 @@ export function AutomateSurface(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
-  const definitions = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "files", { prefix: ".unifia/workflows" }), enabled: !!connection(), queryFn: () => connection()!.client.listFiles(connection()!.workspaceId, ".unifia/workflows") }))
+  const definitionsQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "files", { prefix: ".unifia/workflows" }), enabled: !!current, queryFn: () => current!.client.listFiles(current!.workspaceId, ".unifia/workflows") }
+  })
+  const definitions = createQuery(definitionsQueryOptions)
   const [selectedDefinition, setSelectedDefinition] = createSignal<string>()
   const [workflowState, setWorkflowState] = createSignal<string>()
   const [workflowError, setWorkflowError] = createSignal<string>()
   const [approvalId, setApprovalId] = createSignal<string>()
   const [pendingDefinition, setPendingDefinition] = createSignal<Record<string, unknown>>()
-  const definitionFile = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "file", { path: selectedDefinition() ?? "" }), enabled: !!connection() && !!selectedDefinition(), queryFn: () => connection()!.client.readFiles(connection()!.workspaceId, [selectedDefinition()!]) }))
+  const definitionFileQueryOptions = createMemo(() => {
+    const current = connection()
+    const selectedPath = selectedDefinition()
+    return { queryKey: workbenchQueryKey(current, "file", { path: selectedPath ?? "" }), enabled: !!current && !!selectedPath, queryFn: () => current!.client.readFiles(current!.workspaceId, [selectedPath!]) }
+  })
+  const definitionFile = createQuery(definitionFileQueryOptions)
   async function startDefinition(definition: Record<string, unknown>): Promise<void> {
     const current = connection()
     if (!current) return

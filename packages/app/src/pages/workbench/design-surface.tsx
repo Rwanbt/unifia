@@ -53,9 +53,21 @@ export function DesignSurface(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
-  const manifest = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-systems"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSystems(connection()!.workspaceId) }))
-  const skills = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "design-skills"), enabled: !!connection(), queryFn: () => connection()!.client.listDesignSkills(connection()!.workspaceId) }))
-  const github = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "github-status"), enabled: !!connection(), queryFn: () => connection()!.client.githubStatus(connection()!.workspaceId) }))
+  const manifestQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "design-systems"), enabled: !!current, queryFn: () => current!.client.listDesignSystems(current!.workspaceId) }
+  })
+  const skillsQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "design-skills"), enabled: !!current, queryFn: () => current!.client.listDesignSkills(current!.workspaceId) }
+  })
+  const githubQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "github-status"), enabled: !!current, queryFn: () => current!.client.githubStatus(current!.workspaceId) }
+  })
+  const manifest = createQuery(manifestQueryOptions)
+  const skills = createQuery(skillsQueryOptions)
+  const github = createQuery(githubQueryOptions)
   const [source, setSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number | undefined>()
   const [draftError, setDraftError] = createSignal<string>()
@@ -395,17 +407,27 @@ export function DesignSurface(): JSX.Element {
   }
   const spec = createMemo(() => createDesignSpecPanelState({ kind: "inline", value: source() }))
   const preview = createMemo(() => createDesignPreviewPanelState(spec()))
-  const validation = createQuery(() => ({
-    queryKey: workbenchQueryKey(connection(), "spec-validation", { source: source() }),
-    enabled: !!connection() && source().trim().length > 0 && spec().diagnostics.length === 0,
-    staleTime: 5_000,
-    queryFn: () => connection()!.client.validateSpec(connection()!.workspaceId, source()),
-  }))
-  const history = createQuery(() => ({
-    queryKey: workbenchQueryKey(connection(), "design-history", { artifactId: artifactId() ?? "" }),
-    enabled: !!connection() && !!artifactId(),
-    queryFn: () => connection()!.client.artifactHistory(connection()!.workspaceId, artifactId()!),
-  }))
+  const validationQueryOptions = createMemo(() => {
+    const current = connection()
+    const value = source()
+    return {
+      queryKey: workbenchQueryKey(current, "spec-validation", { source: value }),
+      enabled: !!current && value.trim().length > 0 && spec().diagnostics.length === 0,
+      staleTime: 5_000,
+      queryFn: () => current!.client.validateSpec(current!.workspaceId, value),
+    }
+  })
+  const historyQueryOptions = createMemo(() => {
+    const current = connection()
+    const currentArtifactId = artifactId()
+    return {
+      queryKey: workbenchQueryKey(current, "design-history", { artifactId: currentArtifactId ?? "" }),
+      enabled: !!current && !!currentArtifactId,
+      queryFn: () => current!.client.artifactHistory(current!.workspaceId, currentArtifactId!),
+    }
+  })
+  const validation = createQuery(validationQueryOptions)
+  const history = createQuery(historyQueryOptions)
   async function saveDesignVersion(): Promise<void> {
     const current = connection()
     if (!current || !spec().spec || saveState() === "saving") return

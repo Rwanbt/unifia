@@ -103,7 +103,10 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
     {
       cwd: serverDir,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      // The server's parent watchdog treats end-of-stdin as a desktop host
+      // crash. Keeping this pipe open makes the E2E runner the explicit
+      // parent for the lifetime of the isolated backend.
+      stdio: ["pipe", "pipe", "pipe"],
     },
   )
   proc.stdout?.on("data", (chunk) => {
@@ -137,6 +140,7 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
   return {
     url,
     async stop() {
+      proc.stdin?.end()
       if (proc.exitCode === null) {
         proc.kill("SIGTERM")
         await waitExit(proc)

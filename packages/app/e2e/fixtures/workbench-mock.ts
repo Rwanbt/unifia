@@ -41,6 +41,10 @@ export function workbenchMockInitScript(): string {
   return `
     (() => {
       const descriptor = window.__UNIFIA_MOCK_DESCRIPTOR__ || { designSystems: [], skills: [] }
+      // The native bridge is asynchronous across an IPC/HTTP turn. Resolving
+      // immediately in the current microtask re-enters Solid Query while it
+      // is updating its observer and does not represent production timing.
+      const reply = (value) => new Promise((resolve) => setTimeout(() => resolve(value), 0))
       const makeArtifact = (input) => {
         const id = input.artifactId || ("art-" + Math.random().toString(36).slice(2, 10))
         return {
@@ -56,40 +60,35 @@ export function workbenchMockInitScript(): string {
           provenance: input.provenance || {},
         }
       }
-      const client = new Proxy({}, {
-        get(_, prop) {
-          if (prop === "listDesignSystems") return async () => ({ designSystems: descriptor.designSystems })
-          if (prop === "listDesignSkills") return async () => ({ skills: descriptor.skills })
-          if (prop === "githubStatus") return async () => ({ connected: false, configured: false })
-          if (prop === "validateSpec") return async (spec) => ({ valid: true, spec, capabilities: { granted: [], denied: [] } })
-          if (prop === "createArtifact") return async (input) => ({ artifact: makeArtifact(input) })
-          if (prop === "exportArtifact") return async (workspaceId, artifactId) => ({ exported: { artifactId, version: 1, relativePath: "design/out.svg", sha256: "deadbeef", metadata: {} } })
-          if (prop === "artifactHistory") return async () => ({ history: [] })
-          if (prop === "listArtifacts") return async () => ({ artifacts: [] })
-          if (prop === "listDocuments") return async () => ({ documents: [] })
-          if (prop === "listFiles") return async () => ({ entries: [], skipped: 0 })
-          if (prop === "readFiles") return async () => ({ results: [] })
-          if (prop === "listApprovals") return async () => ({ approvals: [] })
-          if (prop === "trace") return async () => ({ kind: "trace", events: [], nextCursor: null })
-          if (prop === "activity") return async () => ({ kind: "activity", events: [], nextCursor: null })
-          if (prop === "searchCapabilities") return async () => ({ records: [] })
-          if (prop === "events") return async function* (_workspaceId, _dispatcher, signal) {
-            // The design surface subscribes but the mock yields
-            // nothing. The stream stays open until the signal
-            // aborts (the surface cancels on unmount).
-            if (signal) {
-              await new Promise((resolve) => {
-                if (signal.aborted) return resolve()
-                signal.addEventListener("abort", resolve, { once: true })
-              })
-            }
-          }
-          if (prop === "current") return () => undefined
-          if (prop === "refresh") return async () => ""
-          // Default noop for anything else.
-          return async () => ({})
+      // Keep the mock structurally close to a real client. A permissive Proxy
+      // made every property lookup look like an async method, including
+      // framework-internal probes, which caused a Solid update recursion.
+      const client = {
+        listDesignSystems: () => reply({ designSystems: descriptor.designSystems }),
+        listDesignSkills: () => reply({ skills: descriptor.skills }),
+        githubStatus: () => reply({ connected: false, configured: false }),
+        validateSpec: (spec) => reply({ valid: true, spec, capabilities: { granted: [], denied: [] } }),
+        createArtifact: (input) => reply({ artifact: makeArtifact(input) }),
+        exportArtifact: (_workspaceId, artifactId) => reply({ exported: { artifactId, version: 1, relativePath: "design/out.svg", sha256: "deadbeef", metadata: {} } }),
+        artifactHistory: () => reply({ history: [] }),
+        listArtifacts: () => reply({ artifacts: [] }),
+        listDocuments: () => reply({ documents: [] }),
+        listFiles: () => reply({ entries: [], skipped: 0 }),
+        readFiles: () => reply({ results: [] }),
+        listApprovals: () => reply({ approvals: [] }),
+        trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
+        activity: () => reply({ kind: "activity", events: [], nextCursor: null }),
+        searchCapabilities: () => reply({ records: [] }),
+        events: async function* (_workspaceId, _dispatcher, signal) {
+          if (!signal) return
+          await new Promise((resolve) => {
+            if (signal.aborted) return resolve()
+            signal.addEventListener("abort", resolve, { once: true })
+          })
         },
-      })
+        current: () => undefined,
+        refresh: async () => "",
+      }
       const connection = {
         client,
         serverOrigin: "mock://workbench",

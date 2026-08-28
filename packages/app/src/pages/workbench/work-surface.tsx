@@ -39,9 +39,21 @@ export function WorkSurface(): JSX.Element {
   const [activeOperation, setActiveOperation] = createSignal<WorkFunction>("documents")
   const [exportState, setExportState] = createSignal<"idle" | "running" | "success" | "error">("idle")
   const [exportMessage, setExportMessage] = createSignal("")
-  const documents = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "documents"), enabled: !!connection(), queryFn: () => connection()!.client.listDocuments(connection()!.workspaceId) }))
-  const artifacts = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "artifacts"), enabled: !!connection(), queryFn: () => connection()!.client.listArtifacts(connection()!.workspaceId) }))
-  const files = createQuery(() => ({ queryKey: workbenchQueryKey(connection(), "files", { prefix: "." }), enabled: !!connection(), queryFn: () => connection()!.client.listFiles(connection()!.workspaceId) }))
+  const documentQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "documents"), enabled: !!current, queryFn: () => current!.client.listDocuments(current!.workspaceId) }
+  })
+  const artifactQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "artifacts"), enabled: !!current, queryFn: () => current!.client.listArtifacts(current!.workspaceId) }
+  })
+  const fileQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "files", { prefix: "." }), enabled: !!current, queryFn: () => current!.client.listFiles(current!.workspaceId) }
+  })
+  const documents = createQuery(documentQueryOptions)
+  const artifacts = createQuery(artifactQueryOptions)
+  const files = createQuery(fileQueryOptions)
   const navigation = createMemo(() =>
     createMobileNavigationModel({ viewportWidth: window.innerWidth, documents: documents.data?.documents.length ?? 0, designPreviews: 0, active: activeOperation() }),
   )

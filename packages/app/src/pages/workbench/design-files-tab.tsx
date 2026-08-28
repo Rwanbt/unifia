@@ -304,14 +304,15 @@ export function DesignFilesTab(): JSX.Element {
     if (path && !isRenderable(path)) setPreviewMode("source")
   })
 
-  const files = createQuery(() => ({
-    queryKey: workbenchQueryKey(connection(), "design-files-tab"),
-    enabled: !!connection(),
-    queryFn: () => {
-      const current = connection()!
-      return collectFiles((prefix, cursor) => current.client.listFiles(current.workspaceId, prefix, cursor))
-    },
-  }))
+  const filesQueryOptions = createMemo(() => {
+    const current = connection()
+    return {
+      queryKey: workbenchQueryKey(current, "design-files-tab"),
+      enabled: !!current,
+      queryFn: () => collectFiles((prefix, cursor) => current!.client.listFiles(current!.workspaceId, prefix, cursor)),
+    }
+  })
+  const files = createQuery(filesQueryOptions)
 
   const panel = createMemo(() => createDesignFilesPanelState(files.data ?? { entries: [], skipped: 0 }, selectedPath()))
   const rows = createMemo(() => {
@@ -325,11 +326,16 @@ export function DesignFilesTab(): JSX.Element {
   // is only for the unfiltered browse case.
   const tree = createMemo(() => buildFileTree((files.data ?? { entries: [], skipped: 0 }).entries))
 
-  const content = createQuery(() => ({
-    queryKey: workbenchQueryKey(connection(), "design-files-tab-content", { path: selectedPath() ?? "" }),
-    enabled: !!connection() && !!selectedPath(),
-    queryFn: () => connection()!.client.readFiles(connection()!.workspaceId, [selectedPath()!]),
-  }))
+  const contentQueryOptions = createMemo(() => {
+    const current = connection()
+    const path = selectedPath()
+    return {
+      queryKey: workbenchQueryKey(current, "design-files-tab-content", { path: path ?? "" }),
+      enabled: !!current && !!path,
+      queryFn: () => current!.client.readFiles(current!.workspaceId, [path!]),
+    }
+  })
+  const content = createQuery(contentQueryOptions)
 
   const decodedContent = createMemo(() => {
     const file = content.data?.results[0]
@@ -349,11 +355,16 @@ export function DesignFilesTab(): JSX.Element {
   })
   const assetPaths = createMemo(() => [...new Set(assetTargets().map((target) => target.path))])
 
-  const assets = createQuery(() => ({
-    queryKey: workbenchQueryKey(connection(), "design-files-tab-assets", { paths: assetPaths().join("|") }),
-    enabled: !!connection() && assetPaths().length > 0,
-    queryFn: () => connection()!.client.readFiles(connection()!.workspaceId, assetPaths()),
-  }))
+  const assetsQueryOptions = createMemo(() => {
+    const current = connection()
+    const paths = assetPaths()
+    return {
+      queryKey: workbenchQueryKey(current, "design-files-tab-assets", { paths: paths.join("|") }),
+      enabled: !!current && paths.length > 0,
+      queryFn: () => current!.client.readFiles(current!.workspaceId, paths),
+    }
+  })
+  const assets = createQuery(assetsQueryOptions)
 
   const renderedSource = createMemo(() => {
     const html = decodedContent()
