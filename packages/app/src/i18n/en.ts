@@ -1628,7 +1628,7 @@ export const dict = {
   "settings.fork.githubAuth.advancedOptions": "Advanced options",
   "settings.fork.githubAuth.advancedOptionsWarning": "This method is intended for advanced setups. Connecting with GitHub is recommended.",
   "settings.fork.githubAuth.notConfigured": "GitHub is not configured for this build",
-  "settings.fork.githubAuth.authorizeTitle": "Authorize OpenCode on GitHub",
+  "settings.fork.githubAuth.authorizeTitle": "Authorize Unifia on GitHub",
   "settings.fork.githubAuth.copyCode": "Copy code",
   "settings.fork.githubAuth.copied": "Copied",
   "settings.fork.githubAuth.openGithub": "Open GitHub",
