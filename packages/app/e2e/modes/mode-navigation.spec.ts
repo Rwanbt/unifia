@@ -8,18 +8,32 @@ test("multimode navigation keeps the route and projection aligned", async ({ pag
   await page.goto(`${dirPath(directory)}/session`)
   await expect(page).toHaveURL(new RegExp(`/${slug}/session(?:[/?#]|$)`))
 
-  // ADR-1033: automate is not on the production rail; only work/design are
-  // reachable through the mode buttons this test drives.
-  const modes = ["work", "design"] as const
-  for (const mode of modes) {
-    await page.getByRole("button", { name: `${mode} mode` }).click()
-    await expect(page).toHaveURL(new RegExp(`/${slug}/${mode}(?:[/?#]|$)`))
-    await expect(page.locator(`[data-workbench-mode="${mode}"]`).first()).toBeVisible()
-    await expect(page.locator(`[data-workbench-chat="${mode}"]`)).toBeVisible()
-    await expect(page.locator("[data-workbench-chat-input]")).toBeVisible()
-    await page.locator("[data-workbench-chat-suggestion]").click()
-    await expect(page.locator("[data-workbench-chat-input]")).not.toHaveValue("")
-  }
+  // ADR-1041 supersedes ADR-1033: Automate is reachable from the rail whenever
+  // the workspace has `workflow.run` granted, and it is always reachable in a
+  // dev build — which is what the e2e harness runs. This test still drives only
+  // Work and Design, by choice: they are the two surfaces whose conversational
+  // entry point it asserts.
+  //
+  // The two surfaces no longer share that entry point. Work renders
+  // `WorkbenchChat` (`data-workbench-chat`, with a suggestion button); Design
+  // moved to `WorkbenchThread` (`data-workbench-thread`, composer-based, no
+  // suggestion). Asserting the Work contract on Design made this test red from
+  // the moment Design migrated — a red nobody read, because the rail path was
+  // otherwise untested for timing. Each mode is now asserted against the
+  // component it actually renders.
+  await page.getByRole("button", { name: "work mode" }).click()
+  await expect(page).toHaveURL(new RegExp(`/${slug}/work(?:[/?#]|$)`))
+  await expect(page.locator(`[data-workbench-mode="work"]`).first()).toBeVisible()
+  await expect(page.locator(`[data-workbench-chat="work"]`)).toBeVisible()
+  await expect(page.locator("[data-workbench-chat-input]")).toBeVisible()
+  await page.locator("[data-workbench-chat-suggestion]").click()
+  await expect(page.locator("[data-workbench-chat-input]")).not.toHaveValue("")
+
+  await page.getByRole("button", { name: "design mode" }).click()
+  await expect(page).toHaveURL(new RegExp(`/${slug}/design(?:[/?#]|$)`))
+  await expect(page.locator(`[data-workbench-mode="design"]`).first()).toBeVisible()
+  await expect(page.locator(`[data-workbench-thread="design"]`)).toBeVisible()
+  await expect(page.locator("[data-workbench-thread-input]")).toBeVisible()
 
   await page.getByRole("button", { name: "code mode" }).click()
   await expect(page).toHaveURL(new RegExp(`/${slug}/session(?:[/?#]|$)`))
@@ -68,6 +82,14 @@ test("workbench surfaces fail closed before a native bridge is available", async
 
   await page.getByRole("button", { name: "design mode" }).click()
   await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()
+  // `seedDesignTabState` ouvre "Spec" puis "Fichiers", et `openTab` active
+  // l'onglet qu'il vient d'ajouter : la surface Design atterrit donc sur
+  // Fichiers, pas sur Spec. L'éditeur `#workbench-design-spec` n'est pas rendu
+  // tant que l'onglet Spec n'est pas actif, et `fill()` expirait au bout de
+  // 60 s sur un élément absent. Le test supposait un onglet par défaut qui a
+  // changé sans que l'assertion suive.
+  await page.locator('[data-design-workspace-tab="spec"]').click()
+  await expect(page.locator("[data-design-workspace-active-kind='spec']")).toBeVisible()
   await page.locator("#workbench-design-spec").fill('{"id":"broken"}')
   await expect(page.locator("[data-workbench-diagnostics]")).toBeVisible()
 })
