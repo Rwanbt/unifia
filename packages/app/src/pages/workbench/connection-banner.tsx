@@ -9,13 +9,24 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
   const workbench = useWorkspaceWorkbench()
   const t = language.t
   const connection = workbench.connection
-  const phase = () => connection()?.instanceId ? "connected" : workbench.error() ? "failed" : workbench.loading() ? "connecting" : "unavailable"
-  const phaseText = () => {
+  // V03 — delegate to the provider's single source of truth. The banner
+  // no longer recomputes a phase locally; it renders the UI phase the
+  // provider derives. This kills the audit's "Reconnecter" loop (a
+  // failed → initializing → failed cycle was previously possible) and
+  // gives `unsupported` its own non-retryable terminal state.
+  const phase = workbench.uiPhase
+  const canRetry = () => phase() === "failed"
+  // V03 — `unsupported` has its own message: the bridge is not part of
+  // this runtime (web Vite without a native injection). Inline string for
+  // now; the proper translation key lands in V10 (visual contract) when
+  // the goldens are approved.
+  const phaseText = (): string => {
     switch (phase()) {
-      case "connected": return t("workbench.connection.connected", { instanceId: connection()!.instanceId })
+      case "ready": return t("workbench.connection.connected", { instanceId: connection()!.instanceId })
       case "connecting": return t("workbench.connection.connecting")
+      case "retrying": return t("workbench.connection.connecting")
       case "failed": return t("workbench.connection.failed")
-      default: return t("workbench.connection.unavailable")
+      case "unsupported": return "Disponible dans l'application desktop"
     }
   }
   // The lifecycle already captured why the bridge refused; until now the
@@ -23,10 +34,10 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
   // of the failure never reached the person able to act on it. The text is a
   // runtime message from the transport, not a translatable string — same
   // treatment as the manifest error rendered by the Design surface.
-  const failureDetail = () => {
-    const reason = workbench.error()
+  const failureDetail = (): string | undefined => {
+    const reason = workbench.detail()
     if (!reason) return undefined
-    const message = reason instanceof Error ? reason.message : String(reason)
+    const message = reason.message
     return message.trim() || undefined
   }
   return (
@@ -50,7 +61,7 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
           </p>
         )}
       </Show>
-      <Show when={workbench.error()}>
+      <Show when={canRetry()}>
         <button
           type="button"
           data-workbench-retry={props.dataRetryAttr === "workbench-retry" ? "" : undefined}

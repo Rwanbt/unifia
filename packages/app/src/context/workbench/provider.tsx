@@ -18,6 +18,15 @@ export function getWorkbenchListenerCount(): number {
 /** Delay before reconnecting after the stream closes cleanly (not an error, so decideEventRetry's backoff does not apply). */
 const EVENT_RECONNECT_DELAY_MS = 1_000
 
+// V03 — UI state machine derived from the lifecycle phase. Distinct from
+// `WorkbenchLifecyclePhase` (which describes an *attempt* inside the
+// lifecycle) and from `loading` (which is a transient flag). `unsupported`
+// is a *terminal* state: the bridge is absent from this runtime, no
+// attempt can ever succeed, the UI must not offer a retry. `retrying` is
+// a *transient* lock: an explicit `retryConnection` is in flight, the UI
+// must not allow a second click while it runs.
+export type WorkbenchUiPhase = "unsupported" | "connecting" | "ready" | "failed" | "retrying"
+
 const { use, provider: WorkbenchContextProvider } = createSimpleContext({
   name: "WorkspaceWorkbench",
   init: (props: { workspacePath: string; codeSessionId?: string }) => {
@@ -29,6 +38,19 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     const [connection, setConnection] = createSignal<WorkbenchConnection>()
     const [phase, setPhase] = createSignal<WorkbenchLifecyclePhase>("initializing")
     const [error, setError] = createSignal<unknown>()
+    // V03 — `unsupported` is fixed at init: the platform either exposes a
+    // native bridge or it does not. Reading it once here keeps the
+    // UI-phase derivation stable for the lifetime of the provider and
+    // prevents the loop the audit caught (each `ensureConnected` call
+    // re-set `failed`, the banner flipped back to "Reconnecter", the user
+    // clicked it, the loop restarted). The `unsupported` and
+    // `bridgeError` accessors are functions so the UI-phase derivation
+    // keeps a uniform call shape (`x()` instead of `x ?? x()`).
+    const bridgeUnavailable = !platform.workbench
+    const bridgeErrorValue: Error | undefined = bridgeUnavailable ? new Error(t("workbench.errors.bridgeUnavailable")) : undefined
+    const unsupported = (): boolean => bridgeUnavailable
+    const bridgeError = (): Error | undefined => bridgeErrorValue
+    const [retrying, setRetrying] = createSignal(false)
     let pending: Promise<WorkbenchConnection> | undefined
     let eventsAbort = new AbortController()
     let eventsTask: Promise<void> | undefined
@@ -90,11 +112,12 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       const current = connection()
       if (current) return Promise.resolve(current)
       if (pending) return pending
-      if (!platform.workbench) {
-        const unavailable = new Error(t("workbench.errors.bridgeUnavailable"))
-        setError(unavailable)
-        setPhase("failed")
-        return Promise.reject(unavailable)
+      // V03 — terminal state. The bridge does not exist in this runtime.
+      // Returning the cached error is cheap and idempotent: no phase
+      // churn, no console churn, no UI flicker. Callers that did not
+      // check `unsupported()` first still get a meaningful rejection.
+      if (unsupported()) {
+        return Promise.reject(bridgeError() ?? new Error(t("workbench.errors.bridgeUnavailable")))
       }
       setError(undefined)
       pending = lifecycle.connect(props.workspacePath, async ({ signal, setPhase: updatePhase, acquire }) => {
@@ -117,13 +140,22 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     }
 
     const retryConnection = async (): Promise<void> => {
-      eventsAbort.abort()
-      await eventsTask?.catch(() => undefined)
-      eventsAbort = new AbortController()
-      await lifecycle.retry(props.workspacePath)
-      setConnection(undefined)
-      setError(undefined)
-      setPhase("initializing")
+      // V03 — idempotent: an `unsupported` runtime has no bridge to
+      // retry, and a second concurrent click must not start a second
+      // lifecycle call while the first is still rolling back.
+      if (unsupported() || retrying()) return
+      setRetrying(true)
+      try {
+        eventsAbort.abort()
+        await eventsTask?.catch(() => undefined)
+        eventsAbort = new AbortController()
+        await lifecycle.retry(props.workspacePath)
+        setConnection(undefined)
+        setError(undefined)
+        setPhase("initializing")
+      } finally {
+        setRetrying(false)
+      }
     }
 
     onCleanup(() => {
@@ -134,12 +166,40 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     })
 
     const loading = () => pending !== undefined || ["initializing", "opening", "issuing", "handshaking", "rolling_back"].includes(phase())
+
+    // V03 — single source of truth for the banner. Order matters:
+    // `unsupported` wins over `retrying` (terminal beats transient), and
+    // `retrying` wins over `connecting` (a manual retry overrides the
+    // generic loading spinner). `connection().instanceId` is the only
+    // way to reach `ready`; an attempt in flight (with or without
+    // error) collapses to `connecting` or `failed`.
+    const uiPhase = (): WorkbenchUiPhase => {
+      if (unsupported()) return "unsupported"
+      if (retrying()) return "retrying"
+      if (connection()?.instanceId) return "ready"
+      if (error()) return "failed"
+      return "connecting"
+    }
+    // `bridgeError()` is the copyable reason exposed on `unsupported`;
+    // `error()` covers the `failed` path. They are kept separate so the
+    // banner can render the correct one for each UI phase. The reason
+    // coming back from the lifecycle is `unknown`, so we normalise it
+    // to `Error | undefined` instead of leaking the raw value.
+    const detail = (): Error | undefined => {
+      if (uiPhase() === "unsupported") return bridgeError()
+      const reason = error()
+      if (reason === undefined || reason === null) return undefined
+      if (reason instanceof Error) return reason
+      return new Error(String(reason))
+    }
     return {
       connection,
       phase,
       loading,
       error,
       identity,
+      uiPhase,
+      detail,
       beginOperation: () => setIdentity({ ...identity(), operationId: crypto.randomUUID() }),
       ensureConnected,
       retryConnection,
