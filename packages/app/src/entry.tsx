@@ -127,11 +127,24 @@ const platform: Platform = {
   setDefaultServer: writeDefaultServerUrl,
 }
 
+// V14.5 — test hook: the e2e harness (e2e/modes/design-journey.spec.ts)
+// can install a partial platform on `window.__UNIFIA_PLATFORM__` BEFORE
+// `entry.tsx` runs (via Playwright `addInitScript`). Production
+// runtimes never set the global, so the spread yields nothing and
+// the default web platform stands. The hook is intentionally narrow:
+// a Partial<Platform>, merged field-by-field, so a test only has
+// to override the slice it actually exercises (the workbench
+// bridge is the only one the harness ships today).
+const testOverride = (
+  typeof window !== "undefined" ? (window as { __UNIFIA_PLATFORM__?: Partial<Platform> }).__UNIFIA_PLATFORM__ : undefined
+)
+const merged: Platform = testOverride ? { ...platform, ...testOverride } : platform
+
 if (root instanceof HTMLElement) {
   const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl() } }
   render(
     () => (
-      <PlatformProvider value={platform}>
+      <PlatformProvider value={merged}>
         <AppProviders
           defaultServer={ServerConnection.Key.make(getDefaultUrl())}
           servers={[server]}
