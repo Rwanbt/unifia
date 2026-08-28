@@ -52,12 +52,16 @@ test("workbench surfaces fail closed before a native bridge is available", async
 
   await page.getByRole("button", { name: "work mode" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
-  // No native bridge in this harness: the lifecycle sets phase=failed (an
-  // explicit error), not phase=unavailable (never attempted) — UX-001, the
-  // banner text must say so, not the generic "unavailable" copy.
-  await expect(page.locator('[data-workbench-connection="failed"]')).toBeVisible()
-  await expect(page.getByText(/workbench bridge connection failed/i)).toBeVisible()
-  await expect(page.getByText("Chat remains available")).toBeVisible()
+  // V03 — the data attribute is now driven by the WorkbenchUiPhase
+  // state machine, not the legacy phase signal. In the Vite harness
+  // there is no native bridge, so the UI phase is "unsupported"
+  // (terminal). The banner must NOT show the "Reconnecter" button
+  // — clicking it would re-reject in a loop (F-03). The diagnostic
+  // message is the inlined "Disponible dans l'application desktop"
+  // (FR) or its English equivalent, not the old "failed" copy.
+  await expect(page.locator('[data-workbench-connection="unsupported"]')).toBeVisible()
+  await expect(page.locator("[data-workbench-retry]")).toHaveCount(0)
+  await expect(page.getByText(/desktop application|application desktop/i).first()).toBeVisible()
   await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
   await page.locator('[data-workbench-operation="export"]').click()
   await expect(page.locator("[data-workbench-export]")).toBeDisabled()
