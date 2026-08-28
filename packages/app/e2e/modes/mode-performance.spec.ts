@@ -50,12 +50,17 @@ test("10 mode cycles do not grow heap, listeners, or active queries", async ({ p
 
   const baseline = await page.evaluate(() => {
     const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
-    const dev = (window as unknown as { __UNIFIA_PERF__?: { listeners: () => number; queries: () => number } }).__UNIFIA_PERF__
+    const dev = (
+      window as unknown as {
+        __UNIFIA_PERF__?: { eventStreams: () => number; queryObservers: () => number; queryCacheEntries: () => number }
+      }
+    ).__UNIFIA_PERF__
     if (!memory || !dev) throw new Error("Performance instrumentation is unavailable; refusing a false-green measurement")
     return {
       heap: memory?.usedJSHeapSize ?? 0,
-      listeners: dev?.listeners() ?? 0,
-      queries: dev?.queries() ?? 0,
+      eventStreams: dev.eventStreams(),
+      queryObservers: dev.queryObservers(),
+      queryCacheEntries: dev.queryCacheEntries(),
     }
   })
 
@@ -84,12 +89,17 @@ test("10 mode cycles do not grow heap, listeners, or active queries", async ({ p
 
   const after = await page.evaluate(() => {
     const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
-    const dev = (window as unknown as { __UNIFIA_PERF__?: { listeners: () => number; queries: () => number } }).__UNIFIA_PERF__
+    const dev = (
+      window as unknown as {
+        __UNIFIA_PERF__?: { eventStreams: () => number; queryObservers: () => number; queryCacheEntries: () => number }
+      }
+    ).__UNIFIA_PERF__
     if (!memory || !dev) throw new Error("Performance instrumentation is unavailable; refusing a false-green measurement")
     return {
       heap: memory?.usedJSHeapSize ?? 0,
-      listeners: dev?.listeners() ?? 0,
-      queries: dev?.queries() ?? 0,
+      eventStreams: dev.eventStreams(),
+      queryObservers: dev.queryObservers(),
+      queryCacheEntries: dev.queryCacheEntries(),
     }
   })
 
@@ -102,6 +112,7 @@ test("10 mode cycles do not grow heap, listeners, or active queries", async ({ p
   // regression: every switch adds a provider and a query client,
   // and the F10 lazy boundary + the E14 cache defaults are
   // exactly the F-cards that prevent that.
-  expect(after.listeners).toBeLessThanOrEqual(baseline.listeners)
-  expect(after.queries).toBeLessThanOrEqual(baseline.queries)
+  expect(after.eventStreams).toBeLessThanOrEqual(baseline.eventStreams)
+  expect(after.queryObservers).toBeLessThanOrEqual(baseline.queryObservers)
+  expect(after.queryCacheEntries).toBeLessThanOrEqual(baseline.queryCacheEntries)
 })

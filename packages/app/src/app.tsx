@@ -50,6 +50,7 @@ import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
 import { QUERY_FAMILY_STALE_TIME_MS, QUERY_DEFAULT_GC_TIME_MS, QUERY_DEFAULT_RETRY } from "@/context/workbench/query-invalidation"
 import { getWorkbenchListenerCount } from "@/context/workbench/provider"
+import { installPerfInstrumentation } from "@/utils/perf-instrumentation"
 
 const HomeRoute = lazy(() => import("@/pages/home"))
 const loadSession = () => import("@/pages/session")
@@ -74,12 +75,10 @@ function UiI18nBridge(props: ParentProps) {
   return <I18nProvider value={{ locale: language.intl, t: language.t }}>{props.children}</I18nProvider>
 }
 
+// `__UNIFIA_PERF__` est déclaré par `@/utils/perf-instrumentation`, qui en est
+// le propriétaire : le type y suit les compteurs réellement exposés.
 declare global {
   interface Window {
-    __UNIFIA_PERF__?: {
-      listeners: () => number
-      queries: () => number
-    }
     __OPENCODE__?: {
       updaterEnabled?: boolean
       deepLinks?: string[]
@@ -112,13 +111,15 @@ function QueryProvider(props: ParentProps) {
   for (const [family, staleTime] of Object.entries(QUERY_FAMILY_STALE_TIME_MS)) {
     client.setQueryDefaults(["workbench", family], { staleTime })
   }
-  if (typeof window === "object") {
-    window.__UNIFIA_PERF__ = {
-      listeners: getWorkbenchListenerCount,
-      queries: () => client.getQueryCache().getAll().length,
-    }
-    onCleanup(() => { delete window.__UNIFIA_PERF__ })
-  }
+  // C4d — instrumentation de test, DEV uniquement. Elle était auparavant posée
+  // sous un simple `typeof window === "object"`, donc livrée en production,
+  // avec des noms qui promettaient plus large que ce qu'ils mesuraient
+  // (`listeners` comptait des flux Workbench, `queries` des entrées de cache).
+  const removePerfInstrumentation = installPerfInstrumentation({
+    client,
+    eventStreams: getWorkbenchListenerCount,
+  })
+  if (removePerfInstrumentation) onCleanup(removePerfInstrumentation)
   return <QueryClientProvider client={client}>{props.children}</QueryClientProvider>
 }
 
