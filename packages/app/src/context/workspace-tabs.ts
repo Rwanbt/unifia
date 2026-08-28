@@ -79,23 +79,60 @@ export function emptyWorkspaceTabState(): WorkspaceTabState {
 }
 
 /**
- * Rouvre un onglet : s'il existe déjà (même `id`), il est activé et
- * son `lastActiveAt` est mis à jour ; sinon il est ajouté. L'entry
- * reste en première position (règle d'or d'Open Design) ; les autres
- * onglets s'accumulent à la fin, dans l'ordre d'ouverture. C'est le
- * pattern navigateur web : un nouvel onglet apparaît à droite des
- * onglets existants, pas au milieu.
+ * Ouvre un onglet, ou met à jour celui qui porte déjà cet `id`.
+ *
+ * Sur un onglet existant c'est un **upsert** : `href`, `title` et `closable`
+ * suivent la navigation courante, tandis que `id`, `kind` et `createdAt` sont
+ * des invariants d'identité. Auparavant cette branche déléguait à
+ * `activateWorkspaceTab`, qui jette les métadonnées entrantes : le `href` d'un
+ * onglet restait donc figé à sa première ouverture, alors que cliquer l'onglet
+ * navigue vers `tab.href`. Ouvrir un projet en Code puis passer en Design
+ * laissait l'onglet pointer sur `/…/session`, et le clic ramenait en arrière.
+ *
+ * Un onglet absent est ajouté à la fin, après l'entry qui reste en première
+ * position : c'est le pattern navigateur, un nouvel onglet apparaît à droite.
  */
 export function openWorkspaceTab(state: WorkspaceTabState, tab: WorkspaceTab, now: number): WorkspaceTabState {
-  const existing = state.tabs.find((t) => t.id === tab.id)
+  const index = state.tabs.findIndex((t) => t.id === tab.id)
+  const existing = index === -1 ? undefined : state.tabs[index]
   if (existing) {
-    return activateWorkspaceTab(state, tab.id, now)
+    // WHY `entry` is excluded from the upsert: it is the permanent root, with
+    // a fixed id, `kind: "entry"`, `href: "/"` and `closable: false`. An
+    // `open()` carrying project metadata for that id must activate it, never
+    // redefine it.
+    if (existing.kind === "entry") return activateWorkspaceTab(state, tab.id, now)
+    // WHY `lastActiveAt` is preserved when the tab is already active: `open()`
+    // follows the same rule as `activate()` — re-affirming the tab you are
+    // already on is not a fresh visit, and `touchWorkspaceTab` is the explicit
+    // way to bump recency. Without this, "an unchanged open() returns the same
+    // state" and "open() sets lastActiveAt = now" contradict each other for
+    // every `now` that is not already the stored one.
+    const wasActive = state.activeId === tab.id
+    const merged: WorkspaceTab = {
+      ...existing,
+      href: tab.href,
+      title: tab.title,
+      closable: tab.closable,
+      lastActiveAt: wasActive ? existing.lastActiveAt : now,
+    }
+    // WHY the whole-record comparison rather than just `href`: a tab whose only
+    // changed field is the title (a renamed VCS branch) must still be written.
+    // Identity is returned only when nothing at all would change — that is the
+    // property the route effect relies on to stop re-entering itself.
+    const unchanged =
+      wasActive &&
+      merged.href === existing.href &&
+      merged.title === existing.title &&
+      merged.closable === existing.closable &&
+      merged.lastActiveAt === existing.lastActiveAt
+    if (unchanged) return state
+    return { tabs: state.tabs.map((t, i) => (i === index ? merged : t)), activeId: tab.id }
   }
   const newTab: WorkspaceTab = { ...tab, lastActiveAt: now }
   // L'insertion se fait à la fin, après l'entry. Si l'entry est seul,
   // l'insertion après entry = à la fin. Sinon, à la toute fin.
   const hasEntry = state.tabs.some((t) => t.kind === "entry")
-  const index = state.tabs.length
+  const insertAt = state.tabs.length
   if (!hasEntry) {
     // Cas dégénéré : pas d'entry. On insère en tête pour reproduire
     // une racine plausible.
@@ -103,7 +140,7 @@ export function openWorkspaceTab(state: WorkspaceTabState, tab: WorkspaceTab, no
     return { tabs: next, activeId: tab.id }
   }
   const next = [...state.tabs]
-  next.splice(index, 0, newTab)
+  next.splice(insertAt, 0, newTab)
   return { tabs: next, activeId: tab.id }
 }
 
@@ -148,6 +185,16 @@ export function closeWorkspaceTab(state: WorkspaceTabState, id: string, now: num
 export function activateWorkspaceTab(state: WorkspaceTabState, id: string, now: number): WorkspaceTabState {
   const index = state.tabs.findIndex((t) => t.id === id)
   if (index === -1) return state
+  // WHY the identity early-out is unconditional on `now`: this reducer is
+  // called from the route effect in `workspace-tabs-bar.tsx`, which also reads
+  // the store. Returning a fresh object for an activation that changes nothing
+  // re-triggers that effect, which calls back in — the cascade that made every
+  // mode switch cost ~10 s of blocked main thread (thousands of nested Solid
+  // update rounds). Guarding on `lastActiveAt === now` would only deduplicate
+  // calls landing in the same millisecond; activating the tab that is already
+  // active is a no-op whatever the clock says. `touchWorkspaceTab` is how a
+  // caller bumps recency on purpose.
+  if (state.activeId === id) return state
   const next = state.tabs.map((t, i) => (i === index ? { ...t, lastActiveAt: now } : t))
   return { tabs: next, activeId: id }
 }
@@ -160,6 +207,8 @@ export function activateWorkspaceTab(state: WorkspaceTabState, id: string, now: 
 export function touchWorkspaceTab(state: WorkspaceTabState, id: string, now: number): WorkspaceTabState {
   const index = state.tabs.findIndex((t) => t.id === id)
   if (index === -1) return state
+  // Same identity rule as `activateWorkspaceTab` above.
+  if (state.tabs[index]?.lastActiveAt === now) return state
   const next = state.tabs.map((t, i) => (i === index ? { ...t, lastActiveAt: now } : t))
   return { tabs: next, activeId: state.activeId }
 }
