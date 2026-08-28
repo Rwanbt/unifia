@@ -78,6 +78,14 @@ export const SidebarContent = (props: {
                         icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
                         variant={props.activeMode() === mode ? "primary" : "ghost"}
                         size="large"
+                        // Contrat technique de sélection pour les tests, stable
+                        // quelle que soit la locale. L'`aria-label` ci-dessous
+                        // vient de `modeLabel`, donc il est traduit : la suite
+                        // e2e tourne en anglais et rend "work mode" là où
+                        // l'application en français rend "Mode Travail".
+                        // Accessibilité et contrat de test sont deux
+                        // responsabilités distinctes, on garde les deux.
+                        data-mode={mode}
                         onClick={() => props.onMode(mode)}
                         onMouseEnter={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
                         onFocus={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
