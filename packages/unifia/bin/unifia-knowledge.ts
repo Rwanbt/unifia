@@ -76,6 +76,7 @@ import { supersedeGraph } from "../src/knowledge/admin/supersede-graph.js"
 import { findDuplicates } from "../src/knowledge/admin/duplicates.js"
 import { buildTimeline, formatTimeline } from "../src/knowledge/admin/timeline.js"
 import { tagCooccurrence } from "../src/knowledge/admin/tag-cooccurrence.js"
+import { classifySupersede } from "../src/knowledge/admin/supersede-classify.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -143,6 +144,7 @@ function printUsage(): void {
       "  unifia knowledge duplicates <workspace>",
       "  unifia knowledge timeline <workspace> [--window-days=N] [--max-per-day=N]",
       "  unifia knowledge tag-cooccurrence <workspace> [--min-count=N] [--limit=N]",
+      "  unifia knowledge supersede-classify <workspace>",
       "",
     ].join("\n"),
   )
@@ -1180,6 +1182,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdTimeline(rest)
     case "tag-cooccurrence":
       return cmdTagCooccurrence(rest)
+    case "supersede-classify":
+      return cmdSupersedeClassify(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1760,6 +1764,35 @@ async function cmdTagCooccurrence(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`tag-cooccurrence error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdSupersedeClassify(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("supersede-classify: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = classifySupersede({ vaultRoot: ws })
+    process.stdout.write(`vault:     ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:   ${r.scanned}\n\n`)
+    process.stdout.write(`isolated:  ${r.totalByRole.isolated}  (no supersedes, no successor)\n`)
+    process.stdout.write(`root:      ${r.totalByRole.root}  (has supersedes, no successor)\n`)
+    process.stdout.write(`leaf:      ${r.totalByRole.leaf}  (no supersedes, has successor)\n`)
+    process.stdout.write(`chain:     ${r.totalByRole.chain}  (has both)\n`)
+    for (const role of ["isolated", "root", "leaf", "chain"] as const) {
+      if (r.byRole[role].length === 0) continue
+      process.stdout.write(`\n${role} (${r.byRole[role].length}):\n`)
+      for (const n of r.byRole[role]) {
+        process.stdout.write(`  - ${n.locator.padEnd(28)} ${n.type}  ${n.lifecycle}  (preds=${n.supersedesCount} succ=${n.successorCount})\n`)
+      }
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`supersede-classify error: ${(e as Error).message}\n`)
     return 1
   }
 }
