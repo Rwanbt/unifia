@@ -22,7 +22,9 @@
 pub mod error;
 pub mod hash;
 pub mod path;
+pub mod watcher;
 
 pub use error::{KnowledgeError, KnowledgeErrorKind};
 pub use hash::{ContentHash, HashAlgorithm};
 pub use path::ResolvedKnowledgePath;
+pub use watcher::{WatchEvent, WatcherConfig, coalesce, hash_file};
