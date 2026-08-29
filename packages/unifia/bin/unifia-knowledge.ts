@@ -44,6 +44,7 @@ import { scanReachability } from "../src/knowledge/classb/reachability.js"
 import { McpTokenRegistry } from "../src/knowledge/mcp/token.js"
 import { classifyCorpus } from "../src/knowledge/admin/corpus-classify.js"
 import { runVerify } from "../src/knowledge/hardening/verify.js"
+import { readPolicy, patchPolicy, type KnowledgePolicy } from "../src/knowledge/policy/store.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -73,6 +74,9 @@ function printUsage(): void {
       "  unifia knowledge mcp-token check <token-id>",
       "  unifia knowledge classify <workspace>",
       "  unifia knowledge verify <workspace> [--derived=PATH]",
+      "  unifia knowledge policy <workspace> show",
+      "  unifia knowledge policy <workspace> set-egress <allow|deny>",
+      "  unifia knowledge policy <workspace> set-feature <feature> <true|false>",
       "",
     ].join("\n"),
   )
@@ -499,6 +503,71 @@ function join_(...parts: string[]): string {
   return parts.join("/").replace(/[\\/]+/g, "/")
 }
 
+async function cmdPolicy(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("policy: missing workspace path\n")
+    return 2
+  }
+  const sub = rest[1]
+  try {
+    switch (sub) {
+      case "show": {
+        const p = readPolicy(ws)
+        process.stdout.write(`workspace: ${ws}\n`)
+        process.stdout.write(`egress:    ${p.egress}\n`)
+        process.stdout.write(`features:  embedding=${p.features.embedding} mcpServer=${p.features.mcpServer} gitAutoPush=${p.features.gitAutoPush}\n`)
+        process.stdout.write(`token TTL: ${p.defaultTokenTtlMs}ms\n`)
+        process.stdout.write(`devices:   ${p.trustedDevices.length}\n`)
+        process.stdout.write(`updatedAt: ${p.updatedAt}\n`)
+        if (Object.keys(p.egressByDestination).length > 0) {
+          process.stdout.write(`\ndestination overrides:\n`)
+          for (const [k, v] of Object.entries(p.egressByDestination)) {
+            process.stdout.write(`  - ${k}: ${v}\n`)
+          }
+        }
+        return 0
+      }
+      case "set-egress": {
+        const value = rest[2]
+        if (value !== "allow" && value !== "deny") {
+          process.stderr.write("policy set-egress: value must be 'allow' or 'deny'\n")
+          return 2
+        }
+        const next = patchPolicy(ws, { egress: value })
+        process.stdout.write(`egress: ${value}\n`)
+        process.stdout.write(`updatedAt: ${next.updatedAt}\n`)
+        return 0
+      }
+      case "set-feature": {
+        const feature = rest[2]
+        const value = rest[3]
+        if (value !== "true" && value !== "false") {
+          process.stderr.write("policy set-feature: value must be 'true' or 'false'\n")
+          return 2
+        }
+        if (feature !== "embedding" && feature !== "mcpServer" && feature !== "gitAutoPush") {
+          process.stderr.write("policy set-feature: feature must be 'embedding', 'mcpServer', or 'gitAutoPush'\n")
+          return 2
+        }
+        const current = readPolicy(ws)
+        const next = patchPolicy(ws, {
+          features: { ...current.features, [feature]: value === "true" },
+        })
+        process.stdout.write(`${feature}: ${value}\n`)
+        process.stdout.write(`updatedAt: ${next.updatedAt}\n`)
+        return 0
+      }
+      default:
+        process.stderr.write(`policy: unknown subcommand: ${sub ?? "(missing)"}\n`)
+        return 2
+    }
+  } catch (e) {
+    process.stderr.write(`policy error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function cmdMcpToken(rest: readonly string[]): Promise<number> {
   const sub = rest[0]
   // The token registry is process-local. In V1 it is recreated
@@ -607,6 +676,8 @@ async function main(): Promise<number> {
       return cmdClassify(rest)
     case "verify":
       return cmdVerify(rest)
+    case "policy":
+      return cmdPolicy(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
