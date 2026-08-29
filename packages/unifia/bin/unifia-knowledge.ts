@@ -71,6 +71,7 @@ import { findReferences } from "../src/knowledge/admin/references.js"
 import { vaultFingerprint } from "../src/knowledge/admin/fingerprint.js"
 import { listByTag } from "../src/knowledge/admin/by-tag.js"
 import { compareVaults } from "../src/knowledge/admin/vault-compare.js"
+import { findRecent } from "../src/knowledge/admin/recent.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -133,6 +134,7 @@ function printUsage(): void {
       "  unifia knowledge fingerprint <workspace> [--verbose]",
       "  unifia knowledge by-tag <workspace> <tag> [--limit=N]",
       "  unifia knowledge vault-compare <workspace_a> <workspace_b>",
+      "  unifia knowledge recent <workspace> [--window-days=N] [--only-active] [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -1160,6 +1162,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdByTag(rest)
     case "vault-compare":
       return cmdVaultCompare(rest)
+    case "recent":
+      return cmdRecent(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1585,6 +1589,39 @@ async function cmdVaultCompare(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`vault-compare error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdRecent(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("recent: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const window = flags.get("window-days") !== undefined ? Number(flags.get("window-days")) : undefined
+  const limit = flags.get("limit") !== undefined ? Number(flags.get("limit")) : undefined
+  const onlyActive = hasFlag(rest, "only-active") || flags.has("only-active")
+  try {
+    const r = findRecent({
+      vaultRoot: ws,
+      ...(window !== undefined ? { windowDays: window } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      onlyActive,
+    })
+    process.stdout.write(`vault:           ${r.vaultRoot}\n`)
+    process.stdout.write(`window:          ${r.windowDays} days\n`)
+    process.stdout.write(`reference-date:  ${r.referenceDate}\n`)
+    process.stdout.write(`scanned:         ${r.scanned}\n`)
+    process.stdout.write(`recent:          ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.locator.padEnd(28)} age=${String(h.ageDays).padStart(4)}d  ${h.lifecycle}  ${h.updatedAt}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`recent error: ${(e as Error).message}\n`)
     return 1
   }
 }
