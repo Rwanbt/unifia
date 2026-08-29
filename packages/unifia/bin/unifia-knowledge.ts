@@ -50,6 +50,7 @@ import { simulateSimilarity } from "../src/knowledge/semantic/simulate.js"
 import { summarise as summariseWorkspace, formatSummaryOneLine } from "../src/knowledge/admin/summary.js"
 import { runDrill, stubFsWithClassA } from "../src/knowledge/hardening/drill.js"
 import { validate } from "../src/knowledge/admin/validate.js"
+import { generateReport } from "../src/knowledge/admin/report.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -88,6 +89,7 @@ function printUsage(): void {
       "  unifia knowledge summary <workspace> [--one-line]",
       "  unifia knowledge drill",
       "  unifia knowledge validate <workspace>",
+      "  unifia knowledge report <workspace> [--no-validation] [--no-types] [--no-policy] [--title=T]",
       "",
     ].join("\n"),
   )
@@ -852,8 +854,37 @@ async function cmdValidate(rest: readonly string[]): Promise<number> {
 }
     case "drill":
       return cmdDrill()
+
+
+async function cmdReport(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("report: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  try {
+    const md = generateReport({
+      vaultRoot: ws,
+      options: {
+        includeValidation: !flags.has("no-validation"),
+        includeTypeBreakdown: !flags.has("no-types"),
+        includePolicy: !flags.has("no-policy"),
+        title: flags.get("title") ?? "Knowledge Workspace Report",
+      },
+    })
+    process.stdout.write(md)
+    if (!md.endsWith("\n")) process.stdout.write("\n")
+    return 0
+  } catch (e) {
+    process.stderr.write(`report error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "validate":
       return cmdValidate(rest)
+    case "report":
+      return cmdReport(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
