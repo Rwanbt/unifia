@@ -53,6 +53,7 @@ import { validate } from "../src/knowledge/admin/validate.js"
 import { generateReport } from "../src/knowledge/admin/report.js"
 import { tagSearch } from "../src/knowledge/admin/tag-search.js"
 import { findBacklinks } from "../src/knowledge/admin/backlinks.js"
+import { computeStats } from "../src/knowledge/admin/stats.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -94,6 +95,7 @@ function printUsage(): void {
       "  unifia knowledge report <workspace> [--no-validation] [--no-types] [--no-policy] [--title=T]",
       "  unifia knowledge tag-search <workspace> <tag> [<tag>...] [--limit=N]",
       "  unifia knowledge backlinks <workspace> <target>",
+      "  unifia knowledge stats <workspace>",
       "",
     ].join("\n"),
   )
@@ -944,8 +946,39 @@ async function cmdBacklinks(rest: readonly string[]): Promise<number> {
 }
     case "tag-search":
       return cmdTagSearch(rest)
+
+
+async function cmdStats(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("stats: missing workspace path\n")
+    return 2
+  }
+  try {
+    const s = computeStats(ws)
+    process.stdout.write(`vault:        ${s.vaultRoot}\n`)
+    process.stdout.write(`total notes:  ${s.totalNotes}\n`)
+    process.stdout.write(`parse fail:   ${s.parseFailures}\n`)
+    process.stdout.write(`class B:      ${s.portableStoreEntries} entry(ies)\n`)
+    process.stdout.write(`policy:       ${s.policyEgress}\n\n`)
+    process.stdout.write(`by lifecycle:\n`)
+    for (const b of s.byLifecycle) {
+      process.stdout.write(`  ${b.name.padEnd(12)} ${String(b.count).padStart(4)}  ${b.percent.toFixed(1)}%\n`)
+    }
+    process.stdout.write(`\nby type:\n`)
+    for (const b of s.byType) {
+      process.stdout.write(`  ${b.name.padEnd(12)} ${String(b.count).padStart(4)}  ${b.percent.toFixed(1)}%\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`stats error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "backlinks":
       return cmdBacklinks(rest)
+    case "stats":
+      return cmdStats(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
