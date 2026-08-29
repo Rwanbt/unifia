@@ -7,14 +7,14 @@
 
 ## One-liner
 
-66 commits locaux, 378 TS knowledge + 79 contracts + 34 Rust = 491 verts
+69 commits locaux, 384 TS knowledge + 79 contracts + 34 Rust = 497 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `657b3e04bb feat(knowledge): P11.36 by-project CLI`
+- HEAD : `c389dca405 feat(knowledge): P11.37 orphans CLI (notes with no outbound wikilinks)`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
@@ -77,6 +77,7 @@ unifia knowledge projects <ws>
 unifia knowledge supersede <ws> --target=<loc> --source=<s> --reason=<r> [--successor=<loc>]
 unifia knowledge by-lifecycle <ws> <lifecycle> [--limit=N]
 unifia knowledge by-project <ws> <project_ref> [--limit=N]
+unifia knowledge orphans <ws> [--max-links=N] [--limit=N]
 ```
 
 ## Test live

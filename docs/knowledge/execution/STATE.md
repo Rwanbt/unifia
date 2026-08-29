@@ -1156,3 +1156,51 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 `admin/by-lifecycle.ts` (P11.35), `admin/by-project.ts` (P11.36).
 **Subcommandes CLI** : 35 (etait 20 en V3, +15 admin).
 **Cartes durcissement** : 31 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-36).
+
+
+---
+
+## Carte 0205 - P11.37 : Orphans CLI
+
+- **ID** : 0205
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/orphans.ts` +
+  `packages/unifia/test/knowledge/admin/orphans.test.ts` (6 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdOrphans).
+- **`findOrphans({ vaultRoot, maxLinks?, limit? })`** : walk
+  le vault, compte les wikilinks sortants par note (via
+  `doc.wikilinks` precomputed), retourne les notes avec
+  <= `maxLinks` liens sortants (default 0).
+- **CLI** : `unifia knowledge orphans <ws> [--max-links=N] [--limit=N]`.
+- **Live run** : 11/11 dev orphans (fixtures atomiques), idem
+  sur holdout.
+- **Lecon capturee** : `doc.body` n'existe pas, c'est `doc.note.body`.
+  Le parser expose `doc.wikilinks` (precomputed) ; l'utiliser
+  evite de relancer la regex.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V9 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 70.
+
+**Tests** : 384 TS knowledge + 79 contracts + 34 Rust = **497 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `c389dca405 feat(knowledge): P11.37 orphans CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : `admin/tags.ts` (P11.32),
+`admin/projects.ts` (P11.33), `admin/supersede.ts` (P11.34),
+`admin/by-lifecycle.ts` (P11.35), `admin/by-project.ts` (P11.36),
+`admin/orphans.ts` (P11.37).
+**Subcommandes CLI** : 36 (etait 20 en V3, +16 admin).
+**Cartes durcissement** : 32 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-37).
+
+**Recap Obsidian** : `Session-Recap-Sovereign-Knowledge-Core-12-2026-08-29.md`
+mis a jour avec le parcours complet (10 commits de la session 12).
