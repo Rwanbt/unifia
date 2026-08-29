@@ -51,6 +51,7 @@ import { summarise as summariseWorkspace, formatSummaryOneLine } from "../src/kn
 import { runDrill, stubFsWithClassA } from "../src/knowledge/hardening/drill.js"
 import { validate } from "../src/knowledge/admin/validate.js"
 import { generateReport } from "../src/knowledge/admin/report.js"
+import { tagSearch } from "../src/knowledge/admin/tag-search.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -90,6 +91,7 @@ function printUsage(): void {
       "  unifia knowledge drill",
       "  unifia knowledge validate <workspace>",
       "  unifia knowledge report <workspace> [--no-validation] [--no-types] [--no-policy] [--title=T]",
+      "  unifia knowledge tag-search <workspace> <tag> [<tag>...] [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -883,8 +885,38 @@ async function cmdReport(rest: readonly string[]): Promise<number> {
 }
     case "validate":
       return cmdValidate(rest)
+
+
+async function cmdTagSearch(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("tag-search: missing workspace path\n")
+    return 2
+  }
+  const tags = rest.slice(1).filter((r) => !r.startsWith("--"))
+  const flags = parseFlags(rest.slice(1 + tags.length))
+  const limitStr = flags.get("limit")
+  const limit = limitStr && Number.isFinite(Number(limitStr)) ? Number(limitStr) : 50
+  try {
+    const r = tagSearch({ vaultRoot: ws, tags, limit })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`query:    ${JSON.stringify(r.query)}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`hits:     ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.id}  ${h.locator}  ${h.type}/${h.lifecycle}  [${h.tags.join(", ")}]\n`)
+    }
+    process.stdout.write(`\nelapsed:  ${r.totalMs}ms\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`tag-search error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "report":
       return cmdReport(rest)
+    case "tag-search":
+      return cmdTagSearch(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
