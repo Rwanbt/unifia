@@ -55,6 +55,7 @@ import { tagSearch } from "../src/knowledge/admin/tag-search.js"
 import { findBacklinks } from "../src/knowledge/admin/backlinks.js"
 import { computeStats } from "../src/knowledge/admin/stats.js"
 import { listByType } from "../src/knowledge/admin/by-type.js"
+import { scanBrokenLinks } from "../src/knowledge/admin/broken-links.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -98,6 +99,7 @@ function printUsage(): void {
       "  unifia knowledge backlinks <workspace> <target>",
       "  unifia knowledge stats <workspace>",
       "  unifia knowledge by-type <workspace> <type> [--only-active] [--limit=N]",
+      "  unifia knowledge broken-links <workspace>",
       "",
     ].join("\n"),
   )
@@ -1008,8 +1010,35 @@ async function cmdByType(rest: readonly string[]): Promise<number> {
 }
     case "stats":
       return cmdStats(rest)
+
+
+async function cmdBrokenLinks(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("broken-links: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = scanBrokenLinks({ vaultRoot: ws })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`broken:   ${r.totalBroken}\n`)
+    for (const [src, links] of Object.entries(r.bySource)) {
+      process.stdout.write(`\n${src} :\n`)
+      for (const l of links) {
+        process.stdout.write(`  -> ${l.target}  (raw: ${l.raw})\n`)
+      }
+    }
+    return r.totalBroken === 0 ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`broken-links error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "by-type":
       return cmdByType(rest)
+    case "broken-links":
+      return cmdBrokenLinks(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
