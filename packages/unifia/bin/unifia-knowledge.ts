@@ -65,7 +65,11 @@ import { planSupersede } from "../src/knowledge/admin/supersede.js"
 import { listByLifecycle } from "../src/knowledge/admin/by-lifecycle.js"
 import { listByProject } from "../src/knowledge/admin/by-project.js"
 import { findOrphans } from "../src/knowledge/admin/orphans.js"
+import { lifecycleDistribution } from "../src/knowledge/admin/lifecycle-distribution.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
+
+const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
+const LCD_LIFECYCLES = ["candidate", "active", "superseded", "archived"] as const
 
 function printUsage(): void {
   process.stdout.write(
@@ -118,6 +122,7 @@ function printUsage(): void {
       "  unifia knowledge by-lifecycle <workspace> <lifecycle> [--limit=N]",
       "  unifia knowledge by-project <workspace> <project_ref> [--limit=N]",
       "  unifia knowledge orphans <workspace> [--max-links=N] [--limit=N]",
+      "  unifia knowledge lifecycle-distribution <workspace>",
       "",
     ].join("\n"),
   )
@@ -1124,6 +1129,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdByProject(rest)
     case "orphans":
       return cmdOrphans(rest)
+    case "lifecycle-distribution":
+      return cmdLifecycleDistribution(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1341,6 +1348,55 @@ async function cmdOrphans(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`orphans error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdLifecycleDistribution(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("lifecycle-distribution: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = lifecycleDistribution({ vaultRoot: ws })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`total:    ${r.total}\n\n`)
+    // Header
+    const header = ["          "]
+    for (const t of LCD_TYPES) header.push(t.padStart(11))
+    header.push("TOTAL".padStart(11))
+    process.stdout.write(header.join(" ") + "\n")
+    // Rows
+    for (const lc of LCD_LIFECYCLES) {
+      const row = [lc.padEnd(10)]
+      let rowTotal = 0
+      for (const t of LCD_TYPES) {
+        const v = r.matrix[lc]?.[t] ?? 0
+        row.push(String(v).padStart(11))
+        rowTotal += v
+      }
+      row.push(String(rowTotal).padStart(11))
+      process.stdout.write(row.join(" ") + "\n")
+    }
+    // Totals row
+    const totalsRow = ["TOTAL".padEnd(10)]
+    let grandTotal = 0
+    for (const t of LCD_TYPES) {
+      const v = r.typeTotals[t] ?? 0
+      totalsRow.push(String(v).padStart(11))
+      grandTotal += v
+    }
+    totalsRow.push(String(grandTotal).padStart(11))
+    process.stdout.write(totalsRow.join(" ") + "\n")
+    if (r.unknownTypeCount > 0 || r.unknownLifecycleCount > 0) {
+      process.stdout.write(`\nunknowns: type=${r.unknownTypeCount}  lifecycle=${r.unknownLifecycleCount}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`lifecycle-distribution error: ${(e as Error).message}\n`)
     return 1
   }
 }
