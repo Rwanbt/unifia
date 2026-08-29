@@ -52,6 +52,7 @@ import { runDrill, stubFsWithClassA } from "../src/knowledge/hardening/drill.js"
 import { validate } from "../src/knowledge/admin/validate.js"
 import { generateReport } from "../src/knowledge/admin/report.js"
 import { tagSearch } from "../src/knowledge/admin/tag-search.js"
+import { findBacklinks } from "../src/knowledge/admin/backlinks.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -92,6 +93,7 @@ function printUsage(): void {
       "  unifia knowledge validate <workspace>",
       "  unifia knowledge report <workspace> [--no-validation] [--no-types] [--no-policy] [--title=T]",
       "  unifia knowledge tag-search <workspace> <tag> [<tag>...] [--limit=N]",
+      "  unifia knowledge backlinks <workspace> <target>",
       "",
     ].join("\n"),
   )
@@ -915,8 +917,35 @@ async function cmdTagSearch(rest: readonly string[]): Promise<number> {
 }
     case "report":
       return cmdReport(rest)
+
+
+async function cmdBacklinks(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  const target = rest[1]
+  if (!ws || !target) {
+    process.stderr.write("backlinks: usage: backlinks <workspace> <target>\n")
+    return 2
+  }
+  try {
+    const r = findBacklinks({ vaultRoot: ws, target })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`target:   ${r.target}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`hits:     ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.id}  ${h.source}  ${h.type}/${h.lifecycle}  -> ${h.matchedTarget}\n`)
+    }
+    process.stdout.write(`\nelapsed:  ${r.totalMs}ms\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`backlinks error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "tag-search":
       return cmdTagSearch(rest)
+    case "backlinks":
+      return cmdBacklinks(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
