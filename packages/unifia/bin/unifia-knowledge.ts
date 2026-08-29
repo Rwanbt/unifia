@@ -56,6 +56,7 @@ import { findBacklinks } from "../src/knowledge/admin/backlinks.js"
 import { computeStats } from "../src/knowledge/admin/stats.js"
 import { listByType } from "../src/knowledge/admin/by-type.js"
 import { scanBrokenLinks } from "../src/knowledge/admin/broken-links.js"
+import { listHeadings } from "../src/knowledge/admin/headings.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -100,6 +101,7 @@ function printUsage(): void {
       "  unifia knowledge stats <workspace>",
       "  unifia knowledge by-type <workspace> <type> [--only-active] [--limit=N]",
       "  unifia knowledge broken-links <workspace>",
+      "  unifia knowledge headings <workspace> <locator>",
       "",
     ].join("\n"),
   )
@@ -1037,8 +1039,33 @@ async function cmdBrokenLinks(rest: readonly string[]): Promise<number> {
 }
     case "by-type":
       return cmdByType(rest)
+
+
+async function cmdHeadings(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  const loc = rest[1]
+  if (!ws || !loc) {
+    process.stderr.write("headings: usage: headings <workspace> <locator>\n")
+    return 2
+  }
+  try {
+    const r = listHeadings({ workspaceRoot: ws, locator: loc })
+    process.stdout.write(`note:    ${loc}\n`)
+    process.stdout.write(`count:   ${r.length}\n`)
+    for (const h of r) {
+      const indent = "  ".repeat(h.level - 1)
+      process.stdout.write(`${indent}h${h.level}  L${h.line}  ${h.text}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`headings error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "broken-links":
       return cmdBrokenLinks(rest)
+    case "headings":
+      return cmdHeadings(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
