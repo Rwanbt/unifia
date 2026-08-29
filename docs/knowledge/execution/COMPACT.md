@@ -7,22 +7,22 @@
 
 ## One-liner
 
-38 commits locaux, 387 tests passants, 13 phases couvertes
-(63+ cartes, P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
+40 commits locaux, 398 tests passants, 13 phases couvertes
+(67+ cartes, P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `78af96a1c8`
+- HEAD : `36e0000363`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b`
 
 ## Files at a glance
 
 - Contrats : `packages/contracts/src/knowledge/` (10 fichiers).
-- Runtime TS : `packages/unifia/src/knowledge/` (35 modules).
+- Runtime TS : `packages/unifia/src/knowledge/` (37 modules).
 - Runtime Rust : `crates/unifia-knowledge-core/src/` (8 modules).
-- CLI : `packages/unifia/bin/unifia-knowledge.ts` (18 subcommands).
-- Tests : 387 passants (274 TS + 79 contracts + 34 Rust).
+- CLI : `packages/unifia/bin/unifia-knowledge.ts` (20 subcommands).
+- Tests : 398 passants (285 TS + 79 contracts + 34 Rust).
 - Docs : 9 ADR + 10 cas + DoD + crash matrix + CHANGELOG + README
   + PERMISSIONS + DISASTER-RECOVERY.
 
@@ -42,15 +42,10 @@ cat docs/knowledge/execution/FINAL-REPORT.md | head -40
 - P10.3 resource pressure — Android device requis.
 - Phase Frontier review — modèle frontier externe.
 
-## CLI subcommands (18)
+## CLI subcommands (20)
 
 ```bash
-unifia knowledge status
-unifia knowledge sources
-unifia knowledge search "QUERY"
-unifia knowledge doctor
-unifia knowledge bench
-unifia knowledge bench-large
+unifia knowledge status | sources | search | doctor | bench | bench-large
 unifia knowledge sovereignty [--vault=DIR] [--derived=PATH]
 unifia knowledge disaster-recovery [--no-class-c] [--no-class-d] [--no-unifia] [--offline]
 unifia knowledge migrate --dry-run|--rollback
@@ -63,34 +58,20 @@ unifia knowledge verify <ws> [--derived=PATH] [--online] [--cloud] [--device]
 unifia knowledge policy <ws> show|set-egress|set-feature
 unifia knowledge gc <ws> recommend|apply
 unifia knowledge similarity <ws> [--topk=N]
+unifia knowledge summary <ws> [--one-line]
+unifia knowledge drill
 ```
 
-## Tests count (cette session 4)
+## Test live
 
-Session 4 a ajouté 22 tests (total 274 TS + 79 contracts + 34 Rust = 387) :
-- 10 tests portable store
-- 5 tests reachability
-- 9 tests MCP token
-- 5 tests corpus classify
-- 10 tests audit log
-- 4 tests cross-mode bus pipeline
-- 5 tests full verify
-- 10 tests policy store
-- 8 tests Class B GC
-- 4 tests similarity simulation
+`unifia knowledge drill` :
+  drill: 6/6 scenarios OK (0ms)
+  PASS before-fsync                  INV-RECOVERY-PRE-FSYNC
+  PASS after-fsync-before-rename     INV-RECOVERY-POST-FSYNC
+  PASS after-rename-before-wal-fsync INV-RECOVERY-POST-RENAME
+  PASS after-wal-fsync               INV-RECOVERY-POST-WAL
+  PASS during-index-update           INV-RECOVERY-DURING-INDEX
+  PASS during-wal-compaction         INV-RECOVERY-DURING-COMPACTION
 
-## Test live sur vraies fixtures
-
-`unifia knowledge verify tests/knowledge/eval/dev` :
-  PASS sovereignty          5 probe(s); verdict=OK
-  PASS disaster-recovery    3 step(s); simulation=OK
-  PASS reachability         classA=12, classB=0
-  PASS classify             parsed=11, failed=1, findings=0
-verdict: OK  (total 26ms)
-
-`unifia knowledge similarity tests/knowledge/eval/dev --topk=5` :
-  emb-3 ~ emb-9  cosine=0.9179
-  emb-0 ~ emb-7  cosine=0.9138
-  emb-0 ~ emb-6  cosine=0.9083
-  emb-6 ~ emb-7  cosine=0.8993
-  emb-2 ~ emb-11 cosine=0.8993
+`unifia knowledge summary tests/knowledge/eval/dev --one-line` :
+  vault=...tests/knowledge/eval/dev  notes=12 (active=10)  parse-failures=1  class-B=0  policy.egress=absent
