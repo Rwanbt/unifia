@@ -7,22 +7,22 @@
 
 ## One-liner
 
-33 commits locaux, 360 tests passants, 13 phases couvertes
-(55+ cartes, P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
+36 commits locaux, 375 tests passants, 13 phases couvertes
+(60+ cartes, P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `294e9f72b5`
+- HEAD : `a0a1e1a7ca`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b`
 
 ## Files at a glance
 
 - Contrats : `packages/contracts/src/knowledge/` (10 fichiers).
-- Runtime TS : `packages/unifia/src/knowledge/` (31 modules).
+- Runtime TS : `packages/unifia/src/knowledge/` (33 modules).
 - Runtime Rust : `crates/unifia-knowledge-core/src/` (8 modules).
-- CLI : `packages/unifia/bin/unifia-knowledge.ts` (15 subcommands).
-- Tests : 360 passants (247 TS + 79 contracts + 34 Rust).
+- CLI : `packages/unifia/bin/unifia-knowledge.ts` (17 subcommands).
+- Tests : 375 passants (262 TS + 79 contracts + 34 Rust).
 - Docs : 9 ADR + 10 cas + DoD + crash matrix + CHANGELOG + README
   + PERMISSIONS + DISASTER-RECOVERY.
 
@@ -42,7 +42,7 @@ cat docs/knowledge/execution/FINAL-REPORT.md | head -40
 - P10.3 resource pressure — Android device requis.
 - Phase Frontier review — modèle frontier externe.
 
-## CLI subcommands (15)
+## CLI subcommands (17)
 
 ```bash
 unifia knowledge status
@@ -59,10 +59,13 @@ unifia knowledge portable <ws> list|upsert|remove|show
 unifia knowledge reachability <ws>
 unifia knowledge mcp-token issue|revoke|check|demo
 unifia knowledge classify <ws>
+unifia knowledge verify <ws> [--derived=PATH] [--online] [--cloud] [--device]
+unifia knowledge policy <ws> show|set-egress|set-feature
 ```
 
-## Tests count (cette session)
+## Tests count (cette session 3)
 
+Session 3 a ajouté 92 tests (total 262 TS + 79 contracts + 34 Rust = 375) :
 - 10 tests disaster-recovery
 - 7 tests migration
 - 6 tests sovereignty-runner
@@ -74,6 +77,14 @@ unifia knowledge classify <ws>
 - 10 tests audit log
 - 4 tests cross-mode bus pipeline
 - 3 tests cross-mode pipeline
-- + 26 tests preexisting (parser, source, etc.)
+- 5 tests full verify
+- 10 tests policy store
 
-Total: 360 verts (247 TS knowledge + 79 contracts + 34 Rust).
+## Test live sur vraies fixtures
+
+`unifia knowledge verify tests/knowledge/eval/dev` :
+  PASS sovereignty          5 probe(s); verdict=OK
+  PASS disaster-recovery    3 step(s); simulation=OK
+  PASS reachability         classA=12, classB=0
+  PASS classify             parsed=11, failed=1, findings=0
+verdict: OK  (total 26ms)

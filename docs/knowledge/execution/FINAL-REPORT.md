@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `294e9f72b5 feat(knowledge): P4.4 audit log + P7.4 cross-mode bus pipeline` |
+| HEAD final | `a0a1e1a7ca feat(knowledge): P11.14 policy.json store + CLI` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (33)
+## 2. Commits locaux (36)
 
 | SHA | Sujet |
 |---|---|
@@ -57,6 +57,9 @@
 | `1ead2d7165` | feat(knowledge): P9.2 MCP token registry + P2.7 reachability scan |
 | `58dd9f4717` | feat(knowledge): P11.10 corpus classification on real fixtures |
 | `294e9f72b5` | feat(knowledge): P4.4 audit log + P7.4 cross-mode bus pipeline |
+| `32dc763aa5` | chore(knowledge): use import type for DomainBus/DomainEvent in bus-pipeline |
+| `62f6cc6ae4` | feat(knowledge): P11.13 full verify (sovereignty + recovery + reachability + classify) |
+| `a0a1e1a7ca` | feat(knowledge): P11.14 policy.json store + CLI |
 
 ## 3. Phases et gates
 
@@ -85,14 +88,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 247 pass, 0 fail, 503 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 262 pass, 0 fail, 530 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 3)** : 247 TS knowledge + 79 contracts + 34 Rust = **360 tests passants**.
+**Total des tests dans cette session (session 3 finale)** : 262 TS knowledge + 79 contracts + 34 Rust = **375 tests passants**.
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -143,7 +146,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 21 | 21 | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 247 | 247 | 100% |
+| Tests TS knowledge | 262 | 262 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -164,8 +167,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 33 commits, ~155 fichiers ajoutés.
-- **Commits locaux** : 33.
+- **Implémentation locale** : 36 commits, ~160 fichiers ajoutés.
+- **Commits locaux** : 36.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -190,7 +193,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 294e9f72b5
+git rev-parse HEAD  # doit être a0a1e1a7ca
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -202,9 +205,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 33 commits,
-~155 fichiers, **360 tests passants** (247 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 11 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 36 commits,
+~160 fichiers, **375 tests passants** (262 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 13 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
@@ -225,5 +228,5 @@ sans intervention.
 
 ---
 
-*Session close le 2026-08-29. SHA final : `294e9f72b5`.*
-*33 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
+*Session close le 2026-08-29. SHA final : `a0a1e1a7ca`.*
+*36 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
