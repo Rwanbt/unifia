@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `8df69b0c2b feat(knowledge): P11.28 broken-links CLI` |
+| HEAD final | `fb4463925d feat(knowledge): P11.30 list CLI` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (51)
+## 2. Commits locaux (53)
 
 | SHA | Sujet |
 |---|---|
@@ -71,6 +71,8 @@
 | `46d72f872f` | feat(knowledge): P11.26 stats CLI (lifecycle + type avec pourcentages) |
 | `47cade45cd` | feat(knowledge): P11.27 by-type CLI |
 | `8df69b0c2b` | feat(knowledge): P11.28 broken-links CLI |
+| `129878a63e` | feat(knowledge): P11.29 headings CLI |
+| `fb4463925d` | feat(knowledge): P11.30 list CLI |
 
 ## 3. Phases et gates
 
@@ -99,14 +101,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 331 pass, 0 fail, 664 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 341 pass, 0 fail, 680 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 9 finale)** : 331 TS knowledge + 79 contracts + 34 Rust = **444 tests passants**.
+**Total des tests dans cette session (session 10 finale)** : 341 TS knowledge + 79 contracts + 34 Rust = **454 tests passants**.
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -157,7 +159,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 21 | 21 | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 331 | 331 | 100% |
+| Tests TS knowledge | 341 | 341 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -178,8 +180,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 51 commits, ~195 fichiers ajoutés.
-- **Commits locaux** : 51.
+- **Implémentation locale** : 53 commits, ~200 fichiers ajoutés.
+- **Commits locaux** : 53.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -204,7 +206,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 8df69b0c2b
+git rev-parse HEAD  # doit être fb4463925d
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -216,9 +218,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 51 commits,
-~195 fichiers, **444 tests passants** (331 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 24 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 53 commits,
+~200 fichiers, **454 tests passants** (341 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 26 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
@@ -239,5 +241,5 @@ sans intervention.
 
 ---
 
-*Session close le 2026-08-29. SHA final : `8df69b0c2b`.*
-*51 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
+*Session close le 2026-08-29. SHA final : `fb4463925d`.*
+*53 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
