@@ -332,3 +332,520 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 
 **Branche locale** : `feat/sovereign-knowledge-core`.
 **Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+---
+
+## Carte 0021 — P1.2 : Sources et parser
+
+- **ID** : 0021
+- **Phase** : 1
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : 4 sources (Personal/Project/External/Session) + parser
+  CommonMark/GFM + frontmatter + wikilinks + sections + fences.
+- **Fichiers** :
+  - `packages/unifia/src/knowledge/source/{personal,project,external,session,source,index}.ts`
+  - `packages/unifia/src/knowledge/parser/{parser,frontmatter,wikilinks}.ts`
+  - `packages/unifia/test/knowledge/{parser,source}/*.test.ts` (26 tests)
+- **Frontmatter strict** : UUIDv7 enforced, 9 V1 types, 4 lifecycles.
+- **Wikilinks** : offset-preserving, aliased, heading-anchored.
+- **Sections** : pre-heading body preserved, h1..h6, trailing `#` toléré.
+- **Fences** : langage optionnel, jamais cross-line.
+- **Validation** : `bun test test/knowledge/parser test/knowledge/source` → 26/26 verts.
+- **Carte suivante** : 0022 — P1.3 ContextRouter.
+
+---
+
+## Carte 0022 — P1.3 : ContextRouter
+
+- **ID** : 0022
+- **Phase** : 1
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/context/router.ts`
+  + `packages/unifia/test/knowledge/context/context.test.ts`
+- **Comportement** : 7 priorités (policies, task constraints,
+  active decisions, failures, project docs, preferences, semantic
+  support). Restrictions appliquées avant hydration, budget
+  tokens après diversification.
+- **Bornes** : `maxCandidates=50`, `maxPayloadBytes=1 MiB`,
+  `maxSnippetBytes=64 KiB`, `deadlineMs=2 s` desktop / `4 s` Android.
+- **Defaults** : tous les 4 V1 spaces si non précisé.
+- **Validation** : 6 tests verts (routing, defaults, type cap,
+  budget, egress deny report, deny override).
+
+---
+
+## Carte 0023 — P1.4 : Context Inspector + DataFlow guard
+
+- **ID** : 0023
+- **Phase** : 1
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/context/{inspector,dataflow,index}.ts`
+- **Inspecteur** : 1 ligne par item (source, space, type, trust,
+  authority, restriction, destination, hash, relevance, token cost,
+  reason).
+- **DataFlow guard** : `decideEgress`, `classifyText`, `decideWrite`
+  — fail-closed par défaut. OpenAI/GitHub PAT/private keys détectés
+  → secret → deny sans declassification grant.
+- **Validation** : 10 tests verts (deny/allow, override, 3 patterns
+  secrets, 1 plain prose).
+
+---
+
+## Carte 0030 — P2.1-P2.2 : Crate Rust + paths + watcher
+
+- **ID** : 0030
+- **Phase** : 2
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `crates/unifia-knowledge-core/` (Cargo.toml, 8 modules).
+- **Modules** : `error`, `hash`, `path`, `watcher`, `wal`, `classb`,
+  `control_store`, `lib`.
+- **`error.rs`** : KnowledgeError + codes + From impls.
+- **`hash.rs`** : BLAKE3 keyed + contenu.
+- **`path.rs`** : ResolvedKnowledgePath, containment strict.
+- **`watcher.rs`** : debounce + coalesce + stat + hash + invalidate.
+- **Validation** : `cargo check` + `cargo test` (12 tests verts).
+- **Carte suivante** : 0031 — P2.3-P2.5 Rust + TS adapters.
+
+---
+
+## Carte 0031 — P2.3-P2.5 : Rust WAL + ClassB + ControlStore + TS adapters
+
+- **ID** : 0031
+- **Phase** : 2
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : Rust `wal.rs` (mutation receipts + replay plan) +
+  `classb.rs` (COW + reachability) + `control_store.rs` (snapshot +
+  event log + revoke) + TS adapters `wal/`, `classb/`, `control/`.
+- **TS adapters** : validation stricte (pas de previousHash sur
+  create, pas de newHash sur delete), planReplay déduplique par
+  auditId, upsertEntry incrémente revision, reachabilityReport
+  trouve les orphans, policy grant upsert + revoke, egress grant
+  one-shot, control log append.
+- **Validation** : 12 Rust + 12 TS tests verts.
+- **Carte suivante** : 0040 — P3.1-P3.3 FTS + graph + doctor.
+
+---
+
+## Carte 0040 — P3.1 : Schéma dérivé (DDL FTS5)
+
+- **ID** : 0040
+- **Phase** : 3
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/derived/schema.ts`
+  (9 DDL statements, 1 V1 migration).
+- **Tables** : `documents`, `chunks`, `links`, `edges`, `embeddings`,
+  `index_state`, plus 3 indexes (FTS5 virtual table `chunks_fts`,
+  `idx_documents_path`, `idx_edges_target`).
+- **Migrations** : réversibles ou reconstructibles (ADR 1030).
+- **Validation** : 2 tests verts (9 DDL statements + V1 migration +
+  FTS5 virtual table créée).
+- **Carte suivante** : 0041 — P3.2 indexer.
+
+---
+
+## Carte 0041 — P3.2 : Chunker + edge extractor + indexer
+
+- **ID** : 0041
+- **Phase** : 3
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/derived/{chunker,edges,indexer}.ts`
+- **Chunker** : document-aware, max 1024 chars, min 64 chars,
+  newline respect.
+- **Edges** : `[[note]]`, `[[note|alias]]`, `[[note#heading]]`,
+  byte offsets préservés.
+- **Indexer** : 1 entrée `IndexedNote { chunks, edges }` par note.
+- **Validation** : 8 tests verts.
+
+---
+
+## Carte 0042 — P3.3 : Doctor (11 catégories)
+
+- **ID** : 0042
+- **Phase** : 3
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/doctor.ts`
+- **Catégories** : duplicate ids, invalid frontmatter (lifecycle),
+  broken wikilinks, unindexed active notes, stale index, sidecars
+  orphelins, refs non résolues, conflits, trust, Git ignore, GC
+  candidates.
+- **Validation** : 5 tests verts (corpus clean → 0 finding,
+  duplicate ids, invalid lifecycle, broken wikilinks, unindexed
+  active, stale index).
+
+---
+
+## Carte 0050 — P4 : Lifecycle + promotion + inbox
+
+- **ID** : 0050
+- **Phase** : 4
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/memory/{lifecycle,promotion,inbox}.ts`
+- **Transitions** : candidate↔active, active→superseded, active→
+  archived, archived→active (restore), forbidden (candidate→
+  superseded, archived→candidate, active→candidate).
+- **Auto-promotion** : constraint/preference/failure + ADR accepté.
+  Refuse semantic (low confidence). No-op si déjà active.
+- **Inbox** : limitée aux contradictions, faible confiance, merge,
+  supersession. push/query by reason/filter by confidence/remove/clear.
+- **Validation** : 20 tests verts (transitions, intents, refusals,
+  promotion, inbox CRUD).
+
+---
+
+## Carte 0060 — P5 : Vector + embedding score + benchmark
+
+- **ID** : 0060
+- **Phase** : 5
+- **Date** : 2020-08-29 (typo) → 2026-08-29
+- **Statut** : `PASS` (squelette — embedding `disabled` par défaut)
+- **Cible** : `packages/unifia/src/knowledge/semantic/{vector,embedding,benchmark}.ts`
+- **Cosine** : identical → 1, orthogonal → 0.
+- **BruteForceIndex** : topK en O(n·d) — ADR-KNOW-0008 §3 diffère
+  ANN jusqu'à >50k notes.
+- **Embedding** : `selectBestModel` applique le score §8.8.
+  Empty → null.
+- **Benchmark** : recall@K, MRR, nDCG, violation rates, summary
+  (activé seulement si 0 violations).
+- **Validation** : 11 tests verts.
+
+---
+
+## Carte 0070 — P6 : ai-native-dev-stack mapping + DomainBus
+
+- **ID** : 0070
+- **Phase** : 6
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/{stack/mapping,events/bus}.ts`
+- **Mapping** : AGENTS.md / ADR / failure pattern / skill →
+  StackMapping (4 kind V1). Body truncation 8192 chars.
+- **DomainBus** : subscribe(onEvent) + onAny. 10 KnowledgeEvent
+  variants livrés. Unsubscribe retourné.
+- **Validation** : 4 + 3 = 7 tests verts.
+
+---
+
+## Carte 0080 — P7 : KnowledgeService façade + cross-mode E2E
+
+- **ID** : 0080
+- **Phase** : 7
+- **Date** : 2026-08-29
+- **Statut** : `PASS` (squelette)
+- **Cible** : `packages/unifia/src/knowledge/facade/service.ts`
+  + `cross-mode/e2e.ts`
+- **DefaultKnowledgeService.status** : retourne les 6 capabilities.
+- **CrossModePipeline** : design.create → code.consume →
+  work.display. 3 events émis, 1 source unique. Refuse une
+  décision contenant un secret.
+- **Validation** : 1 + 2 = 3 tests verts.
+
+---
+
+## Carte 0090 — P8 : GitProvider + secret scan
+
+- **ID** : 0090
+- **Phase** : 8
+- **Date** : 2026-08-29
+- **Statut** : `PASS` (squelette)
+- **Cible** : `packages/unifia/src/knowledge/git/provider.ts`
+- **scan** : OpenAI key pattern détecté, plain prose → no hit.
+- **prepushScan** : ok=true si aucun secret, ok=false sinon.
+- **autoPush** : default `false` (runbook §8 + mission).
+- **Validation** : 5 tests verts.
+
+---
+
+## Carte 0100 — P9 : McpKnowledgeServer
+
+- **ID** : 0100
+- **Phase** : 9
+- **Date** : 2026-08-29
+- **Statut** : `PASS` (squelette)
+- **Cible** : `packages/unifia/src/knowledge/mcp/server.ts`
+- **6 capabilities** : search, get, backlinks, trace, status, propose.
+- **Rate limit** + **byte cap** → throws sur dépassement.
+- **Validation** : 3 tests verts.
+
+---
+
+## Carte 0110 — P10 : Storage matrix + Android device probe
+
+- **ID** : 0110
+- **Phase** : 10
+- **Date** : 2026-08-29
+- **Statut** : `PARTIAL` (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`)
+- **Cible** : `packages/unifia/src/knowledge/mobile/{storage,android-runtime}.ts`
+- **Storage matrix** : 4 kinds (app_private, shared/emulated, SAF,
+  removable). `canManagedWrite` exige 5 capabilities + `available=true`.
+- **Device probe** : 10 probes canoniques. `NOT_EXECUTED_EXTERNAL_BOUNDARY`
+  pour chaque probe si `hasDevice=false`. PASS placeholders si device
+  présent (squelette).
+- **Validation** : 7 tests verts (sans device, retournent
+  `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
+
+---
+
+## Carte 0120 — P11 : Hardening (crash matrix + sovereignty + path + fuzz + large vault + SBOM)
+
+- **ID** : 0120
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS` (squelette — P10.3 = NOT_EXECUTED)
+- **Cible** : `packages/unifia/src/knowledge/hardening/{recovery,fuzz,large-vault,sbom}.ts`
+- **Crash matrix** : 6 scénarios (process kill mid-mutation, deux
+  process concurrents, edit externe concurrent, derived DB deleted,
+  WAL truncated, force overwrite). Tous WAL-idempotent.
+- **Sovereignty** : 4 conditions (vault readable, derived DB
+  deletable, no-network-test, no-cloud-test). fail() sur
+  l'une manquante.
+- **Path containment** : 4 attaques (parent escape, abs path,
+  backslash, null byte). Toutes rejetées.
+- **Fuzz** : xorshift32 50 mutations × 3 targets (parseDocument,
+  extractWikilinks, chunkBody) → survive.
+- **Large vault** : 100 notes parsées en <5s.
+- **SBOM** : walker workspace → CycloneDX-lite JSON.
+- **Validation** : 14 tests verts.
+
+---
+
+## Carte 0130 — CLI standalone `unifia knowledge`
+
+- **ID** : 0130
+- **Phase** : 11 (out-of-band)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/bin/unifia-knowledge.ts`
+- **Subcommands** : `status`, `sources`, `search`, `doctor`,
+  `bench`, `bench-large`.
+- **Test live** : tous exécutés manuellement, output cohérent.
+- **Validation** : script exécuté sans erreur pour chaque subcommand.
+
+---
+
+## Carte 0140 — CHANGELOG + README + intégration cross-package
+
+- **ID** : 0140
+- **Phase** : 11 (out-of-band)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `docs/knowledge/{CHANGELOG.md, README.md}` +
+  `packages/contracts/test/knowledge-integration.test.ts` (15 tests) +
+  E2E dev-fixture test (2 tests).
+- **CHANGELOG** : v0.1.0-knowledge avec sections Added/Changed/Adapters.
+- **README** : navigation index, 9 ADR, classes A/B/C/D, capabilities.
+- **Intégration** : UUIDv7↔locator↔frontmatter, restrictions,
+  mutation intent, MCP bounds, KnowledgeId type guard.
+- **E2E dev** : parse 11 fixtures + indexNote + ContextRouter + inspect.
+- **Validation** : 15 + 2 = 17 tests verts supplémentaires.
+
+---
+
+## Checkpoint final V2 — Fin de session 2026-08-29
+
+**Commits locaux créés** (24 depuis origin/dev) :
+
+1. `b3a51ba8ea` — docs(knowledge): phase -1 corpus, dev/holdout fixtures, DoD
+2. `2d7a69d0ea` — docs(knowledge): phase 0 cartography + 9 knowledge ADR + estimation
+3. `b4c0026f3f` — feat(contracts): knowledge domain types and zod schemas
+4. `bf5dd9251f` — docs(knowledge): checkpoint final session 2026-08-29
+5. `035a3b7da4` — chore(contracts): drop unused imports
+6. `fbf518bcd5` — docs(knowledge): final report session 2026-08-29
+7. `288dabd8f1` — feat(knowledge): sources registry + parser (P1.2)
+8. `d8de043288` — feat(knowledge): context router, inspector, dataflow guard (P1.3 + P1.4)
+9. `d7cdc0025e` — chore(knowledge): drop unused imports
+10. `6d76dffc63` — feat(knowledge-core): rust crate with path, hash, error primitives (P2.1)
+11. `b25019f6c3` — feat(knowledge-core): watcher primitive (P2.2 partial)
+12. `3111b1b392` — feat(knowledge): derived schema, indexer, doctor (P3.1 + P3.2 + P3.3)
+13. `1bc9c2d1e9` — feat(knowledge): P4 lifecycle + P5 semantic + P6 stack + P7 facade + P8 git + P9 mcp + P10 mobile
+14. `02ea19ec2a` — feat(knowledge): P11 hardening — crash matrix, sovereignty, path containment
+15. `ed455d1148` — chore(knowledge): fix biome unused-imports warnings
+16. `8896e6e6af` — docs(knowledge): final report sprint final
+17. `33d8653cba` — feat(knowledge-core): P2.3 WAL + P2.4 Class B + P2.5 ControlStore
+18. `706ffc215a` — feat(knowledge): P2.3-P2.5 TS adapters + P0 spikes
+19. `0cc8a648b3` — feat(knowledge): P5.3 benchmark + P6.2 events + P7.2 E2E + P11.1-3 hardening
+20. `e988da5743` — feat(knowledge): P10.2 Android device probe (NOT_EXECUTED_EXTERNAL_BOUNDARY)
+21. `58e560a665` — feat(knowledge): unifia knowledge CLI
+22. `ef11945cdc` — docs(knowledge): changelog + integration tests
+23. `99dcc74eae` — docs(knowledge): changelog + integration tests (polish)
+24. `03b86e1012` — docs+test(knowledge): README + E2E dev-fixture test
+
+**Statut global** :
+
+- Phase -1 : 3/3 PASS.
+- Phase 0 : 8/8 PASS.
+- Phase 1 : 4/4 PASS.
+- Phase 2 : 5/5 PASS.
+- Phase 3 : 3/3 PASS.
+- Phase 4 : 3/3 PASS.
+- Phase 5 : 3/3 PASS (squelette — embedding `disabled`).
+- Phase 6 : 2/2 PASS.
+- Phase 7 : 2/2 PASS.
+- Phase 8 : 1/1 PASS.
+- Phase 9 : 1/1 PASS.
+- Phase 10 : 2/3 PASS (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
+- Phase 11 : 4/4 PARTIAL (P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
+
+**Tests** : 170 TS knowledge + 79 contracts + 34 Rust = **283 verts**.
+
+**Aucun push, aucune PR, aucun merge, aucune release, aucune publication.**
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+---
+
+## Carte 0150 — P11.4 : Disaster Recovery Procedure
+
+- **ID** : 0150
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/hardening/disaster-recovery.ts`
+  + `test/knowledge/hardening/disaster-recovery.test.ts` (9 tests)
+  + `docs/knowledge/DISASTER-RECOVERY.md`.
+- **`RECOVERY_STEPS_V1`** : 5 étapes ordonnées et append-only
+  (verify-class-a, verify-class-b, rebuild-class-c, rebuild-class-d,
+  noop).
+- **`planRecovery(input)`** : détecte les classes manquantes, arrête
+  immédiatement si Class A illisible, exige un binaire Unifia pour
+  reconstruire C/D, **n'utilise jamais le réseau en V1** (invariant
+  §21).
+- **`simulateRecovery(plan, fs)`** : exécute le plan contre un
+  filesystem en mémoire. Vérifie que Class A reste lisible et que
+  Class B reste accessible.
+- **Validation** : 9 tests verts.
+
+---
+
+## Carte 0151 — P11.5 : Migration dry-run + rollback
+
+- **ID** : 0151
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/hardening/migration.ts`
+  + `test/knowledge/hardening/migration.test.ts` (7 tests).
+- **`MIGRATION_V1_TO_V2`** : 2 étapes (unifia_id, rebuild Class D).
+- **`dryRunMigration(steps)`** : rapport additif vs destructif,
+  reconstructible ou non. **Aucune mutation**.
+- **`planRollback(steps)`** : ops réversibles (single opposite op)
+  + ops reconstructibles (rollback by re-deriving from Class A).
+  `fullRollback` = true seulement si toutes les ops sont réversibles.
+- **`applyMigration(steps, state, dryRun)`** : pure function in-memory.
+  Dry-run = no-op mutating.
+- **Validation** : 7 tests verts.
+
+---
+
+## Carte 0152 — P11.6 : Sovereignty Test Runner
+
+- **ID** : 0152
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/hardening/sovereignty-runner.ts`
+  + `test/knowledge/hardening/sovereignty-runner.test.ts` (6 tests)
+  + subcommand CLI `unifia knowledge sovereignty`.
+- **5 probes** : vault-readable, derived-db-deletable, internet-off,
+  cloud-off, device-isolated. Toutes avec message et durée.
+- **`deleteDerivedDb(path)`** : opt-in, séparé du runner.
+- **CLI** : 5 lignes, verdict OK/FAIL.
+- **Validation** : 6 tests verts + smoke test CLI.
+
+---
+
+## Carte 0153 — P8.1 : Git pre-commit scan hook
+
+- **ID** : 0153
+- **Phase** : 8
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/git/precommit.ts`
+  + `test/knowledge/git/precommit.test.ts` (9 tests)
+  + subcommand CLI `unifia knowledge precommit`.
+- **`scanStaged(input)`** : classifie le contenu de chaque fichier
+  staged via `classifyText` + `decideWrite`. Sort un finding par
+  secret (OpenAI/GitHub PAT/private key block).
+- **`installPrecommitHook(workspace)`** : écrit
+  `.git/hooks/pre-commit` avec marqueur `# unifia-knowledge-precommit-hook`.
+  Refuse d'écraser un hook existant non géré.
+- **`uninstallPrecommitHook(workspace)`** : refuse de supprimer un
+  hook qui n'est pas le nôtre.
+- **CLI** : `precommit install <ws>` + `precommit scan <files...>`.
+- **Validation** : 9 tests verts.
+
+---
+
+## Carte 0154 — P11.7 : Permissions / Egress documentation
+
+- **ID** : 0154
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `docs/knowledge/PERMISSIONS.md` (5 KB).
+- **Contenu** :
+  - Default posture : default deny.
+  - 6 capabilities V1 listées exhaustivement.
+  - 8 destinations classifiées (provider, git_remote, mcp, file).
+  - Restrictions par source (frontmatter `portable_restrictions`).
+  - Tokens et quotas (TTL, scope, méthode allowlist, byte cap).
+  - Audit trail (Class C, local only).
+  - 7 ce que V1 ne fait pas (téléphonie maison, telemetry, etc.).
+  - 6 commandes operator-facing.
+  - Procédure de modification (ADR + DECISIONS.md obligatoire).
+- **Référence croisée** : ADR-KNOW-0006, ADR-KNOW-0007, ADR-KNOW-0009.
+
+---
+
+## Carte 0155 — P7.3 : Real cross-mode E2E (Design → Code → Work)
+
+- **ID** : 0155
+- **Phase** : 7
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/test/knowledge/cross-mode/crossmode-pipeline.test.ts`
+  (3 tests).
+- **Vérifie** : designCreates → codeReads → workSurfaces ; même
+  hash sur les 3 modes ; refus si body classifié `secret` ; refus
+  si id inconnu.
+- **Validation** : 3 tests verts.
+
+---
+
+## Carte 0160 — Polish : alignement STATE / FINAL-REPORT / COMPACT
+
+- **ID** : 0160
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `docs/knowledge/execution/{STATE.md, FINAL-REPORT.md, COMPACT.md}`.
+- **Modifications** :
+  - STATE.md : ajout des cartes 0021..0049 (celles déjà livrées
+    mais pas encore enregistrées append-only) + 0150..0155.
+  - FINAL-REPORT.md : compte exact (24 commits, 283 tests) puis
+    26 commits, 317 tests après les ajouts 0150..0155.
+  - COMPACT.md : SHA `03b86e1012`, 26 commits, 317 tests,
+    4 sous-commandes CLI supplémentaires.
+- **Validation** : `git diff --check` clean.
+
+---
+
+## Checkpoint final V3 — 2026-08-29 (session 2)
+
+**Total commits locaux depuis origin/dev** : 26.
+
+**Tests** : 204 TS knowledge + 79 contracts + 34 Rust = **317 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.

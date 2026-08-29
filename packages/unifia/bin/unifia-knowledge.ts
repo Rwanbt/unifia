@@ -30,6 +30,10 @@ import {
   summarise,
 } from "../src/knowledge/semantic/benchmark.js"
 import { simulateLargeVault } from "../src/knowledge/hardening/large-vault.js"
+import { planRecovery, simulateRecovery } from "../src/knowledge/hardening/disaster-recovery.js"
+import { runSovereigntyProbes } from "../src/knowledge/hardening/sovereignty-runner.js"
+import { dryRunMigration, planRollback, MIGRATION_V1_TO_V2 } from "../src/knowledge/hardening/migration.js"
+import { scanStaged, installPrecommitHook } from "../src/knowledge/git/precommit.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -44,6 +48,11 @@ function printUsage(): void {
       "  unifia knowledge search <query>",
       "  unifia knowledge bench",
       "  unifia knowledge bench-large <count> <bodySize>",
+      "  unifia knowledge sovereignty [--vault=DIR] [--derived=PATH]",
+      "  unifia knowledge disaster-recovery [--vault=DIR]",
+      "  unifia knowledge migrate [--dry-run] [--rollback]",
+      "  unifia knowledge precommit install <workspace>",
+      "  unifia knowledge precommit scan <staged-file>...",
       "",
     ].join("\n"),
   )
@@ -191,6 +200,143 @@ async function cmdBenchLarge(rest: readonly string[]): Promise<number> {
   return 0
 }
 
+function parseFlags(rest: readonly string[]): Map<string, string> {
+  const m = new Map<string, string>()
+  for (const arg of rest) {
+    if (arg.startsWith("--")) {
+      const eq = arg.indexOf("=")
+      if (eq > 0) m.set(arg.slice(2, eq), arg.slice(eq + 1))
+    }
+  }
+  return m
+}
+
+async function cmdSovereignty(rest: readonly string[]): Promise<number> {
+  const flags = parseFlags(rest)
+  const vaultRoot = flags.get("vault") ?? "."
+  const derivedDb = flags.get("derived") ?? "./derived.db"
+  const report = await runSovereigntyProbes({
+    vaultRoot,
+    derivedDbPath: derivedDb,
+    // In V1 the operator is asked once at install time. The CLI
+    // defaults assume offline; pass --online to override.
+    internetOff: !flags.has("online"),
+    cloudOff: !flags.has("cloud"),
+    deviceIsolated: !flags.has("device"),
+  })
+  process.stdout.write(
+    `vault:      ${report.vaultRoot}\nderived:    ${report.derivedDbPath}\n`,
+  )
+  for (const p of report.probes) {
+    process.stdout.write(
+      `  ${p.ok ? "PASS" : "FAIL"}  ${p.kind.padEnd(22)}  ${p.message}  (${p.durationMs}ms)\n`,
+    )
+  }
+  process.stdout.write(`\nverdict:    ${report.ok ? "OK" : "FAIL"}  (total ${report.totalMs}ms)\n`)
+  return report.ok ? 0 : 1
+}
+
+async function cmdDisasterRecovery(rest: readonly string[]): Promise<number> {
+  const flags = parseFlags(rest)
+  const vaultRoot = flags.get("vault") ?? "."
+  const plan = planRecovery({
+    classAReadable: true,
+    classBReachable: true,
+    classCPresent: !flags.has("no-class-c"),
+    classDPresent: !flags.has("no-class-d"),
+    unifiaBinaryPresent: !flags.has("no-unifia"),
+    networkAvailable: !flags.has("offline"),
+  })
+  process.stdout.write(`detected missing: [${plan.missing.join(", ")}]\n`)
+  process.stdout.write(`requires network: ${plan.requiresNetwork}\n`)
+  process.stdout.write(`requires unifia:  ${plan.requiresUnifiaBinary}\n\n`)
+  for (const step of plan.steps) {
+    process.stdout.write(`- [${step.kind}] ${step.description}\n`)
+  }
+  // Simulate against a stub fs.
+  const sim = simulateRecovery(plan, {
+    read: (loc) => (loc === "memory/any.md" ? "# hello" : null),
+    exists: (loc) => loc === "memory/any.md" || loc === "memory/any.md.unifia.json",
+  })
+  process.stdout.write(
+    `\nsimulation: ${sim.ok ? "OK" : "FAIL"} (classA=${sim.classAStillReadable} classB=${sim.classBStillReachable} steps=${sim.stepsExecuted})\n`,
+  )
+  return sim.ok ? 0 : 1
+}
+
+async function cmdMigrate(rest: readonly string[]): Promise<number> {
+  const dryRun = rest.includes("--dry-run")
+  const rollback = rest.includes("--rollback")
+  if (rollback) {
+    const p = planRollback(MIGRATION_V1_TO_V2)
+    process.stdout.write(
+      `rollback plan: ${p.reversibleOps} reversible op(s), ${p.nonReversibleOps} reconstructible op(s), fullRollback=${p.fullRollback}\n`,
+    )
+    for (const op of p.reverseOps) {
+      process.stdout.write(`  - ${op.kind} ${op.target} :: ${op.details}\n`)
+    }
+    // We are only printing a plan; we never apply it from the CLI in V1.
+    return 0
+  }
+  const r = dryRunMigration(MIGRATION_V1_TO_V2)
+  process.stdout.write(
+    `V1→V2 migration (${dryRun ? "DRY-RUN" : "REVIEW"}): ${r.totalOps} op(s), ${r.additiveOps} additive, ${r.destructiveOps} destructive\n`,
+  )
+  process.stdout.write(`all reconstructible: ${r.allReconstructible}\n`)
+  for (const label of r.stepLabels) process.stdout.write(`  - ${label}\n`)
+  if (dryRun) {
+    process.stdout.write(`\nNo state was mutated. Apply with caution after review.\n`)
+    return 0
+  }
+  process.stdout.write(
+    `\nRun with --dry-run for a safe preview or --rollback to see the reverse plan.\n`,
+  )
+  return 0
+}
+
+async function cmdPrecommit(rest: readonly string[]): Promise<number> {
+  const sub = rest[0]
+  if (sub === "install") {
+    const ws = rest[1]
+    if (!ws) {
+      process.stderr.write("precommit install: missing workspace path\n")
+      return 2
+    }
+    const r = installPrecommitHook(ws)
+    if (!r.ok) {
+      process.stderr.write(`precommit install failed: ${r.reason}\n`)
+      return 1
+    }
+    process.stdout.write(`installed hook at ${r.hookPath}\n`)
+    return 0
+  }
+  if (sub === "scan") {
+    const staged = rest.slice(1)
+    const ws = process.cwd()
+    const r = scanStaged({
+      workspaceRoot: ws,
+      staged,
+      read: (loc) => {
+        try {
+          return require("node:fs").readFileSync(loc, "utf8") as string
+        } catch {
+          return null
+        }
+      },
+    })
+    if (!r.ok) {
+      for (const f of r.findings) {
+        process.stderr.write(`DENY  ${f.locator}  :: ${f.classification}\n`)
+      }
+      return 1
+    }
+    process.stdout.write(`scanned ${r.scanned} staged file(s), no secrets found\n`)
+    return 0
+  }
+  process.stderr.write(`precommit: unknown subcommand: ${sub ?? "(missing)"}\n`)
+  return 2
+}
+
 async function main(): Promise<number> {
   const argv = process.argv.slice(2)
   const { cmd, rest } = parseArgs(argv)
@@ -213,6 +359,14 @@ async function main(): Promise<number> {
       return cmdBench()
     case "bench-large":
       return cmdBenchLarge(rest)
+    case "sovereignty":
+      return cmdSovereignty(rest)
+    case "disaster-recovery":
+      return cmdDisasterRecovery(rest)
+    case "migrate":
+      return cmdMigrate(rest)
+    case "precommit":
+      return cmdPrecommit(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
