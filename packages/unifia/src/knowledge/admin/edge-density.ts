@@ -70,9 +70,8 @@ function loadAndParse(
   } catch {
     return null
   }
-  let doc: ReturnType<typeof parseDocument>
   try {
-    doc = parseDocument(text)
+    parseDocument(text)
   } catch {
     return null
   }
