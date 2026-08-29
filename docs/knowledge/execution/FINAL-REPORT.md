@@ -12,7 +12,8 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `b2c2773ba9 feat(knowledge): P11.51 lifecycle-transitions CLI (transition matrix as code)` |
+| HEAD sprint | `b2c2773ba9 feat(knowledge): P11.51 lifecycle-transitions CLI (transition matrix as code)` |
+| HEAD post-sprint | `3e691ddf2a docs(knowledge): align COMPACT + README to P10.2/P10.3 + FRONTIER packet` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +21,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (99)
+## 2. Commits locaux (99 sprint + 4 post-sprint = 103)
 
 | SHA | Sujet |
 |---|---|
@@ -221,8 +222,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 99 commits, ~300 fichiers ajoutés.
-- **Commits locaux** : 99.
+- **Implémentation locale** : 103 commits, ~300 fichiers ajoutés.
+- **Commits locaux** : 103 (99 sprint + 4 post-sprint).
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -247,22 +248,37 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être b2c2773ba9
+git rev-parse HEAD  # doit être 3e691ddf2a (post-sprint) ou b2c2773ba9 (sprint)
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 **Cartes restantes** :
-- P10.2 device run (à programmer hors session, Android device requis).
-- P10.3 resource pressure (idem).
-- Phase Frontier review (runbook §24).
+- P10.2 device run — `PASS_WITH_SAFE_FALLBACK` ; full chain requires
+  APK rebuild with embedded runtime (runbook §10.2).
+- P10.3 resource pressure — `PASS_WITH_SAFE_FALLBACK` (idle capture).
+- Phase Frontier review — packet ready
+  (`docs/knowledge/execution/FRONTIER-REVIEW-PACKET.md`).
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 99 commits,
+**Implémentation locale complète (cartes faisables)** : 103 commits,
 ~300 fichiers, **601 tests passants** (488 TS knowledge + 79
 contracts + 34 Rust), 13 phases couvertes + 46 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
+
+## 14. Addendum post-sprint (4 commits)
+
+| SHA | Sujet |
+|---|---|
+| `23d10ed424` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.51 (99 commits, 601 tests) |
+| `3b58248c0f` | docs(knowledge): record P10.2/P10.3 device run (Xiaomi Mi 10 Pro, cmi_eea) — `PASS_WITH_SAFE_FALLBACK` |
+| `51810b1a16` | docs(knowledge): FRONTIER-REVIEW-PACKET (runbook §24) — 14 318 bytes, ready |
+| `3e691ddf2a` | docs(knowledge): align COMPACT + README to P10.2/P10.3 + FRONTIER packet |
+
+**Status post-sprint** : 50 CLI subcommands, 20 admin tools,
+FRONTIER-REVIEW-PACKET.md ready, P10.2 device artefacts in
+`.artifacts/`. Obsidian recap : `Session-Recap-Sovereign-Knowledge-Core-13`.
 
 **Succès local n'est pas publication** : aucun artefact n'a
 quitté la machine, aucun remote n'a été sollicité, aucun push,
