@@ -17,14 +17,23 @@
 //! vector index) are added in subsequent phases.
 
 #![deny(rust_2018_idioms)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(clippy::too_many_arguments)]
 
+pub mod classb;
+pub mod control_store;
 pub mod error;
 pub mod hash;
 pub mod path;
+pub mod wal;
 pub mod watcher;
 
+pub use classb::{
+    ClassB, ClassBEntry, GcResult, ReachabilityReport, gc, reachability_report,
+};
+pub use control_store::{ControlEvent, ControlStore, EgressGrant, PolicyGrant};
 pub use error::{KnowledgeError, KnowledgeErrorKind};
 pub use hash::{ContentHash, HashAlgorithm};
 pub use path::ResolvedKnowledgePath;
+pub use wal::{ReplayPlan, Wal, WalEntry, WalKind, plan_replay};
 pub use watcher::{WatchEvent, WatcherConfig, coalesce, hash_file};
