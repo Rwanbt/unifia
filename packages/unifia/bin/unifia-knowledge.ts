@@ -74,6 +74,7 @@ import { compareVaults } from "../src/knowledge/admin/vault-compare.js"
 import { findRecent } from "../src/knowledge/admin/recent.js"
 import { supersedeGraph } from "../src/knowledge/admin/supersede-graph.js"
 import { findDuplicates } from "../src/knowledge/admin/duplicates.js"
+import { buildTimeline, formatTimeline } from "../src/knowledge/admin/timeline.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -139,6 +140,7 @@ function printUsage(): void {
       "  unifia knowledge recent <workspace> [--window-days=N] [--only-active] [--limit=N]",
       "  unifia knowledge supersede-graph <workspace>",
       "  unifia knowledge duplicates <workspace>",
+      "  unifia knowledge timeline <workspace> [--window-days=N] [--max-per-day=N]",
       "",
     ].join("\n"),
   )
@@ -1172,6 +1174,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdSupersedeGraph(rest)
     case "duplicates":
       return cmdDuplicates(rest)
+    case "timeline":
+      return cmdTimeline(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1696,6 +1700,29 @@ async function cmdDuplicates(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`duplicates error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdTimeline(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("timeline: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const window = flags.get("window-days") !== undefined ? Number(flags.get("window-days")) : undefined
+  const maxPerDay = flags.get("max-per-day") !== undefined ? Number(flags.get("max-per-day")) : 5
+  try {
+    const r = buildTimeline({
+      vaultRoot: ws,
+      ...(window !== undefined ? { windowDays: window } : {}),
+    })
+    process.stdout.write(formatTimeline(r, maxPerDay) + "\n")
+    return 0
+  } catch (e) {
+    process.stderr.write(`timeline error: ${(e as Error).message}\n`)
     return 1
   }
 }
