@@ -237,3 +237,98 @@ sessions consacrées avec isolation des ressources.
 
 **Reprise** : prochaine session ouvre `docs/knowledge/execution/STATE.md`,
 lit le dernier checkpoint, et reprend à la première carte non PASS.
+
+---
+
+## Carte 0020 — P1.1 : Contrats `@unifia/contracts/knowledge/` + domain
+
+- **ID** : 0020
+- **Phase** : 1
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/contracts/src/knowledge/` (10 fichiers) +
+  `packages/contracts/test/knowledge.test.ts` (37 tests) + export
+  depuis `packages/contracts/src/index.ts`.
+- **Fichiers créés** :
+  - `identity.ts` — `KnowledgeIdSchema` (UUIDv7 strict),
+    `KnowledgeLocatorSchema` (relatif, pas de `..`, pas
+    d'antislash), `KnowledgeVersionHashSchema` (64-char hex),
+    `KnowledgeRefSchema`.
+  - `space.ts` — `KnowledgeSpaceKindSchema`, `KnowledgeSpaceSchema`,
+    `ExternalSpaceCapabilitySchema`, `PERSONAL_ROOT_LOCATOR`,
+    `PROJECT_ROOT_LOCATOR`.
+  - `restrictions.ts` — `RestrictionLevelSchema`,
+    `PortableRestrictionsSchema`, `PortableProvenanceSchema`.
+  - `lifecycle.ts` — `MemoryTypeSchema` (9 types V1),
+    `KnowledgeLifecycleStateSchema` (4 états, nommé
+    `KnowledgeLifecycleState` pour éviter le conflit avec
+    `LifecycleState` exporté par `src/p3.ts`),
+    `NoteFrontmatterSchema`.
+  - `retrieval.ts` — `RetrievalCandidate`, `RetrievalRequestSchema`
+    (toutes bornes validées), `RetrievalResponseSchema`,
+    `RetrievalDiagnosticsSchema`, constantes
+    `DEFAULT_MAX_CANDIDATES = 50`, `DEFAULT_MAX_PAYLOAD_BYTES = 1 MiB`,
+    `DEFAULT_MAX_SNIPPET_BYTES = 64 KiB`,
+    `DEFAULT_DEADLINE_MS_DESKTOP = 2 s`,
+    `DEFAULT_DEADLINE_MS_ANDROID = 4 s`.
+  - `mutation.ts` — `MutationKindSchema` (8 kinds),
+    `MutationIntentSchema` (refine pour vérifier la
+    complétude), `MutationResultSchema`.
+  - `context.ts` — `ContextItemSchema`, `ContextPackSchema`,
+    `ContextDiagnosticsSchema`, `ProviderDestinationPlanSchema`.
+  - `native-port.ts` — `NativeKnowledgePort` interface
+    (retrieve, get, backlinks, executeMutation, startAdminTask,
+    cancelAdminTask, subscribe), `KnowledgeEvent` union
+    (10 variants domain), `AdminTask` (4 kinds).
+  - `errors.ts` — `KnowledgeErrorSchema` (11 kinds),
+    `isKnowledgeError` type guard.
+  - `mcp.ts` — 6 capabilities MCP
+    (`knowledge_search`, `knowledge_get`,
+    `knowledge_backlinks`, `knowledge_trace`,
+    `knowledge_status`, `knowledge_propose`),
+    `MCP_KNOWLEDGE_METHODS` constant.
+- **Dépendances ajoutées** : `zod` (catalog 4.1.8) dans
+  `packages/contracts/package.json`.
+- **Validation** :
+  - `bun x tsc --noEmit` dans `packages/contracts` : exit 0.
+  - `bun test` dans `packages/contracts` : 69 pass, 0 fail,
+    120 expect() calls. 32 tests pré-existants restent verts ;
+    37 nouveaux tests knowledge ajoutés.
+- **Conventions respectées** :
+  - AGENTS.md (Unifia) : pas d'`any`, déstructuration évitée,
+    `const` préféré, pas d'`else` après `return`, types explicites.
+  - ai-native-dev-stack AGENTS.md : commentaires WHY-only,
+    `noEmit: true`, `strict: true`, taille fichier respectée
+    (chaque fichier < 250 LOC).
+  - Pas de mock présenté comme production.
+- **Carte suivante** : 0021 — P1.2 sources + parser. Reportée
+  à la prochaine session.
+
+---
+
+## Checkpoint final — Fin de session 2026-08-29
+
+**Commits locaux créés** (3, dans l'ordre) :
+
+1. `b3a51ba8ea` — `docs(knowledge): phase -1 corpus, dev/holdout fixtures, DoD`
+2. `2d7a69d0ea` — `docs(knowledge): phase 0 cartography + 9 knowledge ADR + estimation`
+3. `b4c0026f3f` — `feat(contracts): knowledge domain types and zod schemas`
+
+**Statut global** :
+
+- Phase -1 (3 cartes) : 100 % PASS.
+- Phase 0 (8 cartes) : P0.1 + P0.8 PASS, 6 cartes (P0.2..P0.7) reportées
+  à la prochaine session.
+- Phase 1 (4 cartes) : P1.1 PASS, P1.2..P1.4 reportées.
+- Phases 2..11 : aucune carte exécutée.
+
+**Travail reporté** : le scope complet (~50-70 JH) est documenté dans
+`ESTIMATION.md`. La prochaine session reprend à la carte 0021 (P1.2).
+
+**Aucun push, aucune PR, aucun merge, aucune release, aucune publication.**
+**Aucun fichier de `work-design` n'a été touché, importé ou copié.**
+
+**Aucun secret, signature, compte ou policy distante modifié.**
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
