@@ -37,6 +37,7 @@ import type { KnowledgeSource, SourceRegistry, ListedNote } from "../source/sour
 import { decideEgress } from "../policy/egress.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { bestSnippet, scoreNote, tokenize, utf8Bytes } from "./lexical.js"
+import { withDeadline, remainingMs, DeadlineExceeded } from "./deadline.js"
 
 /** Heuristic token cost: ~4 chars per token. */
 function estimateTokens(s: string): number {
@@ -121,8 +122,18 @@ export class ContextRouter {
     outer: for (const source of sources) {
       let listed: ListedNote[]
       try {
-        listed = await source.list({})
+        // Bound the call itself, not just the gap between two notes.
+        listed = await withDeadline(
+          source.list({}),
+          remainingMs(deadlineAt),
+          `list(${source.space.kind})`,
+        )
       } catch (e) {
+        if (e instanceof DeadlineExceeded) {
+          truncated = true
+          excluded.push({ locator: `space:${source.space.kind}`, reason: e.message })
+          break outer
+        }
         excluded.push({
           locator: `space:${source.space.kind}`,
           reason: `source unavailable: ${(e as Error).message}`,
@@ -148,8 +159,17 @@ export class ContextRouter {
 
         let doc: Awaited<ReturnType<KnowledgeSource["read"]>>
         try {
-          doc = await source.read(note.ref.locator, note.ref.id)
+          doc = await withDeadline(
+            source.read(note.ref.locator, note.ref.id),
+            remainingMs(deadlineAt),
+            `read(${note.ref.locator})`,
+          )
         } catch (e) {
+          if (e instanceof DeadlineExceeded) {
+            truncated = true
+            excluded.push({ locator: note.ref.locator, reason: e.message })
+            break outer
+          }
           excluded.push({
             locator: note.ref.locator,
             reason: `unreadable: ${(e as Error).message}`,

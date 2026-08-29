@@ -126,8 +126,17 @@ export function parseFrontmatter(raw: string): ParsedNote {
   return { frontmatter, body: parsed.content, raw }
 }
 
+/**
+ * Write a note back to Markdown.
+ *
+ * The frontmatter is rebuilt field by field rather than spread, so any key
+ * not listed here is dropped. `unifia_restrictions` was missing from the
+ * list: a round-trip through this helper silently removed a note's egress
+ * restrictions, turning a `remote_model: deny` note into an unrestricted one
+ * with no error and no diff the author would notice.
+ */
 export function serialiseNote(note: ParsedNote): string {
-  const fm = {
+  const fm: Record<string, unknown> = {
     unifia_schema: 1 as const,
     unifia_id: note.frontmatter.unifia_id,
     unifia_type: note.frontmatter.unifia_type,
@@ -137,6 +146,11 @@ export function serialiseNote(note: ParsedNote): string {
     unifia_project_ref: note.frontmatter.unifia_project_ref,
     unifia_supersedes: note.frontmatter.unifia_supersedes,
     unifia_tags: note.frontmatter.unifia_tags,
+  }
+  // Only emitted when the note carries one, so an unrestricted note stays
+  // byte-identical rather than gaining a block of defaults.
+  if (note.frontmatter.unifia_restrictions !== undefined) {
+    fm[RESTRICTIONS_FRONTMATTER_KEY] = note.frontmatter.unifia_restrictions
   }
   const yaml = matter.stringify(note.body, fm)
   return yaml.endsWith("\n") ? yaml : yaml + "\n"

@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { readFileSync, readdirSync, statSync, realpathSync } from "node:fs"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
   KnowledgeId,
@@ -26,8 +26,47 @@ import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./so
 /** Directories that never hold Class A notes. */
 const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidian"])
 
-/** Walk `dir`, collecting locators relative to `root`, POSIX-separated. */
-function walkMarkdown(root: string, dir: string, out: string[]): void {
+/**
+ * Real path of `p`, or null when it cannot be resolved.
+ *
+ * Containment must be decided on real paths. A lexical check lets a junction
+ * or a symlink through untouched: `statSync` follows both, so a directory
+ * pointing outside the workspace looked like an ordinary subdirectory and its
+ * notes were listed and read.
+ */
+function realOrNull(p: string): string | null {
+  try {
+    return realpathSync.native(p)
+  } catch {
+    return null
+  }
+}
+
+/** True when `candidate` resolves inside `realRoot`. */
+function isContained(realRoot: string, candidate: string): boolean {
+  const real = realOrNull(candidate)
+  if (real === null) return false
+  if (real === realRoot) return true
+  const rel = relative(realRoot, real)
+  return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel)
+}
+
+/**
+ * Walk `dir`, collecting locators relative to `realRoot`, POSIX-separated.
+ *
+ * `visited` holds real paths so a link cycle terminates instead of recursing
+ * until the stack gives out.
+ */
+function walkMarkdown(
+  realRoot: string,
+  dir: string,
+  out: string[],
+  visited: Set<string>,
+): void {
+  const realDir = realOrNull(dir)
+  if (realDir === null || visited.has(realDir)) return
+  visited.add(realDir)
+
   let entries: string[]
   try {
     entries = readdirSync(dir)
@@ -38,18 +77,26 @@ function walkMarkdown(root: string, dir: string, out: string[]): void {
   for (const name of entries) {
     if (SKIPPED_DIRECTORIES.has(name)) continue
     const full = join(dir, name)
+
     let stats: ReturnType<typeof statSync>
     try {
       stats = statSync(full)
     } catch {
       continue
     }
+
+    // Junctions are not symbolic links on Windows, so containment is checked
+    // for every entry rather than only for the ones lstat calls a link.
+    if (!isContained(realRoot, full)) continue
+
     if (stats.isDirectory()) {
-      walkMarkdown(root, full, out)
+      walkMarkdown(realRoot, full, out, visited)
       continue
     }
     if (!name.toLowerCase().endsWith(".md")) continue
-    out.push(relative(root, full).split(sep).join("/"))
+    const realFile = realOrNull(full)
+    if (realFile === null) continue
+    out.push(relative(realRoot, realFile).split(sep).join("/"))
   }
 }
 
@@ -71,6 +118,8 @@ export interface VaultSourceConfig {
 export class VaultSource implements KnowledgeSource {
   readonly space: KnowledgeSpace
   private readonly root: string
+  /** `root` with every link resolved; containment is decided against this. */
+  private readonly realRoot: string
   private scanErrors: Array<{ locator: string; message: string }> = []
 
   constructor(config: VaultSourceConfig) {
@@ -80,6 +129,11 @@ export class VaultSource implements KnowledgeSource {
       )
     }
     this.root = config.root
+    const real = realOrNull(config.root)
+    if (real === null) {
+      throw KnowledgeFailure.pathUnresolved(`vault root cannot be resolved: ${config.root}`)
+    }
+    this.realRoot = real
     this.space = config.space
   }
 
@@ -91,7 +145,7 @@ export class VaultSource implements KnowledgeSource {
   /** Locators of every Markdown file under the root. */
   locators(): string[] {
     const out: string[] = []
-    walkMarkdown(this.root, this.root, out)
+    walkMarkdown(this.realRoot, this.root, out, new Set())
     out.sort()
     return out
   }
@@ -151,11 +205,23 @@ export class VaultSource implements KnowledgeSource {
   }
 
   private readLocator(locator: KnowledgeLocator): ParsedDocument | null {
-    // Containment: a locator may not climb out of the vault root.
+    // Containment on the lexical path first: reject `..` before touching the
+    // filesystem at all.
     const full = join(this.root, locator)
-    const rel = relative(this.root, full)
-    if (rel.startsWith("..") || isAbsolute(rel)) {
+    const lexical = relative(this.root, full)
+    if (lexical.startsWith("..") || isAbsolute(lexical)) {
       throw KnowledgeFailure.pathUnresolved(`locator escapes the vault root: ${locator}`)
+    }
+    // Then on the real path: a lexically innocent locator can still traverse a
+    // junction or a symlink pointing outside the workspace. A path that does
+    // not resolve at all is simply absent — "not found" and "out of bounds"
+    // are different answers and must not be collapsed.
+    const real = realOrNull(full)
+    if (real === null) return null
+    if (!isContained(this.realRoot, full)) {
+      throw KnowledgeFailure.pathUnresolved(
+        `locator resolves outside the vault root: ${locator}`,
+      )
     }
     let raw: string
     try {

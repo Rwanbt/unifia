@@ -18,7 +18,11 @@ import type {
   KnowledgeId,
   KnowledgeLocator,
   KnowledgeSpaceKind,
+  RetrievalCandidate,
+  ContextItem,
 } from "@unifia/contracts/knowledge"
+import { portableRestrictionsFromFrontmatter } from "@unifia/contracts/knowledge"
+import { decideEgress, type EgressResult } from "../policy/egress.js"
 import type { KnowledgeSource, SourceRegistry } from "../source/source.js"
 import { ContextRouter, type ContextRouterConfig, type RouterOutput } from "../context/router.js"
 import { doctor, type DoctorInput, type DoctorReport } from "../admin/doctor.js"
@@ -90,6 +94,68 @@ export class DefaultKnowledgeService implements KnowledgeService {
     })
   }
 
+  /**
+   * Resolve one note into a candidate and decide whether it may be served.
+   *
+   * Single hydration path for every capability. `get` used to build its
+   * candidate inline with `restriction: "allow"` hardcoded and never call
+   * `decideEgress`, so a note carrying `remote_model: deny` was served in
+   * full toward a remote destination — and `backlinks`, which hydrates
+   * through `get`, leaked it too. Search denied it correctly; the other
+   * capabilities were a way around the guard.
+   */
+  private hydrate(
+    source: KnowledgeSource,
+    doc: NonNullable<Awaited<ReturnType<KnowledgeSource["read"]>>>,
+    locator?: KnowledgeLocator,
+  ): { candidate: RetrievalCandidate; item: ContextItem; decision: EgressResult } {
+    const fm = doc.note.frontmatter
+    const body = doc.note.body
+    const space = source.space.kind
+    const restrictions = portableRestrictionsFromFrontmatter(fm.unifia_restrictions)
+    const plan = this.routerConfig.providerPlan
+
+    const candidate: RetrievalCandidate = {
+      id: fm.unifia_id as KnowledgeId,
+      locator: (locator ?? fm.unifia_id) as KnowledgeLocator,
+      type: fm.unifia_type,
+      space,
+      trust: space === "external" ? "unverified" : "verified",
+      authority:
+        space === "personal"
+          ? "user"
+          : space === "project"
+            ? "project"
+            : space === "session"
+              ? "agent"
+              : "external",
+      // The effective restriction for this destination, never a constant.
+      restriction:
+        plan.destinationKind === "local" ? restrictions.localModel : restrictions.remoteModel,
+      relevance: 1,
+      snippet: body,
+      snippetBytes: utf8Bytes(body),
+      snippetHash: createHash("sha256").update(body, "utf8").digest("hex"),
+    }
+
+    const item: ContextItem = {
+      ref: { id: candidate.id, locator: candidate.locator },
+      source: space,
+      type: candidate.type,
+      trust: candidate.trust,
+      authority: candidate.authority,
+      restriction: candidate.restriction,
+      relevance: 1,
+      tokenCost: 0,
+      contentHash: candidate.snippetHash,
+      snippet: candidate.snippet,
+      reason: "id-addressed read",
+      temporalState: fm.unifia_lifecycle,
+    }
+
+    return { candidate, item, decision: decideEgress({ item, plan }) }
+  }
+
   async get(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<RetrievalResponse | null> {
     if (id === undefined && locator === undefined) {
       throw KnowledgeFailure.sourceInconsistent("get requires an id or a locator")
@@ -105,34 +171,16 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
       if (doc === null) continue
 
-      const fm = doc.note.frontmatter
-      const body = doc.note.body
-      // `get` is id-addressed, not a ranked query: it returns the note as
-      // stored, so relevance is 1 and the snippet is the body.
+      const { candidate, decision } = this.hydrate(source, doc, locator)
+      if (decision.decision === "deny") {
+        // Answer exactly as for a note that does not exist: confirming that a
+        // denied note exists is itself a disclosure.
+        return null
+      }
+
       return {
-        candidates: [
-          {
-            id: fm.unifia_id as KnowledgeId,
-            locator: (locator ?? fm.unifia_id) as KnowledgeLocator,
-            type: fm.unifia_type,
-            space: source.space.kind,
-            trust: source.space.kind === "external" ? "unverified" : "verified",
-            authority:
-              source.space.kind === "personal"
-                ? "user"
-                : source.space.kind === "project"
-                  ? "project"
-                  : source.space.kind === "session"
-                    ? "agent"
-                    : "external",
-            restriction: "allow",
-            relevance: 1,
-            snippet: body,
-            snippetBytes: utf8Bytes(body),
-            snippetHash: createHash("sha256").update(body, "utf8").digest("hex"),
-          },
-        ],
-        payloadBytes: utf8Bytes(body),
+        candidates: [candidate],
+        payloadBytes: candidate.snippetBytes,
         truncated: false,
         diagnostics: {
           sourcesQueried: [source.space.kind],
@@ -178,6 +226,10 @@ export class DefaultKnowledgeService implements KnowledgeService {
           continue
         }
         if (doc === null) continue
+        // A note the policy refuses is not a backlink we may disclose: its id
+        // alone tells the caller the note exists, and MCP hydrates each id
+        // back into a snippet.
+        if (this.hydrate(source, doc, note.ref.locator).decision.decision === "deny") continue
         const links = extractWikilinks(doc.note.body).map((w) => w.target)
         const supersedes = doc.note.frontmatter.unifia_supersedes ?? []
         if (links.some((l) => wanted.has(l)) || supersedes.some((s) => wanted.has(s))) {

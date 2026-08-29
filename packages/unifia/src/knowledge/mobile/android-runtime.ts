@@ -85,11 +85,32 @@ export interface ProbeEvidence {
  * attached, all ten probes returned PASS without executing anything, so the
  * completeness report showed ten green probes that had never run.
  */
+/**
+ * Reject evidence that cannot be acted on.
+ *
+ * Accepting a well-shaped but empty record produced
+ * `note: " on  at : "` and a green PASS — a completeness signal built from
+ * nothing. Evidence has to name a command, a device, a valid capture time and
+ * an observed output, and it only counts when a device was actually attached.
+ */
+function isUsableEvidence(e: ProbeEvidence, ctx: DeviceContext): boolean {
+  if (!ctx.hasDevice) return false
+  if (!PROBES.includes(e.probe)) return false
+  if (e.command.trim().length === 0) return false
+  if (e.deviceId.trim().length === 0) return false
+  if (e.output.trim().length === 0) return false
+  const at = Date.parse(e.capturedAt)
+  if (!Number.isFinite(at)) return false
+  return true
+}
+
 export function runProbes(
   ctx: DeviceContext,
   evidence: readonly ProbeEvidence[] = [],
 ): ProbeResult[] {
-  const byProbe = new Map(evidence.map((e) => [e.probe, e]))
+  const byProbe = new Map(
+    evidence.filter((e) => isUsableEvidence(e, ctx)).map((e) => [e.probe, e]),
+  )
 
   return PROBES.map((p) => {
     const found = byProbe.get(p)
