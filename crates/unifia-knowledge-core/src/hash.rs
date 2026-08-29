@@ -28,7 +28,11 @@ impl ContentHash {
     /// Construct from a 64-char lowercase hex string. Returns
     /// `KnowledgeError::InvariantViolated` if the input is wrong.
     pub fn from_hex(hex: &str) -> Result<Self, crate::KnowledgeError> {
-        if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+        if hex.len() != 64
+            || !hex
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        {
             return Err(crate::KnowledgeError::invariant_violated(
                 "ContentHash must be a 64-char lowercase hex string",
             ));
@@ -81,19 +85,27 @@ mod tests {
     fn sha256_known_vector() {
         // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         let h = sha256(b"");
-        assert_eq!(h.as_str(), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assert_eq!(
+            h.as_str(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 
     #[test]
     fn blake3_known_vector() {
         // BLAKE3("") = af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262
         let h = blake3(b"");
-        assert_eq!(h.as_str(), "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262");
+        assert_eq!(
+            h.as_str(),
+            "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+        );
     }
 
     #[test]
     fn rejects_non_lowercase() {
-        let r = ContentHash::from_hex("AF1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262");
+        let r = ContentHash::from_hex(
+            "AF1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+        );
         assert!(r.is_err());
     }
 

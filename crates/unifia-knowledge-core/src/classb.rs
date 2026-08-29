@@ -56,16 +56,26 @@ impl ClassB {
         external_source: Option<String>,
     ) -> Result<&ClassBEntry, KnowledgeError> {
         if alias.is_empty() {
-            return Err(KnowledgeError::invariant_violated("alias must be non-empty"));
+            return Err(KnowledgeError::invariant_violated(
+                "alias must be non-empty",
+            ));
         }
         if locator.is_empty() {
-            return Err(KnowledgeError::invariant_violated("locator must be non-empty"));
+            return Err(KnowledgeError::invariant_violated(
+                "locator must be non-empty",
+            ));
         }
-        self.next_revision = self.next_revision.checked_add(1).ok_or_else(|| {
-            KnowledgeError::invariant_violated("Class B revision overflow")
-        })?;
+        self.next_revision = self
+            .next_revision
+            .checked_add(1)
+            .ok_or_else(|| KnowledgeError::invariant_violated("Class B revision overflow"))?;
         let revision = self.next_revision;
-        let entry = ClassBEntry { alias: alias.clone(), locator, external_source, revision };
+        let entry = ClassBEntry {
+            alias: alias.clone(),
+            locator,
+            external_source,
+            revision,
+        };
         self.by_alias.insert(alias.clone(), entry);
         Ok(self.by_alias.get(&alias).expect("just inserted"))
     }
@@ -110,7 +120,11 @@ pub fn reachability_report(class_a_locators: &HashSet<String>, b: &ClassB) -> Re
         .collect();
     let orphans: Vec<String> = b_locators.difference(class_a_locators).cloned().collect();
     let missing_from_b: Vec<String> = class_a_locators.difference(&b_locators).cloned().collect();
-    ReachabilityReport { reachable, orphans, missing_from_b }
+    ReachabilityReport {
+        reachable,
+        orphans,
+        missing_from_b,
+    }
 }
 
 /// Result of a GC pass.

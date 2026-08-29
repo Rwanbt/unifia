@@ -39,14 +39,9 @@ pub enum WatchEvent {
         bytes: u64,
     },
     /// File was removed.
-    Removed {
-        path: PathBuf,
-    },
+    Removed { path: PathBuf },
     /// File was renamed (from -> to).
-    Renamed {
-        from: PathBuf,
-        to: PathBuf,
-    },
+    Renamed { from: PathBuf, to: PathBuf },
 }
 
 /// Debounce / coalesce window. Events on the same path within
@@ -74,7 +69,8 @@ impl Default for WatcherConfig {
 /// Coalesce raw events into the bounded stream consumed by the
 /// indexer. Pure: same input, same output.
 pub fn coalesce(events: Vec<WatchEvent>, cfg: &WatcherConfig) -> Vec<WatchEvent> {
-    let mut out: Vec<WatchEvent> = Vec::with_capacity(events.len().min(cfg.max_events_per_interval));
+    let mut out: Vec<WatchEvent> =
+        Vec::with_capacity(events.len().min(cfg.max_events_per_interval));
     for ev in events {
         if out.len() >= cfg.max_events_per_interval {
             // Drop further events when the bounded rate is hit.
@@ -106,7 +102,10 @@ mod tests {
 
     #[test]
     fn coalesce_drops_oversized() {
-        let cfg = WatcherConfig { max_event_bytes: 10, ..WatcherConfig::default() };
+        let cfg = WatcherConfig {
+            max_event_bytes: 10,
+            ..WatcherConfig::default()
+        };
         let events = vec![
             WatchEvent::Modified {
                 path: PathBuf::from("a"),
@@ -125,7 +124,11 @@ mod tests {
 
     #[test]
     fn coalesce_respects_max_events_per_interval() {
-        let cfg = WatcherConfig { max_events_per_interval: 2, max_event_bytes: usize::MAX, ..WatcherConfig::default() };
+        let cfg = WatcherConfig {
+            max_events_per_interval: 2,
+            max_event_bytes: usize::MAX,
+            ..WatcherConfig::default()
+        };
         let events = (0..5)
             .map(|i| WatchEvent::Modified {
                 path: PathBuf::from(format!("f{i}")),

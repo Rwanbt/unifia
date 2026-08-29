@@ -35,10 +35,14 @@ impl ResolvedKnowledgePath {
             return Err(crate::KnowledgeError::path_unresolved("empty locator"));
         }
         if locator.contains("..") {
-            return Err(crate::KnowledgeError::path_unresolved("locator contains '..'"));
+            return Err(crate::KnowledgeError::path_unresolved(
+                "locator contains '..'",
+            ));
         }
         if locator.starts_with('/') {
-            return Err(crate::KnowledgeError::path_unresolved("locator is absolute"));
+            return Err(crate::KnowledgeError::path_unresolved(
+                "locator is absolute",
+            ));
         }
         // Windows drive letter: "C:\" or "C:/".
         if locator.chars().nth(1) == Some(':') {
@@ -59,7 +63,9 @@ impl ResolvedKnowledgePath {
             return Err(crate::KnowledgeError::path_unresolved("empty sub-locator"));
         }
         if sub.starts_with('/') {
-            return Err(crate::KnowledgeError::path_unresolved("sub-locator is absolute"));
+            return Err(crate::KnowledgeError::path_unresolved(
+                "sub-locator is absolute",
+            ));
         }
         let joined = self.0.join(sub);
         let normalised = joined.as_str().replace('\\', "/");

@@ -141,7 +141,10 @@ mod tests {
     fn serde_roundtrip_egress_denied() {
         let err = KnowledgeError::egress_denied("remote model denied");
         let s = serde_json::to_string(&err).unwrap();
-        assert_eq!(s, "{\"kind\":\"egress_denied\",\"message\":\"remote model denied\"}");
+        assert_eq!(
+            s,
+            "{\"kind\":\"egress_denied\",\"message\":\"remote model denied\"}"
+        );
         let back: KnowledgeError = serde_json::from_str(&s).unwrap();
         assert_eq!(back.kind, KnowledgeErrorKind::EgressDenied);
         assert_eq!(back.message, "remote model denied");
@@ -158,11 +161,17 @@ mod tests {
             (KnowledgeErrorKind::Cancelled, "cancelled"),
             (KnowledgeErrorKind::MutationRefused, "mutation_refused"),
             (KnowledgeErrorKind::IndexUnavailable, "index_unavailable"),
-            (KnowledgeErrorKind::SourceInconsistent, "source_inconsistent"),
+            (
+                KnowledgeErrorKind::SourceInconsistent,
+                "source_inconsistent",
+            ),
             (KnowledgeErrorKind::InvariantViolated, "invariant_violated"),
             (KnowledgeErrorKind::Internal, "internal"),
         ] {
-            let err = KnowledgeError { kind, message: "x".to_string() };
+            let err = KnowledgeError {
+                kind,
+                message: "x".to_string(),
+            };
             let s = serde_json::to_string(&err).unwrap();
             assert!(s.contains(&format!("\"kind\":\"{name}\"")));
         }

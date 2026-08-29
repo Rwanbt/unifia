@@ -80,7 +80,9 @@ impl ControlStore {
 
     pub fn upsert_policy_grant(&mut self, g: PolicyGrant) -> Result<(), KnowledgeError> {
         if g.id.is_empty() {
-            return Err(KnowledgeError::invariant_violated("policy grant id required"));
+            return Err(KnowledgeError::invariant_violated(
+                "policy grant id required",
+            ));
         }
         self.policy_grants.insert(g.id.clone(), g);
         Ok(())
@@ -101,7 +103,9 @@ impl ControlStore {
 
     pub fn upsert_egress_grant(&mut self, g: EgressGrant) -> Result<(), KnowledgeError> {
         if g.id.is_empty() {
-            return Err(KnowledgeError::invariant_violated("egress grant id required"));
+            return Err(KnowledgeError::invariant_violated(
+                "egress grant id required",
+            ));
         }
         if g.content_hash.is_empty() || g.destination.is_empty() {
             return Err(KnowledgeError::invariant_violated(
@@ -192,7 +196,12 @@ mod tests {
     #[test]
     fn control_log_appends() {
         let mut s = ControlStore::new("dev-1".into()).unwrap();
-        s.append_event(ControlEvent { id: "1".into(), kind: "x".into(), timestamp: "t".into(), payload: "{}".into() });
+        s.append_event(ControlEvent {
+            id: "1".into(),
+            kind: "x".into(),
+            timestamp: "t".into(),
+            payload: "{}".into(),
+        });
         assert_eq!(s.control_log().len(), 1);
     }
 }

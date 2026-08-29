@@ -109,7 +109,9 @@ impl Wal {
         timestamp: String,
     ) -> Result<&WalEntry, KnowledgeError> {
         if locator.is_empty() {
-            return Err(KnowledgeError::mutation_refused("locator must be non-empty"));
+            return Err(KnowledgeError::mutation_refused(
+                "locator must be non-empty",
+            ));
         }
         if source.is_empty() {
             return Err(KnowledgeError::mutation_refused("source must be non-empty"));
@@ -118,7 +120,9 @@ impl Wal {
             return Err(KnowledgeError::mutation_refused("reason must be non-empty"));
         }
         if matches!(kind, WalKind::Create) && previous_hash.is_some() {
-            return Err(KnowledgeError::mutation_refused("create must have no previous hash"));
+            return Err(KnowledgeError::mutation_refused(
+                "create must have no previous hash",
+            ));
         }
         if matches!(kind, WalKind::Delete | WalKind::Archive) && new_hash.is_some() {
             return Err(KnowledgeError::mutation_refused(
@@ -136,9 +140,10 @@ impl Wal {
             reason,
             timestamp,
         };
-        self.next_seq = self.next_seq.checked_add(1).ok_or_else(|| {
-            KnowledgeError::invariant_violated("WAL sequence overflow")
-        })?;
+        self.next_seq = self
+            .next_seq
+            .checked_add(1)
+            .ok_or_else(|| KnowledgeError::invariant_violated("WAL sequence overflow"))?;
         self.entries.push(entry);
         Ok(self.entries.last().expect("just pushed"))
     }
