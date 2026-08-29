@@ -67,6 +67,7 @@ import { listByProject } from "../src/knowledge/admin/by-project.js"
 import { findOrphans } from "../src/knowledge/admin/orphans.js"
 import { lifecycleDistribution } from "../src/knowledge/admin/lifecycle-distribution.js"
 import { findStale } from "../src/knowledge/admin/stale.js"
+import { findReferences } from "../src/knowledge/admin/references.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -125,6 +126,7 @@ function printUsage(): void {
       "  unifia knowledge orphans <workspace> [--max-links=N] [--limit=N]",
       "  unifia knowledge lifecycle-distribution <workspace>",
       "  unifia knowledge stale <workspace> [--threshold-days=N] [--only-active] [--limit=N]",
+      "  unifia knowledge references <workspace> --target=<locator>|--target-id=<uuid>",
       "",
     ].join("\n"),
   )
@@ -1135,6 +1137,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdLifecycleDistribution(rest)
     case "stale":
       return cmdStale(rest)
+    case "references":
+      return cmdReferences(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1434,6 +1438,44 @@ async function cmdStale(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`stale error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdReferences(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("references: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const targetLocator = flags.get("target")
+  const targetId = flags.get("target-id")
+  if (!targetLocator && !targetId) {
+    process.stderr.write("references: --target=<locator> or --target-id=<uuid> is required\n")
+    return 2
+  }
+  try {
+    const r = findReferences({
+      vaultRoot: ws,
+      ...(targetLocator !== undefined ? { targetLocator } : {}),
+      ...(targetId !== undefined ? { targetId: targetId as never } : {}),
+    })
+    if (!r.target) {
+      process.stderr.write("references: target not found\n")
+      return 1
+    }
+    process.stdout.write(`target:    ${r.target.id}  (${r.target.locator})\n`)
+    process.stdout.write(`refs:      ${r.references.length}\n`)
+    for (const w of r.references) {
+      const heading = w.heading !== undefined ? `#${w.heading}` : ""
+      const alias = w.alias !== undefined ? `|${w.alias}` : ""
+      process.stdout.write(`  - [[${w.target}${heading}${alias}]]  (offset=${w.start})\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`references error: ${(e as Error).message}\n`)
     return 1
   }
 }

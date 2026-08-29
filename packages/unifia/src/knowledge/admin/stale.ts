@@ -61,7 +61,6 @@ export function findStale(input: StaleInput): StaleReport {
   const limit = input.limit ?? 50
   const locators = listMarkdownLocators(input.vaultRoot)
   const now = new Date()
-  const thresholdMs = thresholdDays * MS_PER_DAY
   const hits: StaleHit[] = []
   let scanned = 0
 
