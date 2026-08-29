@@ -1446,3 +1446,47 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `fingerprint`, `by-tag`, `vault-compare`).
 **Subcommandes CLI** : 42 (etait 20 en V3, +22 admin = x2.10).
 **Cartes durcissement** : 38 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-43).
+
+
+---
+
+## Carte 0212 - P11.44 : Recent CLI (notes updated in last N days)
+
+- **ID** : 0212
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/recent.ts` +
+  `packages/unifia/test/knowledge/admin/recent.test.ts` (8 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdRecent).
+- **`findRecent({ vaultRoot, windowDays?, onlyActive?, limit? })`**
+  : walk le vault, calcule l'age en jours, retourne les notes
+  avec `ageDays <= windowDays` (default 7). `windowDays=0` =
+  pas de filtre.
+- **CLI** : `unifia knowledge recent <ws> [--window-days=N]
+  [--only-active] [--limit=N]`.
+- **Complement de stale** : stale = age > threshold, recent =
+  age <= window. Les deux outils couvrent le spectre freshness.
+- **Live run** : 9 notes <= 30j (les 2 stale 134j sont exclues).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V15 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 83.
+
+**Tests** : 435 TS knowledge + 79 contracts + 34 Rust = **548 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `ff53a07622 feat(knowledge): P11.44 recent CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 13 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`).
+**Subcommandes CLI** : 43 (etait 20 en V3, +23 admin = x2.15).
+**Cartes durcissement** : 39 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-44).

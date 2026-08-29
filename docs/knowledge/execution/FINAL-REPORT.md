@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `4b6d81d8cd feat(knowledge): P11.43 vault-compare CLI (diff two vaults by SHA-256)` |
+| HEAD final | `ff53a07622 feat(knowledge): P11.44 recent CLI (notes updated within the last N days)` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (81)
+## 2. Commits locaux (83)
 
 | SHA | Sujet |
 |---|---|
@@ -96,6 +96,8 @@
 | `f344349fb8` | feat(knowledge): P11.42 by-tag CLI (single-tag filter, completes the quartet) |
 | `da6c570cd9` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.42 (79 commits, 532 tests) |
 | `4b6d81d8cd` | feat(knowledge): P11.43 vault-compare CLI (diff two vaults by SHA-256) |
+| `9047c9c3c3` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.43 (81 commits, 540 tests) |
+| `ff53a07622` | feat(knowledge): P11.44 recent CLI (notes updated within the last N days) |
 
 ## 3. Phases et gates
 
@@ -124,14 +126,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 427 pass, 0 fail, 859 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 435 pass, 0 fail, 871 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 12 finale)** : 427 TS knowledge + 79 contracts + 34 Rust = **540 tests passants** (demi-millénaire).
+**Total des tests dans cette session (session 12 finale)** : 435 TS knowledge + 79 contracts + 34 Rust = **548 tests passants** (demi-millénaire).
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -182,7 +184,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 60+ | 60+ | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 427 | 427 | 100% |
+| Tests TS knowledge | 435 | 435 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -203,8 +205,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 81 commits, ~255 fichiers ajoutés.
-- **Commits locaux** : 81.
+- **Implémentation locale** : 83 commits, ~260 fichiers ajoutés.
+- **Commits locaux** : 83.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -229,7 +231,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 4b6d81d8cd
+git rev-parse HEAD  # doit être ff53a07622
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -241,9 +243,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 81 commits,
-~255 fichiers, **540 tests passants** (427 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 38 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 83 commits,
+~260 fichiers, **548 tests passants** (435 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 39 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
