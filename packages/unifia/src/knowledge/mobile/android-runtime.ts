@@ -58,26 +58,58 @@ export const PROBES: readonly string[] = [
   "thermal.throttle",
 ]
 
-export function runProbes(ctx: DeviceContext): ProbeResult[] {
-  const t0 = Date.now()
-  if (!ctx.hasDevice) {
-    return PROBES.map((p) => ({
+/**
+ * Evidence produced by the device harness for one probe. A probe without
+ * evidence has not run, whatever the device is doing.
+ */
+export interface ProbeEvidence {
+  probe: string
+  status: Extract<ProbeStatus, "PASS" | "FAIL">
+  /** The exact command the harness executed. */
+  command: string
+  /** Device this was captured on. */
+  deviceId: string
+  /** ISO-8601 capture time. */
+  capturedAt: string
+  /** Observed output or metric. */
+  output: string
+  /** Hash of the stored artefact, when one was written. */
+  artifactHash?: string
+  durationMs?: number
+}
+
+/**
+ * Resolve the probe catalogue against whatever evidence the harness supplied.
+ *
+ * `hasDevice` alone never produces a PASS. It used to: with a device
+ * attached, all ten probes returned PASS without executing anything, so the
+ * completeness report showed ten green probes that had never run.
+ */
+export function runProbes(
+  ctx: DeviceContext,
+  evidence: readonly ProbeEvidence[] = [],
+): ProbeResult[] {
+  const byProbe = new Map(evidence.map((e) => [e.probe, e]))
+
+  return PROBES.map((p) => {
+    const found = byProbe.get(p)
+    if (found !== undefined) {
+      return {
+        probe: p,
+        status: found.status,
+        note: `${found.command} on ${found.deviceId} at ${found.capturedAt}: ${found.output}`,
+        durationMs: found.durationMs ?? 0,
+      }
+    }
+    return {
       probe: p,
       status: "NOT_EXECUTED_EXTERNAL_BOUNDARY" as ProbeStatus,
-      note: "no Android device attached",
+      note: ctx.hasDevice
+        ? "device attached but no harness evidence recorded for this probe"
+        : "no Android device attached",
       durationMs: 0,
-    }))
-  }
-  // Real device path: the harness populates the per-probe
-  // results. In V1 we return PASS placeholders when the device
-  // is present so the test runner can compare against a recorded
-  // baseline.
-  return PROBES.map((p) => ({
-    probe: p,
-    status: "PASS" as ProbeStatus,
-    note: "device present; real probe executed in P10.2 device run",
-    durationMs: Date.now() - t0,
-  }))
+    }
+  })
 }
 
 export function hasFailures(results: readonly ProbeResult[]): boolean {

@@ -45,7 +45,23 @@ describe("P11.13 full verify", () => {
     writeFileSync(join(root, "memory/a.md"), note("0190d2c0-7b00-7000-8000-000000000001"))
     const r = await runVerify(baseInput(root))
     expect(r.checks).toHaveLength(4)
+    // Nothing is broken...
     expect(r.ok).toBe(true)
+    // ...but the recovery plan was only simulated, and the vault has notes
+    // without sidecars, so the run is not "everything passed".
+    expect(r.allPassed).toBe(false)
+    const recovery = r.checks.find((c) => c.name === "disaster-recovery")
+    expect(recovery?.status).toBe("NOT_EXECUTED")
+  })
+
+  it("warns rather than passing when the vault has orphans or missing sidecars", async () => {
+    mkdirSync(join(root, "memory"), { recursive: true })
+    writeFileSync(join(root, "memory/a.md"), note("0190d2c0-7b00-7000-8000-000000000009"))
+    const r = await runVerify(baseInput(root))
+    const reach = r.checks.find((c) => c.name === "reachability")
+    expect(reach?.status).toBe("WARN")
+    // The findings name the files, not just a count.
+    expect((reach?.findings ?? []).length).toBeGreaterThan(0)
   })
 
   it("returns ok=false when the vault is unreadable", async () => {

@@ -582,9 +582,16 @@ async function cmdVerify(rest: readonly string[]): Promise<number> {
   })
   process.stdout.write(`vault:  ${r.vaultRoot}\n\n`)
   for (const c of r.checks) {
-    process.stdout.write(`  ${c.ok ? "PASS" : "FAIL"}  ${c.name.padEnd(20)}  ${c.details}  (${c.durationMs}ms)\n`)
+    process.stdout.write(
+      `  ${c.status.padEnd(13)}${c.name.padEnd(20)}  ${c.details}  (${c.durationMs}ms)\n`,
+    )
+    // Name what is behind a WARN or a FAIL; a bare count is not actionable.
+    for (const f of c.findings ?? []) {
+      process.stdout.write(`      - ${f}\n`)
+    }
   }
-  process.stdout.write(`\nverdict: ${r.ok ? "OK" : "FAIL"}  (total ${r.totalMs}ms)\n`)
+  const verdict = !r.ok ? "FAIL" : r.allPassed ? "OK" : "OK (warnings / not executed)"
+  process.stdout.write(`\nverdict: ${verdict}  (total ${r.totalMs}ms)\n`)
   return r.ok ? 0 : 1
 }
 

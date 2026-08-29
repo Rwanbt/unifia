@@ -30,6 +30,8 @@ export interface CorpusReport {
   vaultRoot: string
   notesParsed: number
   notesFailed: number
+  /** Which notes failed, so an operator can act on a count of 1. */
+  failedLocators: string[]
   totalChunks: number
   totalEdges: number
   durationMs: number
@@ -54,6 +56,7 @@ export function classifyCorpus(vaultRoot: string): CorpusReport {
   const edges: Array<{ source: KnowledgeLocator; target: KnowledgeLocator }> = []
   const indexedLocators = new Set<KnowledgeLocator>()
   let notesFailed = 0
+  const failedLocators: string[] = []
   let totalChunks = 0
   let totalEdges = 0
 
@@ -64,6 +67,7 @@ export function classifyCorpus(vaultRoot: string): CorpusReport {
       text = readFileSync(full, "utf8")
     } catch {
       notesFailed += 1
+      failedLocators.push(locator)
       continue
     }
 
@@ -72,6 +76,7 @@ export function classifyCorpus(vaultRoot: string): CorpusReport {
       doc = parseDocument(text)
     } catch {
       notesFailed += 1
+      failedLocators.push(locator)
       continue
     }
 
@@ -117,6 +122,7 @@ export function classifyCorpus(vaultRoot: string): CorpusReport {
     vaultRoot,
     notesParsed: indexed.length,
     notesFailed,
+    failedLocators,
     totalChunks,
     totalEdges,
     durationMs: Date.now() - t0,

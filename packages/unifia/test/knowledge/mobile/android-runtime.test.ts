@@ -22,13 +22,53 @@ describe("P10 Android runtime probe", () => {
     expect(hasFailures(r)).toBe(false)
   })
 
-  it("returns PASS placeholders when a device is present", () => {
-    const r = runProbes({
-      hasDevice: true,
-      hasInstalledApk: true,
-      apkPath: "/tmp/app.apk",
-      onDeviceVault: "/sdcard/Documents/UnifiaVault",
-    })
-    expect(r.every((p) => p.status === "PASS")).toBe(true)
+  const WITH_DEVICE = {
+    hasDevice: true,
+    hasInstalledApk: true,
+    apkPath: "/tmp/app.apk",
+    onDeviceVault: "/sdcard/Documents/UnifiaVault",
+  }
+
+  it("does not turn a present device into a PASS on its own", () => {
+    // The defect this replaces: with hasDevice true, all ten probes returned
+    // PASS without executing anything.
+    const r = runProbes(WITH_DEVICE)
+    expect(r.every((p) => p.status === "NOT_EXECUTED_EXTERNAL_BOUNDARY")).toBe(true)
+    expect(r.some((p) => p.status === "PASS")).toBe(false)
+  })
+
+  it("reports a PASS only for a probe the harness supplied evidence for", () => {
+    const r = runProbes(WITH_DEVICE, [
+      {
+        probe: "vault.write",
+        status: "PASS",
+        command: "adb shell touch /sdcard/Documents/UnifiaVault/x.md",
+        deviceId: "cmi_eea",
+        capturedAt: "2026-08-29T10:00:00Z",
+        output: "ok",
+        durationMs: 12,
+      },
+    ])
+    const passed = r.filter((p) => p.status === "PASS")
+    expect(passed).toHaveLength(1)
+    expect(passed[0]?.probe).toBe("vault.write")
+    expect(passed[0]?.note).toContain("cmi_eea")
+    expect(r.filter((p) => p.status === "NOT_EXECUTED_EXTERNAL_BOUNDARY")).toHaveLength(
+      r.length - 1,
+    )
+  })
+
+  it("propagates a FAIL from the harness", () => {
+    const r = runProbes(WITH_DEVICE, [
+      {
+        probe: "vault.write",
+        status: "FAIL",
+        command: "adb shell touch ...",
+        deviceId: "cmi_eea",
+        capturedAt: "2026-08-29T10:00:00Z",
+        output: "Read-only file system",
+      },
+    ])
+    expect(hasFailures(r)).toBe(true)
   })
 })
