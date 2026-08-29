@@ -15,7 +15,9 @@
  * printing a misleading answer.
  */
 
+import { StdioTransport } from "@unifia/mcp-transport"
 import { composeMcpServer } from "../../src/knowledge/mcp/compose.js"
+import { serveMcp } from "../../src/knowledge/mcp/serve.js"
 import { McpUnauthorized } from "../../src/knowledge/mcp/server.js"
 import { resolveWorkspace } from "./runtime.js"
 
@@ -59,6 +61,50 @@ async function session(workspace: string): Promise<number> {
       return 0
     }
     throw e
+  }
+}
+
+/**
+ * Serve the six knowledge capabilities over stdio until the peer closes.
+ *
+ * This is the daemon a token needs to be worth issuing: the registry lives as
+ * long as the process, so a token minted at startup stays valid for every
+ * call that follows. The token goes to stderr, never to stdout, which carries
+ * the JSON-RPC stream.
+ */
+async function serve(workspace: string): Promise<number> {
+  const root = resolveWorkspace(workspace)
+  const transport = new StdioTransport(process.stdin as unknown as AsyncIterable<Uint8Array>, {
+    write: (chunk: Uint8Array) => {
+      process.stdout.write(chunk)
+    },
+  })
+  const handle = serveMcp({ workspaceRoot: root, transport })
+  process.stderr.write(
+    [
+      "unifia knowledge mcp serve",
+      `  workspace: ${root}`,
+      `  token:     ${handle.tokenId}`,
+      "  methods:   read-only (knowledge_propose is not granted)",
+      "  framing:   newline-delimited JSON-RPC 2.0 on stdio",
+      "",
+    ].join("\n"),
+  )
+  await handle.done
+  return 0
+}
+
+export async function cmdMcp(rest: readonly string[]): Promise<number> {
+  const ws = rest[1]
+  if (rest[0] !== "serve" || !ws) {
+    process.stderr.write("usage: mcp serve <workspace>\n")
+    return 2
+  }
+  try {
+    return await serve(ws)
+  } catch (e) {
+    process.stderr.write(`mcp serve error: ${(e as Error).message}\n`)
+    return 1
   }
 }
 

@@ -1,0 +1,179 @@
+/* SPDX-License-Identifier: MIT */
+/**
+ * MCP daemon over a real transport (card C26).
+ *
+ * composeMcpServer() produced an authenticated server that nothing exposed,
+ * and a token lived only as long as the process that issued it. These tests
+ * drive the daemon over the loopback transport pair, so a token issued at
+ * startup has to survive every call that follows.
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import {
+  createLoopbackPair,
+  JSON_RPC_ERRORS,
+  type JsonRpcMessage,
+  type MessageTransport,
+} from "@unifia/mcp-transport"
+import { serveMcp } from "../../../src/knowledge/mcp/serve.js"
+import { writePolicy, DEFAULT_POLICY } from "../../../src/knowledge/policy/store.js"
+
+function note(id: string, body: string, restrictions?: string[]) {
+  return [
+    "---",
+    "unifia_schema: 1",
+    `unifia_id: "0190d2c0-7b00-7000-8000-${id.padStart(12, "0")}"`,
+    'unifia_type: "decision"',
+    'unifia_lifecycle: "active"',
+    'unifia_created_at: "2026-08-01T00:00:00Z"',
+    'unifia_updated_at: "2026-08-29T00:00:00Z"',
+    'unifia_project_ref: "unifia"',
+    "unifia_supersedes: []",
+    "unifia_tags: []",
+    ...(restrictions ? ["unifia_restrictions:", ...restrictions] : []),
+    "---",
+    body,
+  ].join("\n")
+}
+
+/** Send one request and await its response. */
+async function call(
+  client: MessageTransport,
+  responses: AsyncIterator<JsonRpcMessage>,
+  id: number,
+  method: string,
+  params: unknown,
+): Promise<JsonRpcMessage> {
+  await client.send({ jsonrpc: "2.0", id, method, params } as JsonRpcMessage)
+  const next = await responses.next()
+  return next.value as JsonRpcMessage
+}
+
+describe("C26 — the MCP daemon answers over a transport", () => {
+  let root: string
+  let client: MessageTransport
+  let server: MessageTransport
+  let handle: ReturnType<typeof serveMcp>
+  let responses: AsyncIterator<JsonRpcMessage>
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "unifia-serve-"))
+    mkdirSync(join(root, "memory"))
+    writeFileSync(join(root, "memory", "open.md"), note("1", "alpha public", ["  remote_model: allow"]))
+    writeFileSync(join(root, "memory", "secret.md"), note("2", "alpha SECRET_BODY", ["  remote_model: deny"]))
+    writePolicy(root, {
+      ...DEFAULT_POLICY,
+      version: 1,
+      egress: "deny",
+      egressByDestination: { "provider:mcp:remote": "allow" },
+    })
+    const pair = createLoopbackPair()
+    client = pair[0]
+    server = pair[1]
+    handle = serveMcp({ workspaceRoot: root, transport: server })
+    responses = client.receive()[Symbol.asyncIterator]()
+  })
+  afterEach(async () => {
+    await client.close()
+    await server.close()
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  const search = (q: string, token?: string) => ({
+    workspace: root,
+    query: q,
+    maxCandidates: 50,
+    maxPayloadBytes: 1_000_000,
+    maxSnippetBytes: 65_536,
+    deadlineMs: 2_000,
+    spaces: [],
+    types: [],
+    tags: [],
+    ...(token !== undefined ? { token } : {}),
+  })
+
+  it("serves a search with the session token", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", search("alpha"))) as {
+      result?: { candidates: unknown[] }
+    }
+    expect(res.result?.candidates.length).toBeGreaterThan(0)
+  })
+
+  it("keeps the token valid across successive calls", async () => {
+    const token = handle.tokenId
+    for (const id of [1, 2, 3]) {
+      const res = (await call(client, responses, id, "knowledge_search", search("alpha", token))) as {
+        result?: unknown
+        error?: unknown
+      }
+      expect(res.error).toBeUndefined()
+      expect(res.result).toBeDefined()
+    }
+  })
+
+  it("refuses an unknown token with the unauthorized code", async () => {
+    const res = (await call(
+      client,
+      responses,
+      1,
+      "knowledge_search",
+      search("alpha", "tok_not_a_real_token"),
+    )) as { error?: { code: number } }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+  })
+
+  it("makes a revocation take effect immediately", async () => {
+    const token = handle.tokenId
+    handle.composed.tokens.revoke(token)
+    const res = (await call(client, responses, 1, "knowledge_search", search("alpha", token))) as {
+      error?: { code: number }
+    }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+  })
+
+  it("rejects a method outside the knowledge surface", async () => {
+    const res = (await call(client, responses, 1, "knowledge_admin_wipe", {})) as {
+      error?: { code: number }
+    }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.methodNotFound)
+  })
+
+  it("refuses a request naming another workspace", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", {
+      ...search("alpha"),
+      workspace: "/somewhere/else",
+    })) as { error?: { code: number } }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+  })
+
+  it("withholds a remote-denied note over the wire", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", search("alpha"))) as {
+      result?: { candidates: Array<{ snippet: string }> }
+    }
+    const bodies = (res.result?.candidates ?? []).map((c) => c.snippet).join(" ")
+    expect(bodies).not.toContain("SECRET_BODY")
+  })
+
+  it("returns the note body from knowledge_get, bounded by maxBytes", async () => {
+    const res = (await call(client, responses, 1, "knowledge_get", {
+      workspace: root,
+      locator: "open.md",
+      maxBytes: 8,
+      deadlineMs: 2_000,
+    })) as { result?: { found: boolean; body?: string; bodyBytes: number } }
+    expect(res.result?.found).toBe(true)
+    expect(res.result?.bodyBytes).toBeLessThanOrEqual(8)
+    expect(typeof res.result?.body).toBe("string")
+  })
+
+  it("refuses knowledge_propose: the session token is read-only", async () => {
+    const res = (await call(client, responses, 1, "knowledge_propose", {
+      workspace: root,
+      intent: {},
+    })) as { error?: { code: number } }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+  })
+})

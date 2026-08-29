@@ -87,7 +87,7 @@ import { frontmatterDiff } from "../src/knowledge/admin/frontmatter-diff.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 import { cmdStatus, cmdSources, cmdSearch, openWorkspace } from "./knowledge/runtime.js"
 import { printUsage } from "./knowledge/usage.js"
-import { cmdMcpToken } from "./knowledge/commands-mcp.js"
+import { cmdMcp, cmdMcpToken } from "./knowledge/commands-mcp.js"
 // One flag parser for the whole CLI. The local copy ignored bare
 // `--flag` forms, so a switch like `--strict` was silently dropped.
 import { parseFlags } from "./knowledge/shared.js"
@@ -580,6 +580,8 @@ async function main(): Promise<number> {
       return cmdReachability(rest)
     case "mcp-token":
       return cmdMcpToken(rest)
+    case "mcp":
+      return cmdMcp(rest)
     case "classify":
       return cmdClassify(rest)
     case "verify":

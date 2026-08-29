@@ -177,7 +177,7 @@ explicitement de V1.
 ## R-0013 — Aucun chemin d'écriture, aucun daemon MCP
 
 **Sévérité** : moyenne (fonctionnelle, pas sécuritaire)
-**Statut** : OUVERT
+**Statut** : **CLOS** le 2026-08-30 (cartes C25 et C26)
 **Ouvert le** : 2026-08-30, après la contre-revue production-readiness
 
 Deux surfaces sont durcies mais non déployées :
@@ -194,3 +194,26 @@ Deux surfaces sont durcies mais non déployées :
 Les deux vont ensemble pour un usage réel : un serveur MCP sans écriture ne
 peut pas servir `knowledge_propose`, et un writer sans daemon n'est
 atteignable que depuis le processus qui le compose.
+
+**Clôture** :
+
+- **Écriture** — `VaultMutationWriter` écrit Class A pour de vrai : intent
+  validé, confinement par chemins réels partagé avec le lecteur, refus des
+  credentials, CAS sur le hash observé, WAL persistant avant que le fichier
+  ne devienne visible, écriture atomique. `delete` reste refusé
+  (ADR-KNOW-0009). Les écritures sont désactivées par défaut :
+  `composeKnowledgeService({ writable: true })`.
+- **Transport MCP** — `serveMcp()` sert les six capacités en JSON-RPC 2.0 sur
+  un transport injecté, en réutilisant `@unifia/mcp-transport` plutôt qu'une
+  seconde implémentation. `unifia knowledge mcp serve <workspace>` tient le
+  registre pour la durée du processus : un token émis au démarrage reste
+  valide, et une révocation prend effet immédiatement.
+
+Vérifié de bout en bout : `propose` → fichier sur disque → entrée WAL →
+retrouvé par `search` ; et une requête JSON-RPC sur stdin retourne les 11
+notes du vault réel.
+
+**Reste hors périmètre V1** : aucune persistance du registre de tokens entre
+deux daemons (un redémarrage invalide les tokens en cours), et `knowledge_propose`
+n'est pas accordé au token de session — l'écriture passe par la façade, pas
+par MCP.

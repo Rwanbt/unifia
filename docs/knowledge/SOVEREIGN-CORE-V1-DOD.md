@@ -278,7 +278,7 @@
 | E-01 typecheck et tests | **PASS** | `bun run typecheck && bun test test/knowledge` | 0 erreur ; 612 tests verts |
 | E-02 gates cargo | **PASS** | `cargo fmt --check && cargo clippy -- -D warnings && cargo test` | fmt propre, clippy 0 warning, 34 tests |
 | E-03 couverture des invariants | **PASS** | `bun test test/knowledge/regression` | 20 tests de caractérisation, écrits rouges puis passés au vert |
-| E-04 migration dry-run + rollback | **PARTIAL** | `bun test test/knowledge/hardening` | Plan et rollback calculés en mémoire ; aucune I/O réelle |
+| E-04 migration dry-run + rollback | **PARTIAL** | `bun test test/knowledge/hardening` | Plan et rollback calculés en mémoire ; aucune I/O réelle. Le WAL du writer (`mutation/writer.ts`) est en revanche persisté et rejouable |
 | E-05 doctor détecte les anomalies | **PASS** | `bun test test/knowledge/admin` | 6 checks réels ; `verify` distingue PASS/WARN/FAIL/NOT_EXECUTED |
 | E-06 NativeKnowledgePort borné | **PARTIAL** | `bun --cwd ../contracts test` | Les 4 bornes sont appliquées côté TS par le router. Aucun port Rust : `crates/.../port/` n'existe pas |
 | E-07 crash matrix et recovery | **PARTIAL** | `bun run bin/unifia-knowledge.ts drill` | 6/6 scénarios ; la recovery reste une simulation, `verify` la marque `NOT_EXECUTED` |
@@ -286,7 +286,13 @@
 | E-09 matrice de stockage Android | **NOT_EXECUTED** | `bun test test/knowledge/mobile` | Template livré ; exige un device |
 | E-10 SBOM et licences | **PARTIAL** | `bun test test/knowledge/hardening` | Squelette CycloneDX ; pas un scan supply-chain complet |
 
-**Décompte** : 10 PASS, 7 PARTIAL, 4 NOT_EXECUTED, 1 PASS conditionnel (E-01/E-02 sont des gates permanents).
+**Décompte** : 10 PASS, 7 PARTIAL, 4 NOT_EXECUTED (E-01/E-02 sont des gates permanents).
+
+> Mise à jour 2026-08-30 : U-11 (MCP) passe de « serveur non exposé » à un
+> daemon réel (`mcp serve`), et le chemin d'écriture Class A existe désormais
+> (`VaultMutationWriter`), ce qui clôt R-0013. Les statuts PARTIAL restants
+> tiennent aux frontières nommées : pas de runtime FTS5, pas de modèle ONNX,
+> pas de watcher OS, pas de device Android.
 
 Aucun item n'est `PASS` sur la foi d'un stub. Les `PARTIAL` et `NOT_EXECUTED`
 nomment ce qui manque et ce qu'il faudrait pour les lever.
