@@ -89,11 +89,3 @@ export function decideEgress(input: EgressInput): EgressResult {
 
   return { decision: "allow", reason: "no restriction" }
 }
-
-/** Apply egress policy to many items. */
-export function decideEgressBatch(
-  items: readonly ContextItem[],
-  plan: ProviderDestinationPlan,
-): EgressResult[] {
-  return items.map((item) => decideEgress({ item, plan }))
-}

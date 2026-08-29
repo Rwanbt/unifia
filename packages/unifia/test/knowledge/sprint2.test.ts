@@ -19,7 +19,6 @@ import {
   checkFtsAvailability,
   isCapabilityAllowed,
   runPrepushScan,
-  buildSyntheticRetrieval,
 } from "../../src/knowledge/spike/p0.js"
 
 const VALID_HASH = "0".repeat(64)
@@ -169,21 +168,5 @@ describe("P0 spikes", () => {
       contents: [{ locator: "a.md", commit: "c1", content: "AKIAIOSFODNN7EXAMPLE" }],
     })
     expect(r.ok).toBe(true)
-  })
-  it("buildSyntheticRetrieval returns a valid response", () => {
-    const r = buildSyntheticRetrieval(
-      {
-        query: "q",
-        spaces: ["personal"],
-        types: [],
-        tags: [],
-        maxCandidates: 1,
-        maxPayloadBytes: 1024,
-        maxSnippetBytes: 256,
-        deadlineMs: 1000,
-      },
-      { providerId: "x", defaultRestriction: "allow" },
-    )
-    expect(r.diagnostics.sourcesQueried).toEqual(["personal"])
   })
 })

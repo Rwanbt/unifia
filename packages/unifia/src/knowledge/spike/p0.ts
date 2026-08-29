@@ -1,17 +1,20 @@
 /* SPDX-License-Identifier: MIT */
 /**
  * P0 spikes: bounded native call, atomic write, sandbox containment,
- * SQLite/FTS availability, Git pre-push scan. V1 implements pure
- * stand-ins; the runtime hooks are in `NativeKnowledgePort` (P2.1).
+ * SQLite/FTS availability, Git pre-push scan.
+ *
+ * These are exploratory primitives with no production consumer — nothing
+ * outside this module's tests imports them. They stay because each encodes a
+ * real measurement or matrix worth keeping; they are not a runtime.
+ *
+ * `buildSyntheticRetrieval` used to live here: it fabricated a candidate with
+ * `trust: "verified"` and `restriction: "allow"` hardcoded, then returned
+ * `decision === "allow" ? [] : []` — two identical branches, so the egress
+ * decision it computed changed nothing. Real retrieval is `ContextRouter`
+ * over `VaultSource`; a synthetic stand-in beside it is a trap, so it is
+ * deleted rather than kept as a second answer to the same question.
  */
 
-import { decideEgress } from "../policy/egress.js"
-import type {
-  ContextItem,
-  ProviderDestinationPlan,
-  RetrievalRequest,
-  RetrievalResponse,
-} from "@unifia/contracts/knowledge"
 
 // --- P0.2 NativeKnowledgePort bounds ---
 
@@ -177,35 +180,3 @@ export function runPrepushScan(cfg: PrepushScanConfig): {
 }
 
 // --- P0.5a a Retrieval round-trip ---
-
-export function buildSyntheticRetrieval(
-  req: RetrievalRequest,
-  plan: ProviderDestinationPlan,
-): RetrievalResponse {
-  const item: ContextItem = {
-    ref: { id: "0190d2c0-7b00-7000-8000-000000000001", locator: "memory/x.md" },
-    source: "personal",
-    type: "decision",
-    trust: "verified",
-    authority: "user",
-    restriction: "allow",
-    relevance: 0.9,
-    tokenCost: 4,
-    contentHash: "0".repeat(64),
-    snippet: "synthetic",
-    reason: "synthetic",
-  }
-  const decision = decideEgress({ item, plan })
-  return {
-    candidates: decision.decision === "allow" ? [] : [], // refusal at egress level keeps pack empty
-    payloadBytes: 0,
-    truncated: false,
-    diagnostics: {
-      sourcesQueried: req.spaces,
-      candidatesScanned: 0,
-      candidatesDroppedByRestriction: 0,
-      durationMs: 0,
-      indexVersion: "v1",
-    },
-  }
-}

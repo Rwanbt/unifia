@@ -130,9 +130,10 @@ export class ContextRouter {
         )
       } catch (e) {
         if (e instanceof DeadlineExceeded) {
+          // Directly inside the source loop, so a plain break leaves it.
           truncated = true
           excluded.push({ locator: `space:${source.space.kind}`, reason: e.message })
-          break outer
+          break
         }
         excluded.push({
           locator: `space:${source.space.kind}`,
