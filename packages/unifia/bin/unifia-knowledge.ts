@@ -43,6 +43,7 @@ import {
 import { scanReachability } from "../src/knowledge/classb/reachability.js"
 import { McpTokenRegistry } from "../src/knowledge/mcp/token.js"
 import { classifyCorpus } from "../src/knowledge/admin/corpus-classify.js"
+import { runVerify } from "../src/knowledge/hardening/verify.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -71,6 +72,7 @@ function printUsage(): void {
       "  unifia knowledge mcp-token revoke <token-id>",
       "  unifia knowledge mcp-token check <token-id>",
       "  unifia knowledge classify <workspace>",
+      "  unifia knowledge verify <workspace> [--derived=PATH]",
       "",
     ].join("\n"),
   )
@@ -465,6 +467,38 @@ async function cmdClassify(rest: readonly string[]): Promise<number> {
   }
 }
 
+async function cmdVerify(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("verify: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const derived = flags.get("derived") ?? join_(ws, "derived.db")
+  const r = await runVerify({
+    vaultRoot: ws,
+    derivedDbPath: derived,
+    internetOff: !flags.has("online"),
+    cloudOff: !flags.has("cloud"),
+    deviceIsolated: !flags.has("device"),
+    classCPresent: !flags.has("no-class-c"),
+    classDPresent: !flags.has("no-class-d"),
+    unifiaBinaryPresent: !flags.has("no-unifia"),
+  })
+  process.stdout.write(`vault:  ${r.vaultRoot}\n\n`)
+  for (const c of r.checks) {
+    process.stdout.write(`  ${c.ok ? "PASS" : "FAIL"}  ${c.name.padEnd(20)}  ${c.details}  (${c.durationMs}ms)\n`)
+  }
+  process.stdout.write(`\nverdict: ${r.ok ? "OK" : "FAIL"}  (total ${r.totalMs}ms)\n`)
+  return r.ok ? 0 : 1
+}
+
+// Tiny helper for joining paths without importing node:path
+// at the top of this file (kept in one place for clarity).
+function join_(...parts: string[]): string {
+  return parts.join("/").replace(/[\\/]+/g, "/")
+}
+
 async function cmdMcpToken(rest: readonly string[]): Promise<number> {
   const sub = rest[0]
   // The token registry is process-local. In V1 it is recreated
@@ -571,6 +605,8 @@ async function main(): Promise<number> {
       return cmdMcpToken(rest)
     case "classify":
       return cmdClassify(rest)
+    case "verify":
+      return cmdVerify(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
