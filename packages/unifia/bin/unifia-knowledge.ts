@@ -78,6 +78,7 @@ import { buildTimeline, formatTimeline } from "../src/knowledge/admin/timeline.j
 import { tagCooccurrence } from "../src/knowledge/admin/tag-cooccurrence.js"
 import { classifySupersede } from "../src/knowledge/admin/supersede-classify.js"
 import { noteDiff } from "../src/knowledge/admin/note-diff.js"
+import { buildTransitionMatrix, formatTransitionMatrix } from "../src/knowledge/admin/lifecycle-transitions.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -147,6 +148,7 @@ function printUsage(): void {
       "  unifia knowledge tag-cooccurrence <workspace> [--min-count=N] [--limit=N]",
       "  unifia knowledge supersede-classify <workspace>",
       "  unifia knowledge note-diff <workspace> --target-a=<loc>|--target-id-a=<uuid> --target-b=<loc>|--target-id-b=<uuid>",
+      "  unifia knowledge lifecycle-transitions",
       "",
     ].join("\n"),
   )
@@ -1188,6 +1190,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdSupersedeClassify(rest)
     case "note-diff":
       return cmdNoteDiff(rest)
+    case "lifecycle-transitions":
+      return cmdLifecycleTransitions(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1847,6 +1851,20 @@ async function cmdNoteDiff(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`note-diff error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdLifecycleTransitions(_rest: readonly string[]): Promise<number> {
+  try {
+    const m = buildTransitionMatrix()
+    process.stdout.write("V1 lifecycle transition matrix (per ADR-KNOW-0009):\n\n")
+    process.stdout.write(formatTransitionMatrix(m) + "\n")
+    process.stdout.write("\nLegend: OK = transition allowed, - = transition refused\n")
+    return 0
+  } catch (e) {
+    process.stderr.write(`lifecycle-transitions error: ${(e as Error).message}\n`)
     return 1
   }
 }
