@@ -79,6 +79,11 @@ import { tagCooccurrence } from "../src/knowledge/admin/tag-cooccurrence.js"
 import { classifySupersede } from "../src/knowledge/admin/supersede-classify.js"
 import { noteDiff } from "../src/knowledge/admin/note-diff.js"
 import { buildTransitionMatrix, formatTransitionMatrix } from "../src/knowledge/admin/lifecycle-transitions.js"
+import { noteStats } from "../src/knowledge/admin/note-stats.js"
+import { sizeDistribution } from "../src/knowledge/admin/size-distribution.js"
+import { weekdayDistribution } from "../src/knowledge/admin/weekday-distribution.js"
+import { edgeDensity } from "../src/knowledge/admin/edge-density.js"
+import { frontmatterDiff } from "../src/knowledge/admin/frontmatter-diff.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -149,6 +154,11 @@ function printUsage(): void {
       "  unifia knowledge supersede-classify <workspace>",
       "  unifia knowledge note-diff <workspace> --target-a=<loc>|--target-id-a=<uuid> --target-b=<loc>|--target-id-b=<uuid>",
       "  unifia knowledge lifecycle-transitions",
+      "  unifia knowledge note-stats <workspace> <locator>|--id=<uuid>",
+      "  unifia knowledge size-distribution <workspace>",
+      "  unifia knowledge weekday-distribution <workspace>",
+      "  unifia knowledge edge-density <workspace>",
+      "  unifia knowledge frontmatter-diff <workspace> --target-a=<loc>|--id-a=<uuid> --target-b=<loc>|--id-b=<uuid>",
       "",
     ].join("\n"),
   )
@@ -1192,6 +1202,16 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdNoteDiff(rest)
     case "lifecycle-transitions":
       return cmdLifecycleTransitions(rest)
+    case "note-stats":
+      return cmdNoteStats(rest)
+    case "size-distribution":
+      return cmdSizeDistribution(rest)
+    case "weekday-distribution":
+      return cmdWeekdayDistribution(rest)
+    case "edge-density":
+      return cmdEdgeDensity(rest)
+    case "frontmatter-diff":
+      return cmdFrontmatterDiff(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1865,6 +1885,157 @@ async function cmdLifecycleTransitions(_rest: readonly string[]): Promise<number
     return 0
   } catch (e) {
     process.stderr.write(`lifecycle-transitions error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function cmdNoteStats(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("note-stats: usage: note-stats <workspace> <locator>|--id=<uuid>\n")
+    return 2
+  }
+  const idFlag = rest.find((a) => a.startsWith("--id="))
+  const id = idFlag ? idFlag.slice("--id=".length) : undefined
+  const locator = idFlag ? undefined : rest[1]
+  if (!id && !locator) {
+    process.stderr.write("note-stats: usage: note-stats <workspace> <locator>|--id=<uuid>\n")
+    return 2
+  }
+  try {
+    const r = noteStats({ vaultRoot: ws, locator, id })
+    process.stdout.write(`locator:          ${r.locator}\n`)
+    process.stdout.write(`id:               ${r.id ?? "-"}\n`)
+    process.stdout.write(`type:             ${r.type}\n`)
+    process.stdout.write(`lifecycle:        ${r.lifecycle}\n`)
+    process.stdout.write(`project_ref:      ${r.projectRef ?? "-"}\n`)
+    process.stdout.write(`updated_at:       ${r.updatedAt ?? "-"}\n`)
+    process.stdout.write(`body:             ${r.bodyChars} chars / ${r.bodyLines} lines / ${r.bytes} bytes\n`)
+    process.stdout.write(`frontmatter:      ${r.frontmatterFieldCount} fields (${r.frontmatterFieldNames.join(", ")})\n`)
+    process.stdout.write(`headings:         ${r.headingCount} (max depth ${r.maxHeadingDepth})\n`)
+    process.stdout.write(`wikilinks:        ${r.wikilinkOutCount} out / ${r.wikilinkInCount} in\n`)
+    process.stdout.write(`tags:             ${r.tagCount} (${r.distinctTagCount} distinct)\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`note-stats error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function cmdSizeDistribution(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("size-distribution: usage: size-distribution <workspace>\n")
+    return 2
+  }
+  try {
+    const r = sizeDistribution({ vaultRoot: ws })
+    process.stdout.write(`vault:        ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:      ${r.scanned}\n`)
+    process.stdout.write(`total:        ${r.totalBytes} bytes\n`)
+    process.stdout.write(`mean:         ${r.meanBytes} bytes\n`)
+    process.stdout.write(`median:       ${r.medianBytes} bytes\n`)
+    process.stdout.write(`min/max:      ${r.minBytes} / ${r.maxBytes}\n\n`)
+    process.stdout.write("distribution:\n")
+    for (const [label, count] of Object.entries(r.bins)) {
+      const bar = "#".repeat(count)
+      process.stdout.write(`  ${label.padEnd(12)} ${String(count).padStart(4)} ${bar}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`size-distribution error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function cmdWeekdayDistribution(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("weekday-distribution: usage: weekday-distribution <workspace>\n")
+    return 2
+  }
+  try {
+    const r = weekdayDistribution({ vaultRoot: ws })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`total:    ${r.total}\n\n`)
+    process.stdout.write("by weekday (UTC, Mon=0 .. Sun=6):\n")
+    for (const [label, count] of Object.entries(r.byWeekday)) {
+      const bar = "#".repeat(count)
+      process.stdout.write(`  ${label.padEnd(4)} ${String(count).padStart(4)} ${bar}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`weekday-distribution error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function cmdEdgeDensity(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("edge-density: usage: edge-density <workspace>\n")
+    return 2
+  }
+  try {
+    const r = edgeDensity({ vaultRoot: ws })
+    process.stdout.write(`vault:        ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:      ${r.scanned}\n`)
+    process.stdout.write(`mean degree:  ${r.meanDegree}\n`)
+    process.stdout.write(`max degree:   ${r.maxDegree}\n`)
+    process.stdout.write(`isolated:     ${r.isolatedCount}\n\n`)
+    process.stdout.write("degree histogram (in + out):\n")
+    for (const [label, count] of Object.entries(r.buckets)) {
+      const bar = "#".repeat(count)
+      process.stdout.write(`  ${label.padEnd(6)} ${String(count).padStart(4)} ${bar}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`edge-density error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function cmdFrontmatterDiff(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write(
+      "frontmatter-diff: usage: frontmatter-diff <workspace> --target-a=<loc>|--id-a=<uuid> --target-b=<loc>|--id-b=<uuid>\n",
+    )
+    return 2
+  }
+  const targetA = rest.find((a) => a.startsWith("--target-a="))?.slice("--target-a=".length)
+  const idA = rest.find((a) => a.startsWith("--id-a="))?.slice("--id-a=".length)
+  const targetB = rest.find((a) => a.startsWith("--target-b="))?.slice("--target-b=".length)
+  const idB = rest.find((a) => a.startsWith("--id-b="))?.slice("--id-b=".length)
+  if (!targetA && !idA) {
+    process.stderr.write("frontmatter-diff: missing --target-a or --id-a\n")
+    return 2
+  }
+  if (!targetB && !idB) {
+    process.stderr.write("frontmatter-diff: missing --target-b or --id-b\n")
+    return 2
+  }
+  try {
+    const r = frontmatterDiff({
+      vaultRoot: ws,
+      targetA,
+      idA,
+      targetB,
+      idB,
+    })
+    process.stdout.write(`A: ${r.aLocator}\n`)
+    process.stdout.write(`B: ${r.bLocator}\n\n`)
+    process.stdout.write(`added (in B only):     ${r.added.length === 0 ? "(none)" : r.added.join(", ")}\n`)
+    process.stdout.write(`removed (in A only):   ${r.removed.length === 0 ? "(none)" : r.removed.join(", ")}\n`)
+    process.stdout.write(`changed:               ${r.changed.length}\n`)
+    for (const c of r.changed) {
+      process.stdout.write(`  ${c.key}: ${JSON.stringify(c.a)} -> ${JSON.stringify(c.b)}\n`)
+    }
+    process.stdout.write(`unchanged:             ${r.unchanged.length === 0 ? "(none)" : r.unchanged.join(", ")}\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`frontmatter-diff error: ${(e as Error).message}\n`)
     return 1
   }
 }
