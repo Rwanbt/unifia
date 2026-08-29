@@ -94,10 +94,27 @@
 - **ID** : 0010
 - **Phase** : 0
 - **Date** : 2026-08-29
-- **Statut** : _à remplir_
-- **Cible** : `docs/knowledge/execution/BASELINE.md` (déjà créé carte 0000),
-  cartographie par `git ls-files` + inventaire des modules centraux.
-- **Action** : (suite, prochaine session possible)
+- **Statut** : `PASS`
+- **Cible** : `docs/knowledge/execution/MODULE-MAP.md`
+- **Périmètre cartographié** : Project, Session, storage, tools,
+  filesystem, Git, MCP, providers/fallback, event bus, Work, Design,
+  Tauri desktop, Tauri mobile, ONNX/llama, ai-native-dev-stack,
+  memory-governance/runtime, contracts. 17 composants.
+- **Statut dominant** :
+  - REUSE : Project (partiel), Session (partiel), storage, providers,
+    event bus, Tauri desktop, Tauri mobile, ai-native-dev-stack (8).
+  - ADAPT : Project (côté knowledge ref), Session (branchement),
+    tools (DataClassification), filesystem (ResolvedKnowledgePath),
+    git (KnowledgeGitProvider wrap), MCP (capabilities knowledge),
+    Work (adaptateur), Design (adaptateur), ONNX/llama
+    (EmbeddingProvider), memory-governance/runtime (mapping
+    candidat), contracts (ajout knowledge/) (10).
+  - REPLACE : aucun.
+  - DEPRECATE : aucun.
+- **Preuve** : `docs/knowledge/execution/MODULE-MAP.md` (~15 kB).
+  Aucun composant n'est marqué REPLACE, validant la North Star
+  Rule "sans dette technique volontaire".
+- **Carte suivante** : 0017 — P0.8 (ADR + estimation).
 
 ---
 
@@ -160,5 +177,63 @@
 - **ID** : 0017
 - **Phase** : 0
 - **Date** : 2026-08-29
-- **Statut** : _à remplir_
-- **Cible** : 9 ADR à `docs/knowledge/adr/0001..0009-knowledge-*.md`.
+- **Statut** : `PASS`
+- **Cible** : 9 ADR + estimation.
+- **ADR livrés** (tous ACCEPTED) :
+  1. `0001-knowledge-identity.md` — UUIDv7, locator, version hash.
+  2. `0002-knowledge-canonical.md` — Markdown + YAML frontmatter.
+  3. `0003-knowledge-class-b.md` — Portable metadata copy-on-write.
+  4. `0004-knowledge-class-c.md` — Local control state, jamais Git/vault.
+  5. `0005-knowledge-class-d.md` — Derived state, reconstructible.
+  6. `0006-knowledge-egress.md` — Default deny, UNCLASSIFIED = DENY EXTERNAL.
+  7. `0007-knowledge-native-port.md` — TS/Rust split, toutes requêtes bornées.
+  8. `0008-knowledge-search.md` — FTS5 d'abord, vector ensuite, ANN différé.
+  9. `0009-knowledge-lifecycle.md` — candidate/active/superseded/archived.
+- **Aucun champ "TBD"**. Chaque ADR suit le format Contexte /
+  Décision / Alternatives rejetées / Conséquences / Validation.
+- **Estimation** : `docs/knowledge/execution/ESTIMATION.md`.
+  - Total phases 1-11 hors environnement : ~50.75 JH.
+  - Avec multiplicateurs Android et aléas : ~60-70 JH.
+- **Cohérence avec les ADR pré-existants** : KNOW-0001 à 0009
+  référencent et respectent ADR 1026 (ExportProjection boundary),
+  1027 (local install secret), 1028 (local auth ownership),
+  1029 (queue ordering), 1030 (migration rollback), 1031
+  (legacy telemetry), 1032 (phase 3 content optin). Aucun
+  conflit.
+- **Carte suivante** : checkpoint Phase 0 ; Phase 1.1 dans une
+  session ultérieure.
+
+---
+
+## Checkpoint Phase 0 — Récapitulatif
+
+**Date** : 2026-08-29.
+
+**Cartes livrées** :
+
+- 0000 — Préflight + état durable.
+- 0001 — P-1.1 corpus de cas réels (10 cas, PC-01..PC-10).
+- 0002 — P-1.2 golden dataset (11 dev + 11 holdout, isolation
+  vérifiée par `check-isolation.ts`).
+- 0003 — P-1.3 DoD (12 user-level + 10 engineering-level).
+- 0010 — P0.1 cartographie (17 composants, statut REUSE/ADAPT).
+- 0017 — P0.8 ADRs (9 ADR Knowledge) + estimation (~50-70 JH).
+
+**Cartes Phase 0 non exécutées dans cette session** :
+
+- 0011 — P0.2 Spike NativeKnowledgePort.
+- 0012 — P0.3 Spike filesystem.
+- 0013 — P0.4 Spike sandbox.
+- 0014 — P0.5 Spike SQLite/FTS.
+- 0015 — P0.6 Spike embeddings Android.
+- 0016 — P0.7 Spike Git.
+
+Ces cartes requièrent soit un device Android, soit des builds
+Rust sur la machine (cargo + mémoire), soit des opérations de
+filesystem concurrente, et sont mieux exécutées dans des
+sessions consacrées avec isolation des ressources.
+
+**Commit** : voir `git log -3 --oneline` après la prochaine étape.
+
+**Reprise** : prochaine session ouvre `docs/knowledge/execution/STATE.md`,
+lit le dernier checkpoint, et reprend à la première carte non PASS.
