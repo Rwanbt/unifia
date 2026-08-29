@@ -62,6 +62,7 @@ import { showNote } from "../src/knowledge/admin/show.js"
 import { allTags } from "../src/knowledge/admin/tags.js"
 import { allProjects } from "../src/knowledge/admin/projects.js"
 import { planSupersede } from "../src/knowledge/admin/supersede.js"
+import { listByLifecycle } from "../src/knowledge/admin/by-lifecycle.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -112,6 +113,7 @@ function printUsage(): void {
       "  unifia knowledge tags <workspace>",
       "  unifia knowledge projects <workspace>",
       "  unifia knowledge supersede <workspace> --target=<locator> --source=<s> --reason=<r> [--successor=<loc>]",
+      "  unifia knowledge by-lifecycle <workspace> <lifecycle> [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -1112,6 +1114,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdProjects(rest)
     case "supersede":
       return cmdSupersede(rest)
+    case "by-lifecycle":
+      return cmdByLifecycle(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1247,6 +1251,32 @@ async function cmdSupersede(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`supersede error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdByLifecycle(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  const lc = rest[1]
+  if (!ws || !lc) {
+    process.stderr.write("by-lifecycle: usage: by-lifecycle <workspace> <candidate|active|superseded|archived> [--limit=N]\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(2))
+  const limit = flags.get("limit") !== undefined ? Number(flags.get("limit")) : undefined
+  try {
+    const r = listByLifecycle({ vaultRoot: ws, lifecycle: lc as never, ...(limit !== undefined ? { limit } : {}) })
+    process.stdout.write(`vault:    ${r.vaultRoot}` + "\n")
+    process.stdout.write(`lifecycle: ${r.lifecycle}` + "\n")
+    process.stdout.write(`scanned:  ${r.scanned}` + "\n")
+    process.stdout.write(`hits:     ${r.hits.length}` + "\n")
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.locator.padEnd(28)} ${h.type}  ${h.updatedAt}` + "\n")
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`by-lifecycle error: ${(e as Error).message}\n`)
     return 1
   }
 }
