@@ -66,6 +66,7 @@ import { listByLifecycle } from "../src/knowledge/admin/by-lifecycle.js"
 import { listByProject } from "../src/knowledge/admin/by-project.js"
 import { findOrphans } from "../src/knowledge/admin/orphans.js"
 import { lifecycleDistribution } from "../src/knowledge/admin/lifecycle-distribution.js"
+import { findStale } from "../src/knowledge/admin/stale.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -123,6 +124,7 @@ function printUsage(): void {
       "  unifia knowledge by-project <workspace> <project_ref> [--limit=N]",
       "  unifia knowledge orphans <workspace> [--max-links=N] [--limit=N]",
       "  unifia knowledge lifecycle-distribution <workspace>",
+      "  unifia knowledge stale <workspace> [--threshold-days=N] [--only-active] [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -1131,6 +1133,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdOrphans(rest)
     case "lifecycle-distribution":
       return cmdLifecycleDistribution(rest)
+    case "stale":
+      return cmdStale(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1397,6 +1401,39 @@ async function cmdLifecycleDistribution(rest: readonly string[]): Promise<number
     return 0
   } catch (e) {
     process.stderr.write(`lifecycle-distribution error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdStale(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("stale: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const threshold = flags.get("threshold-days") !== undefined ? Number(flags.get("threshold-days")) : undefined
+  const limit = flags.get("limit") !== undefined ? Number(flags.get("limit")) : undefined
+  const onlyActive = flags.has("only-active")
+  try {
+    const r = findStale({
+      vaultRoot: ws,
+      ...(threshold !== undefined ? { thresholdDays: threshold } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      onlyActive,
+    })
+    process.stdout.write(`vault:           ${r.vaultRoot}\n`)
+    process.stdout.write(`threshold:       ${r.thresholdDays} days\n`)
+    process.stdout.write(`reference-date:  ${r.referenceDate}\n`)
+    process.stdout.write(`scanned:         ${r.scanned}\n`)
+    process.stdout.write(`stale:           ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.locator.padEnd(28)} age=${String(h.ageDays).padStart(4)}d  ${h.lifecycle}  ${h.updatedAt}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`stale error: ${(e as Error).message}\n`)
     return 1
   }
 }
