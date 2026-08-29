@@ -34,6 +34,12 @@ import { planRecovery, simulateRecovery } from "../src/knowledge/hardening/disas
 import { runSovereigntyProbes } from "../src/knowledge/hardening/sovereignty-runner.js"
 import { dryRunMigration, planRollback, MIGRATION_V1_TO_V2 } from "../src/knowledge/hardening/migration.js"
 import { scanStaged, installPrecommitHook } from "../src/knowledge/git/precommit.js"
+import {
+  readPortableStore,
+  upsertPortableEntry,
+  removePortableEntry,
+  listPortableEntries,
+} from "../src/knowledge/classb/portable-store.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -53,6 +59,10 @@ function printUsage(): void {
       "  unifia knowledge migrate [--dry-run] [--rollback]",
       "  unifia knowledge precommit install <workspace>",
       "  unifia knowledge precommit scan <staged-file>...",
+      "  unifia knowledge portable <workspace> list",
+      "  unifia knowledge portable <workspace> upsert <alias> <locator> [<external>]",
+      "  unifia knowledge portable <workspace> remove <alias>",
+      "  unifia knowledge portable <workspace> show",
       "",
     ].join("\n"),
   )
@@ -337,6 +347,61 @@ async function cmdPrecommit(rest: readonly string[]): Promise<number> {
   return 2
 }
 
+async function cmdPortable(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("portable: missing workspace path\n")
+    return 2
+  }
+  const sub = rest[1]
+  try {
+    switch (sub) {
+      case "list":
+      case "show": {
+        const entries = listPortableEntries(ws)
+        if (entries.length === 0) {
+          process.stdout.write("(empty portable store)\n")
+          return 0
+        }
+        for (const e of entries) {
+          process.stdout.write(
+            `- ${e.alias}  locator=${e.locator}  revision=${e.revision}${e.externalSource ? `  external=${e.externalSource}` : ""}\n`,
+          )
+        }
+        return 0
+      }
+      case "upsert": {
+        const alias = rest[2]
+        const locator = rest[3]
+        const external = rest[4]
+        if (!alias || !locator) {
+          process.stderr.write("portable upsert: missing alias or locator\n")
+          return 2
+        }
+        const s = upsertPortableEntry(ws, alias, locator, external)
+        process.stdout.write(`upserted ${alias} -> ${locator} (revision=${s.entries[alias]?.revision})\n`)
+        return 0
+      }
+      case "remove": {
+        const alias = rest[2]
+        if (!alias) {
+          process.stderr.write("portable remove: missing alias\n")
+          return 2
+        }
+        removePortableEntry(ws, alias)
+        process.stdout.write(`removed ${alias}\n`)
+        return 0
+      }
+      default:
+        process.stderr.write(`portable: unknown subcommand: ${sub ?? "(missing)"}\n`)
+        return 2
+    }
+  } catch (e) {
+    process.stderr.write(`portable error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function main(): Promise<number> {
   const argv = process.argv.slice(2)
   const { cmd, rest } = parseArgs(argv)
@@ -367,6 +432,8 @@ async function main(): Promise<number> {
       return cmdMigrate(rest)
     case "precommit":
       return cmdPrecommit(rest)
+    case "portable":
+      return cmdPortable(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
