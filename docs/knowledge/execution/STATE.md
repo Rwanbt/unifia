@@ -1672,3 +1672,54 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-graph`, `duplicates`, `timeline`, `tag-cooccurrence`).
 **Subcommandes CLI** : 47 (etait 20 en V3, +27 admin = x2.35).
 **Cartes durcissement** : 43 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-48).
+
+
+---
+
+## Carte 0217 - P11.49 : Supersede-classify CLI (role partitioning)
+
+- **ID** : 0217
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/supersede-classify.ts` +
+  `packages/unifia/test/knowledge/admin/supersede-classify.test.ts` (7 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdSupersedeClassify).
+- **`classifySupersede({ vaultRoot })`** : walk le vault (2 passes :
+  lecture directe, puis reverse-map des successeurs), classifie
+  chaque note en `isolated | root | leaf | chain` selon ses
+  predecesseurs (unifia_supersedes) et successeurs (notes qui
+  pointent vers elle).
+- **CLI** : `unifia knowledge supersede-classify <ws>`.
+- **Live run** : 9 isolated, 1 root (decision-thinking-budget.md),
+  1 leaf (superseded-old-budget.md), 0 chain. Confirme que la
+  majorite du corpus est feuilles/isolated avec 1 root actif
+  et 1 leaf superseded.
+- **Complement de supersede-graph** : supersede-graph = la DAG,
+  supersede-classify = la partition par role.
+- **Cas d'usage** : identifier les candidats a l'archive (leaves)
+  et les notes "canoniques" (roots).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V20 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 94.
+
+**Tests** : 475 TS knowledge + 79 contracts + 34 Rust = **588 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `b2cfe31a5d feat(knowledge): P11.49 supersede-classify CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 18 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`, `duplicates`, `timeline`, `tag-cooccurrence`,
+`supersede-classify`).
+**Subcommandes CLI** : 48 (etait 20 en V3, +28 admin = x2.40).
+**Cartes durcissement** : 44 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-49).

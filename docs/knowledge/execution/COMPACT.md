@@ -5,9 +5,9 @@
 > Voir `FINAL-REPORT.md` pour le détail et `STATE.md` pour
 > l'append-only historique.
 
-## One-liner
+## One-liner**
 
-91 commits locaux, 468 TS knowledge + 79 contracts + 34 Rust = 581 verts
+93 commits locaux, 475 TS knowledge + 79 contracts + 34 Rust = 588 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 **Demi-millénaire franchi**.
@@ -15,7 +15,7 @@
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `98e0879f15 feat(knowledge): P11.48 tag-cooccurrence CLI (pairs of co-occurring tags)`
+- HEAD : `b2cfe31a5d feat(knowledge): P11.49 supersede-classify CLI (role partitioning of the corpus)`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
@@ -90,6 +90,7 @@ unifia knowledge supersede-graph <ws>
 unifia knowledge duplicates <ws>
 unifia knowledge timeline <ws> [--window-days=N] [--max-per-day=N]
 unifia knowledge tag-cooccurrence <ws> [--min-count=N] [--limit=N]
+unifia knowledge supersede-classify <ws>
 ```
 
 ## Test live
