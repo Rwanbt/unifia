@@ -7,7 +7,7 @@
 
 ## One-liner
 
-74 commits locaux, 403 TS knowledge + 79 contracts + 34 Rust = 516 verts
+76 commits locaux, 412 TS knowledge + 79 contracts + 34 Rust = 525 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 **Demi-millénaire franchi**.
@@ -15,7 +15,7 @@
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `23b64e5aab feat(knowledge): P11.40 references CLI (outbound wikilinks of a note)`
+- HEAD : `9dfaefec03 feat(knowledge): P11.41 vault fingerprint CLI (deterministic SHA-256 manifest)`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
@@ -82,6 +82,7 @@ unifia knowledge orphans <ws> [--max-links=N] [--limit=N]
 unifia knowledge lifecycle-distribution <ws>
 unifia knowledge stale <ws> [--threshold-days=N] [--only-active] [--limit=N]
 unifia knowledge references <ws> --target=<locator>|--target-id=<uuid>
+unifia knowledge fingerprint <ws> [--verbose]
 ```
 
 ## Test live

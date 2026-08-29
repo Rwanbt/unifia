@@ -1316,3 +1316,47 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `orphans`, `lifecycle-distribution`, `stale`, `references`).
 **Subcommandes CLI** : 39 (etait 20 en V3, +19 admin).
 **Cartes durcissement** : 35 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-40).
+
+
+---
+
+## Carte 0209 - P11.41 : Vault fingerprint CLI
+
+- **ID** : 0209
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/fingerprint.ts` +
+  `packages/unifia/test/knowledge/admin/fingerprint.test.ts` (9 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdFingerprint, hasFlag helper).
+- **`vaultFingerprint({ vaultRoot, skipMissing? })`** : walk
+  le vault, hash chaque fichier en SHA-256, concatene les
+  hashes tries par locator, hash la concatenation. Retourne
+  `{ vaultRoot, fingerprint, fileCount, perFile, totalMs }`.
+- **CLI** : `unifia knowledge fingerprint <ws> [--verbose]`.
+- **Lecon** : `parseFlags` ne gere que `--key=value`, pas les
+  flag-only (`--verbose`). Ajout d'un helper `hasFlag` pour
+  ce cas.
+- **Live run** : 12 fichiers, fingerprint = `13e4cdc0d4...0c8b`.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V12 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 77.
+
+**Tests** : 412 TS knowledge + 79 contracts + 34 Rust = **525 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `9dfaefec03 feat(knowledge): P11.41 vault fingerprint CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 10 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`).
+**Subcommandes CLI** : 40 (etait 20 en V3, +20 admin = doublement).
+**Cartes durcissement** : 36 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-41).
