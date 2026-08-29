@@ -48,6 +48,7 @@ import { readPolicy, patchPolicy, type KnowledgePolicy } from "../src/knowledge/
 import { recommendGc, applyGcRecommendation } from "../src/knowledge/classb/gc.js"
 import { simulateSimilarity } from "../src/knowledge/semantic/simulate.js"
 import { summarise as summariseWorkspace, formatSummaryOneLine } from "../src/knowledge/admin/summary.js"
+import { runDrill, stubFsWithClassA } from "../src/knowledge/hardening/drill.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -84,6 +85,7 @@ function printUsage(): void {
       "  unifia knowledge gc <workspace> apply",
       "  unifia knowledge similarity <workspace> [--topk=N]",
       "  unifia knowledge summary <workspace> [--one-line]",
+      "  unifia knowledge drill",
       "",
     ].join("\n"),
   )
@@ -805,8 +807,25 @@ async function cmdSummary(rest: readonly string[]): Promise<number> {
 }
     case "similarity":
       return cmdSimilarity(rest)
+
+
+async function cmdDrill(): Promise<number> {
+  try {
+    const r = runDrill({ fs: stubFsWithClassA() })
+    process.stdout.write(`drill: ${r.passed}/${r.total} scenarios OK (${r.durationMs}ms)\n`)
+    for (const s of r.scenarios) {
+      process.stdout.write(`  ${s.ok ? "PASS" : "FAIL"}  ${s.point.padEnd(34)}  ${s.invariant}\n`)
+    }
+    return r.failed === 0 ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`drill error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "summary":
       return cmdSummary(rest)
+    case "drill":
+      return cmdDrill()
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
