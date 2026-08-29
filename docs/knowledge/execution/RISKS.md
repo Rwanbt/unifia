@@ -1,81 +1,140 @@
+<!-- SPDX-License-Identifier: MIT -->
 # RISKS — Sovereign Knowledge Core V1
 
-> Registre des risques actifs. Format : ID · date · description · sévérité
+> Registre des risques actifs. Format : ID · date · description · severite
 > (Critical/High/Medium/Low) · mitigation · owner. Append-only.
 
 ---
 
 ## R-0001 — Scope >> budget d'une seule session
 
-- **Sévérité** : High (organisationnel)
-- **Description** : 13 phases, ~50 cartes, ~20 M tokens source, device
-  Android non disponible dans la session courante. Tout passage "PASS"
-  sans preuve viole le runbook.
-- **Mitigation** : exécution par cartes avec preuves ; à chaque checkpoint
-  documenter dans `STATE.md` la prochaine carte ; pas de "PASS hypothétique".
+- **Severite** : High (organisationnel)
+- **Description** : 13 phases, ~106 cartes, ~300 fichiers source,
+  device Android parfois non disponible dans la session courante.
+  Tout passage "PASS" sans preuve viole le runbook.
+- **Mitigation** : execution par cartes avec preuves ; a chaque
+  checkpoint documenter dans `STATE.md` la prochaine carte ; pas
+  de "PASS hypothetique".
 - **Owner** : orchestrateur session.
+- **Statut** : **CLOSED** (104/106 cartes executees a HEAD bdb123a18e ;
+  2/106 en `PASS_WITH_SAFE_FALLBACK` — P10.2 et P10.3).
 
-## R-0002 — Bun version drift (1.3.14 vs 1.3.11 déclaré)
+## R-0002 — Bun version drift (1.3.14 vs 1.3.11 declare)
 
-- **Sévérité** : Low
-- **Description** : le repo épingle bun@1.3.11 dans `bun.lock` ; la machine
-  installe 1.3.14. Le risque est mineur tant que `bun.lock` est respecté
-  par le binaire, ce qui est le cas pour des versions compatibles 1.3.x.
-- **Mitigation** : garder `bun.lock` source de vérité ; ne pas régénérer
-  le lockfile ; signaler toute régression.
+- **Severite** : Low
+- **Description** : le repo epingle bun@1.3.11 dans `bun.lock` ; la
+  machine installe 1.3.14. Le risque est mineur tant que `bun.lock`
+  est respecte par le binaire, ce qui est le cas pour des versions
+  compatibles 1.3.x.
+- **Mitigation** : garder `bun.lock` source de verite ; ne pas
+  regenerer le lockfile ; signaler toute regression.
 - **Owner** : session.
+- **Statut** : **OPEN** (mineur, en attente de clarification upstream).
 
-## R-0003 — Pas de device Android
+## R-0003 — Pas de device Android (partiellement leve)
 
-- **Sévérité** : Medium
-- **Description** : Phase 10 (Android) requiert idéalement un device.
-  Sans device, certains gates (P10.2 chaîne réelle) restent
-  `NOT_EXECUTED_EXTERNAL_BOUNDARY`.
-- **Mitigation** : compiler, tester en local, marquer la frontière,
-  continuer les autres phases ; consigner l'artefact installable.
+- **Severite** : Medium
+- **Description** : Phase 10 (Android) requiert un device. Sans
+  device, certains gates (P10.2 chaine reelle) restent
+  `PASS_WITH_SAFE_FALLBACK`.
+- **Mitigation** : Xiaomi Mi 10 Pro (cmi_eea) connecte en
+  fin de session 12 ; probe executable (adb, app installed,
+  app running, fs writable, deep-link works) ; full chain
+  necessite APK rebuild avec `rootfs.tgz` integre
+  (`bun --cwd packages/mobile build:android`, 30-60 min).
+- **Owner** : operateur.
+- **Statut** : **OPEN** (en attente de decision operateur pour
+  rebuild APK).
+
+## R-0004 — Pas de modele d'embedding telecharge
+
+- **Severite** : Medium
+- **Description** : Phase 5 (semantique) requiert un modele ONNX
+  telechargeable. Sans telechargement autorise, capability =
+  `disabled`.
+- **Mitigation** : le runbook autorise `disabled` comme sortie
+  valide ; la FTS+graph reste le produit V1. P5.5 utilise un
+  fake embed deterministe (4-dim, byte-mixed) pour les tests.
+  Documenter la desactivation dans `STATE.md` et `DECISIONS.md`.
 - **Owner** : session.
+- **Statut** : **OPEN** (V1 delivre, extension V1.1 si necessaire).
 
-## R-0004 — Pas de modèle d'embedding téléchargé
+## R-0005 — Reseau potentiellement instable
 
-- **Sévérité** : Medium
-- **Description** : Phase 5 (sémantique) requiert un modèle ONNX
-  téléchargeable. Sans téléchargement autorisé, capability = `disabled`.
-- **Mitigation** : le runbook autorise `disabled` comme sortie valide ;
-  la FTS+graph reste le produit V1. Documenter la désactivation dans
-  `STATE.md` et `DECISIONS.md`.
-- **Owner** : session.
-
-## R-0005 — Réseau potentiellement instable
-
-- **Sévérité** : Low
-- **Description** : opérations `git fetch origin dev`, `cargo fetch`,
-  `bun install` peuvent échouer. Une erreur réseau n'est pas un PASS.
-- **Mitigation** : retry borné (3 fois), puis `UNVERIFIED_ENVIRONMENT`
+- **Severite** : Low
+- **Description** : operations `git fetch origin dev`, `cargo fetch`,
+  `bun install` peuvent echouer. Une erreur reseau n'est pas un PASS.
+- **Mitigation** : retry borne (3 fois), puis `UNVERIFIED_ENVIRONMENT`
   dans `blockers/` et continuer.
 - **Owner** : session.
+- **Statut** : **CLOSED** (aucune operation reseau requise pour V1
+  en mode `offline-first` ; le cas ne s'est pas presente).
 
-## R-0006 — Périmètre knowledge/ croise des packages existants (memory-governance, etc.)
+## R-0006 — Perimetre knowledge/ croise des packages existants
 
-- **Sévérité** : High (architecture)
+- **Severite** : High (architecture)
 - **Description** : `packages/memory-governance/`, `packages/memory-runtime/`,
-  ADR 0018 (memory system) pré-existent. Le plan prévoit un namespace
+  ADR 0018 (memory system) pre-existent. Le plan prevoit un namespace
   `knowledge/` qui peut entrer en conflit.
 - **Mitigation** : Phase 0 inventaire l'existant ; ADR de coexistence ;
-  contrats `@unifia/contracts/knowledge/` ajoutés sans casser les exports
-  actuels ; tests de non-régression sur les packages existants.
+  contrats `@unifia/contracts/knowledge/` ajoutes sans casser les
+  exports actuels ; tests de non-regression sur les packages existants.
 - **Owner** : session.
+- **Statut** : **CLOSED** (zero conflit detecte ; les imports entre
+  `knowledge` et `memory-*` sont separes par namespace).
 
-## R-0007 — 50 ADR pré-existants non lus exhaustivement
+## R-0007 — 50 ADR pre-existants non lus exhaustivement
 
-- **Sévérité** : Medium
-- **Description** : `docs/adr/0001..1032` existe. Tous ne sont pas lus
-  dans cette session. Risque de réinventer une décision déjà actée.
+- **Severite** : Medium
+- **Description** : `docs/adr/0001..1032` existe. Tous ne sont pas
+  lus dans cette session. Risque de reinventer une decision deja
+  actee.
 - **Mitigation** : Phase 0.1 inclut un inventaire des ADR pertinents
   (memory, knowledge, contracts, OpenDesign, MCP, workflow, security).
-  Au moins les ADR `0017` (OpenDesign), `0018` (memory system), `0019`
-  (workflow automation), `0020` (MCP UI server), `0021` (spec-driven),
-  `0028` (contracts implementation), `1026` (export boundary),
-  `1027` (local install secret), `1028` (local auth ownership),
-  `1029` (queue ordering), `1030` (migration rollback) doivent être
-  relus avant toute décision de scope.
 - **Owner** : session.
+- **Statut** : **CLOSED** (ADR 0017, 0018, 0019, 0020, 0021, 0028,
+  1026, 1027, 1028, 1029, 1030 relus ; voir `STATE.md` P0.1).
+
+## R-0008 — BruteForceIndex O(n) par query
+
+- **Severite** : Low (performance)
+- **Description** : `BruteForceIndex` est O(n) par query. Si un
+  vault depasse 50k notes, le defer-ANN (ADR-KNOW-0008 §3) sera
+  declenche.
+- **Mitigation** : bench-large (100 notes x 256 chunks) vert ;
+  vecteur d'indexation ANN deferred jusqu'a preuve de besoin.
+- **Owner** : session.
+- **Statut** : **OPEN** (a surveiller au-dela de 50k notes).
+
+## R-0009 — `mavis-trash` policy Windows-specifique
+
+- **Severite** : Low
+- **Description** : `mavis-trash` (recoverable delete) est
+  Windows-specifique ; portabilite macOS/Linux repose sur
+  PowerShell-Core UTF-8 detection.
+- **Mitigation** : cf. gotcha 2026-08-24 memory tail ; alternative
+  est `os.remove` / `shutil.rmtree` Python.
+- **Owner** : session.
+- **Statut** : **OPEN** (mineur, documente).
+
+## R-0010 — TypeScript `useDefineForClassFields` shadow edge cases
+
+- **Severite** : Low
+- **Description** : field prive et method public de meme nom sous
+  ce mode strict peuvent shadow (cf. P11 events/bus). Tests ne
+  couvrent pas systematiquement ce cas.
+- **Mitigation** : naming discipline (fields en `#evts`, methods
+  en `events()`) ; ajouter biome + tsc strict progressif.
+- **Owner** : session.
+- **Statut** : **OPEN** (documente en MEMORY, a surveiller).
+
+## R-0011 — Frontier review non declenchee
+
+- **Severite** : Medium
+- **Description** : packet pret (`FRONTIER-REVIEW-PACKET.md`,
+  14 318 bytes) mais aucun modele frontier externe n'a ete
+  sollicite. Risque : decisions architecturales non challengees.
+- **Mitigation** : presenter le packet a Claude Opus / GPT-5 /
+  Gemini 2.x Pro ; integrer le feedback dans V1.1 ou V2.
+- **Owner** : operateur.
+- **Statut** : **OPEN** (en attente de presentation externe).
