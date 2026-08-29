@@ -19,7 +19,6 @@ import { listMarkdownLocators } from "../classb/reachability.js"
 import { parseDocument } from "../parser/parser.js"
 import { readFileSync } from "node:fs"
 import { join, isAbsolute } from "node:path"
-import type { KnowledgeLifecycleState } from "@unifia/contracts/knowledge"
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
