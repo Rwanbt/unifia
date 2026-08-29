@@ -68,6 +68,7 @@ import { findOrphans } from "../src/knowledge/admin/orphans.js"
 import { lifecycleDistribution } from "../src/knowledge/admin/lifecycle-distribution.js"
 import { findStale } from "../src/knowledge/admin/stale.js"
 import { findReferences } from "../src/knowledge/admin/references.js"
+import { vaultFingerprint } from "../src/knowledge/admin/fingerprint.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -127,6 +128,7 @@ function printUsage(): void {
       "  unifia knowledge lifecycle-distribution <workspace>",
       "  unifia knowledge stale <workspace> [--threshold-days=N] [--only-active] [--limit=N]",
       "  unifia knowledge references <workspace> --target=<locator>|--target-id=<uuid>",
+      "  unifia knowledge fingerprint <workspace> [--verbose]",
       "",
     ].join("\n"),
   )
@@ -283,6 +285,15 @@ function parseFlags(rest: readonly string[]): Map<string, string> {
     }
   }
   return m
+}
+
+/** True if the args contain the given flag (with or without a value). */
+function hasFlag(args: readonly string[], name: string): boolean {
+  for (const a of args) {
+    if (a === `--${name}`) return true
+    if (a.startsWith(`--${name}=`)) return true
+  }
+  return false
 }
 
 async function cmdSovereignty(rest: readonly string[]): Promise<number> {
@@ -1139,6 +1150,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdStale(rest)
     case "references":
       return cmdReferences(rest)
+    case "fingerprint":
+      return cmdFingerprint(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1476,6 +1489,33 @@ async function cmdReferences(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`references error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdFingerprint(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("fingerprint: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const verbose = hasFlag(rest, "verbose") || flags.has("verbose")
+  try {
+    const r = vaultFingerprint({ vaultRoot: ws, skipMissing: true })
+    process.stdout.write(`vault:       ${r.vaultRoot}\n`)
+    process.stdout.write(`files:       ${r.fileCount}\n`)
+    process.stdout.write(`fingerprint: ${r.fingerprint}\n`)
+    if (verbose) {
+      process.stdout.write(`\nper-file hashes:\n`)
+      for (const f of r.perFile) {
+        process.stdout.write(`  ${f.hash}  ${String(f.bytes).padStart(6)}  ${f.locator}\n`)
+      }
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`fingerprint error: ${(e as Error).message}\n`)
     return 1
   }
 }
