@@ -75,6 +75,7 @@ import { findRecent } from "../src/knowledge/admin/recent.js"
 import { supersedeGraph } from "../src/knowledge/admin/supersede-graph.js"
 import { findDuplicates } from "../src/knowledge/admin/duplicates.js"
 import { buildTimeline, formatTimeline } from "../src/knowledge/admin/timeline.js"
+import { tagCooccurrence } from "../src/knowledge/admin/tag-cooccurrence.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -141,6 +142,7 @@ function printUsage(): void {
       "  unifia knowledge supersede-graph <workspace>",
       "  unifia knowledge duplicates <workspace>",
       "  unifia knowledge timeline <workspace> [--window-days=N] [--max-per-day=N]",
+      "  unifia knowledge tag-cooccurrence <workspace> [--min-count=N] [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -1176,6 +1178,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdDuplicates(rest)
     case "timeline":
       return cmdTimeline(rest)
+    case "tag-cooccurrence":
+      return cmdTagCooccurrence(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1723,6 +1727,39 @@ async function cmdTimeline(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`timeline error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdTagCooccurrence(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("tag-cooccurrence: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const minCount = flags.get("min-count") !== undefined ? Number(flags.get("min-count")) : undefined
+  const limit = flags.get("limit") !== undefined ? Number(flags.get("limit")) : undefined
+  try {
+    const r = tagCooccurrence({
+      vaultRoot: ws,
+      ...(minCount !== undefined ? { minCount } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    })
+    process.stdout.write(`vault:        ${r.vaultRoot}\n`)
+    process.stdout.write(`scanned:      ${r.scanned}\n`)
+    process.stdout.write(`unique-tags:  ${r.uniqueTags}\n`)
+    process.stdout.write(`pairs:        ${r.pairs.length}\n`)
+    if (r.pairs.length > 0) {
+      process.stdout.write(`\nco-occurrence pairs:\n`)
+      for (const p of r.pairs) {
+        process.stdout.write(`  ${String(p.count).padStart(3)}  ${p.a.padEnd(20)} <-> ${p.b}\n`)
+      }
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`tag-cooccurrence error: ${(e as Error).message}\n`)
     return 1
   }
 }
