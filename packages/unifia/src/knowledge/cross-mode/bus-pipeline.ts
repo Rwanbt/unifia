@@ -16,7 +16,7 @@
  */
 
 import { CrossModePipeline, type Mode } from "./e2e.js"
-import { DomainBus, type DomainEvent } from "../events/bus.js"
+import type { DomainBus, DomainEvent } from "../events/bus.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 let nextEventId = 1
