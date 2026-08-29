@@ -49,6 +49,7 @@ import { recommendGc, applyGcRecommendation } from "../src/knowledge/classb/gc.j
 import { simulateSimilarity } from "../src/knowledge/semantic/simulate.js"
 import { summarise as summariseWorkspace, formatSummaryOneLine } from "../src/knowledge/admin/summary.js"
 import { runDrill, stubFsWithClassA } from "../src/knowledge/hardening/drill.js"
+import { validate } from "../src/knowledge/admin/validate.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -86,6 +87,7 @@ function printUsage(): void {
       "  unifia knowledge similarity <workspace> [--topk=N]",
       "  unifia knowledge summary <workspace> [--one-line]",
       "  unifia knowledge drill",
+      "  unifia knowledge validate <workspace>",
       "",
     ].join("\n"),
   )
@@ -824,8 +826,34 @@ async function cmdDrill(): Promise<number> {
 }
     case "summary":
       return cmdSummary(rest)
+
+
+async function cmdValidate(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("validate: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = validate({ vaultRoot: ws })
+    process.stdout.write(`vault:        ${r.vaultRoot}\n`)
+    process.stdout.write(`notes parsed: ${r.notesParsed}\n`)
+    process.stdout.write(`notes failed: ${r.notesFailed}\n`)
+    process.stdout.write(`findings:     ${r.findings.length}\n`)
+    for (const [cat, count] of Object.entries(r.byCategory)) {
+      process.stdout.write(`  - ${cat}: ${count}\n`)
+    }
+    process.stdout.write(`\nelapsed:      ${r.durationMs}ms\n`)
+    return r.findings.length === 0 ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`validate error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "drill":
       return cmdDrill()
+    case "validate":
+      return cmdValidate(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
