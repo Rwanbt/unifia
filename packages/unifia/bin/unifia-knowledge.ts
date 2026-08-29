@@ -70,6 +70,7 @@ import { findStale } from "../src/knowledge/admin/stale.js"
 import { findReferences } from "../src/knowledge/admin/references.js"
 import { vaultFingerprint } from "../src/knowledge/admin/fingerprint.js"
 import { listByTag } from "../src/knowledge/admin/by-tag.js"
+import { compareVaults } from "../src/knowledge/admin/vault-compare.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -131,6 +132,7 @@ function printUsage(): void {
       "  unifia knowledge references <workspace> --target=<locator>|--target-id=<uuid>",
       "  unifia knowledge fingerprint <workspace> [--verbose]",
       "  unifia knowledge by-tag <workspace> <tag> [--limit=N]",
+      "  unifia knowledge vault-compare <workspace_a> <workspace_b>",
       "",
     ].join("\n"),
   )
@@ -1156,6 +1158,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdFingerprint(rest)
     case "by-tag":
       return cmdByTag(rest)
+    case "vault-compare":
+      return cmdVaultCompare(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1546,6 +1550,41 @@ async function cmdByTag(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`by-tag error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdVaultCompare(rest: readonly string[]): Promise<number> {
+  const a = rest[0]
+  const b = rest[1]
+  if (!a || !b) {
+    process.stderr.write("vault-compare: usage: vault-compare <workspace_a> <workspace_b>\n")
+    return 2
+  }
+  try {
+    const r = compareVaults({ vaultA: a, vaultB: b })
+    process.stdout.write(`vault A: ${r.vaultA}  (${r.fileCountA} files)\n`)
+    process.stdout.write(`vault B: ${r.vaultB}  (${r.fileCountB} files)\n\n`)
+    process.stdout.write(`identical: ${r.identical.length}\n`)
+    process.stdout.write(`changed:   ${r.changed.length}\n`)
+    process.stdout.write(`only-A:    ${r.onlyA.length}\n`)
+    process.stdout.write(`only-B:    ${r.onlyB.length}\n`)
+    if (r.changed.length > 0) {
+      process.stdout.write(`\nchanged files:\n`)
+      for (const f of r.changed) process.stdout.write(`  ${f}\n`)
+    }
+    if (r.onlyA.length > 0) {
+      process.stdout.write(`\nonly in A:\n`)
+      for (const f of r.onlyA) process.stdout.write(`  ${f}\n`)
+    }
+    if (r.onlyB.length > 0) {
+      process.stdout.write(`\nonly in B:\n`)
+      for (const f of r.onlyB) process.stdout.write(`  ${f}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`vault-compare error: ${(e as Error).message}\n`)
     return 1
   }
 }
