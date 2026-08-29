@@ -61,6 +61,7 @@ import { listNotes } from "../src/knowledge/admin/list.js"
 import { showNote } from "../src/knowledge/admin/show.js"
 import { allTags } from "../src/knowledge/admin/tags.js"
 import { allProjects } from "../src/knowledge/admin/projects.js"
+import { planSupersede } from "../src/knowledge/admin/supersede.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -110,6 +111,7 @@ function printUsage(): void {
       "  unifia knowledge show <workspace> <locator>",
       "  unifia knowledge tags <workspace>",
       "  unifia knowledge projects <workspace>",
+      "  unifia knowledge supersede <workspace> --target=<locator> --source=<s> --reason=<r> [--successor=<loc>]",
       "",
     ].join("\n"),
   )
@@ -1108,6 +1110,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdTags(rest)
     case "projects":
       return cmdProjects(rest)
+    case "supersede":
+      return cmdSupersede(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1181,6 +1185,68 @@ async function cmdProjects(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`projects error: ${(e as Error).message}` + "\n")
+    return 1
+  }
+}
+
+
+async function cmdSupersede(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("supersede: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const targetLocator = flags.get("target")
+  const targetId = flags.get("target-id")
+  const source = flags.get("source") ?? "cli"
+  const reason = flags.get("reason")
+  const successorLocator = flags.get("successor")
+  if (!reason) {
+    process.stderr.write("supersede: --reason=<r> is required\n")
+    return 2
+  }
+  if (!targetLocator && !targetId) {
+    process.stderr.write("supersede: --target=<locator> or --target-id=<uuid> is required\n")
+    return 2
+  }
+  try {
+    const plan = planSupersede({
+      vaultRoot: ws,
+      ...(targetLocator !== undefined ? { targetLocator } : {}),
+      ...(targetId !== undefined ? { targetId: targetId as never } : {}),
+      ...(successorLocator !== undefined ? { successorLocator } : {}),
+      source,
+      reason,
+    })
+    if (!plan.ok) {
+      process.stderr.write(`supersede: ${plan.reason ?? "unknown error"}\n`)
+      return 1
+    }
+    process.stdout.write(`ok:        true\n`)
+    process.stdout.write(`target:    ${plan.target?.id}  (${plan.target?.locator})\n`)
+    process.stdout.write(`lifecycle: ${plan.target?.lifecycle}\n`)
+    process.stdout.write(`hash:      ${plan.target?.versionHash}\n`)
+    if (plan.successor) {
+      process.stdout.write(`successor: ${plan.successor.id}  (${plan.successor.locator})\n`)
+    }
+    if (plan.warnings && plan.warnings.length > 0) {
+      process.stdout.write(`warnings:\n`)
+      for (const w of plan.warnings) {
+        process.stdout.write(`  - ${w}\n`)
+      }
+    }
+    if (plan.intent) {
+      process.stdout.write(`intent:\n`)
+      process.stdout.write(`  kind:                ${plan.intent.kind}\n`)
+      process.stdout.write(`  targetId:            ${plan.intent.targetId}\n`)
+      process.stdout.write(`  expectedVersionHash: ${plan.intent.expectedVersionHash}\n`)
+      process.stdout.write(`  reason:              ${plan.intent.reason}\n`)
+      process.stdout.write(`  source:              ${plan.intent.source}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`supersede error: ${(e as Error).message}\n`)
     return 1
   }
 }
