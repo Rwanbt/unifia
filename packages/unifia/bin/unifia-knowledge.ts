@@ -47,6 +47,7 @@ import { runVerify } from "../src/knowledge/hardening/verify.js"
 import { readPolicy, patchPolicy, type KnowledgePolicy } from "../src/knowledge/policy/store.js"
 import { recommendGc, applyGcRecommendation } from "../src/knowledge/classb/gc.js"
 import { simulateSimilarity } from "../src/knowledge/semantic/simulate.js"
+import { summarise as summariseWorkspace, formatSummaryOneLine } from "../src/knowledge/admin/summary.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -82,6 +83,7 @@ function printUsage(): void {
       "  unifia knowledge gc <workspace> recommend",
       "  unifia knowledge gc <workspace> apply",
       "  unifia knowledge similarity <workspace> [--topk=N]",
+      "  unifia knowledge summary <workspace> [--one-line]",
       "",
     ].join("\n"),
   )
@@ -760,8 +762,51 @@ async function cmdSimilarity(rest: readonly string[]): Promise<number> {
 }
     case "gc":
       return cmdGc(rest)
+
+
+async function cmdSummary(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("summary: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  try {
+    const s = summariseWorkspace({ vaultRoot: ws })
+    if (flags.has("one-line")) {
+      process.stdout.write(formatSummaryOneLine(s) + "\n")
+      return 0
+    }
+    process.stdout.write(`vault:        ${s.vaultRoot}\n`)
+    process.stdout.write(`total notes:  ${s.totalNotes}\n`)
+    process.stdout.write(`parse fail:   ${s.parseFailures}\n`)
+    process.stdout.write(`class B:      ${s.portableStoreEntries} entry(ies)\n`)
+    process.stdout.write(`policy:       ${s.policyEgress}\n`)
+    process.stdout.write(`\nlifecycle:\n`)
+    for (const [k, v] of Object.entries(s.byLifecycle)) {
+      process.stdout.write(`  - ${k}: ${v}\n`)
+    }
+    process.stdout.write(`\ntype:\n`)
+    for (const [k, v] of Object.entries(s.byType)) {
+      process.stdout.write(`  - ${k}: ${v}\n`)
+    }
+    if (s.policyFeatures) {
+      process.stdout.write(`\nfeatures:\n`)
+      process.stdout.write(`  - embedding: ${s.policyFeatures.embedding}\n`)
+      process.stdout.write(`  - mcpServer: ${s.policyFeatures.mcpServer}\n`)
+      process.stdout.write(`  - gitAutoPush: ${s.policyFeatures.gitAutoPush}\n`)
+    }
+    process.stdout.write(`\nelapsed:      ${s.totalMs}ms\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`summary error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "similarity":
       return cmdSimilarity(rest)
+    case "summary":
+      return cmdSummary(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
