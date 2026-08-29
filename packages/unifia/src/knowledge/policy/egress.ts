@@ -15,7 +15,7 @@
  * 4. ProviderPlan overrides may further restrict but never widen.
  */
 
-import type { ContextItem, RestrictionLevel, ProviderDestinationPlan } from "@unifia/contracts/knowledge"
+import type { ContextItem, ProviderDestinationPlan } from "@unifia/contracts/knowledge"
 
 export type EgressDecision = "allow" | "deny"
 

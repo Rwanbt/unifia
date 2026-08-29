@@ -24,11 +24,9 @@ import type {
   RetrievalCandidate,
   RetrievalRequest,
   KnowledgeSpaceKind,
-  KnowledgeId,
-  KnowledgeLocator,
 } from "@unifia/contracts/knowledge"
 import { ProviderDestinationPlanSchema } from "@unifia/contracts/knowledge"
-import { type KnowledgeSource, type SourceRegistry } from "../source/source.js"
+import type { KnowledgeSource, SourceRegistry } from "../source/source.js"
 import { decideEgress } from "../policy/egress.js"
 
 /** Heuristic token cost: ~4 chars per token. */
