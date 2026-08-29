@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `7babe673a8 feat(knowledge): P11.32 tags CLI` |
+| HEAD final | `aae2f7c833 feat(knowledge): P11.33 projects CLI` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (61)
+## 2. Commits locaux (63)
 
 | SHA | Sujet |
 |---|---|
@@ -76,6 +76,8 @@
 | `fb178dbfa0` | feat(knowledge): P11.31 show CLI |
 | `c5b7c95de2` | docs(knowledge): align FINAL-REPORT and COMPACT to fb178dbfa0 (54 commits, 457 tests) |
 | `7babe673a8` | feat(knowledge): P11.32 tags CLI |
+| `077c2e6053` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.32 (61 commits, 467 tests) |
+| `aae2f7c833` | feat(knowledge): P11.33 projects CLI |
 
 ## 3. Phases et gates
 
@@ -183,8 +185,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 61 commits, ~210 fichiers ajoutés.
-- **Commits locaux** : 61.
+- **Implémentation locale** : 63 commits, ~215 fichiers ajoutés.
+- **Commits locaux** : 63.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -209,7 +211,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 7babe673a8
+git rev-parse HEAD  # doit être aae2f7c833
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -221,9 +223,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 61 commits,
-~210 fichiers, **467 tests passants** (354 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 27 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 63 commits,
+~215 fichiers, **467 tests passants** (354 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 28 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a

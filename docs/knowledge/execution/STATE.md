@@ -1008,3 +1008,44 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 **Nouveaux modules session 12** : `admin/tags.ts` (P11.32).
 **Subcommandes CLI** : 31 (etait 20 en V3, +11 admin).
 **Cartes durcissement** : 27 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-32).
+
+
+---
+
+## Carte 0201 - P11.33 : All-projects CLI
+
+- **ID** : 0201
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/projects.ts` +
+  `packages/unifia/test/knowledge/admin/projects.test.ts` (5 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdProjects).
+- **`allProjects({ vaultRoot })`** : walk le vault, parse chaque note,
+  cumule les `unifia_project_ref` du frontmatter, retourne
+  `{ vaultRoot, scanned, projects, totalMs }` avec projects
+  tries par count desc puis alphabetical. Single string par note.
+- **CLI** : `unifia knowledge projects <workspace>` affiche
+  `vault / scanned / unique` puis la liste triee.
+- **Live run** sur `tests/knowledge/eval/dev` et `/holdout` :
+  1 unique project ("unifia") avec 11 notes (eval corpus homogene).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V6 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 63.
+
+**Tests** : 354 TS knowledge + 79 contracts + 34 Rust = **467 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `aae2f7c833 feat(knowledge): P11.33 projects CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : `admin/tags.ts` (P11.32),
+`admin/projects.ts` (P11.33).
+**Subcommandes CLI** : 32 (etait 20 en V3, +12 admin).
+**Cartes durcissement** : 28 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-33).
