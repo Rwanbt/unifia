@@ -1255,3 +1255,64 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `orphans`, `lifecycle-distribution`).
 **Subcommandes CLI** : 37 (etait 20 en V3, +17 admin).
 **Cartes durcissement** : 33 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-38).
+
+
+---
+
+## Carte 0207 - P11.39 : Stale-notes CLI
+
+- **ID** : 0207
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/stale.ts` +
+  `packages/unifia/test/knowledge/admin/stale.test.ts` (8 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdStale).
+- **`findStale({ vaultRoot, thresholdDays?, onlyActive?, limit? })`**
+  : walk le vault, parse les notes, calcule l'age en jours
+  (`now - updatedAt`), retourne les notes avec age >= thresholdDays
+  (default 90).
+- **CLI** : `unifia knowledge stale <ws> [--threshold-days=N]
+  [--only-active] [--limit=N]`.
+- **Live run** : 2 notes stale (134j) detectees sur dev.
+- **Risque** : aucun.
+
+---
+
+## Carte 0208 - P11.40 : References CLI (outbound wikilinks)
+
+- **ID** : 0208
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/references.ts` +
+  `packages/unifia/test/knowledge/admin/references.test.ts` (7 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdReferences).
+- **`findReferences({ vaultRoot, targetLocator?, targetId? })`**
+  : lit la note cible, retourne ses wikilinks sortants (target,
+  heading, alias, offset).
+- **CLI** : `unifia knowledge references <ws> --target=<loc>
+  | --target-id=<uuid>`.
+- **Inverse de backlinks** : backlinks = "qui pointe vers moi",
+  references = "vers qui je pointe".
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V11 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 75.
+
+**Tests** : 403 TS knowledge + 79 contracts + 34 Rust = **516 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `23b64e5aab feat(knowledge): P11.40 references CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 9 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`).
+**Subcommandes CLI** : 39 (etait 20 en V3, +19 admin).
+**Cartes durcissement** : 35 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-40).
