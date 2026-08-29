@@ -57,6 +57,7 @@ import { computeStats } from "../src/knowledge/admin/stats.js"
 import { listByType } from "../src/knowledge/admin/by-type.js"
 import { scanBrokenLinks } from "../src/knowledge/admin/broken-links.js"
 import { listHeadings } from "../src/knowledge/admin/headings.js"
+import { listNotes } from "../src/knowledge/admin/list.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -102,6 +103,7 @@ function printUsage(): void {
       "  unifia knowledge by-type <workspace> <type> [--only-active] [--limit=N]",
       "  unifia knowledge broken-links <workspace>",
       "  unifia knowledge headings <workspace> <locator>",
+      "  unifia knowledge list <workspace> [--limit=N] [--offset=N]",
       "",
     ].join("\n"),
   )
@@ -1064,8 +1066,36 @@ async function cmdHeadings(rest: readonly string[]): Promise<number> {
 }
     case "broken-links":
       return cmdBrokenLinks(rest)
+
+
+async function cmdList(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("list: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const limitStr = flags.get("limit")
+  const offsetStr = flags.get("offset")
+  const limit = limitStr && Number.isFinite(Number(limitStr)) ? Number(limitStr) : 100
+  const offset = offsetStr && Number.isFinite(Number(offsetStr)) ? Number(offsetStr) : 0
+  try {
+    const r = listNotes({ vaultRoot: ws, limit, offset })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`hits:     ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.locator}  ${h.type}/${h.lifecycle}  ${h.updatedAt}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`list error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "headings":
       return cmdHeadings(rest)
+    case "list":
+      return cmdList(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
