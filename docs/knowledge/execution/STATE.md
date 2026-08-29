@@ -965,3 +965,46 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 **Branche locale** : `feat/sovereign-knowledge-core`.
 **HEAD** : `294e9f72b5`.
 **Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+---
+
+## Carte 0200 - P11.32 : All-tags CLI
+
+- **ID** : 0200
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/tags.ts` +
+  `packages/unifia/test/knowledge/admin/tags.test.ts` (5 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdTags, fix backticks).
+- **`allTags({ vaultRoot })`** : walk le vault, parse chaque note,
+  cumule les `unifia_tags` du frontmatter (case-insensitive),
+  retourne `{ vaultRoot, scanned, tags, totalMs }` avec tags
+  triés par count desc puis alphabetic.
+- **CLI** : `unifia knowledge tags <workspace>` affiche
+  `vault / scanned / unique` puis la liste triee.
+- **Live run** sur `tests/knowledge/eval/dev` : 22 tags uniques
+  (tool:bash=2, le reste a 1). Sur `holdout` : 17 tags uniques.
+- **Fix corruption** : la cmdTags du tour precedent avait des
+  backticks (0x60) transformes en 0x0B (VT) et 0x09 (TAB) par
+  le pipeline `bash` PowerShell. Restaures via `write` tool
+  puis re-verifies par `bun run typecheck` (exit 0).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V5 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 61.
+
+**Tests** : 354 TS knowledge + 79 contracts + 34 Rust = **467 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `7babe673a8 feat(knowledge): P11.32 tags CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : `admin/tags.ts` (P11.32).
+**Subcommandes CLI** : 31 (etait 20 en V3, +11 admin).
+**Cartes durcissement** : 27 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-32).

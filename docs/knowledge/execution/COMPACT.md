@@ -7,24 +7,25 @@
 
 ## One-liner
 
-40 commits locaux, 398 tests passants, 13 phases couvertes
-(67+ cartes, P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
+61 commits locaux, 354 TS knowledge + 79 contracts + 34 Rust = 467 verts
+(4569 total TS suite, 4 pre-existing fail non-knowledge),
+13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `36e0000363`
-- Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b`
+- HEAD : `7babe673a8 feat(knowledge): P11.32 tags CLI`
+- Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
 
 - Contrats : `packages/contracts/src/knowledge/` (10 fichiers).
-- Runtime TS : `packages/unifia/src/knowledge/` (37 modules).
+- Runtime TS : `packages/unifia/src/knowledge/` (60+ modules).
 - Runtime Rust : `crates/unifia-knowledge-core/src/` (8 modules).
-- CLI : `packages/unifia/bin/unifia-knowledge.ts` (20 subcommands).
-- Tests : 398 passants (285 TS + 79 contracts + 34 Rust).
+- CLI : `packages/unifia/bin/unifia-knowledge.ts` (31 subcommands).
+- Tests : 467 verts (354 TS knowledge + 79 contracts + 34 Rust).
 - Docs : 9 ADR + 10 cas + DoD + crash matrix + CHANGELOG + README
-  + PERMISSIONS + DISASTER-RECOVERY.
+  + PERMISSIONS + DISASTER-RECOVERY + COMPACT + FINAL-REPORT.
 
 ## Reprise (4 commandes)
 
@@ -41,8 +42,9 @@ cat docs/knowledge/execution/FINAL-REPORT.md | head -40
 - P10.2 device run — Android device requis.
 - P10.3 resource pressure — Android device requis.
 - Phase Frontier review — modèle frontier externe.
+- ONNX embedding model — non téléchargé, P5.5 utilise fake embed.
 
-## CLI subcommands (20)
+## CLI subcommands (31)
 
 ```bash
 unifia knowledge status | sources | search | doctor | bench | bench-large
@@ -60,6 +62,17 @@ unifia knowledge gc <ws> recommend|apply
 unifia knowledge similarity <ws> [--topk=N]
 unifia knowledge summary <ws> [--one-line]
 unifia knowledge drill
+unifia knowledge validate <ws>
+unifia knowledge report <ws> [--no-validation] [--no-types] [--no-policy] [--title=T]
+unifia knowledge tag-search <ws> <tag> [<tag>...] [--limit=N]
+unifia knowledge backlinks <ws> <target>
+unifia knowledge stats <ws>
+unifia knowledge by-type <ws> <type> [--only-active] [--limit=N]
+unifia knowledge broken-links <ws>
+unifia knowledge headings <ws> <locator>
+unifia knowledge list <ws> [--limit=N] [--offset=N]
+unifia knowledge show <ws> <locator>
+unifia knowledge tags <ws>
 ```
 
 ## Test live
@@ -75,3 +88,11 @@ unifia knowledge drill
 
 `unifia knowledge summary tests/knowledge/eval/dev --one-line` :
   vault=...tests/knowledge/eval/dev  notes=12 (active=10)  parse-failures=1  class-B=0  policy.egress=absent
+
+`unifia knowledge tags tests/knowledge/eval/dev` :
+  scanned: 11
+  unique:  22
+  (full list in session log)
+
+`unifia knowledge verify tests/knowledge/eval/dev` :
+  4/4 PASS (sovereignty, disaster-recovery, reachability, classify) in 26ms
