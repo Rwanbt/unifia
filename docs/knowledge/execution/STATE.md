@@ -1490,3 +1490,48 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `fingerprint`, `by-tag`, `vault-compare`, `recent`).
 **Subcommandes CLI** : 43 (etait 20 en V3, +23 admin = x2.15).
 **Cartes durcissement** : 39 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-44).
+
+
+---
+
+## Carte 0213 - P11.45 : Supersede-graph CLI (lineage of the corpus)
+
+- **ID** : 0213
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/supersede-graph.ts` +
+  `packages/unifia/test/knowledge/admin/supersede-graph.test.ts` (7 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdSupersedeGraph).
+- **`supersedeGraph({ vaultRoot })`** : walk le vault, collecte
+  les `unifia_supersedes` de chaque note, calcule la profondeur
+  de chaque chain (DFS, max 16, visited set anti-cycle), retourne
+  `{ edges, dangling, deepest, totalMs }`.
+- **CLI** : `unifia knowledge supersede-graph <ws>`.
+- **Live run** : 1 edge detectee
+  (decision-thinking-budget.md supersedes -> 0190d2c0-7b00-7000-8000-000000000010).
+- **Complement de supersede** : supersede = planifier une transition,
+  supersede-graph = visualiser la DAG.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V16 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 85.
+
+**Tests** : 442 TS knowledge + 79 contracts + 34 Rust = **555 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `b55d7c75b6 feat(knowledge): P11.45 supersede-graph CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 14 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`).
+**Subcommandes CLI** : 44 (etait 20 en V3, +24 admin = x2.20).
+**Cartes durcissement** : 40 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-45).
