@@ -298,6 +298,30 @@ $ unifia knowledge size-distribution tests/knowledge/eval/dev
   distribution:
     0-1KB       11 ###########
     1-5KB        1 #
+
+$ unifia knowledge tag-cooccurrence tests/knowledge/eval/dev
+  scanned: 11
+  unique-tags: 22
+  pairs: 0
+  # (dev fixtures are atomised: each note has a single tag, no co-occurrences)
+
+$ unifia knowledge supersede-graph tests/knowledge/eval/dev
+  edges: 1, dangling: 0
+  edges (from -> to):
+    decision-thinking-budget.md  supersedes -> 0190d2c0-7b00-7000-8000-000000000010
+  top-3 deepest lineages:
+    decision-thinking-budget.md  depth=1
+
+$ unifia knowledge lifecycle-transitions
+  V1 lifecycle transition matrix (per ADR-KNOW-0009):
+
+             candidate   active   superseded   archived
+  candidate      -        OK          -          OK
+  active         -         -         OK          OK
+  superseded     -        OK          -          OK
+  archived       -        OK          -           -
+
+  Legend: OK = transition allowed, - = transition refused
 ```
 
 If a reviewer gets a different number, that's a real regression
