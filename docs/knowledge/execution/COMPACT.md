@@ -7,13 +7,13 @@
 
 ## One-liner
 
-26 commits locaux, 317 tests passants, 13 phases couvertes
+25 commits locaux, 317 tests passants, 13 phases couvertes
 (50+ cartes, P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : à mettre à jour (session 2 en cours)
+- HEAD : `f0ad6e7a06`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b`
 
 ## Files at a glance

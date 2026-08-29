@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | à mettre à jour (session 2 en cours) |
+| HEAD final | `f0ad6e7a06 feat(knowledge): P11.4-7 hardening suite` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (24)
+## 2. Commits locaux (25)
 
 | SHA | Sujet |
 |---|---|
@@ -48,6 +48,7 @@
 | `ef11945cdc` | docs(knowledge): changelog + integration tests |
 | `99dcc74eae` | docs(knowledge): changelog + integration tests (polish) |
 | `03b86e1012` | docs+test(knowledge): README + E2E dev-fixture test |
+| `f0ad6e7a06` | feat(knowledge): P11.4-7 hardening suite (recovery/migration/sovereignty/precommit) + PERMISSIONS |
 
 ## 3. Phases et gates
 
@@ -155,8 +156,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 26 commits, ~145 fichiers ajoutés.
-- **Commits locaux** : 26.
+- **Implémentation locale** : 25 commits, ~145 fichiers ajoutés.
+- **Commits locaux** : 25.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -181,7 +182,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 03b86e1012
+git rev-parse HEAD  # doit être f0ad6e7a06
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -193,7 +194,7 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 26 commits,
+**Implémentation locale complète (cartes faisables)** : 25 commits,
 ~145 fichiers, **317 tests passants** (204 TS knowledge + 79
 contracts + 34 Rust), 13 phases couvertes + 6 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
@@ -216,5 +217,5 @@ sans intervention.
 
 ---
 
-*Session close le 2026-08-29. SHA final : `03b86e1012`.*
+*Session close le 2026-08-29. SHA final : `f0ad6e7a06`.*
 *22 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
