@@ -11,7 +11,6 @@
  */
 
 import matter from "gray-matter"
-import { z } from "zod"
 import {
   KnowledgeIdSchema,
   MemoryTypeSchema,

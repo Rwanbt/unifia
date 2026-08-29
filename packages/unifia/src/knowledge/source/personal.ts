@@ -15,11 +15,8 @@ import type {
   KnowledgeSpaceKind,
   KnowledgeLocator,
   KnowledgeId,
-  NoteFrontmatter,
 } from "@unifia/contracts/knowledge"
-import {
-  PERSONAL_ROOT_LOCATOR,
-} from "@unifia/contracts/knowledge"
+import { PERSONAL_ROOT_LOCATOR } from "@unifia/contracts/knowledge"
 import type {
   KnowledgeSource,
   ListOptions,
