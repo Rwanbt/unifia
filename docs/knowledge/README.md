@@ -107,7 +107,7 @@ bun run packages/unifia/bin/unifia-knowledge.ts bench-large 100 256
 | Suite | Command | Last result |
 |---|---|---|
 | Contracts | `bun --cwd packages/contracts test` | 79 pass, 0 fail |
-| unifia knowledge | `bun --cwd packages/unifia test test/knowledge` | 488 pass, 0 fail |
+| unifia knowledge | `bun --cwd packages/unifia test test/knowledge` | 522 pass, 0 fail |
 | knowledge-core | `cargo test` (cwd crates/unifia-knowledge-core) | 34 pass, 0 fail |
 | unifia typecheck | `bun --cwd packages/unifia run typecheck` | exit 0 |
 | knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
@@ -124,16 +124,17 @@ pure read-only and grouped by purpose:
 |---|---|
 | **Counts / lists** | `tags`, `projects`, `lifecycle-distribution`, `tag-cooccurrence`, `supersede-classify` |
 | **Filters** | `by-type`, `by-lifecycle`, `by-project`, `by-tag`, `tag-search`, `list` |
-| **Inspection** | `show`, `headings`, `references`, `backlinks`, `broken-links` |
+| **Inspection** | `show`, `headings`, `references`, `backlinks`, `broken-links`, `note-stats` |
 | **Maintenance** | `duplicates`, `orphans`, `stale`, `recent`, `timeline` |
-| **Change detection** | `fingerprint`, `vault-compare`, `note-diff` |
+| **Change detection** | `fingerprint`, `vault-compare`, `note-diff`, `frontmatter-diff` |
+| **Distribution** | `size-distribution`, `weekday-distribution`, `edge-density` |
 | **Lifecycle ops** | `supersede` (plan), `supersede-graph` |
 | **Validation** | `validate`, `doctor`, `classify`, `summary`, `stats`, `report` |
 | **Recovery / verify** | `sovereignty`, `disaster-recovery`, `drill`, `verify`, `migrate` |
 | **Lifecycle matrix** | `lifecycle-transitions` |
 | **Other** | `status`, `sources`, `search`, `bench`, `bench-large`, `precommit`, `mcp-token`, `portable`, `policy`, `gc`, `similarity` |
 
-Total: 50 subcommands, 20 admin tools, 601 tests passants.
+Total: 55 subcommands, 38 admin tools, 635 tests passants.
 
 ## Resume after compaction
 

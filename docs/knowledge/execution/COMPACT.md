@@ -7,16 +7,17 @@
 
 ## One-liner
 
-102 commits locaux, 488 TS knowledge + 79 contracts + 34 Rust = 601 verts
+110 commits locaux, 522 TS knowledge + 79 contracts + 34 Rust = 635 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `PASS_WITH_SAFE_FALLBACK`).
-**601 verts** (admin tools doublés), **50 subcommands**,
-**20 admin tools**, **FRONTIER-REVIEW-PACKET** ready.
+**55 subcommands**, **38 admin tools**, **FRONTIER-REVIEW-PACKET** ready,
+**P11.52-P11.56** delivered (note-stats, size-distribution,
+weekday-distribution, edge-density, frontmatter-diff).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `51810b1a16 docs(knowledge): FRONTIER-REVIEW-PACKET`
+- HEAD : `46fd3a322f chore(knowledge): drop unused KnowledgeId import in frontmatter-diff`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 - P10.2/P10.3 device artefacts : `.artifacts/p10-device-{screen.png, report.json, run.md}`
 
@@ -26,7 +27,7 @@
 - Runtime TS : `packages/unifia/src/knowledge/` (60+ modules).
 - Runtime Rust : `crates/unifia-knowledge-core/src/` (8 modules).
 - CLI : `packages/unifia/bin/unifia-knowledge.ts` (31 subcommands).
-- Tests : 601 verts (488 TS knowledge + 79 contracts + 34 Rust).
+- Tests : 635 verts (522 TS knowledge + 79 contracts + 34 Rust).
 - Docs : 9 ADR + 10 cas + DoD + crash matrix + CHANGELOG + README
   + PERMISSIONS + DISASTER-RECOVERY + COMPACT + FINAL-REPORT
   + FRONTIER-REVIEW-PACKET.

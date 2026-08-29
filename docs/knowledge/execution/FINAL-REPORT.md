@@ -21,7 +21,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (99 sprint + 4 post-sprint = 103)
+## 2. Commits locaux (99 sprint + 4 post-sprint + 5 P11.52-P11.56 + 1 align = 109)
 
 | SHA | Sujet |
 |---|---|
@@ -222,8 +222,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 103 commits, ~300 fichiers ajoutés.
-- **Commits locaux** : 103 (99 sprint + 4 post-sprint).
+- **Implémentation locale** : 110 commits, ~310 fichiers ajoutés.
+- **Commits locaux** : 110 (99 sprint + 4 post-sprint + 7 P11.52-P11.56).
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -248,7 +248,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 3e691ddf2a (post-sprint) ou b2c2773ba9 (sprint)
+git rev-parse HEAD  # doit être 46fd3a322f (P11.56) ou b2c2773ba9 (sprint)
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -262,12 +262,12 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 103 commits,
-~300 fichiers, **601 tests passants** (488 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 46 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 110 commits,
+~310 fichiers, **635 tests passants** (522 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 51 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
-## 14. Addendum post-sprint (4 commits)
+## 14. Addendum post-sprint (4 + 7 commits = 11 commits, HEAD `46fd3a32`)
 
 | SHA | Sujet |
 |---|---|
@@ -275,10 +275,18 @@ supplémentaires, lint/typecheck/clippy/biome verts.
 | `3b58248c0f` | docs(knowledge): record P10.2/P10.3 device run (Xiaomi Mi 10 Pro, cmi_eea) — `PASS_WITH_SAFE_FALLBACK` |
 | `51810b1a16` | docs(knowledge): FRONTIER-REVIEW-PACKET (runbook §24) — 14 318 bytes, ready |
 | `3e691ddf2a` | docs(knowledge): align COMPACT + README to P10.2/P10.3 + FRONTIER packet |
+| `bdb123a18e` | docs(knowledge): FINAL-REPORT addendum (post-sprint 4 commits, 103 total) |
+| `3e94204326` | docs(knowledge): align RISKS/COVERAGE/TEST-MATRIX/ARTIFACTS (R-0001..R-0011, 103 commits, 601 tests) |
+| `cd997c4025` | feat(knowledge): P11.52 note-stats CLI (per-note statistics: links, headings, frontmatter) |
+| `3fc20c9c59` | feat(knowledge): P11.53-P11.56 admin tools (size/weekday/edge-density/fm-diff) |
+| `c8bd76d85e` | feat(knowledge): CLI wire P11.52-P11.56 (note-stats, size-distribution, weekday-distribution, edge-density, frontmatter-diff) |
+| `c42d904833` | chore(knowledge): drop unused doc binding in edge-density loadAndParse |
+| `46fd3a32` | chore(knowledge): drop unused KnowledgeId import in frontmatter-diff |
 
-**Status post-sprint** : 50 CLI subcommands, 20 admin tools,
+**Status post-sprint** : 55 CLI subcommands, 38 admin tools,
 FRONTIER-REVIEW-PACKET.md ready, P10.2 device artefacts in
-`.artifacts/`. Obsidian recap : `Session-Recap-Sovereign-Knowledge-Core-13`.
+`.artifacts/`, **635 tests verts** (522 TS knowledge + 79 contracts
++ 34 Rust). Obsidian recaps : Session-Recap-12, Session-Recap-13.
 
 **Succès local n'est pas publication** : aucun artefact n'a
 quitté la machine, aucun remote n'a été sollicité, aucun push,
