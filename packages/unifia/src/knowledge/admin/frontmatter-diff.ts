@@ -16,7 +16,7 @@ import { listMarkdownLocators } from "../classb/reachability.js"
 import { parseDocument } from "../parser/parser.js"
 import { readFileSync } from "node:fs"
 import { join, isAbsolute } from "node:path"
-import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
+import type { KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 export interface FrontmatterDiffInput {
   vaultRoot: string
