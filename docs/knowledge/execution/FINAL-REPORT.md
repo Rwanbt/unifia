@@ -480,3 +480,49 @@ Suivi : R-0012.
 que par une contre-revue indépendante ultérieure.
 
 **Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
+---
+
+# Addendum 3 — 2026-08-30, chemin d'écriture et daemon MCP
+
+> Troisième addendum. En cas de contradiction avec ce qui précède, **celui-ci
+> fait foi**.
+
+Les deux surfaces « durcies mais non déployées » de l'addendum 2 sont closes
+(R-0013).
+
+**Écriture Class A** — `VaultMutationWriter` : intent validé, confinement par
+chemins réels partagé avec le lecteur, refus des credentials, CAS sur le hash
+observé, WAL persistant écrit avant que le fichier ne devienne visible,
+écriture atomique avec nettoyage du temporaire en cas d'échec. Une note entre
+en `candidate` ; `delete` est refusé. Les écritures sont désactivées par
+défaut.
+
+**Daemon MCP** — `serveMcp()` sert les six capacités en JSON-RPC 2.0 sur un
+transport injecté, en réutilisant `@unifia/mcp-transport`.
+`unifia knowledge mcp serve` tient registre et serveur pour la durée du
+processus.
+
+**Auto-revue adversariale** — chasse aux classes de défaut que cette session a
+répétées : valeurs `trust`/`restriction` codées en dur, helpers exportés sans
+consommateur, succès vides tenant lieu d'implémentation.
+`buildSyntheticRetrieval` (candidat fabriqué, ternaire à deux branches
+identiques) et `decideEgressBatch` (zéro consommateur) supprimés. Deux défauts
+relevés par biome et corrigés.
+
+**Vérification de bout en bout** : une note écrite par le chemin d'écriture est
+lisible en local (1 hit) et refusée en distant par `search` **et** `get`. Une
+requête JSON-RPC sur stdin retourne les 11 notes du vault réel.
+
+**Tests** : 771 (658 knowledge + 79 contracts + 34 Rust).
+
+**Ce qui reste, nommé** : aucune persistance du registre de tokens entre deux
+daemons ; `knowledge_propose` non accordé au token de session (l'écriture passe
+par la façade) ; pas de runtime FTS5 ; pas de modèle ONNX ; pas de watcher OS ;
+pas de device Android. Voir R-0012 et RISKS.
+
+**Verdict** : `READY_FOR_REVIEW`. Je ne rends pas `PRODUCTION_READY` moi-même —
+cette session a montré deux fois qu'une suite verte ne voit pas mes propres
+régressions. Ce qualificatif appartient à une contre-revue indépendante.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.

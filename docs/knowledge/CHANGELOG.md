@@ -4,6 +4,41 @@
 > All notable changes to the Knowledge subsystem are documented
 > here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.0-knowledge] - 2026-08-30 (write path and MCP daemon)
+
+### Added
+- **Class A write path.** `MutationWriter` was an interface with no
+  implementation, so `knowledge_propose` could only refuse and the memory
+  layer could not remember anything. `VaultMutationWriter` validates the
+  intent, confines the target on real paths, refuses credential bodies,
+  honours compare-and-swap, appends to a persisted WAL before the file
+  becomes visible, and writes atomically. A new note enters as a `candidate`;
+  `delete` is refused (ADR-KNOW-0009). Writes are opt-in:
+  `composeKnowledgeService({ writable: true })`.
+- **MCP daemon.** `serveMcp()` answers the six capabilities as JSON-RPC 2.0
+  over an injected transport, reusing `@unifia/mcp-transport`.
+  `unifia knowledge mcp serve <workspace>` holds one server and one registry
+  for the process lifetime, so a token stays valid across calls and a
+  revocation is immediate. `@unifia/mcp-transport` is now a declared
+  dependency; it resolved through the workspace but was never listed.
+- `source/containment.ts` — one containment definition shared by reader and
+  writer, so the two cannot disagree about where the vault ends.
+
+### Removed
+- `buildSyntheticRetrieval` — fabricated a candidate with hardcoded trust and
+  restriction, then returned `decision === "allow" ? [] : []`, two identical
+  branches. Superseded by real retrieval, no production consumer.
+- `decideEgressBatch` — zero consumers, zero tests.
+
+### Tests
+- 771 passing: 658 TS knowledge (was 632) + 79 contracts + 34 Rust.
+
+### Status
+- R-0013 closed. Remaining boundaries named in RISKS: no token persistence
+  across daemon restarts, no FTS5 runtime, no ONNX model, no OS watcher, no
+  Android device.
+- 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
 ## [0.4.0-knowledge] - 2026-08-30 (production-readiness counter-review)
 
 ### Fixed (security)
