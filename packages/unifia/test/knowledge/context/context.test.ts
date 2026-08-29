@@ -14,6 +14,7 @@ import {
 } from "../../../src/knowledge/source/index.js"
 import { decideEgress } from "../../../src/knowledge/policy/index.js"
 import type { KnowledgeSpaceKind } from "@unifia/contracts/knowledge"
+import { parseDocument, type ParsedDocument } from "../../../src/knowledge/parser/parser.js"
 
 const VALID_UUID = (i: number) =>
   `0190d2c0-7b00-7000-8000-${String(i).padStart(12, "0")}`
@@ -27,6 +28,30 @@ function makeNote(i: number, type: ListedNote["type"]): ListedNote {
   }
 }
 
+/**
+ * A real document for `note`, so the router can score and snippet it. The
+ * body carries the term the router tests query for ("q"); a source whose
+ * `read` returns null is a source whose notes are correctly dropped.
+ */
+function documentFor(note: ListedNote): ParsedDocument {
+  return parseDocument(
+    [
+      "---",
+      "unifia_schema: 1",
+      `unifia_id: "${note.ref.id}"`,
+      `unifia_type: "${note.type}"`,
+      `unifia_lifecycle: "${note.lifecycle}"`,
+      `unifia_created_at: "${note.updatedAt}"`,
+      `unifia_updated_at: "${note.updatedAt}"`,
+      'unifia_project_ref: "unifia"',
+      "unifia_supersedes: []",
+      'unifia_tags: ["q"]',
+      "---",
+      `q body for ${note.ref.locator}`,
+    ].join("\n"),
+  )
+}
+
 function makeSource(
   kind: KnowledgeSpaceKind,
   id: string,
@@ -35,13 +60,18 @@ function makeSource(
   return {
     space: { kind, id, label: id },
     list: async (_opts: ListOptions) => notes,
-    read: async () => null,
+    read: async (locator?: string) =>
+      documentFor(notes.find((n) => n.ref.locator === locator) ?? (notes[0] as ListedNote)),
     watch: (_onChange: (e: SourceEvent) => void) => () => undefined,
   }
 }
 
+// A local destination: these tests exercise routing and bounds, not the
+// remote-egress rule (covered by the C3 characterization suite). Notes with
+// no restrictions block default to local_model: allow, remote_model: deny.
 const basePlan = {
-  providerId: "anthropic",
+  providerId: "local-llm",
+  destinationKind: "local" as const,
   defaultRestriction: "allow" as const,
 }
 
@@ -250,9 +280,9 @@ describe("inspect", () => {
       deadlineMs: 1_000,
     })
     const view = inspect(pack, basePlan)
-    expect(view.destination).toBe("anthropic")
+    expect(view.destination).toBe("local-llm")
     expect(view.rows).toHaveLength(1)
-    expect(view.rows[0]?.destination).toBe("anthropic")
+    expect(view.rows[0]?.destination).toBe("local-llm")
     expect(view.rows[0]?.decision).toBe("allow")
   })
 })

@@ -97,7 +97,20 @@ describe("C3 — egress overrides may restrict but never widen", () => {
     const d = decideEgress({ item: itemWith("allow", "unverified"), plan })
     expect(d.decision).toBe("deny")
   })
+
+  it("allows unverified provenance toward an explicitly local destination", () => {
+    // ADR-KNOW-0006 section 2 says DENY EXTERNAL, not deny everywhere: an
+    // external mount must stay usable by a local model.
+    const plan: ProviderDestinationPlan = {
+      providerId: "local-llm",
+      destinationKind: "local",
+      defaultRestriction: "allow",
+    }
+    const d = decideEgress({ item: itemWith("allow", "unverified"), plan })
+    expect(d.decision).toBe("allow")
+  })
 })
+
 
 // ---------------------------------------------------------------------------
 // C10 — lifecycle: the transition table and the mutation mapping must agree.

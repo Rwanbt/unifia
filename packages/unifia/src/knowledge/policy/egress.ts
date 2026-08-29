@@ -70,13 +70,15 @@ export function decideEgress(input: EgressInput): EgressResult {
     return { decision: "deny", reason: "provider default restriction is deny" }
   }
 
-  // 4. Unresolved provenance is treated as UNCLASSIFIED and denied
-  //    (ADR-KNOW-0006 §2). V1's ProviderDestinationPlan carries no
-  //    local/remote discriminator, so the fail-closed reading applies to every
-  //    destination; relaxing this for a local provider needs that
-  //    discriminator first.
-  if (item.trust === "unverified") {
-    return { decision: "deny", reason: "provenance is unverified (ADR-KNOW-0006 §2)" }
+  // 4. Unresolved provenance is denied toward anything that leaves the
+  //    machine (ADR-KNOW-0006 §2 says DENY EXTERNAL, not deny everywhere).
+  //    A plan that does not declare itself local counts as remote, so the
+  //    ambiguous case still fails closed.
+  if (item.trust === "unverified" && plan.destinationKind !== "local") {
+    return {
+      decision: "deny",
+      reason: "provenance is unverified and the destination is not local (ADR-KNOW-0006 §2)",
+    }
   }
 
   // 5. An `allow` override is a confirmation, never a widening: it is only

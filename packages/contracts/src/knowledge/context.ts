@@ -78,10 +78,26 @@ export const ContextItemSchema = z
   })
   .strict()
 
+/**
+ * Where a destination lives. ADR-KNOW-0006 §2 denies UNCLASSIFIED content
+ * toward anything external, so the guard has to be able to tell the two
+ * apart; PERMISSIONS.md §3 already draws this line (`provider:<id>` vs
+ * `provider:<id>:remote`). Omitted means `remote`: a destination that does
+ * not say it is local is treated as if it leaves the machine.
+ */
+export const DestinationKindSchema = z.enum(["local", "remote"])
+export type DestinationKind = z.infer<typeof DestinationKindSchema>
+
 /** Provider destination plan: per-item, where the item can be sent. */
 export interface ProviderDestinationPlan {
   /** Provider identifier (e.g. "anthropic", "openai", "local-llm"). */
   providerId: string
+  /**
+   * Whether this destination stays on the machine. Defaults to `remote`.
+   * A local destination is matched against a note's `local_model`
+   * restriction, a remote one against `remote_model`.
+   */
+  destinationKind?: DestinationKind
   /** Per-item override. Missing = inherit from `defaultRestriction`. */
   overrides?: Record<string, RestrictionLevel>
   /** Default restriction for this provider. */
@@ -91,6 +107,7 @@ export interface ProviderDestinationPlan {
 export const ProviderDestinationPlanSchema = z
   .object({
     providerId: z.string().min(1),
+    destinationKind: DestinationKindSchema.optional(),
     overrides: z.record(z.string(), RestrictionLevelSchema).optional(),
     defaultRestriction: RestrictionLevelSchema,
   })
