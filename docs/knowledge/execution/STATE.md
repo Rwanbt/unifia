@@ -1580,3 +1580,49 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-graph`, `duplicates`).
 **Subcommandes CLI** : 45 (etait 20 en V3, +25 admin = x2.25).
 **Cartes durcissement** : 41 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-46).
+
+
+---
+
+## Carte 0215 - P11.47 : Timeline CLI (notes grouped by day)
+
+- **ID** : 0215
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/timeline.ts` +
+  `packages/unifia/test/knowledge/admin/timeline.test.ts` (8 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdTimeline).
+- **`buildTimeline({ vaultRoot, windowDays? })`** : walk le vault,
+  groupe les notes par jour (UTC) de `unifia_updated_at`,
+  retourne `{ vaultRoot, windowDays, totalNotes, totalDays,
+  days, totalMs }`.
+- **`formatTimeline(report, maxPerDay)`** : helper ASCII pour
+  le rendu CLI.
+- **CLI** : `unifia knowledge timeline <ws> [--window-days=N]
+  [--max-per-day=N]`.
+- **Live run** : window=30 -> 9 notes du 2026-08-29.
+  window=0 -> 9 notes du 2026-08-29 + 2 notes du 2026-04-17.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V18 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 89.
+
+**Tests** : 458 TS knowledge + 79 contracts + 34 Rust = **571 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `1675d4a21c feat(knowledge): P11.47 timeline CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 16 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`, `duplicates`, `timeline`).
+**Subcommandes CLI** : 46 (etait 20 en V3, +26 admin = x2.30).
+**Cartes durcissement** : 42 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-47).
