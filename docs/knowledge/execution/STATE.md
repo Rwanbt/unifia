@@ -1094,3 +1094,65 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 `admin/projects.ts` (P11.33), `admin/supersede.ts` (P11.34).
 **Subcommandes CLI** : 33 (etait 20 en V3, +13 admin).
 **Cartes durcissement** : 29 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-34).
+
+
+---
+
+## Carte 0203 - P11.35 : By-lifecycle CLI
+
+- **ID** : 0203
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/by-lifecycle.ts` +
+  `packages/unifia/test/knowledge/admin/by-lifecycle.test.ts` (6 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdByLifecycle).
+- **`listByLifecycle({ vaultRoot, lifecycle, limit? })`** : walk
+  le vault, filtre sur `unifia_lifecycle`, retourne
+  `{ vaultRoot, lifecycle, scanned, hits, totalMs }` avec hits
+  tries par locator.
+- **Validation** : refuse un lifecycle hors V1 set
+  (`candidate|active|superseded|archived`).
+- **CLI** : `unifia knowledge by-lifecycle <ws> <lc> [--limit=N]`.
+- **Live run** : `active` -> 10 hits, `superseded` -> 1 hit.
+- **Risque** : aucun.
+
+---
+
+## Carte 0204 - P11.36 : By-project CLI
+
+- **ID** : 0204
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/by-project.ts` +
+  `packages/unifia/test/knowledge/admin/by-project.test.ts` (7 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdByProject).
+- **`listByProject({ vaultRoot, projectRef, limit? })`** : walk
+  le vault, filtre sur `unifia_project_ref`, retourne
+  `{ vaultRoot, projectRef, scanned, hits, totalMs }` avec hits
+  tries par locator.
+- **Validation** : refuse un projectRef vide.
+- **CLI** : `unifia knowledge by-project <ws> <pr> [--limit=N]`.
+- **Live run** : `unifia --limit=3` -> 3 hits (alphabetic).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V8 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 68.
+
+**Tests** : 378 TS knowledge + 79 contracts + 34 Rust = **491 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `657b3e04bb feat(knowledge): P11.36 by-project CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : `admin/tags.ts` (P11.32),
+`admin/projects.ts` (P11.33), `admin/supersede.ts` (P11.34),
+`admin/by-lifecycle.ts` (P11.35), `admin/by-project.ts` (P11.36).
+**Subcommandes CLI** : 35 (etait 20 en V3, +15 admin).
+**Cartes durcissement** : 31 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-36).
