@@ -1535,3 +1535,48 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-graph`).
 **Subcommandes CLI** : 44 (etait 20 en V3, +24 admin = x2.20).
 **Cartes durcissement** : 40 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-45).
+
+
+---
+
+## Carte 0214 - P11.46 : Duplicates CLI (byte-identical content groups)
+
+- **ID** : 0214
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/duplicates.ts` +
+  `packages/unifia/test/knowledge/admin/duplicates.test.ts` (8 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdDuplicates).
+- **`findDuplicates({ vaultRoot })`** : walk le vault, hash chaque
+  fichier en SHA-256, groupe par hash. Retourne
+  `{ groups, duplicateCount, wastedBytes, totalMs }` ou
+  chaque group a `n` entries, `n-1` sont des duplicates.
+- **CLI** : `unifia knowledge duplicates <ws>`.
+- **Live run** : 0 duplicate groups sur dev (corpus diversifie).
+- **Lecon** : `wastedBytes = bytes * (n-1)` par groupe, pas
+  `bytes * n`. Le test initial avait mis `4` au lieu de `2`
+  pour 2 groupes de 1 byte chacun (1 wasted each) — corrige.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V17 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 87.
+
+**Tests** : 450 TS knowledge + 79 contracts + 34 Rust = **563 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `d6759cc4a7 feat(knowledge): P11.46 duplicates CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 15 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`, `duplicates`).
+**Subcommandes CLI** : 45 (etait 20 en V3, +25 admin = x2.25).
+**Cartes durcissement** : 41 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-46).
