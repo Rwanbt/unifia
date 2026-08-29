@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `36e0000363 feat(knowledge): P11.17 disaster recovery drill` |
+| HEAD final | `b53dd4fb18 feat(knowledge): P11.22 validate CLI` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (40)
+## 2. Commits locaux (42)
 
 | SHA | Sujet |
 |---|---|
@@ -64,6 +64,7 @@
 | `78af96a1c8` | feat(knowledge): P5.5 similarity simulation on real fixtures |
 | `1154ada15a` | feat(knowledge): P11.19 summary CLI (one-line + sectioned) |
 | `36e0000363` | feat(knowledge): P11.17 disaster recovery drill (6 scenarios) |
+| `b53dd4fb18` | feat(knowledge): P11.22 validate CLI (doctor + per-type field check) |
 
 ## 3. Phases et gates
 
@@ -92,14 +93,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 285 pass, 0 fail, 589 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 293 pass, 0 fail, 601 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 5 finale)** : 285 TS knowledge + 79 contracts + 34 Rust = **398 tests passants**.
+**Total des tests dans cette session (session 6 finale)** : 293 TS knowledge + 79 contracts + 34 Rust = **406 tests passants**.
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -150,7 +151,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 21 | 21 | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 285 | 285 | 100% |
+| Tests TS knowledge | 293 | 293 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -171,8 +172,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 40 commits, ~170 fichiers ajoutés.
-- **Commits locaux** : 40.
+- **Implémentation locale** : 42 commits, ~175 fichiers ajoutés.
+- **Commits locaux** : 42.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -197,7 +198,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 36e0000363
+git rev-parse HEAD  # doit être b53dd4fb18
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -209,9 +210,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 40 commits,
-~170 fichiers, **398 tests passants** (285 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 16 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 42 commits,
+~175 fichiers, **406 tests passants** (293 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 17 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
@@ -232,5 +233,5 @@ sans intervention.
 
 ---
 
-*Session close le 2026-08-29. SHA final : `36e0000363`.*
-*40 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
+*Session close le 2026-08-29. SHA final : `b53dd4fb18`.*
+*42 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
