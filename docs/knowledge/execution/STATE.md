@@ -1906,3 +1906,56 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 **Cartes P10 mises a jour** : 0221 (P10.2), 0222 (P10.3).
 **Cartes restantes (toujours externes)** : frontier review
 (modele externe), ONNX embedding (desactive V1).
+
+---
+
+## Checkpoint final V24 - Sessions 13 + 14 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 111.
+
+**Tests** : 522 TS knowledge + 79 contracts + 34 Rust = **635 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `c67a7e22 docs(knowledge): align COMPACT + README + FINAL-REPORT to P11.56`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+### Sessions 13-14 : 11 commits
+
+| SHA | Sujet |
+|---|---|
+| `3b58248c0f` | docs(knowledge): record P10.2/P10.3 device run (Xiaomi Mi 10 Pro, cmi_eea) |
+| `51810b1a16` | docs(knowledge): FRONTIER-REVIEW-PACKET (runbook §24) |
+| `3e691ddf2a` | docs(knowledge): align COMPACT + README to P10.2/P10.3 + FRONTIER packet |
+| `bdb123a18e` | docs(knowledge): FINAL-REPORT addendum (post-sprint 4 commits, 103 total) |
+| `3e94204326` | docs(knowledge): align RISKS/COVERAGE/TEST-MATRIX/ARTIFACTS (R-0001..R-0011) |
+| `cd997c4025` | feat(knowledge): P11.52 note-stats CLI |
+| `3fc20c9c59` | feat(knowledge): P11.53-P11.56 admin tools (size/weekday/edge-density/fm-diff) |
+| `c8bd76d85e` | feat(knowledge): CLI wire P11.52-P11.56 (5 subcommands) |
+| `c42d904833` | chore(knowledge): drop unused doc binding in edge-density loadAndParse |
+| `46fd3a322f` | chore(knowledge): drop unused KnowledgeId import in frontmatter-diff |
+| `c67a7e228b` | docs(knowledge): align COMPACT + README + FINAL-REPORT to P11.56 |
+
+### Nouveaux outils admin P11.52..P11.56 (5)
+
+- `note-stats.ts` (P11.52, 9 tests) — stats par note (links, headings, body, fm)
+- `size-distribution.ts` (P11.53, 7 tests) — histogramme 0-1KB..1MB+
+- `weekday-distribution.ts` (P11.54, 6 tests) — distribution UTC Mon..Sun
+- `edge-density.ts` (P11.55, 5 tests) — histogramme degre in+out (0/1/2-5/6-10/11-20/20+)
+- `frontmatter-diff.ts` (P11.56, 7 tests) — diff added/removed/changed/unchanged
+
+### DECISIONS : 20+ entries
+
+D-0001..D-0020 documentees (D-0004..D-0020 ajoutees en V24).
+Append-only. Couvrent : scope, sources reelles, hierarchie
+d'autorite, ANN deferred, embedding disabled, default-deny,
+append-only, P10.2 fallback, TS shadow, conventions de filtre,
+pair-key, fingerprint, lifecycle, frontmatter, mutation policy,
+self-link ignore, single source of truth.
+
+### Frontieres externes (toujours)
+
+- P10.2 full chain : `PASS_WITH_SAFE_FALLBACK` (APK rebuild requis)
+- ONNX embedding : `disabled` V1
+- Frontier review : packet pret (`FRONTIER-REVIEW-PACKET.md`)

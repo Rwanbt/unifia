@@ -16,10 +16,10 @@
 | Branch | `feat/sovereign-knowledge-core` |
 | Base | `origin/dev` @ `95350647140a382ee6d5d61bc2f6639597d80f0b` |
 | Worktree | `D:\App\unifia\unifia-memory` (sibling of `unifia-work-design`, untouched) |
-| Local commits | **101** (HEAD `3b58248c0f`) |
-| Tests | **601 green** (488 TS knowledge + 79 contracts + 34 Rust) |
+| Local commits | **111** (HEAD `c67a7e22`) |
+| Tests | **635 green** (522 TS knowledge + 79 contracts + 34 Rust) |
 | Phases | 13 / 13 covered (P10.2 / P10.3 = `PASS_WITH_SAFE_FALLBACK`) |
-| Public surface | 50 CLI subcommands, 20 admin tools |
+| Public surface | 55 CLI subcommands, 38 admin tools (P11.32-P11.56) |
 | ADRs | 9 (`docs/knowledge/adr/0001..0009-knowledge-*.md`) |
 | Mutations | **0** — no push, no PR, no merge, no release, no publication |
 | Remote tracking | **none** — branch has no upstream |
@@ -57,7 +57,7 @@ crates/
     ├── wal.rs     classb.rs control_store.rs
 
 packages/unifia/bin/
-└── unifia-knowledge.ts         # CLI dispatcher (50 subcommands)
+└── unifia-knowledge.ts         # CLI dispatcher (55 subcommands)
 
 docs/knowledge/
 ├── README.md                    # navigation index
@@ -70,7 +70,7 @@ docs/knowledge/
 ├── adr/0001..0009-knowledge-*.md
 └── execution/
     ├── STATE.md                 # append-only, ~74k chars, 100+ cards
-    ├── DECISIONS.md             # 30+ autonomous decisions (D-NNNN)
+    ├── DECISIONS.md             # 20+ autonomous decisions (D-0001..D-0020)
     ├── RISKS.md                 # open risks, classified
     ├── COVERAGE.md              # file coverage per phase
     ├── TEST-MATRIX.md           # what each test exercises
@@ -138,18 +138,20 @@ All 34 tests must pass at HEAD; reviewer can run
 | `stack/` | 6 | ai-native-dev-stack source mapping |
 | `wal/`, `classb/`, `control/` | 25 | TS adapters of the Rust core |
 
-## CLI surface (50 subcommands)
+## CLI surface (55 subcommands)
 
 Original 30 (status, sources, search, doctor, bench, bench-large,
 sovereignty, disaster-recovery, migrate, precommit, portable,
 reachability, mcp-token, classify, verify, policy, gc, similarity,
 summary, drill, validate, report, tag-search, backlinks, stats,
-by-type, broken-links, headings, list, show) + 20 new in session 12
+by-type, broken-links, headings, list, show) + 20 in session 12
 (tags, projects, supersede, by-lifecycle, by-project, orphans,
 lifecycle-distribution, stale, references, fingerprint, by-tag,
 vault-compare, recent, supersede-graph, duplicates, timeline,
 tag-cooccurrence, supersede-classify, note-diff,
-lifecycle-transitions).
+lifecycle-transitions) + 5 in session 14 (note-stats,
+size-distribution, weekday-distribution, edge-density,
+frontmatter-diff).
 
 Each subcommand is wired through the dispatcher and the `--help`
 text. All 50 are pure read-only except `supersede` (plan dry-run
@@ -240,23 +242,67 @@ verdict.
 cd D:\App\unifia\unifia-memory
 git status --short   # must be empty
 git branch --show-current  # must be feat/sovereign-knowledge-core
-git rev-parse HEAD   # must be 3b58248c0f1f0938978267f3b4fc7a3180b0fea3
+git rev-parse HEAD   # must be c67a7e228b516f5061d7253366bece150db46fca
 
 # 2. Tests
 bun --cwd packages/contracts test     # 79 pass
-bun --cwd packages/unifia test test/knowledge  # 488 pass
+bun --cwd packages/unifia test test/knowledge  # 522 pass
 cd crates/unifia-knowledge-core && cargo test --release  # 34 pass
 
 # 3. Static checks
 bun --cwd packages/unifia run typecheck
 cd crates/unifia-knowledge-core && cargo clippy --all-targets --all-features -- -D warnings
-bunx biome check packages/unifia/src/knowledge
+bunx biome check packages/unifia/src/knowledge  # 0 warning
 
 # 4. Live CLI smoke
 bun run packages/unifia/bin/unifia-knowledge.ts status
 bun run packages/unifia/bin/unifia-knowledge.ts drill   # 6/6
-bun run packages/unifia/bin/unifia-knowledge.ts verify tests/knowledge/eval/dev  # 4/4
+bun run packages/unifia/bin/unifia-knowledge.ts verify D:/App/unifia/unifia-memory/tests/knowledge/eval/dev  # 4/4
+bun run packages/unifia/bin/unifia-knowledge.ts lifecycle-distribution D:/App/unifia/unifia-memory/tests/knowledge/eval/dev
+bun run packages/unifia/bin/unifia-knowledge.ts size-distribution D:/App/unifia/unifia-memory/tests/knowledge/eval/dev
 ```
+
+## Live verification (captured at HEAD `c67a7e22`)
+
+These are the actual outputs of the smoke commands above at
+the time of writing. The reviewer can re-run them and compare.
+
+```
+$ unifia knowledge drill
+drill: 6/6 scenarios OK (0ms)
+  PASS before-fsync                  INV-RECOVERY-PRE-FSYNC
+  PASS after-fsync-before-rename     INV-RECOVERY-POST-FSYNC
+  PASS after-rename-before-wal-fsync INV-RECOVERY-POST-RENAME
+  PASS after-wal-fsync               INV-RECOVERY-POST-WAL
+  PASS during-index-update           INV-RECOVERY-DURING-INDEX
+  PASS during-wal-compaction         INV-RECOVERY-DURING-COMPACTION
+
+$ unifia knowledge verify tests/knowledge/eval/dev
+  PASS  sovereignty           5 probe(s); verdict=OK  (6ms)
+  PASS  disaster-recovery     3 step(s); simulation=OK; missing=[network]  (1ms)
+  PASS  reachability          classA=12, classB=0, orphans=0, missingSidecars=12  (3ms)
+  PASS  classify              parsed=11, failed=1, findings=0  (10ms)
+  verdict: OK  (total 20ms)
+
+$ unifia knowledge lifecycle-distribution tests/knowledge/eval/dev
+  scanned: 11 (1 note fails the parser, see classify)
+              decision  constraint  preference  failure  learning  procedure  reference  semantic  episodic  TOTAL
+  candidate       0           0           0        0        0          0          0        0         0       0
+  active          3           3           0        2        0          0          0        1         1      10
+  superseded      1           0           0        0        0          0          0        0         0       1
+  archived        0           0           0        0        0          0          0        0         0       0
+  TOTAL           4           3           0        2        0          0          0        1         1      11
+
+$ unifia knowledge size-distribution tests/knowledge/eval/dev
+  scanned: 12, total: 9694 bytes, mean: 807, median: 710
+  distribution:
+    0-1KB       11 ###########
+    1-5KB        1 #
+```
+
+If a reviewer gets a different number, that's a real regression
+to flag. Otherwise the V1 admin tools are deterministic on the
+dev fixture set.
 
 ## Specific questions for the reviewer
 
@@ -283,7 +329,7 @@ The reviewer is invited to challenge:
 6. **Disaster recovery** — does the 5-step procedure in
    `DISASTER-RECOVERY.md` cover the 6 crash scenarios in
    `hardening/crash-matrix.ts`? (drill currently reports 6/6)
-7. **V1 test count** — 601 green tests. Is this adequate for the
+7. **V1 test count** — 635 green tests. Is this adequate for the
    V1 DoD (12U + 10E requirements in
    `SOVEREIGN-CORE-V1-DOD.md`)?
 8. **Reversibility** — can a user uninstall V1 cleanly? (The
