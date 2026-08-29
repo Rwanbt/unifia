@@ -40,6 +40,8 @@ import {
   removePortableEntry,
   listPortableEntries,
 } from "../src/knowledge/classb/portable-store.js"
+import { scanReachability } from "../src/knowledge/classb/reachability.js"
+import { McpTokenRegistry } from "../src/knowledge/mcp/token.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -63,6 +65,10 @@ function printUsage(): void {
       "  unifia knowledge portable <workspace> upsert <alias> <locator> [<external>]",
       "  unifia knowledge portable <workspace> remove <alias>",
       "  unifia knowledge portable <workspace> show",
+      "  unifia knowledge reachability <workspace>",
+      "  unifia knowledge mcp-token issue <workspace> [--ttl=MS]",
+      "  unifia knowledge mcp-token revoke <token-id>",
+      "  unifia knowledge mcp-token check <token-id>",
       "",
     ].join("\n"),
   )
@@ -402,6 +408,104 @@ async function cmdPortable(rest: readonly string[]): Promise<number> {
   }
 }
 
+async function cmdReachability(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("reachability: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = scanReachability(ws)
+    process.stdout.write(`vault:      ${r.workspaceRoot}\n`)
+    process.stdout.write(`class A:    ${r.classALocators.length} note(s)\n`)
+    process.stdout.write(`class B:    ${r.classBEntries.length} entry(ies)\n`)
+    process.stdout.write(`reachable:  ${r.reachable.length}\n`)
+    process.stdout.write(`orphans:    ${r.orphans.length}\n`)
+    process.stdout.write(`missing:    ${r.missingSidecars.length} (no sidecar)\n`)
+    if (r.orphans.length > 0) {
+      process.stdout.write(`\norphans (Class B without Class A):\n`)
+      for (const o of r.orphans) process.stdout.write(`  - ${o}\n`)
+    }
+    if (r.missingSidecars.length > 0) {
+      process.stdout.write(`\nmissing sidecars (Class A without Class B):\n`)
+      for (const m of r.missingSidecars) process.stdout.write(`  - ${m}\n`)
+    }
+    process.stdout.write(`\nelapsed:    ${r.durationMs}ms\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`reachability error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function cmdMcpToken(rest: readonly string[]): Promise<number> {
+  const sub = rest[0]
+  // The token registry is process-local. In V1 it is recreated
+  // per CLI invocation; tokens issued by one CLI call are not
+  // visible from another. For an in-process smoke test, use
+  // `mcp-token demo <workspace>` which issues, checks, revokes,
+  // and re-checks in a single call.
+  const reg = new McpTokenRegistry()
+  try {
+    switch (sub) {
+      case "issue": {
+        const ws = rest[1]
+        if (!ws) {
+          process.stderr.write("mcp-token issue: missing workspace\n")
+          return 2
+        }
+        const flags = parseFlags(rest.slice(2))
+        const ttlStr = flags.get("ttl")
+        const ttlMs = ttlStr ? Number(ttlStr) : undefined
+        const t = reg.issue({ workspace: ws, ttlMs: ttlMs && Number.isFinite(ttlMs) ? ttlMs : undefined })
+        process.stdout.write(`issued ${t.id} for ${t.workspace} (expires=${t.expiresAt ?? "never"})\n`)
+        process.stdout.write(`NOTE: token registry is process-local; not visible from another CLI call.\n`)
+        return 0
+      }
+      case "demo": {
+        const ws = rest[1]
+        if (!ws) {
+          process.stderr.write("mcp-token demo: missing workspace\n")
+          return 2
+        }
+        const t = reg.issue({ workspace: ws, ttlMs: 60_000 })
+        process.stdout.write(`issued   ${t.id}\n`)
+        process.stdout.write(`check 1: ${reg.isValid(t.id) ? "valid" : "invalid"}\n`)
+        reg.revoke(t.id)
+        process.stdout.write(`revoked  ${t.id}\n`)
+        process.stdout.write(`check 2: ${reg.isValid(t.id) ? "valid" : "invalid"}\n`)
+        return 0
+      }
+      case "revoke": {
+        const id = rest[1]
+        if (!id) {
+          process.stderr.write("mcp-token revoke: missing token id\n")
+          return 2
+        }
+        reg.revoke(id)
+        process.stdout.write(`revoked ${id}\n`)
+        return 0
+      }
+      case "check": {
+        const id = rest[1]
+        if (!id) {
+          process.stderr.write("mcp-token check: missing token id\n")
+          return 2
+        }
+        const ok = reg.isValid(id)
+        process.stdout.write(`${id}: ${ok ? "valid" : "invalid"}\n`)
+        return ok ? 0 : 1
+      }
+      default:
+        process.stderr.write(`mcp-token: unknown subcommand: ${sub ?? "(missing)"}\n`)
+        return 2
+    }
+  } catch (e) {
+    process.stderr.write(`mcp-token error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function main(): Promise<number> {
   const argv = process.argv.slice(2)
   const { cmd, rest } = parseArgs(argv)
@@ -434,6 +538,10 @@ async function main(): Promise<number> {
       return cmdPrecommit(rest)
     case "portable":
       return cmdPortable(rest)
+    case "reachability":
+      return cmdReachability(rest)
+    case "mcp-token":
+      return cmdMcpToken(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
