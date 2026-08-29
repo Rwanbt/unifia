@@ -46,6 +46,7 @@ import { classifyCorpus } from "../src/knowledge/admin/corpus-classify.js"
 import { runVerify } from "../src/knowledge/hardening/verify.js"
 import { readPolicy, patchPolicy, type KnowledgePolicy } from "../src/knowledge/policy/store.js"
 import { recommendGc, applyGcRecommendation } from "../src/knowledge/classb/gc.js"
+import { simulateSimilarity } from "../src/knowledge/semantic/simulate.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -80,6 +81,7 @@ function printUsage(): void {
       "  unifia knowledge policy <workspace> set-feature <feature> <true|false>",
       "  unifia knowledge gc <workspace> recommend",
       "  unifia knowledge gc <workspace> apply",
+      "  unifia knowledge similarity <workspace> [--topk=N]",
       "",
     ].join("\n"),
   )
@@ -729,8 +731,37 @@ async function cmdGc(rest: readonly string[]): Promise<number> {
 }
     case "policy":
       return cmdPolicy(rest)
+
+
+async function cmdSimilarity(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("similarity: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const topKStr = flags.get("topk")
+  const topK = topKStr && Number.isFinite(Number(topKStr)) ? Number(topKStr) : 5
+  try {
+    const r = simulateSimilarity({ vaultRoot: ws, topK })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`notes:    ${r.notes}\n`)
+    process.stdout.write(`index:    ${r.indexMs}ms\n`)
+    process.stdout.write(`query:    ${r.queryMs}ms\n`)
+    process.stdout.write(`top pairs (${r.topPairs.length}):\n`)
+    for (const p of r.topPairs) {
+      process.stdout.write(`  - ${p.a} ~ ${p.b}  cosine=${p.cosine.toFixed(4)}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`similarity error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "gc":
       return cmdGc(rest)
+    case "similarity":
+      return cmdSimilarity(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
