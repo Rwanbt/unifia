@@ -54,6 +54,7 @@ import { generateReport } from "../src/knowledge/admin/report.js"
 import { tagSearch } from "../src/knowledge/admin/tag-search.js"
 import { findBacklinks } from "../src/knowledge/admin/backlinks.js"
 import { computeStats } from "../src/knowledge/admin/stats.js"
+import { listByType } from "../src/knowledge/admin/by-type.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -96,6 +97,7 @@ function printUsage(): void {
       "  unifia knowledge tag-search <workspace> <tag> [<tag>...] [--limit=N]",
       "  unifia knowledge backlinks <workspace> <target>",
       "  unifia knowledge stats <workspace>",
+      "  unifia knowledge by-type <workspace> <type> [--only-active] [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -977,8 +979,37 @@ async function cmdStats(rest: readonly string[]): Promise<number> {
 }
     case "backlinks":
       return cmdBacklinks(rest)
+
+
+async function cmdByType(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  const type = rest[1]
+  if (!ws || !type) {
+    process.stderr.write("by-type: usage: by-type <workspace> <type> [--only-active] [--limit=N]\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(2))
+  const limitStr = flags.get("limit")
+  const limit = limitStr && Number.isFinite(Number(limitStr)) ? Number(limitStr) : 50
+  try {
+    const r = listByType({ vaultRoot: ws, type, limit, onlyActive: flags.has("only-active") })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`type:     ${r.type}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`hits:     ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.id}  ${h.locator}  ${h.lifecycle}  updatedAt=${h.updatedAt}\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`by-type error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "stats":
       return cmdStats(rest)
+    case "by-type":
+      return cmdByType(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
