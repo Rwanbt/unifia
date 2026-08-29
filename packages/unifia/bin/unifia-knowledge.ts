@@ -87,6 +87,10 @@ import { frontmatterDiff } from "../src/knowledge/admin/frontmatter-diff.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 import { cmdStatus, cmdSources, cmdSearch, openWorkspace } from "./knowledge/runtime.js"
 import { printUsage } from "./knowledge/usage.js"
+import { cmdMcpToken } from "./knowledge/commands-mcp.js"
+// One flag parser for the whole CLI. The local copy ignored bare
+// `--flag` forms, so a switch like `--strict` was silently dropped.
+import { parseFlags } from "./knowledge/shared.js"
 import {
   cmdShow,
   cmdTags,
@@ -102,6 +106,8 @@ import {
   cmdByTag,
   cmdVaultCompare,
   cmdRecent,
+} from "./knowledge/commands-vault.js"
+import {
   cmdSupersedeGraph,
   cmdDuplicates,
   cmdTimeline,
@@ -114,7 +120,7 @@ import {
   cmdWeekdayDistribution,
   cmdEdgeDensity,
   cmdFrontmatterDiff,
-} from "./knowledge/commands-report.js"
+} from "./knowledge/commands-graph.js"
 import type { ParsedArgs } from "./knowledge/shared.js"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -178,17 +184,6 @@ async function cmdBenchLarge(rest: readonly string[]): Promise<number> {
     `simulated ${r.count} notes, parse=${r.totalParseMs}ms (mean ${r.meanParseMs.toFixed(2)}ms), index=${r.totalIndexMs}ms (mean ${r.meanIndexMs.toFixed(2)}ms), peak body bytes=${r.peakBodyBytes}\n`,
   )
   return 0
-}
-
-function parseFlags(rest: readonly string[]): Map<string, string> {
-  const m = new Map<string, string>()
-  for (const arg of rest) {
-    if (arg.startsWith("--")) {
-      const eq = arg.indexOf("=")
-      if (eq > 0) m.set(arg.slice(2, eq), arg.slice(eq + 1))
-    }
-  }
-  return m
 }
 
 /** True if the args contain the given flag (with or without a value). */
@@ -466,6 +461,15 @@ async function cmdVerify(rest: readonly string[]): Promise<number> {
   }
   const verdict = !r.ok ? "FAIL" : r.allPassed ? "OK" : "OK (warnings / not executed)"
   process.stdout.write(`\nverdict: ${verdict}  (total ${r.totalMs}ms)\n`)
+
+  // `--strict` is what a CI gate should run: a check that warned or never
+  // executed is not evidence of health, and exiting 0 on it turns the gate
+  // into decoration. Interactive runs keep the lenient exit.
+  const strict = flags.has("strict") || process.env.UNIFIA_VERIFY_STRICT === "1"
+  if (strict && !r.allPassed) {
+    process.stdout.write("strict: failing because not every check passed\n")
+    return 1
+  }
   return r.ok ? 0 : 1
 }
 
@@ -536,74 +540,6 @@ async function cmdPolicy(rest: readonly string[]): Promise<number> {
     }
   } catch (e) {
     process.stderr.write(`policy error: ${(e as Error).message}\n`)
-    return 1
-  }
-}
-
-async function cmdMcpToken(rest: readonly string[]): Promise<number> {
-  const sub = rest[0]
-  // The token registry is process-local. In V1 it is recreated
-  // per CLI invocation; tokens issued by one CLI call are not
-  // visible from another. For an in-process smoke test, use
-  // `mcp-token demo <workspace>` which issues, checks, revokes,
-  // and re-checks in a single call.
-  const reg = new McpTokenRegistry()
-  try {
-    switch (sub) {
-      case "issue": {
-        const ws = rest[1]
-        if (!ws) {
-          process.stderr.write("mcp-token issue: missing workspace\n")
-          return 2
-        }
-        const flags = parseFlags(rest.slice(2))
-        const ttlStr = flags.get("ttl")
-        const ttlMs = ttlStr ? Number(ttlStr) : undefined
-        const t = reg.issue({ workspace: ws, ttlMs: ttlMs && Number.isFinite(ttlMs) ? ttlMs : undefined })
-        process.stdout.write(`issued ${t.id} for ${t.workspace} (expires=${t.expiresAt ?? "never"})\n`)
-        process.stdout.write(`NOTE: token registry is process-local; not visible from another CLI call.\n`)
-        return 0
-      }
-      case "demo": {
-        const ws = rest[1]
-        if (!ws) {
-          process.stderr.write("mcp-token demo: missing workspace\n")
-          return 2
-        }
-        const t = reg.issue({ workspace: ws, ttlMs: 60_000 })
-        process.stdout.write(`issued   ${t.id}\n`)
-        process.stdout.write(`check 1: ${reg.isValid(t.id) ? "valid" : "invalid"}\n`)
-        reg.revoke(t.id)
-        process.stdout.write(`revoked  ${t.id}\n`)
-        process.stdout.write(`check 2: ${reg.isValid(t.id) ? "valid" : "invalid"}\n`)
-        return 0
-      }
-      case "revoke": {
-        const id = rest[1]
-        if (!id) {
-          process.stderr.write("mcp-token revoke: missing token id\n")
-          return 2
-        }
-        reg.revoke(id)
-        process.stdout.write(`revoked ${id}\n`)
-        return 0
-      }
-      case "check": {
-        const id = rest[1]
-        if (!id) {
-          process.stderr.write("mcp-token check: missing token id\n")
-          return 2
-        }
-        const ok = reg.isValid(id)
-        process.stdout.write(`${id}: ${ok ? "valid" : "invalid"}\n`)
-        return ok ? 0 : 1
-      }
-      default:
-        process.stderr.write(`mcp-token: unknown subcommand: ${sub ?? "(missing)"}\n`)
-        return 2
-    }
-  } catch (e) {
-    process.stderr.write(`mcp-token error: ${(e as Error).message}\n`)
     return 1
   }
 }

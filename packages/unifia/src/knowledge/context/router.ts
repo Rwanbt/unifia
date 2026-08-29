@@ -224,6 +224,11 @@ export class ContextRouter {
 
     const items: ContextItem[] = []
     const perType = new Map<ContextItem["type"], number>()
+    // Defence in depth against a note reachable from two mounted spaces.
+    // Composition already keeps the project vault out of the personal
+    // subdirectory; this guarantees the pack holds each note once even if a
+    // future mount overlaps.
+    const seenIds = new Set<string>()
     let payloadBytes = 0
     let totalTokenCost = 0
 
@@ -232,6 +237,11 @@ export class ContextRouter {
       if (items.length >= req.maxCandidates) {
         truncated = true
         excluded.push({ locator: r.note.ref.locator, reason: "maxCandidates reached" })
+        continue
+      }
+
+      if (seenIds.has(r.note.ref.id)) {
+        excluded.push({ locator: r.note.ref.locator, reason: "duplicate of a higher-ranked copy" })
         continue
       }
 
@@ -261,6 +271,7 @@ export class ContextRouter {
       }
 
       items.push(item)
+      seenIds.add(r.note.ref.id)
       payloadBytes += r.snippetBytes
       totalTokenCost += cost
       perType.set(item.type, count + 1)

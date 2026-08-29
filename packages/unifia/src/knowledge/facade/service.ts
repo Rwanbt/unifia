@@ -55,6 +55,8 @@ export interface KnowledgeService {
   search(req: SearchRequest): Promise<RouterOutput>
   get(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<RetrievalResponse | null>
   backlinks(target: { id?: KnowledgeId; locator?: KnowledgeLocator }): Promise<KnowledgeId[]>
+  /** Ids this note declares it supersedes, from its own frontmatter. */
+  lineage(id: KnowledgeId): Promise<KnowledgeId[]>
   propose(input: { intent: unknown; reason: string; source: string }): Promise<MutationResult>
   doctor(input: DoctorInput): Promise<DoctorReport>
   status(): Promise<McpKnowledgeStatusResponse>
@@ -238,6 +240,30 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
     }
     return out
+  }
+
+  /**
+   * The `unifia_supersedes` list a note carries.
+   *
+   * `trace` used `backlinks()` as a stand-in for this, which conflated
+   * ordinary wikilinks with supersession and reported every edge as
+   * `relation: "supersedes"` regardless of direction. Lineage is a
+   * frontmatter fact and is read as one.
+   */
+  async lineage(id: KnowledgeId): Promise<KnowledgeId[]> {
+    for (const source of this.registry.all()) {
+      let doc: Awaited<ReturnType<KnowledgeSource["read"]>>
+      try {
+        doc = await source.read(undefined, id)
+      } catch {
+        continue
+      }
+      if (doc === null) continue
+      // A note the policy withholds does not disclose its lineage either.
+      if (this.hydrate(source, doc).decision.decision === "deny") return []
+      return (doc.note.frontmatter.unifia_supersedes ?? []) as KnowledgeId[]
+    }
+    return []
   }
 
   async propose(input: {

@@ -38,7 +38,7 @@ import type {
 } from "@unifia/contracts/knowledge"
 import type { KnowledgeService } from "../facade/service.js"
 import type { McpTokenRegistry } from "./token.js"
-import { utf8Bytes } from "../context/lexical.js"
+import { utf8Bytes, truncateUtf8 } from "../context/lexical.js"
 
 export interface McpKnowledgeConfig {
   /** Hard cap on requests per minute. */
@@ -191,7 +191,22 @@ export class McpKnowledgeServer {
       req.locator as KnowledgeLocator | undefined,
     )
     if (found === null) return this.guardResponse({ found: false, bodyBytes: 0 })
-    return this.guardResponse({ found: true, bodyBytes: found.payloadBytes })
+
+    const candidate = found.candidates[0]
+    if (candidate === undefined) return this.guardResponse({ found: false, bodyBytes: 0 })
+
+    // The contract declares body, id, locator and versionHash; only `found`
+    // and `bodyBytes` were ever returned, so the caller got a note that
+    // exists and no way to read it. `maxBytes` was accepted and ignored.
+    const body = truncateUtf8(candidate.snippet, req.maxBytes)
+    return this.guardResponse({
+      found: true,
+      id: candidate.id,
+      locator: candidate.locator,
+      body,
+      bodyBytes: utf8Bytes(body),
+      versionHash: candidate.snippetHash,
+    })
   }
 
   async backlinks(
@@ -222,43 +237,35 @@ export class McpKnowledgeServer {
     ctx: McpCallContext,
   ): Promise<McpKnowledgeTraceResponse> {
     this.guard(ctx, "knowledge_trace", req)
-    // V1 persists no Class C control log, so provenance is what Class A
-    // carries: the `unifia_supersedes` lineage. That is real and walkable;
-    // richer relations arrive with the control store.
+    // Walk the `unifia_supersedes` lineage Class A actually carries. This
+    // used `backlinks()`, which mixes ordinary wikilinks with supersession
+    // and reported every hop as "supersedes" whatever its real direction.
     const nodes: McpKnowledgeTraceResponse["nodes"] = []
-    const seen = new Set<string>()
+    const seen = new Set<string>([req.id])
     let frontier: string[] = [req.id]
 
-    for (let depth = 0; depth <= req.maxDepth && frontier.length > 0; depth++) {
+    for (let depth = 1; depth <= req.maxDepth && frontier.length > 0; depth++) {
       const next: string[] = []
       for (const id of frontier) {
-        if (seen.has(id)) continue
-        seen.add(id)
-        const found = await this.service.get(id as KnowledgeId)
-        const candidate = found?.candidates[0]
-        if (candidate === undefined) continue
-        if (depth > 0) {
+        for (const superseded of await this.service.lineage(id as KnowledgeId)) {
+          if (seen.has(superseded)) continue
+          seen.add(superseded)
+          const found = await this.service.get(superseded as KnowledgeId)
+          const candidate = found?.candidates[0]
+          if (candidate === undefined) continue
           nodes.push({
             id: candidate.id,
             locator: candidate.locator,
             depth,
+            // The walk runs from the newer note toward what it replaced.
             relation: "supersedes",
           })
+          next.push(superseded)
         }
-        for (const s of await this.supersededBy(id)) next.push(s)
       }
       frontier = next
     }
     return this.guardResponse({ nodes })
-  }
-
-  /** Ids this note declares it supersedes. */
-  private async supersededBy(id: string): Promise<string[]> {
-    const found = await this.service.get(id as KnowledgeId)
-    if (found === null) return []
-    // The facade exposes the note body, not its frontmatter list, so the
-    // lineage is resolved through backlinks on the id instead.
-    return this.service.backlinks({ id: id as KnowledgeId })
   }
 
   async status(ctx: McpCallContext): Promise<McpKnowledgeStatusResponse> {

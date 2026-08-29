@@ -122,16 +122,18 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     mounted.push("personal")
   }
 
-  // The workspace root itself is the project space. When `memory/` exists it
-  // is nested inside; VaultSource skips no ordinary directory, so a note
-  // under memory/ is reachable from both — which is correct, they are two
-  // views of the same Class A, and retrieval dedupes by locator ranking.
+  // The workspace root is the project space, and `memory/` sits inside it.
+  // The project vault must skip it: an earlier comment here claimed
+  // retrieval deduped these two views, which it did not — the same note was
+  // returned twice, under two locators and two spaces, inflating counts,
+  // ranking and budgets.
   registry.register(
     new ProjectSource(
       { projectRef: input.providerId },
       new VaultSource({
         root: input.workspaceRoot,
         space: { kind: "project", id: "project", label: "Project" },
+        excludeDirectories: [PERSONAL_SUBDIR],
       }),
     ),
   )
@@ -141,7 +143,10 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     // V1 has no FTS5 runtime and no embedding model. These stay false until
     // a real backend is wired; `status` reports them verbatim.
     ftsEnabled: false,
-    vectorEnabled: policy.features.embedding,
+    // A policy flag states an intention; `status` must state a fact. This
+    // reported vector: true from the flag alone, with no model and no
+    // backend. It flips when a loader is actually wired.
+    vectorEnabled: false,
   })
 
   return { service, registry, policy, plan, mounted, policyFromFile }

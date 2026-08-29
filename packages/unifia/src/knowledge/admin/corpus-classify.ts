@@ -23,6 +23,7 @@ import { indexNote } from "../derived/indexer.js"
 import { doctor, type DoctorInput, type DoctorFinding } from "./doctor.js"
 import { listMarkdownLocators } from "../classb/reachability.js"
 import { readFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { join } from "node:path"
 import type { KnowledgeId, KnowledgeLocator, KnowledgeVersionHash } from "@unifia/contracts/knowledge"
 
@@ -38,14 +39,17 @@ export interface CorpusReport {
   findings: DoctorFinding[]
 }
 
-/** Compute a stable but unkeyed version hash for a parsed note. */
-function fakeHash(input: string): string {
-  // Simple djb2; not cryptographic — this is a placeholder for
-  // the real BLAKE3 hash that the Rust core computes in V2.
-  let h = 5381
-  for (let i = 0; i < input.length; i++) h = (h * 33 + input.charCodeAt(i)) | 0
-  const hex = (h >>> 0).toString(16).padStart(8, "0")
-  return hex.repeat(8) // 64-char hex
+/**
+ * Version hash of a note's raw text.
+ *
+ * This was a 32-bit djb2 whose hexadecimal was repeated eight times to fill
+ * 64 characters and then cast to `KnowledgeVersionHash`. Thirty-two bits
+ * collide readily, and the value fed identity, idempotence and cache
+ * decisions — a placeholder cast to a contract type is worse than no value,
+ * because nothing downstream can tell the difference.
+ */
+function versionHash(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex")
 }
 
 export function classifyCorpus(vaultRoot: string): CorpusReport {
@@ -83,12 +87,12 @@ export function classifyCorpus(vaultRoot: string): CorpusReport {
     const fm = doc.note.frontmatter
     const id = fm.unifia_id as KnowledgeId
     const loc = locator as KnowledgeLocator
-    const versionHash = fakeHash(doc.note.raw) as KnowledgeVersionHash
+    const noteVersionHash = versionHash(doc.note.raw) as KnowledgeVersionHash
     // The indexer needs an id/locator/versionHash/body/chunkSize.
     const { chunks, edges: chunkEdges } = indexNote({
       id,
       locator: loc,
-      versionHash,
+      versionHash: noteVersionHash,
       body: doc.note.body,
       chunkSize: 1024,
     })

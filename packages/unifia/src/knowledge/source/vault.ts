@@ -62,6 +62,7 @@ function walkMarkdown(
   dir: string,
   out: string[],
   visited: Set<string>,
+  excluded: ReadonlySet<string>,
 ): void {
   const realDir = realOrNull(dir)
   if (realDir === null || visited.has(realDir)) return
@@ -77,6 +78,9 @@ function walkMarkdown(
   for (const name of entries) {
     if (SKIPPED_DIRECTORIES.has(name)) continue
     const full = join(dir, name)
+    // Excluded names apply at the vault root only: a nested `memory/` inside
+    // a project subdirectory is ordinary content.
+    if (realDir === realRoot && excluded.has(name)) continue
 
     let stats: ReturnType<typeof statSync>
     try {
@@ -90,7 +94,7 @@ function walkMarkdown(
     if (!isContained(realRoot, full)) continue
 
     if (stats.isDirectory()) {
-      walkMarkdown(realRoot, full, out, visited)
+      walkMarkdown(realRoot, full, out, visited, excluded)
       continue
     }
     if (!name.toLowerCase().endsWith(".md")) continue
@@ -105,6 +109,14 @@ export interface VaultSourceConfig {
   root: string
   /** The space this vault backs. */
   space: KnowledgeSpace
+  /**
+   * Top-level directory names this vault must not descend into.
+   *
+   * The project space is the workspace root and the personal space is
+   * `memory/` inside it, so without this the same note is listed by both and
+   * every count, ranking and budget doubles.
+   */
+  excludeDirectories?: readonly string[]
 }
 
 /**
@@ -120,6 +132,7 @@ export class VaultSource implements KnowledgeSource {
   private readonly root: string
   /** `root` with every link resolved; containment is decided against this. */
   private readonly realRoot: string
+  private readonly excluded: ReadonlySet<string>
   private scanErrors: Array<{ locator: string; message: string }> = []
 
   constructor(config: VaultSourceConfig) {
@@ -134,6 +147,7 @@ export class VaultSource implements KnowledgeSource {
       throw KnowledgeFailure.pathUnresolved(`vault root cannot be resolved: ${config.root}`)
     }
     this.realRoot = real
+    this.excluded = new Set(config.excludeDirectories ?? [])
     this.space = config.space
   }
 
@@ -145,7 +159,7 @@ export class VaultSource implements KnowledgeSource {
   /** Locators of every Markdown file under the root. */
   locators(): string[] {
     const out: string[] = []
-    walkMarkdown(this.realRoot, this.root, out, new Set())
+    walkMarkdown(this.realRoot, this.root, out, new Set(), this.excluded)
     out.sort()
     return out
   }
