@@ -1403,3 +1403,46 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `fingerprint`, `by-tag`).
 **Subcommandes CLI** : 41 (etait 20 en V3, +21 admin = x2.05).
 **Cartes durcissement** : 37 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-42).
+
+
+---
+
+## Carte 0211 - P11.43 : Vault-compare CLI
+
+- **ID** : 0211
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/vault-compare.ts` +
+  `packages/unifia/test/knowledge/admin/vault-compare.test.ts` (8 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdVaultCompare).
+- **`compareVaults({ vaultA, vaultB })`** : hash chaque fichier
+  des deux vaults en SHA-256, retourne `{ onlyA, onlyB, changed,
+  identical, fileCountA, fileCountB, totalMs }`.
+- **CLI** : `unifia knowledge vault-compare <ws_a> <ws_b>`.
+- **Live run** :
+  - `vault-compare <dev> <dev>` -> 12 identical, 0 diffs
+  - `vault-compare <dev> <holdout>` -> 1 changed (README.md),
+    11 only-A, 11 only-B (corpora disjoints par design)
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V14 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 81.
+
+**Tests** : 427 TS knowledge + 79 contracts + 34 Rust = **540 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `4b6d81d8cd feat(knowledge): P11.43 vault-compare CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 12 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`).
+**Subcommandes CLI** : 42 (etait 20 en V3, +22 admin = x2.10).
+**Cartes durcissement** : 38 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-43).

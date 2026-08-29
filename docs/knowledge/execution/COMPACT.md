@@ -7,7 +7,7 @@
 
 ## One-liner
 
-78 commits locaux, 419 TS knowledge + 79 contracts + 34 Rust = 532 verts
+80 commits locaux, 427 TS knowledge + 79 contracts + 34 Rust = 540 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 **Demi-millénaire franchi**.
@@ -15,7 +15,7 @@
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `f344349fb8 feat(knowledge): P11.42 by-tag CLI (single-tag filter, completes the quartet)`
+- HEAD : `4b6d81d8cd feat(knowledge): P11.43 vault-compare CLI (diff two vaults by SHA-256)`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
@@ -84,6 +84,7 @@ unifia knowledge stale <ws> [--threshold-days=N] [--only-active] [--limit=N]
 unifia knowledge references <ws> --target=<locator>|--target-id=<uuid>
 unifia knowledge fingerprint <ws> [--verbose]
 unifia knowledge by-tag <ws> <tag> [--limit=N]
+unifia knowledge vault-compare <ws_a> <ws_b>
 ```
 
 ## Test live
