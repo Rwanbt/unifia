@@ -1049,3 +1049,48 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 `admin/projects.ts` (P11.33).
 **Subcommandes CLI** : 32 (etait 20 en V3, +12 admin).
 **Cartes durcissement** : 28 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-33).
+
+
+---
+
+## Carte 0202 - P11.34 : Supersede plan CLI (atomic supersession)
+
+- **ID** : 0202
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/supersede.ts` +
+  `packages/unifia/test/knowledge/admin/supersede.test.ts` (11 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdSupersede).
+- **`planSupersede(input)`** : valide la cible (active lifecycle),
+  le successeur (active ou candidate), la source/raison. Emet
+  un `MutationIntent` kind=`supersede` avec `expectedVersionHash`
+  = SHA-256 hex du contenu brut.
+- **CLI** : `unifia knowledge supersede <ws> --target=<loc>
+  --source=<s> --reason=<r> [--successor=<loc>]`. Imprime le
+  plan en format lisible.
+- **Live run** sur dev fixtures :
+  - `constraint-alpine-selinux.md` (active) -> ok=true, intent emis
+  - `superseded-old-budget.md` (superseded) -> refuse, message clair
+- **Dry-run only** : aucune ecriture disque. L'application du
+  intent passe par la mutation API (hors scope V1).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V7 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 65.
+
+**Tests** : 365 TS knowledge + 79 contracts + 34 Rust = **478 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `0b022a91c5 feat(knowledge): P11.34 supersede plan CLI (atomic supersession)`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : `admin/tags.ts` (P11.32),
+`admin/projects.ts` (P11.33), `admin/supersede.ts` (P11.34).
+**Subcommandes CLI** : 33 (etait 20 en V3, +13 admin).
+**Cartes durcissement** : 29 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-34).

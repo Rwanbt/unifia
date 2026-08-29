@@ -7,14 +7,14 @@
 
 ## One-liner
 
-62 commits locaux, 354 TS knowledge + 79 contracts + 34 Rust = 467 verts
+64 commits locaux, 365 TS knowledge + 79 contracts + 34 Rust = 478 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `aae2f7c833 feat(knowledge): P11.33 projects CLI`
+- HEAD : `0b022a91c5 feat(knowledge): P11.34 supersede plan CLI (atomic supersession)`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
@@ -74,6 +74,7 @@ unifia knowledge list <ws> [--limit=N] [--offset=N]
 unifia knowledge show <ws> <locator>
 unifia knowledge tags <ws>
 unifia knowledge projects <ws>
+unifia knowledge supersede <ws> --target=<loc> --source=<s> --reason=<r> [--successor=<loc>]
 ```
 
 ## Test live
