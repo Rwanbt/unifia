@@ -15,7 +15,6 @@
 import type {
   KnowledgeId,
   KnowledgeLocator,
-  NoteFrontmatter,
   MemoryType,
   KnowledgeLifecycleState,
 } from "@unifia/contracts/knowledge"

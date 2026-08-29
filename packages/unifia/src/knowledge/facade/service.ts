@@ -12,7 +12,6 @@
  */
 
 import type {
-  ContextPack,
   McpKnowledgeStatusResponse,
   RetrievalResponse,
   MutationResult,
@@ -71,7 +70,7 @@ export class DefaultKnowledgeService implements KnowledgeService {
     return []
   }
 
-  async propose(input: { intent: unknown; reason: string; source: string }): Promise<MutationResult> {
+  async propose(_input: { intent: unknown; reason: string; source: string }): Promise<MutationResult> {
     return { applied: false, auditId: `unverified-${Date.now()}` }
   }
 
