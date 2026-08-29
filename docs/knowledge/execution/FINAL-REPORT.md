@@ -14,6 +14,7 @@
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
 | HEAD sprint | `b2c2773ba9 feat(knowledge): P11.51 lifecycle-transitions CLI (transition matrix as code)` |
 | HEAD post-sprint | `3e691ddf2a docs(knowledge): align COMPACT + README to P10.2/P10.3 + FRONTIER packet` |
+| HEAD pre-frontier | `2278d1b110 docs(knowledge): FRONTIER-QUESTIONS.md + Live verification enriched` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -21,7 +22,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (99 sprint + 4 post-sprint + 5 P11.52-P11.56 + 1 align = 109)
+## 2. Commits locaux (99 sprint + 4 post-sprint + 5 P11.52-P11.56 + 1 align + 6 frontier = 115)
 
 | SHA | Sujet |
 |---|---|
@@ -222,8 +223,9 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 110 commits, ~310 fichiers ajoutés.
-- **Commits locaux** : 110 (99 sprint + 4 post-sprint + 7 P11.52-P11.56).
+- **Implémentation locale** : 115 commits, ~315 fichiers ajoutés.
+- **Commits locaux** : 115 (99 sprint + 4 post-sprint + 7 P11.52-P11.56
+  + 5 frontier pre-review).
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -248,7 +250,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 46fd3a322f (P11.56) ou b2c2773ba9 (sprint)
+git rev-parse HEAD  # doit être 2278d1b110 (FRONTIER-QUESTIONS) ou b2c2773ba9 (sprint)
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -262,12 +264,12 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 110 commits,
-~310 fichiers, **635 tests passants** (522 TS knowledge + 79
+**Implémentation locale complète (cartes faisables)** : 115 commits,
+~315 fichiers, **635 tests passants** (522 TS knowledge + 79
 contracts + 34 Rust), 13 phases couvertes + 51 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
-## 14. Addendum post-sprint (4 + 7 commits = 11 commits, HEAD `46fd3a32`)
+## 14. Addendum post-sprint (4 + 7 + 5 commits = 16 commits, HEAD `2278d1b110`)
 
 | SHA | Sujet |
 |---|---|
@@ -281,12 +283,19 @@ supplémentaires, lint/typecheck/clippy/biome verts.
 | `3fc20c9c59` | feat(knowledge): P11.53-P11.56 admin tools (size/weekday/edge-density/fm-diff) |
 | `c8bd76d85e` | feat(knowledge): CLI wire P11.52-P11.56 (note-stats, size-distribution, weekday-distribution, edge-density, frontmatter-diff) |
 | `c42d904833` | chore(knowledge): drop unused doc binding in edge-density loadAndParse |
-| `46fd3a32` | chore(knowledge): drop unused KnowledgeId import in frontmatter-diff |
+| `46fd3a322f` | chore(knowledge): drop unused KnowledgeId import in frontmatter-diff |
+| `c67a7e228b` | docs(knowledge): align COMPACT + README + FINAL-REPORT to P11.56 (110 commits, 635 tests, 55 subcommands, 38 admin tools) |
+| `d83fd20b14` | docs(knowledge): align packet/STATE/DECISIONS to HEAD c67a7e22 (pre-frontier-review) |
+| `77fac901e6` | docs(knowledge): align packet open-risks IDs + sign-off to RISKS.md (R-0001..R-0011) + 13 recaps |
+| `2278d1b110` | docs(knowledge): FRONTIER-QUESTIONS.md (flat 10 questions for annotation) + Live verification enriched |
+| `_PROMPT_` | docs(knowledge): FRONTIER-REVIEW-PROMPT.md (prompt to launch review) |
 
 **Status post-sprint** : 55 CLI subcommands, 38 admin tools,
-FRONTIER-REVIEW-PACKET.md ready, P10.2 device artefacts in
+FRONTIER-REVIEW-PACKET.md (17 968 chars) + FRONTIER-QUESTIONS.md
+(5 829 bytes) + FRONTIER-REVIEW-PROMPT.md (7 956 bytes) + PDF
+(19 972 bytes, 8 pages), P10.2 device artefacts in
 `.artifacts/`, **635 tests verts** (522 TS knowledge + 79 contracts
-+ 34 Rust). Obsidian recaps : Session-Recap-12, Session-Recap-13.
++ 34 Rust). Obsidian recaps : 17 sessions + FINAL.
 
 **Succès local n'est pas publication** : aucun artefact n'a
 quitté la machine, aucun remote n'a été sollicité, aucun push,

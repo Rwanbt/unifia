@@ -396,10 +396,22 @@ Closed risks (R-0001, R-0005, R-0006, R-0007) are documented in
 ## Sign-off
 
 - Branch prepared by : autonomous session (runbook V2 method).
-- Cross-checked by : 13 Obsidian recaps in
-  `D:\Documents\Obsidian\IA_Dev_Brain\Unifia/` (Recap-2..8, 12..15).
+- Cross-checked by : 17 Obsidian recaps in
+  `D:\Documents\Obsidian\IA_Dev_Brain\Unifia/` (Recap-2..8, 12..17, FINAL).
 - Ready for : external frontier review (this packet).
 - Not ready for : public release, merge to `main`, or any
   external publication.
+
+### Launching the review
+
+The companion file
+[`FRONTIER-REVIEW-PROMPT.md`](./FRONTIER-REVIEW-PROMPT.md)
+is a self-contained prompt for the frontier model session. It
+gives context, file list, verification commands, expected output
+format, and constraints. The reviewer should also fill in the
+boxes in
+[`FRONTIER-QUESTIONS.md`](./FRONTIER-QUESTIONS.md) and write
+their verdict to
+`docs/knowledge/execution/FRONTIER-REVIEW-VERDICT.md`.
 
 — end of packet —

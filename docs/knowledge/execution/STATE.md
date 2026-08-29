@@ -1959,3 +1959,45 @@ self-link ignore, single source of truth.
 - P10.2 full chain : `PASS_WITH_SAFE_FALLBACK` (APK rebuild requis)
 - ONNX embedding : `disabled` V1
 - Frontier review : packet pret (`FRONTIER-REVIEW-PACKET.md`)
+
+---
+
+## Checkpoint final V25 - Sessions 15-18 + final (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 115.
+
+**Tests** : 522 TS knowledge + 79 contracts + 34 Rust = **635 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `2278d1b110 docs(knowledge): FRONTIER-QUESTIONS.md + Live verification enriched`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+### Sessions 15-18 + final (6 commits)
+
+| SHA | Sujet |
+|---|---|
+| `d83fd20b14` | docs(knowledge): align packet/STATE/DECISIONS to HEAD c67a7e22 (pre-frontier-review) |
+| `77fac901e6` | docs(knowledge): align packet open-risks IDs + sign-off to RISKS.md (R-0001..R-0011) + 13 recaps |
+| `2278d1b110` | docs(knowledge): FRONTIER-QUESTIONS.md (flat 10 questions for annotation) + Live verification enriched |
+| `PROMPT` | docs(knowledge): FRONTIER-REVIEW-PROMPT.md (prompt to launch review) |
+
+### Artefacts frontiere externes
+
+- `FRONTIER-REVIEW-PACKET.md` (17 968 chars) - packet principal
+- `FRONTIER-REVIEW-PACKET.pdf` (19 972 bytes, 8 pages) - version imprimable
+- `FRONTIER-QUESTIONS.md` (5 829 bytes) - flat 10 questions pour annotation
+- `FRONTIER-REVIEW-PROMPT.md` (7 956 bytes) - prompt a coller pour lancer la review
+- FRONTIER-REVIEW-VERDICT.md (a creer par le reviewer)
+
+### Obsidian recaps
+
+18 obsidian recaps : Recap-2..8 (matin), Recap-12..17 (apres-midi),
+FINAL (consolide), FRONTIER-REVIEW-PROMPT (meta).
+
+### Statut final
+
+V1 livre : 104/106 cartes, 2 PASS_WITH_SAFE_FALLBACK (P10.2/P10.3),
+635 tests verts, 55 subcommands, 38 admin tools, 20 decisions,
+9 ADR, 11 risques documentes. Pret pour la review frontier.
