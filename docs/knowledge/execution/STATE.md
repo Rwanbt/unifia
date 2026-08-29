@@ -1360,3 +1360,46 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `fingerprint`).
 **Subcommandes CLI** : 40 (etait 20 en V3, +20 admin = doublement).
 **Cartes durcissement** : 36 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-41).
+
+
+---
+
+## Carte 0210 - P11.42 : By-tag CLI (single-tag filter)
+
+- **ID** : 0210
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/by-tag.ts` +
+  `packages/unifia/test/knowledge/admin/by-tag.test.ts` (7 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdByTag).
+- **`listByTag({ vaultRoot, tag, limit? })`** : walk le vault,
+  filtre les notes dont `unifia_tags` contient `tag`
+  (case-insensitive), retourne `{ vaultRoot, tag, scanned, hits, totalMs }`.
+- **CLI** : `unifia knowledge by-tag <ws> <tag> [--limit=N]`.
+- **Live run** : tag "tool:bash" -> 2 hits
+  (decision-gemma4-bash.md, reference-decision-bash-fr.md).
+- **Quartet complete** : by-type, by-lifecycle, by-project, by-tag.
+  Pour multi-tag AND, utiliser `tagSearch` (P11.24).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V13 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 79.
+
+**Tests** : 419 TS knowledge + 79 contracts + 34 Rust = **532 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `f344349fb8 feat(knowledge): P11.42 by-tag CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 11 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`).
+**Subcommandes CLI** : 41 (etait 20 en V3, +21 admin = x2.05).
+**Cartes durcissement** : 37 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-42).

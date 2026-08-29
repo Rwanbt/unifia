@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `9dfaefec03 feat(knowledge): P11.41 vault fingerprint CLI (deterministic SHA-256 manifest)` |
+| HEAD final | `f344349fb8 feat(knowledge): P11.42 by-tag CLI (single-tag filter, completes the quartet)` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (77)
+## 2. Commits locaux (79)
 
 | SHA | Sujet |
 |---|---|
@@ -92,6 +92,8 @@
 | `23b64e5aab` | feat(knowledge): P11.40 references CLI (outbound wikilinks of a note) |
 | `3f1eb282eb` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.40 (75 commits, 516 tests) |
 | `9dfaefec03` | feat(knowledge): P11.41 vault fingerprint CLI (deterministic SHA-256 manifest) |
+| `0f59f3961f` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.41 (77 commits, 525 tests) |
+| `f344349fb8` | feat(knowledge): P11.42 by-tag CLI (single-tag filter, completes the quartet) |
 
 ## 3. Phases et gates
 
@@ -120,14 +122,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 412 pass, 0 fail, 829 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 419 pass, 0 fail, 839 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 12 finale)** : 412 TS knowledge + 79 contracts + 34 Rust = **525 tests passants** (demi-millénaire).
+**Total des tests dans cette session (session 12 finale)** : 419 TS knowledge + 79 contracts + 34 Rust = **532 tests passants** (demi-millénaire).
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -178,7 +180,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 60+ | 60+ | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 412 | 412 | 100% |
+| Tests TS knowledge | 419 | 419 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -199,8 +201,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 77 commits, ~245 fichiers ajoutés.
-- **Commits locaux** : 77.
+- **Implémentation locale** : 79 commits, ~250 fichiers ajoutés.
+- **Commits locaux** : 79.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -225,7 +227,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 9dfaefec03
+git rev-parse HEAD  # doit être f344349fb8
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -237,9 +239,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 77 commits,
-~245 fichiers, **525 tests passants** (412 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 36 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 79 commits,
+~250 fichiers, **532 tests passants** (419 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 37 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
