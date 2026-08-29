@@ -59,6 +59,7 @@ import { scanBrokenLinks } from "../src/knowledge/admin/broken-links.js"
 import { listHeadings } from "../src/knowledge/admin/headings.js"
 import { listNotes } from "../src/knowledge/admin/list.js"
 import { showNote } from "../src/knowledge/admin/show.js"
+import { allTags } from "../src/knowledge/admin/tags.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -106,6 +107,7 @@ function printUsage(): void {
       "  unifia knowledge headings <workspace> <locator>",
       "  unifia knowledge list <workspace> [--limit=N] [--offset=N]",
       "  unifia knowledge show <workspace> <locator>",
+      "  unifia knowledge tags <workspace>",
       "",
     ].join("\n"),
   )
@@ -1100,6 +1102,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdList(rest)
     case "show":
       return cmdShow(rest)
+    case "tags":
+      return cmdTags(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1129,6 +1133,28 @@ async function cmdShow(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`show error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdTags(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("tags: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = allTags({ vaultRoot: ws })
+    process.stdout.write(`vault:    ${r.vaultRoot}` + "\n")
+    process.stdout.write(`scanned:  ${r.scanned}` + "\n")
+    process.stdout.write(`unique:   ${r.tags.length}` + "\n")
+    for (const t of r.tags) {
+      process.stdout.write(`  - ${t.tag.padEnd(20)} ${t.count}` + "\n")
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`tags error: ${(e as Error).message}` + "\n")
     return 1
   }
 }
