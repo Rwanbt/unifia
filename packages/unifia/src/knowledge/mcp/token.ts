@@ -2,25 +2,38 @@
 /**
  * MCP knowledge token (P9.2).
  *
- * Per runbook §19: "Tokens locaux, révocables, scoped workspace,
- * quotas, rate limit, taille et deadline bornées." The V1
- * `McpKnowledgeServer` enforces rate limit and byte cap; this
- * module adds the token concept, scoped to a single workspace,
- * revocable immediately, with a hard TTL.
+ * Per runbook §19: "Tokens locaux, révocables, scoped workspace, quotas,
+ * rate limit, taille et deadline bornées."
  *
- * The token model is intentionally minimal: a string id, a
- * workspace scope, an issuedAt timestamp, an optional expiresAt,
- * and an optional revokedAt. A token is "valid" if and only if:
- *   - it exists;
- *   - it is not revoked;
- *   - it is not expired (now < expiresAt).
+ * V1 hardening (card C8):
+ * - ids come from a CSPRNG, not `Date.now()` plus a counter, which was
+ *   guessable by anyone who knew roughly when a token was issued;
+ * - a TTL is always applied. `issue()` used to leave `expiresAt` null when
+ *   `ttlMs` was omitted, minting a token that never expired, while
+ *   PERMISSIONS.md promised "default 1 hour, max 24 hours";
+ * - a token carries the method allowlist it is scoped to, so a read token
+ *   cannot call `knowledge_propose`.
+ *
+ * A token is valid if and only if it exists, is not revoked, and has not
+ * expired.
  */
+
+import { randomBytes, timingSafeEqual } from "node:crypto"
+import type { McpKnowledgeCapability } from "@unifia/contracts/knowledge"
+import { MCP_KNOWLEDGE_METHODS } from "@unifia/contracts/knowledge"
+
+/** PERMISSIONS.md §5. */
+export const DEFAULT_TOKEN_TTL_MS = 60 * 60 * 1000
+export const MAX_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 
 export interface McpKnowledgeToken {
   id: string
   workspace: string
+  /** Methods this token may call. Never empty. */
+  methods: McpKnowledgeCapability[]
   issuedAt: string
-  expiresAt: string | null
+  /** Always set: V1 issues no perpetual token. */
+  expiresAt: string
   revokedAt: string | null
 }
 
@@ -31,55 +44,93 @@ export class McpTokenError extends Error {
   }
 }
 
+export interface IssueInput {
+  workspace: string
+  /** Defaults to one hour; may not exceed 24 hours. */
+  ttlMs?: number
+  /** Defaults to the five read-only methods — never `knowledge_propose`. */
+  methods?: readonly McpKnowledgeCapability[]
+}
+
+/** Read-only default scope: write is opt-in, per runbook §19. */
+const READ_ONLY_METHODS: McpKnowledgeCapability[] = [
+  "knowledge_search",
+  "knowledge_get",
+  "knowledge_backlinks",
+  "knowledge_trace",
+  "knowledge_status",
+]
+
 export class McpTokenRegistry {
   private tokens = new Map<string, McpKnowledgeToken>()
-  private nextSeq = 1
 
-  /** Issue a new token. */
-  issue(input: { workspace: string; ttlMs?: number }): McpKnowledgeToken {
+  issue(input: IssueInput): McpKnowledgeToken {
     if (input.workspace.length === 0) {
       throw new McpTokenError("workspace must be non-empty")
     }
-    const id = `tok-${Date.now().toString(36)}-${this.nextSeq.toString(36)}`
-    this.nextSeq += 1
+
+    const ttl = input.ttlMs ?? DEFAULT_TOKEN_TTL_MS
+    if (!Number.isFinite(ttl) || ttl <= 0) {
+      throw new McpTokenError(`ttlMs must be a positive finite number, got ${String(input.ttlMs)}`)
+    }
+    if (ttl > MAX_TOKEN_TTL_MS) {
+      throw new McpTokenError(`ttlMs ${ttl} exceeds the ${MAX_TOKEN_TTL_MS} ms maximum`)
+    }
+
+    const methods = [...(input.methods ?? READ_ONLY_METHODS)]
+    if (methods.length === 0) {
+      throw new McpTokenError("a token must be scoped to at least one method")
+    }
+    for (const m of methods) {
+      if (!MCP_KNOWLEDGE_METHODS.includes(m)) {
+        throw new McpTokenError(`unknown method: ${m}`)
+      }
+    }
+
     const now = Date.now()
     const token: McpKnowledgeToken = {
-      id,
+      // 32 bytes of CSPRNG output; not derived from the clock.
+      id: `tok_${randomBytes(32).toString("base64url")}`,
       workspace: input.workspace,
+      methods,
       issuedAt: new Date(now).toISOString(),
-      expiresAt:
-        input.ttlMs !== undefined
-          ? new Date(now + input.ttlMs).toISOString()
-          : null,
+      expiresAt: new Date(now + ttl).toISOString(),
       revokedAt: null,
     }
-    this.tokens.set(id, token)
+    this.tokens.set(token.id, token)
     return token
   }
 
   /** Revoke a token. No-op if already revoked. */
   revoke(id: string): void {
     const t = this.tokens.get(id)
-    if (t === undefined) {
-      throw new McpTokenError(`unknown token: ${id}`)
-    }
+    if (t === undefined) throw new McpTokenError(`unknown token: ${id}`)
     if (t.revokedAt !== null) return
     t.revokedAt = new Date().toISOString()
   }
 
-  /** True if the token is not revoked and not expired. */
   isValid(id: string, now: number = Date.now()): boolean {
-    const t = this.tokens.get(id)
-    if (t === undefined) return false
-    if (t.revokedAt !== null) return false
-    if (t.expiresAt !== null) {
-      const expiresAtMs = Date.parse(t.expiresAt)
-      if (Number.isFinite(expiresAtMs) && now >= expiresAtMs) return false
-    }
-    return true
+    return this.resolve(id, now) !== null
   }
 
-  /** Look up a token. Returns null if unknown. */
+  /**
+   * Return the token if it may act on `workspace` with `method`, else null.
+   * The lookup compares in constant time so a caller cannot probe for valid
+   * prefixes by timing.
+   */
+  authorize(
+    id: string,
+    workspace: string,
+    method: McpKnowledgeCapability,
+    now: number = Date.now(),
+  ): McpKnowledgeToken | null {
+    const token = this.resolve(id, now)
+    if (token === null) return null
+    if (!constantTimeEquals(token.workspace, workspace)) return null
+    if (!token.methods.includes(method)) return null
+    return token
+  }
+
   get(id: string): McpKnowledgeToken | null {
     return this.tokens.get(id) ?? null
   }
@@ -94,4 +145,19 @@ export class McpTokenRegistry {
     }
     return n
   }
+
+  private resolve(id: string, now: number): McpKnowledgeToken | null {
+    const t = this.tokens.get(id)
+    if (t === undefined) return null
+    if (t.revokedAt !== null) return null
+    if (now >= Date.parse(t.expiresAt)) return null
+    return t
+  }
+}
+
+function constantTimeEquals(a: string, b: string): boolean {
+  const left = Buffer.from(a, "utf8")
+  const right = Buffer.from(b, "utf8")
+  if (left.length !== right.length) return false
+  return timingSafeEqual(left, right)
 }

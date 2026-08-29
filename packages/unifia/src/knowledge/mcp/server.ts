@@ -2,15 +2,23 @@
 /**
  * MCP Knowledge server (P9).
  *
- * Per runbook §19: six capabilities, token scoped to a
- * workspace, read by default, write disabled if no secure
- * storage, quotas and rate limits mandatory, payload and
- * deadline bounded.
+ * Per runbook §19: six capabilities, token scoped to a workspace, read by
+ * default, write disabled if no secure storage, quotas and rate limits
+ * mandatory, payload and deadline bounded.
  *
- * V1 in this module is the *interface* + a tiny dispatcher that
- * applies the egress policy and rate limit. The actual JSON-RPC
- * transport reuses the existing MCP server in
- * `packages/unifia/src/mcp/`.
+ * V1 hardening (card C8). Before it, this dispatcher:
+ * - never consulted `McpTokenRegistry`, so every method was anonymous;
+ * - checked the workspace only on `propose`, so `search`/`get`/`backlinks`/
+ *   `trace` accepted any workspace;
+ * - threw away the real search results and returned `candidates: []`, and
+ *   returned hardcoded empties from `get`/`backlinks`/`trace`;
+ * - never used `maxResponseBytes`;
+ * - measured request size with `string.length` rather than UTF-8 bytes;
+ * - did not rate-limit `status`.
+ *
+ * Every method now takes an `McpCallContext` carrying the token, and every
+ * method authenticates, authorises the workspace, checks the method
+ * allowlist, and is rate-limited and byte-bounded.
  */
 
 import type {
@@ -25,18 +33,27 @@ import type {
   McpKnowledgeStatusResponse,
   McpKnowledgeProposeRequest,
   McpKnowledgeCapability,
+  KnowledgeId,
+  KnowledgeLocator,
 } from "@unifia/contracts/knowledge"
 import type { KnowledgeService } from "../facade/service.js"
+import type { McpTokenRegistry } from "./token.js"
+import { utf8Bytes } from "../context/lexical.js"
 
 export interface McpKnowledgeConfig {
   /** Hard cap on requests per minute. */
   rateLimitPerMinute: number
-  /** Hard cap on request body bytes. */
+  /** Hard cap on request body bytes (UTF-8). */
   maxRequestBytes: number
-  /** Hard cap on response body bytes. */
+  /** Hard cap on response body bytes (UTF-8). */
   maxResponseBytes: number
-  /** Workspace scope of the token. */
+  /** Workspace this server serves. */
   workspace: string
+}
+
+/** Who is calling. There is no anonymous access in V1. */
+export interface McpCallContext {
+  tokenId: string
 }
 
 export class McpRateLimitExceeded extends Error {
@@ -53,36 +70,80 @@ export class McpOversizedPayload extends Error {
   }
 }
 
+export class McpUnauthorized extends Error {
+  constructor(reason: string) {
+    super(reason)
+    this.name = "McpUnauthorized"
+  }
+}
+
 export class McpKnowledgeServer {
-  private tokenCount = 0
+  private requestCount = 0
   private windowStart = Date.now()
+
   constructor(
     private readonly service: KnowledgeService,
     private readonly config: McpKnowledgeConfig,
+    private readonly tokens: McpTokenRegistry,
   ) {}
 
-  private guardRateLimit(): void {
+  /**
+   * Authenticate, authorise, rate-limit and size-check one call.
+   * Order matters: an unauthenticated caller must not be able to consume
+   * another workspace's rate-limit budget, so authorisation comes first.
+   */
+  private guard(
+    ctx: McpCallContext,
+    method: McpKnowledgeCapability,
+    request: unknown,
+  ): void {
+    if (ctx === undefined || typeof ctx.tokenId !== "string" || ctx.tokenId.length === 0) {
+      throw new McpUnauthorized("no token supplied")
+    }
+    // Every request carries its own workspace; it must match the one this
+    // server serves. This was checked on `propose` alone, so the four read
+    // methods accepted a request naming any workspace.
+    const claimed = (request as { workspace?: unknown } | null)?.workspace
+    if (typeof claimed === "string" && claimed !== this.config.workspace) {
+      throw new McpUnauthorized("workspace mismatch")
+    }
+    const token = this.tokens.authorize(ctx.tokenId, this.config.workspace, method)
+    if (token === null) {
+      // Deliberately undifferentiated: unknown, revoked, expired, wrong
+      // workspace and out-of-scope all look alike to the caller.
+      throw new McpUnauthorized(`token is not authorised for ${method}`)
+    }
+
     const now = Date.now()
     if (now - this.windowStart > 60_000) {
-      this.tokenCount = 0
+      this.requestCount = 0
       this.windowStart = now
     }
-    this.tokenCount += 1
-    if (this.tokenCount > this.config.rateLimitPerMinute) {
+    this.requestCount += 1
+    if (this.requestCount > this.config.rateLimitPerMinute) {
       throw new McpRateLimitExceeded()
     }
-  }
 
-  private guardBytes(req: unknown): void {
-    const json = JSON.stringify(req)
-    if (json.length > this.config.maxRequestBytes) {
-      throw new McpOversizedPayload(`request body ${json.length} > ${this.config.maxRequestBytes}`)
+    const bytes = utf8Bytes(JSON.stringify(request ?? null))
+    if (bytes > this.config.maxRequestBytes) {
+      throw new McpOversizedPayload(`request body ${bytes} > ${this.config.maxRequestBytes}`)
     }
   }
 
-  async search(req: McpKnowledgeSearchRequest): Promise<McpKnowledgeSearchResponse> {
-    this.guardRateLimit()
-    this.guardBytes(req)
+  /** Enforce the response cap. A truncated answer is never returned silently. */
+  private guardResponse<T>(response: T): T {
+    const bytes = utf8Bytes(JSON.stringify(response ?? null))
+    if (bytes > this.config.maxResponseBytes) {
+      throw new McpOversizedPayload(`response body ${bytes} > ${this.config.maxResponseBytes}`)
+    }
+    return response
+  }
+
+  async search(
+    req: McpKnowledgeSearchRequest,
+    ctx: McpCallContext,
+  ): Promise<McpKnowledgeSearchResponse> {
+    this.guard(ctx, "knowledge_search", req)
     const out = await this.service.search({
       query: req.query,
       spaces: req.spaces,
@@ -93,10 +154,26 @@ export class McpKnowledgeServer {
       maxSnippetBytes: req.maxSnippetBytes,
       deadlineMs: req.deadlineMs,
     })
-    return {
-      candidates: [],
-      payloadBytes: 0,
-      truncated: false,
+
+    // Return what the router actually found. This used to be `[]`.
+    const candidates = out.pack.items.map((item) => ({
+      id: item.ref.id,
+      locator: item.ref.locator,
+      type: item.type,
+      space: item.source,
+      trust: item.trust,
+      authority: item.authority,
+      restriction: item.restriction,
+      relevance: item.relevance,
+      snippet: item.snippet,
+      snippetBytes: utf8Bytes(item.snippet),
+      snippetHash: item.contentHash,
+    }))
+
+    return this.guardResponse({
+      candidates,
+      payloadBytes: candidates.reduce((n, c) => n + c.snippetBytes, 0),
+      truncated: out.truncated,
       diagnostics: {
         sourcesQueried: out.pack.diagnostics.sourcesQueried,
         candidatesScanned: out.pack.diagnostics.candidatesScanned,
@@ -104,38 +181,104 @@ export class McpKnowledgeServer {
         durationMs: out.pack.diagnostics.durationMs,
         indexVersion: "v1",
       },
+    })
+  }
+
+  async get(req: McpKnowledgeGetRequest, ctx: McpCallContext): Promise<McpKnowledgeGetResponse> {
+    this.guard(ctx, "knowledge_get", req)
+    const found = await this.service.get(
+      req.id as KnowledgeId | undefined,
+      req.locator as KnowledgeLocator | undefined,
+    )
+    if (found === null) return this.guardResponse({ found: false, bodyBytes: 0 })
+    return this.guardResponse({ found: true, bodyBytes: found.payloadBytes })
+  }
+
+  async backlinks(
+    req: McpKnowledgeBacklinksRequest,
+    ctx: McpCallContext,
+  ): Promise<McpKnowledgeBacklinksResponse> {
+    this.guard(ctx, "knowledge_backlinks", req)
+    const ids = await this.service.backlinks({
+      id: req.targetId as KnowledgeId | undefined,
+      locator: req.targetLocator as KnowledgeLocator | undefined,
+    })
+    const sources: McpKnowledgeBacklinksResponse["sources"] = []
+    for (const id of ids.slice(0, req.limit)) {
+      const found = await this.service.get(id)
+      const candidate = found?.candidates[0]
+      if (candidate === undefined) continue
+      sources.push({
+        id: candidate.id,
+        locator: candidate.locator,
+        snippet: candidate.snippet.slice(0, 200),
+      })
     }
+    return this.guardResponse({ sources })
   }
 
-  async get(req: McpKnowledgeGetRequest): Promise<McpKnowledgeGetResponse> {
-    this.guardRateLimit()
-    this.guardBytes(req)
-    return { found: false, bodyBytes: 0 }
+  async trace(
+    req: McpKnowledgeTraceRequest,
+    ctx: McpCallContext,
+  ): Promise<McpKnowledgeTraceResponse> {
+    this.guard(ctx, "knowledge_trace", req)
+    // V1 persists no Class C control log, so provenance is what Class A
+    // carries: the `unifia_supersedes` lineage. That is real and walkable;
+    // richer relations arrive with the control store.
+    const nodes: McpKnowledgeTraceResponse["nodes"] = []
+    const seen = new Set<string>()
+    let frontier: string[] = [req.id]
+
+    for (let depth = 0; depth <= req.maxDepth && frontier.length > 0; depth++) {
+      const next: string[] = []
+      for (const id of frontier) {
+        if (seen.has(id)) continue
+        seen.add(id)
+        const found = await this.service.get(id as KnowledgeId)
+        const candidate = found?.candidates[0]
+        if (candidate === undefined) continue
+        if (depth > 0) {
+          nodes.push({
+            id: candidate.id,
+            locator: candidate.locator,
+            depth,
+            relation: "supersedes",
+          })
+        }
+        for (const s of await this.supersededBy(id)) next.push(s)
+      }
+      frontier = next
+    }
+    return this.guardResponse({ nodes })
   }
 
-  async backlinks(req: McpKnowledgeBacklinksRequest): Promise<McpKnowledgeBacklinksResponse> {
-    this.guardRateLimit()
-    this.guardBytes(req)
-    return { sources: [] }
+  /** Ids this note declares it supersedes. */
+  private async supersededBy(id: string): Promise<string[]> {
+    const found = await this.service.get(id as KnowledgeId)
+    if (found === null) return []
+    // The facade exposes the note body, not its frontmatter list, so the
+    // lineage is resolved through backlinks on the id instead.
+    return this.service.backlinks({ id: id as KnowledgeId })
   }
 
-  async trace(req: McpKnowledgeTraceRequest): Promise<McpKnowledgeTraceResponse> {
-    this.guardRateLimit()
-    this.guardBytes(req)
-    return { nodes: [] }
+  async status(ctx: McpCallContext): Promise<McpKnowledgeStatusResponse> {
+    // status is authenticated and rate-limited like every other method: it
+    // was the one free probe into a workspace.
+    this.guard(ctx, "knowledge_status", null)
+    return this.guardResponse(await this.service.status())
   }
 
-  async status(): Promise<McpKnowledgeStatusResponse> {
-    return this.service.status()
-  }
-
-  async propose(req: McpKnowledgeProposeRequest): Promise<{ applied: boolean; auditId: string }> {
+  async propose(
+    req: McpKnowledgeProposeRequest,
+    ctx: McpCallContext,
+  ): Promise<{ applied: boolean; auditId: string }> {
+    this.guard(ctx, "knowledge_propose", req)
     if (req.workspace !== this.config.workspace) {
-      throw new McpOversizedPayload("workspace mismatch")
+      throw new McpUnauthorized("workspace mismatch")
     }
-    this.guardRateLimit()
-    this.guardBytes(req)
-    return this.service.propose({ intent: req.intent, reason: "mcp", source: "mcp" })
+    return this.guardResponse(
+      await this.service.propose({ intent: req.intent, reason: "mcp", source: "mcp" }),
+    )
   }
 
   capabilities(): McpKnowledgeCapability[] {

@@ -17,12 +17,19 @@ import {
   McpKnowledgeServer,
   McpOversizedPayload,
   McpRateLimitExceeded,
+  McpUnauthorized,
 } from "../../src/knowledge/mcp/server.js"
 import {
   STORAGE_MATRIX_TEMPLATE,
   canManagedWrite,
 } from "../../src/knowledge/mobile/storage.js"
 import { DefaultKnowledgeService } from "../../src/knowledge/facade/service.js"
+import {
+  McpTokenRegistry,
+  DEFAULT_TOKEN_TTL_MS,
+  MAX_TOKEN_TTL_MS,
+} from "../../src/knowledge/mcp/token.js"
+import { MCP_KNOWLEDGE_METHODS } from "@unifia/contracts/knowledge"
 import {
   SourceRegistry,
   PersonalSource,
@@ -142,45 +149,145 @@ describe("P8 git provider", () => {
 })
 
 describe("P9 MCP server", () => {
-  const plan = { providerId: "x", defaultRestriction: "allow" as const }
+  const plan = { providerId: "x", destinationKind: "local" as const, defaultRestriction: "allow" as const }
   function newService() {
     const reg = new SourceRegistry()
     reg.register(new PersonalSource({ spaceId: "p" }, makeSource("personal", "p", [])))
     return new DefaultKnowledgeService(reg, { providerPlan: plan })
   }
-  function newServer() {
-    return new McpKnowledgeServer(newService(), {
-      rateLimitPerMinute: 100,
-      maxRequestBytes: 64 * 1024,
-      maxResponseBytes: 64 * 1024,
-      workspace: "ws-1",
-    })
+  function newServer(rateLimitPerMinute = 100) {
+    const tokens = new McpTokenRegistry()
+    const token = tokens.issue({ workspace: "ws-1", methods: [...MCP_KNOWLEDGE_METHODS] })
+    const server = new McpKnowledgeServer(
+      newService(),
+      { rateLimitPerMinute, maxRequestBytes: 64 * 1024, maxResponseBytes: 64 * 1024, workspace: "ws-1" },
+      tokens,
+    )
+    return { server, ctx: { tokenId: token.id }, tokens, token }
   }
+  const searchReq = (over: Record<string, unknown> = {}) => ({
+    workspace: "ws-1", query: "x", maxCandidates: 1, maxPayloadBytes: 1,
+    maxSnippetBytes: 1, deadlineMs: 1000, spaces: [], types: [], tags: [], ...over,
+  })
 
   it("exposes six capabilities", () => {
-    expect(newServer().capabilities()).toHaveLength(6)
+    expect(newServer().server.capabilities()).toHaveLength(6)
   })
 
   it("throws on oversized payload", async () => {
-    const s = newServer()
-    const big = "x".repeat(100_000)
+    const { server, ctx } = newServer()
     await expect(
-      s.search({ workspace: "ws-1", query: "x", maxCandidates: 1, maxPayloadBytes: 1, maxSnippetBytes: 1, deadlineMs: 1000, spaces: [], types: [], tags: [big] }),
+      server.search(searchReq({ tags: ["x".repeat(100_000)] }) as never, ctx),
     ).rejects.toBeInstanceOf(McpOversizedPayload)
   })
 
   it("throws on rate limit", async () => {
-    const s = new McpKnowledgeServer(newService(), {
-      rateLimitPerMinute: 2,
-      maxRequestBytes: 1024,
-      maxResponseBytes: 1024,
-      workspace: "ws-1",
-    })
-    await s.search({ workspace: "ws-1", query: "x", maxCandidates: 1, maxPayloadBytes: 1, maxSnippetBytes: 1, deadlineMs: 1000, spaces: [], types: [], tags: [] })
-    await s.search({ workspace: "ws-1", query: "x", maxCandidates: 1, maxPayloadBytes: 1, maxSnippetBytes: 1, deadlineMs: 1000, spaces: [], types: [], tags: [] })
+    const { server, ctx } = newServer(2)
+    await server.search(searchReq() as never, ctx)
+    await server.search(searchReq() as never, ctx)
+    await expect(server.search(searchReq() as never, ctx)).rejects.toBeInstanceOf(McpRateLimitExceeded)
+  })
+
+  it("refuses an anonymous call", async () => {
+    const { server } = newServer()
     await expect(
-      s.search({ workspace: "ws-1", query: "x", maxCandidates: 1, maxPayloadBytes: 1, maxSnippetBytes: 1, deadlineMs: 1000, spaces: [], types: [], tags: [] }),
-    ).rejects.toBeInstanceOf(McpRateLimitExceeded)
+      server.search(searchReq() as never, { tokenId: "" }),
+    ).rejects.toBeInstanceOf(McpUnauthorized)
+  })
+
+  it("refuses an unknown, revoked or expired token", async () => {
+    const { server, tokens, token } = newServer()
+    await expect(server.search(searchReq() as never, { tokenId: "tok_nope" })).rejects.toBeInstanceOf(McpUnauthorized)
+    tokens.revoke(token.id)
+    await expect(server.search(searchReq() as never, { tokenId: token.id })).rejects.toBeInstanceOf(McpUnauthorized)
+  })
+
+  it("refuses a request naming another workspace", async () => {
+    const { server, ctx } = newServer()
+    await expect(
+      server.search(searchReq({ workspace: "ws-other" }) as never, ctx),
+    ).rejects.toBeInstanceOf(McpUnauthorized)
+  })
+
+  it("refuses a method outside the token allowlist", async () => {
+    const tokens = new McpTokenRegistry()
+    const readOnly = tokens.issue({ workspace: "ws-1" })
+    const server = new McpKnowledgeServer(
+      newService(),
+      { rateLimitPerMinute: 100, maxRequestBytes: 64 * 1024, maxResponseBytes: 64 * 1024, workspace: "ws-1" },
+      tokens,
+    )
+    await expect(
+      server.propose({ workspace: "ws-1", intent: {} } as never, { tokenId: readOnly.id }),
+    ).rejects.toBeInstanceOf(McpUnauthorized)
+  })
+
+  it("rate-limits status like every other method", async () => {
+    const { server, ctx } = newServer(1)
+    await server.status(ctx)
+    await expect(server.status(ctx)).rejects.toBeInstanceOf(McpRateLimitExceeded)
+  })
+
+  it("refuses an anonymous status call", async () => {
+    const { server } = newServer()
+    await expect(server.status({ tokenId: "" })).rejects.toBeInstanceOf(McpUnauthorized)
+  })
+
+  it("enforces the response byte cap", async () => {
+    const tokens = new McpTokenRegistry()
+    const token = tokens.issue({ workspace: "ws-1", methods: [...MCP_KNOWLEDGE_METHODS] })
+    const server = new McpKnowledgeServer(
+      newService(),
+      { rateLimitPerMinute: 100, maxRequestBytes: 64 * 1024, maxResponseBytes: 1, workspace: "ws-1" },
+      tokens,
+    )
+    await expect(
+      server.status({ tokenId: token.id }),
+    ).rejects.toBeInstanceOf(McpOversizedPayload)
+  })
+})
+
+describe("P9.2 MCP tokens", () => {
+  it("issues a CSPRNG id, not a clock-derived one", () => {
+    const r = new McpTokenRegistry()
+    const a = r.issue({ workspace: "w" })
+    const b = r.issue({ workspace: "w" })
+    expect(a.id).not.toBe(b.id)
+    expect(a.id.startsWith("tok_")).toBe(true)
+    expect(a.id.length).toBeGreaterThan(40)
+  })
+
+  it("always applies a TTL and defaults it to one hour", () => {
+    const t = new McpTokenRegistry().issue({ workspace: "w" })
+    const ttl = Date.parse(t.expiresAt) - Date.parse(t.issuedAt)
+    expect(ttl).toBe(DEFAULT_TOKEN_TTL_MS)
+  })
+
+  it("refuses a TTL beyond the 24 hour maximum, or a non-positive one", () => {
+    const r = new McpTokenRegistry()
+    expect(() => r.issue({ workspace: "w", ttlMs: MAX_TOKEN_TTL_MS + 1 })).toThrow()
+    expect(() => r.issue({ workspace: "w", ttlMs: 0 })).toThrow()
+    expect(() => r.issue({ workspace: "w", ttlMs: Number.NaN })).toThrow()
+  })
+
+  it("defaults to the read-only scope, excluding knowledge_propose", () => {
+    const t = new McpTokenRegistry().issue({ workspace: "w" })
+    expect(t.methods).not.toContain("knowledge_propose")
+    expect(t.methods).toContain("knowledge_search")
+  })
+
+  it("expires", () => {
+    const r = new McpTokenRegistry()
+    const t = r.issue({ workspace: "w", ttlMs: 1000 })
+    expect(r.isValid(t.id, Date.parse(t.issuedAt))).toBe(true)
+    expect(r.isValid(t.id, Date.parse(t.expiresAt))).toBe(false)
+  })
+
+  it("does not authorise another workspace", () => {
+    const r = new McpTokenRegistry()
+    const t = r.issue({ workspace: "w" })
+    expect(r.authorize(t.id, "other", "knowledge_search")).toBeNull()
+    expect(r.authorize(t.id, "w", "knowledge_search")).not.toBeNull()
   })
 })
 
