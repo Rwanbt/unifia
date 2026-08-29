@@ -1723,3 +1723,71 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-classify`).
 **Subcommandes CLI** : 48 (etait 20 en V3, +28 admin = x2.40).
 **Cartes durcissement** : 44 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-49).
+
+
+---
+
+## Carte 0218 - P11.50 : Note-diff CLI (LCS-based diff between two notes)
+
+- **ID** : 0218
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/note-diff.ts` +
+  `packages/unifia/test/knowledge/admin/note-diff.test.ts` (7 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdNoteDiff).
+- **`noteDiff({ vaultRoot, noteALocator?, noteAId?, noteBLocator?, noteBId? })`**
+  : lit 2 notes, separe frontmatter et body, applique LCS pour
+  calculer les diffs unifies. Retourne `{ frontmatterDiff,
+  bodyDiff, added, removed, totalMs }`.
+- **CLI** : `unifia knowledge note-diff <ws> --target-a=<loc>
+  | --target-id-a=<uuid> --target-b=<loc> | --target-id-b=<uuid>`.
+- **Live run** :
+  - meme note vs meme note -> 0/0 (no diff)
+  - decision-thinking-budget.md vs superseded-old-budget.md -> 10
+    ajoutes, 16 supprimes. Clairement visible : active -> superseded,
+    changts de tags, body completement different.
+- **Cas d'usage** : version review, validation candidats supersede,
+  diff entre snapshots.
+
+---
+
+## Carte 0219 - README v2 + CHANGELOG v0.2.0-knowledge
+
+- **ID** : 0219
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `docs/knowledge/README.md` (admin CLI quick reference
+  par groupe) + `docs/knowledge/CHANGELOG.md` (entree v0.2.0).
+- **README** : matrice de validation mise a jour (482 passants),
+  bloc "Admin CLI quick reference" avec 8 groupes fonctionnels et
+  49 subcommands listes.
+- **CHANGELOG v0.2.0** : Added (19 admin modules, 49 subcommands,
+  P11.4-7 hardening, P11.10 classify, P11.19 summary, P11.17 drill,
+  P11.13 verify, P11.22-23 validate/report, P9.2 MCP tokens,
+  P2.6-8 Class B, P4.4 audit, P7.4 cross-mode bus, PERMISSIONS,
+  DISASTER-RECOVERY, CHANGELOG lui-meme).
+
+---
+
+## Checkpoint final V21 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 97.
+
+**Tests** : 482 TS knowledge + 79 contracts + 34 Rust = **595 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `c04284242a docs(knowledge): README + CHANGELOG v0.2.0-knowledge`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 19 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`, `duplicates`, `timeline`, `tag-cooccurrence`,
+`supersede-classify`, `note-diff`).
+**Subcommandes CLI** : 49 (etait 20 en V3, +29 admin = x2.45).
+**Cartes durcissement** : 45 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-50).

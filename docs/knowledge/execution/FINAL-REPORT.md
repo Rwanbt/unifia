@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `b2cfe31a5d feat(knowledge): P11.49 supersede-classify CLI (role partitioning of the corpus)` |
+| HEAD final | `c04284242a docs(knowledge): README + CHANGELOG v0.2.0-knowledge (19 admin modules, 49 subcommands, 595 tests)` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (94)
+## 2. Commits locaux (97)
 
 | SHA | Sujet |
 |---|---|
@@ -109,6 +109,9 @@
 | `98e0879f15` | feat(knowledge): P11.48 tag-cooccurrence CLI (pairs of co-occurring tags) |
 | `c4a11fa6cf` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.48 (92 commits, 581 tests) |
 | `b2cfe31a5d` | feat(knowledge): P11.49 supersede-classify CLI (role partitioning of the corpus) |
+| `f189f9cd7b` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.49 (94 commits, 588 tests) |
+| `d494e5333e` | feat(knowledge): P11.50 note-diff CLI (LCS-based diff between two notes) |
+| `c04284242a` | docs(knowledge): README + CHANGELOG v0.2.0-knowledge (19 admin modules, 49 subcommands, 595 tests) |
 
 ## 3. Phases et gates
 
@@ -137,14 +140,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 475 pass, 0 fail, 973 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 482 pass, 0 fail, 986 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 12 finale)** : 475 TS knowledge + 79 contracts + 34 Rust = **588 tests passants** (demi-millénaire).
+**Total des tests dans cette session (session 12 finale)** : 482 TS knowledge + 79 contracts + 34 Rust = **595 tests passants** (demi-millénaire).
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -195,7 +198,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 60+ | 60+ | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 475 | 475 | 100% |
+| Tests TS knowledge | 482 | 482 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -216,8 +219,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 94 commits, ~285 fichiers ajoutés.
-- **Commits locaux** : 94.
+- **Implémentation locale** : 97 commits, ~295 fichiers ajoutés.
+- **Commits locaux** : 97.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -242,7 +245,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être b2cfe31a5d
+git rev-parse HEAD  # doit être c04284242a
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -254,9 +257,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 94 commits,
-~285 fichiers, **588 tests passants** (475 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 44 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 97 commits,
+~295 fichiers, **595 tests passants** (482 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 45 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
