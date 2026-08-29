@@ -256,8 +256,11 @@
     "packages/contracts": {
       "name": "@unifia/contracts",
       "version": "0.1.0",
+      "dependencies": {
+        "zod": "catalog:",
+      },
       "devDependencies": {
-        "typescript": "^5.6.0",
+        "typescript": "catalog:",
         "vitest": "3.2.7",
       },
     },
