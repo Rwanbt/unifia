@@ -13,6 +13,8 @@
  * the raw occurrences and the per-section headings.
  */
 
+import { codeRanges, isInsideCode } from "./code-mask.js"
+
 export interface Wikilink {
   /** Raw target, as written (may include `#heading`). */
   rawTarget: string
@@ -38,11 +40,14 @@ function splitTarget(raw: string): { target: string; heading?: string } {
 
 export function extractWikilinks(body: string): Wikilink[] {
   const out: Wikilink[] = []
+  const code = codeRanges(body)
   WIKILINK_RE.lastIndex = 0
   let m: RegExpExecArray | null
   while ((m = WIKILINK_RE.exec(body)) !== null) {
     const inner = m[1]
     if (inner === undefined) continue
+    // A link written inside code is an example of the syntax, not an edge.
+    if (isInsideCode(m.index, code)) continue
     const bar = inner.indexOf("|")
     let rawTarget: string
     let alias: string | undefined
@@ -76,12 +81,15 @@ const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/gm
 
 export function extractHeadings(body: string): Heading[] {
   const out: Heading[] = []
+  const code = codeRanges(body)
   HEADING_RE.lastIndex = 0
   let m: RegExpExecArray | null
   while ((m = HEADING_RE.exec(body)) !== null) {
     const hashes = m[1]
     const text = m[2]
     if (hashes === undefined || text === undefined) continue
+    // A `#` line inside a fence is a comment or a shell prompt, not a heading.
+    if (isInsideCode(m.index, code)) continue
     out.push({
       level: hashes.length,
       text,

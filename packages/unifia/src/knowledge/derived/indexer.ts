@@ -10,6 +10,7 @@
  */
 
 import type { KnowledgeId, KnowledgeLocator, KnowledgeVersionHash } from "@unifia/contracts/knowledge"
+import { extractWikilinks } from "../parser/wikilinks.js"
 
 export interface IndexerLimits {
   maxCandidates: number
@@ -61,22 +62,19 @@ export interface LinkEdge {
   relation: "wikilink"
 }
 
-/** Extract link edges from raw text (matches `[[X]]`). */
+/**
+ * Extract link edges from raw text.
+ *
+ * Delegates to the parser rather than re-implementing the `[[X]]` regex: the
+ * duplicate copy kept indexing links from fenced and inline code after the
+ * parser had learned to skip them.
+ */
 export function extractEdges(body: string, source: KnowledgeLocator): LinkEdge[] {
-  const re = /\[\[([^\]\n]+?)\]\]/g
-  const out: LinkEdge[] = []
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const inner = m[1]
-    if (inner === undefined) continue
-    const bar = inner.indexOf("|")
-    const targetRaw = bar === -1 ? inner : inner.slice(0, bar)
-    const hash = targetRaw.indexOf("#")
-    const target = (hash === -1 ? targetRaw : targetRaw.slice(0, hash)).trim()
-    if (target.length === 0) continue
-    out.push({ source, target, relation: "wikilink" })
-  }
-  return out
+  return extractWikilinks(body).map((link) => ({
+    source,
+    target: link.target,
+    relation: "wikilink" as const,
+  }))
 }
 
 export interface IndexedNote {
