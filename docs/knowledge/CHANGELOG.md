@@ -4,6 +4,56 @@
 > All notable changes to the Knowledge subsystem are documented
 > here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0-knowledge] - 2026-08-30 (production-readiness counter-review)
+
+### Fixed (security)
+- **No capability serves a note the policy denies.** `get()` built its
+  candidate with `restriction: "allow"` hardcoded and never called
+  `decideEgress` — the defect just removed from the router, reintroduced one
+  layer up. A `remote_model: deny` note was served in full remotely, and
+  `backlinks` leaked its id and snippet. All read paths now share one
+  hydration that resolves the note's own restriction and applies the guard; a
+  denied note answers like an absent one.
+- **The vault root is a real boundary.** Containment was decided lexically
+  while `statSync` follows junctions, so a link inside the vault pointing
+  anywhere on disk was walked and read. Decided on realpath now, per entry,
+  with cycle detection. Verified against a real Windows junction.
+- **Restrictions survive serialisation.** `serialiseNote()` omitted
+  `unifia_restrictions`, so a round-trip silently stripped a note's egress
+  restrictions.
+- **Android evidence is validated.** An empty `ProbeEvidence` produced a PASS
+  reading `" on  at : "`.
+
+### Fixed (correctness)
+- **Deadlines bound the calls, not the gaps.** A 300ms `list()` ran to
+  completion against a 20ms deadline. Now 44ms with `truncated: true`.
+- **MCP is composed for real.** The server was constructed nowhere outside
+  tests; `mcp-token issue/check/revoke` could not work across processes.
+  `mcp/compose.ts` binds workspace, policy, service, registry and server;
+  `mcp-token session` exercises the lifecycle honestly.
+- **`knowledge_get` returns what its contract declares** — body, id, locator,
+  versionHash — and honours `maxBytes`.
+- **`trace` walks real lineage** (`unifia_supersedes`) instead of reusing
+  backlinks, which mixed in ordinary wikilinks and mislabelled directions.
+- **Notes are no longer duplicated** between the personal and project mounts.
+- **`status.vector`** reports a loaded model, not a policy flag.
+- **`verify --strict`** exits non-zero on WARN or NOT_EXECUTED.
+- **`fakeHash`** (32-bit djb2 repeated eight times, cast to
+  `KnowledgeVersionHash`) replaced with sha256.
+- The CLI kept a second `parseFlags` that dropped bare `--flag` forms.
+
+### Changed
+- `commands-report.ts` (891 lines) split into `commands-vault.ts` (525) and
+  `commands-graph.ts` (442); dispatcher down to 1045.
+
+### Tests
+- 745 passing: 632 TS knowledge (was 612) + 79 contracts + 34 Rust.
+
+### Status
+- Verdict: READY_FOR_REVIEW, not PRODUCTION_READY.
+- R-0013 opened: no Class A writer, no MCP daemon.
+- 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
 ## [0.3.0-knowledge] - 2026-08-29 (remediation after frontier counter-review)
 
 ### Fixed (security)

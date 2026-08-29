@@ -263,7 +263,7 @@
 
 | ID | Statut | Commande rejouable (depuis `packages/unifia/`) | Preuve |
 |---|---|---|---|
-| U-01 vault canonique | **PASS** | `bun test test/knowledge/source` | 23 tests ; `VaultSource` lit le Markdown brut, aucun index requis |
+| U-01 vault canonique | **PASS** | `bun test test/knowledge/source test/knowledge/regression` | `VaultSource` lit le Markdown brut, aucun index requis ; confinement vérifié contre une junction Windows réelle |
 | U-02 recherche lexicale | **PASS** | `bun test test/knowledge/context test/knowledge/cli` | 43 tests ; requête absente → 0 hit, deux requêtes différentes → réponses différentes |
 | U-03 recherche sémantique | **PARTIAL** | `bun test test/knowledge/semantic` | 4 tests ; cosinus + index brute-force câblés, mais aucun modèle ONNX → `status` rapporte `vector: disabled` |
 | U-04 lifecycle mémoire | **PASS** | `bun test test/knowledge/memory` | 30 tests ; table de transitions unique, chaque transition autorisée a un `MutationKind` |
@@ -273,7 +273,7 @@
 | U-08 édition externe | **PARTIAL** | `bun test test/knowledge/source` | Relecture à chaque requête, donc une édition externe est vue. Aucun watcher OS : `VaultSource.watch()` refuse au lieu de simuler |
 | U-09 mémoire partagée entre modes | **PASS** | `bun test test/knowledge/cross-mode` | 7 tests ; une seule façade, aucun cache par mode |
 | U-10 Android | **NOT_EXECUTED** | `bun test test/knowledge/mobile` | 6 tests ; un `PASS` exige une `ProbeEvidence` du harness. Aucun device branché ici |
-| U-11 MCP borné | **PASS** | `bun test test/knowledge/sprint.test.ts` | 35 tests ; chaque méthode authentifiée, workspace vérifié, quotas et bornes UTF-8 |
+| U-11 MCP borné | **PASS** | `bun test test/knowledge/sprint.test.ts` puis `bun run bin/unifia-knowledge.ts mcp-token session <ws>` | 35 tests ; chaque méthode authentifiée, workspace vérifié, quotas et bornes UTF-8 ; serveur réellement composé (`mcp/compose.ts`), token utilisable, révocation effective. Aucun daemon : le token ne survit pas au processus |
 | U-12 Git sans auto-push | **PASS** | `bun test test/knowledge/git` | 9 tests ; `gitAutoPush` par défaut `false`, scan pre-commit |
 | E-01 typecheck et tests | **PASS** | `bun run typecheck && bun test test/knowledge` | 0 erreur ; 612 tests verts |
 | E-02 gates cargo | **PASS** | `cargo fmt --check && cargo clippy -- -D warnings && cargo test` | fmt propre, clippy 0 warning, 34 tests |

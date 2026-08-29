@@ -173,3 +173,24 @@ aucun code réseau. Le risque se matérialise au premier appel provider ajouté.
 
 **Levée** : implémenter §3 et §6, ou amender à nouveau l'ADR pour les retirer
 explicitement de V1.
+
+## R-0013 — Aucun chemin d'écriture, aucun daemon MCP
+
+**Sévérité** : moyenne (fonctionnelle, pas sécuritaire)
+**Statut** : OUVERT
+**Ouvert le** : 2026-08-30, après la contre-revue production-readiness
+
+Deux surfaces sont durcies mais non déployées :
+
+- **Écriture Class A** — aucune implémentation de `MutationWriter` n'existe.
+  `knowledge_propose` refuse par construction, honnêtement, mais V1 ne peut
+  rien mémoriser. Une couche mémoire en lecture seule est utile ; elle n'est
+  pas complète.
+- **Transport MCP** — `composeMcpServer()` produit un serveur authentifié,
+  scopé et borné, et `mcp-token session` le démontre de bout en bout. Rien ne
+  l'expose cependant sur un transport, et le registre de tokens vit dans la
+  mémoire du serveur : sans daemon, un token ne survit pas à son processus.
+
+Les deux vont ensemble pour un usage réel : un serveur MCP sans écriture ne
+peut pas servir `knowledge_propose`, et un writer sans daemon n'est
+atteignable que depuis le processus qui le compose.

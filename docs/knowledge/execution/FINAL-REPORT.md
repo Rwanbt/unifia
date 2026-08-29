@@ -401,3 +401,82 @@ Rust au vert ; il est désormais propre.
 
 0 push, 0 PR, 0 merge, 0 release, 0 publication. La branche n'a toujours pas
 d'upstream.
+
+---
+
+# Addendum 2 — 2026-08-30, après contre-revue production-readiness
+
+> Second addendum. Le corps du rapport et l'addendum 1 sont conservés ; en cas
+> de contradiction, **cet addendum fait foi**.
+
+## Ce que la contre-revue a trouvé
+
+Une contre-revue adversariale du HEAD `9785000e48` a établi que la
+remédiation précédente, malgré 725 tests verts, avait laissé — et pour partie
+**introduit** — des défauts bloquants. Les probes ont été rejoués et confirmés
+avant correction.
+
+**Régressions introduites par la remédiation elle-même** :
+
+- `DefaultKnowledgeService.get()` construisait son candidat avec
+  `restriction: "allow"` codé en dur et n'appelait jamais `decideEgress` —
+  exactement le défaut qui venait d'être corrigé dans le `ContextRouter`,
+  réintroduit une couche plus haut. Une note `remote_model: deny` était servie
+  intégralement vers une destination distante, et `backlinks` (que MCP
+  hydrate via `get`) divulguait son id et son extrait. `search` refusait
+  correctement : le garde existait, avec deux contournements.
+- `compose.ts` montait `memory/` en espace personnel et la racine en espace
+  projet ; un commentaire affirmait que le retrieval dédupliquait ces deux
+  vues — c'était faux, chaque note revenait deux fois.
+- `status.vector` était dérivé de `policy.features.embedding`, un drapeau de
+  configuration, pas un modèle chargé.
+- `trace` utilisait `backlinks()` comme lignée de supersession.
+- `serialiseNote()` n'a jamais appris la clé `unifia_restrictions` ajoutée au
+  schéma et au parser dans la même session : un aller-retour supprimait
+  silencieusement les restrictions d'une note.
+
+**Défauts hérités** :
+
+- `VaultSource` décidait le confinement lexicalement alors que `statSync` suit
+  les junctions : un lien interne pointant hors du workspace était parcouru et
+  lu.
+- La deadline n'était lue qu'entre deux notes ; un `list()` lent allait à son
+  terme (300 ms contre une deadline de 20 ms, `truncated: false`).
+- `McpKnowledgeServer` n'était instancié nulle part en production et les
+  commandes `mcp-token` ne pouvaient pas fonctionner d'une invocation à
+  l'autre.
+- `runProbes` acceptait une `ProbeEvidence` vide et en faisait un `PASS`.
+- `verify` sortait avec 0 malgré des checks `WARN` et `NOT_EXECUTED`.
+- `fakeHash` : djb2 32 bits répété huit fois, casté en `KnowledgeVersionHash`.
+
+## État après correction (C18–C24)
+
+| Carte | Objet | Preuve |
+|---|---|---|
+| C18 | Garde d'egress unique pour search/get/backlinks/trace | `get` et `backlinks` refusent la note `deny` en distant, la servent en local |
+| C19 | Confinement par chemins réels | Junction Windows réelle : seule la note interne est listée, lecture au travers refusée |
+| C20 | Restrictions préservées à la sérialisation | Aller-retour exact des 4 champs |
+| C21 | Deadlines encadrant `list()` et `read()` | Source 300 ms / deadline 20 ms → retour 44 ms, `truncated: true` |
+| C22 | Composition MCP réelle + `knowledge_get` complet | `mcp-token session` : token émis, `status` réel (11 notes), révocation effective |
+| C23 | Lignée réelle, déduplication, `status` factuel | `trace` lit `unifia_supersedes` ; `vector: false` |
+| C24 | Preuves strictes, vrai hash, gates | `verify --strict` sort 1, lenient 0 ; sha256 |
+
+**Tests** : 745 (632 knowledge + 79 contracts + 34 Rust), contre 725.
+
+## Ce qui reste non implémenté
+
+Inchangé par rapport à l'addendum 1, plus les points suivants :
+
+- Aucun `MutationWriter` : V1 n'a **aucun chemin d'écriture** vers Class A.
+- Aucun daemon MCP : `composeMcpServer()` existe et fonctionne, mais rien ne
+  l'expose sur un transport. Un token ne survit pas au processus qui l'émet.
+- `knowledge_propose` refusé par construction tant qu'il n'y a pas de writer.
+
+Suivi : R-0012.
+
+## Verdict
+
+`READY_FOR_REVIEW` — pas `PRODUCTION_READY`. Ce verdict ne peut être établi
+que par une contre-revue indépendante ultérieure.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.

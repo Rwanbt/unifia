@@ -12,9 +12,11 @@
 one requires a typed `DeclassificationGrant` bound to a hash, a
 destination, and a TTL. No global "send everything" mode exists.
 
-The runtime cannot read or write outside the workspace root
-(`<workspace>`) without an explicit `mount` declaration recorded
-in the Class C control store.
+The runtime cannot read or write outside the workspace root (`<workspace>`)
+without an explicit `mount` declaration recorded in the Class C control store.
+Containment is decided on resolved real paths, not on the spelling of a
+locator: a junction or symbolic link inside the vault that points outside it
+is not followed, and a link cycle terminates rather than recursing.
 
 ## 2. Capability surface (V1)
 
@@ -105,9 +107,18 @@ no anonymous MCP access in V1: every method requires a token, and unknown,
 revoked, expired, wrong-workspace and out-of-scope all produce the same
 undifferentiated refusal.
 
-**V1 limitation**: the registry is in-process. A token issued by one CLI
-invocation is not visible to another; the MCP server must be handed the same
-registry instance that issued the token.
+**V1 limitation**: the registry lives in the memory of the server that
+honours it. `composeMcpServer()` binds a workspace, its policy, the service,
+the registry and the server together and is the only supported way to obtain
+a usable token — but V1 ships no MCP daemon, so a token does not outlive the
+process that issued it. `unifia knowledge mcp-token session <workspace>`
+exercises the real lifecycle in one process; `issue`, `check` and `revoke`
+refuse across invocations rather than returning a misleading answer.
+
+An MCP client sits behind a transport, so it is composed as a **remote**
+destination: the workspace policy decides what may reach it, and a note
+carrying `remote_model: deny` is withheld from every capability — search,
+get, backlinks and trace alike.
 
 ## 6. Audit trail
 
