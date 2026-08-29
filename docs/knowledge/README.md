@@ -107,7 +107,7 @@ bun run packages/unifia/bin/unifia-knowledge.ts bench-large 100 256
 | Suite | Command | Last result |
 |---|---|---|
 | Contracts | `bun --cwd packages/contracts test` | 79 pass, 0 fail |
-| unifia knowledge | `bun --cwd packages/unifia test test/knowledge` | 482 pass, 0 fail |
+| unifia knowledge | `bun --cwd packages/unifia test test/knowledge` | 488 pass, 0 fail |
 | knowledge-core | `cargo test` (cwd crates/unifia-knowledge-core) | 34 pass, 0 fail |
 | unifia typecheck | `bun --cwd packages/unifia run typecheck` | exit 0 |
 | knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
@@ -130,9 +130,10 @@ pure read-only and grouped by purpose:
 | **Lifecycle ops** | `supersede` (plan), `supersede-graph` |
 | **Validation** | `validate`, `doctor`, `classify`, `summary`, `stats`, `report` |
 | **Recovery / verify** | `sovereignty`, `disaster-recovery`, `drill`, `verify`, `migrate` |
+| **Lifecycle matrix** | `lifecycle-transitions` |
 | **Other** | `status`, `sources`, `search`, `bench`, `bench-large`, `precommit`, `mcp-token`, `portable`, `policy`, `gc`, `similarity` |
 
-Total: 49 subcommands, 19 admin modules, 467+ tests passants.
+Total: 50 subcommands, 20 admin tools, 601 tests passants.
 
 ## Resume after compaction
 
@@ -148,9 +149,11 @@ Read `execution/COMPACT.md` (one screen) then
 
 ## External boundaries (documented, isolated)
 
-- **Android device** : `NOT_EXECUTED_EXTERNAL_BOUNDARY` for
-  P10.2 device run and P10.3 resource pressure.
+- **Android device** : `PASS_WITH_SAFE_FALLBACK` for P10.2 and
+  P10.3 (artefacts in `.artifacts/p10-device-*`). Full chain
+  requires APK rebuild with embedded runtime.
 - **ONNX embedding model** : `disabled` by default per
   runbook §8.8.
-- **Frontier review** : not triggered; the runbook §24 packet
-  is at `execution/FRONTIER-REVIEW-PACKET.md` (skeleton).
+- **Frontier review** : packet ready at
+  `execution/FRONTIER-REVIEW-PACKET.md` (runbook §24); no
+  external model triggered yet.

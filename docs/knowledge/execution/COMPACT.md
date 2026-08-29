@@ -7,16 +7,18 @@
 
 ## One-liner
 
-98 commits locaux, 488 TS knowledge + 79 contracts + 34 Rust = 601 verts
+102 commits locaux, 488 TS knowledge + 79 contracts + 34 Rust = 601 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
-13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
-**600 verts franchi** (admin tools doublés).
+13 phases couvertes (P10.2 + P10.3 = `PASS_WITH_SAFE_FALLBACK`).
+**601 verts** (admin tools doublés), **50 subcommands**,
+**20 admin tools**, **FRONTIER-REVIEW-PACKET** ready.
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `b2c2773ba9 feat(knowledge): P11.51 lifecycle-transitions CLI`
+- HEAD : `51810b1a16 docs(knowledge): FRONTIER-REVIEW-PACKET`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
+- P10.2/P10.3 device artefacts : `.artifacts/p10-device-{screen.png, report.json, run.md}`
 
 ## Files at a glance
 
@@ -24,9 +26,10 @@
 - Runtime TS : `packages/unifia/src/knowledge/` (60+ modules).
 - Runtime Rust : `crates/unifia-knowledge-core/src/` (8 modules).
 - CLI : `packages/unifia/bin/unifia-knowledge.ts` (31 subcommands).
-- Tests : 467 verts (354 TS knowledge + 79 contracts + 34 Rust).
+- Tests : 601 verts (488 TS knowledge + 79 contracts + 34 Rust).
 - Docs : 9 ADR + 10 cas + DoD + crash matrix + CHANGELOG + README
-  + PERMISSIONS + DISASTER-RECOVERY + COMPACT + FINAL-REPORT.
+  + PERMISSIONS + DISASTER-RECOVERY + COMPACT + FINAL-REPORT
+  + FRONTIER-REVIEW-PACKET.
 
 ## Reprise (4 commandes)
 
@@ -40,9 +43,13 @@ cat docs/knowledge/execution/FINAL-REPORT.md | head -40
 
 ## Cartes restantes (frontieres externes)
 
-- P10.2 device run — Android device requis.
-- P10.3 resource pressure — Android device requis.
-- Phase Frontier review — modèle frontier externe.
+- P10.2 device run — `PASS_WITH_SAFE_FALLBACK` (artefacts dans
+  `.artifacts/p10-device-*`). Full chain requires APK rebuild
+  with embedded runtime.
+- P10.3 resource pressure — `PASS_WITH_SAFE_FALLBACK` (idle capture
+  only, ONNX disabled).
+- Phase Frontier review — packet ready (`FRONTIER-REVIEW-PACKET.md`),
+  no external model triggered yet.
 - ONNX embedding model — non téléchargé, P5.5 utilise fake embed.
 
 ## CLI subcommands (31)
