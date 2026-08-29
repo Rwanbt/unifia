@@ -7,15 +7,15 @@
 
 ## One-liner
 
-96 commits locaux, 482 TS knowledge + 79 contracts + 34 Rust = 595 verts
+98 commits locaux, 488 TS knowledge + 79 contracts + 34 Rust = 601 verts
 (4569 total TS suite, 4 pre-existing fail non-knowledge),
 13 phases couvertes (P10.2 + P10.3 = `NOT_EXECUTED_EXTERNAL_BOUNDARY`).
-**Demi-millénaire franchi**.
+**600 verts franchi** (admin tools doublés).
 
 ## SHA
 
 - Branche : `feat/sovereign-knowledge-core`
-- HEAD : `c04284242a docs(knowledge): README + CHANGELOG v0.2.0-knowledge`
+- HEAD : `b2c2773ba9 feat(knowledge): P11.51 lifecycle-transitions CLI`
 - Initial : `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev)
 
 ## Files at a glance
@@ -92,6 +92,7 @@ unifia knowledge timeline <ws> [--window-days=N] [--max-per-day=N]
 unifia knowledge tag-cooccurrence <ws> [--min-count=N] [--limit=N]
 unifia knowledge supersede-classify <ws>
 unifia knowledge note-diff <ws> --target-a=<loc>|--target-id-a=<uuid> --target-b=<loc>|--target-id-b=<uuid>
+unifia knowledge lifecycle-transitions
 ```
 
 ## Test live

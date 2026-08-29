@@ -1791,3 +1791,56 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-classify`, `note-diff`).
 **Subcommandes CLI** : 49 (etait 20 en V3, +29 admin = x2.45).
 **Cartes durcissement** : 45 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-50).
+
+
+---
+
+## Carte 0220 - P11.51 : Lifecycle-transitions CLI (transition matrix as code)
+
+- **ID** : 0220
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/lifecycle-transitions.ts` +
+  `packages/unifia/test/knowledge/admin/lifecycle-transitions.test.ts` (6 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdLifecycleTransitions).
+- **`buildTransitionMatrix()`** : matrice 4x4 des transitions
+  V1 (candidate, active, superseded, archived) selon
+  ADR-KNOW-0009. `isTransitionAllowed(from, to)`,
+  `getAllowedTransitions(from)`, `formatTransitionMatrix(m)`.
+- **CLI** : `unifia knowledge lifecycle-transitions`.
+- **Live run** : matrice affichee avec OK/- :
+  - candidate -> active (OK)
+  - active -> superseded (OK)
+  - candidate -> superseded (-)
+  - archived -> active (OK)
+  - archived -> archived (-)
+- **Single source of truth** : la table ALLOWED est dans
+  `lifecycle-transitions.ts`, miroir de celle de
+  `src/knowledge/memory/lifecycle.ts`. Si les deux divergent,
+  il faut un ADR.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V22 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 99.
+
+**Tests** : 488 TS knowledge + 79 contracts + 34 Rust = **601 verts**.
+**600 verts franchi**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `b2c2773ba9 feat(knowledge): P11.51 lifecycle-transitions CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 20 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`, `duplicates`, `timeline`, `tag-cooccurrence`,
+`supersede-classify`, `note-diff`, `lifecycle-transitions`).
+**Subcommandes CLI** : 50 (etait 20 en V3, +30 admin = x2.50).
+**Cartes durcissement** : 46 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-51).
