@@ -115,6 +115,15 @@ export const McpKnowledgeBacklinksRequestSchema = z
   })
   .strict()
 
+export interface McpKnowledgeBacklinksRequest {
+  workspace: string
+  targetId?: KnowledgeId
+  targetLocator?: KnowledgeLocator
+  limit: number
+  cursor?: string
+  deadlineMs: number
+}
+
 export interface McpKnowledgeBacklinksResponse {
   sources: Array<{
     id: KnowledgeId
@@ -148,6 +157,13 @@ export const McpKnowledgeTraceRequestSchema = z
     deadlineMs: z.number().int().positive().max(60_000),
   })
   .strict()
+
+export interface McpKnowledgeTraceRequest {
+  workspace: string
+  id: KnowledgeId
+  maxDepth: number
+  deadlineMs: number
+}
 
 export interface McpKnowledgeTraceResponse {
   nodes: Array<{
