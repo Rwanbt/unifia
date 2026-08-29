@@ -4,6 +4,59 @@
 > All notable changes to the Knowledge subsystem are documented
 > here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0-knowledge] - 2026-08-29 (admin tools + hardening)
+
+### Added
+- **19 admin modules** under `packages/unifia/src/knowledge/admin/`:
+  corpus-classify, validate, summary, report, tag-search, backlinks,
+  stats, by-type, broken-links, headings, list, show, tags, projects,
+  supersede (plan), by-lifecycle, by-project, orphans, lifecycle-
+  distribution, stale, recent, references, fingerprint, by-tag,
+  vault-compare, supersede-graph, duplicates, timeline,
+  tag-cooccurrence, supersede-classify, note-diff.
+- **49 CLI subcommands** in `bin/unifia-knowledge.ts`, each wired
+  through the dispatcher and the help text.
+- **P11.14 policy.json runtime** : operator-editable policy at
+  `<workspace>/.unifia/policy.json` (egress defaults, per-destination
+  overrides, feature flags, default token TTL, trusted devices).
+- **P11.4-7 hardening suite** : disaster-recovery, migration
+  dry-run + rollback, sovereignty test runner, Git pre-commit
+  scan hook.
+- **P11.10 corpus classification** : real-fixture `classify` for
+  notesFailed / totalChunks / totalEdges.
+- **P11.19 summary CLI** : one-line + sectioned vault summary.
+- **P11.17 disaster-recovery drill** : 6 crash scenarios.
+- **P11.13 full verify** : sovereignty + recovery + reachability +
+  classify, all sequential.
+- **P11.22 validate** : per-type field check + custom missing
+  fields, 8 categories.
+- **P11.23 report** : Markdown workspace report, configurable
+  title, optional sections.
+- **P9.2 MCP token registry** : issue/revoke/isValid/TTL, scoped
+  to workspace.
+- **P2.6-8 Class B extensions** : portable-store, reachability
+  scan, GC recommendation + apply.
+- **P4.4 lifecycle audit log** : append-only, queryable by id /
+  source / transition / time-range.
+- **P7.4 cross-mode bus pipeline** : emits `decision.created`,
+  `tool.executed`, `session.ended` on the DomainBus.
+- **PERMISSIONS.md** : 5 KB doc covering default-deny, 6 V1
+  capabilities, 8 destinations, restrictions per source, tokens,
+  audit, 7 what-V1-does-not-do, 6 operator-facing commands, 9
+  modification procedure.
+- **DISASTER-RECOVERY.md** : 5-step procedure (verify-class-a/b,
+  rebuild-c/d, confirm-sovereignty).
+- **CHANGELOG.md v0.2.0** : this entry.
+
+### Tests
+- 595 tests passants : 482 TS knowledge + 79 contracts + 34 Rust.
+
+### Status
+- Branch : `feat/sovereign-knowledge-core`
+- HEAD : `d494e5333e` (P11.50)
+- 96 commits, 295 files added, ~32 000 insertions.
+- 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
 ## [0.1.0-knowledge] - 2026-08-29
 
 ### Added

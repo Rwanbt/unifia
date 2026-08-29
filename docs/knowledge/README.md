@@ -55,32 +55,32 @@ docs/knowledge/
 
 ```
 packages/
-├── contracts/src/knowledge/  # 10 files, 37 + 10 = 47 tests
-└── unifia/src/knowledge/      # 21 modules
+├── contracts/src/knowledge/  # 10 files, 79 tests
+└── unifia/src/knowledge/      # 60+ modules
     ├── domain/        # KnowledgeFailure
     ├── parser/        # frontmatter, wikilinks, parser
     ├── source/        # KnowledgeSource + 4 spaces
-    ├── policy/        # decideEgress
+    ├── policy/        # decideEgress, KnowledgePolicy store
     ├── context/       # router, inspector, dataflow
-    ├── derived/       # DDL, chunker, indexer
-    ├── admin/         # doctor
-    ├── memory/        # lifecycle, promotion, inbox
-    ├── semantic/      # embedding score, BruteForceIndex, benchmark
+    ├── derived/       # DDL, chunker, indexer, doctor
+    ├── admin/         # 19 admin tools (tags, projects, by-*, etc.)
+    ├── memory/        # lifecycle, promotion, inbox, audit
+    ├── semantic/      # embedding score, BruteForceIndex, benchmark, simulate
     ├── stack/         # ai-native-dev-stack mapping
     ├── facade/        # KnowledgeService
-    ├── git/           # GitProvider
-    ├── mcp/           # McpKnowledgeServer
+    ├── git/           # GitProvider, precommit
+    ├── mcp/           # McpKnowledgeServer, token registry
     ├── mobile/        # Android storage + probe
     ├── events/        # DomainBus
-    ├── cross-mode/    # CrossModePipeline
-    ├── hardening/     # crash matrix, sovereignty, fuzz, SBOM
+    ├── cross-mode/    # CrossModePipeline, CrossModeBusPipeline
+    ├── hardening/     # crash matrix, sovereignty, fuzz, SBOM, drill, recovery, verify, etc.
     ├── wal/           # TS WAL adapter
-    ├── classb/        # TS ClassB adapter
+    ├── classb/        # TS ClassB adapter + portable-store, reachability, GC
     ├── control/       # TS ControlStore adapter
     └── spike/         # P0 spike primitives
 
 crates/
-└── unifia-knowledge-core/src/  # 8 modules, 18 tests
+└── unifia-knowledge-core/src/  # 8 modules, 34 tests
     ├── error.rs           # KnowledgeError (11 kinds)
     ├── hash.rs            # BLAKE3 / SHA-256
     ├── path.rs            # ResolvedKnowledgePath
@@ -107,12 +107,32 @@ bun run packages/unifia/bin/unifia-knowledge.ts bench-large 100 256
 | Suite | Command | Last result |
 |---|---|---|
 | Contracts | `bun --cwd packages/contracts test` | 79 pass, 0 fail |
-| unifia knowledge | `bun --cwd packages/unifia test test/knowledge` | 168 pass, 0 fail |
-| knowledge-core | `cargo test` (cwd crates/unifia-knowledge-core) | 18 pass, 0 fail |
+| unifia knowledge | `bun --cwd packages/unifia test test/knowledge` | 482 pass, 0 fail |
+| knowledge-core | `cargo test` (cwd crates/unifia-knowledge-core) | 34 pass, 0 fail |
 | unifia typecheck | `bun --cwd packages/unifia run typecheck` | exit 0 |
 | knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | biome | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 | isolation | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
+
+## Admin CLI quick reference
+
+The `unifia-knowledge.ts` CLI exposes **49 subcommands**. The
+admin tools (under `packages/unifia/src/knowledge/admin/`) are
+pure read-only and grouped by purpose:
+
+| Group | Subcommands |
+|---|---|
+| **Counts / lists** | `tags`, `projects`, `lifecycle-distribution`, `tag-cooccurrence`, `supersede-classify` |
+| **Filters** | `by-type`, `by-lifecycle`, `by-project`, `by-tag`, `tag-search`, `list` |
+| **Inspection** | `show`, `headings`, `references`, `backlinks`, `broken-links` |
+| **Maintenance** | `duplicates`, `orphans`, `stale`, `recent`, `timeline` |
+| **Change detection** | `fingerprint`, `vault-compare`, `note-diff` |
+| **Lifecycle ops** | `supersede` (plan), `supersede-graph` |
+| **Validation** | `validate`, `doctor`, `classify`, `summary`, `stats`, `report` |
+| **Recovery / verify** | `sovereignty`, `disaster-recovery`, `drill`, `verify`, `migrate` |
+| **Other** | `status`, `sources`, `search`, `bench`, `bench-large`, `precommit`, `mcp-token`, `portable`, `policy`, `gc`, `similarity` |
+
+Total: 49 subcommands, 19 admin modules, 467+ tests passants.
 
 ## Resume after compaction
 
