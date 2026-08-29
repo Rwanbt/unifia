@@ -58,6 +58,7 @@ import { listByType } from "../src/knowledge/admin/by-type.js"
 import { scanBrokenLinks } from "../src/knowledge/admin/broken-links.js"
 import { listHeadings } from "../src/knowledge/admin/headings.js"
 import { listNotes } from "../src/knowledge/admin/list.js"
+import { showNote } from "../src/knowledge/admin/show.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -104,6 +105,7 @@ function printUsage(): void {
       "  unifia knowledge broken-links <workspace>",
       "  unifia knowledge headings <workspace> <locator>",
       "  unifia knowledge list <workspace> [--limit=N] [--offset=N]",
+      "  unifia knowledge show <workspace> <locator>",
       "",
     ].join("\n"),
   )
@@ -1096,6 +1098,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdHeadings(rest)
     case "list":
       return cmdList(rest)
+    case "show":
+      return cmdShow(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1109,3 +1113,22 @@ await main()
     process.stderr.write(`error: ${(err as Error).message}\n`)
     process.exit(1)
   })
+
+
+async function cmdShow(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  const loc = rest[1]
+  if (!ws || !loc) {
+    process.stderr.write("show: usage: show <workspace> <locator>\n")
+    return 2
+  }
+  try {
+    const text = showNote({ workspaceRoot: ws, locator: loc })
+    process.stdout.write(text)
+    if (!text.endsWith("\n")) process.stdout.write("\n")
+    return 0
+  } catch (e) {
+    process.stderr.write(`show error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
