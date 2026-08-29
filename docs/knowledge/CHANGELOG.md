@@ -4,6 +4,81 @@
 > All notable changes to the Knowledge subsystem are documented
 > here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0-knowledge] - 2026-08-29 (remediation after frontier counter-review)
+
+### Fixed (security)
+- **Egress overrides can no longer widen a portable `deny`.** `decideEgress`
+  evaluated the per-item `allow` override before the item's own restriction,
+  so a note marked `remote_model: deny` was returned as `allow` toward a
+  permissive provider. Every deny is now decided before any allow.
+- **Unresolved provenance is denied toward non-local destinations**
+  (ADR-KNOW-0006 §2), instead of being allowed with a note in the reason.
+- **The MCP server authenticates.** All six methods were anonymous; the
+  workspace was checked on `propose` alone; `status` was unrate-limited.
+  Every method now requires a scoped token and passes one guard.
+- **MCP tokens** use a 32-byte CSPRNG id (was `Date.now()` + counter), always
+  carry a TTL (was: omitting `ttlMs` minted a perpetual token), cap it at 24
+  hours, and carry a method allowlist defaulting to read-only.
+- **`ExternalSource` capabilities are enforced.** `list`/`read`/`watch`
+  reached the backend even when the capability was absent.
+
+### Fixed (correctness)
+- **CLI `search` queries the real vault.** It answered from two notes declared
+  inline, so any two queries returned `hits=2 scanned=2`.
+- **`ContextRouter` honours its contract**: query, types, tags, lifecycle,
+  a global `maxCandidates`, UTF-8 `maxSnippetBytes` and `maxPayloadBytes`, a
+  real deadline with truncation reported, real snippets and sha256 hashes,
+  real lifecycle and provenance, deterministic ranking.
+- **`policy.json` reaches the egress decision** through the new
+  `facade/compose.ts`. It previously had two consumers, both administrative.
+- **Wikilinks and headings inside fenced or inline code are no longer
+  extracted.** The parser and the derived indexer each carried their own
+  regex; both now share `parser/code-mask.ts`.
+- **One lifecycle transition table.** Two copies disagreed with
+  `intentForTransition`, which refused `superseded -> active` while both
+  tables advertised it. That transition is removed per ADR-KNOW-0009.
+- **No fabricated PASS.** Android probes required no evidence; `verify`
+  hardcoded `classBReachable: true` and passed on a stub-filesystem
+  simulation and on vaults with orphans. Checks now carry
+  PASS/WARN/FAIL/NOT_EXECUTED and name the offending files.
+- **The facade stops returning empty successes.** `get`, `backlinks` and
+  `status` do the work; `propose` refuses with a typed error when no writer
+  is configured.
+- `cargo fmt --check` was red across all 8 Rust modules while the report
+  recorded the Rust gates green.
+
+### Added
+- `unifia_restrictions` frontmatter key — a V1 note could not express
+  restrictions at all: the strict schema rejected every spelling. One
+  canonical representation, fail-closed defaults, `mostRestrictive()` for
+  the heritage rule. Recorded as a dated amendment to ADR-KNOW-0006.
+- `ProviderDestinationPlan.destinationKind` (`local` | `remote`, omitted =
+  remote) so the guard can tell an on-device read from an egress.
+- `VaultSource` — the first source that reads Class A from disk.
+- `capability_unavailable` error kind.
+- `bin/knowledge/` — the CLI was 2048 lines against a 1500-line blocking
+  budget and the plan forbids adding to it before decomposing. Split into
+  usage, shared, runtime and commands-report; the dispatcher is now 1110.
+- Characterization suite `test/knowledge/regression/`, written red.
+
+### Documentation
+- `SOVEREIGN-CORE-V1-DOD.md` — every one of the 22 requirements was
+  `PENDING`, and all 12 U-commands pointed at `src/` where the tests live in
+  `test/`. Audited: 10 PASS, 7 PARTIAL, 4 NOT_EXECUTED, with replayable
+  commands.
+- `FINAL-REPORT.md` — dated addendum listing the seven refuted claims and
+  classifying every surface as implemented / tested with real I/O /
+  simulated / disabled / external boundary.
+- `PERMISSIONS.md` — five verified misstatements corrected.
+- `RISKS.md` — R-0012 opened for the unimplemented parts of ADR-KNOW-0006.
+
+### Tests
+- 725 passing: 612 TS knowledge (was 522) + 79 contracts + 34 Rust.
+
+### Status
+- Branch: `feat/sovereign-knowledge-core`, no upstream.
+- 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
 ## [0.2.0-knowledge] - 2026-08-29 (admin tools + hardening)
 
 ### Added

@@ -138,3 +138,38 @@
   Gemini 2.x Pro ; integrer le feedback dans V1.1 ou V2.
 - **Owner** : operateur.
 - **Statut** : **OPEN** (en attente de presentation externe).
+
+## R-0012 — Parties d'ADR-KNOW-0006 non implémentées
+
+**Sévérité** : haute (sécurité, latente)
+**Statut** : OUVERT
+**Ouvert le** : 2026-08-29, après la contre-revue frontier
+
+La contre-revue a établi que le mécanisme central d'ADR-KNOW-0006 n'était pas
+implémenté, et qu'aucun risque ne le suivait — c'était le plus grand écart de
+périmètre V1 et le seul absent du registre.
+
+La remédiation a livré les règles 1, 2 et 4 (restrictions portables
+exprimables et appliquées, UNCLASSIFIED refusé vers l'externe, override qui ne
+peut que restreindre). **Restent non implémentées** :
+
+- **§3 `DeclassificationGrant`** — aucun mécanisme one-shot lié au hash, à la
+  destination et à un TTL. Conséquence : rien ne peut légitimement élargir un
+  `deny` en V1, ce qui est fail-closed mais bloque le cas d'usage documenté
+  du partage explicite consenti.
+- **§3 héritage** — `mostRestrictive()` existe et est testé, mais aucun
+  pipeline de transformation (résumé, traduction, re-chunking, embedding) ne
+  l'appelle. Il n'y a pas encore de transformation en V1, donc rien n'est
+  actuellement mal classé ; le jour où une arrive, elle doit passer par là.
+- **§6 audit `egress.decision`** — `decideEgress` est pure et aucun appelant
+  n'émet l'événement. L'invariant « tout egress est tracé » n'est donc pas
+  tenu.
+- **Guard côté Rust** — ADR-KNOW-0006 annonce
+  `crates/unifia-knowledge-core/src/port/transport.rs`. Ce module n'existe
+  pas ; le crate n'a pas de répertoire `port/`.
+
+**Pourquoi ce n'est pas une fuite aujourd'hui** : le sous-système ne contient
+aucun code réseau. Le risque se matérialise au premier appel provider ajouté.
+
+**Levée** : implémenter §3 et §6, ou amender à nouveau l'ADR pour les retirer
+explicitement de V1.

@@ -51,38 +51,63 @@ A `destination` is one of:
 
 ## 4. Restrictions per source
 
-A note may carry a `portable_restrictions` block in its frontmatter:
+A note may carry a `unifia_restrictions` block in its frontmatter. This is the
+single canonical spelling; see the 2026-08-29 amendment to ADR-KNOW-0006,
+which retired the competing `portable_restrictions` name this document used
+before V1.
 
 ```yaml
-unifia_id: 0190d2c0-7b00-7000-8000-000000000001
-unifia_type: constraint
-unifia_lifecycle: active
-unifia_project_ref: unifia
+unifia_id: "0190d2c0-7b00-7000-8000-000000000001"
+unifia_type: "constraint"
+unifia_lifecycle: "active"
+unifia_project_ref: "unifia"
 
-portable_restrictions:
+unifia_restrictions:
   remote_model: deny        # never go to a remote LLM
   local_model: allow        # may go to local llama.cpp / ONNX
-  git_remote: deny          # never push to a remote
-  external_editor: allow    # may be edited outside Unifia
-  mcp: deny                 # never emit through MCP
+  embeddable: allow         # may enter the FTS / vector index
+  exportable: deny          # may not be handed to an exporter
 ```
 
-The `ContextRouter` enforces these restrictions **before**
-hydrating a `ContextPack`. Denied items are dropped and reported
-in `ContextDiagnostics.droppedByEgress`.
+Every field is optional. An absent block is UNCLASSIFIED and resolves to
+`remote_model: deny`, `local_model: allow`, `embeddable: allow`,
+`exportable: deny`, so adding a note never widens what may leave. A malformed
+block is refused rather than read as unrestricted.
+
+The `ContextRouter` enforces these restrictions **before** hydrating a
+`ContextPack`: it matches `local_model` against a destination declared
+`local` and `remote_model` against everything else, since a plan that does
+not declare itself local is treated as remote. Denied items are dropped and
+counted in `ContextDiagnostics.candidatesDroppedByRestriction`, with the
+per-item reason in `ContextDiagnostics.excludedReasons`.
+
+`git_remote`, `external_editor` and `mcp` appeared only in this document and
+were never implemented. They are out of V1: the outgoing-range scan covers
+Git (Phase 8) and the MCP token allowlist covers MCP.
 
 ## 5. Tokens and quotas
 
 Each MCP session receives a token with:
 
-- a workspace scope (single workspace);
-- a TTL (default 1 hour, max 24 hours);
-- a method allowlist (subset of the 6 capabilities above);
-- a request quota (default 60 req/min, max 600 req/min);
-- a byte cap per response (default 1 MiB, max 8 MiB).
+- a workspace scope (single workspace), compared in constant time;
+- a TTL, defaulting to 1 hour and refused above 24 hours — a token is never
+  perpetual;
+- a method allowlist, defaulting to the five read-only methods, so
+  `knowledge_propose` is opt-in;
+- an id from a 32-byte CSPRNG, not derived from the clock.
 
-A revoked token is rejected immediately, even mid-session. There
-is no anonymous MCP access in V1.
+Rate limit, request bytes and response bytes are enforced by the server from
+its `McpKnowledgeConfig` (all UTF-8 byte counts, not string lengths), and
+apply to every method including `knowledge_status`.
+
+A revoked or expired token is rejected immediately, even mid-session. There is
+no anonymous MCP access in V1: every method requires a token, and unknown,
+revoked, expired, wrong-workspace and out-of-scope all produce the same
+undifferentiated refusal.
+
+**V1 limitation**: the registry is in-process. A token issued by one CLI
+invocation is not visible to another; the MCP server must be handed the same
+registry instance that issued the token.
 
 ## 6. Audit trail
 
@@ -97,8 +122,11 @@ control store is **local only** and never pushed to a remote.
 - It does not push to any Git remote. `autoPush` defaults to
   `false` (see `GitProvider`).
 - It does not sync to any cloud. There is no Unifia cloud in V1.
-- It does not phone home. The `sovereignty` command rejects
-  environments that report `internet=on` or `cloud=on`.
+- It does not phone home. This is structural, not a policy: there is no
+  network code in the subsystem — no `fetch`, no HTTP client, and the Rust
+  crate depends only on thiserror, serde, camino, sha2, blake3 and optional
+  rusqlite. The `sovereignty` command *records* whether the operator asserts
+  `internet=off` and `cloud=off`; it does not measure them, and says so.
 - It does not embed any third-party tracking, analytics, or
   telemetry.
 
@@ -106,7 +134,7 @@ control store is **local only** and never pushed to a remote.
 
 | Command | Purpose |
 |---|---|
-| `unifia knowledge sovereignty` | run the 4 sovereignty probes |
+| `unifia knowledge sovereignty` | run the 5 sovereignty checks — 2 measured (vault readable, derived DB deletable) and 3 recorded from operator assertions (internet off, cloud off, device isolated) |
 | `unifia knowledge disaster-recovery` | plan the recovery procedure |
 | `unifia knowledge migrate --dry-run` | preview a migration |
 | `unifia knowledge migrate --rollback` | preview the rollback plan |

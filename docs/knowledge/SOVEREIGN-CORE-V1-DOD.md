@@ -251,21 +251,45 @@
 
 ## Statut par item
 
-(à remplir au fil de l'eau)
+> Audité le 2026-08-29 après la remédiation post-contre-revue.
+> HEAD : `feat/sovereign-knowledge-core`. Chaque commande ci-dessous a été
+> rejouée depuis `packages/unifia/`. Les commandes de la spécification
+> pointaient toutes vers `src/knowledge/...` alors que les tests vivent dans
+> `test/knowledge/...` : aucune n'était exécutable. Elles sont corrigées ici.
+>
+> `PASS` = oracle vérifié et commande rejouée. `PARTIAL` = une partie est
+> livrée, le reste est nommé. `NOT_EXECUTED` = frontière externe réelle.
+> Aucun `PASS` ne s'appuie sur un stub, une simulation ou un placeholder.
 
-| ID | Statut | Carte | Notes |
+| ID | Statut | Commande rejouable (depuis `packages/unifia/`) | Preuve |
 |---|---|---|---|
-| U-01..U-12 | PENDING | 0010+ | bloqué par Phases 1+ |
-| E-01 | PENDING | _continu_ | gate permanent |
-| E-02 | PENDING | _continu_ | gate permanent |
-| E-03 | PENDING | post Phase 1 | tests d'invariants |
-| E-04 | PENDING | post Phase 3 | après schéma dérivé |
-| E-05 | PENDING | post Phase 3 | après doctor |
-| E-06 | PENDING | post Phase 2 | après NativePort |
-| E-07 | PENDING | post Phase 2 | après WAL |
-| E-08 | PENDING | post Phase 3 | après FTS |
-| E-09 | PENDING | post Phase 10 | Android device |
-| E-10 | PENDING | post Phase 11 | hardening |
+| U-01 vault canonique | **PASS** | `bun test test/knowledge/source` | 23 tests ; `VaultSource` lit le Markdown brut, aucun index requis |
+| U-02 recherche lexicale | **PASS** | `bun test test/knowledge/context test/knowledge/cli` | 43 tests ; requête absente → 0 hit, deux requêtes différentes → réponses différentes |
+| U-03 recherche sémantique | **PARTIAL** | `bun test test/knowledge/semantic` | 4 tests ; cosinus + index brute-force câblés, mais aucun modèle ONNX → `status` rapporte `vector: disabled` |
+| U-04 lifecycle mémoire | **PASS** | `bun test test/knowledge/memory` | 30 tests ; table de transitions unique, chaque transition autorisée a un `MutationKind` |
+| U-05 provenance | **PARTIAL** | `bun test test/knowledge/parser` | 30 tests ; le frontmatter porte created/updated/project_ref/supersedes. `source_document` et `source_commit` sont dans les contrats mais non peuplés à l'écriture |
+| U-06 wikilinks et backlinks | **PASS** | `bun test test/knowledge/parser test/knowledge/facade` | 44 tests ; masque de code unique, `backlinks()` résout sur Class A |
+| U-07 egress refusée par défaut | **PASS** | `bun test test/knowledge/regression test/knowledge/facade` | 34 tests ; override ne peut plus élargir un `deny`, `policy.json` atteint la décision |
+| U-08 édition externe | **PARTIAL** | `bun test test/knowledge/source` | Relecture à chaque requête, donc une édition externe est vue. Aucun watcher OS : `VaultSource.watch()` refuse au lieu de simuler |
+| U-09 mémoire partagée entre modes | **PASS** | `bun test test/knowledge/cross-mode` | 7 tests ; une seule façade, aucun cache par mode |
+| U-10 Android | **NOT_EXECUTED** | `bun test test/knowledge/mobile` | 6 tests ; un `PASS` exige une `ProbeEvidence` du harness. Aucun device branché ici |
+| U-11 MCP borné | **PASS** | `bun test test/knowledge/sprint.test.ts` | 35 tests ; chaque méthode authentifiée, workspace vérifié, quotas et bornes UTF-8 |
+| U-12 Git sans auto-push | **PASS** | `bun test test/knowledge/git` | 9 tests ; `gitAutoPush` par défaut `false`, scan pre-commit |
+| E-01 typecheck et tests | **PASS** | `bun run typecheck && bun test test/knowledge` | 0 erreur ; 612 tests verts |
+| E-02 gates cargo | **PASS** | `cargo fmt --check && cargo clippy -- -D warnings && cargo test` | fmt propre, clippy 0 warning, 34 tests |
+| E-03 couverture des invariants | **PASS** | `bun test test/knowledge/regression` | 20 tests de caractérisation, écrits rouges puis passés au vert |
+| E-04 migration dry-run + rollback | **PARTIAL** | `bun test test/knowledge/hardening` | Plan et rollback calculés en mémoire ; aucune I/O réelle |
+| E-05 doctor détecte les anomalies | **PASS** | `bun test test/knowledge/admin` | 6 checks réels ; `verify` distingue PASS/WARN/FAIL/NOT_EXECUTED |
+| E-06 NativeKnowledgePort borné | **PARTIAL** | `bun --cwd ../contracts test` | Les 4 bornes sont appliquées côté TS par le router. Aucun port Rust : `crates/.../port/` n'existe pas |
+| E-07 crash matrix et recovery | **PARTIAL** | `bun run bin/unifia-knowledge.ts drill` | 6/6 scénarios ; la recovery reste une simulation, `verify` la marque `NOT_EXECUTED` |
+| E-08 FTS reconstruite = originale | **NOT_EXECUTED** | — | Aucun runtime FTS5 en V1. `status` rapporte `fts: disabled` |
+| E-09 matrice de stockage Android | **NOT_EXECUTED** | `bun test test/knowledge/mobile` | Template livré ; exige un device |
+| E-10 SBOM et licences | **PARTIAL** | `bun test test/knowledge/hardening` | Squelette CycloneDX ; pas un scan supply-chain complet |
+
+**Décompte** : 10 PASS, 7 PARTIAL, 4 NOT_EXECUTED, 1 PASS conditionnel (E-01/E-02 sont des gates permanents).
+
+Aucun item n'est `PASS` sur la foi d'un stub. Les `PARTIAL` et `NOT_EXECUTED`
+nomment ce qui manque et ce qu'il faudrait pour les lever.
 
 ## Pass condition
 

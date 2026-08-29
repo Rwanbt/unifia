@@ -94,7 +94,7 @@
   mot pour mot.
 - **Comportement attendu V1** : le `DataFlowGuard` refuse l'écriture
   dans le vault d'un contenu classifié `credential`. Les notes qui
- 引用 (引用nent) le token sont marquées `unifia_restrictions.egress:
+  référencent le token sont marquées `unifia_restrictions.remote_model:
   deny`.
 - **Preuve** : `docs/KNOWN_ISSUES.md` "S1.S2" + lien
   `packages/unifia/src/auth/index.ts`.

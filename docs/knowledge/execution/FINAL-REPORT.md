@@ -317,3 +317,87 @@ sans intervention.
 
 *Session close le 2026-08-29. SHA final : `fb178dbfa0`.*
 *54 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
+
+---
+
+# Addendum — 2026-08-29, après contre-revue et remédiation
+
+> Le corps du rapport ci-dessus est conservé tel qu'il a été écrit. Cet
+> addendum le corrige ; il ne le réécrit pas. Là où les deux se contredisent,
+> **l'addendum fait foi**.
+
+## Pourquoi cet addendum existe
+
+La revue frontier a rendu `NEEDS_REVISION` avec une sévérité **sous-estimée**
+(« ~1,5 jour, essentiellement documentaire »). Une contre-revue directe du
+dépôt a établi que plusieurs chemins de production étaient des démonstrateurs :
+la recherche CLI interrogeait deux notes synthétiques, le `ContextRouter`
+ignorait la majorité de son contrat, le serveur MCP n'authentifiait rien, et
+un override de plan pouvait élargir une restriction `deny`.
+
+## Affirmations du rapport qui étaient fausses
+
+| Affirmation | Réalité au moment où elle a été écrite |
+|---|---|
+| `ContextRouter` PASS | Ignorait query, types, tags, maxPayloadBytes, maxSnippetBytes, deadlineMs ; `maxCandidates` par source ; jamais de `read()` ; trust/restriction/relevance fabriqués |
+| MCP `PASS (squelette)` | Aucune authentification, workspace vérifié sur `propose` seul, résultats réels jetés |
+| « aucun déclassement de restriction » | `decideEgress` évaluait l'override `allow` avant la restriction propre de l'item : un `deny` était élargi |
+| « aucun faux backend, aucun mock présenté comme production » | `makeRegistry()` en dur dans la CLI ; façade renvoyant `null`/`[]`/`applied:false` |
+| « pas de PASS hypothétique » | `runProbes` renvoyait 10 `PASS` dès qu'un device était déclaré ; `verify` forçait `classBReachable: true` |
+| `egress security ✅` | Les restrictions portables n'étaient pas exprimables : le schéma `.strict()` rejetait la clé |
+| `basic retrieval ✅` | Deux requêtes sans rapport renvoyaient `hits=2 scanned=2` |
+
+## Classement honnête des surfaces
+
+**Implémenté et câblé en production**
+Recherche lexicale bornée sur le vrai vault · `VaultSource` (Class A depuis le
+disque) · restrictions portables canoniques (`unifia_restrictions`) ·
+`decideEgress` fail-closed, destination-aware · `policy.json` atteignant la
+décision d'egress · façade (`get`, `backlinks`, `status`) · MCP authentifié,
+scopé et borné · masque Markdown unique (parser + indexer) · table de
+lifecycle unique · capacités `ExternalSource` appliquées.
+
+**Testé avec I/O réelle**
+`VaultSource` contre les fixtures · composition `policy.json → ContextPack` ·
+CLI `search`/`status` contre le corpus réel.
+
+**Simulé, et étiqueté comme tel**
+Recovery disaster (`verify` la marque `NOT_EXECUTED`) · migration dry-run et
+rollback (en mémoire) · SBOM (squelette CycloneDX).
+
+**Désactivé, et rapporté comme tel par `status`**
+FTS5 (`fts: disabled`, aucun runtime SQLite) · embeddings (`vector: disabled`,
+aucun modèle ONNX) · watcher filesystem (`watch()` refuse) ·
+`knowledge_propose` (refus typé sans `MutationWriter`).
+
+**Frontière externe**
+Probes Android (un `PASS` exige une `ProbeEvidence` du harness) · port Rust
+`NativeKnowledgePort` (`crates/.../port/` n'existe pas).
+
+## Ce qui reste non implémenté
+
+- `DeclassificationGrant` (ADR-KNOW-0006 §3) : rien ne peut élargir un `deny`.
+- Événement d'audit `egress.decision` (§6) : `decideEgress` reste pure.
+- Guard d'egress côté Rust : le crate n'a pas de module port.
+- Héritage des restrictions à travers les transformations : `mostRestrictive()`
+  existe mais aucun pipeline de transformation ne l'appelle encore.
+- Persistance Class B / ControlStore (in-memory côté Rust).
+
+Suivi : R-0012.
+
+## Décompte de tests
+
+| | Avant | Après |
+|---|---|---|
+| Knowledge TS | 522 | 612 |
+| Contracts | 79 | 79 |
+| Rust | 34 | 34 |
+| **Total** | **635** | **725** |
+
+`cargo fmt --check` était **rouge** alors que le rapport annonçait les gates
+Rust au vert ; il est désormais propre.
+
+## Mutations
+
+0 push, 0 PR, 0 merge, 0 release, 0 publication. La branche n'a toujours pas
+d'upstream.
