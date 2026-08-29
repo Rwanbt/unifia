@@ -69,6 +69,7 @@ import { lifecycleDistribution } from "../src/knowledge/admin/lifecycle-distribu
 import { findStale } from "../src/knowledge/admin/stale.js"
 import { findReferences } from "../src/knowledge/admin/references.js"
 import { vaultFingerprint } from "../src/knowledge/admin/fingerprint.js"
+import { listByTag } from "../src/knowledge/admin/by-tag.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -129,6 +130,7 @@ function printUsage(): void {
       "  unifia knowledge stale <workspace> [--threshold-days=N] [--only-active] [--limit=N]",
       "  unifia knowledge references <workspace> --target=<locator>|--target-id=<uuid>",
       "  unifia knowledge fingerprint <workspace> [--verbose]",
+      "  unifia knowledge by-tag <workspace> <tag> [--limit=N]",
       "",
     ].join("\n"),
   )
@@ -1152,6 +1154,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdReferences(rest)
     case "fingerprint":
       return cmdFingerprint(rest)
+    case "by-tag":
+      return cmdByTag(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1516,6 +1520,32 @@ async function cmdFingerprint(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`fingerprint error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdByTag(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  const tag = rest[1]
+  if (!ws || !tag) {
+    process.stderr.write("by-tag: usage: by-tag <workspace> <tag> [--limit=N]\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(2))
+  const limit = flags.get("limit") !== undefined ? Number(flags.get("limit")) : undefined
+  try {
+    const r = listByTag({ vaultRoot: ws, tag, ...(limit !== undefined ? { limit } : {}) })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`tag:      ${r.tag}\n`)
+    process.stdout.write(`scanned:  ${r.scanned}\n`)
+    process.stdout.write(`hits:     ${r.hits.length}\n`)
+    for (const h of r.hits) {
+      process.stdout.write(`  - ${h.locator.padEnd(28)} ${h.type}  ${h.lifecycle}  tags=[${h.tags.join(", ")}]\n`)
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`by-tag error: ${(e as Error).message}\n`)
     return 1
   }
 }
