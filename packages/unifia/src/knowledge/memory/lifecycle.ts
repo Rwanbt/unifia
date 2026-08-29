@@ -14,10 +14,22 @@ import type {
   MutationKind,
 } from "@unifia/contracts/knowledge"
 
-const VALID_TRANSITIONS: Record<KnowledgeLifecycleState, KnowledgeLifecycleState[]> = {
+/**
+ * The V1 transition table (ADR-KNOW-0009). Single source of truth: the admin
+ * matrix renderer imports this rather than keeping its own copy.
+ *
+ * `superseded -> active` is deliberately absent. ADR-KNOW-0009 shows only
+ * `archived --[restore]--> active`, and a superseded note is a traceable
+ * historical record reachable through `knowledge_get` (rule 3) — it is not
+ * revived. The table previously allowed it while `intentForTransition` had no
+ * MutationKind for it, so it was allowed and then refused.
+ */
+export const VALID_TRANSITIONS: Readonly<
+  Record<KnowledgeLifecycleState, readonly KnowledgeLifecycleState[]>
+> = {
   candidate: ["active", "archived"],
   active: ["superseded", "archived"],
-  superseded: ["active", "archived"],
+  superseded: ["archived"],
   archived: ["active"],
 }
 

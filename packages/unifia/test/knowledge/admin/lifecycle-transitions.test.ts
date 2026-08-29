@@ -31,7 +31,6 @@ describe("P11.51 lifecycle transitions matrix", () => {
   it("allows the documented transitions", () => {
     expect(isTransitionAllowed("candidate", "active")).toBe(true)
     expect(isTransitionAllowed("active", "superseded")).toBe(true)
-    expect(isTransitionAllowed("superseded", "active")).toBe(true)
     expect(isTransitionAllowed("archived", "active")).toBe(true)
   })
 
@@ -39,12 +38,14 @@ describe("P11.51 lifecycle transitions matrix", () => {
     expect(isTransitionAllowed("candidate", "superseded")).toBe(false)
     expect(isTransitionAllowed("active", "candidate")).toBe(false)
     expect(isTransitionAllowed("archived", "candidate")).toBe(false)
+    // ADR-KNOW-0009 restores from `archived`, never from `superseded`.
+    expect(isTransitionAllowed("superseded", "active")).toBe(false)
   })
 
   it("getAllowedTransitions returns the right successors", () => {
     expect(getAllowedTransitions("candidate")).toEqual(["active", "archived"])
     expect(getAllowedTransitions("active")).toEqual(["superseded", "archived"])
-    expect(getAllowedTransitions("superseded")).toEqual(["active", "archived"])
+    expect(getAllowedTransitions("superseded")).toEqual(["archived"])
     expect(getAllowedTransitions("archived")).toEqual(["active"])
   })
 

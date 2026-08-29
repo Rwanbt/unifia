@@ -12,6 +12,7 @@
  */
 
 import type { KnowledgeLifecycleState } from "@unifia/contracts/knowledge"
+import { VALID_TRANSITIONS } from "../memory/lifecycle.js"
 
 const V1_LIFECYCLES: readonly KnowledgeLifecycleState[] = [
   "candidate",
@@ -20,13 +21,10 @@ const V1_LIFECYCLES: readonly KnowledgeLifecycleState[] = [
   "archived",
 ]
 
-/** Allowed transitions (ADR-KNOW-0009). */
-const ALLOWED: Record<KnowledgeLifecycleState, KnowledgeLifecycleState[]> = {
-  candidate: ["active", "archived"],
-  active: ["superseded", "archived"],
-  superseded: ["active", "archived"],
-  archived: ["active"],
-}
+// The matrix renders the same table the mutation path enforces. Keeping a
+// second copy here let the CLI advertise a transition that
+// `intentForTransition` refused.
+const ALLOWED = VALID_TRANSITIONS
 
 export type TransitionMatrix = Record<KnowledgeLifecycleState, Record<KnowledgeLifecycleState, boolean>>
 
