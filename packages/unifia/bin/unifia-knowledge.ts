@@ -45,6 +45,7 @@ import { McpTokenRegistry } from "../src/knowledge/mcp/token.js"
 import { classifyCorpus } from "../src/knowledge/admin/corpus-classify.js"
 import { runVerify } from "../src/knowledge/hardening/verify.js"
 import { readPolicy, patchPolicy, type KnowledgePolicy } from "../src/knowledge/policy/store.js"
+import { recommendGc, applyGcRecommendation } from "../src/knowledge/classb/gc.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -77,6 +78,8 @@ function printUsage(): void {
       "  unifia knowledge policy <workspace> show",
       "  unifia knowledge policy <workspace> set-egress <allow|deny>",
       "  unifia knowledge policy <workspace> set-feature <feature> <true|false>",
+      "  unifia knowledge gc <workspace> recommend",
+      "  unifia knowledge gc <workspace> apply",
       "",
     ].join("\n"),
   )
@@ -676,8 +679,58 @@ async function main(): Promise<number> {
       return cmdClassify(rest)
     case "verify":
       return cmdVerify(rest)
+
+
+async function cmdGc(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("gc: missing workspace path\n")
+    return 2
+  }
+  const sub = rest[1]
+  try {
+    switch (sub) {
+      case "recommend": {
+        const r = recommendGc(ws)
+        process.stdout.write(`vault:        ${r.workspaceRoot}\n`)
+        process.stdout.write(`action:       ${r.action}\n`)
+        process.stdout.write(`safe to apply: ${r.safeToApply}\n`)
+        process.stdout.write(`orphans:      ${r.orphanAliases.length}\n`)
+        process.stdout.write(`reachable:    ${r.reachableAliases.length}\n`)
+        process.stdout.write(`missing:      ${r.missingSidecarLocators.length}\n`)
+        if (r.orphanAliases.length > 0) {
+          process.stdout.write(`\norphan aliases (Class B without Class A):\n`)
+          for (const a of r.orphanAliases) process.stdout.write(`  - ${a}\n`)
+        }
+        if (r.missingSidecarLocators.length > 0) {
+          process.stdout.write(`\nmissing sidecars (Class A without Class B):\n`)
+          for (const m of r.missingSidecarLocators) process.stdout.write(`  - ${m}\n`)
+        }
+        return 0
+      }
+      case "apply": {
+        const r = recommendGc(ws)
+        if (!r.safeToApply) {
+          process.stderr.write(`gc: not safe to apply (missing sidecars present); rebuild Class B first\n`)
+          return 1
+        }
+        const after = applyGcRecommendation(ws, r)
+        process.stdout.write(`applied. remaining entries: ${Object.keys(after.entries).length}\n`)
+        return 0
+      }
+      default:
+        process.stderr.write(`gc: unknown subcommand: ${sub ?? "(missing)"}\n`)
+        return 2
+    }
+  } catch (e) {
+    process.stderr.write(`gc error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
     case "policy":
       return cmdPolicy(rest)
+    case "gc":
+      return cmdGc(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
