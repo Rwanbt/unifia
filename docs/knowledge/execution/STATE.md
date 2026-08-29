@@ -1844,3 +1844,65 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-classify`, `note-diff`, `lifecycle-transitions`).
 **Subcommandes CLI** : 50 (etait 20 en V3, +30 admin = x2.50).
 **Cartes durcissement** : 46 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-51).
+
+
+---
+
+## Carte 0221 - P10.2 : Android device run (Xiaomi Mi 10 Pro, cmi_eea)
+
+- **ID** : 0221
+- **Phase** : 10
+- **Date** : 2026-08-29
+- **Statut** : `PASS_WITH_SAFE_FALLBACK`
+- **Cible** : `.artifacts/p10-device-run.md` + `.artifacts/p10-device-report.json` + `.artifacts/p10-device-screen.png`.
+- **Device** : Xiaomi Mi 10 Pro, Android 13, SDK 33, arm64-v8a,
+  7.4 GiB RAM, 69 GB free disk, battery 100% / 32.7 C.
+- **App** : `ai.unifia.mobile` v0.1.0 deja installee, running,
+  foreground, RSS 49 MB, deep-link `unifia://` reconnue.
+- **Probes PASS** : adbConnected, appInstalled, appRunning,
+  amStart, filesystemWritable, deepLinkWorks, screencap.
+- **Probes NOT_EXECUTED** : vault.read/write, fts.search,
+  graph.backlinks, context-router, policy.egress, git.prepush
+  (besoin du runtime Knowledge embarque, absent de l'APK
+  actuel).
+- **Note** : la frontiere externe est partiellement levee
+  (device accessible) mais l'APK doit etre reconstruit pour
+  embarquer le runtime pour fermer toutes les probes.
+
+---
+
+## Carte 0222 - P10.3 : Android resource pressure (capture only, idle)
+
+- **ID** : 0222
+- **Phase** : 10
+- **Date** : 2026-08-29
+- **Statut** : `PARTIAL` (capture only, no sustained load)
+- **Cible** : `.artifacts/p10-device-run.md` (section P10.3).
+- **Capture idle** : RSS 49 MB, VSZ 6 GB, temperature 32.7 C,
+  battery 100 %. Aucun test sous charge (pas d'ONNX actif,
+  LLM absent du V1).
+- **Note** : le scenario stress "ONNX + llama.cpp concurrents"
+  ne peut pas etre execute localement — `disabled` par
+  defaut (runbook §8.8). Si activation future, FTS + graph
+  pendant la generation locale (recommandation §8.8).
+
+---
+
+## Checkpoint final V23 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 100 (chiffre rond).
+
+**Tests** : 488 TS knowledge + 79 contracts + 34 Rust = **601 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `23d10ed4 docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.51`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux artefacts P10** : `.artifacts/p10-device-screen.png`,
+`.artifacts/p10-device-report.json`, `.artifacts/p10-device-run.md`.
+
+**Cartes P10 mises a jour** : 0221 (P10.2), 0222 (P10.3).
+**Cartes restantes (toujours externes)** : frontier review
+(modele externe), ONNX embedding (desactive V1).
