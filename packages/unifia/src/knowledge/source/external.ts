@@ -17,6 +17,7 @@ import type {
   KnowledgeLocator,
   KnowledgeId,
   ExternalSpaceCapability,
+  KnowledgeErrorKind,
 } from "@unifia/contracts/knowledge"
 import type {
   KnowledgeSource,
@@ -25,6 +26,25 @@ import type {
   SourceEvent,
 } from "./source.js"
 import type { ParsedDocument } from "../parser/parser.js"
+
+/**
+ * Raised when an operation is attempted on a mount that was not granted the
+ * matching capability. Carries the `capability_unavailable` kind so callers
+ * can distinguish a refusal from a backend failure.
+ */
+export class ExternalCapabilityError extends Error {
+  readonly kind: KnowledgeErrorKind = "capability_unavailable"
+  constructor(
+    readonly mountId: string,
+    readonly capability: ExternalSpaceCapability,
+    operation: string,
+  ) {
+    super(
+      `external mount "${mountId}" cannot ${operation}: capability "${capability}" not granted`,
+    )
+    this.name = "ExternalCapabilityError"
+  }
+}
 
 export interface ExternalSourceConfig {
   /** Stable identifier of the mount. */
@@ -63,13 +83,28 @@ export class ExternalSource implements KnowledgeSource {
     return (this.space.capabilities ?? []).includes("metadata-write")
   }
 
-  list(options: ListOptions): Promise<ListedNote[]> {
+  /**
+   * Refuse before touching the backend. A capability that only describes what
+   * a mount may do, without gating it, is not a permission — it is a label.
+   */
+  private require(capability: ExternalSpaceCapability, operation: string): void {
+    if ((this.space.capabilities ?? []).includes(capability)) return
+    throw new ExternalCapabilityError(this.space.id, capability, operation)
+  }
+
+  // `list` and `read` declare a Promise, so a missing capability rejects
+  // rather than throwing synchronously — a caller holding `.catch()` must not
+  // be bypassed by a sync throw.
+  async list(options: ListOptions): Promise<ListedNote[]> {
+    this.require("read", "list")
     return this.impl.list(options)
   }
-  read(locator?: KnowledgeLocator, id?: KnowledgeId): Promise<ParsedDocument | null> {
+  async read(locator?: KnowledgeLocator, id?: KnowledgeId): Promise<ParsedDocument | null> {
+    this.require("read", "read")
     return this.impl.read(locator, id)
   }
   watch(onChange: (event: SourceEvent) => void): () => void {
+    this.require("watch", "watch")
     return this.impl.watch(onChange)
   }
 }

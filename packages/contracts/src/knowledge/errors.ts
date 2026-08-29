@@ -28,6 +28,12 @@ export const KnowledgeErrorKindSchema = z.enum([
   "index_unavailable",
   /** Source registry returned an inconsistency. */
   "source_inconsistent",
+  /**
+   * The operation requires a capability the space was not granted (e.g.
+   * reading an ExternalSource mounted without `read`). The backend is not
+   * reached; this is a refusal, not a failure.
+   */
+  "capability_unavailable",
   /** An invariant was violated; the system is in a degraded state. */
   "invariant_violated",
   /** Internal error; the message is opaque to the user. */
