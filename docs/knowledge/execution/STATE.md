@@ -1626,3 +1626,49 @@ mis a jour avec le parcours complet (10 commits de la session 12).
 `supersede-graph`, `duplicates`, `timeline`).
 **Subcommandes CLI** : 46 (etait 20 en V3, +26 admin = x2.30).
 **Cartes durcissement** : 42 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-47).
+
+
+---
+
+## Carte 0216 - P11.48 : Tag-cooccurrence CLI
+
+- **ID** : 0216
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/tag-cooccurrence.ts` +
+  `packages/unifia/test/knowledge/admin/tag-cooccurrence.test.ts` (10 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdTagCooccurrence).
+- **`tagCooccurrence({ vaultRoot, minCount?, limit? })`** : walk
+  le vault, genere les paires de tags uniques par note, cumule
+  les co-occurrences. Retourne `{ pairs, uniqueTags, scanned, totalMs }`.
+- **CLI** : `unifia knowledge tag-cooccurrence <ws> [--min-count=N]
+  [--limit=N]`.
+- **Live run** : 22 unique tags, 14 paires sur dev.
+  Paires notables : `tool:bash <-> model:gemma-4`, `egress <-> secret`,
+  `device:android <-> selinux`.
+- **Cas d'usage** : identifier les clusters de tags, candidats a
+  la consolidation, visualiser la taxonomie implicite.
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V19 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 92.
+
+**Tests** : 468 TS knowledge + 79 contracts + 34 Rust = **581 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `98e0879f15 feat(knowledge): P11.48 tag-cooccurrence CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 17 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`, `stale`, `references`,
+`fingerprint`, `by-tag`, `vault-compare`, `recent`,
+`supersede-graph`, `duplicates`, `timeline`, `tag-cooccurrence`).
+**Subcommandes CLI** : 47 (etait 20 en V3, +27 admin = x2.35).
+**Cartes durcissement** : 43 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-48).

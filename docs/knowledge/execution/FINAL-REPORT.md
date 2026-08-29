@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `1675d4a21c feat(knowledge): P11.47 timeline CLI (notes grouped by day, activity indicator)` |
+| HEAD final | `98e0879f15 feat(knowledge): P11.48 tag-cooccurrence CLI (pairs of co-occurring tags)` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (89)
+## 2. Commits locaux (92)
 
 | SHA | Sujet |
 |---|---|
@@ -104,6 +104,9 @@
 | `d6759cc4a7` | feat(knowledge): P11.46 duplicates CLI (byte-identical content groups) |
 | `538c2300bd` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.46 (87 commits, 563 tests) |
 | `1675d4a21c` | feat(knowledge): P11.47 timeline CLI (notes grouped by day, activity indicator) |
+| `c9ee31c7f1` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.47 (89 commits, 571 tests) |
+| `de2dc78adf` | chore(knowledge): drop unused KnowledgeLifecycleState import in timeline.ts |
+| `98e0879f15` | feat(knowledge): P11.48 tag-cooccurrence CLI (pairs of co-occurring tags) |
 
 ## 3. Phases et gates
 
@@ -132,14 +135,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 458 pass, 0 fail, 929 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 468 pass, 0 fail, 951 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 12 finale)** : 458 TS knowledge + 79 contracts + 34 Rust = **571 tests passants** (demi-millénaire).
+**Total des tests dans cette session (session 12 finale)** : 468 TS knowledge + 79 contracts + 34 Rust = **581 tests passants** (demi-millénaire).
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -190,7 +193,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 60+ | 60+ | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 458 | 458 | 100% |
+| Tests TS knowledge | 468 | 468 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -211,8 +214,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 89 commits, ~275 fichiers ajoutés.
-- **Commits locaux** : 89.
+- **Implémentation locale** : 92 commits, ~280 fichiers ajoutés.
+- **Commits locaux** : 92.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -237,7 +240,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 1675d4a21c
+git rev-parse HEAD  # doit être 98e0879f15
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -249,9 +252,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 89 commits,
-~275 fichiers, **571 tests passants** (458 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 42 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 92 commits,
+~280 fichiers, **581 tests passants** (468 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 43 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
