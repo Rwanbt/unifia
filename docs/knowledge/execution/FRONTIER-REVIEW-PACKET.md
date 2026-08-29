@@ -343,28 +343,37 @@ The reviewer is invited to challenge:
     frontier review honestly labeled, with clear reproduction
     steps for unblocking?
 
-## Open risks (full list in `RISKS.md`)
+## Open risks (full list in `RISKS.md`, IDs match)
 
-- **R-001** : APK rebuild not run; full P10.2 chain not
-  exercised on device.
-- **R-002** : ONNX embedding not downloaded; semantic search
-  not exercisable on real notes.
-- **R-003** : `BruteForceIndex` is O(n) per query; if a
+- **R-0002** : Bun version drift (1.3.14 installed vs 1.3.11
+  declared in `bun.lock`); low risk, monitoring.
+- **R-0003** : APK rebuild not run; full P10.2 chain not
+  exercised on device (XIAOMI Mi 10 Pro alive, app boots, but
+  no `rootfs.tgz` in installed APK).
+- **R-0004** : ONNX embedding not downloaded; semantic search
+  not exercisable on real notes (V1 = `disabled` per runbook
+  §8.8; P5.5 uses deterministic fake embed).
+- **R-0008** : `BruteForceIndex` is O(n) per query; if a
   power-user vault exceeds 50k notes, the defer-ANN threshold
-  will be hit.
-- **R-004** : `mavis-trash` policy (recoverable delete) is
+  will be hit (ADR-KNOW-0008 §3).
+- **R-0009** : `mavis-trash` policy (recoverable delete) is
   Windows-specific; portability to macOS / Linux relies on
   PowerShell-Core UTF-8 detection (cf. gotcha 2026-08-24).
-- **R-005** : the 4-byte ad-hoc fixes for tags, fences, and
-  parser field names (cf. memory tail) suggest a lack of
-  type-level coverage for some `useDefineForClassFields` edge
-  cases — consider biome + tsc strict for the knowledge suite.
+- **R-0010** : `useDefineForClassFields` shadow edge cases —
+  field prive shadow method public (cf. P11 events/bus). Tests
+  don't systematically cover this case. Mitigation: naming
+  discipline + biome + tsc strict.
+- **R-0011** : frontier review (this packet) not yet triggered;
+  no external model has reviewed the architecture.
+
+Closed risks (R-0001, R-0005, R-0006, R-0007) are documented in
+`RISKS.md` with their CLOSED status.
 
 ## Sign-off
 
 - Branch prepared by : autonomous session (runbook V2 method).
-- Cross-checked by : 12 Obsidian recaps in
-  `D:\Documents\Obsidian\IA_Dev_Brain\Unifia/`.
+- Cross-checked by : 13 Obsidian recaps in
+  `D:\Documents\Obsidian\IA_Dev_Brain\Unifia/` (Recap-2..8, 12..15).
 - Ready for : external frontier review (this packet).
 - Not ready for : public release, merge to `main`, or any
   external publication.

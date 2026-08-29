@@ -165,6 +165,11 @@ unifia-conformance.json
 
 
 
+# Generated PDF artefacts (regenerate from .md sources via fpdf2/Python on demand)
+docs/knowledge/execution/FRONTIER-REVIEW-PACKET.pdf
+
+
+
 # Release build outputs: android-runtime-provenance.json records the absolute
 # repository path and per-machine tool versions, so it is a local record rather
 # than something to track.
