@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `c389dca405 feat(knowledge): P11.37 orphans CLI (notes with no outbound wikilinks)` |
+| HEAD final | `5f8d009179 feat(knowledge): P11.38 lifecycle-distribution CLI (lifecycle x type matrix)` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (70)
+## 2. Commits locaux (72)
 
 | SHA | Sujet |
 |---|---|
@@ -85,6 +85,8 @@
 | `657b3e04bb` | feat(knowledge): P11.36 by-project CLI |
 | `6d90093b53` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.36 (68 commits, 491 tests) |
 | `c389dca405` | feat(knowledge): P11.37 orphans CLI (notes with no outbound wikilinks) |
+| `a19c56043b` | docs(knowledge): align FINAL-REPORT / COMPACT / STATE to P11.37 (70 commits, 497 tests) |
+| `5f8d009179` | feat(knowledge): P11.38 lifecycle-distribution CLI (lifecycle x type matrix) |
 
 ## 3. Phases et gates
 
@@ -113,14 +115,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 384 pass, 0 fail, 768 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 388 pass, 0 fail, 786 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 12 finale)** : 384 TS knowledge + 79 contracts + 34 Rust = **497 tests passants**.
+**Total des tests dans cette session (session 12 finale)** : 388 TS knowledge + 79 contracts + 34 Rust = **501 tests passants** (demi-millénaire).
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -171,7 +173,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 60+ | 60+ | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 384 | 384 | 100% |
+| Tests TS knowledge | 388 | 388 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -192,8 +194,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 70 commits, ~230 fichiers ajoutés.
-- **Commits locaux** : 70.
+- **Implémentation locale** : 72 commits, ~235 fichiers ajoutés.
+- **Commits locaux** : 72.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -218,7 +220,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être c389dca405
+git rev-parse HEAD  # doit être 5f8d009179
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -230,9 +232,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 70 commits,
-~230 fichiers, **497 tests passants** (384 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 32 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 72 commits,
+~235 fichiers, **501 tests passants** (388 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 33 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a

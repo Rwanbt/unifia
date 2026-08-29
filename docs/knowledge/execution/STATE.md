@@ -1204,3 +1204,54 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 
 **Recap Obsidian** : `Session-Recap-Sovereign-Knowledge-Core-12-2026-08-29.md`
 mis a jour avec le parcours complet (10 commits de la session 12).
+
+
+---
+
+## Carte 0206 - P11.38 : Lifecycle distribution CLI
+
+- **ID** : 0206
+- **Phase** : 11 (admin tools)
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/lifecycle-distribution.ts` +
+  `packages/unifia/test/knowledge/admin/lifecycle-distribution.test.ts`
+  (4 tests passants) +
+  `packages/unifia/bin/unifia-knowledge.ts` (cmdLifecycleDistribution).
+- **`lifecycleDistribution({ vaultRoot })`** : walk le vault,
+  cumule les notes dans une matrice 2D `lifecycle x type`,
+  retourne la matrice, les totaux par ligne/colonne, et le
+  grand total. Compte aussi les `unknownTypeCount` et
+  `unknownLifecycleCount` (notes hors V1 set).
+- **V1 sets** :
+  - lifecycle = `candidate | active | superseded | archived`
+  - type = `decision | constraint | preference | failure |
+    learning | procedure | reference | semantic | episodic`
+- **CLI** : `unifia knowledge lifecycle-distribution <ws>` affiche
+  la matrice en ASCII tabulaire.
+- **Lecon** : les `const` au-dessus de `await main()` doivent etre
+  declares sinon TDZ (temporal dead zone) au runtime.
+- **Live run** : 11/11 (4 decisions, 3 constraints, 2 failures,
+  1 semantic, 1 episodic; active=10, superseded=1).
+- **Risque** : aucun.
+
+---
+
+## Checkpoint final V10 - Session 12 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 72.
+
+**Tests** : 388 TS knowledge + 79 contracts + 34 Rust = **501 verts**.
+**Demi-millenaire franchi** (500+).
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `5f8d009179 feat(knowledge): P11.38 lifecycle-distribution CLI`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+**Nouveaux modules session 12** : 7 admin tools
+(`tags`, `projects`, `supersede`, `by-lifecycle`, `by-project`,
+`orphans`, `lifecycle-distribution`).
+**Subcommandes CLI** : 37 (etait 20 en V3, +17 admin).
+**Cartes durcissement** : 33 (P11.4-7 + P11.10 + P11.13-14 + P11.17 + P11.19 + P11.22-38).
