@@ -77,6 +77,7 @@ import { findDuplicates } from "../src/knowledge/admin/duplicates.js"
 import { buildTimeline, formatTimeline } from "../src/knowledge/admin/timeline.js"
 import { tagCooccurrence } from "../src/knowledge/admin/tag-cooccurrence.js"
 import { classifySupersede } from "../src/knowledge/admin/supersede-classify.js"
+import { noteDiff } from "../src/knowledge/admin/note-diff.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -145,6 +146,7 @@ function printUsage(): void {
       "  unifia knowledge timeline <workspace> [--window-days=N] [--max-per-day=N]",
       "  unifia knowledge tag-cooccurrence <workspace> [--min-count=N] [--limit=N]",
       "  unifia knowledge supersede-classify <workspace>",
+      "  unifia knowledge note-diff <workspace> --target-a=<loc>|--target-id-a=<uuid> --target-b=<loc>|--target-id-b=<uuid>",
       "",
     ].join("\n"),
   )
@@ -1184,6 +1186,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdTagCooccurrence(rest)
     case "supersede-classify":
       return cmdSupersedeClassify(rest)
+    case "note-diff":
+      return cmdNoteDiff(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1793,6 +1797,56 @@ async function cmdSupersedeClassify(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`supersede-classify error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdNoteDiff(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("note-diff: missing workspace path\n")
+    return 2
+  }
+  const flags = parseFlags(rest.slice(1))
+  const aLoc = flags.get("target-a")
+  const aId = flags.get("target-id-a")
+  const bLoc = flags.get("target-b")
+  const bId = flags.get("target-id-b")
+  if (!aLoc && !aId) {
+    process.stderr.write("note-diff: --target-a=<loc> or --target-id-a=<uuid> is required\n")
+    return 2
+  }
+  if (!bLoc && !bId) {
+    process.stderr.write("note-diff: --target-b=<loc> or --target-id-b=<uuid> is required\n")
+    return 2
+  }
+  try {
+    const r = noteDiff({
+      vaultRoot: ws,
+      ...(aLoc !== undefined ? { noteALocator: aLoc as never } : {}),
+      ...(aId !== undefined ? { noteAId: aId as never } : {}),
+      ...(bLoc !== undefined ? { noteBLocator: bLoc as never } : {}),
+      ...(bId !== undefined ? { noteBId: bId as never } : {}),
+    })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`note-a:   ${r.noteA?.id}  (${r.noteA?.locator})\n`)
+    process.stdout.write(`note-b:   ${r.noteB?.id}  (${r.noteB?.locator})\n`)
+    process.stdout.write(`added:    ${r.added}\n`)
+    process.stdout.write(`removed:  ${r.removed}\n`)
+    const printSection = (label: string, lines: typeof r.frontmatterDiff) => {
+      if (lines.length === 0) return
+      process.stdout.write(`\n--- ${label} ---\n`)
+      for (const l of lines) {
+        const prefix = l.kind === "add" ? "+" : l.kind === "remove" ? "-" : " "
+        process.stdout.write(`${prefix} ${l.content}\n`)
+      }
+    }
+    printSection("frontmatter", r.frontmatterDiff)
+    printSection("body", r.bodyDiff)
+    return 0
+  } catch (e) {
+    process.stderr.write(`note-diff error: ${(e as Error).message}\n`)
     return 1
   }
 }
