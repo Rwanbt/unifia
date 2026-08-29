@@ -17,12 +17,10 @@ import {
   type KnowledgeLocator,
 } from "./identity.js"
 import {
-  RetrievalRequestSchema,
   RetrievalResponseSchema,
-  type RetrievalRequest,
   type RetrievalResponse,
 } from "./retrieval.js"
-import { MutationIntentSchema, type MutationIntent } from "./mutation.js"
+import { MutationIntentSchema } from "./mutation.js"
 
 /** Capability name. */
 export const McpKnowledgeCapabilitySchema = z.enum([
