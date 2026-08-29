@@ -72,6 +72,7 @@ import { vaultFingerprint } from "../src/knowledge/admin/fingerprint.js"
 import { listByTag } from "../src/knowledge/admin/by-tag.js"
 import { compareVaults } from "../src/knowledge/admin/vault-compare.js"
 import { findRecent } from "../src/knowledge/admin/recent.js"
+import { supersedeGraph } from "../src/knowledge/admin/supersede-graph.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -135,6 +136,7 @@ function printUsage(): void {
       "  unifia knowledge by-tag <workspace> <tag> [--limit=N]",
       "  unifia knowledge vault-compare <workspace_a> <workspace_b>",
       "  unifia knowledge recent <workspace> [--window-days=N] [--only-active] [--limit=N]",
+      "  unifia knowledge supersede-graph <workspace>",
       "",
     ].join("\n"),
   )
@@ -1164,6 +1166,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdVaultCompare(rest)
     case "recent":
       return cmdRecent(rest)
+    case "supersede-graph":
+      return cmdSupersedeGraph(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1622,6 +1626,43 @@ async function cmdRecent(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`recent error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdSupersedeGraph(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("supersede-graph: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = supersedeGraph({ vaultRoot: ws })
+    process.stdout.write(`vault:    ${r.vaultRoot}\n`)
+    process.stdout.write(`edges:    ${r.edges.length}\n`)
+    process.stdout.write(`dangling: ${r.dangling.length}\n`)
+    if (r.edges.length > 0) {
+      process.stdout.write(`\nedges (from -> to):\n`)
+      for (const e of r.edges) {
+        process.stdout.write(`  ${e.fromLocator.padEnd(28)} supersedes -> ${e.to}\n`)
+      }
+    }
+    if (r.deepest.length > 0) {
+      process.stdout.write(`\ntop-3 deepest lineages:\n`)
+      for (const d of r.deepest) {
+        process.stdout.write(`  ${d.locator.padEnd(28)} depth=${d.depth}\n`)
+      }
+    }
+    if (r.dangling.length > 0) {
+      process.stdout.write(`\ndangling references:\n`)
+      for (const d of r.dangling) {
+        process.stdout.write(`  ${d.locator.padEnd(28)} -> ${d.missingId}\n`)
+      }
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`supersede-graph error: ${(e as Error).message}\n`)
     return 1
   }
 }
