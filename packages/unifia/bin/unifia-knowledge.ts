@@ -42,6 +42,7 @@ import {
 } from "../src/knowledge/classb/portable-store.js"
 import { scanReachability } from "../src/knowledge/classb/reachability.js"
 import { McpTokenRegistry } from "../src/knowledge/mcp/token.js"
+import { classifyCorpus } from "../src/knowledge/admin/corpus-classify.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 function printUsage(): void {
@@ -69,6 +70,7 @@ function printUsage(): void {
       "  unifia knowledge mcp-token issue <workspace> [--ttl=MS]",
       "  unifia knowledge mcp-token revoke <token-id>",
       "  unifia knowledge mcp-token check <token-id>",
+      "  unifia knowledge classify <workspace>",
       "",
     ].join("\n"),
   )
@@ -438,6 +440,31 @@ async function cmdReachability(rest: readonly string[]): Promise<number> {
   }
 }
 
+async function cmdClassify(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("classify: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = classifyCorpus(ws)
+    process.stdout.write(`vault:        ${r.vaultRoot}\n`)
+    process.stdout.write(`notes parsed: ${r.notesParsed}\n`)
+    process.stdout.write(`notes failed: ${r.notesFailed}\n`)
+    process.stdout.write(`total chunks: ${r.totalChunks}\n`)
+    process.stdout.write(`total edges:  ${r.totalEdges}\n`)
+    process.stdout.write(`duration:     ${r.durationMs}ms\n`)
+    process.stdout.write(`findings:     ${r.findings.length}\n`)
+    for (const f of r.findings) {
+      process.stdout.write(`  - [${f.category}] ${f.message}\n`)
+    }
+    return r.findings.length === 0 ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`classify error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function cmdMcpToken(rest: readonly string[]): Promise<number> {
   const sub = rest[0]
   // The token registry is process-local. In V1 it is recreated
@@ -542,6 +569,8 @@ async function main(): Promise<number> {
       return cmdReachability(rest)
     case "mcp-token":
       return cmdMcpToken(rest)
+    case "classify":
+      return cmdClassify(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
