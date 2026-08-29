@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { readFileSync, readdirSync, statSync, realpathSync } from "node:fs"
+import { readFileSync, readdirSync, statSync } from "node:fs"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
   KnowledgeId,
@@ -22,34 +22,11 @@ import type {
 import { KnowledgeFailure } from "../domain/errors.js"
 import { parseDocument, type ParsedDocument } from "../parser/parser.js"
 import type { KnowledgeSource, ListOptions, ListedNote, SourceEvent } from "./source.js"
+// One containment definition, shared with the writer.
+import { isContained, realOrNull } from "./containment.js"
 
 /** Directories that never hold Class A notes. */
 const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidian"])
-
-/**
- * Real path of `p`, or null when it cannot be resolved.
- *
- * Containment must be decided on real paths. A lexical check lets a junction
- * or a symlink through untouched: `statSync` follows both, so a directory
- * pointing outside the workspace looked like an ordinary subdirectory and its
- * notes were listed and read.
- */
-function realOrNull(p: string): string | null {
-  try {
-    return realpathSync.native(p)
-  } catch {
-    return null
-  }
-}
-
-/** True when `candidate` resolves inside `realRoot`. */
-function isContained(realRoot: string, candidate: string): boolean {
-  const real = realOrNull(candidate)
-  if (real === null) return false
-  if (real === realRoot) return true
-  const rel = relative(realRoot, real)
-  return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel)
-}
 
 /**
  * Walk `dir`, collecting locators relative to `realRoot`, POSIX-separated.

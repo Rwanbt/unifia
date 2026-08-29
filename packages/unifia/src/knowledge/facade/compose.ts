@@ -23,6 +23,7 @@ import { ProjectSource } from "../source/project.js"
 import { readPolicy, isDestinationAllowed, type KnowledgePolicy } from "../policy/store.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { DefaultKnowledgeService } from "./service.js"
+import { VaultMutationWriter } from "../mutation/writer.js"
 
 /** Where the personal space lives inside a workspace. */
 export const PERSONAL_SUBDIR = "memory"
@@ -30,6 +31,11 @@ export const PERSONAL_SUBDIR = "memory"
 export interface ComposeInput {
   /** Absolute path to the workspace root. */
   workspaceRoot: string
+  /**
+   * Enable Class A writes. Off by default: a read-only composition cannot
+   * mutate the vault even if a caller asks it to.
+   */
+  writable?: boolean
   /** Destination the resulting packs are bound for. */
   providerId: string
   /**
@@ -139,7 +145,14 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
   )
   mounted.push("project")
 
+  // The writer targets the personal space when one exists, otherwise the
+  // workspace root — the same corpus the reader mounts.
+  const writer = input.writable === true
+    ? new VaultMutationWriter({ root: existsSync(personalRoot) ? personalRoot : input.workspaceRoot })
+    : undefined
+
   const service = new DefaultKnowledgeService(registry, { providerPlan: plan }, {
+    ...(writer !== undefined ? { writer } : {}),
     // V1 has no FTS5 runtime and no embedding model. These stay false until
     // a real backend is wired; `status` reports them verbatim.
     ftsEnabled: false,
