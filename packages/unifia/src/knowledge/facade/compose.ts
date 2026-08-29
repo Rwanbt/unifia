@@ -46,6 +46,8 @@ export interface Composed {
   plan: ProviderDestinationPlan
   /** Spaces that were actually mounted, for `status` to report honestly. */
   mounted: string[]
+  /** True when a policy file existed; false when the built-in default applied. */
+  policyFromFile: boolean
 }
 
 /**
@@ -59,12 +61,25 @@ export function planFromPolicy(
   providerId: string,
   destinationKind?: DestinationKind,
 ): ProviderDestinationPlan {
-  const key = destinationKind === "local" ? `provider:${providerId}` : `provider:${providerId}:remote`
-  const allowed = isDestinationAllowed(policy, key) || isDestinationAllowed(policy, providerId)
-  const plan: ProviderDestinationPlan = {
-    providerId,
-    defaultRestriction: allowed ? "allow" : "deny",
+  const key =
+    destinationKind === "local" ? `provider:${providerId}` : `provider:${providerId}:remote`
+  const explicit = policy.egressByDestination[key] ?? policy.egressByDestination[providerId]
+
+  let defaultRestriction: ProviderDestinationPlan["defaultRestriction"]
+  if (explicit !== undefined) {
+    defaultRestriction = explicit
+  } else if (destinationKind === "local") {
+    // PERMISSIONS.md §3: a local provider defaults to allow. `policy.egress`
+    // governs what leaves the machine; reading one's own vault on-device is
+    // not egress, and gating it on that switch would make an unconfigured
+    // workspace unreadable. The note's own `local_model` restriction still
+    // applies, and an operator can still deny a local destination by name.
+    defaultRestriction = "allow"
+  } else {
+    defaultRestriction = policy.egress
   }
+
+  const plan: ProviderDestinationPlan = { providerId, defaultRestriction }
   if (destinationKind !== undefined) plan.destinationKind = destinationKind
   return plan
 }
@@ -86,6 +101,7 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     throw KnowledgeFailure.pathUnresolved(`workspace does not exist: ${input.workspaceRoot}`)
   }
 
+  const policyFromFile = existsSync(join(input.workspaceRoot, ".unifia", "policy.json"))
   const policy = readPolicy(input.workspaceRoot)
   const plan = planFromPolicy(policy, input.providerId, input.destinationKind)
 
@@ -128,5 +144,5 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     vectorEnabled: policy.features.embedding,
   })
 
-  return { service, registry, policy, plan, mounted }
+  return { service, registry, policy, plan, mounted, policyFromFile }
 }
