@@ -73,6 +73,7 @@ import { listByTag } from "../src/knowledge/admin/by-tag.js"
 import { compareVaults } from "../src/knowledge/admin/vault-compare.js"
 import { findRecent } from "../src/knowledge/admin/recent.js"
 import { supersedeGraph } from "../src/knowledge/admin/supersede-graph.js"
+import { findDuplicates } from "../src/knowledge/admin/duplicates.js"
 import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
 
 const LCD_TYPES = ["decision", "constraint", "preference", "failure", "learning", "procedure", "reference", "semantic", "episodic"] as const
@@ -137,6 +138,7 @@ function printUsage(): void {
       "  unifia knowledge vault-compare <workspace_a> <workspace_b>",
       "  unifia knowledge recent <workspace> [--window-days=N] [--only-active] [--limit=N]",
       "  unifia knowledge supersede-graph <workspace>",
+      "  unifia knowledge duplicates <workspace>",
       "",
     ].join("\n"),
   )
@@ -1168,6 +1170,8 @@ async function cmdList(rest: readonly string[]): Promise<number> {
       return cmdRecent(rest)
     case "supersede-graph":
       return cmdSupersedeGraph(rest)
+    case "duplicates":
+      return cmdDuplicates(rest)
     default:
       process.stderr.write(`unknown subcommand: ${cmd}\n\n`)
       printUsage()
@@ -1663,6 +1667,35 @@ async function cmdSupersedeGraph(rest: readonly string[]): Promise<number> {
     return 0
   } catch (e) {
     process.stderr.write(`supersede-graph error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+
+async function cmdDuplicates(rest: readonly string[]): Promise<number> {
+  const ws = rest[0]
+  if (!ws) {
+    process.stderr.write("duplicates: missing workspace path\n")
+    return 2
+  }
+  try {
+    const r = findDuplicates({ vaultRoot: ws })
+    process.stdout.write(`vault:          ${r.vaultRoot}\n`)
+    process.stdout.write(`groups:         ${r.groups.length}\n`)
+    process.stdout.write(`duplicates:     ${r.duplicateCount}\n`)
+    process.stdout.write(`wasted-bytes:   ${r.wastedBytes}\n`)
+    if (r.groups.length > 0) {
+      process.stdout.write(`\nduplicate groups:\n`)
+      for (const g of r.groups) {
+        process.stdout.write(`  hash=${g.hash.slice(0, 12)}...  (${g.locators.length} copies, ${g.bytes}B each)\n`)
+        for (const loc of g.locators) {
+          process.stdout.write(`    - ${loc}\n`)
+        }
+      }
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`duplicates error: ${(e as Error).message}\n`)
     return 1
   }
 }
