@@ -24,7 +24,14 @@ import {
 import { ExternalSource } from "../../../src/knowledge/source/external.js"
 import { extractWikilinks } from "../../../src/knowledge/parser/wikilinks.js"
 import { extractEdges } from "../../../src/knowledge/derived/indexer.js"
+import { parseFrontmatter } from "../../../src/knowledge/parser/frontmatter.js"
 import type { KnowledgeLifecycleState } from "@unifia/contracts/knowledge"
+import {
+  NoteFrontmatterSchema,
+  portableRestrictionsFromFrontmatter,
+  portableRestrictionsToFrontmatter,
+  mostRestrictive,
+} from "@unifia/contracts/knowledge"
 
 const ID = "0190d2c0-7b00-7000-8000-000000000001"
 const ZERO_HASH = "0".repeat(64)
@@ -208,5 +215,105 @@ describe("C9 — link extraction ignores code fences and inline code", () => {
   it("tilde fences are excluded too", () => {
     const doc = ["~~~", "[[TildeSecret]]", "~~~", "", "[[Kept]]"].join("\n")
     expect(extractWikilinks(doc).map((w) => w.target)).toEqual(["Kept"])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// C5 — one canonical representation for portable restrictions.
+// The frontmatter key rejected outright before V1; three spellings competed
+// across the ADRs, PERMISSIONS.md and the contracts type.
+// ---------------------------------------------------------------------------
+
+const BASE_FM = {
+  unifia_schema: 1 as const,
+  unifia_id: ID,
+  unifia_type: "decision" as const,
+  unifia_lifecycle: "active" as const,
+  unifia_created_at: "2026-08-29T00:00:00Z",
+  unifia_updated_at: "2026-08-29T00:00:00Z",
+  unifia_project_ref: "unifia",
+  unifia_supersedes: [],
+  unifia_tags: [],
+}
+
+describe("C5 — portable restrictions are expressible and canonical", () => {
+  it("accepts a note carrying unifia_restrictions", () => {
+    const r = NoteFrontmatterSchema.safeParse({
+      ...BASE_FM,
+      unifia_restrictions: { remote_model: "deny", local_model: "allow" },
+    })
+    expect(r.success).toBe(true)
+  })
+
+  it("still accepts a note without any restrictions block", () => {
+    expect(NoteFrontmatterSchema.safeParse(BASE_FM).success).toBe(true)
+  })
+
+  it("treats an absent block as deny-remote, deny-export (UNCLASSIFIED)", () => {
+    const r = portableRestrictionsFromFrontmatter(undefined)
+    expect(r.remoteModel).toBe("deny")
+    expect(r.exportable).toBe("deny")
+    expect(r.localModel).toBe("allow")
+  })
+
+  it("round-trips through the on-disk shape", () => {
+    const original = {
+      remoteModel: "deny",
+      localModel: "deny",
+      embeddable: "deny",
+      exportable: "allow",
+    } as const
+    expect(portableRestrictionsFromFrontmatter(portableRestrictionsToFrontmatter(original))).toEqual(
+      original,
+    )
+  })
+
+  it("rejects an unknown restriction field rather than ignoring it", () => {
+    const r = NoteFrontmatterSchema.safeParse({
+      ...BASE_FM,
+      unifia_restrictions: { remote_model: "deny", git_remote: "deny" },
+    })
+    expect(r.success).toBe(false)
+  })
+
+  it("refuses a malformed block instead of reading it as unrestricted", () => {
+    const raw = [
+      "---",
+      "unifia_schema: 1",
+      `unifia_id: ${ID}`,
+      "unifia_type: decision",
+      "unifia_lifecycle: active",
+      "unifia_created_at: 2026-08-29T00:00:00Z",
+      "unifia_updated_at: 2026-08-29T00:00:00Z",
+      "unifia_project_ref: unifia",
+      "unifia_supersedes: []",
+      "unifia_tags: []",
+      "unifia_restrictions:",
+      "  remote_model: maybe",
+      "---",
+      "body",
+    ].join("\n")
+    expect(() => parseFrontmatter(raw)).toThrow()
+  })
+
+  it("lets the strictest restriction win when several are combined", () => {
+    const open = {
+      remoteModel: "allow",
+      localModel: "allow",
+      embeddable: "allow",
+      exportable: "allow",
+    } as const
+    const closed = {
+      remoteModel: "deny",
+      localModel: "allow",
+      embeddable: "allow",
+      exportable: "deny",
+    } as const
+    expect(mostRestrictive(open, closed)).toEqual({
+      remoteModel: "deny",
+      localModel: "allow",
+      embeddable: "allow",
+      exportable: "deny",
+    })
   })
 })

@@ -17,6 +17,8 @@ import {
   KnowledgeLifecycleStateSchema,
   type NoteFrontmatter,
   NoteFrontmatterSchema,
+  PortableRestrictionsFrontmatterSchema,
+  RESTRICTIONS_FRONTMATTER_KEY,
 } from "@unifia/contracts/knowledge"
 import { KnowledgeFailure } from "../domain/errors.js"
 
@@ -67,6 +69,20 @@ function coerceFrontmatterShape(value: unknown): NoteFrontmatter {
     throw KnowledgeFailure.sourceInconsistent("unifia_supersedes or unifia_tags is not an array")
   }
 
+  // A malformed restrictions block must not be read as "no restrictions":
+  // that would silently widen egress for the note. Refuse instead.
+  let restrictions: NoteFrontmatter["unifia_restrictions"]
+  if (obj.unifia_restrictions !== undefined) {
+    const parsed = PortableRestrictionsFrontmatterSchema.safeParse(obj.unifia_restrictions)
+    if (!parsed.success) {
+      throw KnowledgeFailure.sourceInconsistent(
+        `${RESTRICTIONS_FRONTMATTER_KEY} is malformed; refusing to treat it as unrestricted`,
+        { issues: parsed.error.issues.length },
+      )
+    }
+    restrictions = parsed.data
+  }
+
   const candidate: NoteFrontmatter = {
     unifia_schema: 1,
     unifia_id: obj.unifia_id,
@@ -77,6 +93,7 @@ function coerceFrontmatterShape(value: unknown): NoteFrontmatter {
     unifia_project_ref: obj.unifia_project_ref,
     unifia_supersedes: obj.unifia_supersedes as string[],
     unifia_tags: obj.unifia_tags as string[],
+    ...(restrictions !== undefined ? { unifia_restrictions: restrictions } : {}),
   }
 
   const r = StrictFrontmatterSchema.safeParse(candidate)

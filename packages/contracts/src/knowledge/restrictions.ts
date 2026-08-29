@@ -51,6 +51,94 @@ export const PortableRestrictionsSchema = z
   .strict()
 
 /**
+ * Defaults for a note that carries no restrictions block.
+ *
+ * UNCLASSIFIED is treated as `deny` toward anything that leaves the machine
+ * (ADR-KNOW-0006 §2) and `allow` toward local processing, so that adding a
+ * note never silently widens what may leave.
+ */
+export const DEFAULT_PORTABLE_RESTRICTIONS: PortableRestrictions = {
+  remoteModel: "deny",
+  localModel: "allow",
+  embeddable: "allow",
+  exportable: "deny",
+}
+
+/**
+ * The single frontmatter key carrying portable restrictions.
+ *
+ * There were three competing spellings before V1 shipped:
+ * `unifia_restrictions` (ADR-KNOW-0002/0006), `portable_restrictions`
+ * (PERMISSIONS.md) and the camelCase contracts type — and none was
+ * implemented. This constant is the canonical one; see the ADR-KNOW-0006
+ * amendment of 2026-08-29.
+ */
+export const RESTRICTIONS_FRONTMATTER_KEY = "unifia_restrictions"
+
+/**
+ * The on-disk shape. Frontmatter stays snake_case like every other
+ * `unifia_*` key; the camelCase `PortableRestrictions` is the in-memory type.
+ * Every field is optional and falls back to its fail-closed default.
+ */
+export const PortableRestrictionsFrontmatterSchema = z
+  .object({
+    remote_model: RestrictionLevelSchema.optional(),
+    local_model: RestrictionLevelSchema.optional(),
+    embeddable: RestrictionLevelSchema.optional(),
+    exportable: RestrictionLevelSchema.optional(),
+  })
+  .strict()
+
+export type PortableRestrictionsFrontmatter = z.infer<
+  typeof PortableRestrictionsFrontmatterSchema
+>
+
+/** Read the on-disk shape into the canonical type, applying the defaults. */
+export function portableRestrictionsFromFrontmatter(
+  raw: PortableRestrictionsFrontmatter | undefined,
+): PortableRestrictions {
+  if (raw === undefined) return { ...DEFAULT_PORTABLE_RESTRICTIONS }
+  return {
+    remoteModel: raw.remote_model ?? DEFAULT_PORTABLE_RESTRICTIONS.remoteModel,
+    localModel: raw.local_model ?? DEFAULT_PORTABLE_RESTRICTIONS.localModel,
+    embeddable: raw.embeddable ?? DEFAULT_PORTABLE_RESTRICTIONS.embeddable,
+    exportable: raw.exportable ?? DEFAULT_PORTABLE_RESTRICTIONS.exportable,
+  }
+}
+
+/** Write the canonical type back to the on-disk shape, omitting defaults. */
+export function portableRestrictionsToFrontmatter(
+  r: PortableRestrictions,
+): PortableRestrictionsFrontmatter {
+  const out: PortableRestrictionsFrontmatter = {}
+  if (r.remoteModel !== DEFAULT_PORTABLE_RESTRICTIONS.remoteModel) out.remote_model = r.remoteModel
+  if (r.localModel !== DEFAULT_PORTABLE_RESTRICTIONS.localModel) out.local_model = r.localModel
+  if (r.embeddable !== DEFAULT_PORTABLE_RESTRICTIONS.embeddable) out.embeddable = r.embeddable
+  if (r.exportable !== DEFAULT_PORTABLE_RESTRICTIONS.exportable) out.exportable = r.exportable
+  return out
+}
+
+/**
+ * Combine restrictions so that the strictest wins (ADR-KNOW-0006 §3,
+ * heritage). A transformation of several notes inherits every `deny`.
+ */
+export function mostRestrictive(
+  ...all: readonly PortableRestrictions[]
+): PortableRestrictions {
+  const strictest = (a: RestrictionLevel, b: RestrictionLevel): RestrictionLevel =>
+    a === "deny" || b === "deny" ? "deny" : "allow"
+  return all.reduce(
+    (acc, r) => ({
+      remoteModel: strictest(acc.remoteModel, r.remoteModel),
+      localModel: strictest(acc.localModel, r.localModel),
+      embeddable: strictest(acc.embeddable, r.embeddable),
+      exportable: strictest(acc.exportable, r.exportable),
+    }),
+    { remoteModel: "allow", localModel: "allow", embeddable: "allow", exportable: "allow" },
+  )
+}
+
+/**
  * Minimal portable provenance. Carried in the note frontmatter.
  * Anything that is device- or session-specific belongs in Class C,
  * not here. See ADR-KNOW-0003 (Class B copy-on-write) for

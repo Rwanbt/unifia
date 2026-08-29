@@ -105,3 +105,79 @@ Règles :
 - Phase 8 (Git) scanne la plage sortante pour les
   restrictions, refusant tout push contenant un hash
   `remote_model: deny` sans `DeclassificationGrant`.
+
+---
+
+## Amendement 2026-08-29 — Représentation canonique des restrictions
+
+**Statut de l'ADR révisé** : `ACCEPTED (PARTIALLY IMPLEMENTED)`.
+
+### Ce qui a motivé l'amendement
+
+La revue frontier et sa contre-revue ont établi que les restrictions
+portables n'étaient pas implémentées, et que **trois orthographes
+concurrentes** coexistaient dans la documentation :
+
+| Source | Clé | Champs |
+|---|---|---|
+| ADR-KNOW-0002 / 0006 (cet ADR) | `unifia_restrictions` | `remote_model`, `local_model` |
+| `PERMISSIONS.md` §4 | `portable_restrictions` | `remote_model`, `local_model`, `git_remote`, `external_editor`, `mcp` |
+| `packages/contracts` | type `PortableRestrictions` | `remoteModel`, `localModel`, `embeddable`, `exportable` |
+
+Aucune n'était lisible par le runtime : `NoteFrontmatterSchema` était
+`.strict()` et ne déclarait aucune de ces clés, donc toute note en portant
+une était **rejetée**.
+
+### Décision
+
+Une seule représentation, dans les deux directions :
+
+- **En mémoire** : le type `PortableRestrictions` des contracts fait foi
+  (camelCase, 4 champs : `remoteModel`, `localModel`, `embeddable`,
+  `exportable`).
+- **Sur disque** : une seule clé de frontmatter, `unifia_restrictions`, en
+  snake_case comme toutes les autres clés `unifia_*`. Chaque champ est
+  optionnel.
+- La conversion passe par `portableRestrictionsFromFrontmatter()` et
+  `portableRestrictionsToFrontmatter()`.
+
+Défauts appliqués quand la clé est absente (`DEFAULT_PORTABLE_RESTRICTIONS`) :
+
+```yaml
+remote_model: deny      # UNCLASSIFIED ne sort pas (règle 2)
+local_model:  allow     # le traitement local reste permis
+embeddable:   allow
+exportable:   deny
+```
+
+Un bloc **malformé** est refusé (`source_inconsistent`) plutôt que traité
+comme « pas de restriction » : lire une erreur de saisie comme une
+autorisation élargirait l'egress silencieusement.
+
+`mostRestrictive()` implémente l'héritage de la règle 3 : la combinaison de
+plusieurs sources retient chaque `deny`.
+
+### Champs retirés
+
+`git_remote`, `external_editor` et `mcp`, qui n'apparaissaient que dans
+`PERMISSIONS.md`, ne font pas partie de V1. `git_remote` est couvert par le
+scan de la plage sortante (Phase 8) et `mcp` par les capacités du token MCP.
+Les réintroduire demandera un nouvel amendement, pas un quatrième format.
+
+### Alternatives rejetées
+
+- **Garder `portable_restrictions`** : incohérent avec le préfixe `unifia_*`
+  du reste du frontmatter.
+- **Frontmatter en camelCase** : aurait fait de `unifia_restrictions` la
+  seule clé camelCase du document.
+- **Bloc obligatoire** : aurait invalidé toutes les notes existantes ; les
+  défauts fail-closed donnent la même garantie sans migration destructive.
+
+### Ce qui reste non implémenté après cet amendement
+
+- `DeclassificationGrant` (§3) — aucun mécanisme ne peut élargir un `deny`.
+- L'événement d'audit `egress.decision` (§6) — `decideEgress` reste pure et
+  aucun appelant ne l'émet.
+- Le guard côté Rust — `crates/.../port/transport.rs` n'existe pas.
+
+Suivi : R-0012.

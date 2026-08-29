@@ -10,6 +10,10 @@
  */
 
 import { z } from "zod"
+import {
+  PortableRestrictionsFrontmatterSchema,
+  type PortableRestrictionsFrontmatter,
+} from "./restrictions.js"
 
 /** V1 memory types. */
 export const MemoryTypeSchema = z.enum([
@@ -54,6 +58,12 @@ export interface NoteFrontmatter {
   unifia_supersedes: string[]
   /** Free-form tags for retrieval. */
   unifia_tags: string[]
+  /**
+   * Portable egress restrictions. Absent means UNCLASSIFIED, which resolves
+   * to `DEFAULT_PORTABLE_RESTRICTIONS` (deny remote, deny export).
+   * See ADR-KNOW-0006 and its 2026-08-29 amendment.
+   */
+  unifia_restrictions?: PortableRestrictionsFrontmatter
 }
 
 export const NoteFrontmatterSchema = z
@@ -67,5 +77,6 @@ export const NoteFrontmatterSchema = z
     unifia_project_ref: z.string().min(1),
     unifia_supersedes: z.array(z.string()).default([]),
     unifia_tags: z.array(z.string()).default([]),
+    unifia_restrictions: PortableRestrictionsFrontmatterSchema.optional(),
   })
   .strict()
