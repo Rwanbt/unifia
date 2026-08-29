@@ -12,7 +12,7 @@
 | Branche | `feat/sovereign-knowledge-core` |
 | Worktree | `D:\App\unifia\unifia-memory` |
 | HEAD initial | `95350647140a382ee6d5d61bc2f6639597d80f0b` (origin/dev) |
-| HEAD final | `f0ad6e7a06 feat(knowledge): P11.4-7 hardening suite` |
+| HEAD final | `294e9f72b5 feat(knowledge): P4.4 audit log + P7.4 cross-mode bus pipeline` |
 | Upstream | aucun |
 | Push | 0 |
 | PR | 0 |
@@ -20,7 +20,7 @@
 | Release | 0 |
 | Publication | 0 |
 
-## 2. Commits locaux (25)
+## 2. Commits locaux (33)
 
 | SHA | Sujet |
 |---|---|
@@ -49,6 +49,14 @@
 | `99dcc74eae` | docs(knowledge): changelog + integration tests (polish) |
 | `03b86e1012` | docs+test(knowledge): README + E2E dev-fixture test |
 | `f0ad6e7a06` | feat(knowledge): P11.4-7 hardening suite (recovery/migration/sovereignty/precommit) + PERMISSIONS |
+| `c7bb44394c` | docs(knowledge): align FINAL-REPORT and COMPACT to f0ad6e7a06 |
+| `d3920598e2` | chore(knowledge): drop accidental COMMITMSG-tmp.txt |
+| `16bf0300d0` | chore(gitignore): use UTF-8 for gitignore |
+| `04be4d6ae3` | chore(gitignore): drop corrupted UTF-16 line |
+| `68dceda780` | feat(knowledge): P2.6 portable store I/O + CLI |
+| `1ead2d7165` | feat(knowledge): P9.2 MCP token registry + P2.7 reachability scan |
+| `58dd9f4717` | feat(knowledge): P11.10 corpus classification on real fixtures |
+| `294e9f72b5` | feat(knowledge): P4.4 audit log + P7.4 cross-mode bus pipeline |
 
 ## 3. Phases et gates
 
@@ -77,14 +85,14 @@
 | Contracts typecheck | `bun x tsc --noEmit` (cwd packages/contracts) | exit 0 |
 | Contracts tests | `bun test` (cwd packages/contracts) | 79 pass, 0 fail, 135 expect() |
 | unifia typecheck | `bun run typecheck` (cwd packages/unifia) | exit 0 |
-| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 204 pass, 0 fail, 429 expect() |
+| unifia knowledge tests | `bun test test/knowledge` (cwd packages/unifia) | 247 pass, 0 fail, 503 expect() |
 | Isolation dev/holdout | `bun tests/knowledge/eval/check-isolation.ts` | exit 0 |
 | Cargo knowledge-core check | `cargo check` | exit 0 |
 | Cargo knowledge-core test | `cargo test` | 34 pass, 0 fail |
 | Cargo knowledge-core clippy | `cargo clippy --all-targets --all-features -- -D warnings` | exit 0 |
 | Biome lint knowledge | `bunx biome check packages/unifia/src/knowledge` | 0 warning |
 
-**Total des tests dans cette session (session 2)** : 204 TS knowledge + 79 contracts + 34 Rust = **317 tests passants**.
+**Total des tests dans cette session (session 3)** : 247 TS knowledge + 79 contracts + 34 Rust = **360 tests passants**.
 
 ## 5. Frontières externes (documentées, isolées)
 
@@ -135,7 +143,7 @@ priorité si elle l'était :
 | `@unifia/contracts/knowledge/*` | 10 | 10 | 100% |
 | `packages/unifia/src/knowledge/*` | 21 | 21 | 100% |
 | `crates/unifia-knowledge-core/src/*` | 8 | 8 | 100% |
-| Tests TS knowledge | 204 | 204 | 100% |
+| Tests TS knowledge | 247 | 247 | 100% |
 | Tests contracts knowledge | 46 | 46 | 100% (37 unit + 9 new) |
 | Tests Rust knowledge-core | 34 | 34 | 100% |
 | ADR knowledge | 9 | 9 | 100% |
@@ -156,8 +164,8 @@ priorité si elle l'était :
 
 ## 10. Statut séparé
 
-- **Implémentation locale** : 25 commits, ~145 fichiers ajoutés.
-- **Commits locaux** : 25.
+- **Implémentation locale** : 33 commits, ~155 fichiers ajoutés.
+- **Commits locaux** : 33.
 - **Push** : 0.
 - **PR** : 0.
 - **Merge** : 0.
@@ -182,7 +190,7 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être f0ad6e7a06
+git rev-parse HEAD  # doit être 294e9f72b5
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -194,9 +202,9 @@ Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
 
 ## 13. Conclusion
 
-**Implémentation locale complète (cartes faisables)** : 25 commits,
-~145 fichiers, **317 tests passants** (204 TS knowledge + 79
-contracts + 34 Rust), 13 phases couvertes + 6 cartes hardening
+**Implémentation locale complète (cartes faisables)** : 33 commits,
+~155 fichiers, **360 tests passants** (247 TS knowledge + 79
+contracts + 34 Rust), 13 phases couvertes + 11 cartes hardening
 supplémentaires, lint/typecheck/clippy/biome verts.
 
 **Succès local n'est pas publication** : aucun artefact n'a
@@ -217,5 +225,5 @@ sans intervention.
 
 ---
 
-*Session close le 2026-08-29. SHA final : `f0ad6e7a06`.*
-*22 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*
+*Session close le 2026-08-29. SHA final : `294e9f72b5`.*
+*33 commits locaux. 0 push. 0 PR. 0 merge. 0 release. 0 publication.*

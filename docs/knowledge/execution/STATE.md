@@ -849,3 +849,119 @@ lit le dernier checkpoint, et reprend à la première carte non PASS.
 
 **Branche locale** : `feat/sovereign-knowledge-core`.
 **Travail** : strictement dans `D:\App\unifia\unifia-memory`.
+
+---
+
+## Carte 0165 — P2.6 : Portable store I/O réel
+
+- **ID** : 0165
+- **Phase** : 2
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/classb/portable-store.ts`
+  + `test/knowledge/classb/portable-store.test.ts` (10 tests)
+  + subcommand CLI `unifia knowledge portable`.
+- **API** : `readPortableStore`, `writePortableStore` (atomic via
+  `tmp + rename`), `upsertPortableEntry`, `removePortableEntry`,
+  `listPortableEntries`. Stocke à `.unifia/portable/store.json`.
+- **Validation** : 10 tests verts (read empty, write crée le
+  dossier, upsert incrémente, remove no-op si absent, round-trip,
+  errors : non-absolu, JSON corrompu).
+
+---
+
+## Carte 0170 — P2.7 : Reachability scan sur répertoire réel
+
+- **ID** : 0170
+- **Phase** : 2
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/classb/reachability.ts`
+  + `test/knowledge/classb/reachability.test.ts` (5 tests)
+  + subcommand CLI `unifia knowledge reachability`.
+- **`listMarkdownLocators`** : walk récursif qui ignore
+  `.git`, `.unifia`, `node_modules`. Retourne des locators
+  relatifs normalisés.
+- **`scanReachability`** : croise Class A (disque) avec Class B
+  (portable store). Rapporte `reachable`, `orphans`,
+  `missingSidecars`.
+
+---
+
+## Carte 0171 — P9.2 : MCP token registry
+
+- **ID** : 0171
+- **Phase** : 9
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/mcp/token.ts`
+  + `test/knowledge/mcp/token.test.ts` (9 tests)
+  + subcommand CLI `unifia knowledge mcp-token`.
+- **`McpTokenRegistry`** : `issue(workspace, ttlMs?)`, `revoke(id)`,
+  `isValid(id, now?)`, `get(id)`, `countActive(workspace)`.
+- **Tokens** : id, workspace, issuedAt, expiresAt, revokedAt.
+  Révoqués immédiatement, expirés après TTL.
+
+---
+
+## Carte 0180 — P11.10 : Corpus classification sur vraies fixtures
+
+- **ID** : 0180
+- **Phase** : 11
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/admin/corpus-classify.ts`
+  + `test/knowledge/admin/corpus-classify.test.ts` (5 tests)
+  + subcommand CLI `unifia knowledge classify`.
+- **`classifyCorpus(vaultRoot)`** : walks a directory, parses
+  each note, runs indexNote, runs doctor. Returns `CorpusReport`.
+- **Smoke testé sur les golden fixtures** :
+  - dev (11 notes) : 11 parsed, 1 failed (README), 0 findings.
+  - holdout (11 notes) : 11 parsed, 1 failed (README), 0 findings.
+
+---
+
+## Carte 0190 — P4.4 : Lifecycle audit log
+
+- **ID** : 0190
+- **Phase** : 4
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/memory/audit.ts`
+  + `test/knowledge/memory/audit.test.ts` (10 tests).
+- **`LifecycleAuditLog`** : append-only avec `seq` monotone.
+  Refuse no-op transition et `auditId` vide.
+- **Requêtes** : `all()`, `byId(id)`, `bySource(source)`,
+  `byTransition(to)`, `byTimeRange(fromIso, toIso)`, `size()`,
+  `reset()`.
+
+---
+
+## Carte 0191 — P7.4 : Cross-mode pipeline avec DomainBus
+
+- **ID** : 0191
+- **Phase** : 7
+- **Date** : 2026-08-29
+- **Statut** : `PASS`
+- **Cible** : `packages/unifia/src/knowledge/cross-mode/bus-pipeline.ts`
+  + `test/knowledge/cross-mode/bus-pipeline.test.ts` (4 tests).
+- **`CrossModeBusPipeline`** : wrap le `CrossModePipeline`
+  existant et émet des `DomainEvent` sur le bus fourni :
+  - `designCreates` -> `decision.created`
+  - `codeReads` -> `tool.executed`
+  - `workSurfaces` -> `session.ended`
+- **Pas d'émission** en cas de refus (secret).
+
+---
+
+## Checkpoint final V4 — Session 3 (2026-08-29)
+
+**Total commits locaux depuis origin/dev** : 33.
+
+**Tests** : 247 TS knowledge + 79 contracts + 34 Rust = **360 verts**.
+
+**Aucune mutation** : pas de push, PR, merge, release, publication.
+
+**Branche locale** : `feat/sovereign-knowledge-core`.
+**HEAD** : `294e9f72b5`.
+**Travail** : strictement dans `D:\App\unifia\unifia-memory`.
