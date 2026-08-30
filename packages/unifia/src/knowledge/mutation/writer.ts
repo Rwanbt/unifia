@@ -42,15 +42,33 @@ import { isTransitionAllowed } from "../memory/lifecycle.js"
 import type { WalEntry, WalKind } from "../wal/wal.js"
 import { validateEntry } from "../wal/wal.js"
 import type { MutationWriter } from "../facade/service.js"
+import {
+  TMP_SUFFIX,
+  WriteLock,
+  appendLineDurable,
+  fsyncDirectory,
+  readWalTolerant,
+  recover,
+  writeFileDurable,
+  type RecoveryReport,
+} from "./durability.js"
 
 /** Where the append-only write-ahead log lives. */
 export const WAL_FILE = ".unifia/wal.jsonl"
+
+/** Serialises writers within and across processes. */
+export const LOCK_FILE = ".unifia/write.lock"
 
 export interface VaultMutationWriterConfig {
   /** Absolute path to the vault root that receives the writes. */
   root: string
   /** Where new notes are created when the intent gives no locator. */
   inboxSubdir?: string
+  /**
+   * Reconcile the vault against its WAL on open. Defaults to true; only a
+   * test that wants to observe an unrecovered state turns it off.
+   */
+  recoverOnOpen?: boolean
 }
 
 function sha256(s: string): string {
@@ -61,6 +79,8 @@ export class VaultMutationWriter implements MutationWriter {
   private readonly root: string
   private readonly realRoot: string
   private readonly inbox: string
+  private readonly lock: WriteLock
+  private readonly lastRecovery: RecoveryReport
 
   constructor(config: VaultMutationWriterConfig) {
     if (!isAbsolute(config.root)) {
@@ -73,6 +93,18 @@ export class VaultMutationWriter implements MutationWriter {
     this.root = config.root
     this.realRoot = real
     this.inbox = config.inboxSubdir ?? "inbox"
+    this.lock = new WriteLock(join(config.root, LOCK_FILE))
+
+    // Reconcile before the first write. A vault opened after a crash must not
+    // be extended on top of an unfinished commit.
+    this.lastRecovery = config.recoverOnOpen === false
+      ? { completed: [], discarded: [], truncatedWalLines: 0 }
+      : recover(config.root, WAL_FILE)
+  }
+
+  /** What the opening reconciliation did, for `doctor` and for tests. */
+  recovery(): RecoveryReport {
+    return this.lastRecovery
   }
 
   async apply(input: {
@@ -361,32 +393,46 @@ export class VaultMutationWriter implements MutationWriter {
       reason: intent.reason,
     })
 
-    mkdirSync(dirname(full), { recursive: true })
-    const tmp = `${full}.${auditId}.tmp`
-    writeFileSync(tmp, raw, "utf8")
+    // One lock for the whole commit. Without it two writers can read the same
+    // sequence number, and their appends interleave into a log whose order no
+    // longer matches what happened on disk.
+    this.lock.withLock(() => {
+      mkdirSync(dirname(full), { recursive: true })
+      const tmp = `${full}${TMP_SUFFIX}`
 
-    try {
-      this.appendWal({
-        seq: this.nextSeq(),
-        kind,
-        locator,
-        previousHash: previousHash as WalEntry["previousHash"],
-        newHash: newHash as WalEntry["newHash"],
-        auditId,
-        source: intent.source,
-        reason: intent.reason,
-        timestamp: new Date().toISOString(),
-      })
-      renameSync(tmp, full)
-    } catch (e) {
-      // Leave no half-written file behind for the next scan to pick up.
+      // 1. bytes on disk...
+      writeFileDurable(tmp, raw)
       try {
-        unlinkSync(tmp)
-      } catch {
-        // The temporary file is already gone; nothing further to undo.
+        // 2. ...then the intent, durably: this is the commit point.
+        appendLineDurable(
+          join(this.root, WAL_FILE),
+          JSON.stringify({
+            seq: this.nextSeq(),
+            kind,
+            locator,
+            previousHash: previousHash as WalEntry["previousHash"],
+            newHash: newHash as WalEntry["newHash"],
+            auditId,
+            source: intent.source,
+            reason: intent.reason,
+            timestamp: new Date().toISOString(),
+          } satisfies WalEntry),
+        )
+      } catch (e) {
+        // Nothing was recorded, so nothing happened: remove the temporary
+        // rather than leaving a write recovery would have to guess about.
+        try {
+          unlinkSync(tmp)
+        } catch {
+          // Already gone.
+        }
+        throw e
       }
-      throw e
-    }
+
+      // 3. make it visible, 4. and flush the directory entry.
+      renameSync(tmp, full)
+      fsyncDirectory(dirname(full))
+    })
 
     // The contract declares ref and newLifecycle; returning only
     // { applied, auditId } left the caller unable to observe what it wrote.
@@ -403,28 +449,28 @@ export class VaultMutationWriter implements MutationWriter {
     }
   }
 
-  private appendWal(entry: WalEntry): void {
-    const file = join(this.root, WAL_FILE)
-    mkdirSync(dirname(file), { recursive: true })
-    appendFileSync(file, `${JSON.stringify(entry)}\n`, "utf8")
-  }
 
   /** Entries already recorded, so a restart continues the sequence. */
+  /**
+   * Next sequence number, derived from the last durable entry.
+   *
+   * Read under the commit lock, so two writers cannot observe the same value.
+   * Counting lines instead would let a torn final append shift every
+   * subsequent number by one, silently desynchronising the log from what
+   * actually happened on disk.
+   */
   private nextSeq(): number {
-    const file = join(this.root, WAL_FILE)
-    if (!existsSync(file)) return 1
-    const lines = readFileSync(file, "utf8").split("\n").filter((l) => l.trim().length > 0)
-    return lines.length + 1
+    const { entries } = readWalTolerant(join(this.root, WAL_FILE))
+    const last = entries.at(-1)
+    return last === undefined ? 1 : last.seq + 1
   }
 
   /** The WAL as recorded, for recovery and for the audit trail. */
   readWal(): WalEntry[] {
-    const file = join(this.root, WAL_FILE)
-    if (!existsSync(file)) return []
-    return readFileSync(file, "utf8")
-      .split("\n")
-      .filter((l) => l.trim().length > 0)
-      .map((l) => JSON.parse(l) as WalEntry)
+    // Tolerant: an append interrupted by a power loss leaves a partial JSON
+    // line, and refusing to read the log because of it would lose every entry
+    // before it.
+    return readWalTolerant(join(this.root, WAL_FILE)).entries
   }
 
   private refuseCredentials(body: string): void {

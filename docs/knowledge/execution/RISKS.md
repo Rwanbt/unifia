@@ -226,3 +226,44 @@ notes du vault réel.
 deux daemons (un redémarrage invalide les tokens en cours), et `knowledge_propose`
 n'est pas accordé au token de session — l'écriture passe par la façade, pas
 par MCP.
+
+## R-0014 — Durabilité du chemin d'écriture
+
+**Sévérité** : haute (intégrité des données)
+**Statut** : **CLOS** le 2026-08-30 (carte C31)
+
+Le writer écrivait un temporaire, appendait une ligne WAL et renommait —
+aucun des trois n'était flushé, rien ne sérialisait deux writers, et rien ne
+réconciliait un crash. Une coupure pouvait laisser une entrée WAL sans
+fichier, un fichier sans entrée, ou deux processus réutilisant un même numéro
+de séquence.
+
+**Invariant de commit implémenté** (`mutation/durability.ts`) :
+
+1. le temporaire est écrit **et fsyncé** ;
+2. la ligne WAL est appendée **et fsyncée** — c'est le point de commit ;
+3. le rename rend visible (atomique NTFS et POSIX) ;
+4. le répertoire est fsyncé là où la plateforme le permet.
+
+L'asymétrie est délibérée : avant l'étape 2, rien ne s'est produit et le
+temporaire est jeté ; après, la recovery termine le rename. Il est toujours
+sûr de rejouer un rename, jamais d'inventer une entrée WAL.
+
+Un `WriteLock` en `O_EXCL` sérialise le commit entre processus, avec
+récupération d'un verrou abandonné par un processus mort (seuil 30 s). La
+séquence est dérivée de la dernière entrée durable, pas d'un comptage de
+lignes — sinon une ligne tronquée décalerait tous les numéros suivants.
+
+**Bug trouvé par la crash-matrix elle-même** : après une ligne tronquée sans
+`
+` final, l'append suivant se concaténait à elle et corrompait aussi la
+nouvelle entrée. `appendLineDurable` insère désormais un séparateur.
+
+**Couverture** : 15 tests, dont crash avant temporaire, après temporaire avant
+WAL, après WAL avant rename, après rename (idempotence), ligne WAL tronquée,
+temporaire orphelin, recovery à l'ouverture, verrou tenu, verrou périmé
+récupéré, et deux writers concurrents sans collision de séquence.
+
+**Reste hors périmètre V1** : la persistance du control log Class C
+(ADR-KNOW-0006 §6, seconde moitié) — la trace d'egress vit le temps de la
+composition.
