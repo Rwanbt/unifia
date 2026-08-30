@@ -101,15 +101,26 @@ export const MutationIntentSchema = z
         m.targetId !== undefined &&
         m.targetLocator !== undefined &&
         m.expectedVersionHash !== undefined) ||
-      (m.kind === "promote" && m.targetId !== undefined) ||
+      // Every mutation of an existing document is compare-and-swap protected.
+      // The lifecycle transitions used to be exempt here while the writer
+      // required a hash anyway, so a schema-valid intent could still be
+      // refused downstream.
+      (m.kind === "promote" &&
+        m.targetId !== undefined &&
+        m.expectedVersionHash !== undefined) ||
       (m.kind === "supersede" &&
         m.targetId !== undefined &&
-        m.successorId !== undefined) ||
-      (m.kind === "archive" && m.targetId !== undefined) ||
-      (m.kind === "restore" && m.targetId !== undefined),
+        m.successorId !== undefined &&
+        m.expectedVersionHash !== undefined) ||
+      (m.kind === "archive" &&
+        m.targetId !== undefined &&
+        m.expectedVersionHash !== undefined) ||
+      (m.kind === "restore" &&
+        m.targetId !== undefined &&
+        m.expectedVersionHash !== undefined),
     {
       message:
-        "Mutation intent missing required fields (e.g. targetId for update, targetLocator for create).",
+        "Mutation intent missing required fields (e.g. targetId for update, targetLocator for create, expectedVersionHash for any mutation of an existing note).",
     },
   )
 

@@ -58,8 +58,15 @@ export function validateEntry(input: {
   if (input.kind === "create" && input.previousHash !== null) {
     throw new WalValidationError("create must have no previous hash")
   }
-  if ((input.kind === "delete" || input.kind === "archive") && input.newHash !== null) {
-    throw new WalValidationError("delete/archive must have no new hash")
+  // Only a physical delete leaves no new content. Archive rewrites the note's
+  // lifecycle and keeps the file (ADR-KNOW-0009 §4), so it carries a new hash
+  // like any other update; grouping the two here made archive impossible to
+  // record, and therefore impossible to perform at all.
+  if (input.kind === "delete" && input.newHash !== null) {
+    throw new WalValidationError("delete must have no new hash")
+  }
+  if (input.kind === "archive" && input.newHash === null) {
+    throw new WalValidationError("archive must have a new hash: it rewrites the note")
   }
 }
 

@@ -124,9 +124,18 @@ impl Wal {
                 "create must have no previous hash",
             ));
         }
-        if matches!(kind, WalKind::Delete | WalKind::Archive) && new_hash.is_some() {
+        // Only a physical delete leaves no new content. Archive rewrites the
+        // note's lifecycle and keeps the file (ADR-KNOW-0009 §4), so it has a
+        // new hash like any other update; grouping the two here made archive
+        // impossible to record and therefore impossible to perform.
+        if matches!(kind, WalKind::Delete) && new_hash.is_some() {
             return Err(KnowledgeError::mutation_refused(
-                "delete/archive must have no new hash",
+                "delete must have no new hash",
+            ));
+        }
+        if matches!(kind, WalKind::Archive) && new_hash.is_none() {
+            return Err(KnowledgeError::mutation_refused(
+                "archive must have a new hash: it rewrites the note",
             ));
         }
         let entry = WalEntry {
@@ -274,6 +283,40 @@ mod tests {
             "2026-08-29T00:00:00Z".into(),
         );
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn archive_requires_a_new_hash() {
+        // Archive rewrites the note and keeps the file, so it carries a new
+        // hash. It used to be grouped with delete and rejected here, which
+        // made archiving impossible to record and therefore to perform.
+        let mut w = Wal::new();
+        let ok = w.append(
+            WalKind::Archive,
+            "a.md".to_string(),
+            Some(make_hash('a')),
+            Some(make_hash('b')),
+            "audit-1".into(),
+            "test".into(),
+            "r".into(),
+            "2026-08-29T00:00:00Z".into(),
+        );
+        assert!(ok.is_ok(), "archive with a new hash must be accepted");
+
+        let missing = w.append(
+            WalKind::Archive,
+            "a.md".to_string(),
+            Some(make_hash('a')),
+            None,
+            "audit-2".into(),
+            "test".into(),
+            "r".into(),
+            "2026-08-29T00:00:00Z".into(),
+        );
+        assert!(
+            missing.is_err(),
+            "archive without a new hash must be refused"
+        );
     }
 
     #[test]

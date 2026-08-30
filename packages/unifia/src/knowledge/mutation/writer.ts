@@ -27,6 +27,8 @@ import type {
   MutationIntent,
   MutationResult,
   KnowledgeId,
+  KnowledgeLocator,
+  KnowledgeVersionHash,
   NoteFrontmatter,
 } from "@unifia/contracts/knowledge"
 import { MutationIntentSchema, portableRestrictionsToFrontmatter } from "@unifia/contracts/knowledge"
@@ -99,6 +101,8 @@ export class VaultMutationWriter implements MutationWriter {
         return this.create(intent, auditId)
       case "update":
         return this.update(intent, auditId)
+      case "move":
+        return this.move(intent, auditId)
       case "promote":
       case "supersede":
       case "archive":
@@ -194,14 +198,139 @@ export class VaultMutationWriter implements MutationWriter {
       unifia_lifecycle: to,
       unifia_updated_at: new Date().toISOString(),
     }
-    if (intent.kind === "supersede" && intent.successorId !== undefined) {
-      // The successor records what it replaces; the superseded note keeps its
-      // own id and stays readable (ADR-KNOW-0009 §3).
-      next.unifia_supersedes = [...note.frontmatter.unifia_supersedes]
+
+    if (intent.kind === "supersede") {
+      return this.supersede(intent, auditId, { locator, full, current, next, note })
     }
 
     const raw = serialiseNote({ frontmatter: next, body: note.body, raw: current })
     return this.commit(intent.kind as WalKind, locator, full, raw, sha256(current), intent, auditId)
+  }
+
+  /**
+   * Mark `targetId` superseded and record the reference on its successor.
+   *
+   * This touches two files. `successorId` used to be validated by the schema
+   * and then ignored: the target's own list was copied back onto itself, so
+   * nothing recorded the replacement and the successor never learned it had
+   * one.
+   *
+   * V1 has no multi-file transaction. The order is chosen so the recoverable
+   * state is the tolerable one: the successor gains its reference first, then
+   * the target is marked. A crash in between leaves a successor claiming to
+   * replace a still-active note — visible to `doctor` and repairable — rather
+   * than a superseded note nothing points at. Both writes share one auditId
+   * so the WAL identifies them as one operation.
+   */
+  private supersede(
+    intent: MutationIntent,
+    auditId: string,
+    target: {
+      locator: string
+      full: string
+      current: string
+      next: NoteFrontmatter
+      note: ReturnType<typeof parseFrontmatter>
+    },
+  ): MutationResult {
+    const successorId = intent.successorId
+    if (successorId === undefined) {
+      throw KnowledgeFailure.mutationRefused("supersede requires successorId")
+    }
+    if (successorId === intent.targetId) {
+      throw KnowledgeFailure.mutationRefused("a note cannot supersede itself")
+    }
+
+    const successor = this.locate(successorId as KnowledgeId)
+    const successorNote = parseFrontmatter(successor.raw)
+
+    // Refuse a cycle: the target must not already supersede the successor.
+    if (target.note.frontmatter.unifia_supersedes.includes(successorId)) {
+      throw KnowledgeFailure.mutationRefused(
+        `supersession cycle: ${intent.targetId} already supersedes ${successorId}`,
+      )
+    }
+
+    const targetId = intent.targetId as string
+    if (!successorNote.frontmatter.unifia_supersedes.includes(targetId)) {
+      const successorNext: NoteFrontmatter = {
+        ...successorNote.frontmatter,
+        unifia_supersedes: [...successorNote.frontmatter.unifia_supersedes, targetId],
+        unifia_updated_at: new Date().toISOString(),
+      }
+      const successorRaw = serialiseNote({
+        frontmatter: successorNext,
+        body: successorNote.body,
+        raw: successor.raw,
+      })
+      this.commit(
+        "update",
+        successor.locator,
+        successor.full,
+        successorRaw,
+        sha256(successor.raw),
+        intent,
+        auditId,
+      )
+    }
+
+    const raw = serialiseNote({
+      frontmatter: target.next,
+      body: target.note.body,
+      raw: target.current,
+    })
+    return this.commit(
+      "supersede",
+      target.locator,
+      target.full,
+      raw,
+      sha256(target.current),
+      intent,
+      auditId,
+    )
+  }
+
+  /**
+   * Rename a note inside the vault.
+   *
+   * `move` was in the contract and reached `unsupported mutation kind` only
+   * after dispatch, so a schema-valid intent failed for a reason the schema
+   * could not express.
+   */
+  private move(intent: MutationIntent, auditId: string): MutationResult {
+    const destination = intent.targetLocator
+    if (destination === undefined) {
+      throw KnowledgeFailure.mutationRefused("move requires targetLocator")
+    }
+    const { locator, full, raw: current } = this.locate(intent.targetId)
+    this.assertCas(current, intent.expectedVersionHash)
+
+    const destinationFull = this.resolveWritable(destination)
+    if (existsSync(destinationFull)) {
+      throw KnowledgeFailure.casMismatch("absent", "present")
+    }
+
+    // The content is unchanged; only its locator moves. Record the arrival
+    // first so the WAL names the destination, then remove the old path.
+    const result = this.commit(
+      "move",
+      destination,
+      destinationFull,
+      current,
+      sha256(current),
+      intent,
+      auditId,
+    )
+    if (destinationFull !== full) {
+      try {
+        unlinkSync(full)
+      } catch {
+        // The source is already gone; the note is at its destination either
+        // way, which is the state the WAL recorded.
+      }
+    }
+    void locator
+    return result
   }
 
   // -- shared --------------------------------------------------------------
@@ -258,7 +387,19 @@ export class VaultMutationWriter implements MutationWriter {
       throw e
     }
 
-    return { applied: true, auditId }
+    // The contract declares ref and newLifecycle; returning only
+    // { applied, auditId } left the caller unable to observe what it wrote.
+    const written = parseFrontmatter(raw).frontmatter
+    return {
+      applied: true,
+      auditId,
+      ref: {
+        id: written.unifia_id as KnowledgeId,
+        locator: locator as KnowledgeLocator,
+        versionHash: newHash as KnowledgeVersionHash,
+      },
+      newLifecycle: written.unifia_lifecycle,
+    }
   }
 
   private appendWal(entry: WalEntry): void {
