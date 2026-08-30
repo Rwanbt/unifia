@@ -327,7 +327,7 @@ est `NOT_EXECUTED_EXTERNAL_BOUNDARY` jusqu'à un run rejoué fournissant une
 ## R-0017 — Périmètre V1 : pas d'effacement, pas d'export, pas de rétention
 
 **Sévérité** : haute (promesse produit)
-**Statut** : **PARTIELLEMENT CLOS** le 2026-08-30 — décision propriétaire prise
+**Statut** : **CLOS** le 2026-08-30 — décision propriétaire prise et implémentée
 
 **Décision** : « on doit pouvoir tout éditer et supprimer comme dans
 Obsidian ». L'édition existait déjà (`update`). La **suppression est
@@ -341,14 +341,29 @@ Vérifié de bout en bout : créer → éditer → supprimer (absente du disque 
 des listings) → restaurer, avec un WAL portant `create, update, delete,
 restore`.
 
-**Reste ouvert sous ce risque** :
+**Complété le même jour** :
 
-- **export utilisateur** — aucun mécanisme ;
-- **TTL et rétention** — y compris le TTL de 30 jours des `candidate` que
-  l'ADR-KNOW-0009 §1 annonce ;
-- **vidage de la corbeille** — la suppression est réversible, mais rien ne
-  permet encore de détruire définitivement ; c'est l'opération qui exigera
-  une confirmation explicite de l'opérateur.
+- **Vidage de la corbeille** (C33b) — `emptyTrash({ confirm: true })`. La
+  confirmation est un paramètre *requis* : personne ne vide la corbeille en
+  passant un objet d'options auquel il n'a pas réfléchi. Le purge est écrit
+  au WAL avant de détruire — une effacement sans trace serait l'opération
+  destructive silencieuse que P10 interdit, un cran plus bas. Purge sélective
+  par `auditId` ou par âge.
+- **Export utilisateur** (C34) — `exportVault()` copie le vault hors de
+  lui-même et écrit un manifeste avec un hash par note, vérifiable ensuite
+  sans le vault d'origine. **L'audience est explicite** : `owner` exporte
+  tout, `third-party` respecte `exportable` et déclare ce qu'il a retenu.
+  `exportable` gouverne un tiers qui reçoit le contenu, pas le propriétaire
+  qui prend une copie de ses propres données ; conditionner son export à ce
+  drapeau transformerait une garantie de souveraineté en verrou sur ses
+  données.
+- **TTL et rétention** (C35) — `retentionReport()` signale les `candidate`
+  au-delà des 30 jours annoncés par ADR-KNOW-0009 §1 et les entrées de
+  corbeille purgeables. **Le module rapporte, il n'agit pas** : l'ADR rejette
+  un « lifecycle implicite basé sur timestamp » comme trop magique et sans
+  traçabilité. Le système remarque ; l'opérateur décide.
+
+L'utilisateur peut désormais voir, éditer, supprimer et exporter ses données.
 
 Le périmètre initial du Sovereign Knowledge Core mentionnait notamment le
 droit de voir, éditer, **supprimer** et **exporter** ses données, un `forget`,

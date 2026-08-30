@@ -425,6 +425,83 @@ export class VaultMutationWriter implements MutationWriter {
   }
 
   /**
+   * Permanently destroy trashed notes. The only operation that truly erases.
+   *
+   * Deletion is reversible until this runs, which is what makes the delete
+   * safe — and what makes this one dangerous. P10 asks for a confirmation
+   * exactly here: `confirm` is required and must be `true`, so no caller
+   * empties the trash by passing an options object it did not think about.
+   *
+   * The purge itself is recorded in the WAL. An erasure that left no trace
+   * would be the silent destructive operation P10 forbids, only one level
+   * further down.
+   */
+  async emptyTrash(options: {
+    confirm: true
+    /** Only destroy entries deleted more than this many days ago. */
+    olderThanDays?: number
+    /** Only destroy this one entry. */
+    auditId?: string
+    source?: string
+  }): Promise<{ destroyed: TrashedNote[]; kept: TrashedNote[] }> {
+    if (options.confirm !== true) {
+      throw KnowledgeFailure.mutationRefused(
+        "emptyTrash permanently destroys notes and requires confirm: true",
+      )
+    }
+
+    const cutoff =
+      options.olderThanDays === undefined
+        ? undefined
+        : Date.now() - options.olderThanDays * 24 * 60 * 60 * 1000
+
+    const destroyed: TrashedNote[] = []
+    const kept: TrashedNote[] = []
+
+    for (const entry of this.trash()) {
+      const selected =
+        (options.auditId === undefined || options.auditId === entry.auditId) &&
+        (cutoff === undefined || Date.parse(entry.deletedAt) < cutoff)
+      if (!selected) {
+        kept.push(entry)
+        continue
+      }
+      destroyed.push(entry)
+    }
+
+    if (destroyed.length === 0) return { destroyed, kept }
+
+    this.lock.withLock(() => {
+      for (const entry of destroyed) {
+        const trashed = join(this.root, TRASH_DIR, `${entry.auditId}.md`)
+        // Record before destroying: the trace has to outlive the content.
+        appendLineDurable(
+          join(this.root, WAL_FILE),
+          JSON.stringify({
+            seq: this.nextSeq(),
+            kind: "delete",
+            locator: entry.locator,
+            previousHash: sha256(readFileSync(trashed, "utf8")) as WalEntry["previousHash"],
+            newHash: null,
+            auditId: `purge-${entry.auditId}`,
+            source: options.source ?? "operator",
+            reason: `permanent erasure of ${entry.locator}`,
+            timestamp: new Date().toISOString(),
+          } satisfies WalEntry),
+        )
+        try {
+          unlinkSync(trashed)
+          unlinkSync(`${trashed}.origin.json`)
+        } catch {
+          // Already gone; the record stands either way.
+        }
+      }
+    })
+
+    return { destroyed, kept }
+  }
+
+  /**
    * Put a deleted note back where it came from.
    *
    * Refuses when something already occupies the locator: restoring must not
