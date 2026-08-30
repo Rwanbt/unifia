@@ -20,7 +20,7 @@
  * to retire a note, and it keeps the file.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, unlinkSync } from "node:fs"
+import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
