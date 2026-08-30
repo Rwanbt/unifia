@@ -74,6 +74,39 @@ describe("C4 — planFromPolicy", () => {
     expect(planFromPolicy(DEFAULT_POLICY, "p", "local").destinationKind).toBe("local")
     expect(planFromPolicy(DEFAULT_POLICY, "p", "remote").destinationKind).toBe("remote")
   })
+
+  it("consults the operator's own setting where the vault policy is silent", () => {
+    // The application's config and the vault's policy answer different
+    // questions, and the vault has said nothing about this destination.
+    const plan = planFromPolicy({ ...DEFAULT_POLICY, egress: "deny" }, "cloud", "remote", {
+      "provider:cloud:remote": "allow",
+    })
+    expect(plan.defaultRestriction).toBe("allow")
+  })
+
+  it("lets the vault's own policy overrule the operator's setting", () => {
+    // A vault that has stated its posture keeps it: a shared vault must not
+    // be reopened by whoever happens to point an application at it.
+    const plan = planFromPolicy(
+      {
+        ...DEFAULT_POLICY,
+        egress: "allow",
+        egressByDestination: { "provider:cloud:remote": "deny" },
+      },
+      "cloud",
+      "remote",
+      { "provider:cloud:remote": "allow" },
+    )
+    expect(plan.defaultRestriction).toBe("deny")
+  })
+
+  it("is unchanged when no operator setting is supplied", () => {
+    // The parameter is additive: every existing caller keeps its behaviour.
+    expect(planFromPolicy({ ...DEFAULT_POLICY, egress: "deny" }, "cloud", "remote", {})
+      .defaultRestriction).toBe("deny")
+    expect(planFromPolicy({ ...DEFAULT_POLICY, egress: "deny" }, "cloud", "remote")
+      .defaultRestriction).toBe("deny")
+  })
 })
 
 describe("C4 — policy.json reaches the ContextPack", () => {

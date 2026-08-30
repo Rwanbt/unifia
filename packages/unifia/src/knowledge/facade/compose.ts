@@ -57,6 +57,23 @@ export interface ComposeInput {
    * decisions leave no record.
    */
   ephemeralAudit?: boolean
+  /**
+   * Destinations the operator opened from the application's own settings.
+   *
+   * Consulted only where `.unifia/policy.json` is silent: a vault that has
+   * stated its own posture for a destination keeps it, and this cannot
+   * overrule it. It exists because the two files answer different questions
+   * — the vault policy says what this vault permits at all, the application
+   * config says whether this application sends memory to a cloud model — and
+   * folding the second into the first at vault-creation time made it a
+   * decision the user could take exactly once, then never change without
+   * hand-editing JSON.
+   *
+   * It is not a way for code to widen a refusal: every entry here comes from
+   * a setting the user wrote, and the note's own portable restriction still
+   * governs on top of it (ADR-KNOW-0006 §1).
+   */
+  operatorEgress?: Record<string, "allow" | "deny">
 }
 
 export interface Composed {
@@ -93,10 +110,17 @@ export function planFromPolicy(
   policy: KnowledgePolicy,
   providerId: string,
   destinationKind?: DestinationKind,
+  operatorEgress?: Record<string, "allow" | "deny">,
 ): ProviderDestinationPlan {
   const key =
     destinationKind === "local" ? `provider:${providerId}` : `provider:${providerId}:remote`
-  const explicit = policy.egressByDestination[key] ?? policy.egressByDestination[providerId]
+  // The vault's own file first: where it has spoken about a destination, no
+  // application setting may answer for it.
+  const explicit =
+    policy.egressByDestination[key] ??
+    policy.egressByDestination[providerId] ??
+    operatorEgress?.[key] ??
+    operatorEgress?.[providerId]
 
   let defaultRestriction: ProviderDestinationPlan["defaultRestriction"]
   if (explicit !== undefined) {
@@ -136,7 +160,12 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
 
   const policyFromFile = existsSync(join(input.workspaceRoot, ".unifia", "policy.json"))
   const policy = readPolicy(input.workspaceRoot)
-  const plan = planFromPolicy(policy, input.providerId, input.destinationKind)
+  const plan = planFromPolicy(
+    policy,
+    input.providerId,
+    input.destinationKind,
+    input.operatorEgress,
+  )
 
   const registry = new SourceRegistry()
   const mounted: string[] = []

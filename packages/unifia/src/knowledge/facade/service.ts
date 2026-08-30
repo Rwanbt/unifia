@@ -18,6 +18,7 @@ import type {
   KnowledgeId,
   KnowledgeLocator,
   KnowledgeSpaceKind,
+  KnowledgeVersionHash,
   RetrievalCandidate,
   ContextItem,
 } from "@unifia/contracts/knowledge"
@@ -55,6 +56,17 @@ export interface MutationWriter {
 export interface KnowledgeService {
   search(req: SearchRequest): Promise<RouterOutput>
   get(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<RetrievalResponse | null>
+  /**
+   * The hash a compare-and-swap update must present, or null.
+   *
+   * `get` cannot answer this: a `RetrievalCandidate` carries `snippetHash`,
+   * the hash of the body it serves, while the writer compares against the
+   * hash of the whole file — frontmatter included. Deriving one from the
+   * other is impossible, and reading the file behind the service's back to
+   * obtain it would step around the egress guard. So the service answers it,
+   * under the same clearance as any other disclosure.
+   */
+  versionHash(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<KnowledgeVersionHash | null>
   backlinks(target: { id?: KnowledgeId; locator?: KnowledgeLocator }): Promise<KnowledgeId[]>
   /** Ids this note declares it supersedes, from its own frontmatter. */
   lineage(id: KnowledgeId): Promise<KnowledgeId[]>
@@ -208,6 +220,32 @@ export class DefaultKnowledgeService implements KnowledgeService {
           indexVersion: "v1",
         },
       }
+    }
+    return null
+  }
+
+  async versionHash(
+    id?: KnowledgeId,
+    locator?: KnowledgeLocator,
+  ): Promise<KnowledgeVersionHash | null> {
+    if (id === undefined && locator === undefined) {
+      throw KnowledgeFailure.sourceInconsistent("versionHash requires an id or a locator")
+    }
+    for (const source of this.registry.all()) {
+      let doc: Awaited<ReturnType<KnowledgeSource["read"]>>
+      try {
+        doc = await source.read(locator, id)
+      } catch {
+        continue
+      }
+      if (doc === null) continue
+      // A note the guard withholds does not hand out its version hash: the
+      // hash is a fact about content the caller may not read, and it is the
+      // key that would let them overwrite it.
+      if (!this.hydrate(source, doc, locator).cleared) return null
+      return createHash("sha256")
+        .update(doc.note.raw, "utf8")
+        .digest("hex") as KnowledgeVersionHash
     }
     return null
   }
