@@ -40,6 +40,45 @@ export interface EgressResult {
 }
 
 /**
+ * Brand carried only by an item the guard has cleared.
+ *
+ * Every defect the three counter-reviews found was the same one wearing a
+ * different coat: a value that should be the *result* of a decision could be
+ * written directly. The router fabricated `restriction: "allow"`; `get()`
+ * did the same one layer up after the router was fixed; `runProbes` turned
+ * an empty evidence into a PASS; `status.vector` came from a config flag;
+ * the MCP daemon lent its own token to an anonymous call. Each fix closed
+ * the occurrence and left the constructibility, so the next surface drew
+ * from the same urn.
+ *
+ * This brand closes it: a `ClearedItem` cannot be written, only obtained
+ * from `clearForEgress`. A code path that emits a candidate without asking
+ * the guard no longer type-checks.
+ */
+declare const egressCleared: unique symbol
+
+/** A `ContextItem` the guard has allowed. Unforgeable outside this module. */
+export type ClearedItem = ContextItem & { readonly [egressCleared]: true }
+
+export type EgressVerdict =
+  | { cleared: true; item: ClearedItem; result: EgressResult }
+  | { cleared: false; item: ContextItem; result: EgressResult }
+
+/**
+ * Decide, and hand back a branded item when the answer is allow.
+ *
+ * Prefer this over calling `decideEgress` and carrying the raw item onward:
+ * the brand is what makes "I forgot to check" a compile error rather than a
+ * finding in the next review.
+ */
+export function clearForEgress(input: EgressInput): EgressVerdict {
+  const result = decideEgress(input)
+  return result.decision === "allow"
+    ? { cleared: true, item: input.item as ClearedItem, result }
+    : { cleared: false, item: input.item, result }
+}
+
+/**
  * Decide whether an item can flow to the given provider.
  *
  * Pure: same input, same output. No I/O, no logging. The caller

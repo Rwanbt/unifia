@@ -22,7 +22,7 @@ import type {
   ContextItem,
 } from "@unifia/contracts/knowledge"
 import { portableRestrictionsFromFrontmatter } from "@unifia/contracts/knowledge"
-import { decideEgress, type EgressResult } from "../policy/egress.js"
+import { clearForEgress, type EgressResult } from "../policy/egress.js"
 import { egressAuditEntry, type EgressAudit } from "../policy/audit.js"
 import type { KnowledgeSource, SourceRegistry } from "../source/source.js"
 import { ContextRouter, type ContextRouterConfig, type RouterOutput } from "../context/router.js"
@@ -113,7 +113,13 @@ export class DefaultKnowledgeService implements KnowledgeService {
     source: KnowledgeSource,
     doc: NonNullable<Awaited<ReturnType<KnowledgeSource["read"]>>>,
     locator?: KnowledgeLocator,
-  ): { candidate: RetrievalCandidate; item: ContextItem; decision: EgressResult } {
+  ): {
+    candidate: RetrievalCandidate
+    item: ContextItem
+    decision: EgressResult
+    /** False means the guard refused; callers must not serve the candidate. */
+    cleared: boolean
+  } {
     const fm = doc.note.frontmatter
     const body = doc.note.body
     const space = source.space.kind
@@ -158,11 +164,13 @@ export class DefaultKnowledgeService implements KnowledgeService {
       temporalState: fm.unifia_lifecycle,
     }
 
-    const decision = decideEgress({ item, plan })
-    // get, backlinks and lineage decide egress too; their decisions belong in
-    // the same trail as the router's.
-    this.options.audit?.record(egressAuditEntry(item, plan, decision))
-    return { candidate, item, decision }
+    // Same brand as the router: `get`, `backlinks` and `lineage` obtain a
+    // cleared item or nothing. The defect this closes was `get()` building
+    // its candidate inline with `restriction: "allow"` and never asking.
+    const verdict = clearForEgress({ item, plan })
+    // Their decisions belong in the same trail as the router's.
+    this.options.audit?.record(egressAuditEntry(item, plan, verdict.result))
+    return { candidate, item, decision: verdict.result, cleared: verdict.cleared }
   }
 
   async get(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<RetrievalResponse | null> {
@@ -180,8 +188,8 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
       if (doc === null) continue
 
-      const { candidate, decision } = this.hydrate(source, doc, locator)
-      if (decision.decision === "deny") {
+      const { candidate, cleared } = this.hydrate(source, doc, locator)
+      if (!cleared) {
         // Answer exactly as for a note that does not exist: confirming that a
         // denied note exists is itself a disclosure.
         return null
@@ -238,7 +246,7 @@ export class DefaultKnowledgeService implements KnowledgeService {
         // A note the policy refuses is not a backlink we may disclose: its id
         // alone tells the caller the note exists, and MCP hydrates each id
         // back into a snippet.
-        if (this.hydrate(source, doc, note.ref.locator).decision.decision === "deny") continue
+        if (!this.hydrate(source, doc, note.ref.locator).cleared) continue
         const links = extractWikilinks(doc.note.body).map((w) => w.target)
         const supersedes = doc.note.frontmatter.unifia_supersedes ?? []
         if (links.some((l) => wanted.has(l)) || supersedes.some((s) => wanted.has(s))) {
@@ -267,7 +275,7 @@ export class DefaultKnowledgeService implements KnowledgeService {
       }
       if (doc === null) continue
       // A note the policy withholds does not disclose its lineage either.
-      if (this.hydrate(source, doc).decision.decision === "deny") return []
+      if (!this.hydrate(source, doc).cleared) return []
       return (doc.note.frontmatter.unifia_supersedes ?? []) as KnowledgeId[]
     }
     return []

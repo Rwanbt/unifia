@@ -34,7 +34,7 @@ import {
 } from "@unifia/contracts/knowledge"
 import { createHash } from "node:crypto"
 import type { KnowledgeSource, SourceRegistry, ListedNote } from "../source/source.js"
-import { decideEgress } from "../policy/egress.js"
+import { clearForEgress, type ClearedItem } from "../policy/egress.js"
 import { egressAuditEntry, type EgressAudit } from "../policy/audit.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { bestSnippet, scoreNote, tokenize, utf8Bytes } from "./lexical.js"
@@ -229,7 +229,8 @@ export class ContextRouter {
         a.note.ref.locator.localeCompare(b.note.ref.locator),
     )
 
-    const items: ContextItem[] = []
+    // Typed as cleared, not as ContextItem: the pack is the emission point.
+    const items: ClearedItem[] = []
     const perType = new Map<ContextItem["type"], number>()
     // Defence in depth against a note reachable from two mounted spaces.
     // Composition already keeps the project vault out of the personal
@@ -252,18 +253,23 @@ export class ContextRouter {
         continue
       }
 
-      const item = this.toContextItem(r)
-      const decision = decideEgress({ item, plan: this.config.providerPlan })
+      const verdict = clearForEgress({
+        item: this.toContextItem(r),
+        plan: this.config.providerPlan,
+      })
       // Allow and deny alike: the ADR traces both, and a trail that only
       // records refusals cannot show what actually left.
       this.config.audit?.record(
-        egressAuditEntry(item, this.config.providerPlan, decision),
+        egressAuditEntry(verdict.item, this.config.providerPlan, verdict.result),
       )
-      if (decision.decision === "deny") {
-        excluded.push({ locator: r.note.ref.locator, reason: decision.reason })
+      if (!verdict.cleared) {
+        excluded.push({ locator: r.note.ref.locator, reason: verdict.result.reason })
         droppedByRestriction += 1
         continue
       }
+      // From here `item` carries the guard's brand: `items` accepts nothing
+      // else, so a future edit cannot add an unchecked candidate.
+      const item: ClearedItem = verdict.item
 
       const count = perType.get(item.type) ?? 0
       if (count >= maxPerType) {
