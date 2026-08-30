@@ -327,7 +327,28 @@ est `NOT_EXECUTED_EXTERNAL_BOUNDARY` jusqu'à un run rejoué fournissant une
 ## R-0017 — Périmètre V1 : pas d'effacement, pas d'export, pas de rétention
 
 **Sévérité** : haute (promesse produit)
-**Statut** : OUVERT — décision propriétaire requise
+**Statut** : **PARTIELLEMENT CLOS** le 2026-08-30 — décision propriétaire prise
+
+**Décision** : « on doit pouvoir tout éditer et supprimer comme dans
+Obsidian ». L'édition existait déjà (`update`). La **suppression est
+implémentée** (carte C33) avec la sémantique par défaut d'Obsidian : la note
+quitte son locator, part en `.unifia/trash/`, l'opération est écrite au WAL
+et reste **restaurable** par son `auditId`. ADR-KNOW-0009 amendé en
+conséquence — ce que P10 interdit est une opération destructive *silencieuse*,
+pas le droit de l'utilisateur à retirer une note.
+
+Vérifié de bout en bout : créer → éditer → supprimer (absente du disque et
+des listings) → restaurer, avec un WAL portant `create, update, delete,
+restore`.
+
+**Reste ouvert sous ce risque** :
+
+- **export utilisateur** — aucun mécanisme ;
+- **TTL et rétention** — y compris le TTL de 30 jours des `candidate` que
+  l'ADR-KNOW-0009 §1 annonce ;
+- **vidage de la corbeille** — la suppression est réversible, mais rien ne
+  permet encore de détruire définitivement ; c'est l'opération qui exigera
+  une confirmation explicite de l'opérateur.
 
 Le périmètre initial du Sovereign Knowledge Core mentionnait notamment le
 droit de voir, éditer, **supprimer** et **exporter** ses données, un `forget`,

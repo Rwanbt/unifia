@@ -15,12 +15,15 @@
  * - is recorded in an append-only WAL before the file is made visible;
  * - is applied atomically (write to a temporary file, then rename).
  *
- * `delete` is refused outright: ADR-KNOW-0009 rejects physical deletion and
- * P10 forbids silent destructive operations. Archiving is the supported way
- * to retire a note, and it keeps the file.
+ * `delete` removes the note from the vault the way Obsidian does: it leaves
+ * its locator and moves to `.unifia/trash/`, recorded in the WAL and
+ * restorable by audit id. P10 forbids a *silent* destructive operation, and
+ * a recorded reversible move is neither — see the ADR-KNOW-0009 amendment of
+ * 2026-08-30. `archive` remains distinct: it retires a note from retrieval
+ * without removing it from the vault.
  */
 
-import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
@@ -58,6 +61,25 @@ export const WAL_FILE = ".unifia/wal.jsonl"
 
 /** Serialises writers within and across processes. */
 export const LOCK_FILE = ".unifia/write.lock"
+
+/**
+ * Where deleted notes go.
+ *
+ * Obsidian's default is a trash folder inside the vault, and that is the
+ * behaviour V1 implements: a delete is reversible until the trash is emptied.
+ * Emptying it is a separate, explicit operation — the only one that actually
+ * destroys, and the one P10 asks the operator to confirm.
+ */
+export const TRASH_DIR = ".unifia/trash"
+
+/** One entry in the trash. */
+export interface TrashedNote {
+  /** Where the note lived before it was deleted. */
+  locator: string
+  /** Audit id of the deletion; the handle a restore is addressed by. */
+  auditId: string
+  deletedAt: string
+}
 
 export interface VaultMutationWriterConfig {
   /** Absolute path to the vault root that receives the writes. */
@@ -120,14 +142,6 @@ export class VaultMutationWriter implements MutationWriter {
     }
     const intent = parsed.data as MutationIntent
 
-    if (intent.kind === "delete") {
-      // ADR-KNOW-0009 rejects physical deletion; P10 forbids a silent
-      // destructive operation. Archiving retires a note and keeps the file.
-      throw KnowledgeFailure.mutationRefused(
-        "delete is not supported: archive the note instead (ADR-KNOW-0009)",
-      )
-    }
-
     const auditId = randomUUID()
     switch (intent.kind) {
       case "create":
@@ -136,6 +150,8 @@ export class VaultMutationWriter implements MutationWriter {
         return this.update(intent, auditId)
       case "move":
         return this.move(intent, auditId)
+      case "delete":
+        return this.remove(intent, auditId)
       case "promote":
       case "supersede":
       case "archive":
@@ -321,6 +337,129 @@ export class VaultMutationWriter implements MutationWriter {
       intent,
       auditId,
     )
+  }
+
+  /**
+   * Remove a note from the vault, recorded and reversible.
+   *
+   * This is Obsidian's default meaning of "delete": the note leaves its
+   * locator — gone from listings, retrieval and backlinks — and moves to a
+   * trash folder rather than being unlinked. ADR-KNOW-0009's amendment of
+   * 2026-08-30 records the decision: what P10 forbids is a *silent*
+   * destructive operation, and a WAL-recorded, restorable move is neither
+   * silent nor destructive.
+   *
+   * The WAL entry carries `newHash: null` because no content remains at the
+   * locator — the existing invariant holds unchanged.
+   */
+  private async remove(intent: MutationIntent, auditId: string): Promise<MutationResult> {
+    const { locator, full, raw: current } = await this.locate(intent.targetId)
+    this.assertCas(current, intent.expectedVersionHash)
+
+    const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
+
+    return this.lock.withLock(() => {
+      mkdirSync(dirname(trashed), { recursive: true })
+
+      // The sidecar records where it came from, so a restore does not have to
+      // parse the WAL to know the destination.
+      writeFileDurable(
+        `${trashed}.origin.json`,
+        JSON.stringify({ locator, auditId, deletedAt: new Date().toISOString() }, null, 2),
+      )
+      writeFileDurable(trashed, current)
+
+      appendLineDurable(
+        join(this.root, WAL_FILE),
+        JSON.stringify({
+          seq: this.nextSeq(),
+          kind: "delete",
+          locator,
+          previousHash: sha256(current) as WalEntry["previousHash"],
+          newHash: null,
+          auditId,
+          source: intent.source,
+          reason: intent.reason,
+          timestamp: new Date().toISOString(),
+        } satisfies WalEntry),
+      )
+
+      // Only now does the note leave the vault: the copy and the record are
+      // already durable, so a crash here loses nothing.
+      unlinkSync(full)
+      fsyncDirectory(dirname(full))
+
+      const written = parseFrontmatter(current).frontmatter
+      return {
+        applied: true,
+        auditId,
+        ref: {
+          id: written.unifia_id as KnowledgeId,
+          locator: locator as KnowledgeLocator,
+          versionHash: sha256(current) as KnowledgeVersionHash,
+        },
+      }
+    })
+  }
+
+  /** What is in the trash, newest first. */
+  trash(): TrashedNote[] {
+    const dir = join(this.root, TRASH_DIR)
+    if (!existsSync(dir)) return []
+    const out: TrashedNote[] = []
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".origin.json")) continue
+      try {
+        const meta = JSON.parse(readFileSync(join(dir, name), "utf8")) as {
+          locator: string
+          auditId: string
+          deletedAt: string
+        }
+        out.push(meta)
+      } catch {
+        // A sidecar we cannot read is not a restorable entry.
+      }
+    }
+    out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+    return out
+  }
+
+  /**
+   * Put a deleted note back where it came from.
+   *
+   * Refuses when something already occupies the locator: restoring must not
+   * overwrite work done since the deletion.
+   */
+  async restoreDeleted(auditId: string): Promise<MutationResult> {
+    const trashed = join(this.root, TRASH_DIR, `${auditId}.md`)
+    const sidecar = `${trashed}.origin.json`
+    if (!existsSync(trashed) || !existsSync(sidecar)) {
+      throw KnowledgeFailure.sourceInconsistent(`nothing in the trash for audit ${auditId}`)
+    }
+    const meta = JSON.parse(readFileSync(sidecar, "utf8")) as { locator: string }
+    const raw = readFileSync(trashed, "utf8")
+    const destination = this.resolveWritable(meta.locator)
+    if (existsSync(destination)) {
+      throw KnowledgeFailure.casMismatch("absent", "present")
+    }
+
+    const restoreId = randomUUID()
+    const result = this.commit(
+      "restore",
+      meta.locator,
+      destination,
+      raw,
+      null,
+      { ...({} as MutationIntent), reason: `restore of ${auditId}`, source: "trash" },
+      restoreId,
+    )
+    try {
+      unlinkSync(trashed)
+      unlinkSync(sidecar)
+    } catch {
+      // The note is back; a leftover trash copy is harmless.
+    }
+    return result
   }
 
   /**

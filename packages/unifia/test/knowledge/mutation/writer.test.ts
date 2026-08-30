@@ -126,14 +126,24 @@ describe("C25 — VaultMutationWriter", () => {
     expect(existsSync(join(root, "notes/new.md"))).toBe(false)
   })
 
-  it("refuses delete outright", async () => {
+  it("refuses to delete a note that does not exist", async () => {
+    // delete is supported since the ADR-KNOW-0009 amendment of 2026-08-30;
+    // what it still refuses is a target it cannot find. The behaviour this
+    // test used to assert — a blanket refusal — was the scope decision the
+    // owner reversed. See delete.test.ts for the semantics.
     await expect(
       writer.apply({
-        intent: { kind: "delete", targetId: "0190d2c0-7b00-7000-8000-000000000001", expectedVersionHash: "0".repeat(64), reason: "r", source: "s" },
+        intent: {
+          kind: "delete",
+          targetId: "0190d2c0-7b00-7000-8000-0000000000ff",
+          expectedVersionHash: "0".repeat(64),
+          reason: "r",
+          source: "s",
+        },
         reason: "r",
         source: "s",
       }),
-    ).rejects.toThrow(/archive the note instead/)
+    ).rejects.toThrow(/no note with id/)
   })
 
   it("refuses a locator escaping the vault", async () => {
