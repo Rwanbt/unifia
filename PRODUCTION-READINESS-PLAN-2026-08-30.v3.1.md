@@ -6,10 +6,11 @@
 > v3 in parallel (the v3 review, 2026-08-30, 36 corrections). v3 is
 > preserved in the worktree as the audit trail.
 >
-> **v3.1 self-rating** : 8.0/10 (sub-scores: coverage 8.5, ordering
-> 8.5, interpretation 7.0; average 8.0; conditional 7.7). The
-> conditional sub-score reflects the residual dependency on Phase 1
-> bucket distribution matching the empirical prediction in §8.
+> **v3.1 + §15 + §16 self-rating** : 8.3/10 (sub-scores: coverage 8.5,
+> ordering 8.5, interpretation 8.0; average 8.3; conditional 8.0 —
+> see §16.5). The conditional sub-score reflects the resolved bucket
+> distribution (0/0/0/41/0) and the C18-audit scope reduction to
+> 2 plumbing points (delete `inspector.ts`, see §16 BLOCKER-S1).
 >
 > **The 4 open questions in §12 are the only decision points left.**
 
@@ -69,7 +70,7 @@ Otherwise BLOCKED.
 | Field | Value (at v3.1 authoring time) |
 |---|---|
 | Branch | `feat/sovereign-knowledge-core` (no upstream) |
-| Local commits | **144** since `origin/dev` (HEAD moves per commit; v3.1 review found 143 stale → 144) |
+| Local commits | **146** since `origin/dev` (HEAD moves per commit; v3.1 review found 143 stale → 144, §15 amendment added 1 (v3.1 review aggregation), §16 verification re-counts to 146) |
 | Tests pass | 637 (TS knowledge) + 79 (contracts) + 35 (Rust) = **751** |
 | Tests fail | **41** (TS knowledge) |
 | CHANGELOG v0.5.0 claim | 771 passing (still inflated; corrected in Phase 0.A0) |
@@ -129,9 +130,9 @@ already done at HEAD.** v3.1 does not re-do them.
 | 0.5 | **Repair the uncommitted C19 fix** | add `realOrNullAsync, isContainedAsync` + `import { readdir, stat } from "node:fs/promises"` to `vault.ts:26` (2-3 lines) | **5-30 min** (abort-and-replan if scope > 4 lines) | `fix(knowledge):` |
 | 1 | Classify the 41 failing tests | 5-bucket classification + per-test SHA + bucket 1 vs 4 rule (handle uncommitted test-only changes) | **2.5-3.5 h** | `docs(knowledge):` (audit file) |
 | 2 | Fix regressions + stale assertions | depends on Phase 1 output; budget 0.5-2 h; may be no-op | **0.5-2 h** | `fix(knowledge):` or `test(knowledge):` |
-| 3 | Close the 11 corrective cards C18-C30 (C18 split, C22 split, decomposition in C24) | see §4 for per-card scope | **5-10 h** (target 8h, alarm 12h, **stop 24h** — raised from 20h by §15 amendment; per-card sum is 14.25-23.75h) | `fix(knowledge):` |
+| 3 | Close the 11 corrective cards C18-C30 (C18 split, C22 split, decomposition in C24) | see §4 for per-card scope | **5-10 h nominal (13-22 h per-card sum; re-verify cards collapse to ~0 h after Phase 0.5; C18-audit 2-4 h and C24 3.5-6 h by §16)** (target 8 h, alarm 12 h, **stop 24 h**) | `fix(knowledge):` |
 | 4a | Close Opus 5 P3 | DoD U-07 oracle command (1-line fix) + 9 `decideEgress` tests (4 pure + 5 depth) | **1.5-2 h** | `docs(knowledge):` + `test(knowledge):` |
-| 4b | R-0012 §6 audit emission | bus plumbing (service + router + **inspector** — 4 plumbing points) + `bus.emit` at 2 sites (service.hydrate line 158, router.route line 250; inspector is a view, not a new decision, so no emit) + probe 16 harness | **4-6 h** | `fix(knowledge):` |
+| 4b | R-0012 §6 audit emission | bus plumbing (**2 plumbing points**: service + router — `inspector.ts` is dead code in V1 and is deleted in Phase 3 per §16 B-§16.2.1) + `bus.emit` at 2 sites (service.hydrate line 158, router.route line 250) + probe 16 harness with AND-pattern per §16 M-§16.2.15 | **2-4 h** (reduced from 4-6 h by §16) | `fix(knowledge):` |
 | 5 | Hygiene + 15 gates | see §5; NO `unifia-knowledge.ts` decomposition here (it's C24) | **3-4 h** | `refactor(knowledge):` + `chore(knowledge):` |
 | 6 | Re-verify with 19 scripted probes | Windows: all 19 pass; non-Windows: 18 + probe 6 exit 77 | **2-3 h** | `test(knowledge):` + `docs(knowledge):` |
 | 7 | Request second external review | 6-lens re-review against implementation; do not self-declare | — | `docs(knowledge):` |
@@ -175,17 +176,17 @@ Phase 0.5).
 | Card | Scope | Tests (at HEAD) | Estimate |
 |---|---|---:|---:|
 | **C18-verify** | Re-run the 2 C18 tests after Phase 0.5 (auto-pass) | 2 fail (bucket 4) | 0.25 h |
-| **C18-audit** | R-0012 §6 audit emission: bus plumbing through service + router + inspector (3 plumbing points — see §15 amendment) + `bus.emit` at 2 sites (service.hydrate line 158, router.route line 250; **inspector.inspect is a view, not a new decision, so no emit**) + probe 16 | 0 fail (new work) | 4-6 h (per security reviewer) |
+| **C18-audit** | R-0012 §6 audit emission: bus plumbing through service + router (**2 plumbing points** — see §16 B-§16.2.1; `inspector.ts` is dead code in V1 and is deleted in Phase 3) + `bus.emit` at 2 sites (service.hydrate line 158, router.route line 250) + probe 16 with AND-pattern per §16 M-§16.2.15 | 0 fail (new work) | **2-4 h** (reduced from 4-6 h by §16; the 4-6 h estimate assumed 3 plumbing points) |
 | C19 | Filesystem containment (real paths, junction reject) | **9 fail (all bucket 4, one root cause)** | 0.5-1 h (verify only) |
 | C20 | Round-trip of `unifia_restrictions` (parse → serialise → parse) | 0 fail (verify) | 0.5-1 h |
 | C21 | Deadline bound on `list()` and `read()` (slow-source characterisation) | 0 fail (verify) | 1-2 h |
 | **C22a** | MCP wire protocol (token threaded, not echoed, valid across calls) | 3 of 4 C26 fails (bucket 4; C22a is scope, not bucket) | 1.5-2.5 h |
 | **C22b** | MCP daemon lifecycle (in-process lifetime + revocation across the daemon) | 1 of 4 C26 fails (bucket 4; C22b is scope, not bucket) | 1.5-2.5 h |
 | C23 | Graph + composition (dedup, real supersedes lineage, `status.vector` honesty) — covers C1 + C4 verifications | covered by C1/C4; verify | **0.25-0.5 h** (re-verify only; the v3.1 review found C1/C4 are all bucket 4, not new work) |
-| C24 | Evidence + hygiene (Android `isUsableEvidence`, `verify` exit code, real SHA-256, `git diff --check` from Phase 0.A1) — **includes `unifia-knowledge.ts` 1000→~400 decomposition** (moved from Phase 5) | 0 fail (verify) | **3-5 h** (the v3.1 review found 1-2h unrealistic; the 1000-LOC decomposition with byte-identical case-arm preservation is 3-5h realistic) |
+| C24 | Evidence + hygiene (Android `isUsableEvidence`, `verify` exit code, real SHA-256, `git diff --check` from Phase 0.A1) — **includes `unifia-knowledge.ts` 1048→3×~349 decomposition** (moved from Phase 5) | 0 fail (verify) | **3.5-6 h** (the v3.1 review found 1-2 h unrealistic; §16 verification counts 68 case arms at `371cba9f79`, and the byte-identical preservation across 68 arms in 3 sub-dispatchers is realistic 3.5-6 h, not 3-5 h) |
 | **C25** | VaultMutationWriter behaviour (CAS, lifecycle, propose via facade) | 5 fail (all bucket 4 per v3.1 review) | 0.25-0.5 h (re-verify only) |
 | **C30** | Writer contract (archive, supersede, move, CAS — 4 defects) | 11 fail (all bucket 4 per v3.1 review; 0 bucket 2) | 0.5-1 h (re-verify only) |
-| | | **Total** | **5-10 h** (reduced from v3.1's 10-18h; the v3.1 review's empirical re-run found all C18/C19/C22/C25/C30 tests are bucket 4, so most cards are re-verify only) |
+| | | **Total** | **5-10 h nominal** (13-22 h per-card sum; the 5-10 h assumes all re-verify cards collapse to ~0 h after Phase 0.5, conditional on the bucket distribution holding — see §8). §16 deltas: C18-audit 4-6 h→2-4 h (inspector deleted), C24 3-5 h→3.5-6 h (68 case arms). |
 
 **Order within Phase 3** : C18-verify → C19 → C20 → C21 → C23 → C25 →
 C30 → C22a → C22b → C18-audit → C24.
@@ -228,10 +229,13 @@ work) but is not the fix for the current 4 fails.
   `commands-graph.ts` 423, `commands-mcp.ts` 128, `runtime.ts`
   141, `shared.ts` 51, `usage.ts` 86) are untouched. Split the
   dispatcher into 3 sub-dispatchers of ~400 LOC; **every existing
-  `case` arm must be byte-identical** (the v3.1 review found 66 case
-  arms at HEAD, not 55 — the "55" was a v2 carry-over and is dropped in
-  v3.1 §15; the property itself is "all 66 case arms preserved, no
-  behavior change").
+  `case "name":` arm must preserve the dispatch expression, argument
+  parsing, and return statement verbatim** (the v3.1 review found 66 case
+  arms, but §16 re-verification at `371cba9f79` returns **68 case arms**
+  via `Select-String -Pattern '^\s*case "'`; +1 if `case null:` fallthrough
+  at line 551 is counted, for 69 total). Whitespace and trailing comments
+  may be normalised by the project's biome config (no behavioural change).
+  The property is "all 68 case arms preserved".
 
 ## 5. Phase 5 — the 15 self-verification gates
 
@@ -414,7 +418,7 @@ disambiguation rule** based on the v3 review's empirical findings.
   it, or new import without the new export, or uncommitted
   test-only change).
 
-**Predicted distribution** (measured at HEAD `e7f4301a92`, 144 commits; v3.1 §15 pre-Phase-0 amendment):
+**Predicted distribution** (measured at HEAD `371cba9f79`, 146 commits; v3.1 + §15 + §16):
 
 - 0 × bucket 1
 - 0 × bucket 2 (the v3.1 review's empirical test run found all C1, C4, C18,
@@ -428,12 +432,12 @@ disambiguation rule** based on the v3 review's empirical findings.
 
 **Total 41**. v3.1's original prediction (0/8-12/0/24-26/8-12) was based on the
 v3 reviewer's earlier empirical run; the v3.1 reviewer's fresh re-run
-confirmed ALL 41 fails are bucket 4. The conditional 7.7 in §13 is therefore
-**vacuous** — the bucket distribution dependency is no longer material.
-The plan's overall envelope drops to **3-7h of post-Phase-0.5 work**
-(C18-audit bus plumbing + gate 13 `service.ts` coverage to 80% + Phase 1 audit
-that is largely auto-confirmed), not the 18-37h the original v3.1 prediction
-implied.
+confirmed ALL 41 fails are bucket 4. The bucket distribution dependency is
+**resolved** (0/0/0/41/0). The plan's overall post-Phase-0.5 envelope is
+**~13-25 h** (Phase 1 confirm 0.5-1 h + Phase 3 5-10 h nominal/13-22 h worst
++ Phase 4a 1.5-2 h + Phase 4b **2-4 h** corrected by §16 + Phase 5 3-4 h
++ Phase 6 2-3 h + Phase 7 review), significantly less than the 18-37 h
+the original v3.1 prediction implied.
 
 For each of the 41 failing tests, Phase 1 records:
 
@@ -461,7 +465,7 @@ alternative was an include glob).
 
 | # | Decision | When | What (canonical text) |
 |---|---|---|---|
-| **D-0021** | 500-LOC rule scope extension | Phase 0.B | the 500-LOC rule per `CLAUDE.md:58` (originally scoped to `packages/app/`) is **extended to apply project-wide** for `feat/sovereign-knowledge-core`. New files in any package must not exceed 500 LOC without an exception documented in the commit message. **59 files in `packages/unifia/src/` currently exceed 500 LOC** (re-verified at HEAD `e7f4301a92`, 144 commits; the v3.1 plan says "verified at HEAD `885b00d3ab`" but that SHA is stale — the count is unchanged at 59); these are documented technical debt. **0 files in `packages/unifia/src/knowledge/` exceed 500 LOC** (re-verified). The CLAUDE.md exception clause ("coordinateurs" with named ADR reference) is preserved. |
+| **D-0021** | 500-LOC rule scope extension | Phase 0.B | the 500-LOC rule per `CLAUDE.md:58` (originally scoped to `packages/app/`) is **extended to apply project-wide** for `feat/sovereign-knowledge-core`. New files in any package must not exceed 500 LOC without an exception documented in the commit message. **59 files in `packages/unifia/src/` currently exceed 500 LOC** (re-verified at HEAD `371cba9f79`, 146 commits; the v3.1 plan says "verified at HEAD `885b00d3ab`" but that SHA is stale — the count is unchanged at 59); these are documented technical debt. **0 files in `packages/unifia/src/knowledge/` exceed 500 LOC** (re-verified). The CLAUDE.md exception clause ("coordinateurs" with named ADR reference) is preserved. |
 | **D-0022** | Portable restrictions canonical surfaces | Phase 0.D | portable restrictions have **one name per surface, not one name overall**. In-memory: `PortableRestrictions` (camelCase, 4 fields `remoteModel`/`localModel`/`embeddable`/`exportable`, per `packages/contracts/src/knowledge/restrictions.ts`). On-disk: `unifia_restrictions` (snake_case, optional fields with fail-closed defaults, per `RESTRICTIONS_FRONTMATTER_KEY` in the same file). **Retired**: `portable_restrictions` (PERMISSIONS.md §4 used this name pre-amendment). **Runtime call sites** (corrected by v3.1 §15): `policy/egress.ts:48-91` (the 5-branch `decideEgress`, function ends at closing `}` on line 91), `context/router.ts:250` (the per-candidate `decideEgress` call in `route()` — the v3.1 original cited lines `212,309-312` which are restrictions field assignments, not `decideEgress` calls), `facade/service.ts:158` (the `hydrate()` call returning `{ candidate, item, decision: decideEgress(...) }`). |
 | **D-0023** | CHANGELOG honesty over face-saving | Phase 0.A0 | a CHANGELOG that overstates test count or declares a risk CLOSED while characterisations remain red is a false proof. v0.5.0 is corrected in place (not deleted) to preserve the audit trail while making the test count honest. The `### Not changed in this release` subsection is non-standard but explicit; the existing `docs/knowledge/CHANGELOG.md` already uses non-standard `### Tests` and `### Status` types, so this is consistent with the project's pre-existing deviation. |
 | **D-0024** | Plan pre-flight uses file presence, not specific SHA | Phase 0 | HEAD moves across reviews; asserting a specific SHA causes pre-flight to fail immediately. The plan asserts the presence of source files instead. |
@@ -489,10 +493,10 @@ throughout.
   French-language findings are translated to English in commit
   messages and ADR amendments, with the original French line
   cited as a blockquote.
-- **No branch destruction.** The 144-commit audit trail is
-  preserved (v3.1 review found the v3.1 plan's "143 commits" claim was
-  stale by one — v3.1 itself added 1 commit). No rebase, no reset --hard,
-  no force-push.
+- **No branch destruction.** The 146-commit audit trail is
+  preserved (v3.1 review found 143 stale → 144; the v3.1 review aggregation
+  added 1; the §15 amendment at `371cba9f79` added the 146th). No rebase,
+  no reset --hard, no force-push.
 
 ## 11. What this plan does NOT do
 
@@ -623,11 +627,12 @@ v2 is in `PRODUCTION-READINESS-PLAN-2026-08-30.v2.md`.*
 ### 15.1. The 9 corrections
 
 The 6 reviewers of v3.1 (adversarial, security, conventions, test
-strategy, implementation feasibility, doc consistency) found 5 BLOCKERs
-and 12 MAJORs. The 9 corrections below are the **minimum required to
-make v3.1 implementation-ready**. The remaining 8 MAJORs are deferred
-to Phase 1 (re-classification) and Phase 3 (per-card work) where they
-are handled naturally.
+strategy, implementation feasibility, doc consistency) found **3 BLOCKERs
+and 9 MAJORs** (per `REVIEW-OF-PRODUCTION-READINESS-PLAN-2026-08-30.v3.1.md`
+§3, items #1-12). The 9 corrections below are the **minimum required to
+make v3.1 implementation-ready**. Items deferred to §16 are addressed in
+§16.2; the rest are handled in Phase 1 (re-classification) and Phase 3
+(per-card work).
 
 #### BLOCKER (must fix before Phase 0.A0)
 
@@ -672,13 +677,13 @@ corrected C18-audit scope is:
 
 **M-§15.1.4 — §1 + §10 commit count 143 → 144** (v3.1 itself added 1 commit).
 
-**M-§15.1.5 — Phase 3 stop threshold 20h → 24h** (per-card sum is 14.25-23.75h; the 20h stop would have triggered prematurely).
+**M-§15.1.5 — Phase 3 stop threshold 20h → 24h** (per-card sum is 13-22 h after §16 corrections; the 20h stop would have triggered prematurely).
 
-**M-§15.1.6 — C24 estimate 1-2h → 3-5h** (1000-LOC decomposition with byte-identical case-arm preservation is realistic 3-5h, not 1-2h).
+**M-§15.1.6 — C24 estimate 1-2h → 3.5-6h** (1048-LOC decomposition with byte-identical preservation of 68 case arms — re-verified by §16 — is realistic 3.5-6h, not 1-2h or 3-5h).
 
 **M-§15.1.7 — Gate 13 wording corrected.** v3.1 said "80% is the realistic current state" but `service.ts` is at 66.67% (does not pass at HEAD). The corrected wording: "≥ 80% on **3 of 4** paths as a post-Phase-3 target; `service.ts` at 66.67% does NOT currently pass; Phase 3 must close this gap before the gate is green."
 
-**M-§15.1.8 — "55-subcommand" → "66 case arms"** (the v3.1 review counted 66 `case` statements in `unifia-knowledge.ts`, not 55; the v3.1 "55" was a v2 carry-over. The property is "all 66 case arms preserved", not "55 preserved").
+**M-§15.1.8 — "55-subcommand" → "68 case arms"** (the v3.1 review counted 66, but §16 re-verification at `371cba9f79` returns 68 `case "` matches and 69 if `case null:` is included; the v3.1 "55" was a v2 carry-over. The property is "all 68 case arms preserved", not 55 or 66).
 
 **M-§15.1.9 — C23, C25, C30 estimates reduced to re-verify only** (C1, C4, C18, C19, C22/C26, C25, C30 are all bucket 4 per the v3.1 reviewer's empirical re-run; the only remaining Phase 3 work is C18-audit bus plumbing and C24 decomposition). Total Phase 3 budget: **5-10h** (reduced from 10-18h).
 
@@ -692,9 +697,10 @@ not 0/8-12/0/24-26/8-12. The conditional dependency is vacuous.
 The new self-confidence (§13 corrected):
 - **Coverage 8.5/10** (unchanged)
 - **Ordering 8.5/10** (unchanged)
-- **Interpretation 8.0/10** (up from 7.0 — bucket uncertainty resolved)
-- **Average 8.3/10** (up from 8.0)
-- **Conditional overall 8.0/10** (up from 7.7)
+- **Interpretation 8.0/10** (matches §13)
+- **Average 8.3/10** (matches §13)
+- **Conditional overall 8.0/10** (the bucket dependency is resolved;
+  conditional = overall = 8.0)
 
 ### 15.3. Why an amendment, not v3.2
 
@@ -719,6 +725,209 @@ or absorbed by Phase 1/3 work as natural consequences.
 
 ---
 
-*This amendment is the v3.1 plan's final pre-Phase-0 form. The plan
-is implementation-ready at 8.0/10 expected (post-amendment). Phase 0
-can begin after the operator confirms.*
+*This amendment was the v3.1 plan's final pre-Phase-0 form at 8.0/10
+expected. §16 (above) corrects the §15 amendment's own internal
+inconsistencies and adds 2 security BLOCKERs found by the v3.1+§15
+reviewer cycle. The plan is implementation-ready at 8.0/10 expected
+(post-§16) or 7.0/10 conditional. Phase 0 can begin after the
+operator confirms.*
+
+---
+
+## 16. v3.1 + §15 + §16 amendment (corrects §15's own errors)
+
+> Applied at HEAD `371cba9f79` (the §15 commit) — no new code, no new commits.
+> The v3.1 → v3.1+§15 → v3.1+§15+§16 chain preserves the audit trail.
+
+### 16.1. Why §16 (not v3.2)
+
+A v3.2 rewrite would re-apply 36 v3 corrections + 12 §15 corrections = 48
+inline edits, add a 37th "Changes from v3.1" table, and double the
+audit-trail cost. The §16 amendment is **0 new commits, 15 corrections,
+1 new code change (Phase 3: delete `inspector.ts`) + 1 new test
+(Phase 4a: branch-3 `decideEgress` test) + 1 new probe pattern
+(Phase 0.E + Phase 6: probe 16 AND-pattern)**.
+
+### 16.2. The 15 corrections
+
+#### BLOCKER (must fix before Phase 0.A0)
+
+**B-§16.2.1 — `inspector.inspect()` is dead code; C18-audit plumbing drops to 2 points.**
+
+The v3.1+§15 security reviewer grep'd `packages/unifia/src/` for callers
+of `inspect()` and found **zero production callers** (only test files
+`sovereign-v1-defects.test.ts` and `context.test.ts` reference it).
+The §15 amendment counted `inspect()` as the 3rd plumbing point, but
+it is not invoked in any production code path. The corrected C18-audit
+scope is:
+
+- **2 plumbing points** (not 3): `facade/service.ts` (hydrate), `context/router.ts` (route).
+- `inspector.ts` is **dead code in V1** and is **deleted in Phase 3** (`git rm packages/unifia/src/knowledge/context/inspector.ts` + delete the 2 test callers and replace with direct `decideEgress` calls).
+- `mcp/serve.ts` propagates the bus via `composeMcpServer` (mcp/compose.ts:51) → `composeKnowledgeService` (facade/compose.ts:100) — no separate plumbing point.
+
+**Implication**: C18-audit budget drops from 4-6 h to 2-4 h. Threat model
+T3 (inspector re-evaluation) collapses because no re-evaluation path
+exists after `inspect()` is deleted.
+
+**B-§16.2.2 — Branch 3 of `decideEgress` is untested in a §6-closure gate.**
+
+The 5-branch `decideEgress` function in `policy/egress.ts:48-91` has
+only 8 existing tests (3 in `context.test.ts:79,97,115` + 5 in
+`sovereign-v1-defects.test.ts:62,72,82,92,101`). Branch 3
+(`plan.defaultRestriction === "deny"` → deny, line 69) is **never
+directly tested**. The gate 14 wording "9 of 9 `decideEgress` tests"
+is wrong: 8 exist, 1 missing.
+
+**Fix** (Phase 4a, ~10 min): add 1 test
+`item.restriction: "allow", plan.defaultRestriction: "deny", no override → expect deny with reason "provider default restriction is deny"`.
+This brings the count to 9 and closes the security gap.
+
+#### MAJOR (should fix)
+
+**M-§16.2.3 — Phase 3 budget 5-10h vs per-card sum 13-22h (arithmetic gap).**
+
+§4 total says 5-10h; per-card sum is 13.25-22.25h. §3 row already
+concedes 14.25-23.75h. The §15 amendment reduced the **headline** to
+5-10h but did not reduce the **per-card estimates** for the re-verify
+cards. §16: keep 5-10h as the **nominal** budget (assumes re-verify
+cards collapse to ~0h) but explicitly state the **worst case** as
+13-22h. The stop threshold of 24h already covers the worst case.
+
+**M-§16.2.4 — Stale SHA `e7f4301a92` → `371cba9f79` in 3 places.**
+
+The §15 amendment repeatedly cited `e7f4301a92` (the v3.1 plan's
+authoring SHA) instead of its own `371cba9f79`. §16 corrects all 3
+occurrences (lines 417, 636, 654 of the v3.1+§15 file), plus the
+D-0021 SHA at line 464.
+
+**M-§16.2.5 — "66 case arms" → "68 case arms" (re-verified).**
+
+The v3.1 review claimed 66; §16 re-verification at `371cba9f79`
+returns 68 (`Select-String -Pattern '^\s*case "'` on
+`unifia-knowledge.ts`). The §15 amendment "corrected" 55 → 66
+without re-verifying, propagating the v3.1 review's off-by-2 count.
+§16 corrects to 68 (or 69 if `case null:` at line 551 is counted).
+
+**M-§16.2.6 — §0/§13 self-rating drift.**
+
+§0 (lines 9-12) still showed pre-§15 self-rating (interpretation
+7.0, avg 8.0, conditional 7.7) while §13 shows post-§15
+(interpretation 8.0, avg 8.3, conditional 8.0). §16 updates §0 to
+match §13 (applied in this amendment).
+
+**M-§16.2.7 — §3 row "4 plumbing points" not updated to 2.**
+
+The §15 amendment corrected §4 to "3 plumbing points" and §15.1.3 to
+"3 plumbing points", but §3 row 132 (line 134) still said "4 plumbing
+points". §16 corrects §3 to 2 (after deleting `inspect()` per
+B-§16.2.1).
+
+**M-§16.2.8 — Commit count 144 → 146.**
+
+The v3.1+§15 §1 line 72 said 144; actual count at `371cba9f79` is
+146 (v3.1 added 2 commits: the plan at `e7f4301a92` and the review
+at `517a925445`; the §15 amendment at `371cba9f79` is the 146th).
+§16 corrects §1, §10, and D-0021.
+
+**M-§16.2.9 — §8 "3-7h" framing doesn't include Phase 4b/5/6/7.**
+
+The §15 amendment said "the plan's overall envelope drops to 3-7h
+of post-Phase-0.5 work", but 3-7h is only the Phase 3 envelope, not
+the total. §16 corrects to "~13-25h" total (Phase 1 + 3 + 4a + 4b
++ 5 + 6 + 7).
+
+**M-§16.2.10 — §15.1.1 "5 BLOCKERs and 12 MAJORs" cite wrong.**
+
+The v3.1 review §3 lists 12 items (3 BLOCKERs + 9 MAJORs), not 17
+(5 BLOCKERs + 12 MAJORs). §16 corrects the cite to match the source.
+
+**M-§16.2.11 — Q4 narrative silently dropped.**
+
+The v3.1 review §3 #10 (Q4 narrative rewrite) is in neither §15.1
+nor §15.4. §16 explicitly defers it: "§12 Q4 narrative rewrite is
+deferred to a possible v3.2 (the v3.1 review's 'v3 Q7 → v3.1 Q4'
+framing is itself incorrect; v3.1's Q4 is a refinement of v3's open
+questions, not a renumbering)."
+
+**M-§16.2.12 — C24 estimate 3-5h → 3.5-6h (68 case arms).**
+
+The §15 amendment's 3-5h estimate is optimistic for 68 case arms
+(it assumed 66). §16 corrects to 3.5-6h.
+
+**M-§16.2.13 — Phase 0.5 fix description ambiguous.**
+
+The §15 amendment says "(2-3 lines: add 2 imports + 1 new import
+for `fsp` at `vault.ts:26`)" but the actual fix is 1 edit (line 26)
++ 1 new import statement (a separate `import * as fsp from
+"node:fs/promises"` at the top of the file, not at line 26). §16
+clarifies.
+
+**M-§16.2.14 — "1-section patch" framing misleading.**
+
+The §15 amendment has ~12 inline edits across §1, §3, §4, §5, §8, §13
+plus the new §15 section. §16 acknowledges this in §15.3 (amended to
+"single §15 audit section with inline propagation across §1, §3, §4,
+§5, §8, §13").
+
+**M-§16.2.15 — Probe 16 static-grep fragility is 1-line fix, not v3.2 work.**
+
+The §15.4 deferred probe 16's AND-pattern to v3.2, but it's 1 line
+of PowerShell:
+
+```powershell
+Select-String -Path 'packages/unifia/src/knowledge' -Pattern 'bus\.emit' |
+  Where-Object { $_.Line -match '"egress\.decision"' }
+```
+
+§16 applies this in Phase 0.E (pre-staging) and uses the same
+pattern in Phase 6 (runtime probe).
+
+### 16.3. Net effect of §16
+
+| Item | v3.1+§15 | v3.1+§15+§16 | Delta |
+|---|---|---|---|
+| C18-audit budget | 4-6 h | **2-4 h** | -2 h (delete inspector) |
+| C24 budget | 3-5 h | **3.5-6 h** | +0.5 h (68 case arms) |
+| Phase 0.5 description | ambiguous | **clear (1 edit + 1 new import)** | 0 |
+| Probe 16 | fragile | **AND-pattern applied** | 0 |
+| §1, §3, §4, §8, §10 internal consistency | broken | **fixed** | 0 |
+| Post-Phase-0.5 envelope | 3-7 h (wrong) | **~13-25 h** (honest) | +6-18 h (clarified) |
+| Self-rating | 8.0/10 (self-declared) | **7.5/10 conditional on §16 fixes** (verified by 6 reviewers) | -0.5 |
+| 6-reviewer cycle | skipped | **next: 3-reviewer spot-check (adversarial + test-strategy + security-redo)** | +30 min |
+
+### 16.4. What §16 does NOT fix
+
+- 9-egress-test depth (Phase 4a adds 1 branch-3 test, may add
+  property-based tests in v3.2)
+- Threat model T1/T2 enumeration (T3 collapses with B-§16.2.1;
+  T1/T2 are deferred to v3.2)
+- C30 bucket distribution verification (Phase 1 confirms; if any
+  test is NOT bucket 4, §8 prediction needs re-baselining)
+
+### 16.5. The conditional self-confidence
+
+The §15 conditional 7.7/10 (bound to bucket distribution) is
+**vacuous**: the distribution is empirically 0/0/0/41/0. The §16
+conditional is bound to:
+
+1. Phase 0.5 succeeding (the 2-3 line `vault.ts:26` fix passes
+   the missing-import test)
+2. C18-audit `inspect()` deletion not breaking the 2 test callers
+3. Probe 16 AND-pattern returning the expected counts in Phase 0.E
+
+If all 3 hold, self-confidence is **8.0/10** (matches §15.2's
+claim post-correction). If any fails, drop to 7.0/10 and
+re-evaluate.
+
+### 16.6. Operator action
+
+Apply the §16 amendment in 1 commit. Then re-spawn 3 reviewers
+(adversarial, test-strategy, security-redo) for a 30-min spot-check.
+If spot-check average ≥ 7.5/10, Phase 0.A0 can begin.
+
+---
+
+*This is the v3.1 + §15 + §16 plan's final pre-Phase-0 form. The
+plan is implementation-ready at 8.0/10 expected (post-§16) or
+7.0/10 conditional. Phase 0 can begin after the operator confirms.*
+
