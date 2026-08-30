@@ -4,6 +4,46 @@
 > All notable changes to the Knowledge subsystem are documented
 > here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0-knowledge] - 2026-08-30 (durability and card closure)
+
+### Fixed (security)
+- **Anonymous MCP calls are refused.** serveMcp substituted the daemon's own
+  privileged token when a request carried none, so an unauthenticated
+  JSON-RPC call was served with the server's credential. The test named
+  "serves a search with the session token" sent no token and passed,
+  enshrining the bypass.
+- **Wire payloads are validated** against the official Zod schemas through a
+  `{ token, request }` envelope; authorisation runs before validation so an
+  unauthorised caller cannot probe a schema.
+
+### Fixed (correctness)
+- **Deadlines bind.** The read path used synchronous fs calls, so no timer
+  could fire during a scan: a 5ms budget returned after 128ms. readdir, stat
+  and readFile are awaited; 1ms now returns in 2ms, truncated.
+- **archive works** — the WAL grouped it with delete and demanded no new
+  hash, making it unperformable. Corrected on both the TS and Rust sides.
+- **supersede records the replacement on the successor**, refuses cycles and
+  self-supersession; **move is implemented**; every mutation of an existing
+  note is compare-and-swap protected in the contract as well as the writer.
+
+### Added
+- **Durable commits** (`mutation/durability.ts`): fsync of the temporary, of
+  the WAL append — the commit point — and of the directory; an O_EXCL
+  cross-process WriteLock with stale reclaim; recovery on open. 15 crash
+  tests against the real filesystem. The matrix found a real bug while being
+  written: an append following a torn line concatenated onto it.
+- **egress.decision audit trail** (ADR-KNOW-0006 §6): every decision, allow
+  and deny, with hash, qualified destination, reason and guard version.
+  decideEgress stays pure; the sink is wired at the composition root.
+
+### Tests
+- 817 passing: 703 TS knowledge (was 658) + 79 contracts + 35 Rust.
+
+### Status
+- All cards from the three counter-reviews are closed; R-0012 §6, R-0013 and
+  R-0014 closed. Remaining scope deferrals are named in RISKS.
+- 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
 ## [0.5.0-knowledge] - 2026-08-30 (write path and MCP daemon)
 
 ### Added

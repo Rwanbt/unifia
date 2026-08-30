@@ -526,3 +526,70 @@ cette session a montré deux fois qu'une suite verte ne voit pas mes propres
 régressions. Ce qualificatif appartient à une contre-revue indépendante.
 
 **Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
+---
+
+# Addendum 4 — 2026-08-30, durabilité et clôture des cartes
+
+> Quatrième et dernier addendum. Il fait foi sur ce qui précède.
+
+## Ce qui a été fermé depuis l'addendum 3
+
+| Carte | Défaut | État |
+|---|---|---|
+| C27 | Une requête MCP **sans token** était servie avec le token privilégié du daemon | Clos — refus `unauthorized`, 8 tests de refus |
+| C28 | Les schémas Zod n'étaient jamais appliqués au payload reçu | Clos — enveloppe `{token, request}`, table méthode → schéma |
+| C29 | Les deadlines n'encadraient pas `list()`/`read()` (chemin FS synchrone) | Clos — lecture async, 1 ms → 2 ms tronqué |
+| C30 | `archive` impossible, `supersede` ignorait `successorId`, `move` non implémenté, CAS divergent | Clos — 14 tests de contrat |
+| C31 | Aucun fsync, aucun verrou, aucune recovery | Clos — invariant de commit + crash-matrix, 15 tests |
+| R-0012 §6 | `egress.decision` déclaré, jamais émis | Clos — trace de chaque décision, allow et deny |
+
+## Sondes d'acceptation (rejouées ce jour)
+
+```
+local search finds it              : 1
+remote search withholds            : 0
+remote get withholds               : true
+remote backlinks withholds         : 0
+egress decisions traced            : true
+restrictions survive round-trip    : deny
+deadline 1ms honoured              : 2ms truncated=true
+anonymous MCP                      : refused (-32004)
+verify --strict                    : exit 1 (WARN/NOT_EXECUTED présents)
+```
+
+## Gates
+
+817 tests (703 knowledge + 79 contracts + 35 Rust). Typecheck, biome,
+`cargo fmt --check`, `clippy -D warnings`, `git diff --check` : tous propres.
+
+## Périmètre V1 — ce qui est délibérément hors champ
+
+Ce ne sont pas des défauts mais des reports nommés, chacun avec sa commande
+de reprise :
+
+- **runtime FTS5** — `status` rapporte `fts: false` ; la recherche est un scan
+  lexical borné, correct et testé ;
+- **modèle ONNX** — `status` rapporte `vector: false` ;
+- **watcher OS** — `VaultSource.watch()` refuse au lieu de simuler ; une
+  édition externe est vue à la requête suivante ;
+- **probes Android** — exigent un device ; un `PASS` demande une preuve du
+  harness ;
+- **persistance du control log Class C** — la trace d'egress vit le temps de
+  la composition (ADR-KNOW-0006 §6, seconde moitié) ;
+- **persistance du registre de tokens MCP** — un redémarrage du daemon
+  invalide les tokens en cours.
+
+## Verdict
+
+Toutes les cartes connues des trois contre-revues sont fermées et vérifiées
+par sonde. Pour le périmètre V1 tel que déclaré ci-dessus, la branche est
+prête.
+
+Le qualificatif `PRODUCTION_READY` reste à établir par une contre-revue
+indépendante : trois revues successives ont chacune trouvé des défauts que
+l'auteur n'avait pas vus, dont deux régressions introduites par la
+remédiation elle-même. Ce n'est pas de la prudence rhétorique, c'est un taux
+de base mesuré sur cette branche.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
