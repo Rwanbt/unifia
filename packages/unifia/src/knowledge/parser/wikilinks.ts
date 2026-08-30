@@ -30,7 +30,16 @@ export interface Wikilink {
   end: number
 }
 
-const WIKILINK_RE = /\[\[([^\]\n]+?)\]\]/g
+/**
+ * `[` is excluded from the target as well as `]`.
+ *
+ * Without it, `[[[c]]]` yielded the target `[c` — a string no locator can ever
+ * equal, so it became a permanently broken edge that `broken-links` reported
+ * as a real finding. None of the four syntaxes documented above can produce a
+ * target containing a bracket; excluding it makes the parser match its own
+ * contract and resolves the nested form to `c`. Found by the parser fuzzer.
+ */
+const WIKILINK_RE = /\[\[([^[\]\n]+?)\]\]/g
 
 function splitTarget(raw: string): { target: string; heading?: string } {
   const hash = raw.indexOf("#")
