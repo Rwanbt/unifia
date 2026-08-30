@@ -486,6 +486,61 @@ excluant `]` d'une cible mais pas `[`. Aucun locator ne peut valoir `[c`, donc
 c'était une arête définitivement cassée que `broken-links` rapportait comme un
 vrai constat — et aucune des quatre syntaxes documentées par le module ne peut
 produire ça. Corrigé.
+## R-0022 — Le core était atteignable en ligne de commande, pas par l'agent
+
+**Sévérité** : critique (la fonctionnalité n'existait pas pour l'utilisateur)
+**Statut** : **CLOS** le 2026-08-31 — commits `77299c56fd`, `61c0ddcc42`
+
+R-0019 a mis le core dans le binaire. Il restait joignable par **un humain
+tapant une commande**, et par personne d'autre. Trois absences, chacune
+vérifiée avant correction :
+
+| Absence | Constat |
+|---|---|
+| Aucun outil knowledge/memory | `src/tool/registry.ts` : 20 outils, aucun |
+| Aucun consommateur de `ContextPack` | 0 hors `src/knowledge/` |
+| `writable: true` passé nulle part | 0 occurrence — l'écriture Class A n'était jamais activée |
+
+Un moteur de récupération sans appelant n'est pas une mémoire, et un writer
+que rien n'active ne peut rien enregistrer. La distinction avec R-0019 est
+exacte : R-0019 portait sur le bundler, celui-ci sur le câblage applicatif.
+Les deux ont la même forme — *correct mais débranché* — et aucune revue de
+code ne les voit, parce que toutes demandent si le code est juste.
+
+**Correctif** : `memory_search` / `memory_read` / `memory_write` enregistrés
+sur le registre ; `recallMemoryContext` appelé au début de chaque tour dans
+`session/prompt.ts` ; `knowledge/app/memory.ts` comme seul point qui résout
+le vault et compose le service, avec `writable: true` sur le chemin d'écriture.
+
+**Garde-fou** : `test/knowledge/cli/reachable.test.ts` échoue si l'une des
+trois absences revient, et `test/tool/memory.test.ts` pilote les outils par
+`ToolRegistry` et `execute` plutôt qu'en important le service — un import
+prouve que le module compile, pas que quelque chose l'appelle.
+
+**Vérifié dans le sidecar reconstruit** : `memory_search` 22, `memory_write`
+26, `.unifia/memory` 4, `remote_recall` 12 occurrences, toutes à zéro avant.
+
+## R-0023 — Un réglage d'egress gravé dans le vault à sa création
+
+**Sévérité** : moyenne (décision irréversible sans édition manuelle)
+**Statut** : **CLOS** le 2026-08-31 — commit `77299c56fd`, découvert par un test
+
+La première version de `openMemory` écrivait `memory.remote_recall` dans le
+`.unifia/policy.json` du vault au moment de le créer. Le fichier de politique
+étant l'autorité, changer le réglage ensuite **ne faisait plus rien, en
+silence** : l'utilisateur pouvait prendre la décision exactement une fois.
+
+C'est la même famille de défaut que R-0019 et R-0022 — un réglage qui a l'air
+de fonctionner et n'a aucun effet — trouvée cette fois par deux tests écrits
+avant d'avoir remarqué le problème.
+
+**Correctif** : les deux fichiers répondent à deux questions distinctes. Le
+`policy.json` du vault dit ce que *ce vault* autorise ; la config applicative
+dit si *cette application* envoie la mémoire à un modèle distant. Le réglage
+voyage désormais comme `operatorEgress` à chaque ouverture. La politique du
+vault reste la plus forte — un vault partagé qui a dit non continue de dire
+non — et la restriction propre à la note gouverne par-dessus les deux.
+
 ## R-0016 — Statut des probes Android non ré-arbitré après C24
 
 **Sévérité** : moyenne (intégrité de preuve)
