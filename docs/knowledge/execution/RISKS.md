@@ -267,3 +267,83 @@ récupéré, et deux writers concurrents sans collision de séquence.
 **Reste hors périmètre V1** : la persistance du control log Class C
 (ADR-KNOW-0006 §6, seconde moitié) — la trace d'egress vit le temps de la
 composition.
+
+## R-0015 — Quatre non-implémentés sortis du périmètre sans clôture
+
+**Sévérité** : haute (traçabilité) — les items eux-mêmes sont moyens à hauts
+**Statut** : OUVERT
+**Ouvert le** : 2026-08-30, après les six revues du FINAL-REPORT
+
+L'addendum 1 nommait cinq éléments non implémentés. L'addendum 2 les
+reconduisait explicitement. Les addenda 3 et 4 les ont abandonnés sans les
+fermer ni les lister hors périmètre. Seul `egress.decision` a été clos
+(R-0012 §6). Les quatre autres ont disparu du rapport tout en restant vrais
+dans le code.
+
+C'est un défaut de traçabilité avant d'être un défaut technique : **un
+finding ne doit jamais disparaître parce qu'un addendum ne le mentionne
+plus.** L'affirmation « toutes les cartes connues sont fermées » de
+l'addendum 4 était fausse au sens strict.
+
+Vérifié au 2026-08-30 :
+
+| Item | État mesuré | Conséquence |
+|---|---|---|
+| `DeclassificationGrant` (ADR-KNOW-0006 §3) | absent | rien ne peut élargir un `deny` — fail-closed, mais le partage consenti documenté par l'ADR est impossible |
+| Guard d'egress côté Rust | `crates/.../port/` n'existe pas | la parité TS/Rust annoncée par l'ADR n'existe pas |
+| Héritage des restrictions | `mostRestrictive()` a **0 consommateur** | aucune transformation n'hérite encore ; le jour où une arrive, elle doit passer par là |
+| Persistance Class B / ControlStore | in-memory côté Rust | rien ne survit au processus |
+
+**Aveu de méthode** : `decideEgressBatch` a été supprimé dans la même session
+au motif qu'il n'avait aucun consommateur, tandis que `mostRestrictive` était
+conservé pour la même raison. Deux poids, deux mesures. `mostRestrictive` est
+gardé délibérément — il implémente la règle §3 et sera l'unique point
+d'héritage — mais ce choix devait être écrit, pas tacite.
+
+**Levée** : implémenter chacun, ou l'amender explicitement hors de V1 dans
+son ADR. Pas de troisième voie.
+
+## R-0016 — Statut des probes Android non ré-arbitré après C24
+
+**Sévérité** : moyenne (intégrité de preuve)
+**Statut** : OUVERT
+
+Le run device `3b58248c0f` a enregistré `PASS_WITH_SAFE_FALLBACK` sur Xiaomi
+Mi 10 Pro. La carte C24 a ensuite établi que `runProbes` transformait une
+`ProbeEvidence` vide en `PASS`. **Ce run n'a jamais été rejoué depuis.**
+
+Le rapport dit tour à tour : device run non exécuté, artefacts présents,
+`PASS_WITH_SAFE_FALLBACK`, puis « pas de device Android », puis Android hors
+champ. Ces cinq états ne peuvent pas être vrais ensemble.
+
+**Position retenue** : le run antérieur à C24 est considéré **invalidé**, car
+il a été produit par le harness qui fabriquait des `PASS`. Le statut Android
+est `NOT_EXECUTED_EXTERNAL_BOUNDARY` jusqu'à un run rejoué fournissant une
+`ProbeEvidence` complète (commande, device id, horodatage valide, sortie).
+
+**Levée** : rebrancher le device et rejouer
+`bun test test/knowledge/mobile` avec evidence du harness.
+
+## R-0017 — Périmètre V1 : pas d'effacement, pas d'export, pas de rétention
+
+**Sévérité** : haute (promesse produit)
+**Statut** : OUVERT — décision propriétaire requise
+
+Le périmètre initial du Sovereign Knowledge Core mentionnait notamment le
+droit de voir, éditer, **supprimer** et **exporter** ses données, un `forget`,
+un TTL et une politique de rétention. Aucun n'est implémenté :
+
+- `delete` est **refusé par construction** (ADR-KNOW-0009 rejette la
+  suppression physique) ; `archive`, `move` et `supersede` ne constituent pas
+  un droit effectif à l'effacement ;
+- aucun export utilisateur ;
+- aucun TTL ni rétention — y compris le TTL de 30 jours des `candidate` que
+  l'ADR-KNOW-0009 §1 annonce.
+
+Pour un produit dont la promesse est la souveraineté, l'absence de droit à
+l'effacement n'est pas un détail de périmètre.
+
+**Décision requise** : soit ces éléments entrent en V1, soit V1 est
+explicitement requalifiée « fondation lexicale en lecture seule » et la
+promesse produit est réécrite en conséquence. Le rapport ne peut pas parler
+de « Sovereign Knowledge Core V1 » sans que ce choix soit tranché et écrit.

@@ -1,7 +1,35 @@
 <!-- SPDX-License-Identifier: MIT -->
-# FINAL-REPORT — Sovereign Knowledge Core V1 (sprint complet 2026-08-29)
+# FINAL-REPORT — Sovereign Knowledge Core V1
 
-> Rapport final de la session d'implémentation. Autoportant.
+> ## ⚠️ Lire d'abord ceci
+>
+> **Le corps de ce rapport (sections 1 à 14) date du 2026-08-29 et une partie
+> en a été réfutée.** Quatre contre-revues successives ont établi que
+> plusieurs `PASS` y désignaient des démonstrateurs. Les quatre addenda datés
+> corrigent ; **l'addendum 4 fait foi** en cas de contradiction.
+>
+> Le corps est conservé comme piste d'audit, pas comme description du système.
+>
+> | Où aller | Quoi |
+> |---|---|
+> | **Addendum 4** (fin du fichier) | État courant, cartes fermées, sondes d'acceptation, périmètre V1 |
+> | Addenda 1 à 3 | Ce qui a été réfuté et corrigé, dans l'ordre |
+> | Sections 1-14 | Historique du sprint initial — **contient des affirmations fausses**, signalées là où elles apparaissent |
+> | `RISKS.md` | Risques ouverts, dont ceux hors périmètre V1 |
+>
+> **Résumé en dix lignes.** Branche `feat/sovereign-knowledge-core`, sans
+> upstream, 0 push / 0 PR / 0 merge. 817 tests (703 knowledge + 79 contracts
+> + 35 Rust), typecheck / biome / cargo fmt / clippy / `git diff --check`
+> propres. Les cartes C18 à C31 des trois contre-revues sont fermées et
+> vérifiées par sonde. Le retrieval est un scan lexical borné, **validé sur
+> un corpus de 11 notes** — aucune revendication d'échelle au-delà.
+> Restent ouverts et nommés : effacement/export utilisateur, TTL et
+> rétention, persistance de la trace d'egress, `DeclassificationGrant`,
+> guard d'egress côté Rust, héritage des restrictions, persistance
+> Class B / ControlStore, runtime FTS5, modèle ONNX, watcher OS, probes
+> Android. Verdict : `READY_FOR_REVIEW` — pas `PRODUCTION_READY`, qui
+> appartient à une contre-revue indépendante du code.
+
 > Couvre les 13 phases du runbook V2 §9-21, avec preuves
 > (tests verts), fallbacks, et conditions de reprise.
 
@@ -181,6 +209,10 @@ Procédure de rollback (par le propriétaire, hors session) :
 
 ```bash
 cd D:\App\unifia\unifia-memory
+# La branche n'a pas d'upstream et n'a jamais été poussée : sans cette
+# sauvegarde, `reset --hard` rend les ~133 commits récupérables au reflog
+# seulement. Une ligne, et le rollback redevient réversible.
+git branch backup/knowledge-$(date +%Y%m%d-%H%M%S)
 git reset --hard 95350647140a382ee6d5d61bc2f6639597d80f0b
 git clean -fdx
 bun install
@@ -237,7 +269,12 @@ priorité si elle l'était :
 - ✅ Aucun push, PR, merge, release, publication.
 - ✅ Worktree `work-design` strictement intouché.
 - ✅ Branche `work-design` non checkoutée, 0 import.
-- ✅ Aucun déclassement de restriction, aucun faux backend, aucun mock présenté comme production.
+- ❌ **RÉFUTÉ (addendum 1)** — « Aucun déclassement de restriction, aucun faux
+  backend, aucun mock présenté comme production. » Les trois étaient faux :
+  `decideEgress` élargissait un `deny`, `makeRegistry()` était en dur dans la
+  CLI, et la façade renvoyait `null`/`[]`. Corrigés depuis ; la ligne est
+  conservée barrée parce qu'une checklist de conformité se lit isolément et
+  qu'une coche verte fausse y est plus dangereuse qu'ailleurs.
 - ✅ Aucun secret, signature, ou policy distante modifié.
 - ✅ Convention Commits.
 - ✅ Append-only sur STATE.md.
@@ -250,7 +287,12 @@ priorité si elle l'était :
 cd D:\App\unifia\unifia-memory
 git status --short  # doit être vide
 git branch --show-current  # doit être feat/sovereign-knowledge-core
-git rev-parse HEAD  # doit être 2278d1b110 (FRONTIER-QUESTIONS) ou b2c2773ba9 (sprint)
+# NE PAS attendre 2278d1b110 ni b2c2773ba9 : ces SHA précèdent les quatre
+# remédiations (addenda 1 à 4). Une session qui s'y attendait conclurait à un
+# worktree corrompu. L'état courant est la pointe de la branche ; le SHA exact
+# est dans l'addendum 4.
+git rev-parse HEAD
+git log --oneline -1  # doit porter un sujet docs/feat/fix(knowledge)
 ```
 
 Puis lire `docs/knowledge/execution/STATE.md` + ce `FINAL-REPORT.md`.
@@ -582,9 +624,23 @@ de reprise :
 
 ## Verdict
 
-Toutes les cartes connues des trois contre-revues sont fermées et vérifiées
-par sonde. Pour le périmètre V1 tel que déclaré ci-dessus, la branche est
-prête.
+> **Correction du 2026-08-30, après six revues de ce rapport.** La phrase
+> ci-dessous disait « toutes les cartes connues des trois contre-revues sont
+> fermées ». C'était faux au sens strict : quatre éléments nommés
+> non-implémentés dans l'addendum 1 avaient disparu des addenda 3 et 4 sans
+> être ni fermés ni reportés — `DeclassificationGrant`, le guard d'egress
+> côté Rust, l'héritage via `mostRestrictive()` et la persistance Class B /
+> ControlStore. Ils sont rétablis en **R-0015**. Le statut des probes Android
+> n'avait pas été ré-arbitré après C24 (**R-0016**), et l'absence
+> d'effacement, d'export et de rétention n'était pas traitée comme une
+> question de périmètre (**R-0017**).
+
+Les cartes C18 à C31 des trois contre-revues sont fermées et vérifiées par
+sonde. Quatre éléments antérieurs restent ouverts et sont désormais suivis
+(R-0015 à R-0017) au lieu d'avoir disparu.
+
+Pour le périmètre V1 **en lecture seule et à l'échelle mesurée (11 notes)**,
+la branche est prête à être revue.
 
 Le qualificatif `PRODUCTION_READY` reste à établir par une contre-revue
 indépendante : trois revues successives ont chacune trouvé des défauts que
