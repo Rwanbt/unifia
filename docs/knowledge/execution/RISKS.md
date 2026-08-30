@@ -325,6 +325,65 @@ peut pas être tracé n'est pas servi.
 **Levée du reliquat** : implémenter les deux items restants, ou les amender
 explicitement hors de V1 dans ADR-KNOW-0006. Pas de troisième voie.
 
+## R-0018 — L'échelle du retrieval : mesurée, et elle a une falaise
+
+**Sévérité** : haute (revendication produit)
+**Statut** : **MESURÉ** le 2026-08-30 — comportement corrigé, limite documentée
+**Ouvert le** : 2026-08-30
+
+Chaque version du rapport portait la même phrase : « scan lexical borné
+validé sur **11 notes**, aucune revendication au-delà ». Une réserve répétée
+assez souvent finit par se lire comme une mesure. Ce n'en était pas une.
+
+### Mesure
+
+`bun bench/knowledge-scale.ts` depuis `packages/unifia/`, machine de
+développement, deadline 2 s :
+
+| notes | `list()` | search (60 s) | par note | @2 s | items | tronqué | espaces réellement ouverts |
+|---|---|---|---|---|---|---|---|
+| 100 | 206 ms | 315 ms | 3,15 ms | 364 ms | 8 | non | personal, project |
+| 250 | 387 ms | 884 ms | 3,54 ms | 866 ms | 8 | non | personal, project |
+| 500 | 706 ms | 1 677 ms | 3,35 ms | 1 640 ms | 8 | non | personal, project |
+| 1 000 | 1 437 ms | 3 321 ms | 3,32 ms | 2 062 ms | 8 | **oui** | personal seul |
+| 2 000 | 3 011 ms | 6 928 ms | 3,46 ms | 2 002 ms | **0** | **oui** | **aucun** |
+
+Le coût est **linéaire et stable à ~3,3 ms par note** — V1 n'a pas d'index
+FTS, `search` lit chaque note et score le corps. Deux seuils en découlent :
+
+- **~1 000 notes** : le deadline de 2 s commence à tronquer ; le second
+  espace n'est plus atteint.
+- **~2 000 notes** : `list()` seul dépasse le budget. La recherche renvoie
+  **zéro résultat** sans avoir lu une seule note.
+
+Le plafond contractuel de `deadlineMs` est **60 s**, donc au-delà d'environ
+18 000 notes aucun deadline légal ne permet un scan complet.
+
+### Le défaut trouvé en mesurant
+
+`ContextDiagnostics.sourcesQueried` rapportait les espaces **demandés**, pas
+ceux réellement parcourus. Une recherche qui n'avait rien lu revenait donc
+avec `candidates: []` depuis un espace jamais ouvert — indiscernable de
+« cet espace ne contient aucune correspondance ». Même classe de défaut que
+`status.vector` rapportant un drapeau de configuration au lieu d'un fait.
+
+**Corrigé** : le router ne compte un espace comme interrogé qu'après un
+`list()` abouti. À 2 000 notes la réponse dit maintenant `sourcesQueried: []`,
+`truncated: true`, et `excluded` nomme l'espace abandonné.
+
+Épinglé par `test/knowledge/context/scale.test.ts`, qui force le deadline au
+lieu de construire un gros vault : le comportement doit tenir sur n'importe
+quelle machine, la vitesse non.
+
+### Ce qui n'est pas corrigé
+
+La falaise elle-même. La lever demande un index (FTS5 ou équivalent) ou un
+`list()` incrémental qui rende un corpus partiel plutôt que rien — les deux
+sont des changements de conception, pas des correctifs. **Le périmètre
+honnête de V1 est donc : vault de l'ordre du millier de notes.**
+
+**Levée** : index de recherche persistant, ou `list()` streamé.
+
 ## R-0016 — Statut des probes Android non ré-arbitré après C24
 
 **Sévérité** : moyenne (intégrité de preuve)

@@ -25,8 +25,11 @@
 >
 > Trois limites à connaître avant de lire le reste :
 >
-> 1. **Échelle** — le retrieval est un scan lexical borné validé sur
->    **11 notes**. Aucune revendication au-delà. *(toujours vrai)*
+> 1. **Échelle** — mesurée le 2026-08-30 (R-0018) : **~3,3 ms par note**,
+>    linéaire. Le deadline de 2 s tronque vers **1 000 notes** et, vers
+>    **2 000**, `list()` seul dépasse le budget — la recherche renvoie zéro
+>    résultat sans avoir lu une note. **Périmètre honnête de V1 : un vault de
+>    l'ordre du millier de notes.**
 > 2. ~~**Lecture seule** — pas d'effacement, pas d'export, pas de TTL~~ —
 >    **levée** le 2026-08-30 (cartes C33–C35, R-0017 clos) : suppression
 >    restaurable, export vérifiable, rapport de rétention.
@@ -805,5 +808,57 @@ erreur au lieu du corps de la note.
 
 880 tests (766 knowledge + 79 contracts + 35 Rust) — 27 ajoutés par cet
 addendum. Typecheck (`tsgo --noEmit`), biome, `cargo test` : propres.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
+
+---
+
+# Addendum 7 — L'échelle, enfin mesurée (R-0018)
+
+**2026-08-30.** « Scan lexical borné validé sur 11 notes, aucune
+revendication au-delà » apparaissait dans chaque version de ce rapport. Une
+réserve répétée assez souvent finit par se lire comme une mesure. Ce n'en
+était pas une : `bench/knowledge-scale.ts` en fait une.
+
+## Le chiffre
+
+**~3,3 ms par note**, remarquablement stable de 100 à 2 000 notes — V1 n'a
+pas d'index, `search` lit chaque note et score le corps. Deux seuils :
+
+- **~1 000 notes** : le deadline de 2 s commence à tronquer ; le second
+  espace n'est plus atteint du tout.
+- **~2 000 notes** : `list()` seul dépasse le budget. La recherche renvoie
+  **zéro résultat sans avoir lu une seule note**.
+
+Le plafond contractuel de `deadlineMs` étant 60 s, aucun deadline légal ne
+permet un scan complet au-delà d'environ 18 000 notes.
+
+Table complète et méthode dans R-0018.
+
+## Le défaut que la mesure a révélé
+
+`sourcesQueried` rapportait les espaces **demandés**, pas ceux réellement
+parcourus. À 2 000 notes la réponse disait donc « j'ai interrogé personal et
+project, et n'ai rien trouvé » alors qu'elle n'avait ouvert aucun des deux.
+C'est exactement la classe de défaut que cette branche ferme depuis le début
+— une intention rapportée comme un fait — et elle avait survécu à trois
+contre-revues parce qu'aucune n'avait fait tourner le code sur autre chose
+qu'un corpus jouet.
+
+Corrigé : un espace n'est compté comme interrogé qu'après un `list()`
+abouti. Une recherche qui n'a rien lu le dit.
+
+## Ce que cet addendum ne fait pas
+
+La falaise reste. La lever demande un index persistant ou un `list()`
+incrémental rendant un corpus partiel plutôt que rien — deux changements de
+conception, pas des correctifs. Ce qui change, c'est que la limite est
+**chiffrée et reportée**, au lieu d'être une réserve sans nombre.
+
+## Gates
+
+883 tests (769 knowledge + 79 contracts + 35 Rust) — 3 ajoutés ici.
+Typecheck, biome, `cargo fmt/clippy/test` : propres.
 
 **Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.

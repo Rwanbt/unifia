@@ -129,6 +129,11 @@ export class ContextRouter {
       .filter((s): s is KnowledgeSource => s !== undefined)
 
     const resolved: Resolved[] = []
+    // Spaces that actually produced a listing, not the ones asked for. A
+    // space whose `list()` blew the deadline contributed nothing, and saying
+    // it was queried turns "I searched nothing" into "I searched and found
+    // nothing" — the difference between a bounded answer and a wrong one.
+    const queried: KnowledgeSpaceKind[] = []
 
     outer: for (const source of sources) {
       let listed: ListedNote[]
@@ -152,6 +157,7 @@ export class ContextRouter {
         })
         continue
       }
+      queried.push(source.space.kind)
 
       for (const note of listed) {
         if (Date.now() >= deadlineAt) {
@@ -302,7 +308,7 @@ export class ContextRouter {
     }
 
     const diagnostics: ContextDiagnostics = {
-      sourcesQueried: spaces,
+      sourcesQueried: queried,
       candidatesScanned: scanned,
       candidatesDroppedByRestriction: droppedByRestriction,
       totalTokenCost,
