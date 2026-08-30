@@ -649,3 +649,83 @@ remédiation elle-même. Ce n'est pas de la prudence rhétorique, c'est un taux
 de base mesuré sur cette branche.
 
 **Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
+---
+
+# Addendum 5 — 2026-08-30, six revues du rapport
+
+> Cinq addenda font désormais foi dans l'ordre ; celui-ci l'emporte.
+
+Six modèles ont relu ce rapport (pas le code). Leurs findings ont convergé,
+ce qui rend le recoupement exploitable. Trois classes en sont sorties.
+
+## 1. Le rapport lui-même était nuisible par endroits
+
+Corrigé dans le commit `d24e97b7f3` :
+
+- **§12 conditions de reprise** envoyaient une session suivante sur
+  `2278d1b110` ou `b2c2773ba9`, deux SHA **antérieurs aux quatre
+  remédiations**. C'est la seule section exécutée mécaniquement plutôt que
+  lue : elle aurait fait conclure à un worktree corrompu.
+- **§7 rollback** enchaînait `reset --hard` et `clean -fdx` sur une branche
+  sans upstream jamais poussée — ~133 commits récupérables au reflog
+  seulement. Une branche de sauvegarde précède désormais.
+- **§11** conservait trois coches réfutées par l'addendum 1. Une checklist de
+  conformité se lit isolément ; une coche verte fausse y est plus dangereuse
+  qu'ailleurs.
+- Un **en-tête** dit maintenant que le corps est périmé, où aller, et résume
+  l'état en dix lignes — dont l'échelle réellement validée.
+
+## 2. Quatre findings avaient disparu sans être fermés
+
+L'addendum 1 nommait cinq non-implémentés, l'addendum 2 les reconduisait, les
+addenda 3 et 4 en ont abandonné quatre sans les fermer ni les reporter. Seul
+`egress.decision` était clos. **« Toutes les cartes connues sont fermées »
+était donc faux au sens strict**, et l'addendum 4 le dit maintenant.
+
+Rétablis en **R-0015** (`DeclassificationGrant`, guard Rust, héritage via
+`mostRestrictive()`, persistance Class B / ControlStore — les quatre
+vérifiés encore ouverts au 2026-08-30), **R-0016** (statut Android jamais
+ré-arbitré après C24, run antérieur considéré invalidé) et **R-0017**
+(absence d'effacement, d'export et de rétention — décision de périmètre
+requise du propriétaire).
+
+## 3. Les six défauts étaient un seul — C32
+
+C'est le finding le plus utile des six revues, et il explique le taux de base
+que l'addendum 4 constatait sans le mécaniser : **une valeur qui devrait être
+le résultat d'une décision était directement constructible.** Le router
+fabriquait `restriction: "allow"` ; `get()` a refait la même chose une couche
+plus haut une fois le router corrigé ; `runProbes` transformait une evidence
+vide en `PASS` ; `serveMcp` prêtait son propre token à un appel anonyme.
+Chaque correctif fermait l'occurrence et laissait la constructibilité.
+
+`policy/egress.ts` marque désormais un item validé d'un symbole unique.
+`clearForEgress` est le seul moyen d'en obtenir un, et sa branche de refus ne
+peut pas en produire. Le router type son pack en `ClearedItem[]`, la façade
+rapporte `cleared` au lieu de rendre une décision que l'appelant peut oublier
+de lire. **Écrire un item permissif et le transmettre ne compile plus.**
+
+Les assertions de `policy/brand.test.ts` sont au niveau du type
+(`@ts-expect-error`) : elles échouent au typecheck, pas au runner. Un
+typecheck propre avec ces directives présentes est la preuve qu'elles
+tirent — si le marquage disparaissait, TypeScript les signalerait inutiles.
+
+## Ce que ce tour ne fait pas
+
+- Aucune revue n'a lu le code : les six portaient sur le rapport. La
+  contre-revue indépendante du dépôt reste à faire.
+- L'échelle reste **11 notes**. Aucune revendication au-delà.
+- La trace d'egress reste non persistée : V1 offre un contrôle d'egress
+  **non auditable après redémarrage**. C'est écrit ainsi plutôt que rangé en
+  report, parce que pour un produit souverain c'est le contrôle qui rend
+  l'invariant vérifiable.
+- Le crate Rust n'est sur aucun chemin de production ; ses 35 tests comptent
+  dans le total et couvrent des primitives sans consommateur.
+
+## Gates
+
+822 tests (708 knowledge + 79 contracts + 35 Rust). Typecheck, biome,
+`cargo fmt --check`, `clippy -D warnings`, `git diff --check` : propres.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
