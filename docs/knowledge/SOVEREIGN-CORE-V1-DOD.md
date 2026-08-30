@@ -286,7 +286,10 @@
 | E-09 matrice de stockage Android | **NOT_EXECUTED** | `bun test test/knowledge/mobile` | Template livré ; exige un device |
 | E-10 SBOM et licences | **PARTIAL** | `bun test test/knowledge/hardening` | Squelette CycloneDX ; pas un scan supply-chain complet |
 
-**Décompte** : 10 PASS, 7 PARTIAL, 4 NOT_EXECUTED (E-01/E-02 sont des gates permanents).
+**Décompte** : 12 PASS, 7 PARTIAL, 3 NOT_EXECUTED (E-01/E-02 sont des gates permanents).
+
+> Ce total est recompté depuis la table ci-dessus, pas reporté à la main : il
+> disait 10/7/4 alors que la table portait déjà 12/7/3.
 
 > Mise à jour 2026-08-30 : U-11 (MCP) passe de « serveur non exposé » à un
 > daemon réel (`mcp serve`), et le chemin d'écriture Class A existe désormais

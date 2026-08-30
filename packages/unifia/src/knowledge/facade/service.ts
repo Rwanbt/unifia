@@ -23,6 +23,7 @@ import type {
 } from "@unifia/contracts/knowledge"
 import { portableRestrictionsFromFrontmatter } from "@unifia/contracts/knowledge"
 import { decideEgress, type EgressResult } from "../policy/egress.js"
+import { egressAuditEntry, type EgressAudit } from "../policy/audit.js"
 import type { KnowledgeSource, SourceRegistry } from "../source/source.js"
 import { ContextRouter, type ContextRouterConfig, type RouterOutput } from "../context/router.js"
 import { doctor, type DoctorInput, type DoctorReport } from "../admin/doctor.js"
@@ -69,6 +70,8 @@ export interface DefaultKnowledgeServiceOptions {
   ftsEnabled?: boolean
   /** True when an embedding model is loaded. V1: false. */
   vectorEnabled?: boolean
+  /** Records every egress decision taken by get/backlinks/lineage. */
+  audit?: EgressAudit
 }
 
 export class DefaultKnowledgeService implements KnowledgeService {
@@ -155,7 +158,11 @@ export class DefaultKnowledgeService implements KnowledgeService {
       temporalState: fm.unifia_lifecycle,
     }
 
-    return { candidate, item, decision: decideEgress({ item, plan }) }
+    const decision = decideEgress({ item, plan })
+    // get, backlinks and lineage decide egress too; their decisions belong in
+    // the same trail as the router's.
+    this.options.audit?.record(egressAuditEntry(item, plan, decision))
+    return { candidate, item, decision }
   }
 
   async get(id?: KnowledgeId, locator?: KnowledgeLocator): Promise<RetrievalResponse | null> {

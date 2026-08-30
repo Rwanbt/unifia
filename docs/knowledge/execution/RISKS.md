@@ -161,9 +161,18 @@ peut que restreindre). **Restent non implémentées** :
   pipeline de transformation (résumé, traduction, re-chunking, embedding) ne
   l'appelle. Il n'y a pas encore de transformation en V1, donc rien n'est
   actuellement mal classé ; le jour où une arrive, elle doit passer par là.
-- **§6 audit `egress.decision`** — `decideEgress` est pure et aucun appelant
-  n'émet l'événement. L'invariant « tout egress est tracé » n'est donc pas
-  tenu.
+- ~~**§6 audit `egress.decision`**~~ — **CLOS le 2026-08-30.**
+  `policy/audit.ts` construit l'entrée (hash, destination qualifiée
+  local/remote, décision, raison, version du guard, horodatage) et
+  `InMemoryEgressAudit` l'émet sur le `DomainBus`. Le routeur et la façade
+  l'appellent pour **chaque** décision, allow comme deny — une trace qui ne
+  garderait que les refus ne dirait pas ce qui est réellement sorti.
+  `decideEgress` reste pure : une fonction de décision qui journalise ne peut
+  pas être testée sans sink. Le sink est câblé au point de composition et non
+  laissé optionnel, faute de quoi il serait « déclaré et jamais présent »,
+  exactement ce qui a produit ce défaut.
+  **Reste** : la trace vit le temps de la composition ; la persister dans le
+  control log Class C est la seconde moitié du §6.
 - **Guard côté Rust** — ADR-KNOW-0006 annonce
   `crates/unifia-knowledge-core/src/port/transport.rs`. Ce module n'existe
   pas ; le crate n'a pas de répertoire `port/`.

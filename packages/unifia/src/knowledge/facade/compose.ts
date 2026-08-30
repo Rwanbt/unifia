@@ -23,6 +23,8 @@ import { ProjectSource } from "../source/project.js"
 import { readPolicy, type KnowledgePolicy } from "../policy/store.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { DefaultKnowledgeService } from "./service.js"
+import { DomainBus } from "../events/bus.js"
+import { InMemoryEgressAudit } from "../policy/audit.js"
 import { VaultMutationWriter } from "../mutation/writer.js"
 
 /** Where the personal space lives inside a workspace. */
@@ -54,6 +56,10 @@ export interface Composed {
   mounted: string[]
   /** True when a policy file existed; false when the built-in default applied. */
   policyFromFile: boolean
+  /** Every egress decision this composition took (ADR-KNOW-0006 §6). */
+  audit: InMemoryEgressAudit
+  /** The bus the audit emits `egress.decision` on. */
+  bus: DomainBus
 }
 
 /**
@@ -151,7 +157,14 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     ? new VaultMutationWriter({ root: existsSync(personalRoot) ? personalRoot : input.workspaceRoot })
     : undefined
 
-  const service = new DefaultKnowledgeService(registry, { providerPlan: plan }, {
+  // Wired here rather than defaulted to a no-op: an audit sink that is
+  // optional everywhere is an audit sink that is never present, which is how
+  // ADR-KNOW-0006 §6 came to be declared and never emitted.
+  const bus = new DomainBus()
+  const audit = new InMemoryEgressAudit(bus)
+
+  const service = new DefaultKnowledgeService(registry, { providerPlan: plan, audit }, {
+    audit,
     ...(writer !== undefined ? { writer } : {}),
     // V1 has no FTS5 runtime and no embedding model. These stay false until
     // a real backend is wired; `status` reports them verbatim.
@@ -162,5 +175,5 @@ export function composeKnowledgeService(input: ComposeInput): Composed {
     vectorEnabled: false,
   })
 
-  return { service, registry, policy, plan, mounted, policyFromFile }
+  return { service, registry, policy, plan, mounted, policyFromFile, audit, bus }
 }

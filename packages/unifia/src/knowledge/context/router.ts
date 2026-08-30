@@ -35,6 +35,7 @@ import {
 import { createHash } from "node:crypto"
 import type { KnowledgeSource, SourceRegistry, ListedNote } from "../source/source.js"
 import { decideEgress } from "../policy/egress.js"
+import { egressAuditEntry, type EgressAudit } from "../policy/audit.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { bestSnippet, scoreNote, tokenize, utf8Bytes } from "./lexical.js"
 import { withDeadline, remainingMs, DeadlineExceeded } from "./deadline.js"
@@ -59,6 +60,11 @@ export interface ContextRouterConfig {
    * stays reachable through `knowledge_get`, not through retrieval.
    */
   includeInactive?: boolean
+  /**
+   * Records every egress decision (ADR-KNOW-0006 §6). Supplied by the
+   * composition root; omitted only in unit tests that assert routing itself.
+   */
+  audit?: EgressAudit
 }
 
 export interface RouterOutput {
@@ -248,6 +254,11 @@ export class ContextRouter {
 
       const item = this.toContextItem(r)
       const decision = decideEgress({ item, plan: this.config.providerPlan })
+      // Allow and deny alike: the ADR traces both, and a trail that only
+      // records refusals cannot show what actually left.
+      this.config.audit?.record(
+        egressAuditEntry(item, this.config.providerPlan, decision),
+      )
       if (decision.decision === "deny") {
         excluded.push({ locator: r.note.ref.locator, reason: decision.reason })
         droppedByRestriction += 1
