@@ -1797,6 +1797,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                     settings: cfg.memory,
                     providerId: currentUser.model.providerID,
                     query: userText,
+                    // Built once per user turn and reused across the agent's
+                    // steps; this loop runs the block once per step.
+                    turnId: currentUser.id,
                     budgetTokens: Math.max(0, Math.min(Math.floor(model.limit.context * MEMORY_CONTEXT_SHARE), MEMORY_CONTEXT_MAX_TOKENS)),
                   })
                 })

@@ -54,6 +54,31 @@ export interface RecallInput {
   query: string
   /** Tokens this block may occupy. Zero or less disables recall. */
   budgetTokens: number
+  /**
+   * The user message this turn answers.
+   *
+   * The recall block is built once per turn and reused across the agent's
+   * steps. Without this the search ran again on every step of the tool loop
+   * — twenty vault scans for one question — and the block could change
+   * mid-turn if the agent wrote a note, which moves the system prompt under
+   * a conversation already in flight.
+   */
+  turnId: string
+}
+
+/**
+ * The block built for the current turn.
+ *
+ * A single entry, so it cannot grow: a new turn replaces the old one. Not a
+ * conversation-level cache — recall must answer *this* question, and a block
+ * loaded once at the start of the discussion goes stale the moment the
+ * subject changes.
+ */
+let turnCache: { turnId: string; block: string | undefined } | null = null
+
+/** Forget the current turn's block. For tests, and for a workspace switch. */
+export function resetRecallCache(): void {
+  turnCache = null
 }
 
 /**
@@ -68,6 +93,16 @@ export async function recallMemoryContext(input: RecallInput): Promise<string | 
   if (input.budgetTokens <= 0) return undefined
   if (input.query.trim() === "") return undefined
 
+  // Answered once per turn, including when the answer was "nothing": a miss
+  // costs the same vault scan as a hit, and re-running it on every step of
+  // the tool loop was the whole waste.
+  if (turnCache !== null && turnCache.turnId === input.turnId) return turnCache.block
+  const block = await buildRecallBlock(input)
+  turnCache = { turnId: input.turnId, block }
+  return block
+}
+
+async function buildRecallBlock(input: RecallInput): Promise<string | undefined> {
   let composed: ReturnType<typeof openMemory>
   try {
     composed = openMemory({

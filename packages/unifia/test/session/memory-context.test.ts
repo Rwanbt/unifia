@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { recallMemoryContext } from "../../src/session/memory-context"
+import { recallMemoryContext, resetRecallCache } from "../../src/session/memory-context"
 import {
   DEFAULT_MEMORY_DIRECTORY,
   resetMemoryCache,
@@ -29,6 +29,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetMemoryCache()
+  resetRecallCache()
   rmSync(worktree, { recursive: true, force: true })
 })
 
@@ -66,6 +67,7 @@ describe("recallMemoryContext", () => {
   it("returns a block naming the notes it recalled", async () => {
     writeNote("n1.md", "We rejected Postgres because the workbench must run with no daemon.")
     const block = await recallMemoryContext({
+      turnId: "turn-1",
       worktree,
       providerId: LOCAL,
       query: "Postgres daemon",
@@ -83,6 +85,7 @@ describe("recallMemoryContext", () => {
     // Silent, not explanatory: a block saying "no memory" would spend the
     // budget on nothing, on every single turn.
     const block = await recallMemoryContext({
+      turnId: "turn-2",
       worktree,
       providerId: LOCAL,
       query: "anything",
@@ -94,6 +97,7 @@ describe("recallMemoryContext", () => {
   it("stays silent when nothing matches", async () => {
     writeNote("n1.md", "Something about caching layers.")
     const block = await recallMemoryContext({
+      turnId: "turn-3",
       worktree,
       providerId: LOCAL,
       query: "zzzzz nonexistent term",
@@ -105,6 +109,7 @@ describe("recallMemoryContext", () => {
   it("stays silent when memory is disabled", async () => {
     writeNote("n1.md", "Postgres was rejected.")
     const block = await recallMemoryContext({
+      turnId: "turn-4",
       worktree,
       settings: { enabled: false },
       providerId: LOCAL,
@@ -117,6 +122,7 @@ describe("recallMemoryContext", () => {
   it("stays silent on a zero budget rather than injecting anyway", async () => {
     writeNote("n1.md", "Postgres was rejected.")
     const block = await recallMemoryContext({
+      turnId: "turn-5",
       worktree,
       providerId: LOCAL,
       query: "Postgres",
@@ -128,6 +134,7 @@ describe("recallMemoryContext", () => {
   it("withholds from a remote model by default", async () => {
     writeNote("n1.md", "Postgres was rejected for a private reason.")
     const block = await recallMemoryContext({
+      turnId: "turn-6",
       worktree,
       providerId: REMOTE,
       query: "Postgres",
@@ -141,6 +148,7 @@ describe("recallMemoryContext", () => {
   it("recalls for a remote model once the user opened it", async () => {
     writeNote("n1.md", "Postgres was rejected because of the daemon.")
     const block = await recallMemoryContext({
+      turnId: "turn-7",
       worktree,
       settings: { remote_recall: true },
       providerId: REMOTE,
@@ -155,6 +163,7 @@ describe("recallMemoryContext", () => {
       writeNote(`n${i}.md`, `Postgres decision number ${i}. ${"padding ".repeat(200)}`)
     }
     const generous = await recallMemoryContext({
+      turnId: "turn-8",
       worktree,
       providerId: LOCAL,
       query: "Postgres decision",
@@ -162,6 +171,7 @@ describe("recallMemoryContext", () => {
     })
     resetMemoryCache()
     const tight = await recallMemoryContext({
+      turnId: "turn-9",
       worktree,
       providerId: LOCAL,
       query: "Postgres decision",
@@ -181,6 +191,7 @@ describe("recallMemoryContext", () => {
   it("caps the number of notes at the configured maximum", async () => {
     for (let i = 1; i <= 8; i++) writeNote(`n${i}.md`, `Postgres decision number ${i}.`)
     const block = await recallMemoryContext({
+      turnId: "turn-10",
       worktree,
       settings: { max_notes: 2 },
       providerId: LOCAL,
@@ -198,6 +209,7 @@ describe("recallMemoryContext", () => {
     mkdirSync(join(vault, ".unifia"), { recursive: true })
     writeFileSync(join(vault, ".unifia", "policy.json"), "{ this is not json")
     const block = await recallMemoryContext({
+      turnId: "turn-11",
       worktree,
       providerId: LOCAL,
       query: "Postgres",
@@ -206,9 +218,82 @@ describe("recallMemoryContext", () => {
     expect(block).toBeUndefined()
   })
 
+  it("scans the vault once per turn, not once per step", async () => {
+    // The agent loop rebuilds the system prompt on every step; a twenty-step
+    // tool loop would otherwise be twenty vault scans for one question, and
+    // a note written mid-turn would move the prompt under a conversation
+    // already in flight.
+    writeNote("n1.md", "Postgres was rejected because of the daemon.")
+    const first = await recallMemoryContext({
+      turnId: "same-turn",
+      worktree,
+      providerId: LOCAL,
+      query: "Postgres daemon",
+      budgetTokens: 800,
+    })
+    expect(first).toContain("daemon")
+
+    // A second note appearing mid-turn must not change what this turn sees.
+    writeNote("n2.md", "Postgres daemon second note entirely different.")
+    const second = await recallMemoryContext({
+      turnId: "same-turn",
+      worktree,
+      providerId: LOCAL,
+      query: "Postgres daemon",
+      budgetTokens: 800,
+    })
+    expect(second).toBe(first!)
+  })
+
+  it("asks again on the next turn, so recall follows the conversation", async () => {
+    // The opposite failure to the one above, and the more damaging one: a
+    // block loaded once for the whole discussion goes stale the moment the
+    // subject changes.
+    writeNote("n1.md", "Postgres was rejected because of the daemon.")
+    const first = await recallMemoryContext({
+      turnId: "turn-a",
+      worktree,
+      providerId: LOCAL,
+      query: "Postgres daemon",
+      budgetTokens: 800,
+    })
+    writeNote("n2.md", "Caching layers were chosen for the editor.")
+    const second = await recallMemoryContext({
+      turnId: "turn-b",
+      worktree,
+      providerId: LOCAL,
+      query: "caching layers editor",
+      budgetTokens: 800,
+    })
+    expect(first).toContain("daemon")
+    expect(second).toContain("Caching layers")
+  })
+
+  it("remembers a miss, so an empty vault is not rescanned every step", async () => {
+    const miss = await recallMemoryContext({
+      turnId: "empty-turn",
+      worktree,
+      providerId: LOCAL,
+      query: "nothing here",
+      budgetTokens: 800,
+    })
+    expect(miss).toBeUndefined()
+    // A miss costs the same scan as a hit, so it is cached too.
+    writeNote("n1.md", "nothing here is now something.")
+    const again = await recallMemoryContext({
+      turnId: "empty-turn",
+      worktree,
+      providerId: LOCAL,
+      query: "nothing here",
+      budgetTokens: 800,
+    })
+    expect(again).toBeUndefined()
+  })
+
   it("does not fabricate a query out of an empty message", async () => {
     writeNote("n1.md", "Postgres was rejected.")
     const block = await recallMemoryContext({
+      turnId: "turn-12",
       worktree,
       providerId: LOCAL,
       query: "   ",
