@@ -6,75 +6,19 @@
  * graphs, duplicates, timelines, co-occurrence and the distribution tables.
  */
 
-import { LCD_TYPES, LCD_LIFECYCLES, parseFlags, join_, hasFlag } from "./shared.js"
-import { doctor, type DoctorInput } from "../../src/knowledge/admin/doctor.js"
-import { ContextRouter } from "../../src/knowledge/context/router.js"
-import {
-  SourceRegistry,
-  PersonalSource,
-  ProjectSource,
-  type KnowledgeSource,
-} from "../../src/knowledge/source/index.js"
-import {
-  benchmarkOne,
-  summarise,
-} from "../../src/knowledge/semantic/benchmark.js"
-import { simulateLargeVault } from "../../src/knowledge/hardening/large-vault.js"
-import { planRecovery, simulateRecovery } from "../../src/knowledge/hardening/disaster-recovery.js"
-import { runSovereigntyProbes } from "../../src/knowledge/hardening/sovereignty-runner.js"
-import { dryRunMigration, planRollback, MIGRATION_V1_TO_V2 } from "../../src/knowledge/hardening/migration.js"
-import { scanStaged, installPrecommitHook } from "../../src/knowledge/git/precommit.js"
-import {
-  readPortableStore,
-  upsertPortableEntry,
-  removePortableEntry,
-  listPortableEntries,
-} from "../../src/knowledge/classb/portable-store.js"
-import { scanReachability } from "../../src/knowledge/classb/reachability.js"
-import { McpTokenRegistry } from "../../src/knowledge/mcp/token.js"
-import { classifyCorpus } from "../../src/knowledge/admin/corpus-classify.js"
-import { runVerify } from "../../src/knowledge/hardening/verify.js"
-import { readPolicy, patchPolicy, type KnowledgePolicy } from "../../src/knowledge/policy/store.js"
-import { recommendGc, applyGcRecommendation } from "../../src/knowledge/classb/gc.js"
-import { simulateSimilarity } from "../../src/knowledge/semantic/simulate.js"
-import { summarise as summariseWorkspace, formatSummaryOneLine } from "../../src/knowledge/admin/summary.js"
-import { runDrill, stubFsWithClassA } from "../../src/knowledge/hardening/drill.js"
-import { validate } from "../../src/knowledge/admin/validate.js"
-import { generateReport } from "../../src/knowledge/admin/report.js"
-import { tagSearch } from "../../src/knowledge/admin/tag-search.js"
-import { findBacklinks } from "../../src/knowledge/admin/backlinks.js"
-import { computeStats } from "../../src/knowledge/admin/stats.js"
-import { listByType } from "../../src/knowledge/admin/by-type.js"
-import { scanBrokenLinks } from "../../src/knowledge/admin/broken-links.js"
-import { listHeadings } from "../../src/knowledge/admin/headings.js"
-import { listNotes } from "../../src/knowledge/admin/list.js"
-import { showNote } from "../../src/knowledge/admin/show.js"
-import { allTags } from "../../src/knowledge/admin/tags.js"
-import { allProjects } from "../../src/knowledge/admin/projects.js"
-import { planSupersede } from "../../src/knowledge/admin/supersede.js"
-import { listByLifecycle } from "../../src/knowledge/admin/by-lifecycle.js"
-import { listByProject } from "../../src/knowledge/admin/by-project.js"
-import { findOrphans } from "../../src/knowledge/admin/orphans.js"
-import { lifecycleDistribution } from "../../src/knowledge/admin/lifecycle-distribution.js"
-import { findStale } from "../../src/knowledge/admin/stale.js"
-import { findReferences } from "../../src/knowledge/admin/references.js"
-import { vaultFingerprint } from "../../src/knowledge/admin/fingerprint.js"
-import { listByTag } from "../../src/knowledge/admin/by-tag.js"
-import { compareVaults } from "../../src/knowledge/admin/vault-compare.js"
-import { findRecent } from "../../src/knowledge/admin/recent.js"
-import { supersedeGraph } from "../../src/knowledge/admin/supersede-graph.js"
-import { findDuplicates } from "../../src/knowledge/admin/duplicates.js"
-import { buildTimeline, formatTimeline } from "../../src/knowledge/admin/timeline.js"
-import { tagCooccurrence } from "../../src/knowledge/admin/tag-cooccurrence.js"
-import { classifySupersede } from "../../src/knowledge/admin/supersede-classify.js"
-import { noteDiff } from "../../src/knowledge/admin/note-diff.js"
-import { buildTransitionMatrix, formatTransitionMatrix } from "../../src/knowledge/admin/lifecycle-transitions.js"
-import { noteStats } from "../../src/knowledge/admin/note-stats.js"
-import { sizeDistribution } from "../../src/knowledge/admin/size-distribution.js"
-import { weekdayDistribution } from "../../src/knowledge/admin/weekday-distribution.js"
-import { edgeDensity } from "../../src/knowledge/admin/edge-density.js"
-import { frontmatterDiff } from "../../src/knowledge/admin/frontmatter-diff.js"
-import type { KnowledgeId, KnowledgeLocator } from "@unifia/contracts/knowledge"
+import { parseFlags, } from "./shared.js"
+import { supersedeGraph } from "../../knowledge/admin/supersede-graph.js"
+import { findDuplicates } from "../../knowledge/admin/duplicates.js"
+import { buildTimeline, formatTimeline } from "../../knowledge/admin/timeline.js"
+import { tagCooccurrence } from "../../knowledge/admin/tag-cooccurrence.js"
+import { classifySupersede } from "../../knowledge/admin/supersede-classify.js"
+import { noteDiff } from "../../knowledge/admin/note-diff.js"
+import { buildTransitionMatrix, formatTransitionMatrix } from "../../knowledge/admin/lifecycle-transitions.js"
+import { noteStats } from "../../knowledge/admin/note-stats.js"
+import { sizeDistribution } from "../../knowledge/admin/size-distribution.js"
+import { weekdayDistribution } from "../../knowledge/admin/weekday-distribution.js"
+import { edgeDensity } from "../../knowledge/admin/edge-density.js"
+import { frontmatterDiff } from "../../knowledge/admin/frontmatter-diff.js"
 
 export async function cmdSupersedeGraph(rest: readonly string[]): Promise<number> {
   const ws = rest[0]

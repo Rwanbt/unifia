@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { openWorkspace, resolveWorkspace, takeWorkspace } from "../../../bin/knowledge/runtime.js"
+import { openWorkspace, resolveWorkspace, takeWorkspace } from "../../../src/cli/knowledge/runtime.js"
 
 const DEV_FIXTURES = resolve(import.meta.dir, "../../../../../tests/knowledge/eval/dev")
 

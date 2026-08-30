@@ -14,7 +14,7 @@
  */
 
 import { resolve } from "node:path"
-import { composeKnowledgeService, type Composed } from "../../src/knowledge/facade/compose.js"
+import { composeKnowledgeService, type Composed } from "../../knowledge/facade/compose.js"
 import {
   DEFAULT_MAX_CANDIDATES,
   DEFAULT_MAX_PAYLOAD_BYTES,

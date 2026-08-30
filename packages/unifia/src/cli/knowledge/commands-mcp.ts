@@ -16,9 +16,9 @@
  */
 
 import { StdioTransport } from "@unifia/mcp-transport"
-import { composeMcpServer } from "../../src/knowledge/mcp/compose.js"
-import { serveMcp } from "../../src/knowledge/mcp/serve.js"
-import { McpUnauthorized } from "../../src/knowledge/mcp/server.js"
+import { composeMcpServer } from "../../knowledge/mcp/compose.js"
+import { serveMcp } from "../../knowledge/mcp/serve.js"
+import { McpUnauthorized } from "../../knowledge/mcp/server.js"
 import { resolveWorkspace } from "./runtime.js"
 
 const CROSS_PROCESS_NOTE =

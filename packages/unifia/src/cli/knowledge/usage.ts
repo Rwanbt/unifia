@@ -20,7 +20,7 @@ export function printUsage(): void {
       "  unifia knowledge bench",
       "  unifia knowledge bench-large <count> <bodySize>",
       "  unifia knowledge sovereignty [--vault=DIR] [--derived=PATH]",
-      "  unifia knowledge disaster-recovery [--vault=DIR]",
+      "  unifia knowledge disaster-recovery [--no-class-c] [--no-class-d] [--offline]",
       "  unifia knowledge migrate [--dry-run] [--rollback]",
       "  unifia knowledge precommit install <workspace>",
       "  unifia knowledge precommit scan <staged-file>...",
@@ -80,9 +80,4 @@ export function printUsage(): void {
       "",
     ].join("\n"),
   )
-}
-
-interface ParsedArgs {
-  cmd: string | null
-  rest: string[]
 }
