@@ -5,30 +5,41 @@
 >
 > **Le corps de ce rapport (sections 1 à 14) date du 2026-08-29 et une partie
 > en a été réfutée.** Quatre contre-revues successives ont établi que
-> plusieurs `PASS` y désignaient des démonstrateurs. Les quatre addenda datés
-> corrigent ; **l'addendum 4 fait foi** en cas de contradiction.
+> plusieurs `PASS` y désignaient des démonstrateurs. Les cinq addenda datés
+> corrigent ; **l'addendum 5 fait foi** en cas de contradiction.
 >
 > Le corps est conservé comme piste d'audit, pas comme description du système.
 >
 > | Où aller | Quoi |
 > |---|---|
-> | **Addendum 4** (fin du fichier) | État courant, cartes fermées, sondes d'acceptation, périmètre V1 |
+> | **Addendum 5** (fin du fichier) | État courant, ce qui reste ouvert, ce que ce travail ne fait pas |
+> | Addendum 4 | Cartes C18-C31 fermées, sondes d'acceptation, périmètre V1 |
 > | Addenda 1 à 3 | Ce qui a été réfuté et corrigé, dans l'ordre |
 > | Sections 1-14 | Historique du sprint initial — **contient des affirmations fausses**, signalées là où elles apparaissent |
-> | `RISKS.md` | Risques ouverts, dont ceux hors périmètre V1 |
+> | `RISKS.md` | Risques ouverts (R-0012 à R-0017) |
 >
-> **Résumé en dix lignes.** Branche `feat/sovereign-knowledge-core`, sans
-> upstream, 0 push / 0 PR / 0 merge. 817 tests (703 knowledge + 79 contracts
-> + 35 Rust), typecheck / biome / cargo fmt / clippy / `git diff --check`
-> propres. Les cartes C18 à C31 des trois contre-revues sont fermées et
-> vérifiées par sonde. Le retrieval est un scan lexical borné, **validé sur
-> un corpus de 11 notes** — aucune revendication d'échelle au-delà.
-> Restent ouverts et nommés : effacement/export utilisateur, TTL et
-> rétention, persistance de la trace d'egress, `DeclassificationGrant`,
-> guard d'egress côté Rust, héritage des restrictions, persistance
-> Class B / ControlStore, runtime FTS5, modèle ONNX, watcher OS, probes
-> Android. Verdict : `READY_FOR_REVIEW` — pas `PRODUCTION_READY`, qui
-> appartient à une contre-revue indépendante du code.
+> **Résumé.** Branche `feat/sovereign-knowledge-core`, sans upstream,
+> 0 push / 0 PR / 0 merge. **822 tests** (708 knowledge + 79 contracts +
+> 35 Rust) ; typecheck, biome, `cargo fmt`, clippy et `git diff --check`
+> propres. Les cartes C18 à C32 sont fermées et vérifiées par sonde.
+>
+> Trois limites à connaître avant de lire le reste :
+>
+> 1. **Échelle** — le retrieval est un scan lexical borné validé sur
+>    **11 notes**. Aucune revendication au-delà.
+> 2. **Lecture seule** — pas d'effacement, pas d'export, pas de TTL ni de
+>    rétention (R-0017). Une décision de périmètre du propriétaire est
+>    requise avant de parler de « Sovereign Knowledge Core V1 ».
+> 3. **Audit non persistant** — la trace d'egress ne survit pas au
+>    processus : V1 offre un contrôle d'egress **non auditable après
+>    redémarrage**.
+>
+> Restent ouverts et suivis : `DeclassificationGrant`, guard d'egress Rust,
+> héritage des restrictions, persistance Class B / ControlStore (R-0015),
+> statut Android (R-0016), runtime FTS5, modèle ONNX, watcher OS.
+>
+> Verdict : `READY_FOR_REVIEW` — pas `PRODUCTION_READY`. **Aucune des six
+> revues n'a lu le code** ; elles portaient toutes sur ce rapport.
 
 > Couvre les 13 phases du runbook V2 §9-21, avec preuves
 > (tests verts), fallbacks, et conditions de reprise.
