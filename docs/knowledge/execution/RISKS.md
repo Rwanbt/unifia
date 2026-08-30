@@ -384,6 +384,106 @@ honnête de V1 est donc : vault de l'ordre du millier de notes.**
 
 **Levée** : index de recherche persistant, ou `list()` streamé.
 
+## R-0019 — Le Sovereign Knowledge Core n'était pas dans le produit
+
+**Sévérité** : critique (la fonctionnalité n'existait pas pour l'utilisateur)
+**Statut** : **CLOS** le 2026-08-30 — commit `d4538c07fb`
+**Ouvert le** : 2026-08-30, en vérifiant le build Tauri
+
+Le build desktop réussissait et **ne contenait pas la fonctionnalité**. Recherche
+de chaînes dans le sidecar compilé de 185 Mo :
+
+| Chaîne | Avant | Après |
+|---|---|---|
+| `control-log.jsonl` | **0** | 1 |
+| `unifia_restrictions` | **0** | 12 |
+| `egress.decision` | **0** | 2 |
+| `knowledge_search` | **0** | 8 |
+| `declassification grant` | **0** | 3 |
+| *contrôle* : `unifia` | 607 | 607 |
+
+Les 49 occurrences de « knowledge » étaient des types MIME, des chaînes HTTP/2,
+des noms de licences et le nom de la branche dans la version.
+
+### Cause
+
+`script/build.ts` ne compile **qu'un** point d'entrée, `src/index.ts`. Le CLI
+knowledge vivait dans `bin/unifia-knowledge.ts`, qui n'est pas ce point
+d'entrée, n'est pas déclaré dans `package.json` `bin`, et n'était importé par
+rien. Tout `src/knowledge/` était donc mort pour le bundler.
+
+### Pourquoi rien ne l'a vu
+
+883 tests verts, quatre contre-revues, six revues du rapport. **Toutes
+demandaient si le code était correct ; aucune ne demandait s'il était
+branché.** Chaque test important ses modules directement, un import prouve que
+le code compile, pas que l'entrypoint l'atteint.
+
+Aggravant : biome ne linte que `src/**`, donc ce code n'avait **jamais été
+linté** — 119 imports morts, quatre symboles dupliqués, 13 déclarations dans un
+`switch`. L'isolement se voyait dans l'outillage et personne n'a lu le signal.
+
+### Correctif
+
+`bin/knowledge/` → `src/cli/knowledge/` (`git mv`), `main()` → `runKnowledgeCli(argv)`
+exportée, sous-commande `unifia knowledge` enregistrée sur l'arbre yargs. Le
+handler lit `process.argv` brut : yargs avalait `--workspace` avant le
+dispatcher, et les commandes tournaient silencieusement sur le mauvais vault.
+
+**Vérifié dans l'artefact reconstruit**, pas seulement en test : le binaire
+compilé exécute `knowledge search` et écrit `.unifia/control-log.jsonl`.
+
+### Garde-fou
+
+`test/knowledge/e2e/cli-process.test.ts` — 13 tests qui **lancent un vrai
+processus** contre un vrai vault. C'est la catégorie qui manquait : l'ancien
+« e2e » appelait le router en mémoire avec une source synthétique.
+
+## R-0020 — Le build desktop ne tient pas dans la mémoire de cette machine
+
+**Sévérité** : moyenne (environnement, pas code)
+**Statut** : CONTOURNÉ
+**Ouvert le** : 2026-08-30
+
+`rustc` est tué en compilant `unifia_lib` : `0xc000012d`
+(STATUS_COMMITMENT_LIMIT) puis `0xc0000409` avec `rustc-LLVM ERROR: out of
+memory`. Les messages « only metadata stub found for `alloc` /
+`compiler_builtins` » sont un **symptôme** — les `.rlib` tronqués que laissent
+les rustc tués — et non une toolchain corrompue.
+
+Mesuré : 15,7 Go de RAM, limite de commit 31,7 Go dont ~27 Go pris par des
+applications tierces ; page file de 16 Go sur un `C:` à 8 Go libres, donc
+incapable de grandir. `cargo` utilise déjà `codegen-units = 16` (défaut) : le
+seul levier restant serait `opt-level`, ce qui changerait le binaire livré.
+
+**Contournement** : `CARGO_BUILD_JOBS=1`. Réussit de façon intermittente selon
+ce que les autres applications occupent.
+
+**Levée** : libérer de la place sur `C:` pour que le page file grandisse, ou
+fermer des applications pendant un build à froid.
+
+## R-0021 — Aucun fuzzing malgré un dossier `fuzz/` vide
+
+**Sévérité** : moyenne (robustesse au bord)
+**Statut** : **CLOS** le 2026-08-30 — commit `fc89f58378`
+
+`test/knowledge/fuzz/` existait, vide, alors que la méthode impose de fuzzer
+tout parseur de données externes. Les notes Class A sont les données les plus
+externes du système : des fichiers que l'utilisateur édite dans Obsidian,
+synchronise, résout en conflit git, et tronque en saturant son disque.
+
+L'invariant testé n'est pas « ça parse tout » mais **« une entrée malformée
+échoue proprement »** : toute erreur est un `KnowledgeFailure` typé, jamais un
+`TypeError` brut, jamais un blocage, et une note empoisonnée ne change pas la
+lecture de la suivante. ~8 000 cas graînés — mutation, soupe d'octets, chaque
+offset de troncature, répétitions pathologiques. La graine rend tout échec
+reproductible plutôt que capricieux.
+
+**Trouvé par le fuzzer** : `[[[c]]]` produisait la cible `[c`, le regex
+excluant `]` d'une cible mais pas `[`. Aucun locator ne peut valoir `[c`, donc
+c'était une arête définitivement cassée que `broken-links` rapportait comme un
+vrai constat — et aucune des quatre syntaxes documentées par le module ne peut
+produire ça. Corrigé.
 ## R-0016 — Statut des probes Android non ré-arbitré après C24
 
 **Sévérité** : moyenne (intégrité de preuve)

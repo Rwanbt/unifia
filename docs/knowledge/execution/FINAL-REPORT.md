@@ -862,3 +862,78 @@ conception, pas des correctifs. Ce qui change, c'est que la limite est
 Typecheck, biome, `cargo fmt/clippy/test` : propres.
 
 **Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
+---
+
+# Addendum 8 — La fonctionnalité n'était pas dans le produit (R-0019)
+
+**2026-08-30.** Le build Tauri demandé pour « vérifier que tout fonctionne »
+a réussi. Puis la vérification a trouvé mieux qu'un bug : **le Sovereign
+Knowledge Core était absent du binaire livré.**
+
+Recherche de chaînes dans le sidecar compilé de 185 Mo : **zéro** occurrence
+de `control-log.jsonl`, `unifia_restrictions`, `egress.decision`,
+`knowledge_search` — contre 607 pour `unifia`. Les 49 occurrences de
+« knowledge » étaient des types MIME, des chaînes HTTP/2, des noms de licences
+et le nom de la branche dans la version.
+
+`script/build.ts` ne compile qu'un point d'entrée, `src/index.ts`. Le CLI
+knowledge vivait dans `bin/`, importé par personne. Le bundler supprimait tout
+`src/knowledge/`.
+
+## Ce que ça dit des onze revues précédentes
+
+883 tests verts, quatre contre-revues de code, six revues du rapport. **Toutes
+demandaient si le code était correct. Aucune ne demandait s'il était branché.**
+Chaque test important ses modules directement, et un import prouve que le code
+compile, pas que l'entrypoint l'atteint.
+
+Le signal était pourtant dans l'outillage : biome ne linte que `src/**`, donc
+ce code n'avait jamais été linté — 119 imports morts, quatre symboles
+dupliqués, treize déclarations dans un `switch`. Un module qu'aucun linter ne
+voit est un module qu'aucun build ne voit.
+
+J'avais moi-même appliqué le raisonnement « pas de consommateur de production,
+donc pas de code mort à écrire » au crate Rust, dans l'ADR et dans les cartes,
+sans jamais vérifier que le cœur TypeScript en avait un.
+
+## Correctif et preuve
+
+`bin/knowledge/` → `src/cli/knowledge/`, `main()` → `runKnowledgeCli(argv)`
+exportée, sous-commande `unifia knowledge` sur l'arbre yargs. Après
+reconstruction, chaque chaîne marqueur est présente, et le binaire compilé
+exécute `knowledge search` contre un vault en écrivant
+`.unifia/control-log.jsonl` avec le hash seul.
+
+## Les tests qui manquaient
+
+| Catégorie | Avant | Après |
+|---|---|---|
+| e2e (vrai processus) | **0** | 13 |
+| fuzz | **0** (dossier vide) | 8 |
+| total knowledge | 774 | **793** |
+
+`e2e/cli-process.test.ts` lance `bun src/index.ts knowledge …` en processus
+fils contre un vault réel. C'est la seule catégorie qui aurait attrapé le
+défaut — et elle couvre aussi le second mode d'échec produit pendant le
+correctif : yargs avalant `--workspace`, ce qui faisait tourner les commandes
+sur le mauvais vault en passant tous les tests unitaires.
+
+`fuzz/parser.test.ts` remplit un dossier qui existait vide. ~8 000 cas graînés.
+Il a trouvé un défaut réel : `[[[c]]]` produisait la cible `[c`, une arête
+définitivement cassée qu'aucune des quatre syntaxes documentées ne peut créer.
+
+## Ce que cet addendum ne fait pas
+
+- **Le bundle desktop n'est pas reconstruit** avec le sidecar corrigé :
+  `rustc` est tué par la limite de commit de la machine (R-0020). Le sidecar
+  lui-même est reconstruit et vérifié.
+- L'échelle reste celle d'R-0018.
+- Le guard Rust et l'héritage restent ouverts (R-0015).
+
+## Gates
+
+907 tests (793 knowledge + 79 contracts + 35 Rust). Typecheck, biome
+(`packages/unifia/src` et les tests knowledge), `cargo test` : propres.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
