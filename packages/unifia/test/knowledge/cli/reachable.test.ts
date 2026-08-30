@@ -62,3 +62,32 @@ describe("R-0019 — the knowledge core ships", () => {
     expect(await runKnowledgeCli(["definitely-not-a-subcommand"])).toBe(2)
   })
 })
+
+describe("R-0019 — the memory feature ships with it", () => {
+  it("registers the memory tools where the entrypoint can reach them", () => {
+    // A CLI subcommand made the core reachable by a human. These make it
+    // reachable by the agent, which is what turns it into a feature — and
+    // they are reachable only because `src/index.ts` builds the registry.
+    const registry = readFileSync(join(pkgRoot, "src", "tool", "registry.ts"), "utf8")
+    expect(registry).toContain('from "./memory"')
+    expect(registry).toContain("memorySearch")
+    expect(registry).toContain("memoryWrite")
+  })
+
+  it("consumes a ContextPack from the session, which nothing did before", () => {
+    // The ContextRouter produced packs for a year and no session ever asked
+    // for one. Automatic recall is the caller it was missing.
+    const prompt = readFileSync(join(pkgRoot, "src", "session", "prompt.ts"), "utf8")
+    expect(prompt).toContain('from "./memory-context"')
+    expect(prompt).toContain("recallMemoryContext(")
+  })
+
+  it("enables the Class A writer somewhere other than a test", () => {
+    // `writable: true` existed and was passed by nobody, so the agent could
+    // never record anything. This is the production caller.
+    const memory = readFileSync(join(pkgRoot, "src", "knowledge", "app", "memory.ts"), "utf8")
+    expect(memory).toContain("writable: true")
+    const tool = readFileSync(join(pkgRoot, "src", "tool", "memory.ts"), "utf8")
+    expect(tool).toContain("writable: true")
+  })
+})
