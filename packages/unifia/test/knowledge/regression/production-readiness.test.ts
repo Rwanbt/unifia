@@ -151,13 +151,13 @@ describe("C19 — filesystem containment uses real paths", () => {
     await expect(vault().read("../../etc/passwd" as never)).rejects.toThrow(/escapes/)
   })
 
-  it("does not list notes reached through a directory link", () => {
+  it("does not list notes reached through a directory link", async () => {
     try {
       symlinkSync(outside, join(root, "escape"), "junction")
     } catch {
       return // link creation unavailable in this environment
     }
-    expect(vault().locators()).toEqual(["inside.md"])
+    expect(await vault().locators()).toEqual(["inside.md"])
   })
 
   it("refuses to read through a directory link", async () => {

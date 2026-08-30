@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import * as fsp from "node:fs/promises"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
   KnowledgeId,
@@ -34,20 +34,20 @@ const SKIPPED_DIRECTORIES = new Set([".git", ".unifia", "node_modules", ".obsidi
  * `visited` holds real paths so a link cycle terminates instead of recursing
  * until the stack gives out.
  */
-function walkMarkdown(
+async function walkMarkdown(
   realRoot: string,
   dir: string,
   out: string[],
   visited: Set<string>,
   excluded: ReadonlySet<string>,
-): void {
+): Promise<void> {
   const realDir = realOrNull(dir)
   if (realDir === null || visited.has(realDir)) return
   visited.add(realDir)
 
   let entries: string[]
   try {
-    entries = readdirSync(dir)
+    entries = await fsp.readdir(dir)
   } catch {
     // An unreadable directory is not a corpus error: skip it and keep going.
     return
@@ -59,9 +59,9 @@ function walkMarkdown(
     // a project subdirectory is ordinary content.
     if (realDir === realRoot && excluded.has(name)) continue
 
-    let stats: ReturnType<typeof statSync>
+    let stats: Awaited<ReturnType<typeof fsp.stat>>
     try {
-      stats = statSync(full)
+      stats = await fsp.stat(full)
     } catch {
       continue
     }
@@ -71,7 +71,7 @@ function walkMarkdown(
     if (!isContained(realRoot, full)) continue
 
     if (stats.isDirectory()) {
-      walkMarkdown(realRoot, full, out, visited, excluded)
+      await walkMarkdown(realRoot, full, out, visited, excluded)
       continue
     }
     if (!name.toLowerCase().endsWith(".md")) continue
@@ -133,10 +133,16 @@ export class VaultSource implements KnowledgeSource {
     return this.scanErrors
   }
 
-  /** Locators of every Markdown file under the root. */
-  locators(): string[] {
+  /**
+   * Locators of every Markdown file under the root.
+   *
+   * Async because the walk awaits `readdir` and `stat`: a synchronous scan
+   * holds the event loop, so a retrieval deadline could not fire while it ran
+   * and a bound checked only between files was not a bound.
+   */
+  async locators(): Promise<string[]> {
     const out: string[] = []
-    walkMarkdown(this.realRoot, this.root, out, new Set(), this.excluded)
+    await walkMarkdown(this.realRoot, this.root, out, new Set(), this.excluded)
     out.sort()
     return out
   }
@@ -148,11 +154,11 @@ export class VaultSource implements KnowledgeSource {
     const lifecycles = options.lifecycles
     const prefix = options.prefix
 
-    for (const locator of this.locators()) {
+    for (const locator of await this.locators()) {
       if (prefix !== undefined && prefix.length > 0 && !locator.startsWith(prefix)) continue
       let parsed: ParsedDocument
       try {
-        parsed = parseDocument(readFileSync(join(this.root, locator), "utf8"))
+        parsed = parseDocument(await fsp.readFile(join(this.root, locator), "utf8"))
       } catch (e) {
         errors.push({ locator, message: (e as Error).message })
         continue
@@ -188,14 +194,14 @@ export class VaultSource implements KnowledgeSource {
     }
 
     // No derived index in V1: resolve an id by scanning Class A.
-    for (const candidate of this.locators()) {
-      const doc = this.readLocator(candidate as KnowledgeLocator)
+    for (const candidate of await this.locators()) {
+      const doc = await this.readLocator(candidate as KnowledgeLocator)
       if (doc !== null && doc.note.frontmatter.unifia_id === id) return doc
     }
     return null
   }
 
-  private readLocator(locator: KnowledgeLocator): ParsedDocument | null {
+  private async readLocator(locator: KnowledgeLocator): Promise<ParsedDocument | null> {
     // Containment on the lexical path first: reject `..` before touching the
     // filesystem at all.
     const full = join(this.root, locator)
@@ -216,7 +222,7 @@ export class VaultSource implements KnowledgeSource {
     }
     let raw: string
     try {
-      raw = readFileSync(full, "utf8")
+      raw = await fsp.readFile(full, "utf8")
     } catch {
       return null
     }

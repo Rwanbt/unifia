@@ -20,6 +20,17 @@ export function realOrNull(p: string): string | null {
   }
 }
 
+/*
+ * There is deliberately no async counterpart.
+ *
+ * `fs/promises` exposes no `realpath.native`, and plain `realpath` normalises
+ * Windows casing differently — so an async variant would be a *second*
+ * containment semantics, and reader and writer could disagree about whether
+ * a path is inside the vault. Resolving one path is a metadata lookup, not a
+ * long read; the operations that actually block a scan are `readdir`, `stat`
+ * and `readFile`, and those are the ones the read path awaits.
+ */
+
 /**
  * True when `candidate` resolves inside `realRoot`.
  *

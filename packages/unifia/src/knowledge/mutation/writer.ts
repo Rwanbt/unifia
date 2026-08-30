@@ -21,6 +21,7 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, unlinkSync } from "node:fs"
+import * as fsp from "node:fs/promises"
 import { createHash, randomUUID } from "node:crypto"
 import { dirname, isAbsolute, join } from "node:path"
 import type {
@@ -115,7 +116,7 @@ export class VaultMutationWriter implements MutationWriter {
 
   // -- kinds ---------------------------------------------------------------
 
-  private create(intent: MutationIntent, auditId: string): MutationResult {
+  private async create(intent: MutationIntent, auditId: string): Promise<MutationResult> {
     const content = intent.newContent
     if (content === undefined) {
       throw KnowledgeFailure.mutationRefused("create requires newContent")
@@ -151,14 +152,14 @@ export class VaultMutationWriter implements MutationWriter {
     return this.commit("create", locator, full, raw, null, intent, auditId)
   }
 
-  private update(intent: MutationIntent, auditId: string): MutationResult {
+  private async update(intent: MutationIntent, auditId: string): Promise<MutationResult> {
     const content = intent.newContent
     if (content === undefined) {
       throw KnowledgeFailure.mutationRefused("update requires newContent")
     }
     this.refuseCredentials(content.body)
 
-    const { locator, full, raw: current } = this.locate(intent.targetId)
+    const { locator, full, raw: current } = await this.locate(intent.targetId)
     this.assertCas(current, intent.expectedVersionHash)
 
     const note = parseFrontmatter(current)
@@ -176,8 +177,8 @@ export class VaultMutationWriter implements MutationWriter {
     return this.commit("update", locator, full, raw, sha256(current), intent, auditId)
   }
 
-  private transition(intent: MutationIntent, auditId: string): MutationResult {
-    const { locator, full, raw: current } = this.locate(intent.targetId)
+  private async transition(intent: MutationIntent, auditId: string): Promise<MutationResult> {
+    const { locator, full, raw: current } = await this.locate(intent.targetId)
     this.assertCas(current, intent.expectedVersionHash)
 
     const note = parseFrontmatter(current)
@@ -200,7 +201,7 @@ export class VaultMutationWriter implements MutationWriter {
     }
 
     if (intent.kind === "supersede") {
-      return this.supersede(intent, auditId, { locator, full, current, next, note })
+      return await this.supersede(intent, auditId, { locator, full, current, next, note })
     }
 
     const raw = serialiseNote({ frontmatter: next, body: note.body, raw: current })
@@ -222,7 +223,7 @@ export class VaultMutationWriter implements MutationWriter {
    * than a superseded note nothing points at. Both writes share one auditId
    * so the WAL identifies them as one operation.
    */
-  private supersede(
+  private async supersede(
     intent: MutationIntent,
     auditId: string,
     target: {
@@ -232,7 +233,7 @@ export class VaultMutationWriter implements MutationWriter {
       next: NoteFrontmatter
       note: ReturnType<typeof parseFrontmatter>
     },
-  ): MutationResult {
+  ): Promise<MutationResult> {
     const successorId = intent.successorId
     if (successorId === undefined) {
       throw KnowledgeFailure.mutationRefused("supersede requires successorId")
@@ -241,7 +242,7 @@ export class VaultMutationWriter implements MutationWriter {
       throw KnowledgeFailure.mutationRefused("a note cannot supersede itself")
     }
 
-    const successor = this.locate(successorId as KnowledgeId)
+    const successor = await this.locate(successorId as KnowledgeId)
     const successorNote = parseFrontmatter(successor.raw)
 
     // Refuse a cycle: the target must not already supersede the successor.
@@ -297,12 +298,12 @@ export class VaultMutationWriter implements MutationWriter {
    * after dispatch, so a schema-valid intent failed for a reason the schema
    * could not express.
    */
-  private move(intent: MutationIntent, auditId: string): MutationResult {
+  private async move(intent: MutationIntent, auditId: string): Promise<MutationResult> {
     const destination = intent.targetLocator
     if (destination === undefined) {
       throw KnowledgeFailure.mutationRefused("move requires targetLocator")
     }
-    const { locator, full, raw: current } = this.locate(intent.targetId)
+    const { locator, full, raw: current } = await this.locate(intent.targetId)
     this.assertCas(current, intent.expectedVersionHash)
 
     const destinationFull = this.resolveWritable(destination)
@@ -455,16 +456,18 @@ export class VaultMutationWriter implements MutationWriter {
   }
 
   /** Find an existing note by id. */
-  private locate(id?: KnowledgeId): { locator: string; full: string; raw: string } {
+  private async locate(
+    id?: KnowledgeId,
+  ): Promise<{ locator: string; full: string; raw: string }> {
     if (id === undefined) {
       throw KnowledgeFailure.mutationRefused("this mutation requires targetId")
     }
-    for (const locator of this.markdownLocators()) {
+    for (const locator of await this.markdownLocators()) {
       const full = join(this.root, locator)
       if (!isContained(this.realRoot, full)) continue
       let raw: string
       try {
-        raw = readFileSync(full, "utf8")
+        raw = await fsp.readFile(full, "utf8")
       } catch {
         continue
       }
@@ -477,7 +480,7 @@ export class VaultMutationWriter implements MutationWriter {
     throw KnowledgeFailure.sourceInconsistent(`no note with id ${id}`)
   }
 
-  private markdownLocators(): string[] {
+  private async markdownLocators(): Promise<string[]> {
     // Reuse the reader's walk so writer and reader see the same corpus, with
     // the same containment rules and the same skipped directories.
     return new VaultSource({
