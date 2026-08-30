@@ -925,9 +925,14 @@ définitivement cassée qu'aucune des quatre syntaxes documentées ne peut crée
 
 ## Ce que cet addendum ne fait pas
 
-- **Le bundle desktop n'est pas reconstruit** avec le sidecar corrigé :
-  `rustc` est tué par la limite de commit de la machine (R-0020). Le sidecar
-  lui-même est reconstruit et vérifié.
+- Le bundle desktop **est** reconstruit avec le sidecar corrigé
+  (`Unifia Dev_1.3.15_x64-setup.exe`, 55,6 Mo, 23:11), mais il a fallu trois
+  tentatives : `rustc` est tué par la limite de commit de la machine selon ce
+  que les autres applications occupent au même moment (R-0020). Le succès est
+  intermittent, pas acquis.
+- L'application desktop elle-même n'est pas lancée ici : c'est une GUI, et un
+  test à l'écran n'est pas quelque chose que je peux affirmer avoir fait. Ce
+  qui est vérifié, c'est le sidecar — la partie qui porte le knowledge core.
 - L'échelle reste celle d'R-0018.
 - Le guard Rust et l'héritage restent ouverts (R-0015).
 

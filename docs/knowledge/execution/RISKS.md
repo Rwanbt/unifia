@@ -457,7 +457,9 @@ incapable de grandir. `cargo` utilise déjà `codegen-units = 16` (défaut) : le
 seul levier restant serait `opt-level`, ce qui changerait le binaire livré.
 
 **Contournement** : `CARGO_BUILD_JOBS=1`. Réussit de façon intermittente selon
-ce que les autres applications occupent.
+ce que les autres applications occupent — trois tentatives ont été
+nécessaires pour produire `Unifia Dev_1.3.15_x64-setup.exe` le 2026-08-30.
+Le build finit par passer ; il n'est pas fiable.
 
 **Levée** : libérer de la place sur `C:` pour que le page file grandisse, ou
 fermer des applications pendant un build à froid.
