@@ -82,24 +82,85 @@ describe("C26 — the MCP daemon answers over a transport", () => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  /** The transport envelope: credentials beside the payload, never inside. */
   const search = (q: string, token?: string) => ({
-    workspace: root,
-    query: q,
-    maxCandidates: 50,
-    maxPayloadBytes: 1_000_000,
-    maxSnippetBytes: 65_536,
-    deadlineMs: 2_000,
-    spaces: [],
-    types: [],
-    tags: [],
     ...(token !== undefined ? { token } : {}),
+    request: {
+      workspace: root,
+      query: q,
+      maxCandidates: 50,
+      maxPayloadBytes: 1_000_000,
+      maxSnippetBytes: 65_536,
+      deadlineMs: 2_000,
+      spaces: [],
+      types: [],
+      tags: [],
+    },
   })
 
-  it("serves a search with the session token", async () => {
-    const res = (await call(client, responses, 1, "knowledge_search", search("alpha"))) as {
-      result?: { candidates: unknown[] }
-    }
+  it("serves a search when the session token is actually presented", async () => {
+    // This test previously sent no token at all and passed, because the
+    // daemon substituted its own privileged one. It now supplies it.
+    const res = (await call(
+      client,
+      responses,
+      1,
+      "knowledge_search",
+      search("alpha", handle.tokenId),
+    )) as { result?: { candidates: unknown[] } }
     expect(res.result?.candidates.length).toBeGreaterThan(0)
+  })
+
+  it("refuses a request that carries no token at all", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", search("alpha"))) as {
+      error?: { code: number }
+      result?: unknown
+    }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+    expect(res.result).toBeUndefined()
+  })
+
+  it("returns no vault data whatsoever to an anonymous request", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", search("alpha"))) as {
+      result?: unknown
+      error?: unknown
+    }
+    expect(JSON.stringify(res)).not.toContain("alpha public")
+    expect(res.result).toBeUndefined()
+  })
+
+  it("refuses an empty or non-string token", async () => {
+    for (const bad of ["", 0, null, true, {}, []]) {
+      const res = (await call(client, responses, 1, "knowledge_search", {
+        token: bad,
+        request: search("alpha").request,
+      })) as { error?: { code: number } }
+      expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+    }
+  })
+
+  it("never echoes the session token in a response", async () => {
+    const res = await call(client, responses, 1, "knowledge_search", search("alpha", handle.tokenId))
+    expect(JSON.stringify(res)).not.toContain(handle.tokenId)
+  })
+
+  it("rejects a payload that violates its official schema", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", {
+      token: handle.tokenId,
+      // maxCandidates above the contract ceiling of 1000.
+      request: { ...search("alpha").request, maxCandidates: 100_000 },
+    })) as { error?: { code: number; message: string } }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.invalidParams)
+    // The path is safe to return; the received value is not.
+    expect(res.error?.message).not.toContain("100000")
+  })
+
+  it("rejects an unknown property on a strict payload", async () => {
+    const res = (await call(client, responses, 1, "knowledge_search", {
+      token: handle.tokenId,
+      request: { ...search("alpha").request, sneaky: true },
+    })) as { error?: { code: number } }
+    expect(res.error?.code).toBe(JSON_RPC_ERRORS.invalidParams)
   })
 
   it("keeps the token valid across successive calls", async () => {
@@ -135,7 +196,10 @@ describe("C26 — the MCP daemon answers over a transport", () => {
   })
 
   it("rejects a method outside the knowledge surface", async () => {
-    const res = (await call(client, responses, 1, "knowledge_admin_wipe", {})) as {
+    const res = (await call(client, responses, 1, "knowledge_admin_wipe", {
+      token: handle.tokenId,
+      request: {},
+    })) as {
       error?: { code: number }
     }
     expect(res.error?.code).toBe(JSON_RPC_ERRORS.methodNotFound)
@@ -143,26 +207,28 @@ describe("C26 — the MCP daemon answers over a transport", () => {
 
   it("refuses a request naming another workspace", async () => {
     const res = (await call(client, responses, 1, "knowledge_search", {
-      ...search("alpha"),
-      workspace: "/somewhere/else",
+      token: handle.tokenId,
+      request: { ...search("alpha").request, workspace: "/somewhere/else" },
     })) as { error?: { code: number } }
     expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
   })
 
   it("withholds a remote-denied note over the wire", async () => {
-    const res = (await call(client, responses, 1, "knowledge_search", search("alpha"))) as {
-      result?: { candidates: Array<{ snippet: string }> }
-    }
+    const res = (await call(
+      client,
+      responses,
+      1,
+      "knowledge_search",
+      search("alpha", handle.tokenId),
+    )) as { result?: { candidates: Array<{ snippet: string }> } }
     const bodies = (res.result?.candidates ?? []).map((c) => c.snippet).join(" ")
     expect(bodies).not.toContain("SECRET_BODY")
   })
 
   it("returns the note body from knowledge_get, bounded by maxBytes", async () => {
     const res = (await call(client, responses, 1, "knowledge_get", {
-      workspace: root,
-      locator: "open.md",
-      maxBytes: 8,
-      deadlineMs: 2_000,
+      token: handle.tokenId,
+      request: { workspace: root, locator: "open.md", maxBytes: 8, deadlineMs: 2_000 },
     })) as { result?: { found: boolean; body?: string; bodyBytes: number } }
     expect(res.result?.found).toBe(true)
     expect(res.result?.bodyBytes).toBeLessThanOrEqual(8)
@@ -171,8 +237,8 @@ describe("C26 — the MCP daemon answers over a transport", () => {
 
   it("refuses knowledge_propose: the session token is read-only", async () => {
     const res = (await call(client, responses, 1, "knowledge_propose", {
-      workspace: root,
-      intent: {},
+      token: handle.tokenId,
+      request: { workspace: root, intent: {} },
     })) as { error?: { code: number } }
     expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
   })

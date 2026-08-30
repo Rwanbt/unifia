@@ -20,8 +20,16 @@ import {
   type JsonRpcMessage,
   type MessageTransport,
 } from "@unifia/mcp-transport"
+import { z } from "zod"
 import type { McpKnowledgeCapability } from "@unifia/contracts/knowledge"
-import { MCP_KNOWLEDGE_METHODS } from "@unifia/contracts/knowledge"
+import {
+  MCP_KNOWLEDGE_METHODS,
+  McpKnowledgeSearchRequestSchema,
+  McpKnowledgeGetRequestSchema,
+  McpKnowledgeBacklinksRequestSchema,
+  McpKnowledgeTraceRequestSchema,
+  McpKnowledgeProposeRequestSchema,
+} from "@unifia/contracts/knowledge"
 import { composeMcpServer, type ComposedMcp } from "./compose.js"
 import {
   McpOversizedPayload,
@@ -29,6 +37,46 @@ import {
   McpUnauthorized,
   type McpCallContext,
 } from "./server.js"
+
+/**
+ * The transport envelope.
+ *
+ * Authentication is carried beside the payload, never inside it: the business
+ * schemas are `.strict()` and do not declare a token, and mixing the two
+ * would mean either loosening every contract or validating credentials with
+ * a schema that knows nothing about them.
+ */
+const EnvelopeSchema = z
+  .object({
+    token: z.string().min(1),
+    request: z.unknown(),
+  })
+  .strict()
+
+/**
+ * `knowledge_status` has no request schema in the contracts because the
+ * server method takes no request. The envelope still names a workspace, so it
+ * is validated here rather than trusted.
+ */
+const StatusRequestSchema = z.object({ workspace: z.string().min(1) }).strict()
+
+/** Method to official request schema. One table, no rules restated. */
+const REQUEST_SCHEMAS: Record<McpKnowledgeCapability, z.ZodTypeAny> = {
+  knowledge_search: McpKnowledgeSearchRequestSchema,
+  knowledge_get: McpKnowledgeGetRequestSchema,
+  knowledge_backlinks: McpKnowledgeBacklinksRequestSchema,
+  knowledge_trace: McpKnowledgeTraceRequestSchema,
+  knowledge_status: StatusRequestSchema,
+  knowledge_propose: McpKnowledgeProposeRequestSchema,
+}
+
+/** A payload that failed its schema. Distinct from an authorisation failure. */
+export class InvalidRequestParams extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "InvalidRequestParams"
+  }
+}
 
 export interface ServeInput {
   workspaceRoot: string
@@ -55,7 +103,7 @@ function toErrorBody(e: unknown): { code: number; message: string } {
   if (e instanceof McpRateLimitExceeded) {
     return { code: JSON_RPC_ERRORS.rateLimited, message: e.message }
   }
-  if (e instanceof McpOversizedPayload) {
+  if (e instanceof McpOversizedPayload || e instanceof InvalidRequestParams) {
     return { code: JSON_RPC_ERRORS.invalidParams, message: e.message }
   }
   // Anything else is internal: report the kind, never the stack.
@@ -77,16 +125,47 @@ export function serveMcp(input: ServeInput): ServeHandle {
     ...(input.ttlMs !== undefined ? { ttlMs: input.ttlMs } : {}),
     ...(input.methods !== undefined ? { methods: input.methods } : {}),
   })
-  const ctx: McpCallContext = { tokenId: token.id }
+  // The session token is returned to the caller so the parent process can
+  // hand it to a client. It is deliberately not kept as a call context here:
+  // holding one was what let an anonymous request borrow it.
   const { server } = composed
 
   const dispatch = async (method: string, params: unknown): Promise<unknown> => {
-    // The token is the daemon's; a client identifies itself by presenting it
-    // in the params, so a caller without it cannot reach any capability.
-    const supplied = (params as { token?: unknown } | null)?.token
-    const callCtx: McpCallContext =
-      typeof supplied === "string" && supplied.length > 0 ? { tokenId: supplied } : ctx
-    const req = params as never
+    // Authentication comes from the envelope and from nowhere else. This
+    // used to fall back to the daemon's own token when a request carried
+    // none, so an anonymous JSON-RPC call was served with the server's
+    // privileged credential and returned protected vault content.
+    const envelope = EnvelopeSchema.safeParse(params)
+    if (!envelope.success) {
+      throw new McpUnauthorized("request must carry a non-empty token")
+    }
+    const callCtx: McpCallContext = { tokenId: envelope.data.token }
+
+    // Authorise before validating the payload. A caller with no right to this
+    // method must not learn its schema from the error it gets back, nor spend
+    // the server's validation work probing it.
+    if (
+      composed.tokens.authorize(
+        envelope.data.token,
+        composed.config.workspace,
+        method as McpKnowledgeCapability,
+      ) === null
+    ) {
+      throw new McpUnauthorized(`token is not authorised for ${method}`)
+    }
+
+    // Validate the business payload against its official schema before any
+    // work: TypeScript does not check JSON arriving at runtime.
+    const schema = REQUEST_SCHEMAS[method as McpKnowledgeCapability]
+    const parsed = schema.safeParse(envelope.data.request)
+    if (!parsed.success) {
+      throw new InvalidRequestParams(
+        // The issue path is safe to return; the received value is not, and
+        // may hold vault content or a local path.
+        `invalid params: ${parsed.error.issues.map((i) => i.path.join(".") || "(root)").join(", ")}`,
+      )
+    }
+    const req = parsed.data as never
 
     switch (method) {
       case "knowledge_search":
