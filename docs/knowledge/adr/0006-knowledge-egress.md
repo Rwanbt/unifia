@@ -228,6 +228,37 @@ survit à un redémarrage est une permission permanente déguisée. Pour une
 exception durable, l'utilisateur modifie les restrictions de la note — ce qui
 est visible dans le vault et dans git.
 
+### §7 — Le réglage applicatif (`operatorEgress`), ajouté le 2026-08-31
+
+Deux fichiers répondent à deux questions différentes, et les confondre a
+produit un défaut réel.
+
+Le `.unifia/policy.json` d'un vault dit **ce que ce vault autorise**. Il
+appartient au vault, voyage avec lui, et peut être partagé entre plusieurs
+personnes et plusieurs applications.
+
+La configuration de l'application (`memory.remote_recall`) dit **si cette
+application envoie sa mémoire à un modèle distant**. C'est une propriété de
+l'installation, pas du vault.
+
+Écrire la seconde dans le premier au moment de créer le vault — ce que faisait
+la première version — rendait le réglage irréversible en silence : le fichier
+étant l'autorité, le modifier ensuite dans la config ne changeait plus rien
+(R-0023).
+
+`ComposeInput.operatorEgress` est donc un canal nommé, consulté **uniquement
+là où le `policy.json` du vault est muet** :
+
+1. entrée explicite du `policy.json` du vault — gagne toujours ;
+2. sinon `operatorEgress` ;
+3. sinon le défaut (`allow` en local, `policy.egress` sinon).
+
+Ce n'est pas une porte pour que du code élargisse un refus : chaque entrée
+vient d'un réglage que l'utilisateur a écrit, et la restriction portable de la
+note gouverne toujours par-dessus (§1). Un vault partagé qui a déclaré `deny`
+pour une destination continue de la refuser, quelle que soit l'application qui
+le monte.
+
 ### Ce qui reste non implémenté
 
 - Le guard côté Rust — le crate n'a aucun consommateur de production ; en
