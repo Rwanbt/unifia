@@ -181,3 +181,58 @@ Les réintroduire demandera un nouvel amendement, pas un quatrième format.
 - Le guard côté Rust — `crates/.../port/transport.rs` n'existe pas.
 
 Suivi : R-0012.
+
+---
+
+## Amendement 2026-08-30 — §3 et §6 implémentés
+
+Deux des trois items ci-dessus sont clos. Ils l'ont été **ensemble**, parce
+que §6 place la trace d'egress « dans le control event log (Class C) » : le
+grant est le seul mécanisme qui élargit un refus, et il n'était pas
+défendable de l'ouvrir tant que la trace de son usage ne survivait pas au
+processus qui l'avait accordé.
+
+### §6 — le log de contrôle est persisté
+
+`policy/control-log.ts` écrit `<workspace>/.unifia/control-log.jsonl`, câblé
+par défaut dans le point de composition. Une entrée porte le **hash**, la
+destination, la décision, la raison, la version du guard et l'horodatage —
+jamais le corps, jamais un extrait, jamais un locator : un journal qui cite
+ce qu'il a refusé de laisser sortir annule le refus. Les champs sont écrits
+un à un plutôt que par étalement, pour qu'un champ ajouté plus tard à
+`EgressAuditEntry` doive être examiné avant d'atteindre le disque.
+
+**Le lot, et pourquoi.** Un `fsync` par décision coûte 10,85 ms sur la
+machine de développement ; `backlinks()` prend une décision par note, soit
+onze secondes de journalisation sur mille notes. Un audit aussi lent est un
+audit qu'un opérateur désactive — ce qui est strictement pire qu'une fenêtre
+bornée. Les entrées sont donc groupées et un `flush()` écrit le lot en un
+seul ajout `fsync`é. **Le coût est explicite : un crash perd au plus les
+entrées depuis le dernier flush.** Le daemon MCP flush *avant* d'émettre sa
+réponse, ce qui borne la perte à une requête et rend la règle suivante vraie :
+un contenu qui ne peut pas être tracé n'est pas servi.
+
+### §3 — `DeclassificationGrant`
+
+`policy/grant.ts`. Un grant est consulté par `clearForEgress` **uniquement
+après un `deny`** : `decideEgress` reste pure et aucune de ses règles ne
+s'élargit. Il est lié au **hash du contenu** (éditer la note invalide le
+grant — un consentement ne couvre pas un texte que le donneur n'a pas vu), à
+**une destination** (`provider:x` ≠ `provider:x:remote`), **limité dans le
+temps** (5 min par défaut, 1 h au maximum) et **à usage unique** — consommé
+par le premier egress qu'il autorise, pour qu'un acte de consentement ne
+devienne pas une permission permanente. Un motif est obligatoire.
+
+Les grants ne sont **pas persistés**, délibérément : un consentement qui
+survit à un redémarrage est une permission permanente déguisée. Pour une
+exception durable, l'utilisateur modifie les restrictions de la note — ce qui
+est visible dans le vault et dans git.
+
+### Ce qui reste non implémenté
+
+- Le guard côté Rust — le crate n'a aucun consommateur de production ; en
+  écrire un second serait du code mort dupliqué, pas de la parité.
+- L'héritage (§Règle 3) — `mostRestrictive()` reste sans consommateur car
+  aucun pipeline de transformation n'existe encore.
+
+Suivi : R-0015.

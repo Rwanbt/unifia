@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -20,6 +20,7 @@ import {
 } from "@unifia/mcp-transport"
 import { serveMcp } from "../../../src/knowledge/mcp/serve.js"
 import { writePolicy, DEFAULT_POLICY } from "../../../src/knowledge/policy/store.js"
+import { CONTROL_LOG_FILE } from "../../../src/knowledge/policy/control-log.js"
 
 function note(id: string, body: string, restrictions?: string[]) {
   return [
@@ -241,5 +242,30 @@ describe("C26 — the MCP daemon answers over a transport", () => {
       request: { workspace: root, intent: {} },
     })) as { error?: { code: number } }
     expect(res.error?.code).toBe(JSON_RPC_ERRORS.unauthorized)
+  })
+
+  it("writes the egress trail before the answer leaves (ADR-KNOW-0006 §6)", async () => {
+    await call(client, responses, 1, "knowledge_search", search("alpha", handle.tokenId))
+    // Not "eventually": by the time the client holds the response, the
+    // decisions that produced it are already on disk.
+    const trail = readFileSync(join(root, CONTROL_LOG_FILE), "utf8")
+    expect(trail).toContain('"decision":"allow"')
+    expect(trail).toContain('"decision":"deny"')
+    // The refusal is recorded without quoting what it refused.
+    expect(trail).not.toContain("SECRET_BODY")
+  })
+
+  it("returns an error rather than content it cannot record", async () => {
+    // A directory where the log file belongs: the append can never succeed.
+    // Releasing the note anyway would be content leaving with no trail — the
+    // precise outcome the control log exists to prevent — so the daemon must
+    // fail the request instead.
+    mkdirSync(join(root, CONTROL_LOG_FILE), { recursive: true })
+    const res = (await call(client, responses, 1, "knowledge_get", {
+      token: handle.tokenId,
+      request: { workspace: root, locator: "open.md", maxBytes: 4096, deadlineMs: 2_000 },
+    })) as { error?: { code: number }; result?: { body?: string } }
+    expect(res.error).toBeDefined()
+    expect(res.result).toBeUndefined()
   })
 })

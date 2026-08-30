@@ -34,7 +34,7 @@ import {
 } from "@unifia/contracts/knowledge"
 import { createHash } from "node:crypto"
 import type { KnowledgeSource, SourceRegistry, ListedNote } from "../source/source.js"
-import { clearForEgress, type ClearedItem } from "../policy/egress.js"
+import { clearForEgress, type ClearedItem, type GrantConsumer } from "../policy/egress.js"
 import { egressAuditEntry, type EgressAudit } from "../policy/audit.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { bestSnippet, scoreNote, tokenize, utf8Bytes } from "./lexical.js"
@@ -65,6 +65,11 @@ export interface ContextRouterConfig {
    * composition root; omitted only in unit tests that assert routing itself.
    */
   audit?: EgressAudit
+  /**
+   * Declassification grants (ADR-KNOW-0006 §3). Consulted only after a deny;
+   * omitted means nothing can widen a refusal.
+   */
+  grants?: GrantConsumer
 }
 
 export interface RouterOutput {
@@ -256,6 +261,7 @@ export class ContextRouter {
       const verdict = clearForEgress({
         item: this.toContextItem(r),
         plan: this.config.providerPlan,
+        ...(this.config.grants !== undefined ? { grants: this.config.grants } : {}),
       })
       // Allow and deny alike: the ADR traces both, and a trail that only
       // records refusals cannot show what actually left.

@@ -26,17 +26,17 @@
 > Trois limites à connaître avant de lire le reste :
 >
 > 1. **Échelle** — le retrieval est un scan lexical borné validé sur
->    **11 notes**. Aucune revendication au-delà.
-> 2. **Lecture seule** — pas d'effacement, pas d'export, pas de TTL ni de
->    rétention (R-0017). Une décision de périmètre du propriétaire est
->    requise avant de parler de « Sovereign Knowledge Core V1 ».
-> 3. **Audit non persistant** — la trace d'egress ne survit pas au
->    processus : V1 offre un contrôle d'egress **non auditable après
->    redémarrage**.
+>    **11 notes**. Aucune revendication au-delà. *(toujours vrai)*
+> 2. ~~**Lecture seule** — pas d'effacement, pas d'export, pas de TTL~~ —
+>    **levée** le 2026-08-30 (cartes C33–C35, R-0017 clos) : suppression
+>    restaurable, export vérifiable, rapport de rétention.
+> 3. ~~**Audit non persistant**~~ — **levée** le 2026-08-30 (addendum 6,
+>    R-0015 partiel) : la trace d'egress est écrite dans le log de contrôle
+>    Class C et survit au processus.
 >
-> Restent ouverts et suivis : `DeclassificationGrant`, guard d'egress Rust,
-> héritage des restrictions, persistance Class B / ControlStore (R-0015),
-> statut Android (R-0016), runtime FTS5, modèle ONNX, watcher OS.
+> Restent ouverts et suivis : guard d'egress Rust, héritage des restrictions,
+> persistance Class B / ControlStore (R-0015), statut Android (R-0016),
+> runtime FTS5, modèle ONNX, watcher OS.
 >
 > Verdict : `READY_FOR_REVIEW` — pas `PRODUCTION_READY`. **Aucune des six
 > revues n'a lu le code** ; elles portaient toutes sur ce rapport.
@@ -738,5 +738,72 @@ tirent — si le marquage disparaissait, TypeScript les signalerait inutiles.
 
 822 tests (708 knowledge + 79 contracts + 35 Rust). Typecheck, biome,
 `cargo fmt --check`, `clippy -D warnings`, `git diff --check` : propres.
+
+**Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.
+
+
+---
+
+# Addendum 6 — Le contrôle qui rend l'invariant vérifiable (R-0015)
+
+**2026-08-30.** Deux items de R-0015 sont clos. Ils ne faisaient qu'un :
+ADR-KNOW-0006 §6 place la trace d'egress « dans le control event log
+(Class C) », et le `DeclassificationGrant` de §3 est le **seul mécanisme qui
+élargit un refus** — l'ouvrir sans que la trace de son usage survive au
+processus qui l'a accordé n'était pas défendable.
+
+## Ce qui change
+
+`policy/control-log.ts` écrit `<workspace>/.unifia/control-log.jsonl`, câblé
+par défaut dans `facade/compose.ts`. Une entrée porte le hash, la
+destination, la décision, la raison, la version du guard, l'horodatage.
+**Jamais le corps, jamais un extrait, jamais un locator** — un journal qui
+cite ce qu'il a refusé de laisser sortir annule le refus. Les champs sont
+sérialisés un à un, pour qu'un champ ajouté plus tard à `EgressAuditEntry`
+doive être examiné avant d'atteindre le disque ; un test verrouille la liste
+exacte des clés.
+
+`policy/grant.ts` implémente le grant : lié au hash du contenu, à une seule
+destination, expirant (5 min par défaut, 1 h maximum), à usage unique, motif
+obligatoire. Il est consulté par `clearForEgress` **uniquement après un
+`deny`** — `decideEgress` reste pure et aucune de ses règles ne s'élargit.
+Les grants ne sont pas persistés : un consentement qui survit à un
+redémarrage est une permission permanente déguisée.
+
+## Le coût, mesuré et assumé
+
+La première version faisait un `fsync` par décision. Mesure sur la machine de
+développement : **10,85 ms par entrée**. `backlinks()` prend une décision par
+note du vault — **onze secondes de journalisation sur mille notes**. Un audit
+aussi lent est un audit qu'un opérateur désactive, ce qui est strictement
+pire qu'une fenêtre bornée.
+
+Le log groupe donc ses écritures ; un `flush()` écrit le lot en un seul ajout
+`fsync`é. **Ce qui est perdu dans un crash : les entrées depuis le dernier
+flush**, au plus `FLUSH_AT_ENTRIES` (64) ou une requête. Ce n'est pas une
+imprécision de rédaction, c'est le prix d'une trace réellement conservée.
+
+Ce qui n'est *pas* cédé : le daemon MCP flush **avant** d'émettre sa réponse.
+Un contenu dont la décision ne peut pas être écrite n'est pas servi — la
+requête échoue. Un test le vérifie en rendant le fichier de log
+inscriptible-impossible et en constatant que `knowledge_get` renvoie une
+erreur au lieu du corps de la note.
+
+## Ce que cet addendum ne fait pas
+
+- **Le guard Rust reste absent.** Le crate n'a aucun consommateur de
+  production ; en écrire un second serait du code mort dupliqué, pas de la
+  parité. Écrit comme tel dans ADR-KNOW-0006 plutôt que reporté en silence.
+- **L'héritage reste non câblé.** `mostRestrictive()` garde zéro
+  consommateur parce qu'aucun pipeline de transformation n'existe.
+- **L'échelle reste 11 notes.** La mesure de 10,85 ms/fsync est le premier
+  chiffre de performance de ce rapport obtenu sur autre chose qu'un corpus
+  jouet — il concerne l'écriture, pas le retrieval.
+- **Aucune revue n'a encore lu le code.**
+
+## Gates
+
+880 tests (766 knowledge + 79 contracts + 35 Rust) — 27 ajoutés par cet
+addendum. Typecheck (`tsgo --noEmit`), biome, `cargo test` : propres.
 
 **Mutations** : 0 push, 0 PR, 0 merge, 0 release, 0 publication.

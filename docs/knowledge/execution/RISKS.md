@@ -271,7 +271,7 @@ composition.
 ## R-0015 — Quatre non-implémentés sortis du périmètre sans clôture
 
 **Sévérité** : haute (traçabilité) — les items eux-mêmes sont moyens à hauts
-**Statut** : OUVERT
+**Statut** : **PARTIELLEMENT CLOS** le 2026-08-30 — 2 items sur 4 implémentés
 **Ouvert le** : 2026-08-30, après les six revues du FINAL-REPORT
 
 L'addendum 1 nommait cinq éléments non implémentés. L'addendum 2 les
@@ -300,8 +300,30 @@ conservé pour la même raison. Deux poids, deux mesures. `mostRestrictive` est
 gardé délibérément — il implémente la règle §3 et sera l'unique point
 d'héritage — mais ce choix devait être écrit, pas tacite.
 
-**Levée** : implémenter chacun, ou l'amender explicitement hors de V1 dans
-son ADR. Pas de troisième voie.
+### Traitement au 2026-08-30
+
+| Item | Traitement | Preuve |
+|---|---|---|
+| `DeclassificationGrant` | **implémenté** — `policy/grant.ts`, consulté par `clearForEgress` après un `deny` uniquement | `test/knowledge/policy/control-log.test.ts` (10 tests §3) |
+| Log de contrôle Class C persisté | **implémenté** — `policy/control-log.ts`, câblé par défaut dans `compose` | 15 tests, dont « le sink disparaît, la trace répond encore » |
+| Guard d'egress Rust | **reste ouvert** | aucun consommateur de production dans le crate ; en écrire un second serait du code mort dupliqué, pas de la parité |
+| Héritage `mostRestrictive` | **reste ouvert** | aucun pipeline de transformation n'existe ; le point d'accroche est identifié et gardé |
+
+Les deux items clos l'ont été ensemble parce qu'ils **n'en font qu'un** :
+ADR-KNOW-0006 §6 place la trace d'egress « dans le control event log
+(Class C) ». Persister l'une ferme l'autre. Et le grant est le seul mécanisme
+qui *élargit* un refus — il n'était pas implémentable de manière défendable
+tant que la trace ne survivait pas au processus qui l'avait accordé.
+
+**Coût mesuré, assumé explicitement** : un `fsync` par décision coûte
+**10,85 ms** sur la machine de développement, et `backlinks()` prend une
+décision par note — onze secondes de journalisation sur mille notes. Le log
+groupe donc ses écritures et perd, au pire, les entrées depuis le dernier
+flush. Le daemon MCP flush **avant** d'émettre sa réponse : un contenu qui ne
+peut pas être tracé n'est pas servi.
+
+**Levée du reliquat** : implémenter les deux items restants, ou les amender
+explicitement hors de V1 dans ADR-KNOW-0006. Pas de troisième voie.
 
 ## R-0016 — Statut des probes Android non ré-arbitré après C24
 

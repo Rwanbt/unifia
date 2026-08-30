@@ -167,7 +167,8 @@ export class DefaultKnowledgeService implements KnowledgeService {
     // Same brand as the router: `get`, `backlinks` and `lineage` obtain a
     // cleared item or nothing. The defect this closes was `get()` building
     // its candidate inline with `restriction: "allow"` and never asking.
-    const verdict = clearForEgress({ item, plan })
+    const grants = this.routerConfig.grants
+    const verdict = clearForEgress({ item, plan, ...(grants !== undefined ? { grants } : {}) })
     // Their decisions belong in the same trail as the router's.
     this.options.audit?.record(egressAuditEntry(item, plan, verdict.result))
     return { candidate, item, decision: verdict.result, cleared: verdict.cleared }

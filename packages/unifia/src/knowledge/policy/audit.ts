@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto"
 import type { ContextItem, ProviderDestinationPlan } from "@unifia/contracts/knowledge"
 import type { DomainBus, DomainEvent } from "../events/bus.js"
-import type { EgressResult } from "./egress.js"
+import { destinationOf, type EgressResult } from "./egress.js"
 
 /**
  * Version of the guard that produced a decision.
@@ -42,6 +42,18 @@ export interface EgressAudit {
   record(entry: EgressAuditEntry): void
 }
 
+/**
+ * An audit whose trail can be read back.
+ *
+ * `status`, `verify` and the inspector need this; the sink itself only needs
+ * `record`. Both the in-memory and the persistent sink satisfy it, so a
+ * composition can swap one for the other without its readers changing.
+ */
+export interface ReadableEgressAudit extends EgressAudit {
+  entries(): readonly EgressAuditEntry[]
+  tally(): { allow: number; deny: number }
+}
+
 /** Build the entry for one decision. Pure, so it is testable on its own. */
 export function egressAuditEntry(
   item: ContextItem,
@@ -50,10 +62,10 @@ export function egressAuditEntry(
 ): EgressAuditEntry {
   return {
     hash: item.contentHash,
-    destination:
-      plan.destinationKind === "local"
-        ? `provider:${plan.providerId}`
-        : `provider:${plan.providerId}:remote`,
+    // Shared with the grant: consent given for one destination string must
+    // not be spendable on a different one because two modules spelled it
+    // differently.
+    destination: destinationOf(plan),
     decision: result.decision,
     reason: result.reason,
     guardVersion: EGRESS_GUARD_VERSION,
@@ -64,9 +76,12 @@ export function egressAuditEntry(
 /**
  * Audit sink that emits onto the domain bus and keeps the entries.
  *
- * V1 has no persisted Class C control log, so the trail lives for the
- * lifetime of the composition. `entries()` is what a verification command
- * reads; persisting it is the remaining half of ADR-KNOW-0006 §6.
+ * The trail lives for the lifetime of the composition and no longer. That is
+ * the wrong default — ADR-KNOW-0006 §6 wants a persisted Class C control log,
+ * and `PersistentEgressAudit` in `./control-log.ts` is what a composition
+ * gets unless it explicitly asks not to touch the workspace. This one remains
+ * for those callers, and for unit tests that assert on decisions without
+ * leaving a file behind.
  */
 export class InMemoryEgressAudit implements EgressAudit {
   private readonly log: EgressAuditEntry[] = []

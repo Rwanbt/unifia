@@ -203,6 +203,15 @@ export function serveMcp(input: ServeInput): ServeHandle {
 
       try {
         const result = await dispatch(message.method, message.params)
+        // The request is the audit boundary, and the trail is written
+        // BEFORE the answer leaves. The control log batches its writes, so
+        // a daemon running for days would otherwise hold the current batch
+        // in memory and a crash would take the session's whole trail with
+        // it. Flushing here bounds the loss to one request — and flushing
+        // before `send` is what makes the refusal below meaningful: content
+        // released after a failed write is content that left untraced,
+        // which is the exact outcome ADR-KNOW-0006 §6 exists to prevent.
+        composed.controlLog?.flush()
         await send(input.transport, { jsonrpc: "2.0", id: message.id, result })
       } catch (e) {
         await send(input.transport, {

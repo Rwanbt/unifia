@@ -18,8 +18,9 @@
  * - Rules 1, 2 and 4 are enforced by `decideEgress` below.
  * - Rule 3 (heritage across summaries/translations/embeddings) is NOT
  *   implemented; there is no transformation lineage to inherit from yet.
- * - `DeclassificationGrant` (ADR-KNOW-0006 §3) is NOT implemented, so no
- *   caller can legitimately widen a deny in V1.
+ * - `DeclassificationGrant` (ADR-KNOW-0006 §3) is implemented, but only on
+ *   `clearForEgress`: spending a grant mutates it, and `decideEgress` is
+ *   pure. See `./grant.ts`.
  * - Callers must still emit the `egress.decision` audit event (§6); this
  *   function stays pure.
  * See R-0012 for the tracking of the unimplemented parts.
@@ -29,9 +30,41 @@ import type { ContextItem, ProviderDestinationPlan } from "@unifia/contracts/kno
 
 export type EgressDecision = "allow" | "deny"
 
+/**
+ * The one thing this module needs from a grant store.
+ *
+ * A port rather than an import of `GrantRegistry`: the guard must not grow a
+ * dependency on how grants are stored, and a caller that passes nothing gets
+ * exactly the V1 behaviour — nothing widens a deny.
+ */
+export interface GrantConsumer {
+  /** Spend a grant for this content and destination, or return null. */
+  consume(contentHash: string, destination: string): { id: string } | null
+}
+
 export interface EgressInput {
   item: ContextItem
   plan: ProviderDestinationPlan
+  /**
+   * Consulted only by `clearForEgress`, and only after a deny — a grant is an
+   * audited exception to a refusal, never a shortcut past the rules.
+   * `decideEgress` ignores it, so the pure decision stays pure.
+   */
+  grants?: GrantConsumer
+}
+
+/**
+ * The destination string a grant is bound to.
+ *
+ * Identical to the one the audit records (`egressAuditEntry`) and to the key
+ * `planFromPolicy` reads, so consent given for `provider:x:remote` cannot be
+ * spent on `provider:x`. Defined here because it is part of what a grant
+ * means, not a detail of how decisions are logged.
+ */
+export function destinationOf(plan: ProviderDestinationPlan): string {
+  return plan.destinationKind === "local"
+    ? `provider:${plan.providerId}`
+    : `provider:${plan.providerId}:remote`
 }
 
 export interface EgressResult {
@@ -73,9 +106,27 @@ export type EgressVerdict =
  */
 export function clearForEgress(input: EgressInput): EgressVerdict {
   const result = decideEgress(input)
-  return result.decision === "allow"
-    ? { cleared: true, item: input.item as ClearedItem, result }
-    : { cleared: false, item: input.item, result }
+  if (result.decision === "allow") {
+    return { cleared: true, item: input.item as ClearedItem, result }
+  }
+
+  // A refusal is the only thing a grant may overturn, and only for this exact
+  // content and this exact destination (ADR-KNOW-0006 §3). The grant is spent
+  // here rather than by the caller: a check the caller could perform and then
+  // forget to record is the same shape of defect the brand above exists to
+  // close. The reason names the grant so the audit line points at the consent.
+  const grant = input.grants?.consume(input.item.contentHash, destinationOf(input.plan))
+  if (grant === null || grant === undefined) {
+    return { cleared: false, item: input.item, result }
+  }
+  return {
+    cleared: true,
+    item: input.item as ClearedItem,
+    result: {
+      decision: "allow",
+      reason: `declassification grant ${grant.id} overrides: ${result.reason}`,
+    },
+  }
 }
 
 /**
@@ -90,7 +141,8 @@ export function decideEgress(input: EgressInput): EgressResult {
 
   // Every deny is evaluated before any allow. A portable restriction can only
   // ever be relaxed by an audited DeclassificationGrant (ADR-KNOW-0006 §3),
-  // which V1 does not implement — so in V1 nothing widens a deny.
+  // which `clearForEgress` applies *after* this function has refused — so
+  // nothing inside these rules widens a deny.
 
   // 1. The item's own portable restriction. Ordering matters: this must be
   //    decided BEFORE any `allow` override, otherwise a plan override widens

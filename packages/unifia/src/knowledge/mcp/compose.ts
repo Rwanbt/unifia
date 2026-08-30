@@ -14,6 +14,7 @@
 
 import type { McpKnowledgeCapability } from "@unifia/contracts/knowledge"
 import { composeKnowledgeService } from "../facade/compose.js"
+import type { PersistentEgressAudit } from "../policy/control-log.js"
 import { KnowledgeFailure } from "../domain/errors.js"
 import { McpKnowledgeServer, type McpKnowledgeConfig } from "./server.js"
 import { McpTokenRegistry, type McpKnowledgeToken } from "./token.js"
@@ -37,6 +38,14 @@ export interface ComposedMcp {
   /** Same instance the server authenticates against. */
   tokens: McpTokenRegistry
   config: McpKnowledgeConfig
+  /**
+   * The persisted egress trail (ADR-KNOW-0006 §6).
+   *
+   * Exposed so the daemon can flush it at a request boundary: the log
+   * batches its writes, and a long-lived server that never flushed would
+   * keep the current batch in memory for as long as it runs.
+   */
+  controlLog?: PersistentEgressAudit
   /** Issue a token this server will accept. */
   issue(input?: { ttlMs?: number; methods?: readonly McpKnowledgeCapability[] }): McpKnowledgeToken
 }
@@ -49,7 +58,7 @@ export interface ComposedMcp {
  * refuse. Write access returns with the writer.
  */
 export function composeMcpServer(input: ComposeMcpInput): ComposedMcp {
-  const { service } = composeKnowledgeService({
+  const { service, controlLog } = composeKnowledgeService({
     workspaceRoot: input.workspaceRoot,
     providerId: "mcp",
     // An MCP client is a separate process on the far side of a transport, so
@@ -72,6 +81,7 @@ export function composeMcpServer(input: ComposeMcpInput): ComposedMcp {
     server,
     tokens,
     config,
+    ...(controlLog !== undefined ? { controlLog } : {}),
     issue(opts = {}) {
       if (opts.methods?.includes("knowledge_propose") === true) {
         throw KnowledgeFailure.mutationRefused(
