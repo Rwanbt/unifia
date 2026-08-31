@@ -424,7 +424,7 @@ export class WorkbenchClient {
   // an undeclared header name here is a type error, not a runtime CORS
   // failure discovered later (FUNC-002).
   #headers(token = this.#token.current()): Partial<Record<WorkbenchRequestHeader, string>> {
-    return { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), "x-unifia-instance-id": this.#instanceId, "x-unifia-client-time": String(this.#now()) }
+    return { accept: "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }
   }
 
   #send(path: string, method: RequestOptions["method"], token: string | undefined, options: RequestOptions): Promise<Response> {
