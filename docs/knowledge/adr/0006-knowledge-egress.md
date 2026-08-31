@@ -267,3 +267,118 @@ le monte.
   aucun pipeline de transformation n'existe encore.
 
 Suivi : R-0015.
+
+---
+
+## Amendement 2026-08-31 — §8 : le guard Rust et l'héritage sortent de V1
+
+Les deux items ci-dessus étaient décrits comme « non implémentés » sans
+qu'aucune décision ne les couvre. C'est la situation exacte que R-0015
+reproche aux addenda précédents : **un finding ne se ferme pas en
+disparaissant**, et il ne reste pas ouvert indéfiniment non plus. Cet
+amendement tranche, et l'ADR est la seule autorité sur ce qu'il annonçait.
+
+### La mesure qui décide, et non le raisonnement qui l'a précédée
+
+La formule retenue jusqu'ici — « le crate n'a aucun consommateur de
+production » — est vraie mais trop faible pour porter une décision : c'est
+littéralement le raisonnement qui, appliqué au TypeScript sans le vérifier, a
+laissé le core hors du binaire pendant toute la vie de la branche (R-0019).
+Il a donc été remesuré, des deux côtés.
+
+**Côté Rust — le crate entier n'est dans le graphe de dépendances d'aucun
+binaire livré** :
+
+| Preuve | Commande | Résultat observé |
+|---|---|---|
+| Aucun manifeste de workspace | `ls Cargo.toml` (racine) | absent |
+| Le binaire desktop ne le déclare pas | `grep -n "path *=" packages/desktop/src-tauri/Cargo.toml` | `unifia-kokoro-shared`, `unifia-supervisor`, `unifia-keyring-shim` — pas `unifia-knowledge-core` |
+| Le binaire mobile ne le déclare pas | `grep -n "path *=" packages/mobile/src-tauri/Cargo.toml` | `unifia-kokoro-shared` seul |
+| Il n'est dans aucun graphe résolu | `grep -c unifia-knowledge-core` sur les `Cargo.lock` livrés | desktop **0**, mobile **0** (son propre lock : 1) |
+| Aucune CI ne le construit | `git grep -n knowledge-core -- .github` | aucun résultat |
+| Aucun pont natif ne l'atteint | `git grep -n "NativeKnowledgePort"` | une **interface** dans `packages/contracts`, aucune implémentation runtime, aucun `bun:ffi`/`napi` côté knowledge |
+
+**Côté TypeScript — le guard, lui, est bien sur le chemin vivant** :
+`clearForEgress` est appelé par `src/knowledge/context/router.ts:267` et par
+`src/knowledge/facade/service.ts:183`, tous deux sous `src/`, c'est-à-dire
+dans l'arbre que le bundler atteint depuis la correction de R-0019. Et les
+sources Rust des deux applications Tauri ne contiennent **aucun** traitement
+de knowledge, d'egress ou de restrictions.
+
+Le constat est donc plus net que « pas de consommateur » : **il n'y a pas de
+chemin de données knowledge en Rust**. Il n'existe rien avec quoi une parité
+pourrait être en parité.
+
+### Décision
+
+1. **Le guard d'egress côté Rust sort explicitement du périmètre V1.**
+   Écrire `crates/unifia-knowledge-core/src/port/transport.rs` aujourd'hui
+   produirait une seconde implémentation de la règle, dans un crate que rien
+   ne compile, appliquée à un flux qui n'existe pas. Ce ne serait pas de la
+   défense en profondeur : deux guards qui divergent silencieusement sont
+   pires qu'un seul, et celui qui n'est jamais exécuté est celui qui diverge.
+2. **L'héritage des restrictions (règle 4) sort explicitement du périmètre
+   V1**, et `mostRestrictive()` est **conservé** dans
+   `packages/contracts/src/knowledge/restrictions.ts:125`.
+
+### Le critère qui sépare `mostRestrictive()` de `decideEgressBatch`
+
+R-0015 relève à juste titre un « deux poids, deux mesures » : les deux
+symboles étaient sans consommateur, l'un a été supprimé, l'autre gardé. Le
+critère qui les sépare n'avait pas été écrit. Le voici :
+
+> Un symbole sans consommateur se supprime quand il **duplique** un chemin
+> existant, et se conserve quand il est l'**unique** implémentation d'une
+> règle de l'ADR.
+
+`decideEgressBatch` était une seconde manière de faire ce que `decideEgress`
+faisait déjà : deux chemins pour une décision de sécurité, donc une
+divergence en attente. `mostRestrictive()` est le seul endroit où la règle 4
+existe en code ; le supprimer effacerait la règle du dépôt et laisserait la
+prochaine transformation la réinventer sur place. Le coût de le garder est
+une fonction pure testée ; le coût de l'avoir supprimé serait une
+classification silencieusement élargie.
+
+### Conditions de réentrée
+
+Chacun revient dans le périmètre à une condition **observable**, pas à une
+intention :
+
+| Item | Revient quand |
+|---|---|
+| Guard Rust | `unifia-knowledge-core` apparaît comme dépendance dans le `Cargo.lock` d'un binaire livré **et** un flux de données knowledge traverse le Rust. La première condition seule ne suffit pas : un crate lié mais sans flux ne justifie toujours pas un second guard. |
+| Héritage | Le premier pipeline de transformation (résumé, traduction, re-chunking, embedding) est introduit. Il **doit** passer par `mostRestrictive()` ; le livrer sans est un défaut de sécurité, pas une omission. |
+
+### Corrections aux énoncés antérieurs de cet ADR
+
+Deux phrases du corps initial affirment un état qui n'a jamais existé. Elles
+ne sont pas réécrites — l'historique de la décision fait partie du dossier —
+mais elles sont **remplacées** par ce qui suit :
+
+- §Décision, « appliqué de manière homogène à toutes les sorties (TS
+  `ContextPack`, **Rust `NativeKnowledgePort` response**, MCP responses…) » :
+  en V1 le guard s'applique de manière homogène à toutes les sorties **du
+  runtime TypeScript**. `NativeKnowledgePort` est une interface de contrats
+  sans implémentation runtime ; elle ne produit aucune sortie à garder.
+- §Conséquences, « `crates/unifia-knowledge-core/src/port/transport.rs`
+  applique le même guard côté Rust avant sérialisation » : **ce fichier
+  n'existe pas, et n'est pas prévu en V1.** L'énoncé était une intention
+  rédigée au présent de l'indicatif, ce qu'un ADR ne doit pas faire.
+
+### Correction de numérotation
+
+L'amendement du 2026-08-29 écrit « `mostRestrictive()` implémente l'héritage
+de la **règle 3** », et la section « ce qui reste non implémenté » du
+2026-08-30 répète « L'héritage (§Règle 3) ». L'héritage est la **règle 4** de
+la §Décision ; la règle 3 est la déclassification one-shot, qui est
+implémentée depuis le 2026-08-30. Lire l'un pour l'autre suggérerait qu'un
+item clos est ouvert.
+
+### Ce que cet amendement ne prétend pas
+
+Il ne rend pas le système plus sûr : il aligne l'ADR sur ce que le code fait
+réellement. La garantie effective de V1 reste **un seul guard, en
+TypeScript**, sur un sous-système qui ne contient aucun code réseau — et le
+jour où un appel provider est ajouté, c'est ce guard-là qui devra tenir.
+
+Suivi : R-0015 (arbitré), R-0024 (le crate Rust n'est livré nulle part).

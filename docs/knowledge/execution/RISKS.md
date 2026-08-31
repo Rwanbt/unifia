@@ -142,7 +142,7 @@
 ## R-0012 — Parties d'ADR-KNOW-0006 non implémentées
 
 **Sévérité** : haute (sécurité, latente)
-**Statut** : OUVERT
+**Statut** : **CLOS** le 2026-08-31 — 2 items implémentés, 2 arbitrés hors V1
 **Ouvert le** : 2026-08-29, après la contre-revue frontier
 
 La contre-revue a établi que le mécanisme central d'ADR-KNOW-0006 n'était pas
@@ -182,6 +182,30 @@ aucun code réseau. Le risque se matérialise au premier appel provider ajouté.
 
 **Levée** : implémenter §3 et §6, ou amender à nouveau l'ADR pour les retirer
 explicitement de V1.
+
+### Réconciliation du 2026-08-31 — les quatre items sont résolus
+
+La liste ci-dessus était **périmée** : elle décrivait comme ouverts des items
+fermés le 2026-08-30, et reproduisait deux erreurs d'étiquetage. Elle est
+laissée en l'état — l'historique du finding fait partie du dossier — et
+remplacée par ceci :
+
+| Item de la liste | État au 2026-08-31 | Preuve |
+|---|---|---|
+| §3 `DeclassificationGrant` | **implémenté** le 2026-08-30 | `packages/unifia/src/knowledge/policy/grant.ts` (5 470 o) ; 10 tests §3 dans `test/knowledge/policy/control-log.test.ts` |
+| §6 audit `egress.decision` | **clos** — les deux moitiés | `policy/audit.ts` (émission) et `policy/control-log.ts` (persistance, câblée par défaut dans `compose`) |
+| Guard côté Rust | **hors V1**, arbitré | ADR-KNOW-0006 §8 ; aucun chemin de données knowledge en Rust (voir R-0015 et R-0024) |
+| Héritage des restrictions | **hors V1**, arbitré | ADR-KNOW-0006 §8 ; réentrée au premier pipeline de transformation |
+
+**Deux erreurs d'étiquetage à ne pas propager.** Le troisième point de la
+liste est intitulé « §3 héritage » : l'héritage est la **règle 4** de la
+§Décision, la règle 3 étant la déclassification one-shot. Et le premier point
+laisse croire que `DeclassificationGrant` est encore absent alors qu'il a été
+livré le lendemain de l'ouverture du risque.
+
+R-0012 est donc **clos**, non pas parce que sa liste a cessé d'être citée,
+mais parce que chacun de ses quatre items porte une implémentation ou une
+décision écrite.
 
 ## R-0013 — Aucun chemin d'écriture, aucun daemon MCP
 
@@ -271,7 +295,7 @@ composition.
 ## R-0015 — Quatre non-implémentés sortis du périmètre sans clôture
 
 **Sévérité** : haute (traçabilité) — les items eux-mêmes sont moyens à hauts
-**Statut** : **PARTIELLEMENT CLOS** le 2026-08-30 — 2 items sur 4 implémentés
+**Statut** : **CLOS** le 2026-08-31 — 2 items implémentés, 2 arbitrés hors V1
 **Ouvert le** : 2026-08-30, après les six revues du FINAL-REPORT
 
 L'addendum 1 nommait cinq éléments non implémentés. L'addendum 2 les
@@ -325,10 +349,47 @@ peut pas être tracé n'est pas servi.
 **Levée du reliquat** : implémenter les deux items restants, ou les amender
 explicitement hors de V1 dans ADR-KNOW-0006. Pas de troisième voie.
 
+### Arbitrage du 2026-08-31 — la seconde voie a été prise
+
+**ADR-KNOW-0006 §8** (amendement du 2026-08-31) sort explicitement les deux
+items du périmètre V1, avec les raisons et des conditions de réentrée
+observables. Le reliquat est donc clos par une **décision écrite**, pas par
+disparition.
+
+Le motif retenu jusqu'ici — « le crate n'a aucun consommateur de production »
+— a été jugé trop faible pour porter une décision : c'est mot pour mot le
+raisonnement qui, appliqué au TypeScript sans le vérifier, a produit R-0019.
+Il a donc été remesuré des deux côtés avant d'arbitrer.
+
+| Vérification | Commande | Résultat |
+|---|---|---|
+| Le crate est-il livré ? | `grep -c unifia-knowledge-core` sur les `Cargo.lock` | desktop **0**, mobile **0** |
+| Le desktop le déclare-t-il ? | `grep -n "path *=" packages/desktop/src-tauri/Cargo.toml` | kokoro-shared, supervisor, keyring-shim — pas lui |
+| Une CI le construit-elle ? | `git grep -n knowledge-core -- .github` | aucun résultat |
+| Un pont natif l'atteint-il ? | `git grep -n NativeKnowledgePort` | interface de contrats seule, aucune implémentation runtime |
+| Le guard TS est-il, lui, vivant ? | `git grep -n clearForEgress -- packages/` | `context/router.ts:267`, `facade/service.ts:183` — sous `src/`, donc dans le bundle |
+| Le Rust livré touche-t-il au knowledge ? | `grep -rniE "knowledge\|egress" packages/*/src-tauri/src` | aucune occurrence fonctionnelle |
+
+Le constat est plus net que « pas de consommateur » : **il n'existe aucun
+chemin de données knowledge en Rust**. Une parité suppose deux côtés ; il n'y
+en a qu'un.
+
+Le « deux poids, deux mesures » relevé plus haut est tranché par un critère
+désormais écrit dans l'ADR : *un symbole sans consommateur se supprime quand
+il duplique un chemin existant, et se conserve quand il est l'unique
+implémentation d'une règle de l'ADR.* `decideEgressBatch` doublait
+`decideEgress` ; `mostRestrictive()` est le seul endroit où la règle 4 existe
+en code.
+
+**Trouvé en arbitrant** : le crate entier n'est livré dans aucun binaire —
+suivi séparément en **R-0024**, parce que c'est un fait sur le produit, pas
+sur l'egress.
+
 ## R-0018 — L'échelle du retrieval : mesurée, et elle a une falaise
 
 **Sévérité** : haute (revendication produit)
-**Statut** : **MESURÉ** le 2026-08-30 — comportement corrigé, limite documentée
+**Statut** : **ARBITRÉ** le 2026-08-31 — mesure rejouée, ADR-KNOW-0010 écrit ;
+la falaise elle-même reste à lever
 **Ouvert le** : 2026-08-30
 
 Chaque version du rapport portait la même phrase : « scan lexical borné
@@ -383,6 +444,59 @@ sont des changements de conception, pas des correctifs. **Le périmètre
 honnête de V1 est donc : vault de l'ordre du millier de notes.**
 
 **Levée** : index de recherche persistant, ou `list()` streamé.
+
+### Re-mesure du 2026-08-31 — reproduite, avec une variance qui compte
+
+La mesure a été rejouée avant d'arbitrer, `cd packages/unifia && bun
+bench/knowledge-scale.ts`, **quatre passes** sur la même machine et la même
+session.
+
+| notes | ms/note P1 | ms/note P2 | ms/note P3 | items @2 s (P1 / P2 / P3) | espaces ouverts @2 s (P2) |
+|---|---|---|---|---|---|
+| 100 | 1,21 | 3,55 | 3,53 | 8 / 8 / 8 | personal, project |
+| 250 | 1,27 | 3,15 | 3,14 | 8 / 8 / 8 | personal, project |
+| 500 | 1,29 | 3,37 | **4,59** | 8 / 8 / 8 (P3 **tronqué**) | personal, project |
+| 1 000 | 1,27 | 3,20 | 3,08 | 8 / 8 / 8 (P2, P3 tronqués) | personal seul |
+| 2 000 | 1,64 | 3,23 | 3,21 | 8 / **0** / **0** | **aucun** |
+
+Quatrième passe, au-delà du plafond mesuré jusqu'ici :
+
+| notes | `list()` | search (60 s) | ms/note | items @2 s | espaces ouverts |
+|---|---|---|---|---|---|
+| 3 000 | 4 708 ms | 9 736 ms | 3,25 | **0** | aucun |
+| 4 000 | 3 391 ms | 11 170 ms | 2,79 | **0** | aucun |
+| 6 000 | 7 727 ms | 18 316 ms | 3,05 | **0** | aucun |
+
+**Le chiffre documenté tient** : les passes 2, 3 et 4 reproduisent les
+~3,3 ms/note et les deux seuils, à ~1 000 puis ~2 000 notes.
+
+**Ce que la re-mesure ajoute**, et qui ne figurait pas : la première passe a
+tourné à **1,2–1,6 ms/note**, soit 2,5 fois plus vite, sur la même machine et
+le même corpus. La position de la falaise n'est donc pas une propriété du
+vault mais du cache et de la charge de la machine : la troncature commence à
+**500 notes** en passe 3 et seulement à **2 000** en passe 1. Toute borne
+citée en nombre de notes doit se lire comme une plage, pas comme un seuil.
+
+### Le mécanisme, vérifié dans le code
+
+Deux faits lus, qui expliquent la forme de la courbe et déterminent le
+correctif :
+
+- **`list()` n'est pas un listing.** `source/vault.ts:161` lit et parse
+  **chaque** note (`fsp.readFile` + `parseDocument`) pour n'en retenir que
+  quatre champs, puis le routeur rappelle `source.read()` note par note
+  (`context/router.ts:181`). Le corpus est donc **lu et parsé deux fois par
+  recherche**.
+- **Le deadline ne coupe rien.** `context/deadline.ts` le dit lui-même :
+  « `KnowledgeSource` has no cancellation in its contract, so a call that
+  overruns cannot be stopped ». `withDeadline` cesse d'attendre ; le `list()`
+  abandonné continue de parcourir tout le vault en arrière-plan. À 6 000
+  notes, la réponse revient à 2 s et la machine travaille encore 7,7 s.
+
+C'est pourquoi la levée est un **changement de contrat** (une source qui rend
+au fil de l'eau et qu'on peut arrêter), pas un réglage de deadline.
+
+**Arbitrage** : ADR-KNOW-0010 (2026-08-31).
 
 ## R-0019 — Le Sovereign Knowledge Core n'était pas dans le produit
 
@@ -442,7 +556,7 @@ processus** contre un vrai vault. C'est la catégorie qui manquait : l'ancien
 ## R-0020 — Le build desktop ne tient pas dans la mémoire de cette machine
 
 **Sévérité** : moyenne (environnement, pas code)
-**Statut** : CONTOURNÉ
+**Statut** : **OUVERT — contourné, documenté, instrumenté** le 2026-08-31
 **Ouvert le** : 2026-08-30
 
 `rustc` est tué en compilant `unifia_lib` : `0xc000012d`
@@ -463,6 +577,51 @@ Le build finit par passer ; il n'est pas fiable.
 
 **Levée** : libérer de la place sur `C:` pour que le page file grandisse, ou
 fermer des applications pendant un build à froid.
+
+### Traitement du 2026-08-31 — procédure et garde-fou
+
+Le risque est environnemental : rien dans le dépôt ne peut lui rendre de la
+mémoire, et la consigne était explicite — ne tuer aucun processus tiers, ne
+modifier aucun réglage système. Ce qui restait faisable a été fait :
+
+- **`docs/BUILD-DESKTOP.md`** — la procédure de build fiable, y compris la
+  raison pour laquelle il faut construire le sidecar explicitement (voir
+  ci-dessous) et la commande qui vérifie l'artefact plutôt que l'arbre.
+- **`scripts/build-desktop.mjs`** — préflight mémoire, câblé sur
+  `bun run preflight:build` et `bun run build:desktop` (racine). Il **mesure
+  et refuse**, il ne tue rien et ne change aucun réglage.
+
+Le préflight lit le **commit disponible**, pas la RAM libre : c'est le
+compteur contre lequel `STATUS_COMMITMENT_LIMIT` est levé, et il s'épuise
+alors que la mémoire physique paraît encore confortable. Mesure du
+2026-08-31, `node scripts/build-desktop.mjs --check-only`, sortie observée :
+
+```
+  physical      2.04 GB free of 15.71 GB
+  commit        5.59 GB free of 31.71 GB
+  cargo jobs    1
+build-desktop: 5.59 GB of commit headroom, against 6 GB needed for 1 job(s).
+exit=1
+```
+
+Le garde-fou refuse donc **aujourd'hui**, sur la machine et dans l'état exact
+qui produisait les kills : c'est la démonstration qu'il se déclenche là où il
+doit, et non un seuil décoratif.
+
+**Ce que ça ne corrige pas.** Le seuil (6 Go de commit par job, plancher à
+6 Go) est une heuristique calée sur l'échec observé — les kills sont survenus
+vers 4,7 Go de commit libre à un job — **pas** une frontière de succès
+mesurée. Un préflight vert veut dire « pas manifestement condamné », pas
+« passera ». Le risque reste donc ouvert : il se lève en libérant de la place
+sur `C:` pour que le page file grandisse, ou en libérant du commit avant un
+build à froid.
+
+**Trouvé en documentant** : `packages/desktop/scripts/copy-sidecar.ts:35`
+avertit et sort en `0` quand aucun sidecar frais n'existe, et le troisième
+candidat de la liste est la copie déjà mise en scène. Un build desktop peut
+donc réussir en embarquant un sidecar périmé — la même famille que R-0019 et
+R-0022, cette fois au niveau du packaging. C'est pourquoi la construction du
+sidecar est une **étape** de la procédure et pas un détail d'implémentation.
 
 ## R-0021 — Aucun fuzzing malgré un dossier `fuzz/` vide
 
@@ -562,6 +721,52 @@ est `NOT_EXECUTED_EXTERNAL_BOUNDARY` jusqu'à un run rejoué fournissant une
 **Levée** : rebrancher le device et rejouer
 `bun test test/knowledge/mobile` avec evidence du harness.
 
+### Tentative du 2026-08-31 — le device est là, la procédure de levée est fausse
+
+Un device **était** branché. Ce qui suit est ce qui a été exécuté et observé,
+et pourquoi le statut ne bouge pas.
+
+```
+$ adb devices -l
+b7163823   device product:cmi_eea model:Mi_10_Pro device:cmi transport_id:1
+
+$ adb -s b7163823 shell pm list packages | grep unifia
+package:ai.unifia.mobile
+
+$ cd packages/unifia && bun test test/knowledge/mobile
+6 pass, 0 fail, 10 expect() calls — 1 fichier, 4,56 s
+```
+
+Le device est connecté, l'application est installée, et le test passe. **Rien
+de tout cela n'est une preuve d'exécution sur le device.**
+
+`src/knowledge/mobile/android-runtime.ts` **n'a aucun import** : les deux
+occurrences d'`adb` dans le fichier sont des commentaires. Le module est une
+fonction pure qui résout un catalogue de sondes contre l'`evidence` qu'on lui
+tend, et le test lui tend un `WITH_DEVICE` fabriqué et une `ProbeEvidence`
+littérale. Ce test rend exactement le même résultat câble débranché. Le
+module se décrit lui-même comme « the typed surface that the device tests
+will populate » — et **rien ne le peuple** : `runProbes` n'a que deux
+appelants, tous deux des tests.
+
+La correction apportée par C24 est donc intacte et bien vérifiée — une
+evidence vide ne devient plus un `PASS` — mais elle a été vérifiée par des
+tests unitaires, ce qu'elle doit être. Le chaînon manquant est ailleurs.
+
+**La procédure de levée écrite ci-dessus est inexécutable.** Rejouer
+`bun test test/knowledge/mobile` avec un device branché ne produit aucune
+`ProbeEvidence` réelle, parce qu'aucun harness ne l'émet. Croire l'inverse
+aurait fermé R-0016 avec une commande verte et zéro contact avec l'appareil :
+la forme exacte du défaut que C24 a corrigé, un cran plus haut.
+
+**Statut inchangé** : `NOT_EXECUTED_EXTERNAL_BOUNDARY`.
+
+**Levée corrigée** : écrire le harness qui manque — un exécutable qui lance
+réellement les dix sondes via `adb` sur le device, capture pour chacune la
+commande, le `deviceId`, l'horodatage et la sortie, et passe le tableau
+`ProbeEvidence` à `runProbes`. Tant que ce harness n'existe pas, aucun device
+branché ne peut lever ce risque, et le brancher n'y change rien.
+
 ## R-0017 — Périmètre V1 : pas d'effacement, pas d'export, pas de rétention
 
 **Sévérité** : haute (promesse produit)
@@ -621,3 +826,143 @@ l'effacement n'est pas un détail de périmètre.
 explicitement requalifiée « fondation lexicale en lecture seule » et la
 promesse produit est réécrite en conséquence. Le rapport ne peut pas parler
 de « Sovereign Knowledge Core V1 » sans que ce choix soit tranché et écrit.
+
+## R-0024 — Le crate Rust `unifia-knowledge-core` n'est livré nulle part
+
+**Sévérité** : moyenne (traçabilité et périmètre, pas sécurité)
+**Statut** : OUVERT — constaté, non corrigé
+**Ouvert le** : 2026-08-31, en arbitrant R-0015
+
+`crates/unifia-knowledge-core/` compile, passe ses tests et **n'entre dans le
+graphe de dépendances d'aucun binaire livré**. Mesuré :
+
+| Preuve | Résultat observé |
+|---|---|
+| `grep -c unifia-knowledge-core packages/desktop/src-tauri/Cargo.lock` | **0** |
+| `grep -c unifia-knowledge-core packages/mobile/src-tauri/Cargo.lock` | **0** |
+| `grep -n "path *=" packages/desktop/src-tauri/Cargo.toml` | kokoro-shared, supervisor, keyring-shim |
+| `grep -n "path *=" packages/mobile/src-tauri/Cargo.toml` | kokoro-shared |
+| `ls Cargo.toml` (racine) | absent — aucun workspace ne l'agrège |
+| `git grep -n knowledge-core -- .github` | aucun résultat |
+
+Un `Cargo.lock` est le graphe **résolu** : zéro occurrence n'est pas un indice,
+c'est la preuve que le crate n'est pas dans la construction.
+
+C'est la troisième occurrence de la même forme — *correct, testé, débranché* —
+après R-0019 (le core absent du bundle TypeScript) et R-0022 (le core
+inatteignable par l'agent). La différence est qu'ici **rien ne manque à
+l'utilisateur** : le produit fonctionne entièrement en TypeScript, et les huit
+modules Rust (`hash`, `path`, `error`, `wal`, `watcher`, `classb`,
+`control_store`) ne dupliquent aucune fonctionnalité livrée — ils
+l'anticipent. Le coût n'est pas fonctionnel, il est de lisibilité : quatre
+ADR (0004, 0005, 0006, 0007) et la carte des modules décrivent ce crate comme
+un composant du produit, ce qu'il n'est pas.
+
+**Pourquoi ce n'est pas classé haut** : aucun chemin de données ne le traverse,
+donc aucune garantie ne repose sur lui. Le risque est qu'une revue future lise
+ces ADR et conclue que le durcissement Rust est en place.
+
+**Levée** — deux voies, exclusives :
+
+1. **Le brancher** : déclarer le crate en dépendance d'un binaire livré et
+   faire passer un flux réel par lui. C'est le seul cas où ADR-KNOW-0006 §8
+   rouvre la question du guard Rust.
+2. **Le déclarer prospectif** : marquer le crate et les ADR qui le citent
+   comme « socle préparé, non livré en V1 », pour qu'aucune lecture ne le
+   compte comme une défense active.
+
+Tant que l'une des deux n'est pas faite, la documentation décrit un composant
+livré qui ne l'est pas. Suivi conjoint : R-0015 (arbitrage), ADR-KNOW-0006 §8.
+
+## R-0025 — Sur Android, le sidecar ne sort pas : aucun tour d'agent possible
+
+**Sévérité** : haute (fonctionnelle sur mobile) — hors périmètre du knowledge core
+**Statut** : OUVERT — cause isolée, mécanisme non identifié
+**Ouvert le** : 2026-08-31
+
+`POST /session/:id/prompt` échoue sur appareil avec un 500
+`The socket connection was closed unexpectedly`, à **~15,2 s constant**, pour
+**tous** les providers — MiniMax, GitHub Copilot, OpenAI et `local-llm`. Aucun
+tour d'agent n'est donc possible sur Android.
+
+### Ce que le log DEBUG montre
+
+```
+service=lsp    https://registry.npmjs.org/pyright          ECONNREFUSED
+service=config https://registry.npmjs.org/@unifia%2fplugin ECONNREFUSED
+[...] failed to fetch copilot models
+```
+
+Le sidecar ne joint **rien**, ni distant ni local. Au même instant, depuis le
+même runtime :
+
+| Test | Résultat |
+|---|---|
+| `curl --noproxy "*" https://registry.npmjs.org/` | **200** |
+| `curl -x http://127.0.0.1:41185 https://registry.npmjs.org/` | **200** |
+| port du proxy CONNECT | **ouvert** |
+| `HTTP_PROXY` du sidecar vs proxy vivant | **identiques** |
+
+Réseau, proxy, port et configuration sont sains. **C'est le client HTTP de Bun
+qui échoue**, uniformément. Le 15,2 s est son abandon après retries.
+
+### Antériorité prouvée — ce n'est pas une régression de cette branche
+
+Test A/B sur le même appareil :
+
+| Build | Origine | Résultat |
+|---|---|---|
+| 2026-08-31 | `feat/sovereign-knowledge-core` | `http=500 t=15.20s` |
+| **2026-08-17** | branche `work-design` | **`http=500 t=15.24s`** |
+
+Trois vérifications le confirment :
+
+- `git diff origin/dev HEAD -- packages/mobile` → **vide**. Aucune ligne de
+  runtime mobile, de proxy ou de réseau n'a changé sur cette branche.
+- `git diff --stat origin/dev HEAD -- packages/unifia/src` → **+17 499 / −7**.
+  Sept suppressions au total, aucune dans le transport.
+- CRC identiques entre les deux APK sur `libbun_exec.so` (`4a8b7824`),
+  `libmusl_linker.so`, `libresolv_override.so`, `librust_pty.so` et
+  `rootfs.tgz` (`beaa00e7`).
+
+### Ce que ça bloque, et ce que ça ne bloque pas
+
+Le knowledge core est **vérifié sur appareil** indépendamment : outils
+`memory_*` enregistrés dans le registre en exécution, note Class A écrite et
+relue par sha256 calculé par le téléphone, egress fail-closed. Ce risque bloque
+uniquement les sondes qui exigent un tour d'agent — `context-router`,
+`fts.search`, `graph.backlinks` — qui restent `NOT_EXECUTED` dans
+`bun run probe:android`.
+
+**Levée** : identifier pourquoi Bun échoue là où `curl` passe. Deux pistes
+ouvertes — le niveau exact de l'échec (connexion au proxy contre tunnel
+CONNECT), et une politique seccomp bloquant un appel système de la pile socket
+de Bun (`bun` lancé depuis un shell de session renvoie `Bad system call`).
+
+## R-0026 — Un retour arrière de version brique l'application
+
+**Sévérité** : moyenne (compatibilité descendante)
+**Statut** : OUVERT — constaté en testant A/B
+**Ouvert le** : 2026-08-31
+
+En réinstallant l'APK du 2026-08-17 par-dessus celui du 31, le sidecar refuse de
+démarrer :
+
+```
+ConfigInvalidError  path: .../.config/unifia/unifia.jsonc
+```
+
+La configuration contenait `memory.remote_recall`, clé introduite par la branche
+`feat/sovereign-knowledge-core`. Le schéma de configuration étant `.strict()`,
+la version antérieure rejette la clé et **meurt au démarrage** — serveur jamais
+joignable, aucun message exploitable côté interface. Le seul remède a été
+d'éditer le fichier via `run-as`.
+
+Une clé de configuration écrite par une version rend donc l'application
+inutilisable pour quiconque revient en arrière. C'est indépendant du knowledge
+core : n'importe quelle clé future produira le même effet.
+
+**Levée** : tolérer les clés inconnues au lieu de refuser le document
+(`.strict()` → passthrough avec avertissement), ou versionner la configuration
+avec une migration descendante. La première voie est la moins coûteuse et suffit
+à empêcher le brickage.
