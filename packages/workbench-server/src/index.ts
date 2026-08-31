@@ -850,7 +850,11 @@ export class WorkbenchServer {
         if (typeof oldest !== "string") break
         this.#workflowOwners.delete(oldest)
       }
-      this.#allow(principal, "workflow.start", { resource: input.workspaceId })
+      // DA-AUD-03: the route label is "workflow.start", the broker's
+      // capability is "workflow.run". Record both so a downstream reader
+      // can answer "what did the user ask for?" AND "what capability
+      // authorised it?" without conflating the two (B07 §4 row :1317).
+      this.#allow(principal, "workflow.start", { resource: input.workspaceId, authorizingCapability: "workflow.run" })
       return json(202, { state })
     }
     if (typeof input.workflowId !== "string") return this.#deny(principal, "workflow.scope", 400, { reason: "missing-workflow-id" })
