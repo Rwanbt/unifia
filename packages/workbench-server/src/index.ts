@@ -775,12 +775,10 @@ export class WorkbenchServer {
     if (!workspaceId) return this.#deny("plugin.scope", 400)
     const token = this.#authorize(request, workspaceId)
     if (!token) return this.#deny("plugin.scope", 403)
-    // The "plugin.apply" capability is a string the runtime registers
-    // with the broker at install time. The contracts package only knows
-    // the canonical P3 capabilities; plugin-specific capabilities are
-    // added by the runtime through the capability broker. The
-    // type-cast is intentional and isolated to this one site.
-    const applyCapability = "plugin.apply" as never
+    // DA-CAP-01: "plugin.apply" is now part of the P3Capability closed union
+    // (ADR-1038, §9.2 of the 4.0 plan). The runtime no longer needs to inject
+    // a cast at this one site — every call into #checkCapability is typed.
+    const applyCapability = "plugin.apply"
     const decision = await this.#checkCapability(applyCapability, workspaceId, principal)
     if (decision) return decision
     const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
