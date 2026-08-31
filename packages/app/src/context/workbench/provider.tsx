@@ -3,13 +3,20 @@
 import { createSimpleContext } from "@unifia/ui/context"
 import { SURFACE_LEASE_CAPABILITIES, WorkbenchEventDispatcher, createWorkbenchTaskIdentity, WorkbenchLifecycle, type WorkbenchConnection, type WorkbenchLifecyclePhase, type WorkbenchTaskIdentity } from "@unifia/workbench-shell"
 import { useQueryClient } from "@tanstack/solid-query"
-import { createSignal, onCleanup, type ParentProps } from "solid-js"
+import { createMemo, createSignal, onCleanup, type ParentProps } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { decideEventRetry } from "./event-retry"
 import { createCoalescedInvalidate } from "./query-invalidation"
 
 let activeEventStreams = 0
+
+// DA-UI-01 — frozen empty set used as the fallback before the
+// `connection` signal resolves. Sharing one reference across calls
+// means the rail's `grants.has("workflow.run")` returns `false` with
+// a stable identity, and any code wrapping it in a memo can memoize
+// safely without false invalidation on each render.
+const EMPTY_GRANTS: ReadonlySet<string> = new Set<string>()
 
 export function getWorkbenchListenerCount(): number {
   return activeEventStreams
@@ -205,6 +212,12 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       identity,
       uiPhase,
       detail,
+      // DA-UI-01 — the rail (and any other capability-gated affordance)
+      // reads from this set rather than re-querying the server. The set
+      // is rebuilt only when the underlying `connection` signal changes,
+      // so an in-place rotation that doesn't change `instanceId` keeps
+      // the same Set reference and the rail doesn't flicker.
+      grants: createMemo<ReadonlySet<string>>(() => connection()?.grants ?? EMPTY_GRANTS),
       beginOperation: () => setIdentity({ ...identity(), operationId: crypto.randomUUID() }),
       ensureConnected,
       retryConnection,
