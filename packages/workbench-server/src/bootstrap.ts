@@ -17,7 +17,7 @@ import { appendFileSync, mkdirSync } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import { ArtifactStore } from "@unifia/artifact-runtime"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, P3_CAPABILITIES, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, P3_CAPABILITIES, type AuditContext, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter, type RuntimeDecision } from "@unifia/contracts"
 import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
@@ -91,9 +91,12 @@ export class FileAuditSink {
     }
   }
 
-  record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown {
-    const entry = this.#chain.record(actor, capability, decision) as Record<string, unknown>
-    appendFileSync(this.#logPath, `${JSON.stringify({ ...entry, actor, capability, decision })}\n`, "utf8")
+  record(context: AuditContext, decision: RuntimeDecision): unknown {
+    const entry = this.#chain.record(context, decision) as Record<string, unknown>
+    // WHY we re-serialise the full event (not just actor/capability/decision):
+    // the on-disk row must carry every attribution field so a downstream
+    // reader can reconstruct the chain without joining the live process.
+    appendFileSync(this.#logPath, `${JSON.stringify(entry)}\n`, "utf8")
     return entry
   }
 
