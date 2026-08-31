@@ -14,6 +14,20 @@
 #![allow(clippy::needless_borrows_for_generic_args)]
 use super::*;
 
+const BUN_VERBOSE_FETCH_MARKER: &str = ".bun_verbose_fetch";
+
+fn bun_verbose_fetch_enabled(runtime_dir: &Path) -> bool {
+    runtime_dir.join(BUN_VERBOSE_FETCH_MARKER).is_file()
+}
+
+fn append_bun_verbose_fetch_env(env_content: String, enabled: bool) -> String {
+    if enabled {
+        format!("{}BUN_CONFIG_VERBOSE_FETCH=true\n", env_content)
+    } else {
+        env_content
+    }
+}
+
 /// Static storage for the server child process.
 static SERVER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -234,6 +248,7 @@ pub async fn start_embedded_server(
     // through libmusl_linker.so without ever exec()ing a script in
     // app_data_file (which `untrusted_app` cannot do).
     let env_file = dir.join(".env_vars");
+    let verbose_fetch = bun_verbose_fetch_enabled(&dir);
     let bash_path = bin_link_dir.join("bash");
     let bash_env_path = home_dir.join(".bashrc");
     let env_content = format!(
@@ -259,6 +274,7 @@ pub async fn start_embedded_server(
     );
     // Also add NO_PROXY for local connections
     let env_content = format!("{}export NO_PROXY=127.0.0.1,localhost\nexport no_proxy=127.0.0.1,localhost\n", env_content);
+    let env_content = append_bun_verbose_fetch_env(env_content, verbose_fetch);
     let env_content = format!("{}OPENCODE_CARGO_PROXY={}\n", env_content, if cargo_proxy_active { "1" } else { "0" });
     // Pin RUSTC + MUSL_LINKER so cargo finds rustc through the wrapper chain
     // even when its `Command::new` ignores PATH ordering.
@@ -312,7 +328,8 @@ pub async fn start_embedded_server(
     let stdout_file = fs::File::create(log_dir.join("server_stdout.log"))
         .map_err(|e| format!("Create stdout log: {}", e))?;
 
-    let mut child = Command::new(&cmd_path)
+    let mut command = Command::new(&cmd_path);
+    command
         .args(&cmd_args)
         .current_dir(&home_dir)
         .env("PATH", &path)
@@ -362,7 +379,19 @@ pub async fn start_embedded_server(
         .env(
             "MUSL_LINKER",
             nlib_dir.join("libmusl_linker.so").to_string_lossy().to_string(),
-        )
+        );
+
+    if verbose_fetch {
+        // WHY: Bun can issue network requests while evaluating static imports,
+        // before mobile-entry.ts can load `.env_vars` or patch global fetch.
+        command.env("BUN_CONFIG_VERBOSE_FETCH", "true");
+        log::warn!(
+            "[OpenCode] BUN_CONFIG_VERBOSE_FETCH enabled by {} — diagnostic logs may contain sensitive headers",
+            dir.join(BUN_VERBOSE_FETCH_MARKER).display()
+        );
+    }
+
+    let mut child = command
         .stdout(stdout_file)
         .stderr(Stdio::piped())
         .spawn()
@@ -1031,6 +1060,39 @@ fn setup_dns_and_ca(dir: &Path) -> (PathBuf, PathBuf) {
         }
     }
     (resolv_path, ca_bundle_path)
+}
+
+#[cfg(test)]
+mod verbose_fetch_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    #[test]
+    fn bun_verbose_fetch_requires_marker_and_updates_sidecar_env() {
+        let dir = std::env::temp_dir().join(format!(
+            "unifia_verbose_fetch_test_{}_{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        assert!(!bun_verbose_fetch_enabled(&dir));
+        assert_eq!(
+            append_bun_verbose_fetch_env("BASE=1\n".to_string(), false),
+            "BASE=1\n"
+        );
+
+        fs::write(dir.join(BUN_VERBOSE_FETCH_MARKER), b"").unwrap();
+        assert!(bun_verbose_fetch_enabled(&dir));
+        assert_eq!(
+            append_bun_verbose_fetch_env("BASE=1\n".to_string(), true),
+            "BASE=1\nBUN_CONFIG_VERBOSE_FETCH=true\n"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
 
 #[cfg(all(test, unix))]

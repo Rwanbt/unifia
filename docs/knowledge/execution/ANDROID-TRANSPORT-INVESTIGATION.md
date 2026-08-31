@@ -95,17 +95,25 @@ et il ne reste que ceci :
 **Une seule opération silencieuse consomme les quinze secondes.** Ni provider,
 ni llm, ni config, ni auth ne journalisent quoi que ce soit entre les deux.
 
-## La prochaine étape
+## Résultat de la trace Bun — 2026-08-31
 
-Cesser de deviner *quel* fetch et les faire tous parler. Bun expose
-`BUN_CONFIG_VERBOSE_FETCH`, qui journalise chaque requête avec son URL. Il ne
-peut pas être injecté depuis l'extérieur : le Rust construit l'environnement du
-sidecar avec des `.env()` explicites
-(`packages/mobile/src-tauri/src/runtime/server.rs:301-327`). C'est **une ligne**
-à ajouter là, puis le rebuild.
+Le build instrumenté, installé sur le Mi 10 Pro, a atteint
+`GET https://api.githubcopilot.com/models` avec `200 OK`. Deux requêtes courtes
+vers `POST https://api.githubcopilot.com/chat/completions` ont elles aussi
+atteint Copilot en moins de deux secondes, mais ont reçu
+`400 model_not_supported`. La panne observée sur cette version est donc un
+**décalage entre le catalogue de modèles Copilot et les droits réellement
+accordés au compte**, pas un `ECONNREFUSED` du transport Android.
 
-Le log dira alors l'URL exacte que Bun tente de joindre pendant ces quinze
-secondes — une réponse, pas une dixième hypothèse.
+Le marqueur `.bun_verbose_fetch` a été supprimé puis le sidecar redémarré. Il
+ne doit être utilisé que ponctuellement : les traces Bun peuvent contenir des
+en-têtes d'authentification et doivent être expurgées avant tout partage.
+
+Un défaut distinct a aussi été découvert durant ce rebuild : si les binaires du
+runtime existent déjà, `build-android.sh` sautait la régénération de
+`unifia-cli.js`. L'APK pouvait alors embarquer un bundle TypeScript ancien,
+notamment encore strict sur les clés inconnues de configuration, et échouer au
+démarrage. Le script rafraîchit désormais ce bundle à chaque rebuild.
 
 ## Pièges rencontrés, à ne pas re-découvrir
 
@@ -119,10 +127,11 @@ secondes — une réponse, pas une dixième hypothèse.
   redémarrage automatique s'arrête là.
 - **La configuration est lue au démarrage.** Modifier `unifia.jsonc` sans
   redémarrer ne change rien — un test fait ainsi est non concluant, pas négatif.
-- **Un retour arrière de version brique l'application** (R-0026) : le schéma est
-  `.strict()`, donc une clé écrite par une version plus récente provoque un
-  `ConfigInvalidError` au démarrage, sans message côté interface. Réparation par
-  `run-as` si le build est `DEBUGGABLE`, impossible sinon.
+- **Un retour arrière de version peut bricker l'application** (R-0026) : un
+  bundle ancien avec un schéma `.strict()` rejetait les clés ajoutées par une
+  version plus récente et provoquait un `ConfigInvalidError` au démarrage, sans
+  message côté interface. Le schéma racine est maintenant permissif afin de
+  préserver ces clés inconnues.
 - **Le build release n'est pas `DEBUGGABLE`**, donc `run-as` est refusé ;
   l'accès au sandbox passe par `session.shell`, qui exige un serveur vivant.
 
@@ -143,4 +152,5 @@ secondes — une réponse, pas une dixième hypothèse.
 
 Restauré : `unifia.jsonc` sans `logLevel` ni `lsp`, sauvegardes supprimées,
 notes de sonde retirées de `.unifia/memory/`. L'APK installé est le build
-instrumenté du 2026-08-31 (identique au précédent hors les deux logs Rust).
+instrumenté du 2026-08-31, avec le bundle courant et le correctif de lecture de
+configuration.

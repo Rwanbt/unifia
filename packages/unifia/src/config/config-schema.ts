@@ -990,7 +990,9 @@ export const Info = z
       })
       .optional(),
   })
-  .strict()
+  // A downgraded client must preserve keys written by a newer version when it
+  // rewrites config; nested schemas remain strict so known contracts stay validated.
+  .passthrough()
   .meta({
     ref: "Config",
   })
