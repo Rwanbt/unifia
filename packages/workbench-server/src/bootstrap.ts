@@ -17,7 +17,7 @@ import { appendFileSync, mkdirSync } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import { ArtifactStore } from "@unifia/artifact-runtime"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, P3_CAPABILITIES, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter } from "@unifia/contracts"
 import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
@@ -107,6 +107,33 @@ export class FileAuditSink {
 }
 
 /**
+ * DA-CAP-02: parses UNIFIA_WORKBENCH_ALLOWLISTED_CAPABILITIES into a closed
+ * set of P3 capability names.
+ *
+ * Fail-closed contract:
+ * - An empty / unset env var yields an empty Set (the default).
+ * - Whitespace around each entry is trimmed.
+ * - Unknown names (anything not in P3_CAPABILITIES) are silently dropped,
+ *   NOT raised as a hard error. The intent of the env var is policy input,
+ *   not a strict register — a typo must not stop the server from starting,
+ *   it just does not widen the allowlist.
+ * - Names already in the union are deduplicated.
+ *
+ * Exported so the test suite can exercise the parser without going through
+ * loadConfigFromEnv (which requires a signing key).
+ */
+export function parseAllowlistedCapabilities(value: string | undefined): ReadonlySet<P3Capability> {
+  if (!value) return new Set()
+  const known: ReadonlySet<string> = new Set(P3_CAPABILITIES)
+  const result = new Set<P3Capability>()
+  for (const entry of value.split(",")) {
+    const trimmed = entry.trim()
+    if (known.has(trimmed)) result.add(trimmed as P3Capability)
+  }
+  return result
+}
+
+/**
  * Reads configuration from the environment.
  *
  * @throws when the signing key is absent or too short. There is deliberately no
@@ -139,7 +166,7 @@ export function loadConfigFromEnv(env: Record<string, string | undefined> = proc
     auditLogPath: env.UNIFIA_WORKBENCH_AUDIT_LOG ?? path.join(process.cwd(), ".unifia", "audit.jsonl"),
     rateBudget: Number(env.UNIFIA_WORKBENCH_RATE_BUDGET ?? DEFAULT_RATE_BUDGET),
     rateWindowMs: Number(env.UNIFIA_WORKBENCH_RATE_WINDOW_MS ?? DEFAULT_RATE_WINDOW_MS),
-    allowlistedCapabilities: new Set(),
+    allowlistedCapabilities: parseAllowlistedCapabilities(env.UNIFIA_WORKBENCH_ALLOWLISTED_CAPABILITIES),
     artifactRoot: env.UNIFIA_WORKBENCH_ARTIFACT_ROOT ?? process.cwd(),
     presentLinkTtlMs: Number(env.UNIFIA_WORKBENCH_PRESENT_LINK_TTL_MS ?? DEFAULT_PRESENT_LINK_TTL_MS),
   }
