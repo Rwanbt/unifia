@@ -1,5 +1,5 @@
 import { Flag } from "../flag/flag"
-import { readMobileEncryptionKeyFromEnv, tryDecodeMobileEncryptionKey, tryDecodeDesktopKeychainToken } from "@unifia/contracts"
+import { readMobileEncryptionKeyFromEnv, tryDecodeDesktopKeychainToken } from "@unifia/contracts"
 import path from "node:path"
 import { Effect, Layer, Record, Result, Schema, ServiceMap } from "effect"
 import { makeRuntime } from "@/effect/run-service"
