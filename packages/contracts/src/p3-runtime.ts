@@ -1,28 +1,117 @@
 /* SPDX-License-Identifier: MIT */
 /** C8/C9 runtime services. State is instance-owned and exposed only through copies. */
 
+import type { P3Capability } from "./p3.js"
+
 export type RuntimeDecision = "allow" | "deny" | "approval_required"
+/**
+ * DA-AUD-01/02/03 — every audit row now carries the full attribution
+ * (Plan-Critique 4.0 §3.3 A3–A6, B07 §4). `actor` is the identity
+ * string (principal.id, or "system:<context>" for server-driven rows);
+ * `actorKind` discriminates the two so a downstream reader can group
+ * user-driven from system-driven decisions without parsing the identity.
+ * `action` is the route label (e.g. "workflow.start"), `authorizingCapability`
+ * is the P3 capability the gate was asked about (e.g. "workflow.run"),
+ * `resource` is the workspace id (or null), `reason` is the broker's
+ * `P3Decision.ruleId` (e.g. "C2-unknown-capability"). Pre-auth rows
+ * (handshake, anonymous rejection, shutdown) carry actorKind="system"
+ * and principalId=null.
+ */
+export type AuditActorKind = "system" | "user"
 export type AuditEvent = {
   sequence: number
   timestamp: number
+  /** Legacy identity slot — kept for backward-compat with existing readers. */
   actor: string
+  /** "system" (server-driven) or "user" (post-auth, principal-scoped). */
+  actorKind: AuditActorKind
+  /** principal.id for user actions; null for system actions. */
+  principalId: string | null
+  /** Route label (e.g. "workflow.start", "artifact.create", "handshake.accept"). */
+  action: string
+  /** Legacy capability slot — same string as `authorizingCapability` when set, else the action. */
   capability: string
+  /** P3 capability the broker was asked about, or null if not capability-gated. */
+  authorizingCapability: P3Capability | null
+  /** Resource id (typically the workspace id), or null if not applicable. */
+  resource: string | null
+  /** Broker ruleId or failure reason, or null. */
+  reason: string | null
   decision: RuntimeDecision
   previousHash: string
   hash: string
+}
+
+/**
+ * Carries the full attribution for one audit row. Used by the canonical
+ * `record(context, decision)` overload; the legacy 3-arg form fills in
+ * actorKind="system", principalId=null, action=capability,
+ * authorizingCapability=null, resource=null, reason=null.
+ */
+export type AuditContext = {
+  actor: string
+  actorKind: AuditActorKind
+  principalId: string | null
+  action: string
+  capability: string
+  authorizingCapability: P3Capability | null
+  resource: string | null
+  reason: string | null
 }
 
 export class AuditRuntimeDouble {
   private readonly entries: AuditEvent[] = []
   public constructor(private readonly now: () => number = () => Date.now()) {}
 
-  public record(actor: string, capability: string, decision: RuntimeDecision): AuditEvent {
+  /**
+   * Legacy 3-arg overload (kept so p3-runtime-smoke.ts and any other
+   * contract-level test that doesn't care about attribution still
+   * works). Writes a system actor with no principal / no reason / no
+   * resource, with the actor string copied into the `actor` slot and
+   * the capability copied into the `action` slot. The hash includes
+   * the new fields too — the chain evolved, so the hash of a legacy
+   * row does NOT match the hash of the same logical event written by
+   * the new overload. See AuditMigration note in
+   * `integration/da-aud.md` for the on-disk implication.
+   */
+  public record(actor: string, capability: string, decision: RuntimeDecision): AuditEvent
+  public record(context: AuditContext, decision: RuntimeDecision): AuditEvent
+  public record(a: string | AuditContext, capabilityOrDecision: string | RuntimeDecision, decision?: RuntimeDecision): AuditEvent {
+    const context: AuditContext = typeof a === "string"
+      ? { actor: a, actorKind: "system", principalId: null, action: capabilityOrDecision as string, capability: capabilityOrDecision as string, authorizingCapability: null, resource: null, reason: null }
+      : a
+    const actualDecision = (typeof a === "string" ? decision : capabilityOrDecision) as RuntimeDecision
+    return this.#write(context, actualDecision)
+  }
+
+  #write(context: AuditContext, decision: RuntimeDecision): AuditEvent {
     const previousHash = this.entries.at(-1)?.hash ?? "GENESIS"
     const sequence = this.entries.length + 1
-    const hash = `${sequence}:${previousHash}:${actor}:${capability}:${decision}`
-    const event = { sequence, timestamp: this.now(), actor, capability, decision, previousHash, hash }
+    const principalId = context.principalId ?? ""
+    const resource = context.resource ?? ""
+    const reason = context.reason ?? ""
+    const authorizingCapability = context.authorizingCapability ?? ""
+    // WHY all eight fields are concatenated into the hash: any change to any
+    // attribute of an audit row must invalidate the chain. A row that
+    // disagrees on the actor but agrees on the capability must NOT verify.
+    const hash = `${sequence}:${previousHash}:${context.actorKind}:${principalId}:${context.actor}:${context.action}:${context.capability}:${authorizingCapability}:${resource}:${reason}:${decision}`
+    const event: AuditEvent = {
+      sequence,
+      timestamp: this.now(),
+      actor: context.actor,
+      actorKind: context.actorKind,
+      principalId: context.principalId,
+      action: context.action,
+      capability: context.capability,
+      authorizingCapability: context.authorizingCapability,
+      resource: context.resource,
+      reason: context.reason,
+      decision,
+      previousHash,
+      hash,
+    }
     this.entries.push(event)
-    return event
+    return { ...event }
   }
 
   public events(): readonly AuditEvent[] { return this.entries.map((event) => ({ ...event })) }
