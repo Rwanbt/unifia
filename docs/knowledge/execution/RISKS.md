@@ -934,10 +934,18 @@ uniquement les sondes qui exigent un tour d'agent — `context-router`,
 `fts.search`, `graph.backlinks` — qui restent `NOT_EXECUTED` dans
 `bun run probe:android`.
 
-**Levée** : identifier pourquoi Bun échoue là où `curl` passe. Deux pistes
-ouvertes — le niveau exact de l'échec (connexion au proxy contre tunnel
-CONNECT), et une politique seccomp bloquant un appel système de la pile socket
-de Bun (`bun` lancé depuis un shell de session renvoie `Bad system call`).
+**Levée** : identifier pourquoi Bun échoue là où `curl` passe. Neuf hypothèses
+ont été testées et réfutées par la mesure — proxy, `loaded`, timeout provider,
+petit modèle, tunnel adb, port périmé, seccomp, shim DNS, sous-système LSP. Le
+journal complet, avec les commandes et les sorties observées, est dans
+`ANDROID-TRANSPORT-INVESTIGATION.md` ; il existe pour que personne ne les
+rejoue.
+
+Avec `lsp: false`, le bruit disparaît et il reste **quinze secondes de silence
+complet** entre le début du prompt et l'erreur : une seule opération silencieuse
+les consomme. La prochaine étape est d'ajouter `BUN_CONFIG_VERBOSE_FETCH` à
+l'environnement du sidecar (`runtime/server.rs:301-327`, une ligne) pour que
+chaque requête dise son URL.
 
 ## R-0026 — Un retour arrière de version brique l'application
 
