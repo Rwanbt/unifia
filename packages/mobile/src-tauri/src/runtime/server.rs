@@ -273,21 +273,38 @@ pub async fn start_embedded_server(
     // Build command: use --preload to load resolv_override.so via CLI arg
     // (bypasses env var transmission issue with musl linker)
     let resolv_override = nlib_dir.join("libresolv_override.so");
+    let resolv_override_ready = resolv_override.exists();
     let (cmd_path, cmd_args) = build_server_command(
         &ld_musl,
         ld_musl.exists(),
         &bun_path,
         &cli_path,
         &lib_path,
-        resolv_override.exists().then_some(resolv_override.as_path()),
+        resolv_override_ready.then_some(resolv_override.as_path()),
         port,
     );
 
-    let resolv_override_path = nlib_dir.join("libresolv_override.so");
     log::debug!("[OpenCode] Spawning: {} {:?}", cmd_path.display(), cmd_args);
     log::debug!("[OpenCode] LD_LIBRARY_PATH={}", lib_path);
-    log::debug!("[OpenCode] LD_PRELOAD={} (exists={})", resolv_override_path.display(), resolv_override_path.exists());
-    log::debug!("[OpenCode] SSL_CERT_FILE={} (exists={})", ca_bundle_path.display(), ca_bundle_path.exists());
+    // WHY: musl ships no working resolver on Android, so this shim is what makes
+    // DNS work for the sidecar at all. It used to be applied when present and
+    // skipped when absent, both silently — a guarantee that can vanish without
+    // leaving a trace. These two are Info/Warn because a device that cannot
+    // reach anything has to be able to say which of the two cases it is in.
+    if resolv_override_ready {
+        log::info!("[OpenCode] LD_PRELOAD={}", resolv_override.display());
+    } else {
+        log::warn!(
+            "[OpenCode] libresolv_override.so absent from {} — sidecar starts with no DNS shim; outbound requests will fail",
+            nlib_dir.display()
+        );
+    }
+    // Same reasoning: an absent CA bundle breaks every TLS call and is silent.
+    if ca_bundle_path.exists() {
+        log::info!("[OpenCode] SSL_CERT_FILE={}", ca_bundle_path.display());
+    } else {
+        log::warn!("[OpenCode] SSL_CERT_FILE missing at {} — TLS will fail", ca_bundle_path.display());
+    }
 
     // Log files for post-mortem analysis + stderr piped through a thread to logcat
     let log_dir = dir.join("logs");
