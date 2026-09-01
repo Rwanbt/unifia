@@ -14,7 +14,7 @@
  * live in `@unifia/capability-runtime` — this file is contract only.
  */
 import { z } from "zod"
-import { OwnershipScopeSchema, DeploymentScopeSchema } from "./scope.js"
+import { DeploymentScopeSchema } from "./scope.js"
 
 /**
  * The four trust classes recognized by the Capability Authority.

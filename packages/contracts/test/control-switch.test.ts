@@ -184,7 +184,7 @@ describe("parseControlSwitchConfig — helper (9, 10)", () => {
   })
 
   test("(10) ThrowsOnInvalid — wrong type for `cases` (string not array) throws ZodError", () => {
-    let caught: unknown = undefined
+    let caught: unknown
     try {
       parseControlSwitchConfig({
         discriminator: "input.x",

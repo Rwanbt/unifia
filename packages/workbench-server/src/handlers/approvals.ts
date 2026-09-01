@@ -9,7 +9,6 @@
  * capability handle. The principal is recovered separately for audit
  * attribution (DA-AUD-02).
  */
-import type { Principal } from "../auth.js"
 import { body, json } from "../http.js"
 import { userAudit } from "../audit-context.js"
 import type { ServerContext } from "../server-context.js"

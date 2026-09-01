@@ -30,14 +30,14 @@
  *   - Grant: short-lived, auditable, replay-protected.
  */
 import { createHash } from "node:crypto"
-import {
-  type CapabilityGrant,
-  type DeploymentScope,
-  type EnforcementResult,
-  type OwnershipScope,
-  type TrustClass,
-  type WorkerId,
-  type DenialReason,
+import type {
+  CapabilityGrant,
+  DeploymentScope,
+  EnforcementResult,
+  OwnershipScope,
+  TrustClass,
+  WorkerId,
+  DenialReason,
 } from "@unifia/contracts"
 
 /** Default grant TTL — 5 minutes, per M1 plan §3.8 (f). */
@@ -67,9 +67,6 @@ export const CAPABILITY_MIN_TRUST: Record<string, TrustClass> = {
   "desktop.control": "CORE",
 }
 
-/** Fallback minimum trust for capabilities outside the 6-capability matrix. */
-const DEFAULT_CAPABILITY_MIN_TRUST: TrustClass = "REVIEWED_EXTENSION"
-
 /**
  * Resolve the minimum trust class for a given capability id.
  * Returns `undefined` for unknown capabilities (no fallback rank), which
@@ -89,12 +86,10 @@ export function requiredTrustClass(capability: string): TrustClass | undefined {
 function defaultMinTrustForUnknown(_capability: string): TrustClass | undefined {
   // Closed default: unknown capability => no trust class is acceptable.
   // Returning `undefined` forces `enforce()` to refuse with
-  // `TRUSTCLASS_TOO_LOW`, which is fail-closed.
+  // `TRUSTCLASS_TOO_LOW`, which is fail-closed. The registry lookup that
+  // will replace this body is an ADR-024 extension point; until it exists,
+  // refusing is the only safe answer.
   return undefined
-  // (The DEFAULT_CAPABILITY_MIN_TRUST constant is reserved for a future
-  // extension point — see ADR-024; for now, unknown = refuse.)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void DEFAULT_CAPABILITY_MIN_TRUST
 }
 
 /**

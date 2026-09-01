@@ -20,7 +20,6 @@
 import { z } from "zod"
 import { OwnershipScopeSchema, DeploymentScopeSchema } from "./scope.js"
 import {
-  DigestEnvelopeSchema,
   DigestDomainSchema,
   WorkflowVersionDigestSchema,
   type DigestDomain,

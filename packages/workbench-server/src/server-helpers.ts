@@ -28,7 +28,7 @@ import type { ServerContext } from "./server-context.js"
  * `ctx.tokens` — a principal token is never present there, so a misrouted
  * credential fails closed with 403 rather than granting access.
  */
-export function bearer(ctx: ServerContext, request: Request): string | undefined {
+export function bearer(_ctx: ServerContext, request: Request): string | undefined {
   const scoped = request.headers.get("x-unifia-file-session")
   if (scoped) return scoped
   const value = request.headers.get("authorization")

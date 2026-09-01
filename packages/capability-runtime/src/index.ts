@@ -13,7 +13,7 @@
  * revocation check is never bypassed.
  */
 import { sign, verify } from "node:crypto"
-import { CapabilityRegistry, type CapabilityManifest, type ManifestVerifier } from "@unifia/contracts"
+import type { CapabilityManifest, ManifestVerifier } from "@unifia/contracts"
 import { capabilitySignaturePayload } from "@unifia/contracts"
 
 export class Ed25519ManifestVerifier implements ManifestVerifier {

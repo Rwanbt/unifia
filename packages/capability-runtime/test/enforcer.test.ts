@@ -13,10 +13,10 @@
  */
 import { describe, expect, test } from "bun:test"
 import { generateKeyPairSync, sign as edSign } from "node:crypto"
-import {
-  type DeploymentScope,
-  type OwnershipScope,
-  type WorkerId,
+import type {
+  DeploymentScope,
+  OwnershipScope,
+  WorkerId,
 } from "@unifia/contracts"
 import {
   CAPABILITY_MIN_TRUST,
@@ -45,7 +45,6 @@ const scopeProjB: OwnershipScope = { organizationId: "org-acme", projectId: "pro
 const deploymentA: DeploymentScope = { ownershipScope: scopeA, environmentId: "prod" }
 const deploymentB: DeploymentScope = { ownershipScope: scopeB, environmentId: "prod" }
 const deploymentC: DeploymentScope = { ownershipScope: scopeC, environmentId: "prod" }
-const deploymentProjA: DeploymentScope = { ownershipScope: scopeProjA, environmentId: "prod" }
 const deploymentProjB: DeploymentScope = { ownershipScope: scopeProjB, environmentId: "prod" }
 
 const principalInA: WorkerId = {
@@ -93,7 +92,6 @@ function sign(payload: string, capability: string, trustClass: SignedManifest["t
 }
 
 const signedNetworkRE: SignedManifest = sign("unifia.capability-manifest.v1\nnetwork.request", "network.request", "REVIEWED_EXTENSION")
-const signedTerminalCore: SignedManifest = sign("unifia.capability-manifest.v1\nterminal.run", "terminal.run", "CORE")
 
 // ============================================================================
 // Test suite

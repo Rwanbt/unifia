@@ -8,12 +8,10 @@
  * would form if a handler had to import the class just to type a parameter.
  */
 import type {
-  ApprovalBroker,
   ApprovalRequestRecord,
   AuditContext,
   AuditEvent,
   BrowserAutomationBroker,
-  CapabilityManifest,
   CapabilityRegistry,
   DesktopAutomationBroker,
   McpUiControlBroker,
@@ -22,7 +20,6 @@ import type {
   RuntimeDecision,
   UiAction,
   WorkspaceHandle,
-  WorkspaceManifest,
   WorkspacePort,
 } from "@unifia/contracts"
 import type { ArtifactStore } from "@unifia/artifact-runtime"
