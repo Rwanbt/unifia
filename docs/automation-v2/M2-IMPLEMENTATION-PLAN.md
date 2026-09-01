@@ -3,9 +3,12 @@
 
 # M2 IMPLEMENTATION PLAN — UNIFIA AUTOMATE Graph Engine
 
-> **Statut** : DRAFT (planning only — no code, no commit)
+> **Statut** : **COMPLETE** — les 6 cartes GREEN + M2-TEST sont livrées
+> (2026-09-02, HEAD `3e0598ac5f`). M2-07 (`while`), M2-08 (`child
+> workflow`) et M2-09 (`wait` refine) restent RED/YELLOW, bloquées par
+> ADR-000. Voir §10 pour le relevé de sortie.
 > **Phase** : M2 (livrable §198-199 du plan V2.3.1)
-> **Date** : 2026-09-01
+> **Date** : 2026-09-01, clôturé 2026-09-02
 > **Auteur** : Mavis root session `mvs_56ff19232dc5452082047fce8c11b9c4`
 > **Source canonique** :
 > [`docs/automation-v2/IMPLEMENTATION_CARD_INDEX.md`](./IMPLEMENTATION_CARD_INDEX.md),
@@ -398,7 +401,18 @@ Chaque worker :
 3. Implémente sa carte (extension additive).
 4. Écrit les tests.
 5. Lance `bun test packages/contracts` — 0 régression.
-6. Commit local avec `--no-verify` (pattern session, 295 fichiers husky vérifiés, no fixes applied).
+6. Commit local **sans** `--no-verify` — le hook `pre-commit` est une gate, pas une formalité.
+
+   > **Corrigé le 2026-09-02 (finding F-M2-01).** Cette étape disait
+   > « Commit local avec `--no-verify` (pattern session, 295 fichiers husky
+   > vérifiés, no fixes applied) ». Les deux moitiés de la phrase se
+   > contredisent : on ne peut pas à la fois sauter le hook et affirmer
+   > qu'il a vérifié 295 fichiers. À sa première exécution réelle, le hook
+   > a refusé le commit avec **1 erreur biome** (code mort inatteignable
+   > dans `capability-runtime/src/enforcer.ts`) **et 10 warnings**, tous
+   > accumulés dans du code déjà committé par les rounds précédents.
+   > Résorbé en `7ce0d4a896`. Un worker qui lit ce plan ne doit plus jamais
+   > y trouver la permission de contourner la gate.
 7. Reporte au root session le SHA + résumé.
 
 ### 8.2 Round 2 — 3 workers en parallèle
@@ -442,4 +456,36 @@ M3 (Effect / Timer / Cancellation, 10 cartes, plan §200-201).
 
 ---
 
-*Fin du plan M2. Aucune ligne de code source dans ce document. Les 6 cartes GREEN sont prêtes à être distribuées aux workers.*
+---
+
+## 10. Relevé de sortie M2 — mesuré le 2026-09-02
+
+Vérification des critères de §6, un par un, avec la commande qui les prouve.
+
+| Critère §6 | Cible | Mesuré | Verdict |
+|---|---|---|---|
+| 6/6 cartes GREEN livrées | M2-01..06 | 6/6 + M2-TEST | **GO** |
+| 0 régression | 141/0 contracts | **285/0**, 22 fichiers, 2 029 expects | **GO** |
+| 0 nouveau warning typecheck | 43/43 packages | `bun turbo typecheck --concurrency=1` → **43/43 successful**, exit 0 | **GO** |
+| IR reste canonique | 11 node families | `NodeFamilySchema.options.length` = **11**, 6 EdgeKind | **GO** |
+| Graph property tests | ≥ 20 | **46**, 1 427 expects, + 3 mutations qui tuent chacune exactement 1 test | **GO** |
+| Kernel `WorkflowRuntime` non touché | `git diff` = 0 | **ÉCART** : `adapter.ts` (+215) et `index.ts` (+8) posés par M1-09. Contenu : 1 `interface`, 5 signatures, **0 implémentation** | **GO_WITH_CONTAINED_DEBT** (F-M2-02) |
+| Pas de push / PR / merge / tag | 0 de chaque | 0 push, 0 PR, 0 merge, 0 tag ; 67 commits locaux | **GO** |
+
+**Verdict M2 : GO_WITH_CONTAINED_DEBT.** La dette contenue est F-M2-02, et
+elle ne relève d'aucune des 8 catégories interdites par le plan §237 : ni
+Critical, ni High, ni ambiguïté d'autorité, ni fuite de secret, ni isolation
+tenant, ni contournement réseau, ni perte de clé, ni correction d'effet
+irréversible. C'est un écart de formulation entre un critère et une carte
+YELLOW déjà documentée comme telle.
+
+**Ce que M2 ne prouve pas.** Les 6 familles de contrôle sont des *contrats* :
+aucun kernel ne les exécute, et `validateWorkflowGraph` n'a aucun appelant.
+Les 8 gates de sortie Automate du §16.3 du plan d'audit trois modes restent
+**sans preuve** — `automate-surface.tsx` n'a toujours aucun test e2e. Rien
+dans M2 ne change cela ; seule la phase 3 de C-PRE1-01 le ferait, et elle
+attend ADR-000.
+
+---
+
+*Fin du plan M2. Aucune ligne de code source dans ce document.*
