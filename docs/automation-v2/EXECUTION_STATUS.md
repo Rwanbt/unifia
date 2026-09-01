@@ -119,16 +119,18 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 
 ---
 
-## Open cards (post-foundation, post-PRE-1.1)
+## Open cards (post-foundation, post-PRE-1.1, post-C-PRE1-01 phase 2)
 
 | Phase | Carte | Statut | Bloquant |
 |---|---|---|---|
-| PRE-1 | C-PRE1-01 phase 2 (decodeFile round-trip, validation) | OPEN | M1 (extraction ou export de `decodeFile`) |
+| PRE-1 | C-PRE1-01 phase 1 (statique) | **DONE** (5/5) | — |
+| PRE-1 | C-PRE1-01 phase 2 (round-trip) | **DONE** (12/12) | — |
+| PRE-1 | C-PRE1-01 phase 3 (e2e Playwright 8 sorties §16.3) | OPEN | M1 (après ADR-000) |
 | PRE-1 | C-PRE1-02 cartographie auth.ts (R-012) | **DONE** (R-012 verdict = ABSENT_CREATE) | — |
 | PRE-1 | C-PRE1-03 cartographie workflow-catalog (R-014) | **DONE** (catalog EXTEND, runtime MIGRATE) | — |
 | PRE-1 | C-PRE1-04 workbench-server REFACTOR (97 Ko) | OPEN | ADR-000 |
 | PRE-1 | C-PRE1-05 isolation scope workbench-orchestrator | **DONE** (déjà couvert par `orchestrator.test.ts`) | — |
-| M0 | M0-01 substrate proof (plan §194) | OPEN | ADR-000 + R-013 phase 2 |
+| M0 | M0-01 substrate proof (plan §194) | OPEN | ADR-000 |
 | ADR | C-AR-01 Capability Authority enforcer | OPEN | M1 |
 | ADR | C-AR-02 supply chain ADR | OPEN | M1 ou M2 |
 | ADR | C-AR-03 LLM provider policy | OPEN | post-M3 (AI Track) |
@@ -150,8 +152,11 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 |---|---|---|
 | `bun turbo typecheck --concurrency=1` | VERT 38/38 | SESSION-2 §7 |
 | `bunx biome check packages/` | VERT 1 452 fichiers | SESSION-2 §7 |
-| `cd packages/app && bun test --preload ./happydom.ts ./src` | VERT 1 175 pass, 0 fail | SESSION-2 §7 |
-| **C-PRE1-01 smoke test (5 tests statiques)** | **VERT 5/5** | cette session |
+| `cd packages/app && bun test --preload ./happodm.ts ./src` (avant cette session) | VERT 1 175 pass, 0 fail | SESSION-2 §7 |
+| `cd packages/app && bun test --preload ./happydom.ts ./src` (après C-PRE1-01) | **VERT 1 192 pass, 0 fail** | cette session |
+| **C-PRE1-01 phase 1 (5 statiques)** | **VERT 5/5** | cette session |
+| **C-PRE1-01 phase 2 (12 round-trip)** | **VERT 12/12** | cette session |
+| `tsc --noEmit` sur `packages/app` | VERT (no errors) | cette session |
 | Playwright `e2e/design` + `design-journey` | VERT 20/20 (3 runs) | SESSION-2 §7 |
 | Axe WCAG 2.1 AA 6 états | VERT hors `color-contrast` | SESSION-2 §3.3 |
 | Modal approbation expiré | VERT 3 parcours | SESSION-2 §4 |
@@ -170,8 +175,7 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 
 | Gate | Statut | Source / Action |
 |---|---|---|
-| `e2e/automate` complet | **ROUGE** | R-013 phase 2 (M1, après ADR-000) |
-| `automate-surface.test.ts` phase 2 (decodeFile round-trip) | **ROUGE** | R-013 phase 2 |
+| `e2e/automate` complet (8 sorties §16.3) | **ROUGE** | R-013 phase 3 (M1, après ADR-000) |
 | `WorkflowRuntime` substrate-grade | **ROUGE** | R-014 + ADR-000 + M0-01 |
 | `@unifia/secret-broker` | **ABSENT** confirmé | R-012 résolu PRE-1.1, ADR-010 PROPOSED |
 | `e2e/app` + `e2e/modes` | 22/30 PARTIEL | R-004, R-005, R-006 |
@@ -290,16 +294,22 @@ ADR. **Côté implémentation** : bloqué par R-001 (externe), R-013, R-014.
 - 9 fichiers Markdown dans `docs/automation-v2/`
 - 1 fichier `certification/gates.yaml`
 - 25 fichiers ADR dans `docs/adr/`
-- 1 fichier de test (C-PRE1-01 phase 1) dans
+- C-PRE1-01 phase 1 : 1 fichier de test statique dans
   `packages/app/src/pages/workbench/automate-surface.test.ts`
-- 19 commits locaux sur `agent/automate-v2-baseline-20260901`
-- **0 push, 0 merge, 0 tag, 0 modification de code de production**
+- C-PRE1-01 phase 2 : 1 nouveau module
+  `packages/app/src/pages/workbench/automate-decode.ts` + 1 test
+  `automate-decode.test.ts` + refactor de `automate-surface.tsx`
+  pour utiliser le module extrait (comportement préservé)
+- 25 commits locaux sur `agent/automate-v2-baseline-20260901`
+- **0 push, 0 merge, 0 tag, 0 modification de code durable de production**
 - **pre-commit husky** : 295 fichiers vérifiés, no fixes applied sur tous les commits
 
 ## Ce qui n'est PAS exécuté
 
-- Aucun package de `packages/` modifié en dehors du test smoke C-PRE1-01
-- Aucun test runtime autre que le smoke test (5 pass / 0 fail)
+- Aucun package de `packages/` modifié en dehors de
+  l'extraction `automate-decode` (pure refactor, comportement
+  préservé, 1192/1192 tests verts)
+- Aucun test runtime autre que `bun test` sur `packages/app/src`
 - Aucun code durable de production touché
 - Aucun secret, aucune dépendance réseau ajoutée
 - Les 10 worktrees MiniMax de `pr3m-20260831-090426` non touchés

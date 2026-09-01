@@ -350,7 +350,7 @@ NEEDS_EVIDENCE
 | `ALREADY_COVERED` | 3 (R-002, R-003, R-006) |
 | `BASELINE_MISMATCH` | 2 (R-010, R-011) |
 | `NEEDS_EVIDENCE` | 5 (R-001, R-004, R-005, R-008, R-009) — R-012, R-013, R-014 ont fait l'objet d'une cartographie PRE-1.1, voir ci-dessous |
-| `RESOLU_PRE-1.1` | 3 (R-012 verdict = ABSENT_CREATE, R-013 phase 1 livrée, R-014 confirmé par C-PRE1-03) |
+| `RESOLU_PRE-1.1` | 3 (R-012 verdict = ABSENT_CREATE, R-013 phase 1+2 livrées, R-014 confirmé par C-PRE1-03) |
 
 **Findings qui demandent un blocage ou une action immédiate** :
 
@@ -525,39 +525,50 @@ catalogue) + `MIGRATE` (le runtime). ADR-000 PROPOSED.
 
 ## C-PRE1-01 — Premier test Automate (R-013)
 
-**Verdict** : Phase 1 livrée, phase 2 différée.
+**Verdict** : Phase 1 + phase 2 livrées. Phase 3 (e2e Playwright 8
+sorties §16.3) reste M1, après ADR-000.
 
-**Mesure** : `packages/app/src/pages/workbench/automate-surface.test.ts`
-(5 tests statiques, 5 pass / 0 fail).
+**Mesure phase 1** :
+`packages/app/src/pages/workbench/automate-surface.test.ts` (5 tests
+statiques, 5 pass / 0 fail). Le module ne peut pas être importé en
+Node (SolidJS router client-only) ; les tests pin la forme du
+fichier source.
 
-Le test a d'abord été écrit en import dynamique de
-`automate-surface.tsx`, ce qui a échoué en environnement Node parce
-que le module importe `@solidjs/router` qui lève « Client-only API
-called on the server side ». C'est une limite de l'environnement
-de test, pas un défaut du code : le module exige un environnement
-navigateur.
+**Mesure phase 2** :
+- `packages/app/src/pages/workbench/automate-decode.ts` (NOUVEAU) :
+  helpers purs `decodeFile` (utf-8 + base64 round-trip) et
+  `parseWorkflowDefinition` (JSON.parse + validation minimale
+  id/version/steps, retourne un résultat taggé `ok`/`error`).
+- `packages/app/src/pages/workbench/automate-decode.test.ts`
+  (NOUVEAU) : 12 tests, 12 pass / 0 fail. Couvre :
+  - utf-8 pass-through, base64 vide, base64 utf-8 non-ASCII (« héllo »)
+  - body workflow round-trip réaliste
+  - définition valide acceptée
+  - body vide / JSON malformé / id manquant / id vide / version ≠ 1 /
+    steps manquant tous rejetés avec un message descriptif
+  - **steps vide accepté** (pin le contrat actuel du runtime — le
+    `workflow-catalog` rejette ailleurs ; la migration vers le
+    contrat strict sera une décision délibérée, pas une dérive
+    silencieuse).
+- `automate-surface.tsx` (MODIFIÉ) : import depuis `./automate-decode`,
+  la fonction `startSelectedWorkflow` utilise maintenant
+  `parseWorkflowDefinition(decodeFile(file))` au lieu du parsing
+  inline. Comportement préservé byte-pour-byte (même message
+  d'erreur i18n, même état Reactif en cas d'échec).
 
-Le test a été réécrit en **statique** (pattern `branding.test.ts` :
-lecture du source, regex sur la forme du fichier) avec 5 assertions
-qui pin l'API publique :
+**Phase 3** (différée à M1, après ADR-000) :
+- e2e minimal Playwright : 1 parcours `approval_required` avec
+  horloge Playwright, qui couvre les 8 sorties §16.3.
 
-1. `export function AutomateSurface(` — la surface est exportée.
-2. `const decodeFile =` + `atob(` — le helper base64 est présent.
-3. `client.startWorkflow(` — la call au wire workbench est présente.
-4. `approvalRequired` — la branche approval est gérée.
-5. Validation minimale (id string, version === 1, steps array).
+**Statut R-013** : `NEEDS_EVIDENCE` → résolu partiellement. Phase 1
++ phase 2 livrées (17 tests au total : 5 statiques + 12 round-trip).
+Phase 3 reste M1.
 
-**Phase 2** (différée à M1, après ADR-000) :
-- extraction ou export de `decodeFile` pour test unitaire round-trip
-  UTF-8 + base64.
-- test de la validation `WorkflowDefinition` complète (alignée sur
-  `validateStepDeclaration` de `workflow-catalog`).
-- e2e minimal : 1 parcours `approval_required` avec horloge Playwright.
-
-**Statut R-013** : `NEEDS_EVIDENCE` → partiellement résolu (phase 1
-livrée, phase 2 documentée et bloquée sur l'ADR-000). Verdict =
-`EXTEND` (la suite existe maintenant, 5 tests statiques, mais ne
-couvre pas les 8 gates §16.3 — c'est l'objet de la phase 2).
+**Régression mesurée** : la suite `packages/app/src` est passée
+de 1175 tests (SESSION-2) à **1192 tests** dans cette session,
+avec **0 fail**. Les 17 nouveaux tests sont exactement C-PRE1-01
+phase 1 + phase 2. Aucune régression sur les 1175 tests
+preexistants.
 
 ## C-PRE1-05 — Test isolation scope (R-020 / multi-tenant)
 
