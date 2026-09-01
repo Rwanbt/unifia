@@ -119,7 +119,7 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 
 ---
 
-## Open cards (post-foundation, post-PRE-1.1, post-C-PRE1-01 phase 2)
+## Open cards (post-foundation, post-PRE-1.1, post-C-PRE1-01 phase 2, post-M0-01 spike)
 
 | Phase | Carte | Statut | Bloquant |
 |---|---|---|---|
@@ -130,7 +130,9 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 | PRE-1 | C-PRE1-03 cartographie workflow-catalog (R-014) | **DONE** (catalog EXTEND, runtime MIGRATE) | — |
 | PRE-1 | C-PRE1-04 workbench-server REFACTOR (97 Ko) | OPEN | ADR-000 |
 | PRE-1 | C-PRE1-05 isolation scope workbench-orchestrator | **DONE** (déjà couvert par `orchestrator.test.ts`) | — |
-| M0 | M0-01 substrate proof (plan §194) | OPEN | ADR-000 |
+| M0 | M0-01 throwaway substrate spike | **DONE** (4 PASS / 2 PARTIAL / 1 FAIL / 7 MISSING — voir `spikes/M0-01-EVIDENCE.md`) | — |
+| M0 | M0-02 substrate choice (Native / DBOS / Temporal) | OPEN | décision externe (ADR-000) |
+| ADR | ADR-000 validation | OPEN (PROPOSED) | R-013 phase 3 + M0-02 |
 | ADR | C-AR-01 Capability Authority enforcer | OPEN | M1 |
 | ADR | C-AR-02 supply chain ADR | OPEN | M1 ou M2 |
 | ADR | C-AR-03 LLM provider policy | OPEN | post-M3 (AI Track) |
