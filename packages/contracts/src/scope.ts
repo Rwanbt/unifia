@@ -27,9 +27,19 @@ import { z } from "zod"
  *   exactly one workspace.
  */
 export const OwnershipScopeSchema = z.object({
-  organizationId: z.string(),
-  projectId: z.string().optional(),
-  workspaceId: z.string(),
+  organizationId: z
+    .string()
+    .min(1)
+    .regex(/^\S(.*\S)?$/, "organizationId must not be empty or whitespace"),
+  workspaceId: z
+    .string()
+    .min(1)
+    .regex(/^\S(.*\S)?$/, "workspaceId must not be empty or whitespace"),
+  projectId: z
+    .string()
+    .min(1)
+    .regex(/^\S(.*\S)?$/, "projectId must not be empty or whitespace")
+    .optional(),
 })
 
 export type OwnershipScope = z.infer<typeof OwnershipScopeSchema>
