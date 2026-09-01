@@ -3,13 +3,16 @@
 
 # ADR-015 — Git / Database Authority
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1, ADR-005, ADR-017, ADR-002.
 
 ## Status
 
-PROPOSED. Couvre le Distributed Server Track (post-M3) et GitOps.
+DECIDED 2026-09-01. Couvre le Distributed Server Track (post-M3) et
+GitOps. Pour la première certification : SQLite (substrate local),
+pas de DB admin cloud. Décision tranchée sur la base de
+`PACKAGE_MIGRATION_MAP` et du plan §172-175.
 
 ## Context
 

@@ -3,13 +3,13 @@
 
 # ADR-007 — Side-Effect / Retry Semantics
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §84-93, ADR-002, ADR-004.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000 (substrate), ADR-002 (WorkflowIR), ADR-004
+DECIDED. Dépend d'ADR-000 (substrate), ADR-002 (WorkflowIR), ADR-004
 (history authority). Couvre la base M3.
 
 ## Context
@@ -63,6 +63,28 @@ Nouvelle exécution = `RE-RUN AS NEW WORKFLOW RUN`, action différente
 avec nouveau runId.
 
 ## Decision
+
+### Decision
+
+5 classes d'effet : `pure`, `idempotent`, `repeatable`, `reconcilable`,
+`non-repeatable`. `IdempotencyKey = hash(workflowVersionId, runId,
+logicalInvocationId, effectSlot)`. Pas de promesse exactly-once — la
+promesse est « durable at-least-once + idempotency + reconciliation ».
+`UNKNOWN_EXTERNAL_STATE` est un état explicite, pas de blind retry. Pas
+de retry sur validation / policy / capability denial / 4xx / effets
+non-repeatable.
+
+**Evidence** :
+
+- Spike M0-01.
+- Plan V2.3.1 §84-93.
+
+**Migration strategy** :
+
+- Chaque `node family` (ADR-002) déclare son `EffectManifest`.
+- Le `Workflow Kernel` calcule l'`IdempotencyKey` à chaque effet.
+- Les executors (HTTP, MCP, etc.) implémentent la sémantique retry.
+- M3 crash matrix tests (plan §201).
 
 ### Classes d'effet (plan §84)
 

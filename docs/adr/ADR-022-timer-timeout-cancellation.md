@@ -3,13 +3,13 @@
 
 # ADR-022 — Timer / Timeout / Cancellation
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §94-99, THREAT_MODEL §1.1 (TM-W-04).
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000 (substrate), ADR-004 (history authority).
+DECIDED. Dépend d'ADR-000 (substrate), ADR-004 (history authority).
 
 ## Context
 

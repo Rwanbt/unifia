@@ -3,13 +3,13 @@
 
 # ADR-017 — Legacy Migration
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §182-185, ADR-002, ADR-004.
 
 ## Status
 
-PROPOSED. Couvre la phase Migration (plan §222-223).
+DECIDED. Couvre la phase Migration (plan §222-223).
 
 ## Context
 

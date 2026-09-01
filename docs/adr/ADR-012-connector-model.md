@@ -3,14 +3,17 @@
 
 # ADR-012 — Connector Model
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §140, ADR-024, ADR-009, ADR-011.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-024, ADR-011 (MCP), ADR-009 (Policy). Couvre le
-Connectors/MCP Track (post-M3).
+DECIDED 2026-09-01. Dépend d'ADR-024, ADR-011 (MCP), ADR-009 (Policy).
+Couvre le Connectors/MCP Track (post-M3). Implémentation connector
+général différée à post-M3 ; pour la première certification, seul
+l'executor HTTP est in-scope. Décision tranchée sur la base de
+`AUTOMATE_TRUST_PATH §C.1`.
 
 ## Context
 

@@ -3,14 +3,14 @@
 
 # ADR-001 — Canonical Serialization / Digest Model
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §63-66, THREAT_MODEL §1.1 (TM-W-02, TM-W-05),
 > ADR-002.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-002 (WorkflowIR). ADR-002 doit être décidé avant
+DECIDED. Dépend d'ADR-002 (WorkflowIR). ADR-002 doit être décidé avant
 parce que la canonicalisation opère sur la forme IR rendue par ADR-002.
 
 ## Context
@@ -125,6 +125,29 @@ sans whitespace. Implémentation maison.
 | `canonicalize` npm | à vérifier maintenance | UNVERIFIED — spike requis |
 
 ## Decision
+
+### Decision
+
+JCS (RFC 8785) + SHA-256 via le package npm `canonicalize`. Les flottants
+sont rejetés à la frontière de publication d'une `WorkflowVersion`
+(contrainte « integer-only »). Versioning de l'algorithme par
+`DigestEnvelope.canonicalizationAlgorithm = "JCS-v1"`.
+
+**Evidence** :
+
+- Spike M0-02 (`docs/automation-v2/spikes/M0-02-EVIDENCE.md`) : 8 PASS /
+  1 FAIL sur RFC 8785 §3.2.2.3.
+- `canonicalize` npm maintenu et conforme à JCS.
+- 7 domaines avec une même donnée → 7 digests distincts vérifiés.
+- Adoption W3C / IETF (robustesse prouvée).
+
+**Migration strategy** :
+
+- `DigestEnvelope.canonicalizationAlgorithm` permet la migration
+  (JCS-v1 → JCS-v2).
+- Les anciens enveloppes restent lisibles tant que l'implémentation est
+  conservée.
+- Si `canonicalize` devient non maintenu, fork local.
 
 **Option PROPOSED : A — JCS + SHA-256**, sous réserve du spike M1-01.
 

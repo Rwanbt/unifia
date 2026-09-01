@@ -3,14 +3,17 @@
 
 # ADR-013 — Browser Isolation / Egress Integration
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §143-151, ADR-023, ADR-024, ADR-009.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-023 (Network Authority), ADR-024 (extension).
-Couvre le Browser Track (post-M3).
+DECIDED 2026-09-01. Dépend d'ADR-023 (Network Authority), ADR-024
+(extension). Couvre le Browser Track (post-M3). Implémentation
+browser différée à post-M3 ; pour la première certification, pas de
+browser GA. Décision tranchée sur la base de
+`AUTOMATE_TRUST_PATH §D.1`.
 
 ## Context
 

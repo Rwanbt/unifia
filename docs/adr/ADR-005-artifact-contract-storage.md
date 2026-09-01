@@ -3,14 +3,14 @@
 
 # ADR-005 — Artifact Contract / Storage Authority
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §67-71, THREAT_MODEL §1.5 (TM-AR-01..03),
 > ADR-001, ADR-004, ADR-010, ADR-020.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-001 (canonicalisation), ADR-004 (history), ADR-010
+DECIDED. Dépend d'ADR-001 (canonicalisation), ADR-004 (history), ADR-010
 (key/secret), ADR-020 (ownership).
 
 ## Context
@@ -125,6 +125,31 @@ record, et on refuse tout caller-control sur ces champs. L'UI
 | ADR-020 | ownership | PROPOSED |
 
 ## Decision
+
+### Decision
+
+`ArtifactStore` avec enforcement strict de `scope` / `taint` /
+`classification`. Le caller ne peut pas fixer `classification`, `taint`,
+`ownership`, `environment`. `contentDigest` et `AtRestProtectionEnvelope`
+sont construits par le store, jamais par le caller. Seuil `LARGE PAYLOAD`
+à 64 KiB (au-delà, le runtime remplace la valeur par un `ArtifactRef`).
+
+**Evidence** :
+
+- `AUTOMATE_TRUST_PATH` §C.1 (état actuel d'`artifact-runtime`).
+- `THREAT_MODEL` §1.5 (TM-AR-01..03).
+- Plan V2.3.1 §67-71 (contrat).
+
+**Migration strategy** :
+
+- `packages/artifact-runtime/src/index.ts` étendu.
+- `packages/contracts/src/artifact.ts` étendu avec `ArtifactRecord`,
+  `ArtifactWriteRequest`, `Taint`, `Classification`, `ArtifactOrigin`,
+  `RetentionPolicy`.
+- `automate-surface.tsx` affiche `digest` et `size`.
+- `workbench-server` passe le `scope` à chaque appel store.
+- `artifact-studio` testée (C-5 — pas de contrôle caller sur
+  `classification`).
 
 **Option A**.
 

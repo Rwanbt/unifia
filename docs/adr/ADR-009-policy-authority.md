@@ -3,14 +3,15 @@
 
 # ADR-009 — Policy Authority
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §117, THREAT_MODEL §1.10, ADR-020, ADR-023.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-020 (ownership) et ADR-023 (network). Couvre le
-Security Core Track (§203 du plan).
+DECIDED 2026-09-01. Dépend d'ADR-020 (ownership) et ADR-023 (network).
+Couvre le Security Core Track (§203 du plan). Décision tranchée sur la
+base de `THREAT_MODEL.md` + `EXECUTION_PROFILE_REQUIREMENTS.md`.
 
 ## Context
 

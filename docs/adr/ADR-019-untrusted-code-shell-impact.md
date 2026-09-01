@@ -3,14 +3,14 @@
 
 # ADR-019 — Untrusted Code / Shell Execution (architectural impact)
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §133-136, THREAT_MODEL §1.8 (TM-CS-01..03),
 > ADR-002, ADR-024.
 
 ## Status
 
-PROPOSED. ADR d'**impact architectural** (plan §197). Dépend d'ADR-000
+DECIDED. ADR d'**impact architectural** (plan §197). Dépend d'ADR-000
 (substrate) et d'ADR-002 (IR). L'implémentation obligatoire seulement
 **avant** un profile exposant Code/Shell (plan §133).
 

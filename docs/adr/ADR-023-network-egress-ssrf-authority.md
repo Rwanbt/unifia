@@ -3,13 +3,13 @@
 
 # ADR-023 — Network Egress / SSRF Authority (architectural impact)
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §108-113, THREAT_MODEL §1.6 (TM-N-01..05).
 
 ## Status
 
-PROPOSED. ADR d'**impact architectural** (plan §197). Dépend d'ADR-000.
+DECIDED. ADR d'**impact architectural** (plan §197). Dépend d'ADR-000.
 
 ## Context
 

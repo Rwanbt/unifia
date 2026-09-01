@@ -3,15 +3,15 @@
 
 # ADR-021 — Repository / Module Topology
 
-> **Statut** : EVALUATED — NOT TRIGGERED
+> **Statut** : DECIDED (NOT TRIGGERED)
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1, PACKAGE_MIGRATION_MAP.md, R-012.
 
 ## Status
 
-**NOT TRIGGERED** par PRE-1. Le `PACKAGE_MIGRATION_MAP.md` n'a pas
-identifié de besoin de réorganiser la topologie du dépôt. ADR conservé
-pour traçabilité.
+**DECIDED (NOT TRIGGERED)** par PRE-1. Le `PACKAGE_MIGRATION_MAP.md`
+n'a pas identifié de besoin de réorganiser la topologie du dépôt. ADR
+conservé pour traçabilité.
 
 ## Context
 

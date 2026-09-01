@@ -3,14 +3,14 @@
 
 # ADR-020 — Ownership / Deployment Scope
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §44-48, THREAT_MODEL §1.10 (TM-T-01, TM-T-02),
 > EXECUTION_PROFILE_REQUIREMENTS.md.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000 (substrate). Bloque l'isolation multi-tenant.
+DECIDED. Dépend d'ADR-000 (substrate). Bloque l'isolation multi-tenant.
 
 ## Context
 

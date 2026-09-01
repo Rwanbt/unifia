@@ -3,15 +3,17 @@
 
 # ADR-010 — Secret / Credential / Key Protection Model
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §72-80, §123-127, THREAT_MODEL §1.4
 > (TM-S-01..03), ADR-001, ADR-005, ADR-020, RISK_REGISTER §R-012.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-001 (canonicalisation), ADR-004 (history),
-ADR-005 (artifact), ADR-020 (ownership), R-012 (Secret Broker manquant).
+DECIDED 2026-09-01. Dépend d'ADR-001 (canonicalisation), ADR-004
+(history), ADR-005 (artifact), ADR-020 (ownership), R-012 (Secret
+Broker manquant). Option A tranchée sur la base de la cartographie
+`RISK_REGISTER.md#R-012` et du plan §72-80.
 
 ## Context
 

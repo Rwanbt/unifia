@@ -3,14 +3,18 @@
 
 # ADR-011 — MCP Compatibility
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §141-142, ADR-024, ADR-009.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-024 (extension isolation) et ADR-009 (Policy).
-Couvre le Connectors/MCP Track (post-M3).
+DECIDED 2026-09-01. Dépend d'ADR-024 (extension isolation) et
+ADR-009 (Policy). Couvre le Connectors/MCP Track (post-M3).
+Implémentation MCP spec différée à M2+ ; pour la première
+certification, MCP est hors scope (uniquement les 6 familles de
+nodes d'ADR-002). Décision tranchée sur la base de
+`AUTOMATE_TRUST_PATH §D.3`.
 
 ## Context
 

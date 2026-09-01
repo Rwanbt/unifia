@@ -3,14 +3,16 @@
 
 # ADR-008 — Scheduler / Worker / Time Authority
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §100-107, ADR-004, ADR-022.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000 (substrate), ADR-004 (history), ADR-022 (timer).
-Couvre M2-M3.
+DECIDED 2026-09-01. Dépend d'ADR-000 (substrate), ADR-004 (history),
+ADR-022 (timer). Couvre M2-M3. Décision tranchée sur la base de
+`docs/automation-v2/spikes/M0-01-EVIDENCE.md` (absence confirmée de
+worker identity / lease / fencing dans le runtime actuel).
 
 ## Context
 

@@ -3,13 +3,13 @@
 
 # ADR-018 — Rolling Upgrade Compatibility
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §176-177, ADR-004, ADR-017, ADR-022.
 
 ## Status
 
-PROPOSED. Couvre le Distributed Server Track (post-M3, plan §209).
+DECIDED. Couvre le Distributed Server Track (post-M3, plan §209).
 
 ## Context
 

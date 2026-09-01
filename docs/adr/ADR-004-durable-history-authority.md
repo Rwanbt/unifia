@@ -3,14 +3,14 @@
 
 # ADR-004 — Durable History Authority
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §41-43, §194 (M0 substrate proof), §196 (M1
 > tests), THREAT_MODEL §1.1 (TM-W-01..05).
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000 (substrate) et d'ADR-001 (canonicalisation).
+DECIDED. Dépend d'ADR-000 (substrate) et d'ADR-001 (canonicalisation).
 
 ## Context
 
@@ -109,6 +109,30 @@ qui sont une projection produit/audit.
 - Dépendance externe.
 
 ## Decision
+
+### Decision
+
+Kernel natif avec les 5 abstractions du plan §41 :
+`DurableHistoryAuthority`, `MaterializedRunProjection`,
+`AtomicTransitionBoundary`, `DurableCommandOutbox`,
+`DurableTimerAuthority`. Une seule autorité par `WorkflowRun`, immuable
+pendant le run. Pas de migration silencieuse entre authorities.
+
+**Evidence** :
+
+- Spike M0-01 (`docs/automation-v2/spikes/M0-01-EVIDENCE.md`) confirme
+  que le runtime actuel n'est pas substrate-grade.
+- Plan V2.3.1 §41 (les 5 abstractions).
+- Plan §38 (failure matrix).
+
+**Migration strategy** :
+
+- `WorkflowRuntime` réécrit (actuellement 91 lignes).
+- `FileWorkflowStore` (16 lignes) déprécié.
+- Wire workbench expose les nouveaux champs (`durableAuthorityId`,
+  `durableAuthorityKind`).
+- Feature flag `legacy: true` pour fallback.
+- Aucun WorkflowRun GA avant que M0-01 ne passe.
 
 **Option PROPOSED : alignée sur ADR-000** — la décision est
 conditionnée par le spike M0-01.

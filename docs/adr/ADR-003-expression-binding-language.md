@@ -3,14 +3,14 @@
 
 # ADR-003 — Expression & Binding Language
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §59-62, THREAT_MODEL §1.9 (TM-AG-06),
 > `IMPLEMENTATION_CARD_INDEX.md`.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000. Doit être décidé **AVANT** ADR-002 (IR), car
+DECIDED. Dépend d'ADR-000. Doit être décidé **AVANT** ADR-002 (IR), car
 le binding des inputs/outputs dans le DAG dépend du langage d'expression.
 
 ## Context
@@ -114,6 +114,30 @@ JSON (MIT). Très expressif, syntaxe proche de JSONPath. SDK TS officiel.
 | JSONata SDK | à vérifier au moment de l'ADR | UNVERIFIED — spike requis |
 
 ## Decision
+
+### Decision
+
+Interprète CEL hand-rollé dans `packages/expression-runtime/` suivant
+RFC 53xx, avec évaluation bornée (5 limites, plan §62). Walker AST pour
+l'extraction de dépendances. Zod à la frontière `WorkflowIR` pour le
+typage. `cel-js` est cassé sur Bun (rejeté).
+
+**Evidence** :
+
+- Spike M0-03 (`docs/automation-v2/spikes/M0-03-EVIDENCE.md`) : 8 PASS /
+  3 FAIL / 2 MISSING.
+- `cel-js` cassé sur le runtime Bun.
+- CEL prouvé en Kubernetes / gRPC (sandboxes, eval-time limits).
+- Plan V2.3.1 §59-62.
+
+**Migration strategy** :
+
+- Nouveau package `packages/expression-runtime/` (absent aujourd'hui).
+- JSONata reste un fallback si CEL s'avère inadapté.
+- Le binding dans `WorkflowIR` (ADR-002) est naturellement compatible avec
+  une forme CEL.
+- Si CEL est refusé dans un ADR futur, fallback = un seul commit
+  réversible.
 
 **Option PROPOSED : A — CEL**, sous réserve du spike M0-02.
 

@@ -3,14 +3,17 @@
 
 # ADR-014 — Computer Use Provider Port
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §152-157, ADR-013, ADR-024, ADR-009.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-013 (browser), ADR-024 (extension), ADR-009
-(policy). Couvre le Browser Track B2 (post-M3).
+DECIDED 2026-09-01. Dépend d'ADR-013 (browser), ADR-024 (extension),
+ADR-009 (policy). Couvre le Browser Track B2 (post-M3).
+Implémentation Computer Use différée à post-M3 (Browser B2) ; pour
+la première certification, pas de Computer Use. Décision tranchée
+sur la base de `AUTOMATE_TRUST_PATH §D.2`.
 
 ## Context
 

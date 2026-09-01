@@ -3,14 +3,14 @@
 
 # ADR-002 — Workflow Definition / Version / IR
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §49-58, BASELINE.md §5.1,
 > `IMPLEMENTATION_CARD_INDEX.md`.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-003 (expression language). Doit être décidé avant
+DECIDED. Dépend d'ADR-003 (expression language). Doit être décidé avant
 ADR-001 (canonicalisation) — la canonicalisation s'applique sur la forme
 `WorkflowIR` rendue par cet ADR.
 
@@ -137,6 +137,28 @@ d'usage étendu (HTTP, MCP, Connector, Code, Approval, Browser, etc.).
 | ADR-003 | langage d'expression CEL | MEASURED |
 
 ## Decision
+
+### Decision
+
+Cible première = `Automate Core × local-single-node`. 6 `node families`
+seulement : `trigger.manual`, `trigger.schedule`, `control.if`, `tool.http`,
+`human.approval`, `wait`. M2+ ajoute les familles additionnelles dans des
+ADR dédiés (une par famille / groupe).
+
+**Evidence** :
+
+- `PACKAGE_MIGRATION_MAP` §1.3.
+- `workflow-catalog/src/index.ts` (252 lignes) avec `StepDeclaration` qui
+  enforce déjà 9 champs.
+- Plan V2.3.1 §56 (contrat non jetable, « moins de familles » autorisé).
+
+**Migration strategy** :
+
+- `WorkflowRuntime` étendu pour exécuter uniquement les 6 familles.
+- `automate-surface.tsx` parse le nouvel IR (validation actuelle
+  superficielle).
+- `parseSpec` étendu à l'IR.
+- Toute nouvelle `node family` arrive dans un commit / ADR séparé.
 
 **Option A — WorkflowIR minimal + 6 node families** pour la cible première.
 

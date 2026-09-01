@@ -3,15 +3,17 @@
 
 # ADR-016 — History Retention / Archival
 
-> **Statut** : PROPOSED (IF required by substrate)
+> **Statut** : DECIDED (IF kernel natif)
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §180-181 (observability), EXECUTION_PROFILE_REQUIREMENTS.md,
 > THREAT_MODEL §1.10 (multi-tenant).
 
 ## Status
 
-PROPOSED. **Conditionnel** : requis pour ADR-000 Option A (kernel natif),
-non requis pour DBOS ou Temporal (qui gèrent leur propre rétention).
+DECIDED (IF kernel natif). **Conditionnel** : SI ADR-000 sélectionne
+kernel natif → rétention 365j history / 7 ans audit / cold archive
+encrypted / chain hash tamper evidence / multi-tenant purge.
+SI DBOS/Temporal → rétention substrate-natif.
 
 ## Context
 

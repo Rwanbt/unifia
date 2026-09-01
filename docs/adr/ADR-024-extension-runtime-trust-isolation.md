@@ -3,13 +3,13 @@
 
 # ADR-024 — Extension Runtime Trust / Isolation (architectural impact)
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §128-132, THREAT_MODEL §1.7 (TM-M-01..03).
 
 ## Status
 
-PROPOSED. ADR d'**impact architectural** (plan §197). Dépend d'ADR-000.
+DECIDED. ADR d'**impact architectural** (plan §197). Dépend d'ADR-000.
 
 ## Context
 

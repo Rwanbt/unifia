@@ -3,14 +3,14 @@
 
 # ADR-006 — Execution Profile Implementation
 
-> **Statut** : PROPOSED
+> **Statut** : DECIDED
 > **Date** : 2026-09-01
 > **Source** : plan V2.3.1 §186-191, §194, EXECUTION_PROFILE_REQUIREMENTS.md,
 > BASELINE.md §10, SESSION-2-REPORT §5.
 
 ## Status
 
-PROPOSED. Dépend d'ADR-000 (substrate). Cible le **premier profile de
+DECIDED. Dépend d'ADR-000 (substrate). Cible le **premier profile de
 certification** : `Automate Core × local-single-node × Windows`
 (plan §FIRST TARGET, ligne 6074-6094).
 
@@ -38,6 +38,31 @@ AI / Enterprise / Desktop`.
 > unless certified.
 
 ## Decision
+
+### Decision
+
+Premier profil de certification : `Automate Core × local-single-node ×
+Windows`. Topologie : Tauri shell (`Unifia.exe`, 53 Mo) + Sidecar CLI
+(`unifia-cli.exe`, 194 Mo) + Workflow Kernel + Capability + Policy +
+Secret Broker + Network Authority + Audit. Stockage : SQLite (Drizzle) +
+File store + OS secure storage (DPAPI).
+
+**Evidence** :
+
+- `EXECUTION_PROFILE_REQUIREMENTS.md` §1.1.
+- `SESSION-2-REPORT` §5 (build Tauri, sha256 sidecar).
+- `BASELINE.md` §10 (plateformes supportées).
+- Plan V2.3.1 §186-191 (capability profile).
+
+**Migration strategy** :
+
+- CSP `packages/desktop/` whitelist le port du sidecar.
+- `packages/app/` pointe sur `http://127.0.0.1:<port>`.
+- `packages/unifia/` (sidecar CLI) testé pour démarrer et écouter un
+  port.
+- Le substrate doit tourner dans un process Bun standalone.
+- `WorkbenchOrchestrator` route sans devenir autorité.
+- Procédure backup / restore E2E automatisée en CI.
 
 **Profile de première certification** : `Automate Core × local-single-node × Windows`.
 
