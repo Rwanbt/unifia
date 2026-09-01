@@ -263,7 +263,7 @@ describe("JsonRpcClient.#guard", () => {
       timeoutMs: 200,
       caller: callerFor("alice", "design-app"),
       authorizer: { authorize: () => false },
-      rateLimiter: { take: () => (takeCount += 1) > 0 ? true : false },
+      rateLimiter: { take: () => (takeCount += 1) > 0 },
     })
     cleanups.push(() => guarded.close().catch(() => {}))
     cleanups.push(close)
