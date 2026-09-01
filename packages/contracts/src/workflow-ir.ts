@@ -37,14 +37,23 @@ export type { DigestDomain }
 /* ------------------------------------------------------------------ */
 
 /**
- * The six node families in the first target. The dotted form
+ * The node families in this IR version. The dotted form
  * (`family.verb`) is preserved as a literal string so the IR is
  * self-describing in logs and on the wire.
+ *
+ * The list grows additively with each M2 GREEN card (ADR-002
+ * Option A): a new family, a new version, and an ADR. We do not
+ * let users bolt on ad-hoc node kinds. The order is stable:
+ * triggers first, then control flow, then effectors, then
+ * orchestration. M2-03 (parallel) is inserted between `control.if`
+ * and `tool.http`; the M2-02 worker will place `control.switch`
+ * between `control.if` and `control.parallel`.
  */
 export const NodeFamilySchema = z.enum([
   "trigger.manual",
   "trigger.schedule",
   "control.if",
+  "control.parallel",
   "tool.http",
   "human.approval",
   "wait",
@@ -108,11 +117,28 @@ export type ExecutionRequirements = z.infer<typeof ExecutionRequirementsSchema>
 /**
  * A directed edge from one node to another. `from` and `to` are node
  * ids within the same WorkflowDefinition. `kind` discriminates the
- * three meaningful cases: a normal data/control flow, the "true" and
- * "false" branches of a `control.if` family, and the unconditional
- * "on-failure" branch used by failure policies.
+ * meaningful cases:
+ * - `flow`: normal data/control flow.
+ * - `branch-true` / `branch-false`: the two branches of a
+ *   `control.if` family (M1, M2-01).
+ * - `branch-N`: a branch edge out of a `control.parallel` family
+ *   (M2-03). Zod enums cannot be parameterized by an integer
+ *   range, so the literal `branch-N` is used (not `branch-0`,
+ *   `branch-1`, …). At runtime, the *target node's branch id*
+ *   (from `ControlParallelBranch.branchId`) disambiguates which
+ *   branch the edge belongs to — each target node of a fan-out
+ *   receives exactly one incoming `branch-N` edge. M2-TEST
+ *   validates this convention.
+ * - `on-failure`: the unconditional failure branch used by failure
+ *   policies.
  */
-export const EdgeKindSchema = z.enum(["flow", "branch-true", "branch-false", "on-failure"])
+export const EdgeKindSchema = z.enum([
+  "flow",
+  "branch-true",
+  "branch-false",
+  "branch-N",
+  "on-failure",
+])
 
 export type EdgeKind = z.infer<typeof EdgeKindSchema>
 
@@ -149,6 +175,122 @@ export const NodeSchema = z.object({
 })
 
 export type Node = z.infer<typeof NodeSchema>
+
+/* ------------------------------------------------------------------ */
+/* Control node config (M2-01, ADR-002 + ADR-003)                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maximum length of a `condition` expression. The expression language
+ * is bounded (ADR-003): any control-flow predicate lives in a fixed
+ * surface so the platform can sandbox it, type-check it, and
+ * deterministically evaluate it. 1024 chars is far above the realistic
+ * upper bound (~80 chars for a real-world `if` predicate) and well
+ * below the adversarial length at which a string-based payload could
+ * bloat a content digest.
+ */
+export const CONTROL_IF_CONDITION_MAX_CHARS = 1024
+
+/**
+ * Maximum length of a free-form `description` on a control node. Kept
+ * short (280 chars) because the description is metadata for an
+ * inspector UI, not a documentation field — the workflow's own
+ * `description` is the durable place for prose.
+ */
+export const CONTROL_IF_DESCRIPTION_MAX_CHARS = 280
+
+/**
+ * Configuration of a `control.if` family node (Plan V2.3.1 §198,
+ * M2-01, ADR-002 Option A + ADR-003 expression language).
+ *
+ * The IR keeps `Node.config` opaque (see NodeSchema); this Zod schema
+ * is the family's own validator. The runtime calls
+ * `parseControlIfConfig(node.config)` after the IR has parsed
+ * successfully, so any `Node` with `family: "control.if"` whose
+ * `config` does not match this schema is rejected at the trust
+ * boundary — never silently passed to a worker.
+ *
+ * Branch selection is dual-channel:
+ * - If `trueBranch` / `falseBranch` is set to a non-empty node id,
+ *   the runtime takes that edge (a hard, declared branch).
+ * - If it is omitted (or explicitly null), the runtime falls back to
+ *   the corresponding `EdgeKind` (`branch-true` / `branch-false`)
+ *   leaving the graph topology to drive the routing.
+ *
+ * The two channels are NOT mutually exclusive: a workflow may declare
+ * a `trueBranch` AND have a `branch-true` edge — the declared branch
+ * wins, the edge is a documentary default the editor renders when
+ * `trueBranch` is null. Validating both at parse time is the
+ * contract's job; deciding which one to follow at run time is the
+ * kernel's job (ADR-000).
+ */
+export const ControlIfConfigSchema = z.object({
+  /**
+   * Expression-language predicate (ADR-003). The schema does not
+   * parse the expression itself — it is a non-empty string bounded
+   * by `CONTROL_IF_CONDITION_MAX_CHARS`. The expression is evaluated
+   * at runtime by the kernel's expression evaluator; the IR only
+   * validates its shape and length.
+   */
+  condition: z
+    .string()
+    .min(1, "control.if: condition must be non-empty")
+    .max(
+      CONTROL_IF_CONDITION_MAX_CHARS,
+      `control.if: condition must be ≤ ${CONTROL_IF_CONDITION_MAX_CHARS} chars`,
+    ),
+  /**
+   * Optional hard-coded target node id for the true branch. When
+   * nullish (null or undefined), the runtime falls back to the
+   * `branch-true` edge. When set, the value is a non-empty node id
+   * within the same `WorkflowDefinition`.
+   */
+  trueBranch: z
+    .string()
+    .min(1, "control.if: trueBranch must be a non-empty node id when set")
+    .nullish(),
+  /**
+   * Optional hard-coded target node id for the false branch.
+   * Same semantics as `trueBranch`, but routed to `branch-false` when
+   * nullish.
+   */
+  falseBranch: z
+    .string()
+    .min(1, "control.if: falseBranch must be a non-empty node id when set")
+    .nullish(),
+  /**
+   * Free-form human description. Display-only — never interpreted.
+   * Capped at `CONTROL_IF_DESCRIPTION_MAX_CHARS` so a noisy editor
+   * does not push the content digest of a `WorkflowVersion` toward
+   * the limits of practical canonicalization.
+   */
+  description: z
+    .string()
+    .max(
+      CONTROL_IF_DESCRIPTION_MAX_CHARS,
+      `control.if: description must be ≤ ${CONTROL_IF_DESCRIPTION_MAX_CHARS} chars`,
+    )
+    .optional(),
+})
+
+export type ControlIfConfig = z.infer<typeof ControlIfConfigSchema>
+
+/**
+ * Validate the opaque `config` record of a `control.if` node against
+ * `ControlIfConfigSchema`. Throws `z.ZodError` on failure with the
+ * field path the caller can use to point at the bad input.
+ *
+ * The IR's `NodeSchema` keeps `config` as `z.record(z.string(),
+ * z.unknown())` so the family-specific shape does not leak into the
+ * IR (a new family cannot break parsing of an existing one). This
+ * helper is the bridge: every code path that *consumes* a
+ * `control.if` node MUST call this before reading the config fields.
+ * The runtime does so at the trust boundary; the type system cannot
+ * enforce it because `config` is opaque.
+ */
+export function parseControlIfConfig(config: unknown): ControlIfConfig {
+  return ControlIfConfigSchema.parse(config)
+}
 
 /* ------------------------------------------------------------------ */
 /* Triggers                                                            */
