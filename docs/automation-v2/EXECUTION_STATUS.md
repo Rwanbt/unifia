@@ -4,8 +4,8 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M1-IMPLEMENTATION-COMPLETE** (9/12 cartes M1 livrées : 7 GREEN + 2 optionnels, ADR-026 DECIDED)
-> Date : 2026-09-01T22:50+02:00
+> Phase : **M1-IMPLEMENTATION-COMPLETE → M2-LAUNCHING** (M1 9/12 livrées : 7 GREEN + 2 optionnels + 1 YELLOW interface-only, ADR-026 DECIDED, 25/26 ADR DECIDED ; M2 Graph Engine en préparation — 6 cartes control flow GREEN + 3 RED bloquées ADR-000/M3)
+> Date : 2026-09-01T23:15+02:00
 > Format imposé par le plan §246 lignes 6140-6170.
 
 ---
@@ -56,7 +56,8 @@ choice), R-013 phase 3.
 | M1-12 observability zero-alloc + secret-leak canary | **DONE** (5/5 PASS, 33 tests, **0 bytes delta** 1M emits) | packages/observability/ (7a6e00f3b5) |
 | ADR-026 typed DigestEnvelope per domain | **DONE** (19 tests, 7 schemas, 3 migrations) | docs/adr/ADR-026 + 3 contract files (87b772b21f) |
 | C-PRE1-04 workbench-server REFACTOR | **DONE** (1368 → 27 fichiers ≤200 LOC) | packages/workbench-server/ (dd0af9205b) |
-| M1 — Cartes YELLOW/RED restantes (3) | **NOT STARTED** | bloqué ADR-000 |
+| M1 — Cartes YELLOW/RED restantes (3) | **BLOCKED** (M1-09 impl, M1-10, M1-11) | bloqué ADR-000 |
+| M2-IMPLEMENTATION-PLAN | **IN PROGRESS** | en rédaction (9 cartes, 6 GREEN + 3 RED) |
 | M2 / M3 + tracks | **NOT STARTED** | post-M1 |
 
 ---
@@ -65,8 +66,8 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike` |
-| HEAD (sha) | `3f8e499f03` |
+| HEAD (commit) | `85c4beb5fc docs(automate-v2): EXECUTION_STATUS update after M1-07/09/12 + ADR-026 (9/12 cartes M1 livrées)` |
+| HEAD (sha) | `85c4beb5fc` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
@@ -74,7 +75,7 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (53 commits, 0 push)
+## Commits cumulés (54 commits, 0 push)
 
 ```
 3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike
