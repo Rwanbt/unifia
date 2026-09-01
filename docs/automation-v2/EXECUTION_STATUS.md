@@ -4,20 +4,21 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M1-CONTRACTS_LANDED** (foundation + M0 + M1 type contracts)
-> Date : 2026-09-01T18:30+02:00
+> Phase : **M1-GREEN-SPIKES_LANDED** (foundation + M0 + M1 contracts + 3 GREEN spikes)
+> Date : 2026-09-01T19:00+02:00
 > Format imposé par le plan §246 lignes 6140-6170.
 
 ---
 
 ## Current phase
 
-`M1-CONTRACTS_LANDED` — foundation + PRE-1.1 + 6 M0 spikes + M1 type
-contracts landed. **Aucun code de production durable n'est modifié**
-(en dehors de l'extraction C-PRE1-01 phase 2, comportement préservé).
-Le M1 gate (plan §197) est satisfait côté **architecture documentée**
-(Critical=0, High=0, 24/25 ADR DECIDED). Côté **implémentation**,
-bloqué par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
+`M1-GREEN-SPIKES_LANDED` — foundation + PRE-1.1 + 6 M0 spikes + M1 type
+contracts + 3 GREEN M1 spikes landed. **Aucun code de production durable
+n'est modifié** (en dehors de l'extraction C-PRE1-01 phase 2, comportement
+préservé). Le M1 gate (plan §197) est satisfait côté **architecture
+documentée** (Critical=0, High=0, 24/25 ADR DECIDED). Côté
+**implémentation**, bloqué par R-001 (externe), ADR-000 (substrate
+choice), R-013 phase 3.
 
 | Phase | Statut | Livrable / commit |
 |---|---|---|
@@ -38,7 +39,12 @@ bloqué par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 | M0-06 capability-enforcement spike | **DONE** (6 PASS, 1 MISSING enforcer) | spikes/M0-06-EVIDENCE.md |
 | M1 type contracts (7 modules) | **DONE** | packages/contracts/src/{scope,workflow-ir,digest,protection,credential,identity,timer,artifact-record}.ts |
 | M1 secret-broker scaffold | **DONE** (23/23 tests verts) | packages/secret-broker/ |
-| M1 — Durable Core implementation | **NOT STARTED** | bloqué ADR-000 |
+| M1-IMPLEMENTATION-PLAN (12 cards GREEN/YELLOW/RED) | **DONE** (765 lignes, DAG) | docs/automation-v2/M1-IMPLEMENTATION-PLAN.md (47c843db43) |
+| M1-01 canonicalization-runtime spike | **DONE** (5/5 PASS) | packages/digest-runtime/ + spike (0102f0f8f7) |
+| M1-03 scope-enforcement spike | **DONE** (5/5 PASS, 22/22 sub-vectors) | spike (b21412ea5d) |
+| M1-05 capability-enforcer spike | **DONE** (5/5 PASS) | spike (d44c619da4) |
+| C-PRE1-04 workbench-server REFACTOR | **IN PROGRESS** | Agent B (untracked files split) |
+| M1 — Durable Core implementation (4 cards GREEN restantes) | **NOT STARTED** | post-spikes |
 | M2 / M3 + tracks | **NOT STARTED** | post-M1 |
 
 ---
@@ -47,8 +53,8 @@ bloqué par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `cdddfc798e feat(automate-v2): M0-06 capability spike + M1 type contracts (7) + secret-broker scaffold` |
-| HEAD (sha) | `cdddfc798e` |
+| HEAD (commit) | `0102f0f8f7 feat(automate-v2): M1-01 canonicalization-runtime + spike evidence (ADR-001)` |
+| HEAD (sha) | `0102f0f8f7` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
@@ -56,9 +62,14 @@ bloqué par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (33 commits, 0 push)
+## Commits cumulés (39 commits, 0 push)
 
 ```
+0102f0f8f7 feat(automate-v2): M1-01 canonicalization-runtime + spike evidence (ADR-001)
+d44c619da4 chore(automate-v2): M1-05 capability-enforcer spike + evidence (C-AR-01, TM-T-01, TM-T-02)
+b21412ea5d chore(automate-v2): M1-03 scope-enforcement spike + evidence (TM-T-01, TM-T-02, ADR-020)
+47c843db43 docs(automate-v2): M1-IMPLEMENTATION-PLAN (12 cards GREEN/YELLOW/RED, DAG, 7 spike specs)
+d231f66ce6 docs(automate-v2): EXECUTION_STATUS update after M0-04/05/06 + M1 contracts landed
 cdddfc798e feat(automate-v2): M0-06 capability spike + M1 type contracts (7) + secret-broker scaffold
 f33f794955 docs(adr): render 24 ADR as DECIDED based on plan + spike evidence
 9f42d5db93 chore(automate-v2): M0-05 network-authority spike + evidence (ADR-023)
