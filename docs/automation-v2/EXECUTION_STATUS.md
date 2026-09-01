@@ -4,15 +4,21 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PINNED**
-> Phase : **PRE-0 — TERMINÉ**
-> Date : 2026-09-01T16:00+02:00
+> Phase : **PRE-1 — PIN ÉCRIT, EN ATTENTE DE DÉCISION UTILISATEUR**
+> Date : 2026-09-01T16:20+02:00
 > Format imposé par le plan §246 lignes 6140-6170.
 
 ---
 
 ## Current phase
 
-`PRE-0` — Evidence Baseline. Trois livrables produits :
+`PRE-0` — Evidence Baseline — **DONE et commité** (commit `95522faa45`).
+`PRE-1` — Repository Mapping — **PIN ÉCRIT** (`PACKAGE_MIGRATION_MAP.md` commit
+`34192e9810`). `IMPLEMENTATION_CARD_INDEX.md` non écrit — la session
+s'arrête sur le constat `GO_WITH_CONTAINED_DEBT` et attend la décision
+utilisateur.
+
+Cinq livrables produits :
 - `BASELINE.md` (30 003 octets) — repository, branch, HEAD, package inventory,
   dependency graph, architectures, commandes, suites, CI, branches, limites,
   dette, plateformes, preuves.
@@ -20,6 +26,11 @@
   `REQUIRED_UNCHANGED / REQUIRED_TO_MIGRATE / REQUIRED_TO_HARDEN / OUT_OF_PATH`.
 - `RISK_REGISTER.md` (26 116 octets) — 14 findings, dont 2 `Critical`, 2 `High`,
   7 `NEEDS_EVIDENCE`, 3 `ALREADY_COVERED`, 1 `ACCEPT`, 2 `BASELINE_MISMATCH`.
+- `PACKAGE_MIGRATION_MAP.md` (30 519 octets) — 50 packages classés
+  `KEEP / EXTEND / HARDEN / REFACTOR / MIGRATE / ABSENT_NO_ACTION`.
+- `EXECUTION_STATUS.md` (ce document).
+
+Deux commits locaux, aucune trace sur `origin` :
 
 ---
 
@@ -39,13 +50,17 @@
 
 ## Completed cards
 
-| Phase | Carte | Statut | Chemin |
+| Phase | Carte | Statut | Chemin / commit |
 |---|---|---|---|
 | PRE-0 | `BASELINE.md` | **DONE** | `docs/automation-v2/BASELINE.md` |
 | PRE-0 | `AUTOMATE_TRUST_PATH.md` | **DONE** | `docs/automation-v2/AUTOMATE_TRUST_PATH.md` |
 | PRE-0 | `RISK_REGISTER.md` | **DONE** | `docs/automation-v2/RISK_REGISTER.md` |
-| PRE-0 | `EXECUTION_STATUS.md` | **DONE** (ce document) | `docs/automation-v2/EXECUTION_STATUS.md` |
-| PRE-0 | Branche de travail créée | **DONE** | `agent/automate-v2-baseline-20260901` |
+| PRE-0 | `EXECUTION_STATUS.md` (initial) | **DONE** | `docs/automation-v2/EXECUTION_STATUS.md` |
+| PRE-0 | Branche de travail créée depuis HEAD | **DONE** | `agent/automate-v2-baseline-20260901` |
+| PRE-0 | Commit pin PRE-0 (4 fichiers) | **DONE** | `95522faa45 chore(automate-v2): PRE-0 evidence baseline pin` |
+| PRE-1 | `PACKAGE_MIGRATION_MAP.md` | **DONE** | `docs/automation-v2/PACKAGE_MIGRATION_MAP.md` |
+| PRE-1 | Commit pin PRE-1 (1 fichier) | **DONE** | `34192e9810 chore(automate-v2): PRE-1 PACKAGE_MIGRATION_MAP pin` |
+| PRE-1 | `EXECUTION_STATUS.md` (mis à jour) | **DONE** | ce fichier |
 
 ---
 
@@ -179,18 +194,34 @@ depuis les listings `Get-ChildItem` (présence / absence).
 
 ## Next executable step
 
-**Étapes immuables tant qu'Erwan n'a pas tranché** :
+**Étape bloquante — décision utilisateur** :
 
-1. **Attente de décision utilisateur** sur la gate PRE-0 :
-   - valider `GO_WITH_CONTAINED_DEBT` → commit de pin PRE-0 → démarrer PRE-1.
+1. **Attente de décision utilisateur** sur la gate PRE-0 / PRE-1 :
+   - valider `GO_WITH_CONTAINED_DEBT` → commencer l'implémentation
+     (carte bloquante R-013 : suite Automate minimale).
    - invalider → `BASELINE_BLOCKERS.md` → `STOP-BASELINE`.
-2. **Si Erwan valide** : créer un commit de pin contenant
-   `docs/automation-v2/{BASELINE.md, AUTOMATE_TRUST_PATH.md, RISK_REGISTER.md,
-   EXECUTION_STATUS.md}` avec un message Conventional Commits de la forme
-   `chore(automate-v2): pin PRE-0 evidence baseline at <sha>`. **Pas de
-   push** (interdit par la mission).
-3. **Démarrer PRE-1** par la première carte bloquante : la suite Automate
-   minimale (R-013). C'est la carte qui doit exister avant tout ADR.
+   - OU : valider l'arrêt ici sur pin PRE-1, sans démarrer l'implémentation.
+
+**Si l'utilisateur autorise la continuation** :
+
+2. **Carte bloquante R-013 (Critical)** — suite Automate minimale :
+   - test unitaire sur `decodeFile` (enforcement de la sécurité de
+     parsing base64 dans `automate-surface.tsx`).
+   - test unitaire sur la validation de `WorkflowDefinition` (rejet des
+     entrées non conformes au contrat minimal).
+3. **Cartographie PRE-1.1** :
+   - `workbench-server/src/auth.ts` (R-012 — Secret Broker).
+   - `workflow-catalog/src/` (R-014 confirmation).
+   - `workflow-catalog/test/` (R-014 — couverture existante).
+4. **ADR-000** (substrate) — première carte ADR.
+5. **THREAT_MODEL.md V1** (STRIDE + agentic AI + data-flow + supply-chain).
+6. **EXECUTION_PROFILE_REQUIREMENTS.md** (8 profils classifiés).
+7. **`certification/gates.yaml` initial**.
+8. **ADR-020** (ownership / deployment scope) — après ADR-000.
+9. **ADR-003, 002, 001, 004, 005, 010** dans l'ordre imposé.
+10. **M0 substrate proof** (plan §194) avec le substrate choisi.
+11. **M1 — Durable Core**.
+12. …
 
 **Étapes parallèles possibles sans décision** (faible risque) :
 
@@ -202,12 +233,14 @@ depuis les listings `Get-ChildItem` (présence / absence).
   corriger, pas le code de production — ces tests sont dans
   `packages/app/e2e/**` et leur correction n'affecte pas le kernel.
 
-**Ce qui n'est PAS exécuté sans validation** :
+**Ce qui est exécuté dans cette session** :
 
-- Aucun commit n'a été créé pour PRE-0. Les 4 fichiers sont dans le
-  working tree de la branche `agent/automate-v2-baseline-20260901`.
+- 5 fichiers Markdown écrits dans `docs/automation-v2/`.
+- 2 commits locaux sur `agent/automate-v2-baseline-20260901` :
+  - `95522faa45 chore(automate-v2): PRE-0 evidence baseline pin` (4 fichiers, 1 661 lignes)
+  - `34192e9810 chore(automate-v2): PRE-1 PACKAGE_MIGRATION_MAP pin` (1 fichier, 676 lignes)
 - Aucun push, aucun merge, aucun tag.
-- Aucun fichier de code modifié.
+- Aucun fichier de code modifié hors `docs/automation-v2/`.
 
 ---
 
@@ -215,19 +248,15 @@ depuis les listings `Get-ChildItem` (présence / absence).
 
 ```
 docs/automation-v2/
-├── BASELINE.md               (30 003 octets, 1 commit à venir)
-├── AUTOMATE_TRUST_PATH.md    (27 960 octets)
-├── RISK_REGISTER.md          (26 116 octets)
-├── EXECUTION_STATUS.md       (ce fichier)
-└── certification/            (dossier créé, vide)
+├── BASELINE.md                  (30 003 octets, commité 95522faa45)
+├── AUTOMATE_TRUST_PATH.md       (27 960 octets, commité 95522faa45)
+├── RISK_REGISTER.md             (26 116 octets, commité 95522faa45)
+├── PACKAGE_MIGRATION_MAP.md     (30 519 octets, commité 34192e9810)
+├── EXECUTION_STATUS.md          (ce fichier, mis à jour)
+└── certification/               (dossier créé, vide — pour gates.yaml)
 ```
 
-`git status --porcelain` après ces écritures :
-
-```
-?? docs/automation-v2/
-```
-
-Aucun fichier utilisateur en place n'a été modifié. La branche de travail
-`agent/automate-v2-baseline-20260901` diverge de l'origine par **4
-fichiers non suivis** (les 4 livrables PRE-0).
+Branche : `agent/automate-v2-baseline-20260901` (locale, non poussée).
+HEAD après PRE-1 : `34192e9810 chore(automate-v2): PRE-1 PACKAGE_MIGRATION_MAP pin`.
+Branche d'origine : `integration/rev3m-20260901/design-automate` @ `24b04998e2`.
+Aucun fichier utilisateur en place n'a été modifié.
