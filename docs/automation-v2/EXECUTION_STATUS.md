@@ -131,6 +131,7 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 | PRE-1 | C-PRE1-04 workbench-server REFACTOR (97 Ko) | OPEN | ADR-000 |
 | PRE-1 | C-PRE1-05 isolation scope workbench-orchestrator | **DONE** (déjà couvert par `orchestrator.test.ts`) | — |
 | M0 | M0-01 throwaway substrate spike | **DONE** (4 PASS / 2 PARTIAL / 1 FAIL / 7 MISSING — voir `spikes/M0-01-EVIDENCE.md`) | — |
+| M0 | M0-02 throwaway canonicalization spike | **DONE** (8 PASS / 1 FAIL sur RFC 8785 §3.2.2.3 — voir `spikes/M0-02-EVIDENCE.md`) | — |
 | M0 | M0-02 substrate choice (Native / DBOS / Temporal) | OPEN | décision externe (ADR-000) |
 | ADR | ADR-000 validation | OPEN (PROPOSED) | R-013 phase 3 + M0-02 |
 | ADR | C-AR-01 Capability Authority enforcer | OPEN | M1 |
