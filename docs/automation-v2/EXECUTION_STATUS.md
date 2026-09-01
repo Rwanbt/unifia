@@ -43,7 +43,7 @@ choice), R-013 phase 3.
 | M1-01 canonicalization-runtime spike | **DONE** (5/5 PASS) | packages/digest-runtime/ + spike (0102f0f8f7) |
 | M1-03 scope-enforcement spike | **DONE** (5/5 PASS, 22/22 sub-vectors) | spike (b21412ea5d) |
 | M1-05 capability-enforcer spike | **DONE** (5/5 PASS) | spike (d44c619da4) |
-| C-PRE1-04 workbench-server REFACTOR | **IN PROGRESS** | Agent B (untracked files split) |
+| C-PRE1-04 workbench-server REFACTOR | **DONE** (1368 lignes → 27 fichiers ≤200 LOC) | packages/workbench-server/ (dd0af9205b) |
 | M1 — Durable Core implementation (4 cards GREEN restantes) | **NOT STARTED** | post-spikes |
 | M2 / M3 + tracks | **NOT STARTED** | post-M1 |
 
@@ -53,8 +53,8 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `0102f0f8f7 feat(automate-v2): M1-01 canonicalization-runtime + spike evidence (ADR-001)` |
-| HEAD (sha) | `0102f0f8f7` |
+| HEAD (commit) | `dd0af9205b chore(automate-v2): C-PRE1-04 workbench-server REFACTOR (split 1368 lines into ≤200 LOC files)` |
+| HEAD (sha) | `dd0af9205b` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
@@ -62,9 +62,11 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (39 commits, 0 push)
+## Commits cumulés (41 commits, 0 push)
 
 ```
+dd0af9205b chore(automate-v2): C-PRE1-04 workbench-server REFACTOR (split 1368 lines into ≤200 LOC files)
+0835a98dd6 docs(automate-v2): EXECUTION_STATUS update after M1-01/03/05 GREEN spikes landed
 0102f0f8f7 feat(automate-v2): M1-01 canonicalization-runtime + spike evidence (ADR-001)
 d44c619da4 chore(automate-v2): M1-05 capability-enforcer spike + evidence (C-AR-01, TM-T-01, TM-T-02)
 b21412ea5d chore(automate-v2): M1-03 scope-enforcement spike + evidence (TM-T-01, TM-T-02, ADR-020)
@@ -157,7 +159,7 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 | PRE-1 | C-PRE1-01 phase 3 (e2e Playwright 8 sorties §16.3) | OPEN | M1 (après ADR-000) |
 | PRE-1 | C-PRE1-02 cartographie auth.ts (R-012) | **DONE** (R-012 verdict = ABSENT_CREATE) | — |
 | PRE-1 | C-PRE1-03 cartographie workflow-catalog (R-014) | **DONE** (catalog EXTEND, runtime MIGRATE) | — |
-| PRE-1 | C-PRE1-04 workbench-server REFACTOR (97 Ko) | OPEN | ADR-000 (substrate) |
+| PRE-1 | C-PRE1-04 workbench-server REFACTOR (97 Ko → 27 fichiers ≤200 LOC) | **DONE** | — |
 | PRE-1 | C-PRE1-05 isolation scope workbench-orchestrator | **DONE** (déjà couvert par `orchestrator.test.ts`) | — |
 | M0 | M0-01 throwaway substrate spike | **DONE** (4/2/1/7) | — |
 | M0 | M0-02 throwaway canonicalization spike | **DONE** (8/1) | — |
