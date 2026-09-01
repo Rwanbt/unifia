@@ -382,6 +382,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/digest-runtime": {
+      "name": "@unifia/digest-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+        "canonicalize": "4.0.0",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/document-packs": {
       "name": "@unifia/document-packs",
       "version": "0.1.0",
@@ -648,6 +661,17 @@
         "@types/cross-spawn": "catalog:",
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/secret-broker": {
+      "name": "@unifia/secret-broker",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
         "typescript": "catalog:",
       },
     },
@@ -3013,6 +3037,8 @@
 
     "@unifia/desktop-runtime": ["@unifia/desktop-runtime@workspace:packages/desktop-runtime"],
 
+    "@unifia/digest-runtime": ["@unifia/digest-runtime@workspace:packages/digest-runtime"],
+
     "@unifia/document-packs": ["@unifia/document-packs@workspace:packages/document-packs"],
 
     "@unifia/function": ["@unifia/function@workspace:packages/function"],
@@ -3046,6 +3072,8 @@
     "@unifia/sdk": ["@unifia/sdk@workspace:packages/sdk/js"],
 
     "@unifia/sdk-shared": ["@unifia/sdk-shared@workspace:packages/sdk-shared"],
+
+    "@unifia/secret-broker": ["@unifia/secret-broker@workspace:packages/secret-broker"],
 
     "@unifia/skill-hub": ["@unifia/skill-hub@workspace:packages/skill-hub"],
 
@@ -3366,6 +3394,8 @@
     "camelcase-css": ["camelcase-css@2.0.1", "", {}, "sha512-QOSvevhslijgYwRx6Rv7zKdMF8lbRmx+uQGx2+vDc+KI/eBnsy9kit5aj23AgGu3pa4t9AgwbnXWqS+iOY+2aA=="],
 
     "caniuse-lite": ["caniuse-lite@1.0.30001807", "", {}, "sha512-daRXJ9EB/rdRgu7kV+TTl1YUKtlsMWblPl2sLnpg9DZae16QCegol6A1SmCE31Lm9mXC1sRWGt/krouH+/dl7Q=="],
+
+    "canonicalize": ["canonicalize@4.0.0", "", { "bin": { "canonicalize": "bin/canonicalize.js" } }, "sha512-FEdXzwWs+N3rZqEqpqleiY9M1A6IAf9oo1zHFABnLW9FcJ/jzsu+G/Ks3Hq3FglmPKe80GeGBw8ZXLEnwPB0vQ=="],
 
     "canvas-roundrect-polyfill": ["canvas-roundrect-polyfill@0.0.1", "", {}, "sha512-yWq+R3U3jE+coOeEb3a3GgE2j/0MMiDKM/QpLb6h9ihf5fGY9UXtvK9o4vNqjWXoZz7/3EaSVU3IX53TvFFUOw=="],
 
