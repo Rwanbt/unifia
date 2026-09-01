@@ -209,6 +209,44 @@ est acceptable pour la cible première.
 | DBOS-SQLite support | à vérifier | UNVERIFIED — spike requis |
 | `temporalite` production status | à vérifier au moment du spike | UNVERIFIED — spike requis |
 
+### Écart entre le critère de décision et l'évidence disponible (2026-09-02)
+
+Le spike M0-01 a été exécuté et son évidence est épinglée
+(`spikes/M0-01-EVIDENCE.md`, 4 PASS / 2 PARTIAL / 1 FAIL / 7 MISSING).
+**Il ne permet pas d'appliquer le critère de décision ci-dessous tel qu'il
+est écrit**, pour deux raisons mesurées :
+
+1. **Le spike n'a pas mesuré l'option A.** Il a mesuré le
+   `packages/workflow-runtime` *existant* — l'exécuteur linéaire de 91
+   lignes. Ce n'est pas « le kernel natif de l'option A », c'est le legacy
+   que l'option A propose de remplacer. Son unique FAIL (trigger dupliqué
+   qui écrase l'état sans avertir) est un bug de ce legacy, pas une
+   propriété d'un kernel natif à écrire. Lire le critère « si A passe le
+   spike sans bug bloquant → A est choisi » au pied de la lettre ferait
+   échouer A sur un test qui ne portait pas sur A.
+2. **Ni B ni D n'ont été exercés.** `grep -ci 'dbos\|temporal\|restate'
+   docs/automation-v2/spikes/m0-01-substrate.ts` → **0**, sur 265 lignes.
+   Le spike lui-même le déclare en §4 (« les deux nécessitent un setup
+   externe non disponible dans cette session »). La comparaison sur la
+   failure matrix §38, qui est la substance du critère, n'a pas eu lieu.
+
+Les trois lignes `UNVERIFIED` du tableau *Evidence* ci-dessus — license
+DBOS, support DBOS-SQLite, statut production de `temporalite` — sont
+toujours `UNVERIFIED`. Or deux d'entre elles sont des **éliminateurs durs**
+dans le critère.
+
+**Conséquence** : la décision reste ouverte, mais elle ne l'est plus pour
+la raison écrite dans le statut (« attend le spike »). Le spike a eu lieu.
+Ce qui manque est un second tour de qualification, portant sur B et D, ou
+une décision assumée sur A **sans** comparaison — auquel cas le critère
+de décision doit être réécrit pour dire cela honnêtement, plutôt que
+d'invoquer une comparaison qui n'a pas été faite.
+
+Ce qui est établi sans ambiguïté par M0-01, et qui ne dépend d'aucune
+option : le runtime actuel n'est pas substrate-grade (R-014 confirmé
+empiriquement), et il porte un bug de perte de données silencieuse sur
+trigger dupliqué.
+
 ## Decision
 
 **Option PROPOSED : A — Native Unifia declarative kernel**, sous réserve
