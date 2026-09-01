@@ -1,4 +1,4 @@
-import type { ApprovalBroker, ApprovalRequestRecord, AuditEvent, CapabilityRegistry, BrowserAutomationBroker, McpUiControlBroker, UiAction, CapabilityManifest, DesktopAutomationBroker, WorkspaceManifest } from "@unifia/contracts"
+import type { ApprovalBroker, ApprovalRequestRecord, AuditContext, AuditEvent, CapabilityRegistry, BrowserAutomationBroker, McpUiControlBroker, UiAction, CapabilityManifest, DesktopAutomationBroker, RuntimeDecision, WorkspaceManifest } from "@unifia/contracts"
 /* SPDX-License-Identifier: MIT */
 import type { MemoryRuntime } from "@unifia/memory-runtime"
 import type { WorkflowDefinition, WorkflowRuntime } from "@unifia/workflow-runtime"
@@ -31,7 +31,7 @@ export * from "./security.js"
 export * from "./operations.js"
 export * from "./logging.js"
 
-type AuditPort = { record(actor: string, capability: string, decision: "allow" | "deny" | "approval_required"): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
+type AuditPort = { record(context: AuditContext, decision: RuntimeDecision): unknown; page?: (afterSequence: number, limit: number) => { events: readonly AuditEvent[]; nextCursor: number | null } }
 export type CapabilityDecision = "allow" | "deny" | { kind: "approval_required"; approvalId: string }
 export type CapabilityGate = { check(capability: P3Capability, resource: string, actor: string): Promise<CapabilityDecision>; getApproval?: (id: string) => { resource: string } | undefined; listApprovals?: (resource: string) => readonly ApprovalRequestRecord[]; resolve?: (id: string, decision: "allow" | "deny", actor: string, grantedResource?: string) => unknown; cancel?: (id: string) => unknown }
 export type WorkbenchGithubSurface = { status(workspaceId: string): Promise<Record<string, unknown>>; deviceStart(workspaceId: string): Promise<Record<string, unknown>>; devicePoll(workspaceId: string): Promise<Record<string, unknown>>; deviceCancel(workspaceId: string): Promise<{ ok: boolean }>; disconnect(workspaceId: string): Promise<{ ok: boolean }> }
@@ -297,7 +297,7 @@ export class WorkbenchServer {
       if (request.method === "OPTIONS") return addSecurityHeaders(new Response(null, { status: 204 }), origin.origin)
       return addSecurityHeaders(await this.#route(request), origin.origin)
     } catch (error) {
-      this.#audit.record("workbench-server", "request.error", "deny")
+      this.#systemAudit("request.error", "deny", { reason: error instanceof Error ? error.message : "request failed" })
       return addSecurityHeaders(json(400, { error: error instanceof Error ? error.message : "request failed" }), origin?.allowed ? origin.origin : undefined)
     }
   }
@@ -311,7 +311,11 @@ export class WorkbenchServer {
     if (!this.#tokenIssuer) throw new Error("scoped token issuer is not configured")
     const token = this.#tokenIssuer.issue({ ...request, instanceId: this.#instanceId })
     await this.#registerNativeToken(token)
-    this.#allow("token.issue")
+    // DA-AUD-01: token issue is a system event (the call comes from the
+    // native bridge, not a user-typed request). The principal in the
+    // request body is recorded as the resource so a downstream reader
+    // can correlate "who got this token" with "what was issued".
+    this.#allow(null, "token.issue", { resource: request.principalId, reason: `capabilities=${request.capabilities.length}` })
     return token
   }
 
@@ -320,7 +324,7 @@ export class WorkbenchServer {
     const rotation = this.#tokenIssuer.rotate({ ...request, instanceId: this.#instanceId })
     await this.#registerNativeToken(rotation.token)
     if (rotation.previousToken) await this.#registerNativeToken({ ...rotation.token, token: rotation.previousToken })
-    this.#allow("token.rotate")
+    this.#allow(null, "token.rotate", { resource: request.principalId, reason: `capabilities=${request.capabilities.length}` })
     return rotation
   }
 
@@ -333,13 +337,13 @@ export class WorkbenchServer {
       this.#tokens.delete(token)
     }
     this.#nativeTokens.delete(workspaceId)
-    this.#allow("token.revoke")
+    this.#allow(null, "token.revoke", { resource: workspaceId })
   }
 
   async #route(request: Request): Promise<Response> {
       const url = new URL(request.url)
       const segments = url.pathname.split("/").filter(Boolean)
-      if (segments[0] !== "v1") return this.#deny("route.unknown", 404)
+      if (segments[0] !== "v1") return this.#deny(null, "route.unknown", 404)
       // Phase 9.4 — dispatched before the universal principal gate below:
       // a present link's own signed token IS its authentication, verified
       // inside the handler. Requiring a Bearer principal here would defeat
@@ -347,12 +351,12 @@ export class WorkbenchServer {
       // authenticated with this server.
       if (segments[1] === "artifacts" && segments[3] === "present" && request.method === "GET") return this.#artifactPresent(request, segments[2])
       const principal = await this.#authenticate(request)
-      if (!principal) return this.#deny("auth.principal", 401)
-      if (!this.#rateLimiter.take(principal.id)) return this.#deny("auth.rate-limit", 429)
+      if (!principal) return this.#deny(null, "auth.principal", 401)
+      if (!this.#rateLimiter.take(principal.id)) return this.#deny(principal, "auth.rate-limit", 429, { reason: "rate-limit-exceeded" })
       if (request.method === "POST" && segments[1] === "handshake") return this.#handshake(request)
       if (request.method === "POST" && segments[1] === "workspaces" && segments[2] === "register") return this.#register(request, principal)
       if (segments[1] === "workspaces" && segments[3] === "open" && request.method === "POST") return this.#open(segments[2], principal)
-      if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2])
+      if (segments[1] === "workspaces" && segments[3] === "sessions") return this.#sessions(request, segments[2], principal)
       if (segments[1] === "workspaces" && segments[3] === "events" && request.method === "GET") return this.#workspaceEvents(request, segments[2], principal)
       if (segments[1] === "sessions" && segments[3] === "prompt" && request.method === "POST") return this.#prompt(request, segments[2])
       if (segments[1] === "sessions" && segments[3] === "events" && request.method === "GET") return this.#events(request, segments[2], principal)
@@ -390,7 +394,7 @@ export class WorkbenchServer {
       if (segments[1] === "plugins" && segments[2] === "install" && request.method === "POST" && segments[3]) return this.#pluginInstall(request, segments[3], principal)
       if (segments[1] === "plugins" && segments[2] === "apply" && request.method === "POST" && segments[3]) return this.#pluginApply(request, segments[3], principal)
       if (segments[1] === "plugins" && segments[2] && request.method === "DELETE" && !segments[3]) return this.#pluginDelete(request, segments[2], principal)
-      return this.#deny("route.unknown", 404)
+      return this.#deny(principal, "route.unknown", 404)
   }
 
   async #authenticate(request: Request): Promise<Principal | undefined> {
@@ -420,7 +424,7 @@ export class WorkbenchServer {
     const input = parseHandshakeRequest(await body(request))
     const supported = input.protocolVersion === WIRE_PROTOCOL_VERSION && input.supportedVersions.includes(WIRE_PROTOCOL_VERSION)
     if (!supported) {
-      this.#audit.record("workbench-server", "handshake.unsupported-version", "deny")
+      this.#systemAudit("handshake.unsupported-version", "deny", { reason: "unsupported-version" })
       return json(200, {
         kind: "workbench.handshake.refused",
         accepted: false,
@@ -430,7 +434,7 @@ export class WorkbenchServer {
         reason: "unsupported-version",
       })
     }
-    this.#audit.record("workbench-server", "handshake.accept", "allow")
+    this.#systemAudit("handshake.accept", "allow")
     return json(200, {
       kind: "workbench.handshake.accepted",
       accepted: true,
@@ -441,43 +445,43 @@ export class WorkbenchServer {
   }
 
   async #register(request: Request, principal: Principal): Promise<Response> {
-    if (!principalCanRegister(principal)) return this.#deny("workspace.register.scope", 403)
+    if (!principalCanRegister(principal)) return this.#deny(principal, "workspace.register.scope", 403, { reason: "principal-cannot-register" })
     const input = await body(request)
-    if (typeof input.name !== "string" || typeof input.path !== "string") return this.#deny("workspace.register", 400)
+    if (typeof input.name !== "string" || typeof input.path !== "string") return this.#deny(principal, "workspace.register", 400, { reason: "missing-name-or-path" })
     const workspace = await this.#workspace.register({ name: input.name, path: input.path })
-    this.#allow("workspace.register")
+    this.#allow(principal, "workspace.register", { resource: workspace.id })
     return json(201, workspace as unknown as JsonRecord)
   }
 
   async #open(workspaceId: string, principal: Principal): Promise<Response> {
-    if (!principalCanOpen(principal, workspaceId)) return this.#deny("workspace.open.scope", 403)
+    if (!principalCanOpen(principal, workspaceId)) return this.#deny(principal, "workspace.open.scope", 403, { resource: workspaceId, reason: "principal-cannot-open" })
     const handle = await this.#workspace.open(workspaceId)
     this.#tokens.set(handle.token, handle)
-    this.#allow("workspace.open")
+    this.#allow(principal, "workspace.open", { resource: workspaceId })
     return json(200, handle as unknown as JsonRecord)
   }
 
-  async #sessions(request: Request, workspaceId: string): Promise<Response> {
+  async #sessions(request: Request, workspaceId: string, principal: Principal): Promise<Response> {
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("session.scope", 403)
+    if (!token) return this.#deny(principal, "session.scope", 403, { resource: workspaceId })
     if (request.method === "GET") {
       const sessions = await this.#runtime.listSessions({ workspaceId })
       for (const session of sessions) this.#sessionOwners.set(session.id, workspaceId)
-      this.#allow("session.list")
+      this.#allow(principal, "session.list", { resource: workspaceId })
       return json(200, { sessions })
     }
     if (request.method === "POST") {
       const session = await this.#runtime.createSession({ workspaceId })
       this.#sessionOwners.set(session.id, workspaceId)
-      this.#allow("session.create")
+      this.#allow(principal, "session.create", { resource: workspaceId })
       return json(201, { session })
     }
-    return this.#deny("session.method", 405)
+    return this.#deny(principal, "session.method", 405, { resource: workspaceId })
   }
 
   async #events(request: Request, sessionId: string, principal: Principal): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("session.events.scope", 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(principal, "session.events.scope", 403, { resource: sessionId })
     const eventGate = await this.#checkCapability("workspace.watch", workspaceId, principal)
     if (eventGate) return eventGate
     const requestedCursor = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? "0")
@@ -503,7 +507,7 @@ export class WorkbenchServer {
       },
       async cancel() { await iterator.return?.() },
     })
-    this.#allow("session.events")
+    this.#allow(principal, "session.events", { resource: workspaceId })
     return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive" } })
   }
 
@@ -526,7 +530,7 @@ export class WorkbenchServer {
    */
   async #workspaceEvents(request: Request, workspaceId: string, principal: Principal): Promise<Response> {
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("workspace.events.scope", 403)
+    if (!token) return this.#deny(principal, "workspace.events.scope", 403, { resource: workspaceId })
     const eventGate = await this.#checkCapability("workspace.watch", workspaceId, principal)
     if (eventGate) return eventGate
 
@@ -589,20 +593,22 @@ export class WorkbenchServer {
         await Promise.all([...iterators.values()].map((iterator) => iterator.return?.()))
       },
     })
-    this.#allow("workspace.events")
+    this.#allow(principal, "workspace.events", { resource: workspaceId })
     return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "connection": "keep-alive" } })
   }
 
   async #prompt(request: Request, sessionId: string): Promise<Response> {
     const workspaceId = this.#sessionOwners.get(sessionId)
     const token = workspaceId ? this.#authorize(request, workspaceId) : undefined
-    if (!token || !workspaceId) return this.#deny("session.prompt.scope", 403)
+    if (!token || !workspaceId) return this.#deny(null, "session.prompt.scope", 403, { resource: sessionId })
+    const principal = await this.#authenticate(request)
+    if (!principal) return this.#deny(null, "session.prompt.principal", 401)
     const input = await body(request)
-    if (typeof input.prompt !== "string") return this.#deny("session.prompt", 400)
+    if (typeof input.prompt !== "string") return this.#deny(principal, "session.prompt", 400, { resource: workspaceId })
     const operation = this.#operations.start(workspaceId, sessionId, typeof input.idempotencyKey === "string" ? input.idempotencyKey : undefined)
     if (operation.state === "completed") return json(202, { accepted: true, workspaceId, operationId: operation.id })
     void this.#runPrompt(operation.id, sessionId, input.prompt)
-    this.#allow("session.prompt")
+    this.#allow(principal, "session.prompt", { resource: workspaceId })
     return json(202, { accepted: true, workspaceId, operationId: operation.id })
   }
 
@@ -617,22 +623,22 @@ export class WorkbenchServer {
 
   async #cancelOperation(request: Request, operationId: string, principal: Principal): Promise<Response> {
     const operation = this.#operations.get(operationId)
-    if (!operation || !this.#authorize(request, operation.workspaceId)) return this.#deny("operation.cancel.scope", 403)
+    if (!operation || !this.#authorize(request, operation.workspaceId)) return this.#deny(principal, "operation.cancel.scope", 403, { resource: operationId })
     const gate = await this.#checkCapability("workspace.watch", operation.workspaceId, principal)
     if (gate) return gate
     const cancelled = this.#operations.cancel(operationId)
-    if (!cancelled) return this.#deny("operation.cancel", 409)
+    if (!cancelled) return this.#deny(principal, "operation.cancel", 409, { resource: operationId })
     await this.#runtime.cancelSession(operation.sessionId)
-    this.#allow("operation.cancel")
+    this.#allow(principal, "operation.cancel", { resource: operation.workspaceId })
     return json(200, { operation: cancelled })
   }
 
   async #files(request: Request, operation: "read" | "write" | "create" | "remove" | "rename", principal: Principal): Promise<Response> {
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || (!Array.isArray(input.paths) && operation === "read")) return this.#deny(`workspace.${operation}`, 400)
+    if (typeof input.workspaceId !== "string" || (!Array.isArray(input.paths) && operation === "read")) return this.#deny(principal, `workspace.${operation}`, 400, { reason: "missing-workspace-id-or-paths" })
     const workspaceId = input.workspaceId
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
+    if (!token) return this.#deny(principal, `workspace.${operation}.scope`, 403, { resource: workspaceId })
     // create/remove/rename mutate the workspace filesystem exactly like
     // write does — reusing "workspace.write" here keeps the P3 capability
     // catalogue closed rather than adding a "workspace.delete" the
@@ -643,78 +649,78 @@ export class WorkbenchServer {
     if (capabilityResponse) return capabilityResponse
     if (operation === "read") {
       const results = await this.#workspace.read(this.#runtimeToken(token), input.paths as string[])
-      this.#allow("workspace.read")
+      this.#allow(principal, "workspace.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
       return json(200, { results: results.map(encodeReadResult) })
     }
     if (operation === "write") {
-      if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
+      if (!Array.isArray(input.writes)) return this.#deny(principal, "workspace.write", 400, { resource: workspaceId, reason: "missing-writes" })
       const writes = (input.writes as JsonRecord[]).map(decodeWriteInput)
       const results = await this.#workspace.write(this.#runtimeToken(token), writes)
-      this.#allow("workspace.write")
+      this.#allow(principal, "workspace.write", { resource: workspaceId, authorizingCapability: "workspace.write" })
       return json(200, { results: results as unknown as JsonRecord[] })
     }
     if (operation === "create") {
-      if (!Array.isArray(input.writes)) return this.#deny("workspace.write", 400)
+      if (!Array.isArray(input.writes)) return this.#deny(principal, "workspace.write", 400, { resource: workspaceId, reason: "missing-writes" })
       const creates = (input.writes as JsonRecord[]).map(decodeWriteInput)
       const results = await this.#workspace.create(this.#runtimeToken(token), creates)
-      this.#allow("workspace.write")
+      this.#allow(principal, "workspace.write", { resource: workspaceId, authorizingCapability: "workspace.write" })
       return json(200, { results: results as unknown as JsonRecord[] })
     }
     if (operation === "remove") {
-      if (!Array.isArray(input.paths)) return this.#deny("workspace.write", 400)
+      if (!Array.isArray(input.paths)) return this.#deny(principal, "workspace.write", 400, { resource: workspaceId, reason: "missing-paths" })
       const results = await this.#workspace.remove(this.#runtimeToken(token), input.paths as string[])
-      this.#allow("workspace.write")
+      this.#allow(principal, "workspace.write", { resource: workspaceId, authorizingCapability: "workspace.write" })
       return json(200, { results: results as unknown as JsonRecord[] })
     }
-    if (typeof input.from !== "string" || typeof input.to !== "string") return this.#deny("workspace.write", 400)
+    if (typeof input.from !== "string" || typeof input.to !== "string") return this.#deny(principal, "workspace.write", 400, { resource: workspaceId, reason: "missing-from-or-to" })
     const result = await this.#workspace.rename(this.#runtimeToken(token), input.from, input.to)
-    this.#allow("workspace.write")
+    this.#allow(principal, "workspace.write", { resource: workspaceId, authorizingCapability: "workspace.write" })
     return json(200, { result: result as unknown as JsonRecord })
   }
 
   async #fileIndex(request: Request, operation: "list" | "search", principal: Principal): Promise<Response> {
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny(`workspace.${operation}`, 400)
+    if (!workspaceId) return this.#deny(principal, `workspace.${operation}`, 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny(`workspace.${operation}.scope`, 403)
+    if (!token) return this.#deny(principal, `workspace.${operation}.scope`, 403, { resource: workspaceId })
     const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     const prefix = url.searchParams.get("prefix") ?? "."
     if (operation === "search") {
       const entries = await this.#workspace.search(this.#runtimeToken(token), url.searchParams.get("query") ?? "", prefix)
-      this.#allow("workspace.read")
+      this.#allow(principal, "workspace.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
       return json(200, { entries })
     }
     // FUNC-004/C5-1: list is paginated — cursor is opaque and round-tripped
     // via the query string exactly as WorkspacePort.list() returned it.
     const cursor = url.searchParams.get("cursor") ?? undefined
     const page = await this.#workspace.list(this.#runtimeToken(token), prefix, cursor)
-    this.#allow("workspace.read")
+    this.#allow(principal, "workspace.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { entries: page.entries, nextCursor: page.nextCursor, skipped: page.skipped })
   }
 
   async #designSystems(request: Request, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("design-system.manifest", 400)
+    if (!workspaceId) return this.#deny(principal, "design-system.manifest", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("design-system.manifest.scope", 403)
+    if (!token) return this.#deny(principal, "design-system.manifest.scope", 403, { resource: workspaceId })
     const capabilityResponse = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (capabilityResponse) return capabilityResponse
     let result: FileReadResult | undefined
     try {
       result = (await this.#workspace.read(this.#runtimeToken(token), [WORKSPACE_MANIFEST_PATH]))[0]
     } catch (error) {
-      if (isMissingFile(error)) return this.#deny("design-system.manifest.missing", 404)
+      if (isMissingFile(error)) return this.#deny(principal, "design-system.manifest.missing", 404, { resource: workspaceId })
       throw error
     }
-    if (!result) return this.#deny("design-system.manifest.missing", 404)
+    if (!result) return this.#deny(principal, "design-system.manifest.missing", 404, { resource: workspaceId })
     try {
       const manifest = parseManifestResult(result.content)
-      this.#allow("workspace.read")
+      this.#allow(principal, "workspace.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
       return json(200, manifest as unknown as JsonRecord)
     } catch {
-      return this.#deny("design-system.manifest.invalid", 400)
+      return this.#deny(principal, "design-system.manifest.invalid", 400, { resource: workspaceId })
     }
   }
 
@@ -725,40 +731,40 @@ export class WorkbenchServer {
 
   async #pluginsList(request: Request, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    if (!workspaceId) return this.#deny(principal, "plugin.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("plugin.scope", 403)
+    if (!token) return this.#deny(principal, "plugin.scope", 403, { resource: workspaceId })
     const decision = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (decision) return decision
     const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
-    this.#allow("workspace.read")
+    this.#allow(principal, "workspace.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { plugins })
   }
 
   async #pluginRead(request: Request, pluginId: string, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    if (!workspaceId) return this.#deny(principal, "plugin.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("plugin.scope", 403)
+    if (!token) return this.#deny(principal, "plugin.scope", 403, { resource: workspaceId })
     const decision = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (decision) return decision
     const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
     const plugin = plugins.find((p) => p.id === pluginId)
-    if (!plugin) return this.#deny("plugin.not-found", 404)
-    this.#allow("workspace.read")
+    if (!plugin) return this.#deny(principal, "plugin.not-found", 404, { resource: pluginId })
+    this.#allow(principal, "workspace.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, plugin as unknown as JsonRecord)
   }
 
   async #pluginInstall(request: Request, pluginId: string, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    if (!workspaceId) return this.#deny(principal, "plugin.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("plugin.scope", 403)
+    if (!token) return this.#deny(principal, "plugin.scope", 403, { resource: workspaceId })
     const decision = await this.#checkCapability("package.install", workspaceId, principal)
     if (decision) return decision
     const body = await request.json().catch(() => ({})) as { name?: string; version?: string; capabilities?: readonly string[] }
     if (typeof body.name !== "string" || typeof body.version !== "string" || !Array.isArray(body.capabilities)) {
-      return this.#deny("plugin.invalid", 400)
+      return this.#deny(principal, "plugin.invalid", 400, { resource: pluginId, reason: "missing-name-version-or-capabilities" })
     }
     const existing = this.#pluginsByWorkspace.get(workspaceId) ?? []
     const without = existing.filter((p) => p.id !== pluginId)
@@ -766,76 +772,74 @@ export class WorkbenchServer {
       ...without,
       { id: pluginId, name: body.name, version: body.version, capabilities: body.capabilities },
     ])
-    this.#allow("package.install")
+    this.#allow(principal, "package.install", { resource: pluginId, authorizingCapability: "package.install" })
     return json(200, { ok: true, id: pluginId })
   }
 
   async #pluginApply(request: Request, pluginId: string, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    if (!workspaceId) return this.#deny(principal, "plugin.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("plugin.scope", 403)
-    // The "plugin.apply" capability is a string the runtime registers
-    // with the broker at install time. The contracts package only knows
-    // the canonical P3 capabilities; plugin-specific capabilities are
-    // added by the runtime through the capability broker. The
-    // type-cast is intentional and isolated to this one site.
-    const applyCapability = "plugin.apply" as never
+    if (!token) return this.#deny(principal, "plugin.scope", 403, { resource: workspaceId })
+    // DA-CAP-01: "plugin.apply" is now part of the P3Capability closed union
+    // (ADR-1038, §9.2 of the 4.0 plan). The runtime no longer needs to inject
+    // a cast at this one site — every call into #checkCapability is typed.
+    const applyCapability = "plugin.apply"
     const decision = await this.#checkCapability(applyCapability, workspaceId, principal)
     if (decision) return decision
     const plugins = this.#pluginsByWorkspace.get(workspaceId) ?? []
     const plugin = plugins.find((p) => p.id === pluginId)
-    if (!plugin) return this.#deny("plugin.not-found", 404)
-    this.#allow("plugin.apply")
+    if (!plugin) return this.#deny(principal, "plugin.not-found", 404, { resource: pluginId })
+    this.#allow(principal, "plugin.apply", { resource: pluginId, authorizingCapability: "plugin.apply" })
     return json(200, { ok: true, applied: pluginId })
   }
 
   async #pluginDelete(request: Request, pluginId: string, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("plugin.scope", 400)
+    if (!workspaceId) return this.#deny(principal, "plugin.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, workspaceId)
-    if (!token) return this.#deny("plugin.scope", 403)
+    if (!token) return this.#deny(principal, "plugin.scope", 403, { resource: workspaceId })
     const decision = await this.#checkCapability("package.install", workspaceId, principal)
     if (decision) return decision
     const existing = this.#pluginsByWorkspace.get(workspaceId) ?? []
     this.#pluginsByWorkspace.set(workspaceId, existing.filter((p) => p.id !== pluginId))
-    this.#allow("package.install")
+    this.#allow(principal, "package.install", { resource: pluginId, authorizingCapability: "package.install" })
     return json(200, { ok: true })
   }
 
   async #browserAction(request: Request, action: string, principal: Principal): Promise<Response> {
-    if (!this.#browser) return this.#deny("browser.unavailable", 503)
+    if (!this.#browser) return this.#deny(principal, "browser.unavailable", 503)
     const input = await body(request)
-    if (typeof input.workspaceId !== "string") return this.#deny("browser.scope", 400)
+    if (typeof input.workspaceId !== "string") return this.#deny(principal, "browser.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("browser.scope", 403)
+    if (!token) return this.#deny(principal, "browser.scope", 403, { resource: input.workspaceId })
     const gate = await this.#checkCapability("browser.navigate", input.workspaceId, principal)
     if (gate) return gate
-    if (action === "navigate" && typeof input.url === "string") { await this.#browser.navigate(input.workspaceId, input.url); this.#allow("browser.navigate"); return json(202, { accepted: true }) }
-    if (action === "snapshot") { const snapshot = await this.#browser.snapshot(input.workspaceId); this.#allow("browser.snapshot"); return json(200, { snapshot }) }
-    if (action === "screenshot") { const screenshot = await this.#browser.screenshot(input.workspaceId); this.#allow("browser.screenshot"); return json(200, { contentType: "image/png", data: Buffer.from(screenshot).toString("base64") }) }
-    return this.#deny("browser.action", 400)
+    if (action === "navigate" && typeof input.url === "string") { await this.#browser.navigate(input.workspaceId, input.url); this.#allow(principal, "browser.navigate", { resource: input.workspaceId, authorizingCapability: "browser.navigate" }); return json(202, { accepted: true }) }
+    if (action === "snapshot") { const snapshot = await this.#browser.snapshot(input.workspaceId); this.#allow(principal, "browser.snapshot", { resource: input.workspaceId, authorizingCapability: "browser.navigate" }); return json(200, { snapshot }) }
+    if (action === "screenshot") { const screenshot = await this.#browser.screenshot(input.workspaceId); this.#allow(principal, "browser.screenshot", { resource: input.workspaceId, authorizingCapability: "browser.navigate" }); return json(200, { contentType: "image/png", data: Buffer.from(screenshot).toString("base64") }) }
+    return this.#deny(principal, "browser.action", 400, { resource: input.workspaceId })
   }
 
   async #desktopAction(request: Request, action: string, principal: Principal): Promise<Response> {
-    if (!this.#desktop) return this.#deny("desktop.unavailable", 503)
+    if (!this.#desktop) return this.#deny(principal, "desktop.unavailable", 503)
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || typeof input.appId !== "string") return this.#deny("desktop.scope", 400)
+    if (typeof input.workspaceId !== "string" || typeof input.appId !== "string") return this.#deny(principal, "desktop.scope", 400, { reason: "missing-workspace-id-or-app-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("desktop.scope", 403)
+    if (!token) return this.#deny(principal, "desktop.scope", 403, { resource: input.workspaceId })
     const target = { appId: input.appId, windowId: typeof input.windowId === "string" ? input.windowId : undefined }
-    if (action === "observe") { const gate = await this.#checkCapability("desktop.observe", input.workspaceId, principal); if (gate) return gate; const observation = await this.#desktop.observe(target); this.#allow("desktop.observe"); return json(200, { observation }) }
-    if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) { const gate = await this.#checkCapability("desktop.control", input.workspaceId, principal); if (gate) return gate; await this.#desktop.control(target, input.action, input.payload); this.#allow("desktop.control"); return json(202, { accepted: true }) }
-    return this.#deny("desktop.action", 400)
+    if (action === "observe") { const gate = await this.#checkCapability("desktop.observe", input.workspaceId, principal); if (gate) return gate; const observation = await this.#desktop.observe(target); this.#allow(principal, "desktop.observe", { resource: input.workspaceId, authorizingCapability: "desktop.observe" }); return json(200, { observation }) }
+    if (action === "control" && (input.action === "keyboard" || input.action === "mouse")) { const gate = await this.#checkCapability("desktop.control", input.workspaceId, principal); if (gate) return gate; await this.#desktop.control(target, input.action, input.payload); this.#allow(principal, "desktop.control", { resource: input.workspaceId, authorizingCapability: "desktop.control" }); return json(202, { accepted: true }) }
+    return this.#deny(principal, "desktop.action", 400, { resource: input.workspaceId })
   }
 
   async #workflowAction(request: Request, action: string, principal: Principal): Promise<Response> {
-    if (!this.#workflow) return this.#deny("workflow.unavailable", 503)
+    if (!this.#workflow) return this.#deny(principal, "workflow.unavailable", 503)
     const input = await body(request)
     if (action === "start") {
-      if (typeof input.workspaceId !== "string" || !input.definition || typeof input.definition !== "object") return this.#deny("workflow.start", 400)
+      if (typeof input.workspaceId !== "string" || !input.definition || typeof input.definition !== "object") return this.#deny(principal, "workflow.start", 400, { reason: "missing-workspace-id-or-definition" })
       const token = this.#authorize(request, input.workspaceId)
-      if (!token) return this.#deny("workflow.scope", 403)
+      if (!token) return this.#deny(principal, "workflow.scope", 403, { resource: input.workspaceId })
       const gate = await this.#checkCapability("workflow.run", input.workspaceId, principal)
       if (gate) return gate
       const definition = { ...(input.definition as WorkflowDefinition), workspaceId: input.workspaceId }
@@ -846,126 +850,133 @@ export class WorkbenchServer {
         if (typeof oldest !== "string") break
         this.#workflowOwners.delete(oldest)
       }
-      this.#allow("workflow.start")
+      // DA-AUD-03: the route label is "workflow.start", the broker's
+      // capability is "workflow.run". Record both so a downstream reader
+      // can answer "what did the user ask for?" AND "what capability
+      // authorised it?" without conflating the two (B07 §4 row :1317).
+      this.#allow(principal, "workflow.start", { resource: input.workspaceId, authorizingCapability: "workflow.run" })
       return json(202, { state })
     }
-    if (typeof input.workflowId !== "string") return this.#deny("workflow.scope", 400)
+    if (typeof input.workflowId !== "string") return this.#deny(principal, "workflow.scope", 400, { reason: "missing-workflow-id" })
     const workspaceId = this.#workflowOwners.get(input.workflowId)
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("workflow.scope", 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(principal, "workflow.scope", 403, { resource: input.workflowId })
     const state = action === "resume" ? await this.#workflow.resume(input.workflowId) : action === "cancel" ? await this.#workflow.cancel(input.workflowId) : undefined
-    if (!state) return this.#deny("workflow.action", 400)
+    if (!state) return this.#deny(principal, "workflow.action", 400, { resource: input.workflowId })
     if (action === "cancel" || state.status === "completed" || state.status === "failed" || state.status === "cancelled") this.#workflowOwners.delete(input.workflowId)
-    this.#allow(`workflow.${action}`)
+    this.#allow(principal, `workflow.${action}`, { resource: workspaceId })
     return json(200, { state })
   }
 
   async #memoryAction(request: Request, action: string, principal: Principal): Promise<Response> {
-    if (!this.#memory) return this.#deny("memory.unavailable", 503)
+    if (!this.#memory) return this.#deny(principal, "memory.unavailable", 503)
     const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
-    if (typeof input.workspaceId !== "string") return this.#deny("memory.scope", 400)
+    if (typeof input.workspaceId !== "string") return this.#deny(principal, "memory.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("memory.scope", 403)
-    if (request.method === "POST" && action === "remember") { const gate = await this.#checkCapability("workspace.write", input.workspaceId, principal); if (gate) return gate; if (typeof input.content !== "string" || (input.source !== "user" && input.source !== "agent" && input.source !== "import")) return this.#deny("memory.remember", 400); const record = await this.#memory.remember({ workspaceId: input.workspaceId, content: input.content, source: input.source, tags: Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined, id: typeof input.id === "string" ? input.id : undefined }); this.#allow("memory.remember"); return json(201, { record }) }
-    if (request.method === "GET" && action === "search") { const gate = await this.#checkCapability("workspace.read", input.workspaceId, principal); if (gate) return gate; const records = await this.#memory.search({ workspaceId: input.workspaceId, text: typeof input.text === "string" ? input.text : undefined }); this.#allow("memory.search"); return json(200, { records }) }
-    if (request.method === "DELETE" && action === "remove" && typeof input.id === "string") { const gate = await this.#checkCapability("workspace.write", input.workspaceId, principal); if (gate) return gate; const removed = await this.#memory.remove(input.workspaceId, input.id); this.#allow("memory.remove"); return json(200, { removed }) }
-    return this.#deny("memory.action", 400)
+    if (!token) return this.#deny(principal, "memory.scope", 403, { resource: input.workspaceId })
+    if (request.method === "POST" && action === "remember") { const gate = await this.#checkCapability("workspace.write", input.workspaceId, principal); if (gate) return gate; if (typeof input.content !== "string" || (input.source !== "user" && input.source !== "agent" && input.source !== "import")) return this.#deny(principal, "memory.remember", 400, { resource: input.workspaceId, reason: "missing-content-or-invalid-source" }); const record = await this.#memory.remember({ workspaceId: input.workspaceId, content: input.content, source: input.source, tags: Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined, id: typeof input.id === "string" ? input.id : undefined }); this.#allow(principal, "memory.remember", { resource: input.workspaceId, authorizingCapability: "workspace.write" }); return json(201, { record }) }
+    if (request.method === "GET" && action === "search") { const gate = await this.#checkCapability("workspace.read", input.workspaceId, principal); if (gate) return gate; const records = await this.#memory.search({ workspaceId: input.workspaceId, text: typeof input.text === "string" ? input.text : undefined }); this.#allow(principal, "memory.search", { resource: input.workspaceId, authorizingCapability: "workspace.read" }); return json(200, { records }) }
+    if (request.method === "DELETE" && action === "remove" && typeof input.id === "string") { const gate = await this.#checkCapability("workspace.write", input.workspaceId, principal); if (gate) return gate; const removed = await this.#memory.remove(input.workspaceId, input.id); this.#allow(principal, "memory.remove", { resource: input.workspaceId, authorizingCapability: "workspace.write" }); return json(200, { removed }) }
+    return this.#deny(principal, "memory.action", 400, { resource: input.workspaceId })
   }
 
   async #capabilityAction(request: Request, action: string, principal: Principal): Promise<Response> {
-    if (!this.#capabilities) return this.#deny("capability.unavailable", 503)
+    if (!this.#capabilities) return this.#deny(principal, "capability.unavailable", 503)
     const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
-    if (typeof input.workspaceId !== "string") return this.#deny("capability.scope", 400)
+    if (typeof input.workspaceId !== "string") return this.#deny(principal, "capability.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("capability.scope", 403)
+    if (!token) return this.#deny(principal, "capability.scope", 403, { resource: input.workspaceId })
     const gate = await this.#checkCapability("package.install", input.workspaceId, principal)
     if (gate) return gate
-    if (action === "register" && input.manifest && typeof input.manifest === "object") { this.#capabilities.register(input.manifest as CapabilityManifest); this.#allow("capability.register"); return json(201, { registered: true }) }
-    if (action === "approve" && typeof input.digest === "string") { this.#capabilities.approve(input.digest); this.#allow("capability.approve"); return json(200, { approved: true }) }
-    if (action === "enable" && typeof input.digest === "string") { this.#capabilities.enable(input.digest); this.#allow("capability.enable"); return json(200, { enabled: true }) }
-    if (action === "revoke" && typeof input.digest === "string") { this.#capabilities.revoke(input.digest); this.#allow("capability.revoke"); return json(200, { revoked: true }) }
-    if (action === "search") { const records = this.#capabilities.search({ tag: typeof input.tag === "string" ? input.tag : undefined, trustLevel: typeof input.trustLevel === "string" ? input.trustLevel as "untrusted" | "verified" | "official" : undefined, enabledOnly: input.enabledOnly === "true" }); this.#allow("capability.search"); return json(200, { records }) }
-    return this.#deny("capability.action", 400)
+    if (action === "register" && input.manifest && typeof input.manifest === "object") { this.#capabilities.register(input.manifest as CapabilityManifest); this.#allow(principal, "capability.register", { resource: input.workspaceId, authorizingCapability: "package.install" }); return json(201, { registered: true }) }
+    if (action === "approve" && typeof input.digest === "string") { this.#capabilities.approve(input.digest); this.#allow(principal, "capability.approve", { resource: input.digest, authorizingCapability: "package.install" }); return json(200, { approved: true }) }
+    if (action === "enable" && typeof input.digest === "string") { this.#capabilities.enable(input.digest); this.#allow(principal, "capability.enable", { resource: input.digest, authorizingCapability: "package.install" }); return json(200, { enabled: true }) }
+    if (action === "revoke" && typeof input.digest === "string") { this.#capabilities.revoke(input.digest); this.#allow(principal, "capability.revoke", { resource: input.digest, authorizingCapability: "package.install" }); return json(200, { revoked: true }) }
+    if (action === "search") { const records = this.#capabilities.search({ tag: typeof input.tag === "string" ? input.tag : undefined, trustLevel: typeof input.trustLevel === "string" ? input.trustLevel as "untrusted" | "verified" | "official" : undefined, enabledOnly: input.enabledOnly === "true" }); this.#allow(principal, "capability.search", { resource: input.workspaceId, authorizingCapability: "package.install" }); return json(200, { records }) }
+    return this.#deny(principal, "capability.action", 400, { resource: input.workspaceId })
   }
 
   async #uiAction(request: Request, principal: Principal): Promise<Response> {
-    if (!this.#ui) return this.#deny("ui.unavailable", 503)
+    if (!this.#ui) return this.#deny(principal, "ui.unavailable", 503)
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || !input.action || typeof input.action !== "object") return this.#deny("ui.scope", 400)
+    if (typeof input.workspaceId !== "string" || !input.action || typeof input.action !== "object") return this.#deny(principal, "ui.scope", 400, { reason: "missing-workspace-id-or-action" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("ui.scope", 403)
+    if (!token) return this.#deny(principal, "ui.scope", 403, { resource: input.workspaceId })
     const gate = await this.#checkCapability("desktop.control", input.workspaceId, principal)
     if (gate) return gate
     const result = await this.#ui.execute(input.action as UiAction)
-    this.#allow("ui.action")
+    this.#allow(principal, "ui.action", { resource: input.workspaceId, authorizingCapability: "desktop.control" })
     return json(result.status === "denied" ? 403 : result.status === "pending-approval" ? 202 : 200, { result })
   }
 
   async #renderUi(request: Request): Promise<Response> {
-    if (!this.#uiAllowedActions) return this.#deny("ui.render.unavailable", 503)
+    if (!this.#uiAllowedActions) return this.#deny(null, "ui.render.unavailable", 503)
+    const principal = await this.#authenticate(request)
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || !input.node || typeof input.node !== "object" || Array.isArray(input.node)) return this.#deny("ui.render", 400)
+    if (typeof input.workspaceId !== "string" || !input.node || typeof input.node !== "object" || Array.isArray(input.node)) return this.#deny(principal ?? null, "ui.render", 400, { reason: "missing-workspace-id-or-node" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("ui.render.scope", 403)
+    if (!token) return this.#deny(principal ?? null, "ui.render.scope", 403, { resource: input.workspaceId })
     try {
       const rendered = renderGenerativeUi(input.node as UiNode, this.#uiAllowedActions)
-      this.#allow("ui.render")
+      this.#allow(principal ?? null, "ui.render", { resource: input.workspaceId })
       return json(200, { rendered })
     } catch {
-      return this.#deny("ui.render", 400)
+      return this.#deny(principal ?? null, "ui.render", 400, { resource: input.workspaceId })
     }
   }
 
   async #skillHubAction(request: Request, action: string): Promise<Response> {
-    if (!this.#skillHub) return this.#deny("skill-hub.unavailable", 503)
+    if (!this.#skillHub) return this.#deny(null, "skill-hub.unavailable", 503)
+    const principal = await this.#authenticate(request)
     const input = request.method === "GET" ? Object.fromEntries(new URL(request.url).searchParams.entries()) : await body(request)
-    if (typeof input.workspaceId !== "string") return this.#deny("skill-hub.scope", 400)
+    if (typeof input.workspaceId !== "string") return this.#deny(principal ?? null, "skill-hub.scope", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("skill-hub.scope", 403)
+    if (!token) return this.#deny(principal ?? null, "skill-hub.scope", 403, { resource: input.workspaceId })
     if (action === "search") {
       const query = typeof input.query === "string" ? input.query : undefined
       const tags = typeof input.tags === "string" && input.tags.length > 0 ? input.tags.split(",").map((tag) => tag.trim()).filter((tag) => tag.length > 0) : Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === "string") : undefined
       const trust = input.trust === "untrusted" || input.trust === "verified" || input.trust === "official" ? input.trust : undefined
       const manifests = await this.#skillHub.search({ query, tags, trust })
-      this.#allow("skill-hub.search")
+      this.#allow(principal ?? null, "skill-hub.search", { resource: input.workspaceId })
       return json(200, { manifests })
     }
     if (action === "install") {
-      if (typeof input.digest !== "string") return this.#deny("skill-hub.install", 400)
+      if (typeof input.digest !== "string") return this.#deny(principal ?? null, "skill-hub.install", 400, { reason: "missing-digest" })
       const installed = await this.#skillHub.install(input.digest)
-      this.#allow("skill-hub.install")
+      this.#allow(principal ?? null, "skill-hub.install", { resource: input.digest })
       return json(201, { installed })
     }
     if (action === "update") {
-      if (typeof input.name !== "string") return this.#deny("skill-hub.update", 400)
+      if (typeof input.name !== "string") return this.#deny(principal ?? null, "skill-hub.update", 400, { reason: "missing-name" })
       const updated = await this.#skillHub.update(input.name)
-      this.#allow("skill-hub.update")
+      this.#allow(principal ?? null, "skill-hub.update", { resource: input.name })
       return json(200, { updated: updated ?? null })
     }
-    return this.#deny("skill-hub.action", 400)
+    return this.#deny(principal ?? null, "skill-hub.action", 400, { resource: input.workspaceId })
   }
 
   async #designSkillsAction(request: Request, principal: Principal): Promise<Response> {
-    if (!this.#designSkills) return this.#deny("design-skills.unavailable", 503)
+    if (!this.#designSkills) return this.#deny(principal, "design-skills.unavailable", 503)
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId) return this.#deny("design-skills.scope", 400)
-    if (!this.#authorize(request, workspaceId)) return this.#deny("design-skills.scope", 403)
+    if (!workspaceId) return this.#deny(principal, "design-skills.scope", 400, { reason: "missing-workspace-id" })
+    if (!this.#authorize(request, workspaceId)) return this.#deny(principal, "design-skills.scope", 403, { resource: workspaceId })
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
     const skills = await this.#designSkills(workspaceId)
-    this.#allow("design-skills.list")
+    this.#allow(principal, "design-skills.list", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { skills })
   }
 
   // status is a read; every other action mutates stored credentials for the
   // account, so it carries the same capability as any other workspace write.
   async #githubAction(request: Request, action: string, principal: Principal): Promise<Response> {
-    if (!this.#github) return this.#deny("github.unavailable", 503)
+    if (!this.#github) return this.#deny(principal, "github.unavailable", 503)
     // GET carries no body: githubStatus() sends the workspace in the query
     // string, so reading input.workspaceId here refused every status call.
     const workspaceId = request.method === "GET" ? new URL(request.url).searchParams.get("workspaceId") : (await body(request)).workspaceId
-    if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny("github.scope", 403)
-    if (action !== "status" && action !== "start" && action !== "poll" && action !== "cancel" && action !== "disconnect") return this.#deny("github.action", 400)
-    const gate = await this.#checkCapability(action === "status" ? "workspace.read" : "workspace.write", workspaceId, principal)
+    if (typeof workspaceId !== "string" || !this.#authorize(request, workspaceId)) return this.#deny(principal, "github.scope", 403, { reason: "missing-workspace-id-or-no-token" })
+    if (action !== "status" && action !== "start" && action !== "poll" && action !== "cancel" && action !== "disconnect") return this.#deny(principal, "github.action", 400, { resource: workspaceId })
+    const capability: P3Capability = action === "status" ? "workspace.read" : "workspace.write"
+    const gate = await this.#checkCapability(capability, workspaceId, principal)
     if (gate) return gate
     if (action === "status") return json(200, await this.#github.status(workspaceId))
     if (action === "start") return json(200, await this.#github.deviceStart(workspaceId))
@@ -977,40 +988,54 @@ export class WorkbenchServer {
   async #approval(request: Request, id: string): Promise<Response> {
     const token = this.#bearer(request)
     const approval = token ? this.#capability.getApproval?.(id) : undefined
-    if (!token || !approval || this.#tokens.get(token)?.id !== approval.resource) return this.#deny("approval.scope", 403)
+    if (!token || !approval || this.#tokens.get(token)?.id !== approval.resource) return this.#deny(null, "approval.scope", 403)
+    // DA-AUD-02: thread principal.id into the approval audit rows. The
+    // file-session token is the capability handle, not the caller's identity
+    // (see #bearer doc) — the principal is recovered via #authenticate as
+    // every other handler does, so the audit row answers "who clicked
+    // Allow/Deny?" rather than the server identity.
+    const principal = await this.#authenticate(request)
+    if (!principal) return this.#deny(null, "approval.principal", 401)
     if (request.method === "DELETE") {
       const decision = this.#capability.cancel?.(id)
-      if (!decision) return this.#deny("approval.cancel", 404)
-      this.#audit.record("workbench-server", "approval.cancel", "deny")
+      if (!decision) return this.#deny(principal, "approval.cancel", 404, { resource: approval.resource })
+      this.#userAudit(principal, "approval.cancel", "deny", { resource: approval.resource, reason: "user-cancelled" })
       return json(200, { decision })
     }
     const input = await body(request)
-    if (input.decision !== "allow" && input.decision !== "deny") return this.#deny("approval.resolve", 400)
-    const decision = this.#capability.resolve?.(id, input.decision, "file-session", approval.resource)
-    if (!decision) return this.#deny("approval.resolve", 404)
-    this.#audit.record("workbench-server", "approval.resolve", (decision as { kind?: string }).kind === "allow" ? "allow" : "deny")
+    if (input.decision !== "allow" && input.decision !== "deny") return this.#deny(principal, "approval.resolve", 400, { resource: approval.resource })
+    // DA-AUD-02: pass principal.id as the broker's actor so the resolved
+    // approval carries the resolving principal's identity.
+    const decision = this.#capability.resolve?.(id, input.decision, principal.id, approval.resource)
+    if (!decision) return this.#deny(principal, "approval.resolve", 404, { resource: approval.resource })
+    const decisionKind = (decision as { kind?: string }).kind
+    this.#userAudit(principal, "approval.resolve", decisionKind === "allow" ? "allow" : "deny", { resource: approval.resource, reason: `user-${decisionKind ?? "unknown"}` })
     return json(200, { decision })
   }
   async #approvalList(request: Request): Promise<Response> {
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
     const token = workspaceId ? this.#authorize(request, workspaceId) : undefined
-    if (!workspaceId || !token) return this.#deny("approval.list.scope", 403)
+    if (!workspaceId || !token) return this.#deny(null, "approval.list.scope", 403, { resource: workspaceId ?? null })
+    const principal = await this.#authenticate(request)
+    if (!principal) return this.#deny(null, "approval.list.principal", 401)
     const approvals = this.#capability.listApprovals?.(workspaceId)
-    if (!approvals) return this.#deny("approval.list.unavailable", 503)
-    this.#allow("approval.list")
+    if (!approvals) return this.#deny(principal, "approval.list.unavailable", 503, { resource: workspaceId })
+    this.#allow(principal, "approval.list", { resource: workspaceId })
     return json(200, { approvals })
   }
   async #auditPage(request: Request, kind: "trace" | "activity"): Promise<Response> {
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(`${kind}.scope`, 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(null, `${kind}.scope`, 403, { resource: workspaceId ?? null })
+    const principal = await this.#authenticate(request)
+    if (!principal) return this.#deny(null, `${kind}.principal`, 401)
     const after = Number(url.searchParams.get("after") ?? "0")
     const requestedLimit = Number(url.searchParams.get("limit") ?? "50")
     const limit = Number.isSafeInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50
     const page = this.#audit.page?.(Number.isSafeInteger(after) && after > 0 ? after : 0, limit)
-    if (!page) return this.#deny(`${kind}.unavailable`, 503)
-    this.#allow(`${kind}.read`)
+    if (!page) return this.#deny(principal, `${kind}.unavailable`, 503, { resource: workspaceId })
+    this.#allow(principal, `${kind}.read`, { resource: workspaceId })
     return json(200, { kind, ...page })
   }
   #artifactsFor(workspaceId: string): ArtifactStore | undefined {
@@ -1021,16 +1046,16 @@ export class WorkbenchServer {
 
   async #artifactRead(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.read.scope", 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(principal, "artifact.read.scope", 403, { resource: workspaceId ?? null })
     const artifacts = this.#artifactsFor(workspaceId)
-    if (!artifacts) return this.#deny("artifact.read.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "artifact.read.unavailable", 503, { resource: workspaceId })
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
-    if (!artifactId) { this.#allow("artifact.list"); return json(200, { artifacts: await artifacts.list() }) }
+    if (!artifactId) { this.#allow(principal, "artifact.list", { resource: workspaceId, authorizingCapability: "workspace.read" }); return json(200, { artifacts: await artifacts.list() }) }
     const artifact = await artifacts.latest(artifactId)
-    if (!artifact) return this.#deny("artifact.not-found", 404)
+    if (!artifact) return this.#deny(principal, "artifact.not-found", 404, { resource: artifactId })
     const content = await artifacts.read(artifact)
-    this.#allow("artifact.read")
+    this.#allow(principal, "artifact.read", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { artifact, content: Buffer.from(content).toString("base64"), encoding: "base64" })
   }
 
@@ -1056,21 +1081,21 @@ export class WorkbenchServer {
    *     "save to disk, open in a regular browser" attack path).
    */
   async #artifactRaw(request: Request, artifactId: string | undefined, rawPath: string | undefined, principal: Principal): Promise<Response> {
-    if (!artifactId) return this.#deny("artifact.raw.id", 400)
-    if (!rawPath) return this.#deny("artifact.raw.path", 400)
+    if (!artifactId) return this.#deny(principal, "artifact.raw.id", 400, { reason: "missing-artifact-id" })
+    if (!rawPath) return this.#deny(principal, "artifact.raw.path", 400, { reason: "missing-raw-path" })
     if (rawPath.includes("..") || rawPath.startsWith("/") || rawPath.startsWith("\\") || /^[A-Za-z]:/.test(rawPath) || rawPath.includes("\0")) {
-      return this.#deny("artifact.raw.path-escape", 403)
+      return this.#deny(principal, "artifact.raw.path-escape", 403, { resource: rawPath })
     }
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.raw.scope", 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(principal, "artifact.raw.scope", 403, { resource: workspaceId ?? null })
     const artifacts = this.#artifactsFor(workspaceId)
-    if (!artifacts) return this.#deny("artifact.raw.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "artifact.raw.unavailable", 503, { resource: workspaceId })
     const gate = await this.#checkCapability("artifact.preview", workspaceId, principal)
     if (gate) return gate
     const artifact = await artifacts.latest(artifactId)
-    if (!artifact) return this.#deny("artifact.raw.path", 403)
+    if (!artifact) return this.#deny(principal, "artifact.raw.path", 403, { resource: artifactId })
     const artifactFileName = basename(artifact.relativePath)
-    if (rawPath !== artifactFileName && rawPath !== artifact.relativePath) return this.#deny("artifact.raw.path", 403)
+    if (rawPath !== artifactFileName && rawPath !== artifact.relativePath) return this.#deny(principal, "artifact.raw.path", 403, { resource: artifactId })
     const content = await artifacts.read(artifact)
     const lower = rawPath.toLowerCase()
     const lastDot = lower.lastIndexOf(".")
@@ -1086,7 +1111,7 @@ export class WorkbenchServer {
     if (ext === "html" || ext === "htm") {
       headers["content-security-policy"] = ARTIFACT_RAW_CSP
     }
-    this.#allow("artifact.preview")
+    this.#allow(principal, "artifact.preview", { resource: workspaceId, authorizingCapability: "artifact.preview" })
     return new Response(new Blob([new Uint8Array(content)]), { status: 200, headers })
   }
   /**
@@ -1098,21 +1123,21 @@ export class WorkbenchServer {
    * point, it's what lets it be opened by someone else.
    */
   async #artifactPresentLink(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
-    if (!this.#presentLinks) return this.#deny("artifact.present.unconfigured", 503)
-    if (!artifactId) return this.#deny("artifact.present.id", 400)
+    if (!this.#presentLinks) return this.#deny(principal, "artifact.present.unconfigured", 503)
+    if (!artifactId) return this.#deny(principal, "artifact.present.id", 400, { reason: "missing-artifact-id" })
     const input = await body(request)
-    if (typeof input.workspaceId !== "string") return this.#deny("artifact.present", 400)
+    if (typeof input.workspaceId !== "string") return this.#deny(principal, "artifact.present", 400, { reason: "missing-workspace-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("artifact.present.scope", 403)
+    if (!token) return this.#deny(principal, "artifact.present.scope", 403, { resource: input.workspaceId })
     const artifacts = this.#artifactsFor(input.workspaceId)
-    if (!artifacts) return this.#deny("artifact.present.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "artifact.present.unavailable", 503, { resource: input.workspaceId })
     const gate = await this.#checkCapability("artifact.export", input.workspaceId, principal)
     if (gate) return gate
     const artifact = await artifacts.latest(artifactId)
-    if (!artifact) return this.#deny("artifact.present.missing", 404)
+    if (!artifact) return this.#deny(principal, "artifact.present.missing", 404, { resource: artifactId })
     const { token: linkToken, expiresAt } = this.#presentLinks.sign(artifactId, input.workspaceId)
     const origin = new URL(request.url).origin
-    this.#allow("artifact.export")
+    this.#allow(principal, "artifact.export", { resource: artifactId, authorizingCapability: "artifact.export" })
     return json(200, { url: `${origin}/v1/artifacts/${encodeURIComponent(artifactId)}/present?token=${encodeURIComponent(linkToken)}`, expiresAt })
   }
 
@@ -1126,20 +1151,22 @@ export class WorkbenchServer {
    * meant to be the only one it needs.
    */
   async #artifactPresent(request: Request, artifactId: string | undefined): Promise<Response> {
-    if (!this.#presentLinks) return this.#deny("artifact.present.unconfigured", 503)
-    if (!artifactId) return this.#deny("artifact.present.id", 400)
+    if (!this.#presentLinks) return this.#deny(null, "artifact.present.unconfigured", 503)
+    if (!artifactId) return this.#deny(null, "artifact.present.id", 400, { reason: "missing-artifact-id" })
     const suppliedToken = new URL(request.url).searchParams.get("token")
-    if (!suppliedToken) return this.#deny("artifact.present.token", 400)
+    if (!suppliedToken) return this.#deny(null, "artifact.present.token", 400, { reason: "missing-present-token" })
     const claims = this.#presentLinks.verify(suppliedToken)
-    if (!claims || claims.artifactId !== artifactId) return this.#deny("artifact.present.token", 403)
+    if (!claims || claims.artifactId !== artifactId) return this.#deny(null, "artifact.present.token", 403, { reason: "invalid-or-mismatched-present-token" })
     // The workspace comes from the signed claims, so the link reaches exactly
     // the lineage it was minted against and no other.
     const artifacts = this.#artifactsFor(claims.workspaceId)
-    if (!artifacts) return this.#deny("artifact.present.unavailable", 503)
+    if (!artifacts) return this.#deny(null, "artifact.present.unavailable", 503, { resource: claims.workspaceId })
     const artifact = await artifacts.latest(artifactId)
-    if (!artifact) return this.#deny("artifact.present.missing", 404)
+    if (!artifact) return this.#deny(null, "artifact.present.missing", 404, { resource: artifactId })
     const content = await artifacts.read(artifact)
-    this.#allow("artifact.present")
+    // DA-AUD-01: present-link consumption is a system event (no principal);
+    // the resource is the workspace the link was minted against.
+    this.#systemAudit("artifact.present", "allow", { resource: claims.workspaceId })
     return new Response(new Blob([new Uint8Array(content)]), {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8", "x-content-type-options": "nosniff", "content-security-policy": ARTIFACT_RAW_CSP },
@@ -1148,74 +1175,79 @@ export class WorkbenchServer {
 
   async #artifactHistory(request: Request, artifactId: string | undefined, principal: Principal): Promise<Response> {
     const workspaceId = new URL(request.url).searchParams.get("workspaceId")
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("artifact.history.scope", 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(principal, "artifact.history.scope", 403, { resource: workspaceId ?? null })
     const artifacts = this.#artifactsFor(workspaceId)
-    if (!artifacts) return this.#deny("artifact.history.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "artifact.history.unavailable", 503, { resource: workspaceId })
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
-    if (!artifactId) return this.#deny("artifact.history.id", 400)
-    this.#allow("artifact.history")
+    if (!artifactId) return this.#deny(principal, "artifact.history.id", 400, { reason: "missing-artifact-id" })
+    this.#allow(principal, "artifact.history", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { history: await artifacts.history(artifactId) })
   }
   async #artifactWrite(request: Request, principal: Principal): Promise<Response> {
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || typeof input.kind !== "string" || typeof input.filename !== "string" || typeof input.content !== "string") return this.#deny("artifact.create", 400)
+    if (typeof input.workspaceId !== "string" || typeof input.kind !== "string" || typeof input.filename !== "string" || typeof input.content !== "string") return this.#deny(principal, "artifact.create", 400, { reason: "missing-workspace-kind-filename-or-content" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("artifact.create.scope", 403)
+    if (!token) return this.#deny(principal, "artifact.create.scope", 403, { resource: input.workspaceId })
     const artifacts = this.#artifactsFor(input.workspaceId)
-    if (!artifacts) return this.#deny("artifact.create.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "artifact.create.unavailable", 503, { resource: input.workspaceId })
     const gate = await this.#checkCapability("artifact.create", input.workspaceId, principal)
     if (gate) return gate
     const artifact = await artifacts.create({ kind: input.kind as Parameters<ArtifactStore["create"]>[0]["kind"], filename: input.filename, content: input.content, artifactId: typeof input.artifactId === "string" ? input.artifactId : undefined, metadata: input.metadata as Record<string, string> | undefined, provenance: input.provenance as Parameters<ArtifactStore["create"]>[0]["provenance"] })
-    this.#allow("artifact.create")
+    this.#allow(principal, "artifact.create", { resource: input.workspaceId, authorizingCapability: "artifact.create" })
     return json(201, { artifact })
   }
   async #artifactExport(request: Request, principal: Principal): Promise<Response> {
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || typeof input.artifactId !== "string") return this.#deny("artifact.export", 400)
+    if (typeof input.workspaceId !== "string" || typeof input.artifactId !== "string") return this.#deny(principal, "artifact.export", 400, { reason: "missing-workspace-id-or-artifact-id" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("artifact.export.scope", 403)
+    if (!token) return this.#deny(principal, "artifact.export.scope", 403, { resource: input.workspaceId })
     const artifacts = this.#artifactsFor(input.workspaceId)
-    if (!artifacts) return this.#deny("artifact.export.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "artifact.export.unavailable", 503, { resource: input.workspaceId })
     const gate = await this.#checkCapability("artifact.export", input.workspaceId, principal)
     if (gate) return gate
     const artifact = await artifacts.latest(input.artifactId)
-    if (!artifact) return this.#deny("artifact.export.not-found", 404)
+    if (!artifact) return this.#deny(principal, "artifact.export.not-found", 404, { resource: input.artifactId })
     const exported = await artifacts.export(artifact, { outbox: typeof input.outbox === "string" ? input.outbox : undefined, metadata: input.metadata === "keep" ? "keep" : "strip" })
-    this.#allow("artifact.export")
+    this.#allow(principal, "artifact.export", { resource: input.workspaceId, authorizingCapability: "artifact.export" })
     return json(200, { exported })
   }
   async #documents(request: Request, principal: Principal): Promise<Response> {
     const url = new URL(request.url)
     const workspaceId = url.searchParams.get("workspaceId")
-    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny("documents.scope", 403)
+    if (!workspaceId || !this.#authorize(request, workspaceId)) return this.#deny(principal, "documents.scope", 403, { resource: workspaceId ?? null })
     const artifacts = this.#artifactsFor(workspaceId)
-    if (!artifacts) return this.#deny("documents.unavailable", 503)
+    if (!artifacts) return this.#deny(principal, "documents.unavailable", 503, { resource: workspaceId })
     const gate = await this.#checkCapability("workspace.read", workspaceId, principal)
     if (gate) return gate
     const documents = (await artifacts.list()).filter((artifact) => artifact.kind !== "binary")
-    this.#allow("documents.list")
+    this.#allow(principal, "documents.list", { resource: workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { documents })
   }
   async #specValidate(request: Request, principal: Principal): Promise<Response> {
     const input = await body(request)
-    if (typeof input.workspaceId !== "string" || (typeof input.spec !== "string" && (!input.spec || typeof input.spec !== "object"))) return this.#deny("spec.validate", 400)
+    if (typeof input.workspaceId !== "string" || (typeof input.spec !== "string" && (!input.spec || typeof input.spec !== "object"))) return this.#deny(principal, "spec.validate", 400, { reason: "missing-workspace-id-or-spec" })
     const token = this.#authorize(request, input.workspaceId)
-    if (!token) return this.#deny("spec.validate.scope", 403)
+    if (!token) return this.#deny(principal, "spec.validate.scope", 403, { resource: input.workspaceId })
     const gate = await this.#checkCapability("workspace.read", input.workspaceId, principal)
     if (gate) return gate
     const spec = parseSpec(input.spec)
     const resolution = resolveEffectiveCapabilities(spec, [])
-    this.#allow("spec.validate")
+    this.#allow(principal, "spec.validate", { resource: input.workspaceId, authorizingCapability: "workspace.read" })
     return json(200, { valid: true, spec, capabilities: resolution })
   }
   async #closeFileSession(request: Request, token: string): Promise<Response> {
     const supplied = this.#bearer(request)
-    if (!supplied || supplied !== token || !this.#tokens.has(token)) return this.#deny("workspace.close.scope", 403)
+    if (!supplied || supplied !== token || !this.#tokens.has(token)) return this.#deny(null, "workspace.close.scope", 403, { reason: "missing-or-mismatched-file-session-token" })
+    const workspaceId = this.#tokens.get(token)?.id
     await this.#workspace.close(this.#runtimeToken(token))
     this.#runtimeTokens.delete(token)
     this.#tokens.delete(token)
-    this.#allow("workspace.close")
+    // DA-AUD-01: file-session close is a system event (the file-session
+    // token is a capability handle, not a principal — see #bearer). The
+    // actor is "system:workbench-server:workspace.close", the resource
+    // is the workspace id carried by the runtime handle.
+    this.#systemAudit("workspace.close", "allow", { resource: workspaceId })
     return json(200, { closed: true })
   }
 
@@ -1238,7 +1270,12 @@ export class WorkbenchServer {
       this.#tokens.delete(token)
       this.#runtimeTokens.delete(token)
     }
-    this.#audit.record("workbench-server", "workspace.shutdown", failures.length === 0 ? "allow" : "deny")
+    // DA-AUD-01: shutdown is a system event — no principal in scope, the
+    // actor is the stable "system:workbench-server:workspace.shutdown"
+    // string. `reason` carries the failure summary so a downstream reader
+    // can tell a clean shutdown from a degraded one without joining the
+    // live process.
+    this.#systemAudit("workspace.shutdown", failures.length === 0 ? "allow" : "deny", { reason: failures.length === 0 ? "clean" : `${failures.length}-failures` })
     return failures
   }
 
@@ -1304,18 +1341,70 @@ export class WorkbenchServer {
    * either — see 2026-08-17 decision, capability-scope.test.ts.
    */
   async #checkCapability(capability: P3Capability, resource: string, principal: Principal): Promise<Response | undefined> {
-    if (!principal.scopes.has(capability) && !STEP_UP_ELIGIBLE_CAPABILITIES.has(capability)) return this.#deny(capability, 403)
-    const decision = await this.#capability.check(capability, resource, "workbench-server")
+    if (!principal.scopes.has(capability) && !STEP_UP_ELIGIBLE_CAPABILITIES.has(capability)) return this.#deny(principal, capability, 403, { authorizingCapability: capability, resource })
+    // DA-AUD-02: thread principal.id into the broker's `_actor` slot so the
+    // broker's own observation (when wired) sees the caller. The gate's
+    // allow/deny decision still does not consult the actor (see ADR-1034
+    // §"Capability matrix"), but the value is now propagated to the audit row
+    // in case a future gate policy needs it.
+    const decision = await this.#capability.check(capability, resource, principal.id)
     if (decision === "allow") return undefined
     if (typeof decision === "object") {
-      this.#audit.record("workbench-server", capability, "approval_required")
+      this.#userAudit(principal, capability, "approval_required", { authorizingCapability: capability, resource, reason: "broker.request" })
       return json(202, { approvalRequired: true, approvalId: decision.approvalId, capability })
     }
-    return this.#deny(capability, 403)
+    return this.#deny(principal, capability, 403, { authorizingCapability: capability, resource })
   }
 
-  #allow(capability: string): void { this.#audit.record("workbench-server", capability, "allow") }
-  #deny(capability: string, status: number): Response { this.#audit.record("workbench-server", capability, "deny"); return json(status, { error: "denied", capability }) }
+  #allow(principal: Principal | null, action: string, opts: { authorizingCapability?: P3Capability | null; resource?: string | null; reason?: string | null; capability?: string } = {}): void {
+    this.#audit.record(this.#buildAuditContext(principal, action, opts), "allow")
+  }
+  #deny(principal: Principal | null, action: string, status: number, opts: { authorizingCapability?: P3Capability | null; resource?: string | null; reason?: string | null; capability?: string } = {}): Response {
+    this.#audit.record(this.#buildAuditContext(principal, action, opts), "deny")
+    // The response body's `capability` slot keeps the gate's capability (when
+    // set) so existing clients that parse `{"error":"denied","capability":"..."}`
+    // continue to see the broker's input, not the route label.
+    return json(status, { error: "denied", capability: opts.capability ?? opts.authorizingCapability ?? action })
+  }
+
+  // DA-AUD-01/02: build the full AuditContext. A null principal means a
+  // system-driven row (pre-auth handshake, anonymous rejection, shutdown);
+  // the actor is then a stable "system:workbench-server:<action>" string so
+  // a downstream reader can tell system-driven from user-driven even when
+  // the principal is null.
+  #buildAuditContext(principal: Principal | null, action: string, opts: { authorizingCapability?: P3Capability | null; resource?: string | null; reason?: string | null; capability?: string }): AuditContext {
+    const isSystem = principal === null
+    const authorizingCapability = opts.authorizingCapability ?? null
+    // The legacy `capability` slot is the gate's input (authorising
+    // capability) when set, else the route label. This keeps
+    // `event.capability` queries like the bootstrap test's
+    // `entry.capability === "workspace.register"` and
+    // `entry.capability === "auth.principal"` working unchanged.
+    const capability = authorizingCapability ?? opts.capability ?? action
+    return {
+      actor: isSystem ? `system:workbench-server:${action}` : principal!.id,
+      actorKind: isSystem ? "system" : "user",
+      principalId: isSystem ? null : principal!.id,
+      action,
+      capability,
+      authorizingCapability,
+      resource: opts.resource ?? null,
+      reason: opts.reason ?? null,
+    }
+  }
+
+  // DA-AUD-01: one-shot helper for the pre-auth cases where no principal is
+  // in scope (catch in fetch, handshake, shutdown). Internally calls
+  // #buildAuditContext(null, ...).
+  #systemAudit(action: string, decision: RuntimeDecision, opts: { reason?: string; resource?: string } = {}): void {
+    this.#audit.record(this.#buildAuditContext(null, action, { reason: opts.reason ?? null, resource: opts.resource ?? null }), decision)
+  }
+
+  // DA-AUD-01: helper for the post-auth cases that have a principal in
+  // scope. Most #allow / #deny / inline audit calls go through here.
+  #userAudit(principal: Principal, action: string, decision: RuntimeDecision, opts: { authorizingCapability?: P3Capability | null; resource?: string | null; reason?: string | null; capability?: string } = {}): void {
+    this.#audit.record(this.#buildAuditContext(principal, action, opts), decision)
+  }
 }
 
 /** How long a granted decision stays honored before a sensitive operation needs re-approval (C2-5/D-2). Distinct from ttlMs, which only bounds the pending window. */
