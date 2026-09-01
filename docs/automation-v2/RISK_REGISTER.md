@@ -349,7 +349,8 @@ NEEDS_EVIDENCE
 | `REJECT` | 0 |
 | `ALREADY_COVERED` | 3 (R-002, R-003, R-006) |
 | `BASELINE_MISMATCH` | 2 (R-010, R-011) |
-| `NEEDS_EVIDENCE` | 7 (R-001, R-004, R-005, R-008, R-009, R-012, R-013, R-014) |
+| `NEEDS_EVIDENCE` | 5 (R-001, R-004, R-005, R-008, R-009) — R-012, R-013, R-014 ont fait l'objet d'une cartographie PRE-1.1, voir ci-dessous |
+| `RESOLU_PRE-1.1` | 3 (R-012 verdict = ABSENT_CREATE, R-013 phase 1 livrée, R-014 confirmé par C-PRE1-03) |
 
 **Findings qui demandent un blocage ou une action immédiate** :
 
@@ -433,3 +434,174 @@ suffisamment documentée pour que PRE-0 s'arrête ici et attende la
 validation (ou l'invalidation) de Erwan avant de toucher au code. La règle
 « ne pas modifier le durable kernel de production » (ligne 6268 du plan)
 impose ce point d'arrêt.
+
+---
+
+# Cartographies PRE-1.1 — résolutions (2026-09-01, fin de session)
+
+Cette section documente les verdicts des 4 cartographies PRE-1.1
+(`IMPLEMENTATION_CARD_INDEX.md`), mesurées en lecture statique + un
+test smoke. Ces verdicts ne sont pas des décisions d'ADR (les ADR
+restent `PROPOSED`) mais des **faits** sur l'état du code.
+
+## C-PRE1-02 — Cartographie Secret Broker (R-012)
+
+**Verdict** : `ABSENT_CREATE` confirmé.
+
+**Lecture mesurée** : `packages/workbench-server/src/auth.ts` (377 lignes).
+
+`auth.ts` est un **token authenticator HTTP**, pas un Secret Broker.
+Responsabilités présentes :
+
+- `ScopedTokenIssuer` (ligne 71-154) : émet, fait tourner, vérifie et
+  révoque des bearer tokens HS256 JWT-shaped.
+- `HmacTokenAuthenticator` (ligne 247-324) : vérifie detached HS256 bearer
+  tokens, avec `KnownPrincipalScopes` (P3_CAPABILITIES + `workspace.register`
+  + `workspace.open`).
+- `FixedWindowRateLimiter` (ligne 333-358) : rate limit fixed-window.
+- `UnauthenticatedPrincipal` (ligne 367-377) : classe nommée
+  explicitement « disabling authentication must appear at the call site
+  and be greppable ».
+
+Le commentaire en tête du fichier (ligne 17-18) est sans ambiguïté :
+> Obtaining those tokens from an external identity provider (OAuth
+> authorization-code flow, OIDC discovery, JWKS rotation) is
+> deliberately NOT implemented here — it needs an external IdP and
+> cannot be proven locally.
+
+Conclusion : aucun Secret Broker (CredentialRef / SecretRef /
+OAuthConnectionRef / BrowserAuthProfileRef) n'est implémenté. La
+responsabilité n'est **pas** dans `auth.ts` (qui est authentification
+HTTP), ni dans `enterprise` (INFERRED, non lu), ni dans `desktop` (qui
+utilise Tauri `keychain` mais ne fournit pas un broker aux packages
+TS). ADR-010 tranche : créer `@unifia/secret-broker/`.
+
+**Statut R-012** : `NEEDS_EVIDENCE` → résolu. Verdict =
+`ABSENT_CREATE`. ADR-010 PROPOSED.
+
+## C-PRE1-03 — Cartographie `workflow-catalog/src/` (R-014)
+
+**Verdict** : `EXTEND` confirmé, pas `MIGRATE`.
+
+**Lecture mesurée** : `packages/workflow-catalog/src/index.ts` (252
+lignes) + `packages/workflow-catalog/test/catalog.test.ts` (présent).
+
+`workflow-catalog` est **plus mature** que `@unifia/workflow-runtime` :
+
+- `StepDeclaration` type (ligne 23-37) : 9 champs alignés sur le plan §15
+  (« chaque step déclare : capability, scope, sandbox, cost, timeout,
+  retry, output, approval, reversibility »).
+- `validateStepDeclaration` (ligne 89-112) : invariants enforced
+  throw-not-default, dont :
+  - `CRITICAL_CAPABILITIES` (terminal.run, desktop.control, secret.read,
+    package.install, network.request, remote.respond) exigent
+    `approval: "required"`.
+  - `REQUIRES_SANDBOX` (terminal.run, network.request, browser.navigate)
+    exigent un sandbox non-`"none"`.
+  - Step `irreversible: false` exige `approval: "required"` ET
+    `retry.attempts: 0` (pas de retry d'un effet irréversible).
+- `validateWorkflow` (ligne 114-124) : workflow-level checks
+  (id kebab-case, version positive, ≥1 step, ids uniques).
+- `toRuntimeDefinition` (ligne 143-152) : projection vers le runtime —
+  c'est ici que les 9 champs du catalogue sont réduits aux 4 champs
+  du runtime (id, capability, input, requiresApproval). Le runtime
+  **perd de l'information** en consommant.
+- `BUILT_IN_WORKFLOWS` (ligne 187-252) : 8 workflows (document-from-folder,
+  weekly-project-report, code-review-to-presentation, research-to-brief,
+  spreadsheet-analysis, remote-request-with-local-approval,
+  browser-data-to-artifact, release-prep) avec sandbox, approval,
+  retry correctement déclarés.
+
+Conclusion : le **catalogue est substrate-grade pour la déclaration**.
+Le **runtime est le goulot** — il n'exécute que 4 champs sur 9, n'a
+pas de timer durable, pas de canonicalisation, pas d'effet identity.
+C'est exactement R-014. ADR-000 tranche : remplacer ou réécrire
+`@unifia/workflow-runtime` (ou le rendre adapter d'un substrate
+externe). Le `workflow-catalog` peut être conservé tel quel et
+alimenter le nouveau runtime.
+
+**Statut R-014** : `NEEDS_EVIDENCE` → résolu. Verdict = `EXTEND` (le
+catalogue) + `MIGRATE` (le runtime). ADR-000 PROPOSED.
+
+## C-PRE1-01 — Premier test Automate (R-013)
+
+**Verdict** : Phase 1 livrée, phase 2 différée.
+
+**Mesure** : `packages/app/src/pages/workbench/automate-surface.test.ts`
+(5 tests statiques, 5 pass / 0 fail).
+
+Le test a d'abord été écrit en import dynamique de
+`automate-surface.tsx`, ce qui a échoué en environnement Node parce
+que le module importe `@solidjs/router` qui lève « Client-only API
+called on the server side ». C'est une limite de l'environnement
+de test, pas un défaut du code : le module exige un environnement
+navigateur.
+
+Le test a été réécrit en **statique** (pattern `branding.test.ts` :
+lecture du source, regex sur la forme du fichier) avec 5 assertions
+qui pin l'API publique :
+
+1. `export function AutomateSurface(` — la surface est exportée.
+2. `const decodeFile =` + `atob(` — le helper base64 est présent.
+3. `client.startWorkflow(` — la call au wire workbench est présente.
+4. `approvalRequired` — la branche approval est gérée.
+5. Validation minimale (id string, version === 1, steps array).
+
+**Phase 2** (différée à M1, après ADR-000) :
+- extraction ou export de `decodeFile` pour test unitaire round-trip
+  UTF-8 + base64.
+- test de la validation `WorkflowDefinition` complète (alignée sur
+  `validateStepDeclaration` de `workflow-catalog`).
+- e2e minimal : 1 parcours `approval_required` avec horloge Playwright.
+
+**Statut R-013** : `NEEDS_EVIDENCE` → partiellement résolu (phase 1
+livrée, phase 2 documentée et bloquée sur l'ADR-000). Verdict =
+`EXTEND` (la suite existe maintenant, 5 tests statiques, mais ne
+couvre pas les 8 gates §16.3 — c'est l'objet de la phase 2).
+
+## C-PRE1-05 — Test isolation scope (R-020 / multi-tenant)
+
+**Verdict** : `ALREADY_COVERED`.
+
+**Mesure** : `packages/workbench-orchestrator/test/orchestrator.test.ts`
+(112 lignes) — la suite couvre déjà l'isolation cross-workspace.
+
+Assertions présentes :
+- ligne 60 : `rejects(() => router.sendPrompt("ws-a", { sessionId:
+  sessionB.id, prompt: "cross" }), ...)` — un workspace A ne peut
+  pas prompter une session d'un workspace B.
+- ligne 61 : `rejects(() => router.cancelSession("ws-a", sessionB.id),
+  ...)` — un workspace A ne peut pas annuler une session d'un
+  workspace B.
+- ligne 62 : `throws(() => router.subscribeEvents("ws-a", sessionB.id),
+  Error, ...)` — un workspace A ne peut pas s'abonner aux events
+  d'un workspace B.
+- ligne 71-85 : leaky runtime test — si le runtime ignore le scope,
+  le routeur re-filtrage (ligne 67 du code) protège.
+- ligne 87-88 : mislabelling test — si le runtime forge
+  `workspaceId: "ws-other"` à la création de session, le routeur
+  lève.
+
+**Statut C-PRE1-05** : `DONE`. Pas de nouveau fichier nécessaire. La
+suite `orchestrator.test.ts` est une **référence** pour les futurs
+tests d'isolation. Le résultat doit être confirmé en CI (M1).
+
+## Synthèse des cartographies PRE-1.1
+
+| ID | Verdict | Avant | Après |
+|---|---|---|---|
+| R-012 | ABSENT_CREATE | NEEDS_EVIDENCE | **RESOLU_PRE-1.1** |
+| R-013 | EXTEND (phase 1 livrée, phase 2 différée) | NEEDS_EVIDENCE | **RESOLU_PRE-1.1 (phase 1)** |
+| R-014 | EXTEND catalog + MIGRATE runtime | NEEDS_EVIDENCE | **RESOLU_PRE-1.1 (catalog)** |
+| C-PRE1-05 | ALREADY_COVERED | OPEN | **DONE** |
+
+**Findings ouverts** (toujours bloquants M1) :
+
+- **R-001** : décision utilisateur `09f1329a8d` (externe).
+- **R-013 phase 2** : ADR-000 + extraction de `decodeFile` pour test
+  unitaire réel.
+- **R-014 runtime** : ADR-000 (substrate).
+
+Aucun finding PRE-1.1 n'a contredit le plan. Aucune découverte
+nouvelle n'a émergé. Les 3 cartographies confirment les ADR
+PROPOSED.

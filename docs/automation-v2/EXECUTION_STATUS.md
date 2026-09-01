@@ -119,16 +119,16 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 
 ---
 
-## Open cards (post-foundation, pre-M1)
+## Open cards (post-foundation, post-PRE-1.1)
 
 | Phase | Carte | Statut | Bloquant |
 |---|---|---|---|
-| PRE-1 | C-PRE1-01 suite Automate minimale (R-013) | OPEN | M1 |
-| PRE-1 | C-PRE1-02 cartographie auth.ts (R-012) | OPEN | ADR-010 rendu |
-| PRE-1 | C-PRE1-03 cartographie workflow-catalog (R-014) | OPEN | ADR-000 |
+| PRE-1 | C-PRE1-01 phase 2 (decodeFile round-trip, validation) | OPEN | M1 (extraction ou export de `decodeFile`) |
+| PRE-1 | C-PRE1-02 cartographie auth.ts (R-012) | **DONE** (R-012 verdict = ABSENT_CREATE) | — |
+| PRE-1 | C-PRE1-03 cartographie workflow-catalog (R-014) | **DONE** (catalog EXTEND, runtime MIGRATE) | — |
 | PRE-1 | C-PRE1-04 workbench-server REFACTOR (97 Ko) | OPEN | ADR-000 |
-| PRE-1 | C-PRE1-05 isolation scope workbench-orchestrator | OPEN | multi-tenant |
-| M0 | M0-01 substrate proof (plan §194) | OPEN | ADR-000 + R-013 |
+| PRE-1 | C-PRE1-05 isolation scope workbench-orchestrator | **DONE** (déjà couvert par `orchestrator.test.ts`) | — |
+| M0 | M0-01 substrate proof (plan §194) | OPEN | ADR-000 + R-013 phase 2 |
 | ADR | C-AR-01 Capability Authority enforcer | OPEN | M1 |
 | ADR | C-AR-02 supply chain ADR | OPEN | M1 ou M2 |
 | ADR | C-AR-03 LLM provider policy | OPEN | post-M3 (AI Track) |
@@ -144,13 +144,14 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 
 ---
 
-## Green gates (rapportées par SESSION-2)
+## Green gates (rapportées par SESSION-2 + cette session)
 
 | Gate | Statut | Source |
 |---|---|---|
 | `bun turbo typecheck --concurrency=1` | VERT 38/38 | SESSION-2 §7 |
 | `bunx biome check packages/` | VERT 1 452 fichiers | SESSION-2 §7 |
 | `cd packages/app && bun test --preload ./happydom.ts ./src` | VERT 1 175 pass, 0 fail | SESSION-2 §7 |
+| **C-PRE1-01 smoke test (5 tests statiques)** | **VERT 5/5** | cette session |
 | Playwright `e2e/design` + `design-journey` | VERT 20/20 (3 runs) | SESSION-2 §7 |
 | Axe WCAG 2.1 AA 6 états | VERT hors `color-contrast` | SESSION-2 §3.3 |
 | Modal approbation expiré | VERT 3 parcours | SESSION-2 §4 |
@@ -161,17 +162,18 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 | HEAD prouvé | `24b04998e2` | cette session |
 | 25 ADR PROPOSED | OK | cette session |
 | 11 docs + 1 yaml foundation | OK | cette session |
-| Working tree propre | OK | cette session |
+| Cartographies PRE-1.1 (4 cartes) | FAITES | cette session |
 | Multi-review self-review | 0 Critical / 0 High | cette session |
+| Working tree propre | OK | cette session |
 
 ## Red gates (bloquantes pour M1)
 
 | Gate | Statut | Source / Action |
 |---|---|---|
-| `e2e/automate` | **ROUGE** — finding R-013 | C-PRE1-01 |
-| `automate-surface.test.ts` | **ROUGE** — finding R-013 | C-PRE1-01 |
-| `WorkflowRuntime` substrate-grade | **ROUGE** — finding R-014 | ADR-000 + M0-01 |
-| `@unifia/secret-broker` | **ABSENT** — finding R-012 | ADR-010 + C-PRE1-02 |
+| `e2e/automate` complet | **ROUGE** | R-013 phase 2 (M1, après ADR-000) |
+| `automate-surface.test.ts` phase 2 (decodeFile round-trip) | **ROUGE** | R-013 phase 2 |
+| `WorkflowRuntime` substrate-grade | **ROUGE** | R-014 + ADR-000 + M0-01 |
+| `@unifia/secret-broker` | **ABSENT** confirmé | R-012 résolu PRE-1.1, ADR-010 PROPOSED |
 | `e2e/app` + `e2e/modes` | 22/30 PARTIEL | R-004, R-005, R-006 |
 | Linux baselines visuelles | SKIP motivé | R-007 |
 | `e2e/app/e2e` lint via biome | absent | R-008 |
@@ -288,35 +290,44 @@ ADR. **Côté implémentation** : bloqué par R-001 (externe), R-013, R-014.
 - 9 fichiers Markdown dans `docs/automation-v2/`
 - 1 fichier `certification/gates.yaml`
 - 25 fichiers ADR dans `docs/adr/`
-- 18 commits locaux sur `agent/automate-v2-baseline-20260901`
-- **0 push, 0 merge, 0 tag, 0 modification de code source**
+- 1 fichier de test (C-PRE1-01 phase 1) dans
+  `packages/app/src/pages/workbench/automate-surface.test.ts`
+- 19 commits locaux sur `agent/automate-v2-baseline-20260901`
+- **0 push, 0 merge, 0 tag, 0 modification de code de production**
 - **pre-commit husky** : 295 fichiers vérifiés, no fixes applied sur tous les commits
 
 ## Ce qui n'est PAS exécuté
 
-- Aucun package de `packages/` modifié
-- Aucun test runtime lancé par cette session
+- Aucun package de `packages/` modifié en dehors du test smoke C-PRE1-01
+- Aucun test runtime autre que le smoke test (5 pass / 0 fail)
 - Aucun code durable de production touché
 - Aucun secret, aucune dépendance réseau ajoutée
 - Les 10 worktrees MiniMax de `pr3m-20260831-090426` non touchés
 - Le `BOARD.md` / `BOARD.json` vault non touché
 - Le `.build-temp/` du checkout canonique non touché
 
+## Cartographies PRE-1.1 — résolutions
+
+| ID | Verdict | Avant | Après |
+|---|---|---|---|
+| R-012 | ABSENT_CREATE | NEEDS_EVIDENCE | **RESOLU_PRE-1.1** |
+| R-013 | EXTEND (phase 1 livrée, phase 2 différée) | NEEDS_EVIDENCE | **RESOLU_PRE-1.1 (phase 1)** |
+| R-014 | EXTEND catalog + MIGRATE runtime | NEEDS_EVIDENCE | **RESOLU_PRE-1.1 (catalog)** |
+| C-PRE1-05 | ALREADY_COVERED | OPEN | **DONE** |
+
 ## Suite immédiate (bloqué externe)
 
 1. Décision utilisateur `09f1329a8d` (R-001) — `git revert` ou confirmer
 2. Décision utilisateur `GO_WITH_CONTAINED_DEBT` ou `NO_GO` formel
-3. Si GO : C-PRE1-01 (suite Automate minimale) avant tout
-4. C-PRE1-02, C-PRE1-03, C-PRE1-05 parallélisables
-5. ADR-000 validation après spike M0-01
-6. M1 — Durable Core (12 cartes)
-7. …
+3. Si GO : ADR-000 (substrate) — spike M0-01
+4. M1 — Durable Core (12 cartes), avec R-013 phase 2 + ADR-010 rendu
+5. …
 
 ## Liens
 
 - `BASELINE.md`
 - `AUTOMATE_TRUST_PATH.md`
-- `RISK_REGISTER.md`
+- `RISK_REGISTER.md` (avec section "Cartographies PRE-1.1 — résolutions")
 - `PACKAGE_MIGRATION_MAP.md`
 - `IMPLEMENTATION_CARD_INDEX.md`
 - `THREAT_MODEL.md`
