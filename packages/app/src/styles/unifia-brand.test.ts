@@ -75,4 +75,3 @@ afterEach(() => {
   // Defensive cleanup if a test fails before its `finally` runs.
   for (const node of Array.from(document.head.querySelectorAll('style[data-unifia-brand-smoke]'))) node.remove()
 })
-
