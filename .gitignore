@@ -151,4 +151,3 @@ debug-flaky.mjs
 # promoted to the proper test entrypoint. Both stay local until a
 # dedicated test contract lands.
 packages/desktop/sidecar-test.err
-packages/workbench-server/test/real-transport-browser.mjs
