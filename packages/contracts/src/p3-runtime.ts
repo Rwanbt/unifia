@@ -18,7 +18,24 @@ export type RuntimeDecision = "allow" | "deny" | "approval_required"
  * and principalId=null.
  */
 export type AuditActorKind = "system" | "user"
+
+/**
+ * Schema version stamped on every audit row.
+ *
+ * Version 1 hashed five fields; version 2 hashes eleven, because DA-AUD-01
+ * gave a row the attribution it was missing. That is a change to the hash
+ * *preimage*, so every row written before it stops verifying against the
+ * new rule — and a log with no version on it gives a reader no way to know
+ * which rule applied. Rows are stamped, and `verifyAuditChain` checks each
+ * one against its own version, so a file that spans the change still
+ * verifies end to end.
+ */
+export const AUDIT_SCHEMA_VERSION = 2 as const
+export type AuditSchemaVersion = 1 | 2
+
 export type AuditEvent = {
+  /** Absent on rows written before the field existed; those are version 1. */
+  schemaVersion: AuditSchemaVersion
   sequence: number
   timestamp: number
   /** Legacy identity slot — kept for backward-compat with existing readers. */
@@ -59,6 +76,114 @@ export type AuditContext = {
   reason: string | null
 }
 
+/** The fields a hash is computed over, for either schema version. */
+export type AuditHashInput = {
+  schemaVersion: AuditSchemaVersion
+  sequence: number
+  previousHash: string
+  actor: string
+  capability: string
+  decision: RuntimeDecision
+  actorKind?: AuditActorKind
+  principalId?: string
+  action?: string
+  authorizingCapability?: string
+  resource?: string
+  reason?: string
+}
+
+/**
+ * The exact string a row's `hash` is the value of, for that row's version.
+ *
+ * One function, both rules. A verifier that only knew the current rule
+ * would reject every row written before DA-AUD-01 — the whole existing
+ * trail — and report a tamper where there was only a schema change.
+ */
+export function auditHashPreimage(input: AuditHashInput): string {
+  if (input.schemaVersion === 1) {
+    return `${input.sequence}:${input.previousHash}:${input.actor}:${input.capability}:${input.decision}`
+  }
+  return [
+    input.sequence,
+    input.previousHash,
+    input.actorKind ?? "system",
+    input.principalId ?? "",
+    input.actor,
+    input.action ?? input.capability,
+    input.capability,
+    input.authorizingCapability ?? "",
+    input.resource ?? "",
+    input.reason ?? "",
+    input.decision,
+  ].join(":")
+}
+
+/** One row as it appears on disk, before it has been validated. */
+export type PersistedAuditRow = Record<string, unknown>
+
+export type AuditChainVerification =
+  | { ok: true; rows: number; versions: AuditSchemaVersion[] }
+  | { ok: false; rows: number; failedAt: number; reason: string }
+
+/**
+ * Verify a persisted audit trail, whatever versions it spans.
+ *
+ * A row with no `schemaVersion` is version 1: the field did not exist when
+ * it was written, and treating its absence as "current" is precisely the
+ * mistake that made every historical log look tampered with. The chain
+ * itself is version-agnostic — rows link by `previousHash` — so a file that
+ * crosses the boundary verifies straight through it.
+ *
+ * `sequence` must be contiguous from 1 and `previousHash` must match the
+ * preceding row's `hash`, so a deleted row is caught as well as an edited
+ * one.
+ */
+export function verifyAuditChain(rows: readonly PersistedAuditRow[]): AuditChainVerification {
+  const versions: AuditSchemaVersion[] = []
+  let previousHash = "GENESIS"
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index] as PersistedAuditRow
+    const at = index + 1
+    // Absent means "written before the field existed", i.e. version 1.
+    const raw = row.schemaVersion ?? 1
+    if (raw !== 1 && raw !== 2) {
+      return { ok: false, rows: rows.length, failedAt: at, reason: `unknown schemaVersion ${String(raw)}` }
+    }
+    const version: AuditSchemaVersion = raw
+    if (row.sequence !== at) {
+      return { ok: false, rows: rows.length, failedAt: at, reason: `sequence ${String(row.sequence)} is not ${at}` }
+    }
+    if (row.previousHash !== previousHash) {
+      return { ok: false, rows: rows.length, failedAt: at, reason: "previousHash does not chain" }
+    }
+    const expected = auditHashPreimage({
+      schemaVersion: version,
+      sequence: at,
+      previousHash,
+      actor: String(row.actor ?? ""),
+      capability: String(row.capability ?? ""),
+      decision: row.decision as RuntimeDecision,
+      actorKind: row.actorKind as AuditActorKind | undefined,
+      principalId: row.principalId === null || row.principalId === undefined ? "" : String(row.principalId),
+      action: row.action === undefined ? undefined : String(row.action),
+      authorizingCapability:
+        row.authorizingCapability === null || row.authorizingCapability === undefined
+          ? ""
+          : String(row.authorizingCapability),
+      resource: row.resource === null || row.resource === undefined ? "" : String(row.resource),
+      reason: row.reason === null || row.reason === undefined ? "" : String(row.reason),
+    })
+    if (row.hash !== expected) {
+      return { ok: false, rows: rows.length, failedAt: at, reason: "hash does not match the row's own schema version" }
+    }
+    versions.push(version)
+    previousHash = String(row.hash)
+  }
+
+  return { ok: true, rows: rows.length, versions }
+}
+
 export class AuditRuntimeDouble {
   private readonly entries: AuditEvent[] = []
   public constructor(private readonly now: () => number = () => Date.now()) {}
@@ -94,8 +219,22 @@ export class AuditRuntimeDouble {
     // WHY all eight fields are concatenated into the hash: any change to any
     // attribute of an audit row must invalidate the chain. A row that
     // disagrees on the actor but agrees on the capability must NOT verify.
-    const hash = `${sequence}:${previousHash}:${context.actorKind}:${principalId}:${context.actor}:${context.action}:${context.capability}:${authorizingCapability}:${resource}:${reason}:${decision}`
+    const hash = auditHashPreimage({
+      schemaVersion: AUDIT_SCHEMA_VERSION,
+      sequence,
+      previousHash,
+      actorKind: context.actorKind,
+      principalId,
+      actor: context.actor,
+      action: context.action,
+      capability: context.capability,
+      authorizingCapability,
+      resource,
+      reason,
+      decision,
+    })
     const event: AuditEvent = {
+      schemaVersion: AUDIT_SCHEMA_VERSION,
       sequence,
       timestamp: this.now(),
       actor: context.actor,

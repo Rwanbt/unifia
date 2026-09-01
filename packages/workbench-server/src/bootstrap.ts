@@ -13,11 +13,11 @@
  * Consumers import "@unifia/workbench-server/bootstrap".
  */
 
-import { appendFileSync, mkdirSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import { ArtifactStore } from "@unifia/artifact-runtime"
-import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, P3_CAPABILITIES, type AuditContext, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type RuntimeAdapter, type RuntimeDecision } from "@unifia/contracts"
+import { ApprovalBroker, AuditRuntimeDouble, FakeRuntimeAdapter, OpenCodeRuntimeAdapter, P3_CAPABILITIES, verifyAuditChain, type AuditChainVerification, type AuditContext, type AuditEvent, type McpUiControlBroker, type OpenCodeRuntimeBackend, type P3Capability, type PersistedAuditRow, type RuntimeAdapter, type RuntimeDecision } from "@unifia/contracts"
 import type { DesignSkillManifest } from "@unifia/skill-hub"
 import { WorkspaceRuntime } from "@unifia/workspace-runtime"
 import { FixedWindowRateLimiter, HmacTokenAuthenticator, ScopedTokenIssuer } from "./auth.js"
@@ -106,6 +106,34 @@ export class FileAuditSink {
 
   page(afterSequence = 0, limit = 50): { events: readonly AuditEvent[]; nextCursor: number | null } {
     return this.#chain.page(afterSequence, limit)
+  }
+
+  /**
+   * Verify the whole persisted trail, including rows this process did not
+   * write.
+   *
+   * The chain was written and never checked, which is why nobody noticed
+   * that DA-AUD-01's extra attribution fields changed the hash preimage:
+   * every row predating it stops matching the current rule. `verifyAuditChain`
+   * checks each row against the version stamped on it, so an operator gets
+   * "this trail is intact" rather than a tamper report for a schema change.
+   */
+  verifyPersistedChain(): AuditChainVerification {
+    if (!existsSync(this.#logPath)) return { ok: true, rows: 0, versions: [] }
+    const rows: PersistedAuditRow[] = []
+    const text = readFileSync(this.#logPath, "utf8")
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim()
+      if (trimmed.length === 0) continue
+      try {
+        rows.push(JSON.parse(trimmed) as PersistedAuditRow)
+      } catch {
+        // A torn final append is the one line a crash can leave behind.
+        // Report it as the failure it is rather than skipping it.
+        return { ok: false, rows: rows.length + 1, failedAt: rows.length + 1, reason: "row is not valid JSON" }
+      }
+    }
+    return verifyAuditChain(rows)
   }
 }
 
