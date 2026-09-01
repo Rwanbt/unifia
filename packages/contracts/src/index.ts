@@ -61,3 +61,13 @@ export * from "./enforcement.js"
 // physical implementation (Native / DBOS / Temporal). This re-export
 // binds the Zod schemas (the contract half) into the package barrel.
 export * from "./workflow-run.js"
+
+// M2-TEST — graph-level well-formedness (Plan V2.3.1 §199, ADR-002).
+// `workflow-ir.js` validates one node family at a time; `workflow-graph.js`
+// validates the graph those nodes form. `workflow-map-key.js` owns the
+// stable per-item key material (ADR-005) — split out because the digest
+// layer consumes only that half, and it shares nothing with the validator.
+// Both are pure and deterministic; the hash itself belongs to
+// `@unifia/digest-runtime`, which depends on this package.
+export * from "./workflow-graph.js"
+export * from "./workflow-map-key.js"
