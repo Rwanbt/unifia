@@ -34,3 +34,4 @@ export * from "./event-sequencer.js"
 export * from "./design-system.js"
 
 export * from "./artifact-manifest.js"
+export * from "./secrets.js"
