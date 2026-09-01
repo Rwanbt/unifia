@@ -4,22 +4,24 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M1-GREEN-CARDS-LANDED** (7/7 cartes GREEN M1 livrées)
-> Date : 2026-09-01T22:30+02:00
+> Phase : **M1-IMPLEMENTATION-COMPLETE** (9/12 cartes M1 livrées : 7 GREEN + 2 optionnels, ADR-026 DECIDED)
+> Date : 2026-09-01T22:50+02:00
 > Format imposé par le plan §246 lignes 6140-6170.
 
 ---
 
 ## Current phase
 
-`M1-GREEN-CARDS-LANDED` — 7/7 cartes GREEN M1 livrées (spikes + production
-lifts), foundation + PRE-1.1 + 6 M0 spikes + 7 M1 type contracts + 7
-GREEN M1 implementations. **Aucun code de production durable hors M1
-n'est modifié** (l'extraction C-PRE1-01 phase 2 reste la seule
-exception, comportement préservé). Le M1 gate (plan §197) est satisfait
-côté **architecture documentée** (Critical=0, High=0, 24/25 ADR
-DECIDED). Côté **implémentation**, 7/12 cartes GREEN livrées ; bloqué
-par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
+`M1-IMPLEMENTATION-COMPLETE` — 9/12 cartes M1 livrées (7 GREEN + 2 optionnels
+M1-07 + M1-12), foundation + PRE-1.1 + 6 M0 spikes + 7 M1 type contracts
++ 7 GREEN impls + 2 optionnels + 1 YELLOW interface-only (M1-09) + ADR-026
+DECIDED. **Aucun code de production durable hors M1 n'est modifié**
+(l'extraction C-PRE1-01 phase 2 reste la seule exception, comportement
+préservé). Le M1 gate (plan §197) est satisfait côté **architecture
+documentée** (Critical=0, High=0, **25/26 ADR DECIDED** avec ADR-026) et
+côté **implémentation GREEN** (9/12 cartes, les 3 RED restantes
+attendent ADR-000). Bloqué par R-001 (externe), ADR-000 (substrate
+choice), R-013 phase 3.
 
 | Phase | Statut | Livrable / commit |
 |---|---|---|
@@ -30,6 +32,7 @@ par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 | EXECUTION_PROFILE_REQUIREMENTS | **DONE** | EXECUTION_PROFILE_REQUIREMENTS |
 | certification/gates.yaml initial | **DONE** | certification/gates.yaml |
 | ADR-001 à ADR-024 (24 ADR) | **DECIDED** | docs/adr/ (24 fichiers) |
+| ADR-026 typed DigestEnvelope per domain | **DECIDED** | docs/adr/ADR-026-typed-digest-envelope-per-domain.md (87b772b21f) |
 | ADR-000 substrate | **PROPOSED** (décision externe) | ADR-000 |
 | Multi-review self-review | **DONE** (0 Critical, 0 High) | MULTI_REVIEW |
 | M0-01 substrate spike | **DONE** (4/2/1/7) | spikes/M0-01-EVIDENCE.md |
@@ -47,10 +50,13 @@ par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 | M1-04 OwnershipScope Zod regex fix | **DONE** (6/6 PASS, 12 new tests) | scope.ts + 2 test files (e396416b65) |
 | M1-05 capability-enforcer spike | **DONE** (5/5 PASS) | spike (d44c619da4) |
 | M1-06 artifact-store enforcement | **DONE** (5/5+1 PASS, 16 tests, AAD 3→5) | packages/artifact-store/ (55fd0c09c8) |
+| M1-07 SecretBroker OS-level DPAPI | **DONE** (6/6 PASS, 26 tests, AAD 5→6) | packages/secret-broker/ (3f8e499f03) |
 | M1-08 capability enforcer production lift | **DONE** (17 tests, C-AR-01 résolu) | packages/capability-runtime/ (f6ac82c192) |
+| M1-09 WorkflowRun types + DurableHistoryAuthority interface | **DONE** (YELLOW, interface only) | packages/contracts/src/workflow-run.ts (59f10e7b0b) |
+| M1-12 observability zero-alloc + secret-leak canary | **DONE** (5/5 PASS, 33 tests, **0 bytes delta** 1M emits) | packages/observability/ (7a6e00f3b5) |
+| ADR-026 typed DigestEnvelope per domain | **DONE** (19 tests, 7 schemas, 3 migrations) | docs/adr/ADR-026 + 3 contract files (87b772b21f) |
 | C-PRE1-04 workbench-server REFACTOR | **DONE** (1368 → 27 fichiers ≤200 LOC) | packages/workbench-server/ (dd0af9205b) |
-| M1-07 SecretBroker OS-level DPAPI | **NOT STARTED** (8e carte GREEN) | post-M1-06 |
-| M1 — Durable Core implementation (5 cards YELLOW/RED) | **NOT STARTED** | bloqué ADR-000 |
+| M1 — Cartes YELLOW/RED restantes (3) | **NOT STARTED** | bloqué ADR-000 |
 | M2 / M3 + tracks | **NOT STARTED** | post-M1 |
 
 ---
@@ -59,8 +65,8 @@ par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `55fd0c09c8 feat(automate-v2): M1-06 artifact-store enforcement + spike (ADR-005, plan §71)` |
-| HEAD (sha) | `55fd0c09c8` |
+| HEAD (commit) | `3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike` |
+| HEAD (sha) | `3f8e499f03` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
@@ -68,9 +74,14 @@ par R-001 (externe), ADR-000 (substrate choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (48 commits, 0 push)
+## Commits cumulés (53 commits, 0 push)
 
 ```
+3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike
+7a6e00f3b5 feat(observability): M1-12 zero-alloc structured logger + secret-leak canary
+59f10e7b0b feat(workflow-runtime): M1-09 WorkflowRun types + DurableHistoryAuthority interface (interface only, impl waits ADR-000)
+87b772b21f ﻿feat(contracts): ADR-026 typed DigestEnvelope per domain + migrations + spike
+758b68b352 docs(automate-v2): EXECUTION_STATUS update after M1-02/04/06/08 GREEN cards (7/7 GREEN delivered)
 55fd0c09c8 feat(automate-v2): M1-06 artifact-store enforcement + spike (ADR-005, plan §71)
 f6ac82c192 feat(capability-runtime): M1-08 capability enforcer production lift (C-AR-01, TM-CP-01, TM-T-01, TM-T-02)
 2d90b86064 chore(automate-v2): M1-02 digest-wiring spike + evidence (cross-domain, branded types)
@@ -184,18 +195,20 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 | M1 | C-M1-04 OwnershipScope Zod regex fix | **DONE** (6/6 PASS, 12 new tests, regex `/^\S(.*\S)?$/`) | — |
 | M1 | C-M1-05 capability-enforcer spike | **DONE** (5/5 PASS) | — |
 | M1 | C-M1-06 artifact-store enforcement (plan §71 invariant) | **DONE** (5/5+1 PASS, 16 tests, AAD 3→5) | — |
-| M1 | C-M1-07 SecretBroker OS-level DPAPI | **NOT STARTED** (8e carte GREEN) | post-M1-06 |
+| M1 | C-M1-07 SecretBroker OS-level DPAPI | **DONE** (6/6 PASS, 26 tests, AAD 5→6) | 3f8e499f03 |
 | M1 | C-M1-08 capability enforcer production lift (C-AR-01 résolu) | **DONE** (17 tests, `WorkerIdSchema.scopes` ajouté) | — |
-| M1 | C-M1-12 observability zero-alloc + secret-leak canary | **NOT STARTED** (optionnel) | indépendant |
-| M1 | C-M1-03/05/10 (YELLOW) interfaces | **NOT STARTED** | bloqué ADR-000 |
-| M1 | C-M1-09/11 (RED) durable authority + history projection | **NOT STARTED** | bloqué ADR-000 |
+| M1 | C-M1-09 WorkflowRun types + DurableHistoryAuthority interface (YELLOW) | **DONE** (interface only, 14 tests) | 59f10e7b0b |
+| M1 | C-M1-10 Logical invocation identities (effect-slot, idempotency) | **NOT STARTED** (YELLOW) | bloqué ADR-000 |
+| M1 | C-M1-12 observability zero-alloc + secret-leak canary | **DONE** (5/5 PASS, 33 tests, **0 bytes delta** 1M emits) | 7a6e00f3b5 |
+| M1 | C-M1-03/05 (YELLOW) complete | **NOT STARTED** | bloqué ADR-000 |
+| M1 | C-M1-11 (RED) history + MaterializedRunProjection | **NOT STARTED** | bloqué ADR-000 |
 | ADR | ADR-000 validation (substrate choice) | OPEN (PROPOSED) | décision externe |
 | ADR | C-AR-01 Capability Authority enforcer | **RESOLU** (M1-08) | — |
 | ADR | C-AR-02 supply chain ADR | OPEN | M1 ou M2 |
 | ADR | C-AR-03 LLM provider policy | OPEN | post-M3 (AI Track) |
 | ADR | C-AR-04 UX ADR | OPEN | post-M3 (UX Track) |
-| ADR | ADR-026 (proposed) typed DigestEnvelope per domain | **À voter** | avant M1-06 (déjà landed, follow-up) |
-| M1 | Cartes YELLOW/RED (5 restantes) | OPEN | ADR-000 |
+| ADR | ADR-026 typed DigestEnvelope per domain | **DECIDED** (19 tests, 7 schemas, 3 migrations) | 87b772b21f |
+| ADR | ADR-027 (proposed) `@napi-rs/keyring` OS integration | **À voter** (post-M1-07) | optionnel |
 | M2 | 9 cartes Graph Engine | OPEN | M1 |
 | M3 | 10 cartes Effect/Timer/Cancel | OPEN | M2 |
 | Tracks | 11 cartes parallèles post-M3 | OPEN | M3 |
