@@ -3,7 +3,10 @@
 
 # ADR-000 — Durable Execution Substrate
 
-> **Statut** : PROPOSED (à valider)
+> **Statut** : **READY_TO_RATIFY** — second tour M0-01-BIS terminé
+> (2026-09-02), les 3 `UNVERIFIED` sont levées, **A est la seule option
+> survivante** pour la cible première. Il ne reste que la ratification par
+> le décideur : l'engagement est irréversible et l'agent ne le prend pas.
 > **Date** : 2026-09-01
 > **Auteurs** : agent Mavis mvs_56ff19232dc5452082047fce8c11b9c4
 > **Décideurs** : Erwan (décision finale)
@@ -12,9 +15,21 @@
 
 ## Status
 
-PROPOSED. Bloquant pour M1. Ne peut pas être rendu avant la résolution
-de R-013 (suite Automate minimale) — la décision de substrate est
-irréversible et elle engage tout M1-M3.
+**READY_TO_RATIFY** (2026-09-02). Le second tour de qualification
+M0-01-BIS a levé les trois `UNVERIFIED` qui bloquaient l'application du
+critère : B, B′, C et D tombent tous sur des éliminateurs durs mesurés aux
+sources primaires. **A est la seule option survivante** pour la cible
+première.
+
+Ce qui reste est un acte de décision, pas un travail d'ingénierie : la
+décision de substrate est irréversible et engage tout M1-M3, et cet ADR
+nomme Erwan décideur. L'agent a mené la qualification jusqu'au bout et
+s'arrête ici.
+
+> Historique : ce statut était `PROPOSED` — « ne peut pas être rendu avant
+> la résolution de R-013 ». Le blocage réel n'était pas R-013 mais un
+> critère de décision inapplicable à l'évidence collectée (finding
+> F-M2-04), corrigé ci-dessous.
 
 ## Context
 
@@ -205,11 +220,64 @@ est acceptable pour la cible première.
 | `EXECUTION_PROFILE_REQUIREMENTS.md §1.1` | contraintes `local-single-node` | MEASURED |
 | `THREAT_MODEL.md §1.1` | threats TM-W-01..05 adressés par ce choix | MEASURED |
 | `plan V2.3.1 §34-40` | 4 candidats + spike + failure matrix | MEASURED |
-| Web (DBOS, Restate, Temporal licenses) | à vérifier au moment de l'ADR | UNVERIFIED — spike requis |
-| DBOS-SQLite support | à vérifier | UNVERIFIED — spike requis |
-| `temporalite` production status | à vérifier au moment du spike | UNVERIFIED — spike requis |
+| DBOS Transact TS license | **MIT**, « Copyright (c) 2023 DBOS, Inc. » | **VERIFIED** 2026-09-02 — [`LICENSE`](https://github.com/dbos-inc/dbos-transact-ts/blob/main/LICENSE) |
+| Restate license | **Business Source License 1.1** (Restate Software, Inc. / Restate GmbH). Non-OSI. | **VERIFIED** 2026-09-02 — [`LICENSE`](https://raw.githubusercontent.com/restatedev/restate/main/LICENSE) |
+| DBOS-SQLite support | **Absent du SDK TypeScript.** « DBOS requires a Postgres database ». SQLite existe côté **Go seulement** (Golang v0.17, juin 2026). Seules voies TS : Postgres installé ou `npx dbos postgres start` (Docker). | **VERIFIED** 2026-09-02 — [docs TS](https://docs.dbos.dev/typescript/integrating-dbos), [quickstart](https://docs.dbos.dev/quickstart), [blog juin 2026](https://www.dbos.dev/blog/new-in-dbos-june-2026) |
+| `temporalite` production status | **Archivé** (`temporalio/temporalite-archived`). Son remplaçant, le dev server du CLI, « skips certain HTTP security checks », est **in-memory par défaut**, et la doc renvoie explicitement au self-hosted guide ou à Temporal Cloud pour la production. | **VERIFIED** 2026-09-02 — [dev server](https://docs.temporal.io/develop/run-a-development-server), [dépôt archivé](https://github.com/temporalio/temporalite-archived) |
 
-### Écart entre le critère de décision et l'évidence disponible (2026-09-02)
+Détail complet du second tour : `spikes/M0-01-BIS-EVIDENCE.md`.
+
+### RÉSOLU — second tour de qualification (2026-09-02)
+
+L'écart décrit ci-dessous a été traité par le second tour M0-01-BIS. Les
+trois `UNVERIFIED` sont levées (voir tableau *Evidence*), et le résultat est
+**décisif sans spike comparatif** : les éliminateurs durs tombent en amont de
+la failure matrix, ce qui est exactement la structure du critère.
+
+| Option | Éliminateur dur | Verdict cible première |
+|---|---|---|
+| **A** Native kernel | — | **SURVIT** |
+| **B** DBOS | REQ-2 : le SDK **TypeScript** exige Postgres (installé ou Docker). SQLite est **Go-only**. | ÉLIMINÉ |
+| **B′** DBOS-Go | REQ-4 : imposerait un sidecar Go dans une stack TS/Bun | ÉLIMINÉ |
+| **C** Restate | REQ-6 : **BSL 1.1**, non-OSI | ÉLIMINÉ |
+| **D** Temporal | REQ-2 : dev server explicitement non-production, in-memory par défaut ; `temporalite` archivé ; le serveur complet est un démon externe | ÉLIMINÉ |
+
+L'élimination de B est **plus forte** que ce que cet ADR anticipait : il
+écrivait « si DBOS-SQLite est *instable* → éliminé ». Ce n'est pas une
+question de maturité — côté TypeScript, DBOS-SQLite **n'existe pas**.
+
+**Critère de décision réécrit, honnêtement.** L'ancienne formulation (« si A
+passe le spike sans bug bloquant → A est choisi ») supposait une comparaison
+qui n'a jamais eu lieu et n'a désormais plus lieu d'être. La formulation
+exacte de ce qui s'est produit est :
+
+> **A est retenue par élimination, pas par démonstration.** Les trois autres
+> options tombent sur des éliminateurs durs mesurés à leurs sources
+> primaires. A n'a été validée par aucun spike — le kernel natif n'existe pas
+> encore, donc rien ne pouvait le mesurer. Le premier tour M0-01 a mesuré le
+> `workflow-runtime` *legacy*, que A propose précisément de remplacer.
+
+**Portée des éliminations.** Elles reposent sur REQ-2 (pas de démon externe),
+exigence du profil `local-single-node`. Sur un futur profil serveur,
+DBOS-Postgres et Temporal-serveur redeviennent techniquement valides — mais
+le plan §1-§2 interdit deux autorités durables : adopter A engage le produit,
+sauf ADR de migration explicite.
+
+**Coût inchangé.** 7 ADR (001, 002, 004, 007, 008, 020, 022) doivent être
+rendus avant qu'un kernel natif soit utilisable. Et ce que M0-01 a établi
+reste vrai quel que soit le choix : le runtime actuel n'est pas
+substrate-grade et perd des données silencieusement sur trigger dupliqué. A
+signifie **réécrire**, pas conserver.
+
+**Niveau de preuve.** Vérification documentaire aux sources primaires
+(fichiers `LICENSE`, doc officielle, notes de release), non reproduite par
+commande. C'est le bon niveau pour des éliminateurs de license et de
+topologie de déploiement ; ce ne le serait pas pour une propriété de
+correction runtime.
+
+---
+
+### Écart entre le critère de décision et l'évidence disponible (2026-09-02, historique)
 
 Le spike M0-01 a été exécuté et son évidence est épinglée
 (`spikes/M0-01-EVIDENCE.md`, 4 PASS / 2 PARTIAL / 1 FAIL / 7 MISSING).
