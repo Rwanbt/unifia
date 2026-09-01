@@ -1,4 +1,12 @@
 /* SPDX-License-Identifier: MIT */
+// C-M1-09 — `DurableHistoryAuthority` interface re-export (Plan V2.3.1 §41,
+// M1 plan §3.9). The interface is defined in `./adapter.ts`; the
+// implementation (Native / DBOS / Temporal) is blocked on ADR-000
+// (PROPOSED). Consumers of `@unifia/workflow-runtime` that need the
+// substrate-agnostic contract can import `DurableHistoryAuthority`
+// from this package's barrel; they will not see an implementation
+// until the substrate decision is rendered.
+export type { DurableHistoryAuthority } from "./adapter.js"
 import type { P3Capability } from "@unifia/contracts"
 
 export type WorkflowStep = { id: string; capability: P3Capability; input: Record<string, unknown>; requiresApproval?: boolean }

@@ -53,3 +53,11 @@ export * from "./artifact-record.js"
 // C-M1-08 — Capability Authority enforcer contracts (Plan V2.3.1 §114, ADR-002/020/024).
 // Discriminated-union result for `enforce(principal, capability, scope, trustClass, manifest)`.
 export * from "./enforcement.js"
+
+// C-M1-09 — WorkflowRun identities + durable history boundary contracts
+// (Plan V2.3.1 §41-§43, M1 plan §3.9, ADR-004 + ADR-022). The
+// `DurableHistoryAuthority` *interface* lives in
+// `packages/workflow-runtime/src/adapter.ts` and waits ADR-000 for its
+// physical implementation (Native / DBOS / Temporal). This re-export
+// binds the Zod schemas (the contract half) into the package barrel.
+export * from "./workflow-run.js"
