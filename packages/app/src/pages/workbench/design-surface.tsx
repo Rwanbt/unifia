@@ -44,111 +44,16 @@ import { DesignBrowserTab } from "@/pages/workbench/design-browser-tab"
 import { DesignSketchTab } from "@/pages/workbench/design-sketch-tab"
 import { createDesignSnapshot } from "@/pages/workbench/design-snapshot"
 import { createDesignToolbarState } from "@/pages/workbench/design-toolbar-state"
+import {
+  canStartApproval,
+  createApprovalOperations,
+  isApprovalModalVisible,
+  reduceApprovalState,
+  type ApprovalEvent,
+  type ApprovalState,
+} from "@/pages/workbench/design-approval"
 
-/**
- * DA-UI-02 — the approval state machine for create/export operations.
- *
- * Plan-Audit §9.1: the export flow returns a `202 approvalRequired`
- * envelope when the broker gates the operation. The pre-DA-UI-02
- * implementation just put the approval id in the success message,
- * which was indistinguishable from a real success and left no way
- * to allow, deny, cancel, or retry the operation. This state machine
- * is the recoverable UX the brief calls for.
- *
- * The machine is exported (and its reducer is pure) so a sibling
- * `design-surface.test.ts` can exercise every transition without
- * mounting the Solid tree or mocking the Workbench client. The
- * component wires the machine to a signal and routes the user's
- * clicks through the reducer.
- *
- *   idle ─▶ requesting ─▶ approval-required ─▶ resolving ─▶ retrying ─▶ succeeded
- *                                  │                │                │
- *                                  ▼                ▼                ▼
- *                              (expired)         cancelled        failed
- *                                  │
- *                                  └─▶ requesting  (re-approval path)
- *
- * `expired` is modelled as a sub-state of `approval-required` with
- * an `expired: true` flag so the modal can render a non-modal warning
- * without losing the in-flight approval id (the user can re-approve
- * the same id; the broker accepts a fresh `resolveApproval` until it
- * has actually expired server-side).
- */
-export type ApprovalState =
-  | { kind: "idle" }
-  | { kind: "requesting" }
-  | { kind: "approval-required"; approvalId: string; capability: string; resource: string; expiresAt: number; expired: boolean }
-  | { kind: "resolving" }
-  | { kind: "retrying" }
-  | { kind: "succeeded" }
-  | { kind: "failed"; error: string }
-  | { kind: "cancelled" }
-
-/** The events that drive the state machine. */
-export type ApprovalEvent =
-  | { type: "request-start" }
-  | { type: "request-approval-required"; approvalId: string; capability: string; resource: string; expiresAt: number }
-  | { type: "request-succeeded" }
-  | { type: "request-failed"; error: string }
-  | { type: "resolve-start" }
-  | { type: "resolve-completed" }
-  | { type: "retry-start" }
-  | { type: "expire" }
-  | { type: "cancel" }
-
-/**
- * Pure reducer: given the current state and an event, return the next
- * state. Invalid transitions return the input state unchanged so the
- * caller can branch on the result without crashing the surface.
- */
-export function reduceApprovalState(state: ApprovalState, event: ApprovalEvent): ApprovalState {
-  switch (event.type) {
-    case "request-start":
-      // Always restartable from idle and from a previous terminal
-      // state (the user can re-approve the same operation). Refusing
-      // to restart mid-flight is the gate the component enforces, not
-      // the reducer — a separate `canStartApproval` predicate covers
-      // that contract.
-      if (state.kind === "idle" || state.kind === "succeeded" || state.kind === "failed" || state.kind === "cancelled") {
-        return { kind: "requesting" }
-      }
-      return state
-    case "request-approval-required":
-      if (state.kind !== "requesting") return state
-      return { kind: "approval-required", approvalId: event.approvalId, capability: event.capability, resource: event.resource, expiresAt: event.expiresAt, expired: false }
-    case "request-succeeded":
-      if (state.kind !== "requesting" && state.kind !== "retrying") return state
-      return { kind: "succeeded" }
-    case "request-failed":
-      if (state.kind !== "requesting" && state.kind !== "retrying") return state
-      return { kind: "failed", error: event.error }
-    case "resolve-start":
-      if (state.kind !== "approval-required" || state.expired) return state
-      return { kind: "resolving" }
-    case "resolve-completed":
-      if (state.kind !== "resolving") return state
-      return { kind: "retrying" }
-    case "retry-start":
-      if (state.kind !== "retrying") return state
-      return { kind: "requesting" }
-    case "expire":
-      if (state.kind !== "approval-required" || state.expired) return state
-      return { ...state, expired: true }
-    case "cancel":
-      if (state.kind === "succeeded" || state.kind === "failed" || state.kind === "cancelled" || state.kind === "idle") return state
-      return { kind: "cancelled" }
-  }
-}
-
-/** True when a fresh request can be started (i.e. the machine is not already mid-flight). */
-export function canStartApproval(state: ApprovalState): boolean {
-  return state.kind === "idle" || state.kind === "succeeded" || state.kind === "failed" || state.kind === "cancelled" || (state.kind === "approval-required" && state.expired)
-}
-
-/** True when the modal should render (waiting on the user OR mid-resolve). */
-export function isApprovalModalVisible(state: ApprovalState): boolean {
-  return state.kind === "approval-required" || state.kind === "resolving"
-}
+export type { ApprovalState, ApprovalEvent } from "@/pages/workbench/design-approval"
 
 export function DesignSurface(): JSX.Element {
   const language = useLanguage()
@@ -647,7 +552,7 @@ export function DesignSurface(): JSX.Element {
         // synthesize it from the documented default.
         const expiresAt = Date.now() + 5 * 60_000
         setApprovalState({ type: "request-approval-required", approvalId: result.approvalId, capability: "artifact.export", resource: render.artifact.artifactId, expiresAt })
-        if (approvalExpireTimer) clearTimeout(approvalExpireTimer)
+        clearApprovalTimer()
         approvalExpireTimer = setTimeout(() => setApprovalState({ type: "expire" }), Math.max(0, expiresAt - Date.now()))
         // P6-2 — approval ≠ error: the spec editor's button still
         // shows the "submitted" state; the modal is the surface the
@@ -676,89 +581,45 @@ export function DesignSurface(): JSX.Element {
     }
   }
 
-  /**
-   * DA-UI-02 — resolve an outstanding approval. Called from the modal
-   * (Allow/Deny buttons). On `allow`, the machine transitions
-   * `resolving → retrying` and the component re-enters `runExportFlow`
-   * to re-issue the same operation. On `deny`, the machine transitions
-   * to `cancelled` and the surface returns to `idle` (the user can
-   * start a fresh export any time).
-   */
-  async function runResolveApproval(decision: "allow" | "deny"): Promise<void> {
-    const live = connection()
-    const state = approvalState()
-    if (!live) return
-    if (state.kind !== "approval-required" || state.expired) return
+  /** Drop the expiry timer, wherever the machine leaves `approval-required`. */
+  function clearApprovalTimer(): void {
     if (approvalExpireTimer) {
       clearTimeout(approvalExpireTimer)
       approvalExpireTimer = undefined
     }
-    setApprovalState({ type: "resolve-start" })
-    try {
-      const result = await live.client.resolveApproval(state.approvalId, decision)
-      setApprovalState({ type: "resolve-completed" })
-      if (decision === "allow" && result.decision.kind === "allow") {
-        await runExportFlow()
-      } else {
-        setApprovalState({ type: "cancel" })
-        setExportState("idle")
-        setSaveMessage("Export annulé par l'utilisateur")
-      }
-    } catch (error) {
-      setApprovalState({ type: "request-failed", error: error instanceof Error ? error.message : "approval resolution failed" })
-      setExportState("error")
-      setSaveMessage(error instanceof Error ? error.message : "approval resolution failed")
-    }
   }
 
-  /**
-   * DA-UI-02 — cancel an outstanding approval. Distinct from `deny`:
-   * the user explicitly aborts the in-flight operation without
-   * recording a decision. The server-side broker still receives
-   * the cancel so the audit log is complete.
-   */
-  async function runCancelApproval(): Promise<void> {
-    const live = connection()
-    const state = approvalState()
-    if (!live) return
-    if (state.kind !== "approval-required" || state.expired) return
-    if (approvalExpireTimer) {
-      clearTimeout(approvalExpireTimer)
-      approvalExpireTimer = undefined
-    }
-    setApprovalState({ type: "resolve-start" })
-    try {
-      await live.client.cancelApproval(state.approvalId)
-      setApprovalState({ type: "cancel" })
-      setExportState("idle")
-      setSaveMessage("Export annulé")
-    } catch (error) {
-      setApprovalState({ type: "request-failed", error: error instanceof Error ? error.message : "approval cancellation failed" })
-      setExportState("error")
-      setSaveMessage(error instanceof Error ? error.message : "approval cancellation failed")
-    }
-  }
+  // DA-UI-02 / DA-UI-03 — allow, deny, cancel, re-request and the
+  // navigation teardown. They live in `design-approval.ts` with the client
+  // injected: this file cannot be loaded by `bun:test` (Solid's `use` is
+  // client-only), so anything written here can only ever be checked by a
+  // regex over its own source — which is how an expiry shipped with no
+  // reachable control and a request left pending on the broker.
+  const approvalOps = createApprovalOperations({
+    client: () => connection()?.client,
+    state: approvalState,
+    dispatch: setApprovalState,
+    clearTimer: clearApprovalTimer,
+    restart: runExportFlow,
+    report: (outcome) => {
+      setExportState(outcome.exportState)
+      setSaveMessage(outcome.message)
+    },
+  })
 
-  // DA-UI-03 — navigation cleanup. The Design surface unmounts when
-  // the user navigates to a different mode (Code, Work, …) or when
-  // the workspace is closed. Both paths must cancel any in-flight
-  // approval: a half-finished operation talking to the broker after
-  // the user has left the page would be invisible, and the next
-  // attempt would race the still-pending request.
+  // DA-UI-03 — navigation cleanup. The Design surface unmounts when the
+  // user switches mode or closes the workspace. Both paths must withdraw
+  // any pending approval: aborting the local fetch does not tell the
+  // broker, so the request would sit there until its TTL ran out and the
+  // next attempt would race it.
   onCleanup(() => {
-    if (approvalExpireTimer) {
-      clearTimeout(approvalExpireTimer)
-      approvalExpireTimer = undefined
-    }
     if (exportAbort) {
       exportAbort.abort()
       exportAbort = undefined
     }
-    const state = approvalState()
-    if (state.kind === "requesting" || state.kind === "resolving" || state.kind === "retrying") {
-      setApprovalState({ type: "cancel" })
-    }
+    approvalOps.detach()
   })
+
   /**
    * Phase 7 — manual, production-grade artifact generation, no agent
    * required. `runExportFlow` above already proves the spec renders to
@@ -956,9 +817,10 @@ export function DesignSurface(): JSX.Element {
           when `state.expired` is true. */}
       <ApprovalModal
         state={approvalState()}
-        onAllow={() => void runResolveApproval("allow")}
-        onDeny={() => void runResolveApproval("deny")}
-        onCancel={() => void runCancelApproval()}
+        onAllow={() => void approvalOps.resolve("allow")}
+        onDeny={() => void approvalOps.resolve("deny")}
+        onCancel={() => void approvalOps.cancel()}
+        onRerequest={() => void approvalOps.rerequest()}
       />
     </section>
   )
@@ -970,17 +832,19 @@ export function DesignSurface(): JSX.Element {
  *   - `approval-required` (waiting for the user's decision),
  *   - `resolving` (request to broker in flight, brief).
  *
- * DA-UI-03 — when `state.expired` is true, the modal flips to a
- * non-modal warning ("approbation expirée — re-essayer ?") with
- * a single re-approve button. The user can still navigate away
- * and the in-flight request is already torn down by the surface's
- * `onCleanup`.
+ * When `state.expired` is true the modal keeps its warning but swaps the
+ * allow/deny/cancel trio for "annuler" and "demander une nouvelle
+ * approbation" — both wired to the broker. The doc comment used to
+ * promise "a single re-approve button" that the markup never rendered:
+ * every control was behind `!expired`, so an expiry left a full-screen
+ * overlay with no way out.
  */
 function ApprovalModal(props: {
   state: ApprovalState
   onAllow: () => void
   onDeny: () => void
   onCancel: () => void
+  onRerequest: () => void
 }): JSX.Element {
   return (
     <Show when={isApprovalModalVisible(props.state)}>
@@ -1020,6 +884,28 @@ function ApprovalModal(props: {
             <p class="mt-2 text-13-regular text-text-weak">Envoi de la décision au serveur…</p>
           </Show>
           <div class="mt-4 flex flex-wrap justify-end gap-2">
+            {/* An expired approval gets its own pair of actions. The first
+                version hid every button here, leaving a full-screen modal
+                with a warning and no way out — and the pending request on
+                the server with it. */}
+            <Show when={props.state.kind === "approval-required" && props.state.expired}>
+              <button
+                type="button"
+                data-design-approval-action="cancel"
+                class="rounded border border-border-base px-3 py-1.5 text-12-medium"
+                onClick={() => props.onCancel()}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                data-design-approval-action="rerequest"
+                class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
+                onClick={() => props.onRerequest()}
+              >
+                Demander une nouvelle approbation
+              </button>
+            </Show>
             <Show when={props.state.kind === "approval-required" && !props.state.expired}>
               <button
                 type="button"
