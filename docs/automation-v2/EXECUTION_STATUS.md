@@ -4,8 +4,8 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M1-IMPLEMENTATION-COMPLETE → M2-LAUNCHING** (M1 9/12 livrées : 7 GREEN + 2 optionnels + 1 YELLOW interface-only, ADR-026 DECIDED, 25/26 ADR DECIDED ; M2 Graph Engine en préparation — 6 cartes control flow GREEN + 3 RED bloquées ADR-000/M3)
-> Date : 2026-09-01T23:15+02:00
+> Phase : **M2-ROUND-1-COMPLETE** (M1 9/12 livrées : 7 GREEN + 2 optionnels + 1 YELLOW interface-only, ADR-026 DECIDED, 25/26 ADR DECIDED ; M2 Round 1 : 4/6 cartes GREEN livrées — control.if + control.switch + control.parallel + control.merge — 11+15+19+20 = 65 nouveaux tests verts, **206/0 tests contracts**, 9 node families, 6 EdgeKind)
+> Date : 2026-09-01T23:55+02:00
 > Format imposé par le plan §246 lignes 6140-6170.
 
 ---
@@ -57,8 +57,17 @@ choice), R-013 phase 3.
 | ADR-026 typed DigestEnvelope per domain | **DONE** (19 tests, 7 schemas, 3 migrations) | docs/adr/ADR-026 + 3 contract files (87b772b21f) |
 | C-PRE1-04 workbench-server REFACTOR | **DONE** (1368 → 27 fichiers ≤200 LOC) | packages/workbench-server/ (dd0af9205b) |
 | M1 — Cartes YELLOW/RED restantes (3) | **BLOCKED** (M1-09 impl, M1-10, M1-11) | bloqué ADR-000 |
-| M2-IMPLEMENTATION-PLAN | **IN PROGRESS** | en rédaction (9 cartes, 6 GREEN + 3 RED) |
-| M2 / M3 + tracks | **NOT STARTED** | post-M1 |
+| M2-IMPLEMENTATION-PLAN | **DONE** (9 cartes : 6 GREEN + 1 YELLOW + 2 RED) | docs/automation-v2/M2-IMPLEMENTATION-PLAN.md (084dd296e8) |
+| M2-01 control.if (refine) | **DONE** (GREEN, 11/11 PASS) | packages/contracts/src/workflow-ir.ts + control-if.test.ts (5e0fb53795) |
+| M2-02 control.switch | **DONE** (GREEN, 15/15 PASS) | control-switch.test.ts (ec440eee97) |
+| M2-03 control.parallel | **DONE** (GREEN, 19/19 PASS) | control-parallel.test.ts (8402c7343e) |
+| M2-04 control.merge | **DONE** (GREEN, 20/20 PASS) | control-merge.test.ts (d29bbcb897) |
+| M2-02/03/04 unified schema commit | **DONE** | workflow-ir.ts (+438 lines) (d24aa71e69) |
+| M2-05 control.map | **NOT STARTED** | Round 2 |
+| M2-06 control.repeat | **NOT STARTED** | Round 2 |
+| M2-TEST graph property | **NOT STARTED** | Round 2 |
+| M2-07/08/09 (while, child-workflow, wait refine) | **BLOCKED** (RED/YELLOW) | bloqué ADR-000 + M3 |
+| M3 / tracks | **NOT STARTED** | post-M2 |
 
 ---
 
@@ -66,8 +75,8 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `85c4beb5fc docs(automate-v2): EXECUTION_STATUS update after M1-07/09/12 + ADR-026 (9/12 cartes M1 livrées)` |
-| HEAD (sha) | `85c4beb5fc` |
+| HEAD (commit) | `ec440eee97 feat(contracts): M2-02 control.switch tests (15/15 PASS)` |
+| HEAD (sha) | `ec440eee97` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
@@ -75,7 +84,7 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (54 commits, 0 push)
+## Commits cumulés (61 commits, 0 push)
 
 ```
 3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike
