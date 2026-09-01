@@ -18,14 +18,20 @@
 
 import { z } from "zod"
 import { OwnershipScopeSchema, DeploymentScopeSchema } from "./scope.js"
-import { DigestEnvelopeSchema } from "./digest.js"
+import { ArtifactBytesDigestSchema } from "./digest.js"
 import { AtRestProtectionEnvelopeSchema } from "./protection.js"
 
 // -------- Ref (non-authoritative handle) --------
 
 export const ArtifactRefSchema = z.object({
   artifactId: z.string(),
-  contentDigest: DigestEnvelopeSchema,
+  // ADR-026: `contentDigest` is typed by domain. A Zod parse of an
+  // `ArtifactRef` rejects any envelope whose `domain` literal is not
+  // `"artifact-bytes"`. The store computes the digest with the
+  // digest-runtime and brands it via `asDomainDigest(envelope,
+  // "artifact-bytes")` (artifact-store/src/index.ts:403), so the
+  // ref's domain and the value's domain agree by construction.
+  contentDigest: ArtifactBytesDigestSchema,
 })
 export type ArtifactRef = z.infer<typeof ArtifactRefSchema>
 
@@ -73,7 +79,11 @@ export const ArtifactRecordSchema = z.object({
   artifactId: z.string(),
   ownershipScope: OwnershipScopeSchema,
   deploymentScope: DeploymentScopeSchema.optional(),
-  contentDigest: DigestEnvelopeSchema,
+  // ADR-026: store-authoritative `contentDigest` is typed by domain.
+  // The store produces it via `asDomainDigest(envelope, "artifact-bytes")`,
+  // so the parsing boundary now enforces the same invariant at parse
+  // time that the brand system enforced at the type level.
+  contentDigest: ArtifactBytesDigestSchema,
   mediaType: z.string(),
   size: z.number().int().nonnegative(),
   storageClass: z.enum(["hot", "cold", "encrypted", "redacted"]),

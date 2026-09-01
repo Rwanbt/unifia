@@ -110,6 +110,51 @@ export type McpSchemaDigest = DigestForDomain<"mcp-schema">
 export type DeploymentDigest = DigestForDomain<"deployment">
 export type ArtifactBytesDigest = DigestForDomain<"artifact-bytes">
 
+/* ------------------------------------------------------------------ */
+/* Per-domain Zod refinements (ADR-026)                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ADR-026 — typed DigestEnvelope per domain.
+ *
+ * The branded type aliases above are *compile-time* fictions: a
+ * `WorkflowVersionDigest` and an `ArtifactBytesDigest` are both
+ * `DigestEnvelope` at runtime, so the type system cannot stop a
+ * caller from passing the wrong domain literal to a field — the
+ * runtime boundary is `asDomainDigest()` (called explicitly by
+ * trusted loaders and by the digest-runtime).
+ *
+ * The schemas below close the cross-domain gap at the *parsing
+ * boundary* — the first point of entry for any external data. A
+ * `WorkflowVersionDigestSchema.parse(env)` rejects `env` if its
+ * `domain` literal is anything other than `"workflow-version"`.
+ *
+ * The refine is a `ZodEffects<DigestEnvelope, DigestForDomain<D>, ...>`:
+ * at runtime the value is still a plain `DigestEnvelope`, but
+ * `z.infer<typeof WorkflowVersionDigestSchema>` is the branded
+ * alias, so call sites that depend on the brand (e.g. an artifact
+ * store wiring an `ArtifactBytesDigest` into an `ArtifactRef`)
+ * gain a structural guarantee that the two ends agree.
+ *
+ * Adding a new domain: extend `DigestDomainSchema`, add a
+ * `DigestForDomain<"...">` type alias, and add one line below
+ * using `domainSchemaFor("...")`. ADR-026 §"Consequences".
+ */
+function domainSchemaFor<D extends DigestDomain>(d: D) {
+  return DigestEnvelopeSchema.refine(
+    (e): e is DigestForDomain<D> => e.domain === d,
+    { message: `expected domain "${d}"` },
+  )
+}
+
+export const WorkflowVersionDigestSchema = domainSchemaFor("workflow-version")
+export const ApprovalEffectDigestSchema = domainSchemaFor("approval-effect")
+export const PolicyDigestSchema = domainSchemaFor("policy")
+export const ConnectorManifestDigestSchema = domainSchemaFor("connector-manifest")
+export const McpSchemaDigestSchema = domainSchemaFor("mcp-schema")
+export const DeploymentDigestSchema = domainSchemaFor("deployment")
+export const ArtifactBytesDigestSchema = domainSchemaFor("artifact-bytes")
+
 /**
  * Reinterpret an unbranded envelope as the domain-branded type.
  * Does NOT verify that the envelope's `domain` field matches the

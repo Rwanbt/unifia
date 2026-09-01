@@ -19,7 +19,12 @@
  */
 import { z } from "zod"
 import { OwnershipScopeSchema, DeploymentScopeSchema } from "./scope.js"
-import { DigestEnvelopeSchema, DigestDomainSchema, type DigestDomain } from "./digest.js"
+import {
+  DigestEnvelopeSchema,
+  DigestDomainSchema,
+  WorkflowVersionDigestSchema,
+  type DigestDomain,
+} from "./digest.js"
 import { OverlapPolicySchema, CatchUpPolicySchema } from "./timer.js"
 
 // Re-export so callers that import from this file still see DigestDomainSchema
@@ -243,7 +248,11 @@ export const WorkflowVersionSchema = z.object({
   definitionId: z.string(),
   versionNumber: z.number().int().positive(),
   definition: WorkflowDefinitionSchema,
-  versionDigest: DigestEnvelopeSchema,
+  // ADR-026: `versionDigest` is typed by domain. A Zod parse of a
+  // `WorkflowVersion` rejects any envelope whose `domain` literal is
+  // not `"workflow-version"` — the cross-domain guard lives at the
+  // parsing boundary, not only at the runtime `asDomainDigest()` call.
+  versionDigest: WorkflowVersionDigestSchema,
   createdAt: z.number().int(),
   createdBy: z.string(),
 })
