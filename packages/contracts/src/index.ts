@@ -35,3 +35,18 @@ export * from "./design-system.js"
 
 export * from "./artifact-manifest.js"
 export * from "./secrets.js"
+
+// M1 type contracts (Plan V2.3.1, ADR-001/002/005/008/010/020/022).
+// Re-exports for the V2.3.1 foundation: workflow IR, digest envelope,
+// scopes, at-rest protection, credential references, worker identity,
+// timer policies, and the V2 artifact record contract. The V2 artifact
+// record lives in `artifact-record.ts` to avoid clashing with the
+// legacy P2-C200 `artifact.ts` (ArtifactPort).
+export * from "./scope.js"
+export * from "./workflow-ir.js"
+export * from "./digest.js"
+export * from "./protection.js"
+export * from "./credential.js"
+export * from "./identity.js"
+export * from "./timer.js"
+export * from "./artifact-record.js"
