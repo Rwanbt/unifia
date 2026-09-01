@@ -7,23 +7,17 @@ import { resolve } from "node:path"
 
 // C-PRE1-01 — suite Automate minimale (R-013, Critical, bloquant M1).
 //
-// Phase 1 : smoke test statique. Le module automate-surface.tsx
-// importe @solidjs/router qui lance une erreur "Client-only API called
-// on the server side" en environnement Node (test runner). Un import
-// dynamique echoue donc systematiquement, comme documente dans
-// le log de ce fichier (voir EXECUTION_STATUS phase PRE-1.1).
+// Phase 1 : smoke test statique qui pin la forme du fichier de la
+// surface. Le module lui-meme ne peut pas etre importe en Node
+// (SolidJS router client-only), donc on verifie le code source.
 //
-// La phase 1 verifie par lecture du source que la surface declare
-// les symboles attendus et qu'aucune regression n'a ete introduite
-// dans la forme du fichier.
+// Phase 2 (livree dans `automate-decode.test.ts`) : tests round-trip
+// reels sur les helpers extraits (`decodeFile`,
+// `parseWorkflowDefinition`).
 //
-// Phase 2 (a faire en M1, apres ADR-000) :
-//   - decodeFile UTF-8 + base64 round-trip
-//   - validation WorkflowDefinition (id/version/steps)
-//   - e2e minimal : 1 parcours approval_required
-// Phase 2 necessite l'extraction de decodeFile vers un helper
-// testable, OU un environnement de test SolidJS (jsdom + provider
-// mocks). Voir ADR-002 et plan §197 "M1 final gate".
+// La phase 3 (a faire en M1, apres ADR-000) :
+//   - e2e minimal : 1 parcours approval_required avec horloge Playwright
+//   - test des 8 sorties du plan v4 §16.3
 
 const SURFACE = resolve(import.meta.dir, "automate-surface.tsx")
 const source = readFileSync(SURFACE, "utf8")
@@ -33,31 +27,29 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     expect(source).toMatch(/export\s+function\s+AutomateSurface\s*\(/)
   })
 
-  test("declares a decodeFile helper for base64 + utf-8 file reads", () => {
-    // Internal helper — not exported yet, but Phase 2 will require
-    // either exporting it or extracting to a separate module.
-    expect(source).toMatch(/const\s+decodeFile\s*=/)
-    expect(source).toMatch(/atob\(/)
+  test("imports decodeFile and parseWorkflowDefinition from automate-decode", () => {
+    // After phase 2 extraction (C-PRE1-01), the surface delegates parsing
+    // to ./automate-decode. This pins that contract: a future refactor
+    // that re-inlines the parsing breaks this test, which is the point.
+    expect(source).toMatch(/from\s+["']\.\/automate-decode["']/)
+    expect(source).toMatch(/\bdecodeFile\b/)
+    expect(source).toMatch(/\bparseWorkflowDefinition\b/)
   })
 
   test("calls client.startWorkflow with the workflow definition", () => {
     // The contract is: client.startWorkflow(workspaceId, definition).
-    // If this line ever changes, Phase 2 e2e will need to be rewritten.
+    // If this line ever changes, Phase 3 e2e will need to be rewritten.
     expect(source).toMatch(/client\.startWorkflow\(/)
   })
 
   test("handles the approvalRequired branch explicitly", () => {
-    // Phase 2 e2e covers this branch end-to-end.
+    // Phase 3 e2e covers this branch end-to-end.
     expect(source).toMatch(/approvalRequired/)
   })
 
-  test("validates the minimum WorkflowDefinition shape (id, version, steps)", () => {
-    // The current validation is minimal — it only checks types. Phase 2
-    // will replace this with a strict WorkflowIR validator aligned on
-    // ADR-002. We pin the existing shape so any future drift is caught
-    // even before the strict validator exists.
-    expect(source).toMatch(/typeof\s+definition\.id\s*!==\s*"string"/)
-    expect(source).toMatch(/definition\.version\s*!==\s*1/)
-    expect(source).toMatch(/!Array\.isArray\(definition\.steps\)/)
+  test("still uses decodeFile on the file body before parsing", () => {
+    // The decoded file body is what we parse. Pin the call order:
+    // parseWorkflowDefinition(decodeFile(file)).
+    expect(source).toMatch(/parseWorkflowDefinition\(decodeFile\(/)
   })
 })
