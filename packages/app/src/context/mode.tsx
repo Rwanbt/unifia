@@ -4,24 +4,35 @@ import { useLocation, useNavigate } from "@solidjs/router"
 import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
 import { modeHref, parseModeLocation, sessionAdoptionPath } from "./mode-directory"
-import { isAutomateAccessible, isAutomateSurfaceReachable } from "./automate-flag"
 import { Persist, persisted } from "@/utils/persist"
+import { useWorkspaceWorkbench } from "./workbench/provider"
 
 // ADR-1041 supersedes ADR-1033. SHELL_MODES is still the 4-entry contract
 // (check-mode-registry depends on it). The Automate surface is reachable
-// from the rail whenever the workspace has `workflow.run` granted.
-const automateAccessible = isAutomateSurfaceReachable(isAutomateAccessible(import.meta.env.DEV, false))
-const visibleModes: readonly ShellMode[] = automateAccessible ? SHELL_MODES : SHELL_MODES.filter((mode) => mode !== "automate")
-
-const isMode = (value: string | undefined): value is ShellMode =>
-  !!value && SHELL_MODES.includes(value as ShellMode) && (value !== "automate" || automateAccessible)
+// from the rail whenever the workspace has `workflow.run` granted; the
+// decision is reactive — it tracks the connection's `grants` set so a
+// rotation that adds or removes a grant updates the rail on the next
+// microtask without a hard navigation.
 
 const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
   name: "Mode",
   init: () => {
     const location = useLocation()
     const navigate = useNavigate()
-    const route = createMemo(() => parseModeLocation(location.pathname, location.search, automateAccessible))
+    const workbench = useWorkspaceWorkbench()
+    // DA-UI-01 — the rail hides Automate unless the principal holds
+    // `workflow.run` on the active workspace. The memo reads the
+    // connection's `grants` (see `useWorkspaceWorkbench`); an empty
+    // set is returned before the first `connect` resolves, which is
+    // the correct "hidden" posture (an in-flight connection must not
+    // flash Automate into the rail before the broker decides).
+    const automateAccessible = createMemo<boolean>(() => workbench.grants().has("workflow.run"))
+    const visibleModes = createMemo<readonly ShellMode[]>(() =>
+      automateAccessible() ? SHELL_MODES : SHELL_MODES.filter((mode) => mode !== "automate"),
+    )
+    const isMode = (value: string | undefined): value is ShellMode =>
+      !!value && SHELL_MODES.includes(value as ShellMode) && (value !== "automate" || automateAccessible())
+    const route = createMemo(() => parseModeLocation(location.pathname, location.search, automateAccessible()))
     const directory = createMemo(() => route().directory)
     const sessionId = createMemo(() => {
       const current = route()

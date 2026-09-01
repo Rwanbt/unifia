@@ -26,6 +26,8 @@ export type WorkbenchMockOptions = {
   }>
   /** Skills returned by listDesignSkills. Default: empty list. */
   skills?: ReadonlyArray<Record<string, unknown>>
+  /** DA-UI-01 — capability grants reported by the mock connection. Default: empty (Automate hidden). */
+  grants?: readonly string[]
 }
 
 /**
@@ -94,6 +96,11 @@ export function workbenchMockInitScript(): string {
         serverOrigin: "mock://workbench",
         instanceId: "mock-instance-1",
         workspaceId: descriptor.workspaceId || "mock-workspace-1",
+        // DA-UI-01 — capability-gated UI (Automate rail entry, …) reads
+        // the connection's `grants` to decide visibility. The mock
+        // starts empty; tests that need `workflow.run` etc. inject a
+        // populated set via `installWorkbenchMock({ grants: [...] })`.
+        grants: new Set(descriptor.grants || []),
         async revoke() {
           // No-op: the mock does not own any native resource.
         },
@@ -125,7 +132,7 @@ export async function installWorkbenchMock(
   // descriptor, second reads it and builds the platform.
   await page.addInitScript((value) => {
     ;(window as unknown as { __UNIFIA_MOCK_DESCRIPTOR__: unknown }).__UNIFIA_MOCK_DESCRIPTOR__ = value
-  }, descriptor)
+  }, { ...descriptor, grants: opts.grants ?? [] })
   await page.addInitScript({
     content: workbenchMockInitScript(),
   })
