@@ -46,8 +46,13 @@ export type { DigestDomain }
  * let users bolt on ad-hoc node kinds. The order is stable:
  * triggers first, then control flow, then effectors, then
  * orchestration. Within the control-flow block, the canonical
- * M2 ordering is `if → switch → parallel → merge` (each value
- * added by its respective M2 card: M2-01, M2-02, M2-03, M2-04).
+ * M2 ordering is `if → switch → parallel → merge → map → repeat`
+ * (each value added by its respective M2 card: M2-01, M2-02,
+ * M2-03, M2-04, M2-05, M2-06). `control.map` iterates over a
+ * collection with stable keys for replay-safety (ADR-005);
+ * `control.repeat` is the strictly-bounded loop primitive
+ * (ADR-002 §6). M2-07 (`while`), M2-08 (`child`) and M2-09
+ * (`wait` refine) are RED and do not appear here yet.
  */
 export const NodeFamilySchema = z.enum([
   "trigger.manual",
@@ -56,6 +61,8 @@ export const NodeFamilySchema = z.enum([
   "control.switch",
   "control.parallel",
   "control.merge",
+  "control.map",
+  "control.repeat",
   "tool.http",
   "human.approval",
   "wait",
@@ -725,6 +732,229 @@ export type ControlMergeConfig = z.infer<typeof ControlMergeConfigSchema>
  */
 export function parseControlMergeConfig(config: unknown): ControlMergeConfig {
   return ControlMergeConfigSchema.parse(config)
+}
+
+/* ------------------------------------------------------------------ */
+/* M2-05 — `control.map` (Plan V2.3.1 §198)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maximum length of a `control.map` `key.field` reference. Bounded
+ * at 256 chars — far above realistic field names and well below
+ * the pathological-length attack surface for content digests.
+ * Distinct from `CONTROL_MAP_FIELD_PATH_MAX_CHARS` (the M2-05 input
+ * reference length, 1024) and `CONTROL_REPEAT_MAX_ITERATIONS` (the
+ * M2-06 iteration bound).
+ */
+export const CONTROL_MAP_KEY_FIELD_MAX_CHARS = 256
+
+/**
+ * Strategy for extracting a stable key from each map item. The key
+ * is the durable identity of an item across replays: the runtime
+ * uses it to detect which items have already been processed (so
+ * replays don't double-execute) and which are new. A
+ * non-deterministic key would silently re-process items on every
+ * replay, which is a correctness defect, not a performance one.
+ *
+ * - `field`: extract the value of a named field from the item. The
+ *   field's value is the key. The field must exist on every item
+ *   or the item is rejected at the trust boundary.
+ * - `hash`: compute a content hash (BLAKE3 over JCS-canonical
+ *   bytes) of the item itself. Used when items are large objects
+ *   without a natural primary key.
+ *
+ * ADR-005 (artifact contract) requires the key to be a content
+ * address; the runtime treats both `field` and `hash` as such.
+ * M2-TEST validates that two parses of the same definition produce
+ * the same `mapItemId` for the same item.
+ */
+export const MapKeyStrategySchema = z.enum(["field", "hash"])
+export type MapKeyStrategy = z.infer<typeof MapKeyStrategySchema>
+
+export const MapKeySpecSchema = z
+  .object({
+    strategy: MapKeyStrategySchema,
+    /**
+     * Required when `strategy: "field"`. The field name within each
+     * item whose value is the stable key. Must be a non-empty
+     * string ≤ `CONTROL_MAP_KEY_FIELD_MAX_CHARS` chars. Forbidden
+     * when `strategy: "hash"`. The cross-field rule is a single
+     * `.refine(...)` that surfaces as one ZodError.
+     */
+    field: z
+      .string()
+      .min(1, "control.map: key.field is required when strategy is 'field'")
+      .max(
+        CONTROL_MAP_KEY_FIELD_MAX_CHARS,
+        `control.map: key.field must be ≤ ${CONTROL_MAP_KEY_FIELD_MAX_CHARS} chars`,
+      )
+      .optional(),
+  })
+  .refine(
+    (spec) => {
+      if (spec.strategy === "field") {
+        return typeof spec.field === "string" && spec.field.length > 0
+      }
+      return spec.field === undefined
+    },
+    {
+      message:
+        "control.map: key.field is required when strategy is 'field' and forbidden when strategy is 'hash'",
+    },
+  )
+export type MapKeySpec = z.infer<typeof MapKeySpecSchema>
+
+/**
+ * Configuration of a `control.map` family node (Plan V2.3.1 §198,
+ * M2-05, ADR-002 Option A + ADR-005 artifact + ADR-003 expression).
+ *
+ * `input` is an expression-language reference to the collection to
+ * iterate over (e.g. `input.items`, `fetch('https://...').json()`).
+ * `body` is the node id that runs once per item — the runtime
+ * scopes a fresh sub-run per item, identified by the `mapItemId`
+ * derived from the stable key.
+ *
+ * Replay-safety: a re-execution of the same map with the same
+ * input and same `keySpec` MUST produce the same set of
+ * `mapItemId`s in the same order. This is the property M2-TEST
+ * validates with the "2 parses of the same definition produce the
+ * same mapItemId for the same item" property test. The runtime is
+ * responsible for enforcing this — the schema only pins the
+ * contract surface.
+ */
+export const ControlMapConfigSchema = z.object({
+  /**
+   * Expression yielding the collection to iterate. Non-empty,
+   * ≤ 1024 chars (parity with `control.if.condition` and
+   * `control.switch.discriminator`).
+   */
+  input: z
+    .string()
+    .min(1, "control.map: input must be non-empty")
+    .max(1024, "control.map: input must be ≤ 1024 chars"),
+  /**
+   * Node id that runs once per item. Must be a non-empty node id
+   * within the same `WorkflowDefinition`. The runtime does the
+   * topology check at execution time, not at parse time — the
+   * schema only pins the well-formedness (non-empty string).
+   * M2-TEST validates the topology invariant.
+   */
+  body: z.string().min(1, "control.map: body must be a non-empty node id"),
+  /**
+   * How to extract the stable key from each item. ADR-005.
+   */
+  key: MapKeySpecSchema,
+  /**
+   * Optional upper bound on how many items may be in flight
+   * concurrently. Same semantics as
+   * `control.parallel.maxConcurrency` — bounded at 64 to keep the
+   * resource ceiling explicit and reviewable.
+   */
+  maxConcurrency: z
+    .number()
+    .int()
+    .positive("control.map: maxConcurrency must be positive")
+    .max(64, "control.map: maxConcurrency must be ≤ 64")
+    .optional(),
+})
+export type ControlMapConfig = z.infer<typeof ControlMapConfigSchema>
+
+/**
+ * Validate the opaque `config` record of a `control.map` node
+ * against `ControlMapConfigSchema`. Throws `z.ZodError` on
+ * failure. Same trust-boundary contract as the other
+ * `parseControl*Config` helpers.
+ */
+export function parseControlMapConfig(config: unknown): ControlMapConfig {
+  return ControlMapConfigSchema.parse(config)
+}
+
+/* ------------------------------------------------------------------ */
+/* M2-06 — `control.repeat` (Plan V2.3.1 §198)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maximum number of iterations a `control.repeat` may execute.
+ * Bounded because a non-bounded loop would defeat the contract:
+ * the runtime cannot guarantee the workflow terminates without an
+ * upper bound. ADR-002 §6 explicitly requires `repeat` to be
+ * strictly bounded — use `while` (M2-07, BLOCKED on ADR-000) for
+ * condition-driven loops that may have an unbounded best case.
+ *
+ * The bound is generous (1M iterations) so realistic batch /
+ * retry use-cases are well under it; pathological inputs are
+ * rejected at the parse boundary, not at the runtime.
+ */
+export const CONTROL_REPEAT_MAX_ITERATIONS = 1_000_000
+
+export const ControlRepeatConfigSchema = z.object({
+  /**
+   * Hard upper bound on iterations. Required (no default) — the
+   * schema rejects any repeat without a `maxIterations` because
+   * a non-bounded repeat is a contract violation. The bound is
+   * enforced by the runtime at execution time; M2-TEST validates
+   * that a `repeat(maxIterations=CONTROL_REPEAT_MAX_ITERATIONS)`
+   * is parsable and bounded.
+   */
+  maxIterations: z
+    .number()
+    .int()
+    .positive("control.repeat: maxIterations must be ≥ 1")
+    .max(
+      CONTROL_REPEAT_MAX_ITERATIONS,
+      `control.repeat: maxIterations must be ≤ ${CONTROL_REPEAT_MAX_ITERATIONS}`,
+    ),
+  /**
+   * Optional condition expression. When present, the loop exits
+   * when the condition evaluates to `false` (or before, if
+   * `maxIterations` is reached first). When absent, the loop
+   * runs exactly `maxIterations` times. ADR-003 — expressions
+   * are part of the same expression language as `if.condition`
+   * and `switch.discriminator`.
+   */
+  untilCondition: z
+    .string()
+    .min(1, "control.repeat: untilCondition must be non-empty when set")
+    .max(1024, "control.repeat: untilCondition must be ≤ 1024 chars")
+    .optional(),
+  /**
+   * Optional name of the loop index variable exposed to
+   * `untilCondition` and to nodes inside the loop body. When
+   * omitted, the body cannot reference the current iteration
+   * index. Must be a valid identifier (`[a-zA-Z_][a-zA-Z0-9_]*`)
+   * so it is referenceable from the expression language without
+   * quoting.
+   */
+  indexVariable: z
+    .string()
+    .min(1, "control.repeat: indexVariable must be non-empty when set")
+    .max(64, "control.repeat: indexVariable must be ≤ 64 chars")
+    .regex(
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/,
+      "control.repeat: indexVariable must be a valid identifier",
+    )
+    .optional(),
+  /**
+   * Node id that runs once per iteration. Same semantics as
+   * `control.map.body`: non-empty string, runtime does the
+   * topology check.
+   */
+  body: z
+    .string()
+    .min(1, "control.repeat: body must be a non-empty node id"),
+})
+export type ControlRepeatConfig = z.infer<typeof ControlRepeatConfigSchema>
+
+/**
+ * Validate the opaque `config` record of a `control.repeat` node
+ * against `ControlRepeatConfigSchema`. Throws `z.ZodError` on
+ * failure. Same trust-boundary contract as the other
+ * `parseControl*Config` helpers.
+ */
+export function parseControlRepeatConfig(
+  config: unknown,
+): ControlRepeatConfig {
+  return ControlRepeatConfigSchema.parse(config)
 }
 
 /* ------------------------------------------------------------------ */
