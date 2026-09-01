@@ -27,6 +27,23 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 
 // ---------------------------------------------------------------------------
+// OS-level broker (C-M1-07, ADR-010, plan §3.7 + §5.6).
+//
+// `createOsBroker` lives in `./os-broker.js`. It implements the same
+// `SecretBroker` surface as the in-memory broker below, with two
+// differences: (1) entries are persisted to disk in
+// `${homedir()}/.unifia/secret-broker/entries/…` (or the
+// `storageDir` override), and (2) the on-disk bytes are protected by
+// two layers of AEAD-AES-256-GCM — the application layer is sealed
+// with the root key, the OS layer is sealed with a per-host KEK
+// derived from `${homedir()}:${hostname()}` (PBKDF2 fallback on all
+// 3 platforms; DPAPI / Keychain / libsecret in production). The
+// re-export is additive: the 23 in-memory tests are unchanged.
+// ---------------------------------------------------------------------------
+
+export { createOsBroker, newRandomRootKey, newTempStorageDir } from "./os-broker.js"
+
+// ---------------------------------------------------------------------------
 // Reference & envelope types — see ADR-010 §123, §74.
 // ---------------------------------------------------------------------------
 

@@ -57,17 +57,19 @@ export type ProtectionScheme = z.infer<typeof ProtectionSchemeSchema>
  * decrypt path — a typo here is a silent bug, since GCM's tag
  * would still verify.
  *
- * M1-06 alignment (plan §7.2 + M1-06-EVIDENCE.md §4) : the
- * `secret-broker` scaffold already hard-codes 5 domains
- * (`artifact-content`, `credential-material`, `oauth-token`,
- * `browser-auth-profile`, `sensitive-runtime-state`,
- * `packages/secret-broker/src/index.ts:171-177`) while this M1
- * contract only had 3. We extended additively to 5 by adding
- * `oauth-token` and `browser-auth-profile`. The 6th domain,
- * `sensitive-runtime-state`, lands in M1-07 (C-M1-07) when the
- * secret-broker OS-level port is committed — keeping the
- * M1-06 spike additive and preventing the GCM-tag typo class
- * of bug (silent collision).
+ * M1-07 alignment (plan §7.2 + M1-07-EVIDENCE.md §4) : the
+ * `secret-broker` scaffold hard-codes the same 6 domains as this
+ * contract (`artifact-content`, `credential-material`, `audit-row`,
+ * `oauth-token`, `browser-auth-profile`, `sensitive-runtime-state`,
+ * `packages/secret-broker/src/index.ts:171-177`). M1-06 extended
+ * this contract from 3 → 5 (added `oauth-token` and
+ * `browser-auth-profile`); M1-07 extends it from 5 → 6 by adding
+ * `sensitive-runtime-state`. The two ends now agree on the full
+ * 6-domain set, eliminating the GCM-tag typo class of bug
+ * (silent collision across a misspelled domain literal).
+ *
+ * Plan V2.3.1 §76 names exactly these 6 domains. Adding a 7th is
+ * an ADR (changes the parse-time domain set on every call site).
  */
 export const AadDomainSchema = z.enum([
   "artifact-content",
@@ -75,6 +77,7 @@ export const AadDomainSchema = z.enum([
   "audit-row",
   "oauth-token",
   "browser-auth-profile",
+  "sensitive-runtime-state",
 ])
 
 export type AadDomain = z.infer<typeof AadDomainSchema>
