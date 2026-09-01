@@ -1,0 +1,374 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Unifia contributors
+#
+# certification/gates.yaml — initial version (plan §30-31)
+# Cible premiere : Automate Core × local-single-node × Windows
+# Date : 2026-09-01
+# Source : plan V2.3.1, EXECUTION_PROFILE_REQUIREMENTS.md, THREAT_MODEL.md
+#
+# Format : chaque gate definit required suites, required commands,
+# required artifacts, required ADRs, required dependencies, security
+# thresholds, allowed skips, exact evidence.
+# Harness/test evidence prevaut sur opinion de reviewer (plan §31).
+
+version: 1
+target_profile:
+  capability: automate-core
+  execution: local-single-node
+  platform: windows
+  schema_version: 4
+
+# ============================================================
+# Section 1 — Build / typecheck / lint (gates de base)
+# ============================================================
+gates:
+  build:
+    description: "Mandatory build (sidecar + app)."
+    required_commands:
+      - "cd packages/unifia && bun run build --single"
+      - "cd packages/desktop && CARGO_BUILD_JOBS=1 bun tauri build"
+    required_artifacts:
+      - "packages/unifia/dist/unifia-windows-x64/bin/unifia.exe"
+      - "packages/desktop/src-tauri/target/release/Unifia.exe"
+      - "packages/desktop/src-tauri/target/release/unifia-cli.exe"
+      - "packages/desktop/src-tauri/target/release/templates/design/"
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §5: sidecar sha256 e5367d57a405cf84178fe56afd5d427846524b0742b6477c81f362fe6cc1c108 (build ↔ staged ↔ dist, identique)"
+      - "SESSION-2 §5: Unifia.exe demarre (keychain + sidecar spawn)"
+    status: GREEN
+    blocker: false
+
+  typecheck:
+    description: "TypeScript typecheck on the whole monorepo."
+    required_commands:
+      - "bun turbo typecheck --concurrency=1"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §7: 38/38 vert"
+    status: GREEN
+    blocker: false
+
+  lint:
+    description: "Biome lint of the monorepo source."
+    required_commands:
+      - "bunx biome check packages/"
+    required_artifacts: []
+    allowed_skips:
+      - reason: "biome ne lit pas packages/app/e2e/** (finding R-008)"
+        scope: "packages/app/e2e"
+    evidence:
+      - "SESSION-2 §7: 1452 fichiers vert"
+    status: GREEN_WITH_DEBT
+    blocker: false
+    debt_refs:
+      - "RISK_REGISTER.md#R-008"
+
+# ============================================================
+# Section 2 — Tests unitaires / integration
+# ============================================================
+  unit_app:
+    description: "Unit tests for packages/app."
+    required_commands:
+      - "cd packages/app && bun test --preload ./happydom.ts ./src"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §7: 1175 pass, 0 fail"
+    status: GREEN
+    blocker: false
+
+  unit_unifia:
+    description: "Unit tests for packages/unifia (knowledge tests)."
+    required_commands:
+      - "cd packages/unifia && bun run test:knowledge"
+    required_artifacts:
+      - "packages/unifia/dist/unifia-windows-x64/bin/unifia.exe"
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §2: 892 pass, 1 skip, 0 fail, en pilotant le binaire"
+    status: GREEN
+    blocker: false
+
+  unit_workflow_runtime:
+    description: "Unit tests for packages/workflow-runtime."
+    required_commands:
+      - "cd packages/workflow-runtime && bun test"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "listing Get-ChildItem: 1 fichier test integre (4/4 + 1/1)"
+    status: NEEDS_RE_RUN
+    blocker: false
+    note: "Re-run in PRE-1.1 to confirm 4+1 assertions and capture evidence SHA-pinned."
+
+  unit_workbench_orchestrator:
+    description: "Unit tests for packages/workbench-orchestrator."
+    required_commands:
+      - "cd packages/workbench-orchestrator && bun test test/orchestrator.test.ts"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "listing Get-ChildItem: test/ present"
+    status: NEEDS_RE_RUN
+    blocker: false
+    note: "Run + isolation test C-PRE1-05."
+
+  unit_automate_surface:
+    description: "Unit tests for automate-surface.tsx (8 gates §16.3)."
+    required_commands:
+      - "cd packages/app && bun test --preload ./happydom.ts ./src/pages/workbench/automate-surface.test.ts"
+    required_artifacts: []
+    allowed_skips: []
+    evidence: []
+    status: RED
+    blocker: true
+    blocker_reason: "Finding R-013: aucun test n'existe. Cible premiere exige au moins decodeFile + validation WorkflowDefinition."
+    debt_refs:
+      - "RISK_REGISTER.md#R-013"
+    card_refs:
+      - "IMPLEMENTATION_CARD_INDEX.md#C-PRE1-01"
+
+# ============================================================
+# Section 3 — Tests E2E (Playwright)
+# ============================================================
+  e2e_design:
+    description: "Design surface e2e (visual, a11y, approval, mode)."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/design"
+    required_artifacts:
+      - "packages/app/e2e/design/__screenshots__/win32/"
+    allowed_skips:
+      - reason: "Linux baselines visuelles absentes (finding R-007)"
+        scope: "e2e/design/design-visual.spec.ts on linux"
+    evidence:
+      - "SESSION-2 §7: 20/20 sur 3 runs consecutifs (36.3 / 37.5 / 43.1 s)"
+    status: GREEN_WIN32
+    blocker: false
+    debt_refs:
+      - "RISK_REGISTER.md#R-007"
+
+  e2e_app:
+    description: "App-wide e2e (home, modes, etc.)."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/app e2e/modes"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §7.1: workers defaut 10/19 fail (harness). PLAYWRIGHT_WORKERS=1: 22 passed / 8 failed (4 des 8 corrigés en 24b04998e2)."
+    status: PARTIAL
+    blocker: false
+    debt_refs:
+      - "RISK_REGISTER.md#R-004 (titlebar-history x3)"
+      - "RISK_REGISTER.md#R-005 (mode-reload-stability)"
+      - "RISK_REGISTER.md#R-006 (switcher mobile V06)"
+
+  e2e_automate:
+    description: "E2E for automate-surface (8 gates §16.3)."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/automate"
+    required_artifacts: []
+    allowed_skips: []
+    evidence: []
+    status: RED
+    blocker: true
+    blocker_reason: "Finding R-013: aucune spec n'existe. La cible premiere exige les 8 sorties §16.3 mesurees."
+    debt_refs:
+      - "RISK_REGISTER.md#R-013"
+    card_refs:
+      - "IMPLEMENTATION_CARD_INDEX.md#C-PRE1-01"
+
+# ============================================================
+# Section 4 — A11y
+# ============================================================
+  a11y_axe:
+    description: "Axe WCAG 2.1 AA scans, scoped to Design surface."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/design/design-a11y.spec.ts"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §3.3: 6 etats vert, hors color-contrast enregistre"
+    status: GREEN_WITH_DEBT
+    blocker: false
+    debt_refs:
+      - "RISK_REGISTER.md#R-002 (color-contrast text-text-weak)"
+      - "RISK_REGISTER.md#R-003 (nested-interactive workspace tabs)"
+
+# ============================================================
+# Section 5 — Visual regression
+# ============================================================
+  visual_regression_win32:
+    description: "Baseline-versioned visual regression on win32."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/design/design-visual.spec.ts"
+    required_artifacts:
+      - "packages/app/e2e/design/__screenshots__/win32/{light,dark}-{375,768,1280,1440}.png"
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §3.2: 8 baselines, 2 runs 20/20 consecutifs, diff artifact ecrit"
+    status: GREEN
+    blocker: false
+
+  visual_determinism:
+    description: "Capture/reload/capture byte-comparison (works on any platform)."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/design/design-visual.spec.ts -g 'determinism'"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "SESSION-2 §3.2: tourne partout, baseline ou pas"
+    status: GREEN
+    blocker: false
+
+  visual_regression_linux:
+    description: "Baseline-versioned visual regression on Linux."
+    required_commands:
+      - "PLAYWRIGHT_WORKERS=1 bunx playwright test e2e/design/design-visual.spec.ts"
+    required_artifacts: []
+    allowed_skips:
+      - reason: "Pas de baseline Linux (finding R-007). Generation en CI = gate certifie son propre resultat."
+        scope: "linux"
+    evidence: []
+    status: SKIP
+    blocker: false
+    debt_refs:
+      - "RISK_REGISTER.md#R-007"
+
+# ============================================================
+# Section 6 — Security gates (plan §125)
+# ============================================================
+  secret_canary:
+    description: "Secret-leak canary — no plaintext secret in history, logs, traces, LLM, model-visible DOM, accessibility, screenshot, artifacts, debugger, audit export."
+    required_commands:
+      - "TODO: a ecrire en M1 (canary gate, plan §125)"
+    required_artifacts: []
+    allowed_skips: []
+    evidence: []
+    status: NOT_BUILT
+    blocker: true
+    blocker_reason: "Gate de sortie plan §168. Required before any GA profile."
+    card_refs:
+      - "IMPLEMENTATION_CARD_INDEX.md#C-PRE1-01 (suite minimale prefigure)"
+      - "ADR-010"
+
+  ai_security_gates:
+    description: "Plan §168: hallucinated executable tool = 0, Critical capability omission = 0, Critical approval omission = 0, Critical data-policy violation = 0, forbidden secret-to-model flow = 0."
+    required_commands:
+      - "TODO: gold benchmark (plan §167-168), post-AI track"
+    required_artifacts: []
+    allowed_skips:
+      - reason: "AI Compiler profile non requis pour Automate Core local (cible premiere)"
+        scope: "automate-core × local-single-node"
+    evidence: []
+    status: NA_THIS_PROFILE
+    blocker: false
+
+# ============================================================
+# Section 7 — Multi-tenant
+# ============================================================
+  multi_tenant:
+    description: "Plan §226: A cannot read/use/approve B's workflow/credential/artifact/log/metric."
+    required_commands:
+      - "TODO: C-PRE1-05 (workbench-orchestrator isolation test) + ADR-020 + ADR-010"
+    required_artifacts: []
+    allowed_skips: []
+    evidence: []
+    status: NOT_BUILT
+    blocker: true
+    blocker_reason: "Pre-requis pour tout profile multi-tenant. Local-single-node n'exclut pas le multi-tenant si plusieurs workspaces sont ouverts."
+    card_refs:
+      - "IMPLEMENTATION_CARD_INDEX.md#C-PRE1-05"
+
+# ============================================================
+# Section 8 — Branche / ruleset
+# ============================================================
+  branch_protection:
+    description: "Branche d'integration est protegee par ruleset (no force-push, CI verte)."
+    required_commands:
+      - "gh api repos/Rwanbt/unifia/rulesets"
+    required_artifacts: []
+    allowed_skips:
+      - reason: "Pas d'acces a l'API GitHub dans cette session (NON EXECUTE)"
+        scope: "remote verification"
+    evidence: []
+    status: NOT_VERIFIED
+    blocker: false
+    note: "A verifier en PRE-1.1. Pas bloquant pour la cible premiere locale."
+
+# ============================================================
+# Section 9 — ADR dependencies
+# ============================================================
+  adr_dependencies:
+    description: "ADRs minimum pour la cible premiere Automate Core × local-single-node × Windows."
+    required_adrs:
+      - "ADR-000 (substrate)"
+      - "ADR-001 (canonicalisation)"
+      - "ADR-002 (WorkflowIR)"
+      - "ADR-003 (expression)"
+      - "ADR-004 (history authority)"
+      - "ADR-005 (artifact contract)"
+      - "ADR-010 (key/secret)"
+      - "ADR-019 (code/shell, architectural impact)"
+      - "ADR-020 (ownership)"
+      - "ADR-022 (timer, architectural impact)"
+      - "ADR-023 (network, architectural impact)"
+      - "ADR-024 (extension, architectural impact)"
+    allowed_skips:
+      - reason: "ADR-016/021 conditionnels (depends on substrate choice)"
+        scope: "ADR-016, ADR-021"
+    evidence: []
+    status: RED
+    blocker: true
+    blocker_reason: "Aucun ADR ecrit. ADR-000 est la premiere carte ADR."
+
+# ============================================================
+# Section 10 — Substrate proof
+# ============================================================
+  m0_substrate_proof:
+    description: "Plan §194: schedule → HTTP A → durable approval → HTTP B, prouver restart, durable wait, approval persistence, effect uncertainty, history mapping, timers, authority uniqueness."
+    required_commands:
+      - "TODO: M0-01 (IMPLEMENTATION_CARD_INDEX.md)"
+    required_artifacts: []
+    allowed_skips: []
+    evidence: []
+    status: NOT_BUILT
+    blocker: true
+    blocker_reason: "Substrate proof obligatoire avant M1."
+
+# ============================================================
+# Section 11 — Production gate (GA)
+# ============================================================
+  ga_blockers:
+    description: "Plan §236: no Critical, no High. Medium: FIXED or ACCEPTED_RISK."
+    required:
+      - "Tous les blocker ci-dessus = GREEN ou GREEN_WITH_DEBT accepte"
+      - "Aucun NO_GO architectural (plan §238)"
+    evidence: []
+    status: NOT_READY
+    blocker: true
+    blocker_reason: "Cible premiere non GA. Le pipeline complet de la phase 1 n'est pas execute."
+
+# ============================================================
+# Sortie
+# ============================================================
+output:
+  format: "machine-readable yaml, this file"
+  reader: "agent (PRE-1) + CI (post-M1)"
+  update_policy: "update after each card. After each phase. After each ADR."
+
+# ============================================================
+# Liens
+# ============================================================
+references:
+  plan: "vault/.../UNIFIA-Automate-Master-Implementation-Plan-V2.3.1.md"
+  baseline: "docs/automation-v2/BASELINE.md"
+  trust_path: "docs/automation-v2/AUTOMATE_TRUST_PATH.md"
+  risk_register: "docs/automation-v2/RISK_REGISTER.md"
+  package_map: "docs/automation-v2/PACKAGE_MIGRATION_MAP.md"
+  card_index: "docs/automation-v2/IMPLEMENTATION_CARD_INDEX.md"
+  threat_model: "docs/automation-v2/THREAT_MODEL.md"
+  execution_profile: "docs/automation-v2/EXECUTION_PROFILE_REQUIREMENTS.md"
+  execution_status: "docs/automation-v2/EXECUTION_STATUS.md"
+  session_2_report: "D:/App/unifia/.artifacts/production-readiness/rev3m-20260901/SESSION-2-REPORT.md"
