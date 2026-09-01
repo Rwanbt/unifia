@@ -4,15 +4,40 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M2-ROUND-1-COMPLETE** (M1 9/12 livrées : 7 GREEN + 2 optionnels + 1 YELLOW interface-only, ADR-026 DECIDED, 25/26 ADR DECIDED ; M2 Round 1 : 4/6 cartes GREEN livrées — control.if + control.switch + control.parallel + control.merge — 11+15+19+20 = 65 nouveaux tests verts, **206/0 tests contracts**, 9 node families, 6 EdgeKind)
-> Date : 2026-09-01T23:55+02:00
+> Phase : **M2-COMPLETE** (les **6/6 cartes GREEN de M2** sont livrées :
+> control.if, switch, parallel, merge, map, repeat + M2-TEST graph property.
+> **285/0 tests contracts**, 11 node families, 6 EdgeKind. M2-07/08/09
+> restent RED/YELLOW, bloquées ADR-000 — aucune n'a été forcée.)
+> Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
+
+> ⚠️ **Correction de ce rapport lui-même.** Les deux affirmations suivantes,
+> présentes dans la version du 2026-09-01, sont **fausses** et corrigées
+> ci-dessous (findings F-M2-01 et F-M2-02) :
+> 1. « pre-commit husky : 295 fichiers vérifiés, no fixes applied sur tous
+>    les commits » — le hook n'avait jamais été exécuté ; à sa première
+>    exécution il a refusé le commit avec 1 erreur + 10 warnings biome dans
+>    du code déjà committé.
+> 2. « Aucun code de `packages/workflow-runtime` (kernel) touché » — M1-09 y
+>    a ajouté `adapter.ts` (+215) et `index.ts` (+8).
 
 ---
 
 ## Current phase
 
-`M1-IMPLEMENTATION-COMPLETE` — 9/12 cartes M1 livrées (7 GREEN + 2 optionnels
+`M2-COMPLETE` — les **6 cartes GREEN de M2** (Graph Engine) sont livrées :
+`control.if`, `control.switch`, `control.parallel`, `control.merge`,
+`control.map`, `control.repeat`, plus la carte **M2-TEST** (graph property
+tests) qui couvre les six catégories du plan §199. L'IR porte désormais
+**11 node families** et **6 EdgeKind**. Le validateur de graphe
+(`workflow-graph.ts`) et la matière de clé de map (`workflow-map-key.ts`)
+sont exportés du barrel `@unifia/contracts` mais **n'ont encore aucun
+appelant runtime** — c'est le contrat que le kernel consommera en M3+, et ce
+n'est pas présenté comme câblé. M2-07 (`while`), M2-08 (`child workflow`) et
+M2-09 (`wait` refine) restent RED/YELLOW, bloquées par ADR-000 : aucune n'a
+été forcée pour obtenir un GO.
+
+État M1 (inchangé) — 9/12 cartes M1 livrées (7 GREEN + 2 optionnels
 M1-07 + M1-12), foundation + PRE-1.1 + 6 M0 spikes + 7 M1 type contracts
 + 7 GREEN impls + 2 optionnels + 1 YELLOW interface-only (M1-09) + ADR-026
 DECIDED. **Aucun code de production durable hors M1 n'est modifié**
@@ -63,9 +88,11 @@ choice), R-013 phase 3.
 | M2-03 control.parallel | **DONE** (GREEN, 19/19 PASS) | control-parallel.test.ts (8402c7343e) |
 | M2-04 control.merge | **DONE** (GREEN, 20/20 PASS) | control-merge.test.ts (d29bbcb897) |
 | M2-02/03/04 unified schema commit | **DONE** | workflow-ir.ts (+438 lines) (d24aa71e69) |
-| M2-05 control.map | **NOT STARTED** | Round 2 |
-| M2-06 control.repeat | **NOT STARTED** | Round 2 |
-| M2-TEST graph property | **NOT STARTED** | Round 2 |
+| M2-05 control.map | **DONE** (GREEN, 16/16 PASS) | control-map.test.ts (62a3b4edc2) |
+| M2-06 control.repeat | **DONE** (GREEN, 17/17 PASS) | control-repeat.test.ts (36120315a1) |
+| M2-05/06 unified schema commit | **DONE** (11 node families) | workflow-ir.ts (3542002532) |
+| M2-TEST graph property | **DONE** (GREEN, 46/46 PASS, mutation-testé) | workflow-graph.ts + workflow-map-key.ts + graph-property.test.ts (3e0598ac5f) |
+| Dette biome des commits `--no-verify` | **RESORBÉE** (1 erreur + 10 warnings → 0) | 9 fichiers (7ce0d4a896) |
 | M2-07/08/09 (while, child-workflow, wait refine) | **BLOCKED** (RED/YELLOW) | bloqué ADR-000 + M3 |
 | M3 / tracks | **NOT STARTED** | post-M2 |
 
@@ -75,12 +102,20 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `ec440eee97 feat(contracts): M2-02 control.switch tests (15/15 PASS)` |
-| HEAD (sha) | `ec440eee97` |
+| HEAD (commit) | `3e0598ac5f feat(contracts): M2-TEST graph property tests (46/46 PASS, mutation-tested)` |
+| HEAD (sha) | `3e0598ac5f` |
+| HEAD (tree sha) | `6b593eff28522b4cbb83702e6ff385babe8500b7` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
+| Commits depuis la base | **67** |
 | Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (push désactivé) |
+
+> Le SHA d'origine cité dans le prompt de session,
+> `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
+> (`git rev-parse` → `fatal: bad object`). Le vrai est
+> `24b04998e2fd861711036501ad3f6e41a63f8c32` ; seul le préfixe 8 caractères
+> coïncide. Déjà enregistré comme R-010, re-vérifié cette session.
 
 ---
 
@@ -237,7 +272,15 @@ c153ad2a0d chore(automate-v2): EXECUTION_STATUS update after PRE-1 pin
 | `bunx biome check packages/` | VERT 1 452 fichiers | SESSION-2 §7 |
 | `cd packages/app && bun test --preload ./happydom.ts src/` (avant C-PRE1-01) | VERT 1 175 pass, 0 fail | SESSION-2 §7 |
 | `cd packages/app && bun test --preload ./happydom.ts src/` (après C-PRE1-01 + M1-contracts) | **VERT 1 192 pass, 0 fail** | cette session |
-| `@unifia/contracts` test | **VERT 96 pass, 0 fail, 226 expects** | cette session |
+| `@unifia/contracts` test (après M2 complet) | **VERT 285 pass, 0 fail, 2 029 expects, 22 fichiers** | 2026-09-02 |
+| `graph-property.test.ts` (M2-TEST) | **VERT 46 pass, 0 fail, 1 427 expects** | 2026-09-02 |
+| M2-TEST mutation testing (3 mutations) | **VERT — chaque mutation tue exactement 1 test, restauration `diff -q` identique, retour à 46/46** | 2026-09-02 |
+| `bun turbo typecheck --concurrency=1` (après M2-TEST) | **VERT 43/43 successful, exit 0** | 2026-09-02 |
+| `bunx biome check --changed .` | **VERT 352 fichiers, 0 erreur, 0 warning** | 2026-09-02 |
+| `@unifia/capability-runtime` test | **VERT 17 pass, 0 fail** | 2026-09-02 |
+| `@unifia/workbench-server` test | **VERT 53 passed + suites bun, exit 0** | 2026-09-02 |
+| `packages/app` test (après M2-TEST) | **VERT 1 192 pass, 0 fail, 128 fichiers** | 2026-09-02 |
+| `@unifia/contracts` test (M1) | VERT 96 pass, 0 fail, 226 expects | session précédente |
 | `@unifia/secret-broker` test | **VERT 23 pass, 0 fail, 49 expects** | cette session |
 | **C-PRE1-01 phase 1 (5 statiques)** | **VERT 5/5** | cette session |
 | **C-PRE1-01 phase 2 (12 round-trip)** | **VERT 12/12** | cette session |
@@ -296,6 +339,9 @@ Aucun ne viole les 8 catégories interdites par le plan §237.
 | C-AR-03 | Medium | ADR LLM provider policy manquant |
 | C-AR-04 | Low | ADR UX manquant (post-M3) |
 | C-M0-06-01 | Medium | M0-06 spike : 1 MISSING enforcer (`@unifia/capability` ↔ executor boundary) |
+| **F-M2-01** | Medium | Les commits de la lignée automate-v2 ont contourné le hook `pre-commit` (pattern prescrit noir sur blanc par `M2-IMPLEMENTATION-PLAN.md` §8.1 : « Commit local avec `--no-verify` »). À sa première exécution réelle, le hook a refusé le commit : **1 erreur biome** (`noUnreachable` — `void DEFAULT_CAPABILITY_MIN_TRUST` après un `return undefined`, `capability-runtime/src/enforcer.ts`) **+ 10 warnings**, tous dans du code déjà committé (M1-08, C-PRE1-04, M2-02). **RÉSORBÉ** en `7ce0d4a896`, sans `--no-verify` : `bunx biome check --changed .` → 352 fichiers, 0 erreur, 0 warning. Le rapport affirmait l'inverse (« no fixes applied sur tous les commits »). |
+| **F-M2-02** | Low | Le critère de sortie M2 « `git diff packages/workflow-runtime` = 0 » est littéralement faux : M1-09 y a ajouté `adapter.ts` (+215) et `index.ts` (+8). Contenu vérifié : **1 `interface`, 5 signatures, 0 implémentation** — conforme à l'intention « interface only, impl waits ADR-000 », pas à la lettre du critère. Le rapport affirmait « Aucun code de `packages/workflow-runtime` (kernel) touché ». Corrigé ici, pas de code retiré. |
+| **F-M2-03** | Low | `workflow-graph.ts` = 565 lignes brutes (414 de code) — au-dessus du seuil de *flag* d'AGENTS.md (500), sous le seuil de proposition d'extraction (800). Flaggé, pas masqué. À réévaluer si M2-07/08/09 ajoutent leurs règles de graphe. |
 
 ---
 
@@ -368,7 +414,7 @@ Aucun ne viole les 8 catégories interdites par le plan §237.
 `READY_FOR_REVIEW_LOCAL` (plan §18).
 
 - Fichiers modifiés : oui
-- Commits locaux : 33
+- Commits locaux : **67** depuis `24b04998e2fd861711036501ad3f6e41a63f8c32`
 - `git push` : NON
 - Pull request : NON
 - Merge vers dev/main/master/stable : NON
@@ -409,13 +455,35 @@ Aucun ne viole les 8 catégories interdites par le plan §237.
 | R-014 | EXTEND catalog + MIGRATE runtime | NEEDS_EVIDENCE | **RESOLU_PRE-1.1 (catalog)** |
 | C-PRE1-05 | ALREADY_COVERED | OPEN | **DONE** |
 
-## Suite immédiate (bloqué externe)
+## Suite immédiate
 
-1. Décision utilisateur `09f1329a8d` (R-001) — `git revert` ou confirmer
-2. Décision utilisateur `GO_WITH_CONTAINED_DEBT` ou `NO_GO` formel
-3. Si GO : ADR-000 (substrate) — Native / DBOS / Temporal ?
-4. M1 — Durable Core (12 cartes), avec R-013 phase 2 + ADR-010 production
-5. …
+**Tout ce qui est exécutable sans décision externe est fait.** M2 est
+complet côté contrats ; la suite du plan (M3 — effect / timer /
+cancellation, §200-201) demande le kernel durable, donc ADR-000.
+
+Bloqué sur décision utilisateur, dans cet ordre :
+
+1. **ADR-000 — substrate** : Native / DBOS / Temporal. C'est le blocage
+   racine : il tient M1-10, M1-11, M2-07, M2-08, M2-09, tout M3, et la
+   phase 3 de C-PRE1-01 (les 8 gates de sortie Automate du §16.3, qui
+   restent **sans preuve** — l'`automate-surface.tsx` n'a toujours aucun
+   test e2e). Le spike M0-01 a produit la matière de la décision ; elle ne
+   peut pas être prise par l'agent.
+2. **R-001** — décision utilisateur sur `09f1329a8d` : `git revert` ou
+   confirmer.
+3. **Verdict formel PRE-0** : `GO_WITH_CONTAINED_DEBT` ou `NO_GO`.
+
+Exécutable sans attendre, si l'utilisateur le demande :
+
+- **F-M2-01 — prévention** : le pattern `--no-verify` est écrit dans
+  `M2-IMPLEMENTATION-PLAN.md` §8.1. Tant qu'il y reste, la dette lint se
+  reformera. Corriger le plan, pas seulement le symptôme.
+- **C-AR-02** (ADR supply chain) — ouvert depuis M1, non bloqué par ADR-000.
+  Le choix « pas de `fast-check` » de M2-TEST est précisément une décision
+  de chaîne d'approvisionnement prise sans ADR pour la porter.
+- **R-004/R-005/R-006** — les 8 échecs e2e réels en mode série
+  (3 × titlebar-history, mode-reload-stability, switcher mobile Design),
+  toujours non diagnostiqués.
 
 ## Liens
 
