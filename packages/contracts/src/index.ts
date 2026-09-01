@@ -50,3 +50,6 @@ export * from "./credential.js"
 export * from "./identity.js"
 export * from "./timer.js"
 export * from "./artifact-record.js"
+// C-M1-08 — Capability Authority enforcer contracts (Plan V2.3.1 §114, ADR-002/020/024).
+// Discriminated-union result for `enforce(principal, capability, scope, trustClass, manifest)`.
+export * from "./enforcement.js"

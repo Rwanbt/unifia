@@ -113,6 +113,20 @@
         "typescript": "catalog:",
       },
     },
+    "packages/artifact-store": {
+      "name": "@unifia/artifact-store",
+      "version": "0.1.0",
+      "dependencies": {
+        "@unifia/contracts": "workspace:*",
+        "@unifia/digest-runtime": "workspace:*",
+        "@unifia/secret-broker": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "22.0.2",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/artifact-studio": {
       "name": "@unifia/artifact-studio",
       "version": "0.1.0",
@@ -3006,6 +3020,8 @@
     "@unifia/artifact-render": ["@unifia/artifact-render@workspace:packages/artifact-render"],
 
     "@unifia/artifact-runtime": ["@unifia/artifact-runtime@workspace:packages/artifact-runtime"],
+
+    "@unifia/artifact-store": ["@unifia/artifact-store@workspace:packages/artifact-store"],
 
     "@unifia/artifact-studio": ["@unifia/artifact-studio@workspace:packages/artifact-studio"],
 
