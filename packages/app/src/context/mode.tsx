@@ -5,7 +5,6 @@ import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
 import { modeHref, parseModeLocation, sessionAdoptionPath } from "./mode-directory"
 import { Persist, persisted } from "@/utils/persist"
-import { useWorkspaceWorkbench } from "./workbench/provider"
 
 // ADR-1041 supersedes ADR-1033. SHELL_MODES is still the 4-entry contract
 // (check-mode-registry depends on it). The Automate surface is reachable
@@ -19,14 +18,20 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
   init: () => {
     const location = useLocation()
     const navigate = useNavigate()
-    const workbench = useWorkspaceWorkbench()
     // DA-UI-01 — the rail hides Automate unless the principal holds
-    // `workflow.run` on the active workspace. The memo reads the
-    // connection's `grants` (see `useWorkspaceWorkbench`); an empty
-    // set is returned before the first `connect` resolves, which is
-    // the correct "hidden" posture (an in-flight connection must not
-    // flash Automate into the rail before the broker decides).
-    const automateAccessible = createMemo<boolean>(() => workbench.grants().has("workflow.run"))
+    // `workflow.run` on the active workspace. It starts hidden: an
+    // in-flight connection must not flash Automate into the rail before
+    // the broker has decided.
+    //
+    // The grant is PUSHED in by `AutomateGrantBridge` (directory-layout),
+    // never pulled from here. Reading `useWorkspaceWorkbench()` in this
+    // init inverted the provider hierarchy — `ModeProvider` is mounted in
+    // `app.tsx` above the router, while `WorkspaceWorkbenchProvider` sits
+    // inside `directory-layout.tsx` and takes `mode.sessionId()` as a
+    // prop. A parent cannot read a context its own descendant provides:
+    // the lookup threw during init and the error boundary replaced the
+    // whole application, on every route.
+    const [automateAccessible, setAutomateAccessible] = createSignal(false)
     const visibleModes = createMemo<readonly ShellMode[]>(() =>
       automateAccessible() ? SHELL_MODES : SHELL_MODES.filter((mode) => mode !== "automate"),
     )
@@ -86,6 +91,14 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
 
     return {
       modes: visibleModes,
+      /**
+       * Reports whether the active workspace grants `workflow.run`.
+       *
+       * Only `AutomateGrantBridge` calls this. It is a setter rather than a
+       * read of the workbench context because of the hierarchy described
+       * above; see `automate-flag.ts` for the predicate itself.
+       */
+      setAutomateAccessible,
       active,
       select,
       directory,
