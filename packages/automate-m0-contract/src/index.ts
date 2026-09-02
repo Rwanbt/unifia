@@ -12,5 +12,8 @@
  * WorkflowIR complet" — `@unifia/contracts` owns that, and the two are
  * deliberately kept apart so the harness cannot inherit an M1 decision.
  */
+export * from "./ids.js"
 export * from "./value.js"
+export * from "./effect.js"
+export * from "./timer.js"
 export * from "./vectors.js"
