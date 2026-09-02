@@ -4,6 +4,13 @@
 # M0-01-BIS EVIDENCE — second tour de qualification substrate (ADR-000)
 
 > Statut : **EVIDENCE_PINNED** — les 3 lignes `UNVERIFIED` d'ADR-000 sont levées
+>
+> ⚠️ **Révisé le 2026-09-02 après review.** Les mesures de ce document sont
+> confirmées et inchangées. En revanche, **deux des conclusions qu'il en
+> tirait étaient trop fortes** : l'élimination de Restate et celle de
+> DBOS-Go reposaient sur des requirements (REQ-6, REQ-4) qui ne sont pas
+> normativement définis. Voir §7. **A n'est pas « la seule survivante »** :
+> elle est survivante conditionnelle.
 > Date : 2026-09-02
 > Motif : finding **F-M2-04** — le premier tour (M0-01) n'a mesuré ni B ni D,
 > et a mesuré le `workflow-runtime` legacy au lieu de l'option A.
@@ -98,11 +105,68 @@ Il reste donc **une seule option pour la cible première : A**.
 | Élément | Statut |
 |---|---|
 | Code de production modifié | **NON** |
-| Dépendance ajoutée | **NON** (aucun `bun add`, lockfile intact) |
-| U-1 / U-2 / U-3 / U-4 | **LEVÉES** |
-| Spike comparatif §38 | **SANS OBJET** (éliminateurs durs en amont) |
-| Options survivantes (cible première) | **A seule** |
-| Décision ADR-000 | **PRÊTE À RATIFIER** — décideur : Erwan (engagement irréversible) |
+| Dépendance ajoutée | **NON** (aucun `bun add`, lockfile intact par ce tour) |
+| U-1 / U-2 / U-3 / U-4 | **LEVÉES** — mesures confirmées par la review |
+| Spike comparatif §38 | **SANS OBJET** pour B et D ; sans objet pour B′ et C **seulement si** P-2 et P-1 sont tranchées |
+| Options éliminées sur le fond | **B** (DBOS TypeScript), **D** (Temporal) |
+| Options non éliminées | **B′** `NOT_QUALIFIED`, **C** `BLOCKED_ON_POLICY` |
+| Options survivantes (cible première) | **A, conditionnellement** |
+| Décision ADR-000 | **CHANGES_REQUIRED_BEFORE_RATIFICATION** — 2 décisions de politique produit ouvertes (P-1, P-2) |
+
+## 7. Révision après review (2026-09-02)
+
+La review d'Erwan a confirmé les mesures et infirmé deux conclusions. Ce
+que ce document affirmait en §2 et §3 est corrigé ici ; **rien n'est
+supprimé**, pour que l'écart reste lisible.
+
+### 7.1 Restate — l'élimination était trop rapide
+
+Deux faits **non vérifiés lors du premier passage**, vérifiés depuis :
+
+| Fait | Source |
+|---|---|
+| **Additional Use Grant** : « You may make use of the Licensed Work, provided that you may not use the Licensed Work for a **Public Restate Platform Service** ». Il autorise explicitement une plateforme de workflow publique posant une abstraction (GUI, DSL, API) au-dessus de Restate, tant que les utilisateurs finaux n'enregistrent pas leurs propres services via les API Restate. **C'est le modèle d'Unifia Automate.** | [`LICENSE`](https://raw.githubusercontent.com/restatedev/restate/main/LICENSE) |
+| **Change License** : Apache 2.0, 4 ans après release | idem |
+| **Topologie** : binaire unique auto-contenu, **aucune dépendance externe**, journal et state en **RocksDB embarqué**, du laptop au cloud | [docs Restate](https://docs.restate.dev/develop/local_dev/), [blog Restate](https://www.restate.dev/blog/announcing-restate-1.2) |
+
+Restate satisfait donc **REQ-2, REQ-4 et REQ-7**. Il est juridiquement
+utilisable par Unifia. Son élimination ne peut reposer que sur une
+**politique de licence OSI-only**, qui n'est écrite nulle part.
+→ `BLOCKED_ON_POLICY`, pas `ÉLIMINÉ`.
+
+### 7.2 DBOS-Go — « ce n'est pas TypeScript » n'est pas un éliminateur
+
+REQ-4, dans sa formulation actuelle, ne démontre pas qu'un sidecar Go
+empaqueté et piloté par Unifia violerait l'architecture produit : un tel
+sidecar peut exposer une API TS par IPC sans devenir une infrastructure
+administrée séparément. → `NOT_QUALIFIED — REQUIRES_PACKAGING_EVALUATION`.
+
+### 7.3 Temporal — bonne conclusion, mauvais motif
+
+Ce document écrivait que « la doc renvoie explicitement au self-hosted
+guide **ou à Temporal Cloud** pour la production », ce qui suggérait que le
+self-hosting production n'était pas une voie documentée. **C'est inexact** :
+Temporal documente explicitement le self-hosting en production. Le motif
+correct est la **topologie** : un Temporal Service en production exige une
+base administrée séparément (PostgreSQL, MySQL ou Cassandra), ce qui viole
+REQ-2 pour `local-single-node`. Conclusion inchangée, raisonnement plus
+robuste.
+
+### 7.4 Ce qui tient sans réserve
+
+- **DBOS TypeScript** reste éliminé : Postgres requis, SQLite Go-only.
+  L'éliminateur est mesuré et solide.
+- Les quatre mesures U-1 à U-4 sont exactes et inchangées.
+- Le spike comparatif §38 reste sans objet **pour B et D**.
+
+### 7.5 Défaut de traçabilité découvert en révisant
+
+Les identifiants `REQ-1` … `REQ-12` **n'existent pas** dans
+`EXECUTION_PROFILE_REQUIREMENTS.md`, leur source citée. Ce document §5
+contient un tableau de contraintes **non numéroté**. La ligne réelle pour
+REQ-6 est `License compatible (MIT) | projet`. La numérotation `REQ-N` est
+une coinage d'ADR-000 présentée comme sourcée — c'est la cause racine de la
+faiblesse de REQ-4 et REQ-6.
 
 ## Liens
 

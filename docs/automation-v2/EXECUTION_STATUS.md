@@ -341,7 +341,11 @@ Aucun ne viole les 8 catégories interdites par le plan §237.
 | C-M0-06-01 | Medium | M0-06 spike : 1 MISSING enforcer (`@unifia/capability` ↔ executor boundary) |
 | **F-M2-01** | Medium | Les commits de la lignée automate-v2 ont contourné le hook `pre-commit` (pattern prescrit noir sur blanc par `M2-IMPLEMENTATION-PLAN.md` §8.1 : « Commit local avec `--no-verify` »). À sa première exécution réelle, le hook a refusé le commit : **1 erreur biome** (`noUnreachable` — `void DEFAULT_CAPABILITY_MIN_TRUST` après un `return undefined`, `capability-runtime/src/enforcer.ts`) **+ 10 warnings**, tous dans du code déjà committé (M1-08, C-PRE1-04, M2-02). **RÉSORBÉ** en `7ce0d4a896`, sans `--no-verify` : `bunx biome check --changed .` → 352 fichiers, 0 erreur, 0 warning. Le rapport affirmait l'inverse (« no fixes applied sur tous les commits »). |
 | **F-M2-02** | Low | Le critère de sortie M2 « `git diff packages/workflow-runtime` = 0 » est littéralement faux : M1-09 y a ajouté `adapter.ts` (+215) et `index.ts` (+8). Contenu vérifié : **1 `interface`, 5 signatures, 0 implémentation** — conforme à l'intention « interface only, impl waits ADR-000 », pas à la lettre du critère. Le rapport affirmait « Aucun code de `packages/workflow-runtime` (kernel) touché ». Corrigé ici, pas de code retiré. |
-| **F-M2-04** | **High** → **RÉSOLU** (2026-09-02, M0-01-BIS) | **Résolution** : second tour de qualification mené aux sources primaires. Les 3 `UNVERIFIED` sont levées — DBOS TS = **MIT** mais **exige Postgres** (SQLite est Go-only, juin 2026) ; Restate = **BSL 1.1** non-OSI ; `temporalite` **archivé**, son remplaçant explicitement non-production et in-memory par défaut. **B, B′, C et D tombent tous sur des éliminateurs durs ; A est la seule survivante** pour la cible première. Le spike comparatif §38 est **sans objet** — on ne compare pas des options déjà éliminées. Critère d'ADR-000 réécrit : *A est retenue par élimination, pas par démonstration*. ADR-000 passe `PROPOSED` → **READY_TO_RATIFY**. Évidence : `spikes/M0-01-BIS-EVIDENCE.md`. Énoncé initial du finding ci-dessous. |
+| **F-M2-05** | **High** | **Deux éliminateurs d'ADR-000 ne sont pas normatifs, et l'un d'eux peut changer le vainqueur** (review Erwan, 2026-09-02). **(a)** L'élimination de **Restate** repose sur REQ-6, dont la source dit littéralement `License compatible (MIT) | projet` — ambiguë. Vérifié depuis : l'**Additional Use Grant** de la BSL 1.1 autorise explicitement une plateforme de workflow posant une abstraction au-dessus de Restate (le modèle Unifia), la Change License est Apache 2.0 à 4 ans, et Restate est un **binaire unique auto-contenu** à RocksDB embarqué — donc REQ-2/4/7 satisfaits. Restate passe `ÉLIMINÉ` → **`BLOCKED_ON_POLICY`**. **(b)** L'élimination de **DBOS-Go** repose sur REQ-4 ; « ce n'est pas TypeScript » ne démontre pas une violation d'architecture. Passe → **`NOT_QUALIFIED — REQUIRES_PACKAGING_EVALUATION`**. **(c)** Défaut racine : les IDs `REQ-1`…`REQ-12` **n'existent pas** dans `EXECUTION_PROFILE_REQUIREMENTS.md`, leur source citée — coinage d'ADR-000 présenté comme sourcé. ADR-000 repasse `READY_TO_RATIFY` → **`CHANGES_REQUIRED_BEFORE_RATIFICATION`**, A = `SURVIVANT_CONDITIONNEL`. Deux décisions produit ouvertes (P-1 licence OSI-only ?, P-2 politique de runtime ?). |
+| **F-M2-06** | **High** | **REQ-11 d'ADR-000 contredisait le plan gelé.** Il exigeait un « pipeline d'effet **at-most-once** via idempotency identity » alors que le plan §85 s'intitule littéralement **« NO EXACTLY-ONCE CLAIM »** et impose `durable at-least-once + idempotency + reconciliation`, avec `UNKNOWN_EXTERNAL_STATE` (§88) quand le résultat n'est pas établissable. Une clé d'idempotence ne transforme pas un appel HTTP arbitraire en at-most-once. **CORRIGÉ** : REQ-11 réécrit sur la sémantique du plan. Risque évité : implémenter précisément la fausse garantie que le plan interdit. |
+| **F-M2-07** | Medium | **ADR-000 préemptait quatre autres ADR et annulait le Local GA à surface réduite.** (a) Sa description de l'option A imposait « history SQLite, timer en arbre d'intervalles, effect identity par hash » — décisions appartenant à ADR-004, ADR-022/008, ADR-001 et ADR-007. (b) Sa section *Consequences* exigeait que « toutes les node families du plan §57 soient implémentées, Browser compris », ce qui contredit le modèle `Capability Profile × Execution Profile × Platform` (§186-189) et la décision de Local GA à surface réduite (§189 : « Pas MVP »). **CORRIGÉ** aux deux endroits. |
+| **F-M2-08** | Medium | **ADR-000 sautait M0 — Substrate Proof.** Il désignait les gates M1 et la crash matrix M3 comme filet de preuve du kernel natif. Le plan §194 prévoit déjà **M0**, « Non-release. **Utilise substrate choisi.** », avec `schedule → HTTP A → durable approval → HTTP B` prouvant restart, durable wait, approval persistence, effect uncertainty, history mapping, timers et authority uniqueness. Ordre correct rétabli : qualification → ratification → **M0 proof** → ADR/contracts → M1 gate → M1. Un échec M0 rouvre ADR-000 **avant** l'investissement M1. Deux surclaims associés corrigés : « engagement irréversible » (faux avant M0) et « la licence MIT garantit l'absence de vendor hostile » (une licence encadre des droits, pas des comportements). |
+| **F-M2-04** | **High** → **RÉSOLU** (2026-09-02, M0-01-BIS), **puis partiellement rouvert par F-M2-05** | **Résolution** : second tour de qualification mené aux sources primaires. Les 3 `UNVERIFIED` sont levées — DBOS TS = **MIT** mais **exige Postgres** (SQLite est Go-only, juin 2026) ; Restate = **BSL 1.1** non-OSI ; `temporalite` **archivé**, son remplaçant explicitement non-production et in-memory par défaut. **B, B′, C et D tombent tous sur des éliminateurs durs ; A est la seule survivante** pour la cible première. Le spike comparatif §38 est **sans objet** — on ne compare pas des options déjà éliminées. Critère d'ADR-000 réécrit : *A est retenue par élimination, pas par démonstration*. ADR-000 passe `PROPOSED` → **READY_TO_RATIFY**. Évidence : `spikes/M0-01-BIS-EVIDENCE.md`. Énoncé initial du finding ci-dessous. |
 | F-M2-04 (énoncé initial) | High | **Le critère de décision d'ADR-000 n'est pas applicable à l'évidence collectée.** Le spike M0-01 a mesuré le `workflow-runtime` *legacy* (91 lignes), pas l'option A (kernel natif à écrire) : son unique FAIL est un bug du legacy, pas une propriété de A. Et ni B (DBOS) ni D (Temporal) n'ont été exercés — `grep -ci 'dbos\|temporal\|restate'` sur les 265 lignes du spike → **0**, ce que le spike déclare lui-même en §4. Les 3 lignes `UNVERIFIED` d'ADR-000 (license DBOS, DBOS-SQLite, statut production `temporalite`) le sont toujours, alors que 2 d'entre elles sont des **éliminateurs durs**. ADR-000 bloque M1-10, M1-11, M2-07/08/09, tout M3 et C-PRE1-01 phase 3 — le blocage racine repose donc sur un critère qu'aucune mesure ne peut trancher en l'état. Consigné dans ADR-000 (section « Écart entre le critère de décision et l'évidence disponible »). **Aucune décision prise par l'agent** : ADR-000 désigne Erwan comme décideur et l'engagement est irréversible. |
 | **F-M2-03** | Low | `workflow-graph.ts` = 565 lignes brutes (414 de code) — au-dessus du seuil de *flag* d'AGENTS.md (500), sous le seuil de proposition d'extraction (800). Flaggé, pas masqué. À réévaluer si M2-07/08/09 ajoutent leurs règles de graphe. |
 
@@ -465,16 +469,30 @@ cancellation, §200-201) demande le kernel durable, donc ADR-000.
 
 Bloqué sur décision utilisateur, dans cet ordre :
 
-1. **ADR-000 — substrate : plus qu'une ratification.** Le second tour
-   M0-01-BIS (2026-09-02) a levé les 3 `UNVERIFIED` aux sources primaires
-   et éliminé B, B′, C et D sur des éliminateurs durs. **A (kernel natif
-   Unifia) est la seule option survivante** pour la cible première. Statut
-   `READY_TO_RATIFY`. Il n'y a plus de travail d'ingénierie en amont — la
-   décision est irréversible et engage tout M1-M3, donc l'agent ne la prend
-   pas. Tant qu'elle n'est pas ratifiée, restent bloqués : M1-10, M1-11,
+1. **ADR-000 — deux décisions de politique produit, puis ratification.** La
+   review du 2026-09-02 a ramené l'ADR à
+   `CHANGES_REQUIRED_BEFORE_RATIFICATION`. Les corrections de fond
+   (F-M2-06/07/08) sont appliquées. Restent **deux questions qui ne sont
+   écrites nulle part** — ni plan gelé, ni `EXECUTION_PROFILE_REQUIREMENTS`,
+   ni aucun `AGENTS.md` :
+
+   - **P-1** — REQ-6 signifie-t-il « **OSI-approved obligatoire** » ou
+     « juridiquement compatible » ? Strict → Restate reste éliminé. Large →
+     **Restate revient**, et devient le concurrent externe le plus sérieux
+     de A (binaire unique, RocksDB embarqué, SDK TS, grant couvrant le
+     modèle Unifia).
+   - **P-2** — adopte-t-on une **politique de runtime** interdisant tout
+     nouveau sidecar dans un langage absent de la distribution Unifia pour
+     le premier profil ? Oui → DBOS-Go proprement éliminé. Non → il doit
+     être qualifié sur son packaging.
+
+   Tant qu'elles ne sont pas tranchées, restent bloqués : M1-10, M1-11,
    M2-07, M2-08, M2-09, **tout M3**, et la phase 3 de C-PRE1-01 — donc les
    8 gates de sortie Automate du §16.3, toujours **sans preuve**
    (`automate-surface.tsx` n'a toujours aucun test e2e).
+
+   Après ratification, le filet immédiat est **M0 — Substrate Proof**
+   (plan §194), pas M1.
 2. **R-001** — décision utilisateur sur `09f1329a8d` : `git revert` ou
    confirmer.
 3. **Verdict formel PRE-0** : `GO_WITH_CONTAINED_DEBT` ou `NO_GO`.
