@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M3-ROUND-1-COMPLETE** (M2 6/6 GREEN + M2-TEST 285/0 tests ; M3 2/7 cartes GREEN livrées — M3-01/02 unifié m0-contract + M3-03 idempotency. **310/0 tests contracts** + **141/0 tests m0-contract** = **451/0 tests V2 contrats, 0 fail**. M3-04..07 + M3-08/09/10 = next)
+> Phase : **M3-ROUND-2-COMPLETE** (M2 6/6 GREEN + M2-TEST 285/0 tests ; M3 7/7 cartes GREEN livrées — M3-01/02 m0-contract + M3-03 idempotency + M3-04/05/06/07/08 unifié. **372/0 tests contracts** + **141/0 tests m0-contract** = **513/0 tests V2 contrats, 0 fail**. M3-09/10/08 RED (contrat) + M3-TEST = next)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -92,11 +92,14 @@ choice), R-013 phase 3.
 | M3-IMPLEMENTATION-PLAN | **DONE** (10 cartes : 7 GREEN + 3 RED) | docs/automation-v2/M3-IMPLEMENTATION-PLAN.md (2a7a0e45a9) |
 | M3-01/02 attempts + effect identity | **DONE** (GREEN, 11/11 new tests) | automate-m0-contract/src/effect.ts + test (f1f3db836e) |
 | M3-03 idempotency | **DONE** (GREEN, 25/25 tests PASS) | contracts/src/workflow-ir.ts + idempotency.test.ts (5c12c64d55) |
-| M3-04 retry | **NOT STARTED** | Round 2 |
-| M3-05 reconciliation | **NOT STARTED** | Round 2 |
-| M3-06 UNKNOWN_EXTERNAL_STATE | **NOT STARTED** | Round 2 |
-| M3-07 compensation | **NOT STARTED** | Round 2 |
-| M3-08/09/10 (durable timer, timeouts, cancellation) | **BLOCKED** (RED) | bloqué ADR-000 (contrat possible, impl runtime attend) |
+| M3-04 retry | **DONE** (GREEN, 62/62 tests PASS unifié M3-04..08) | workflow-ir.ts + m3-effect.test.ts (4dfe551fda) |
+| M3-05 reconciliation | **DONE** (GREEN) | idem (4dfe551fda) |
+| M3-06 UNKNOWN_EXTERNAL_STATE | **DONE** (GREEN) | idem (4dfe551fda) |
+| M3-07 compensation | **DONE** (GREEN) | idem (4dfe551fda) |
+| M3-08 wait (contrat only) | **DONE** (GREEN) | idem — `WaitConfigSchema` (4dfe551fda) |
+| M3-08 wait (impl runtime) | **BLOCKED** (RED) | bloqué ADR-000 (substrate) |
+| M3-09 timeouts | **NOT STARTED** | Round 3 (nouveau fichier timeout.ts) |
+| M3-10 cancellation | **NOT STARTED** | Round 3 (nouveau fichier cancellation.ts) |
 | M3-TEST crash matrix | **NOT STARTED** | Round 3 |
 | Dette biome des commits `--no-verify` | **RESORBÉE** (1 erreur + 10 warnings → 0) | 9 fichiers (7ce0d4a896) |
 | M2-07/08/09 (while, child-workflow, wait refine) | **BLOCKED** (RED/YELLOW) | bloqué ADR-000 + M3 |
@@ -108,8 +111,8 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `f1f3db836e feat(automate-m0-contract): M3-01/02 attempts + effect identity reinforcement (11/11 new tests PASS, 141/0 total)` |
-| HEAD (sha) | `f1f3db836e` |
+| HEAD (commit) | `4dfe551fda feat(contracts): M3-04/05/06/07/08 retry + reconciliation + UNKNOWN + compensation + wait schemas + tests (62/62 PASS)` |
+| HEAD (sha) | `4dfe551fda` |
 | HEAD (tree sha) | `6b593eff28522b4cbb83702e6ff385babe8500b7` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
@@ -125,7 +128,7 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (78 commits, 0 push)
+## Commits cumulés (80 commits, 0 push)
 
 ```
 3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike
