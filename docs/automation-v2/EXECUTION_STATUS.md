@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **POST-M3-R2-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN en 6 commits : CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08. **583/0 tests contracts** + **141/0 tests m0-contract** = **724/0 tests V2, 0 fail**. **99 commits poussés sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 8 cartes RED restantes en R3 + PostM3.)
+> Phase : **POST-M3-R3-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **PostM3-R3 = ADR-027 supply chain DECIDED + automate-migration-tool 16/16 tests + cert gates update 2 sections**. 26/26 ADR V2.3.1 ecrits (25 DECIDED, ADR-000 CHANGES_REQUIRED). **724/0 tests V2, 0 fail**. **101 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 8 cartes RED runtime restantes + 5 cartes RED PostM3 (DS-09/10/11, LI-06, DK-01) = 13 cartes en attente ADR-000 ou design choice.)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -113,6 +113,9 @@ choice), R-013 phase 3.
 | PostM3 Enterprise EN-01..03 | **DONE** (GREEN, 12/12 tests PASS) | enterprise.ts + enterprise.test.ts (103e862df1) |
 | PostM3 UX UX-01 | **DONE** (GREEN, 8/8 tests PASS) | ux.ts + ux.test.ts (45f80f63cc) |
 | PostM3 Distributed Server DS-01..08 | **DONE** (GREEN, 28/28 tests PASS) | server.ts + server.test.ts + biome cleanups (931a5a4ae5) |
+| PostM3-R3 ADR-027 supply chain (C-AR-02) | **DONE** (DECIDED) | docs/adr/ADR-027-supply-chain-policy.md (981652c94e) |
+| PostM3-R3 automate-migration-tool (V1 → V2) | **DONE** (GREEN, 16/16 tests PASS) | packages/automate-migration-tool/ (981652c94e) |
+| PostM3-R3 gates.yaml: section 12 migration + section 13 V2 regression | **DONE** (GREEN) | certification/gates.yaml (981652c94e) |
 | PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
@@ -126,14 +129,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `25291b4b89 docs(automate-v2): EXECUTION_STATUS update after PostM3-R2 (23 cartes GREEN livrées, 97 commits)` |
-| HEAD (sha) | `25291b4b89` |
+| HEAD (commit) | `981652c94e feat(automate-v2): PostM3-R3 supply chain ADR (ADR-027) + migration tool + cert gates update` |
+| HEAD (sha) | `981652c94e` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **98** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**99 commits poussés** 2026-09-02, remote HEAD = local HEAD = `3a30a7ccd0`) |
+| Commits depuis la base | **101** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**101 commits poussés** 2026-09-02, remote HEAD = local HEAD = `981652c94e`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -143,9 +146,10 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (99 commits, 99 pushés sur origin)
+## Commits cumulés (101 commits, 101 pushés sur origin)
 
 ```
+981652c94e feat(automate-v2): PostM3-R3 supply chain ADR (ADR-027) + migration tool + cert gates update
 25291b4b89 docs(automate-v2): EXECUTION_STATUS update after PostM3-R2 (23 cartes GREEN livrées, 97 commits)
 931a5a4ae5 feat(contracts): PostM3-R2 distributed server (DS-01..08) + tests (28/28 PASS) + biome cleanups
 45f80f63cc feat(contracts): PostM3-R2 ux (UX-01) + tests (8/8 PASS)
