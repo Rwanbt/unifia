@@ -292,10 +292,13 @@ gates:
     allowed_skips:
       - reason: "Pas d'acces a l'API GitHub dans cette session (NON EXECUTE)"
         scope: "remote verification"
-    evidence: []
-    status: NOT_VERIFIED
+    evidence:
+      - "2026-09-02 gh api repos/Rwanbt/unifia/rulesets -> [] (zero rulesets)"
+      - "Aucune protection par défaut sur la branche d'integration"
+    status: RED
     blocker: false
     note: "A verifier en PRE-1.1. Pas bloquant pour la cible premiere locale."
+    finding: "F-CERT-01: zero ruleset on Rwanbt/unifia. Tracked in EXECUTION_STATUS 2026-09-02."
 
 # ============================================================
 # Section 9 — ADR dependencies
@@ -377,21 +380,62 @@ gates:
 # Section 13 — V2 contract test regression net
 # ============================================================
   v2_contracts_regression:
-    description: "V2 contract tests (PostM3-R1 + R2 cumulative, 36 GREEN cards). Regression net for the IR + side-effect contracts."
+    description: "V2 contract tests (PostM3-R1 + R2 + R3-extra cumulative, 36+ GREEN cards). Regression net for the IR + side-effect contracts."
     required_commands:
       - "cd packages/contracts && bun test"
       - "cd packages/automate-m0-contract && bun test"
     required_artifacts: []
     allowed_skips: []
     evidence:
-      - "EXECUTION_STATUS.md 2026-09-02: V2 contracts 583/583 PASS, m0-contract 141/141 PASS, V2 total 724/724 PASS"
+      - "EXECUTION_STATUS.md 2026-09-02: V2 contracts 607/607 PASS (583 baseline + 24 M2-TEST restoration)"
+      - "m0-contract: 141/141 PASS"
+      - "V2 total: 748/748 PASS"
       - "PostM3-R1: 18 cartes GREEN (LI-01..05 + EI-01..03 + NW-01..07 + SC-01..05/07/08 = 34+22+31+25 = 112 tests)"
       - "PostM3-R2: 23 cartes GREEN (CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08 = 30+10+10+12+8+28 = 98 tests)"
+      - "PostM3-R3 extras: M2-TEST 22->46 (24 new tests)"
     status: GREEN
     blocker: false
     card_refs:
       - "docs/automation-v2/POST-M3-TRACKS-PLAN.md#2"
       - "docs/automation-v2/M3-IMPLEMENTATION-PLAN.md"
+
+# ============================================================
+# Section 14 — License audit (ADR-027 §8, ADR-028 §1)
+# ============================================================
+  license_audit:
+    description: "All package.json files declare a license from the allowlist (MIT, Apache-2.0, BSD-2/3, ISC, MPL-2.0, 0BSD, CC0, Zlib, Python-2.0, BlueOak, Unlicense). No GPL/AGPL/LGPL."
+    required_commands:
+      - "bun <cert-prep-script> (license walker)"
+    required_artifacts: []
+    allowed_skips:
+      - reason: "Built dist artifacts (unifia-windows-x64) inherit the parent's license (MIT) but the dist itself doesn't carry a license field; this is by design."
+        scope: "packages/unifia/dist/**"
+    evidence:
+      - "2026-09-02 license walker: 57 package.json scanned, 54 MIT, 3 (none) for design-sketch/storybook/dist (non-source)"
+      - "Zero GPL/AGPL/LGPL in any package"
+    status: GREEN
+    blocker: false
+    note: "design-sketch and storybook are dev-only and unmaintained; flag to add license field when next touched."
+
+# ============================================================
+# Section 15 — Migration tool V1 fixture corpus (plan §185)
+# ============================================================
+  migration_v1_fixtures:
+    description: "5 V1 fixtures in `packages/automate-migration-tool/fixtures/v1/` cover sequential, approval, schedule, shell-block, manual-multistep patterns. 16 tests in fixtures.test.ts (3 invariants x 5 fixtures + 1 'all exist')."
+    required_commands:
+      - "cd packages/automate-migration-tool && bun test"
+    required_artifacts:
+      - "packages/automate-migration-tool/fixtures/v1/01-sequential-http.json"
+      - "packages/automate-migration-tool/fixtures/v1/02-approval-gate.json"
+      - "packages/automate-migration-tool/fixtures/v1/03-schedule-trigger.json"
+      - "packages/automate-migration-tool/fixtures/v1/04-shell-block.json"
+      - "packages/automate-migration-tool/fixtures/v1/05-manual-multistep.json"
+    allowed_skips: []
+    evidence:
+      - "32/32 tests PASS (16 mapping + 16 fixtures)"
+      - "bun run typecheck: 0 erreur"
+    status: GREEN
+    blocker: false
 
 # ============================================================
 # Sortie
