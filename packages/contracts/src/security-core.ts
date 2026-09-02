@@ -73,6 +73,7 @@ export const PolicyRuleSchema = z.object({
   id: z.string().min(1, "policy: rule id must be non-empty"),
   description: z.string().max(280).optional(),
   when: z.string().min(1, "policy: 'when' expression must be non-empty"),
+  // biome-ignore lint/suspicious/noThenProperty: `then` is the domain field of a PolicyRule (when/then/else), not a thenable.
   then: PolicyEffectSchema,
   else: PolicyEffectSchema.optional(),
   priority: z.number().int().default(0),

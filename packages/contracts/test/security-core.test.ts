@@ -64,14 +64,11 @@ import {
   // SC-02
   PolicyEffectSchema,
   PolicyRuleSchema,
-  PolicySchema,
   parsePolicy,
   // SC-03
   APPROVAL_MAX_APPROVERS,
-  ApprovalBindingSchema,
   parseApprovalBinding,
   // SC-04
-  TenantContextSchema,
   parseTenantContext,
   // SC-05
   TAINT_LEVEL_MAX,
@@ -80,13 +77,10 @@ import {
   TaintPropagationRuleSchema,
   TaintPolicySchema,
   // SC-07
-  KeyAuthorityReferenceSchema,
   parseKeyAuthorityReference,
   // SC-08
   WorkerIdSchema,
   ServiceIdSchema,
-  WorkerIdentitySchema,
-  ServiceIdentitySchema,
   parseWorkerIdentity,
   parseServiceIdentity,
 } from "../src/security-core.ts"
@@ -204,12 +198,14 @@ describe("SC-02 Policy — payloads", () => {
         {
           id: "r-1",
           when: "input.kind == 'http'",
+          // biome-ignore lint/suspicious/noThenProperty: domain field in PolicyRule (when/then/else).
           then: "allow",
           priority: 10,
         },
         {
           id: "r-2",
           when: "input.kind == 'shell'",
+          // biome-ignore lint/suspicious/noThenProperty: domain field in PolicyRule (when/then/else).
           then: "deny",
         },
       ],
@@ -224,6 +220,7 @@ describe("SC-02 Policy — payloads", () => {
     const parsed = PolicyRuleSchema.parse({
       id: "r-default",
       when: "true",
+      // biome-ignore lint/suspicious/noThenProperty: domain field in PolicyRule (when/then/else).
       then: "allow",
     })
     expect(parsed.priority).toBe(0)
@@ -234,6 +231,7 @@ describe("SC-02 Policy — payloads", () => {
       PolicyRuleSchema.parse({
         id: "r-empty",
         when: "",
+        // biome-ignore lint/suspicious/noThenProperty: domain field in PolicyRule (when/then/else).
         then: "allow",
       }),
     ).toThrow(/when/)
@@ -248,6 +246,7 @@ describe("SC-02 Policy — payloads", () => {
           id: "r-a",
           description: "block shell",
           when: "input.kind == 'shell'",
+          // biome-ignore lint/suspicious/noThenProperty: domain field in PolicyRule (when/then/else).
           then: "deny" as const,
           else: "allow" as const,
           priority: 5,

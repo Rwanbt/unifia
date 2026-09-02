@@ -54,14 +54,12 @@ import {
   parseOAuthConfig,
   McpConnectorConfigSchema,
   ConnectorSdkInterfaceSchema,
-  parseConnectorSdkInterface,
   HTTP_BODY_MAX_BYTES,
   OAUTH_SCOPES_MAX,
   CONNECTOR_SDK_VERSION_PATTERN,
   type HttpConnectorConfig,
   type OpenApiConnectorConfig,
   type OAuthConfig,
-  type McpConnectorConfig,
   type ConnectorSdkInterface,
 } from "../src/integrations.ts"
 
