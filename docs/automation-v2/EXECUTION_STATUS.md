@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **M3-IMPLEMENTATION-COMPLETE** (M2 6/6 GREEN + M2-TEST 285/0 ; **M3 9/10 cartes livrées** : 7 GREEN (M3-01..07 + M3-08 contrat) + 2 RED (M3-08/09/10 impl runtime bloquée ADR-000) + M3-TEST crash matrix mutation-testé. **397/0 tests contracts** + **141/0 tests m0-contract** = **538/0 tests V2 contrats, 0 fail**. Tracks post-M3 = next)
+> Phase : **POST-M3-R1-COMPLETE** (M2+M3 COMPLET = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN livrées en 4 commits : LI-01..05 + EI-01..03 + NW-01..07 + SC-01..05/07/08. **485/0 tests contracts** + **141/0 tests m0-contract** = **626/0 tests V2, 0 fail**. 25+ cartes GREEN restantes en R2/R3.)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -103,6 +103,10 @@ choice), R-013 phase 3.
 | M3-10 cancellation (contrat) | **DONE** (GREEN, 18/18 PASS) | contracts/src/cancellation.ts + cancellation.test.ts (60402b3534) |
 | M3-10 cancellation (impl runtime) | **BLOCKED** (RED) | bloqué ADR-000 |
 | M3-TEST crash matrix | **DONE** (GREEN, 18 tests / 10 positions, mutation-testé) | contracts/test/crash-matrix-integration.test.ts (201556619a) |
+| PostM3 Security Core SC-01..05/07/08 | **DONE** (GREEN, 34/34 tests PASS) | security-core.ts + security-core.test.ts (5613e0fbf3) |
+| PostM3 External Ingress EI-01..03 | **DONE** (GREEN, 22/22 tests) | ingress.ts + ingress.test.ts (cacf69d71d) |
+| PostM3 Network NW-01..07 | **DONE** (GREEN, 31/31 tests) | network.ts + network.test.ts (cacf69d71d) |
+| PostM3 Local Integrations LI-01..05 | **DONE** (GREEN, 25/25 tests PASS) | integrations.ts + integrations.test.ts (2c1526d530) |
 | Dette biome des commits `--no-verify` | **RESORBÉE** (1 erreur + 10 warnings → 0) | 9 fichiers (7ce0d4a896) |
 | M2-07/08/09 (while, child-workflow, wait refine) | **BLOCKED** (RED/YELLOW) | bloqué ADR-000 + M3 |
 | M3 / tracks | **NOT STARTED** | post-M2 |
@@ -113,8 +117,8 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `1bc49935e5 feat(contracts): M3-09 timeout config (TimeoutConfigSchema + resolveEffectiveDeadline) + tests (15/15 PASS)` |
-| HEAD (sha) | `1bc49935e5` |
+| HEAD (commit) | `5613e0fbf3 feat(contracts): PostM3-R1 security-core (SC-01..05, 07, 08) + tests (34/34 PASS)` |
+| HEAD (sha) | `5613e0fbf3` |
 | HEAD (tree sha) | `6b593eff28522b4cbb83702e6ff385babe8500b7` |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
@@ -130,7 +134,7 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (84 commits, 0 push)
+## Commits cumulés (90 commits, 0 push)
 
 ```
 3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike
