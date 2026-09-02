@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **POST-M3-R3-PLUS-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **PostM3-R3 = ADR-027 supply chain DECIDED + migration tool 16/16 + cert gates** ; **PostM3-R3-extras = M2-TEST restauré 46/46 + ADR-028 LLM DECIDED + ADR-029 UX DECIDED + 5 V1 fixtures + license audit + F-CERT-01 finding**. **28/28 ADR V2.3.1 ecrits** (27 DECIDED, ADR-000 CHANGES_REQUIRED). **748/0 tests V2 + migration, 0 fail**. **104 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 8 cartes RED runtime + 5 RED PostM3 design = 13 en attente ADR-000 ou design choice.)
+> Phase : **POST-M3-R4-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **PostM3-R3 = ADR-027 + migration tool 16/16 + cert gates** ; **R3-extras = M2-TEST 46/46 + ADR-028/029 + 5 V1 fixtures + license audit** ; **R4 = ADR-030 substrate matrix + ADR-031 DS HA/rolling/recovery + ADR-032 Tauri + ADR-033 shell + cert runner**). **32/32 ADR V2.3.1 ecrits** (31 DECIDED, ADR-000 CHANGES_REQUIRED). **748/0 tests V2 + migration, 0 fail**. **Cert runner : 12 GREEN, 4 RED, 1 NA, 7 BLOCKER (sur 25 gates)**. **106 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 13 cartes RED restantes avec evidence pack ADR pret (8 runtime ADR-000 + 5 design DS-09/10/11, DK-01, LI-06).)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -123,6 +123,11 @@ choice), R-013 phase 3.
 | PostM3-R3-extra Migrator fix: absorb first trigger step | **DONE** (no duplicate trigger node) | packages/automate-migration-tool/src/mapping.ts (1904e65ee5) |
 | PostM3-R3-extra License audit | **DONE** (54/57 MIT, 0 BLOCK) | certification/gates.yaml §14 (5d56eede44) |
 | PostM3-R3-extra F-CERT-01: zero ruleset on Rwanbt/unifia | **DONE** (RED, finding logged) | certification/gates.yaml §8 (5d56eede44) |
+| PostM3-R4 ADR-030 substrate decision matrix (P-1/P-2) | **DONE** (DECIDED, evidence pack) | docs/adr/ADR-030-substrate-decision-matrix.md (7e7d06fea8) |
+| PostM3-R4 ADR-031 DS-09/10/11 HA/rolling/recovery | **DONE** (DECIDED, 3 RED → contracts DECIDED) | docs/adr/ADR-031-distributed-server-ha-rolling-recovery.md (7e7d06fea8) |
+| PostM3-R4 ADR-032 Tauri desktop host (DK-01) | **DONE** (DECIDED, RED → contracts DECIDED) | docs/adr/ADR-032-tauri-desktop-host.md (7e7d06fea8) |
+| PostM3-R4 ADR-033 Code/Shell security (LI-06) | **DONE** (DECIDED, RED → contracts DECIDED) | docs/adr/ADR-033-untrusted-code-shell-security.md (7e7d06fea8) |
+| PostM3-R4 Cert runner script | **DONE** (12 GREEN, 4 RED, 7 BLOCKER sur 25 gates) | packages/automate-migration-tool/scripts/cert.ts (7e7d06fea8) |
 | PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
@@ -136,14 +141,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `5d56eede44 docs(cert): gate 8 RED (zero ruleset F-CERT-01) + gate 14 license audit + gate 15 V1 fixtures` |
-| HEAD (sha) | `5d56eede44` |
+| HEAD (commit) | `7e7d06fea8 docs(automate-v2): R4 — ADR-030 substrate matrix + ADR-031 DS HA + ADR-032 Tauri + ADR-033 shell + cert runner` |
+| HEAD (sha) | `7e7d06fea8` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **104** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**104 commits poussés** 2026-09-02, remote HEAD = local HEAD = `5d56eede44`) |
+| Commits depuis la base | **106** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**106 commits poussés** 2026-09-02, remote HEAD = local HEAD = `7e7d06fea8`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -153,9 +158,10 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (104 commits, 104 pushés sur origin)
+## Commits cumulés (106 commits, 106 pushés sur origin)
 
 ```
+7e7d06fea8 docs(automate-v2): R4 — ADR-030 substrate matrix + ADR-031 DS HA + ADR-032 Tauri + ADR-033 shell + cert runner
 5d56eede44 docs(cert): gate 8 RED (zero ruleset F-CERT-01) + gate 14 license audit + gate 15 V1 fixtures
 1904e65ee5 feat(automate-v2): R3+ extras — M2-TEST 46/46 + C-AR-03 LLM + C-AR-04 UX + V1 fixture corpus
 6d94ffd0c1 docs(automate-v2): EXECUTION_STATUS update after PostM3-R3 (ADR-027 + migration tool, 101 commits)
