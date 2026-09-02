@@ -3,8 +3,8 @@
 
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
-> Statut : **READY_FOR_REVIEW_LOCAL**
-> Phase : **POST-M3-R1-COMPLETE** (M2+M3 COMPLET = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN livrées en 4 commits : LI-01..05 + EI-01..03 + NW-01..07 + SC-01..05/07/08. **485/0 tests contracts** + **141/0 tests m0-contract** = **626/0 tests V2, 0 fail**. 25+ cartes GREEN restantes en R2/R3.)
+> Statut : **READY_FOR_PUSH**
+> Phase : **POST-M3-R2-COMPLETE** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN en 6 commits : CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08. **583/0 tests contracts** + **141/0 tests m0-contract** = **724/0 tests V2, 0 fail**. 97 commits locaux sur la branche. Push autorisé par l'utilisateur le 2026-09-02 ("et push aussi"). 8 cartes RED restantes en R3 + PostM3.)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -107,6 +107,15 @@ choice), R-013 phase 3.
 | PostM3 External Ingress EI-01..03 | **DONE** (GREEN, 22/22 tests) | ingress.ts + ingress.test.ts (cacf69d71d) |
 | PostM3 Network NW-01..07 | **DONE** (GREEN, 31/31 tests) | network.ts + network.test.ts (cacf69d71d) |
 | PostM3 Local Integrations LI-01..05 | **DONE** (GREEN, 25/25 tests PASS) | integrations.ts + integrations.test.ts (2c1526d530) |
+| PostM3 Connector/MCP CO-01..07 | **DONE** (GREEN, 30/30 tests PASS) | connector.ts + connector.test.ts (c9f29f7433) |
+| PostM3 Browser BR-01..02 | **DONE** (GREEN, 10/10 tests PASS) | browser.ts + browser.test.ts (b95a4625ac) |
+| PostM3 AI Compiler AI-01..02 | **DONE** (GREEN, 10/10 tests PASS) | ai-compiler.ts + ai-compiler.test.ts (a894386503) |
+| PostM3 Enterprise EN-01..03 | **DONE** (GREEN, 12/12 tests PASS) | enterprise.ts + enterprise.test.ts (103e862df1) |
+| PostM3 UX UX-01 | **DONE** (GREEN, 8/8 tests PASS) | ux.ts + ux.test.ts (45f80f63cc) |
+| PostM3 Distributed Server DS-01..08 | **DONE** (GREEN, 28/28 tests PASS) | server.ts + server.test.ts + biome cleanups (931a5a4ae5) |
+| PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
+| PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
+| PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
 | Dette biome des commits `--no-verify` | **RESORBÉE** (1 erreur + 10 warnings → 0) | 9 fichiers (7ce0d4a896) |
 | M2-07/08/09 (while, child-workflow, wait refine) | **BLOCKED** (RED/YELLOW) | bloqué ADR-000 + M3 |
 | M3 / tracks | **NOT STARTED** | post-M2 |
@@ -117,14 +126,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `5613e0fbf3 feat(contracts): PostM3-R1 security-core (SC-01..05, 07, 08) + tests (34/34 PASS)` |
-| HEAD (sha) | `5613e0fbf3` |
-| HEAD (tree sha) | `6b593eff28522b4cbb83702e6ff385babe8500b7` |
+| HEAD (commit) | `931a5a4ae5 feat(contracts): PostM3-R2 distributed server (DS-01..08) + tests (28/28 PASS) + biome cleanups` |
+| HEAD (sha) | `931a5a4ae5` |
+| HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **67** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (push désactivé) |
+| Commits depuis la base | **97** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (push autorisé 2026-09-02 par l'utilisateur) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -134,9 +143,16 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (90 commits, 0 push)
+## Commits cumulés (97 commits, 0 push)
 
 ```
+931a5a4ae5 feat(contracts): PostM3-R2 distributed server (DS-01..08) + tests (28/28 PASS) + biome cleanups
+45f80f63cc feat(contracts): PostM3-R2 ux (UX-01) + tests (8/8 PASS)
+103e862df1 feat(contracts): PostM3-R2 enterprise (EN-01..03) + tests (12/12 PASS)
+a894386503 feat(contracts): PostM3-R2 ai-compiler (AI-01..02) + tests (10/10 PASS)
+b95a4625ac feat(contracts): PostM3-R2 browser (BR-01..02) + tests (10/10 PASS)
+c9f29f7433 feat(contracts): PostM3-R2 connector (CO-01..07) + tests (30/30 PASS)
+b7795f6a39 docs(automate-v2): EXECUTION_STATUS update after PostM3-R1 (18 cartes GREEN livrées)
 3f8e499f03 feat(secret-broker): M1-07 OS-level broker (DPAPI/Keychain/libsecret scaffold, PBKDF2 fallback) + spike
 7a6e00f3b5 feat(observability): M1-12 zero-alloc structured logger + secret-leak canary
 59f10e7b0b feat(workflow-runtime): M1-09 WorkflowRun types + DurableHistoryAuthority interface (interface only, impl waits ADR-000)
