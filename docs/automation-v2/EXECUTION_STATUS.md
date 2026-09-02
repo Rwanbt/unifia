@@ -3,8 +3,8 @@
 
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
-> Statut : **READY_FOR_PUSH**
-> Phase : **POST-M3-R2-COMPLETE** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN en 6 commits : CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08. **583/0 tests contracts** + **141/0 tests m0-contract** = **724/0 tests V2, 0 fail**. 97 commits locaux sur la branche. Push autorisé par l'utilisateur le 2026-09-02 ("et push aussi"). 8 cartes RED restantes en R3 + PostM3.)
+> Statut : **PUSHED**
+> Phase : **POST-M3-R2-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN en 6 commits : CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08. **583/0 tests contracts** + **141/0 tests m0-contract** = **724/0 tests V2, 0 fail**. **99 commits poussés sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 8 cartes RED restantes en R3 + PostM3.)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -133,7 +133,7 @@ choice), R-013 phase 3.
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
 | Commits depuis la base | **98** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (push autorisé 2026-09-02 par l'utilisateur) |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**99 commits poussés** 2026-09-02, remote HEAD = local HEAD = `3a30a7ccd0`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -143,7 +143,7 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (98 commits, 0 push)
+## Commits cumulés (99 commits, 99 pushés sur origin)
 
 ```
 25291b4b89 docs(automate-v2): EXECUTION_STATUS update after PostM3-R2 (23 cartes GREEN livrées, 97 commits)
