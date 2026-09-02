@@ -205,6 +205,11 @@ export type EffectPolicy = (typeof EFFECT_POLICIES)[number]
  * excluded — §22 separates it from idempotence, so replaying it under
  * uncertainty could double a real effect. `RECONCILABLE` must be *asked*
  * first, which is reconciliation, not replay. `NON_REPEATABLE` is never.
+ *
+ * §22 separates `REPEATABLE` from idempotence, so "the business says
+ * repeating is fine" is a statement about intent, not about the provider.
+ * Replaying a `REPEATABLE` effect under uncertainty can still double a
+ * real effect. The most expensive way to learn this is in production.
  */
 export function mayAutoReplayUnderUncertainty(policy: EffectPolicy): boolean {
   return policy === "PURE" || policy === "IDEMPOTENT"
@@ -280,6 +285,12 @@ export class EffectSemanticsError extends Error {
  * site — "retry", "go ask", and "stop and surface it" are three different
  * behaviors, and collapsing them into a boolean is how a blind retry gets
  * written by accident.
+ *
+ * Retry, go-ask, and stop-and-surface are three different behaviors.
+ * Collapsing them is how a blind retry gets written by accident. The
+ * values are distinct strings on purpose: a `boolean` return would let a
+ * reviewer miss a `?? false` somewhere and silently turn
+ * `RECONCILE`/`SURFACE_UNCERTAINTY` into `AUTO_REPLAY`.
  */
 export type UncertaintyAction = "AUTO_REPLAY" | "RECONCILE" | "SURFACE_UNCERTAINTY"
 
@@ -310,4 +321,164 @@ export function assertRetryPreservesIdentity(
   if (previous.attemptId === retried.attemptId) {
     throw new EffectSemanticsError("a retry must carry a new AttemptId (§19)")
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* EffectKeyDeriver port (M3-02)                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Port that turns a sample effect payload into an `EffectKey`.
+ *
+ * This sits one level below `EffectIdDeriver` (§20). The existing
+ * `EffectIdDeriver` already injects the hash algorithm, encoding and
+ * canonical serializer (ADR-001 deferred). `EffectKeyDeriver` injects the
+ * step that maps a user-visible effect payload to a structural
+ * `EffectKey`. Both must be deterministic, and a non-deterministic
+ * `EffectKeyDeriver` is the exact failure mode §82 lists under
+ * "substrate-local identity replacing EffectKey" — the candidate
+ * re-derives a different key on retry and silently dispatches a second
+ * real effect.
+ */
+export interface EffectKeyDeriver {
+  deriveKey(payload: unknown): EffectKey
+}
+
+/**
+ * Assert that a candidate `EffectKeyDeriver` produces the same `EffectKey`
+ * for the same effect payload across multiple calls.
+ *
+ * This is the M3-02 reinforcement of `assertRetryPreservesIdentity`: that
+ * existing function catches a runtime-level slip (the `EffectRecord`
+ * handed to the runtime has the same key and a new attempt). This one
+ * catches the contract-level slip that would let the slip reach the
+ * runtime in the first place: a deriver that hashes the payload
+ * deterministically. ADR-001 (PROPOSED), ADR-007.
+ *
+ * The failure mode the assertion catches: a substrate re-deriving
+ * identity from its own internal step counter (e.g. "step 3" → key 3 on
+ * first attempt, "step 4" → key 4 on retry after crash) — the EffectKey
+ * MUST be derived from the user-visible effect payload, not from runtime
+ * counters. Without this guard, at-least-once becomes a structural
+ * promise, not a behavioral one.
+ *
+ * Throws an `Error` with a clear message if the keys differ. Returns the
+ * derived `EffectKey` so callers can chain it into further assertions
+ * without recomputing.
+ */
+export function assertEffectKeyDeriverIsDeterministic(
+  deriver: EffectKeyDeriver,
+  payload: unknown,
+): EffectKey {
+  const first = deriver.deriveKey(payload)
+  const second = deriver.deriveKey(payload)
+  if (!effectKeyEquals(first, second)) {
+    throw new EffectSemanticsError(
+      "EffectKeyDeriver must produce the same EffectKey for the same payload across calls — " +
+        "a non-deterministic deriver would dispatch a second real effect on retry (§19, §82)",
+    )
+  }
+  return first
+}
+
+/* ------------------------------------------------------------------ */
+/* Effect attempt configuration (M3-01)                                */
+/* ------------------------------------------------------------------ */
+
+/** Hard upper bound on `maxAttempts` (resource protection, M3-01 / ADR-007). */
+export const EFFECT_MAX_MAX_ATTEMPTS = 1000
+
+/** Hard upper bound on `minIntervalMs` (defense against hot retry loops). */
+export const EFFECT_MAX_MIN_INTERVAL_MS = 60_000
+
+/** Default minimum wall-clock interval between two attempts. */
+export const EFFECT_DEFAULT_MIN_INTERVAL_MS = 1000
+
+/**
+ * Configuration of an effect's attempt budget. The runtime uses this
+ * to decide how many times to retry a side effect before giving up.
+ * ADR-007.
+ *
+ * `maxAttempts` is the **hard upper bound** on retries. A value of 1
+ * means "no retry, single attempt" (the default for non-idempotent
+ * effects). A value of 0 is rejected.
+ *
+ * `minIntervalMs` is the minimum wall-clock time between two attempts.
+ * The runtime MUST NOT attempt faster than this (defense against
+ * tight retry loops that hammer an external provider).
+ *
+ * `maxAttempts` × `minIntervalMs` gives a lower bound on the total
+ * time the effect will take (assuming each attempt fails). The runtime
+ * is free to back off further (M3-04 retry policy is the place to
+ * express jitter / exponential backoff).
+ */
+export interface EffectAttemptConfig {
+  readonly maxAttempts: number
+  readonly minIntervalMs: number
+}
+
+export class EffectAttemptConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "EffectAttemptConfigError"
+  }
+}
+
+/**
+ * Runtime validator for `EffectAttemptConfig` (M3-01).
+ *
+ * Hand-rolled rather than zod: the package has no zod dependency, and
+ * introducing one for a single schema would be the wrong scale. The
+ * error messages mirror the constraint and include the `effect.attempt:`
+ * prefix that the M3-01 spec prescribes, so callers can route them.
+ */
+export function parseEffectAttemptConfig(input: unknown): EffectAttemptConfig {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new EffectAttemptConfigError(
+      "effect.attempt: payload must be a non-array object",
+    )
+  }
+  const candidate = input as Record<string, unknown>
+
+  const maxAttemptsRaw = candidate.maxAttempts
+  if (typeof maxAttemptsRaw !== "number" || !Number.isInteger(maxAttemptsRaw)) {
+    throw new EffectAttemptConfigError(
+      "effect.attempt: maxAttempts must be an integer",
+    )
+  }
+  if (maxAttemptsRaw < 1) {
+    throw new EffectAttemptConfigError(
+      "effect.attempt: maxAttempts must be ≥ 1",
+    )
+  }
+  if (maxAttemptsRaw > EFFECT_MAX_MAX_ATTEMPTS) {
+    throw new EffectAttemptConfigError(
+      `effect.attempt: maxAttempts must be ≤ ${EFFECT_MAX_MAX_ATTEMPTS} (resource bound)`,
+    )
+  }
+
+  const minIntervalRaw = candidate.minIntervalMs
+  let minIntervalMs: number
+  if (minIntervalRaw === undefined) {
+    minIntervalMs = EFFECT_DEFAULT_MIN_INTERVAL_MS
+  } else if (
+    typeof minIntervalRaw !== "number" ||
+    !Number.isInteger(minIntervalRaw)
+  ) {
+    throw new EffectAttemptConfigError(
+      "effect.attempt: minIntervalMs must be an integer when provided",
+    )
+  } else if (minIntervalRaw < 0) {
+    throw new EffectAttemptConfigError(
+      "effect.attempt: minIntervalMs must be ≥ 0",
+    )
+  } else if (minIntervalRaw > EFFECT_MAX_MIN_INTERVAL_MS) {
+    throw new EffectAttemptConfigError(
+      `effect.attempt: minIntervalMs must be ≤ ${EFFECT_MAX_MIN_INTERVAL_MS}ms (defense vs hot-loop)`,
+    )
+  } else {
+    minIntervalMs = minIntervalRaw
+  }
+
+  return { maxAttempts: maxAttemptsRaw, minIntervalMs }
 }

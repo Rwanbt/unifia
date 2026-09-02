@@ -17,16 +17,19 @@
 import { describe, expect, test } from "bun:test"
 import {
   actionUnderUncertainty,
+  assertEffectKeyDeriverIsDeterministic,
   assertRetryPreservesIdentity,
   assertWellFormedEffectSlot,
   EFFECT_IDENTITY_VERSION_M0,
   EFFECT_POLICIES,
+  EffectAttemptConfigError,
   EffectKeyError,
   EffectSemanticsError,
   effectKeyEquals,
   effectSlotEquals,
   isReconcilable,
   mayAutoReplayUnderUncertainty,
+  parseEffectAttemptConfig,
   UNKNOWN_EXTERNAL_STATE,
   type EffectKey,
   type EffectRecord,
@@ -431,5 +434,161 @@ describe("§18 — identities are opaque, with a well-formedness floor", () => {
 
   test("the boundary length is inclusive", () => {
     expect(() => assertWellFormedIdentity("x".repeat(MAX_IDENTITY_LENGTH), "X")).not.toThrow()
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* M3-02 — assertEffectKeyDeriverIsDeterministic                       */
+/* ------------------------------------------------------------------ */
+
+describe("M3-02 — assertEffectKeyDeriverIsDeterministic (M3-02 effect identity)", () => {
+  // A deriver that hashes a JSON-serialized payload. This is the kind of
+  // deriver a correct substrate would write: same payload in, same key
+  // out, every call.
+  const jsonHashDeriver = {
+    deriveKey(payload: unknown): EffectKey {
+      const serialized = JSON.stringify(payload)
+      return key(slot(`node/hash:${serialized}`))
+    },
+  }
+
+  // A deriver that returns a *counter*. This is the failure mode §82
+  // exists to prevent: a candidate re-deriving identity from its own
+  // internal step counter would produce a different key on every call and
+  // silently dispatch a second real effect on retry.
+  let counter = 0
+  const counterDeriver = {
+    deriveKey(_payload: unknown): EffectKey {
+      counter += 1
+      return key(slot(`node/step:${counter}`), asLogicalInvocationId(`inv-step-${counter}`))
+    },
+  }
+
+  // A SHA-256-style deriver: stable across calls, no internal state. The
+  // "hash" here is just a digest of the JSON; the test only cares about
+  // determinism, not cryptographic strength.
+  const contentHashDeriver = {
+    deriveKey(payload: unknown): EffectKey {
+      const serialized = JSON.stringify(payload)
+      // Simple, deterministic fold: every char summed mod a small prime.
+      let acc = 0
+      for (const ch of serialized) acc = (acc * 31 + ch.charCodeAt(0)) | 0
+      return key(slot(`node/sha256:${acc.toString(16)}`))
+    },
+  }
+
+  test("a deterministic deriver passes — same payload → same EffectKey", () => {
+    const sample = { http: "POST", url: "https://api.example.com/charge", body: { amount: 4200 } }
+    const derived = assertEffectKeyDeriverIsDeterministic(jsonHashDeriver, sample)
+    expect(derived.effectSlot.nodeExecutionPath).toBe(
+      `node/hash:${JSON.stringify(sample)}`,
+    )
+  })
+
+  test("a counter-based deriver is rejected — the §82 failure mode", () => {
+    counter = 0
+    const sample = { step: "approve" }
+    expect(() =>
+      assertEffectKeyDeriverIsDeterministic(counterDeriver, sample),
+    ).toThrow(EffectSemanticsError)
+    expect(() =>
+      assertEffectKeyDeriverIsDeterministic(counterDeriver, sample),
+    ).toThrow(/must produce the same EffectKey/)
+  })
+
+  test("a content-hash deriver is robust — the recommended shape", () => {
+    const sample = { node: "send-invoice", invoice: 4711 }
+    expect(() =>
+      assertEffectKeyDeriverIsDeterministic(contentHashDeriver, sample),
+    ).not.toThrow()
+    // Same payload, different object identity — the hash must be
+    // content-based, not reference-based.
+    const clone = { node: "send-invoice", invoice: 4711 }
+    expect(() =>
+      assertEffectKeyDeriverIsDeterministic(contentHashDeriver, clone),
+    ).not.toThrow()
+  })
+
+  test("REPEATABLE is not a synonym for IDEMPOTENT — mayAutoReplayUnderUncertainty excludes it", () => {
+    // Explicit, named test. §22 is unambiguous: REPEATABLE is about
+    // *intent*, not about the provider. Replaying it under uncertainty can
+    // still double a real effect. This test is the one a future refactor
+    // would have to break to quietly re-introduce the bug.
+    expect(mayAutoReplayUnderUncertainty("REPEATABLE")).toBe(false)
+    expect(mayAutoReplayUnderUncertainty("PURE")).toBe(true)
+    expect(mayAutoReplayUnderUncertainty("IDEMPOTENT")).toBe(true)
+  })
+
+  test("actionUnderUncertainty returns three distinct string values", () => {
+    const actions = new Set(EFFECT_POLICIES.map(actionUnderUncertainty))
+    expect(actions.size).toBe(3)
+    expect(actions).toEqual(
+      new Set(["AUTO_REPLAY", "RECONCILE", "SURFACE_UNCERTAINTY"]),
+    )
+  })
+
+  test("RETRY never coerces into ASK or SURFACE — distinct identity enforced", () => {
+    // The collapse this guards: a `?? false` somewhere in the runtime
+    // turning `RECONCILE` or `SURFACE_UNCERTAINTY` into `AUTO_REPLAY`. The
+    // type system only helps if the values are kept as distinct strings.
+    const RETRY = actionUnderUncertainty("IDEMPOTENT")
+    const ASK = actionUnderUncertainty("RECONCILABLE")
+    const SURFACE = actionUnderUncertainty("NON_REPEATABLE")
+    expect(RETRY).not.toBe(ASK)
+    expect(RETRY).not.toBe(SURFACE)
+    expect(ASK).not.toBe(SURFACE)
+    // And the values are stable — no implicit conversion.
+    expect(typeof RETRY).toBe("string")
+    expect(typeof ASK).toBe("string")
+    expect(typeof SURFACE).toBe("string")
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* M3-01 — EffectAttemptConfig                                          */
+/* ------------------------------------------------------------------ */
+
+describe("M3-01 — parseEffectAttemptConfig (M3-01 attempts)", () => {
+  // A reusable sample payload, used to confirm the schema is the only
+  // thing under test — not the surrounding caller's data shape.
+  const sample = { maxAttempts: 3, minIntervalMs: 500 }
+
+  test("EffectAttemptConfigSchema_ParsesMinimal — defaults are applied", () => {
+    const parsed = parseEffectAttemptConfig({ maxAttempts: 1 })
+    expect(parsed).toEqual({ maxAttempts: 1, minIntervalMs: 1000 })
+  })
+
+  test("EffectAttemptConfigSchema_ParsesFull — both fields round-trip", () => {
+    const parsed = parseEffectAttemptConfig(sample)
+    expect(parsed).toEqual(sample)
+  })
+
+  test("EffectAttemptConfigSchema_RejectsZeroMaxAttempts", () => {
+    expect(() => parseEffectAttemptConfig({ maxAttempts: 0 })).toThrow(
+      EffectAttemptConfigError,
+    )
+    expect(() => parseEffectAttemptConfig({ maxAttempts: 0 })).toThrow(
+      /maxAttempts must be ≥ 1/,
+    )
+  })
+
+  test("EffectAttemptConfigSchema_RejectsTooLargeMaxAttempts — the 1000 resource bound", () => {
+    expect(() => parseEffectAttemptConfig({ maxAttempts: 1001 })).toThrow(
+      EffectAttemptConfigError,
+    )
+    expect(() => parseEffectAttemptConfig({ maxAttempts: 1001 })).toThrow(
+      /maxAttempts must be ≤ 1000/,
+    )
+    // 1000 itself is the inclusive boundary and must pass.
+    expect(() => parseEffectAttemptConfig({ maxAttempts: 1000 })).not.toThrow()
+  })
+
+  test("EffectAttemptConfigSchema_RejectsNegativeMinIntervalMs", () => {
+    expect(() =>
+      parseEffectAttemptConfig({ maxAttempts: 1, minIntervalMs: -1 }),
+    ).toThrow(EffectAttemptConfigError)
+    expect(() =>
+      parseEffectAttemptConfig({ maxAttempts: 1, minIntervalMs: -1 }),
+    ).toThrow(/minIntervalMs must be ≥ 0/)
   })
 })
