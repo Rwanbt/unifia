@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **POST-M3-R3-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **PostM3-R3 = ADR-027 supply chain DECIDED + automate-migration-tool 16/16 tests + cert gates update 2 sections**. 26/26 ADR V2.3.1 ecrits (25 DECIDED, ADR-000 CHANGES_REQUIRED). **724/0 tests V2, 0 fail**. **101 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 8 cartes RED runtime restantes + 5 cartes RED PostM3 (DS-09/10/11, LI-06, DK-01) = 13 cartes en attente ADR-000 ou design choice.)
+> Phase : **POST-M3-R3-PLUS-COMPLETE-PUSHED** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **PostM3-R3 = ADR-027 supply chain DECIDED + migration tool 16/16 + cert gates** ; **PostM3-R3-extras = M2-TEST restauré 46/46 + ADR-028 LLM DECIDED + ADR-029 UX DECIDED + 5 V1 fixtures + license audit + F-CERT-01 finding**. **28/28 ADR V2.3.1 ecrits** (27 DECIDED, ADR-000 CHANGES_REQUIRED). **748/0 tests V2 + migration, 0 fail**. **104 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-02. 8 cartes RED runtime + 5 RED PostM3 design = 13 en attente ADR-000 ou design choice.)
 > Date : 2026-09-02
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -116,6 +116,13 @@ choice), R-013 phase 3.
 | PostM3-R3 ADR-027 supply chain (C-AR-02) | **DONE** (DECIDED) | docs/adr/ADR-027-supply-chain-policy.md (981652c94e) |
 | PostM3-R3 automate-migration-tool (V1 → V2) | **DONE** (GREEN, 16/16 tests PASS) | packages/automate-migration-tool/ (981652c94e) |
 | PostM3-R3 gates.yaml: section 12 migration + section 13 V2 regression | **DONE** (GREEN) | certification/gates.yaml (981652c94e) |
+| PostM3-R3-extra M2-TEST restauration 22→46 | **DONE** (GREEN, 46/46 tests PASS) | packages/contracts/test/graph-property.test.ts (1904e65ee5) |
+| PostM3-R3-extra ADR-028 LLM supply chain (C-AR-03) | **DONE** (DECIDED) | docs/adr/ADR-028-llm-supply-chain-policy.md (1904e65ee5) |
+| PostM3-R3-extra ADR-029 UX policy (C-AR-04) | **DONE** (DECIDED) | docs/adr/ADR-029-ux-policy.md (1904e65ee5) |
+| PostM3-R3-extra V1 fixture corpus (5 fixtures) | **DONE** (16/16 tests PASS) | packages/automate-migration-tool/fixtures/v1/ + test/fixtures.test.ts (1904e65ee5) |
+| PostM3-R3-extra Migrator fix: absorb first trigger step | **DONE** (no duplicate trigger node) | packages/automate-migration-tool/src/mapping.ts (1904e65ee5) |
+| PostM3-R3-extra License audit | **DONE** (54/57 MIT, 0 BLOCK) | certification/gates.yaml §14 (5d56eede44) |
+| PostM3-R3-extra F-CERT-01: zero ruleset on Rwanbt/unifia | **DONE** (RED, finding logged) | certification/gates.yaml §8 (5d56eede44) |
 | PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
@@ -129,14 +136,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `981652c94e feat(automate-v2): PostM3-R3 supply chain ADR (ADR-027) + migration tool + cert gates update` |
-| HEAD (sha) | `981652c94e` |
+| HEAD (commit) | `5d56eede44 docs(cert): gate 8 RED (zero ruleset F-CERT-01) + gate 14 license audit + gate 15 V1 fixtures` |
+| HEAD (sha) | `5d56eede44` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **101** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**101 commits poussés** 2026-09-02, remote HEAD = local HEAD = `981652c94e`) |
+| Commits depuis la base | **104** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**104 commits poussés** 2026-09-02, remote HEAD = local HEAD = `5d56eede44`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -146,9 +153,12 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (101 commits, 101 pushés sur origin)
+## Commits cumulés (104 commits, 104 pushés sur origin)
 
 ```
+5d56eede44 docs(cert): gate 8 RED (zero ruleset F-CERT-01) + gate 14 license audit + gate 15 V1 fixtures
+1904e65ee5 feat(automate-v2): R3+ extras — M2-TEST 46/46 + C-AR-03 LLM + C-AR-04 UX + V1 fixture corpus
+6d94ffd0c1 docs(automate-v2): EXECUTION_STATUS update after PostM3-R3 (ADR-027 + migration tool, 101 commits)
 981652c94e feat(automate-v2): PostM3-R3 supply chain ADR (ADR-027) + migration tool + cert gates update
 25291b4b89 docs(automate-v2): EXECUTION_STATUS update after PostM3-R2 (23 cartes GREEN livrées, 97 commits)
 931a5a4ae5 feat(contracts): PostM3-R2 distributed server (DS-01..08) + tests (28/28 PASS) + biome cleanups
