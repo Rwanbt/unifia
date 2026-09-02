@@ -76,11 +76,23 @@ const V1_CAPABILITY_TO_V2_FAMILY: Readonly<Record<string, V2NodeFamily>> = {
  * V1 had no explicit trigger node. The migrator picks a sensible
  * default based on the first step's capability, with a `warn` if the
  * choice is not obvious.
+ *
+ * Returns `{ family, isFirstStepTheTrigger }`. When the first step
+ * is itself a `schedule` or `manual` capability, the migrator
+ * **absorbs it as the trigger** (the V2 IR has no duplicate trigger
+ * node). Otherwise, an explicit `${v1.id}__trigger` node is added
+ * and the first step stays a normal step.
  */
-function inferV2Trigger(v1: V1WorkflowDefinition): { family: V2NodeFamily; warning?: MigrationWarning } {
+function inferV2Trigger(v1: V1WorkflowDefinition): {
+  family: V2NodeFamily
+  /** True iff the first step is itself a trigger (absorbed). */
+  firstStepIsTrigger: boolean
+  warning?: MigrationWarning
+} {
   if (v1.steps.length === 0) {
     return {
       family: "trigger.manual",
+      firstStepIsTrigger: false,
       warning: {
         severity: "warn",
         stepId: "*",
@@ -91,13 +103,14 @@ function inferV2Trigger(v1: V1WorkflowDefinition): { family: V2NodeFamily; warni
   }
   const first = v1.steps[0]!
   if (first.capability === "schedule") {
-    return { family: "trigger.schedule" }
+    return { family: "trigger.schedule", firstStepIsTrigger: true }
   }
   if (first.capability === "manual") {
-    return { family: "trigger.manual" }
+    return { family: "trigger.manual", firstStepIsTrigger: true }
   }
   return {
     family: "trigger.manual",
+    firstStepIsTrigger: false,
     warning: {
       severity: "info",
       stepId: first.id,
@@ -215,19 +228,41 @@ export function migrateV1ToV2(
   const trigger = inferV2Trigger(v1)
   if (trigger.warning) warnings.push(trigger.warning)
 
-  const allNodes: V2Node[] = [
-    {
-      id: `${v1.id}__trigger`,
-      family: trigger.family,
-      config: {},
-      label: "trigger",
-    },
-  ]
+  // If the first step is itself a trigger, absorb it. Otherwise add
+  // an explicit `${v1.id}__trigger` node.
+  const allNodes: V2Node[] = trigger.firstStepIsTrigger
+    ? []
+    : [
+        {
+          id: `${v1.id}__trigger`,
+          family: trigger.family,
+          config: {},
+          label: "trigger",
+        },
+      ]
   const allEdges: V2Edge[] = []
 
   // Connect trigger to the first step (or first approval node).
-  let prevId = `${v1.id}__trigger`
+  // If the first step IS the trigger, we use that step's id once it's
+  // been added; otherwise we start from the explicit trigger.
+  let prevId = trigger.firstStepIsTrigger ? "" : `${v1.id}__trigger`
+  let isFirstStep = true
   for (const step of v1.steps) {
+    if (isFirstStep && trigger.firstStepIsTrigger) {
+      // The first step is the trigger. Map it directly to a V2
+      // trigger node and use its id as the chain anchor.
+      const triggerNode: V2Node = {
+        id: step.id,
+        family: trigger.family,
+        config: { input: step.input },
+        label: step.id,
+      }
+      allNodes.push(triggerNode)
+      prevId = step.id
+      isFirstStep = false
+      continue
+    }
+    isFirstStep = false
     const { nodes, edges, warnings: stepWarnings } = v1StepToV2Nodes(step)
     warnings.push(...stepWarnings)
     if (stepWarnings.some((w) => w.severity === "block")) {

@@ -492,3 +492,299 @@ describe("Edge case — performance / boundary (21, 22)", () => {
     expect(findUnboundedLoops(parsed)).toEqual([])
   })
 })
+
+// -----------------------------------------------------------------------
+// M2-TEST-EXTENDED (23..46) — additional coverage, restored after the
+// initial 22-test consolidation. Each block hits a different property
+// from plan §199 categories 1-5 that the 22-test set did not exercise.
+// -----------------------------------------------------------------------
+
+describe("findOrphanEdgeReferences — extended (23, 24, 25)", () => {
+  test("(23) OrphanEdgeTo_Only_TargetReports — edge.to points to ghost, edge.from valid", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("a", "tool.http")],
+      edges: [makeEdge("a", "ghost")],
+    }
+    const issues = findOrphanEdgeReferences(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("EDGE_TO_NOT_FOUND")
+    expect(issues[0].edgeIndex).toBe(0)
+  })
+
+  test("(24) MultipleOrphanEdges_AllReported — each orphan edge produces one issue", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("a", "tool.http")],
+      edges: [makeEdge("ghost1", "a"), makeEdge("a", "ghost2"), makeEdge("ghost3", "ghost4")],
+    }
+    const issues = findOrphanEdgeReferences(def)
+    // 3 edges, ghost1/ghost3/ghost4 are missing, ghost2 is the .to of edge[1]
+    expect(issues).toHaveLength(4)
+    const codes = issues.map((i) => i.code).sort()
+    expect(codes).toEqual([
+      "EDGE_FROM_NOT_FOUND",
+      "EDGE_FROM_NOT_FOUND",
+      "EDGE_TO_NOT_FOUND",
+      "EDGE_TO_NOT_FOUND",
+    ])
+  })
+
+  test("(25) SelfLoopEdgeOnExistingNode_NoOrphan — a→a where 'a' exists reports 0 issues from this validator", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("a", "tool.http")],
+      edges: [makeEdge("a", "a")],
+    }
+    expect(findOrphanEdgeReferences(def)).toEqual([])
+    // The cycle is caught by findCycles, not by this validator.
+    expect(findCycles(def).length).toBeGreaterThan(0)
+  })
+})
+
+describe("findCycles — extended (26, 27, 28)", () => {
+  test("(26) LongerCycle_ABCDA — 4-node cycle is detected with all 4 members in the path", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [
+        makeNode("a", "tool.http"),
+        makeNode("b", "tool.http"),
+        makeNode("c", "tool.http"),
+        makeNode("d", "tool.http"),
+      ],
+      edges: [makeEdge("a", "b"), makeEdge("b", "c"), makeEdge("c", "d"), makeEdge("d", "a")],
+    }
+    const issues = findCycles(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("CYCLE_DETECTED")
+    // The path is a 4-node cycle: a → b → c → d → a
+    expect(issues[0].message).toMatch(/a -> b -> c -> d -> a/)
+  })
+
+  test("(27) DisconnectedComponents_OnlyTheCyclicOneReports — the acyclic component stays silent", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [
+        makeNode("a1", "tool.http"),
+        makeNode("a2", "tool.http"),
+        makeNode("b1", "tool.http"),
+        makeNode("b2", "tool.http"),
+      ],
+      edges: [makeEdge("a1", "a2"), makeEdge("b1", "b2"), makeEdge("b2", "b1")],
+    }
+    const issues = findCycles(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].message).toMatch(/b1 -> b2 -> b1/)
+  })
+
+  test("(28) ParallelWithSelfLoop_ReportsCycle — control.parallel with a self-loop on its own node is rejected", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("p", "control.parallel", { branches: [] })],
+      edges: [makeEdge("p", "p")],
+    }
+    const issues = findCycles(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("CYCLE_DETECTED")
+  })
+})
+
+describe("findUnreachableNodes — extended (29, 30, 31)", () => {
+  test("(29) TriggerWithNoOutgoing_DoesNotItselfBecomeUnreachable — a manual trigger is an entry by definition", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("t", "trigger.manual")],
+      edges: [],
+    }
+    const issues = findUnreachableNodes(def)
+    expect(issues).toEqual([])
+  })
+
+  test("(30) TwoComponents_OneReachableOneOrphan — the orphan component is reported, the live one is not", () => {
+    // The validator's contract: a node with 0 incoming AND ≥1 outgoing
+    // is itself an "entry" (even without a trigger). So an isolated
+    // component with an internal edge is considered a self-contained
+    // subgraph and is NOT reported. To trigger the UNREACHABLE_NODE
+    // issue, the orphan node must have no edges at all (0 in, 0 out)
+    // so it has no path from any entry point.
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [
+        makeNode("t", "trigger.manual"),
+        makeNode("a", "tool.http"),
+        makeNode("orphan1", "tool.http"),
+        makeNode("orphan2", "tool.http"),
+      ],
+      edges: [makeEdge("t", "a")],
+    }
+    const issues = findUnreachableNodes(def)
+    const orphanIds = issues.filter((i) => i.code === "UNREACHABLE_NODE").map((i) => i.nodeId).sort()
+    expect(orphanIds).toEqual(["orphan1", "orphan2"])
+  })
+
+  test("(31) ScheduleTrigger_RecognizedAsEntry — trigger.schedule, like trigger.manual, is an entry point", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("t", "trigger.schedule"), makeNode("a", "tool.http"), makeNode("orphan", "tool.http")],
+      edges: [makeEdge("t", "a")],
+    }
+    const issues = findUnreachableNodes(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].nodeId).toBe("orphan")
+  })
+})
+
+describe("findUnpairedParallelMerge — extended (32, 33, 34)", () => {
+  test("(32) MergeWithEmptyBranchesArray_Reports — a control.merge with `branches: []` is rejected", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("m", "control.merge", { strategy: "all", branches: [] })],
+      edges: [],
+    }
+    const issues = findUnpairedParallelMerge(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("MERGE_WITHOUT_PARALLEL")
+    expect(issues[0].message).toMatch(/no branches/)
+  })
+
+  test("(33) MergeWithStringBranches_NotInParallelTarget_Reports — string branch ids with no parallel are reported", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("m", "control.merge", { strategy: "all", branches: ["x", "y"] })],
+      edges: [],
+    }
+    const issues = findUnpairedParallelMerge(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("MERGE_WITHOUT_PARALLEL")
+  })
+
+  test("(34) ParallelWithThreeBranchesAndMerge_AllPaired_OK — three-branch fan-out/fan-in passes", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [
+        makeNode("p", "control.parallel", {
+          branches: [
+            { branchId: "a", target: "ma" },
+            { branchId: "b", target: "mb" },
+            { branchId: "c", target: "mc" },
+          ],
+        }),
+        makeNode("ma", "tool.http"),
+        makeNode("mb", "tool.http"),
+        makeNode("mc", "tool.http"),
+        makeNode("m", "control.merge", { strategy: "any", branches: ["ma", "mb", "mc"] }),
+      ],
+      edges: [],
+    }
+    expect(findUnpairedParallelMerge(def)).toEqual([])
+  })
+})
+
+describe("findUnboundedLoops — extended (35, 36, 37, 38)", () => {
+  test("(35) RepeatZero_Reports — maxIterations: 0 is not a valid bound", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("r", "control.repeat", { maxIterations: 0, body: "b" }), makeNode("b", "tool.http")],
+      edges: [],
+    }
+    const issues = findUnboundedLoops(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("REPEAT_UNBOUNDED")
+  })
+
+  test("(36) RepeatNegative_Reports — maxIterations: -5 is not a valid bound", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("r", "control.repeat", { maxIterations: -5, body: "b" }), makeNode("b", "tool.http")],
+      edges: [],
+    }
+    const issues = findUnboundedLoops(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("REPEAT_UNBOUNDED")
+  })
+
+  test("(37) RepeatFloat_Reports — maxIterations: 2.5 is not an integer bound", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("r", "control.repeat", { maxIterations: 2.5, body: "b" }), makeNode("b", "tool.http")],
+      edges: [],
+    }
+    const issues = findUnboundedLoops(def)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].code).toBe("REPEAT_UNBOUNDED")
+  })
+
+  test("(38) RepeatAtBoundary_OneMillion_OK — REPEAT_MAX (=1_000_000) is exactly the upper bound", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("r", "control.repeat", { maxIterations: 1_000_000, body: "b" }), makeNode("b", "tool.http")],
+      edges: [],
+    }
+    expect(findUnboundedLoops(def)).toEqual([])
+  })
+})
+
+describe("deriveMapKey — extended (39, 40, 41, 42)", () => {
+  test("(39) FieldStrategy_NestedObjectPath_ThrowsOnMissing — `field: 'deep.x'` on a flat object throws", () => {
+    const item = { id: "a", name: "x" }
+    expect(() => deriveMapKey({ strategy: "field", field: "deep.x" }, item)).toThrow(/missing field/)
+  })
+
+  test("(40) HashStrategy_FieldOrderingInvariant — two objects with the same fields in different orders hash the same", () => {
+    const a = { id: "a", x: 1, y: 2, z: 3 }
+    const b = { z: 3, y: 2, x: 1, id: "a" }
+    expect(deriveMapKey({ strategy: "hash" }, a)).toBe(deriveMapKey({ strategy: "hash" }, b))
+  })
+
+  test("(41) HashStrategy_NestedArrayOrderingInvariant — array reordering changes the hash (arrays are ordered)", () => {
+    const a = { items: [1, 2, 3] }
+    const b = { items: [3, 2, 1] }
+    // This is the documented contract: arrays are order-sensitive.
+    expect(deriveMapKey({ strategy: "hash" }, a)).not.toBe(deriveMapKey({ strategy: "hash" }, b))
+  })
+
+  test("(42) FieldStrategy_NumericAndBooleanCoercion — numbers and booleans coerce via String()", () => {
+    expect(deriveMapKey({ strategy: "field", field: "n" }, { n: 42 })).toBe("42")
+    expect(deriveMapKey({ strategy: "field", field: "b" }, { b: true })).toBe("true")
+    expect(deriveMapKey({ strategy: "field", field: "b" }, { b: false })).toBe("false")
+    expect(deriveMapKey({ strategy: "field", field: "z" }, { z: 0 })).toBe("0")
+  })
+})
+
+describe("Mutation-style regression net (43, 44, 45, 46)", () => {
+  // Each test seeds a deliberate defect and asserts that the relevant
+  // validator still reports it. The mutation harness used in M2-TEST
+  // v1 (commit 3e0598ac5f, 46/46) was exactly this shape: remove each
+  // assertion, confirm the validator still catches the bad input.
+
+  test("(43) Mutation_BadMaxIterations_Detected — flipping maxIterations to 0 produces a REPEAT_UNBOUNDED issue", () => {
+    const def: WorkflowDefinition = {
+      ...baseFields(),
+      nodes: [makeNode("r", "control.repeat", { maxIterations: 0, body: "b" }), makeNode("b", "tool.http")],
+      edges: [],
+    }
+    const issues = findUnboundedLoops(def)
+    expect(issues.some((i) => i.code === "REPEAT_UNBOUNDED")).toBe(true)
+  })
+
+  test("(44) Mutation_OrphanEdge_Detected — adding a single orphan edge produces an issue", () => {
+    const def = linearGraph(3)
+    def.edges.push(makeEdge("ghost", "n0"))
+    const issues = findOrphanEdgeReferences(def)
+    expect(issues.some((i) => i.code === "EDGE_FROM_NOT_FOUND")).toBe(true)
+  })
+
+  test("(45) Mutation_Cycle_Detected — adding a back edge n2→n0 produces a CYCLE_DETECTED issue", () => {
+    const def = linearGraph(3)
+    def.edges.push(makeEdge("n2", "n0"))
+    const issues = findCycles(def)
+    expect(issues.some((i) => i.code === "CYCLE_DETECTED")).toBe(true)
+  })
+
+  test("(46) Mutation_UnreachableNode_Detected — adding a disconnected node produces an UNREACHABLE_NODE issue", () => {
+    const def = linearGraph(3)
+    def.nodes.push(makeNode("orphan", "tool.http"))
+    const issues = findUnreachableNodes(def)
+    expect(issues.some((i) => i.code === "UNREACHABLE_NODE" && i.nodeId === "orphan")).toBe(true)
+  })
+})

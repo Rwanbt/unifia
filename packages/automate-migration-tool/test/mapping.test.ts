@@ -124,16 +124,20 @@ describe("migrateV1ToV2", () => {
     const v1 = makeV1([{ id: "s1", capability: "schedule", input: { cron: "*/5 * * * *" } }])
     const r = migrateV1ToV2(v1, { createdAt: NOW, updatedAt: NOW })
     expect(isAcceptableMigration(r)).toBe(true)
-    const trigger = r.definition.nodes.find((n) => n.id === "wf-test__trigger")
+    // First step is the trigger, absorbed; no separate __trigger node.
+    const trigger = r.definition.nodes.find((n) => n.id === "s1")
     expect(trigger?.family).toBe("trigger.schedule")
+    // The single node is the absorbed trigger — no __trigger.
+    expect(r.definition.nodes.find((n) => n.id === "wf-test__trigger")).toBeUndefined()
   })
 
   test("V1 manual capability maps to trigger.manual", () => {
     const v1 = makeV1([{ id: "s1", capability: "manual", input: {} }])
     const r = migrateV1ToV2(v1, { createdAt: NOW, updatedAt: NOW })
     expect(isAcceptableMigration(r)).toBe(true)
-    const trigger = r.definition.nodes.find((n) => n.id === "wf-test__trigger")
+    const trigger = r.definition.nodes.find((n) => n.id === "s1")
     expect(trigger?.family).toBe("trigger.manual")
+    expect(r.definition.nodes.find((n) => n.id === "wf-test__trigger")).toBeUndefined()
   })
 
   test("V1 wait capability maps to V2 wait", () => {
