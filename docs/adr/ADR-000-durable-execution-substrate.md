@@ -317,11 +317,62 @@ trigger dupliqué.
 
 ## Decision
 
-**Option PROPOSED : A — Native Unifia declarative kernel**, sous réserve
-du spike M0-01 qui comparera à DBOS et Temporal sur la failure matrix
-du plan §38.
+**Option retenue : A — Native Unifia declarative kernel.**
+**Statut : READY_TO_RATIFY** — en attente de la ratification d'Erwan.
 
-**Justification préliminaire** :
+**Comment A a été retenue — la formulation exacte compte :**
+
+> **A est retenue par élimination, pas par démonstration.**
+
+Les trois autres options tombent sur des **éliminateurs durs** mesurés à
+leurs sources primaires le 2026-09-02 (tour M0-01-BIS, tableau *Evidence*) :
+
+| Option | Éliminateur dur | REQ violée |
+|---|---|---|
+| **B** DBOS | Le SDK **TypeScript** exige Postgres — installé ou Docker. SQLite est **Go-only** (Golang v0.17, juin 2026). | REQ-2 |
+| **B′** DBOS-Go | A bien SQLite, mais imposerait un **sidecar Go** dans une stack TS/Bun. | REQ-4 |
+| **C** Restate | **Business Source License 1.1**, non-OSI. | REQ-6 |
+| **D** Temporal | `temporalite` **archivé** ; son remplaçant « skips certain HTTP security checks », **in-memory par défaut**, doc renvoyant à Temporal Cloud ou au self-hosted guide pour la production ; le serveur complet est un démon externe. | REQ-2 |
+
+**A n'a été validée par aucun spike.** Le kernel natif n'existe pas encore,
+donc rien ne pouvait le mesurer. Le tour M0-01 a mesuré le
+`packages/workflow-runtime` *legacy* — précisément ce que A propose de
+remplacer. Il ne faut pas lire ce choix comme « A a gagné une comparaison ».
+
+**Le spike comparatif du plan §38 n'a pas été exécuté, et ne le sera pas.**
+On ne compare pas des options déjà éliminées : les éliminateurs durs tombent
+**en amont** de la failure matrix, ce qui est la structure même du critère.
+Les conditions du spike restent consignées ci-dessous à titre historique.
+
+**Ce que ratifier A engage :**
+
+1. **Réécrire**, pas conserver. Le runtime actuel n'est pas substrate-grade
+   (R-014, confirmé empiriquement) et perd des données silencieusement sur
+   trigger dupliqué. Ce constat est indépendant du choix.
+2. **7 ADR** (001, 002, 004, 007, 008, 020, 022) doivent être rendus avant
+   qu'un kernel natif soit utilisable.
+3. **Substrate engineering est difficile** — timer durable, recovery
+   correctness, fencing, restart semantics. DBOS et Temporal ont déjà résolu
+   ces problèmes ; ici on les résout soi-même. C'est le coût assumé de la
+   souveraineté et de la contrainte `local-single-node`.
+4. **Portée des éliminations** : elles reposent sur REQ-2, exigence du profil
+   `local-single-node`. Sur un futur profil serveur, DBOS-Postgres et
+   Temporal-serveur redeviennent techniquement valides — mais le plan §1-§2
+   interdit deux autorités durables, donc y basculer demanderait un ADR de
+   migration explicite.
+5. **Niveau de preuve** : vérification documentaire aux sources primaires
+   (fichiers `LICENSE`, doc officielle, notes de release), non reproduite par
+   commande. C'est le bon niveau pour des éliminateurs de license et de
+   topologie de déploiement ; ce ne le serait pas pour une propriété de
+   correction runtime.
+
+<details>
+<summary><strong>Historique — critère et conditions de spike d'avant le second tour</strong></summary>
+
+Cette formulation supposait une comparaison qui n'a jamais eu lieu et n'a
+plus lieu d'être. Conservée pour la traçabilité.
+
+**Justification préliminaire (2026-09-01)** :
 - REQ-6 (MIT ou compatible) est éliminatoire pour Restate.
 - REQ-2 (no external daemon) est éliminatoire pour Temporal-serveur.
 - DBOS et Temporal-temporalite doivent passer un spike avant élimination.
@@ -343,13 +394,14 @@ du plan §38.
    durable waits, resource usage, operational complexity, packaging,
    local deployment, server deployment, upgrade complexity.
 
-**Critère de décision final** :
+**Critère de décision final (obsolète)** :
 - Si A passe le spike sans bug bloquant → A est choisi.
 - Si A échoue et B passe → B est choisi, mais REQ-5 (Android) doit être
-  ré-évalué : DBOS-SQLite ne couvre pas Android → `mobile-local-execution`
-  reste `FUTURE_COMPATIBILITY_REQUIRED` (acceptable).
+  ré-évalué.
 - Si A et B échouent et D-temporalite passe → D est choisi, à condition
-  que `temporalite` soit explicitement marqué production-ready par Temporal.
+  que `temporalite` soit explicitement marqué production-ready.
+
+</details>
 
 ## Consequences
 
@@ -381,19 +433,45 @@ et nouvelle ADR.
 
 ## Trade-offs
 
-| Trade-off | A | B | D |
+Tableau corrigé après le second tour. Les colonnes B et D sont conservées
+parce qu'elles redeviendraient pertinentes sur un profil serveur — mais pour
+la cible première, elles sont éliminées et le tableau le dit.
+
+| Trade-off | A | B (DBOS) | D (Temporal) |
 |---|---|---|---|
+| **Verdict cible première** | **RETENUE** | ÉLIMINÉ (REQ-2) | ÉLIMINÉ (REQ-2) |
 | Effort d'implémentation | Très élevé | Moyen | Moyen |
 | Souveraineté | Maximale | Haute (MIT) | Haute (MIT) |
 | Android (`mobile-local-execution`) | Possible | Non mesuré | Non mesuré |
-| Operational burden (local) | Faible | Faible (SQLite) | Moyen (`temporalite` ou serveur) |
+| Operational burden (local) | Faible | **Postgres requis en TS** (installé ou Docker) | **Serveur externe** ; dev server non-production |
 | Risque de bugs | Plus élevé | Faible | Faible |
 | Vendor lock-in | Aucun | DBOS | Temporal |
-| License | MIT | MIT | MIT |
+| License | MIT (code maison) | **MIT** (vérifié) | MIT |
+
+La ligne « Operational burden » corrige une erreur de la version initiale,
+qui portait « Faible (SQLite) » pour DBOS et « Moyen (`temporalite` ou
+serveur) » pour Temporal. Les deux reposaient sur des hypothèses fausses :
+DBOS-SQLite n'existe pas en TypeScript, et `temporalite` est archivé.
 
 ## Rejected alternatives
 
-- **Restate** (Option C) : rejetée pour **licence non-MIT** (BSL → Elastic).
+Toutes vérifiées aux sources primaires le 2026-09-02 (M0-01-BIS), sauf
+mention contraire.
+
+- **Restate** (Option C) : rejetée pour **licence non-OSI** — Business
+  Source License 1.1, lue dans le fichier `LICENSE`. L'ADR initial disait
+  « BSL → Elastic » sans l'avoir lu ; la conclusion tient, la preuve manquait.
+- **DBOS** (Option B) : rejetée pour **REQ-2** — le SDK TypeScript exige
+  Postgres, installé ou dans Docker. Rejet **plus fort** que prévu : l'ADR
+  anticipait « si DBOS-SQLite est *instable* → éliminé », mais en TypeScript
+  DBOS-SQLite **n'existe pas**. Redeviendrait candidat sur un profil serveur.
+- **DBOS-Go** (Option B′, apparue pendant le second tour) : a bien SQLite
+  (Golang v0.17, juin 2026), rejetée pour **REQ-4** — elle imposerait un
+  sidecar Go dans une stack TS/Bun.
+- **Temporal** (Option D) : rejetée pour **REQ-2** — `temporalite` est
+  archivé, son remplaçant est explicitement non destiné à la production et
+  in-memory par défaut, et le serveur complet est un démon externe.
+  Redeviendrait candidat sur un profil serveur.
 - **Side-step** (ne pas choisir) : rejetée — M1 ne peut pas démarrer
   sans substrate choisi.
 - **Multi-substrate** : rejetée — plan §2 interdit la double autorité.
@@ -437,9 +515,16 @@ et nouvelle ADR.
 
 - Le commit du nouveau substrate inclut un feature flag : `legacy: true`
   pour utiliser l'ancien `WorkflowRuntime`.
-- Si le spike M0-01 montre un bug bloquant, retour à cette ADR avec
-  une Option E (à définir).
-- Aucun WorkflowRun GA tant que le spike n'est pas passé.
+- **Le filet n'est plus le spike comparatif** (sans objet — voir *Decision*),
+  mais les gates de test de M1 et la crash matrix de M3 ci-dessus. A ayant
+  été retenue **par élimination et non par démonstration**, ce sont elles
+  qui portent seules la charge de preuve du kernel natif : un échec bloquant
+  y ramène à cet ADR avec une Option E à définir, et non à B/C/D, toujours
+  éliminées sur leurs éliminateurs durs.
+- Aucun WorkflowRun GA tant que les gates M1 (plan §196) ne sont pas vertes.
+- Le repli `legacy: true` n'est **pas** une position tenable : le runtime
+  actuel perd des données silencieusement sur trigger dupliqué (M0-01,
+  scénario 5). C'est un filet de compilation, pas un mode d'exploitation.
 
 ## Liens
 
