@@ -315,13 +315,16 @@ gates:
       - "ADR-022 (timer, architectural impact)"
       - "ADR-023 (network, architectural impact)"
       - "ADR-024 (extension, architectural impact)"
+      - "ADR-027 (supply chain policy, C-AR-02) -- ratifié 2026-09-02"
     allowed_skips:
       - reason: "ADR-016/021 conditionnels (depends on substrate choice)"
         scope: "ADR-016, ADR-021"
-    evidence: []
+    evidence:
+      - "EXECUTION_STATUS.md 2026-09-02: 26 ADR V2.3.1 ecrits, 25/26 DECIDED, ADR-000 CHANGES_REQUIRED (en attente P-1/P-2)"
+      - "ADR-027 ratifie C-AR-02 (bun/zod/biome/husky/exact versions, no fast-check, no renovate)"
     status: RED
     blocker: true
-    blocker_reason: "Aucun ADR ecrit. ADR-000 est la premiere carte ADR."
+    blocker_reason: "ADR-000 reste CHANGES_REQUIRED. ADR-027 DECIDED 2026-09-02."
 
 # ============================================================
 # Section 10 — Substrate proof
@@ -349,6 +352,46 @@ gates:
     status: NOT_READY
     blocker: true
     blocker_reason: "Cible premiere non GA. Le pipeline complet de la phase 1 n'est pas execute."
+
+# ============================================================
+# Section 12 — Migration tool CI (plan §185 + §222-223, ADR-017)
+# ============================================================
+  migration_v1_to_v2:
+    description: "V1 fixture -> migration tool -> V2 validation (contract-level). Runtime execution is blocked by ADR-000; the contract mapping is runnable in CI now."
+    required_commands:
+      - "cd packages/automate-migration-tool && bun test"
+      - "cd packages/automate-migration-tool && bun run typecheck"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "packages/automate-migration-tool/src/{v1-ir,v2-ir,mapping,index}.ts (3 fichiers, 17 KB)"
+      - "packages/automate-migration-tool/test/mapping.test.ts (16/16 PASS, 40 expect() calls)"
+      - "bun run typecheck: 0 erreur"
+    status: GREEN
+    blocker: false
+    card_refs:
+      - "docs/automation-v2/POST-M3-TRACKS-PLAN.md#8.3"
+    note: "Pure mapping contract; the V2 parseSpec + execution are still blocked by ADR-000."
+
+# ============================================================
+# Section 13 — V2 contract test regression net
+# ============================================================
+  v2_contracts_regression:
+    description: "V2 contract tests (PostM3-R1 + R2 cumulative, 36 GREEN cards). Regression net for the IR + side-effect contracts."
+    required_commands:
+      - "cd packages/contracts && bun test"
+      - "cd packages/automate-m0-contract && bun test"
+    required_artifacts: []
+    allowed_skips: []
+    evidence:
+      - "EXECUTION_STATUS.md 2026-09-02: V2 contracts 583/583 PASS, m0-contract 141/141 PASS, V2 total 724/724 PASS"
+      - "PostM3-R1: 18 cartes GREEN (LI-01..05 + EI-01..03 + NW-01..07 + SC-01..05/07/08 = 34+22+31+25 = 112 tests)"
+      - "PostM3-R2: 23 cartes GREEN (CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08 = 30+10+10+12+8+28 = 98 tests)"
+    status: GREEN
+    blocker: false
+    card_refs:
+      - "docs/automation-v2/POST-M3-TRACKS-PLAN.md#2"
+      - "docs/automation-v2/M3-IMPLEMENTATION-PLAN.md"
 
 # ============================================================
 # Sortie
