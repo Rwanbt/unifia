@@ -126,13 +126,13 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `931a5a4ae5 feat(contracts): PostM3-R2 distributed server (DS-01..08) + tests (28/28 PASS) + biome cleanups` |
-| HEAD (sha) | `931a5a4ae5` |
+| HEAD (commit) | `25291b4b89 docs(automate-v2): EXECUTION_STATUS update after PostM3-R2 (23 cartes GREEN livrées, 97 commits)` |
+| HEAD (sha) | `25291b4b89` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **97** |
+| Commits depuis la base | **98** |
 | Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (push autorisé 2026-09-02 par l'utilisateur) |
 
 > Le SHA d'origine cité dans le prompt de session,
@@ -143,9 +143,10 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (97 commits, 0 push)
+## Commits cumulés (98 commits, 0 push)
 
 ```
+25291b4b89 docs(automate-v2): EXECUTION_STATUS update after PostM3-R2 (23 cartes GREEN livrées, 97 commits)
 931a5a4ae5 feat(contracts): PostM3-R2 distributed server (DS-01..08) + tests (28/28 PASS) + biome cleanups
 45f80f63cc feat(contracts): PostM3-R2 ux (UX-01) + tests (8/8 PASS)
 103e862df1 feat(contracts): PostM3-R2 enterprise (EN-01..03) + tests (12/12 PASS)
