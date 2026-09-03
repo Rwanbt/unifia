@@ -26,20 +26,21 @@
       "testId": "FC-31A",
       "candidate": "DBOS_GO_SQLITE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "21/21 canonical values round-tripped exactly. 0 mismatches.",
+      "note": "21/21 canonical values survived a candidate restart (close+reopen on same durable store). 0 mismatches.",
       "observations": {
         "pass": 21,
         "fail": 0,
-        "total": 21
+        "total": 21,
+        "restartObserved": true
       }
     },
     {
       "testId": "FC-31B",
       "candidate": "DBOS_GO_SQLITE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "13/13 host-integer/float64 separation cases handled correctly.",
       "observations": {
@@ -52,13 +53,12 @@
       "testId": "FC-04",
       "candidate": "DBOS_GO_SQLITE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "ACK loss correctly resolved to UNKNOWN_EXTERNAL_STATE, not blind-retried.",
       "observations": {
         "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
-        "providerCalled": 0,
-        "providerCallHistory": [],
+        "ackLostSignal": true,
         "adapterTopology": "child-process"
       }
     },
@@ -66,7 +66,7 @@
       "testId": "FC-14",
       "candidate": "DBOS_GO_SQLITE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "Methodology NOT_VALID: in-process only. Required methodology: two real OS processes. See evidence/unifia-native/FC-14/old-in-process.json for the trace that was previously classified PASS.",
       "observations": {
@@ -79,7 +79,7 @@
       "testId": "FC-25",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; scheduled for WINDOWS_PREFLIGHT.",
       "observations": {
@@ -89,22 +89,22 @@
     {
       "testId": "FC-32",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "Replay model declared: PARTIAL. DBOS Go upstream requires deterministic orchestration but the M0 surface does not exercise workflow replay; expected_from_upstream=YES, measured=false.",
+      "note": "FC-32 NOT_VALID: replay model is declared, not measured. The M0 surface does not drive a workflow function; the harness cannot observe what the candidate replays. To unblock: implement a controlled recovery scenario (T1/R1/O1 → crash → T2/R2/O2) that exercises the candidate's actual orchestration code. See observations.requiredMethodology.",
       "observations": {
-        "replayModel": "PARTIAL",
-        "reason": "DBOS Go upstream Conductor requires deterministic orchestration (workflow replay). M0 surface does not exercise a workflow function through the candidate — replay is EXPECTED_FROM_UPSTREAM but not MEASURED here.",
-        "expectedFromUpstream": "YES",
-        "measured": false
+        "measured": false,
+        "reason": "FC-32 is NOT_VALID until a real T1/R1/O1 → crash → T2/R2/O2 replay scenario is implemented. The M0 surface (startRun + driveAttempt) does not exercise a workflow function through the candidate, so the harness cannot measure replay behavior. Declaring a replayModel value (NO / PARTIAL) is not admissible as PASS — see pack gelé §13: 'measured = false => status != PASS'.",
+        "expectedFromUpstream": "YES (DBOS Conductor requires deterministic orchestration)",
+        "requiredMethodology": "(1) Drive a workflow function in the candidate's host language/runtime that records T1, R1, O1 observations. (2) Crash the candidate's authority mid-workflow. (3) Reopen on the same durable store. (4) Observe which orchestration code re-runs, which observations are replayed, which EffectKeys remain identical, and which effects are re-issued. (5) Declare REQUIRES_DETERMINISTIC_ORCHESTRATION = YES | NO | PARTIAL with measured=true."
       }
     },
     {
       "testId": "FC-13-CTRL",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
       "observations": {
@@ -118,7 +118,7 @@
       "testId": "FC-13",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
       "observations": {
@@ -131,13 +131,13 @@
     }
   ],
   "summary": {
-    "pass": 4,
+    "pass": 3,
     "failArchitectural": 0,
     "failCorrectable": 0,
     "notApplicable": 0,
     "blocked": 3,
-    "notValid": 1
+    "notValid": 2
   },
-  "replayModel": "PARTIAL",
-  "producedAt": "2026-09-03T21:25:08.347Z"
+  "replayModel": "NOT_MEASURED",
+  "producedAt": "2026-09-03T21:52:21.153Z"
 }

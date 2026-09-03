@@ -48,6 +48,17 @@ export class CandidateResultBuilder {
     note: string
     observations?: { readonly [k: string]: unknown }
   }): void {
+    // Per pack gelé review 2026-09-03 v1.1 §22: PASS requires
+    // measured=true for any FC that has a `measured` field in the
+    // observation. The harness enforces this invariant at the
+    // result builder so a PASS cannot be silently recorded for a
+    // property that was not actually exercised.
+    if (input.status === "PASS" && input.observations && "measured" in input.observations && input.observations.measured === false) {
+      throw new Error(
+        `ResultBuilder invariant violated: status=PASS but measured=false for ${input.testId}. ` +
+        `A PASS is not admissible when the FC was not actually exercised. Reclassify as NOT_VALID, BLOCKED, or FAIL_CORRECTABLE.`,
+      )
+    }
     // Per-FC dedup: a single FC must not appear twice in the result
     // file, even if the runner tried twice. First-PASS wins; an
     // earlier FAIL_CORRECTABLE is NOT overwritten by a later

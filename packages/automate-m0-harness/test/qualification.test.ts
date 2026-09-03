@@ -5,22 +5,28 @@
  * M0 qualification test suite (substrate-neutral).
  *
  * Runs the qualification runner against:
- *   - UNIFIA_NATIVE : real (better-sqlite3 in-process)
- *   - DBOS_GO_SQLITE : STUB (BLOCKED on missing Go toolchain)
+ *   - UNIFIA_NATIVE : real (bun:sqlite in-process, M0 env choice)
+ *   - DBOS_GO_SQLITE : real (spawn dbos-qualify.exe, v1.0.0 binary)
  *
  * Per pack gelé §5 / §11 / §42 : P0 set is FC-31A, FC-31B, FC-04,
  * FC-14, FC-25, FC-32. FC-13 / FC-13-CTRL are explicitly NOT in
  * the default P0 (power-loss methodology not available in this
  * environment).
  *
+ * Per correction pack 2026-09-03 v1.1:
+ *   - FC-14 = NOT_VALID in in-process form (no real 2-OS-process)
+ *   - FC-25 = BLOCKED (multi-process zombie owner)
+ *   - FC-13-CTRL / FC-13 = BLOCKED (NO_METHODOLOGY, no power-loss)
+ *   - EXPECTED_NA = ONLY NOT_APPLICABLE (BLOCKED lives in M0_RESULTS_*.json)
+ *
  * Tests are written to fail LOUDLY on regressions. A FAIL is never
  * silently turned into a PASS.
  */
 
 import { describe, expect, test } from "bun:test"
-import { mkdtempSync, rmSync } from "node:fs"
+import { mkdtempSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve as pathResolve } from "node:path"
 import {
   FakeExternalEffectProvider,
   NativeSqliteCandidate,
@@ -34,8 +40,24 @@ function tempDir(label: string): string {
   return mkdtempSync(join(tmpdir(), `m0-qual-${label}-`))
 }
 
+/** Path to the DBOS Go binary, if it has been built. */
+const DBOS_GO_TOOL_DIR = pathResolve(
+  import.meta.dir,
+  "..",
+  "..",
+  "..",
+  "tools",
+  "dbos-qualify",
+)
+const DBOS_GO_BINARY = join(DBOS_GO_TOOL_DIR, "dbos-qualify.exe")
+const DBOS_GO_BUILT = existsSync(DBOS_GO_BINARY)
+
+/* ----------------------------------------------------------------- */
+/* UNIFIA_NATIVE                                                       */
+/* ----------------------------------------------------------------- */
+
 describe("M0 qualification — UNIFIA_NATIVE", () => {
-  test("P0 set runs and produces M0_RESULTS_NATIVE.json", async () => {
+  test("P0 set runs and produces M0_RESULTS_UNIFIA_NATIVE.json", async () => {
     const root = tempDir("native")
     const providerDir = join(root, "provider")
     const candidateDir = join(root, "candidate")
@@ -63,26 +85,23 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
     expect(result.schemaVersion).toBe(1)
     expect(result.results.length).toBeGreaterThan(0)
 
-    // FC-31A must be PASS (this is the round-trip test; if it
-    // FAIL_CORRECTABLE, the canonical value layer is broken).
+    // FC-31A must be PASS (canonical value round-trip).
     const fc31a = result.results.find((r) => r.testId === "FC-31A")
     expect(fc31a).toBeDefined()
-    expect(fc31a?.status === "PASS" || fc31a?.status === "FAIL_CORRECTABLE").toBe(true)
-    // If FAIL_CORRECTABLE, surface the note for diagnosis.
     if (fc31a?.status !== "PASS") {
       // eslint-disable-next-line no-console
       console.log("FC-31A status:", fc31a?.status, "note:", fc31a?.note, "observations:", JSON.stringify(fc31a?.observations))
     }
+    expect(fc31a?.status).toBe("PASS")
 
-    // FC-31B must be PASS (the contract-level conversion is in the
-    // harness, not the candidate; this is the host-integer/float64
-    // separation check).
+    // FC-31B must be PASS (host-integer/float64 separation).
     const fc31b = result.results.find((r) => r.testId === "FC-31B")
     expect(fc31b).toBeDefined()
     if (fc31b?.status !== "PASS") {
       // eslint-disable-next-line no-console
       console.log("FC-31B status:", fc31b?.status, "note:", fc31b?.note, "observations:", JSON.stringify(fc31b?.observations))
     }
+    expect(fc31b?.status).toBe("PASS")
 
     // FC-04 must be PASS (ACK loss → UNKNOWN_EXTERNAL_STATE).
     const fc04 = result.results.find((r) => r.testId === "FC-04")
@@ -91,70 +110,176 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
       // eslint-disable-next-line no-console
       console.log("FC-04 status:", fc04?.status, "note:", fc04?.note, "observations:", JSON.stringify(fc04?.observations))
     }
+    expect(fc04?.status).toBe("PASS")
 
-    // FC-32 must declare its replay model. Native is NO.
-    expect(result.replayModel).toBe("NO")
+    // FC-14 must be NOT_VALID (in-process form does not satisfy the
+    // pack gelé §15 contract which requires two real OS processes).
+    const fc14 = result.results.find((r) => r.testId === "FC-14")
+    expect(fc14).toBeDefined()
+    expect(fc14?.status).toBe("NOT_VALID")
+
+    // FC-25 must be BLOCKED (single-process generation in M0).
+    const fc25 = result.results.find((r) => r.testId === "FC-25")
+    expect(fc25).toBeDefined()
+    expect(fc25?.status).toBe("BLOCKED")
+
+    // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
+    const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")
+    expect(fc13c).toBeDefined()
+    expect(fc13c?.status).toBe("BLOCKED")
+    const fc13 = result.results.find((r) => r.testId === "FC-13")
+    expect(fc13).toBeDefined()
+    expect(fc13?.status).toBe("BLOCKED")
+
+    // FC-32 must be NOT_VALID (declaration without measurement is
+    // not admissible as PASS — see pack gelé §13: "measured = false
+    // => status != PASS"). replayModel defaults to NOT_MEASURED.
+    expect(result.replayModel).toBe("NOT_MEASURED")
 
     // Cleanup — Windows keeps file handles open briefly; retry
-    // up to 5 times with a small delay.
+    // up to 5 times with a small delay. The temp dir will be
+    // cleaned by the OS regardless; the harness does not depend
+    // on a successful rm here.
     for (let i = 0; i < 5; i++) {
       try {
         rmSync(root, { recursive: true, force: true })
         break
       } catch (e) {
-        if (i === 4) throw e
-        await new Promise((r) => setTimeout(r, 100))
+        if (i === 4) {
+          // eslint-disable-next-line no-console
+          console.log("Native test cleanup EBUSY after 5 retries; leaving", root)
+          break
+        }
+        await new Promise((r) => setTimeout(r, 200))
       }
     }
-  }, { timeout: 30_000 })
+  }, { timeout: 60_000 })
 })
 
-describe("M0 qualification — DBOS_GO_SQLITE", () => {
-  test("adapter is BLOCKED on missing Go toolchain (every method throws)", async () => {
-    const candidate = new DBOSGoCandidate()
+/* ----------------------------------------------------------------- */
+/* DBOS_GO_SQLITE (real binary)                                        */
+/* ----------------------------------------------------------------- */
+
+describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
+  if (!DBOS_GO_BUILT) {
+    test("binary NOT BUILT — skipped (build via scripts/bootstrap-go.sh + go build)", () => {
+      // eslint-disable-next-line no-console
+      console.log(`[SKIP] dbos-qualify.exe not found at ${DBOS_GO_BINARY}. Build with:`)
+      // eslint-disable-next-line no-console
+      console.log("        scripts/bootstrap-go.sh (downloads Go 1.25.12)")
+      // eslint-disable-next-line no-console
+      console.log("        cd tools/dbos-qualify && ../../.tools/go/go1.25.12/bin/go build -buildvcs=false -o dbos-qualify.exe .")
+      expect(DBOS_GO_BUILT).toBe(false)
+    })
+    return
+  }
+
+  test("candidateInfo() declares DBOS_GO_SQLITE with pinned versions", async () => {
+    const candidate = new DBOSGoCandidate({
+      toolDir: DBOS_GO_TOOL_DIR,
+      version: "github.com/dbos-inc/dbos-transact-golang@v1.0.0",
+      buildHash: "qual-m0-2026-09-03",
+    })
     const info = await candidate.candidateInfo()
     expect(info.kind).toBe("DBOS_GO_SQLITE")
-    expect(info.version).toBeTruthy()
+    expect(info.version).toBe("github.com/dbos-inc/dbos-transact-golang@v1.0.0")
     expect(info.version).not.toBe("latest")
     expect(info.version).not.toBe("1.0+")
-
-    // Every method that touches the Go binary must throw BlockedExecution.
-    await expect(candidate.initialize()).rejects.toThrow(/BLOCKED/)
+    expect(info.process.multiProcessSafe).toBe(true)
+    expect(info.process.topology).toBe("child-process")
+    expect(info.storage.journalMode).toBe("WAL")
+    expect(info.storage.synchronous).toBe("FULL")
   })
 
-  test("expected-NA file declares every FC as BLOCKED on this host", async () => {
-    const { CandidateResultBuilder, ExpectedNABuilder, evidencePath, expectedNAPath } = await import("../src/qualification/result.ts")
-    const root = tempDir("dbos")
-    const naBuilder = new ExpectedNABuilder("DBOS_GO_SQLITE")
-    for (const fc of ["FC-31A", "FC-31B", "FC-04", "FC-14", "FC-25", "FC-32", "FC-13", "FC-13-CTRL"] as const) {
-      naBuilder.declare(fc, "BLOCKED on this host (no Go toolchain). See adapters/dbos-go.ts header for the methodology gap and the install path required to unblock.")
-    }
-    const naPath = expectedNAPath(root, "DBOS_GO_SQLITE")
-    await naBuilder.write(naPath)
-    const file = Bun.file(naPath)
+  test("P0 set runs against the real Go binary and produces M0_RESULTS_DBOS_GO_SQLITE.json", async () => {
+    const root = tempDir("dbos-go")
+    const providerDir = join(root, "provider")
+    const candidateDir = join(root, "candidate")
+
+    await mkdirSafe(providerDir)
+    await mkdirSafe(candidateDir)
+
+    const provider = new FakeExternalEffectProvider({ storeDir: providerDir, dropAckToCandidate: false })
+    // The fake provider is constructed but not wired into the Go
+    // binary (Go manages its own process lifecycle). The FC-04
+    // scenarios inside the runner re-build a Native candidate
+    // pointed at an ACK-loss provider; for the Go candidate, the
+    // adapter drives ACK loss via the JSON `ackLost` field on
+    // /attempts, which the Go binary translates to
+    // UNKNOWN_EXTERNAL_STATE per the FC-04 contract.
+    const candidate = new DBOSGoCandidate({
+      toolDir: DBOS_GO_TOOL_DIR,
+      version: "github.com/dbos-inc/dbos-transact-golang@v1.0.0",
+      buildHash: "qual-m0-2026-09-03",
+    })
+
+    const runner = new QualificationRunner(candidate, provider, {
+      outputRoot: root,
+      buildHash: "qual-m0-2026-09-03",
+    })
+
+    const { resultPath } = await runner.run()
+    const file = Bun.file(resultPath)
     expect(await file.exists()).toBe(true)
-    const json = await file.json()
-    expect(json.candidate).toBe("DBOS_GO_SQLITE")
-    expect(json.entries.length).toBe(8)
-    rmSync(root, { recursive: true, force: true })
-  })
+    const result: CandidateResultFile = await file.json()
+
+    // Structural assertions
+    expect(result.candidate).toBe("DBOS_GO_SQLITE")
+    expect(result.schemaVersion).toBe(1)
+    expect(result.results.length).toBeGreaterThan(0)
+
+    // The runner drives FC-04 through the actual candidate; for
+    // the Go binary this means ackLost=true on the driveAttempt
+    // HTTP body, which the binary maps to UNKNOWN_EXTERNAL_STATE
+    // (per its own FC-04 implementation in main.go).
+    const fc04 = result.results.find((r) => r.testId === "FC-04")
+    expect(fc04).toBeDefined()
+    // Both candidates must reach PASS for FC-04 (ACK loss → UNKNOWN).
+    expect(fc04?.status).toBe("PASS")
+
+    // FC-14 must be NOT_VALID (no multi-process harness yet).
+    const fc14 = result.results.find((r) => r.testId === "FC-14")
+    expect(fc14).toBeDefined()
+    expect(fc14?.status).toBe("NOT_VALID")
+
+    // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
+    const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")
+    expect(fc13c).toBeDefined()
+    expect(fc13c?.status).toBe("BLOCKED")
+    const fc13 = result.results.find((r) => r.testId === "FC-13")
+    expect(fc13).toBeDefined()
+    expect(fc13?.status).toBe("BLOCKED")
+
+    // Cleanup — shutdown the binary first (releases the SQLite
+    // file), then retry on EBUSY for Windows file-lock release.
+    await candidate.shutdown().catch(() => undefined)
+    for (let i = 0; i < 10; i++) {
+      try {
+        rmSync(root, { recursive: true, force: true })
+        break
+      } catch (e) {
+        if (i === 9) {
+          // eslint-disable-next-line no-console
+          console.log("DBOS Go test cleanup EBUSY after 10 retries; leaving", root)
+          break
+        }
+        await new Promise((r) => setTimeout(r, 200))
+      }
+    }
+  }, { timeout: 120_000 })
 })
+
+/* ----------------------------------------------------------------- */
+/* Common harness invariants                                          */
+/* ----------------------------------------------------------------- */
 
 describe("M0 qualification — common harness invariants", () => {
   test("both candidates expose the same contract surface", () => {
-    // Filter private helpers (`requireDb` is a Native internal).
-    // The contract is the set of methods exposed publicly, with
-    // matching names. Both candidates extend
-    // DurableWorkflowAuthorityQualificationAdapter; private
-    // helpers are not part of the contract surface.
     const nativeMethods = Object.getOwnPropertyNames(NativeSqliteCandidate.prototype)
-      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireDb")
+      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireDb" && n !== "destroy")
     const dbosMethods = Object.getOwnPropertyNames(DBOSGoCandidate.prototype)
-      .filter((n) => n !== "constructor" && !n.startsWith("_"))
-    // DBOS stub doesn't have `destroy` (it's Native-specific cleanup).
-    // The contract itself has all other methods.
-    const nativeExcludingDestroy = nativeMethods.filter((n) => n !== "destroy")
-    expect(nativeExcludingDestroy.sort()).toEqual(dbosMethods.sort())
+      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireBase")
+    expect(nativeMethods.sort()).toEqual(dbosMethods.sort())
   })
 
   test("FC-31A bit patterns are stable across re-reads (BitInt<->Float64 round-trip)", async () => {
@@ -165,4 +290,124 @@ describe("M0 qualification — common harness invariants", () => {
     expect(bitsToFloat64(BINARY64_MAX_SAFE)).toBe(9_007_199_254_740_991)
     expect(bitsToFloat64(BINARY64_NEG_MAX_SAFE)).toBe(-9_007_199_254_740_991)
   })
+
+  test("ExpectedNABuilder only contains NOT_APPLICABLE (no BLOCKED)", async () => {
+    const { ExpectedNABuilder, expectedNAPath } = await import("../src/qualification/result.ts")
+    const root = tempDir("na-builder")
+    const na = new ExpectedNABuilder("UNIFIA_NATIVE")
+    // Allowed: NOT_APPLICABLE (just an architecture-level skip).
+    // Not allowed: BLOCKED (those belong in M0_RESULTS_*.json).
+    const naPath = expectedNAPath(root, "UNIFIA_NATIVE")
+    await na.write(naPath)
+    const file = Bun.file(naPath)
+    const json = await file.json()
+    expect(json.candidate).toBe("UNIFIA_NATIVE")
+    expect(Array.isArray(json.entries)).toBe(true)
+    // The very test of declaring a BLOCKED entry here would be a
+    // test failure — the type signature prevents it (no declare()
+    // overload accepts a status).
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  test("COMMON_ORACLE_IMPORTS_CANDIDATE_IMPLEMENTATION = 0 (no contamination)", async () => {
+    // Per pack gelé review 2026-09-03 v1.1 §3 (CP4.1): the common
+    // oracle (runner + providers + vectors) MUST NOT import any
+    // candidate-specific implementation. The harness drives every
+    // candidate through the same substrate-neutral contract
+    // `DurableWorkflowAuthorityQualificationAdapter`. Cross-candidate
+    // contamination (e.g. creating a fresh Native candidate from
+    // inside `runFC04`) is forbidden and now blocked by this test.
+    //
+    // Scope: the oracle is the set of files that *execute* during
+    // a run (runner + providers + vectors + contract + result + index
+    // barrel). The test excludes `adapters/` (those ARE the
+    // candidate implementations) and excludes comment lines (//, *)
+    // and string literals. Only `import` and `export ... from` lines
+    // count as actual code-level imports.
+    const { readdir, readFile } = await import("node:fs/promises")
+    const harnessRoot = pathResolve(import.meta.dir, "..", "src", "qualification")
+    // Pattern: an actual code-level import of an adapter path.
+    // (export ... from "./adapters/..." is also a code-level import.)
+    const FORBIDDEN_CODE_PATTERNS: RegExp[] = [
+      /^\s*(?:import|export)\b[^;\n]*from\s+["']\.\.?\/adapters\//,
+    ]
+    // Files that are explicitly allowed to re-export from
+    // adapters/ — the index.ts barrel is the public API surface,
+    // not part of the common oracle.
+    const ALLOWED_FILES = new Set<string>(["index.ts"])
+    const violations: { file: string; line: number; pattern: string; text: string }[] = []
+    const walk = async (dir: string): Promise<void> => {
+      const entries = await readdir(dir, { withFileTypes: true })
+      for (const e of entries) {
+        const p = `${dir}/${e.name}`
+        if (e.isDirectory()) {
+          if (e.name === "adapters") continue // candidate impls; not part of the oracle
+          await walk(p)
+        } else if (e.isFile() && p.endsWith(".ts")) {
+          const baseName = p.split(/[\\/]/).pop() ?? ""
+          if (ALLOWED_FILES.has(baseName)) continue
+          const content = await readFile(p, "utf8")
+          const lines = content.split(/\r?\n/)
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]
+            const trimmed = line.trim()
+            // Skip comment-only lines and JSDoc blocks
+            if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue
+            for (const pat of FORBIDDEN_CODE_PATTERNS) {
+              if (pat.test(line)) {
+                violations.push({ file: p, line: i + 1, pattern: pat.source, text: trimmed })
+              }
+            }
+          }
+        }
+      }
+    }
+    await walk(harnessRoot)
+    if (violations.length > 0) {
+      const msg = violations
+        .map((v) => `  ${v.file}:${v.line}  [${v.pattern}]  ${v.text}`)
+        .join("\n")
+      throw new Error(
+        `COMMON_ORACLE_IMPORTS_CANDIDATE_IMPLEMENTATION > 0\n` +
+        `Forbidden cross-candidate import detected in common oracle:\n${msg}`,
+      )
+    }
+    expect(violations.length).toBe(0)
+  })
+
+  test("PASS requires measured=true for measured FCs (schema invariant)", async () => {
+    // Per pack gelé review 2026-09-03 v1.1 §22: PASS requires
+    // measured=true for any FC that has a `measured` field in the
+    // FC result schema. This is enforced at the result builder
+    // level. The test verifies that the builder rejects
+    // { status: "PASS", measured: false }.
+    const { CandidateResultBuilder } = await import("../src/qualification/result.ts")
+    const dummyInfo = {
+      kind: "UNIFIA_NATIVE" as const,
+      version: "test",
+      buildHash: "test",
+      storage: { engine: "x", driver: "x", journalMode: "WAL", synchronous: "FULL", busyTimeoutMs: 0, maxOpenConns: 0, backupTarget: "file" as const },
+      process: { topology: "in-process", multiProcessSafe: false },
+    }
+    const builder = new CandidateResultBuilder(dummyInfo, "test")
+    // PASS with measured=false should throw (or at least be rejected).
+    expect(() =>
+      builder.record({
+        testId: "FC-32",
+        status: "PASS",
+        evidencePath: "x",
+        note: "fake",
+        observations: { measured: false },
+      }),
+    ).toThrow(/measured/)
+  })
 })
+
+/* ----------------------------------------------------------------- */
+/* Helpers                                                            */
+/* ----------------------------------------------------------------- */
+
+async function mkdirSafe(p: string): Promise<void> {
+  const { mkdir } = await import("node:fs/promises")
+  await mkdir(p, { recursive: true })
+}

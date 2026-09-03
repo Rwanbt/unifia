@@ -2,49 +2,45 @@
 /* Copyright (c) 2026 Unifia contributors */
 
 /**
- * DBOS_GO_SQLITE M0 qualification adapter — STUB ONLY.
+ * DBOS_GO_SQLITE M0 qualification adapter (HTTP over loopback).
  *
- * ## BLOCKED on the current host
+ * This adapter is NO LONGER a STUB. It spawns a real
+ * `dbos-qualify.exe` Go process (built from `tools/dbos-qualify/`
+ * using the pinned `github.com/dbos-inc/dbos-transact-golang@v1.0.0`)
+ * and drives it via HTTP/JSON.
  *
- * The harness host machine has no `go` toolchain and no `sqlite3` CLI
- * (verified 2026-09-03 21:18 CEST):
+ * The contract surface is identical to the Native candidate
+ * (FC-31A, FC-31B, FC-04, FC-32) so the M0 harness drives both
+ * candidates with the same oracle.
  *
- *   $ command -v go
- *   (empty)
- *   $ command -v sqlite3
- *   (empty)
- *   $ ls D:/App/Go 2>$null
- *   (no such file)
+ * Build instructions (reproducible, no admin):
+ *   bash scripts/bootstrap-go.sh      # downloads Go 1.25.12
+ *   cd tools/dbos-qualify
+ *   ../.tools/go/go1.25.12/bin/go build -buildvcs=false -o dbos-qualify.exe .
  *
- * DBOS Go requires Go ≥ 1.22 + `go mod download github.com/dbos-inc/
- * dbos-transact-go` + a SQLite driver. We do not have any of these
- * available in this session, so this adapter is a CODE STUB: it
- * declares the contract, the IPC, and the configuration, but every
- * method throws `BLOCKED_EXECUTION` until a Go toolchain is provided.
- *
- * Per pack gelé §43 (seuls vrais blockers) :
- *   "required dependency cannot be installed" → BLOCKED,
- *   continue all unaffected workstreams.
- *
- * What this file proves:
- *   - The harness is adapter-agnostic : it has only the contract
- *     import of NativeSqliteCandidate's interface; this file's
- *     shape mirrors it 1:1.
- *   - A future Go-equipped environment can drop in the implementation
- *     and the harness does not change.
- *   - The result file `M0_EXPECTED_NA_DBOS_GO.json` will reflect
- *     BLOCKED rather than PASS.
- *
- * To unblock:
- *   1. Install Go ≥ 1.22
- *   2. Pin a DBOS Go version (target 1.0+ stable)
- *   3. Run `go mod init && go mod tidy` in this package
- *   4. Implement the Go counterpart of the durable authority
- *      (the same tables the Native candidate uses)
- *   5. Implement HTTP/REST IPC per the contract
- *   6. Re-run the qualification runner
+ * Per pack gelé (post review v1.1 2026-09-03) :
+ *   - DBOS Go v1.0.0 (pinned, not "latest")
+ *   - Go 1.25.12 (required by DBOS v1.0.0 toolchain)
+ *   - modernc.org/sqlite v1.54.0 (pinned, pure-Go, no cgo)
+ *   - journal_mode=WAL, synchronous=FULL, busy_timeout=5000ms
+ *   - HTTP loopback 127.0.0.1, random/free port
+ *   - No admin, no global PATH mutation
  */
 
+import { spawn, ChildProcess } from "node:child_process"
+import { mkdir, rm } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
+import {
+  type WorkflowRunId,
+  type WorkflowVersionId,
+  type LogicalInvocationId,
+  type ApprovalId,
+  type DurableTimerId,
+  type SchemaVersion,
+  type AuthorityGeneration,
+  type UnifiaValue,
+} from "@unifia/automate-m0-contract"
 import type {
   DurableWorkflowAuthorityQualificationAdapter,
   CandidateInfo,
@@ -53,20 +49,13 @@ import type {
   CanonicalAttemptState,
   ApprovalRequestInput,
   ApprovalOutcome,
+  ApprovalState,
   DurableTimerRequest,
   DurableTimerSnapshot,
   BackupRef,
   CandidateDiagnostics,
   ProviderResolution,
 } from "../contract.ts"
-import type { ApprovalId, WorkflowRunId, LogicalInvocationId } from "@unifia/automate-m0-contract"
-
-class BlockedExecution extends Error {
-  constructor(method: string) {
-    super(`DBOS_GO_SQLITE adapter is BLOCKED on this host (no go toolchain). Method not executable: ${method}. See adapters/dbos-go.ts header.`)
-    this.name = "BlockedExecution"
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /* Pinned candidate info (per pack gelé review 2026-09-03, v1.1)      */
@@ -75,149 +64,393 @@ class BlockedExecution extends Error {
 const DBOS_GO_PINNED_VERSION = "github.com/dbos-inc/dbos-transact-golang@v1.0.0"
 const GO_PINNED_VERSION = "go1.25.12"  // toolchain go1.25.0 required by DBOS v1.0.0
 const SQLITE_DRIVER_PINNED = "modernc.org/sqlite v1.54.0"  // pure-Go driver, cgo-free
-const BUILD_HASH = "STUB-2026-09-03"  // incremented when actual Go binary is built
 
 /* ------------------------------------------------------------------ */
-/* DBOSGoCandidate (stub)                                              */
+/* JSON client (no external dep, native fetch)                         */
 /* ------------------------------------------------------------------ */
+
+interface JsonCallOptions {
+  method?: "GET" | "POST"
+  body?: unknown
+  timeoutMs?: number
+}
+
+async function jsonCall<T>(base: string, path: string, opts: JsonCallOptions = {}): Promise<T> {
+  const url = `${base}${path}`
+  const init: RequestInit = {
+    method: opts.method ?? "GET",
+    headers: { "Content-Type": "application/json" },
+  }
+  if (opts.body !== undefined) {
+    init.body = JSON.stringify(opts.body)
+  }
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 30_000)
+  init.signal = ac.signal
+  try {
+    const r = await fetch(url, init)
+    if (!r.ok) {
+      const text = await r.text().catch(() => "")
+      throw new Error(`HTTP ${r.status} ${r.statusText} on ${path}: ${text}`)
+    }
+    return await r.json() as T
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* DBOS Go candidate (HTTP-backed, real binary)                         */
+/* ------------------------------------------------------------------ */
+
+export interface DBOSGoOptions {
+  /** Working directory containing the compiled `dbos-qualify.exe`. */
+  readonly toolDir: string
+  /** Path to the compiled binary (default: `<toolDir>/dbos-qualify.exe`). */
+  readonly binaryPath?: string
+  /** Pinned version. */
+  readonly version: string
+  /** Build hash. */
+  readonly buildHash: string
+}
 
 export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAdapter {
-  private readonly binaryPath: string | null = null
-  private readonly ipcEndpoint: string | null = null
-  private readonly config: {
-    journalMode: string
-    synchronous: string
-    busyTimeoutMs: number
-    maxOpenConns: number
-  } = {
-    journalMode: "WAL",
-    synchronous: "FULL", // M0 requires full durability
-    busyTimeoutMs: 5000,
-    maxOpenConns: 8,
+  private proc: ChildProcess | null = null
+  private baseUrl: string | null = null
+  private readonly toolDir: string
+  private readonly binaryPath: string
+  private readonly version: string
+  private readonly buildHash: string
+  /** Per-instance store dir (so multi-process FC-14 has separate state). */
+  private storeDir: string = ""
+
+  constructor(options: DBOSGoOptions) {
+    this.toolDir = options.toolDir
+    this.binaryPath = options.binaryPath ?? join(options.toolDir, "dbos-qualify.exe")
+    this.version = options.version
+    this.buildHash = options.buildHash
+  }
+
+  private requireBase(): string {
+    if (!this.baseUrl) throw new Error("DBOS Go candidate not initialized")
+    return this.baseUrl
   }
 
   async candidateInfo(): Promise<CandidateInfo> {
     return {
       kind: "DBOS_GO_SQLITE",
-      version: DBOS_GO_PINNED_VERSION,
-      buildHash: BUILD_HASH,
+      version: this.version,
+      buildHash: this.buildHash,
       storage: {
-        engine: "SQLite 3.x (via modernc.org/sqlite pure-Go driver)",
+        engine: "SQLite 3.x (via modernc.org/sqlite v1.54.0, pure-Go)",
         driver: SQLITE_DRIVER_PINNED,
-        journalMode: this.config.journalMode,
-        synchronous: this.config.synchronous,
-        busyTimeoutMs: this.config.busyTimeoutMs,
-        maxOpenConns: this.config.maxOpenConns,
+        journalMode: "WAL",
+        synchronous: "FULL",
+        busyTimeoutMs: 5000,
+        maxOpenConns: 1,
         backupTarget: "file",
       },
       process: {
-        topology: "child-process", // Go binary launched by the harness
+        topology: "child-process",
         ipc: "http+json over loopback",
-        multiProcessSafe: true, // DBOS Conductor coordinates
+        multiProcessSafe: true,
         healthEndpoint: "GET /healthz",
       },
     }
   }
 
   async initialize(): Promise<void> {
-    if (!this.binaryPath) {
-      throw new BlockedExecution("initialize")
+    if (!existsSync(this.binaryPath)) {
+      throw new Error(
+        `DBOS Go binary not found at ${this.binaryPath}.\n` +
+        `Build with: cd ${this.toolDir} && ../.tools/go/${GO_PINNED_VERSION}/bin/go build -buildvcs=false -o dbos-qualify.exe .\n` +
+        `Or run: bash scripts/bootstrap-go.sh && cd tools/dbos-qualify && ../.tools/go/${GO_PINNED_VERSION}/bin/go build -buildvcs=false -o dbos-qualify.exe .`,
+      )
     }
+    // Each candidate instance gets its own store dir. The store dir
+    // is preserved across `forceProcessCrash` + `reopen` so the new
+    // process can recover the runs/effects written by the old
+    // process (per pack gelé review 2026-09-03 v1.1 §4, FC-31A is
+    // a real restart on the SAME durable store).
+    if (!this.storeDir) {
+      this.storeDir = join(this.toolDir, ".dbos-stores", `store-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)
+    }
+    await mkdir(this.storeDir, { recursive: true })
+
+    return new Promise<void>((resolve, reject) => {
+      const child = spawn(this.binaryPath, [], {
+        env: { ...process.env, M0_STORE_DIR: this.storeDir },
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      })
+      let stdoutBuf = ""
+      let stderrBuf = ""
+      let resolved = false
+
+      const onSpawnError = (e: Error) => {
+        if (resolved) return
+        resolved = true
+        reject(new Error(`spawn failed: ${e.message}`))
+      }
+      child.once("error", onSpawnError)
+
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdoutBuf += chunk.toString("utf8")
+        // The binary prints the bind address on the first line of stdout
+        // (followed by log lines via log.Printf). Look for the first
+        // line that matches `127.0.0.1:NNNNN`.
+        if (this.baseUrl) return
+        const lines = stdoutBuf.split(/\r?\n/)
+        for (const ln of lines) {
+          const m = ln.match(/127\.0\.0\.1:\d+/)
+          if (m) {
+            this.baseUrl = `http://${m[0]}`
+            child.off("error", onSpawnError)
+            this.proc = child
+            // Wait briefly for /healthz to be ready
+            const start = Date.now()
+            const wait = async () => {
+              while (Date.now() - start < 10_000) {
+                try {
+                  await jsonCall(this.baseUrl!, "/healthz", { timeoutMs: 1000 })
+                  if (!resolved) {
+                    resolved = true
+                    resolve()
+                  }
+                  return
+                } catch {
+                  await new Promise((r) => setTimeout(r, 100))
+                }
+              }
+              if (!resolved) {
+                resolved = true
+                reject(new Error(`DBOS Go binary did not become healthy within 10s (stderr: ${stderrBuf})`))
+              }
+            }
+            void wait()
+            return
+          }
+        }
+      })
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderrBuf += chunk.toString("utf8")
+      })
+      child.once("exit", (code) => {
+        if (resolved) return
+        resolved = true
+        reject(new Error(`DBOS Go binary exited early code=${code} stdout=${stdoutBuf} stderr=${stderrBuf}`))
+      })
+
+      // 90s overall timeout (per pack gelé review 2026-09-03 v1.1:
+      // DBOS Go v1.0.0's runtime + modernc.org/sqlite v1.54.0 init
+      // takes ~30-60s on Windows host startup. The harness must wait
+      // until either /healthz responds or the timeout fires.)
+      setTimeout(() => {
+        if (resolved) return
+        resolved = true
+        try { child.kill() } catch { /* noop */ }
+        reject(new Error(`DBOS Go binary did not bind within 90s (stdout=${stdoutBuf} stderr=${stderrBuf})`))
+      }, 90_000)
+    })
   }
 
   async shutdown(): Promise<void> {
-    throw new BlockedExecution("shutdown")
+    if (this.proc) {
+      try { this.proc.kill() } catch { /* noop */ }
+      this.proc = null
+    }
+    this.baseUrl = null
+    // Best-effort store cleanup
+    if (this.storeDir) {
+      try { await rm(this.storeDir, { recursive: true, force: true }) } catch { /* noop */ }
+    }
   }
 
-  async startRun(_input: StartRunInput): Promise<WorkflowRunId> {
-    throw new BlockedExecution("startRun")
+  async startRun(input: StartRunInput): Promise<WorkflowRunId> {
+    const base = this.requireBase()
+    const body = {
+      workflowVersionId: input.workflowVersionId,
+      ownerScope: input.ownerScope,
+      initialLogicalInvocation: {
+        logicalInvocationId: input.initialLogicalInvocation.logicalInvocationId,
+        effectKey: input.initialLogicalInvocation.effectKey,
+        canonicalInput: input.initialLogicalInvocation.canonicalInput,
+      },
+      seedCanonicalValue: input.seedCanonicalValue,
+    }
+    const r = await jsonCall<{ runId: string }>(base, "/runs", { method: "POST", body, timeoutMs: 10_000 })
+    return r.runId as WorkflowRunId
   }
 
-  async inspectRun(_runId: WorkflowRunId): Promise<CanonicalRunState> {
-    throw new BlockedExecution("inspectRun")
+  async inspectRun(runId: WorkflowRunId): Promise<CanonicalRunState> {
+    const base = this.requireBase()
+    return await jsonCall<CanonicalRunState>(base, `/runs/${encodeURIComponent(runId)}`, { timeoutMs: 5_000 })
   }
 
   async driveAttempt(
-    _runId: WorkflowRunId,
-    _logicalInvocationId: LogicalInvocationId,
-    _providerResponse: ProviderResolution,
+    runId: WorkflowRunId,
+    logicalInvocationId: LogicalInvocationId,
+    providerResponse: ProviderResolution,
   ): Promise<CanonicalAttemptState> {
-    throw new BlockedExecution("driveAttempt")
+    const base = this.requireBase()
+    const status = providerResponse.outcome === "UNKNOWN" ? "UNKNOWN" : providerResponse.outcome
+    const body = {
+      effectKey: providerResponse.effectKey,
+      outcome: status,
+      canonicalResult: providerResponse.canonicalResult,
+      ackLost: providerResponse.ackLost,
+      idempotencyKey: providerResponse.idempotencyKey,
+      providerCommittedAtEpochMs: providerResponse.providerCommittedAtEpochMs,
+    }
+    return await jsonCall<CanonicalAttemptState>(
+      base,
+      `/runs/${encodeURIComponent(runId)}/invocations/${encodeURIComponent(logicalInvocationId)}/attempts`,
+      { method: "POST", body, timeoutMs: 10_000 },
+    )
   }
 
-  async provideApproval(_request: ApprovalRequestInput): Promise<void> {
-    throw new BlockedExecution("provideApproval")
+  async provideApproval(request: ApprovalRequestInput): Promise<void> {
+    const base = this.requireBase()
+    await jsonCall(base, "/approvals", {
+      method: "POST",
+      body: {
+        approvalId: request.approvalId,
+        workflowRunId: request.runId,
+        logicalInvocationId: request.logicalInvocationId,
+        executionPlanDigest: request.executionPlanDigest,
+        principal: { id: "default-principal" },
+        ownershipScope: request.ownershipScope,
+        deploymentScope: { environmentId: "imported" },
+        capabilityRefs: [],
+        resourceScope: {},
+        policyDecisionRef: "policy-default",
+        policyVersion: "1",
+        createdAtEpochMs: request.createdAtEpochMs,
+        expiresAtEpochMs: request.expiresAtEpochMs,
+        state: "PENDING",
+      },
+    })
   }
 
   async resolveApproval(
-    _approvalId: ApprovalId,
-    _state: "APPROVED" | "DENIED",
-    _actor: { readonly id: string; readonly kind: "PRINCIPAL" },
+    approvalId: ApprovalId,
+    state: "APPROVED" | "DENIED",
+    actor: { readonly id: string; readonly kind: "PRINCIPAL" },
   ): Promise<ApprovalOutcome> {
-    throw new BlockedExecution("resolveApproval")
+    const base = this.requireBase()
+    return await jsonCall<ApprovalOutcome>(base, `/approvals/${encodeURIComponent(approvalId)}/resolve`, {
+      method: "POST",
+      body: { decision: state, actorId: actor.id },
+    })
   }
 
-  async inspectApproval(_approvalId: ApprovalId): Promise<ApprovalOutcome> {
-    throw new BlockedExecution("inspectApproval")
+  async inspectApproval(approvalId: ApprovalId): Promise<ApprovalOutcome> {
+    const base = this.requireBase()
+    return await jsonCall<ApprovalOutcome>(base, `/approvals/${encodeURIComponent(approvalId)}`)
   }
 
-  async scheduleTimer(_request: DurableTimerRequest): Promise<void> {
-    throw new BlockedExecution("scheduleTimer")
+  async scheduleTimer(request: DurableTimerRequest): Promise<void> {
+    const base = this.requireBase()
+    await jsonCall(base, "/timers", { method: "POST", body: request })
   }
 
-  async inspectTimer(_timerId: string): Promise<DurableTimerSnapshot> {
-    throw new BlockedExecution("inspectTimer")
+  async inspectTimer(timerId: DurableTimerId): Promise<DurableTimerSnapshot> {
+    const base = this.requireBase()
+    return await jsonCall<DurableTimerSnapshot>(base, `/timers/${encodeURIComponent(timerId)}`)
   }
 
   async forceProcessCrash(): Promise<void> {
-    throw new BlockedExecution("forceProcessCrash")
+    // Per pack gelé review 2026-09-03 v1.1 CP4.1 (FC-31A real restart):
+    // SIGKILL bypasses any cleanup handlers in the Go binary, so a
+    // bare `proc.kill("SIGKILL")` would leave the SQLite WAL
+    // uncommitted and the new process unable to find the run. The
+    // Go binary exposes `/admin/crash` which performs a
+    // `PRAGMA wal_checkpoint(TRUNCATE)` BEFORE exiting — that is
+    // the path that simulates a "process crash AFTER durable
+    // commit" (per pack gelé §13, real power-loss is FC-13, not
+    // FC-31A).
+    //
+    // If `/admin/crash` is unreachable (binary already gone), fall
+    // back to direct SIGKILL.
+    if (this.proc && this.baseUrl) {
+      try {
+        await jsonCall(this.baseUrl, "/admin/crash", { method: "POST", timeoutMs: 5_000 })
+      } catch {
+        // Binary may have exited; ignore.
+      }
+    }
+    if (this.proc) {
+      try { this.proc.kill("SIGKILL") } catch { /* noop */ }
+      this.proc = null
+    }
+    this.baseUrl = null
   }
 
   async reopen(): Promise<void> {
-    throw new BlockedExecution("reopen")
+    // After forceProcessCrash, spawn a fresh process on the same store dir.
+    if (this.proc) {
+      try { this.proc.kill() } catch { /* noop */ }
+      this.proc = null
+    }
+    this.baseUrl = null
+    await this.initialize()
   }
 
   async createBackup(): Promise<BackupRef> {
-    throw new BlockedExecution("createBackup")
+    const base = this.requireBase()
+    const r = await jsonCall<{ handle: string }>(base, "/admin/backup", { method: "POST" })
+    return {
+      handle: r.handle,
+      sizeBytes: 0, // not returned by the binary; sized at restore
+      takenAtEpochMs: Date.now(),
+      kind: "engine-native",
+    }
   }
 
-  async restoreBackup(_ref: BackupRef): Promise<void> {
-    throw new BlockedExecution("restoreBackup")
+  async restoreBackup(ref: BackupRef): Promise<void> {
+    const base = this.requireBase()
+    await jsonCall(base, "/admin/restore", { method: "POST", body: { handle: ref.handle } })
   }
 
-  async inspectHistory(_runId: WorkflowRunId): Promise<readonly CanonicalRunState[]> {
-    throw new BlockedExecution("inspectHistory")
+  async inspectHistory(runId: WorkflowRunId): Promise<readonly CanonicalRunState[]> {
+    return [await this.inspectRun(runId)]
   }
 
   async diagnostics(): Promise<CandidateDiagnostics> {
-    throw new BlockedExecution("diagnostics")
+    const base = this.requireBase()
+    const d = await jsonCall<{
+      candidate: string
+      version: string
+      buildHash: string
+      schemaVersion: number
+      authorityGeneration: number
+      runs: number
+      pendingApprovals: number
+      durableTimers: number
+      effectLedgerSize: number
+    }>(base, "/diagnostics")
+    return {
+      info: await this.candidateInfo(),
+      currentSchemaVersion: d.schemaVersion as SchemaVersion,
+      authorityGeneration: d.authorityGeneration as AuthorityGeneration,
+      runs: d.runs,
+      pendingApprovals: d.pendingApprovals,
+      durableTimers: d.durableTimers,
+      effectLedgerSize: d.effectLedgerSize,
+    }
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* IPC HTTP client (sketched, unused until Go is available)            */
+/* IPC HTTP sketch (re-exported for docs)                              */
 /* ------------------------------------------------------------------ */
 
-/**
- * The intended HTTP/REST IPC between the harness (TS) and the DBOS Go
- * process. Endpoints mirror the contract method set. The body
- * schema is left as `unknown` until the Go side is pinned.
- *
- * Constraints per pack gelé §9:
- *   - localhost only (no external network)
- *   - ephemeral / free port
- *   - health endpoint
- *   - startup timeout
- *   - graceful shutdown
- *   - forced crash path
- *   - structured JSON errors
- *   - candidate version endpoint
- */
 export const DBOS_GO_IPC_SKETCH = {
   basePath: "/m0-qualification",
   endpoints: {
     version: "GET /version",
     health: "GET /healthz",
+    diagnostics: "GET /diagnostics",
     startRun: "POST /runs",
     inspectRun: "GET /runs/:runId",
     driveAttempt: "POST /runs/:runId/invocations/:logicalInvocationId/attempts",
@@ -226,7 +459,7 @@ export const DBOS_GO_IPC_SKETCH = {
     inspectApproval: "GET /approvals/:approvalId",
     scheduleTimer: "POST /timers",
     inspectTimer: "GET /timers/:timerId",
-    crash: "POST /admin/crash", // for FC-14 / FC-25
+    crash: "POST /admin/crash",
     backup: "POST /admin/backup",
     restoreBackup: "POST /admin/restore",
   },

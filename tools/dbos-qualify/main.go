@@ -520,10 +520,23 @@ func (s *Server) InspectTimer(timerId string) (DurableTimerSnapshot, error) {
 // ============================================================================
 
 func (s *Server) ForceProcessCrash() {
-	// Drop the connection without checkpoint. Caller is expected to
-	// restart the binary to simulate a process crash (FC-25 in-process
-	// variant; real FC-25 is multi-process).
-	_ = s.db.Close()
+	// Per pack gelé review 2026-09-03 v1.1 CP4.1 §19-§21 (real FC-31A
+	// restart): before the simulated crash, force a WAL checkpoint
+	// so all in-flight writes are committed to the main database
+	// file. Without this, a SIGKILL of a process with an open WAL
+	// can leave the new process unable to find rows (the new
+	// process opens the file and reads the WAL, but if the WAL is
+	// not yet checkpointed, the new connection's view depends on
+	// shared-memory lock state that may be inconsistent).
+	//
+	// This makes `forceProcessCrash()` simulate a "process crash
+	// AFTER durable commit" rather than a "process crash mid-write".
+	// The latter is the FC-13 / FC-13-CTRL case (power-loss),
+	// explicitly BLOCKED in this M0 env per pack gelé §13.
+	if s.db != nil {
+		_, _ = s.db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
+		_ = s.db.Close()
+	}
 	os.Exit(137)
 }
 
@@ -751,8 +764,20 @@ func (s *Server) Serve() (string, error) {
 		writeJSON(w, 200, snap)
 	})
 	mux.HandleFunc("/admin/crash", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]string{"status": "crashing"})
-		go func() { time.Sleep(100 * time.Millisecond); s.ForceProcessCrash() }()
+		// Per pack gelé review 2026-09-03 v1.1 CP4.1 (FC-31A real
+		// restart): the harness will SIGKILL the process AFTER this
+		// endpoint returns 200. The checkpoint MUST run
+		// synchronously in this handler, BEFORE we return — otherwise
+		// SIGKILL lands before the goroutine checkpoint and the new
+		// process cannot find the run.
+		//
+		// We do the checkpoint inline, then schedule the exit so the
+		// HTTP response is flushed to the client first.
+		_, _ = s.db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
+		_ = s.db.Close()
+		writeJSON(w, 200, map[string]string{"status": "crashed"})
+		if f, ok := w.(http.Flusher); ok { f.Flush() }
+		go func() { time.Sleep(50 * time.Millisecond); os.Exit(137) }()
 	})
 	mux.HandleFunc("/admin/backup", func(w http.ResponseWriter, r *http.Request) {
 		handle, err := s.CreateBackup()

@@ -144,25 +144,40 @@ export class QualificationRunner {
     const realBuilder = new CandidateResultBuilder(info, this.opts.buildHash)
     Object.assign(this.builder, realBuilder)
 
+    // Per pack gelé review 2026-09-03 v1.1 (CP4+ follow-up): the
+    // runner used to call `this.adapter.initialize()` inside every
+    // `runFC*` method. For child-process candidates (DBOS Go v1.0.0)
+    // this meant re-spawning a ~30-60s Go process for each FC test.
+    // The harness now initializes ONCE at the start and shuts down
+    // ONCE at the end. The per-FC `runFC*` methods are expected to
+    // assume the adapter is already initialized.
+    await this.adapter.initialize()
+    await this.provider.initialize()
+
     const tests = this.opts.testsToRun ?? DEFAULT_P0_TESTS
-    for (const fc of tests) {
-      try {
-        await this.runOne(fc)
-      } catch (e) {
-        const folder = evidencePath(this.opts.outputRoot, info.kind, fc)
-        const errorPath = await writeEvidence(
-          folder,
-          "error.txt",
-          `Runner failed to execute ${fc}: ${(e as Error).message}\n${(e as Error).stack ?? ""}`,
-        )
-        this.builder.record({
-          testId: fc,
-          status: "FAIL_CORRECTABLE",
-          evidencePath: errorPath,
-          note: `Runner exception: ${(e as Error).message}`,
-          observations: { exception: (e as Error).name },
-        })
+    try {
+      for (const fc of tests) {
+        try {
+          await this.runOne(fc)
+        } catch (e) {
+          const folder = evidencePath(this.opts.outputRoot, info.kind, fc)
+          const errorPath = await writeEvidence(
+            folder,
+            "error.txt",
+            `Runner failed to execute ${fc}: ${(e as Error).message}\n${(e as Error).stack ?? ""}`,
+          )
+          this.builder.record({
+            testId: fc,
+            status: "FAIL_CORRECTABLE",
+            evidencePath: errorPath,
+            note: `Runner exception: ${(e as Error).message}`,
+            observations: { exception: (e as Error).name },
+          })
+        }
       }
+    } finally {
+      await this.adapter.shutdown().catch(() => undefined)
+      await this.provider.shutdown().catch(() => undefined)
     }
 
     const resultPath = resultsPath(this.opts.outputRoot, info.kind)
@@ -200,25 +215,41 @@ export class QualificationRunner {
   }
 
   /* ------------------------------------------------------------------ */
-  /* FC-31A : canonical value round-trip                                */
+  /* FC-31A : canonical value round-trip WITH RESTART                    */
   /* ------------------------------------------------------------------ */
 
   private async runFC31A(info: CandidateInfo): Promise<void> {
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-31A")
-    await this.adapter.initialize()
-    await this.provider.initialize()
+    // Per pack gelé review 2026-09-03 v1.1 §4: FC-31A is a RESTART
+    // test, not a same-instance round-trip. The harness must:
+    //
+    //   1. Initialize candidate A
+    //   2. Persist canonical value
+    //   3. Close / shutdown candidate A
+    //   4. WITHOUT deleting the durable store, construct candidate
+    //      B (same store)
+    //   5. Reopen the durable store
+    //   6. Inspect / recover the canonical value
+    //   7. Compare exact semantic value
+    //
+    // PASS only after this restart. The previous implementation
+    // (same-instance persist+inspect) is NOT a proof of durability
+    // and was reclassified NOT_VALID.
     try {
-      // One run per FC-31A value. Each value is already-canonical
-      // (we use fromHostFloat64 / canonicalTimestampFromEpochMs to
-      // construct it on the harness side, then push it through the
-      // candidate via startRun + driveAttempt with the same value
-      // echoed back by the provider).
       let pass = 0
       let fail = 0
       const observations: Record<string, unknown> = {}
+      const adapterInfo = await this.adapter.candidateInfo()
+      const isChildProcess =
+        adapterInfo.process.topology === "child-process" ||
+        adapterInfo.process.topology === "sidecar" ||
+        adapterInfo.process.topology === "remote"
+
       for (const v of FC_31A_VALUES) {
         const liId = `li-${v.name}` as LogicalInvocationId
-        const runId = await this.adapter.startRun({
+
+        // Step 1-2: candidate A persists the canonical value.
+        const runIdA = await this.adapter.startRun({
           workflowVersionId: "wf-fc31a" as WorkflowVersionId,
           ownerScope: { organizationId: "o1", workspaceId: "ws-fc31a" },
           initialLogicalInvocation: {
@@ -228,9 +259,7 @@ export class QualificationRunner {
           },
           seedCanonicalValue: v.value,
         } satisfies StartRunInput)
-        // Drive a single attempt that returns the same value
-        // (so canonicalObservation is set to v.value).
-        await this.adapter.driveAttempt(runId, liId, {
+        await this.adapter.driveAttempt(runIdA, liId, {
           effectKey: `ek-${v.name}`,
           outcome: "SUCCEEDED",
           canonicalResult: v.value,
@@ -238,17 +267,28 @@ export class QualificationRunner {
           idempotencyKey: `ik-${v.name}-1`,
           providerCommittedAtEpochMs: Date.now(),
         } satisfies ProviderResolution)
-        const state = await this.adapter.inspectRun(runId)
-        const last = state.logicalInvocations[0]
-        if (!last) {
+
+        // Step 3-5: close the candidate, then reopen on the same
+        // durable store. For in-process (Native) candidates, this
+        // is forceProcessCrash() + reopen() (the adapter closes the
+        // SQLite handle and re-opens it). For child-process (DBOS
+        // Go) candidates, this kills the Go binary and spawns a
+        // fresh one pointed at the same M0_STORE_DIR.
+        await this.adapter.forceProcessCrash()
+        await this.adapter.reopen()
+
+        // Step 6: inspect the recovered run.
+        const stateB = await this.adapter.inspectRun(runIdA)
+        const lastB = stateB.logicalInvocations[0]
+        if (!lastB) {
           fail++
-          observations[v.name] = { ok: false, reason: "no invocation state" }
+          observations[v.name] = { ok: false, reason: "no invocation state after restart" }
           continue
         }
-        const observed = last.canonicalObservation
+        const observed = lastB.canonicalObservation
         if (observed === null) {
           fail++
-          observations[v.name] = { ok: false, reason: "observation is null" }
+          observations[v.name] = { ok: false, reason: "observation is null after restart" }
           continue
         }
         const ok = canonicalEquals(observed, v.value)
@@ -258,20 +298,24 @@ export class QualificationRunner {
           observations[v.name] = { ok: false, expected: v.value, observed, bitPattern: v.bitPattern.toString() }
         }
       }
-      await this.adapter.shutdown()
-      await this.provider.shutdown()
+
       const status: QualificationStatus = fail === 0 ? "PASS" : "FAIL_CORRECTABLE"
-      const evidence = await writeEvidence(folder, "result.json", { pass, fail, observations })
+      const evidence = await writeEvidence(folder, "result.json", {
+        pass,
+        fail,
+        observations,
+        restartObserved: true,
+        adapterTopology: info.process.topology,
+        isChildProcess,
+      })
       this.builder.record({
         testId: "FC-31A",
         status,
         evidencePath: evidence,
-        note: `${pass}/${FC_31A_VALUES.length} canonical values round-tripped exactly. ${fail} mismatches.`,
-        observations: { pass, fail, total: FC_31A_VALUES.length },
+        note: `${pass}/${FC_31A_VALUES.length} canonical values survived a candidate restart (close+reopen on same durable store). ${fail} mismatches.`,
+        observations: { pass, fail, total: FC_31A_VALUES.length, restartObserved: true },
       })
     } catch (e) {
-      await this.adapter.shutdown().catch(() => undefined)
-      await this.provider.shutdown().catch(() => undefined)
       throw e
     }
   }
@@ -282,8 +326,7 @@ export class QualificationRunner {
 
   private async runFC31B(info: CandidateInfo): Promise<void> {
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-31B")
-    await this.adapter.initialize()
-    await this.provider.initialize()
+    // Adapter is initialized once in run() (single-init lifecycle).
     try {
       // The adapter does not "convert" via toCanonicalValue() on
       // the way in; the contract exposes already-canonical values.
@@ -363,8 +406,6 @@ export class QualificationRunner {
           }
         }
       }
-      await this.adapter.shutdown()
-      await this.provider.shutdown()
       const status: QualificationStatus = fail === 0 ? "PASS" : "FAIL_CORRECTABLE"
       const evidence = await writeEvidence(folder, "result.json", { pass, fail, observations })
       this.builder.record({
@@ -375,8 +416,6 @@ export class QualificationRunner {
         observations: { pass, fail, total: FC_31B_VECTORS.length },
       })
     } catch (e) {
-      await this.adapter.shutdown().catch(() => undefined)
-      await this.provider.shutdown().catch(() => undefined)
       throw e
     }
   }
@@ -387,37 +426,24 @@ export class QualificationRunner {
 
   private async runFC04(info: CandidateInfo): Promise<void> {
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-04")
-    await this.adapter.initialize()
-    await this.provider.initialize()
+    // Adapter is initialized once in run() (single-init lifecycle).
     try {
-      // Configure the provider to drop the ACK.
-      const dropProvider = new FakeExternalEffectProvider({ storeDir: join(folder, "provider"), dropAckToCandidate: true })
-      await dropProvider.initialize()
-      // We can't easily swap the provider at runtime; for M0 we
-      // construct a separate provider per scenario and the
-      // candidate uses whichever it was constructed with. The
-      // candidate currently uses `this.provider` which the harness
-      // has set. For the ACK-loss test, the harness instructs the
-      // provider (via setNextResolution) to simulate ACK loss, which
-      // is the contract-level hook.
-      dropProvider.shutdown()
-      // Use the existing provider with dropAckToCandidate=true via
-      // direct construction.
-      const ackLossProvider = new FakeExternalEffectProvider({ storeDir: join(folder, "provider-ackloss"), dropAckToCandidate: true })
-      await ackLossProvider.initialize()
-      // We rebuild the scenario with a fresh candidate pointed at
-      // the ACK-loss provider. This is in-process only and matches
-      // the FC-04 contract.
-      const { NativeSqliteCandidate } = await import("./adapters/native-sqlite.ts")
-      const ackCandidate = new NativeSqliteCandidate({
-        storeDir: join(folder, "candidate"),
-        provider: ackLossProvider,
-        version: info.version,
-        buildHash: info.buildHash,
-      })
-      await ackCandidate.initialize()
-
-      const runId = await ackCandidate.startRun({
+      // Per pack gelé review 2026-09-03 v1.1 §10-§11: the
+      // contract-level signal `providerResponse.ackLost: true` is
+      // honored by every adapter (NativeSqliteCandidate +
+      // DBOSGoCandidate). The same `driveAttempt` call drives FC-04
+      // on both candidates — no candidate-specific import is
+      // required in the common oracle.
+      //
+      // For Native, the adapter consults `providerResponse.ackLost`
+      // first (before calling the FakeExternalEffectProvider) and
+      // resolves to UNKNOWN_EXTERNAL_STATE without invoking the
+      // provider.
+      //
+      // For DBOS Go, the adapter translates `ackLost: true` into the
+      // HTTP body field sent to the Go binary's `/attempts`
+      // endpoint, where it is mapped to UNKNOWN_EXTERNAL_STATE.
+      const runId = await this.adapter.startRun({
         workflowVersionId: "wf-fc04" as WorkflowVersionId,
         ownerScope: { organizationId: "o1", workspaceId: "ws-fc04" },
         initialLogicalInvocation: {
@@ -427,7 +453,7 @@ export class QualificationRunner {
         },
         seedCanonicalValue: fromHostFloat64(42),
       } satisfies StartRunInput)
-      const attempt = await ackCandidate.driveAttempt(runId, "li-fc04" as LogicalInvocationId, {
+      const attempt = await this.adapter.driveAttempt(runId, "li-fc04" as LogicalInvocationId, {
         effectKey: "ek-fc04",
         outcome: "SUCCEEDED",
         canonicalResult: fromHostFloat64(99),
@@ -440,8 +466,8 @@ export class QualificationRunner {
       const status: QualificationStatus = attempt.status === "UNKNOWN_EXTERNAL_STATE" ? "PASS" : "FAIL_CORRECTABLE"
       const observations = {
         attemptStatus: attempt.status,
-        providerCalled: ackLossProvider.callHistory.length,
-        providerCallHistory: ackLossProvider.callHistory,
+        ackLostSignal: true,
+        adapterTopology: info.process.topology,
       }
       const evidence = await writeEvidence(folder, "result.json", observations)
       this.builder.record({
@@ -453,14 +479,7 @@ export class QualificationRunner {
           : `ACK loss resolution returned ${attempt.status} (expected UNKNOWN_EXTERNAL_STATE).`,
         observations,
       })
-
-      await ackCandidate.shutdown()
-      await ackCandidate.destroy()
-      await ackLossProvider.shutdown()
-      await ackLossProvider.destroy()
     } catch (e) {
-      await this.adapter.shutdown().catch(() => undefined)
-      await this.provider.shutdown().catch(() => undefined)
       throw e
     }
   }
@@ -526,8 +545,8 @@ export class QualificationRunner {
     // (no multi-process generation increment yet). We record a
     // BLOCKED status with explicit evidence.
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-25")
-    await this.adapter.initialize()
-    try {
+    // Adapter is initialized once in run() (single-init lifecycle).
+    {
       const status: QualificationStatus = "BLOCKED"
       const observations = { reason: "Native candidate uses single-process generation; multi-process fencing requires a second OS process. To be exercised in WINDOWS_PREFLIGHT." }
       const evidence = await writeEvidence(folder, "result.json", observations)
@@ -538,10 +557,6 @@ export class QualificationRunner {
         note: "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; scheduled for WINDOWS_PREFLIGHT.",
         observations,
       })
-      await this.adapter.shutdown()
-    } catch (e) {
-      await this.adapter.shutdown().catch(() => undefined)
-      throw e
     }
   }
 
@@ -550,26 +565,35 @@ export class QualificationRunner {
   /* ------------------------------------------------------------------ */
 
   private async runFC32(info: CandidateInfo): Promise<void> {
-    // The Native candidate's driveAttempt is imperative, not
-    // declarative, so it does NOT replay. We declare NO.
+    // Per pack gelé review 2026-09-03 v1.1 §13-§16: declaring a
+    // `replayModel` value is NOT a proof of FC-32. PASS requires a
+    // real T1/R1/O1 → crash → T2/R2/O2 controlled-recovery
+    // scenario where the harness observes what the candidate
+    // actually does. The M0 surface (startRun / driveAttempt)
+    // does not exercise a workflow function, so the replay model
+    // cannot be MEASURED here.
+    //
+    // The result is therefore NOT_VALID for both candidates until
+    // a real replay-scenario FC-32 is implemented (out of M0
+    // scope per the pack gelé).
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-32")
-    await this.adapter.initialize()
-    try {
-      const replayModel: "YES" | "NO" | "PARTIAL" | "NOT_MEASURED" = "NO"
-      this.builder.setReplayModel(replayModel)
-      const observations = { replayModel, reason: "Native candidate driveAttempt is imperative; it does not replay a workflow function. ACK-loss is handled by UNKNOWN_EXTERNAL_STATE rather than by replay." }
+    {
+      const isChildProcess =
+        info.process.topology === "child-process" || info.process.topology === "sidecar" || info.process.topology === "remote"
+      const observations = {
+        measured: false,
+        reason: "FC-32 is NOT_VALID until a real T1/R1/O1 → crash → T2/R2/O2 replay scenario is implemented. The M0 surface (startRun + driveAttempt) does not exercise a workflow function through the candidate, so the harness cannot measure replay behavior. Declaring a replayModel value (NO / PARTIAL) is not admissible as PASS — see pack gelé §13: 'measured = false => status != PASS'.",
+        expectedFromUpstream: isChildProcess ? "YES (DBOS Conductor requires deterministic orchestration)" : "N/A",
+        requiredMethodology: "(1) Drive a workflow function in the candidate's host language/runtime that records T1, R1, O1 observations. (2) Crash the candidate's authority mid-workflow. (3) Reopen on the same durable store. (4) Observe which orchestration code re-runs, which observations are replayed, which EffectKeys remain identical, and which effects are re-issued. (5) Declare REQUIRES_DETERMINISTIC_ORCHESTRATION = YES | NO | PARTIAL with measured=true.",
+      }
       const evidence = await writeEvidence(folder, "result.json", observations)
       this.builder.record({
         testId: "FC-32",
-        status: "PASS", // passing because we declared it correctly
+        status: "NOT_VALID",
         evidencePath: evidence,
-        note: "Replay model declared: NO. The Native M0 candidate does not require deterministic orchestration; durability is achieved by explicit per-attempt persistence and ACK-loss recovery.",
+        note: "FC-32 NOT_VALID: replay model is declared, not measured. The M0 surface does not drive a workflow function; the harness cannot observe what the candidate replays. To unblock: implement a controlled recovery scenario (T1/R1/O1 → crash → T2/R2/O2) that exercises the candidate's actual orchestration code. See observations.requiredMethodology.",
         observations,
       })
-      await this.adapter.shutdown()
-    } catch (e) {
-      await this.adapter.shutdown().catch(() => undefined)
-      throw e
     }
   }
 

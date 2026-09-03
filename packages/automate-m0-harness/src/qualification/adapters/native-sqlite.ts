@@ -356,6 +356,28 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
     db.run(`UPDATE effects SET attempt_id = ? WHERE logical_invocation_id = ? AND effect_key = ?`, [attemptId, logicalInvocationId, inv.effect_key])
     db.run(`UPDATE logical_invocations SET current_attempt_id = ?, next_attempt_n = ? WHERE logical_invocation_id = ?`, [attemptId, newAttemptN, logicalInvocationId])
 
+    // Per pack gelé review 2026-09-03 v1.1 CP4.1 §10-§11: the
+    // contract-level signal `providerResponse.ackLost: true` MUST be
+    // honored by every adapter. This is the substrate-neutral way to
+    // express "the external provider committed, but the transport ACK
+    // did not reach us" — it replaces the candidate-specific
+    // FakeExternalEffectProvider's `dropAckToCandidate` flag, which
+    // was a contamination violation (the common oracle created a
+    // separate candidate for FC-04 in the previous implementation).
+    if (providerResponse.ackLost) {
+      // Per FC-04: do NOT blind-retry. Record UNKNOWN_EXTERNAL_STATE
+      // and let the caller reconcile (or surface the uncertainty).
+      db.run(`UPDATE attempts SET status = ?, completed_at = ? WHERE attempt_id = ?`, ["UNKNOWN_EXTERNAL_STATE", Date.now(), attemptId])
+      return {
+        attemptId,
+        startedAtEpochMs: startedAt,
+        completedAtEpochMs: Date.now(),
+        status: "UNKNOWN_EXTERNAL_STATE",
+        canonicalOutput: null,
+        effectId,
+      }
+    }
+
     const providerOutcome = await this.provider.resolve(
       providerResponse.effectKey,
       providerResponse.idempotencyKey,
