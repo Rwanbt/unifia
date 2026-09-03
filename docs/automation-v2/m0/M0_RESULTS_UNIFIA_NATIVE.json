@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "candidate": "UNIFIA_NATIVE",
+  "candidateInfo": {
+    "kind": "UNIFIA_NATIVE",
+    "version": "0.0.0-m0-qual-2026-09-03",
+    "buildHash": "qual-m0-2026-09-03",
+    "storage": {
+      "engine": "SQLite 3.x (via bun:sqlite in M0; better-sqlite3 candidate for production)",
+      "driver": "bun:sqlite (Bun built-in, M0 env)",
+      "journalMode": "WAL",
+      "synchronous": "FULL",
+      "busyTimeoutMs": 5000,
+      "maxOpenConns": 1,
+      "backupTarget": "file"
+    },
+    "process": {
+      "topology": "in-process",
+      "multiProcessSafe": true
+    }
+  },
+  "results": [
+    {
+      "testId": "FC-31A",
+      "candidate": "UNIFIA_NATIVE",
+      "status": "PASS",
+      "evidencePath": "D:\\temp\\m0-out\\evidence\\unifia-native\\FC-31A\\result.json",
+      "commit": "qual-m0-2026-09-03",
+      "note": "21/21 canonical values round-tripped exactly. 0 mismatches.",
+      "observations": {
+        "pass": 21,
+        "fail": 0,
+        "total": 21
+      }
+    },
+    {
+      "testId": "FC-31B",
+      "candidate": "UNIFIA_NATIVE",
+      "status": "PASS",
+      "evidencePath": "D:\\temp\\m0-out\\evidence\\unifia-native\\FC-31B\\result.json",
+      "commit": "qual-m0-2026-09-03",
+      "note": "13/13 host-integer/float64 separation cases handled correctly.",
+      "observations": {
+        "pass": 13,
+        "fail": 0,
+        "total": 13
+      }
+    },
+    {
+      "testId": "FC-04",
+      "candidate": "UNIFIA_NATIVE",
+      "status": "PASS",
+      "evidencePath": "D:\\temp\\m0-out\\evidence\\unifia-native\\FC-04\\result.json",
+      "commit": "qual-m0-2026-09-03",
+      "note": "ACK loss correctly resolved to UNKNOWN_EXTERNAL_STATE, not blind-retried.",
+      "observations": {
+        "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
+        "providerCalled": 1,
+        "providerCallHistory": [
+          {
+            "effectKey": "ek-fc04",
+            "idempotencyKey": "ik-fc04-1",
+            "wallClockEpochMs": 1788464521364,
+            "ackDelivered": false
+          }
+        ]
+      }
+    },
+    {
+      "testId": "FC-14",
+      "candidate": "UNIFIA_NATIVE",
+      "status": "PASS",
+      "evidencePath": "D:\\temp\\m0-out\\evidence\\unifia-native\\FC-14\\result.json",
+      "commit": "qual-m0-2026-09-03",
+      "note": "A second connection to the same SQLite file could read while the candidate holds the writer lock. WAL + busy_timeout=5000ms allows concurrent reads.",
+      "observations": {
+        "secondReadOk": true
+      }
+    },
+    {
+      "testId": "FC-25",
+      "candidate": "UNIFIA_NATIVE",
+      "status": "BLOCKED",
+      "evidencePath": "D:\\temp\\m0-out\\evidence\\unifia-native\\FC-25\\result.json",
+      "commit": "qual-m0-2026-09-03",
+      "note": "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; scheduled for WINDOWS_PREFLIGHT.",
+      "observations": {
+        "reason": "Native candidate uses single-process generation; multi-process fencing requires a second OS process. To be exercised in WINDOWS_PREFLIGHT."
+      }
+    },
+    {
+      "testId": "FC-32",
+      "candidate": "UNIFIA_NATIVE",
+      "status": "PASS",
+      "evidencePath": "D:\\temp\\m0-out\\evidence\\unifia-native\\FC-32\\result.json",
+      "commit": "qual-m0-2026-09-03",
+      "note": "Replay model declared: NO. The Native M0 candidate does not require deterministic orchestration; durability is achieved by explicit per-attempt persistence and ACK-loss recovery.",
+      "observations": {
+        "replayModel": "NO",
+        "reason": "Native candidate driveAttempt is imperative; it does not replay a workflow function. ACK-loss is handled by UNKNOWN_EXTERNAL_STATE rather than by replay."
+      }
+    }
+  ],
+  "summary": {
+    "pass": 5,
+    "failArchitectural": 0,
+    "failCorrectable": 0,
+    "notApplicable": 0,
+    "blocked": 1,
+    "notValid": 0
+  },
+  "replayModel": "NO",
+  "producedAt": "2026-09-03T19:42:01.407Z"
+}

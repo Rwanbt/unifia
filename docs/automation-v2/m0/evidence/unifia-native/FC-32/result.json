@@ -1,0 +1,4 @@
+{
+  "replayModel": "NO",
+  "reason": "Native candidate driveAttempt is imperative; it does not replay a workflow function. ACK-loss is handled by UNKNOWN_EXTERNAL_STATE rather than by replay."
+}

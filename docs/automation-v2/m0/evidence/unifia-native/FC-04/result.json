@@ -1,0 +1,12 @@
+{
+  "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
+  "providerCalled": 1,
+  "providerCallHistory": [
+    {
+      "effectKey": "ek-fc04",
+      "idempotencyKey": "ik-fc04-1",
+      "wallClockEpochMs": 1788464521364,
+      "ackDelivered": false
+    }
+  ]
+}
