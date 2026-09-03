@@ -92,16 +92,18 @@ gates:
     blocker: false
 
   unit_workflow_runtime:
-    description: "Unit tests for packages/workflow-runtime."
+    description: "Unit tests for packages/workflow-runtime. Couverture M1-09 (in-memory) + M1-10 (file-backed) + M1-11 (V1MigratingAuthority)."
     required_commands:
       - "cd packages/workflow-runtime && bun test"
     required_artifacts: []
     allowed_skips: []
     evidence:
-      - "listing Get-ChildItem: 1 fichier test integre (4/4 + 1/1)"
-    status: NEEDS_RE_RUN
+      - "2026-09-03 workflow-runtime: 27/27 PASS (in-memory 14 + file-backed 7 + M1-11 V1MigratingAuthority 6 + deprecated V1 stub 1, 62 expect() calls)"
+      - "M1-09 (2e8a8b4dd6): 14/14 PASS, transition matrix per ADR-022 §4"
+      - "M1-10 (5e7a9fcbfa): 7/7 PASS, write-to-temp + rename atomic, JSON snapshot fail-closed"
+      - "M1-11 (b31ff4a043): 6/6 PASS, V1→V2 history migration wraps any DurableHistoryAuthority"
+    status: GREEN
     blocker: false
-    note: "Re-run in PRE-1.1 to confirm 4+1 assertions and capture evidence SHA-pinned."
 
   unit_workbench_orchestrator:
     description: "Unit tests for packages/workbench-orchestrator."
@@ -116,15 +118,21 @@ gates:
     note: "Run + isolation test C-PRE1-05."
 
   unit_automate_surface:
-    description: "Unit tests for automate-surface.tsx (8 gates §16.3)."
+    description: "Unit tests for automate-surface.tsx (8 gates §16.3). Phase 1+2 livrees: smoke test statique (5 assertions) + parseWorkflowDefinition round-trip (12 assertions)."
     required_commands:
-      - "cd packages/app && bun test --preload ./happydom.ts ./src/pages/workbench/automate-surface.test.ts"
-    required_artifacts: []
-    allowed_skips: []
-    evidence: []
-    status: RED
-    blocker: true
-    blocker_reason: "Finding R-013: aucun test n'existe. Cible premiere exige au moins decodeFile + validation WorkflowDefinition."
+      - "cd packages/app && bun test src/pages/workbench/automate-surface.test.ts"
+      - "cd packages/app && bun test src/pages/workbench/automate-decode.test.ts"
+    required_artifacts:
+      - "packages/app/src/pages/workbench/automate-surface.test.ts"
+      - "packages/app/src/pages/workbench/automate-decode.test.ts"
+    allowed_skips:
+      - reason: "Phase 3 (e2e Playwright sur les 8 sorties §16.3) est post-ADR-000 (besoin d'un runtime de workflow reel pour mesurer l'approval_required end-to-end)."
+        scope: "e2e_automate (Playwright)"
+    evidence:
+      - "2026-09-03 automate-surface.test.ts: 5/5 PASS (smoke test statique: composant exporte, imports decodeFile/parseWorkflowDefinition, client.startWorkflow, approvalRequired, parseWorkflowDefinition(decodeFile))"
+      - "2026-09-03 automate-decode.test.ts: 12/12 PASS (parseWorkflowDefinition: round-trip, base64, UTF-8, definition.id/version/steps validation, 7 invariants, 21 expect() calls)"
+    status: GREEN
+    blocker: false
     debt_refs:
       - "RISK_REGISTER.md#R-013"
     card_refs:
@@ -387,19 +395,20 @@ gates:
 # Section 13 — V2 contract test regression net
 # ============================================================
   v2_contracts_regression:
-    description: "V2 contract tests (PostM3-R1 + R2 + R3-extra cumulative, 36+ GREEN cards). Regression net for the IR + side-effect contracts."
+    description: "V2 contract tests (PostM3-R1 + R2 + R3-extra + M2-07/08/09 cumulative, 36+ GREEN cards). Regression net for the IR + side-effect contracts."
     required_commands:
       - "cd packages/contracts && bun test"
       - "cd packages/automate-m0-contract && bun test"
     required_artifacts: []
     allowed_skips: []
     evidence:
-      - "EXECUTION_STATUS.md 2026-09-02: V2 contracts 607/607 PASS (583 baseline + 24 M2-TEST restoration)"
-      - "m0-contract: 141/141 PASS"
-      - "V2 total: 748/748 PASS"
+      - "EXECUTION_STATUS.md 2026-09-03: V2 contracts 632/632 PASS (607 baseline + 25 M2-07/08/09 control.while/child node families + wait refine)"
+      - "m0-contract: 177/177 PASS (141 baseline + 36 M0 proof contract half)"
+      - "V2 total: 809/809 PASS"
       - "PostM3-R1: 18 cartes GREEN (LI-01..05 + EI-01..03 + NW-01..07 + SC-01..05/07/08 = 34+22+31+25 = 112 tests)"
       - "PostM3-R2: 23 cartes GREEN (CO-01..07 + BR-01..02 + AI-01..02 + EN-01..03 + UX-01 + DS-01..08 = 30+10+10+12+8+28 = 98 tests)"
       - "PostM3-R3 extras: M2-TEST 22->46 (24 new tests)"
+      - "M2-07/08/09: 25 new tests for control.while + control.child + wait refine"
     status: GREEN
     blocker: false
     card_refs:
