@@ -202,6 +202,16 @@ func (s *Server) initSchema() error {
 		`CREATE TABLE IF NOT EXISTS schema_meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS authority_generation (generation INTEGER PRIMARY KEY)`,
 		`INSERT OR IGNORE INTO authority_generation (generation) VALUES (1)`,
+		// Per-run authority generation for FC-14 / FC-25 multi-process
+		// tests. Each run has its own monotonic generation; the
+		// process holding the highest generation is the current
+		// authority for that run.
+		`CREATE TABLE IF NOT EXISTS run_authority (
+			run_id TEXT PRIMARY KEY,
+			generation INTEGER NOT NULL DEFAULT 0,
+			holder_pid INTEGER NOT NULL DEFAULT 0,
+			acquired_at_epoch_ms INTEGER NOT NULL DEFAULT 0
+		)`,
 		`CREATE TABLE IF NOT EXISTS runs (
 			run_id TEXT PRIMARY KEY, workflow_version_id TEXT NOT NULL,
 			organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
@@ -519,6 +529,117 @@ func (s *Server) InspectTimer(timerId string) (DurableTimerSnapshot, error) {
 // Admin (FC-25 / FC-13 simulation paths)
 // ============================================================================
 
+// ClaimAuthority attempts to take authority for runId at the
+// attempted generation. If the current generation (persisted in
+// run_authority) is less than attempted, the caller is granted
+// authority and the current generation is bumped to attempted.
+// Otherwise the call is rejected and the existing generation is
+// returned.
+//
+// This is the substrate-neutral fencing primitive for FC-14 /
+// FC-25: only one process at a time can hold the highest
+// generation for a given runId across the whole M0_STORE_DIR
+// (shared SQLite file with WAL + IMMEDIATE transactions).
+type ClaimAuthorityResult struct {
+	Granted            bool  `json:"granted"`
+	RunId              string `json:"runId"`
+	CurrentGeneration  int64 `json:"currentGeneration"`
+	AttemptedGeneration int64 `json:"attemptedGeneration"`
+	HolderPid          int   `json:"holderPid"`
+}
+
+func (s *Server) ClaimAuthority(runId string, attempted int64) (ClaimAuthorityResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// BEGIN IMMEDIATE acquires the writer lock at the start of
+	// the transaction; another process racing us will block on
+	// the SQLite file lock. We use this to serialize concurrent
+	// claims on the same M0_STORE_DIR.
+	tx, err := s.db.Begin()
+	if err != nil {
+		return ClaimAuthorityResult{}, err
+	}
+	defer tx.Rollback()
+
+	var currentGen int64
+	var holderPid int
+	row := tx.QueryRow(`SELECT generation, holder_pid FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen, &holderPid); err != nil {
+		if err != sql.ErrNoRows {
+			return ClaimAuthorityResult{}, err
+		}
+		// No existing claim — first claimant wins.
+		currentGen = 0
+		holderPid = 0
+	}
+
+	if attempted > currentGen {
+		// Caller is asking for a strictly higher generation.
+		// Grant.
+		newGen := attempted
+		newPid := os.Getpid()
+		if _, err := tx.Exec(
+			`INSERT INTO run_authority (run_id, generation, holder_pid, acquired_at_epoch_ms) VALUES (?, ?, ?, ?)
+			 ON CONFLICT(run_id) DO UPDATE SET generation=excluded.generation, holder_pid=excluded.holder_pid, acquired_at_epoch_ms=excluded.acquired_at_epoch_ms`,
+			runId, newGen, newPid, time.Now().UnixMilli(),
+		); err != nil {
+			return ClaimAuthorityResult{}, err
+		}
+		if err := tx.Commit(); err != nil {
+			return ClaimAuthorityResult{}, err
+		}
+		return ClaimAuthorityResult{
+			Granted: true, RunId: runId,
+			CurrentGeneration: newGen, AttemptedGeneration: attempted,
+			HolderPid: newPid,
+		}, nil
+	}
+	// Caller's attempted generation is not strictly higher than
+	// the current generation held by another process. Reject.
+	if err := tx.Commit(); err != nil {
+		return ClaimAuthorityResult{}, err
+	}
+	return ClaimAuthorityResult{
+		Granted: false, RunId: runId,
+		CurrentGeneration: currentGen, AttemptedGeneration: attempted,
+		HolderPid: holderPid,
+	}, nil
+}
+
+// ReleaseAuthority releases authority for runId if the caller holds
+// the given generation. If the caller does not hold the current
+// generation, the release is rejected (the holder is not the
+// caller — likely a stale process).
+func (s *Server) ReleaseAuthority(runId string, generation int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var currentGen int64
+	row := tx.QueryRow(`SELECT generation FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen); err != nil {
+		if err == sql.ErrNoRows {
+			// No claim exists — nothing to release.
+			return tx.Commit()
+		}
+		return err
+	}
+	if currentGen != generation {
+		// Caller does not hold the current generation. Reject.
+		return fmt.Errorf("release rejected: caller gen=%d, current gen=%d", generation, currentGen)
+	}
+	if _, err := tx.Exec(`DELETE FROM run_authority WHERE run_id=?`, runId); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ============================================================================
+
 func (s *Server) ForceProcessCrash() {
 	// Per pack gelé review 2026-09-03 v1.1 CP4.1 §19-§21 (real FC-31A
 	// restart): before the simulated crash, force a WAL checkpoint
@@ -778,6 +899,57 @@ func (s *Server) Serve() (string, error) {
 		writeJSON(w, 200, map[string]string{"status": "crashed"})
 		if f, ok := w.(http.Flusher); ok { f.Flush() }
 		go func() { time.Sleep(50 * time.Millisecond); os.Exit(137) }()
+	})
+	// Multi-process FC-14 / FC-25 endpoints. The harness spawns two
+	// or more `dbos-qualify.exe` processes on the same M0_STORE_DIR
+	// and races them on authority acquisition for a given runId.
+	//
+	// /authority/claim?runId=X&attemptedGeneration=N
+	//   Returns { granted: true, generation: N+1 } if the caller is
+	//   the current authority for runId. Returns { granted: false,
+	//   currentGeneration: M } if a higher generation is already
+	//   held by another process.
+	mux.HandleFunc("/authority/claim", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			writeErr(w, 405, errors.New("method"))
+			return
+		}
+		runId := r.URL.Query().Get("runId")
+		if runId == "" {
+			writeErr(w, 400, errors.New("runId required"))
+			return
+		}
+		attemptedStr := r.URL.Query().Get("attemptedGeneration")
+		attempted, err := strconv.ParseInt(attemptedStr, 10, 64)
+		if err != nil {
+			attempted = 0
+		}
+		result, err := s.ClaimAuthority(runId, attempted)
+		if err != nil {
+			writeErr(w, 500, err)
+			return
+		}
+		writeJSON(w, 200, result)
+	})
+	// /authority/release?runId=X&generation=N
+	//   Releases authority for runId. Returns 200 on success.
+	mux.HandleFunc("/authority/release", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			writeErr(w, 405, errors.New("method"))
+			return
+		}
+		runId := r.URL.Query().Get("runId")
+		genStr := r.URL.Query().Get("generation")
+		gen, err := strconv.ParseInt(genStr, 10, 64)
+		if err != nil {
+			writeErr(w, 400, errors.New("generation required"))
+			return
+		}
+		if err := s.ReleaseAuthority(runId, gen); err != nil {
+			writeErr(w, 500, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"status": "released"})
 	})
 	mux.HandleFunc("/admin/backup", func(w http.ResponseWriter, r *http.Request) {
 		handle, err := s.CreateBackup()

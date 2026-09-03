@@ -26,7 +26,7 @@
       "testId": "FC-31A",
       "candidate": "DBOS_GO_SQLITE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "21/21 canonical values survived a candidate restart (close+reopen on same durable store). 0 mismatches.",
       "observations": {
@@ -39,58 +39,96 @@
     {
       "testId": "FC-31B",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "13/13 host-integer/float64 separation cases handled correctly.",
+      "note": "FC-31B NOT_VALID for DBOS Go: harness uses TS host adapter, not the Go host. The Go binary must receive typed fixtures (float64/int64/uint64/MaxInt64) and apply the FC-31B contract itself. See observations.requiredMethodology for the unblock path.",
       "observations": {
-        "pass": 13,
-        "fail": 0,
-        "total": 13
+        "measured": false,
+        "reason": "FC-31B requires the candidate's actual host (Go) to apply the host-adapter contract. The current harness uses the TS host adapter for both candidates; for DBOS_GO_SQLITE this is NOT_VALID until a real Go host adapter is implemented that receives typed fixtures (float64, int64, uint64) and applies the contract in Go itself.",
+        "expectedFromUpstream": "Per pack gelé §8: float64(9007199254740992) → PASS, int64(9007199254740991) → PASS, int64(9007199254740992) → NUMBER_OUT_OF_CANONICAL_RANGE, math.MaxInt64/MinInt64 → NUMBER_OUT_OF_CANONICAL_RANGE",
+        "requiredMethodology": "(1) Send typed fixtures (float64, int64, uint64, math.MaxInt64) over HTTP to a Go endpoint. (2) Go host applies the same FC-31B contract. (3) Verify accept/reject decisions. (4) Reclassify to PASS only if Go host emits the canonical decisions.",
+        "nextAction": "Add /host-adapter/canonize endpoint to dbos-qualify.exe that receives {value: float64, origin: 'GO_FLOAT64'|'GO_INT64'|'GO_UINT64'} and returns PASS/REJECT(NUMBER_OUT_OF_CANONICAL_RANGE) per the contract."
       }
     },
     {
       "testId": "FC-04",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "ACK loss correctly resolved to UNKNOWN_EXTERNAL_STATE, not blind-retried.",
+      "note": "FC-04 NOT_VALID for DBOS Go: `ackLost: true` is a magic flag from the harness, not real transport-level ACK loss. The candidate has no wired-in provider; the Go binary maps the flag to UNKNOWN_EXTERNAL_STATE without any provider involvement. See observations.requiredMethodology for the unblock path.",
       "observations": {
-        "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
-        "ackLostSignal": true,
-        "adapterTopology": "child-process"
+        "measured": false,
+        "reason": "FC-04 requires real transport-level ACK loss, not a magic flag. The current DBOS Go candidate has no wired-in external provider; the harness passes `ackLost: true` to the Go binary's HTTP body, which the Go binary maps to UNKNOWN_EXTERNAL_STATE in its custom SQLite — but no provider was actually called, no provider commitment occurred, and no transport ACK was dropped. Per pack gelé §12 this is NOT_VALID until a real external provider architecture is wired in.",
+        "providerCalled": 0,
+        "providerCommitted": false,
+        "providerJournalContainsEffectKey": false,
+        "candidateDidNotReceiveSuccessAck": "by configuration, not by transport loss",
+        "candidateRestartedOrRecoveryPathExercised": false,
+        "blindRetryCount": 0,
+        "requiredMethodology": "(1) Stand up a real FakeExternalEffectProvider as an HTTP service with its own SQLite journal (separate from the candidate). (2) Candidate's driveAttempt makes an HTTP call to the provider with the EffectKey. (3) Provider durably commits the effect. (4) Provider is configured to drop the response ACK (close TCP without sending the HTTP response). (5) Candidate's driveAttempt times out / receives no response. (6) Candidate's recovery path resolves to UNKNOWN_EXTERNAL_STATE. (7) Cross-verify the provider's journal contains the effectKey.",
+        "nextAction": "Add a fake external provider HTTP service with its own SQLite journal; have the candidate's driveAttempt call the provider over HTTP; verify the provider's journal has the effectKey after the candidate's recovery."
       }
     },
     {
       "testId": "FC-14",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
+      "status": "PASS",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "Methodology NOT_VALID: in-process only. Required methodology: two real OS processes. See evidence/unifia-native/FC-14/old-in-process.json for the trace that was previously classified PASS.",
+      "note": "Two real OS processes raced for authority on the same runId via the /authority/claim endpoint. Exactly one was granted; the other was rejected. Single logical authority confirmed.",
       "observations": {
-        "reason": "FC-14 requires two real OS processes, same durable store. The in-process methodology (two Database handles in one process) does NOT exercise the multi-process authority boundary. Old in-process evidence preserved at evidence/<candidate>/FC-14/old-in-process.json for traceability.",
-        "requiredMethodology": "spawn two real OS processes, share the same SQLite durable store, observe authority acquisition / dispatch eligibility / locking / fencing / commit. PASS only if a single logical authority can act.",
-        "oldInProcessEvidence": "evidence/unifia-native/FC-14/old-in-process.json"
+        "measured": true,
+        "processIds": {
+          "a": "spawned",
+          "b": "spawned"
+        },
+        "sharedStore": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-fc14-runner-lm7lZz\\store",
+        "result": {
+          "grantedCount": 1,
+          "winner": {
+            "granted": true,
+            "runId": "run-mp-fc14-1788473931638",
+            "currentGeneration": 1,
+            "attemptedGeneration": 1,
+            "holderPid": 11784
+          },
+          "rejected": {
+            "granted": false,
+            "runId": "run-mp-fc14-1788473931638",
+            "currentGeneration": 1,
+            "attemptedGeneration": 1,
+            "holderPid": 11784
+          }
+        },
+        "adapterTopology": "child-process"
       }
     },
     {
       "testId": "FC-25",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
+      "status": "PASS",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; scheduled for WINDOWS_PREFLIGHT.",
+      "note": "Stale generation claim was rejected (CP5). Process A claimed gen 1, released, Process B claimed gen 2; A's stale claim at gen 1 was rejected.",
       "observations": {
-        "reason": "Native candidate uses single-process generation; multi-process fencing requires a second OS process. To be exercised in WINDOWS_PREFLIGHT."
+        "measured": true,
+        "processIds": {
+          "a": 672,
+          "b": 7764
+        },
+        "sharedStore": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-fc25-runner-6drshC\\store",
+        "result": {
+          "staleClaimRejected": true
+        }
       }
     },
     {
       "testId": "FC-32",
       "candidate": "DBOS_GO_SQLITE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "FC-32 NOT_VALID: replay model is declared, not measured. The M0 surface does not drive a workflow function; the harness cannot observe what the candidate replays. To unblock: implement a controlled recovery scenario (T1/R1/O1 → crash → T2/R2/O2) that exercises the candidate's actual orchestration code. See observations.requiredMethodology.",
       "observations": {
@@ -104,7 +142,7 @@
       "testId": "FC-13-CTRL",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
       "observations": {
@@ -118,7 +156,7 @@
       "testId": "FC-13",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-cbpjgS\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
       "observations": {
@@ -135,9 +173,9 @@
     "failArchitectural": 0,
     "failCorrectable": 0,
     "notApplicable": 0,
-    "blocked": 3,
-    "notValid": 2
+    "blocked": 2,
+    "notValid": 3
   },
   "replayModel": "NOT_MEASURED",
-  "producedAt": "2026-09-03T21:52:21.153Z"
+  "producedAt": "2026-09-03T22:18:52.519Z"
 }
