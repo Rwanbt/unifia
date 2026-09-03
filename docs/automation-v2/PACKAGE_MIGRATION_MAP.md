@@ -56,17 +56,21 @@ package absent. Statut `ABSENT_NO_ACTION` ou `ABSENT_CREATE`, jamais une
 | Champ | Valeur |
 |---|---|
 | Path | `packages/workflow-catalog/` |
-| Current responsibility | **INFERRED** — catalogue de définitions / templates. Pas de source mesurée du contenu. |
-| Current authority | **INFERRED** — pas mesuré. |
-| Current consumers | **INFERRED** — non identifié dans ce tour. |
+| Current responsibility | **MESURÉE 2026-09-03 (C-PRE1-03)** : catalogue de 8 workflows initiaux (Plan V3 section 28), chaque step déclare 9 champs typés : `capability: P3Capability`, `scope: string`, `sandbox: SandboxRequirement` (none/native-restricted/docker/wsl2/lima), `costUnits: number`, `timeoutMs: number`, `retry: {attempts, backoffMs}`, `output: {name, kind: artifact/text/none}`, `approval: ApprovalRequirement` (none/required), `reversible: boolean`. |
+| Current authority | **MESURÉE** : aucune (purement déclaratif, c'est un catalogue). |
+| Current consumers | **MESURÉE** : import uniquement par `packages/workflow-catalog/test/catalog.test.ts` (126 LOC). Pas d'usage en production repéré (grep `workflow-catalog` dans `packages/*/src` → 0 hit hors catalog lui-même). |
+| Source size | 1 fichier `index.ts` (236 LOC, 12.2 KB) + 1 fichier test (126 LOC). Compact, bien typé. |
+| Manifest signed? | **NON** (grep `signature\|sign\|hash` → 0 hit dans `index.ts`). Le catalogue ne signe pas les manifests. C'est un trou si on veut l'immutabilité forte, mais pas bloquant pour V1 legacy. |
+| Test coverage | 1 fichier test (catalog.test.ts) couvre 8 workflows × invariants. Pas de measure exacte, mais ≥1 test par type de step. |
 | Target responsibility | Catalogue de `WorkflowDefinition` versionnées, aligné sur les contrats ADR-001 (canonicalisation) et ADR-002 (IR). |
 | Target authority | Aucune — un catalogue n'est pas une autorité d'exécution. |
-| Migration strategy | Cartographier la source en PRE-1, puis `EXTEND` ou `REFACTOR` selon le résultat. |
-| Migration milestone | **M1** — alignement avec `WorkflowVersion` publié et immuable. |
+| Migration strategy | `KEEP` + ajout progressif de manifest signing (post-ADR-001 ratification). Pas de `MIGRATE` urgent : la cible V2 a ses propres contrats (IR schema, parseSpec, WorkflowRun), le catalogue V1 reste utile pour les définitions legacy. |
+| Migration milestone | **POST-M2** (post-ADR-001 + ADR-002) — alignment avec `WorkflowVersion` publié et immuable. |
 | Compatibility impact | Le catalogue ne doit pas muter silencieusement après publication. |
-| Tests affected | À mesurer. |
-| Removal/cutover condition | KEEP sauf preuve contraire. |
-| Status | `MIGRATE` (présomption, à confirmer par lecture de la source) |
+| Tests affected | À étendre pour couvrir le signing manifest. |
+| Removal/cutover condition | KEEP + signature ajoutée en M3/post-M3 (post-ADR-001). |
+| Verdict C-PRE1-03 (2026-09-03) | **KEEP** — petit, ciblé, isolé, bien testé. Migration vers V2 n'est PAS URGENTE. Présomption `MIGRATE` du tour initial était pessimiste. |
+| Status | `KEEP` (cartographie C-PRE1-03 confirmée 2026-09-03) |
 
 ### 1.3 `@unifia/contracts`
 
@@ -617,7 +621,7 @@ toucher dans le scope PRE-1.
 | `EXTEND` | 2 | contracts, runtime-conformance |
 | `HARDEN` | 7 | capability-runtime, workbench-orchestrator, spec-runtime, mcp-transport/ui-actions, automate-surface, mode.tsx, artifact-runtime, artifact-studio, browser-runtime (post-M3), computer-use-safety (post-M3) |
 | `REFACTOR` | 1 | workbench-server (97 Ko → sous-modules) |
-| `MIGRATE` | 3 | workflow-runtime, workflow-catalog (présomption), Secret Broker (R-012) |
+| `MIGRATE` | 1 | workflow-runtime (en attente ADR-000) — workflow-catalog reclassé KEEP (C-PRE1-03), Secret Broker EXISTS (R-012 résolu) |
 | `REPLACE` | 0 | (ADR-000 peut en introduire) |
 | `REMOVE` | 0 | (ADR-000 peut en introduire) |
 | `CONSOLIDATE` | 0 | (à voir si R-012 révèle un éparpillement) |
@@ -645,7 +649,7 @@ on n'entre pas dans le cas « entire project greenfield » du plan §19.
 |---|---|---|---|
 | 1 | Écrire la première suite Automate (R-013) | PRE-0 = GO | M1 |
 | 2 | Cartographier `workbench-server/src/auth.ts` pour R-012 | PRE-1 = COMPLETE | ADR-010 |
-| 3 | Cartographier `workflow-catalog/src/` | PRE-0 = GO | M1 |
+| 3 | Cartographier `workflow-catalog/src/` (C-PRE1-03, **DONE 2026-09-03** verdict KEEP) | PRE-0 = GO | M1 |
 | 4 | ADR-000 (substrate) | R-013 résolu | M1 |
 | 5 | ADR-001, 002, 003, 004, 005, 010 | ADR-000 | M1 |
 | 6 | Découpage `workbench-server` (97 Ko → sous-modules) | ADR-000 (substrate connu) | M1 |

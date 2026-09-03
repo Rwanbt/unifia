@@ -285,18 +285,18 @@ NEEDS_EVIDENCE
 | Champ | Valeur |
 |---|---|
 | ID | R-012 |
-| Severity | **High** (manque pour ADR-010) |
+| Severity | **High** (manque pour ADR-010) → **RESOLVED** |
 | Category | Architecture gap |
 | Claim | Le plan §72-80 exige un Secret Broker et un Key Authority. Aucun package `@unifia/secret-broker` ou `@unifia/key-authority` n'est listé. |
-| Evidence | `Get-ChildItem packages` ne montre pas ces packages. `workbench-server/src/auth.ts` (16 Ko) gère des `Principal`, `ScopedToken`, `RateLimiter` — c'est de l'authentification, pas du secret broker. |
-| Failure scenario | (a) Un executor qui a besoin d'un secret doit réinventer sa propre sécurité. (b) La rotation de clé (§78) n'est pas possible. (c) La protection at-rest (§74) n'est pas mesurable. |
-| Correction | (1) Cartographier en PRE-1 si la responsabilité est répartie (peut-être dans `workbench-server/auth.ts` + `enterprise` + `desktop`). (2) Si absente, créer `@unifia/secret-broker` selon ADR-010. |
-| Blocked milestone? | **M1** — sans secret broker, ADR-010 ne peut pas être rendu. |
-| Owner | agent (PRE-1) |
-| Reason « hors chemin PRE-0 » | C'est un trou d'architecture, mais l'absence d'un package dédié n'est pas en soi un bug — c'est un fait qu'ADR-010 tranchera. |
-| Proof Automate does not depend on it | **Faux** — Automate dépend d'un secret broker pour ADR-010. Le finding est ici parce que l'absence est un fait à acter, pas un bug à corriger sans ADR. |
-| Review milestone | M1. |
-| Status | `NEEDS_EVIDENCE` (à confirmer en PRE-1 par lecture de `auth.ts`) |
+| Evidence (2026-09-01) | `Get-ChildItem packages` ne montre pas ces packages. `workbench-server/src/auth.ts` (16 Ko) gère des `Principal`, `ScopedToken`, `RateLimiter` — c'est de l'authentification, pas du secret broker. |
+| Evidence (2026-09-02) | **M1-07 livré** (PostM3-R1, commit `3f8e499f03`) : `packages/secret-broker/` avec `index.ts` (22 244 octets) + `os-broker.ts` (31 627 octets) + 2 test files (30 866 octets). Définit `CredentialRef`, `SecretRef`, `OAuthConnectionRef`, `BrowserAuthProfileRef` (lignes 57-60 de `index.ts`) + `storeCredential/storeSecret/storeOAuthConnection` (lignes 157-159) + `OwnershipScope`-bound tenancy. |
+| Verdict (cartographie C-PRE1-02) | **EXISTS** — `@unifia/secret-broker` est un package dédié, isolation stricte. `workbench-server/src/auth.ts` (334 lignes, après C-PRE1-04 refactor) ne référence AUCUN de `CredentialRef|SecretRef|OAuthConnectionRef|BrowserAuthProfileRef|secret` (grep -c = 0). Responsabilité NON SCATTERED. |
+| Failure scenario (historique) | (a) Un executor qui a besoin d'un secret doit réinventer sa propre sécurité. (b) La rotation de clé (§78) n'est pas possible. (c) La protection at-rest (§74) n'est pas mesurable. — **NE S'APPLIQUE PLUS** après M1-07. |
+| Correction | LIVRÉ par M1-07 (commit 3f8e499f03). ADR-010 peut maintenant être rendu. |
+| Blocked milestone? | **Non** — `@unifia/secret-broker` existe, M1-07 PASS 6/6, ADR-010 peut s'appuyer dessus. |
+| Owner | Erwan (ADR-010 ratification) |
+| Review milestone | ADR-010. |
+| Status | `RESOLU` (M1-07 livré 2026-09-02, cartographie C-PRE1-02 confirmée 2026-09-03) |
 
 ---
 
@@ -350,7 +350,7 @@ NEEDS_EVIDENCE
 | `ALREADY_COVERED` | 3 (R-002, R-003, R-006) |
 | `BASELINE_MISMATCH` | 2 (R-010, R-011) |
 | `NEEDS_EVIDENCE` | 5 (R-001, R-004, R-005, R-008, R-009) — R-012, R-013, R-014 ont fait l'objet d'une cartographie PRE-1.1, voir ci-dessous |
-| `RESOLU_PRE-1.1` | 3 (R-012 verdict = ABSENT_CREATE, R-013 phase 1+2 livrées, R-014 confirmé par C-PRE1-03) |
+| `RESOLU_PRE-1.1` | 3 (R-012 verdict EXISTS confirmé 2026-09-03, R-013 phase 1+2 livrées, R-014 confirmé par C-PRE1-03) |
 
 **Findings qui demandent un blocage ou une action immédiate** :
 
