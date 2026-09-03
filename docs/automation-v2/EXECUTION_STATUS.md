@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **POST-M3-CORRECTION-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **PostM3-R3 = ADR-027 + migration tool 16/16 + cert gates** ; **R3-extras = M2-TEST 46/46 + ADR-028/029 + 5 V1 fixtures + license audit** ; **R4 = ADR-030 substrate matrix + ADR-031 DS HA/rolling/recovery + ADR-032 Tauri + ADR-033 shell + cert runner** ; **Correction pack 2026-09-03 = EPR-001..014 normative + ADR-000 READY_TO_RATIFY_WITH_M0_REOPEN_GATE + ADR-030 INFORMATIONAL + ADR-031/033 re-opened**). **32/32 ADR V2.3.1 ecrits** (29 DECIDED, 1 INFORMATIONAL, 2 CHANGES_REQUIRED). **748/0 tests V2 + migration, 0 fail**. **Cert runner : 12 GREEN, 4 RED, 1 NA, 7 BLOCKER (sur 25 gates)**. **108 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 substrate proof prêt à démarrer dès que l'utilisateur lance M0 (10 critères binaires, tout non-PASS = M1 bloqué).)
+> Phase : **M0-PROOF-CONTRACT-HALF-PASS-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 PASS, 10 critères M0-1..M0-10 binary**). **32/32 ADR V2.3.1 ecrits** (29 DECIDED, 1 INFORMATIONAL, 2 CHANGES_REQUIRED). **784/0 tests V2 + migration + m0-contract (177 = 141 + 36 M0 proof), 0 fail**. **Cert runner : 12 GREEN, 4 RED, 1 NA, 7 BLOCKER (sur 25 gates)**. **110 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 contract half GREEN. M0 runtime half = substrate adapter (post-M0). M1 may proceed when runtime half passes + ADR-000 ratified.)
 > Date : 2026-09-03
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -129,6 +129,8 @@ choice), R-013 phase 3.
 | PostM3-R4 ADR-033 Code/Shell security (LI-06) | **RE-OPENED** (CHANGES_REQUIRED_BEFORE_RATIFICATION) | docs/adr/ADR-033-untrusted-code-shell-security.md (7f31b067c9) |
 | PostM3-R4 Cert runner script | **DONE** (12 GREEN, 4 RED, 7 BLOCKER sur 25 gates) | packages/automate-migration-tool/scripts/cert.ts (7e7d06fea8) |
 | Correction pack 2026-09-03 | **DONE** (EPR-001..014 normative source, ADR-000 ratifiable) | 5 files (7f31b067c9) |
+| M0 proof contract half (M0-1..M0-10) | **DONE** (36/36 PASS) | packages/automate-m0-contract/test/m0-proof.test.ts (d12bdad3dc) |
+| M0 proof runtime half | **TODO** (substrate adapter, post-M0) | n/a |
 | PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
@@ -142,14 +144,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `7f31b067c9 docs(automation-v2): correction pack 2026-09-03 (EPR-*, ADR-000 ratified gate, ADR-030 informational, ADR-031/033 re-opened)` |
-| HEAD (sha) | `7f31b067c9` |
+| HEAD (commit) | `d12bdad3dc feat(m0): M0 substrate proof gate (ADR-000 §6) — 36/36 scenarios PASS` |
+| HEAD (sha) | `d12bdad3dc` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **108** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**108 commits poussés** 2026-09-03, remote HEAD = local HEAD = `7f31b067c9`) |
+| Commits depuis la base | **110** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**110 commits poussés** 2026-09-03, remote HEAD = local HEAD = `d12bdad3dc`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -159,9 +161,10 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (108 commits, 108 pushés sur origin)
+## Commits cumulés (110 commits, 110 pushés sur origin)
 
 ```
+d12bdad3dc feat(m0): M0 substrate proof gate (ADR-000 §6) — 36/36 scenarios PASS
 7f31b067c9 docs(automation-v2): correction pack 2026-09-03 (EPR-*, ADR-000 ratified gate, ADR-030 informational, ADR-031/033 re-opened)
 7e7d06fea8 docs(automate-v2): R4 — ADR-030 substrate matrix + ADR-031 DS HA + ADR-032 Tauri + ADR-033 shell + cert runner
 5d56eede44 docs(cert): gate 8 RED (zero ruleset F-CERT-01) + gate 14 license audit + gate 15 V1 fixtures
