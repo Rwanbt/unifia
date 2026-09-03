@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "candidate": "DBOS_GO_SQLITE",
+  "candidateInfo": {
+    "kind": "DBOS_GO_SQLITE",
+    "version": "github.com/dbos-inc/dbos-transact-golang@v1.0.0",
+    "buildHash": "qual-m0-2026-09-03-cp4",
+    "storage": {
+      "engine": "SQLite 3.x (via modernc.org/sqlite v1.54.0, pure-Go)",
+      "driver": "modernc.org/sqlite v1.54.0",
+      "journalMode": "WAL",
+      "synchronous": "FULL",
+      "busyTimeoutMs": 5000,
+      "maxOpenConns": 1,
+      "backupTarget": "file"
+    },
+    "process": {
+      "topology": "child-process",
+      "ipc": "http+json over loopback",
+      "multiProcessSafe": true,
+      "healthEndpoint": "GET /healthz"
+    }
+  },
+  "results": [
+    {
+      "testId": "FC-31A",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "PASS",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "21/21 canonical values round-tripped exactly. 0 mismatches.",
+      "observations": {
+        "pass": 21,
+        "fail": 0,
+        "total": 21
+      }
+    },
+    {
+      "testId": "FC-31B",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "PASS",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "13/13 host-integer/float64 separation cases handled correctly.",
+      "observations": {
+        "pass": 13,
+        "fail": 0,
+        "total": 13
+      }
+    },
+    {
+      "testId": "FC-04",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "PASS",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "ACK loss correctly resolved to UNKNOWN_EXTERNAL_STATE, not blind-retried.",
+      "observations": {
+        "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
+        "providerCalled": 0,
+        "providerCallHistory": [],
+        "adapterTopology": "child-process"
+      }
+    },
+    {
+      "testId": "FC-14",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "Methodology NOT_VALID: in-process only. Required methodology: two real OS processes. See evidence/unifia-native/FC-14/old-in-process.json for the trace that was previously classified PASS.",
+      "observations": {
+        "reason": "FC-14 requires two real OS processes, same durable store. The in-process methodology (two Database handles in one process) does NOT exercise the multi-process authority boundary. Old in-process evidence preserved at evidence/<candidate>/FC-14/old-in-process.json for traceability.",
+        "requiredMethodology": "spawn two real OS processes, share the same SQLite durable store, observe authority acquisition / dispatch eligibility / locking / fencing / commit. PASS only if a single logical authority can act.",
+        "oldInProcessEvidence": "evidence/unifia-native/FC-14/old-in-process.json"
+      }
+    },
+    {
+      "testId": "FC-25",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "BLOCKED",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; scheduled for WINDOWS_PREFLIGHT.",
+      "observations": {
+        "reason": "Native candidate uses single-process generation; multi-process fencing requires a second OS process. To be exercised in WINDOWS_PREFLIGHT."
+      }
+    },
+    {
+      "testId": "FC-32",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "PASS",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "Replay model declared: PARTIAL. DBOS Go upstream requires deterministic orchestration but the M0 surface does not exercise workflow replay; expected_from_upstream=YES, measured=false.",
+      "observations": {
+        "replayModel": "PARTIAL",
+        "reason": "DBOS Go upstream Conductor requires deterministic orchestration (workflow replay). M0 surface does not exercise a workflow function through the candidate — replay is EXPECTED_FROM_UPSTREAM but not MEASURED here.",
+        "expectedFromUpstream": "YES",
+        "measured": false
+      }
+    },
+    {
+      "testId": "FC-13-CTRL",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "BLOCKED",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "BLOCKED (NO_METHODOLOGY): No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
+      "observations": {
+        "blockedReason": "NO_METHODOLOGY",
+        "detail": "No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
+        "requiredMethodology": "configure non-durable write + abrupt power-off + verify loss + verify FC-13 PASS on durable write under same fault",
+        "nextActionOwner": "Erwan (env admin) OR a future VM-equipped agent session"
+      }
+    },
+    {
+      "testId": "FC-13",
+      "candidate": "DBOS_GO_SQLITE",
+      "status": "BLOCKED",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-o5RCg1\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
+      "commit": "qual-m0-2026-09-03-cp4",
+      "note": "BLOCKED (NO_METHODOLOGY): FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
+      "observations": {
+        "blockedReason": "NO_METHODOLOGY",
+        "detail": "FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
+        "requiredMethodology": "(1) Configure a SQLite write with synchronous=FULL + WAL + checkpoint. (2) Trigger abrupt power-off / storage fault. (3) Reopen store. (4) Verify the write is durably present. Compare against FC-13-CTRL (which must lose).",
+        "fc13CtrlStatus": "BLOCKED (NO_METHODOLOGY) — see FC-13-CTRL record",
+        "nextActionOwner": "Erwan (env admin) OR a future VM-equipped agent session"
+      }
+    }
+  ],
+  "summary": {
+    "pass": 4,
+    "failArchitectural": 0,
+    "failCorrectable": 0,
+    "notApplicable": 0,
+    "blocked": 3,
+    "notValid": 1
+  },
+  "replayModel": "PARTIAL",
+  "producedAt": "2026-09-03T21:25:08.347Z"
+}

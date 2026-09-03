@@ -1,5 +1,0 @@
-Runner failed to execute FC-04: EBUSY: resource busy or locked, rm 'D:\temp\m0-out\evidence\unifia-native\FC-04\provider-ackloss'
-Error: EBUSY: resource busy or locked, rm 'D:\temp\m0-out\evidence\unifia-native\FC-04\provider-ackloss'
-    at async destroy (D:\App\unifia\.worktrees\rev3m-20260901\design\packages\automate-m0-harness\src\qualification\providers\fake-external.ts:195:11)
-    at async runFC04 (D:\App\unifia\.worktrees\rev3m-20260901\design\packages\automate-m0-harness\src\qualification\runner.ts:454:29)
-    at async run (D:\App\unifia\.worktrees\rev3m-20260901\design\packages\automate-m0-harness\src\qualification\runner.ts:144:20)
