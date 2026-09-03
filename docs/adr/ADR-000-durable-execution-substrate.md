@@ -170,6 +170,18 @@ else:
 
 Pas de délai/exception implicite, pas de quorum de scénarios.
 
+**M0 proof gate — état au 2026-09-03** :
+
+- CONTRACT half : 36/36 PASS (`packages/automate-m0-contract/test/m0-proof.test.ts`,
+  scénarios M0-1..M0-10 sur la surface du contrat).
+- RUNTIME half : 15/15 PASS (`packages/automate-m0-harness/test/m0-runtime.test.ts`,
+  scénarios M0-1..M0-10 sur un substrate minimal in-process).
+
+Total : **51/51 M0 scenarios PASS**. Le proof gate est techniquement
+SATISFIED. La ratification formelle (passage à `RATIFIED`) reste à la
+discrétion du décideur final (Erwan), conformément à `Décideur final :
+Erwan` en tête de cet ADR.
+
 8. Fallback si M0 échoue
 
 La politique de licence EPR-007 reste stricte.
