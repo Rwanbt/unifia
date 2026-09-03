@@ -9,7 +9,10 @@
  * - `in-memory.ts` : `InMemoryDurableHistoryAuthority` impl (M1-09).
  * - `file-backed.ts` : `FileBackedDurableHistoryAuthority` impl (M1-10)
  *   — wraps the in-memory impl with JSON snapshot persistence.
+ * - `v1-migrating.ts` : `V1MigratingAuthority` (M1-11) — wraps any
+ *   DurableHistoryAuthority and migrates V1 history records to V2.
  */
 export * from "./adapter.ts"
 export * from "./in-memory.ts"
 export * from "./file-backed.ts"
+export * from "./v1-migrating.ts"

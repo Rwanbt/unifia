@@ -69,6 +69,8 @@ export const NodeFamilySchema = z.enum([
   "control.merge",
   "control.map",
   "control.repeat",
+  "control.while",
+  "control.child",
   "tool.http",
   "human.approval",
   "wait",
@@ -961,6 +963,173 @@ export function parseControlRepeatConfig(
   config: unknown,
 ): ControlRepeatConfig {
   return ControlRepeatConfigSchema.parse(config)
+}
+
+/* ------------------------------------------------------------------ */
+/* M2-07 — `control.while` (Plan V2.3.1 §198)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maximum number of iterations a `control.while` may execute.
+ * Like `control.repeat`, a `while` is bounded — the difference is
+ * the *termination* signal: `repeat` runs exactly `maxIterations`
+ * times (or until `untilCondition`); `while` runs as long as
+ * `whileCondition` is true, with `maxIterations` as a safety net.
+ *
+ * ADR-002 §6 allows unbounded best case for `while`, but the
+ * runtime MUST enforce this hard upper bound to prevent runaway
+ * loops. The bound is the same as `control.repeat` (1M).
+ */
+export const CONTROL_WHILE_MAX_ITERATIONS = 1_000_000
+
+export const ControlWhileConfigSchema = z.object({
+  /**
+   * Hard upper bound on iterations. Required (no default) — a
+   * non-bounded `while` is a contract violation. The runtime
+   * enforces this as a safety net; the workflow's normal
+   * termination is the `whileCondition` evaluating to false.
+   */
+  maxIterations: z
+    .number()
+    .int()
+    .positive("control.while: maxIterations must be ≥ 1")
+    .max(
+      CONTROL_WHILE_MAX_ITERATIONS,
+      `control.while: maxIterations must be ≤ ${CONTROL_WHILE_MAX_ITERATIONS}`,
+    ),
+  /**
+   * Condition expression. The loop body runs while this is true.
+   * ADR-003 — same expression language as `if.condition` and
+   * `switch.discriminator`. Required (the loop has no implicit
+   * body if the condition is absent).
+   */
+  whileCondition: z
+    .string()
+    .min(1, "control.while: whileCondition must be non-empty")
+    .max(1024, "control.while: whileCondition must be ≤ 1024 chars"),
+  /**
+   * Optional name of the loop index variable exposed to
+   * `whileCondition` and to nodes inside the loop body.
+   * Same identifier rules as `control.repeat.indexVariable`.
+   */
+  indexVariable: z
+    .string()
+    .min(1, "control.while: indexVariable must be non-empty when set")
+    .max(64, "control.while: indexVariable must be ≤ 64 chars")
+    .regex(
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/,
+      "control.while: indexVariable must be a valid identifier",
+    )
+    .optional(),
+  /**
+   * Node id that runs each iteration. Same semantics as
+   * `control.repeat.body`.
+   */
+  body: z
+    .string()
+    .min(1, "control.while: body must be a non-empty node id"),
+})
+export type ControlWhileConfig = z.infer<typeof ControlWhileConfigSchema>
+
+/**
+ * Validate the opaque `config` record of a `control.while` node.
+ * Throws `z.ZodError` on failure.
+ */
+export function parseControlWhileConfig(
+  config: unknown,
+): ControlWhileConfig {
+  return ControlWhileConfigSchema.parse(config)
+}
+
+/* ------------------------------------------------------------------ */
+/* M2-08 — `control.child` (Plan V2.3.1 §198)                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Maximum depth of `control.child` nesting. The runtime rejects
+ * any workflow that would exceed this depth at load time. The
+ * bound is structural (memory + stack), not security: a workflow
+ * can legitimately nest a few layers (e.g. main -> sub -> sub-sub).
+ */
+export const CONTROL_CHILD_MAX_DEPTH = 32
+
+export const ControlChildConfigSchema = z.object({
+  /**
+   * Reference to the child workflow definition. Either a
+   * `definitionId` (in-process lookup) or a `deploymentId` +
+   * `version` (cross-deployment lookup). Exactly one of these
+   * two modes is required.
+   */
+  definitionId: z
+    .string()
+    .min(1, "control.child: definitionId must be non-empty")
+    .max(128, "control.child: definitionId must be ≤ 128 chars")
+    .optional(),
+  deploymentId: z
+    .string()
+    .min(1, "control.child: deploymentId must be non-empty")
+    .max(128, "control.child: deploymentId must be ≤ 128 chars")
+    .optional(),
+  version: z
+    .string()
+    .min(1, "control.child: version must be non-empty")
+    .max(32, "control.child: version must be ≤ 32 chars")
+    .optional(),
+  /**
+   * Optional name of the variable that receives the child's
+   * WorkflowRunId. Useful for cancellation or for cross-workflow
+   * audit.
+   */
+  outputVariable: z
+    .string()
+    .min(1, "control.child: outputVariable must be non-empty when set")
+    .max(64, "control.child: outputVariable must be ≤ 64 chars")
+    .regex(
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/,
+      "control.child: outputVariable must be a valid identifier",
+    )
+    .optional(),
+  /**
+   * Whether the parent waits for the child to complete. If false,
+   * the parent continues immediately and the child runs in
+   * background. Default: true.
+   */
+  awaitCompletion: z.boolean().default(true),
+})
+export type ControlChildConfig = z.infer<typeof ControlChildConfigSchema>
+
+/**
+ * Validate the opaque `config` record of a `control.child` node.
+ * Throws `z.ZodError` on failure. Cross-validates that exactly one
+ * of {definitionId} or {deploymentId, version} is set.
+ */
+export function parseControlChildConfig(
+  config: unknown,
+): ControlChildConfig {
+  const parsed = ControlChildConfigSchema.parse(config)
+  const hasDef = parsed.definitionId !== undefined
+  const hasDep = parsed.deploymentId !== undefined || parsed.version !== undefined
+  if (hasDef === hasDep) {
+    throw new z.ZodError([
+      {
+        code: "custom",
+        path: ["definitionId"],
+        message:
+          "control.child: exactly one of `definitionId` or `{deploymentId, version}` is required",
+      },
+    ])
+  }
+  if (hasDep && (parsed.deploymentId === undefined || parsed.version === undefined)) {
+    throw new z.ZodError([
+      {
+        code: "custom",
+        path: ["deploymentId"],
+        message:
+          "control.child: when using deployment mode, both `deploymentId` and `version` are required",
+      },
+    ])
+  }
+  return parsed
 }
 
 /* ------------------------------------------------------------------ */
