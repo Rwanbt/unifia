@@ -1,245 +1,155 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Unifia contributors -->
 
-ADR-000 — Durable Execution Substrate
-
-Statut : READY_TO_RATIFY_WITH_M0_REOPEN_GATE
-Date initiale : 2026-09-01
-Révision de consolidation : 2026-09-03
-Décideur final : Erwan
-Source normative des exigences :
-docs/automation-v2/EXECUTION_PROFILE_REQUIREMENTS.md (EPR-*)
-
-1. Correction de statut et de méthode
-
-La version précédente mélangeait deux questions :
-
-« A est-elle l'unique survivante par élimination ? »
-
-« Quel substrate Unifia choisit-il pour avancer ? »
-
-La première n'est pas nécessaire pour répondre à la seconde.
-
-Décision proposée : sélectionner A — Native Unifia declarative kernel
-comme choix architectural explicite de produit, parce qu'il maximise
-souveraineté, local-first, contrôle de l'autorité durable et compatibilité
-avec la cible première.
-
-Cette sélection est conditionnée par une preuve M0 falsifiable.
-Elle n'est ni présentée comme une victoire comparative, ni comme la preuve
-que toutes les alternatives sont impossibles.
-
-2. Traçabilité
-
-Le défaut historique est corrigé à sa source :
-
-les anciens REQ-1..REQ-12 propres à cet ADR sont supprimés ;
-
-ADR-000 consomme désormais les exigences normatives EPR-001..EPR-014
-définies dans EXECUTION_PROFILE_REQUIREMENTS.md.
-
-Le problème de traçabilité affectait toutes les exigences, y compris celle
-portant les éliminations DBOS-TS/Temporal. Il était distinct du problème de
-formulation des anciennes REQ-4/REQ-6.
-
-3. Candidats — état factuel unique
-
-| Option          | Statut cible local-single-node       | Fondement                                                                    |
-|-----------------|--------------------------------------|------------------------------------------------------------------------------|
-| A Native        | SELECTED_PENDING_M0_PROOF            | choix produit ; aucun hard eliminator connu ; runtime à construire            |
-| B DBOS TS       | ELIMINATED_LOCAL                      | EPR-002 : PostgreSQL requis côté TS ; pas de SQLite TS                        |
-| B′ DBOS-Go/SQLite | NOT_QUALIFIED                     | doit prouver EPR-006 ; non éliminé par le seul fait d'être en Go              |
-| C Restate       | ELIMINATED_BY_POLICY                 | EPR-007 : licence serveur source-available non OSI                            |
-| D Temporal      | ELIMINATED_LOCAL                      | EPR-002 : topology production requiert service + persistence séparés ; temporalite archivé |
-
-Aucune autre section de cet ADR ne doit conserver les anciennes affirmations
-« DBOS-SQLite preview côté TS » ou « temporalite early stage ».
-
-4. Pourquoi A
-
-A est choisi pour :
-
-contrôle complet de l'autorité durable ;
-
-aucune frontière d'exploitation séparément administrée pour le local ;
-
-offline/self-hosted ;
-
-intégration native à la stack Unifia ;
-
-capacité à porter exactement les invariants Unifia :
-single authority, fencing, durable waits, uncertainty explicite ;
-
-absence de dépendance à une licence/runtime tiers pour le cœur durable.
-
-Coût assumé : substrate engineering complexe. Ce coût est précisément la
-raison de M0.
-
-5. Android / mobile
-
-Aucune présomption favorable n'est accordée à A.
-
-État initial :
-
-| Option  | Mobile local |
-|---------|--------------|
-| A       | NOT_MEASURED |
-| B TS    | NOT_MEASURED |
-| B′ Go   | NOT_MEASURED |
-| C       | NOT_MEASURED |
-| D       | NOT_MEASURED |
-
-EPR-005 exige seulement que le choix ne ferme pas structurellement le futur
-mobile. Le M0 inclut un mobile compatibility smoke pour A : dépendances
-core auditées + build/compile de la couche portable ou preuve équivalente.
-Un échec ne peut pas être requalifié silencieusement.
-
-6. M0 — critères absolus écrits avant exécution
-
-M0 ne compare plus A à des options déjà éliminées. Il falsifie A.
-
-Règle : chaque scénario doit être vert. PARTIAL = non vert = M1 bloqué.
-Un scénario ne peut devenir « acceptable known limitation » qu'après
-amendement écrit de cet ADR.
-
-M0-1 — restart avant effet
-
-Après crash avant dispatch, reprise => un seul logical invocation ; aucun
-effet fantôme ; état reconstruit identique.
-
-M0-2 — succès externe + ack local perdu
-
-Le runtime MUST NOT affirmer un succès non prouvé et MUST NOT redéclencher
-aveuglément. Résultat exigé :
-
-réconciliation => état exact, ou
-
-UNKNOWN_EXTERNAL_STATE.
-
-M0-3 — durable approval restart
-
-Une approval pending survit au restart.
-Aucun effet sensible avant décision.
-Décision appliquée une seule fois à l'ExecutionPlan approuvé.
-
-M0-4 — durable timer restart
-
-Timer survive restart et suit la policy catch-up/overlap.
-Aucun duplicate firing silencieux.
-
-M0-5 — duplicate trigger
-
-Deux occurrences portant la même identité logique ne peuvent pas écraser
-silencieusement l'état. La policy de déduplication produit un résultat
-déterministe et auditable.
-
-M0-6 — authority uniqueness
-
-Pour un WorkflowRun, aucune exécution de test ne produit deux autorités
-durables concurrentes acceptées.
-
-M0-7 — lease/zombie fencing
-
-A obtient lease, freeze, expiration, B reçoit génération supérieure, B commit,
-A revient : commit A rejeté.
-
-M0-8 — history reconstruction
-
-Après crash/restart, reconstruction à partir de l'history produit le même
-état canonique/digest attendu.
-
-M0-9 — cancellation / timeout
-
-Cancellation et timeout sont durables ; après restart, aucun step annulé ne
-reprend comme si rien ne s'était passé.
-
-M0-10 — mobile compatibility smoke
-
-Le core sélectionné ne contient pas de dépendance qui rend
-mobile-local-execution structurellement impossible, ou le build portable
-prévu réussit. Résultat PASS ou ADR-000 rouvert.
-
-7. Décision de passage
-
-if any(M0 scenario != PASS):
-    ADR-000 = REOPENED
-    M1 = BLOCKED
-else:
-    ADR-000 proof gate = SATISFIED
-    M1 may proceed if all other M1 gates are green
-
-Pas de délai/exception implicite, pas de quorum de scénarios.
-
-**M0 proof gate — état au 2026-09-03** :
-
-- CONTRACT half : 36/36 PASS (`packages/automate-m0-contract/test/m0-proof.test.ts`,
-  scénarios M0-1..M0-10 sur la surface du contrat).
-- RUNTIME half : 15/15 PASS (`packages/automate-m0-harness/test/m0-runtime.test.ts`,
-  scénarios M0-1..M0-10 sur un substrate minimal in-process).
-
-Total : **51/51 M0 scenarios PASS**. Le proof gate est techniquement
-SATISFIED. La ratification formelle (passage à `RATIFIED`) reste à la
-discrétion du décideur final (Erwan), conformément à `Décideur final :
-Erwan` en tête de cet ADR.
-
-8. Fallback si M0 échoue
-
-La politique de licence EPR-007 reste stricte.
-La politique de packaging EPR-006 est opérationnelle, pas fondée sur le langage.
-
-Donc :
-
-rouvrir ADR-000 ;
-
-qualifier B′ DBOS-Go contre EPR-006 ;
-
-si B′ échoue, définir une Option E ;
-
-Restate ne revient qu'avec amendement explicite d'EPR-007.
-
-Ce fallback est volontairement écrit avant M0 pour éviter une décision par
-inertie.
-
-9. Réversibilité corrigée
-
-| Étape                                       | Réversibilité                                                                          |
-|---------------------------------------------|----------------------------------------------------------------------------------------|
-| avant ratification                          | élevée                                                                                  |
-| après ratification, avant M0                | moyenne : plusieurs ADR aval déjà conditionnels au kernel doivent être rouverts si A échoue |
-| après M0 réussi, avant GA                  | faible et décroissante                                                                  |
-| après premiers WorkflowRun GA               | très coûteuse : history/compat formats/migrations                                       |
-
-Les ADR portant une sémantique directement dépendante du kernel doivent
-indiquer DECIDED IF ADR-000=A ou équivalent ; aucun DECIDED inconditionnel
-si leur révision est probable lors d'un changement de substrate.
-
-10. Relation avec ADR-031 / ADR-033
-
-ADR-031 DS-09 est bloqué par substrate + M0 ; aucune topologie Raft/quorum
-n'est préfigée dans ADR-000.
-
-ADR-033 peut définir des invariants de sécurité substrate-independent, mais
-son contrat doit suivre Policy/Capability/Approval authorities et échouer
-fermé.
-
-11. Conséquences
-
-Si M0 passe :
-
-réécriture de packages/workflow-runtime en kernel durable natif ;
-
-poursuite des ADR/contracts dépendants ;
-
-aucune claim exactly-once ;
-
-aucune double autorité ;
-
-gates M1 restent autoritaires.
-
-Si M0 échoue : STOP pour M1, réouverture obligatoire.
-
-12. Anti-drift
-
-ADR-030 est dérivé/non normatif.
-Toute matrice de candidats est générée ou vérifiée contre cette table.
-Les faits candidats ne doivent exister qu'en un état courant dans le dépôt.
+# ADR-000 — Durable Execution Substrate (résumé non normatif)
+
+> **STATUT DE CE FICHIER (corrigé 2026-09-03, post-review externe v1.1)**
+>
+> Ce fichier n'est **plus** la source normative pour ADR-000.
+>
+> La source canonique est :
+>
+> ```
+> docs/adr/ADR-000-DURABLE-EXECUTION-SUBSTRATE-M0-FROZEN.md
+> ```
+>
+> Version : `V1.1.2-E1 / IMPLEMENTATION PACK`
+> Statut architecture : `FROZEN`
+> Statut contrat M0 : `FROZEN`
+> Statut M0 : `READY`
+> **Statut substrate final : `NOT_RATIFIED`**
+> **Statut M1 : `NO-GO`**
+> Stratégie : `S2 — LOCAL AUTHORITY + PROFILE-SPECIFIC CERTIFIED ADAPTERS`
+> Finalistes Local : `UNIFIA_NATIVE` + `DBOS_GO_SQLITE`
+>
+> **Règle anti-drift (post-review v1.1)** :
+> en cas de contradiction entre ce fichier et le pack gelé,
+> **`ADR-000-DURABLE-EXECUTION-SUBSTRATE-M0-FROZEN.md` est normatif pour M0**.
+
+---
+
+## 1. Rôle de ce fichier (résumé historique)
+
+Ce fichier est l'ADR-000 "live" qui a accumulé les révisions de
+consolidation 2026-09-01 → 2026-09-03. Il reste utile comme **trace
+historique** des décisions et éliminations, mais la procédure M0
+exigeant la comparaison `UNIFIA_NATIVE` ↔ `DBOS_GO_SQLITE` est dans
+le pack gelé.
+
+Voir le pack gelé pour :
+- Les critères M0-1..M0-10 (et FC-01..FC-32, FC-31A/B, FC-13-CTRL)
+- Le harness M0 substrate-neutral
+- Les outputs obligatoires (M0_RESULTS_NATIVE.json, M0_RESULTS_DBOS_GO.json, etc.)
+- La taxonomie des résultats (PASS / FAIL_ARCHITECTURAL / FAIL_CORRECTABLE / NOT_APPLICABLE / BLOCKED / NOT_VALID)
+- Les règles de sélection finale (correctness avant TCO/ergonomie)
+
+Voir `docs/automation-v2/spikes/M0-01-BIS-EVIDENCE.md` pour la trace
+des éliminations DBOS (TypeScript), Restate, Temporal.
+
+## 2. Statut actuel réel (2026-09-03, post-review v1.1)
+
+| Champ | Valeur |
+|---|---|
+| **Statut architecture** | `FROZEN` (pack gelé) |
+| **Statut contrat M0** | `FROZEN` (pack gelé) |
+| **Statut M0** | `READY` (pack gelé) |
+| **Statut substrate final** | `NOT_RATIFIED` (pack gelé) — pas `READY_TO_RATIFY` |
+| **Statut M1** | `NO-GO` (pack gelé) — pas `GO` |
+| **Finalistes Local** | `UNIFIA_NATIVE` + `DBOS_GO_SQLITE` (pas Native seul) |
+| **Décideur final** | Erwan (signature) |
+| **M0 proof gate SATISFIED ?** | `NON` (51/51 sont une preuve de **feasibility** du contrat, pas de sélection de substrate) |
+
+## 3. Reclassification des 51/51 (post-review v1.1)
+
+Les tests livrés en commits `d12bdad3dc` (contract half 36/36) et
+`28e3058110` (runtime half 15/15) sont **conservés** mais reclassifiés :
+
+| Ancien label | Nouveau label (correct) |
+|---|---|
+| `M0 contract half : 36/36 PASS` | `M0_CONTRACT_FEASIBILITY : PASS` (le contrat est cohérent) |
+| `M0 runtime half : 15/15 PASS` | `MINIMAL_REFERENCE_SUBSTRATE : PASS` (un substrate jouet peut satisfaire les 10 critères logiques) |
+| `M0 proof gate SATISFIED` | `M0 CONTRACT FEASIBILITY PROOF : PASS` (le contrat est exécutable, pas le choix de substrate) |
+| `ADR-000 substrate proof complete` | **RETIRÉ** — ne s'applique pas, le substrate n'est pas sélectionné |
+
+**Ne supprime aucun de ces tests.** Ils sont **réutilisés** dans le
+M0 comparatif (harness substrate-neutral).
+
+**`packages/automate-m0-harness/src/minimal-substrate.ts` reste
+intact** mais avec une étiquette clarifiée : "reference substrate for
+contract feasibility only, not a production kernel candidate".
+
+**`gates.yaml` gate `m0_substrate_proof`** est mis à jour pour refléter
+cette reclassification.
+
+## 4. Ce qui doit maintenant être produit (M0 comparatif)
+
+Voir le pack gelé §20 "OUTPUTS M0 OBLIGATOIRES" :
+
+```
+docs/automate/m0/BASELINE.md
+docs/automate/m0/NATIVE_TOPOLOGY.md
+docs/automate/m0/DBOS_ADAPTER.md
+docs/automate/m0/M0_RESULTS_NATIVE.json
+docs/automate/m0/M0_RESULTS_DBOS_GO.json
+docs/automate/m0/M0_EXPECTED_NA_NATIVE.json
+docs/automate/m0/M0_EXPECTED_NA_DBOS_GO.json
+docs/automate/m0/DURABLE-SUBSTRATE-BENCHMARK.md
+docs/automate/m0/PACKAGING_RESULTS.md
+docs/automate/m0/RESOURCE_RESULTS.md
+docs/automate/m0/WINDOWS_PREFLIGHT.md
+docs/automate/m0/EXIT_NATIVE.md
+docs/automate/m0/EXIT_DBOS_GO.md
+docs/automate/m0/evidence/native/
+docs/automate/m0/evidence/dbos-go/
+```
+
+Adapter les chemins si la topologie actuelle du repo possède déjà
+une convention équivalente (ex: `docs/automation-v2/m0/`).
+
+## 5. Pourquoi cette réconciliation
+
+Une review externe multi-IA (2026-09-03) a identifié que :
+
+1. Ce fichier dérivait vers "Native = SELECTED_PENDING_M0_PROOF" et
+   "M0 = falsification de Native seulement", ce qui contredit le pack
+   gelé qui exige une comparaison à armes égées.
+2. Le pack gelé (importé tel quel 2026-09-02) est la source normative.
+3. Le langage Go n'est PAS un hard eliminator (DBOS Go 1.0 est
+   production-ready avec SQLite via `DatabaseURL` ou
+   `SQLiteSystemDB *sql.DB`, driver pure-Go sans cgo).
+4. Les 51/51 tests utilisent un `minimal-substrate.ts` qui déclare
+   explicitement "not a production kernel (no concurrency, no
+   persistence, no scheduler)".
+
+## 6. Action immédiate suivante
+
+1. **Reclassifier les 51/51** dans `gates.yaml` (m0_substrate_proof) et
+   `EXECUTION_STATUS.md` (sans toucher au code des tests).
+2. **Créer la structure `docs/automation-v2/m0/`** avec les outputs
+   obligatoires.
+3. **Implémenter `NATIVE_TOPOLOGY.md`** : choix de topologie M0 Native
+   (TypeScript/Bun vs Rust vs Hybrid) avec critères ADR-006-friendly.
+4. **Implémenter `DBOS_ADAPTER.md`** : DBOS Go 1.0 + SQLite,
+   configuration `SQLiteSystemDB` ou `DatabaseURL`, journal_mode,
+   synchronous, busy_timeout, process topology.
+5. **Implémenter le harness M0 substrate-neutral** qui drive les
+   deux adapters (FC-01..FC-32, FC-31A/B, FC-13-CTRL).
+6. **Exécuter les early discriminating tests** (P0-1..P0-8 dans le
+   pack gelé).
+7. **Produire les résultats** dans `M0_RESULTS_NATIVE.json` et
+   `M0_RESULTS_DBOS_GO.json`.
+8. **D-02** (Approval Broker V2) en parallèle.
+9. **D-04** (Git topology) en parallèle.
+10. **D-05** (DK-01 DEFER + ADR-032 corrections) en parallèle.
+
+## 7. Source normative externe
+
+Plan maitre : `D:\Documents\Obsidian\IA_Dev_Brain\projects\unifia\roadmaps\UNIFIA-Automate-Master-Implementation-Plan-V2.3.1.md`
+(SHA256 3A63FE3D2CE12E84CC47787A2B6257167F2FEC50EAB294CD125D9CFB86510815, 71 KB, 3 729 lignes)
+
+Pack gelé : `docs/adr/ADR-000-DURABLE-EXECUTION-SUBSTRATE-M0-FROZEN.md`
+(2184 lignes, importé tel quel 2026-09-02)
+
+Branche : `agent/automate-v2-baseline-20260901`
+Remote : `https://github.com/Rwanbt/unifia.git`
+HEAD (post-réconciliation) : à mettre à jour après commit de ce fichier.
