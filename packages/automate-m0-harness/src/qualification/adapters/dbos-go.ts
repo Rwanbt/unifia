@@ -69,13 +69,13 @@ class BlockedExecution extends Error {
 }
 
 /* ------------------------------------------------------------------ */
-/* Pinned candidate info (no `latest` — pack gelé §7)                  */
+/* Pinned candidate info (per pack gelé review 2026-09-03, v1.1)      */
 /* ------------------------------------------------------------------ */
 
-const DBOS_GO_PINNED_VERSION = "github.com/dbos-inc/dbos-transact-go@v1.0.0" // placeholder; actual pin when Go available
-const GO_PINNED_VERSION = "go1.22.0"
-const SQLITE_DRIVER_PINNED = "modernc.org/sqlite v1.34.5" // pure-Go driver; cgo-free per pack gelé §7
-const BUILD_HASH = "STUB-2026-09-03" // incremented when actual Go binary is built
+const DBOS_GO_PINNED_VERSION = "github.com/dbos-inc/dbos-transact-golang@v1.0.0"
+const GO_PINNED_VERSION = "go1.25.12"  // toolchain go1.25.0 required by DBOS v1.0.0
+const SQLITE_DRIVER_PINNED = "modernc.org/sqlite v1.54.0"  // pure-Go driver, cgo-free
+const BUILD_HASH = "STUB-2026-09-03"  // incremented when actual Go binary is built
 
 /* ------------------------------------------------------------------ */
 /* DBOSGoCandidate (stub)                                              */

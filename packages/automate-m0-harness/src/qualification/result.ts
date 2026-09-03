@@ -119,9 +119,24 @@ export class CandidateResultBuilder {
 }
 
 /* ------------------------------------------------------------------ */
-/* Expected-NA builder                                                 */
+/* Expected-NA builder — ONLY for NOT_APPLICABLE                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * ExpectedNABuilder declares tests that the harness is NOT going to
+ * run, with documented architectural reasons (NOT_APPLICABLE).
+ *
+ * This file must NEVER contain BLOCKED. A BLOCKED entry is a
+ * measurement outcome, not a pre-declared expectation. Per pack
+ * gelé review (correction pack 2026-09-03, v1.1 §3) :
+ *   - NOT_APPLICABLE : test does not apply to this candidate
+ *   - BLOCKED        : a test ran but its methodology is unavailable
+ *                       (appears in M0_RESULTS_*.json, not here)
+ *   - NOT_VALID      : a test ran and its methodology failed to measure
+ *                       (appears in M0_RESULTS_*.json, not here)
+ *
+ * If no FC is genuinely N/A, the resulting file is `{ entries: [] }`.
+ */
 export class ExpectedNABuilder {
   private readonly entries: { testId: FunctionalCriterionId; reason: string }[] = []
   constructor(private readonly candidate: AuthorityKind) {}
@@ -140,6 +155,29 @@ export class ExpectedNABuilder {
     await writeFile(filePath, JSON.stringify(out, null, 2), "utf8")
     return out
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* BlockedReason — explicit categorical classification                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Categorizes a `BLOCKED` outcome so the result file is precise
+ * about *why* the test was blocked (vs. just `notApplicable`).
+ *
+ * Used internally by the runner when it knows a methodology is
+ * unavailable. The result file still records `status: "BLOCKED"`,
+ * but the reason appears in `note` for the human reader.
+ */
+export type BlockedReasonKind =
+  | "NO_METHODOLOGY"          // no fault-injection / VM / harness available
+  | "MISSING_TOOLCHAIN"       // candidate's required toolchain absent
+  | "MISSING_FIXTURE"         // shared fixture (e.g. test vector) absent
+  | "MISSING_PLATFORM_FEATURE" // required platform feature absent
+  | "OUT_OF_M0_SCOPE"          // not in P0/P1 set; deferred to LATER
+
+export function blockedNote(kind: BlockedReasonKind, detail: string): string {
+  return `BLOCKED (${kind}): ${detail}`
 }
 
 /* ------------------------------------------------------------------ */

@@ -29,12 +29,21 @@ réalité (per pack gelé + M0-01-BIS §7.2) est :
 
 ## 2. DBOS Go — caractéristiques techniques
 
-### 2.1 Version cible
+### 2.1 Version cible (pinned, per pack gelé review 2026-09-03)
 
 ```
-DBOS Go : 1.0+ (API publique stable)
-Go : 1.22+
+DBOS Go    : github.com/dbos-inc/dbos-transact-golang@v1.0.0
+Go         : go1.25.12  (toolchain go1.25.0)
+SQLite dep : modernc.org/sqlite v1.54.0  (upstream pinned dependency)
 ```
+
+**Note** : les versions antérieures (Go 1.22.0, modernc.org/sqlite
+v1.34.5) étaient matériellement incorrectes. La source upstream
+pinnée pour `dbos-transact-golang@v1.0.0` exige Go 1.25.x.
+
+**Note importante** : le harness n'invente pas ces versions ; elles
+proviennent des `go.mod` / `go.sum` du repo DBOS Go à la release
+pinned. Toute déviation doit être justifiée mécaniquement.
 
 ### 2.2 SQLite configuration (per pack gelé §7)
 
