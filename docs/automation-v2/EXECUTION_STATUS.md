@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **M0-PROOF-FULL-PASS-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 PASS, M0 proof runtime half = 15/15 PASS, M0 proof gate = SATISFIED sur 51/51 scénarios**). **32/32 ADR V2.3.1 ecrits** (29 DECIDED, 1 INFORMATIONAL, 2 CHANGES_REQUIRED). **799/0 tests V2 + migration + m0-contract (177) + m0-harness (15), 0 fail**. **Cert runner : 12 GREEN, 4 RED, 1 NA, 7 BLOCKER (sur 25 gates)**. **112 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. **M0 proof gate SATISFIED**. ADR-000 attend la ratification formelle par Erwan (Décideur final) avant passage à RATIFIED. M1 peut démarrer après cette ratification.)
+> Phase : **M1-09-IN-MEMORY-IMPL-DELIVERED-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 + runtime half = 15/15 = 51/51 PASS** ; **M1-09 in-memory DurableHistoryAuthority 14/14 PASS, transition matrix per ADR-022 §4, 4 typed errors**). **32/32 ADR V2.3.1 ecrits** (29 DECIDED, 1 INFORMATIONAL, 2 CHANGES_REQUIRED). **813/0 tests V2 + migration + m0-contract (177) + m0-harness (15) + workflow-runtime (14), 0 fail**. **Cert runner : 13 GREEN, 4 RED, 1 NA, 6 BLOCKER (sur 25 gates)**. **115 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 proof gate SATISFIED. M1-09 was YELLOW interface-only, now DECIDED via in-memory impl. M1-10 et M1-11 (RED runtime) peuvent démarrer. ADR-000 attend la ratification formelle par Erwan.)
 > Date : 2026-09-03
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -132,6 +132,7 @@ choice), R-013 phase 3.
 | M0 proof contract half (M0-1..M0-10) | **DONE** (36/36 PASS) | packages/automate-m0-contract/test/m0-proof.test.ts (d12bdad3dc) |
 | M0 proof runtime half (M0-1..M0-10) | **DONE** (15/15 PASS, gate SATISFIED) | packages/automate-m0-harness/test/m0-runtime.test.ts (28e3058110) |
 | M0 proof gate (combined) | **GREEN** (51/51 scenarios PASS) | per ADR-000 §7 |
+| M1-09 in-memory DurableHistoryAuthority | **DONE** (14/14 PASS, YELLOW → DECIDED) | packages/workflow-runtime/src/in-memory.ts (2e8a8b4dd6) |
 | PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
@@ -145,14 +146,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `28e3058110 feat(m0): M0 substrate proof runtime half — 15/15 PASS, full M0 proof gate SATISFIED` |
-| HEAD (sha) | `28e3058110` |
+| HEAD (commit) | `2e8a8b4dd6 feat(workflow-runtime): M1-09 in-memory DurableHistoryAuthority (14/14 PASS)` |
+| HEAD (sha) | `2e8a8b4dd6` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **112** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**112 commits poussés** 2026-09-03, remote HEAD = local HEAD = `28e3058110`) |
+| Commits depuis la base | **115** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**115 commits poussés** 2026-09-03, remote HEAD = local HEAD = `2e8a8b4dd6`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -162,7 +163,7 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (112 commits, 112 pushés sur origin)
+## Commits cumulés (115 commits, 115 pushés sur origin)
 
 ```
 28e3058110 feat(m0): M0 substrate proof runtime half — 15/15 PASS, full M0 proof gate SATISFIED
