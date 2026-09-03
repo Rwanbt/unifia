@@ -1,231 +1,199 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Unifia contributors -->
 
-# ADR-031 — Distributed Server HA + Rolling Upgrade + Cluster Recovery (DS-09/10/11)
+ADR-031 — Distributed Server HA / Rolling Upgrade / Recovery
 
-> **Statut** : DECIDED
-> **Date** : 2026-09-02
-> **Source** : POST-M3-TRACKS-PLAN §2.2 (DS-09 RED, DS-10 RED,
->   DS-11 RED), plan V2.3.1 §208-209, ADR-008 (scheduler/worker
->   time authority, DECIDED), ADR-018 (rolling upgrade
->   compatibility, DECIDED), ADR-020 (ownership/deployment scope,
->   DECIDED), ADR-024 (extension runtime, DECIDED),
->   `@unifia/contracts/src/server.ts` (DS-01..08 livrés R2).
-> **Cible** : profiles `server-single-node` et `server-cluster` du
->   plan §187. **PAS** la cible première `local-single-node` (qui est
->   par définition single-node).
+Statut : CHANGES_REQUIRED_BEFORE_RATIFICATION
+Date : 2026-09-02
+Révision : 2026-09-03
+Dépendances : ADR-000, ADR-008, ADR-016, ADR-018,
+EXECUTION_PROFILE_REQUIREMENTS.md
 
-## Status
+Status
 
-DECIDED. ADR d'**impact architectural** (plan §197). Couvert par les
-contrats `@unifia/contracts/src/server.ts` (DS-01..08) et étendu ici
-pour DS-09/10/11. **N'est PAS** bloqué par ADR-000 (les implémentations
-runtime dépendent du substrate mais les contrats sont indépendants).
+La version antérieure était DECIDED. Ce statut est retiré.
 
-## Contexte
+DS-09 n'est pas substrate-independent : la localisation, la réplication,
+l'élection et le quorum de l'autorité durable font partie du substrate.
+Aucun contrat Raft/quorum n'est figé avant ADR-000 + M0.
 
-DS-09 (HA), DS-10 (rolling upgrade) et DS-11 (cluster recovery) sont
-les 3 dernières cartes RED du track Distributed Server. Elles
-définissent comment un cluster de workers (potentiellement des
-dizaines ou des centaines de nœuds) maintient la continuité de
-service en présence de :
+Aucun contrat DS-09/10/11 ne doit être ajouté à WorkspaceConfig.
 
-- **Pannes matérielles** (DS-09 HA) : un worker meurt, le cluster
-  redistribue ses leases.
-- **Mises à jour logicielles** (DS-10 rolling) : un sous-ensemble
-  du cluster est en v1 pendant qu'un autre est en v2.
-- **Disasters** (DS-11 recovery) : un data center entier est
-  perdu, le cluster reconstruit depuis la history archive.
+Portée
 
-Les contrats DS-01..08 (WorkerRegistry, Lease, FencingToken,
-WorkQueue, FairScheduler, Quota, RateLimiter, Budget) sont en
-place. DS-09/10/11 les étendent avec la dimension multi-nœud.
+local-single-node : hors scope, HA non.
 
-## Decision
+server-single-node : un nœud, HA non.
 
-### DS-09 — High Availability (HAConfig)
+server-cluster : futur profil multi-nœuds ; c'est le seul profil visé par
+la HA distribuée.
 
-**Pas de HA** pour la cible première `local-single-node` (par
-définition). HA activé pour `server-single-node` (active-passive)
-et `server-cluster` (active-active avec leader election).
+DS-09 — invariants seulement, mécanisme différé
 
-**Schémas supportés** :
+Le contrat stable avant choix de topologie est comportemental :
 
-- **`single`** : pas de réplication, c'est le profile
-  `local-single-node`. Aucune configuration requise.
-- **`active-passive`** : un leader + un standby, promotion manuelle
-  ou automatique sur heartbeat loss. Convient à `server-single-node`
-  avec 2 instances.
-- **`active-active`** : N nœuds avec leader election distribuée
-  (Raft). Convient à `server-cluster`.
+une seule autorité durable valide pour un run à un instant logique ;
 
-**Contrat** :
+aucune partition ne peut produire deux auteurs de side effects valides ;
 
-```typescript
-export const HAReplicationSchema = z.enum(["none", "active-passive", "active-active"])
-export const HALeaderElectionSchema = z.enum(["raft", "simple"])
-export const HAQuorumSchema = z.number().int().min(1).max(99)
-  .describe("Percentage of nodes required to acknowledge a write (e.g. 51 for majority)")
+tout changement d'autorité porte un leader/control-plane epoch ou
+équivalent substrate, vérifié à la frontière d'effet ;
 
-export const HAConfigSchema = z.object({
-  replication: HAReplicationSchema,
-  leaderElection: HALeaderElectionSchema.default("raft"),
-  quorumPct: HAQuorumSchema.default(51),
-  /** Heartbeat interval in ms. 1000 minimum (lower bound for Raft). */
-  heartbeatMs: z.number().int().min(1000).max(60_000).default(5000),
-  /** Election timeout in ms. Must be > heartbeatMs. */
-  electionTimeoutMs: z.number().int().min(2_000).max(120_000).default(15_000),
-})
-```
+les workers conservent leurs fencing tokens de lease (ADR-008) ;
 
-**Invariants** :
+l'ancien leader et les workers zombies sont rejetés après failover ;
 
-- `replication = "active-active"` ⇒ `quorumPct >= 51` (majorité stricte
-  pour éviter le split-brain). `quorumPct = 50` est rejeté.
-- `electionTimeoutMs >= 2 * heartbeatMs` (sinon élections trop
-  fréquentes).
-- Pour `local-single-node`, `replication = "none"` est le seul choix
-  accepté.
+la membership du cluster est versionnée et auditable ;
 
-### DS-10 — Rolling Upgrade (UpgradeStrategy)
+perte de quorum/autorité => fail closed, jamais promotion heuristique.
 
-**Stratégie** : canary progressif avec rollback automatique sur
-erreur.
+Non-décisions
 
-**Contrat** :
+ADR-031 ne décide pas encore :
 
-```typescript
-export const UpgradeStrategySchema = z.object({
-  /** Percentage of workers updated first (canary). 1-50. */
-  canaryPercent: z.number().int().min(1).max(50).default(10),
-  /** Wait time (ms) between canary batch and full rollout. */
-  canaryDwellMs: z.number().int().min(60_000).max(3_600_000).default(600_000),
-  /** Error rate above which rollback fires. Float 0.0-1.0. */
-  rollbackOnErrorRate: z.number().min(0).max(1).default(0.05),
-  /** Window (ms) for error rate measurement. */
-  errorWindowMs: z.number().int().min(60_000).max(3_600_000).default(300_000),
-  /** Max concurrent old-version workers during the transition. */
-  maxOldWorkers: z.number().int().min(1).default(10),
-})
-```
+Raft vs autre mécanisme ;
 
-**Sémantique** :
+taille du quorum ;
 
-1. Les workers sont partitionnés en `canaryPercent` canariens
-   (déployés en premier avec la nouvelle version) et le reste.
-2. Après `canaryDwellMs`, on lit l'error rate sur la fenêtre
-   `errorWindowMs`. Si `> rollbackOnErrorRate` → rollback.
-3. Sinon, déploiement progressif sur les anciens workers par
-   batch de `maxOldWorkers`.
-4. À tout moment, le cluster peut servir du trafic (capacité
-   réduite pendant le canary).
+voter/learner topology ;
 
-**Invariants** :
+heartbeat/election tuning ;
 
-- `canaryPercent < 50` (le canary est minoritaire).
-- Pendant le canary, le profile `active-active` maintient
-  l'élection leader sur les anciens workers (le canary est
-  passif).
-- La `HAConfig.replication` du **v2** doit être compatible avec
-  celle du **v1** pendant toute la transition (sinon, refus
-  avec `UpgradeError.code = "INCOMPATIBLE_HA"`).
+stockage du log répliqué ;
 
-### DS-11 — Cluster Recovery (RecoveryPolicy)
+active-active vs leader/follower pour le control plane.
 
-**Stratégie** : replay depuis la history archive, avec rate
-limiting pour éviter de saturer le réseau.
+Ces décisions appartiennent à un ADR post-M0 spécifique au substrate.
 
-**Contrat** :
+Interdictions
 
-```typescript
-export const RecoveryStrategySchema = z.enum(["replay-history", "rebuild-from-snapshot", "operator-driven"])
-export const RecoveryPolicySchema = z.object({
-  strategy: RecoveryStrategySchema.default("replay-history"),
-  /** For replay-history: max recovery time before the operator is paged. */
-  maxRecoveryMs: z.number().int().min(60_000).max(86_400_000).default(3_600_000),
-  /** For replay-history: max events replayed per second. */
-  replayRateLimit: z.number().int().min(1).max(100_000).default(1_000),
-  /** For rebuild-from-snapshot: how often snapshots are taken. */
-  snapshotIntervalMs: z.number().int().min(3_600_000).max(604_800_000).default(86_400_000),
-  /** Whether to alert the operator on incomplete recovery. */
-  pageOnIncomplete: z.boolean().default(true),
-})
-```
+pas de quorumPct configurable ;
 
-**Sémantique** :
+pas de paire 2-nœuds avec promotion automatique sans witness/fencing externe ;
 
-1. **Detection** : un nœud manque 3 heartbeats consécutifs
-   (`heartbeatMs * 3`).
-2. **Quorum check** : on vérifie qu'on a encore quorum
-   (`HAConfig.quorumPct`). Sinon → `RecoveryError.code =
-   "LOST_QUORUM"`, page opérateur, pas de recovery automatique.
-3. **Recovery** :
-   - `replay-history` (default) : on demande à la history archive
-     (ADR-016) les events depuis le dernier snapshot du nœud perdu.
-   - `rebuild-from-snapshot` : on charge le snapshot le plus récent
-     et on applique les events depuis.
-   - `operator-driven` : aucune action automatique, l'opérateur est
-   pagé immédiatement.
-4. **Rate limit** : le replay est rate-limité à `replayRateLimit`
-   events/s pour éviter de congestionner le réseau.
-5. **Timeout** : si `maxRecoveryMs` est dépassé → `RecoveryError.
-   code = "RECOVERY_TIMEOUT"`, l'opérateur est pagé.
+pas de confusion entre worker heartbeat et peer-consensus heartbeat ;
 
-**Invariants** :
+pas de claim « active-active control plane » si l'écriture reste leader-based.
 
-- `replay-history` est le default parce qu'il garantit la
-  consistency (events = ground truth).
-- `rebuild-from-snapshot` est plus rapide mais peut perdre les
-  events entre le snapshot et le crash.
-- `operator-driven` est obligatoire pour les profiles
-  réglementés (EN-02 audit log, EN-03 compliance SOC2).
+DS-10 — Rolling upgrade
 
-## Consequences
+ADR-018 reste la source normative du pattern :
 
-- **DS-09/10/11** peuvent être implémentés en runtime dès qu'ADR-000
-  est ratifié. Les contrats sont indépendants du substrate.
-- **HAConfig** + **UpgradeStrategy** + **RecoveryPolicy** sont
-  ajoutés à `WorkspaceConfig` (à postuler dans
-  `@unifia/contracts/src/workspace-config.ts`, livrable post-M3).
-- **Cible première `local-single-node` n'est PAS affectée** :
-  `HAConfig.replication = "none"`, pas de rolling upgrade, pas
-  de recovery multi-nœud.
-- **Profile `server-single-node` cible `active-passive`** avec
-  Raft-like leader election (mais single-leader, pas de quorum
-  distribué).
-- **Profile `server-cluster` cible `active-active` + Raft** avec
-  rolling upgrade canary 10% + replay-history recovery.
-- **Threat Model** : nouveau surface d'attaque (network split,
-  byzantine leader). Ajout dans THREAT_MODEL §1 (TM-DS-01..04).
+expand -> compatible rollout -> migrate -> contract.
 
-## Gating
+Le futur contrat d'opérateur doit séparer :
 
-- **DS-09/10/11 runtime** : bloqué par ADR-000 (substrate).
-- **DS-09/10/11 contracts** : peut être livré maintenant
-  (extension de `server.ts`).
-- **Cert gate** : nouvelle section `gates.yaml §16
-  distributed_server_ha` à ajouter quand le runtime est prêt.
+batchSize
 
-## Liens
+maxUnavailable
 
-- `packages/contracts/src/server.ts` (DS-01..08, 28 tests PASS)
-- `docs/adr/ADR-008-scheduler-worker-time-authority.md` (DECIDED)
-- `docs/adr/ADR-018-rolling-upgrade-compatibility.md` (DECIDED)
-- `docs/adr/ADR-020-ownership-deployment-scope.md` (DECIDED)
-- `docs/adr/ADR-024-extension-runtime-trust-isolation.md` (DECIDED)
-- `docs/adr/ADR-016-history-retention-archival.md` (DECIDED, pour
-  DS-11 replay)
-- Plan V2.3.1 §208-209 (DS cards), §186-188 (cert profiles)
-- `THREAT_MODEL.md §1` (single authority + Raft)
-- `EXECUTION_PROFILE_REQUIREMENTS.md §1.8` (no UNSUPPORTED)
+maxSurge
 
-## Décisions de fond (rappel)
+canaryPercent
 
-1. **DS-09** : 3 schémas (`none` / `active-passive` / `active-active`),
-   Raft leader election, `quorumPct >= 51` pour `active-active`.
-2. **DS-10** : canary 10% + dwell 10min + rollback auto si
-   `errorRate > 5%` sur fenêtre 5min.
-3. **DS-11** : replay-history default, rate-limited à 1000 events/s,
-   timeout 1h, page opérateur si dépassé.
-4. **Cible première `local-single-node`** : aucune de ces 3
-   cartes ne s'applique (par définition single-node).
+canaryDwellMs
+
+critères de santé + minimum sample size
+
+Il ne doit pas réutiliser maxOldWorkers comme taille de batch.
+
+Invariants
+
+canary >=1 worker quand le cluster n'est pas vide ;
+
+le canary ne peut pas être validé sans un nombre minimum de requêtes/events ;
+
+worker rollout et control-plane rollout sont deux opérations distinctes ;
+
+un rollback automatique n'est permis que tant que le migration commit
+point n'a pas rendu les écritures incompatibles avec N ;
+
+leases des workers N sont drainées avant arrêt, conformément à ADR-018 ;
+
+tests N↔N+1 obligatoires sur protocol, IR, history et connectors.
+
+DS-11 — Recovery
+
+Trois classes sont séparées :
+
+NodeRecovery
+
+Perte d'un worker/nœud sans perte de l'autorité durable.
+
+QuorumOrAuthorityRecovery
+
+Perte de l'autorité/quorum ; fail closed et intervention selon le substrate.
+
+SiteDisasterRecovery
+
+Perte d'un failure domain complet. Ne peut être revendiquée que si snapshot,
+history et clés nécessaires existent dans un failure domain indépendant.
+
+RPO / RTO
+
+Toute policy doit déclarer explicitement :
+
+targetRpoMs
+
+targetRtoMs
+
+source de snapshot
+
+source de history
+
+preuve de restore testée
+
+Un simple replayRateLimit = 1000 events/s n'est pas un RTO.
+
+Snapshot
+
+Un snapshot n'est jamais autorisé à « perdre les events entre snapshot et
+crash » silencieusement.
+
+snapshot + history complète depuis le snapshot => recovery valide ;
+
+history manquante/corrompue => les runs affectés deviennent
+UNKNOWN_EXTERNAL_STATE ou recovery échoue explicitement ;
+
+aucune reprise en running/succeeded sur un état incomplet.
+
+Failure model
+
+Le consensus standard visé est crash/partition/fail-stop, pas Byzantine.
+Un nœud compromis est traité par identité, policy, signing, audit et
+revocation ; aucune garantie BFT n'est revendiquée.
+
+Configuration
+
+La configuration de déploiement future appartient à des objets opérateur,
+par exemple :
+
+ClusterRuntimeConfig
+
+DeploymentUpgradePolicy
+
+DisasterRecoveryPolicy
+
+Elle n'appartient pas au WorkspaceConfig.
+
+Gate avant ratification
+
+ADR-031 ne peut repasser DECIDED qu'après :
+
+ADR-000 ratifié ;
+
+M0 entièrement vert ;
+
+substrate cluster design disponible ;
+
+tests écrits pour partition asymétrique, leader freeze, old-leader zombie,
+lost quorum, simultaneous restart, membership change, leader transfer,
+N/N+1, rollback avant/après migration commit point, corrupt snapshot,
+missing history, site loss ;
+
+aucune contradiction avec ADR-008/016/018.
+
+Conséquence immédiate
+
+Ne pas livrer DS-09/10/11 contracts depuis la version précédente.
+packages/contracts/src/server.ts reste limité aux DS-01..08 existants.
