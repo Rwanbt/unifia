@@ -182,7 +182,19 @@ func NewServer(storeDir string) (*Server, error) {
 		return nil, err
 	}
 	dbPath := storeDir + "/dbos-candidate.sqlite"
-	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=synchronous(FULL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)")
+	// Per pack gelé review 2026-09-03 v1.1 §5 (CP6.1): the writer
+	// authority connection must use BEGIN IMMEDIATE to acquire
+	// the writer lock at the start of the transaction. With
+	// modernc.org/sqlite this is set via the `_txlock=immediate`
+	// DSN parameter. Without it, `database/sql.Begin()` defaults
+	// to DEFERRED, which is the wrong lock mode for fencing
+	// primitives.
+	db, err := sql.Open("sqlite", dbPath+
+		"?_pragma=journal_mode(WAL)"+
+		"&_pragma=synchronous(FULL)"+
+		"&_pragma=busy_timeout(5000)"+
+		"&_pragma=foreign_keys(ON)"+
+		"&_txlock=immediate")
 	if err != nil {
 		return nil, err
 	}
@@ -203,14 +215,30 @@ func (s *Server) initSchema() error {
 		`CREATE TABLE IF NOT EXISTS authority_generation (generation INTEGER PRIMARY KEY)`,
 		`INSERT OR IGNORE INTO authority_generation (generation) VALUES (1)`,
 		// Per-run authority generation for FC-14 / FC-25 multi-process
-		// tests. Each run has its own monotonic generation; the
-		// process holding the highest generation is the current
-		// authority for that run.
+		// tests. Each run has its own monotonic generation. The
+		// (generation, authorityOwnerId) tuple is the durable
+		// authority identity. PID is recorded in evidence but is
+		// NOT the canonical identity (per pack gelé review
+		// 2026-09-03 v1.1 §4, CP6.1).
 		`CREATE TABLE IF NOT EXISTS run_authority (
 			run_id TEXT PRIMARY KEY,
 			generation INTEGER NOT NULL DEFAULT 0,
+			authority_owner_id TEXT NOT NULL DEFAULT '',
 			holder_pid INTEGER NOT NULL DEFAULT 0,
 			acquired_at_epoch_ms INTEGER NOT NULL DEFAULT 0
+		)`,
+		// Effect-dispatch authorization table (CP6.1 §7).
+		// A successful AuthorizeDispatch records an entry here in
+		// the SAME transaction that validated the (generation,
+		// authorityOwnerId) token. This is the durable proof that
+		// a given effect was authorized by the current authority.
+		`CREATE TABLE IF NOT EXISTS effect_dispatch_auth (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			run_id TEXT NOT NULL,
+			effect_key TEXT NOT NULL,
+			generation INTEGER NOT NULL,
+			authority_owner_id TEXT NOT NULL,
+			authorized_at_epoch_ms INTEGER NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS runs (
 			run_id TEXT PRIMARY KEY, workflow_version_id TEXT NOT NULL,
@@ -526,6 +554,137 @@ func (s *Server) InspectTimer(timerId string) (DurableTimerSnapshot, error) {
 }
 
 // ============================================================================
+// Authoritative mutation + dispatch + takeover (CP6.1)
+// ============================================================================
+
+// AuthoritativeMutate atomically validates the (generation,
+// authorityOwnerId) token and writes a run-state mutation. Per
+// pack gelé §8 (CP6.1): fencing check + mutation must be in the
+// SAME transaction (no TOCTOU).
+func (s *Server) AuthoritativeMutate(runId string, token ClaimAuthorityRequest, mutation string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var currentGen int64
+	var currentOwner string
+	row := tx.QueryRow(`SELECT generation, authority_owner_id FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen, &currentOwner); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("no authority for runId=%s", runId)
+		}
+		return err
+	}
+	if currentGen != token.AttemptedGeneration || currentOwner != token.AuthorityOwnerId {
+		return fmt.Errorf("authoritative mutate rejected: token=(gen=%d, owner=%q) current=(gen=%d, owner=%q)",
+			token.AttemptedGeneration, token.AuthorityOwnerId, currentGen, currentOwner)
+	}
+	// Write the mutation in the SAME transaction.
+	if _, err := tx.Exec(
+		`UPDATE runs SET status = COALESCE(?, status), updated_at = ? WHERE run_id = ?`,
+		mutation, time.Now().UnixMilli(), runId,
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// AuthorizeDispatch atomically validates the authority token
+// and records the effect-dispatch authorization. The token is
+// consumed; the dispatch is recorded in a separate table
+// (effect_dispatch_auth) so a stale token cannot re-authorize a
+// future effect.
+func (s *Server) AuthorizeDispatch(runId string, token ClaimAuthorityRequest, effectKey string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var currentGen int64
+	var currentOwner string
+	row := tx.QueryRow(`SELECT generation, authority_owner_id FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen, &currentOwner); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("no authority for runId=%s", runId)
+		}
+		return err
+	}
+	if currentGen != token.AttemptedGeneration || currentOwner != token.AuthorityOwnerId {
+		return fmt.Errorf("dispatch auth rejected: token=(gen=%d, owner=%q) current=(gen=%d, owner=%q)",
+			token.AttemptedGeneration, token.AuthorityOwnerId, currentGen, currentOwner)
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO effect_dispatch_auth (run_id, effect_key, generation, authority_owner_id, authorized_at_epoch_ms) VALUES (?, ?, ?, ?, ?)`,
+		runId, effectKey, currentGen, currentOwner, time.Now().UnixMilli(),
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// Takeover is the FC-25 (zombie owner) primitive. It forcibly
+// increments the generation and assigns a new authority owner
+// WITHOUT requiring the previous owner to release. This is a
+// qualification-only primitive — production failover semantics
+// belong to ADR-008 (CanonicalTimestamp + heartbeat-based
+// lease).
+type TakeoverResult struct {
+	RunId                string `json:"runId"`
+	NewGeneration        int64  `json:"newGeneration"`
+	NewAuthorityOwnerId  string `json:"newAuthorityOwnerId"`
+	PreviousGeneration   int64  `json:"previousGeneration"`
+	PreviousAuthorityOwnerId string `json:"previousAuthorityOwnerId"`
+}
+
+func (s *Server) Takeover(runId string, expectedCurrentGen int64, newOwner string) (TakeoverResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if newOwner == "" {
+		return TakeoverResult{}, fmt.Errorf("newAuthorityOwnerId required")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return TakeoverResult{}, err
+	}
+	defer tx.Rollback()
+	var currentGen int64
+	var currentOwner string
+	row := tx.QueryRow(`SELECT generation, authority_owner_id FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen, &currentOwner); err != nil {
+		if err == sql.ErrNoRows {
+			return TakeoverResult{}, fmt.Errorf("no authority for runId=%s", runId)
+		}
+		return TakeoverResult{}, err
+	}
+	if currentGen != expectedCurrentGen {
+		return TakeoverResult{}, fmt.Errorf("takeover rejected: expected gen=%d, current gen=%d", expectedCurrentGen, currentGen)
+	}
+	newGen := currentGen + 1
+	if _, err := tx.Exec(
+		`INSERT INTO run_authority (run_id, generation, authority_owner_id, holder_pid, acquired_at_epoch_ms) VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(run_id) DO UPDATE SET generation=excluded.generation, authority_owner_id=excluded.authority_owner_id, holder_pid=excluded.holder_pid, acquired_at_epoch_ms=excluded.acquired_at_epoch_ms`,
+		runId, newGen, newOwner, os.Getpid(), time.Now().UnixMilli(),
+	); err != nil {
+		return TakeoverResult{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return TakeoverResult{}, err
+	}
+	return TakeoverResult{
+		RunId: runId,
+		NewGeneration: newGen,
+		NewAuthorityOwnerId: newOwner,
+		PreviousGeneration: currentGen,
+		PreviousAuthorityOwnerId: currentOwner,
+	}, nil
+}
+
+// ============================================================================
 // Admin (FC-25 / FC-13 simulation paths)
 // ============================================================================
 
@@ -536,26 +695,36 @@ func (s *Server) InspectTimer(timerId string) (DurableTimerSnapshot, error) {
 // Otherwise the call is rejected and the existing generation is
 // returned.
 //
-// This is the substrate-neutral fencing primitive for FC-14 /
-// FC-25: only one process at a time can hold the highest
-// generation for a given runId across the whole M0_STORE_DIR
-// (shared SQLite file with WAL + IMMEDIATE transactions).
+// authorityOwnerId is the canonical identity of the caller. The
+// current implementation accepts the value from the request body
+// (or generates one from PID + nanoseconds if absent). Knowledge
+// of the generation alone is NOT sufficient to claim or release
+// authority — the (generation, authorityOwnerId) tuple is
+// verified atomically (per pack gelé §3, CP6.1).
 type ClaimAuthorityResult struct {
-	Granted            bool  `json:"granted"`
+	Granted            bool   `json:"granted"`
 	RunId              string `json:"runId"`
-	CurrentGeneration  int64 `json:"currentGeneration"`
+	CurrentGeneration  int64  `json:"currentGeneration"`
 	AttemptedGeneration int64 `json:"attemptedGeneration"`
-	HolderPid          int   `json:"holderPid"`
+	AuthorityOwnerId   string `json:"authorityOwnerId"`
+	HolderPid          int    `json:"holderPid"`
+	TransactionLockMode string `json:"transactionLockMode"`
 }
 
-func (s *Server) ClaimAuthority(runId string, attempted int64) (ClaimAuthorityResult, error) {
+type ClaimAuthorityRequest struct {
+	AttemptedGeneration int64  `json:"attemptedGeneration"`
+	AuthorityOwnerId    string `json:"authorityOwnerId"`
+}
+
+func (s *Server) ClaimAuthority(runId string, req ClaimAuthorityRequest) (ClaimAuthorityResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// BEGIN IMMEDIATE acquires the writer lock at the start of
 	// the transaction; another process racing us will block on
-	// the SQLite file lock. We use this to serialize concurrent
-	// claims on the same M0_STORE_DIR.
+	// the SQLite file lock. The DSN was opened with
+	// `_txlock=immediate` so all transactions on this connection
+	// are IMMEDIATE.
 	tx, err := s.db.Begin()
 	if err != nil {
 		return ClaimAuthorityResult{}, err
@@ -563,26 +732,35 @@ func (s *Server) ClaimAuthority(runId string, attempted int64) (ClaimAuthorityRe
 	defer tx.Rollback()
 
 	var currentGen int64
-	var holderPid int
-	row := tx.QueryRow(`SELECT generation, holder_pid FROM run_authority WHERE run_id=?`, runId)
-	if err := row.Scan(&currentGen, &holderPid); err != nil {
+	var currentOwner string
+	var currentPid int
+	row := tx.QueryRow(`SELECT generation, authority_owner_id, holder_pid FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen, &currentOwner, &currentPid); err != nil {
 		if err != sql.ErrNoRows {
 			return ClaimAuthorityResult{}, err
 		}
-		// No existing claim — first claimant wins.
 		currentGen = 0
-		holderPid = 0
+		currentOwner = ""
+		currentPid = 0
 	}
 
+	owner := req.AuthorityOwnerId
+	if owner == "" {
+		// Fallback owner id from PID + nanoseconds. This is a
+		// M0-only convenience; production should use a real
+		// opaque authority id per process.
+		owner = fmt.Sprintf("pid-%d-ns-%d", os.Getpid(), time.Now().UnixNano())
+	}
+	attempted := req.AttemptedGeneration
+
 	if attempted > currentGen {
-		// Caller is asking for a strictly higher generation.
-		// Grant.
+		// Strictly higher generation — grant.
 		newGen := attempted
 		newPid := os.Getpid()
 		if _, err := tx.Exec(
-			`INSERT INTO run_authority (run_id, generation, holder_pid, acquired_at_epoch_ms) VALUES (?, ?, ?, ?)
-			 ON CONFLICT(run_id) DO UPDATE SET generation=excluded.generation, holder_pid=excluded.holder_pid, acquired_at_epoch_ms=excluded.acquired_at_epoch_ms`,
-			runId, newGen, newPid, time.Now().UnixMilli(),
+			`INSERT INTO run_authority (run_id, generation, authority_owner_id, holder_pid, acquired_at_epoch_ms) VALUES (?, ?, ?, ?, ?)
+			 ON CONFLICT(run_id) DO UPDATE SET generation=excluded.generation, authority_owner_id=excluded.authority_owner_id, holder_pid=excluded.holder_pid, acquired_at_epoch_ms=excluded.acquired_at_epoch_ms`,
+			runId, newGen, owner, newPid, time.Now().UnixMilli(),
 		); err != nil {
 			return ClaimAuthorityResult{}, err
 		}
@@ -592,26 +770,32 @@ func (s *Server) ClaimAuthority(runId string, attempted int64) (ClaimAuthorityRe
 		return ClaimAuthorityResult{
 			Granted: true, RunId: runId,
 			CurrentGeneration: newGen, AttemptedGeneration: attempted,
-			HolderPid: newPid,
+			AuthorityOwnerId: owner, HolderPid: newPid,
+			TransactionLockMode: "IMMEDIATE",
 		}, nil
 	}
-	// Caller's attempted generation is not strictly higher than
-	// the current generation held by another process. Reject.
 	if err := tx.Commit(); err != nil {
 		return ClaimAuthorityResult{}, err
 	}
 	return ClaimAuthorityResult{
 		Granted: false, RunId: runId,
 		CurrentGeneration: currentGen, AttemptedGeneration: attempted,
-		HolderPid: holderPid,
+		AuthorityOwnerId: currentOwner, HolderPid: currentPid,
+		TransactionLockMode: "IMMEDIATE",
 	}, nil
 }
 
-// ReleaseAuthority releases authority for runId if the caller holds
-// the given generation. If the caller does not hold the current
-// generation, the release is rejected (the holder is not the
-// caller — likely a stale process).
-func (s *Server) ReleaseAuthority(runId string, generation int64) error {
+// ReleaseAuthority releases authority for runId only if the caller
+// presents BOTH the current generation AND the current
+// authorityOwnerId. A stale process (correct generation,
+// wrong owner) is REJECTED — knowledge of the generation is
+// not sufficient (per pack gelé §3, CP6.1).
+type ReleaseAuthorityRequest struct {
+	Generation       int64  `json:"generation"`
+	AuthorityOwnerId string `json:"authorityOwnerId"`
+}
+
+func (s *Server) ReleaseAuthority(runId string, req ReleaseAuthorityRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tx, err := s.db.Begin()
@@ -620,17 +804,19 @@ func (s *Server) ReleaseAuthority(runId string, generation int64) error {
 	}
 	defer tx.Rollback()
 	var currentGen int64
-	row := tx.QueryRow(`SELECT generation FROM run_authority WHERE run_id=?`, runId)
-	if err := row.Scan(&currentGen); err != nil {
+	var currentOwner string
+	row := tx.QueryRow(`SELECT generation, authority_owner_id FROM run_authority WHERE run_id=?`, runId)
+	if err := row.Scan(&currentGen, &currentOwner); err != nil {
 		if err == sql.ErrNoRows {
-			// No claim exists — nothing to release.
 			return tx.Commit()
 		}
 		return err
 	}
-	if currentGen != generation {
-		// Caller does not hold the current generation. Reject.
-		return fmt.Errorf("release rejected: caller gen=%d, current gen=%d", generation, currentGen)
+	if currentGen != req.Generation {
+		return fmt.Errorf("release rejected: caller gen=%d, current gen=%d", req.Generation, currentGen)
+	}
+	if currentOwner != req.AuthorityOwnerId {
+		return fmt.Errorf("release rejected: caller owner=%q, current owner=%q", req.AuthorityOwnerId, currentOwner)
 	}
 	if _, err := tx.Exec(`DELETE FROM run_authority WHERE run_id=?`, runId); err != nil {
 		return err
@@ -904,11 +1090,11 @@ func (s *Server) Serve() (string, error) {
 	// or more `dbos-qualify.exe` processes on the same M0_STORE_DIR
 	// and races them on authority acquisition for a given runId.
 	//
-	// /authority/claim?runId=X&attemptedGeneration=N
-	//   Returns { granted: true, generation: N+1 } if the caller is
-	//   the current authority for runId. Returns { granted: false,
-	//   currentGeneration: M } if a higher generation is already
-	//   held by another process.
+	// /authority/claim?runId=X (JSON body: {attemptedGeneration, authorityOwnerId})
+	//   Returns { granted, currentGeneration, authorityOwnerId, holderPid, transactionLockMode }
+	//   The (generation, authorityOwnerId) tuple is the durable
+	//   authority identity. Knowledge of the generation alone is
+	//   NOT sufficient (per pack gelé §3, CP6.1).
 	mux.HandleFunc("/authority/claim", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			writeErr(w, 405, errors.New("method"))
@@ -919,37 +1105,137 @@ func (s *Server) Serve() (string, error) {
 			writeErr(w, 400, errors.New("runId required"))
 			return
 		}
-		attemptedStr := r.URL.Query().Get("attemptedGeneration")
-		attempted, err := strconv.ParseInt(attemptedStr, 10, 64)
-		if err != nil {
-			attempted = 0
+		var req ClaimAuthorityRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, 400, fmt.Errorf("invalid body: %v", err))
+			return
 		}
-		result, err := s.ClaimAuthority(runId, attempted)
+		result, err := s.ClaimAuthority(runId, req)
 		if err != nil {
 			writeErr(w, 500, err)
 			return
 		}
 		writeJSON(w, 200, result)
 	})
-	// /authority/release?runId=X&generation=N
-	//   Releases authority for runId. Returns 200 on success.
+	// /authority/release?runId=X (JSON body: {generation, authorityOwnerId})
+	//   Releases authority if AND only if the caller holds the
+	//   current (generation, authorityOwnerId) tuple. A stale
+	//   process (correct gen, wrong owner) is REJECTED.
 	mux.HandleFunc("/authority/release", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			writeErr(w, 405, errors.New("method"))
 			return
 		}
 		runId := r.URL.Query().Get("runId")
-		genStr := r.URL.Query().Get("generation")
-		gen, err := strconv.ParseInt(genStr, 10, 64)
-		if err != nil {
-			writeErr(w, 400, errors.New("generation required"))
+		if runId == "" {
+			writeErr(w, 400, errors.New("runId required"))
 			return
 		}
-		if err := s.ReleaseAuthority(runId, gen); err != nil {
+		var req ReleaseAuthorityRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, 400, fmt.Errorf("invalid body: %v", err))
+			return
+		}
+		if err := s.ReleaseAuthority(runId, req); err != nil {
 			writeErr(w, 500, err)
 			return
 		}
 		writeJSON(w, 200, map[string]string{"status": "released"})
+	})
+	// /authority/mutate?runId=X (JSON body: {authorityToken: {generation, authorityOwnerId}, mutation: "..."})
+	//   Atomic check-and-mutate: validates the token and writes a
+	//   run-state mutation in the SAME transaction. Per pack gelé
+	//   §8 (CP6.1): the fencing check + mutation MUST be atomic
+	//   (BEGIN IMMEDIATE + UPDATE + COMMIT).
+	mux.HandleFunc("/authority/mutate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			writeErr(w, 405, errors.New("method"))
+			return
+		}
+		runId := r.URL.Query().Get("runId")
+		if runId == "" {
+			writeErr(w, 400, errors.New("runId required"))
+			return
+		}
+		var req struct {
+			Token    ClaimAuthorityRequest `json:"token"`
+			Mutation string                `json:"mutation"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, 400, fmt.Errorf("invalid body: %v", err))
+			return
+		}
+		if err := s.AuthoritativeMutate(runId, req.Token, req.Mutation); err != nil {
+			writeErr(w, 403, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"status": "mutated"})
+	})
+	// /authority/dispatch?runId=X (JSON body: {authorityToken: {generation, authorityOwnerId}, effectKey: "..."})
+	//   Authorizes the dispatch of an external effect. The token
+	//   must match the current (generation, authorityOwnerId) at
+	//   the moment of dispatch. A stale or wrong-owner token is
+	//   REJECTED before any external effect is published.
+	mux.HandleFunc("/authority/dispatch", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			writeErr(w, 405, errors.New("method"))
+			return
+		}
+		runId := r.URL.Query().Get("runId")
+		if runId == "" {
+			writeErr(w, 400, errors.New("runId required"))
+			return
+		}
+		var req struct {
+			Token     ClaimAuthorityRequest `json:"token"`
+			EffectKey string                `json:"effectKey"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, 400, fmt.Errorf("invalid body: %v", err))
+			return
+		}
+		if err := s.AuthorizeDispatch(runId, req.Token, req.EffectKey); err != nil {
+			writeErr(w, 403, err)
+			return
+		}
+		writeJSON(w, 200, map[string]string{"status": "dispatched"})
+	})
+	// /authority/takeover?runId=X&expectedCurrentGeneration=N (JSON body: {newAuthorityOwnerId})
+	//   QUALIFICATION-ONLY: forcibly increments the generation
+	//   and assigns a new authority owner, without requiring the
+	//   previous owner to release. This is the takeover path for
+	//   FC-25 (zombie owner) — it is NOT a product failover
+	//   policy. The decision to use a heartbeat-based takeover
+	//   in production belongs to ADR-008.
+	mux.HandleFunc("/authority/takeover", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			writeErr(w, 405, errors.New("method"))
+			return
+		}
+		runId := r.URL.Query().Get("runId")
+		if runId == "" {
+			writeErr(w, 400, errors.New("runId required"))
+			return
+		}
+		expectedStr := r.URL.Query().Get("expectedCurrentGeneration")
+		expected, err := strconv.ParseInt(expectedStr, 10, 64)
+		if err != nil {
+			writeErr(w, 400, errors.New("expectedCurrentGeneration required"))
+			return
+		}
+		var req struct {
+			NewAuthorityOwnerId string `json:"newAuthorityOwnerId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, 400, fmt.Errorf("invalid body: %v", err))
+			return
+		}
+		result, err := s.Takeover(runId, expected, req.NewAuthorityOwnerId)
+		if err != nil {
+			writeErr(w, 403, err)
+			return
+		}
+		writeJSON(w, 200, result)
 	})
 	mux.HandleFunc("/admin/backup", func(w http.ResponseWriter, r *http.Request) {
 		handle, err := s.CreateBackup()

@@ -510,18 +510,18 @@ export class QualificationRunner {
     }
     // Adapter is initialized once in run() (single-init lifecycle).
     try {
-      // For UNIFIA_NATIVE, the same FC-04 is run as before: drive
-      // through this.adapter with `ackLost: true`. The
-      // NativeSqliteCandidate's driveAttempt honors this signal
-      // and resolves to UNKNOWN_EXTERNAL_STATE without invoking
-      // the provider. This is still NOT a real transport-level
-      // ACK loss — for that, the candidate's driveAttempt would
-      // need to make an actual HTTP call to an external provider
-      // and have the response ACK dropped. The current Native
-      // candidate is in-process and the provider is also in-process
-      // — the harness has direct control over both. We document
-      // this as PASS but with the caveat that the transport-level
-      // ACK-loss scenario is the proper FC-04 proof.
+      // Per pack gelé §10-§12 + CP6.1 §18-§20: FC-04 requires
+      // real transport-level ACK loss, not a magic flag from
+      // the harness. For UNIFIA_NATIVE the evidence records
+      // `transportLevelAckLoss: false` because the candidate and
+      // the provider are both in-process; the `ackLost: true`
+      // flag is a configuration signal, not a real transport
+      // loss. Per pack gelé §18, FC-04 for UNIFIA_NATIVE is
+      // NOT_VALID — there is no exception for in-process.
+      //
+      // We still drive the test (to record what the candidate
+      // does in response to the flag) and document the
+      // evidence, but the status is NOT_VALID.
       const runId = await this.adapter.startRun({
         workflowVersionId: "wf-fc04" as WorkflowVersionId,
         ownerScope: { organizationId: "o1", workspaceId: "ws-fc04" },
@@ -541,23 +541,28 @@ export class QualificationRunner {
         providerCommittedAtEpochMs: Date.now(),
       } satisfies ProviderResolution)
 
-      // The attempt MUST be UNKNOWN_EXTERNAL_STATE, not blind-retried.
-      const status: QualificationStatus = attempt.status === "UNKNOWN_EXTERNAL_STATE" ? "PASS" : "FAIL_CORRECTABLE"
+      // Per pack gelé §18, FC-04 is NOT_VALID for both candidates
+      // until a real external provider transport is wired in.
       const observations = {
         attemptStatus: attempt.status,
         ackLostSignal: true,
         adapterTopology: info.process.topology,
         transportLevelAckLoss: false,
-        note: "PASS relies on the in-process `ackLost: true` flag. Real transport-level ACK loss (provider HTTP call, response dropped) is OUT OF M0 SCOPE for in-process Native — would require a real external provider service.",
+        providerReceivedEffect: false,
+        providerCommittedEffect: false,
+        providerJournalContainsEffectKey: false,
+        transportAckActuallyLost: false,
+        candidateDidNotObserveSuccess: "by configuration, not by transport loss",
+        candidateRestartedOrRecoveryPathExercised: false,
+        blindRetryCount: 0,
+        note: "FC-04 requires real transport-level ACK loss from an INDEPENDENT external provider. The current architecture is in-process (Native) or magic-flag (DBOS Go); neither satisfies the pack gelé §18-§20 contract. NOT_VALID until a FakeExternalEffectProviderProcess is wired in (separate HTTP service, separate SQLite journal, transport-level ACK drop after commit).",
       }
       const evidence = await writeEvidence(folder, "result.json", observations)
       this.builder.record({
         testId: "FC-04",
-        status,
+        status: "NOT_VALID",
         evidencePath: evidence,
-        note: status === "PASS"
-          ? "ACK loss correctly resolved to UNKNOWN_EXTERNAL_STATE, not blind-retried. (In-process flag-based test; transport-level ACK loss is OUT OF M0 SCOPE for in-process Native.)"
-          : `ACK loss resolution returned ${attempt.status} (expected UNKNOWN_EXTERNAL_STATE).`,
+        note: "FC-04 NOT_VALID: the harness uses `ackLost: true` as a magic flag, not a real transport-level ACK loss from an independent external provider. UNIFIA_NATIVE has no in-process exception per pack gelé §18. Reclassified from CP4 PASS.",
         observations,
       })
     } catch (e) {
@@ -570,75 +575,70 @@ export class QualificationRunner {
   /* ------------------------------------------------------------------ */
 
   private async runFC14(info: CandidateInfo): Promise<void> {
-    // Per pack gelé §15 + CP5 (2026-09-03 v1.1 §25): FC-14 requires
-    // two REAL OS processes that share the same durable authority
-    // store. The runner used to declare this NOT_VALID for both
-    // candidates; with CP5 we now drive the real multi-process
-    // scenario for DBOS Go via the /authority/claim endpoint and
-    // prove that a single logical authority can act.
+    // Per pack gelé §15 + CP6.1 (2026-09-03 v1.1 §1-§7): FC-14
+    // requires not only a real concurrent race between 2 OS
+    // processes, but also a proof that the winning authority
+    // can act (authoritative mutation + effect dispatch accepted)
+    // and the losing authority's attempts are REJECTED on both
+    // paths. The previous CP5 implementation only proved
+    // ownership of the run_authority row; the orchestration
+    // authority was not exercised.
     //
-    // The DBOS Go test spawns 2 `dbos-qualify.exe` processes on
-    // the same M0_STORE_DIR, races them on the same runId, and
-    // verifies that exactly one is granted authority while the
-    // other is rejected. The Native test still uses the
-    // in-process methodology and is NOT_VALID until a
-    // multi-process Native test (separate Bun process) is added.
+    // The current runner reclassifies FC-14 as NOT_VALID for
+    // both candidates. The CP5/CP6 primitives (concurrent claim,
+    // monotonic generation) are preserved as evidence under
+    // FC-14/previous-cp5-claim-primitive.json.
+    //
+    // The unblock path is the new FC-14 oracle (CP6.1 §6-§7):
+    //   1. Two real OS processes on the same storeDir.
+    //   2. Both processes call /authority/claim concurrently
+    //      (Promise.all after a barrier).
+    //   3. The winner attempts /authority/mutate with its token
+    //      (generation, authorityOwnerId). The loser's token
+    //      cannot match (it is rejected on the candidate side).
+    //   4. The winner attempts /authority/dispatch with its
+    //      token. The loser's dispatch is rejected.
+    //   5. PASS only if:
+    //        winner.mutate = ACCEPTED
+    //        loser.mutate  = REJECTED
+    //        winner.dispatch = ACCEPTED
+    //        loser.dispatch  = REJECTED
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-14")
     const isChildProcess =
       info.process.topology === "child-process" || info.process.topology === "sidecar" || info.process.topology === "remote"
 
-    if (isChildProcess) {
-      // Run the real multi-process race for DBOS Go.
-      const { runDbosGoMultiProcessFC14 } = await import("./multiprocess-fc14.ts")
-      const evidence = await runDbosGoMultiProcessFC14(this.opts.outputRoot)
-      // The function writes its own evidence folder; the
-      // result.json is at evidence/<candidate>/FC-14/result.json.
-      const observations = {
-        measured: true,
-        processIds: { a: "spawned", b: "spawned" },
-        sharedStore: evidence.sharedStore,
-        result: {
-          grantedCount: evidence.grantedCount,
-          winner: evidence.winner,
-          rejected: evidence.rejected,
-        },
-        adapterTopology: info.process.topology,
-      }
-      this.builder.record({
-        testId: "FC-14",
-        status: "PASS",
-        evidencePath: evidence.evidencePath,
-        note: "Two real OS processes raced for authority on the same runId via the /authority/claim endpoint. Exactly one was granted; the other was rejected. Single logical authority confirmed.",
-        observations,
-      })
-      return
-    }
-
-    // Native (in-process) — NOT_VALID until a multi-process Native
-    // test is added (separate Bun process).
-    const observations = {
+    const observations: Record<string, unknown> = {
       measured: false,
-      reason: "FC-14 requires two real OS processes, same durable store. Native M0 currently exercises the in-process methodology only (two Database handles in one process), which does NOT exercise the multi-process authority boundary. A real multi-process Native test (separate Bun process + shared SQLite file) is the unblock path.",
-      requiredMethodology: "spawn a separate Bun process pointed at the same SQLite file; race claimAuthority via BEGIN IMMEDIATE on a shared authority table; verify exactly one is granted.",
-      oldInProcessEvidence: "evidence/unifia-native/FC-14/old-in-process.json",
+      reason: isChildProcess
+        ? "FC-14 requires not only a concurrent race but also a proof that the winning authority can act (authoritative mutation + effect dispatch accepted) and the losing authority's attempts are REJECTED on both paths. The previous CP5 implementation only proved ownership of the run_authority row. Per pack gelé §7, singleAuthority = true means 'can act', not 'owns a row'. FC-14 is NOT_VALID for CUSTOM_GO_SQLITE_CONTROL until the runner is rewired to drive authoritative mutation + dispatch after the race, with concurrent Promise.all and a result-integrity check."
+        : "FC-14 requires two real OS processes. Native M0 currently exercises the in-process methodology only (two Database handles in one process). A real multi-process Native test (separate Bun process + shared SQLite file) is the unblock path.",
+      requiredMethodology: "(1) Two real OS processes on the same storeDir. (2) Both call /authority/claim concurrently (Promise.all after barrier). (3) Winner attempts /authority/mutate with its (generation, authorityOwnerId) token. (4) Loser attempts /authority/mutate with its token (must be REJECTED). (5) Winner attempts /authority/dispatch. (6) Loser attempts /authority/dispatch (must be REJECTED). (7) PASS only if all four post-race assertions hold.",
+      unblockPath: "Rewire the runner to use Promise.all([claimA, claimB]) with a barrier, then both processes issue /authority/mutate and /authority/dispatch with their respective tokens. The runner enforces the four post-race invariants in the result builder.",
+      previousCp5Evidence: "evidence/<candidate>/FC-14/previous-cp5-claim-primitive.json",
     }
-    const evidence = await writeEvidence(folder, "result.json", {
-      status: "NOT_VALID",
-      observations,
-      note: "FC-14 NOT_VALID for Native: in-process methodology does not satisfy the pack gelé §15 contract. A multi-process Native test (separate Bun process) is the unblock path. CP5 added the equivalent for DBOS Go and proved single-authority fencing on the real Go binary.",
-    })
+    // Preserve the CP5/6 evidence by copying the old (in-process)
+    // trace to a renamed file so it is not lost.
     try {
       const fs = await import("node:fs/promises")
       const oldEvidence = `${folder}/result.json`
-      const preserved = `${folder}/old-in-process.json`
+      const preserved = `${folder}/previous-cp5-claim-primitive.json`
       const content = await fs.readFile(oldEvidence, "utf8")
       await fs.writeFile(preserved, content, "utf8")
     } catch { /* noop */ }
+    const evidence = await writeEvidence(folder, "result.json", {
+      status: "NOT_VALID",
+      observations,
+      note: isChildProcess
+        ? "FC-14 NOT_VALID for CUSTOM_GO_SQLITE_CONTROL: the previous CP5 implementation proved only that one of two processes could claim authority (ownership of a row), not that the winner could act on that authority (authoritative mutation + dispatch accepted, loser REJECTED on both). Per pack gelé §7, singleAuthority=true means 'can act', not 'owns a row'. Reclassified to NOT_VALID."
+        : "FC-14 NOT_VALID for Native: in-process methodology does not satisfy the pack gelé §15 contract. Multi-process Native test is the unblock path.",
+    })
     this.builder.record({
       testId: "FC-14",
       status: "NOT_VALID",
       evidencePath: evidence,
-      note: "FC-14 NOT_VALID for Native: in-process methodology does not satisfy the pack gelé §15 contract. CP5 added the equivalent for DBOS Go; Native needs a separate-Bun-process test.",
+      note: isChildProcess
+        ? "FC-14 NOT_VALID for CUSTOM_GO_SQLITE_CONTROL per pack gelé §7: only ownership of a row was proven, not orchestration authority (mutate + dispatch). Reclassified from CP5 PASS."
+        : "FC-14 NOT_VALID for Native: in-process methodology only. Multi-process Native test is the unblock path.",
       observations,
     })
   }
@@ -648,60 +648,77 @@ export class QualificationRunner {
   /* ------------------------------------------------------------------ */
 
   private async runFC25(info: CandidateInfo): Promise<void> {
-    // Per pack gelé §29 + CP5 (2026-09-03 v1.1 §28): FC-25 requires
-    // a real multi-process scenario:
-    //   A owns authority → freeze → ownership transfer →
-    //   B becomes current authority → B commits →
-    //   resume A → A attempts stale commit → REJECTED.
+    // Per pack gelé §29 + CP6.1 (2026-09-03 v1.1 §9-§12, §28):
+    // FC-25 is the zombie owner test. The previous CP6
+    // implementation made A release authority before the
+    // takeover, which is NOT the contract. The correct scenario:
     //
-    // For DBOS Go (CP5): the runner spawns 2 real `dbos-qualify.exe`
-    // processes on the same M0_STORE_DIR. Process A claims
-    // authority at gen 1 (granted). A releases. Process B claims
-    // at gen 2 (granted). A tries to claim at gen 1 (stale) →
-    // REJECTED. PASS only if A's stale claim is rejected.
+    //   1. A claims authority at gen=1.
+    //   2. A REACHES A FREEZE BARRIER (no release!).
+    //   3. The takeover primitive (qualification-only) increments
+    //      to gen=2 and assigns a new authority owner.
+    //   4. B commits an authoritative mutation under gen=2
+    //      (accepted).
+    //   5. A resumes and attempts:
+    //        - authoritative mutation under gen=1 → REJECTED
+    //        - effect dispatch under gen=1 → REJECTED
     //
-    // For Native: NOT_VALID until a multi-process Native test
-    // (separate Bun process) is added.
+    // FC-25 PASS requires:
+    //   - oldOwnerDidNotReleaseBeforeTakeover = true
+    //   - newGeneration > oldGeneration
+    //   - newOwnerCommitAccepted = true
+    //   - staleOwnerCommitRejected = true
+    //   - staleOwnerDispatchRejected = true
+    //
+    // The current M0 surfaces only stale-claim rejection (gen
+    // comparison), not the full atomic-mutation + dispatch
+    // fencing. The runner reclassifies FC-25 to NOT_VALID for
+    // both candidates until the takeover + freeze-barrier
+    // scenario is implemented end-to-end.
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-25")
     const isChildProcess =
       info.process.topology === "child-process" || info.process.topology === "sidecar" || info.process.topology === "remote"
 
-    if (isChildProcess) {
-      const { runDbosGoMultiProcessFC25 } = await import("./multiprocess-fc14.ts")
-      const evidence = await runDbosGoMultiProcessFC25(this.opts.outputRoot)
-      this.builder.record({
-        testId: "FC-25",
-        status: "PASS",
-        evidencePath: evidence.evidencePath,
-        note: "Stale generation claim was rejected (CP5). Process A claimed gen 1, released, Process B claimed gen 2; A's stale claim at gen 1 was rejected.",
-        observations: {
-          measured: true,
-          processIds: evidence.processIds,
-          sharedStore: evidence.sharedStore,
-          result: { staleClaimRejected: true },
-        },
-      })
-      return
+    const observations: Record<string, unknown> = {
+      measured: false,
+      reason: isChildProcess
+        ? "FC-25 requires a takeover scenario (A claims → A FREEZES (no release) → takeover → B commits → A resumes → A's stale authoritative commit + dispatch REJECTED). The previous CP6 implementation only proved that a stale claim is rejected, not that a stale AUTHORITATIVE MUTATION or DISPATCH is rejected. Per pack gelé §12, stale-claim rejection is a conformance test, not FC-25. FC-25 is NOT_VALID until the runner drives the full takeover scenario end-to-end with atomic check-and-mutate in the SAME transaction."
+        : "FC-25 requires two real OS processes; the in-process M0 qualification cannot exercise it. A multi-process Native test is the unblock path.",
+      requiredMethodology: "(1) A claims gen=1. (2) A reaches FREEZE_BARRIER while holding its local token. (3) Takeover primitive increments gen=2, new owner B. (4) B commits authoritative mutation via /authority/mutate with (gen=2, ownerB) — accepted. (5) A resumes and calls /authority/mutate with (gen=1, ownerA) — REJECTED. (6) A calls /authority/dispatch with (gen=1, ownerA) — REJECTED. (7) PASS only if all five assertions hold.",
+      unblockPath: "Implement the takeover scenario in the runner. A must reach a freeze barrier via IPC (not SIGSTOP — the harness must be portable). Takeover is /authority/takeover (already implemented in the Go binary).",
+      previousCp5Evidence: "evidence/<candidate>/FC-25/previous-cp5-generation-primitive.json",
+      passConditions: {
+        oldOwnerDidNotReleaseBeforeTakeover: "MUST=true",
+        newGenerationGreaterThanOld: "MUST=true",
+        newOwnerCommitAccepted: "MUST=true",
+        staleOwnerCommitRejected: "MUST=true",
+        staleOwnerDispatchRejected: "MUST=true",
+      },
     }
-
-    // Native: BLOCKED until a multi-process Native test is added.
-    {
-      const status: QualificationStatus = "BLOCKED"
-      const observations = {
-        measured: false,
-        reason: "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; CP5 added the equivalent for DBOS Go (real multi-process). Native needs a separate-Bun-process test.",
-        requiredMethodology: "spawn 2 real Bun processes sharing the same SQLite file; A claims authority at gen 1; A transfers; B claims at gen 2; A retries at gen 1 — must be rejected.",
-        nextAction: "Add a multi-process Native test mirroring the DBOS Go one (separate Bun process).",
-      }
-      const evidence = await writeEvidence(folder, "result.json", observations)
-      this.builder.record({
-        testId: "FC-25",
-        status,
-        evidencePath: evidence,
-        note: "FC-25 BLOCKED for Native: single-process generation in M0. CP5 added the real multi-process equivalent for DBOS Go. A separate-Bun-process test is the unblock path for Native.",
-        observations,
-      })
-    }
+    // Preserve the previous CP5/CP6 evidence.
+    try {
+      const fs = await import("node:fs/promises")
+      const oldEvidence = `${folder}/result.json`
+      const preserved = `${folder}/previous-cp5-generation-primitive.json`
+      const content = await fs.readFile(oldEvidence, "utf8")
+      await fs.writeFile(preserved, content, "utf8")
+    } catch { /* noop */ }
+    const evidence = await writeEvidence(folder, "result.json", {
+      status: "NOT_VALID",
+      observations,
+      note: isChildProcess
+        ? "FC-25 NOT_VALID for CUSTOM_GO_SQLITE_CONTROL: the previous CP6 scenario made A release authority before the takeover, which does not match the contract (pack gelé §9). Stale-claim rejection alone is not FC-25. Reclassified to NOT_VALID."
+        : "FC-25 NOT_VALID for Native: in-process methodology only. Multi-process Native test is the unblock path.",
+    })
+    this.builder.record({
+      testId: "FC-25",
+      status: "NOT_VALID",
+      evidencePath: evidence,
+      note: isChildProcess
+        ? "FC-25 NOT_VALID per pack gelé §9: the contract requires A to freeze WITHOUT releasing, then a takeover, then B commits under the new gen, then A's stale commit + dispatch are rejected. The previous CP6 scenario released authority before the takeover — that is the wrong scenario. Reclassified."
+        : "FC-25 NOT_VALID for Native: in-process methodology only.",
+      observations,
+    })
   }
 
   /* ------------------------------------------------------------------ */

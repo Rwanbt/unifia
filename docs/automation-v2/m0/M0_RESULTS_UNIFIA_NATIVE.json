@@ -24,7 +24,7 @@
       "testId": "FC-31A",
       "candidate": "UNIFIA_NATIVE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-31A\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-31A\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "21/21 canonical values survived a candidate restart (close+reopen on same durable store). 0 mismatches.",
       "observations": {
@@ -38,7 +38,7 @@
       "testId": "FC-31B",
       "candidate": "UNIFIA_NATIVE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-31B\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-31B\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "13/13 host-integer/float64 separation cases handled correctly.",
       "observations": {
@@ -50,51 +50,67 @@
     {
       "testId": "FC-04",
       "candidate": "UNIFIA_NATIVE",
-      "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-04\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-04\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "ACK loss correctly resolved to UNKNOWN_EXTERNAL_STATE, not blind-retried. (In-process flag-based test; transport-level ACK loss is OUT OF M0 SCOPE for in-process Native.)",
+      "note": "FC-04 NOT_VALID: the harness uses `ackLost: true` as a magic flag, not a real transport-level ACK loss from an independent external provider. UNIFIA_NATIVE has no in-process exception per pack gelé §18. Reclassified from CP4 PASS.",
       "observations": {
         "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
         "ackLostSignal": true,
         "adapterTopology": "in-process",
         "transportLevelAckLoss": false,
-        "note": "PASS relies on the in-process `ackLost: true` flag. Real transport-level ACK loss (provider HTTP call, response dropped) is OUT OF M0 SCOPE for in-process Native — would require a real external provider service."
+        "providerReceivedEffect": false,
+        "providerCommittedEffect": false,
+        "providerJournalContainsEffectKey": false,
+        "transportAckActuallyLost": false,
+        "candidateDidNotObserveSuccess": "by configuration, not by transport loss",
+        "candidateRestartedOrRecoveryPathExercised": false,
+        "blindRetryCount": 0,
+        "note": "FC-04 requires real transport-level ACK loss from an INDEPENDENT external provider. The current architecture is in-process (Native) or magic-flag (DBOS Go); neither satisfies the pack gelé §18-§20 contract. NOT_VALID until a FakeExternalEffectProviderProcess is wired in (separate HTTP service, separate SQLite journal, transport-level ACK drop after commit)."
       }
     },
     {
       "testId": "FC-14",
       "candidate": "UNIFIA_NATIVE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-14\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-14\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "FC-14 NOT_VALID for Native: in-process methodology does not satisfy the pack gelé §15 contract. CP5 added the equivalent for DBOS Go; Native needs a separate-Bun-process test.",
+      "note": "FC-14 NOT_VALID for Native: in-process methodology only. Multi-process Native test is the unblock path.",
       "observations": {
         "measured": false,
-        "reason": "FC-14 requires two real OS processes, same durable store. Native M0 currently exercises the in-process methodology only (two Database handles in one process), which does NOT exercise the multi-process authority boundary. A real multi-process Native test (separate Bun process + shared SQLite file) is the unblock path.",
-        "requiredMethodology": "spawn a separate Bun process pointed at the same SQLite file; race claimAuthority via BEGIN IMMEDIATE on a shared authority table; verify exactly one is granted.",
-        "oldInProcessEvidence": "evidence/unifia-native/FC-14/old-in-process.json"
+        "reason": "FC-14 requires two real OS processes. Native M0 currently exercises the in-process methodology only (two Database handles in one process). A real multi-process Native test (separate Bun process + shared SQLite file) is the unblock path.",
+        "requiredMethodology": "(1) Two real OS processes on the same storeDir. (2) Both call /authority/claim concurrently (Promise.all after barrier). (3) Winner attempts /authority/mutate with its (generation, authorityOwnerId) token. (4) Loser attempts /authority/mutate with its token (must be REJECTED). (5) Winner attempts /authority/dispatch. (6) Loser attempts /authority/dispatch (must be REJECTED). (7) PASS only if all four post-race assertions hold.",
+        "unblockPath": "Rewire the runner to use Promise.all([claimA, claimB]) with a barrier, then both processes issue /authority/mutate and /authority/dispatch with their respective tokens. The runner enforces the four post-race invariants in the result builder.",
+        "previousCp5Evidence": "evidence/<candidate>/FC-14/previous-cp5-claim-primitive.json"
       }
     },
     {
       "testId": "FC-25",
       "candidate": "UNIFIA_NATIVE",
-      "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-25\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-25\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "FC-25 BLOCKED for Native: single-process generation in M0. CP5 added the real multi-process equivalent for DBOS Go. A separate-Bun-process test is the unblock path for Native.",
+      "note": "FC-25 NOT_VALID for Native: in-process methodology only.",
       "observations": {
         "measured": false,
-        "reason": "FC-25 in the strict sense (zombie owner across processes) requires a second OS process. The in-process M0 qualification cannot exercise it; CP5 added the equivalent for DBOS Go (real multi-process). Native needs a separate-Bun-process test.",
-        "requiredMethodology": "spawn 2 real Bun processes sharing the same SQLite file; A claims authority at gen 1; A transfers; B claims at gen 2; A retries at gen 1 — must be rejected.",
-        "nextAction": "Add a multi-process Native test mirroring the DBOS Go one (separate Bun process)."
+        "reason": "FC-25 requires two real OS processes; the in-process M0 qualification cannot exercise it. A multi-process Native test is the unblock path.",
+        "requiredMethodology": "(1) A claims gen=1. (2) A reaches FREEZE_BARRIER while holding its local token. (3) Takeover primitive increments gen=2, new owner B. (4) B commits authoritative mutation via /authority/mutate with (gen=2, ownerB) — accepted. (5) A resumes and calls /authority/mutate with (gen=1, ownerA) — REJECTED. (6) A calls /authority/dispatch with (gen=1, ownerA) — REJECTED. (7) PASS only if all five assertions hold.",
+        "unblockPath": "Implement the takeover scenario in the runner. A must reach a freeze barrier via IPC (not SIGSTOP — the harness must be portable). Takeover is /authority/takeover (already implemented in the Go binary).",
+        "previousCp5Evidence": "evidence/<candidate>/FC-25/previous-cp5-generation-primitive.json",
+        "passConditions": {
+          "oldOwnerDidNotReleaseBeforeTakeover": "MUST=true",
+          "newGenerationGreaterThanOld": "MUST=true",
+          "newOwnerCommitAccepted": "MUST=true",
+          "staleOwnerCommitRejected": "MUST=true",
+          "staleOwnerDispatchRejected": "MUST=true"
+        }
       }
     },
     {
       "testId": "FC-32",
       "candidate": "UNIFIA_NATIVE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-32\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-32\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "FC-32 NOT_VALID: replay model is declared, not measured. The M0 surface does not drive a workflow function; the harness cannot observe what the candidate replays. To unblock: implement a controlled recovery scenario (T1/R1/O1 → crash → T2/R2/O2) that exercises the candidate's actual orchestration code. See observations.requiredMethodology.",
       "observations": {
@@ -108,7 +124,7 @@
       "testId": "FC-13-CTRL",
       "candidate": "UNIFIA_NATIVE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-13-CTRL\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-13-CTRL\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
       "observations": {
@@ -122,7 +138,7 @@
       "testId": "FC-13",
       "candidate": "UNIFIA_NATIVE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-ax3kDn\\evidence\\unifia-native\\FC-13\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-native-lFfhYt\\evidence\\unifia-native\\FC-13\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
       "observations": {
@@ -135,13 +151,13 @@
     }
   ],
   "summary": {
-    "pass": 3,
+    "pass": 2,
     "failArchitectural": 0,
     "failCorrectable": 0,
     "notApplicable": 0,
-    "blocked": 3,
-    "notValid": 2
+    "blocked": 2,
+    "notValid": 4
   },
   "replayModel": "NOT_MEASURED",
-  "producedAt": "2026-09-03T22:18:49.766Z"
+  "producedAt": "2026-09-03T22:30:05.131Z"
 }

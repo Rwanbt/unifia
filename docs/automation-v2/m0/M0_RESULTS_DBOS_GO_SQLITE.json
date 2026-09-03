@@ -26,7 +26,7 @@
       "testId": "FC-31A",
       "candidate": "DBOS_GO_SQLITE",
       "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-31A\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "21/21 canonical values survived a candidate restart (close+reopen on same durable store). 0 mismatches.",
       "observations": {
@@ -40,7 +40,7 @@
       "testId": "FC-31B",
       "candidate": "DBOS_GO_SQLITE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-31B\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "FC-31B NOT_VALID for DBOS Go: harness uses TS host adapter, not the Go host. The Go binary must receive typed fixtures (float64/int64/uint64/MaxInt64) and apply the FC-31B contract itself. See observations.requiredMethodology for the unblock path.",
       "observations": {
@@ -55,7 +55,7 @@
       "testId": "FC-04",
       "candidate": "DBOS_GO_SQLITE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-04\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "FC-04 NOT_VALID for DBOS Go: `ackLost: true` is a magic flag from the harness, not real transport-level ACK loss. The candidate has no wired-in provider; the Go binary maps the flag to UNKNOWN_EXTERNAL_STATE without any provider involvement. See observations.requiredMethodology for the unblock path.",
       "observations": {
@@ -74,53 +74,37 @@
     {
       "testId": "FC-14",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-14\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "Two real OS processes raced for authority on the same runId via the /authority/claim endpoint. Exactly one was granted; the other was rejected. Single logical authority confirmed.",
+      "note": "FC-14 NOT_VALID for CUSTOM_GO_SQLITE_CONTROL per pack gelé §7: only ownership of a row was proven, not orchestration authority (mutate + dispatch). Reclassified from CP5 PASS.",
       "observations": {
-        "measured": true,
-        "processIds": {
-          "a": "spawned",
-          "b": "spawned"
-        },
-        "sharedStore": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-fc14-runner-lm7lZz\\store",
-        "result": {
-          "grantedCount": 1,
-          "winner": {
-            "granted": true,
-            "runId": "run-mp-fc14-1788473931638",
-            "currentGeneration": 1,
-            "attemptedGeneration": 1,
-            "holderPid": 11784
-          },
-          "rejected": {
-            "granted": false,
-            "runId": "run-mp-fc14-1788473931638",
-            "currentGeneration": 1,
-            "attemptedGeneration": 1,
-            "holderPid": 11784
-          }
-        },
-        "adapterTopology": "child-process"
+        "measured": false,
+        "reason": "FC-14 requires not only a concurrent race but also a proof that the winning authority can act (authoritative mutation + effect dispatch accepted) and the losing authority's attempts are REJECTED on both paths. The previous CP5 implementation only proved ownership of the run_authority row. Per pack gelé §7, singleAuthority = true means 'can act', not 'owns a row'. FC-14 is NOT_VALID for CUSTOM_GO_SQLITE_CONTROL until the runner is rewired to drive authoritative mutation + dispatch after the race, with concurrent Promise.all and a result-integrity check.",
+        "requiredMethodology": "(1) Two real OS processes on the same storeDir. (2) Both call /authority/claim concurrently (Promise.all after barrier). (3) Winner attempts /authority/mutate with its (generation, authorityOwnerId) token. (4) Loser attempts /authority/mutate with its token (must be REJECTED). (5) Winner attempts /authority/dispatch. (6) Loser attempts /authority/dispatch (must be REJECTED). (7) PASS only if all four post-race assertions hold.",
+        "unblockPath": "Rewire the runner to use Promise.all([claimA, claimB]) with a barrier, then both processes issue /authority/mutate and /authority/dispatch with their respective tokens. The runner enforces the four post-race invariants in the result builder.",
+        "previousCp5Evidence": "evidence/<candidate>/FC-14/previous-cp5-claim-primitive.json"
       }
     },
     {
       "testId": "FC-25",
       "candidate": "DBOS_GO_SQLITE",
-      "status": "PASS",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
+      "status": "NOT_VALID",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-25\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
-      "note": "Stale generation claim was rejected (CP5). Process A claimed gen 1, released, Process B claimed gen 2; A's stale claim at gen 1 was rejected.",
+      "note": "FC-25 NOT_VALID per pack gelé §9: the contract requires A to freeze WITHOUT releasing, then a takeover, then B commits under the new gen, then A's stale commit + dispatch are rejected. The previous CP6 scenario released authority before the takeover — that is the wrong scenario. Reclassified.",
       "observations": {
-        "measured": true,
-        "processIds": {
-          "a": 672,
-          "b": 7764
-        },
-        "sharedStore": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-fc25-runner-6drshC\\store",
-        "result": {
-          "staleClaimRejected": true
+        "measured": false,
+        "reason": "FC-25 requires a takeover scenario (A claims → A FREEZES (no release) → takeover → B commits → A resumes → A's stale authoritative commit + dispatch REJECTED). The previous CP6 implementation only proved that a stale claim is rejected, not that a stale AUTHORITATIVE MUTATION or DISPATCH is rejected. Per pack gelé §12, stale-claim rejection is a conformance test, not FC-25. FC-25 is NOT_VALID until the runner drives the full takeover scenario end-to-end with atomic check-and-mutate in the SAME transaction.",
+        "requiredMethodology": "(1) A claims gen=1. (2) A reaches FREEZE_BARRIER while holding its local token. (3) Takeover primitive increments gen=2, new owner B. (4) B commits authoritative mutation via /authority/mutate with (gen=2, ownerB) — accepted. (5) A resumes and calls /authority/mutate with (gen=1, ownerA) — REJECTED. (6) A calls /authority/dispatch with (gen=1, ownerA) — REJECTED. (7) PASS only if all five assertions hold.",
+        "unblockPath": "Implement the takeover scenario in the runner. A must reach a freeze barrier via IPC (not SIGSTOP — the harness must be portable). Takeover is /authority/takeover (already implemented in the Go binary).",
+        "previousCp5Evidence": "evidence/<candidate>/FC-25/previous-cp5-generation-primitive.json",
+        "passConditions": {
+          "oldOwnerDidNotReleaseBeforeTakeover": "MUST=true",
+          "newGenerationGreaterThanOld": "MUST=true",
+          "newOwnerCommitAccepted": "MUST=true",
+          "staleOwnerCommitRejected": "MUST=true",
+          "staleOwnerDispatchRejected": "MUST=true"
         }
       }
     },
@@ -128,7 +112,7 @@
       "testId": "FC-32",
       "candidate": "DBOS_GO_SQLITE",
       "status": "NOT_VALID",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-32\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "FC-32 NOT_VALID: replay model is declared, not measured. The M0 surface does not drive a workflow function; the harness cannot observe what the candidate replays. To unblock: implement a controlled recovery scenario (T1/R1/O1 → crash → T2/R2/O2) that exercises the candidate's actual orchestration code. See observations.requiredMethodology.",
       "observations": {
@@ -142,7 +126,7 @@
       "testId": "FC-13-CTRL",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-13-CTRL\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
       "observations": {
@@ -156,7 +140,7 @@
       "testId": "FC-13",
       "candidate": "DBOS_GO_SQLITE",
       "status": "BLOCKED",
-      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-VDSLDR\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
+      "evidencePath": "C:\\Users\\barat\\AppData\\Local\\Temp\\m0-qual-dbos-go-jThAoP\\evidence\\dbos-go-sqlite\\FC-13\\result.json",
       "commit": "qual-m0-2026-09-03-cp4",
       "note": "BLOCKED (NO_METHODOLOGY): FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
       "observations": {
@@ -169,13 +153,13 @@
     }
   ],
   "summary": {
-    "pass": 3,
+    "pass": 1,
     "failArchitectural": 0,
     "failCorrectable": 0,
     "notApplicable": 0,
     "blocked": 2,
-    "notValid": 3
+    "notValid": 5
   },
   "replayModel": "NOT_MEASURED",
-  "producedAt": "2026-09-03T22:18:52.519Z"
+  "producedAt": "2026-09-03T22:30:06.584Z"
 }

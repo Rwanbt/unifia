@@ -103,14 +103,17 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
     }
     expect(fc31b?.status).toBe("PASS")
 
-    // FC-04 must be PASS (ACK loss → UNKNOWN_EXTERNAL_STATE).
+    // FC-04 must be NOT_VALID for Native per CP6.1 §18: the
+    // `ackLost: true` flag is a configuration signal, not real
+    // transport-level ACK loss from an independent external
+    // provider. There is no in-process exception.
     const fc04 = result.results.find((r) => r.testId === "FC-04")
     expect(fc04).toBeDefined()
-    if (fc04?.status !== "PASS") {
+    if (fc04?.status !== "NOT_VALID") {
       // eslint-disable-next-line no-console
-      console.log("FC-04 status:", fc04?.status, "note:", fc04?.note, "observations:", JSON.stringify(fc04?.observations))
+      console.log("FC-04 status:", fc04?.status, "note:", fc04?.note)
     }
-    expect(fc04?.status).toBe("PASS")
+    expect(fc04?.status).toBe("NOT_VALID")
 
     // FC-14 must be NOT_VALID for Native (no multi-process harness
     // yet for Native — the in-process form does not satisfy the
@@ -119,10 +122,13 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
     expect(fc14).toBeDefined()
     expect(fc14?.status).toBe("NOT_VALID")
 
-    // FC-25 must be BLOCKED for Native (single-process generation).
+    // (FC-25 expectation already updated above)
+
+    // FC-25 must be NOT_VALID for Native (in-process methodology;
+    // not enough for the multi-process zombie owner contract).
     const fc25 = result.results.find((r) => r.testId === "FC-25")
     expect(fc25).toBeDefined()
-    expect(fc25?.status).toBe("BLOCKED")
+    expect(fc25?.status).toBe("NOT_VALID")
 
     // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
     const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")
@@ -229,13 +235,11 @@ describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
     expect(result.schemaVersion).toBe(1)
     expect(result.results.length).toBeGreaterThan(0)
 
-    // FC-04 is NOT_VALID for DBOS Go (per pack gelé §12): the
-    // current test uses `ackLost: true` as a magic flag, not
-    // real transport-level ACK loss. The candidate has no
-    // wired-in external provider; the Go binary maps the flag to
-    // UNKNOWN_EXTERNAL_STATE in its custom SQLite, with no
-    // provider involvement. To unblock, wire a real external
-    // provider HTTP service with its own journal.
+    // FC-04 is NOT_VALID for DBOS Go (per pack gelé §12, CP6.1):
+    // `ackLost: true` is a magic flag from the harness, not real
+    // transport-level ACK loss from an independent external
+    // provider. The Go binary maps the flag to UNKNOWN_EXTERNAL_STATE
+    // in its custom SQLite, with no provider involvement.
     const fc04 = result.results.find((r) => r.testId === "FC-04")
     expect(fc04).toBeDefined()
     expect(fc04?.status).toBe("NOT_VALID")
@@ -248,20 +252,21 @@ describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
     expect(fc31b).toBeDefined()
     expect(fc31b?.status).toBe("NOT_VALID")
 
-    // FC-14 is PASS for DBOS Go (CP5 — real multi-process race
-    // via /authority/claim). The runner spawns 2 real `dbos-qualify.exe`
-    // processes on the same M0_STORE_DIR, races them, and verifies
-    // exactly one is granted. This is the pack gelé §15 contract.
+    // FC-14 is NOT_VALID for DBOS Go per CP6.1: only row ownership
+    // was proven (CP5), not orchestration authority (winner
+    // mutate + dispatch ACCEPTED, loser REJECTED).
     const fc14 = result.results.find((r) => r.testId === "FC-14")
     expect(fc14).toBeDefined()
-    expect(fc14?.status).toBe("PASS")
+    expect(fc14?.status).toBe("NOT_VALID")
 
-    // FC-25 is PASS for DBOS Go (CP5 — stale generation rejected).
-    // The runner releases authority and tries a stale claim; the
-    // stale claim is rejected.
+    // FC-25 is NOT_VALID for DBOS Go per CP6.1: the previous
+    // scenario made A release before the takeover, which is the
+    // wrong contract. The takeover scenario (A FREEZE without
+    // release → takeover → B commits → A stale commit + dispatch
+    // REJECTED) is not yet implemented end-to-end.
     const fc25 = result.results.find((r) => r.testId === "FC-25")
     expect(fc25).toBeDefined()
-    expect(fc25?.status).toBe("PASS")
+    expect(fc25?.status).toBe("NOT_VALID")
 
     // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
     const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")
