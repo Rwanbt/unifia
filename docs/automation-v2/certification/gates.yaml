@@ -293,20 +293,25 @@ gates:
 # Section 8 — Branche / ruleset
 # ============================================================
   branch_protection:
-    description: "Branche d'integration est protegee par ruleset (no force-push, CI verte)."
+    description: "Branche d'integration a une effective protection (no force-push, required CI, required reviews, CODEOWNERS). Mesure la protection effective, pas un count de rulesets. Per D-04 (2026-09-03), topologie recommandee = dev comme integration (deja protegee classiquement)."
     required_commands:
+      - "gh api repos/Rwanbt/unifia/branches/<integration-branch>/protection"
       - "gh api repos/Rwanbt/unifia/rulesets"
-    required_artifacts: []
+    required_artifacts:
+      - ".github/CODEOWNERS"
     allowed_skips:
-      - reason: "Pas d'acces a l'API GitHub dans cette session (NON EXECUTE)"
+      - reason: "Verification distante par Erwan (admin GitHub externe). Pas d'action distante Mavis."
         scope: "remote verification"
     evidence:
-      - "2026-09-02 gh api repos/Rwanbt/unifia/rulesets -> [] (zero rulesets)"
-      - "Aucune protection par défaut sur la branche d'integration"
+      - "2026-09-03 dev protegee classiquement (verification requise par Erwan)"
+      - "2026-09-03 main protegee classiquement (verification requise par Erwan)"
+      - "2026-09-03 gh api repos/Rwanbt/unifia/rulesets -> [] (zero rulesets, mais classic protection suffit)"
+      - "2026-09-03 agent/automate-v2-baseline-20260901 NON protegee (cible feature branch, OK)"
+      - "2026-09-03 integration/rev3m-20260901/design-automate INEXISTANTE sur remote"
     status: RED
     blocker: false
-    note: "A verifier en PRE-1.1. Pas bloquant pour la cible premiere locale."
-    finding: "F-CERT-01: zero ruleset on Rwanbt/unifia. Tracked in EXECUTION_STATUS 2026-09-02."
+    note: "D-04 (2026-09-03) : verification effective protection par Erwan (admin GitHub). Pas d'action distante Mavis. Pas bloquant pour cible premiere locale. F-CERT-01 reclassifie en topologie effective (classic protection suffit, pas obligatoirement ruleset)."
+    finding: "F-CERT-01: zero ruleset on Rwanbt/unifia. Tracked in EXECUTION_STATUS 2026-09-02. Reclasse en 2026-09-03 par D-04."
 
 # ============================================================
 # Section 9 — ADR dependencies
