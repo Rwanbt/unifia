@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **M1-11-V1-MIGRATION-DELIVERED-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 + runtime half = 15/15 = 51/51 PASS** ; **M1-09 in-memory 14/14 + M1-10 file-backed 7/7 = 21/21 PASS, transition matrix per ADR-022 §4, JSON snapshot atomic persistence, fail-closed on corruption** ; **M1-11 V1→V2 history migration 6/6 PASS, V1MigratingAuthority wraps any DurableHistoryAuthority, refuses block warnings (e.g. shell), registers run "running" then atomic transition to V1 final status** ; **M2-07/08/09 control.while/child node families + parseurs + 25/25 contract tests GREEN** ; **ADR-031 re-préparé DECIDED post-M0**). **32/32 ADR V2.3.1 ecrits** (30 DECIDED, 1 INFORMATIONAL, 1 CHANGES_REQUIRED). **851/0 tests V2 (632 contracts + 27 workflow-runtime + 177 m0-contract + 15 m0-harness) + 32 migration tool, 0 fail**. **Cert runner : 13 GREEN, 4 RED, 1 NA, 6 BLOCKER (sur 25 gates)**. **119 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 proof gate SATISFIED. M1-09 + M1-10 + M1-11 DECIDED. M2-07/08/09 contracts DELIVERED (runtime blocked ADR-000). ADR-000 attend la ratification formelle par Erwan.)
+> Phase : **M1-11-V1-MIGRATION-DELIVERED-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 + runtime half = 15/15 = 51/51 PASS** ; **M1-09 in-memory 14/14 + M1-10 file-backed 7/7 = 21/21 PASS, transition matrix per ADR-022 §4, JSON snapshot atomic persistence, fail-closed on corruption** ; **M1-11 V1→V2 history migration 6/6 PASS, V1MigratingAuthority wraps any DurableHistoryAuthority, refuses block warnings (e.g. shell), registers run "running" then atomic transition to V1 final status** ; **M2-07/08/09 control.while/child node families + parseurs + 25/25 contract tests GREEN** ; **3 gates RED→GREEN : unit_automate_surface (C-PRE1-01 livré, 17 tests) + unit_workflow_runtime (27 tests) + v2_contracts_regression (809/809 tests)** ; **ADR-031 re-préparé DECIDED post-M0**). **32/32 ADR V2.3.1 ecrits** (30 DECIDED, 1 INFORMATIONAL, 1 CHANGES_REQUIRED). **851/0 tests V2 (632 contracts + 27 workflow-runtime + 177 m0-contract + 15 m0-harness) + 32 migration tool, 0 fail**. **Cert runner : 15 GREEN, 3 RED, 1 NA, 7 OTHER (NOT_BUILT/NOT_READY/NEEDS_RE_RUN), 5 BLOCKER (sur 25 gates)**. **121 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 proof gate SATISFIED. M1-09 + M1-10 + M1-11 DECIDED. M2-07/08/09 contracts DELIVERED (runtime blocked ADR-000). ADR-000 attend la ratification formelle par Erwan.)
 > Date : 2026-09-03
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -151,14 +151,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `b31ff4a043 feat(automate-v2): M2-07/08/09 contracts + M1-11 V1MigratingAuthority` |
-| HEAD (sha) | `b31ff4a043` |
+| HEAD (commit) | `08310d1277 docs(cert): update gates.yaml — 3 gates upgraded RED/NEEDS_RE_RUN → GREEN` |
+| HEAD (sha) | `08310d1277` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **119** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**119 commits poussés** 2026-09-03, remote HEAD = local HEAD = `b31ff4a043`) |
+| Commits depuis la base | **121** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**121 commits poussés** 2026-09-03, remote HEAD = local HEAD = `08310d1277`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -168,9 +168,11 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (119 commits, 119 pushés sur origin)
+## Commits cumulés (121 commits, 121 pushés sur origin)
 
 ```
+08310d1277 docs(cert): update gates.yaml — 3 gates upgraded RED/NEEDS_RE_RUN → GREEN
+362335ee9a docs(automate-v2): EXEC_STATUS update M1-11 + M2-07/08/09 (119 commits, 851 tests V2)
 b31ff4a043 feat(automate-v2): M2-07/08/09 contracts + M1-11 V1MigratingAuthority
 a3fe6b9762 docs(automate-v2): EXEC_STATUS update M1-10 file-backed + ADR-031 (117 commits, 820 tests, 30 DECIDED)
 5e7a9fcbfa feat(workflow-runtime): M1-10 file-backed DurableHistoryAuthority (7/7 PASS) + ADR-031 re-préparé
