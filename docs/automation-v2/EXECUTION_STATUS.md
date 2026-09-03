@@ -4,7 +4,7 @@
 # EXECUTION STATUS — UNIFIA AUTOMATE
 
 > Statut : **PUSHED**
-> Phase : **M1-10-FILE-BACKED-DELIVERED-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 + runtime half = 15/15 = 51/51 PASS** ; **M1-09 in-memory 14/14 + M1-10 file-backed 7/7 = 21/21 PASS, transition matrix per ADR-022 §4, JSON snapshot atomic persistence, fail-closed on corruption** ; **ADR-031 re-préparé DECIDED post-M0**). **32/32 ADR V2.3.1 ecrits** (30 DECIDED, 1 INFORMATIONAL, 1 CHANGES_REQUIRED). **820/0 tests V2 + migration + m0 + workflow-runtime (21), 0 fail**. **Cert runner : 13 GREEN, 4 RED, 1 NA, 6 BLOCKER (sur 25 gates)**. **117 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 proof gate SATISFIED. M1-09 + M1-10 DECIDED. M1-11 (history migration V1 → V2) est la prochaine gate. ADR-000 attend la ratification formelle par Erwan.)
+> Phase : **M1-11-V1-MIGRATION-DELIVERED-2026-09-03** (M2+M3 = 538/0 tests V2 ; PostM3-R1 = 18 cartes GREEN ; PostM3-R2 = 23 cartes GREEN ; **M0 proof contract half = 36/36 + runtime half = 15/15 = 51/51 PASS** ; **M1-09 in-memory 14/14 + M1-10 file-backed 7/7 = 21/21 PASS, transition matrix per ADR-022 §4, JSON snapshot atomic persistence, fail-closed on corruption** ; **M1-11 V1→V2 history migration 6/6 PASS, V1MigratingAuthority wraps any DurableHistoryAuthority, refuses block warnings (e.g. shell), registers run "running" then atomic transition to V1 final status** ; **M2-07/08/09 control.while/child node families + parseurs + 25/25 contract tests GREEN** ; **ADR-031 re-préparé DECIDED post-M0**). **32/32 ADR V2.3.1 ecrits** (30 DECIDED, 1 INFORMATIONAL, 1 CHANGES_REQUIRED). **851/0 tests V2 (632 contracts + 27 workflow-runtime + 177 m0-contract + 15 m0-harness) + 32 migration tool, 0 fail**. **Cert runner : 13 GREEN, 4 RED, 1 NA, 6 BLOCKER (sur 25 gates)**. **119 commits sur origin/agent/automate-v2-baseline-20260901** le 2026-09-03. M0 proof gate SATISFIED. M1-09 + M1-10 + M1-11 DECIDED. M2-07/08/09 contracts DELIVERED (runtime blocked ADR-000). ADR-000 attend la ratification formelle par Erwan.)
 > Date : 2026-09-03
 > Format imposé par le plan §246 lignes 6140-6170.
 
@@ -134,12 +134,15 @@ choice), R-013 phase 3.
 | M0 proof gate (combined) | **GREEN** (51/51 scenarios PASS) | per ADR-000 §7 |
 | M1-09 in-memory DurableHistoryAuthority | **DONE** (14/14 PASS, YELLOW → DECIDED) | packages/workflow-runtime/src/in-memory.ts (2e8a8b4dd6) |
 | M1-10 file-backed history adapter | **DONE** (7/7 PASS, RED → DECIDED) | packages/workflow-runtime/src/file-backed.ts (5e7a9fcbfa) |
+| M1-11 V1→V2 history migration authority | **DONE** (6/6 PASS, RED → DECIDED) | packages/workflow-runtime/src/v1-migrating.ts (b31ff4a043) |
 | ADR-031 DS HA/rolling/recovery (post-M0) | **DONE** (DECIDED, invariants only) | docs/adr/ADR-031-distributed-server-ha-rolling-recovery.md (5e7a9fcbfa) |
 | PostM3 Server DS-09..11 (HA, rolling, recovery) | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Code/Shell LI-06 | **BLOCKED** (RED) | bloqué ADR-000 |
 | PostM3 Tauri Host DK-01 | **BLOCKED** (RED) | bloqué ADR-000 |
 | Dette biome des commits `--no-verify` | **RESORBÉE** (1 erreur + 10 warnings → 0) | 9 fichiers (7ce0d4a896) |
-| M2-07/08/09 (while, child-workflow, wait refine) | **BLOCKED** (RED/YELLOW) | bloqué ADR-000 + M3 |
+| M2-07 control.while node family + parseur | **CONTRACT DONE** (25/25 PASS, runtime RED, blocked ADR-000) | packages/contracts/src/workflow-ir.ts (b31ff4a043) |
+| M2-08 control.child node family + parseur | **CONTRACT DONE** (25/25 PASS, runtime RED, blocked ADR-000) | packages/contracts/src/workflow-ir.ts (b31ff4a043) |
+| M2-09 wait refine (capture, replay) | **CONTRACT DONE** (25/25 PASS, runtime RED, blocked ADR-000) | packages/contracts/src/workflow-ir.ts (b31ff4a043) |
 | M3 / tracks | **NOT STARTED** | post-M2 |
 
 ---
@@ -148,14 +151,14 @@ choice), R-013 phase 3.
 
 | Référence | Valeur |
 |---|---|
-| HEAD (commit) | `5e7a9fcbfa feat(workflow-runtime): M1-10 file-backed DurableHistoryAuthority (7/7 PASS) + ADR-031 re-préparé` |
-| HEAD (sha) | `5e7a9fcbfa` |
+| HEAD (commit) | `b31ff4a043 feat(automate-v2): M2-07/08/09 contracts + M1-11 V1MigratingAuthority` |
+| HEAD (sha) | `b31ff4a043` |
 | HEAD (tree sha) | (généré au commit) |
 | Branche de travail | `agent/automate-v2-baseline-20260901` |
 | Branche d'origine | `integration/rev3m-20260901/design-automate` |
 | HEAD d'origine (pinned) | `24b04998e2fd861711036501ad3f6e41a63f8c32` |
-| Commits depuis la base | **117** |
-| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**117 commits poussés** 2026-09-03, remote HEAD = local HEAD = `5e7a9fcbfa`) |
+| Commits depuis la base | **119** |
+| Remote | `origin` = `https://github.com/Rwanbt/unifia.git` (**119 commits poussés** 2026-09-03, remote HEAD = local HEAD = `b31ff4a043`) |
 
 > Le SHA d'origine cité dans le prompt de session,
 > `24b04998e2a32ecfb10f74ed4f3e82e21eb9d38c`, **n'existe pas dans le dépôt**
@@ -165,9 +168,15 @@ choice), R-013 phase 3.
 
 ---
 
-## Commits cumulés (117 commits, 117 pushés sur origin)
+## Commits cumulés (119 commits, 119 pushés sur origin)
 
 ```
+b31ff4a043 feat(automate-v2): M2-07/08/09 contracts + M1-11 V1MigratingAuthority
+a3fe6b9762 docs(automate-v2): EXEC_STATUS update M1-10 file-backed + ADR-031 (117 commits, 820 tests, 30 DECIDED)
+5e7a9fcbfa feat(workflow-runtime): M1-10 file-backed DurableHistoryAuthority (7/7 PASS) + ADR-031 re-préparé
+be848939d2 docs(automate-v2): EXEC_STATUS update M1-09 in-memory impl (115 commits, 813 tests, YELLOW → DECIDED)
+2e8a8b4dd6 feat(workflow-runtime): M1-09 in-memory DurableHistoryAuthority (14/14 PASS)
+c0e4ffc9e9 docs(cert): M0 substrate proof gate GREEN (gate 10, 51/51 scenarios, blocker removed)
 28e3058110 feat(m0): M0 substrate proof runtime half — 15/15 PASS, full M0 proof gate SATISFIED
 081c6689bb docs(automate-v2): EXEC_STATUS update M0 proof 36/36 PASS (110 commits, ADR-000 contract-half ready)
 d12bdad3dc feat(m0): M0 substrate proof gate (ADR-000 §6) — 36/36 scenarios PASS
