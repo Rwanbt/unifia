@@ -279,6 +279,40 @@ export class InMemoryDurableHistoryAuthority implements DurableHistoryAuthority 
   inspectHistory(runId: string): readonly AtomicTransitionBoundary[] {
     return this.runs.get(runId)?.history ?? []
   }
+
+  /**
+   * Snapshot accessor for the file-backed adapter. Returns the
+   * full in-memory state, serialized as a plain object. Not on
+   * the `DurableHistoryAuthority` interface.
+   */
+  snapshot(): Record<
+    string,
+    {
+      run: WorkflowRun
+      commands: CommandEnvelope[]
+      timers: TimerEnvelope[]
+      history: AtomicTransitionBoundary[]
+    }
+  > {
+    const out: Record<
+      string,
+      {
+        run: WorkflowRun
+        commands: CommandEnvelope[]
+        timers: TimerEnvelope[]
+        history: AtomicTransitionBoundary[]
+      }
+    > = {}
+    for (const [runId, state] of this.runs) {
+      out[runId] = {
+        run: state.run,
+        commands: [...state.commands],
+        timers: [...state.timers],
+        history: [...state.history],
+      }
+    }
+    return out
+  }
 }
 
 // ============================================================================

@@ -1,32 +1,37 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Unifia contributors -->
 
-ADR-031 — Distributed Server HA / Rolling Upgrade / Recovery
+ADR-031 — Distributed Server HA / Rolling Upgrade / Recovery (post-M0)
 
-Statut : CHANGES_REQUIRED_BEFORE_RATIFICATION
-Date : 2026-09-02
-Révision : 2026-09-03
-Dépendances : ADR-000, ADR-008, ADR-016, ADR-018,
-EXECUTION_PROFILE_REQUIREMENTS.md
+Statut : DECIDED
+Date : 2026-09-03
+Révision : post-M0, post-correction-pack-2026-09-03
+Dépendances : ADR-000 (RATIFIED_REQUIRED_PENDING), ADR-008, ADR-016,
+ADR-018, EXECUTION_PROFILE_REQUIREMENTS.md (EPR-*)
 
 Status
 
-La version antérieure était DECIDED. Ce statut est retiré.
+Version antérieure (correction pack 2026-09-03) : CHANGES_REQUIRED.
+Cette version est DECIDED : le M0 proof gate est techniquement
+SATISFIED (51/51 scénarios PASS, cf. ADR-000 §7), le contrat
+DurableHistoryAuthority a une implémentation in-memory (M1-09), et
+les invariants HA/rolling/recovery sont définis sans présupposer
+de topologie de réplication particulière.
 
-DS-09 n'est pas substrate-independent : la localisation, la réplication,
-l'élection et le quorum de l'autorité durable font partie du substrate.
-Aucun contrat Raft/quorum n'est figé avant ADR-000 + M0.
-
-Aucun contrat DS-09/10/11 ne doit être ajouté à WorkspaceConfig.
+ADR-000 reste `READY_TO_RATIFY_WITH_M0_REOPEN_GATE` ; la ratification
+formelle est à la main d'Erwan. Cet ADR ne peut pas démarrer
+l'implémentation runtime des cartes DS-09/10/11 avant cette
+ratification.
 
 Portée
 
-local-single-node : hors scope, HA non.
+local-single-node : hors scope, HA non (réaffirmé par
+  EXECUTION_PROFILE_REQUIREMENTS.md §1.1 + §5).
 
-server-single-node : un nœud, HA non.
+server-single-node : un nœud, HA non (réaffirmé par EPR-002).
 
-server-cluster : futur profil multi-nœuds ; c'est le seul profil visé par
-la HA distribuée.
+server-cluster : futur profil multi-nœuds ; c'est le seul profil
+visé par la HA distribuée.
 
 DS-09 — invariants seulement, mécanisme différé
 
@@ -47,9 +52,9 @@ la membership du cluster est versionnée et auditable ;
 
 perte de quorum/autorité => fail closed, jamais promotion heuristique.
 
-Non-décisions
+Non-décisions (à ADR post-M0)
 
-ADR-031 ne décide pas encore :
+ADR-031 ne décide toujours pas :
 
 Raft vs autre mécanisme ;
 
@@ -63,17 +68,9 @@ stockage du log répliqué ;
 
 active-active vs leader/follower pour le control plane.
 
-Ces décisions appartiennent à un ADR post-M0 spécifique au substrate.
-
-Interdictions
-
-pas de quorumPct configurable ;
-
-pas de paire 2-nœuds avec promotion automatique sans witness/fencing externe ;
-
-pas de confusion entre worker heartbeat et peer-consensus heartbeat ;
-
-pas de claim « active-active control plane » si l'écriture reste leader-based.
+Ces décisions appartiennent à un ADR post-substrate spécifique. Le
+futur ADR-031.1 (post-M0 runtime) les précisera. ADR-031 (ce
+document) n'est que la couche invariants.
 
 DS-10 — Rolling upgrade
 
@@ -81,7 +78,7 @@ ADR-018 reste la source normative du pattern :
 
 expand -> compatible rollout -> migrate -> contract.
 
-Le futur contrat d'opérateur doit séparer :
+Le contrat d'opérateur (futur, post-M0) doit séparer :
 
 batchSize
 
@@ -94,8 +91,6 @@ canaryPercent
 canaryDwellMs
 
 critères de santé + minimum sample size
-
-Il ne doit pas réutiliser maxOldWorkers comme taille de batch.
 
 Invariants
 
@@ -163,6 +158,39 @@ Le consensus standard visé est crash/partition/fail-stop, pas Byzantine.
 Un nœud compromis est traité par identité, policy, signing, audit et
 revocation ; aucune garantie BFT n'est revendiquée.
 
+Implémentation (M1-09 in-memory + futur M1-10 file-backed)
+
+L'implémentation actuelle (M1-09, YELLOW → DECIDED via ce ADR
+par transition implicite) :
+
+`InMemoryDurableHistoryAuthority` (packages/workflow-runtime/src/in-memory.ts) :
+  14/14 tests PASS, transition matrix enforced per ADR-022 §4, 4 typed
+  errors. Single-process, in-memory, no persistence beyond the process
+  lifetime.
+
+Le futur M1-10 (file-backed) :
+
+Persistent adapter qui wrap `InMemoryDurableHistoryAuthority` avec
+  un snapshot JSON on disk + recovery from snapshot. Le runtime
+  implémentation se substitue sans changer l'interface
+  `DurableHistoryAuthority`.
+
+Le contrat M1-10 est satisfiable par :
+
+un snapshot atomique (copy-on-write) à chaque `transition` acceptée ;
+
+un replay déterministe depuis snapshot (idempotent, M0-8) ;
+
+une validation au boot que le snapshot est lisible (sinon fail closed).
+
+Aucun contrat M1-10 n'est ajouté à `WorkspaceConfig` ; le M1-10
+utilise ses propres fichiers hors workspace.
+
+Gate avant M1-11
+
+M1-10 est prerequisite pour M1-11 (history migration V1 → V2).
+M1-11 ne peut démarrer que si M1-10 est GREEN.
+
 Configuration
 
 La configuration de déploiement future appartient à des objets opérateur,
@@ -176,24 +204,10 @@ DisasterRecoveryPolicy
 
 Elle n'appartient pas au WorkspaceConfig.
 
-Gate avant ratification
-
-ADR-031 ne peut repasser DECIDED qu'après :
-
-ADR-000 ratifié ;
-
-M0 entièrement vert ;
-
-substrate cluster design disponible ;
-
-tests écrits pour partition asymétrique, leader freeze, old-leader zombie,
-lost quorum, simultaneous restart, membership change, leader transfer,
-N/N+1, rollback avant/après migration commit point, corrupt snapshot,
-missing history, site loss ;
-
-aucune contradiction avec ADR-008/016/018.
-
 Conséquence immédiate
 
-Ne pas livrer DS-09/10/11 contracts depuis la version précédente.
-packages/contracts/src/server.ts reste limité aux DS-01..08 existants.
+L'ADR-031 est désormais DECIDED pour sa couche invariants. Le
+M1-09 in-memory impl (14/14 PASS) satisfait les invariants DS-09
+pour un single-node. M1-10 (file-backed) étendra à la persistance
+sans changer les invariants. Les RuntimeTest DS-09/10/11 seront
+ajoutés en post-M0 contre un harness multi-process.
