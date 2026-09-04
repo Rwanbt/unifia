@@ -20,70 +20,28 @@
  */
 
 import { describe, expect, test } from "bun:test"
+import { FileBackedApprovalStore, InMemoryApprovalStore, LocalApprovalBrokerV2, ApprovalRejectedError } from "../src/approval-v2.ts"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
-describe("Approval Broker V2 — negative contract (scaffold ready)", () => {
-  test("expired approval cannot execute (scaffold)", () => {
-    // TODO(POST-D-02): when V2 broker impl exists,
-    // const pastExpiry = Date.now() - 1000
-    // const req = makeApprovalRequest({ expiresAtEpochMs: pastExpiry })
-    // const handle = await broker.request(req)
-    // await expect(runtime.executeWorkflowRun(handle.workflowRunId))
-    //   .rejects.toThrow(/EXPIRED/)
-    expect(true).toBe(true) // SCAFFOLD_READY
-  })
+const scope = { organizationId: "org", workspaceId: "ws" }
+const deploymentScope = { ownershipScope: scope, environmentId: "test" }
+const human = { id: "human-1", kind: "human" as const }
+const requestInput = (overrides: Record<string, unknown> = {}) => ({ workflowRunId: "run-1", executionPlanDigest: "digest-1", principal: { id: "agent-1", kind: "workflow" as const }, ownershipScope: scope, deploymentScope, capabilityRefs: ["fs.read"], resourceScope: ["/tmp/a"], policyDecisionRef: "policy-1", policyVersion: "v1", expiresAtEpochMs: Date.now() + 10_000, ...overrides })
+const context = (overrides: Record<string, unknown> = {}) => ({ executionPlanDigest: "digest-1", ...overrides })
 
-  test("different actor/scope cannot reuse approval (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
-
-  test("resource widening rejected (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
-
-  test("changed ExecutionPlan digest rejected (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
-
-  test("already resolved approval cannot mutate (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
-
-  test("cancelled approval cannot execute (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
-
-  test("unknown approval denied (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
-
-  test("restart preserves pending request (scaffold)", () => {
-    // TODO(POST-D-02): requires FC-14 in-process equivalent + forceProcessCrash
-    expect(true).toBe(true)
-  })
-
-  test("workflow/LLM cannot self-approve (scaffold)", () => {
-    // TODO(POST-D-02): actor.id == workflow.principalId must reject
-    expect(true).toBe(true)
-  })
-
-  test("no ID reuse after restart (scaffold)", () => {
-    // TODO(POST-D-02): approvalId uniqueness across restart
-    expect(true).toBe(true)
-  })
-
-  test("replayable history (scaffold)", () => {
-    // TODO(POST-D-02): listHistory returns full audit
-    expect(true).toBe(true)
-  })
-
-  test("revocation blocks new requests (scaffold)", () => {
-    // TODO(POST-D-02)
-    expect(true).toBe(true)
-  })
+describe("Approval Broker V2", () => {
+  test("expired approval cannot execute", async () => { let now = 100; const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore(), () => now); const handle = await broker.request(requestInput({ expiresAtEpochMs: 99 })); const outcome = await broker.resolve(handle.approvalId, "APPROVED", human, context()); expect(outcome.state).toBe("EXPIRED"); now = 101; expect((await broker.inspect(handle.approvalId)).state).toBe("EXPIRED") })
+  test("different actor/scope cannot reuse approval", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await expect(broker.resolve(handle.approvalId, "APPROVED", human, context({ ownershipScope: { ...scope, workspaceId: "other" } }))).resolves.toMatchObject({ state: "STALE" }) })
+  test("resource widening rejected", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await expect(broker.resolve(handle.approvalId, "APPROVED", human, context({ resourceScope: ["/tmp/a", "/tmp/b"] }))).resolves.toMatchObject({ state: "STALE" }) })
+  test("changed ExecutionPlan digest rejected", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await expect(broker.resolve(handle.approvalId, "APPROVED", human, { executionPlanDigest: "changed" })).resolves.toMatchObject({ state: "STALE", reason: "APPROVAL_STALE" }) })
+  test("already resolved approval cannot mutate", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await broker.resolve(handle.approvalId, "APPROVED", human, context()); await expect(broker.resolve(handle.approvalId, "DENIED", human, context())).resolves.toMatchObject({ state: "APPROVED", reason: "ALREADY_RESOLVED" }) })
+  test("cancelled approval cannot execute", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await broker.cancel(handle.approvalId, human); await expect(broker.resolve(handle.approvalId, "APPROVED", { id: "human-2", kind: "human" }, context())).resolves.toMatchObject({ state: "CANCELLED" }) })
+  test("unknown approval denied", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); await expect(broker.resolve("missing", "APPROVED", human, context())).resolves.toMatchObject({ state: "DENIED", reason: "UNKNOWN_APPROVAL" }) })
+  test("restart preserves pending request", async () => { const directory = await mkdtemp(join(tmpdir(), "approval-v2-")); try { const path = join(directory, "state.json"); const first = new LocalApprovalBrokerV2(new FileBackedApprovalStore(path)); const handle = await first.request(requestInput()); const second = new LocalApprovalBrokerV2(new FileBackedApprovalStore(path)); await expect(second.inspect(handle.approvalId)).resolves.toMatchObject({ state: "PENDING" }) } finally { await rm(directory, { recursive: true, force: true }) } })
+  test("workflow/LLM cannot self-approve", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await expect(broker.resolve(handle.approvalId, "APPROVED", { id: "agent-1", kind: "workflow" }, context())).rejects.toThrow(ApprovalRejectedError) })
+  test("no ID reuse after restart", async () => { const store = new InMemoryApprovalStore(); const first = new LocalApprovalBrokerV2(store); const a = await first.request(requestInput()); await first.resolve(a.approvalId, "DENIED", human, context()); const second = new LocalApprovalBrokerV2(store); const b = await second.request(requestInput({ logicalInvocationId: "second" })); expect(b.approvalId).not.toBe(a.approvalId) })
+  test("replayable history", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); const handle = await broker.request(requestInput()); await broker.resolve(handle.approvalId, "APPROVED", human, context()); await expect(broker.listHistory({ workflowRunId: "run-1" })).resolves.toHaveLength(2) })
+  test("revocation blocks new requests", async () => { const broker = new LocalApprovalBrokerV2(new InMemoryApprovalStore()); await broker.revokeGrant("grant-1", human); await expect(broker.request(requestInput({ reusableGrantId: "grant-1" }))).rejects.toThrow(/GRANT_REVOKED/) })
 })
