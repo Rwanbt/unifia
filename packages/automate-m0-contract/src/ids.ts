@@ -117,12 +117,61 @@ export type AuthorityKind = (typeof AUTHORITY_KINDS)[number]
  * Resolve a legacy `DBOS_GO_SQLITE` kind to its current attribution
  * `CUSTOM_GO_SQLITE_CONTROL`. New evidence must use the new name
  * directly; this helper is only for reading historical result files.
+ *
+ * IMPORTANT (per Erwan review 2026-09-04): from CP6.4 onwards
+ * `DBOS_GO_SQLITE` is a LEGITIMATE candidate identity (the real
+ * DBOS v1.0.0 Go candidate once built). Therefore a bare
+ * `DBOS_GO_SQLITE` string MUST NOT be silently re-interpreted
+ * as `CUSTOM_GO_SQLITE_CONTROL`. The migration is provenance-
+ * aware:
+ *
+ *   - The historical (pre-CP6.3) `M0_RESULTS_DBOS_GO_SQLITE.json`
+ *     was produced by the custom Go + custom SQLite control.
+ *     That file is archived at
+ *     `docs/automation-v2/m0/archive/pre-cp6-3-attribution-repair/`
+ *     and any reader that needs to consume the archived data
+ *     must pass `provenance: "PRE_CP6_3_LEGACY"` to this function
+ *     to receive `CUSTOM_GO_SQLITE_CONTROL`.
+ *
+ *   - For new evidence, the result file declares its own
+ *     `candidate` value with full provenance metadata
+ *     (`executionSubstrate`, `realDbosApisUsed`, etc.). The
+ *     reader uses that metadata directly and does not call
+ *     this function.
+ *
+ *   - This function is therefore a SAFETY NET for the
+ *     transition period only, and it does NOT silently
+ *     rewrite `DBOS_GO_SQLITE` to `CUSTOM_GO_SQLITE_CONTROL`
+ *     without explicit provenance.
  */
-export function normalizeAuthorityKind(kind: string): AuthorityKind {
-  if (kind === "CUSTOM_GO_SQLITE_CONTROL" || kind === "UNIFIA_NATIVE" || kind === "DBOS_GO_SQLITE") {
+export interface MigrationProvenance {
+  /**
+   * If `true`, the caller asserts that the artifact was
+   * produced by the pre-CP6.3 Go binary (custom SQLite +
+   * blank DBOS import). The function then resolves
+   * `DBOS_GO_SQLITE` to `CUSTOM_GO_SQLITE_CONTROL`.
+   * If `false` or omitted, `DBOS_GO_SQLITE` is treated as
+   * the legitimate future candidate identity.
+   */
+  readonly preCP63LegacyAttribution?: boolean
+}
+
+export function normalizeAuthorityKind(
+  kind: string,
+  provenance: MigrationProvenance = {},
+): AuthorityKind {
+  if (kind === "CUSTOM_GO_SQLITE_CONTROL" || kind === "UNIFIA_NATIVE") {
     return kind
   }
+  if (kind === "DBOS_GO_SQLITE") {
+    if (provenance.preCP63LegacyAttribution === true) {
+      return "CUSTOM_GO_SQLITE_CONTROL"
+    }
+    // Legitimate future candidate identity. No migration.
+    return "DBOS_GO_SQLITE"
+  }
   if (kind === "DBOS_GO_SQLITE_LEGACY" || kind === "DBOS_GO_SQLITE_CONTROL") {
+    // Explicit legacy aliases always resolve to the control.
     return "CUSTOM_GO_SQLITE_CONTROL"
   }
   throw new Error(`Unknown AuthorityKind: ${kind}`)

@@ -89,7 +89,16 @@ async function runStressOneIteration(
   } finally {
     await candidate.shutdown().catch(() => undefined)
     await provider.shutdown().catch(() => undefined)
-    if (existsSync(root)) rmSync(root, { recursive: true, force: true })
+    // On Windows the spawned worker processes may not have
+    // released their SQLite file handles immediately after
+    // SIGKILL. Retry the delete with a small backoff so the
+    // stress test is not flaky on Windows.
+    if (existsSync(root)) {
+      for (let i = 0; i < 10; i++) {
+        try { rmSync(root, { recursive: true, force: true }); break }
+        catch { await new Promise((r) => setTimeout(r, 100)) }
+      }
+    }
   }
 }
 

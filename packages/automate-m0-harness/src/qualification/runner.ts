@@ -57,6 +57,27 @@ export interface RunnerOptions {
   /** Build hash to stamp on each result. */
   readonly buildHash: string
   /**
+   * Provenance fields to embed in the canonical result file
+   * (per Erwan review 2026-09-04: every canonical M0 result
+   * MUST carry self-describing provenance metadata). The
+   * runner forwards this to the result builder; the builder
+   * defaults the missing fields to safe values.
+   */
+  readonly provenance?: Partial<{
+    readonly candidateImplementationId: string
+    readonly candidateSourceCommit: string
+    readonly candidateBuildHash: string
+    readonly candidateBinaryDigest: string
+    readonly measurementHarnessCommit: string
+    readonly oracleVersion: string
+    readonly executionSubstrate: string
+    readonly storageEngine: string
+    readonly adapterIdentity: string
+    readonly realDbosApisUsed: boolean
+    readonly platform: string
+    readonly runtime: string
+  }>
+  /**
    * Tests to execute. If undefined, the default P0 set is used:
    *   FC-31A, FC-31B, FC-04, FC-14, FC-25, FC-32.
    * FC-13-CTRL / FC-13 are explicitly NOT in the default set because
@@ -137,6 +158,7 @@ export class QualificationRunner {
         process: { topology: "n/a", multiProcessSafe: false },
       },
       opts.buildHash,
+      opts.provenance,
     )
   }
 
@@ -145,7 +167,7 @@ export class QualificationRunner {
     const info = await this.adapter.candidateInfo()
     // Replace the placeholder candidate info in the builder.
     // We do this by reconstructing the builder.
-    const realBuilder = new CandidateResultBuilder(info, this.opts.buildHash)
+    const realBuilder = new CandidateResultBuilder(info, this.opts.buildHash, this.opts.provenance)
     Object.assign(this.builder, realBuilder)
 
     // Per pack gelé review 2026-09-03 v1.1 (CP4+ follow-up): the
@@ -874,19 +896,38 @@ export class QualificationRunner {
       runId,
       ownerA, ownerB,
     }
-    const evidence = await writeEvidence(folder, "result.json", observations)
-    const allPass = oldOwnerDidNotReleaseBeforeTakeover
+    // Per Erwan review 2026-09-04: the four assertions above
+    // prove STALE_AUTHORITY_TOKEN_FENCING but NOT
+    // ZOMBIE_OS_PROCESS_FENCING. The "freeze barrier" in this
+    // implementation is implicit (we simply don't call
+    // release) — ownerA is not a real OS process that holds
+    // its old token across a real takeover. For ZOMBIE-process
+    // fencing the harness must spawn a 2nd live process, send
+    // a READY_WITH_TOKEN signal, perform the takeover while A
+    // is still alive but blocked, then RESUME A and verify
+    // A's stale mutate+dispatch are rejected.
+    //
+    // We therefore reclassify FC-25 to NOT_VALID for M0 until
+    // the real zombie-process scenario is implemented. The
+    // stale-token-fencing observations are preserved as
+    // conformance evidence (NOT a FC-25 PASS).
+    const staleTokenFencing = oldOwnerDidNotReleaseBeforeTakeover
       && newGenerationGreaterThanOld
       && newOwnerCommitAccepted
       && staleOwnerCommitRejected
       && staleOwnerDispatchRejected
+    observations.staleTokenFencingPass = staleTokenFencing
+    observations.distinctOsProcesses = 1 // in-process: NO zombie process
+    observations.oldOwnerAliveDuringTakeover = false // implicit freeze, not a real barrier
+    observations.fc25RealZombieProcessRequired = true
+    const evidence = await writeEvidence(folder, "result.json", observations)
     this.builder.record({
       testId: "FC-25",
-      status: allPass ? "PASS" : "FAIL_CORRECTABLE",
+      status: "NOT_VALID",
       evidencePath: evidence,
-      note: allPass
-        ? `FC-25 PASS: ownerA freeze → takeover to ownerB at gen=${takeover.newGeneration} → ownerB commit ACCEPTED → ownerA stale commit+dispatch REJECTED on runId=${runId}.`
-        : `FC-25 FAIL_CORRECTABLE: zombie-fence conditions not all met. oldRelease=${oldOwnerDidNotReleaseBeforeTakeover} newGen>old=${newGenerationGreaterThanOld} newCommit=${newOwnerCommitAccepted} staleCommit=${staleOwnerCommitRejected} staleDispatch=${staleOwnerDispatchRejected}`,
+      note: staleTokenFencing
+        ? `FC-25 NOT_VALID: stale-authority-token-fencing PASS (4/4 conditions), but the "freeze" is implicit (no live OS process). ZOMBIE_OS_PROCESS_FENCING requires a real IPC freeze barrier between 2 live processes. Until implemented, FC-25 is NOT_VALID.`
+        : `FC-25 NOT_VALID: stale-authority-token-fencing conditions not all met (oldRelease=${oldOwnerDidNotReleaseBeforeTakeover} newGen>old=${newGenerationGreaterThanOld} newCommit=${newOwnerCommitAccepted} staleCommit=${staleOwnerCommitRejected} staleDispatch=${staleOwnerDispatchRejected}). ZOMBIE-process scenario also NOT IMPLEMENTED.`,
       observations,
     })
   }

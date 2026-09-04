@@ -30,6 +30,32 @@ import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { spawn, ChildProcess } from "node:child_process"
 import { setTimeout as delay } from "node:timers/promises"
+
+/**
+ * Run `fn` inside a `BEGIN IMMEDIATE` transaction. Returns
+ * whatever `fn` returns. On error, the transaction is rolled
+ * back; on success it is committed.
+ *
+ * Per Erwan review 2026-09-04: `db.transaction()` defaults
+ * to `BEGIN DEFERRED` in bun:sqlite, which is unsafe for
+ * cross-process races (two processes can BEGIN, both SELECT
+ * a missing row, both INSERT, both COMMIT — yielding two
+ * authority rows). For any read-modify-write sequence that
+ * is part of authority fencing, the candidate MUST use
+ * BEGIN IMMEDIATE so the writer lock is acquired at the
+ * start and the other process blocks on the file lock.
+ */
+function withImmediateTransaction<T>(db: Database, fn: () => T): T {
+  db.run("BEGIN IMMEDIATE")
+  try {
+    const result = fn()
+    db.run("COMMIT")
+    return result
+  } catch (e) {
+    try { db.run("ROLLBACK") } catch { /* best-effort */ }
+    throw e
+  }
+}
 import {
   type WorkflowRunId,
   type WorkflowVersionId,
@@ -845,7 +871,7 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
     input: AuthoritativeMutationInput,
   ): Promise<AuthoritativeMutationResult> {
     const db = this.requireDb()
-    return db.transaction((): AuthoritativeMutationResult => {
+    return withImmediateTransaction(db, (): AuthoritativeMutationResult => {
       // BEGIN IMMEDIATE acquires the writer lock at the start of
       // the transaction; another process racing us blocks on the
       // SQLite file lock. bun:sqlite is single-writer; the
@@ -869,7 +895,7 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
         [input.runId, input.mutation, row.generation, row.authority_owner_id, Date.now()],
       )
       return { accepted: true, generation: row.generation as AuthorityGeneration, authorityOwnerId: row.authority_owner_id }
-    })()
+    })
   }
 
   /**
@@ -879,7 +905,7 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
    */
   async attemptEffectDispatch(input: EffectDispatchInput): Promise<EffectDispatchResult> {
     const db = this.requireDb()
-    return db.transaction((): EffectDispatchResult => {
+    return withImmediateTransaction(db, (): EffectDispatchResult => {
       const row = db.query(
         `SELECT generation, authority_owner_id FROM run_authority WHERE run_id = ?`,
       ).get(input.runId) as { generation: number; authority_owner_id: string } | null
@@ -904,7 +930,7 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
         generation: row.generation as AuthorityGeneration,
         authorityOwnerId: row.authority_owner_id,
       }
-    })()
+    })
   }
 
   /**
@@ -914,7 +940,7 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
    */
   async claimAuthority(input: ClaimAuthorityInput): Promise<ClaimAuthorityResult> {
     const db = this.requireDb()
-    return db.transaction((): ClaimAuthorityResult => {
+    return withImmediateTransaction(db, (): ClaimAuthorityResult => {
       const row = db.query(
         `SELECT generation, authority_owner_id, holder_pid FROM run_authority WHERE run_id = ?`,
       ).get(input.runId) as { generation: number; authority_owner_id: string; holder_pid: number } | null
@@ -947,14 +973,14 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
         currentGeneration: row.generation as AuthorityGeneration,
         currentAuthorityOwnerId: row.authority_owner_id,
       }
-    })()
+    })
   }
 
   async forceQualificationTakeover(
     input: QualificationTakeoverInput,
   ): Promise<QualificationTakeoverResult> {
     const db = this.requireDb()
-    return db.transaction((): QualificationTakeoverResult => {
+    return withImmediateTransaction(db, (): QualificationTakeoverResult => {
       const row = db.query(
         `SELECT generation, authority_owner_id FROM run_authority WHERE run_id = ?`,
       ).get(input.runId) as { generation: number; authority_owner_id: string } | null
@@ -981,7 +1007,7 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
         newGeneration: newGen as AuthorityGeneration,
         newAuthorityOwnerId: input.newAuthorityOwnerId,
       }
-    })()
+    })
   }
 }
 
@@ -1137,3 +1163,5 @@ async function raceNativeAuthorities(
 
 /** Convenience: re-export so adapter callers don't need a deep import. */
 export { assertCanonical, fromHostFloat64, canonicalEquals }
+
+

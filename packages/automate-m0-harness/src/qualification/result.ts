@@ -22,6 +22,7 @@ import type {
   FunctionalCriterionResult,
   QualificationStatus,
   CandidateInfo,
+  ResultProvenance,
 } from "./contract.ts"
 import type { AuthorityKind } from "@unifia/automate-m0-contract"
 
@@ -34,11 +35,34 @@ export class CandidateResultBuilder {
   private readonly seen = new Set<FunctionalCriterionId>()
   private readonly candidateInfo: CandidateInfo
   private readonly commit: string
+  private readonly provenance: ResultProvenance
   private replayModel: CandidateResultFile["replayModel"] = "NOT_MEASURED"
 
-  constructor(candidateInfo: CandidateInfo, commit: string) {
+  constructor(
+    candidateInfo: CandidateInfo,
+    commit: string,
+    provenance?: Partial<ResultProvenance>,
+  ) {
     this.candidateInfo = candidateInfo
     this.commit = commit
+    // Default provenance for a CUSTOM_GO_SQLITE_CONTROL or
+    // UNIFIA_NATIVE candidate. Callers (run-m0-qualification.ts
+    // and the harness entry points) MUST supply the real
+    // values for each candidate.
+    this.provenance = {
+      candidateImplementationId: provenance?.candidateImplementationId ?? `${candidateInfo.kind}@${candidateInfo.version}`,
+      candidateSourceCommit: provenance?.candidateSourceCommit ?? commit,
+      candidateBuildHash: provenance?.candidateBuildHash ?? candidateInfo.buildHash,
+      candidateBinaryDigest: provenance?.candidateBinaryDigest,
+      measurementHarnessCommit: provenance?.measurementHarnessCommit ?? commit,
+      oracleVersion: provenance?.oracleVersion ?? "1",
+      executionSubstrate: provenance?.executionSubstrate ?? candidateInfo.kind,
+      storageEngine: provenance?.storageEngine ?? candidateInfo.storage.engine,
+      adapterIdentity: provenance?.adapterIdentity ?? candidateInfo.kind,
+      realDbosApisUsed: provenance?.realDbosApisUsed ?? false,
+      platform: provenance?.platform ?? process.platform,
+      runtime: provenance?.runtime ?? `node ${process.version}`,
+    }
   }
 
   record(input: {
@@ -107,6 +131,7 @@ export class CandidateResultBuilder {
       summary,
       replayModel: this.replayModel,
       producedAt: new Date().toISOString(),
+      provenance: this.provenance,
     }
     await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, JSON.stringify(out, null, 2), "utf8")

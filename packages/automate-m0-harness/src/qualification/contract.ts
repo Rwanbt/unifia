@@ -656,6 +656,47 @@ export interface CandidateResultFile {
   readonly replayModel: "YES" | "NO" | "PARTIAL" | "NOT_MEASURED"
   /** When this file was produced. */
   readonly producedAt: string
+  /**
+   * Self-describing provenance (per Erwan review 2026-09-04).
+   * Every canonical M0 result file MUST carry these fields so a
+   * reviewer can verify the candidate identity, the source
+   * commit, the build hash, and whether real DBOS APIs were on
+   * the measured path.
+   */
+  readonly provenance: ResultProvenance
+}
+
+/**
+ * Self-describing provenance block on every canonical M0
+ * result. The `executionSubstrate` and `realDbosApisUsed`
+ * fields are the two key discriminators: they tell the
+ * reviewer which execution path produced the result.
+ */
+export interface ResultProvenance {
+  /** Implementation identity (e.g. "CUSTOM_GO_SQLITE_CONTROL@1.0.0", "DBOS_GO_V1@1.0.0"). */
+  readonly candidateImplementationId: string
+  /** Source commit of the candidate (Go binary or native harness). */
+  readonly candidateSourceCommit: string
+  /** Build hash of the candidate. */
+  readonly candidateBuildHash: string
+  /** SHA-256 of the candidate binary, if applicable. */
+  readonly candidateBinaryDigest?: string
+  /** Source commit of the measurement harness. */
+  readonly measurementHarnessCommit: string
+  /** Oracle version (the version of the qualification contract). */
+  readonly oracleVersion: string
+  /** Execution substrate (e.g. "CUSTOM_GO_SQLITE", "DBOS_GO_V1", "UNIFIA_NATIVE_BUN_SQLITE"). */
+  readonly executionSubstrate: string
+  /** Storage engine (e.g. "SQLite 3.x via bun:sqlite", "SQLite 3.x via modernc.org/sqlite v1.54.0"). */
+  readonly storageEngine: string
+  /** Adapter identity (e.g. "NativeSqliteCandidate", "DBOSGoCandidate@CUSTOM_GO_SQLITE_CONTROL"). */
+  readonly adapterIdentity: string
+  /** Whether real DBOS Conductor APIs are on the measured path. */
+  readonly realDbosApisUsed: boolean
+  /** Platform on which the result was produced. */
+  readonly platform: string
+  /** Runtime / toolchain (e.g. "Bun 1.3.14 / Go 1.25.12 / Windows 10"). */
+  readonly runtime: string
 }
 
 /** Expected N/A pre-declaration. */

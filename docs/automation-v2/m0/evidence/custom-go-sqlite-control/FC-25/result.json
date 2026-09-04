@@ -8,30 +8,30 @@
   "takeover": {
     "accepted": true,
     "previousGeneration": 1,
-    "previousAuthorityOwnerId": "owner-A-1788485579321",
+    "previousAuthorityOwnerId": "owner-A-1788485583116",
     "newGeneration": 2,
-    "newAuthorityOwnerId": "owner-B-1788485579321"
+    "newAuthorityOwnerId": "owner-B-1788485583116"
   },
   "newOwnerMutate": {
     "accepted": true,
     "generation": 2,
-    "authorityOwnerId": "owner-B-1788485579321"
+    "authorityOwnerId": "owner-B-1788485583116"
   },
   "staleMutate": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 2,
-    "currentAuthorityOwnerId": "owner-B-1788485579321"
+    "currentAuthorityOwnerId": "owner-B-1788485583116"
   },
   "staleDispatch": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 2,
-    "currentAuthorityOwnerId": "owner-B-1788485579321"
+    "currentAuthorityOwnerId": "owner-B-1788485583116"
   },
-  "runId": "run-fc25-1788485579321-14j2k4",
-  "ownerA": "owner-A-1788485579321",
-  "ownerB": "owner-B-1788485579321",
+  "runId": "run-fc25-1788485583116-ofa7ob",
+  "ownerA": "owner-A-1788485583116",
+  "ownerB": "owner-B-1788485583116",
   "staleTokenFencingPass": true,
   "distinctOsProcesses": 1,
   "oldOwnerAliveDuringTakeover": false,

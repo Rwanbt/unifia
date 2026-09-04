@@ -3,6 +3,6 @@
   "fail": 0,
   "observations": {},
   "restartObserved": true,
-  "adapterTopology": "in-process",
-  "isChildProcess": false
+  "adapterTopology": "child-process",
+  "isChildProcess": true
 }
