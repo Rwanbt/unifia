@@ -55,7 +55,7 @@ import {
 import { type WorkflowRunId } from "@unifia/automate-m0-contract"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
 
-const DBOS_REAL_TOOL_DIR = pathResolve(import.meta.dir, "..", "..", "..", "..", "tools", "dbos-real-qualify")
+const DBOS_REAL_TOOL_DIR = pathResolve(import.meta.dir, "..", "..", "..", "..", "..", "tools", "dbos-real-qualify")
 const DBOS_REAL_BINARY = join(DBOS_REAL_TOOL_DIR, "dbos-real-qualify.exe")
 
 async function jsonCall<T>(base: string, path: string, opts: { method?: "GET" | "POST"; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
