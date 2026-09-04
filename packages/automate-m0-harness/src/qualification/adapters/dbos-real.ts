@@ -55,6 +55,7 @@ import {
 } from "../contract.ts"
 import { type WorkflowRunId, type AttemptId } from "@unifia/automate-m0-contract"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
+import { QualificationNotImplemented } from "../errors.ts"
 
 const DBOS_REAL_TOOL_DIR = pathResolve(import.meta.dir, "..", "..", "..", "..", "..", "tools", "dbos-real-qualify")
 const DBOS_REAL_BINARY = join(DBOS_REAL_TOOL_DIR, "dbos-real-qualify.exe")
@@ -65,12 +66,14 @@ const DBOS_REAL_BINARY = join(DBOS_REAL_TOOL_DIR, "dbos-real-qualify.exe")
  * Per mandate §8-§13:
  *   - WorkflowRunId is generated independently (UUID-style)
  *     and passed to the binary as the DBOS root WorkflowID.
- *   - AttemptId is a new durable identity per retry; the
- *     binary's DBOS WorkflowID for an attempt includes the
- *     AttemptId so two retries do not replay each other.
+ *   - AttemptId is allocated durably by the binary's
+ *     `attempt_sequence` table (NOT wall-clock or random).
+ *     Two retries of the same (runId, liId) yield two
+ *     DISTINCT AttemptIds with monotonic sequence numbers.
+ *     After a process restart the sequence resumes from the
+ *     durable state — there is no in-process counter.
  */
 function generateRunId(): string { return `run-${randomUUID()}` }
-function generateAttemptId(attemptN: number): AttemptId { return `att-${attemptN}-${randomUUID()}` as AttemptId }
 
 async function jsonCall<T>(base: string, path: string, opts: { method?: "GET" | "POST"; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const ac = new AbortController()
@@ -218,13 +221,18 @@ export class DBOSRealCandidate implements DurableWorkflowAuthorityQualificationA
   }
 
   async driveAttempt(runId: string, logicalInvocationId: string, providerResponse: ProviderResolution): Promise<CanonicalAttemptState> {
-    // Per mandate §12: durable AttemptId is part of the
-    // attempt identity. We mint a new one per driveAttempt
-    // call. The harness may invoke driveAttempt multiple
-    // times for the same (runId, liId) on retry; each call
-    // produces a fresh AttemptId and a distinct DBOS attempt
-    // workflow.
-    const attemptId = generateAttemptId(Date.now())
+    // Per mandate §3-§7: AttemptId is durable, NOT wall-clock
+    // or random. The binary's `attempt_sequence` table is
+    // the canonical authority. We POST to `/attempts/next`
+    // to atomically read+increment the per-(runId, liId)
+    // sequence and return the canonical AttemptId. The same
+    // (runId, liId) always yields the next monotonic
+    // sequence number, durable across process restarts.
+    const { attemptId } = await jsonCall<{ attemptId: string; sequence: number }>(this.requireBase(), `/attempts/next`, {
+      method: "POST",
+      body: { runId, logicalInvocationId },
+      timeoutMs: 10_000,
+    })
     return await jsonCall<CanonicalAttemptState>(this.requireBase(), `/runs/${encodeURIComponent(runId)}/invocations/${encodeURIComponent(logicalInvocationId)}/attempts`, {
       method: "POST",
       body: {
@@ -243,16 +251,17 @@ export class DBOSRealCandidate implements DurableWorkflowAuthorityQualificationA
   }
 
   // The remaining operations are not yet exercised by the
-  // DBOS real candidate in this initial commit. Each throws
-  // NOT_IMPLEMENTED with a clear reason; the real DBOS Go
-  // candidate exposes these via future endpoints.
-  async provideApproval(_request: ApprovalRequestInput): Promise<void> { throw new Error("DBOS real: provideApproval not yet implemented (D-02 V4 pending)") }
-  async resolveApproval(_id: string, _state: "APPROVED" | "DENIED", _actor: { id: string; kind: "PRINCIPAL" }, _resolve: ApprovalResolveInput): Promise<ApprovalOutcome> { throw new Error("DBOS real: resolveApproval not yet implemented") }
-  async cancelApproval(_id: string, _actor: { id: string; kind: "PRINCIPAL" | "SYSTEM_CANCEL" }, _reason: string): Promise<ApprovalOutcome> { throw new Error("DBOS real: cancelApproval not yet implemented") }
-  async approvalHistory(_id: string): Promise<readonly ApprovalHistoryEvent[]> { throw new Error("DBOS real: approvalHistory not yet implemented") }
-  async inspectApproval(_id: string): Promise<ApprovalOutcome> { throw new Error("DBOS real: inspectApproval not yet implemented") }
-  async scheduleTimer(_request: DurableTimerRequest): Promise<void> { throw new Error("DBOS real: scheduleTimer not yet implemented") }
-  async inspectTimer(_id: string): Promise<DurableTimerSnapshot> { throw new Error("DBOS real: inspectTimer not yet implemented") }
+  // DBOS real candidate. Each throws a typed
+  // `QualificationNotImplemented` so the harness classifies
+  // them as NOT_IMPLEMENTED in the canonical M0 result
+  // (mandate §19-§20) — never as FAIL_CORRECTABLE.
+  async provideApproval(_request: ApprovalRequestInput): Promise<void> { throw new QualificationNotImplemented("approval", "DBOS real: provideApproval not yet wired (D-02 V4 pending)") }
+  async resolveApproval(_id: string, _state: "APPROVED" | "DENIED", _actor: { id: string; kind: "PRINCIPAL" }, _resolve: ApprovalResolveInput): Promise<ApprovalOutcome> { throw new QualificationNotImplemented("approval", "DBOS real: resolveApproval not yet wired (D-02 V4 pending)") }
+  async cancelApproval(_id: string, _actor: { id: string; kind: "PRINCIPAL" | "SYSTEM_CANCEL" }, _reason: string): Promise<ApprovalOutcome> { throw new QualificationNotImplemented("approval", "DBOS real: cancelApproval not yet wired (D-02 V4 pending)") }
+  async approvalHistory(_id: string): Promise<readonly ApprovalHistoryEvent[]> { throw new QualificationNotImplemented("approval", "DBOS real: approvalHistory not yet wired (D-02 V4 pending)") }
+  async inspectApproval(_id: string): Promise<ApprovalOutcome> { throw new QualificationNotImplemented("approval", "DBOS real: inspectApproval not yet wired (D-02 V4 pending)") }
+  async scheduleTimer(_request: DurableTimerRequest): Promise<void> { throw new QualificationNotImplemented("timer", "DBOS real: scheduleTimer not yet wired (ADR-008 worker pending)") }
+  async inspectTimer(_id: string): Promise<DurableTimerSnapshot> { throw new QualificationNotImplemented("timer", "DBOS real: inspectTimer not yet wired (ADR-008 worker pending)") }
   async forceProcessCrash(): Promise<void> { if (this.proc) { try { this.proc.kill("SIGKILL") } catch { /* noop */ }; this.proc = null; this.baseUrl = null } }
   async reopen(): Promise<void> { if (this.proc) return; const p = await spawnDBOSReal(this.storeDir); this.proc = p.proc; this.baseUrl = p.baseUrl }
   async createBackup(): Promise<BackupRef> { return { handle: "noop", sizeBytes: 0, takenAtEpochMs: Date.now(), kind: "engine-native" } }

@@ -675,6 +675,7 @@ export type QualificationStatus =
   | "BLOCKED"
   | "NOT_VALID"
   | "NOT_IMPLEMENTED"
+  | "HARNESS_ERROR"
 
 /** Stable identifier of a Functional Criterion. */
 export type FunctionalCriterionId =

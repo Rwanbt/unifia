@@ -45,6 +45,7 @@ import type {
   ZombieFC25Result,
 } from "./contract.ts"
 import { CandidateResultBuilder, ExpectedNABuilder, evidencePath, resultsPath, expectedNAPath, blockedNote } from "./result.ts"
+import { classifyQualificationError } from "./errors.ts"
 import { FC_31A_VALUES, FC_31B_VECTORS, bitsToFloat64 } from "./vectors/fc31-fixtures.ts"
 import { FakeExternalEffectProvider } from "./providers/fake-external.ts"
 
@@ -188,6 +189,14 @@ export class QualificationRunner {
           await this.runOne(fc)
         } catch (e) {
           const folder = evidencePath(this.opts.outputRoot, info.kind, fc)
+          // Mandate §19-§20: classify the exception precisely
+          // instead of mechanically mapping every error to
+          // FAIL_CORRECTABLE. QualificationNotImplemented maps
+          // to NOT_IMPLEMENTED (the candidate capability has
+          // not been wired), QualificationBlocked to BLOCKED,
+          // etc. Unclassified exceptions are HARNESS_ERROR
+          // and indicate a harness bug, not candidate evidence.
+          const classified = classifyQualificationError(fc, e)
           const errorPath = await writeEvidence(
             folder,
             "error.txt",
@@ -195,10 +204,10 @@ export class QualificationRunner {
           )
           this.builder.record({
             testId: fc,
-            status: "FAIL_CORRECTABLE",
+            status: classified.status,
             evidencePath: errorPath,
-            note: `Runner exception: ${(e as Error).message}`,
-            observations: { exception: (e as Error).name },
+            note: classified.message,
+            observations: { exception: classified.name },
           })
         }
       }

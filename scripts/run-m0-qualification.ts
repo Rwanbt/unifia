@@ -453,24 +453,36 @@ function publish(run: CandidateRun, generationId: string, sourceCommit: string):
   })
 
   // 7. Rewrite evidencePath values in the staged result to
-  // their canonical repo-relative form.
+  // their canonical repo-relative form (mandate §16-§18).
+  // The path can be any filename under
+  // `<staging>/<slug>/<FC>/<filename>` — not just result.json.
+  // Generic rule:
+  //   - reject absolute Windows / POSIX / file:// paths
+  //   - reject path-escape attempts (../, ..\)
+  //   - rewrite to `docs/automation-v2/m0/evidence/<slug>/<FC>/<filename>`
   const staged = JSON.parse(require("node:fs").readFileSync(publicationResult, "utf8")) as CandidateResultFile
   for (const t of staged.results) {
     if (t.evidencePath) {
       const norm = t.evidencePath.replaceAll("\\", "/")
-      const m = norm.match(new RegExp(`/(${candidateSlug})/(FC-[^/]+)/result\\.json$`, "i"))
+      // Reject absolute paths and protocol escapes.
+      if (/^[a-z]:\//i.test(norm) || norm.startsWith("/") || norm.startsWith("file://")) {
+        throw new Error(`evidencePath is absolute or has a protocol prefix: ${t.evidencePath}`)
+      }
+      if (norm.includes("..")) {
+        throw new Error(`evidencePath contains '..' (path-escape attempt): ${t.evidencePath}`)
+      }
+      // Match `<staging>/<slug>/<FC>/<filename>` and rewrite
+      // to canonical repo-relative form.
+      const m = norm.match(new RegExp(`/(${candidateSlug})/(FC-[^/]+)/([^/]+)$`, "i"))
       if (m) {
         const fc = m[2]
-        t.evidencePath = `docs/automation-v2/m0/evidence/${candidateSlug}/${fc}/result.json`
+        const file = m[3]
+        t.evidencePath = `docs/automation-v2/m0/evidence/${candidateSlug}/${fc}/${file}`
       } else {
-        console.warn(`  [WARN] could not relativize evidencePath: ${t.evidencePath}`)
+        throw new Error(`evidencePath does not match canonical staging layout: ${t.evidencePath}`)
       }
     }
   }
-  // Also stamp the staged result with publication metadata
-  // (it was already stamped at write-time, but normalize
-  // evidencePath values which point to the canonical
-  // location now, not the staging dir).
   require("node:fs").writeFileSync(publicationResult, JSON.stringify(staged, null, 2), "utf8")
 
   // 8. Atomic swap. We use rename() on the same filesystem
