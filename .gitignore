@@ -30,6 +30,10 @@ target
 # M0 qualification scratch / debug artefacts (never canonical)
 packages/automate-m0-harness/test/dbos-real-debug.test.ts
 .tools/go/
+# M0 atomic-publication staging dir (transient, replaced each run)
+docs/automation-v2/m0/.publish-staging/
+# M0 diagnostic runs (NON_CANONICAL_DIAGNOSTIC_MODE=1)
+.tmp/m0-diagnostic/
 
 # Local dev files
 unifia-dev
