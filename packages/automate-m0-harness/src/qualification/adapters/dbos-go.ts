@@ -835,11 +835,19 @@ async function raceCUSTOMGoAuthorities(
       return { status: r.status, body }
     })
     const [aRes, bRes] = await Promise.all([claimA, claimB])
-    // Both claim responses are now objects of shape { status, body: ClaimResult }.
-    // The Go binary returns 200 on granted and 403 on rejected; the body of a
-    // 403 is the standard error envelope { code, message, path } — not a
-    // ClaimResult. We must detect the rejection via the HTTP status.
-    const winnerA = aRes.status === 200
+    // The Go binary always returns 200; the JSON body's
+    // `granted` field is the source of truth. A 403 means the
+    // body is an error envelope (not a ClaimResult).
+    const aGranted = aRes.status === 200 && aRes.body.granted === true
+    const bGranted = bRes.status === 200 && bRes.body.granted === true
+    const winnerA = aGranted && !bGranted
+    const winnerB = bGranted && !aGranted
+    if (!winnerA && !winnerB) {
+      throw new Error(
+        `raceCUSTOMGoAuthorities: ambiguous race outcome aGranted=${aGranted} bGranted=${bGranted} ` +
+        `(a.body=${JSON.stringify(aRes.body)} b.body=${JSON.stringify(bRes.body)})`,
+      )
+    }
     const winner = winnerA ? { res: aRes, proc: procA, ownerId: input.participantA.authorityOwnerId, pid: procA.pid } : { res: bRes, proc: procB, ownerId: input.participantB.authorityOwnerId, pid: procB.pid }
     const loser = winnerA ? { res: bRes, proc: procB, ownerId: input.participantB.authorityOwnerId, pid: procB.pid } : { res: aRes, proc: procA, ownerId: input.participantA.authorityOwnerId, pid: procA.pid }
     // Inspect the persisted state on the winner's process.
@@ -856,14 +864,14 @@ async function raceCUSTOMGoAuthorities(
       concurrentRace: true,
       distinctOsProcesses: 2,
       claimA: {
-        granted: aRes.status === 200,
+        granted: aGranted,
         currentAuthorityOwnerId: aRes.body.authorityOwnerId ?? "",
         currentGeneration: (aRes.body.currentGeneration ?? 0) as AuthorityGeneration,
         attemptedGeneration: 1 as AuthorityGeneration,
         holderPid: aRes.body.holderPid ?? null,
       },
       claimB: {
-        granted: bRes.status === 200,
+        granted: bGranted,
         currentAuthorityOwnerId: bRes.body.authorityOwnerId ?? "",
         currentGeneration: (bRes.body.currentGeneration ?? 0) as AuthorityGeneration,
         attemptedGeneration: 1 as AuthorityGeneration,
