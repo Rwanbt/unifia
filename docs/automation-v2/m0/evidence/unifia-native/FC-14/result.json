@@ -2,36 +2,36 @@
   "measured": true,
   "concurrentRace": true,
   "distinctOsProcesses": 2,
-  "winnerProcessLocalOwnerId": "owner-A-1788510812317-w7hns8",
-  "loserProcessLocalOwnerId": "owner-B-1788510812317-log3vc",
-  "currentPersistedAuthorityOwnerId": "owner-A-1788510812317-w7hns8",
-  "winnerOwnerId": "owner-A-1788510812317-w7hns8",
-  "loserOwnerId": "owner-A-1788510812317-w7hns8",
-  "winnerPid": 16328,
-  "loserPid": 8180,
+  "winnerProcessLocalOwnerId": "owner-A-1788514972396-purp74",
+  "loserProcessLocalOwnerId": "owner-B-1788514972396-510n4j",
+  "currentPersistedAuthorityOwnerId": "owner-A-1788514972396-purp74",
+  "winnerOwnerId": "owner-A-1788514972396-purp74",
+  "loserOwnerId": "owner-A-1788514972396-purp74",
+  "winnerPid": 15420,
+  "loserPid": 14548,
   "finalGeneration": 1,
   "winnerMutate": {
     "accepted": true,
     "generation": 1,
-    "authorityOwnerId": "owner-A-1788510812317-w7hns8"
+    "authorityOwnerId": "owner-A-1788514972396-purp74"
   },
   "loserMutate": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 1,
-    "currentAuthorityOwnerId": "owner-A-1788510812317-w7hns8"
+    "currentAuthorityOwnerId": "owner-A-1788514972396-purp74"
   },
   "winnerDispatch": {
     "accepted": true,
-    "effectKey": "ek-fc14-1788510812715",
+    "effectKey": "ek-fc14-1788514972864",
     "generation": 1,
-    "authorityOwnerId": "owner-A-1788510812317-w7hns8"
+    "authorityOwnerId": "owner-A-1788514972396-purp74"
   },
   "loserDispatch": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 1,
-    "currentAuthorityOwnerId": "owner-A-1788510812317-w7hns8"
+    "currentAuthorityOwnerId": "owner-A-1788514972396-purp74"
   },
   "winnerMutateAccepted": true,
   "loserMutateRejected": true,

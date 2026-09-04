@@ -4,7 +4,7 @@
   "candidateInfo": {
     "kind": "UNIFIA_NATIVE",
     "version": "0.0.0-m0-qual-cp6.3",
-    "buildHash": "qual-m0-cp6.3-1788510811161",
+    "buildHash": "qual-m0-cp6.3-1788514969984",
     "storage": {
       "engine": "SQLite 3.x (via bun:sqlite in M0; better-sqlite3 candidate for production)",
       "driver": "bun:sqlite (Bun built-in, M0 env)",
@@ -25,7 +25,7 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "PASS",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-31A/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
+      "commit": "qual-m0-cp6.3-1788514969984",
       "note": "21/21 canonical values survived a candidate restart (close+reopen on same durable store). 0 mismatches.",
       "observations": {
         "pass": 21,
@@ -39,7 +39,7 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "PASS",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-31B/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
+      "commit": "qual-m0-cp6.3-1788514969984",
       "note": "13/13 host-integer/float64 separation cases handled correctly.",
       "observations": {
         "pass": 13,
@@ -52,7 +52,7 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "NOT_VALID",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-04/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
+      "commit": "qual-m0-cp6.3-1788514969984",
       "note": "FC-04 NOT_VALID: the harness uses `ackLost: true` as a magic flag, not a real transport-level ACK loss from an independent external provider. UNIFIA_NATIVE has no in-process exception per pack gelé §18. Reclassified from CP4 PASS.",
       "observations": {
         "attemptStatus": "UNKNOWN_EXTERNAL_STATE",
@@ -74,42 +74,42 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "PASS",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-14/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
-      "note": "FC-14 PASS: 2 distinct OS processes raced for authority on runId=run-fc14-1788510812317-efxpfd. Winner (ownerId=owner-A-1788510812317-w7hns8 pid=16328) mutated and dispatched successfully. Loser (ownerId=owner-B-1788510812317-log3vc pid=8180) was REJECTED on both mutate and dispatch.",
+      "commit": "qual-m0-cp6.3-1788514969984",
+      "note": "FC-14 PASS: 2 distinct OS processes raced for authority on runId=run-fc14-1788514972396-9boluc. Winner (ownerId=owner-A-1788514972396-purp74 pid=15420) mutated and dispatched successfully. Loser (ownerId=owner-B-1788514972396-510n4j pid=14548) was REJECTED on both mutate and dispatch.",
       "observations": {
         "measured": true,
         "concurrentRace": true,
         "distinctOsProcesses": 2,
-        "winnerProcessLocalOwnerId": "owner-A-1788510812317-w7hns8",
-        "loserProcessLocalOwnerId": "owner-B-1788510812317-log3vc",
-        "currentPersistedAuthorityOwnerId": "owner-A-1788510812317-w7hns8",
-        "winnerOwnerId": "owner-A-1788510812317-w7hns8",
-        "loserOwnerId": "owner-A-1788510812317-w7hns8",
-        "winnerPid": 16328,
-        "loserPid": 8180,
+        "winnerProcessLocalOwnerId": "owner-A-1788514972396-purp74",
+        "loserProcessLocalOwnerId": "owner-B-1788514972396-510n4j",
+        "currentPersistedAuthorityOwnerId": "owner-A-1788514972396-purp74",
+        "winnerOwnerId": "owner-A-1788514972396-purp74",
+        "loserOwnerId": "owner-A-1788514972396-purp74",
+        "winnerPid": 15420,
+        "loserPid": 14548,
         "finalGeneration": 1,
         "winnerMutate": {
           "accepted": true,
           "generation": 1,
-          "authorityOwnerId": "owner-A-1788510812317-w7hns8"
+          "authorityOwnerId": "owner-A-1788514972396-purp74"
         },
         "loserMutate": {
           "accepted": false,
           "reason": "STALE_AUTHORITY",
           "currentGeneration": 1,
-          "currentAuthorityOwnerId": "owner-A-1788510812317-w7hns8"
+          "currentAuthorityOwnerId": "owner-A-1788514972396-purp74"
         },
         "winnerDispatch": {
           "accepted": true,
-          "effectKey": "ek-fc14-1788510812715",
+          "effectKey": "ek-fc14-1788514972864",
           "generation": 1,
-          "authorityOwnerId": "owner-A-1788510812317-w7hns8"
+          "authorityOwnerId": "owner-A-1788514972396-purp74"
         },
         "loserDispatch": {
           "accepted": false,
           "reason": "STALE_AUTHORITY",
           "currentGeneration": 1,
-          "currentAuthorityOwnerId": "owner-A-1788510812317-w7hns8"
+          "currentAuthorityOwnerId": "owner-A-1788514972396-purp74"
         },
         "winnerMutateAccepted": true,
         "loserMutateRejected": true,
@@ -122,14 +122,14 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "PASS",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-25/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
-      "note": "FC-25 PASS: 2 live OS processes (pid=5268 + parent adapter); A claimed gen=1, A blocked on /await-resume (frozen=true, alive=true), takeover to B at gen=2, B commit ACCEPTED, A resumed and stale mutate+dispatch REJECTED.",
+      "commit": "qual-m0-cp6.3-1788514969984",
+      "note": "FC-25 PASS: 2 live OS processes (pid=11868 + parent adapter); A claimed gen=1, A blocked on /await-resume (frozen=true, alive=true), takeover to B at gen=2, B commit ACCEPTED, A resumed and stale mutate+dispatch REJECTED.",
       "observations": {
         "measured": true,
         "distinctOsProcesses": 2,
         "oldOwnerAliveDuringTakeover": true,
         "oldOwnerDidNotReleaseBeforeTakeover": true,
-        "oldOwnerPid": 5268,
+        "oldOwnerPid": 11868,
         "newGenerationGreaterThanOld": true,
         "newOwnerCommitAccepted": true,
         "staleOwnerCommitRejected": true,
@@ -137,8 +137,8 @@
         "takeover": {
           "previousGeneration": 1,
           "newGeneration": 2,
-          "previousAuthorityOwnerId": "zombie-A-1788510812723-38hq34",
-          "newAuthorityOwnerId": "zombie-B-1788510812723-92u4lf"
+          "previousAuthorityOwnerId": "zombie-A-1788514972878-h14sb1",
+          "newAuthorityOwnerId": "zombie-B-1788514972878-rcr7pw"
         },
         "newOwnerMutate": {
           "accepted": true
@@ -151,9 +151,9 @@
           "accepted": false,
           "reason": "STALE_AUTHORITY"
         },
-        "runId": "run-fc25-zombie-1788510812722-c5ffp8",
-        "ownerA": "zombie-A-1788510812723-38hq34",
-        "ownerB": "zombie-B-1788510812723-92u4lf"
+        "runId": "run-fc25-zombie-1788514972878-r6vhnm",
+        "ownerA": "zombie-A-1788514972878-h14sb1",
+        "ownerB": "zombie-B-1788514972878-rcr7pw"
       }
     },
     {
@@ -161,7 +161,7 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "NOT_VALID",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-32/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
+      "commit": "qual-m0-cp6.3-1788514969984",
       "note": "FC-32 NOT_VALID: replay model is declared, not measured. The M0 surface does not drive a workflow function; the harness cannot observe what the candidate replays. To unblock: implement a controlled recovery scenario (T1/R1/O1 → crash → T2/R2/O2) that exercises the candidate's actual orchestration code. See observations.requiredMethodology.",
       "observations": {
         "measured": false,
@@ -175,7 +175,7 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "BLOCKED",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-13-CTRL/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
+      "commit": "qual-m0-cp6.3-1788514969984",
       "note": "BLOCKED (NO_METHODOLOGY): No power-loss / fault-injection layer available in this harness host. Validated options that are NOT available: (1) VM with virtual disk + abrupt ACPI off, (2) `scsi_debug` / `fault-inject` / `fltmc`, (3) `dm-thin` suspend/resume, (4) block-device fault layer. `kill -9` and `process.kill()` are NOT acceptable — they prove process crash, not power-loss. To unblock: provision a disposable VM with virtual disk + scripted power-cycle, or a fault-injection layer; produce scripts + docs; rerun FC-13-CTRL.",
       "observations": {
         "blockedReason": "NO_METHODOLOGY",
@@ -189,7 +189,7 @@
       "candidate": "UNIFIA_NATIVE",
       "status": "BLOCKED",
       "evidencePath": "docs/automation-v2/m0/evidence/unifia-native/FC-13/result.json",
-      "commit": "qual-m0-cp6.3-1788510811161",
+      "commit": "qual-m0-cp6.3-1788514969984",
       "note": "BLOCKED (NO_METHODOLOGY): FC-13 cannot be exercised: no fault-injection layer / VM control / reproducible storage fault. FC-13 depends on FC-13-CTRL first (negative control must lose) — if FC-13-CTRL is not executable, FC-13 cannot yield a valid result either. Both are BLOCKED in the same M0 env.",
       "observations": {
         "blockedReason": "NO_METHODOLOGY",
@@ -209,12 +209,12 @@
     "notValid": 2
   },
   "replayModel": "NOT_MEASURED",
-  "producedAt": "2026-09-04T08:33:33.102Z",
+  "producedAt": "2026-09-04T09:42:53.308Z",
   "provenance": {
     "candidateImplementationId": "UNIFIA_NATIVE_BUN_SQLITE@0.0.0-m0-qual-cp6.3",
-    "candidateSourceCommit": "19743a0551ad605772759af6d4a074f99291832a",
-    "candidateBuildHash": "qual-m0-cp6.3-1788510811161",
-    "measurementHarnessCommit": "19743a0551ad605772759af6d4a074f99291832a",
+    "candidateSourceCommit": "d991511cc65cf8894160ff3417507400bf8afb74",
+    "candidateBuildHash": "qual-m0-cp6.3-1788514969984",
+    "measurementHarnessCommit": "d991511cc65cf8894160ff3417507400bf8afb74",
     "oracleVersion": "1.1.0-cp6.3",
     "executionSubstrate": "UNIFIA_NATIVE_BUN_SQLITE",
     "storageEngine": "SQLite 3.x via bun:sqlite (M0 env)",
