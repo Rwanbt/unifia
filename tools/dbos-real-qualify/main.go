@@ -126,9 +126,18 @@ func StartRunWorkflow(ctx dbos.Context, in StartRunInput) (StartRunOutput, error
 		return StartRunOutput{}, fmt.Errorf("persist-invocation: %w", err)
 	}
 	// Step 3: persist canonical observation. The step's
-	// return value IS the canonical seed, stored durably.
-	if _, err := dbos.RunAsStep(ctx, func(ctx context.Context) (string, error) {
-		return in.SeedCanonicalJSON, nil
+	// return value is the canonical seed, stored durably.
+	// We parse the JSON-encoded seed into a typed value
+	// so DBOS persists the typed value (number, string,
+	// object, etc.) and the harness's canonicalEquals
+	// can match it bit-exact against the typed fixture.
+	if _, err := dbos.RunAsStep(ctx, func(ctx context.Context) (any, error) {
+		var v any
+		if jerr := json.Unmarshal([]byte(in.SeedCanonicalJSON), &v); jerr != nil {
+			// Fall back to the raw string.
+			return in.SeedCanonicalJSON, nil
+		}
+		return v, nil
 	}, dbos.WithStepName("persist-canonical-observation")); err != nil {
 		return StartRunOutput{}, fmt.Errorf("persist-canonical-observation: %w", err)
 	}
