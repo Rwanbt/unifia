@@ -3,7 +3,7 @@
   "distinctOsProcesses": 2,
   "oldOwnerAliveDuringTakeover": true,
   "oldOwnerDidNotReleaseBeforeTakeover": true,
-  "oldOwnerPid": 15096,
+  "oldOwnerPid": 2776,
   "newGenerationGreaterThanOld": true,
   "newOwnerCommitAccepted": true,
   "staleOwnerCommitRejected": true,
@@ -11,8 +11,8 @@
   "takeover": {
     "previousGeneration": 1,
     "newGeneration": 2,
-    "previousAuthorityOwnerId": "zombie-A-1788518545743-o61t6z",
-    "newAuthorityOwnerId": "zombie-B-1788518545743-bx4hwo"
+    "previousAuthorityOwnerId": "zombie-A-1788519980747-9b8dzz",
+    "newAuthorityOwnerId": "zombie-B-1788519980747-9gzqwo"
   },
   "newOwnerMutate": {
     "accepted": true
@@ -25,10 +25,10 @@
     "accepted": false,
     "reason": "STALE_AUTHORITY"
   },
-  "runId": "run-fc25-zombie-1788518545743-0ek2vx",
-  "ownerA": "zombie-A-1788518545743-o61t6z",
-  "ownerB": "zombie-B-1788518545743-bx4hwo",
-  "qualificationGenerationId": "gen-1788518544414-dnaz2m",
+  "runId": "run-fc25-zombie-1788519980747-2vkg3u",
+  "ownerA": "zombie-A-1788519980747-9b8dzz",
+  "ownerB": "zombie-B-1788519980747-9gzqwo",
+  "qualificationGenerationId": "gen-1788519979771-j06y8g",
   "candidate": "UNIFIA_NATIVE",
   "testId": "FC-25",
   "evidenceFreshness": "CURRENT",
