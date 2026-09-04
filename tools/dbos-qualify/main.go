@@ -1428,6 +1428,7 @@ func (s *Server) Serve() (string, error) {
 		})
 	})
 	// /admin/backup
+	mux.HandleFunc("/admin/backup", func(w http.ResponseWriter, r *http.Request) {
 		handle, err := s.CreateBackup()
 		if err != nil { writeErr(w, 500, err); return }
 		writeJSON(w, 200, map[string]string{"handle": handle})

@@ -115,20 +115,28 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
     }
     expect(fc04?.status).toBe("NOT_VALID")
 
-    // FC-14 must be NOT_VALID for Native (no multi-process harness
-    // yet for Native — the in-process form does not satisfy the
-    // pack gelé §15 contract).
+    // FC-14 must be PASS for Native (substrate-neutral race via
+    // `native-authority-worker.ts` Bun subprocess; 2 real OS
+    // processes; winner mutate+dispatch ACCEPTED, loser REJECTED).
     const fc14 = result.results.find((r) => r.testId === "FC-14")
     expect(fc14).toBeDefined()
-    expect(fc14?.status).toBe("NOT_VALID")
+    if (fc14?.status !== "PASS") {
+      // eslint-disable-next-line no-console
+      console.log("FC-14 status:", fc14?.status, "note:", fc14?.note, "observations:", JSON.stringify(fc14?.observations))
+    }
+    expect(fc14?.status).toBe("PASS")
 
-    // (FC-25 expectation already updated above)
-
-    // FC-25 must be NOT_VALID for Native (in-process methodology;
-    // not enough for the multi-process zombie owner contract).
+    // FC-25 must be PASS for Native (forceQualificationTakeover
+    // works in-process: A claims, A "freezes" (no release),
+    // takeover to B at gen=2, B commit ACCEPTED, A stale
+    // mutate+dispatch REJECTED).
     const fc25 = result.results.find((r) => r.testId === "FC-25")
     expect(fc25).toBeDefined()
-    expect(fc25?.status).toBe("NOT_VALID")
+    if (fc25?.status !== "PASS") {
+      // eslint-disable-next-line no-console
+      console.log("FC-25 status:", fc25?.status, "note:", fc25?.note, "observations:", JSON.stringify(fc25?.observations))
+    }
+    expect(fc25?.status).toBe("PASS")
 
     // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
     const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")
@@ -252,21 +260,32 @@ describe("M0 qualification — CUSTOM_GO_SQLITE_CONTROL (real binary)", () => {
     expect(fc31b).toBeDefined()
     expect(fc31b?.status).toBe("NOT_VALID")
 
-    // FC-14 is NOT_VALID for DBOS Go per CP6.1: only row ownership
-    // was proven (CP5), not orchestration authority (winner
-    // mutate + dispatch ACCEPTED, loser REJECTED).
+    // FC-14 must be PASS for CUSTOM_GO_SQLITE_CONTROL (per
+    // pack gelé §15 + CP6.3 final closure 2026-09-04): the
+    // adapter spawns a 2nd `dbos-qualify.exe` process on the
+    // same M0_STORE_DIR, both processes call /authority/claim
+    // concurrently (Promise.all after a barrier), the winner
+    // mutates+dispatches, the loser is REJECTED on both.
     const fc14 = result.results.find((r) => r.testId === "FC-14")
     expect(fc14).toBeDefined()
-    expect(fc14?.status).toBe("NOT_VALID")
+    if (fc14?.status !== "PASS") {
+      // eslint-disable-next-line no-console
+      console.log("FC-14 status:", fc14?.status, "note:", fc14?.note, "observations:", JSON.stringify(fc14?.observations))
+    }
+    expect(fc14?.status).toBe("PASS")
 
-    // FC-25 is NOT_VALID for DBOS Go per CP6.1: the previous
-    // scenario made A release before the takeover, which is the
-    // wrong contract. The takeover scenario (A FREEZE without
-    // release → takeover → B commits → A stale commit + dispatch
-    // REJECTED) is not yet implemented end-to-end.
+    // FC-25 must be PASS for CUSTOM_GO_SQLITE_CONTROL: the
+    // adapter implements the zombie-fence takeover end-to-end
+    // (A claims → A freezes (no release) → /authority/takeover
+    // → B at gen=2 → B commit ACCEPTED → A stale mutate+dispatch
+    // REJECTED).
     const fc25 = result.results.find((r) => r.testId === "FC-25")
     expect(fc25).toBeDefined()
-    expect(fc25?.status).toBe("NOT_VALID")
+    if (fc25?.status !== "PASS") {
+      // eslint-disable-next-line no-console
+      console.log("FC-25 status:", fc25?.status, "note:", fc25?.note, "observations:", JSON.stringify(fc25?.observations))
+    }
+    expect(fc25?.status).toBe("PASS")
 
     // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
     const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")

@@ -73,6 +73,8 @@ import type {
   EffectDispatchResult,
   QualificationTakeoverInput,
   QualificationTakeoverResult,
+  ClaimAuthorityInput,
+  ClaimAuthorityResult,
 } from "../contract.ts"
 
 /* ------------------------------------------------------------------ */
@@ -540,10 +542,11 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
    * concurrent claim, exactly one winner.
    */
   async raceAuthorities(input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult> {
-    if (input.sharedStore !== this.storeDir) {
-      throw new Error(`raceAuthorities: sharedStore=${input.sharedStore} does not match adapter storeDir=${this.storeDir}`)
+    const storeDir = input.sharedStore === "" ? this.storeDir : input.sharedStore
+    if (storeDir !== this.storeDir) {
+      throw new Error(`raceAuthorities: sharedStore=${storeDir} does not match adapter storeDir=${this.storeDir}`)
     }
-    return await raceCUSTOMGoAuthorities(this.storeDir, input)
+    return await raceCUSTOMGoAuthorities(storeDir, input)
   }
 
   async attemptAuthoritativeMutation(
@@ -656,6 +659,51 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
       throw e
     }
   }
+
+  async claimAuthority(input: ClaimAuthorityInput): Promise<ClaimAuthorityResult> {
+    const base = this.requireBase()
+    try {
+      const r = await jsonCall<{
+        granted: boolean
+        runId: string
+        currentGeneration: number
+        attemptedGeneration: number
+        authorityOwnerId: string
+        holderPid: number
+        transactionLockMode: string
+      }>(base, `/authority/claim?runId=${encodeURIComponent(input.runId)}`, {
+        method: "POST",
+        body: { attemptedGeneration: 1, authorityOwnerId: input.authorityOwnerId },
+        timeoutMs: 5_000,
+      })
+      if (r.granted) {
+        return {
+          granted: true,
+          currentGeneration: r.currentGeneration as AuthorityGeneration,
+          currentAuthorityOwnerId: r.authorityOwnerId,
+          holderPid: r.holderPid,
+        }
+      }
+      return {
+        granted: false,
+        reason: "ALREADY_CLAIMED_BY_OTHER",
+        currentGeneration: r.currentGeneration as AuthorityGeneration,
+        currentAuthorityOwnerId: r.authorityOwnerId,
+      }
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes("403")) {
+        const snap = await this.inspectAuthority(input.runId).catch(() => null)
+        return {
+          granted: false,
+          reason: "ALREADY_CLAIMED_BY_OTHER",
+          currentGeneration: (snap?.generation ?? 0) as AuthorityGeneration,
+          currentAuthorityOwnerId: snap?.authorityOwnerId ?? "",
+        }
+      }
+      throw e
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -752,7 +800,7 @@ async function killCUSTOMGo(p: SpawnedGoProc | null): Promise<void> {
   }
 }
 
-const DBOS_GO_TOOL_DIR = join(import.meta.dir, "..", "..", "..", "..", "tools", "dbos-qualify")
+const DBOS_GO_TOOL_DIR = join(import.meta.dir, "..", "..", "..", "..", "..", "tools", "dbos-qualify")
 const DBOS_GO_BINARY = join(DBOS_GO_TOOL_DIR, "dbos-qualify.exe")
 
 async function raceCUSTOMGoAuthorities(
@@ -770,44 +818,64 @@ async function raceCUSTOMGoAuthorities(
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ attemptedGeneration: 1, authorityOwnerId: procA.ownerId }),
       signal: AbortSignal.timeout(10_000),
-    }).then(async (r) => ({ status: r.status, body: await r.json() as { granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number } }))
+    }).then(async (r) => {
+      const text = await r.text()
+      let body: { granted?: boolean; currentGeneration?: number; authorityOwnerId?: string; holderPid?: number; code?: string; message?: string }
+      try { body = JSON.parse(text) } catch { body = { message: text.slice(0, 200) } }
+      return { status: r.status, body }
+    })
     const claimB = fetch(`${procB.baseUrl}/authority/claim?runId=${encodeURIComponent(input.runId)}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ attemptedGeneration: 1, authorityOwnerId: procB.ownerId }),
       signal: AbortSignal.timeout(10_000),
-    }).then(async (r) => ({ status: r.status, body: await r.json() as { granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number } }))
+    }).then(async (r) => {
+      const text = await r.text()
+      let body: { granted?: boolean; currentGeneration?: number; authorityOwnerId?: string; holderPid?: number; code?: string; message?: string }
+      try { body = JSON.parse(text) } catch { body = { message: text.slice(0, 200) } }
+      return { status: r.status, body }
+    })
     const [aRes, bRes] = await Promise.all([claimA, claimB])
-    const winnerA = aRes.body.granted
+    // Both claim responses are now objects of shape { status, body: ClaimResult }.
+    // The Go binary returns 200 on granted and 403 on rejected; the body of a
+    // 403 is the standard error envelope { code, message, path } — not a
+    // ClaimResult. We must detect the rejection via the HTTP status.
+    const winnerA = aRes.status === 200
     const winner = winnerA ? { res: aRes, proc: procA, ownerId: input.participantA.authorityOwnerId, pid: procA.pid } : { res: bRes, proc: procB, ownerId: input.participantB.authorityOwnerId, pid: procB.pid }
     const loser = winnerA ? { res: bRes, proc: procB, ownerId: input.participantB.authorityOwnerId, pid: procB.pid } : { res: aRes, proc: procA, ownerId: input.participantA.authorityOwnerId, pid: procA.pid }
     // Inspect the persisted state on the winner's process.
     const inspect = await fetch(`${winner.proc.baseUrl}/authority/inspect?runId=${encodeURIComponent(input.runId)}`, { signal: AbortSignal.timeout(5_000) })
-    const inspectJson = await inspect.json() as { currentGeneration: number; authorityOwnerId: string; holderPid: number }
+    const inspectText = await inspect.text()
+    let inspectJson: { currentGeneration: number; authorityOwnerId: string; holderPid: number }
+    try {
+      inspectJson = JSON.parse(inspectText) as { currentGeneration: number; authorityOwnerId: string; holderPid: number }
+    } catch (e) {
+      throw new Error(`raceCUSTOMGoAuthorities: /authority/inspect returned non-JSON (status=${inspect.status}): ${inspectText.slice(0, 300)}`)
+    }
     return {
       measured: true,
       concurrentRace: true,
       distinctOsProcesses: 2,
       claimA: {
-        granted: aRes.body.granted,
-        currentAuthorityOwnerId: aRes.body.authorityOwnerId,
-        currentGeneration: aRes.body.currentGeneration as AuthorityGeneration,
+        granted: aRes.status === 200,
+        currentAuthorityOwnerId: aRes.body.authorityOwnerId ?? "",
+        currentGeneration: (aRes.body.currentGeneration ?? 0) as AuthorityGeneration,
         attemptedGeneration: 1 as AuthorityGeneration,
-        holderPid: aRes.body.holderPid,
+        holderPid: aRes.body.holderPid ?? null,
       },
       claimB: {
-        granted: bRes.body.granted,
-        currentAuthorityOwnerId: bRes.body.authorityOwnerId,
-        currentGeneration: bRes.body.currentGeneration as AuthorityGeneration,
+        granted: bRes.status === 200,
+        currentAuthorityOwnerId: bRes.body.authorityOwnerId ?? "",
+        currentGeneration: (bRes.body.currentGeneration ?? 0) as AuthorityGeneration,
         attemptedGeneration: 1 as AuthorityGeneration,
-        holderPid: bRes.body.holderPid,
+        holderPid: bRes.body.holderPid ?? null,
       },
       winner: {
-        authorityOwnerId: winner.res.body.authorityOwnerId,
+        authorityOwnerId: winner.res.body.authorityOwnerId ?? inspectJson.authorityOwnerId,
         processLocalOwnerId: winner.ownerId,
         pid: winner.pid,
       },
       loser: {
-        authorityOwnerId: loser.res.body.authorityOwnerId,
+        authorityOwnerId: loser.res.body.authorityOwnerId ?? inspectJson.authorityOwnerId,
         processLocalOwnerId: loser.ownerId,
         pid: loser.pid,
       },

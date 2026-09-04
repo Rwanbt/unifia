@@ -73,6 +73,8 @@ import type {
   EffectDispatchResult,
   QualificationTakeoverInput,
   QualificationTakeoverResult,
+  ClaimAuthorityInput,
+  ClaimAuthorityResult,
 } from "../contract.ts"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
 
@@ -826,11 +828,12 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
    * when measured, satisfying the FC-14 PASS gate.
    */
   async raceAuthorities(input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult> {
-    // Sanity: storeDir must be the one this adapter opened.
-    if (input.sharedStore !== this.storeDir) {
-      throw new Error(`raceAuthorities: sharedStore=${input.sharedStore} does not match adapter storeDir=${this.storeDir}`)
+    // The runner may pass sharedStore="" to mean "use your own".
+    const storeDir = input.sharedStore === "" ? this.storeDir : input.sharedStore
+    if (storeDir !== this.storeDir) {
+      throw new Error(`raceAuthorities: sharedStore=${storeDir} does not match adapter storeDir=${this.storeDir}`)
     }
-    return await raceNativeAuthorities(this.storeDir, input)
+    return await raceNativeAuthorities(storeDir, input)
   }
 
   /**
@@ -909,6 +912,44 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
    * generation and assigns a new owner without requiring the
    * previous owner to release. Used by FC-25.
    */
+  async claimAuthority(input: ClaimAuthorityInput): Promise<ClaimAuthorityResult> {
+    const db = this.requireDb()
+    return db.transaction((): ClaimAuthorityResult => {
+      const row = db.query(
+        `SELECT generation, authority_owner_id, holder_pid FROM run_authority WHERE run_id = ?`,
+      ).get(input.runId) as { generation: number; authority_owner_id: string; holder_pid: number } | null
+      if (!row) {
+        // Initial claim: insert at gen=1.
+        db.run(
+          `INSERT INTO run_authority (run_id, generation, authority_owner_id, holder_pid, acquired_at_epoch_ms) VALUES (?, ?, ?, ?, ?)`,
+          [input.runId, 1, input.authorityOwnerId, process.pid, Date.now()],
+        )
+        return {
+          granted: true,
+          currentGeneration: 1 as AuthorityGeneration,
+          currentAuthorityOwnerId: input.authorityOwnerId,
+          holderPid: process.pid,
+        }
+      }
+      // Already claimed. If by the same owner, return success;
+      // else return ALREADY_CLAIMED_BY_OTHER.
+      if (row.authority_owner_id === input.authorityOwnerId) {
+        return {
+          granted: true,
+          currentGeneration: row.generation as AuthorityGeneration,
+          currentAuthorityOwnerId: row.authority_owner_id,
+          holderPid: row.holder_pid,
+        }
+      }
+      return {
+        granted: false,
+        reason: "ALREADY_CLAIMED_BY_OTHER",
+        currentGeneration: row.generation as AuthorityGeneration,
+        currentAuthorityOwnerId: row.authority_owner_id,
+      }
+    })()
+  }
+
   async forceQualificationTakeover(
     input: QualificationTakeoverInput,
   ): Promise<QualificationTakeoverResult> {

@@ -469,7 +469,26 @@ export interface DurableWorkflowAuthorityQualificationAdapter {
    * Returns generation + owner id (and process id when known).
    */
   inspectAuthority(runId: WorkflowRunId): Promise<AuthoritySnapshot>
+
+  /**
+   * Initial authority claim. The adapter creates the
+   * `run_authority` row at gen=1 with the given ownerId
+   * (or returns the existing row if already claimed). This is
+   * used by the FC-25 scenario to install ownerA before the
+   * takeover; it is NOT used by FC-14 (which uses
+   * `raceAuthorities` for a true 2-process race).
+   */
+  claimAuthority(input: ClaimAuthorityInput): Promise<ClaimAuthorityResult>
 }
+
+export interface ClaimAuthorityInput {
+  readonly runId: WorkflowRunId
+  readonly authorityOwnerId: string
+}
+
+export type ClaimAuthorityResult =
+  | { readonly granted: true; readonly currentGeneration: AuthorityGeneration; readonly currentAuthorityOwnerId: string; readonly holderPid: number | null }
+  | { readonly granted: false; readonly reason: "ALREADY_CLAIMED_BY_OTHER"; readonly currentGeneration: AuthorityGeneration; readonly currentAuthorityOwnerId: string }
 
 /* ------------------------------------------------------------------ */
 /* FC-14 / FC-25 capability inputs and outputs                        */
@@ -493,7 +512,16 @@ export interface RaceAuthoritiesInput {
   readonly runId: WorkflowRunId
   readonly participantA: { readonly authorityOwnerId: string }
   readonly participantB: { readonly authorityOwnerId: string }
-  /** Adapter must respect the same shared store as the adapter's current process. */
+  /**
+   * The shared store directory the race participants must use.
+   * The adapter MAY throw if this does not match its own
+   * storeDir; the runner is expected to construct the adapter
+   * with a known storeDir and pass the same value here. The
+   * substrate-neutral contract does not require the runner to
+   * introspect the adapter's storage layout.
+   *
+   * Pass an empty string to use the adapter's own storeDir.
+   */
   readonly sharedStore: string
 }
 
