@@ -1,0 +1,225 @@
+{
+  "pass": 0,
+  "fail": 21,
+  "observations": {
+    "zero": {
+      "ok": false,
+      "expected": 0,
+      "observed": {
+        "type": "string",
+        "value": "run-li-zero"
+      },
+      "bitPattern": "0"
+    },
+    "negative-zero-normalizes-to-positive-zero": {
+      "ok": false,
+      "expected": 0,
+      "observed": {
+        "type": "string",
+        "value": "run-li-negative-zero-normalizes-to-positive-zero"
+      },
+      "bitPattern": "0"
+    },
+    "one": {
+      "ok": false,
+      "expected": 1,
+      "observed": {
+        "type": "string",
+        "value": "run-li-one"
+      },
+      "bitPattern": "4607182418800017408"
+    },
+    "negative-one": {
+      "ok": false,
+      "expected": -1,
+      "observed": {
+        "type": "string",
+        "value": "run-li-negative-one"
+      },
+      "bitPattern": "13830554455654793216"
+    },
+    "max-safe-integer-as-float": {
+      "ok": false,
+      "expected": 9007199254740991,
+      "observed": {
+        "type": "string",
+        "value": "run-li-max-safe-integer-as-float"
+      },
+      "bitPattern": "4845873199050653695"
+    },
+    "max-safe-plus-one-as-float": {
+      "ok": false,
+      "expected": 9007199254740992,
+      "observed": {
+        "type": "string",
+        "value": "run-li-max-safe-plus-one-as-float"
+      },
+      "bitPattern": "4845873199050653696"
+    },
+    "negative-max-safe-as-float": {
+      "ok": false,
+      "expected": -9007199254740991,
+      "observed": {
+        "type": "string",
+        "value": "run-li-negative-max-safe-as-float"
+      },
+      "bitPattern": "14069245235905429503"
+    },
+    "negative-max-safe-minus-one-as-float": {
+      "ok": false,
+      "expected": -9007199254740992,
+      "observed": {
+        "type": "string",
+        "value": "run-li-negative-max-safe-minus-one-as-float"
+      },
+      "bitPattern": "14069245235905429504"
+    },
+    "one-half": {
+      "ok": false,
+      "expected": 0.5,
+      "observed": {
+        "type": "string",
+        "value": "run-li-one-half"
+      },
+      "bitPattern": "4602678819172646912"
+    },
+    "negative-one-half": {
+      "ok": false,
+      "expected": -0.5,
+      "observed": {
+        "type": "string",
+        "value": "run-li-negative-one-half"
+      },
+      "bitPattern": "13826050856027422720"
+    },
+    "smallest-positive-subnormal": {
+      "ok": false,
+      "expected": 5e-324,
+      "observed": {
+        "type": "string",
+        "value": "run-li-smallest-positive-subnormal"
+      },
+      "bitPattern": "1"
+    },
+    "smallest-positive-normal": {
+      "ok": false,
+      "expected": 2.2250738585072014e-308,
+      "observed": {
+        "type": "string",
+        "value": "run-li-smallest-positive-normal"
+      },
+      "bitPattern": "4503599627370496"
+    },
+    "largest-finite": {
+      "ok": false,
+      "expected": 1.7976931348623157e+308,
+      "observed": {
+        "type": "string",
+        "value": "run-li-largest-finite"
+      },
+      "bitPattern": "9218868437227405311"
+    },
+    "uplus-0000-character": {
+      "ok": false,
+      "expected": "\u0000",
+      "observed": {
+        "type": "string",
+        "value": "run-li-uplus-0000-character"
+      },
+      "bitPattern": "0"
+    },
+    "unicode-ff": {
+      "ok": false,
+      "expected": "ÿ",
+      "observed": {
+        "type": "string",
+        "value": "run-li-unicode-ff"
+      },
+      "bitPattern": "0"
+    },
+    "canonical-timestamp-zero": {
+      "ok": false,
+      "expected": 0,
+      "observed": {
+        "type": "string",
+        "value": "run-li-canonical-timestamp-zero"
+      },
+      "bitPattern": "0"
+    },
+    "canonical-timestamp-positive": {
+      "ok": false,
+      "expected": 1700000000000,
+      "observed": {
+        "type": "string",
+        "value": "run-li-canonical-timestamp-positive"
+      },
+      "bitPattern": "0"
+    },
+    "nested-object": {
+      "ok": false,
+      "expected": {
+        "name": "fixture",
+        "values": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "meta": {
+          "when": 0,
+          "ok": true
+        }
+      },
+      "observed": {
+        "type": "string",
+        "value": "run-li-nested-object"
+      },
+      "bitPattern": "0"
+    },
+    "deep-array": {
+      "ok": false,
+      "expected": [
+        [
+          [
+            null,
+            true,
+            false,
+            ""
+          ]
+        ]
+      ],
+      "observed": {
+        "type": "string",
+        "value": "run-li-deep-array"
+      },
+      "bitPattern": "0"
+    },
+    "artifact-ref": {
+      "ok": false,
+      "expected": {
+        "$ref": "artifact",
+        "artifactId": "art-1"
+      },
+      "observed": {
+        "type": "string",
+        "value": "run-li-artifact-ref"
+      },
+      "bitPattern": "0"
+    },
+    "secret-ref": {
+      "ok": false,
+      "expected": {
+        "$ref": "secret",
+        "secretId": "sec-1"
+      },
+      "observed": {
+        "type": "string",
+        "value": "run-li-secret-ref"
+      },
+      "bitPattern": "0"
+    }
+  },
+  "restartObserved": true,
+  "adapterTopology": "child-process",
+  "isChildProcess": true
+}
