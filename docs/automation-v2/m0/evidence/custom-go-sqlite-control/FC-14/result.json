@@ -2,39 +2,44 @@
   "measured": true,
   "concurrentRace": true,
   "distinctOsProcesses": 2,
-  "winnerProcessLocalOwnerId": "owner-A-1788514977799-k4q605",
-  "loserProcessLocalOwnerId": "owner-B-1788514977799-vohwvk",
-  "currentPersistedAuthorityOwnerId": "pid-16452-A-1788514977801-kujfio",
-  "winnerOwnerId": "pid-16452-A-1788514977801-kujfio",
-  "loserOwnerId": "pid-16452-A-1788514977801-kujfio",
-  "winnerPid": 16452,
-  "loserPid": 8028,
+  "winnerProcessLocalOwnerId": "owner-A-1788518549762-0qkta0",
+  "loserProcessLocalOwnerId": "owner-B-1788518549762-tjpe7a",
+  "currentPersistedAuthorityOwnerId": "pid-10640-A-1788518549764-wosqgb",
+  "winnerOwnerId": "pid-10640-A-1788518549764-wosqgb",
+  "loserOwnerId": "pid-10640-A-1788518549764-wosqgb",
+  "winnerPid": 10640,
+  "loserPid": 9004,
   "finalGeneration": 1,
   "winnerMutate": {
     "accepted": true,
     "generation": 1,
-    "authorityOwnerId": "pid-16452-A-1788514977801-kujfio"
+    "authorityOwnerId": "pid-10640-A-1788518549764-wosqgb"
   },
   "loserMutate": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 1,
-    "currentAuthorityOwnerId": "pid-16452-A-1788514977801-kujfio"
+    "currentAuthorityOwnerId": "pid-10640-A-1788518549764-wosqgb"
   },
   "winnerDispatch": {
     "accepted": true,
-    "effectKey": "ek-fc14-1788514978232",
+    "effectKey": "ek-fc14-1788518550067",
     "generation": 1,
-    "authorityOwnerId": "pid-16452-A-1788514977801-kujfio"
+    "authorityOwnerId": "pid-10640-A-1788518549764-wosqgb"
   },
   "loserDispatch": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 1,
-    "currentAuthorityOwnerId": "pid-16452-A-1788514977801-kujfio"
+    "currentAuthorityOwnerId": "pid-10640-A-1788518549764-wosqgb"
   },
   "winnerMutateAccepted": true,
   "loserMutateRejected": true,
   "winnerDispatchAccepted": true,
-  "loserDispatchRejected": true
+  "loserDispatchRejected": true,
+  "qualificationGenerationId": "gen-1788518544414-dnaz2m",
+  "candidate": "CUSTOM_GO_SQLITE_CONTROL",
+  "testId": "FC-14",
+  "evidenceFreshness": "CURRENT",
+  "nonCanonicalDiagnostic": false
 }

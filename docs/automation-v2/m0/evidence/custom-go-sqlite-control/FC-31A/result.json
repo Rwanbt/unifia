@@ -4,5 +4,10 @@
   "observations": {},
   "restartObserved": true,
   "adapterTopology": "child-process",
-  "isChildProcess": true
+  "isChildProcess": true,
+  "qualificationGenerationId": "gen-1788518544414-dnaz2m",
+  "candidate": "CUSTOM_GO_SQLITE_CONTROL",
+  "testId": "FC-31A",
+  "evidenceFreshness": "CURRENT",
+  "nonCanonicalDiagnostic": false
 }

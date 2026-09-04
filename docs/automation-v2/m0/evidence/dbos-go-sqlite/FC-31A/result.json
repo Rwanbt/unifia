@@ -221,5 +221,10 @@
   },
   "restartObserved": true,
   "adapterTopology": "child-process",
-  "isChildProcess": true
+  "isChildProcess": true,
+  "qualificationGenerationId": "gen-1788518544414-dnaz2m",
+  "candidate": "DBOS_GO_SQLITE",
+  "testId": "FC-31A",
+  "evidenceFreshness": "CURRENT",
+  "nonCanonicalDiagnostic": false
 }
