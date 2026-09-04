@@ -82,6 +82,7 @@ import {
   FakeExternalEffectProvider,
   NativeSqliteCandidate,
   DBOSGoCandidate,
+  DBOSRealCandidate,
   QualificationRunner,
   type CandidateResultFile,
 } from "../packages/automate-m0-harness/src/qualification/index.ts"
@@ -92,6 +93,8 @@ const EVIDENCE_DIR = join(CANONICAL_DIR, "evidence")
 const HARNESS_TOOL_DIR = join(REPO_ROOT, "packages", "automate-m0-harness")
 const DBOS_GO_TOOL_DIR = join(REPO_ROOT, "tools", "dbos-qualify")
 const DBOS_GO_BINARY = join(DBOS_GO_TOOL_DIR, "dbos-qualify.exe")
+const DBOS_REAL_TOOL_DIR = join(REPO_ROOT, "tools", "dbos-real-qualify")
+const DBOS_REAL_BINARY = join(DBOS_REAL_TOOL_DIR, "dbos-real-qualify.exe")
 
 const VERSION = "0.0.0-m0-qual-cp6.3"
 const BUILD_HASH = `qual-m0-cp6.3-${Date.now()}`
@@ -141,6 +144,9 @@ function tempDir(label: string): string {
 
 const DBOS_GO_BUILT = existsSync(DBOS_GO_BINARY)
 const DBOS_GO_DIGEST = await binaryDigest(DBOS_GO_BINARY)
+
+const DBOS_REAL_BUILT = existsSync(DBOS_REAL_BINARY)
+const DBOS_REAL_DIGEST = await binaryDigest(DBOS_REAL_BINARY)
 
 /* ------------------------------------------------------------------ */
 /* Candidate runners (return staging-dir result + evidence)            */
@@ -232,6 +238,50 @@ async function runCustomGo(): Promise<CandidateRun | null> {
   await candidate.shutdown().catch(() => undefined)
   return {
     kind: "CUSTOM_GO_SQLITE_CONTROL",
+    resultPath: out.resultPath,
+    expectedNAPath: out.expectedNAPath,
+    evidenceRoot: join(stage, "evidence"),
+  }
+}
+
+async function runRealDbosGo(): Promise<CandidateRun | null> {
+  if (!DBOS_REAL_BUILT) {
+    console.log(`[SKIP] DBOS_GO_SQLITE binary not built at ${DBOS_REAL_BINARY}`)
+    return null
+  }
+  const stage = tempDir("dbos-real-stage")
+  const providerDir = join(stage, "provider")
+  const storeDir = join(stage, "candidate")
+  mkdirSync(providerDir, { recursive: true })
+  mkdirSync(storeDir, { recursive: true })
+  const provider = new FakeExternalEffectProvider({ storeDir: providerDir, dropAckToCandidate: false })
+  const candidate = new DBOSRealCandidate({
+    storeDir,
+    version: "github.com/dbos-inc/dbos-transact-golang@v1.0.0 (real APIs on measured path)",
+    buildHash: BUILD_HASH,
+  })
+  const runner = new QualificationRunner(candidate, provider, {
+    outputRoot: stage,
+    buildHash: BUILD_HASH,
+    provenance: {
+      candidateImplementationId: `DBOS_GO_V1@${VERSION}`,
+      candidateSourceCommit: HARNESS_COMMIT,
+      candidateBuildHash: BUILD_HASH,
+      candidateBinaryDigest: DBOS_REAL_DIGEST,
+      measurementHarnessCommit: HARNESS_COMMIT,
+      oracleVersion: ORACLE_VERSION,
+      executionSubstrate: "DBOS_GO_V1",
+      storageEngine: "DBOS SQLite system DB (modernc.org/sqlite via dbos/driver/sqlite)",
+      adapterIdentity: "DBOSRealCandidate@DBOS_GO_V1",
+      realDbosApisUsed: true, // measured on the path: dbos.NewContext + RegisterWorkflow + RunWorkflow + RunAsStep + Launch
+      platform: `${process.platform} ${process.arch}`,
+      runtime: RUNTIME,
+    },
+  })
+  const out = await runner.run()
+  await candidate.shutdown().catch(() => undefined)
+  return {
+    kind: "DBOS_GO_SQLITE",
     resultPath: out.resultPath,
     expectedNAPath: out.expectedNAPath,
     evidenceRoot: join(stage, "evidence"),
@@ -395,7 +445,7 @@ async function main(): Promise<void> {
     throw e
   }
 
-  console.log("\n[2/2] CUSTOM_GO_SQLITE_CONTROL")
+  console.log("\n[2/3] CUSTOM_GO_SQLITE_CONTROL")
   const customGo = await runCustomGo()
   if (customGo) {
     try {
@@ -403,6 +453,18 @@ async function main(): Promise<void> {
       runs.push(customGo)
     } catch (e) {
       console.error(`  [FAIL] CUSTOM_GO_SQLITE_CONTROL: ${(e as Error).message}`)
+      throw e
+    }
+  }
+
+  console.log("\n[3/3] DBOS_GO_SQLITE (real DBOS APIs on measured path)")
+  const realDbos = await runRealDbosGo()
+  if (realDbos) {
+    try {
+      publish(realDbos)
+      runs.push(realDbos)
+    } catch (e) {
+      console.error(`  [FAIL] DBOS_GO_SQLITE: ${(e as Error).message}`)
       throw e
     }
   }
