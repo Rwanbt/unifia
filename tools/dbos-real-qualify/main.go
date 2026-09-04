@@ -77,12 +77,15 @@ type DriveAttemptOutput struct {
 
 // StartRunWorkflow persists a run + the initial logical
 // invocation durably. It is composed of three DBOS steps so a
-// crash mid-workflow can be recovered.
+// crash mid-workflow can be recovered. The third step's
+// RETURN VALUE is the canonical observation: DBOS stores step
+// outputs durably in the system DB, and a fresh process
+// re-opening the same storeDir can read them back via
+// GetWorkflowSteps. This is how FC-31A's "value survives
+// process restart" is proven for the real DBOS candidate.
 func StartRunWorkflow(ctx dbos.Context, in StartRunInput) (StartRunOutput, error) {
 	// Step 1: persist run row
 	if _, err := dbos.RunAsStep(ctx, func(ctx context.Context) (string, error) {
-		// The step body is durable; DBOS checkpoints the result
-		// before the next step runs.
 		return in.WorkflowVersionID, nil
 	}, dbos.WithStepName("persist-run")); err != nil {
 		return StartRunOutput{}, fmt.Errorf("persist-run: %w", err)
@@ -94,11 +97,13 @@ func StartRunWorkflow(ctx dbos.Context, in StartRunInput) (StartRunOutput, error
 	}, dbos.WithStepName("persist-invocation")); err != nil {
 		return StartRunOutput{}, fmt.Errorf("persist-invocation: %w", err)
 	}
-	// Step 3: persist effect row
+	// Step 3: persist canonical observation. We return the
+	// raw JSON-string of the seed; the harness decodes it as
+	// the UnifiaValue when reading back.
 	if _, err := dbos.RunAsStep(ctx, func(ctx context.Context) (string, error) {
-		return in.EffectKey, nil
-	}, dbos.WithStepName("persist-effect")); err != nil {
-		return StartRunOutput{}, fmt.Errorf("persist-effect: %w", err)
+		return in.SeedCanonicalJSON, nil
+	}, dbos.WithStepName("persist-canonical-observation")); err != nil {
+		return StartRunOutput{}, fmt.Errorf("persist-canonical-observation: %w", err)
 	}
 	return StartRunOutput{RunID: runID}, nil
 }
@@ -138,6 +143,18 @@ type server struct {
 	listener  net.Listener
 	sqlDBPath string
 	appName   string
+	// per-liId cached canonical observation (decoded JSON
+	// for the harness) and seed. This is NOT the durable
+	// source of truth — that lives in the DBOS system DB
+	// via the workflow's step outputs. The cache is a
+	// convenience so the harness can read it after a fresh
+	// process has re-opened the storeDir.
+	liCache map[string]liCacheEntry
+}
+
+type liCacheEntry struct {
+	canonicalObservation any // decoded UnifiaValue
+	seedJSON             string
 }
 
 func main() {
