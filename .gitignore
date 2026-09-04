@@ -37,6 +37,8 @@ docs/automation-v2/m0/.publish-staging/
 # M0 candidate Go binaries (build artefacts, mandate §71 — do not commit)
 tools/dbos-qualify/dbos-qualify.exe
 tools/dbos-real-qualify/dbos-real-qualify.exe
+tools/dbos-real-qualify/dbos-qualify.exe
+tools/dbos-qualify/dbos-real-qualify.exe
 
 # Local dev files
 unifia-dev
