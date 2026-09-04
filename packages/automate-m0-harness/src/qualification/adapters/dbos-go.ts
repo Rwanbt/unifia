@@ -55,6 +55,8 @@ import type {
   BackupRef,
   CandidateDiagnostics,
   ProviderResolution,
+  ApprovalResolveInput,
+  ApprovalHistoryEvent,
 } from "../contract.ts"
 
 /* ------------------------------------------------------------------ */
@@ -318,7 +320,9 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
         workflowRunId: request.runId,
         logicalInvocationId: request.logicalInvocationId,
         executionPlanDigest: request.executionPlanDigest,
-        principal: { id: "default-principal" },
+        requesterPrincipalId: request.requesterPrincipalId,
+        ordinal: request.ordinal,
+        requestGeneration: request.requestGeneration,
         ownershipScope: request.ownershipScope,
         deploymentScope: { environmentId: "imported" },
         capabilityRefs: [],
@@ -336,12 +340,53 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
     approvalId: ApprovalId,
     state: "APPROVED" | "DENIED",
     actor: { readonly id: string; readonly kind: "PRINCIPAL" },
+    currentResolve: ApprovalResolveInput,
   ): Promise<ApprovalOutcome> {
     const base = this.requireBase()
     return await jsonCall<ApprovalOutcome>(base, `/approvals/${encodeURIComponent(approvalId)}/resolve`, {
       method: "POST",
-      body: { decision: state, actorId: actor.id },
+      body: {
+        decision: state,
+        actorId: actor.id,
+        currentExecutionPlanDigest: currentResolve.currentExecutionPlanDigest,
+        reason: currentResolve.reason ?? null,
+      },
     })
+  }
+
+  async cancelApproval(
+    approvalId: ApprovalId,
+    actor: { readonly id: string; readonly kind: "PRINCIPAL" | "SYSTEM_CANCEL" },
+    reason: string,
+  ): Promise<ApprovalOutcome> {
+    const base = this.requireBase()
+    return await jsonCall<ApprovalOutcome>(base, `/approvals/${encodeURIComponent(approvalId)}/cancel`, {
+      method: "POST",
+      body: { actorId: actor.id, actorKind: actor.kind, reason },
+    })
+  }
+
+  async approvalHistory(approvalId: ApprovalId): Promise<readonly ApprovalHistoryEvent[]> {
+    const base = this.requireBase()
+    // The Go binary returns the rows as a list of maps. The
+    // response may come back as an array directly, or (rarely)
+    // as an object with an `events` wrapper; we accept both.
+    const raw = await jsonCall<readonly Array<Record<string, unknown>> | { events?: readonly Array<Record<string, unknown>> }>(
+      base,
+      `/approvals/${encodeURIComponent(approvalId)}/history`,
+    )
+    const arr = Array.isArray(raw) ? raw : (raw.events ?? [])
+    return arr.map((r) => ({
+      eventId: String(r.eventId ?? ""),
+      approvalId: r.approvalId as never,
+      eventType: String(r.eventType ?? "REQUESTED") as ApprovalHistoryEvent["eventType"],
+      previousState: (r.previousState as ApprovalHistoryEvent["previousState"]) ?? null,
+      newState: String(r.newState ?? "PENDING") as ApprovalHistoryEvent["newState"],
+      actorId: (r.actorId as string | null) ?? null,
+      timestampEpochMs: Number(r.timestampEpochMs ?? 0),
+      reason: (r.reason as string | null) ?? null,
+      executionPlanDigest: (r.executionPlanDigest as ApprovalHistoryEvent["executionPlanDigest"]) ?? null,
+    }))
   }
 
   async inspectApproval(approvalId: ApprovalId): Promise<ApprovalOutcome> {

@@ -76,20 +76,23 @@ const (
 )
 
 type ApprovalRequestV2 struct {
-	ApprovalId          string                 `json:"approvalId"`
-	WorkflowRunId       string                 `json:"workflowRunId"`
-	LogicalInvocationId string                 `json:"logicalInvocationId,omitempty"`
-	ExecutionPlanDigest string                 `json:"executionPlanDigest"`
-	Principal           map[string]interface{} `json:"principal"`
-	OwnershipScope      map[string]interface{} `json:"ownershipScope"`
-	DeploymentScope     map[string]interface{} `json:"deploymentScope"`
-	CapabilityRefs      []string               `json:"capabilityRefs"`
-	ResourceScope       map[string]interface{} `json:"resourceScope"`
-	PolicyDecisionRef   string                 `json:"policyDecisionRef"`
-	PolicyVersion       string                 `json:"policyVersion"`
-	CreatedAtEpochMs    int64                  `json:"createdAtEpochMs"`
-	ExpiresAtEpochMs     int64                  `json:"expiresAtEpochMs"`
-	State               ApprovalStateV2        `json:"state"`
+	ApprovalId            string                 `json:"approvalId"`
+	WorkflowRunId         string                 `json:"workflowRunId"`
+	LogicalInvocationId   string                 `json:"logicalInvocationId,omitempty"`
+	ExecutionPlanDigest   string                 `json:"executionPlanDigest"`
+	RequesterPrincipalId  string                 `json:"requesterPrincipalId"`
+	Ordinal               int                    `json:"ordinal"`
+	RequestGeneration     int                    `json:"requestGeneration"`
+	Principal             map[string]interface{} `json:"principal"`
+	OwnershipScope        map[string]interface{} `json:"ownershipScope"`
+	DeploymentScope       map[string]interface{} `json:"deploymentScope"`
+	CapabilityRefs        []string               `json:"capabilityRefs"`
+	ResourceScope         map[string]interface{} `json:"resourceScope"`
+	PolicyDecisionRef     string                 `json:"policyDecisionRef"`
+	PolicyVersion         string                 `json:"policyVersion"`
+	CreatedAtEpochMs      int64                  `json:"createdAtEpochMs"`
+	ExpiresAtEpochMs       int64                  `json:"expiresAtEpochMs"`
+	State                 ApprovalStateV2        `json:"state"`
 }
 
 type ApprovalOutcomeV2 struct {
@@ -268,12 +271,28 @@ func (s *Server) initSchema() error {
 			approval_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
 			logical_invocation_id TEXT NOT NULL,
 			execution_plan_digest TEXT NOT NULL,
-			principal_id TEXT NOT NULL, organization_id TEXT NOT NULL,
+			requester_principal_id TEXT NOT NULL,
+			ordinal INTEGER NOT NULL DEFAULT 0,
+			request_generation INTEGER NOT NULL DEFAULT 0,
+			organization_id TEXT NOT NULL,
 			workspace_id TEXT NOT NULL,
 			created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
 			state TEXT NOT NULL, actor_id TEXT, resolved_at INTEGER,
 			reason TEXT
 		)`,
+		// Append-only approval history (CP7 §21).
+		`CREATE TABLE IF NOT EXISTS approval_history (
+			event_id TEXT PRIMARY KEY,
+			approval_id TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			previous_state TEXT,
+			new_state TEXT NOT NULL,
+			actor_id TEXT,
+			timestamp_epoch_ms INTEGER NOT NULL,
+			reason TEXT,
+			execution_plan_digest TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_approval_history_approval_id ON approval_history (approval_id, timestamp_epoch_ms)`,
 		`CREATE TABLE IF NOT EXISTS timers (
 			timer_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
 			logical_invocation_id TEXT NOT NULL,
@@ -486,44 +505,155 @@ func (s *Server) InspectRun(runId string) (CanonicalRunState, error) {
 func (s *Server) ProvideApproval(req ApprovalRequestV2) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	requester := req.RequesterPrincipalId
+	if requester == "" {
+		// Backwards compatibility: fall back to the principal
+		// field if requesterPrincipalId is absent.
+		requester = toString(req.Principal["id"])
+	}
 	_, err := s.db.Exec(
-		`INSERT INTO approvals (approval_id, run_id, logical_invocation_id, execution_plan_digest, principal_id, organization_id, workspace_id, created_at, expires_at, state, actor_id, resolved_at, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)`,
+		`INSERT INTO approvals (approval_id, run_id, logical_invocation_id, execution_plan_digest, requester_principal_id, ordinal, request_generation, organization_id, workspace_id, created_at, expires_at, state, actor_id, resolved_at, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)`,
 		req.ApprovalId, req.WorkflowRunId, req.LogicalInvocationId,
-		req.ExecutionPlanDigest,
-		toString(req.Principal["id"]),
+		req.ExecutionPlanDigest, requester, req.Ordinal, req.RequestGeneration,
 		toString(req.OwnershipScope["organizationId"]),
 		toString(req.OwnershipScope["workspaceId"]),
 		req.CreatedAtEpochMs, req.ExpiresAtEpochMs, "PENDING",
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// Append REQUESTED event.
+	return s.appendApprovalHistory(req.ApprovalId, "REQUESTED", "", "PENDING", "", req.CreatedAtEpochMs, "", req.ExecutionPlanDigest)
 }
 
-func (s *Server) ResolveApproval(approvalId, decision, actorId string) (ApprovalOutcomeV2, error) {
+func (s *Server) ResolveApproval(approvalId, decision, actorId, currentDigest string, reason string) (ApprovalOutcomeV2, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var state string
+	now := time.Now().UnixMilli()
+	var state, storedDigest, requester string
 	var expiresAt int64
-	err := s.db.QueryRow(`SELECT state, expires_at FROM approvals WHERE approval_id=?`, approvalId).Scan(&state, &expiresAt)
+	err := s.db.QueryRow(
+		`SELECT state, execution_plan_digest, expires_at, requester_principal_id FROM approvals WHERE approval_id=?`, approvalId,
+	).Scan(&state, &storedDigest, &expiresAt, &requester)
 	if err != nil {
 		return ApprovalOutcomeV2{}, err
 	}
+	// Idempotency: already resolved, return current state.
 	if state != "PENDING" {
-		// Idempotent: same outcome, no state change
-		return ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalStateV2(state)}, nil
+		// Same decision + same actor → idempotent OK.
+		if state == decision {
+			return ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalStateV2(state), ActorId: actorId, ResolvedAtEpochMs: now}, nil
+		}
+		return ApprovalOutcomeV2{}, fmt.Errorf("APPROVAL_ALREADY_RESOLVED: state=%s actor=%s", state, actorId)
 	}
-	if time.Now().UnixMilli() > expiresAt {
-		_, _ = s.db.Exec(`UPDATE approvals SET state='EXPIRED', reason='expired before resolve', resolved_at=? WHERE approval_id=?`,
-			time.Now().UnixMilli(), approvalId)
+	// Self-approval rejection (CP7 §17).
+	if requester == actorId {
+		_, _ = s.db.Exec(`UPDATE approvals SET state='STALE', reason='self-approval rejected', resolved_at=? WHERE approval_id=?`, now, approvalId)
+		_ = s.appendApprovalHistory(approvalId, "STALE_DIGEST_MISMATCH", "PENDING", "STALE", actorId, now, "self-approval rejected", currentDigest)
+		return ApprovalOutcomeV2{}, fmt.Errorf("SELF_APPROVAL_REJECTED: actor=%s is the requester", actorId)
+	}
+	// Expiry check (CP7 §22).
+	if now > expiresAt {
+		_, _ = s.db.Exec(`UPDATE approvals SET state='EXPIRED', reason='expired before resolve', resolved_at=? WHERE approval_id=?`, now, approvalId)
+		_ = s.appendApprovalHistory(approvalId, "EXPIRED", "PENDING", "EXPIRED", "", now, "expired before resolve", "")
 		return ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalExpired, Reason: "expired before resolve"}, nil
 	}
+	// Plan-digest check (CP7 §16).
+	if storedDigest != currentDigest {
+		_, _ = s.db.Exec(
+			`UPDATE approvals SET state='STALE', reason=?, resolved_at=? WHERE approval_id=?`,
+			fmt.Sprintf("plan digest changed: stored=%s current=%s", storedDigest, currentDigest),
+			now, approvalId,
+		)
+		_ = s.appendApprovalHistory(approvalId, "STALE_DIGEST_MISMATCH", "PENDING", "STALE", actorId, now,
+			fmt.Sprintf("stored=%s current=%s", storedDigest, currentDigest), currentDigest)
+		return ApprovalOutcomeV2{}, fmt.Errorf("APPROVAL_STALE_PLAN: stored=%s current=%s", storedDigest, currentDigest)
+	}
+	if reason == "" {
+		reason = ""
+	}
 	_, err = s.db.Exec(
-		`UPDATE approvals SET state=?, actor_id=?, resolved_at=? WHERE approval_id=?`,
-		decision, actorId, time.Now().UnixMilli(), approvalId,
+		`UPDATE approvals SET state=?, actor_id=?, resolved_at=?, reason=? WHERE approval_id=?`,
+		decision, actorId, now, reason, approvalId,
 	)
 	if err != nil {
 		return ApprovalOutcomeV2{}, err
 	}
-	return ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalStateV2(decision), ActorId: actorId, ResolvedAtEpochMs: time.Now().UnixMilli()}, nil
+	_ = s.appendApprovalHistory(approvalId, decision, "PENDING", decision, actorId, now, reason, currentDigest)
+	return ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalStateV2(decision), ActorId: actorId, ResolvedAtEpochMs: now, Reason: reason}, nil
+}
+
+func (s *Server) CancelApproval(approvalId, actorId, actorKind, reason string) (ApprovalOutcomeV2, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now().UnixMilli()
+	var state, requester string
+	err := s.db.QueryRow(`SELECT state, requester_principal_id FROM approvals WHERE approval_id=?`, approvalId).Scan(&state, &requester)
+	if err != nil {
+		return ApprovalOutcomeV2{}, err
+	}
+	if state != "PENDING" {
+		return ApprovalOutcomeV2{}, fmt.Errorf("APPROVAL_ALREADY_RESOLVED: state=%s", state)
+	}
+	if actorKind == "PRINCIPAL" && actorId != requester {
+		return ApprovalOutcomeV2{}, fmt.Errorf("CANCEL_REJECTED: actor=%s is not the requester (%s)", actorId, requester)
+	}
+	_, err = s.db.Exec(
+		`UPDATE approvals SET state='CANCELLED', actor_id=?, resolved_at=?, reason=? WHERE approval_id=?`,
+		actorId, now, reason, approvalId,
+	)
+	if err != nil {
+		return ApprovalOutcomeV2{}, err
+	}
+	_ = s.appendApprovalHistory(approvalId, "CANCELLED", "PENDING", "CANCELLED", actorId, now, reason, "")
+	return ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalCancelled, ActorId: actorId, ResolvedAtEpochMs: now, Reason: reason}, nil
+}
+
+func (s *Server) ListApprovalHistory(approvalId string) ([]map[string]interface{}, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rows, err := s.db.Query(
+		`SELECT event_id, approval_id, event_type, previous_state, new_state, actor_id, timestamp_epoch_ms, reason, execution_plan_digest FROM approval_history WHERE approval_id=? ORDER BY timestamp_epoch_ms ASC`,
+		approvalId,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []map[string]interface{}{}
+	for rows.Next() {
+		var eventId, appId, eventType, newState, actorId sql.NullString
+		var prevState, reason, digest sql.NullString
+		var ts int64
+		if err := rows.Scan(&eventId, &appId, &eventType, &prevState, &newState, &actorId, &ts, &reason, &digest); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]interface{}{
+			"eventId":             eventId.String,
+			"approvalId":          appId.String,
+			"eventType":            eventType.String,
+			"previousState":        prevState.String,
+			"newState":             newState.String,
+			"actorId":              actorId.String,
+			"timestampEpochMs":     ts,
+			"reason":               reason.String,
+			"executionPlanDigest":  digest.String,
+		})
+	}
+	return out, nil
+}
+
+func (s *Server) appendApprovalHistory(approvalId, eventType string, previousState, newState, actorId string, timestampEpochMs int64, reason, digest string) error {
+	eventId := fmt.Sprintf("evt-%s-%d-%s", approvalId, timestampEpochMs, strings.ToLower(eventType))
+	var prevArg, reasonArg, digestArg interface{}
+	if previousState != "" { prevArg = previousState } else { prevArg = nil }
+	if reason != "" { reasonArg = reason } else { reasonArg = nil }
+	if digest != "" { digestArg = digest } else { digestArg = nil }
+	_, err := s.db.Exec(
+		`INSERT INTO approval_history (event_id, approval_id, event_type, previous_state, new_state, actor_id, timestamp_epoch_ms, reason, execution_plan_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		eventId, approvalId, eventType, prevArg, newState, actorId, timestampEpochMs, reasonArg, digestArg,
+	)
+	return err
 }
 
 func (s *Server) ScheduleTimer(req DurableTimerRequest) error {
@@ -1036,22 +1166,46 @@ func (s *Server) Serve() (string, error) {
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 		if len(parts) < 2 { writeErr(w, 404, errors.New("not found")); return }
 		approvalId := parts[1]
+		// Specific sub-resources first (must come before the generic
+		// GET / approve check, otherwise the generic GET swallows
+		// the sub-resource request).
+		if r.Method == "GET" && len(parts) == 3 && parts[2] == "history" {
+			events, err := s.ListApprovalHistory(approvalId)
+			if err != nil { writeErr(w, 500, err); return }
+			writeJSON(w, 200, events)
+			return
+		}
+		if r.Method == "POST" && len(parts) == 3 && parts[2] == "resolve" {
+			var body struct {
+				Decision                 string `json:"decision"`
+				ActorId                  string `json:"actorId"`
+				CurrentExecutionPlanDigest string `json:"currentExecutionPlanDigest"`
+				Reason                   string `json:"reason"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil { writeErr(w, 400, err); return }
+			out, err := s.ResolveApproval(approvalId, body.Decision, body.ActorId, body.CurrentExecutionPlanDigest, body.Reason)
+			if err != nil { writeErr(w, 500, err); return }
+			writeJSON(w, 200, out)
+			return
+		}
+		if r.Method == "POST" && len(parts) == 3 && parts[2] == "cancel" {
+			var body struct {
+				ActorId  string `json:"actorId"`
+				ActorKind string `json:"actorKind"`
+				Reason   string `json:"reason"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil { writeErr(w, 400, err); return }
+			if body.ActorKind == "" { body.ActorKind = "PRINCIPAL" }
+			out, err := s.CancelApproval(approvalId, body.ActorId, body.ActorKind, body.Reason)
+			if err != nil { writeErr(w, 500, err); return }
+			writeJSON(w, 200, out)
+			return
+		}
 		if r.Method == "GET" {
 			var state string
 			err := s.db.QueryRow(`SELECT state FROM approvals WHERE approval_id=?`, approvalId).Scan(&state)
 			if err != nil { writeErr(w, 500, err); return }
 			writeJSON(w, 200, ApprovalOutcomeV2{ApprovalId: approvalId, State: ApprovalStateV2(state)})
-			return
-		}
-		if r.Method == "POST" && len(parts) == 3 && parts[2] == "resolve" {
-			var body struct {
-				Decision string `json:"decision"`
-				ActorId  string `json:"actorId"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil { writeErr(w, 400, err); return }
-			out, err := s.ResolveApproval(approvalId, body.Decision, body.ActorId)
-			if err != nil { writeErr(w, 500, err); return }
-			writeJSON(w, 200, out)
 			return
 		}
 		writeErr(w, 404, errors.New("not found"))

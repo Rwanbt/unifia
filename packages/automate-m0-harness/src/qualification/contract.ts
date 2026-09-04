@@ -129,18 +129,45 @@ export interface CanonicalAttemptState {
 }
 
 /* ------------------------------------------------------------------ */
-/* Approval minimal contract (D-02)                                   */
+/* Approval minimal contract (D-02 V3, post pack-gelé review 2026-09-03) */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Canonical execution-plan digest. Per ADR-0007 V3 (CP7): the
+ * approval is bound to the digest of the immutable ExecutionPlan
+ * the request was made for; the resolve call MUST present the
+ * current digest. A mismatch STALE's the approval.
+ *
+ * Use a branded type so adapters cannot silently widen `string` to
+ * any UTF-8 string. The actual canonical digest is computed per
+ * ADR-033 / ADR-001 (canonical value encoding).
+ */
+export type ExecutionPlanDigest = string & { readonly __brand: "ExecutionPlanDigest" }
 
 /** What the harness needs to drive the approval-durability tests. */
 export interface ApprovalRequestInput {
+  /**
+   * Per pack gelé §18: ApprovalId is DETERMINISTIC per
+   * (workflowRunId, logicalInvocationId, executionPlanDigest,
+   * ordinal, requestGeneration). Adapters MUST derive it from
+   * these fields; passing a non-deterministic id is a contract
+   * violation.
+   */
   readonly approvalId: ApprovalId
   readonly runId: WorkflowRunId
   readonly logicalInvocationId: LogicalInvocationId
   /** Digest of the immutable ExecutionPlan this approval is bound to. */
-  readonly executionPlanDigest: string
-  /** Principal / scope the approval is bound to. */
-  readonly principal: { readonly id: string }
+  readonly executionPlanDigest: ExecutionPlanDigest
+  /**
+   * Per pack gelé §17: the requester principal. The resolve
+   * call's actor MUST NOT be the requester principal (no
+   * self-approval).
+   */
+  readonly requesterPrincipalId: string
+  /** Ordinal of this approval within the (runId, liId, planDigest) family. */
+  readonly ordinal: number
+  /** Request generation — distinct approvals on the same family get distinct generations. */
+  readonly requestGeneration: number
   readonly ownershipScope: { readonly organizationId: string; readonly workspaceId: string }
   /** Expiry wall-clock — fail-closed past this point. */
   readonly expiresAtEpochMs: number
@@ -149,14 +176,58 @@ export interface ApprovalRequestInput {
 
 export type ApprovalState = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED" | "CANCELLED" | "STALE"
 
+export interface ApprovalResolveInput {
+  /**
+   * Per pack gelé §16: the current ExecutionPlan digest at the
+   * moment of resolve. The adapter MUST verify it matches the
+   * stored digest; a mismatch transitions the approval to
+   * STALE and the resolve is REJECTED.
+   */
+  readonly currentExecutionPlanDigest: ExecutionPlanDigest
+  /** Optional reason for audit (DENIED or APPROVED). */
+  readonly reason?: string
+}
+
 export interface ApprovalOutcome {
   readonly approvalId: ApprovalId
   readonly state: ApprovalState
   /** Actor that resolved, if any. */
   readonly actor?: { readonly id: string }
   readonly resolvedAtEpochMs?: number
-  /** Reason set on CANCELLED / EXPIRED / STALE. */
+  /** Reason set on CANCELLED / EXPIRED / STALE / resolution. */
   readonly reason?: string
+}
+
+/**
+ * Append-only history event for an approval. Per pack gelé §21:
+ * the broker records EVERY state transition as an event, not as a
+ * replace of the ApprovalRequest. The history is replayable and
+ * auditable.
+ */
+export type ApprovalHistoryEventType =
+  | "REQUESTED"
+  | "APPROVED"
+  | "DENIED"
+  | "EXPIRED"
+  | "CANCELLED"
+  | "STALE_PLAN_CHANGED"
+  | "STALE_DIGEST_MISMATCH"
+  | "REPLAYED_RESOLVE"  // idempotent re-resolve of an already-resolved approval
+
+export interface ApprovalHistoryEvent {
+  readonly eventId: string
+  readonly approvalId: ApprovalId
+  readonly eventType: ApprovalHistoryEventType
+  readonly previousState: ApprovalState | null
+  readonly newState: ApprovalState
+  /** Actor for resolve / cancel events; null for system events (EXPIRED, STALE_*, etc.). */
+  readonly actorId: string | null
+  /** Wall-clock CanonicalTimestamp when the event was recorded. */
+  readonly timestampEpochMs: number
+  /** Optional reason / detail (denial reason, plan-change reason, etc.). */
+  readonly reason: string | null
+  /** Plan digest at the time of the event (for STALE_PLAN_CHANGED). */
+  readonly executionPlanDigest: ExecutionPlanDigest | null
 }
 
 export type ApprovalActorKind = "PRINCIPAL" | "SYSTEM_EXPIRY" | "SYSTEM_CANCEL" | "SYSTEM_STALE"
@@ -270,14 +341,38 @@ export interface DurableWorkflowAuthorityQualificationAdapter {
 
   /**
    * Resolve an approval. `actor` is mandatory.
-   * Second call on a resolved approval must be idempotent (same
-   * outcome) or closed (error). Never silent re-apply.
+   *
+   * Per pack gelé §16-§17: the resolve call MUST present the
+   * CURRENT ExecutionPlan digest. The adapter verifies it
+   * matches the stored digest; a mismatch transitions the
+   * approval to STALE and the resolve is REJECTED (no state
+   * mutation). The actor MUST NOT be the requester principal
+   * (no self-approval). Second call on a resolved approval
+   * is idempotent (same outcome, no state mutation) or returns
+   * APPROVAL_ALREADY_RESOLVED for a conflicting decision.
    */
   resolveApproval(
     approvalId: ApprovalId,
     state: "APPROVED" | "DENIED",
     actor: { readonly id: string; readonly kind: "PRINCIPAL" },
+    currentResolve: ApprovalResolveInput,
   ): Promise<ApprovalOutcome>
+
+  /**
+   * Cancel a PENDING approval. The actor MUST be the requester
+   * principal OR a principal with cancel authority for the run.
+   */
+  cancelApproval(
+    approvalId: ApprovalId,
+    actor: { readonly id: string; readonly kind: "PRINCIPAL" | "SYSTEM_CANCEL" },
+    reason: string,
+  ): Promise<ApprovalOutcome>
+
+  /**
+   * Return the append-only history of events for an approval.
+   * Per pack gelé §21: every state transition is an event.
+   */
+  approvalHistory(approvalId: ApprovalId): Promise<readonly ApprovalHistoryEvent[]>
 
   /** Inspect an approval (read-only). */
   inspectApproval(approvalId: ApprovalId): Promise<ApprovalOutcome>

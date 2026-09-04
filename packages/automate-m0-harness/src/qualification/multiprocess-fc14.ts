@@ -54,7 +54,7 @@ export interface FC25MultiProcessResult {
 
 interface SpawnedProc { proc: ChildProcess; baseUrl: string; storeDir: string; pid: number }
 
-async function httpJson<T>(base: string, path: string, opts: { method?: "GET" | "POST"; query?: Record<string, string>; timeoutMs?: number } = {}): Promise<T> {
+async function httpJson<T>(base: string, path: string, opts: { method?: "GET" | "POST"; query?: Record<string, string>; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const url = new URL(path, base)
   if (opts.query) {
     for (const [k, v] of Object.entries(opts.query)) url.searchParams.set(k, v)
@@ -62,7 +62,12 @@ async function httpJson<T>(base: string, path: string, opts: { method?: "GET" | 
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 10_000)
   try {
-    const r = await fetch(url, { method: opts.method ?? "GET", signal: ac.signal })
+    const r = await fetch(url, {
+      method: opts.method ?? "GET",
+      signal: ac.signal,
+      headers: opts.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    })
     if (!r.ok) {
       const text = await r.text().catch(() => "")
       throw new Error(`HTTP ${r.status} ${r.statusText} on ${path}: ${text}`)
@@ -156,11 +161,13 @@ export async function runDbosGoMultiProcessFC14(outputRoot: string): Promise<FC1
   try {
     procA = await spawnDbosGo(storeDir)
     procB = await spawnDbosGo(storeDir)
+    const ownerA = `pid-${procA.pid}-ns-${Date.now()}-a`
+    const ownerB = `pid-${procB.pid}-ns-${Date.now()}-b`
     const claimA = await httpJson<ClaimResult>(procA.baseUrl, "/authority/claim", {
-      method: "POST", query: { runId, attemptedGeneration: "1" }, timeoutMs: 5_000,
+      method: "POST", query: { runId }, body: { attemptedGeneration: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
     })
     const claimB = await httpJson<ClaimResult>(procB.baseUrl, "/authority/claim", {
-      method: "POST", query: { runId, attemptedGeneration: "1" }, timeoutMs: 5_000,
+      method: "POST", query: { runId }, body: { attemptedGeneration: 1, authorityOwnerId: ownerB }, timeoutMs: 5_000,
     })
     const grantedCount = (claimA.granted ? 1 : 0) + (claimB.granted ? 1 : 0)
     const winner = claimA.granted ? claimA : claimB
@@ -224,27 +231,30 @@ export async function runDbosGoMultiProcessFC25(outputRoot: string): Promise<FC2
   try {
     procA = await spawnDbosGo(storeDir)
     procB = await spawnDbosGo(storeDir)
-    // Step 1: A claims at gen 1.
+    // Step 1: A claims at gen 1. CP6.1: JSON body with
+    // (generation, authorityOwnerId).
+    const ownerA = `pid-${procA.pid}-ns-${Date.now()}-a`
+    const ownerB = `pid-${procB.pid}-ns-${Date.now()}-b`
     const claimA1 = await httpJson<ClaimResult>(procA.baseUrl, "/authority/claim", {
-      method: "POST", query: { runId, attemptedGeneration: "1" }, timeoutMs: 5_000,
+      method: "POST", query: { runId }, body: { attemptedGeneration: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
     })
     if (!claimA1.granted) {
       throw new Error(`FC-25 step 1: A claim at gen 1 was rejected, expected granted`)
     }
     // Step 2: A transfers authority.
     await httpJson<{ status: string }>(procA.baseUrl, "/authority/release", {
-      method: "POST", query: { runId, generation: "1" }, timeoutMs: 5_000,
+      method: "POST", query: { runId }, body: { generation: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
     })
     // Step 3: B claims at gen 2.
     const claimB2 = await httpJson<ClaimResult>(procB.baseUrl, "/authority/claim", {
-      method: "POST", query: { runId, attemptedGeneration: "2" }, timeoutMs: 5_000,
+      method: "POST", query: { runId }, body: { attemptedGeneration: 2, authorityOwnerId: ownerB }, timeoutMs: 5_000,
     })
     if (!claimB2.granted) {
       throw new Error(`FC-25 step 3: B claim at gen 2 was rejected, expected granted`)
     }
     // Step 4: A "resumes" and tries stale claim at gen 1.
     const claimAStale = await httpJson<ClaimResult>(procA.baseUrl, "/authority/claim", {
-      method: "POST", query: { runId, attemptedGeneration: "1" }, timeoutMs: 5_000,
+      method: "POST", query: { runId }, body: { attemptedGeneration: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
     })
     if (claimAStale.granted) {
       throw new Error(`FC-25 step 4: A's stale claim at gen 1 was granted, expected rejected`)

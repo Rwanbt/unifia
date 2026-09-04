@@ -52,12 +52,15 @@ import type {
   CanonicalAttemptState,
   ApprovalRequestInput,
   ApprovalOutcome,
-  ApprovalState,
   DurableTimerRequest,
   DurableTimerSnapshot,
   BackupRef,
   CandidateDiagnostics,
   ProviderResolution,
+  ApprovalResolveInput,
+  ApprovalHistoryEvent,
+  ApprovalState,
+  ExecutionPlanDigest,
 } from "../contract.ts"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
 
@@ -130,7 +133,9 @@ CREATE TABLE IF NOT EXISTS approvals (
   run_id TEXT NOT NULL,
   logical_invocation_id TEXT NOT NULL,
   execution_plan_digest TEXT NOT NULL,
-  principal_id TEXT NOT NULL,
+  requester_principal_id TEXT NOT NULL,
+  ordinal INTEGER NOT NULL DEFAULT 0,
+  request_generation INTEGER NOT NULL DEFAULT 0,
   organization_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
   created_at INTEGER NOT NULL,
@@ -140,6 +145,18 @@ CREATE TABLE IF NOT EXISTS approvals (
   resolved_at INTEGER,
   reason TEXT
 );
+CREATE TABLE IF NOT EXISTS approval_history (
+  event_id TEXT PRIMARY KEY,
+  approval_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  previous_state TEXT,
+  new_state TEXT NOT NULL,
+  actor_id TEXT,
+  timestamp_epoch_ms INTEGER NOT NULL,
+  reason TEXT,
+  execution_plan_digest TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_approval_history_approval_id ON approval_history (approval_id, timestamp_epoch_ms);
 CREATE TABLE IF NOT EXISTS timers (
   timer_id TEXT PRIMARY KEY,
   run_id TEXT NOT NULL,
@@ -426,18 +443,32 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
   async provideApproval(request: ApprovalRequestInput): Promise<void> {
     const db = this.requireDb()
     db.run(
-      `INSERT INTO approvals (approval_id, run_id, logical_invocation_id, execution_plan_digest, principal_id, organization_id, workspace_id, created_at, expires_at, state, actor_id, resolved_at, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)`,
+      `INSERT INTO approvals (approval_id, run_id, logical_invocation_id, execution_plan_digest, requester_principal_id, ordinal, request_generation, organization_id, workspace_id, created_at, expires_at, state, actor_id, resolved_at, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)`,
       [
         request.approvalId,
         request.runId,
         request.logicalInvocationId,
         request.executionPlanDigest,
-        request.principal.id,
+        request.requesterPrincipalId,
+        request.ordinal,
+        request.requestGeneration,
         request.ownershipScope.organizationId,
         request.ownershipScope.workspaceId,
         request.createdAtEpochMs,
         request.expiresAtEpochMs,
         "PENDING",
+      ],
+    )
+    // Append history event REQUESTED.
+    db.run(
+      `INSERT INTO approval_history (event_id, approval_id, event_type, previous_state, new_state, actor_id, timestamp_epoch_ms, reason, execution_plan_digest) VALUES (?, ?, ?, NULL, ?, NULL, ?, NULL, ?)`,
+      [
+        `evt-${request.approvalId}-${request.createdAtEpochMs}-req`,
+        request.approvalId,
+        "REQUESTED",
+        "PENDING",
+        request.createdAtEpochMs,
+        request.executionPlanDigest,
       ],
     )
   }
@@ -446,12 +477,17 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
     approvalId: ApprovalId,
     state: "APPROVED" | "DENIED",
     actor: { readonly id: string; readonly kind: "PRINCIPAL" },
+    currentResolve: ApprovalResolveInput,
   ): Promise<ApprovalOutcome> {
     const db = this.requireDb()
-    const existing = db.query(`SELECT approval_id, run_id, logical_invocation_id, state, created_at, expires_at, actor_id, resolved_at, reason FROM approvals WHERE approval_id = ?`).get(approvalId) as {
+    const existing = db.query(
+      `SELECT approval_id, run_id, logical_invocation_id, execution_plan_digest, requester_principal_id, state, created_at, expires_at, actor_id, resolved_at, reason FROM approvals WHERE approval_id = ?`,
+    ).get(approvalId) as {
       approval_id: string
       run_id: string
       logical_invocation_id: string
+      execution_plan_digest: string
+      requester_principal_id: string
       state: string
       created_at: number
       expires_at: number
@@ -461,23 +497,134 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
     } | null
     if (!existing) throw new Error(`approval not found: ${approvalId}`)
 
+    // Idempotency: if already resolved, return the stored outcome
+    // (or reject a conflicting decision).
     if (existing.state !== "PENDING") {
-      return {
-        approvalId,
-        state: existing.state as ApprovalState,
-        actor: existing.actor_id ? { id: existing.actor_id } : undefined,
-        resolvedAtEpochMs: existing.resolved_at ?? undefined,
-        reason: existing.reason ?? undefined,
+      // Same decision and same actor → idempotent OK.
+      if (existing.state === state && existing.actor_id === actor.id) {
+        return {
+          approvalId,
+          state: existing.state as ApprovalState,
+          actor: existing.actor_id ? { id: existing.actor_id } : undefined,
+          resolvedAtEpochMs: existing.resolved_at ?? undefined,
+          reason: existing.reason ?? undefined,
+        }
       }
+      throw new Error(
+        `APPROVAL_ALREADY_RESOLVED: state=${existing.state} actor=${existing.actor_id ?? "null"}`,
+      )
     }
 
+    // Self-approval rejection (pack gelé §17).
+    if (existing.requester_principal_id === actor.id) {
+      throw new Error(`SELF_APPROVAL_REJECTED: actor=${actor.id} is the requester`)
+    }
+
+    // Expiry check (pack gelé §22).
     if (Date.now() > existing.expires_at) {
-      db.run(`UPDATE approvals SET state = ?, reason = ?, resolved_at = ? WHERE approval_id = ?`, ["EXPIRED", "expired before resolve", Date.now(), approvalId])
+      db.run(
+        `UPDATE approvals SET state = ?, reason = ?, resolved_at = ? WHERE approval_id = ?`,
+        ["EXPIRED", "expired before resolve", Date.now(), approvalId],
+      )
+      this.appendApprovalHistory(db, approvalId, "EXPIRED", "PENDING", "EXPIRED", null, Date.now(), "expired before resolve", null)
       return { approvalId, state: "EXPIRED", reason: "expired before resolve" }
     }
 
-    db.run(`UPDATE approvals SET state = ?, actor_id = ?, resolved_at = ? WHERE approval_id = ?`, [state, actor.id, Date.now(), approvalId])
-    return { approvalId, state, actor: { id: actor.id }, resolvedAtEpochMs: Date.now() }
+    // Plan-digest check (pack gelé §16). If the caller's current
+    // digest does not match the stored digest, transition to STALE
+    // and reject the resolve.
+    if (existing.execution_plan_digest !== currentResolve.currentExecutionPlanDigest) {
+      db.run(
+        `UPDATE approvals SET state = ?, reason = ?, resolved_at = ? WHERE approval_id = ?`,
+        ["STALE", `plan digest changed: stored=${existing.execution_plan_digest} current=${currentResolve.currentExecutionPlanDigest}`, Date.now(), approvalId],
+      )
+      this.appendApprovalHistory(
+        db,
+        approvalId,
+        "STALE_DIGEST_MISMATCH",
+        "PENDING",
+        "STALE",
+        actor.id,
+        Date.now(),
+        `stored=${existing.execution_plan_digest} current=${currentResolve.currentExecutionPlanDigest}`,
+        currentResolve.currentExecutionPlanDigest,
+      )
+      throw new Error(
+        `APPROVAL_STALE_PLAN: stored=${existing.execution_plan_digest} current=${currentResolve.currentExecutionPlanDigest}`,
+      )
+    }
+
+    const resolvedAt = Date.now()
+    db.run(
+      `UPDATE approvals SET state = ?, actor_id = ?, resolved_at = ?, reason = ? WHERE approval_id = ?`,
+      [state, actor.id, resolvedAt, currentResolve.reason ?? null, approvalId],
+    )
+    this.appendApprovalHistory(
+      db,
+      approvalId,
+      state,
+      "PENDING",
+      state,
+      actor.id,
+      resolvedAt,
+      currentResolve.reason ?? null,
+      currentResolve.currentExecutionPlanDigest,
+    )
+    return { approvalId, state, actor: { id: actor.id }, resolvedAtEpochMs: resolvedAt, reason: currentResolve.reason }
+  }
+
+  async cancelApproval(
+    approvalId: ApprovalId,
+    actor: { readonly id: string; readonly kind: "PRINCIPAL" | "SYSTEM_CANCEL" },
+    reason: string,
+  ): Promise<ApprovalOutcome> {
+    const db = this.requireDb()
+    const existing = db.query(
+      `SELECT approval_id, requester_principal_id, state, actor_id, resolved_at FROM approvals WHERE approval_id = ?`,
+    ).get(approvalId) as { approval_id: string; requester_principal_id: string; state: string; actor_id: string | null; resolved_at: number | null } | null
+    if (!existing) throw new Error(`approval not found: ${approvalId}`)
+    if (existing.state !== "PENDING") {
+      throw new Error(`APPROVAL_ALREADY_RESOLVED: state=${existing.state}`)
+    }
+    // The actor MUST be the requester principal OR a SYSTEM_CANCEL.
+    if (actor.kind === "PRINCIPAL" && actor.id !== existing.requester_principal_id) {
+      throw new Error(`CANCEL_REJECTED: actor=${actor.id} is not the requester (${existing.requester_principal_id})`)
+    }
+    const now = Date.now()
+    db.run(
+      `UPDATE approvals SET state = 'CANCELLED', actor_id = ?, resolved_at = ?, reason = ? WHERE approval_id = ?`,
+      [actor.id, now, reason, approvalId],
+    )
+    this.appendApprovalHistory(db, approvalId, "CANCELLED", "PENDING", "CANCELLED", actor.id, now, reason, null)
+    return { approvalId, state: "CANCELLED", actor: { id: actor.id }, resolvedAtEpochMs: now, reason }
+  }
+
+  async approvalHistory(approvalId: ApprovalId): Promise<readonly ApprovalHistoryEvent[]> {
+    const db = this.requireDb()
+    const rows = db.query(
+      `SELECT event_id, approval_id, event_type, previous_state, new_state, actor_id, timestamp_epoch_ms, reason, execution_plan_digest FROM approval_history WHERE approval_id = ? ORDER BY timestamp_epoch_ms ASC`,
+    ).all(approvalId) as {
+      event_id: string
+      approval_id: string
+      event_type: string
+      previous_state: string | null
+      new_state: string
+      actor_id: string | null
+      timestamp_epoch_ms: number
+      reason: string | null
+      execution_plan_digest: string | null
+    }[]
+    return rows.map((r) => ({
+      eventId: r.event_id,
+      approvalId: r.approval_id as ApprovalId,
+      eventType: r.event_type as ApprovalHistoryEvent["eventType"],
+      previousState: r.previous_state as ApprovalState | null,
+      newState: r.new_state as ApprovalState,
+      actorId: r.actor_id,
+      timestampEpochMs: r.timestamp_epoch_ms,
+      reason: r.reason,
+      executionPlanDigest: r.execution_plan_digest as ExecutionPlanDigest | null,
+    }))
   }
 
   async inspectApproval(approvalId: ApprovalId): Promise<ApprovalOutcome> {
@@ -491,6 +638,24 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
       resolvedAtEpochMs: row.resolved_at ?? undefined,
       reason: row.reason ?? undefined,
     }
+  }
+
+  private appendApprovalHistory(
+    db: import("bun:sqlite").Database,
+    approvalId: ApprovalId,
+    eventType: ApprovalHistoryEvent["eventType"],
+    previousState: ApprovalState | null,
+    newState: ApprovalState,
+    actorId: string | null,
+    timestampEpochMs: number,
+    reason: string | null,
+    executionPlanDigest: ExecutionPlanDigest | null,
+  ): void {
+    const eventId = `evt-${approvalId}-${timestampEpochMs}-${eventType.toLowerCase()}`
+    db.run(
+      `INSERT INTO approval_history (event_id, approval_id, event_type, previous_state, new_state, actor_id, timestamp_epoch_ms, reason, execution_plan_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [eventId, approvalId, eventType, previousState, newState, actorId, timestampEpochMs, reason, executionPlanDigest],
+    )
   }
 
   async scheduleTimer(request: DurableTimerRequest): Promise<void> {

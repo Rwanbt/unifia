@@ -302,9 +302,9 @@ describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
 describe("M0 qualification — common harness invariants", () => {
   test("both candidates expose the same contract surface", () => {
     const nativeMethods = Object.getOwnPropertyNames(NativeSqliteCandidate.prototype)
-      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireDb" && n !== "destroy")
+      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireDb" && n !== "destroy" && n !== "appendApprovalHistory")
     const dbosMethods = Object.getOwnPropertyNames(DBOSGoCandidate.prototype)
-      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireBase")
+      .filter((n) => n !== "constructor" && !n.startsWith("_") && n !== "requireBase" && n !== "appendApprovalHistory")
     expect(nativeMethods.sort()).toEqual(dbosMethods.sort())
   })
 

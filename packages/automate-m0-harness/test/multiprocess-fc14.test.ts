@@ -48,7 +48,7 @@ interface ClaimResult {
   holderPid: number
 }
 
-async function httpJson<T>(base: string, path: string, opts: { method?: "GET" | "POST"; query?: Record<string, string>; timeoutMs?: number } = {}): Promise<T> {
+async function httpJson<T>(base: string, path: string, opts: { method?: "GET" | "POST"; query?: Record<string, string>; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const url = new URL(path, base)
   if (opts.query) {
     for (const [k, v] of Object.entries(opts.query)) url.searchParams.set(k, v)
@@ -59,6 +59,8 @@ async function httpJson<T>(base: string, path: string, opts: { method?: "GET" | 
     const r = await fetch(url, {
       method: opts.method ?? "GET",
       signal: ac.signal,
+      headers: opts.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     })
     if (!r.ok) {
       const text = await r.text().catch(() => "")
@@ -186,14 +188,19 @@ describe("CP5: real multi-process FC-14 (DBOS Go)", () => {
       // Both processes start at generation 0. Process A claims
       // at generation 1 first; process B's claim at generation 1
       // is rejected because A already holds the highest.
+      // CP6.1: claim now uses JSON body with (generation, authorityOwnerId).
+      const ownerA = `pid-${procA.pid}-ns-${Date.now()}-a`
+      const ownerB = `pid-${procB.pid}-ns-${Date.now()}-b`
       const claimA = await httpJson<ClaimResult>(procA.baseUrl, "/authority/claim", {
         method: "POST",
-        query: { runId, attemptedGeneration: "1" },
+        query: { runId },
+        body: { attemptedGeneration: 1, authorityOwnerId: ownerA },
         timeoutMs: 5_000,
       })
       const claimB = await httpJson<ClaimResult>(procB.baseUrl, "/authority/claim", {
         method: "POST",
-        query: { runId, attemptedGeneration: "1" },
+        query: { runId },
+        body: { attemptedGeneration: 1, authorityOwnerId: ownerB },
         timeoutMs: 5_000,
       })
 
@@ -233,22 +240,25 @@ describe("CP5: real multi-process FC-14 (DBOS Go)", () => {
       procA = await spawnDbosGo(storeDir, "A")
       procB = await spawnDbosGo(storeDir, "B")
 
-      // A claims at gen 1 (granted).
+      // A claims at gen 1 (granted). CP6.1: JSON body with
+      // (generation, authorityOwnerId).
+      const ownerA = `pid-${procA.pid}-ns-${Date.now()}-a`
+      const ownerB = `pid-${procB.pid}-ns-${Date.now()}-b`
       const claimA1 = await httpJson<ClaimResult>(procA.baseUrl, "/authority/claim", {
-        method: "POST", query: { runId, attemptedGeneration: "1" }, timeoutMs: 5_000,
+        method: "POST", query: { runId }, body: { attemptedGeneration: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
       })
       expect(claimA1.granted).toBe(true)
       // A transfers authority: release gen 1, B claims gen 2 (granted).
       await httpJson<{ status: string }>(procA.baseUrl, "/authority/release", {
-        method: "POST", query: { runId, generation: "1" }, timeoutMs: 5_000,
+        method: "POST", query: { runId }, body: { generation: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
       })
       const claimB2 = await httpJson<ClaimResult>(procB.baseUrl, "/authority/claim", {
-        method: "POST", query: { runId, attemptedGeneration: "2" }, timeoutMs: 5_000,
+        method: "POST", query: { runId }, body: { attemptedGeneration: 2, authorityOwnerId: ownerB }, timeoutMs: 5_000,
       })
       expect(claimB2.granted).toBe(true)
       // A "resumes" and tries to commit at its old gen 1 — REJECTED.
       const claimAStale = await httpJson<ClaimResult>(procA.baseUrl, "/authority/claim", {
-        method: "POST", query: { runId, attemptedGeneration: "1" }, timeoutMs: 5_000,
+        method: "POST", query: { runId }, body: { attemptedGeneration: 1, authorityOwnerId: ownerA }, timeoutMs: 5_000,
       })
       expect(claimAStale.granted).toBe(false)
       expect(claimAStale.currentGeneration).toBe(2)
