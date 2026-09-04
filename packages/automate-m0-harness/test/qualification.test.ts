@@ -32,9 +32,18 @@ import {
   NativeSqliteCandidate,
   DBOSGoCandidate,
   QualificationRunner,
+  QualificationHarnessError,
+  classifyQualificationError,
   type DurableWorkflowAuthorityQualificationAdapter,
   type CandidateResultFile,
 } from "../src/qualification/index.ts"
+
+test("qualification error mapping preserves HARNESS_ERROR status", () => {
+  const classified = classifyQualificationError("FC-14", new Error("unexpected harness failure"))
+  expect(classified).toBeInstanceOf(QualificationHarnessError)
+  expect(classified.status).toBe("HARNESS_ERROR")
+  expect(classified.message).toMatch(/^HARNESS_ERROR:/)
+})
 
 function tempDir(label: string): string {
   return mkdtempSync(join(tmpdir(), `m0-qual-${label}-`))
@@ -463,4 +472,3 @@ async function mkdirSafe(p: string): Promise<void> {
   const { mkdir } = await import("node:fs/promises")
   await mkdir(p, { recursive: true })
 }
-

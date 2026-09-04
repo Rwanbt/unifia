@@ -78,6 +78,9 @@ export interface RunnerOptions {
     readonly realDbosApisUsed: boolean
     readonly platform: string
     readonly runtime: string
+    readonly qualificationGenerationId: string
+    readonly evidenceFreshness: "CURRENT" | "STALE"
+    readonly nonCanonicalDiagnostic: boolean
   }>
   /**
    * Tests to execute. If undefined, the default P0 set is used:

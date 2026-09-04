@@ -92,7 +92,7 @@ export class QualificationArchitecturalFailure extends QualificationError {
 }
 
 export class QualificationHarnessError extends QualificationError {
-  readonly status: QualificationStatus = "NOT_VALID"
+  readonly status: QualificationStatus = "HARNESS_ERROR"
   constructor(detail: string) {
     super(`HARNESS_ERROR: ${detail}`)
     this.name = "QualificationHarnessError"

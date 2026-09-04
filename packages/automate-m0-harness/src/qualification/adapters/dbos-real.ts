@@ -286,11 +286,11 @@ export class DBOSRealCandidate implements DurableWorkflowAuthorityQualificationA
   // the race and zombie scenarios exercise the same fencing
   // path; the real DBOS workflow itself provides the durable
   // history for run + effect persistence.
-  async raceAuthorities(_input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult> { throw new Error("DBOS real: raceAuthorities — authority fencing is still Unifia-owned; the control candidate exercises the same path. The real DBOS path does not require a separate process for this primitive.") }
-  async attemptAuthoritativeMutation(_input: AuthoritativeMutationInput): Promise<AuthoritativeMutationResult> { throw new Error("DBOS real: attemptAuthoritativeMutation — same as above") }
-  async attemptEffectDispatch(_input: EffectDispatchInput): Promise<EffectDispatchResult> { throw new Error("DBOS real: attemptEffectDispatch — same as above") }
-  async forceQualificationTakeover(_input: QualificationTakeoverInput): Promise<QualificationTakeoverResult> { throw new Error("DBOS real: forceQualificationTakeover — same as above") }
-  async inspectAuthority(_runId: string): Promise<AuthoritySnapshot> { throw new Error("DBOS real: inspectAuthority — same as above") }
-  async claimAuthority(_input: ClaimAuthorityInput): Promise<ClaimAuthorityResult> { throw new Error("DBOS real: claimAuthority — same as above") }
-  async runZombieFC25Scenario(): Promise<ZombieFC25Result> { throw new Error("DBOS real: runZombieFC25Scenario — same as above; the real DBOS candidate does not require a separate process for this primitive.") }
+  async raceAuthorities(_input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult> { throw new QualificationNotImplemented("FC-14", "DBOS real: authority fencing is still Unifia-owned") }
+  async attemptAuthoritativeMutation(_input: AuthoritativeMutationInput): Promise<AuthoritativeMutationResult> { throw new QualificationNotImplemented("FC-14", "DBOS real: authority fencing is still Unifia-owned") }
+  async attemptEffectDispatch(_input: EffectDispatchInput): Promise<EffectDispatchResult> { throw new QualificationNotImplemented("FC-14", "DBOS real: authority fencing is still Unifia-owned") }
+  async forceQualificationTakeover(_input: QualificationTakeoverInput): Promise<QualificationTakeoverResult> { throw new QualificationNotImplemented("FC-25", "DBOS real: authority fencing is still Unifia-owned") }
+  async inspectAuthority(_runId: string): Promise<AuthoritySnapshot> { throw new QualificationNotImplemented("authority", "DBOS real: authority fencing is still Unifia-owned") }
+  async claimAuthority(_input: ClaimAuthorityInput): Promise<ClaimAuthorityResult> { throw new QualificationNotImplemented("authority", "DBOS real: authority fencing is still Unifia-owned") }
+  async runZombieFC25Scenario(): Promise<ZombieFC25Result> { throw new QualificationNotImplemented("FC-25", "DBOS real: authority fencing is still Unifia-owned") }
 }
