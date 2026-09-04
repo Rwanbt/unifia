@@ -371,11 +371,11 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
     // The Go binary returns the rows as a list of maps. The
     // response may come back as an array directly, or (rarely)
     // as an object with an `events` wrapper; we accept both.
-    const raw = await jsonCall<readonly Array<Record<string, unknown>> | { events?: readonly Array<Record<string, unknown>> }>(
+    const raw = await jsonCall<Array<Record<string, unknown>> | { events?: Array<Record<string, unknown>> }>(
       base,
       `/approvals/${encodeURIComponent(approvalId)}/history`,
     )
-    const arr = Array.isArray(raw) ? raw : (raw.events ?? [])
+    const arr = Array.isArray(raw) ? raw : (raw.events ?? []) as Array<Record<string, unknown>>
     return arr.map((r) => ({
       eventId: String(r.eventId ?? ""),
       approvalId: r.approvalId as never,
