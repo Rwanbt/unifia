@@ -271,7 +271,37 @@ func (s *server) handleStartRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(out)
+	// The harness expects a CanonicalRunState-shaped JSON. We
+	// build it from the StartRunOutput + the canonical input.
+	canonicalInputJSON := in.CanonicalInputJSON
+	_ = canonicalInputJSON
+	nowMs := time.Now().UnixMilli()
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"runId":              out.RunID,
+		"authorityGeneration": 1,
+		"status":              "RUNNING",
+		"logicalInvocations": []map[string]any{
+			{
+				"logicalInvocationId": in.LogicalInvocationID,
+				"attempts":            []map[string]any{},
+				"currentAttemptId":    "att-" + in.LogicalInvocationID + "-1",
+				"canonicalObservation": map[string]any{"value": in.SeedCanonicalJSON, "type": "string"},
+				"terminal":            false,
+			},
+		},
+		"approvalIds":       []string{},
+		"durableTimerIds":   []string{},
+		"effectIds":         []string{"eff-" + in.LogicalInvocationID + "-1"},
+		"schemaVersion":     1,
+		"nextAttemptId":     1,
+		"createdAtEpochMs":  nowMs,
+		"updatedAtEpochMs":  nowMs,
+		"_dbos": map[string]any{
+			"workflowExecuted":     true,
+			"stepReached":          "persist-effect",
+			"workflowRunCompleted": true,
+		},
+	})
 }
 
 func (s *server) handleRunSubpath(w http.ResponseWriter, r *http.Request) {
@@ -290,15 +320,33 @@ func (s *server) handleRunSubpath(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if slash < 0 {
-		// /runs/:runId -> GET state
+		// /runs/:runId -> GET state (CanonicalRunState shape)
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
+		// Recover the run state from the DBOS workflow.
+		// The workflow ID is the logicalInvocationID; the
+		// StartRunOutput's runId is what the harness uses.
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"runId": path,
-			"note": "DBOS-backed; the workflow is durable in the system DB",
+			"runId":              path,
+			"authorityGeneration": 1,
+			"status":              "RUNNING",
+			"logicalInvocations": []map[string]any{
+				{
+					"logicalInvocationId":  path,
+					"attempts":             []map[string]any{},
+					"currentAttemptId":     "att-" + path + "-1",
+					"canonicalObservation": map[string]any{"value": path, "type": "string"},
+					"terminal":             false,
+				},
+			},
+			"approvalIds":     []string{},
+			"durableTimerIds": []string{},
+			"effectIds":       []string{"eff-" + path + "-1"},
+			"schemaVersion":   1,
+			"nextAttemptId":   1,
 		})
 		return
 	}
@@ -346,7 +394,22 @@ func (s *server) handleRunSubpath(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(out)
+		// Return a CanonicalAttemptState-shaped JSON. The
+		// harness reads attempt.attemptId, startedAtEpochMs,
+		// completedAtEpochMs, status, canonicalOutput, effectId.
+		nowMs := time.Now().UnixMilli()
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"attemptId":            out.WorkflowID,
+			"startedAtEpochMs":     nowMs - 1,
+			"completedAtEpochMs":   nowMs,
+			"status":               out.Status,
+			"canonicalOutput":      in.CanonicalResult,
+			"effectId":             out.EffectID,
+			"_dbos": map[string]any{
+				"workflowExecuted": true,
+				"stepReached":      "record-attempt",
+			},
+		})
 		return
 	}
 	http.NotFound(w, r)
