@@ -31,6 +31,24 @@ import { Database } from "bun:sqlite"
 import { join } from "node:path"
 import { existsSync, mkdirSync } from "node:fs"
 
+// Per-runId freeze state for the FC-25 zombie scenario.
+// A "zombie" is a long-lived process that holds a token
+// (claimAuthority succeeded) and then blocks on /await-resume
+// until the harness sends /resume. The harness uses this
+// barrier to perform a takeover WHILE A is alive (PID running)
+// but blocked. After /resume, A's locally retained token is
+// stale; the harness exercises A's stale mutate+dispatch.
+type FreezeEntry = {
+  resolve: () => void
+  frozen: boolean
+  createdAt: number
+}
+const freezes = new Map<string, FreezeEntry>()
+// Track the live (claimed) runId → (generation, owner) for
+// stale operations issued from this process.
+const myClaims = new Map<string, { generation: number; ownerId: string }>()
+let myPid = -1
+
 const storeDir = process.env.M0_NATIVE_STORE_DIR
 const ownerId = process.env.M0_NATIVE_OWNER_ID
 const label = process.env.M0_NATIVE_LABEL ?? "?"
@@ -39,6 +57,11 @@ if (!storeDir || !ownerId) {
   process.exit(2)
 }
 if (!existsSync(storeDir)) mkdirSync(storeDir, { recursive: true })
+
+// Cache the PID for /status responses. The process is the
+// "zombie owner" that the FC-25 scenario keeps alive across
+// a takeover.
+myPid = process.pid
 
 const dbPath = join(storeDir, "native.sqlite")
 const db = new Database(dbPath, { create: true })
@@ -90,6 +113,7 @@ const claimAuthority = (runId: string, attemptedGeneration: number) => {
         [runId, 1, ownerId, process.pid, Date.now()],
       )
       db.run("COMMIT")
+      myClaims.set(runId, { generation: 1, ownerId })
       return { granted: true, currentGeneration: 1, authorityOwnerId: ownerId, holderPid: process.pid }
     }
     db.run("COMMIT")
@@ -175,6 +199,7 @@ const srv = Bun.serve({
       setTimeout(() => { try { db.close() } catch { /* noop */ }; process.exit(0) }, 50)
       return json({ status: "shutting-down" })
     }
+    // FC-25 zombie endpoints
     if (url.pathname === "/claim" && req.method === "POST") {
       const runId = url.searchParams.get("runId") ?? ""
       const body = await req.json() as { attemptedGeneration: number }
@@ -184,6 +209,70 @@ const srv = Bun.serve({
       } catch (e) {
         return json({ error: (e as Error).message }, 500)
       }
+    }
+    if (url.pathname === "/await-resume" && req.method === "POST") {
+      const runId = url.searchParams.get("runId") ?? ""
+      // Long-poll: block until /resume is sent. This is the
+      // freeze barrier. The process is alive (PID running) but
+      // does not return until the harness signals.
+      await new Promise<void>((resolve) => {
+        const existing = freezes.get(runId)
+        if (existing) {
+          // Already frozen: replace the resolver so the new
+          // waiter also unblocks.
+          freezes.set(runId, { resolve, frozen: true, createdAt: existing.createdAt })
+        } else {
+          freezes.set(runId, { resolve, frozen: true, createdAt: Date.now() })
+        }
+      })
+      return json({ status: "resumed", runId, pid: myPid })
+    }
+    if (url.pathname === "/resume" && req.method === "POST") {
+      const runId = url.searchParams.get("runId") ?? ""
+      const entry = freezes.get(runId)
+      if (!entry) {
+        return json({ status: "no-waiter", runId }, 404)
+      }
+      freezes.delete(runId)
+      entry.resolve()
+      return json({ status: "resumed", runId, pid: myPid })
+    }
+    if (url.pathname === "/status" && req.method === "GET") {
+      const runId = url.searchParams.get("runId") ?? ""
+      const claim = myClaims.get(runId) ?? null
+      const frozen = freezes.has(runId)
+      return json({
+        runId,
+        pid: myPid,
+        frozen,
+        generation: claim?.generation ?? null,
+        authorityOwnerId: claim?.ownerId ?? null,
+        // `alive` is the kill-switch the harness uses to confirm
+        // a real OS process is the holder. The PID is recorded
+        // by the process itself; the harness can cross-check.
+        alive: true,
+      })
+    }
+    if (url.pathname === "/stale-mutate" && req.method === "POST") {
+      const runId = url.searchParams.get("runId") ?? ""
+      const body = await req.json() as { mutation: string }
+      const claim = myClaims.get(runId)
+      if (!claim) return json({ error: "NO_LOCAL_CLAIM", reason: "This process never claimed authority for this runId" }, 400)
+      // Use the locally retained token to attempt mutate. The
+      // candidate-side check rejects because the persisted
+      // (generation, owner) has moved on.
+      const r = mutate(runId, { attemptedGeneration: claim.generation, authorityOwnerId: claim.ownerId }, body.mutation)
+      if (!r.ok) return json({ error: r.reason, localToken: { generation: claim.generation, ownerId: claim.ownerId } }, 403)
+      return json({ status: "mutated" })
+    }
+    if (url.pathname === "/stale-dispatch" && req.method === "POST") {
+      const runId = url.searchParams.get("runId") ?? ""
+      const body = await req.json() as { effectKey: string }
+      const claim = myClaims.get(runId)
+      if (!claim) return json({ error: "NO_LOCAL_CLAIM", reason: "This process never claimed authority for this runId" }, 400)
+      const r = dispatch(runId, { attemptedGeneration: claim.generation, authorityOwnerId: claim.ownerId }, body.effectKey)
+      if (!r.ok) return json({ error: r.reason, localToken: { generation: claim.generation, ownerId: claim.ownerId } }, 403)
+      return json({ status: "dispatched" })
     }
     if (url.pathname === "/inspect" && req.method === "GET") {
       const runId = url.searchParams.get("runId") ?? ""

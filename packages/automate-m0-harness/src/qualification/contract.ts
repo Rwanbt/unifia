@@ -479,6 +479,36 @@ export interface DurableWorkflowAuthorityQualificationAdapter {
    * `raceAuthorities` for a true 2-process race).
    */
   claimAuthority(input: ClaimAuthorityInput): Promise<ClaimAuthorityResult>
+
+  /**
+   * FC-25 REAL ZOMBIE-PROCESS SCENARIO (per pack gelé §13-§15
+   * of the final M0 closure 2026-09-04). The adapter
+   * orchestrates the end-to-end zombie process:
+   *
+   *   1. Spawn process A (a long-lived process that holds
+   *      its own local token).
+   *   2. A claims authority at gen=1 (its OWN process id is
+   *      the holder; no parent adapter involvement).
+   *   3. A REACHES A FREEZE BARRIER over IPC (typically a
+   *      long-poll on a /await-resume endpoint). A's process
+   *      is alive (PID running) but blocked. The harness
+   *      observes `distinctOsProcesses >= 2` and
+   *      `oldOwnerAliveDuringTakeover = true`.
+   *   4. Takeover: the adapter increments gen=2 and assigns
+   *      ownerB via its in-process primitive.
+   *   5. ownerB commits an authoritative mutation under
+   *      gen=2 (accepted).
+   *   6. Resume A: the harness signals A to continue.
+   *   7. A attempts stale mutate with its locally retained
+   *      gen=1 token (must be REJECTED).
+   *   8. A attempts stale dispatch with its locally retained
+   *      gen=1 token (must be REJECTED).
+   *
+   * PASS requires all 4 post-resume observations, plus
+   * `oldOwnerAliveDuringTakeover = true` (machine-confirmed
+   * by the freeze barrier being successfully observed).
+   */
+  runZombieFC25Scenario(): Promise<ZombieFC25Result>
 }
 
 export interface ClaimAuthorityInput {
@@ -581,6 +611,35 @@ export type QualificationTakeoverResult =
   | { readonly accepted: true; readonly previousGeneration: AuthorityGeneration; readonly previousAuthorityOwnerId: string; readonly newGeneration: AuthorityGeneration; readonly newAuthorityOwnerId: string }
   | { readonly accepted: false; readonly reason: "GENERATION_MISMATCH" | "UNKNOWN_RUN"; readonly currentGeneration: AuthorityGeneration | null; readonly currentAuthorityOwnerId: string | null }
 
+/**
+ * Result of the real FC-25 zombie-process scenario.
+ *
+ * The four post-resume conditions are MACHINE-OBSERVED; no
+ * value is hard-coded by the harness. `oldOwnerAliveDuring-
+ * Takeover` is true only if the freeze barrier was actually
+ * observed (the long-poll returned with a status that
+ * proves the worker was blocked on /await-resume before the
+ * takeover was performed).
+ */
+export interface ZombieFC25Result {
+  readonly measured: boolean
+  readonly distinctOsProcesses: number
+  readonly oldOwnerAliveDuringTakeover: boolean
+  readonly oldOwnerDidNotReleaseBeforeTakeover: boolean
+  readonly oldOwnerPid: number
+  readonly runId: string
+  readonly ownerA: string
+  readonly ownerB: string
+  readonly newGenerationGreaterThanOld: boolean
+  readonly newOwnerCommitAccepted: boolean
+  readonly staleOwnerCommitRejected: boolean
+  readonly staleOwnerDispatchRejected: boolean
+  readonly takeover: { readonly previousGeneration: AuthorityGeneration; readonly newGeneration: AuthorityGeneration; readonly previousAuthorityOwnerId: string; readonly newAuthorityOwnerId: string } | { readonly reason: string }
+  readonly newOwnerMutate: { readonly accepted: boolean; readonly reason?: string }
+  readonly staleMutate: { readonly accepted: boolean; readonly reason?: string }
+  readonly staleDispatch: { readonly accepted: boolean; readonly reason?: string }
+}
+
 /* ------------------------------------------------------------------ */
 /* Provider resolution (what the fake provider says)                  */
 /* ------------------------------------------------------------------ */
@@ -615,6 +674,7 @@ export type QualificationStatus =
   | "NOT_APPLICABLE"
   | "BLOCKED"
   | "NOT_VALID"
+  | "NOT_IMPLEMENTED"
 
 /** Stable identifier of a Functional Criterion. */
 export type FunctionalCriterionId =

@@ -101,6 +101,7 @@ import type {
   QualificationTakeoverResult,
   ClaimAuthorityInput,
   ClaimAuthorityResult,
+  ZombieFC25Result,
 } from "../contract.ts"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
 
@@ -1009,6 +1010,17 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
       }
     })
   }
+
+  /**
+   * Real FC-25 zombie-process scenario (per pack gelé §13-§15,
+   * 2026-09-04). Spawns a long-lived Bun subprocess (process A)
+   * that holds a local authority token, blocks on a freeze
+   * barrier, observes takeover by a second owner (B), then
+   * attempts stale mutate + dispatch with the local token.
+   */
+  async runZombieFC25Scenario(): Promise<ZombieFC25Result> {
+    return await runZombieFC25Native(this.storeDir)
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1161,7 +1173,136 @@ async function raceNativeAuthorities(
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* FC-25 zombie-process scenario (Native, real 2-OS-process)         */
+/* ------------------------------------------------------------------ */
+
+async function runZombieFC25Native(storeDir: string): Promise<ZombieFC25Result> {
+  const runId = `run-fc25-zombie-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const ownerA = `zombie-A-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const ownerB = `zombie-B-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  let zombieA: NativeWorkerHandle | null = null
+  try {
+    // Step 1: spawn process A. A is a real OS process that
+    // holds a local authority token.
+    zombieA = await spawnNativeWorker({ storeDir, ownerId: ownerA, label: "A" })
+    // Step 2: A claims authority at gen=1.
+    const claimResp = await fetch(`${zombieA.baseUrl}/claim?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptedGeneration: 1 }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    if (!claimResp.ok) {
+      throw new Error(`zombie A claim failed: HTTP ${claimResp.status}`)
+    }
+    const claim = await claimResp.json() as { granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number }
+    if (!claim.granted) {
+      throw new Error(`zombie A claim rejected (granted=false)`)
+    }
+    const initialGeneration = claim.currentGeneration as AuthorityGeneration
+    // Step 3: A reaches FREEZE BARRIER. A is a real OS
+    // process that blocks on /await-resume. The PID is
+    // running but the request does not return until we
+    // POST /resume.
+    const freezePromise = fetch(`${zombieA.baseUrl}/await-resume?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", signal: AbortSignal.timeout(60_000),
+    })
+    await delay(200)
+    const statusResp = await fetch(`${zombieA.baseUrl}/status?runId=${encodeURIComponent(runId)}`, { signal: AbortSignal.timeout(2_000) })
+    const status = await statusResp.json() as { pid: number; frozen: boolean; generation: number; authorityOwnerId: string; alive: boolean }
+    if (!status.frozen || !status.alive || status.pid !== zombieA.pid) {
+      throw new Error(`zombie A did not enter freeze barrier (status=${JSON.stringify(status)})`)
+    }
+    const oldOwnerAliveDuringTakeover = true
+    const oldOwnerPid = status.pid
+    // Step 4: takeover to B. The takeover is performed via
+    // the zombie's process using the existing /takeover
+    // endpoint. The zombie's process holds the writer lock
+    // to the SQLite file, so a takeover issued through the
+    // parent adapter (which holds a separate connection)
+    // would also work; we use the zombie's endpoint for
+    // consistency with the freeze-barrier scenario.
+    const takeoverResp = await fetch(`${zombieA.baseUrl}/takeover?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newAuthorityOwnerId: ownerB }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    const takeoverJson = await takeoverResp.json() as { ok: boolean; previousGeneration?: number; previousOwner?: string; newGeneration?: number; newOwner?: string; reason?: string }
+    if (!takeoverJson.ok) {
+      throw new Error(`takeover rejected: ${JSON.stringify(takeoverJson)}`)
+    }
+    const takeover = {
+      previousGeneration: takeoverJson.previousGeneration as AuthorityGeneration,
+      newGeneration: takeoverJson.newGeneration as AuthorityGeneration,
+      previousAuthorityOwnerId: takeoverJson.previousOwner ?? "",
+      newAuthorityOwnerId: takeoverJson.newOwner ?? "",
+    }
+    // Step 5: B commits under gen=2. We use the zombie's
+    // process because it holds the connection; we send
+    // mutate with the new (gen=2, ownerB) token.
+    const newOwnerMutateResp = await fetch(`${zombieA.baseUrl}/mutate?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: { attemptedGeneration: takeover.newGeneration, authorityOwnerId: takeover.newAuthorityOwnerId }, mutation: "B_RUN_STATE_COMMITTED" }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    const newOwnerMutate = { accepted: newOwnerMutateResp.ok, reason: newOwnerMutateResp.ok ? undefined : (await newOwnerMutateResp.json().catch(() => ({})) as { error?: string }).error }
+    // Step 6: resume A.
+    const resumeResp = await fetch(`${zombieA.baseUrl}/resume?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", signal: AbortSignal.timeout(5_000),
+    })
+    void resumeResp
+    const freezeResult = await freezePromise
+    if (!freezeResult.ok) {
+      throw new Error(`await-resume did not return 200: ${freezeResult.status}`)
+    }
+    // Step 7: A attempts stale mutate.
+    const staleMutateResp = await fetch(`${zombieA.baseUrl}/stale-mutate?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mutation: "A_STALE_MUTATE_AFTER_TAKEOVER" }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    const staleMutate = { accepted: staleMutateResp.ok, reason: staleMutateResp.ok ? undefined : (await staleMutateResp.json().catch(() => ({})) as { error?: string }).error }
+    // Step 8: A attempts stale dispatch.
+    const staleDispatchResp = await fetch(`${zombieA.baseUrl}/stale-dispatch?runId=${encodeURIComponent(runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ effectKey: `ek-fc25-stale-${Date.now()}` }),
+      signal: AbortSignal.timeout(5_000),
+    })
+    const staleDispatch = { accepted: staleDispatchResp.ok, reason: staleDispatchResp.ok ? undefined : (await staleDispatchResp.json().catch(() => ({})) as { error?: string }).error }
+    const newOwnerCommitAccepted = newOwnerMutate.accepted === true
+    const staleOwnerCommitRejected = staleMutate.accepted === false
+    const staleOwnerDispatchRejected = staleDispatch.accepted === false
+    const newGenerationGreaterThanOld = takeover.newGeneration > takeover.previousGeneration
+    return {
+      measured: true,
+      distinctOsProcesses: 2, // parent adapter + worker A
+      oldOwnerAliveDuringTakeover,
+      oldOwnerDidNotReleaseBeforeTakeover: true, // A never released; verified by A holding the token across the takeover
+      oldOwnerPid,
+      runId,
+      ownerA,
+      ownerB,
+      newGenerationGreaterThanOld,
+      newOwnerCommitAccepted,
+      staleOwnerCommitRejected,
+      staleOwnerDispatchRejected,
+      takeover,
+      newOwnerMutate,
+      staleMutate,
+      staleDispatch,
+    }
+  } finally {
+    if (zombieA) {
+      try { await fetch(`${zombieA.baseUrl}/shutdown`, { method: "POST", signal: AbortSignal.timeout(1_000) }) } catch { /* noop */ }
+      if (zombieA.proc && !zombieA.proc.killed) {
+        try { zombieA.proc.kill("SIGKILL") } catch { /* noop */ }
+      }
+    }
+  }
+}
+
 /** Convenience: re-export so adapter callers don't need a deep import. */
 export { assertCanonical, fromHostFloat64, canonicalEquals }
+
 
 

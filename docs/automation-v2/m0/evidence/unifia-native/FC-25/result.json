@@ -1,39 +1,31 @@
 {
   "measured": true,
+  "distinctOsProcesses": 2,
+  "oldOwnerAliveDuringTakeover": true,
   "oldOwnerDidNotReleaseBeforeTakeover": true,
+  "oldOwnerPid": 5268,
   "newGenerationGreaterThanOld": true,
   "newOwnerCommitAccepted": true,
   "staleOwnerCommitRejected": true,
   "staleOwnerDispatchRejected": true,
   "takeover": {
-    "accepted": true,
     "previousGeneration": 1,
-    "previousAuthorityOwnerId": "owner-A-1788485579321",
     "newGeneration": 2,
-    "newAuthorityOwnerId": "owner-B-1788485579321"
+    "previousAuthorityOwnerId": "zombie-A-1788510812723-38hq34",
+    "newAuthorityOwnerId": "zombie-B-1788510812723-92u4lf"
   },
   "newOwnerMutate": {
-    "accepted": true,
-    "generation": 2,
-    "authorityOwnerId": "owner-B-1788485579321"
+    "accepted": true
   },
   "staleMutate": {
     "accepted": false,
-    "reason": "STALE_AUTHORITY",
-    "currentGeneration": 2,
-    "currentAuthorityOwnerId": "owner-B-1788485579321"
+    "reason": "STALE_AUTHORITY"
   },
   "staleDispatch": {
     "accepted": false,
-    "reason": "STALE_AUTHORITY",
-    "currentGeneration": 2,
-    "currentAuthorityOwnerId": "owner-B-1788485579321"
+    "reason": "STALE_AUTHORITY"
   },
-  "runId": "run-fc25-1788485579321-14j2k4",
-  "ownerA": "owner-A-1788485579321",
-  "ownerB": "owner-B-1788485579321",
-  "staleTokenFencingPass": true,
-  "distinctOsProcesses": 1,
-  "oldOwnerAliveDuringTakeover": false,
-  "fc25RealZombieProcessRequired": true
+  "runId": "run-fc25-zombie-1788510812722-c5ffp8",
+  "ownerA": "zombie-A-1788510812723-38hq34",
+  "ownerB": "zombie-B-1788510812723-92u4lf"
 }

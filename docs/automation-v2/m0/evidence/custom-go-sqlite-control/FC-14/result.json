@@ -2,36 +2,36 @@
   "measured": true,
   "concurrentRace": true,
   "distinctOsProcesses": 2,
-  "winnerProcessLocalOwnerId": "owner-B-1788485582800-dzkoaz",
-  "loserProcessLocalOwnerId": "owner-A-1788485582800-jq66y4",
-  "currentPersistedAuthorityOwnerId": "pid-1684-B-1788485582917-bmx876",
-  "winnerOwnerId": "pid-1684-B-1788485582917-bmx876",
-  "loserOwnerId": "pid-1684-B-1788485582917-bmx876",
-  "winnerPid": 1684,
-  "loserPid": 18860,
+  "winnerProcessLocalOwnerId": "owner-B-1788510816181-sb3c52",
+  "loserProcessLocalOwnerId": "owner-A-1788510816181-p2ey4v",
+  "currentPersistedAuthorityOwnerId": "pid-14584-B-1788510816304-2nbxrb",
+  "winnerOwnerId": "pid-14584-B-1788510816304-2nbxrb",
+  "loserOwnerId": "pid-14584-B-1788510816304-2nbxrb",
+  "winnerPid": 14584,
+  "loserPid": 8320,
   "finalGeneration": 1,
   "winnerMutate": {
     "accepted": true,
     "generation": 1,
-    "authorityOwnerId": "pid-1684-B-1788485582917-bmx876"
+    "authorityOwnerId": "pid-14584-B-1788510816304-2nbxrb"
   },
   "loserMutate": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 1,
-    "currentAuthorityOwnerId": "pid-1684-B-1788485582917-bmx876"
+    "currentAuthorityOwnerId": "pid-14584-B-1788510816304-2nbxrb"
   },
   "winnerDispatch": {
     "accepted": true,
-    "effectKey": "ek-fc14-1788485583109",
+    "effectKey": "ek-fc14-1788510816504",
     "generation": 1,
-    "authorityOwnerId": "pid-1684-B-1788485582917-bmx876"
+    "authorityOwnerId": "pid-14584-B-1788510816304-2nbxrb"
   },
   "loserDispatch": {
     "accepted": false,
     "reason": "STALE_AUTHORITY",
     "currentGeneration": 1,
-    "currentAuthorityOwnerId": "pid-1684-B-1788485582917-bmx876"
+    "currentAuthorityOwnerId": "pid-14584-B-1788510816304-2nbxrb"
   },
   "winnerMutateAccepted": true,
   "loserMutateRejected": true,

@@ -42,6 +42,7 @@ import type {
   ProviderResolution,
   AuthorityToken,
   RaceAuthoritiesInput,
+  ZombieFC25Result,
 } from "./contract.ts"
 import { CandidateResultBuilder, ExpectedNABuilder, evidencePath, resultsPath, expectedNAPath, blockedNote } from "./result.ts"
 import { FC_31A_VALUES, FC_31B_VECTORS, bitsToFloat64 } from "./vectors/fc31-fixtures.ts"
@@ -786,148 +787,82 @@ export class QualificationRunner {
 
   private async runFC25(info: CandidateInfo): Promise<void> {
     // Per pack gelé §25-§28 (CP6.3 / final M0 closure 2026-09-04):
-    //   1. A claims authority at gen=1.
-    //   2. A REACHES A FREEZE BARRIER (no release!).
-    //   3. The takeover primitive (qualification-only) increments
-    //      to gen=2 and assigns a new authority owner B.
-    //   4. B commits an authoritative mutation under gen=2
-    //      (accepted).
-    //   5. A resumes and attempts:
-    //        - authoritative mutation under gen=1 → REJECTED
-    //        - effect dispatch under gen=1 → REJECTED
+    // The runner now drives the REAL ZOMBIE-PROCESS scenario
+    // through the substrate-neutral `runZombieFC25Scenario`
+    // capability. The adapter is responsible for spawning
+    // the second live OS process, performing the IPC freeze
+    // barrier, observing the takeover, and verifying the
+    // stale mutate+dispatch rejections.
     //
     // PASS conditions (per result-builder gate):
+    //   distinctOsProcesses            >= 2
+    //   oldOwnerAliveDuringTakeover   = true
     //   oldOwnerDidNotReleaseBeforeTakeover = true
-    //   newGenerationGreaterThanOld          = true
-    //   newOwnerCommitAccepted               = true
-    //   staleOwnerCommitRejected             = true
-    //   staleOwnerDispatchRejected           = true
+    //   newGenerationGreaterThanOld   = true
+    //   newOwnerCommitAccepted        = true
+    //   staleOwnerCommitRejected      = true
+    //   staleOwnerDispatchRejected    = true
     const folder = evidencePath(this.opts.outputRoot, info.kind, "FC-25")
-    const runId = `run-fc25-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` as WorkflowRunId
-    const ownerA = `owner-A-${Date.now()}`
-    const ownerB = `owner-B-${Date.now()}`
-    // A claims authority. The harness records the OLD token
-    // (gen=1, ownerA) for the later "stale" assertions. The
-    // adapter's claim is recorded WITHOUT releasing.
-    const claimA = await this.adapter.claimAuthority({
-      runId,
-      authorityOwnerId: ownerA,
-    })
-    if (!claimA.granted) {
+    let result: ZombieFC25Result
+    try {
+      result = await this.adapter.runZombieFC25Scenario()
+    } catch (e) {
+      // The adapter threw (e.g. CUSTOM_GO_SQLITE_CONTROL
+      // because the binary does not implement /await-resume).
+      // The result is NOT_IMPLEMENTED until the underlying
+      // capability exists on the candidate.
       const observations: Record<string, unknown> = {
-        measured: true,
-        reason: "Initial claim by ownerA was rejected by the adapter. The FC-25 scenario cannot proceed.",
-        claimA,
+        measured: false,
+        reason: (e as Error).message,
+        fc25ZombieScenarioRequired:
+          "Real FC-25 requires 2 live OS processes with an IPC freeze barrier between A's claim and A's stale-mutate/dispatch. The adapter must implement runZombieFC25Scenario by spawning the second process, performing the takeover WHILE A is alive but blocked on /await-resume, then RESUME A and verify stale rejection.",
       }
       const evidence = await writeEvidence(folder, "result.json", observations)
       this.builder.record({
         testId: "FC-25",
-        status: "FAIL_CORRECTABLE",
+        status: "NOT_IMPLEMENTED",
         evidencePath: evidence,
-        note: "FC-25 FAIL_CORRECTABLE: initial claim by ownerA was rejected.",
+        note: `FC-25 NOT_IMPLEMENTED: ${(e as Error).message}`,
         observations,
       })
       return
     }
-    const initialGeneration: AuthorityGeneration = claimA.currentGeneration
-    // Step 2: A "freezes" (does NOT release). The harness
-    // simply proceeds without a release call. The freeze
-    // barrier is implicit — A's process is alive but we never
-    // call any release primitive.
-    const oldOwnerDidNotReleaseBeforeTakeover = true
-    // Step 3: takeover to B.
-    const takeover = await this.adapter.forceQualificationTakeover({
-      runId,
-      expectedCurrentGeneration: initialGeneration,
-      newAuthorityOwnerId: ownerB,
-    })
-    if (!takeover.accepted) {
-      const observations: Record<string, unknown> = {
-        measured: true,
-        reason: "Takeover was rejected by the adapter. The FC-25 scenario cannot proceed.",
-        takeover,
-      }
-      const evidence = await writeEvidence(folder, "result.json", observations)
-      this.builder.record({
-        testId: "FC-25",
-        status: "FAIL_CORRECTABLE",
-        evidencePath: evidence,
-        note: "FC-25 FAIL_CORRECTABLE: takeover was rejected by the adapter.",
-        observations,
-      })
-      return
-    }
-    // Step 4: B commits under gen=2.
-    const newOwnerToken: AuthorityToken = {
-      runId,
-      generation: takeover.newGeneration,
-      authorityOwnerId: takeover.newAuthorityOwnerId,
-    }
-    const newOwnerMutate = await this.adapter.attemptAuthoritativeMutation({
-      runId, token: newOwnerToken, mutation: "B_RUN_STATE_COMMITTED",
-    })
-    const newOwnerCommitAccepted = newOwnerMutate.accepted === true
-    // Step 5: A (with old gen) attempts mutate + dispatch.
-    const staleToken: AuthorityToken = {
-      runId,
-      generation: initialGeneration,
-      authorityOwnerId: ownerA,
-    }
-    const staleMutate = await this.adapter.attemptAuthoritativeMutation({
-      runId, token: staleToken, mutation: "A_STALE_MUTATE",
-    })
-    const staleDispatch = await this.adapter.attemptEffectDispatch({
-      runId, token: staleToken, effectKey: `ek-fc25-stale-${Date.now()}`,
-    })
-    const staleOwnerCommitRejected = staleMutate.accepted === false
-    const staleOwnerDispatchRejected = staleDispatch.accepted === false
-    const newGenerationGreaterThanOld = takeover.newGeneration > takeover.previousGeneration
+    // Build the FC-25 result builder observations.
     const observations: Record<string, unknown> = {
-      measured: true,
-      oldOwnerDidNotReleaseBeforeTakeover,
-      newGenerationGreaterThanOld,
-      newOwnerCommitAccepted,
-      staleOwnerCommitRejected,
-      staleOwnerDispatchRejected,
-      takeover,
-      newOwnerMutate,
-      staleMutate,
-      staleDispatch,
-      runId,
-      ownerA, ownerB,
+      measured: result.measured,
+      distinctOsProcesses: result.distinctOsProcesses,
+      oldOwnerAliveDuringTakeover: result.oldOwnerAliveDuringTakeover,
+      oldOwnerDidNotReleaseBeforeTakeover: result.oldOwnerDidNotReleaseBeforeTakeover,
+      oldOwnerPid: result.oldOwnerPid,
+      newGenerationGreaterThanOld: result.newGenerationGreaterThanOld,
+      newOwnerCommitAccepted: result.newOwnerCommitAccepted,
+      staleOwnerCommitRejected: result.staleOwnerCommitRejected,
+      staleOwnerDispatchRejected: result.staleOwnerDispatchRejected,
+      takeover: result.takeover,
+      newOwnerMutate: result.newOwnerMutate,
+      staleMutate: result.staleMutate,
+      staleDispatch: result.staleDispatch,
+      runId: result.runId,
+      ownerA: result.ownerA,
+      ownerB: result.ownerB,
     }
-    // Per Erwan review 2026-09-04: the four assertions above
-    // prove STALE_AUTHORITY_TOKEN_FENCING but NOT
-    // ZOMBIE_OS_PROCESS_FENCING. The "freeze barrier" in this
-    // implementation is implicit (we simply don't call
-    // release) — ownerA is not a real OS process that holds
-    // its old token across a real takeover. For ZOMBIE-process
-    // fencing the harness must spawn a 2nd live process, send
-    // a READY_WITH_TOKEN signal, perform the takeover while A
-    // is still alive but blocked, then RESUME A and verify
-    // A's stale mutate+dispatch are rejected.
-    //
-    // We therefore reclassify FC-25 to NOT_VALID for M0 until
-    // the real zombie-process scenario is implemented. The
-    // stale-token-fencing observations are preserved as
-    // conformance evidence (NOT a FC-25 PASS).
-    const staleTokenFencing = oldOwnerDidNotReleaseBeforeTakeover
-      && newGenerationGreaterThanOld
-      && newOwnerCommitAccepted
-      && staleOwnerCommitRejected
-      && staleOwnerDispatchRejected
-    observations.staleTokenFencingPass = staleTokenFencing
-    observations.distinctOsProcesses = 1 // in-process: NO zombie process
-    observations.oldOwnerAliveDuringTakeover = false // implicit freeze, not a real barrier
-    observations.fc25RealZombieProcessRequired = true
     const evidence = await writeEvidence(folder, "result.json", observations)
+    // FC-25 PASS requires the 5 conditions in the result builder gate.
+    const allPass = result.measured
+      && result.distinctOsProcesses >= 2
+      && result.oldOwnerAliveDuringTakeover
+      && result.oldOwnerDidNotReleaseBeforeTakeover
+      && result.newGenerationGreaterThanOld
+      && result.newOwnerCommitAccepted
+      && result.staleOwnerCommitRejected
+      && result.staleOwnerDispatchRejected
     this.builder.record({
       testId: "FC-25",
-      status: "NOT_VALID",
+      status: allPass ? "PASS" : "FAIL_CORRECTABLE",
       evidencePath: evidence,
-      note: staleTokenFencing
-        ? `FC-25 NOT_VALID: stale-authority-token-fencing PASS (4/4 conditions), but the "freeze" is implicit (no live OS process). ZOMBIE_OS_PROCESS_FENCING requires a real IPC freeze barrier between 2 live processes. Until implemented, FC-25 is NOT_VALID.`
-        : `FC-25 NOT_VALID: stale-authority-token-fencing conditions not all met (oldRelease=${oldOwnerDidNotReleaseBeforeTakeover} newGen>old=${newGenerationGreaterThanOld} newCommit=${newOwnerCommitAccepted} staleCommit=${staleOwnerCommitRejected} staleDispatch=${staleOwnerDispatchRejected}). ZOMBIE-process scenario also NOT IMPLEMENTED.`,
+      note: allPass
+        ? `FC-25 PASS: 2 live OS processes (pid=${result.oldOwnerPid} + parent adapter); A claimed gen=1, A blocked on /await-resume (frozen=true, alive=true), takeover to B at gen=${(result.takeover as { newGeneration: AuthorityGeneration }).newGeneration}, B commit ACCEPTED, A resumed and stale mutate+dispatch REJECTED.`
+        : `FC-25 FAIL_CORRECTABLE: zombie-fence conditions not all met. measured=${result.measured} distinctProcs=${result.distinctOsProcesses} aliveDuringTakeover=${result.oldOwnerAliveDuringTakeover} newCommit=${result.newOwnerCommitAccepted} staleCommit=${result.staleOwnerCommitRejected} staleDispatch=${result.staleOwnerDispatchRejected}`,
       observations,
     })
   }

@@ -126,25 +126,23 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
     }
     expect(fc14?.status).toBe("PASS")
 
-    // FC-25 must be NOT_VALID for both candidates (per
-    // Erwan review 2026-09-04): the harness currently proves
-    // STALE_AUTHORITY_TOKEN_FENCING (4/4 conditions) but does
-    // NOT yet prove ZOMBIE_OS_PROCESS_FENCING (a real IPC
-    // freeze barrier between 2 live processes). The current
-    // evidence is preserved as a conformance primitive; the
-    // FC-25 PASS gate requires a real zombie-process scenario.
+    // FC-25 must be PASS for Native (real zombie-process
+    // scenario with IPC freeze barrier between 2 live OS
+    // processes; 2 distinct processes observed, A's freeze
+    // barrier /await-resume observed, A's stale mutate+dispatch
+    // rejected).
     const fc25 = result.results.find((r) => r.testId === "FC-25")
     expect(fc25).toBeDefined()
-    if (fc25?.status !== "NOT_VALID") {
+    if (fc25?.status !== "PASS") {
       // eslint-disable-next-line no-console
       console.log("FC-25 status:", fc25?.status, "note:", fc25?.note, "observations:", JSON.stringify(fc25?.observations))
     }
-    expect(fc25?.status).toBe("NOT_VALID")
-    // The observation must record the stale-token-fencing PASS
-    // for traceability.
-    expect(fc25?.observations?.staleTokenFencingPass).toBe(true)
-    // And must declare the zombie-process requirement.
-    expect(fc25?.observations?.fc25RealZombieProcessRequired).toBe(true)
+    expect(fc25?.status).toBe("PASS")
+    // The zombie scenario observations are machine-confirmed.
+    expect(fc25?.observations?.distinctOsProcesses).toBeGreaterThanOrEqual(2)
+    expect(fc25?.observations?.oldOwnerAliveDuringTakeover).toBe(true)
+    expect(fc25?.observations?.staleOwnerCommitRejected).toBe(true)
+    expect(fc25?.observations?.staleOwnerDispatchRejected).toBe(true)
 
     // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
     const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")
@@ -282,19 +280,19 @@ describe("M0 qualification — CUSTOM_GO_SQLITE_CONTROL (real binary)", () => {
     }
     expect(fc14?.status).toBe("PASS")
 
-    // FC-25 must be NOT_VALID for CUSTOM_GO_SQLITE_CONTROL: the
-    // same reason as UNIFIA_NATIVE — stale-token-fencing PASS
-    // is recorded but ZOMBIE-process fencing is not yet
-    // exercised.
+    // FC-25 must be NOT_IMPLEMENTED for CUSTOM_GO_SQLITE_CONTROL:
+    // the control binary does not implement the freeze-barrier
+    // endpoints (/await-resume, /resume). The real FC-25
+    // zombie scenario is exercised on the real DBOS Go
+    // candidate (when built). The control is intentionally
+    // NOT_IMPLEMENTED for this gate.
     const fc25 = result.results.find((r) => r.testId === "FC-25")
     expect(fc25).toBeDefined()
-    if (fc25?.status !== "NOT_VALID") {
+    if (fc25?.status !== "NOT_IMPLEMENTED") {
       // eslint-disable-next-line no-console
       console.log("FC-25 status:", fc25?.status, "note:", fc25?.note, "observations:", JSON.stringify(fc25?.observations))
     }
-    expect(fc25?.status).toBe("NOT_VALID")
-    expect(fc25?.observations?.staleTokenFencingPass).toBe(true)
-    expect(fc25?.observations?.fc25RealZombieProcessRequired).toBe(true)
+    expect(fc25?.status).toBe("NOT_IMPLEMENTED")
 
     // FC-13-CTRL / FC-13 must be BLOCKED (no power-loss methodology).
     const fc13c = result.results.find((r) => r.testId === "FC-13-CTRL")

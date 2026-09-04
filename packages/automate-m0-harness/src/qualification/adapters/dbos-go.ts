@@ -75,6 +75,7 @@ import type {
   QualificationTakeoverResult,
   ClaimAuthorityInput,
   ClaimAuthorityResult,
+  ZombieFC25Result,
 } from "../contract.ts"
 
 /* ------------------------------------------------------------------ */
@@ -703,6 +704,33 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
       }
       throw e
     }
+  }
+
+  /**
+   * Real FC-25 zombie-process scenario. Per pack gelé
+   * §13-§15 (2026-09-04): spawn a second `dbos-qualify.exe`
+   * process that holds a local authority token, blocks on
+   * a freeze barrier, observes takeover by a second owner
+   * (B), then attempts stale mutate + dispatch with the
+   * local token. The CUSTOM_GO_SQLITE_CONTROL binary does
+   * not yet implement /await-resume and /resume (it is a
+   * control candidate, not the real DBOS); for the M0
+   * control evidence we throw NOT_IMPLEMENTED so the
+   * runner records the gap.
+   */
+  async runZombieFC25Scenario(): Promise<ZombieFC25Result> {
+    // The CUSTOM_GO_SQLITE_CONTROL binary does not yet
+    // implement the zombie freeze barrier endpoints. The
+    // real FC-25 zombie scenario for the DBOS_GO_SQLITE
+    // candidate (which is the actual point of the test) is
+    // not yet built. We mark this as a NOT-IMPLEMENTED gate
+    // so the runner can record the gap precisely.
+    throw new Error(
+      "CUSTOM_GO_SQLITE_CONTROL does not implement runZombieFC25Scenario: " +
+      "the freeze barrier (/await-resume, /resume) requires new endpoints " +
+      "on the dbos-qualify.exe binary. The real DBOS_GO_SQLITE candidate (when " +
+      "built) is the candidate that MUST pass the zombie-process FC-25.",
+    )
   }
 }
 
