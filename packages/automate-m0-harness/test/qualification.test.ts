@@ -6,7 +6,7 @@
  *
  * Runs the qualification runner against:
  *   - UNIFIA_NATIVE : real (bun:sqlite in-process, M0 env choice)
- *   - DBOS_GO_SQLITE : real (spawn dbos-qualify.exe, v1.0.0 binary)
+ *   - CUSTOM_GO_SQLITE_CONTROL : real (spawn dbos-qualify.exe, v1.0.0 binary)
  *
  * Per pack gelé §5 / §11 / §42 : P0 set is FC-31A, FC-31B, FC-04,
  * FC-14, FC-25, FC-32. FC-13 / FC-13-CTRL are explicitly NOT in
@@ -164,10 +164,10 @@ describe("M0 qualification — UNIFIA_NATIVE", () => {
 })
 
 /* ----------------------------------------------------------------- */
-/* DBOS_GO_SQLITE (real binary)                                        */
+/* CUSTOM_GO_SQLITE_CONTROL (real binary)                                        */
 /* ----------------------------------------------------------------- */
 
-describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
+describe("M0 qualification — CUSTOM_GO_SQLITE_CONTROL (real binary)", () => {
   if (!DBOS_GO_BUILT) {
     test("binary NOT BUILT — skipped (build via scripts/bootstrap-go.sh + go build)", () => {
       // eslint-disable-next-line no-console
@@ -181,14 +181,14 @@ describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
     return
   }
 
-  test("candidateInfo() declares DBOS_GO_SQLITE with pinned versions", async () => {
+  test("candidateInfo() declares CUSTOM_GO_SQLITE_CONTROL with pinned versions", async () => {
     const candidate = new DBOSGoCandidate({
       toolDir: DBOS_GO_TOOL_DIR,
       version: "github.com/dbos-inc/dbos-transact-golang@v1.0.0",
       buildHash: "qual-m0-2026-09-03",
     })
     const info = await candidate.candidateInfo()
-    expect(info.kind).toBe("DBOS_GO_SQLITE")
+    expect(info.kind).toBe("CUSTOM_GO_SQLITE_CONTROL")
     expect(info.version).toBe("github.com/dbos-inc/dbos-transact-golang@v1.0.0")
     expect(info.version).not.toBe("latest")
     expect(info.version).not.toBe("1.0+")
@@ -198,7 +198,7 @@ describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
     expect(info.storage.synchronous).toBe("FULL")
   })
 
-  test("P0 set runs against the real Go binary and produces M0_RESULTS_DBOS_GO_SQLITE.json", async () => {
+  test("P0 set runs against the real Go binary and produces M0_RESULTS_CUSTOM_GO_SQLITE_CONTROL.json", async () => {
     const root = tempDir("dbos-go")
     const providerDir = join(root, "provider")
     const candidateDir = join(root, "candidate")
@@ -231,7 +231,7 @@ describe("M0 qualification — DBOS_GO_SQLITE (real binary)", () => {
     const result: CandidateResultFile = await file.json()
 
     // Structural assertions
-    expect(result.candidate).toBe("DBOS_GO_SQLITE")
+    expect(result.candidate).toBe("CUSTOM_GO_SQLITE_CONTROL")
     expect(result.schemaVersion).toBe(1)
     expect(result.results.length).toBeGreaterThan(0)
 
@@ -437,3 +437,4 @@ async function mkdirSafe(p: string): Promise<void> {
   const { mkdir } = await import("node:fs/promises")
   await mkdir(p, { recursive: true })
 }
+

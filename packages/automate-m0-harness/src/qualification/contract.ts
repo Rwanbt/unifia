@@ -404,7 +404,154 @@ export interface DurableWorkflowAuthorityQualificationAdapter {
 
   /** Lightweight diagnostics. */
   diagnostics(): Promise<CandidateDiagnostics>
+
+  /* -------------------------------------------------------------- */
+  /* FC-14 / FC-25 substrate-neutral authority capabilities         */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Race two authority-claim participants for a single run.
+   *
+   * The harness calls this from a common barrier so both
+   * participants enter the race at the same time. The adapter
+   * is responsible for the substrate-native mechanism: spawning
+   * a child process, opening a second SQLite connection, or
+   * using a second HTTP loopback. The result is one winner and
+   * one loser (exactly).
+   *
+   * `concurrentRace = true` is required for FC-14 PASS.
+   * `distinctOsProcesses >= 2` is required for FC-14 PASS on a
+   * child-process / sidecar / remote candidate. An in-process
+   * race (two Database handles in one process) is explicitly
+   * NOT sufficient for FC-14 PASS — it can only support a
+   * conformance primitive, not a qualification criterion.
+   */
+  raceAuthorities(input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult>
+
+  /**
+   * Attempt an authoritative mutation under a given (generation,
+   * authorityOwnerId) token. The adapter MUST verify the token
+   * matches the currently persisted authority state. On
+   * mismatch, return `{ accepted: false, reason: "STALE_AUTHORITY" }`
+   * without mutating state.
+   *
+   * Used by FC-14 to prove the winner can ACT on its authority
+   * (not merely own the run_authority row) and the loser is
+   * rejected at the mutate boundary.
+   */
+  attemptAuthoritativeMutation(
+    input: AuthoritativeMutationInput,
+  ): Promise<AuthoritativeMutationResult>
+
+  /**
+   * Attempt an external effect-dispatch authorization under a
+   * given token. Same fencing rules as
+   * `attemptAuthoritativeMutation`. Used by FC-14 to prove the
+   * winner's dispatch is authorized and the loser's is rejected.
+   */
+  attemptEffectDispatch(
+    input: EffectDispatchInput,
+  ): Promise<EffectDispatchResult>
+
+  /**
+   * Forcibly take over authority for a run. The previous owner
+   * is NOT released; the new owner receives a higher
+   * generation. This is a QUALIFICATION-ONLY primitive: it
+   * exercises the FC-25 zombie-fencing scenario. Production
+   * failover is governed by ADR-008 and is out of M0 scope.
+   */
+  forceQualificationTakeover(
+    input: QualificationTakeoverInput,
+  ): Promise<QualificationTakeoverResult>
+
+  /**
+   * Read the current persisted authority state for a run.
+   * Returns generation + owner id (and process id when known).
+   */
+  inspectAuthority(runId: WorkflowRunId): Promise<AuthoritySnapshot>
 }
+
+/* ------------------------------------------------------------------ */
+/* FC-14 / FC-25 capability inputs and outputs                        */
+/* ------------------------------------------------------------------ */
+
+export interface AuthorityToken {
+  readonly runId: WorkflowRunId
+  readonly generation: AuthorityGeneration
+  readonly authorityOwnerId: string
+}
+
+export interface AuthoritySnapshot {
+  readonly runId: WorkflowRunId
+  readonly generation: AuthorityGeneration
+  readonly authorityOwnerId: string
+  /** Process id of the current owner, when the adapter can report it. */
+  readonly holderPid: number | null
+}
+
+export interface RaceAuthoritiesInput {
+  readonly runId: WorkflowRunId
+  readonly participantA: { readonly authorityOwnerId: string }
+  readonly participantB: { readonly authorityOwnerId: string }
+  /** Adapter must respect the same shared store as the adapter's current process. */
+  readonly sharedStore: string
+}
+
+export interface RaceAuthoritiesResult {
+  readonly measured: boolean
+  /** True if both participants entered the claim path before either observed the outcome. */
+  readonly concurrentRace: boolean
+  readonly distinctOsProcesses: number
+  readonly claimA: AuthorityClaimOutcome
+  readonly claimB: AuthorityClaimOutcome
+  readonly winner: { readonly authorityOwnerId: string; readonly processLocalOwnerId: string; readonly pid: number | null }
+  readonly loser: { readonly authorityOwnerId: string; readonly processLocalOwnerId: string; readonly pid: number | null }
+  readonly finalPersistedAuthorityOwnerId: string
+  readonly finalGeneration: AuthorityGeneration
+}
+
+export interface AuthorityClaimOutcome {
+  readonly granted: boolean
+  /** When the participant is the loser, this is the WINNER's ownerId (the holder). */
+  readonly currentAuthorityOwnerId: string
+  readonly currentGeneration: AuthorityGeneration
+  readonly attemptedGeneration: AuthorityGeneration
+  readonly holderPid: number | null
+}
+
+export interface AuthoritativeMutationInput {
+  readonly runId: WorkflowRunId
+  readonly token: AuthorityToken
+  /** Opaque label the adapter may record against the mutation. */
+  readonly mutation: string
+}
+
+export type AuthoritativeMutationResult =
+  | { readonly accepted: true; readonly generation: AuthorityGeneration; readonly authorityOwnerId: string }
+  | { readonly accepted: false; readonly reason: "STALE_AUTHORITY" | "UNKNOWN_RUN" | "INVALID_TOKEN"; readonly currentGeneration: AuthorityGeneration | null; readonly currentAuthorityOwnerId: string | null }
+
+export interface EffectDispatchInput {
+  readonly runId: WorkflowRunId
+  readonly token: AuthorityToken
+  /** EffectKey the participant wants to authorize. */
+  readonly effectKey: string
+}
+
+export type EffectDispatchResult =
+  | { readonly accepted: true; readonly effectKey: string; readonly generation: AuthorityGeneration; readonly authorityOwnerId: string }
+  | { readonly accepted: false; readonly reason: "STALE_AUTHORITY" | "UNKNOWN_RUN" | "INVALID_TOKEN" | "EFFECT_DUPLICATE"; readonly currentGeneration: AuthorityGeneration | null; readonly currentAuthorityOwnerId: string | null }
+
+export interface QualificationTakeoverInput {
+  readonly runId: WorkflowRunId
+  /** Generation currently persisted (the holder to be displaced). */
+  readonly expectedCurrentGeneration: AuthorityGeneration
+  /** New authority owner id. */
+  readonly newAuthorityOwnerId: string
+}
+
+export type QualificationTakeoverResult =
+  | { readonly accepted: true; readonly previousGeneration: AuthorityGeneration; readonly previousAuthorityOwnerId: string; readonly newGeneration: AuthorityGeneration; readonly newAuthorityOwnerId: string }
+  | { readonly accepted: false; readonly reason: "GENERATION_MISMATCH" | "UNKNOWN_RUN"; readonly currentGeneration: AuthorityGeneration | null; readonly currentAuthorityOwnerId: string | null }
 
 /* ------------------------------------------------------------------ */
 /* Provider resolution (what the fake provider says)                  */

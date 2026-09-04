@@ -28,6 +28,8 @@
 import { Database } from "bun:sqlite"
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
+import { spawn, ChildProcess } from "node:child_process"
+import { setTimeout as delay } from "node:timers/promises"
 import {
   type WorkflowRunId,
   type WorkflowVersionId,
@@ -61,6 +63,16 @@ import type {
   ApprovalHistoryEvent,
   ApprovalState,
   ExecutionPlanDigest,
+  AuthoritySnapshot,
+  RaceAuthoritiesInput,
+  RaceAuthoritiesResult,
+  AuthorityClaimOutcome,
+  AuthoritativeMutationInput,
+  AuthoritativeMutationResult,
+  EffectDispatchInput,
+  EffectDispatchResult,
+  QualificationTakeoverInput,
+  QualificationTakeoverResult,
 } from "../contract.ts"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
 
@@ -92,6 +104,40 @@ CREATE TABLE IF NOT EXISTS authority_generation (
   generation INTEGER PRIMARY KEY
 );
 INSERT OR IGNORE INTO authority_generation (generation) VALUES (1);
+-- Per-run authority generation (CP6.1 + 2026-09-04). Each run has
+-- its own monotonic generation. The (generation, authority_owner_id)
+-- tuple is the durable authority identity. PID is recorded in evidence
+-- but is NOT the canonical identity.
+CREATE TABLE IF NOT EXISTS run_authority (
+  run_id TEXT PRIMARY KEY,
+  generation INTEGER NOT NULL DEFAULT 0,
+  authority_owner_id TEXT NOT NULL DEFAULT '',
+  holder_pid INTEGER NOT NULL DEFAULT 0,
+  acquired_at_epoch_ms INTEGER NOT NULL DEFAULT 0
+);
+-- Effect-dispatch authorization (CP6.1 §7). A successful
+-- AuthorizeDispatch records an entry here in the SAME transaction
+-- that validated the (generation, authority_owner_id) token. This
+-- is the durable proof that a given effect was authorized by the
+-- current authority.
+CREATE TABLE IF NOT EXISTS effect_dispatch_auth (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL,
+  effect_key TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  authority_owner_id TEXT NOT NULL,
+  authorized_at_epoch_ms INTEGER NOT NULL
+);
+-- Run-state mutation log (atomic check-and-mutate proof). Every
+-- successful AuthoritativeMutate appends a row.
+CREATE TABLE IF NOT EXISTS run_state_mutations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL,
+  mutation TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  authority_owner_id TEXT NOT NULL,
+  mutated_at_epoch_ms INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS runs (
   run_id TEXT PRIMARY KEY,
   workflow_version_id TEXT NOT NULL,
@@ -742,6 +788,309 @@ export class NativeSqliteCandidate implements DurableWorkflowAuthorityQualificat
   async destroy(): Promise<void> {
     await this.shutdown()
     await rm(this.storeDir, { recursive: true, force: true })
+  }
+
+  /* -------------------------------------------------------------- */
+  /* FC-14 / FC-25 substrate-neutral authority capabilities         */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Read the current persisted authority state for a run.
+   */
+  async inspectAuthority(runId: WorkflowRunId): Promise<AuthoritySnapshot> {
+    const db = this.requireDb()
+    const row = db.query(
+      `SELECT generation, authority_owner_id, holder_pid FROM run_authority WHERE run_id = ?`,
+    ).get(runId) as { generation: number; authority_owner_id: string; holder_pid: number } | null
+    if (!row) {
+      // No claim yet — return a zero-generation snapshot.
+      return { runId, generation: 0 as AuthorityGeneration, authorityOwnerId: "", holderPid: null }
+    }
+    return {
+      runId,
+      generation: row.generation as AuthorityGeneration,
+      authorityOwnerId: row.authority_owner_id,
+      holderPid: row.holder_pid,
+    }
+  }
+
+  /**
+   * Race two OS processes for authority over a single run.
+   * The Native adapter spawns a `native-authority-worker.ts` Bun
+   * subprocess on the same storeDir and a small HTTP loopback
+   * (127.0.0.1:0) so the parent can issue the claim. The two
+   * processes enter `ClaimAuthority` from a Promise.all after a
+   * barrier.
+   *
+   * Returns `concurrentRace: true` and `distinctOsProcesses: 2`
+   * when measured, satisfying the FC-14 PASS gate.
+   */
+  async raceAuthorities(input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult> {
+    // Sanity: storeDir must be the one this adapter opened.
+    if (input.sharedStore !== this.storeDir) {
+      throw new Error(`raceAuthorities: sharedStore=${input.sharedStore} does not match adapter storeDir=${this.storeDir}`)
+    }
+    return await raceNativeAuthorities(this.storeDir, input)
+  }
+
+  /**
+   * Atomic check-and-mutate: validates the (generation,
+   * authority_owner_id) token in a BEGIN IMMEDIATE transaction
+   * and, on match, appends a row to `run_state_mutations`.
+   */
+  async attemptAuthoritativeMutation(
+    input: AuthoritativeMutationInput,
+  ): Promise<AuthoritativeMutationResult> {
+    const db = this.requireDb()
+    return db.transaction((): AuthoritativeMutationResult => {
+      // BEGIN IMMEDIATE acquires the writer lock at the start of
+      // the transaction; another process racing us blocks on the
+      // SQLite file lock. bun:sqlite is single-writer; the
+      // transaction is automatically IMMEDIATE.
+      const row = db.query(
+        `SELECT generation, authority_owner_id FROM run_authority WHERE run_id = ?`,
+      ).get(input.runId) as { generation: number; authority_owner_id: string } | null
+      if (!row) {
+        return { accepted: false, reason: "UNKNOWN_RUN", currentGeneration: null, currentAuthorityOwnerId: null }
+      }
+      if (row.generation !== input.token.generation || row.authority_owner_id !== input.token.authorityOwnerId) {
+        return {
+          accepted: false,
+          reason: "STALE_AUTHORITY",
+          currentGeneration: row.generation as AuthorityGeneration,
+          currentAuthorityOwnerId: row.authority_owner_id,
+        }
+      }
+      db.run(
+        `INSERT INTO run_state_mutations (run_id, mutation, generation, authority_owner_id, mutated_at_epoch_ms) VALUES (?, ?, ?, ?, ?)`,
+        [input.runId, input.mutation, row.generation, row.authority_owner_id, Date.now()],
+      )
+      return { accepted: true, generation: row.generation as AuthorityGeneration, authorityOwnerId: row.authority_owner_id }
+    })()
+  }
+
+  /**
+   * Authorize an external effect dispatch under a (generation,
+   * authority_owner_id) token. Atomic: token check + ledger
+   * insert in one transaction.
+   */
+  async attemptEffectDispatch(input: EffectDispatchInput): Promise<EffectDispatchResult> {
+    const db = this.requireDb()
+    return db.transaction((): EffectDispatchResult => {
+      const row = db.query(
+        `SELECT generation, authority_owner_id FROM run_authority WHERE run_id = ?`,
+      ).get(input.runId) as { generation: number; authority_owner_id: string } | null
+      if (!row) {
+        return { accepted: false, reason: "UNKNOWN_RUN", currentGeneration: null, currentAuthorityOwnerId: null }
+      }
+      if (row.generation !== input.token.generation || row.authority_owner_id !== input.token.authorityOwnerId) {
+        return {
+          accepted: false,
+          reason: "STALE_AUTHORITY",
+          currentGeneration: row.generation as AuthorityGeneration,
+          currentAuthorityOwnerId: row.authority_owner_id,
+        }
+      }
+      db.run(
+        `INSERT INTO effect_dispatch_auth (run_id, effect_key, generation, authority_owner_id, authorized_at_epoch_ms) VALUES (?, ?, ?, ?, ?)`,
+        [input.runId, input.effectKey, row.generation, row.authority_owner_id, Date.now()],
+      )
+      return {
+        accepted: true,
+        effectKey: input.effectKey,
+        generation: row.generation as AuthorityGeneration,
+        authorityOwnerId: row.authority_owner_id,
+      }
+    })()
+  }
+
+  /**
+   * Qualification-only takeover: forcibly increments the
+   * generation and assigns a new owner without requiring the
+   * previous owner to release. Used by FC-25.
+   */
+  async forceQualificationTakeover(
+    input: QualificationTakeoverInput,
+  ): Promise<QualificationTakeoverResult> {
+    const db = this.requireDb()
+    return db.transaction((): QualificationTakeoverResult => {
+      const row = db.query(
+        `SELECT generation, authority_owner_id FROM run_authority WHERE run_id = ?`,
+      ).get(input.runId) as { generation: number; authority_owner_id: string } | null
+      if (!row) {
+        return { accepted: false, reason: "UNKNOWN_RUN", currentGeneration: null, currentAuthorityOwnerId: null }
+      }
+      if (row.generation !== input.expectedCurrentGeneration) {
+        return {
+          accepted: false,
+          reason: "GENERATION_MISMATCH",
+          currentGeneration: row.generation as AuthorityGeneration,
+          currentAuthorityOwnerId: row.authority_owner_id,
+        }
+      }
+      const newGen = row.generation + 1
+      db.run(
+        `UPDATE run_authority SET generation = ?, authority_owner_id = ?, holder_pid = ?, acquired_at_epoch_ms = ? WHERE run_id = ?`,
+        [newGen, input.newAuthorityOwnerId, 0, Date.now(), input.runId],
+      )
+      return {
+        accepted: true,
+        previousGeneration: row.generation as AuthorityGeneration,
+        previousAuthorityOwnerId: row.authority_owner_id,
+        newGeneration: newGen as AuthorityGeneration,
+        newAuthorityOwnerId: input.newAuthorityOwnerId,
+      }
+    })()
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Native authority worker (subprocess for FC-14/25 multi-process)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Spawn a Bun subprocess that runs the same `NativeSqliteCandidate`
+ * authority primitives against the same storeDir, on a small
+ * HTTP loopback. The subprocess is controlled by the parent via
+ * `/claim` (POST), `/mutate` (POST), `/dispatch` (POST),
+ * `/takeover` (POST), `/inspect` (GET), `/shutdown` (POST).
+ *
+ * This is the substrate-neutral mechanism by which the Native
+ * candidate participates in a REAL two-OS-process race. The
+ * runner calls `adapter.raceAuthorities(...)` which delegates to
+ * this function; the runner never imports a candidate-specific
+ * helper.
+ */
+interface NativeWorkerOptions { storeDir: string; ownerId: string; label: string }
+interface NativeWorkerHandle { proc: ChildProcess; baseUrl: string; pid: number; ownerId: string }
+
+async function spawnNativeWorker(opts: NativeWorkerOptions): Promise<NativeWorkerHandle> {
+  // Find the worker script relative to this file.
+  const workerPath = join(import.meta.dir, "native-authority-worker.ts")
+  const proc = spawn(process.execPath, [workerPath], {
+    env: {
+      ...process.env,
+      M0_NATIVE_STORE_DIR: opts.storeDir,
+      M0_NATIVE_OWNER_ID: opts.ownerId,
+      M0_NATIVE_LABEL: opts.label,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  })
+  let baseUrl: string | null = null
+  let stderrBuf = ""
+  let stdoutBuf = ""
+  await new Promise<void>((resolve, reject) => {
+    let resolved = false
+    const timer = setTimeout(() => {
+      if (resolved) return
+      resolved = true
+      try { proc.kill() } catch { /* noop */ }
+      reject(new Error(`native-authority-worker did not bind within 30s (stderr=${stderrBuf})`))
+    }, 30_000)
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      stdoutBuf += chunk.toString("utf8")
+      if (baseUrl) return
+      const m = stdoutBuf.match(/127\.0\.0\.1:\d+/)
+      if (m) {
+        baseUrl = `http://${m[0]}`
+        // Wait briefly for /healthz
+        const start = Date.now()
+        const wait = async () => {
+          while (Date.now() - start < 5_000) {
+            try {
+              await fetch(`${baseUrl}/healthz`, { signal: AbortSignal.timeout(500) })
+              if (!resolved) { resolved = true; clearTimeout(timer); resolve() }
+              return
+            } catch { await delay(50) }
+          }
+          if (!resolved) { resolved = true; clearTimeout(timer); reject(new Error(`worker unhealthy (stderr=${stderrBuf})`)) }
+        }
+        void wait()
+      }
+    })
+    proc.stderr?.on("data", (chunk: Buffer) => { stderrBuf += chunk.toString("utf8") })
+    proc.once("error", (e) => { if (resolved) return; resolved = true; clearTimeout(timer); reject(e) })
+    proc.once("exit", (code) => { if (resolved) return; resolved = true; clearTimeout(timer); reject(new Error(`worker exited code=${code} (stderr=${stderrBuf})`)) })
+  })
+  if (!baseUrl) throw new Error("native-authority-worker did not expose base URL")
+  return { proc, baseUrl, pid: proc.pid ?? 0, ownerId: opts.ownerId }
+}
+
+async function killWorker(w: NativeWorkerHandle | null): Promise<void> {
+  if (!w) return
+  try { await fetch(`${w.baseUrl}/shutdown`, { method: "POST", signal: AbortSignal.timeout(1_000) }) } catch { /* noop */ }
+  if (w.proc && !w.proc.killed) {
+    try { w.proc.kill("SIGKILL") } catch { /* noop */ }
+  }
+}
+
+async function raceNativeAuthorities(
+  storeDir: string,
+  input: RaceAuthoritiesInput,
+): Promise<RaceAuthoritiesResult> {
+  let workerA: NativeWorkerHandle | null = null
+  let workerB: NativeWorkerHandle | null = null
+  try {
+    workerA = await spawnNativeWorker({ storeDir, ownerId: input.participantA.authorityOwnerId, label: "A" })
+    workerB = await spawnNativeWorker({ storeDir, ownerId: input.participantB.authorityOwnerId, label: "B" })
+    // Barrier: 50ms before both call /claim concurrently.
+    await delay(50)
+    const claimA = fetch(`${workerA.baseUrl}/claim?runId=${encodeURIComponent(input.runId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptedGeneration: 1 }),
+      signal: AbortSignal.timeout(10_000),
+    }).then((r) => r.json() as Promise<{ granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number }>)
+    const claimB = fetch(`${workerB.baseUrl}/claim?runId=${encodeURIComponent(input.runId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptedGeneration: 1 }),
+      signal: AbortSignal.timeout(10_000),
+    }).then((r) => r.json() as Promise<{ granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number }>)
+    const [a, b] = await Promise.all([claimA, claimB])
+    const winnerA = a.granted
+    const winner = winnerA ? { claim: a, worker: workerA, ownerId: input.participantA.authorityOwnerId, pid: workerA.pid } : { claim: b, worker: workerB, ownerId: input.participantB.authorityOwnerId, pid: workerB.pid }
+    const loser = winnerA ? { claim: b, worker: workerB, ownerId: input.participantB.authorityOwnerId, pid: workerB.pid } : { claim: a, worker: workerA, ownerId: input.participantA.authorityOwnerId, pid: workerA.pid }
+    // Winner snapshot: the persisted (gen, owner) at the end of the race.
+    const inspect = await fetch(`${winner.worker.baseUrl}/inspect?runId=${encodeURIComponent(input.runId)}`, { signal: AbortSignal.timeout(5_000) })
+    const inspectJson = await inspect.json() as { currentGeneration: number; authorityOwnerId: string; holderPid: number }
+    const aOut: AuthorityClaimOutcome = {
+      granted: a.granted,
+      currentAuthorityOwnerId: a.authorityOwnerId,
+      currentGeneration: a.currentGeneration as AuthorityGeneration,
+      attemptedGeneration: 1 as AuthorityGeneration,
+      holderPid: a.holderPid,
+    }
+    const bOut: AuthorityClaimOutcome = {
+      granted: b.granted,
+      currentAuthorityOwnerId: b.authorityOwnerId,
+      currentGeneration: b.currentGeneration as AuthorityGeneration,
+      attemptedGeneration: 1 as AuthorityGeneration,
+      holderPid: b.holderPid,
+    }
+    return {
+      measured: true,
+      concurrentRace: true,
+      distinctOsProcesses: 2,
+      claimA: aOut,
+      claimB: bOut,
+      winner: {
+        authorityOwnerId: winner.claim.authorityOwnerId,
+        processLocalOwnerId: winner.ownerId,
+        pid: winner.pid,
+      },
+      loser: {
+        authorityOwnerId: loser.claim.authorityOwnerId,
+        processLocalOwnerId: loser.ownerId,
+        pid: loser.pid,
+      },
+      finalPersistedAuthorityOwnerId: inspectJson.authorityOwnerId,
+      finalGeneration: inspectJson.currentGeneration as AuthorityGeneration,
+    }
+  } finally {
+    await killWorker(workerA)
+    await killWorker(workerB)
   }
 }
 

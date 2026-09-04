@@ -1391,7 +1391,43 @@ func (s *Server) Serve() (string, error) {
 		}
 		writeJSON(w, 200, result)
 	})
-	mux.HandleFunc("/admin/backup", func(w http.ResponseWriter, r *http.Request) {
+	// /authority/inspect?runId=X
+	//   Read the current authority state for a run. Used by the
+	//   runner to assert that the persisted generation +
+	//   authorityOwnerId match the post-race observation.
+	mux.HandleFunc("/authority/inspect", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			writeErr(w, 405, errors.New("method"))
+			return
+		}
+		runId := r.URL.Query().Get("runId")
+		if runId == "" {
+			writeErr(w, 400, errors.New("runId required"))
+			return
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		var currentGen int64
+		var ownerId sql.NullString
+		var pid sql.NullInt64
+		err := s.db.QueryRow(`SELECT generation, authority_owner_id, holder_pid FROM run_authority WHERE run_id = ?`, runId).Scan(&currentGen, &ownerId, &pid)
+		if err == sql.ErrNoRows {
+			writeErr(w, 404, errors.New("no authority row yet"))
+			return
+		}
+		if err != nil { writeErr(w, 500, err); return }
+		holderPid := 0
+		if pid.Valid { holderPid = int(pid.Int64) }
+		holder := ""
+		if ownerId.Valid { holder = ownerId.String }
+		writeJSON(w, 200, map[string]any{
+			"runId": runId,
+			"currentGeneration": currentGen,
+			"authorityOwnerId":  holder,
+			"holderPid":         holderPid,
+		})
+	})
+	// /admin/backup
 		handle, err := s.CreateBackup()
 		if err != nil { writeErr(w, 500, err); return }
 		writeJSON(w, 200, map[string]string{"handle": handle})

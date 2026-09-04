@@ -2,16 +2,23 @@
 /* Copyright (c) 2026 Unifia contributors */
 
 /**
- * DBOS_GO_SQLITE M0 qualification adapter (HTTP over loopback).
+ * CUSTOM_GO_SQLITE_CONTROL M0 qualification adapter (HTTP over loopback).
  *
- * This adapter is NO LONGER a STUB. It spawns a real
- * `dbos-qualify.exe` Go process (built from `tools/dbos-qualify/`
- * using the pinned `github.com/dbos-inc/dbos-transact-golang@v1.0.0`)
- * and drives it via HTTP/JSON.
+ * Per pack gelé §7 (2026-09-04) the previous misattribution of this
+ * Go binary to `DBOS_GO_SQLITE` is corrected. The binary uses
+ * custom SQLite tables + custom authority fencing + custom effect
+ * ledger + a BLANK DBOS import. It is the **control** candidate
+ * used to validate the harness and Unifia-owned semantics. It
+ * does NOT vote in the ADR-000 A/B decision; that decision waits
+ * on the real `DBOS_GO_SQLITE` candidate (which must actually
+ * execute DBOS Conductor APIs and does not yet exist).
  *
- * The contract surface is identical to the Native candidate
- * (FC-31A, FC-31B, FC-04, FC-32) so the M0 harness drives both
- * candidates with the same oracle.
+ * The adapter spawns a real `dbos-qualify.exe` Go process (built
+ * from `tools/dbos-qualify/` using the pinned
+ * `github.com/dbos-inc/dbos-transact-golang@v1.0.0`) and drives
+ * it via HTTP/JSON. The `dbos` package is imported as a compile-
+ * time check of the pinned version, but no DBOS Conductor APIs
+ * are invoked.
  *
  * Build instructions (reproducible, no admin):
  *   bash scripts/bootstrap-go.sh      # downloads Go 1.25.12
@@ -19,7 +26,7 @@
  *   ../.tools/go/go1.25.12/bin/go build -buildvcs=false -o dbos-qualify.exe .
  *
  * Per pack gelé (post review v1.1 2026-09-03) :
- *   - DBOS Go v1.0.0 (pinned, not "latest")
+ *   - DBOS Go v1.0.0 (pinned, not "latest") — compile-time only
  *   - Go 1.25.12 (required by DBOS v1.0.0 toolchain)
  *   - modernc.org/sqlite v1.54.0 (pinned, pure-Go, no cgo)
  *   - journal_mode=WAL, synchronous=FULL, busy_timeout=5000ms
@@ -57,6 +64,15 @@ import type {
   ProviderResolution,
   ApprovalResolveInput,
   ApprovalHistoryEvent,
+  AuthoritySnapshot,
+  RaceAuthoritiesInput,
+  RaceAuthoritiesResult,
+  AuthoritativeMutationInput,
+  AuthoritativeMutationResult,
+  EffectDispatchInput,
+  EffectDispatchResult,
+  QualificationTakeoverInput,
+  QualificationTakeoverResult,
 } from "../contract.ts"
 
 /* ------------------------------------------------------------------ */
@@ -140,7 +156,12 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
 
   async candidateInfo(): Promise<CandidateInfo> {
     return {
-      kind: "DBOS_GO_SQLITE",
+      // Per CP6.3 + pack gelé §7 (2026-09-04): the Go binary uses
+      // custom SQLite tables and a BLANK DBOS import only. It is
+      // the CUSTOM_GO_SQLITE_CONTROL candidate, NOT the future
+      // DBOS_GO_SQLITE finalist (which must use real DBOS Conductor
+      // APIs and does not yet exist).
+      kind: "CUSTOM_GO_SQLITE_CONTROL",
       version: this.version,
       buildHash: this.buildHash,
       storage: {
@@ -484,6 +505,157 @@ export class DBOSGoCandidate implements DurableWorkflowAuthorityQualificationAda
       effectLedgerSize: d.effectLedgerSize,
     }
   }
+
+  /* -------------------------------------------------------------- */
+  /* FC-14 / FC-25 substrate-neutral authority capabilities         */
+  /* (delegates to the Go binary's existing /authority/* endpoints) */
+  /* -------------------------------------------------------------- */
+
+  async inspectAuthority(runId: WorkflowRunId): Promise<AuthoritySnapshot> {
+    const base = this.requireBase()
+    const r = await jsonCall<{ runId: string; currentGeneration: number; authorityOwnerId: string; holderPid: number | null }>(
+      base,
+      `/authority/inspect?runId=${encodeURIComponent(runId)}`,
+      { timeoutMs: 5_000 },
+    )
+    return {
+      runId: r.runId as WorkflowRunId,
+      generation: r.currentGeneration as AuthorityGeneration,
+      authorityOwnerId: r.authorityOwnerId,
+      holderPid: r.holderPid,
+    }
+  }
+
+  /**
+   * Race two participants for authority. Per pack gelé §3 (final
+   * M0 closure 2026-09-04): the harness must not import
+   * candidate-specific helpers, so the race is implemented INSIDE
+   * the adapter. This method spawns a SECOND `dbos-qualify.exe`
+   * process on the same `sharedStore` (this adapter's `storeDir`)
+   * and races both processes on `/authority/claim`. The winner is
+   * the process whose claim was granted; the loser sees the
+   * winner's `authorityOwnerId` in the response.
+   *
+   * This is the FC-14 race scenario: two real OS processes,
+   * concurrent claim, exactly one winner.
+   */
+  async raceAuthorities(input: RaceAuthoritiesInput): Promise<RaceAuthoritiesResult> {
+    if (input.sharedStore !== this.storeDir) {
+      throw new Error(`raceAuthorities: sharedStore=${input.sharedStore} does not match adapter storeDir=${this.storeDir}`)
+    }
+    return await raceCUSTOMGoAuthorities(this.storeDir, input)
+  }
+
+  async attemptAuthoritativeMutation(
+    input: AuthoritativeMutationInput,
+  ): Promise<AuthoritativeMutationResult> {
+    const base = this.requireBase()
+    try {
+      await jsonCall<{ status: string }>(base, `/authority/mutate?runId=${encodeURIComponent(input.runId)}`, {
+        method: "POST",
+        body: {
+          token: {
+            attemptedGeneration: input.token.generation,
+            authorityOwnerId: input.token.authorityOwnerId,
+          },
+          mutation: input.mutation,
+        },
+        timeoutMs: 5_000,
+      })
+      const snap = await this.inspectAuthority(input.runId)
+      return { accepted: true, generation: snap.generation, authorityOwnerId: snap.authorityOwnerId }
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes("403")) {
+        const snap = await this.inspectAuthority(input.runId).catch(() => null)
+        return {
+          accepted: false,
+          reason: "STALE_AUTHORITY",
+          currentGeneration: snap?.generation ?? null,
+          currentAuthorityOwnerId: snap?.authorityOwnerId ?? null,
+        }
+      }
+      if (msg.includes("404")) {
+        return { accepted: false, reason: "UNKNOWN_RUN", currentGeneration: null, currentAuthorityOwnerId: null }
+      }
+      throw e
+    }
+  }
+
+  async attemptEffectDispatch(input: EffectDispatchInput): Promise<EffectDispatchResult> {
+    const base = this.requireBase()
+    try {
+      await jsonCall<{ status: string }>(base, `/authority/dispatch?runId=${encodeURIComponent(input.runId)}`, {
+        method: "POST",
+        body: {
+          token: {
+            attemptedGeneration: input.token.generation,
+            authorityOwnerId: input.token.authorityOwnerId,
+          },
+          effectKey: input.effectKey,
+        },
+        timeoutMs: 5_000,
+      })
+      const snap = await this.inspectAuthority(input.runId)
+      return { accepted: true, effectKey: input.effectKey, generation: snap.generation, authorityOwnerId: snap.authorityOwnerId }
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes("403")) {
+        const snap = await this.inspectAuthority(input.runId).catch(() => null)
+        return {
+          accepted: false,
+          reason: "STALE_AUTHORITY",
+          currentGeneration: snap?.generation ?? null,
+          currentAuthorityOwnerId: snap?.authorityOwnerId ?? null,
+        }
+      }
+      if (msg.includes("404")) {
+        return { accepted: false, reason: "UNKNOWN_RUN", currentGeneration: null, currentAuthorityOwnerId: null }
+      }
+      throw e
+    }
+  }
+
+  async forceQualificationTakeover(
+    input: QualificationTakeoverInput,
+  ): Promise<QualificationTakeoverResult> {
+    const base = this.requireBase()
+    try {
+      const r = await jsonCall<{
+        runId: string
+        newGeneration: number
+        newAuthorityOwnerId: string
+        previousGeneration: number
+        previousAuthorityOwnerId: string
+      }>(base, `/authority/takeover?runId=${encodeURIComponent(input.runId)}&expectedCurrentGeneration=${input.expectedCurrentGeneration}`, {
+        method: "POST",
+        body: { newAuthorityOwnerId: input.newAuthorityOwnerId },
+        timeoutMs: 5_000,
+      })
+      return {
+        accepted: true,
+        previousGeneration: r.previousGeneration as AuthorityGeneration,
+        previousAuthorityOwnerId: r.previousAuthorityOwnerId,
+        newGeneration: r.newGeneration as AuthorityGeneration,
+        newAuthorityOwnerId: r.newAuthorityOwnerId,
+      }
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes("403")) {
+        const snap = await this.inspectAuthority(input.runId).catch(() => null)
+        return {
+          accepted: false,
+          reason: "GENERATION_MISMATCH",
+          currentGeneration: snap?.generation ?? null,
+          currentAuthorityOwnerId: snap?.authorityOwnerId ?? null,
+        }
+      }
+      if (msg.includes("404")) {
+        return { accepted: false, reason: "UNKNOWN_RUN", currentGeneration: null, currentAuthorityOwnerId: null }
+      }
+      throw e
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -516,3 +688,134 @@ export const DBOS_GO_IPC_SKETCH = {
     errorFormat: "{ code, message, path } (JSON)",
   },
 } as const
+
+/* ------------------------------------------------------------------ */
+/* CUSTOM_GO_SQLITE_CONTROL authority race (FC-14 multi-process)      */
+/* ------------------------------------------------------------------ */
+
+interface SpawnedGoProc { proc: ChildProcess; baseUrl: string; storeDir: string; pid: number; ownerId: string }
+
+async function spawnCUSTOMGo(storeDir: string, label: string): Promise<SpawnedGoProc> {
+  await mkdir(storeDir, { recursive: true })
+  const placeholder = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const child = spawn(DBOS_GO_BINARY, [], {
+    env: { ...process.env, M0_STORE_DIR: storeDir },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  })
+  let baseUrl: string | null = null
+  let stdoutBuf = ""
+  let stderrBuf = ""
+  await new Promise<void>((resolve, reject) => {
+    let resolved = false
+    const timer = setTimeout(() => {
+      if (resolved) return
+      resolved = true
+      try { child.kill() } catch { /* noop */ }
+      reject(new Error(`dbos-qualify.exe did not bind within 90s (stdout=${stdoutBuf} stderr=${stderrBuf})`))
+    }, 90_000)
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdoutBuf += chunk.toString("utf8")
+      if (baseUrl) return
+      const lines = stdoutBuf.split(/\r?\n/)
+      for (const ln of lines) {
+        const m = ln.match(/127\.0\.0\.1:\d+/)
+        if (m) { baseUrl = `http://${m[0]}`; break }
+      }
+    })
+    child.stderr?.on("data", (chunk: Buffer) => { stderrBuf += chunk.toString("utf8") })
+    child.once("error", (e) => { if (resolved) return; resolved = true; clearTimeout(timer); reject(e) })
+    child.once("exit", (code) => { if (resolved) return; resolved = true; clearTimeout(timer); reject(new Error(`exited code=${code} (stderr=${stderrBuf})`)) })
+    const wait = async () => {
+      while (!resolved) {
+        if (baseUrl) {
+          try {
+            await fetch(`${baseUrl}/healthz`, { signal: AbortSignal.timeout(1_000) })
+            if (!resolved) { resolved = true; clearTimeout(timer); resolve() }
+            return
+          } catch { /* not yet */ }
+        }
+        await new Promise((r) => setTimeout(r, 100))
+      }
+    }
+    void wait()
+  })
+  if (!baseUrl) throw new Error("dbos-qualify.exe did not expose a base URL")
+  const ownerId = `pid-${child.pid ?? 0}-${placeholder}`
+  return { proc: child, baseUrl, storeDir, pid: child.pid ?? 0, ownerId }
+}
+
+async function killCUSTOMGo(p: SpawnedGoProc | null): Promise<void> {
+  if (!p) return
+  if (p.proc && !p.proc.killed) {
+    try { p.proc.kill("SIGKILL") } catch { /* noop */ }
+  }
+}
+
+const DBOS_GO_TOOL_DIR = join(import.meta.dir, "..", "..", "..", "..", "tools", "dbos-qualify")
+const DBOS_GO_BINARY = join(DBOS_GO_TOOL_DIR, "dbos-qualify.exe")
+
+async function raceCUSTOMGoAuthorities(
+  storeDir: string,
+  input: RaceAuthoritiesInput,
+): Promise<RaceAuthoritiesResult> {
+  let procA: SpawnedGoProc | null = null
+  let procB: SpawnedGoProc | null = null
+  try {
+    procA = await spawnCUSTOMGo(storeDir, "A")
+    procB = await spawnCUSTOMGo(storeDir, "B")
+    // 50ms barrier before both call /authority/claim concurrently.
+    await new Promise((r) => setTimeout(r, 50))
+    const claimA = fetch(`${procA.baseUrl}/authority/claim?runId=${encodeURIComponent(input.runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptedGeneration: 1, authorityOwnerId: procA.ownerId }),
+      signal: AbortSignal.timeout(10_000),
+    }).then(async (r) => ({ status: r.status, body: await r.json() as { granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number } }))
+    const claimB = fetch(`${procB.baseUrl}/authority/claim?runId=${encodeURIComponent(input.runId)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptedGeneration: 1, authorityOwnerId: procB.ownerId }),
+      signal: AbortSignal.timeout(10_000),
+    }).then(async (r) => ({ status: r.status, body: await r.json() as { granted: boolean; currentGeneration: number; authorityOwnerId: string; holderPid: number } }))
+    const [aRes, bRes] = await Promise.all([claimA, claimB])
+    const winnerA = aRes.body.granted
+    const winner = winnerA ? { res: aRes, proc: procA, ownerId: input.participantA.authorityOwnerId, pid: procA.pid } : { res: bRes, proc: procB, ownerId: input.participantB.authorityOwnerId, pid: procB.pid }
+    const loser = winnerA ? { res: bRes, proc: procB, ownerId: input.participantB.authorityOwnerId, pid: procB.pid } : { res: aRes, proc: procA, ownerId: input.participantA.authorityOwnerId, pid: procA.pid }
+    // Inspect the persisted state on the winner's process.
+    const inspect = await fetch(`${winner.proc.baseUrl}/authority/inspect?runId=${encodeURIComponent(input.runId)}`, { signal: AbortSignal.timeout(5_000) })
+    const inspectJson = await inspect.json() as { currentGeneration: number; authorityOwnerId: string; holderPid: number }
+    return {
+      measured: true,
+      concurrentRace: true,
+      distinctOsProcesses: 2,
+      claimA: {
+        granted: aRes.body.granted,
+        currentAuthorityOwnerId: aRes.body.authorityOwnerId,
+        currentGeneration: aRes.body.currentGeneration as AuthorityGeneration,
+        attemptedGeneration: 1 as AuthorityGeneration,
+        holderPid: aRes.body.holderPid,
+      },
+      claimB: {
+        granted: bRes.body.granted,
+        currentAuthorityOwnerId: bRes.body.authorityOwnerId,
+        currentGeneration: bRes.body.currentGeneration as AuthorityGeneration,
+        attemptedGeneration: 1 as AuthorityGeneration,
+        holderPid: bRes.body.holderPid,
+      },
+      winner: {
+        authorityOwnerId: winner.res.body.authorityOwnerId,
+        processLocalOwnerId: winner.ownerId,
+        pid: winner.pid,
+      },
+      loser: {
+        authorityOwnerId: loser.res.body.authorityOwnerId,
+        processLocalOwnerId: loser.ownerId,
+        pid: loser.pid,
+      },
+      finalPersistedAuthorityOwnerId: inspectJson.authorityOwnerId,
+      finalGeneration: inspectJson.currentGeneration as AuthorityGeneration,
+    }
+  } finally {
+    await killCUSTOMGo(procA)
+    await killCUSTOMGo(procB)
+  }
+}

@@ -87,9 +87,46 @@ export interface DeploymentScope {
  * (§14) — a live authority migration is forbidden; changing it requires a
  * new run, or an explicit offline migration performed while no previous
  * authority can execute.
+ *
+ * Authoritative candidate matrix (M0 final closure, 2026-09-04):
+ *   - UNIFIA_NATIVE             : TRUE FINALIST A
+ *                                 real native SQLite via `bun:sqlite`,
+ *                                 in-process + multi-process mode
+ *   - DBOS_GO_SQLITE            : TRUE FINALIST B (not yet built)
+ *                                 must actually use DBOS v1.0.0 Go APIs
+ *                                 (DBOS Context, RegisterWorkflow, ...);
+ *                                 placeholder value, no result file yet
+ *   - CUSTOM_GO_SQLITE_CONTROL  : CONTROL (the Go binary that uses
+ *                                 custom SQLite + blank DBOS import)
+ *                                 kept to validate the harness and
+ *                                 Unifia-owned semantics; does NOT vote
+ *                                 in the ADR-000 A/B decision
+ *
+ * Historical note: the previous binary was misattributed to
+ * `DBOS_GO_SQLITE` even though it used custom tables + a blank DBOS
+ * import. It is now correctly labeled `CUSTOM_GO_SQLITE_CONTROL`.
+ * Result files written before this rename still carry the legacy
+ * `DBOS_GO_SQLITE` value; the harness reads them as
+ * `CUSTOM_GO_SQLITE_CONTROL` when applying the per-candidate
+ * governance rules.
  */
-export const AUTHORITY_KINDS = ["UNIFIA_NATIVE", "DBOS_GO_SQLITE"] as const
+export const AUTHORITY_KINDS = ["UNIFIA_NATIVE", "DBOS_GO_SQLITE", "CUSTOM_GO_SQLITE_CONTROL"] as const
 export type AuthorityKind = (typeof AUTHORITY_KINDS)[number]
+
+/**
+ * Resolve a legacy `DBOS_GO_SQLITE` kind to its current attribution
+ * `CUSTOM_GO_SQLITE_CONTROL`. New evidence must use the new name
+ * directly; this helper is only for reading historical result files.
+ */
+export function normalizeAuthorityKind(kind: string): AuthorityKind {
+  if (kind === "CUSTOM_GO_SQLITE_CONTROL" || kind === "UNIFIA_NATIVE" || kind === "DBOS_GO_SQLITE") {
+    return kind
+  }
+  if (kind === "DBOS_GO_SQLITE_LEGACY" || kind === "DBOS_GO_SQLITE_CONTROL") {
+    return "CUSTOM_GO_SQLITE_CONTROL"
+  }
+  throw new Error(`Unknown AuthorityKind: ${kind}`)
+}
 
 export type AuthorityProtocolVersion = number
 

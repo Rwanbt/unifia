@@ -48,16 +48,23 @@ export class CandidateResultBuilder {
     note: string
     observations?: { readonly [k: string]: unknown }
   }): void {
-    // Per pack gelé review 2026-09-03 v1.1 §22: PASS requires
-    // measured=true for any FC that has a `measured` field in the
-    // observation. The harness enforces this invariant at the
-    // result builder so a PASS cannot be silently recorded for a
-    // property that was not actually exercised.
-    if (input.status === "PASS" && input.observations && "measured" in input.observations && input.observations.measured === false) {
-      throw new Error(
-        `ResultBuilder invariant violated: status=PASS but measured=false for ${input.testId}. ` +
-        `A PASS is not admissible when the FC was not actually exercised. Reclassify as NOT_VALID, BLOCKED, or FAIL_CORRECTABLE.`,
-      )
+    // Per pack gelé review 2026-09-03 v1.1 §22 + §37 of the
+    // final M0 closure (2026-09-04): PASS requires measured=true
+    // for any FC that has a `measured` field in the observation,
+    // and the FC-specific gate below must hold. The harness
+    // enforces these invariants at the result builder so a PASS
+    // cannot be silently recorded for a property that was not
+    // actually exercised or that did not satisfy the FC's
+    // mandatory post-conditions.
+    if (input.status === "PASS") {
+      const o = input.observations ?? {}
+      if ("measured" in o && o.measured === false) {
+        throw new Error(
+          `ResultBuilder invariant violated: status=PASS but measured=false for ${input.testId}. ` +
+          `A PASS is not admissible when the FC was not actually exercised. Reclassify as NOT_VALID, BLOCKED, or FAIL_CORRECTABLE.`,
+        )
+      }
+      assertFCPassGate(input.testId, o)
     }
     // Per-FC dedup: a single FC must not appear twice in the result
     // file, even if the runner tried twice. First-PASS wins; an
@@ -189,6 +196,98 @@ export type BlockedReasonKind =
 
 export function blockedNote(kind: BlockedReasonKind, detail: string): string {
   return `BLOCKED (${kind}): ${detail}`
+}
+
+/* ------------------------------------------------------------------ */
+/* FC PASS gates (per pack gelé §37 of final M0 closure 2026-09-04)   */
+/* ------------------------------------------------------------------ */
+
+type Obs = { readonly [k: string]: unknown }
+
+/**
+ * Mandatory post-conditions for a PASS on each FC that has a
+ * defined gate. The builder refuses PASS if any required
+ * condition is missing or false.
+ *
+ * FC-14 PASS requires:
+ *   concurrentRace=true
+ *   distinctOsProcesses>=2
+ *   winnerMutateAccepted=true
+ *   loserMutateRejected=true
+ *   winnerDispatchAccepted=true
+ *   loserDispatchRejected=true
+ *
+ * FC-25 PASS requires:
+ *   oldOwnerDidNotReleaseBeforeTakeover=true
+ *   newGenerationGreaterThanOld=true
+ *   newOwnerCommitAccepted=true
+ *   staleOwnerCommitRejected=true
+ *   staleOwnerDispatchRejected=true
+ *
+ * FC-04 PASS requires (real transport-level ACK loss):
+ *   realExternalProvider=true
+ *   providerCommitted=true
+ *   transportAckLost=true
+ *   recoveryExecuted=true
+ *   blindRetryCount=0
+ *
+ * FC-32 PASS requires:
+ *   measured=true
+ *   controlledNondeterminism=true
+ *   crashRecovery=true
+ */
+export function assertFCPassGate(testId: FunctionalCriterionId, o: Obs): void {
+  switch (testId) {
+    case "FC-14": {
+      const missing: string[] = []
+      if (o.concurrentRace !== true) missing.push("concurrentRace=true")
+      if (typeof o.distinctOsProcesses !== "number" || (o.distinctOsProcesses as number) < 2) missing.push("distinctOsProcesses>=2")
+      if (o.winnerMutateAccepted !== true) missing.push("winnerMutateAccepted=true")
+      if (o.loserMutateRejected !== true) missing.push("loserMutateRejected=true")
+      if (o.winnerDispatchAccepted !== true) missing.push("winnerDispatchAccepted=true")
+      if (o.loserDispatchRejected !== true) missing.push("loserDispatchRejected=true")
+      if (missing.length) {
+        throw new Error(`FC-14 PASS gate violated: missing ${missing.join(", ")}`)
+      }
+      return
+    }
+    case "FC-25": {
+      const missing: string[] = []
+      if (o.oldOwnerDidNotReleaseBeforeTakeover !== true) missing.push("oldOwnerDidNotReleaseBeforeTakeover=true")
+      if (o.newGenerationGreaterThanOld !== true) missing.push("newGenerationGreaterThanOld=true")
+      if (o.newOwnerCommitAccepted !== true) missing.push("newOwnerCommitAccepted=true")
+      if (o.staleOwnerCommitRejected !== true) missing.push("staleOwnerCommitRejected=true")
+      if (o.staleOwnerDispatchRejected !== true) missing.push("staleOwnerDispatchRejected=true")
+      if (missing.length) {
+        throw new Error(`FC-25 PASS gate violated: missing ${missing.join(", ")}`)
+      }
+      return
+    }
+    case "FC-04": {
+      const missing: string[] = []
+      if (o.realExternalProvider !== true) missing.push("realExternalProvider=true")
+      if (o.providerCommitted !== true) missing.push("providerCommitted=true")
+      if (o.transportAckLost !== true) missing.push("transportAckLost=true")
+      if (o.recoveryExecuted !== true) missing.push("recoveryExecuted=true")
+      if (o.blindRetryCount !== 0) missing.push("blindRetryCount=0")
+      if (missing.length) {
+        throw new Error(`FC-04 PASS gate violated: missing ${missing.join(", ")}`)
+      }
+      return
+    }
+    case "FC-32": {
+      const missing: string[] = []
+      if (o.measured !== true) missing.push("measured=true")
+      if (o.controlledNondeterminism !== true) missing.push("controlledNondeterminism=true")
+      if (o.crashRecovery !== true) missing.push("crashRecovery=true")
+      if (missing.length) {
+        throw new Error(`FC-32 PASS gate violated: missing ${missing.join(", ")}`)
+      }
+      return
+    }
+    default:
+      return
+  }
 }
 
 /* ------------------------------------------------------------------ */
