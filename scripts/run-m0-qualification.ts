@@ -41,6 +41,43 @@ import { mkdtempSync, rmSync, existsSync, mkdirSync, copyFileSync, readdirSync, 
 import { tmpdir } from "node:os"
 import { join, resolve as pathResolve, relative } from "node:path"
 import { $ } from "bun"
+
+/* ------------------------------------------------------------------ */
+/* Two-commit reproducibility model (mandate §13-§17)                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Per the master execution mandate §13-§17: canonical
+ * qualification must be run from a CLEAN worktree (Commit A
+ * contains only source). Evidence (Commit B) is a separate
+ * commit that records the qualification result + canonical
+ * evidence files.
+ *
+ * The writer refuses to overwrite the canonical result /
+ * evidence unless the worktree is clean. A diagnostic mode
+ * (NON_CANONICAL_DIAGNOSTIC_MODE=1) is provided for ad-hoc
+ * exploration; in that mode the writer still publishes but
+ * tags the provenance with `nonCanonical: true` so a
+ * reviewer cannot mistake a diagnostic run for a canonical
+ * benchmark.
+ */
+async function isWorktreeClean(): Promise<boolean> {
+  try {
+    const out = await $`git status --porcelain`.cwd(REPO_ROOT).text()
+    return out.trim().length === 0
+  } catch {
+    return false
+  }
+}
+
+async function captureSourceCommit(): Promise<{ commit: string; tree: string; branch: string }> {
+  const commit = (await $`git rev-parse HEAD`.cwd(REPO_ROOT).text()).trim()
+  const tree = (await $`git rev-parse HEAD^{tree}`.cwd(REPO_ROOT).text()).trim()
+  const branch = (await $`git branch --show-current`.cwd(REPO_ROOT).text()).trim()
+  return { commit, tree, branch }
+}
+
+const NON_CANONICAL_DIAGNOSTIC_MODE = process.env.NON_CANONICAL_DIAGNOSTIC_MODE === "1"
 import {
   FakeExternalEffectProvider,
   NativeSqliteCandidate,
@@ -328,6 +365,23 @@ async function main(): Promise<void> {
   console.log(`Harness:    ${HARNESS_SHORT} (${HARNESS_COMMIT})`)
   console.log(`Runtime:    ${RUNTIME}`)
   console.log(`Oracle:     ${ORACLE_VERSION}`)
+
+  // Two-commit reproducibility model gate (mandate §13-§17).
+  // Refuse to publish canonical evidence from a dirty worktree
+  // unless NON_CANONICAL_DIAGNOSTIC_MODE=1.
+  const clean = await isWorktreeClean()
+  if (!clean && !NON_CANONICAL_DIAGNOSTIC_MODE) {
+    console.error("")
+    console.error("[REFUSED] Worktree is dirty (per `git status --porcelain`).")
+    console.error("         Commit source changes first (Commit A), then re-run this script.")
+    console.error("         To run an ad-hoc diagnostic, set NON_CANONICAL_DIAGNOSTIC_MODE=1.")
+    console.error("")
+    process.exit(1)
+  }
+  const mode = clean ? "CANONICAL" : "NON_CANONICAL_DIAGNOSTIC"
+  console.log(`Mode:       ${mode}`)
+  const source = await captureSourceCommit()
+  console.log(`Source:     commit=${source.commit.slice(0, 12)} tree=${source.tree.slice(0, 12)} branch=${source.branch}`)
 
   const runs: CandidateRun[] = []
 
