@@ -454,8 +454,11 @@ function publish(run: CandidateRun, generationId: string, sourceCommit: string):
 
   // 7. Rewrite evidencePath values in the staged result to
   // their canonical repo-relative form (mandate §16-§18).
-  // The path can be any filename under
-  // `<staging>/<slug>/<FC>/<filename>` — not just result.json.
+  // The runner now writes evidence under a per-FC temp
+  // dir and stores the relative path
+  // `evidence/<slug>/<FC>/<filename>` in the result. The
+  // publication writer re-resolves this against the
+  // canonical evidence root.
   // Generic rule:
   //   - reject absolute Windows / POSIX / file:// paths
   //   - reject path-escape attempts (../, ..\)
@@ -471,15 +474,15 @@ function publish(run: CandidateRun, generationId: string, sourceCommit: string):
       if (norm.includes("..")) {
         throw new Error(`evidencePath contains '..' (path-escape attempt): ${t.evidencePath}`)
       }
-      // Match `<staging>/<slug>/<FC>/<filename>` and rewrite
-      // to canonical repo-relative form.
-      const m = norm.match(new RegExp(`/(${candidateSlug})/(FC-[^/]+)/([^/]+)$`, "i"))
+      // The runner returns `evidence/<slug>/<FC>/<filename>`
+      // (or `<slug>/<FC>/<filename>`). We accept both.
+      const m = norm.match(new RegExp(`(evidence/)?(${candidateSlug})/(FC-[^/]+)/([^/]+)$`, "i"))
       if (m) {
-        const fc = m[2]
-        const file = m[3]
+        const fc = m[3]
+        const file = m[4]
         t.evidencePath = `docs/automation-v2/m0/evidence/${candidateSlug}/${fc}/${file}`
       } else {
-        throw new Error(`evidencePath does not match canonical staging layout: ${t.evidencePath}`)
+        throw new Error(`evidencePath does not match canonical layout: ${t.evidencePath}`)
       }
     }
   }

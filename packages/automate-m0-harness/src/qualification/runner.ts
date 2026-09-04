@@ -15,7 +15,7 @@
  */
 
 import { writeFile, mkdir, rm } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve as pathResolve } from "node:path"
 import { writeEvidence as writeEvidenceShared } from "./evidence-writer.ts"
 import {
   fromHostFloat64,
@@ -93,15 +93,44 @@ export interface RunnerOptions {
 /* Helper: per-FC evidence folder                                       */
 /* ------------------------------------------------------------------ */
 
+const REPO_ROOT_FOR_PATHS = pathResolve(import.meta.dir, "..", "..", "..")
+
+/**
+ * Write evidence to a per-FC folder and return a
+ * REPO-RELATIVE path (mandate §16-§18).
+ *
+ * The runner stores evidence under a per-run `outputRoot`
+ * (often a temp dir for test isolation). The publication
+ * writer re-resolves the relative path against the
+ * canonical evidence root, so the value stored in the
+ * canonical M0 result is always `<slug>/<FC>/<filename>`
+ * (no absolute Windows / POSIX / file:// path).
+ *
+ * The function derives the relative path from the
+ * `evidenceRoot` segment of the absolute folder. The
+ * runner passes the candidate slug via the call sites
+ * (which already pass `outputRoot/evidence/slug/FC`).
+ */
 async function writeEvidence(
   fcFolder: string,
   filename: string,
   data: unknown,
 ): Promise<string> {
   await mkdir(fcFolder, { recursive: true })
-  const path = join(fcFolder, filename)
-  await writeFile(path, typeof data === "string" ? data : JSON.stringify(data, null, 2), "utf8")
-  return path
+  const abs = join(fcFolder, filename)
+  await writeFile(abs, typeof data === "string" ? data : JSON.stringify(data, null, 2), "utf8")
+  // The publication writer expects `evidence/<slug>/<FC>/<filename>`
+  // (repo-relative). We compute the relative path by
+  // stripping the absolute prefix up to and including
+  // the `evidence/` segment.
+  const norm = abs.replaceAll("\\", "/")
+  const evIdx = norm.lastIndexOf("/evidence/")
+  if (evIdx >= 0) {
+    return norm.slice(evIdx + 1) // e.g. "evidence/unifia-native/FC-31A/result.json"
+  }
+  throw new Error(
+    `writeEvidence: fcFolder ${fcFolder} does not contain /evidence/ segment; cannot derive a repo-relative path.`,
+  )
 }
 
 /* ------------------------------------------------------------------ */
