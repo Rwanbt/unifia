@@ -73,24 +73,34 @@ db.exec(`
 `)
 
 const claimAuthority = (runId: string, attemptedGeneration: number) => {
-  return db.transaction(() => {
+  // bun:sqlite's `db.transaction(...)` defaults to BEGIN DEFERRED
+  // which is not safe for cross-process races (both processes can
+  // BEGIN, then both INSERT, then both COMMIT). We use raw
+  // BEGIN IMMEDIATE so the writer lock is acquired at the start
+  // of the transaction; the other process blocks on the SQLite
+  // file lock until we COMMIT.
+  db.run("BEGIN IMMEDIATE")
+  try {
     const row = db.query(
       `SELECT generation, authority_owner_id, holder_pid FROM run_authority WHERE run_id = ?`,
     ).get(runId) as { generation: number; authority_owner_id: string; holder_pid: number } | null
     if (!row) {
-      // First claim: insert at gen=1
       db.run(
         `INSERT INTO run_authority (run_id, generation, authority_owner_id, holder_pid, acquired_at_epoch_ms) VALUES (?, ?, ?, ?, ?)`,
         [runId, 1, ownerId, process.pid, Date.now()],
       )
+      db.run("COMMIT")
       return { granted: true, currentGeneration: 1, authorityOwnerId: ownerId, holderPid: process.pid }
     }
+    db.run("COMMIT")
     if (row.authority_owner_id === ownerId && row.generation === attemptedGeneration) {
-      // Re-claim by the same owner: no-op
       return { granted: true, currentGeneration: row.generation, authorityOwnerId: row.authority_owner_id, holderPid: row.holder_pid }
     }
     return { granted: false, currentGeneration: row.generation, authorityOwnerId: row.authority_owner_id, holderPid: row.holder_pid }
-  })()
+  } catch (e) {
+    db.run("ROLLBACK")
+    throw e
+  }
 }
 
 const inspectAuthority = (runId: string) => {
