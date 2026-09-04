@@ -62,6 +62,9 @@ export class CandidateResultBuilder {
       realDbosApisUsed: provenance?.realDbosApisUsed ?? false,
       platform: provenance?.platform ?? process.platform,
       runtime: provenance?.runtime ?? `node ${process.version}`,
+      qualificationGenerationId: provenance?.qualificationGenerationId ?? "unset",
+      evidenceFreshness: provenance?.evidenceFreshness ?? "CURRENT",
+      nonCanonicalDiagnostic: provenance?.nonCanonicalDiagnostic ?? false,
     }
   }
 
@@ -182,7 +185,21 @@ export class CandidateResultBuilder {
  */
 export class ExpectedNABuilder {
   private readonly entries: { testId: FunctionalCriterionId; reason: string }[] = []
-  constructor(private readonly candidate: AuthorityKind) {}
+  private readonly candidate: AuthorityKind
+  private readonly qualificationGenerationId: string
+  private readonly nonCanonicalDiagnostic: boolean
+
+  constructor(
+    candidate: AuthorityKind,
+    opts: { qualificationGenerationId: string; nonCanonicalDiagnostic: boolean } = {
+      qualificationGenerationId: "unset",
+      nonCanonicalDiagnostic: false,
+    },
+  ) {
+    this.candidate = candidate
+    this.qualificationGenerationId = opts.qualificationGenerationId
+    this.nonCanonicalDiagnostic = opts.nonCanonicalDiagnostic
+  }
 
   declare(testId: FunctionalCriterionId, reason: string): void {
     this.entries.push({ testId, reason })
@@ -193,6 +210,8 @@ export class ExpectedNABuilder {
       schemaVersion: 1,
       candidate: this.candidate,
       entries: this.entries,
+      qualificationGenerationId: this.qualificationGenerationId,
+      nonCanonicalDiagnostic: this.nonCanonicalDiagnostic,
     }
     await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, JSON.stringify(out, null, 2), "utf8")

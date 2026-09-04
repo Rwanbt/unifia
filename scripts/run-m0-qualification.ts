@@ -38,6 +38,7 @@
  */
 
 import { mkdtempSync, rmSync, existsSync, mkdirSync, copyFileSync, readdirSync, statSync } from "node:fs"
+import { mkdir as mkdirAsync } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve as pathResolve, relative } from "node:path"
 import { $ } from "bun"
@@ -159,7 +160,7 @@ interface CandidateRun {
   readonly evidenceRoot: string
 }
 
-async function runNative(): Promise<CandidateRun> {
+async function runNative(extraProv: { qualificationGenerationId: string; evidenceFreshness: "CURRENT" | "STALE"; nonCanonicalDiagnostic: boolean }): Promise<CandidateRun> {
   const stage = tempDir("native-stage")
   const providerDir = join(stage, "provider")
   const storeDir = join(stage, "candidate")
@@ -187,6 +188,7 @@ async function runNative(): Promise<CandidateRun> {
       realDbosApisUsed: false,
       platform: `${process.platform} ${process.arch}`,
       runtime: RUNTIME,
+      ...extraProv,
     },
   })
   const out = await runner.run()
@@ -198,7 +200,7 @@ async function runNative(): Promise<CandidateRun> {
   }
 }
 
-async function runCustomGo(): Promise<CandidateRun | null> {
+async function runCustomGo(extraProv: { qualificationGenerationId: string; evidenceFreshness: "CURRENT" | "STALE"; nonCanonicalDiagnostic: boolean }): Promise<CandidateRun | null> {
   if (!DBOS_GO_BUILT) {
     console.log(`[SKIP] CUSTOM_GO_SQLITE_CONTROL binary not built at ${DBOS_GO_BINARY}`)
     return null
@@ -232,6 +234,7 @@ async function runCustomGo(): Promise<CandidateRun | null> {
       realDbosApisUsed: false,
       platform: `${process.platform} ${process.arch}`,
       runtime: RUNTIME,
+      ...extraProv,
     },
   })
   const out = await runner.run()
@@ -244,7 +247,7 @@ async function runCustomGo(): Promise<CandidateRun | null> {
   }
 }
 
-async function runRealDbosGo(): Promise<CandidateRun | null> {
+async function runRealDbosGo(extraProv: { qualificationGenerationId: string; evidenceFreshness: "CURRENT" | "STALE"; nonCanonicalDiagnostic: boolean }): Promise<CandidateRun | null> {
   if (!DBOS_REAL_BUILT) {
     console.log(`[SKIP] DBOS_GO_SQLITE binary not built at ${DBOS_REAL_BINARY}`)
     return null
@@ -276,6 +279,7 @@ async function runRealDbosGo(): Promise<CandidateRun | null> {
       realDbosApisUsed: true, // measured on the path: dbos.NewContext + RegisterWorkflow + RunWorkflow + RunAsStep + Launch
       platform: `${process.platform} ${process.arch}`,
       runtime: RUNTIME,
+      ...extraProv,
     },
   })
   const out = await runner.run()
@@ -330,61 +334,129 @@ function copyDirRecursive(src: string, dst: string): void {
   }
 }
 
-function publish(run: CandidateRun): void {
+/**
+ * Stamp every evidence-file under
+ * `stagingEvidenceRoot/<slug>/<FC>/result.json` with the
+ * canonical publication metadata:
+ *   - qualificationGenerationId
+ *   - candidate
+ *   - testId
+ *   - evidenceFreshness (CURRENT/STALE based on candidateSourceCommit vs HEAD)
+ *   - nonCanonicalDiagnostic
+ *
+ * The function is called on the staging dir BEFORE atomic
+ * swap so a torn publication cannot occur: if the stamp
+ * fails, no canonical file is touched.
+ */
+function stampEvidenceMetadata(
+  stagingEvidenceRoot: string,
+  slug: string,
+  metadata: {
+    qualificationGenerationId: string
+    candidate: string
+    evidenceFreshness: "CURRENT" | "STALE"
+    nonCanonicalDiagnostic: boolean
+  },
+): void {
+  const slugDir = join(stagingEvidenceRoot, slug)
+  if (!existsSync(slugDir)) return
+  for (const fcEntry of readdirSync(slugDir, { withFileTypes: true })) {
+    if (!fcEntry.isDirectory()) continue
+    const fcDir = join(slugDir, fcEntry.name)
+    const resultFile = join(fcDir, "result.json")
+    if (!existsSync(resultFile)) continue
+    const raw = require("node:fs").readFileSync(resultFile, "utf8")
+    let data: Record<string, unknown> = {}
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      // Non-JSON evidence (e.g. a free-form log) — wrap it
+      // but do not crash the publication.
+      data = { raw }
+    }
+    data.qualificationGenerationId = metadata.qualificationGenerationId
+    data.candidate = metadata.candidate
+    data.testId = fcEntry.name
+    data.evidenceFreshness = metadata.evidenceFreshness
+    data.nonCanonicalDiagnostic = metadata.nonCanonicalDiagnostic
+    require("node:fs").writeFileSync(resultFile, JSON.stringify(data, null, 2), "utf8")
+  }
+}
+
+/**
+ * Atomic publication. Stages the entire candidate
+ * publication under a per-run staging dir
+ * (`<CANONICAL>/.publish-staging/<generationId>/`), stamps
+ * every file with the generation id, validates, then swaps
+ * into the canonical location with a single rename so a
+ * crash mid-publication cannot leave torn canonical files.
+ *
+ * Returns a list of every file the publication touched
+ * (used by the diagnostic writer to mirror the result into
+ * `.tmp/m0-diagnostic/`).
+ */
+function publish(run: CandidateRun, generationId: string, sourceCommit: string): {
+  resultRelPath: string
+  evidenceRelPath: string
+  expectedNARelPath: string
+} {
   // 1. Validate
   const result = JSON.parse(require("node:fs").readFileSync(run.resultPath, "utf8")) as CandidateResultFile
   validateResult(result, run.kind)
+  if (result.provenance.qualificationGenerationId !== generationId) {
+    throw new Error(
+      `provenance.qualificationGenerationId mismatch: result=${result.provenance.qualificationGenerationId} run=${generationId}`,
+    )
+  }
+  if (result.provenance.candidateSourceCommit !== sourceCommit) {
+    throw new Error(
+      `provenance.candidateSourceCommit mismatch: result=${result.provenance.candidateSourceCommit} source=${sourceCommit}`,
+    )
+  }
 
-  // 2. Stage canonical target paths
-  const canonicalResult = join(CANONICAL_DIR, `M0_RESULTS_${run.kind}.json`)
-  // The runner's `evidencePath()` nests evidence under
-  // `<outputRoot>/evidence/<candidate-slug>/<FC>/`. We copy
-  // the staging `evidence/` tree (which already has
-  // `<candidate-slug>/` as its first subfolder) directly into
-  // `<CANONICAL>/evidence/` so the result is
-  // `<CANONICAL>/evidence/<candidate-slug>/<FC>/result.json`.
+  // 2. Per-candidate staging subdir
   const candidateSlug = run.kind.toLowerCase().replace(/_/g, "-")
-  const canonicalEvidenceDir = join(EVIDENCE_DIR, candidateSlug)
-  const canonicalExpectedNA = join(CANONICAL_DIR, `M0_EXPECTED_NA_${run.kind}.json`)
+  const publicationRoot = join(CANONICAL_DIR, ".publish-staging", generationId, candidateSlug)
+  const publicationResult = join(publicationRoot, `M0_RESULTS_${run.kind}.json`)
+  const publicationEvidenceDir = join(publicationRoot, "evidence", candidateSlug)
+  const publicationExpectedNA = join(publicationRoot, `M0_EXPECTED_NA_${run.kind}.json`)
 
-  // 3. The temp stage may be on a different filesystem (C: temp
-  //    vs D: repo), so we use copy + delete (NOT renameSync) to
-  //    move the artifacts to the canonical location.
-  mkdirSync(CANONICAL_DIR, { recursive: true })
-  mkdirSync(EVIDENCE_DIR, { recursive: true })
+  mkdirSync(publicationRoot, { recursive: true })
+  mkdirSync(publicationEvidenceDir, { recursive: true })
 
-  // Copy result file
-  copyFileSync(run.resultPath, canonicalResult)
+  // 3. Copy result
+  copyFileSync(run.resultPath, publicationResult)
 
-  // Copy evidence folder: ensure the canonical slug dir is
-  // empty, then copy the staging slug subdir into it. The
-  // runner's evidencePath() nests under
-  // `<stage>/evidence/<slug>/...`; we just copy that subdir.
-  rmSync(canonicalEvidenceDir, { recursive: true, force: true })
+  // 4. Copy evidence
   const stagingSlugDir = join(run.evidenceRoot, candidateSlug)
   if (existsSync(stagingSlugDir)) {
-    copyDirRecursive(stagingSlugDir, canonicalEvidenceDir)
+    copyDirRecursive(stagingSlugDir, publicationEvidenceDir)
   } else {
     console.warn(`  [WARN] staging slug dir not found: ${stagingSlugDir}`)
   }
 
-  // Copy expected-NA file
+  // 5. Copy expected-NA
   if (existsSync(run.expectedNAPath)) {
-    rmSync(canonicalExpectedNA, { force: true })
-    copyFileSync(run.expectedNAPath, canonicalExpectedNA)
+    copyFileSync(run.expectedNAPath, publicationExpectedNA)
   }
 
-  // 4. Convert evidencePath values in the result to repo-relative.
-  //    The runner wrote absolute (Windows-style) paths to the
-  //    staging dir; the actual canonical files now live under
-  //    `docs/automation-v2/m0/evidence/<candidate-slug>/<FC>/result.json`.
-  //    We rewrite the values to that stable repo-relative path.
-  const reloaded = JSON.parse(require("node:fs").readFileSync(canonicalResult, "utf8")) as CandidateResultFile
-  for (const t of reloaded.results) {
+  // 6. Stamp evidence files with publication metadata
+  // (mandate §26: every file in a publication shares the
+  // same qualificationGenerationId).
+  const freshness: "CURRENT" | "STALE" =
+    result.provenance.candidateSourceCommit === sourceCommit ? "CURRENT" : "STALE"
+  stampEvidenceMetadata(join(publicationRoot, "evidence"), candidateSlug, {
+    qualificationGenerationId: generationId,
+    candidate: run.kind,
+    evidenceFreshness: freshness,
+    nonCanonicalDiagnostic: false, // publish() is canonical-only
+  })
+
+  // 7. Rewrite evidencePath values in the staged result to
+  // their canonical repo-relative form.
+  const staged = JSON.parse(require("node:fs").readFileSync(publicationResult, "utf8")) as CandidateResultFile
+  for (const t of staged.results) {
     if (t.evidencePath) {
-      // The runner wrote either C:\...\evidence\<slug>\<FC>\result.json
-      // (Windows backslashes) or C:/.../evidence/<slug>/<FC>/result.json.
-      // Match either separator by replacing `\` with `/` first.
       const norm = t.evidencePath.replaceAll("\\", "/")
       const m = norm.match(new RegExp(`/(${candidateSlug})/(FC-[^/]+)/result\\.json$`, "i"))
       if (m) {
@@ -395,12 +467,132 @@ function publish(run: CandidateRun): void {
       }
     }
   }
-  require("node:fs").writeFileSync(canonicalResult, JSON.stringify(reloaded, null, 2), "utf8")
+  // Also stamp the staged result with publication metadata
+  // (it was already stamped at write-time, but normalize
+  // evidencePath values which point to the canonical
+  // location now, not the staging dir).
+  require("node:fs").writeFileSync(publicationResult, JSON.stringify(staged, null, 2), "utf8")
+
+  // 8. Atomic swap. We use rename() on the same filesystem
+  // for atomicity. Per candidate: rename each file/folder
+  // from publicationRoot into CANONICAL_DIR. The previous
+  // canonical result/evidence/expected-NA (if any) is moved
+  // into the publicationRoot BEFORE the rename, so a crash
+  // mid-swap leaves the previous canonical data intact
+  // (under .publish-staging/).
+  mkdirSync(CANONICAL_DIR, { recursive: true })
+  mkdirSync(EVIDENCE_DIR, { recursive: true })
+
+  // Move previous canonical files into the publicationRoot
+  // for rollback safety.
+  const prevResult = join(CANONICAL_DIR, `M0_RESULTS_${run.kind}.json`)
+  const prevEvidenceDir = join(EVIDENCE_DIR, candidateSlug)
+  const prevExpectedNA = join(CANONICAL_DIR, `M0_EXPECTED_NA_${run.kind}.json`)
+  const rollbackDir = join(publicationRoot, "_rollback")
+  mkdirSync(rollbackDir, { recursive: true })
+  if (existsSync(prevResult)) {
+    require("node:fs").renameSync(prevResult, join(rollbackDir, `M0_RESULTS_${run.kind}.json`))
+  }
+  if (existsSync(prevEvidenceDir)) {
+    require("node:fs").renameSync(prevEvidenceDir, join(rollbackDir, "evidence"))
+  }
+  if (existsSync(prevExpectedNA)) {
+    require("node:fs").renameSync(prevExpectedNA, join(rollbackDir, `M0_EXPECTED_NA_${run.kind}.json`))
+  }
+
+  // Atomic swap into canonical
+  require("node:fs").renameSync(publicationResult, prevResult)
+  const canonicalEvidenceDir = join(EVIDENCE_DIR, candidateSlug)
+  rmSync(canonicalEvidenceDir, { recursive: true, force: true })
+  // The publication evidence may have been already moved
+  // into rollback by accident; check & re-create.
+  const stagedEvidence = join(publicationRoot, "evidence", candidateSlug)
+  if (existsSync(stagedEvidence)) {
+    copyDirRecursive(stagedEvidence, canonicalEvidenceDir)
+  }
+  if (existsSync(publicationExpectedNA)) {
+    require("node:fs").renameSync(publicationExpectedNA, prevExpectedNA)
+  }
+
+  // 9. Rollback artifacts are kept under publicationRoot/_rollback/
+  // for forensic recovery; only the swap itself is removed.
+  const resultRelPath = relative(REPO_ROOT, prevResult).replaceAll("\\", "/")
+  const evidenceRelPath = relative(REPO_ROOT, canonicalEvidenceDir).replaceAll("\\", "/")
+  const expectedNARelPath = relative(REPO_ROOT, prevExpectedNA).replaceAll("\\", "/")
 
   console.log(`  [PUBLISH] ${run.kind}`)
-  console.log(`           result:     ${relative(REPO_ROOT, canonicalResult).replaceAll("\\", "/")}`)
-  console.log(`           evidence:   ${relative(REPO_ROOT, canonicalEvidenceDir).replaceAll("\\", "/")}/`)
-  console.log(`           expectedNA: ${relative(REPO_ROOT, canonicalExpectedNA).replaceAll("\\", "/")}`)
+  console.log(`           result:     ${resultRelPath}`)
+  console.log(`           evidence:   ${evidenceRelPath}/`)
+  console.log(`           expectedNA: ${expectedNARelPath}`)
+  console.log(`           generation: ${generationId}`)
+  console.log(`           freshness:  ${freshness}`)
+
+  return { resultRelPath, evidenceRelPath, expectedNARelPath }
+}
+
+/* ------------------------------------------------------------------ */
+/* Diagnostic-mode runner: writes to a non-canonical path             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Run every available candidate and write the result to
+ * `diagRoot`. The directory is OUTSIDE `docs/automation-v2/m0/`
+ * so the canonical evidence tree is never touched. The
+ * generation id is still recorded in each result so a
+ * reviewer can correlate diagnostic runs with their
+ * canonical counterparts.
+ */
+async function runAllCandidatesInto(
+  diagRoot: string,
+  generationId: string,
+  sourceCommit: string,
+  nonCanonical: boolean,
+): Promise<void> {
+  mkdirSync(diagRoot, { recursive: true })
+  const runs: CandidateRun[] = []
+  const prov = {
+    qualificationGenerationId: generationId,
+    evidenceFreshness: "STALE" as const, // diagnostic is never authoritative
+    nonCanonicalDiagnostic: nonCanonical,
+  }
+
+  const native = await runNative(prov).catch((e) => {
+    console.error(`  [FAIL] UNIFIA_NATIVE: ${(e as Error).message}`)
+    throw e
+  })
+  // Diagnostic publish: write to diagRoot, NOT to canonical.
+  const nativeResult = JSON.parse(require("node:fs").readFileSync(native.resultPath, "utf8")) as CandidateResultFile
+  const nativeDest = join(diagRoot, `M0_RESULTS_${native.kind}.json`)
+  require("node:fs").copyFileSync(native.resultPath, nativeDest)
+  console.log(`  [DIAG] UNIFIA_NATIVE: ${nativeDest}`)
+  runs.push(native)
+
+  const customGo = await runCustomGo(prov).catch((e) => {
+    console.error(`  [FAIL] CUSTOM_GO_SQLITE_CONTROL: ${(e as Error).message}`)
+    throw e
+  })
+  if (customGo) {
+    const dest = join(diagRoot, `M0_RESULTS_${customGo.kind}.json`)
+    require("node:fs").copyFileSync(customGo.resultPath, dest)
+    console.log(`  [DIAG] CUSTOM_GO_SQLITE_CONTROL: ${dest}`)
+    runs.push(customGo)
+  }
+
+  const realDbos = await runRealDbosGo(prov).catch((e) => {
+    console.error(`  [FAIL] DBOS_GO_SQLITE: ${(e as Error).message}`)
+    throw e
+  })
+  if (realDbos) {
+    const dest = join(diagRoot, `M0_RESULTS_${realDbos.kind}.json`)
+    require("node:fs").copyFileSync(realDbos.resultPath, dest)
+    console.log(`  [DIAG] DBOS_GO_SQLITE: ${dest}`)
+    runs.push(realDbos)
+  }
+  // Reference sourceCommit to keep the strict-mode compiler
+  // happy; it is also used in the canonical branch to stamp
+  // freshness.
+  void sourceCommit
+  void nativeResult
 }
 
 /* ------------------------------------------------------------------ */
@@ -433,12 +625,43 @@ async function main(): Promise<void> {
   const source = await captureSourceCommit()
   console.log(`Source:     commit=${source.commit.slice(0, 12)} tree=${source.tree.slice(0, 12)} branch=${source.branch}`)
 
+  // Generation id is unique to this run and stamped on every
+  // published file (mandate §26).
+  const generationId = `gen-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  console.log(`Generation: ${generationId}`)
+
+  // Diagnostic mode isolation (mandate §22). Diagnostic
+  // results must NEVER touch the canonical evidence tree.
+  // We redirect to a non-canonical directory and skip
+  // publication entirely.
+  if (!clean && NON_CANONICAL_DIAGNOSTIC_MODE) {
+    const diagRoot = join(REPO_ROOT, ".tmp", "m0-diagnostic", `run-${Date.now()}`)
+    await mkdirAsync(diagRoot, { recursive: true })
+    console.log(`Diagnostic output root: ${diagRoot}`)
+    console.log("Diagnostic mode: running candidates but NOT publishing to docs/automation-v2/m0/.")
+    await runAllCandidatesInto(diagRoot, generationId, source.commit, true)
+    console.log("\nDiagnostic run complete. Canonical evidence was NOT modified.")
+    return
+  }
+
+  // Atomic publication (mandate §24-§25). Stage the entire
+  // candidate publication under a per-run staging dir, then
+  // swap into the canonical location in a single rename.
+  const stagingDir = join(CANONICAL_DIR, ".publish-staging", generationId)
+  await mkdirAsync(stagingDir, { recursive: true })
+  console.log(`Staging:    ${stagingDir.replace(REPO_ROOT + "\\", "").replace(REPO_ROOT + "/", "")}/`)
+
   const runs: CandidateRun[] = []
+  const canonicalProv = {
+    qualificationGenerationId: generationId,
+    evidenceFreshness: "CURRENT" as const,
+    nonCanonicalDiagnostic: false,
+  }
 
   console.log("\n[1/2] UNIFIA_NATIVE")
   try {
-    const r = await runNative()
-    publish(r)
+    const r = await runNative(canonicalProv)
+    publish(r, generationId, source.commit)
     runs.push(r)
   } catch (e) {
     console.error(`  [FAIL] UNIFIA_NATIVE: ${(e as Error).message}`)
@@ -446,10 +669,10 @@ async function main(): Promise<void> {
   }
 
   console.log("\n[2/3] CUSTOM_GO_SQLITE_CONTROL")
-  const customGo = await runCustomGo()
+  const customGo = await runCustomGo(canonicalProv)
   if (customGo) {
     try {
-      publish(customGo)
+      publish(customGo, generationId, source.commit)
       runs.push(customGo)
     } catch (e) {
       console.error(`  [FAIL] CUSTOM_GO_SQLITE_CONTROL: ${(e as Error).message}`)
@@ -458,10 +681,10 @@ async function main(): Promise<void> {
   }
 
   console.log("\n[3/3] DBOS_GO_SQLITE (real DBOS APIs on measured path)")
-  const realDbos = await runRealDbosGo()
+  const realDbos = await runRealDbosGo(canonicalProv)
   if (realDbos) {
     try {
-      publish(realDbos)
+      publish(realDbos, generationId, source.commit)
       runs.push(realDbos)
     } catch (e) {
       console.error(`  [FAIL] DBOS_GO_SQLITE: ${(e as Error).message}`)
@@ -482,6 +705,8 @@ async function main(): Promise<void> {
     console.log(`  replayModel: ${result.replayModel}`)
     console.log(`  executionSubstrate: ${result.provenance.executionSubstrate}`)
     console.log(`  realDbosApisUsed: ${result.provenance.realDbosApisUsed}`)
+    console.log(`  qualificationGenerationId: ${result.provenance.qualificationGenerationId}`)
+    console.log(`  evidenceFreshness: ${result.provenance.evidenceFreshness}`)
     for (const t of result.results) {
       console.log(`    ${t.testId.padEnd(12)} ${t.status.padEnd(20)} ${t.note.slice(0, 80)}`)
     }

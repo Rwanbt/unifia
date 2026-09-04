@@ -757,6 +757,28 @@ export interface ResultProvenance {
   readonly platform: string
   /** Runtime / toolchain (e.g. "Bun 1.3.14 / Go 1.25.12 / Windows 10"). */
   readonly runtime: string
+  /**
+   * Qualification generation id. Per mandate §26-§29: every
+   * canonical file in a single publication shares the same
+   * generation id; readers validate that all generation ids
+   * are equal (otherwise the publication is torn). Canonical
+   * evidence is also STALE when its `candidateSourceCommit`
+   * no longer matches the source commit of the candidate code
+   * being evaluated.
+   */
+  readonly qualificationGenerationId: string
+  /**
+   * Marker that this evidence is current with the source
+   * commit recorded in `provenance.candidateSourceCommit`.
+   * Computed at publish-time; readers must not trust
+   * `CURRENT=false` evidence for ADR-000 scoring.
+   */
+  readonly evidenceFreshness: "CURRENT" | "STALE"
+  /**
+   * `true` if the run was performed in `NON_CANONICAL_DIAGNOSTIC_MODE`.
+   * Diagnostic results must never be used for ADR-000 scoring.
+   */
+  readonly nonCanonicalDiagnostic: boolean
 }
 
 /** Expected N/A pre-declaration. */
@@ -765,4 +787,37 @@ export interface ExpectedNAFile {
   readonly candidate: AuthorityKind
   /** A test that the harness expects NOT to apply, with justification. */
   readonly entries: readonly { readonly testId: FunctionalCriterionId; readonly reason: string }[]
+  /**
+   * Qualification generation id (see `ResultProvenance`).
+   * Readers must compare the generation id of the result
+   * file, the expected-NA file, and every evidence file
+   * in the same publication. A mismatch means the
+   * publication is torn and must be re-qualified.
+   */
+  readonly qualificationGenerationId: string
+  /**
+   * `true` if the file was produced in
+   * `NON_CANONICAL_DIAGNOSTIC_MODE`. Diagnostic expected-NA
+   * must never be confused with canonical.
+   */
+  readonly nonCanonicalDiagnostic: boolean
+}
+
+/**
+ * Per-evidence-file metadata stamped at publish-time.
+ * Written into every `<FC>/result.json` evidence file by
+ * `publish()` so readers can validate that all evidence
+ * files in a publication share the same generation.
+ */
+export interface EvidenceMetadata {
+  /** Generation id matching the result file's generation. */
+  readonly qualificationGenerationId: string
+  /** Candidate kind owning this evidence. */
+  readonly candidate: AuthorityKind
+  /** Functional criterion owning this evidence folder. */
+  readonly testId: FunctionalCriterionId
+  /** Whether the evidence is current (matches the source commit) or stale. */
+  readonly evidenceFreshness: "CURRENT" | "STALE"
+  /** Whether the evidence was produced in diagnostic mode. */
+  readonly nonCanonicalDiagnostic: boolean
 }

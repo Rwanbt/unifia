@@ -22,6 +22,7 @@
 import { spawn, ChildProcess } from "node:child_process"
 import { existsSync } from "node:fs"
 import { mkdir, rm } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 import { join, resolve as pathResolve } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
 import {
@@ -52,11 +53,24 @@ import {
   type ClaimAuthorityResult,
   type ZombieFC25Result,
 } from "../contract.ts"
-import { type WorkflowRunId } from "@unifia/automate-m0-contract"
+import { type WorkflowRunId, type AttemptId } from "@unifia/automate-m0-contract"
 import { FakeExternalEffectProvider } from "../providers/fake-external.ts"
 
 const DBOS_REAL_TOOL_DIR = pathResolve(import.meta.dir, "..", "..", "..", "..", "..", "tools", "dbos-real-qualify")
 const DBOS_REAL_BINARY = join(DBOS_REAL_TOOL_DIR, "dbos-real-qualify.exe")
+
+/**
+ * DBOS real: canonical identity generation.
+ *
+ * Per mandate §8-§13:
+ *   - WorkflowRunId is generated independently (UUID-style)
+ *     and passed to the binary as the DBOS root WorkflowID.
+ *   - AttemptId is a new durable identity per retry; the
+ *     binary's DBOS WorkflowID for an attempt includes the
+ *     AttemptId so two retries do not replay each other.
+ */
+function generateRunId(): string { return `run-${randomUUID()}` }
+function generateAttemptId(attemptN: number): AttemptId { return `att-${attemptN}-${randomUUID()}` as AttemptId }
 
 async function jsonCall<T>(base: string, path: string, opts: { method?: "GET" | "POST"; body?: unknown; timeoutMs?: number } = {}): Promise<T> {
   const ac = new AbortController()
@@ -183,6 +197,9 @@ export class DBOSRealCandidate implements DurableWorkflowAuthorityQualificationA
     const r = await jsonCall<{ runId: string }>(this.requireBase(), "/runs", {
       method: "POST",
       body: {
+        // Per mandate §8: WorkflowRunId is generated
+        // independently, NOT derived from logicalInvocationId.
+        runId: generateRunId(),
         workflowVersionId: input.workflowVersionId,
         organizationId: input.ownerScope.organizationId,
         workspaceId: input.ownerScope.workspaceId,
@@ -201,9 +218,19 @@ export class DBOSRealCandidate implements DurableWorkflowAuthorityQualificationA
   }
 
   async driveAttempt(runId: string, logicalInvocationId: string, providerResponse: ProviderResolution): Promise<CanonicalAttemptState> {
+    // Per mandate §12: durable AttemptId is part of the
+    // attempt identity. We mint a new one per driveAttempt
+    // call. The harness may invoke driveAttempt multiple
+    // times for the same (runId, liId) on retry; each call
+    // produces a fresh AttemptId and a distinct DBOS attempt
+    // workflow.
+    const attemptId = generateAttemptId(Date.now())
     return await jsonCall<CanonicalAttemptState>(this.requireBase(), `/runs/${encodeURIComponent(runId)}/invocations/${encodeURIComponent(logicalInvocationId)}/attempts`, {
       method: "POST",
       body: {
+        runId,
+        logicalInvocationId,
+        attemptId,
         effectKey: providerResponse.effectKey,
         outcome: providerResponse.outcome,
         canonicalResultJson: providerResponse.canonicalResult !== null ? JSON.stringify(providerResponse.canonicalResult) : null,

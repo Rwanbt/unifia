@@ -214,7 +214,10 @@ export class QualificationRunner {
     // v1.1 §3), this file contains ONLY NOT_APPLICABLE entries.
     // BLOCKED outcomes are written into M0_RESULTS_*.json by the
     // runner, not into the expected-NA file.
-    const naBuilder = new ExpectedNABuilder(info.kind)
+    const naBuilder = new ExpectedNABuilder(info.kind, {
+      qualificationGenerationId: this.opts.provenance?.qualificationGenerationId ?? "unset",
+      nonCanonicalDiagnostic: this.opts.provenance?.nonCanonicalDiagnostic ?? false,
+    })
     const naPath = expectedNAPath(this.opts.outputRoot, info.kind)
     await naBuilder.write(naPath)
 
