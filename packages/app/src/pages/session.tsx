@@ -28,6 +28,7 @@ import { useNavigate, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
 import { SessionMobileTabsSection } from "@/pages/session/session-mobile-tabs"
 import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
+import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
 import { useComments } from "@/context/comments"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -1020,16 +1021,7 @@ export default function Page() {
                   }
                 : undefined
             }
-            revert={
-              rolled().length > 0
-                ? {
-                    items: rolled(),
-                    restoring: restoring(),
-                    disabled: reverting(),
-                    onRestore: restore,
-                  }
-                : undefined
-            }
+            revert={buildRevertDockProps({ rolled, restoring, reverting, restore })}
             setPromptDockRef={(el) => {
               promptDock = el
             }}
