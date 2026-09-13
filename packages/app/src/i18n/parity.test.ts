@@ -192,6 +192,22 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.chat.assistant",
   "workbench.operations.documents",
   "workbench.operations.documentsCount",
+  // 2026-09-13: Automate studio canvas (Phase 8 slice 1). International
+  // UI loan-words and short canvas control labels — "Zoom", "Reset",
+  // "Approval" are Figma/Sketch-style UI conventions that stay in
+  // English across every locale; the "Workflow {{summary}}" template
+  // is a status figure caption whose only interpolation is the runtime-
+  // computed step count. Real French translations live in fr.ts; the
+  // remaining 14 locales fall back to English pending translator review.
+  "workbench.automate.canvas.zoomIn",
+  "workbench.automate.canvas.zoomOut",
+  "workbench.automate.canvas.reset",
+  "workbench.automate.canvas.resetView",
+  "workbench.automate.canvas.empty",
+  "workbench.automate.canvas.approvalTag",
+  "workbench.automate.canvas.workflowLabel",
+  "workbench.automate.canvas.stepsLabel",
+  "workbench.automate.canvas.canvasLabel",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
