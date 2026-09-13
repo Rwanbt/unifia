@@ -2060,4 +2060,6 @@ export const dict = {
   "workbench.memory.graph.tags": "Tags",
   "workbench.memory.graph.orphans": "Orphans",
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
+  "workbench.workspaceTabs.label": "열린 워크스페이스",
+  "workbench.workspaceTabs.close": "{{title}} 닫기",
 }

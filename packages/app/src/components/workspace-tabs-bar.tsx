@@ -15,6 +15,7 @@ import { useWorkspaceTabs } from "@/context/workspace-tabs-provider"
 import { useGlobalSync } from "@/context/global-sync"
 import { ENTRY_TAB_ID, type WorkspaceTab } from "@/context/workspace-tabs"
 import { decodeBase64Segment, routeToWorkspaceTab } from "@/components/workspace-tabs-route"
+import { useLanguage } from "@/context/language"
 
 /**
  * Phase 5 / 11 — Barre d'onglets d'espace de travail.
@@ -49,6 +50,7 @@ import { decodeBase64Segment, routeToWorkspaceTab } from "@/components/workspace
  *   brut même une fois la branche chargée de façon asynchrone.
  */
 export function WorkspaceTabsBar(): JSX.Element {
+  const language = useLanguage()
   const tabs = useWorkspaceTabs()
   const globalSync = useGlobalSync()
   const navigate = useNavigate()
@@ -174,7 +176,8 @@ export function WorkspaceTabsBar(): JSX.Element {
     <div
       class="flex h-9 shrink-0 items-center gap-1 border-b border-border-base bg-background-stronger px-2"
       role="tablist"
-      aria-label="Espaces de travail ouverts"
+      aria-label={language.t("workbench.workspaceTabs.label")}
+      data-component="workspace-tabs-bar"
       data-workspace-tabs-bar
     >
       <Show when={entryTab()}>
@@ -219,6 +222,7 @@ type TabRowProps = {
 
 /** Markup partagé entre l'entry (non draggable) et les onglets project (draggables). */
 function TabInner(props: TabRowProps): JSX.Element {
+  const language = useLanguage()
   return (
     <>
       <button
@@ -233,7 +237,7 @@ function TabInner(props: TabRowProps): JSX.Element {
       <Show when={props.tab.closable}>
         <button
           type="button"
-          aria-label={`Fermer ${props.title}`}
+          aria-label={language.t("workbench.workspaceTabs.close", { title: props.title })}
           class="rounded p-1 text-12-regular text-text-weak hover:bg-border-base hover:text-text-base"
           data-workspace-tab-close={props.tab.id}
           onClick={props.onClose}

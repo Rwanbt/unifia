@@ -2068,4 +2068,6 @@ export const dict = {
   "workbench.memory.graph.tags": "Tags",
   "workbench.memory.graph.orphans": "Orphans",
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
+  "workbench.workspaceTabs.label": "Открытые рабочие пространства",
+  "workbench.workspaceTabs.close": "Закрыть {{title}}",
 }

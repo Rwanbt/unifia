@@ -2132,4 +2132,6 @@ export const dict = {
   "workbench.memory.graph.tags": "Tags",
   "workbench.memory.graph.orphans": "Orphans",
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
+  "workbench.workspaceTabs.label": "พื้นที่ทำงานที่เปิดอยู่",
+  "workbench.workspaceTabs.close": "ปิด {{title}}",
 }

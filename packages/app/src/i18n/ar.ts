@@ -2054,4 +2054,6 @@ export const dict = {
   "workbench.memory.graph.tags": "Tags",
   "workbench.memory.graph.orphans": "Orphans",
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
+  "workbench.workspaceTabs.label": "مساحات العمل المفتوحة",
+  "workbench.workspaceTabs.close": "إغلاق {{title}}",
 }

@@ -38,12 +38,22 @@ test("code chrome markers: file tab bar, editor content, terminal panel", async 
 
   const file = tree.getByRole("button", { name: "file-tree.tsx", exact: true }).first()
   await expect(file).toBeVisible()
+
+  // Phase 5.1: the file tree root carries the v110 marker while the Explorer
+  // pane is on screen; opening the file replaces this pane, so assert first.
+  await expect(page.locator('[data-component="file-tree"]:visible').first()).toBeVisible()
+
   await file.click()
 
   await page.getByRole("tab", { name: "Inspector", exact: true }).click()
 
   await expect(page.locator('[data-v110="code-tabs"]')).toBeVisible()
   await expect(page.locator('[data-v110="code-editor"]')).toBeVisible()
+
+  // Phase 5.1: the v110 chrome selectors are mounted on the real components,
+  // not only present in v110.css (they used to be dead rules).
+  await expect(page.locator('[data-component="editor-pane"]')).toBeVisible()
+  await expect(page.locator('[data-component="workspace-tabs-bar"]')).toBeVisible()
 
   // Always mounted (height:0 + aria-hidden when closed), not conditionally
   // rendered — attached is the correct assertion, not visible.

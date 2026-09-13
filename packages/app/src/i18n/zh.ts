@@ -2130,4 +2130,6 @@ export const dict = {
   "workbench.memory.graph.tags": "Tags",
   "workbench.memory.graph.orphans": "Orphans",
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
+  "workbench.workspaceTabs.label": "已打开的工作区",
+  "workbench.workspaceTabs.close": "关闭 {{title}}",
 } satisfies Partial<Record<Keys, string>>
