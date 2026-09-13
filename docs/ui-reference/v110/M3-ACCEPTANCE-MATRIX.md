@@ -77,14 +77,14 @@ Pour chaque surface :
 | Inspector (3 tabs) | desktop-large | click tab | covered in Shell section | v110-inspector-frame | ✅ partial |
 | Inspector file tree | desktop | show files | inline in sidebar-panel | components/file-tree.tsx (`data-component="file-tree"`) — rendu dans session-side-panel | ✅ partial |
 | Inspector git panel | desktop | show git status | sidebar-project sidebar-source-control | source-control.tsx | ⚠️ partial |
-| Terminal (bottom) | desktop | show/hide, resize | `data-v110-terminal-panel` | terminal.tsx | ✅ partial |
-| Diagnostic markers | desktop | hover → message | inline editor pane | inline | ⚠️ partial |
-| Code lens | desktop | hover → action | editor pane | inline | ⚠️ partial |
-| Inline AI suggestions | desktop | accept/reject | editor pane | inline | ⚠️ partial |
+| Terminal (bottom) | desktop | show/hide, resize | `data-v110-terminal-panel` | terminal-panel.tsx — marqueur canonique monté (5.3), règle v110 (bordure `--border-base` + focus-within) prouvée gagnante dans la cascade par e2e | ✅ partial |
+| Diagnostic markers | desktop | hover → message | inline editor pane | ❌ aucune implémentation (issue #96) — règle v110 `diagnostic-marker` dormante | ❌ MANQUE |
+| Code lens | desktop | hover → action | editor pane | ❌ aucune implémentation (issue #96) | ❌ MANQUE |
+| Inline AI suggestions | desktop | accept/reject | editor pane | auto-edit (double-clic → mode édition) réel ; suggestions inline absentes (issue #96) | ⚠️ partial |
 | Code split (editor + inspector) | desktop-large | resize | inline editor pane | `data-v110="resize-chat"` Separator | ✅ partial |
-| Git blame annotations | desktop | hover → blame | inline | inline | ⚠️ à tester |
+| Git blame annotations | desktop | hover → blame | inline | ❌ aucune implémentation (issue #96) | ❌ MANQUE |
 | Search/Replace | desktop | type + Enter | editor pane | `@codemirror/search` réel (`searchKeymap`) — e2e `editor-search` : Mod+F, matches surlignés, replace-all vérifié | ✅ |
-| LSP diagnostics | desktop | hover → docs | editor pane | inline | ⚠️ à tester |
+| LSP diagnostics | desktop | hover → docs | editor pane | extensions LSP câblées (diagnostics/hover/F12 via `code-mirror-lsp`) ; vérification e2e conditionnée à un serveur LSP (non installé en CI) | ⚠️ partial |
 
 ---
 
