@@ -243,6 +243,19 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.inspector.edgesOutgoingLabel",
   "workbench.automate.inspector.edgesIncomingLabel",
   "workbench.automate.inspector.userEdgeCount",
+  // 2026-09-13: Automate studio node library (Phase 8 slice 5).
+  // Header title, family-count chip, search input placeholder + label,
+  // empty state, footer hint, and "Add X" aria-label. Same rationale
+  // as the canvas + inspector control labels in slices 1-4: short UI
+  // labels + templated figure captions where English is the canonical
+  // UI surface.
+  "workbench.automate.library.title",
+  "workbench.automate.library.familyCount",
+  "workbench.automate.library.searchPlaceholder",
+  "workbench.automate.library.searchLabel",
+  "workbench.automate.library.empty",
+  "workbench.automate.library.footerHint",
+  "workbench.automate.library.addEntry",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
