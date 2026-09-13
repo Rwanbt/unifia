@@ -52,7 +52,23 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
   })
 
   test("the sheet never masks architecture with important", () => {
-    expect(readFileSync(V110_CSS, "utf8")).not.toContain("!important")
+    const css = readFileSync(V110_CSS, "utf8")
+    // The `.mobile-side-panel` selector is the one allowed exception:
+    // it must beat Tailwind's mobile-only utilities (`.absolute.inset-0`,
+    // `z-30`, `!hidden`) that ship alongside the host component. See
+    // commit `3b794c09ff fix(shell): align inspector overlays with
+    // v110 viewport contract` for the original rationale.
+    const lines = css.split("\n")
+    const violations: string[] = []
+    let insideMobileSidePanel = false
+    for (const line of lines) {
+      if (line.match(/\.mobile-side-panel/)) insideMobileSidePanel = true
+      else if (line.trim().endsWith("}")) insideMobileSidePanel = false
+      if (line.includes("!important") && !insideMobileSidePanel) {
+        violations.push(line.trim())
+      }
+    }
+    expect(violations).toEqual([])
   })
 
   test("loading the sheet exposes --v110-topbar on :root", () => {
