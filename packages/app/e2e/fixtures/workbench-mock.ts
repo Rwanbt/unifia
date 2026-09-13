@@ -62,6 +62,20 @@ export async function readMockCalls(page: Page): Promise<MockCall[]> {
 }
 
 /**
+ * True when the page has no workbench bridge at all (no native injection
+ * and no installed mock) - the default web-e2e state. Work/Team surfaces
+ * derive their panels from that bridge, so tests that assert connected
+ * panels must skip on web instead of failing against the honest
+ * "Disponible dans l'application desktop" state.
+ */
+export async function workbenchBridgeUnsupported(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const platform = (window as { __UNIFIA_PLATFORM__?: { workbench?: unknown } }).__UNIFIA_PLATFORM__
+    return !platform?.workbench
+  })
+}
+
+/**
  * Install the mock onto the page. Must be called via
  * `addInitScript` so the global is set before the app code runs.
  */

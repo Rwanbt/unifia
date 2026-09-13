@@ -11,6 +11,7 @@
 
 import { test, expect } from "../fixtures"
 import { openPalette } from "../actions"
+import { workbenchBridgeUnsupported } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
 
 test("work surface's view-switcher gates the real Team-backed panels, empty state included", async ({
@@ -18,6 +19,9 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   directory,
   sdk,
 }) => {
+  if (await workbenchBridgeUnsupported(page)) {
+    test.skip(true, "Work/Team panels need the native workbench bridge; web e2e runs without it")
+  }
   await page.setViewportSize({ width: 1400, height: 800 })
   // The backend is worker-scoped and another v110 test may have created a
   // run already. Cancel those runs so this empty-state assertion remains

@@ -10,9 +10,13 @@
 // the new run becomes visible in the Runs tab.
 
 import { test, expect } from "../fixtures"
+import { workbenchBridgeUnsupported } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
 
 test("start-run form submits a real run and it appears in the Runs tab", async ({ page, directory, sdk }) => {
+  if (await workbenchBridgeUnsupported(page)) {
+    test.skip(true, "start-run needs the native workbench bridge; web e2e runs without it")
+  }
   await page.setViewportSize({ width: 1400, height: 800 })
   // Team execution is intentionally fail-closed unless two distinct models
   // are configured. The isolated E2E provider exposes both; seed the same
