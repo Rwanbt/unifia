@@ -178,6 +178,8 @@ Pour chaque surface :
 
 ## Surface : Browser mode
 
+> **Runtime check 2026-09-13** : le WebView réel n'expose qu'une fenêtre (address/back/forward/reload). Tabs Brave-like, device switch, contrôle AI/user et AI Activity n'ont **aucun runtime** — issue #97 ; les labels du composant sont aussi codés en dur en français. Ne pas cocher ces lignes sans preuve runtime.
+
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
 | Browser tabs | desktop-large | click tab | maquette | browser-runtime | ⚠️ partial |
