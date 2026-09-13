@@ -10,6 +10,7 @@
 // relocated underneath the new panels unchanged.
 
 import { test, expect } from "../fixtures"
+import { openPalette } from "../actions"
 import { dirPath } from "../utils"
 
 test("work surface's view-switcher gates the real Team-backed panels, empty state included", async ({
@@ -107,4 +108,32 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
   await page.locator('[data-workbench-operation="export"]').click()
   await expect(page.locator("[data-workbench-export]")).toBeVisible()
+})
+
+
+test("command palette opens the Team dialog (regression #82)", async ({ page, gotoSession }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+  await gotoSession()
+
+  // The palette entry is the pre-existing command (layout/commands.ts,
+  // id "team.open", title team.selector.title = "Model", category
+  // "View"). It used to render through the shared DialogOutlet at
+  // RouterRoot, above TeamProvider, so DialogTeam's useTeam() threw
+  // "Team context must be used within a context provider" on every use.
+  const palette = await openPalette(page, "Shift+P")
+  await palette.getByRole("textbox").first().fill("Model")
+  const option = palette
+    .getByRole("option")
+    .filter({ hasText: "Model" })
+    .filter({ has: page.locator("span", { hasText: /^View$/ }) })
+    .first()
+  await option.click()
+  await expect(palette).toHaveCount(0)
+
+  const dialog = page.getByRole("dialog").last()
+  await expect(dialog).toBeVisible()
+  await expect(page.getByText("Team context must be used within a context provider")).toHaveCount(0)
+
+  await page.keyboard.press("Escape")
+  await expect(dialog).not.toBeVisible()
 })
