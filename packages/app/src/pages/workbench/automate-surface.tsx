@@ -12,6 +12,7 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES } from "./automate-studio-library"
+import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
@@ -49,6 +50,8 @@ export function AutomateSurface(): JSX.Element {
   const [stepEdges, setStepEdges] = createSignal<readonly UserEdge[]>([])
   /** User-added nodes from the library (slice 5 node library). */
   const [extraNodes, setExtraNodes] = createSignal<readonly { readonly id: string; readonly label: string; readonly requiresApproval: boolean; readonly family?: string }[]>([])
+  /** Slice 6: report from the last dry-run validate. */
+  const [validateReport, setValidateReport] = createSignal<ValidateReport | undefined>()
   const draftStore = createIndexedDbWorkflowDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
@@ -308,16 +311,33 @@ export function AutomateSurface(): JSX.Element {
             <Show when={definitionFile.data?.results[0]}>
               {(file) => <details class="mt-3 rounded border border-border-base bg-background-base p-3"><summary class="cursor-pointer text-12-medium">Local draft</summary><p class="mt-2 text-11-regular text-text-weak">{draftStatus()}</p><textarea class="mt-3 h-48 w-full resize-y rounded border border-border-base bg-background-stronger p-2 font-mono text-11-regular leading-5" value={draftSource()} onInput={(event) => updateDraftSource(event.currentTarget.value)} aria-label="Edit local workflow draft" /><div class="mt-2 flex flex-wrap gap-2"><button type="button" class="rounded border border-border-base px-2 py-1 text-11-medium" onClick={() => updateDraftSource(decodeFile(file()))}>Reset to published</button><button type="button" class="rounded border border-border-base px-2 py-1 text-11-medium" onClick={() => void publishDraft()}>Publish as new file</button></div></details>}
             </Show>
-            <button type="button" class="mt-3 rounded border border-border-base px-3 py-2 text-12-medium" disabled={definitionFile.isLoading || !definitionFile.data} onClick={() => void startSelectedWorkflow()}>{t("workbench.automate.startWithApproval")}</button>
-            <Show when={approvalId()}>
-              <div class="mt-3 flex flex-wrap gap-2" data-automate-approval={approvalId()}>
-                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("allow")}>{t("workbench.automate.allow")}</button>
-                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void resolveWorkflowApproval("deny")}>{t("workbench.automate.deny")}</button>
-                <button type="button" class="rounded border border-border-base px-3 py-2 text-12-medium" onClick={() => void cancelWorkflowApproval()}>{t("workbench.automate.cancel")}</button>
-              </div>
-            </Show>
-            <Show when={workflowState()}><p class="mt-2 text-12-regular text-text-success">{t("workbench.automate.workflowState", { state: workflowState() ?? "" })}</p></Show>
-            <Show when={workflowError()}><p class="mt-2 text-12-regular text-text-danger">{workflowError()}</p></Show>
+            <div class="mt-3">
+              <AutomateStudioRunBar
+                state={(() => {
+                  if (workflowError()) return "failed"
+                  if (approvalId()) return "waiting-approval"
+                  if (workflowState() === "cancelled") return "cancelled"
+                  if (workflowState()) return "running"
+                  return "idle"
+                })() as RunBarState}
+                error={workflowError()}
+                validateReport={validateReport()}
+                definitionLoading={definitionFile.isLoading}
+                onValidate={() => {
+                  const source = draftSource() || (definitionFile.data?.results[0] ? decodeFile(definitionFile.data.results[0]) : "")
+                  if (!source) {
+                    setValidateReport({ ok: false, lines: [{ severity: "error", message: t("workbench.automate.runBar.validateEmpty") }] })
+                    return
+                  }
+                  setValidateReport(validateDefinition(source))
+                }}
+                onStart={() => void startSelectedWorkflow()}
+                onAllow={() => void resolveWorkflowApproval("allow")}
+                onDeny={() => void resolveWorkflowApproval("deny")}
+                onCancel={() => void cancelWorkflowApproval()}
+                onDismissError={() => setWorkflowError(undefined)}
+              />
+            </div>
           </div>
         </Show>
         <Show when={!definitions.isLoading && !definitions.error && workflowFiles().length === 0}>
