@@ -1,0 +1,13 @@
+name: diag-identity
+on:
+  workflow_dispatch:
+jobs:
+  diag:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Capture identity fields in the swap window
+        run: bun packages/unifia/script/diag-identity.ts
