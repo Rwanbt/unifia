@@ -36,18 +36,24 @@
 import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import {
+  BRANCH_PORT_OFFSET,
   PORT_HIT_RADIUS,
   PORT_RADIUS,
   closestInputPortDistance,
   computeZoomToFit,
   hasEdge,
+  isBranchingFamily,
   layoutWorkflowSteps,
   mergeEndpoints,
   nearestInputPortId,
+  outputPortDy,
+  outputPortsFor,
+  type EdgeEndpoint,
   type LaidOutGraph,
   type LaidOutNode,
   type NodePositionOverride,
   type UserEdge,
+  type UserEdgeKind,
 } from "./automate-graph-layout"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 import { AutomateStudioMinimap } from "./automate-studio-minimap"
@@ -122,8 +128,8 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
   const [panDragging, setPanDragging] = createSignal<{ x: number; y: number } | undefined>()
   /** Active node drag, if any. Stored separately from pan so the two handlers don't fight. */
   const [nodeDragging, setNodeDragging] = createSignal<{ nodeId: string; startClientX: number; startClientY: number; startX: number; startY: number } | undefined>()
-  /** Active port-to-port connection drag. Stores the source node id and the cursor position in graph coords. */
-  const [connecting, setConnecting] = createSignal<{ fromNodeId: string; cursorX: number; cursorY: number } | undefined>()
+  /** Active port-to-port connection drag. Stores the source node id, the output port kind, and the cursor position in graph coords. */
+  const [connecting, setConnecting] = createSignal<{ fromNodeId: string; fromKind: UserEdgeKind; cursorX: number; cursorY: number } | undefined>()
   let svgRef: SVGSVGElement | undefined
   const selectedNodeId = (): string | undefined => props.selectedNodeId
   const selectNode = (id: string | undefined): void => props.onSelectNode?.(id)
@@ -163,12 +169,12 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
     selectNode(node.id)
   }
 
-  function startPortDrag(node: LaidOutNode, event: PointerEvent): void {
+  function startPortDrag(node: LaidOutNode, kind: UserEdgeKind, event: PointerEvent): void {
     if (event.button !== 0) return
     event.stopPropagation()
     const graphCoords = clientToGraphCoords(event.clientX, event.clientY)
     if (!graphCoords) return
-    setConnecting({ fromNodeId: node.id, cursorX: graphCoords.x, cursorY: graphCoords.y })
+    setConnecting({ fromNodeId: node.id, fromKind: kind, cursorX: graphCoords.x, cursorY: graphCoords.y })
     ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
   }
 
@@ -205,7 +211,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
     const conn = connecting()
     if (conn) {
       const graphCoords = clientToGraphCoords(event.clientX, event.clientY)
-      if (graphCoords) setConnecting({ fromNodeId: conn.fromNodeId, cursorX: graphCoords.x, cursorY: graphCoords.y })
+      if (graphCoords) setConnecting({ fromNodeId: conn.fromNodeId, fromKind: conn.fromKind, cursorX: graphCoords.x, cursorY: graphCoords.y })
       return
     }
     const panDrag = panDragging()
@@ -223,11 +229,14 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
       // graph units, create the edge. Otherwise cancel silently.
       const graphCoords = clientToGraphCoords(event.clientX, event.clientY)
       if (graphCoords) {
+        // R4: keep the drop zone >= 24 CSS px wide at any zoom by
+        // growing the graph-space radius when the user zooms out.
+        const hitRadius = Math.max(PORT_HIT_RADIUS, PORT_HIT_RADIUS / zoom())
         const dist = closestInputPortDistance(graph(), overrides(), graphCoords.x, graphCoords.y)
-        if (dist <= PORT_HIT_RADIUS) {
+        if (dist <= hitRadius) {
           const targetId = nearestInputPortId(graph(), overrides(), graphCoords.x, graphCoords.y)
           if (targetId && targetId !== conn.fromNodeId && !hasEdge(userEdges(), conn.fromNodeId, targetId)) {
-            const next = [...userEdges(), { from: conn.fromNodeId, to: targetId }]
+            const next = [...userEdges(), { from: conn.fromNodeId, to: targetId, kind: conn.fromKind }]
             props.onEdgesChange?.(next)
           }
         }
@@ -375,23 +384,40 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
             <g data-automate-studio-edges>
               <For each={mergeEndpoints(graph(), overrides(), userEdges())}>
                 {(endpoints) => (
-                  <path
-                    d={edgePath(endpoints.x1, endpoints.y1, endpoints.x2, endpoints.y2)}
-                    stroke="currentColor"
-                    stroke-width={endpoints.user ? "2" : "1.5"}
-                    fill="none"
-                    class={endpoints.user ? "text-accent-base" : "text-border-base"}
-                    data-automate-studio-edge={`${endpoints.from}->${endpoints.to}`}
-                    data-automate-studio-edge-user={endpoints.user ? "true" : "false"}
-                    marker-end="url(#automate-arrowhead)"
-                    style={{ cursor: endpoints.user ? "pointer" : "default" }}
-                    onClick={(event) => {
-                      if (!endpoints.user) return
-                      event.stopPropagation()
-                      const next = userEdges().filter((edge) => !(edge.from === endpoints.from && edge.to === endpoints.to))
-                      props.onEdgesChange?.(next)
-                    }}
-                  />
+                  <g data-automate-studio-edge-group={`${endpoints.from}->${endpoints.to}`}>
+                    <path
+                      d={edgePath(endpoints.x1, endpoints.y1, endpoints.x2, endpoints.y2)}
+                      stroke="currentColor"
+                      stroke-width={endpoints.user ? "2" : "1.5"}
+                      fill="none"
+                      class={edgeClass(endpoints)}
+                      data-automate-studio-edge={`${endpoints.from}->${endpoints.to}`}
+                      data-automate-studio-edge-user={endpoints.user ? "true" : "false"}
+                      data-automate-studio-edge-kind={endpoints.kind}
+                      marker-end="url(#automate-arrowhead)"
+                      style={{ cursor: endpoints.user ? "pointer" : "default" }}
+                      onClick={(event) => {
+                        if (!endpoints.user) return
+                        event.stopPropagation()
+                        const next = userEdges().filter((edge) => !(edge.from === endpoints.from && edge.to === endpoints.to))
+                        props.onEdgesChange?.(next)
+                      }}
+                    />
+                    <Show when={endpoints.kind !== "flow"}>
+                      <text
+                        x={(endpoints.x1 + endpoints.x2) / 2}
+                        y={(endpoints.y1 + endpoints.y2) / 2 - 4}
+                        text-anchor="middle"
+                        class="fill-text-weak pointer-events-none"
+                        font-size="9"
+                        font-weight={600}
+                      >
+                        {endpoints.kind === "branch-true"
+                          ? t("workbench.automate.canvas.edgeBranchTrue")
+                          : t("workbench.automate.canvas.edgeBranchFalse")}
+                      </text>
+                    </Show>
+                  </g>
                 )}
               </For>
             </g>
@@ -401,7 +427,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
               const fromNode = graph().nodes.find((n) => n.id === conn().fromNodeId)
               if (!fromNode) return null
               const fx = effectiveX(fromNode) + fromNode.width
-              const fy = effectiveY(fromNode) + fromNode.height / 2
+              const fy = effectiveY(fromNode) + fromNode.height / 2 + outputPortDy(fromNode.family, conn().fromKind)
               return (
                 <path
                   d={edgePath(fx, fy, conn().cursorX, conn().cursorY)}
@@ -437,7 +463,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
                 selected={selectedNodeId() === node.id}
                 onSelect={() => selectNode(node.id)}
                 onPointerDown={(event) => startNodeDrag(node, event)}
-                onOutputPortPointerDown={(event) => startPortDrag(node, event)}
+                onOutputPortPointerDown={(kind, event) => startPortDrag(node, kind, event)}
               />
             )}
           </For>
@@ -488,7 +514,7 @@ type NodeRectProps = {
   readonly selected: boolean
   readonly onSelect: () => void
   readonly onPointerDown: (event: PointerEvent) => void
-  readonly onOutputPortPointerDown: (event: PointerEvent) => void
+  readonly onOutputPortPointerDown: (kind: UserEdgeKind, event: PointerEvent) => void
 }
 
 function NodeRect(props: NodeRectProps): JSX.Element {
@@ -528,21 +554,41 @@ function NodeRect(props: NodeRectProps): JSX.Element {
         data-automate-studio-port={`${props.node.id}:in`}
         aria-label={t("workbench.automate.canvas.portInput")}
       />
-      {/* Output port (right edge, vertical midline). Pointer-down here starts a new connection. */}
-      <circle
-        cx={props.node.width}
-        cy={props.node.height / 2}
-        r={PORT_RADIUS}
-        class="fill-accent-base"
-        stroke-width={1}
-        data-automate-studio-port={`${props.node.id}:out`}
-        aria-label={t("workbench.automate.canvas.portOutput")}
-        style={{ cursor: "crosshair" }}
-        onPointerDown={(event) => {
-          event.stopPropagation()
-          props.onOutputPortPointerDown(event)
-        }}
-      />
+      {/* Output ports (right edge). A control.if node exposes two
+          labelled branch ports (true / false); every other family
+          exposes a single flow port. Pointer-down starts a connection. */}
+      <For each={outputPortsFor(props.node.family)}>
+        {(port) => (
+          <circle
+            cx={props.node.width}
+            cy={props.node.height / 2 + port.dy}
+            r={PORT_RADIUS}
+            class="fill-accent-base"
+            stroke-width={1}
+            data-automate-studio-port={`${props.node.id}:out:${port.kind}`}
+            aria-label={
+              port.kind === "branch-true"
+                ? t("workbench.automate.canvas.portTrue")
+                : port.kind === "branch-false"
+                  ? t("workbench.automate.canvas.portFalse")
+                  : t("workbench.automate.canvas.portOutput")
+            }
+            style={{ cursor: "crosshair" }}
+            onPointerDown={(event) => {
+              event.stopPropagation()
+              props.onOutputPortPointerDown(port.kind, event)
+            }}
+          />
+        )}
+      </For>
+      <Show when={isBranchingFamily(props.node.family)}>
+        <text x={props.node.width + 10} y={props.node.height / 2 - BRANCH_PORT_OFFSET + 3} class="fill-text-weak" font-size="9">
+          {t("workbench.automate.canvas.edgeBranchTrue")}
+        </text>
+        <text x={props.node.width + 10} y={props.node.height / 2 + BRANCH_PORT_OFFSET + 3} class="fill-text-weak" font-size="9">
+          {t("workbench.automate.canvas.edgeBranchFalse")}
+        </text>
+      </Show>
       <text
         x={12}
         y={22}
@@ -570,6 +616,17 @@ function NodeRect(props: NodeRectProps): JSX.Element {
       </Show>
     </g>
   )
+}
+
+/**
+ * Visual class per edge kind. Branch edges are colour-coded so the
+ * true/false routing is readable at a glance; plain user edges keep
+ * the accent colour, synthetic sequential edges stay muted.
+ */
+function edgeClass(endpoints: EdgeEndpoint): string {
+  if (endpoints.kind === "branch-true") return "text-accent-base"
+  if (endpoints.kind === "branch-false") return "text-text-weak"
+  return endpoints.user ? "text-accent-base" : "text-border-base"
 }
 
 function clampZoom(value: number): number {

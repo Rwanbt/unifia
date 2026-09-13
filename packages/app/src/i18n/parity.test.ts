@@ -237,6 +237,17 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.environment.drawerTitle",
   "workbench.automate.environment.close",
   "workbench.automate.runBar.action.showEnvironment",
+  // 2026-09-13: Automate studio branches (Phase 9 slice 2). Labelled
+  // true/false branch ports + branch edge captions + graph topology
+  // dry-run messages (cycle / duplicate branch / branch out of a
+  // non-branching family). Same rationale as the slices 1-9 keys.
+  "workbench.automate.canvas.portTrue",
+  "workbench.automate.canvas.portFalse",
+  "workbench.automate.canvas.edgeBranchTrue",
+  "workbench.automate.canvas.edgeBranchFalse",
+  "workbench.automate.runBar.validateCycle",
+  "workbench.automate.runBar.validateDuplicateBranch",
+  "workbench.automate.runBar.validateBranchNonBranching",
   // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
   // rationale as the canvas control labels above — short UI labels
   // ("Inspector", "Close", "Approval"), section titles, and a

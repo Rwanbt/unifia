@@ -124,10 +124,23 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
     expect(source).toMatch(/readonly\s+onEdgesChange\?:\s*\(edges:\s*readonly\s*UserEdge\[\]\)\s*=>\s*void/)
   })
 
-  test("renders one input port + one output port per node", () => {
-    // The data-attr template is `data-automate-studio-port="${id}:in|out"`.
+  test("renders one input port per node and per-kind output ports (slice 9.2)", () => {
+    // Input stays `${id}:in`; outputs are `${id}:out:{flow|branch-true|branch-false}`.
     expect(source).toMatch(/data-automate-studio-port=\{`\$\{props\.node\.id\}:in`\}/)
-    expect(source).toMatch(/data-automate-studio-port=\{`\$\{props\.node\.id\}:out`\}/)
+    expect(source).toMatch(/data-automate-studio-port=\{`\$\{props\.node\.id\}:out:\$\{port\.kind\}`\}/)
+    expect(source).toMatch(/outputPortsFor\(props\.node\.family\)/)
+  })
+
+  test("labels the control.if branch ports and edges (true/false)", () => {
+    expect(source).toMatch(/workbench\.automate\.canvas\.portTrue/)
+    expect(source).toMatch(/workbench\.automate\.canvas\.portFalse/)
+    expect(source).toMatch(/workbench\.automate\.canvas\.edgeBranchTrue/)
+    expect(source).toMatch(/workbench\.automate\.canvas\.edgeBranchFalse/)
+    expect(source).toMatch(/data-automate-studio-edge-kind=\{endpoints\.kind\}/)
+  })
+
+  test("keeps the port drop zone >= 24 CSS px at any zoom (R4)", () => {
+    expect(source).toMatch(/PORT_HIT_RADIUS\s*\/\s*zoom\(\)/)
   })
 
   test("starts a port-to-port connection drag from the output port", () => {
@@ -141,7 +154,7 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
     // PORT_HIT_RADIUS.
     expect(source).toMatch(/hasEdge\(userEdges\(\),\s*conn\.fromNodeId,\s*targetId\)/)
     expect(source).toMatch(/nearestInputPortId\(graph\(\),\s*overrides\(\),\s*graphCoords\.x,\s*graphCoords\.y\)/)
-    expect(source).toMatch(/\[\.\.\.userEdges\(\),\s*\{\s*from:\s*conn\.fromNodeId,\s*to:\s*targetId\s*\}\]/)
+    expect(source).toMatch(/\[\.\.\.userEdges\(\),\s*\{\s*from:\s*conn\.fromNodeId,\s*to:\s*targetId,\s*kind:\s*conn\.fromKind\s*\}\]/)
   })
 
   test("renders a ghost edge while the user is dragging a connection", () => {

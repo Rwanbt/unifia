@@ -59,7 +59,40 @@ export type LaidOutGraph = {
 
 export type NodePositionOverride = { readonly x: number; readonly y: number }
 
-export type UserEdge = { readonly from: string; readonly to: string }
+export type UserEdgeKind = "flow" | "branch-true" | "branch-false"
+
+export type UserEdge = { readonly from: string; readonly to: string; readonly kind?: UserEdgeKind }
+
+/**
+ * Vertical offset of a branching output port from the node's vertical midline,
+ * in graph units. `control.if` exposes two labelled output ports
+ * (true above, false below) so the author draws the same topology
+ * the runtime matches by `branch-true` / `branch-false` edge kind.
+ */
+export const BRANCH_PORT_OFFSET = 14
+
+/** True when a node family fans out into labelled branches (control.if today). */
+export function isBranchingFamily(family: string | undefined): boolean {
+  return family === "control.if"
+}
+
+export type OutputPort = { readonly kind: UserEdgeKind; readonly dy: number }
+
+/** Deterministic output ports per family, in render order (top to bottom). */
+export function outputPortsFor(family: string | undefined): readonly OutputPort[] {
+  if (isBranchingFamily(family)) {
+    return [
+      { kind: "branch-true", dy: -BRANCH_PORT_OFFSET },
+      { kind: "branch-false", dy: BRANCH_PORT_OFFSET },
+    ]
+  }
+  return [{ kind: "flow", dy: 0 }]
+}
+
+/** Vertical offset of one output port, or 0 when the kind has no port on the family. */
+export function outputPortDy(family: string | undefined, kind: UserEdgeKind): number {
+  return outputPortsFor(family).find((port) => port.kind === kind)?.dy ?? 0
+}
 
 export type EdgeEndpoint = {
   readonly from: string
@@ -70,6 +103,8 @@ export type EdgeEndpoint = {
   readonly y2: number
   /** True when the edge came from the parent's `edges` prop (i.e. user-added). Synthetic sequential edges from the layout are not marked. */
   readonly user: boolean
+  /** Edge kind: `flow` for sequential/plain edges, `branch-*` for labelled control.if ports. */
+  readonly kind: UserEdgeKind
 }
 
 /**
@@ -89,8 +124,8 @@ export function mergeEndpoints(
   overrides: Readonly<Record<string, NodePositionOverride>>,
   userEdges: readonly UserEdge[],
 ): readonly EdgeEndpoint[] {
-  const synthetic = graph.edges.map((edge) => endpointFor(edge.from, edge.to, graph, overrides, false))
-  const user = userEdges.map((edge) => endpointFor(edge.from, edge.to, graph, overrides, true))
+  const synthetic = graph.edges.map((edge) => endpointFor(edge.from, edge.to, graph, overrides, false, "flow"))
+  const user = userEdges.map((edge) => endpointFor(edge.from, edge.to, graph, overrides, true, edge.kind ?? "flow"))
   return [...synthetic, ...user]
 }
 
@@ -105,11 +140,12 @@ function endpointFor(
   graph: LaidOutGraph,
   overrides: Readonly<Record<string, NodePositionOverride>>,
   user: boolean,
+  kind: UserEdgeKind,
 ): EdgeEndpoint {
   const fromNode = graph.nodes.find((node) => node.id === fromId)
   const toNode = graph.nodes.find((node) => node.id === toId)
   if (!fromNode || !toNode) {
-    return { from: fromId, to: toId, x1: 0, y1: 0, x2: 0, y2: 0, user }
+    return { from: fromId, to: toId, x1: 0, y1: 0, x2: 0, y2: 0, user, kind }
   }
   const fromOverride = overrides[fromId]
   const toOverride = overrides[toId]
@@ -121,10 +157,11 @@ function endpointFor(
     from: fromId,
     to: toId,
     x1: fromX + fromNode.width,
-    y1: fromY + fromNode.height / 2,
+    y1: fromY + fromNode.height / 2 + outputPortDy(fromNode.family, kind),
     x2: toX,
     y2: toY + toNode.height / 2,
     user,
+    kind,
   }
 }
 

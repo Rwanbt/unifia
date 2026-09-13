@@ -3,6 +3,7 @@
 
 import { describe, expect, test } from "bun:test"
 import {
+  BRANCH_PORT_OFFSET,
   NODE_GAP_Y,
   NODE_HEIGHT,
   NODE_WIDTH,
@@ -12,9 +13,12 @@ import {
   closestInputPortDistance,
   computeZoomToFit,
   hasEdge,
+  isBranchingFamily,
   layoutWorkflowSteps,
   mergeEndpoints,
   nearestInputPortId,
+  outputPortDy,
+  outputPortsFor,
 } from "./automate-graph-layout"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
@@ -247,5 +251,62 @@ describe("port hit-test helpers", () => {
     expect(hasEdge([{ from: "a", to: "b" }, { from: "b", to: "c" }], "a", "b")).toBe(true)
     expect(hasEdge([{ from: "a", to: "b" }], "b", "a")).toBe(false)
     expect(hasEdge([], "a", "b")).toBe(false)
+  })
+})
+
+
+describe("branch output ports (slice 9.2)", () => {
+  test("isBranchingFamily only accepts control.if", () => {
+    expect(isBranchingFamily("control.if")).toBe(true)
+    expect(isBranchingFamily("tool.http")).toBe(false)
+    expect(isBranchingFamily(undefined)).toBe(false)
+  })
+
+  test("outputPortsFor returns true-above / false-below for control.if", () => {
+    expect(outputPortsFor("control.if")).toEqual([
+      { kind: "branch-true", dy: -BRANCH_PORT_OFFSET },
+      { kind: "branch-false", dy: BRANCH_PORT_OFFSET },
+    ])
+  })
+
+  test("outputPortsFor returns a single flow port for every other family", () => {
+    expect(outputPortsFor("tool.http")).toEqual([{ kind: "flow", dy: 0 }])
+    expect(outputPortsFor(undefined)).toEqual([{ kind: "flow", dy: 0 }])
+  })
+
+  test("outputPortDy resolves the port offset and falls back to 0", () => {
+    expect(outputPortDy("control.if", "branch-true")).toBe(-BRANCH_PORT_OFFSET)
+    expect(outputPortDy("control.if", "branch-false")).toBe(BRANCH_PORT_OFFSET)
+    expect(outputPortDy("control.if", "flow")).toBe(0)
+    expect(outputPortDy("tool.http", "branch-true")).toBe(0)
+  })
+
+  test("mergeEndpoints anchors a branch edge on the matching port and tags its kind", () => {
+    const graph = layoutWorkflowSteps([
+      { id: "check", label: "If", requiresApproval: false, family: "control.if" },
+      step("done", "x"),
+    ])
+    const endpoints = mergeEndpoints(graph, {}, [{ from: "check", to: "done", kind: "branch-true" }])
+    const user = endpoints.find((endpoint) => endpoint.user)
+    expect(user?.kind).toBe("branch-true")
+    expect(user?.y1).toBe(PADDING + NODE_HEIGHT / 2 - BRANCH_PORT_OFFSET)
+  })
+
+  test("mergeEndpoints defaults user edges to the flow kind on the midline", () => {
+    const graph = layoutWorkflowSteps([step("a", "x"), step("b", "y")])
+    const endpoints = mergeEndpoints(graph, {}, [{ from: "a", to: "b" }])
+    const user = endpoints.find((endpoint) => endpoint.user)
+    expect(user?.kind).toBe("flow")
+    expect(user?.y1).toBe(PADDING + NODE_HEIGHT / 2)
+  })
+
+  test("synthetic sequential edges stay flow regardless of node family", () => {
+    const graph = layoutWorkflowSteps([
+      { id: "check", label: "If", requiresApproval: false, family: "control.if" },
+      step("after", "x"),
+    ])
+    const endpoints = mergeEndpoints(graph, {}, [])
+    expect(endpoints[0]?.kind).toBe("flow")
+    expect(endpoints[0]?.user).toBe(false)
   })
 })

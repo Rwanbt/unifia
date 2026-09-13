@@ -155,6 +155,22 @@ describe("buildCanonicalFromState", () => {
     expect(canonical.edges).toEqual([{ from: "s-1", to: "s-2", kind: "flow" }])
   })
 
+  test("preserves the branch kind of user-added edges (slice 9.2)", () => {
+    const canonical = buildCanonicalFromState({
+      legacy: legacy([{ id: "s-1", family: "control.if" }]),
+      positions: {},
+      userEdges: [
+        { from: "s-1", to: "s-2", kind: "branch-true" },
+        { from: "s-1", to: "s-3", kind: "branch-false" },
+      ],
+      extraNodes: [],
+    })
+    expect(canonical.edges).toEqual([
+      { from: "s-1", to: "s-2", kind: "branch-true" },
+      { from: "s-1", to: "s-3", kind: "branch-false" },
+    ])
+  })
+
   test("carries requiresApproval from extra nodes into config._meta", () => {
     const canonical = buildCanonicalFromState({
       legacy: legacy([]),

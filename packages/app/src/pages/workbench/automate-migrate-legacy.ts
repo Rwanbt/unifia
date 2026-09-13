@@ -29,6 +29,7 @@
  */
 import { NodeFamilySchema } from "@unifia/contracts"
 import type { ParsedWorkflowDefinition } from "./automate-decode"
+import type { UserEdgeKind } from "./automate-graph-layout"
 
 export type CanonicalEdgeKind = "flow" | "branch-true" | "branch-false" | "case-value" | "branch-N" | "on-failure"
 
@@ -171,7 +172,7 @@ function stringOrFallback(value: unknown, fallback: string): string {
 export function buildCanonicalFromState(input: {
   readonly legacy: ParsedWorkflowDefinition
   readonly positions: Readonly<Record<string, { readonly x: number; readonly y: number }>>
-  readonly userEdges: readonly { readonly from: string; readonly to: string }[]
+  readonly userEdges: readonly { readonly from: string; readonly to: string; readonly kind?: UserEdgeKind }[]
   readonly extraNodes: readonly WorkflowStepLike[]
 }): CanonicalWorkflowDefinition {
   const { legacy, positions, userEdges, extraNodes } = input
@@ -199,7 +200,7 @@ export function buildCanonicalFromState(input: {
       config: { ...node.config, _meta: { ...existingMeta, position: { x: override.x, y: override.y } } },
     }
   })
-  return { ...base, nodes: nodesWithPositions, edges: userEdges.map((edge) => ({ ...edge, kind: "flow" as const })) }
+  return { ...base, nodes: nodesWithPositions, edges: userEdges.map((edge) => ({ ...edge, kind: (edge.kind ?? "flow") as CanonicalEdgeKind })) }
 }
 
 /**

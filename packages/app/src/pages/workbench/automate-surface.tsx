@@ -12,6 +12,7 @@ import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
+import { validateGraphEdges, type GraphEdgeRef } from "./automate-graph-validation"
 import { buildCanonicalFromState, serializeCanonical } from "./automate-migrate-legacy"
 import { AutomateStudioEnvironment } from "./automate-studio-environment"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES } from "./automate-studio-library"
@@ -211,6 +212,36 @@ export function AutomateSurface(): JSX.Element {
       setWorkflowError(error instanceof Error ? error.message : t("workbench.automate.cancelFailed"))
     }
   }
+  /**
+   * Phase 9 slice 2: the dry-run re-parse proves the JSON shape; the
+   * graph pass then checks the topology the author drew (cycles,
+   * duplicated branch kinds, branch edges out of non-branching
+   * families) against the same expectations the runtime enforces.
+   */
+  function augmentValidateReport(report: ValidateReport, source: string): ValidateReport {
+    const parsedNow = parseWorkflowDefinition(source)
+    if (parsedNow.kind !== "ok") return report
+    const all = [...summarizeWorkflowSteps(parsedNow.definition), ...extraNodes()]
+    const nodes = all.map((entry) => ({ id: entry.id, family: entry.family }))
+    const edges: GraphEdgeRef[] = []
+    all.forEach((entry, index) => {
+      const previous = all[index - 1]
+      if (previous) edges.push({ from: previous.id, to: entry.id, kind: "flow" })
+    })
+    edges.push(...stepEdges())
+    const lines = [...report.lines]
+    for (const issue of validateGraphEdges(nodes, edges)) {
+      if (issue.code === "cycle") {
+        lines.push({ severity: "error", message: t("workbench.automate.runBar.validateCycle", { path: issue.path.join(" -> ") }) })
+      } else if (issue.code === "duplicate-branch") {
+        lines.push({ severity: "error", message: t("workbench.automate.runBar.validateDuplicateBranch", { from: issue.from, kind: issue.kind }) })
+      } else {
+        lines.push({ severity: "error", message: t("workbench.automate.runBar.validateBranchNonBranching", { from: issue.from, kind: issue.kind }) })
+      }
+    }
+    const added = lines.slice(report.lines.length)
+    return { ok: report.ok && added.every((line) => line.severity !== "error"), lines }
+  }
   return (
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate">
       <div class="mx-auto max-w-5xl space-y-8">
@@ -403,7 +434,7 @@ export function AutomateSurface(): JSX.Element {
                     setValidateReport({ ok: false, lines: [{ severity: "error", message: t("workbench.automate.runBar.validateEmpty") }] })
                     return
                   }
-                  setValidateReport(validateDefinition(source))
+                  setValidateReport(augmentValidateReport(validateDefinition(source), source))
                 }}
                 onStart={() => void startSelectedWorkflow()}
                 onAllow={() => void resolveWorkflowApproval("allow")}
