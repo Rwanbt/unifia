@@ -11,10 +11,24 @@
 import { realpathSync } from "node:fs"
 import { dirname, isAbsolute, relative, resolve } from "node:path"
 
+/**
+ * Strip the Win32 namespaced prefix (`\\?\` / `\\?\UNC\`) that
+ * GetFinalPathNameByHandle returns on some Windows hosts (long-path
+ * enabled runners included). Without this, a prefixed `realRoot` never
+ * lexically matches an unprefixed `join(root, locator)` candidate and
+ * every write is refused as "escapes the vault root" - the systemic
+ * CI failure tracked in #79. Volume-GUID forms are left untouched.
+ */
+export function stripWindowsNamespace(p: string): string {
+  if (p.startsWith("\\\\?\\UNC\\")) return "\\\\" + p.slice(8)
+  if (/^\\\\\?\\[A-Za-z]:\\/.test(p)) return p.slice(4)
+  return p
+}
+
 /** Real path of `p`, or null when it cannot be resolved. */
 export function realOrNull(p: string): string | null {
   try {
-    return realpathSync.native(p)
+    return stripWindowsNamespace(realpathSync.native(p))
   } catch {
     return null
   }
@@ -56,10 +70,11 @@ export function toNfd(s: string): string {
  * through untouched.
  */
 export function isContained(realRoot: string, candidate: string): boolean {
+  const root = stripWindowsNamespace(realRoot)
   const real = realOrNull(candidate)
   if (real === null) return false
-  if (real === realRoot) return true
-  const rel = relative(realRoot, real)
+  if (real === root) return true
+  const rel = relative(root, real)
   return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel)
 }
 
@@ -72,19 +87,20 @@ export function isContained(realRoot: string, candidate: string): boolean {
  * through a link that escapes the workspace.
  */
 export function wouldBeContained(realRoot: string, candidate: string): boolean {
+  const root = stripWindowsNamespace(realRoot)
   // An existing path is decided directly.
-  if (realOrNull(candidate) !== null) return isContained(realRoot, candidate)
+  if (realOrNull(candidate) !== null) return isContained(root, candidate)
 
   // Otherwise: the lexical path must not climb out...
-  const normalised = resolve(candidate)
-  const lexical = relative(realRoot, normalised)
+  const normalised = stripWindowsNamespace(resolve(candidate))
+  const lexical = relative(root, normalised)
   if (lexical.length === 0 || lexical.startsWith("..") || isAbsolute(lexical)) return false
 
   // ...and the nearest existing ancestor must itself be inside, so the new
   // file cannot be created through a link that escapes the workspace.
   let dir = dirname(normalised)
   for (;;) {
-    if (realOrNull(dir) !== null) return isContained(realRoot, dir)
+    if (realOrNull(dir) !== null) return isContained(root, dir)
     const parent = dirname(dir)
     if (parent === dir) return false
     dir = parent
