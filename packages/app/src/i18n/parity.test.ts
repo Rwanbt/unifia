@@ -277,6 +277,13 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.runBar.validateOk",
   "workbench.automate.runBar.validateFailed",
   "workbench.automate.runBar.validateEmpty",
+  // 2026-09-13: Automate studio run bar Save (Phase 8 slice 7,
+  // canonical IR migration). Same rationale as the slice 6 keys:
+  // short UI labels + a templated timestamp caption.
+  "workbench.automate.runBar.action.save",
+  "workbench.automate.runBar.action.saving",
+  "workbench.automate.runBar.savedAt",
+  "workbench.automate.runBar.saveMigratedWarning",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
