@@ -52,11 +52,25 @@ const MAX_RECORDED_TRUNCATIONS = 20
  */
 const O_NOFOLLOW_IF_AVAILABLE = constants.O_NOFOLLOW ?? 0
 
-/** A file's identity, as the kernel reports it. */
+/**
+ * A file's identity, as the kernel reports it.
+ *
+ * WHY mtimeNs and birthtimeNs are part of the identity: on the Windows CI
+ * runner (bun 1.3.11) ctimeNs and mtimeNs are observed frozen across a
+ * delete+recreate, and NTFS reuses file ids - the ino alone can then
+ * collide for the replacement, so a same-size regular-file swap escaped
+ * detection (#79). birthtimeNs changed in every measured configuration
+ * (bun 1.3.11 and 1.3.14, local and CI), and a rename preserves it, so
+ * the legitimate rename case still passes while a recreate is caught.
+ * On filesystems without a birth time the field is 0 on both sides and
+ * the other fields keep deciding.
+ */
 interface FileIdentity {
   dev: bigint
   ino: bigint
   ctimeNs: bigint
+  mtimeNs: bigint
+  birthtimeNs: bigint
   size: bigint
 }
 
@@ -177,7 +191,14 @@ async function readContainedByHandle(
 async function identityOf(path: string): Promise<FileIdentity | null> {
   try {
     const st = await fsp.lstat(path, { bigint: true })
-    return { dev: st.dev, ino: st.ino, ctimeNs: st.ctimeNs, size: st.size }
+    return {
+      dev: st.dev,
+      ino: st.ino,
+      ctimeNs: st.ctimeNs,
+      mtimeNs: st.mtimeNs,
+      birthtimeNs: st.birthtimeNs,
+      size: st.size,
+    }
   } catch {
     return null
   }
@@ -186,20 +207,29 @@ async function identityOf(path: string): Promise<FileIdentity | null> {
 function identityOfSync(path: string): FileIdentity | null {
   try {
     const st = lstatSync(path, { bigint: true })
-    return { dev: st.dev, ino: st.ino, ctimeNs: st.ctimeNs, size: st.size }
+    return {
+      dev: st.dev,
+      ino: st.ino,
+      ctimeNs: st.ctimeNs,
+      mtimeNs: st.mtimeNs,
+      birthtimeNs: st.birthtimeNs,
+      size: st.size,
+    }
   } catch {
     return null
   }
 }
 
 function sameIdentity(
-  st: { dev: bigint; ino: bigint; ctimeNs: bigint; size: bigint },
+  st: { dev: bigint; ino: bigint; ctimeNs: bigint; mtimeNs: bigint; birthtimeNs: bigint; size: bigint },
   identity: FileIdentity,
 ): boolean {
   return (
     st.dev === identity.dev &&
     st.ino === identity.ino &&
     st.ctimeNs === identity.ctimeNs &&
+    st.mtimeNs === identity.mtimeNs &&
+    st.birthtimeNs === identity.birthtimeNs &&
     st.size === identity.size
   )
 }
