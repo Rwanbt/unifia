@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix shipped (18 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh shipped (19 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `11a3278a75 test(v110): scope the "!important" guard to non-mobile-side-panel selectors`
+> **HEAD** : `ca4bed48c7 docs(v110): refresh M3-PROGRESS.md after v110 test fix`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
