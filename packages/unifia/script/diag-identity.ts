@@ -1,29 +1,27 @@
 /* SPDX-License-Identifier: MIT */
 // Temporary diagnostic for #79 - deleted after the identity fields are
 // captured on the CI runner. Run with: bun script/diag-identity.ts
-import { lstatSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs"
+import { lstatSync, mkdtempSync, unlinkSync, writeFileSync, type BigIntStats } from "node:fs"
 import { open } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-const pick = (st: ReturnType<typeof lstatSync> & { mtimeNs?: bigint; birthtimeNs?: bigint }) => ({
+const pick = (st: BigIntStats) => ({
   dev: String(st.dev),
   ino: String(st.ino),
   ctimeNs: String(st.ctimeNs),
-  mtimeNs: String((st as { mtimeNs?: bigint }).mtimeNs),
-  birthtimeNs: String((st as { birthtimeNs?: bigint }).birthtimeNs),
+  mtimeNs: String(st.mtimeNs),
+  birthtimeNs: String(st.birthtimeNs),
   size: String(st.size),
 })
-const same = (
-  a: { dev: bigint; ino: bigint; ctimeNs: bigint; mtimeNs?: bigint; birthtimeNs?: bigint; size: bigint },
-  b: { dev: bigint; ino: bigint; ctimeNs: bigint; mtimeNs?: bigint; birthtimeNs?: bigint; size: bigint },
-) =>
+
+const same = (a: BigIntStats, b: BigIntStats): boolean =>
   a.dev === b.dev &&
   a.ino === b.ino &&
   a.ctimeNs === b.ctimeNs &&
-  a.size === b.size &&
-  (a as { mtimeNs?: bigint }).mtimeNs === (b as { mtimeNs?: bigint }).mtimeNs &&
-  (a as { birthtimeNs?: bigint }).birthtimeNs === (b as { birthtimeNs?: bigint }).birthtimeNs
+  a.mtimeNs === b.mtimeNs &&
+  a.birthtimeNs === b.birthtimeNs &&
+  a.size === b.size
 
 const dir = mkdtempSync(join(tmpdir(), "diag-identity-"))
 const file = join(dir, "x.md")
