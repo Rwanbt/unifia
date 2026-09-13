@@ -208,6 +208,23 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.canvas.workflowLabel",
   "workbench.automate.canvas.stepsLabel",
   "workbench.automate.canvas.canvasLabel",
+  // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
+  // rationale as the canvas control labels above — short UI labels
+  // ("Inspector", "Close", "Approval"), section titles, and a
+  // templated figure caption ("Step N of M") where English is the
+  // canonical UI surface. Real French translations live in fr.ts; the
+  // remaining 14 locales fall back to English pending translator
+  // review.
+  "workbench.automate.inspector.title",
+  "workbench.automate.inspector.close",
+  "workbench.automate.inspector.empty",
+  "workbench.automate.inspector.field.id",
+  "workbench.automate.inspector.field.label",
+  "workbench.automate.inspector.field.position",
+  "workbench.automate.inspector.field.approval",
+  "workbench.automate.inspector.positionValue",
+  "workbench.automate.inspector.approvalYes",
+  "workbench.automate.inspector.approvalNo",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
