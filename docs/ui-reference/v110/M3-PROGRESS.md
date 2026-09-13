@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions) + Phase 9.6 (Memory depth graph filters)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `b05978e1de feat(memory): vault context menu with real workspace actions` (after `f7cf812eb3` phase 9.4)
+> **HEAD** : `b217f0579d feat(memory): depth-N knowledge graph with tags and orphans filters` (after `b05978e1de` phase 9.5)
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -76,6 +76,7 @@ source of truth future agents can read without vault access.
 | **4.8** | **Phase 4 reste — glyphes de mode agent v16 (chat/plan/debate/build/team/auto) + contrôles réels de bascule (Debate/TeamModelSelector)** | **`853666f8ea`** | **LIVREE** |
 | **9.4** | **Phase 9 slice 4 — Memory autosave 700 ms (debounce, flush avant navigation, chip d'état, CAS en place)** | **`f7cf812eb3`** | **LIVREE** |
 | **9.5** | **Phase 9 slice 5 — Context actions vault (rename inline, dupliquer, déplacer, exporter, supprimer, nouvelle note/dossier)** | **`b05978e1de`** | **LIVREE** |
+| **9.6** | **Phase 9 slice 6 — Graphe depth 1-3 + tags + orphans (dernière ligne Memory de la matrice)** | **`b217f0579d`** | **LIVREE** |
 
 ---
 
@@ -167,6 +168,10 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 9.5 static panel tests | 4 / 4 pass | `memory-panel.test.ts` (menu, routes réelles, inline, export/confirm) |
 | Phase 9.5 e2e | 1/1 PASS (58.1 s) | `e2e/v110/memory-note-actions.spec.ts` — rename/duplicate/move/delete réels + download + mkdir disque |
 | `bun test src` (Phase 9.5) | 1477 pass / 21 todo / 0 fail | full app suite |
+| Phase 9.6 graph unit tests | 3 / 3 pass | `memory-panel-model.test.ts` (depth, anneau tags, orphans) |
+| Phase 9.6 static panel tests | 3 / 3 pass | `memory-panel.test.ts` (contrôles, rendu, 1 seule requête documents) |
+| Phase 9.6 e2e | 2/2 PASS (1.1 + 1.2 min) | `e2e/v110/memory-graph-filters.spec.ts` |
+| `bun test src` (Phase 9.6) | 1483 pass / 21 todo / 0 fail | full app suite |
 
 ---
 
@@ -236,4 +241,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `b05978e1de` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2`; Phase 9.3 - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`); Phase 4.8 - composer agent control now carries the six v16 mode glyphs (chat/plan/debate/build/team/auto, chat fallback) and the e2e `chat-agent-modes.spec.ts` pins the real control swaps (DebateModelSelector, TeamModelSelector, no fabricated Auto tab) (`853666f8ea`); Phase 9.4 - Memory note editor autosaves 700 ms after the last keystroke through the real CAS write route, flushes before note switches, and shows the mockup's Saved/Saving/Unsaved chip (`f7cf812eb3`); Phase 9.5 - the vault context menu ships real workspace actions only (open/inline rename/duplicate/move/export/delete on notes, new note/sub-folder on folders; pin/archive and folder rename are absent, no runtime backs them) with the e2e recording every client call (`b05978e1de`); rename wikilink auto-refactor deferred, issue #93. Local gates at HEAD: app suite 1477 pass / 21 todo / 0 fail, typecheck 0, biome 0 on touched files, e2e targeted 4/4. Next session entry point: Phase 5 (Code chrome) - the largest remaining surface - then Phase 9.6 memory graph filters. Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*
+*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `b217f0579d` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2`; Phase 9.3 - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`); Phase 4.8 - composer agent control now carries the six v16 mode glyphs (chat/plan/debate/build/team/auto, chat fallback) and the e2e `chat-agent-modes.spec.ts` pins the real control swaps (DebateModelSelector, TeamModelSelector, no fabricated Auto tab) (`853666f8ea`); Phase 9.4 - Memory note editor autosaves 700 ms after the last keystroke through the real CAS write route, flushes before note switches, and shows the mockup's Saved/Saving/Unsaved chip (`f7cf812eb3`); Phase 9.5 - the vault context menu ships real workspace actions only (open/inline rename/duplicate/move/export/delete on notes, new note/sub-folder on folders; pin/archive and folder rename are absent, no runtime backs them) with the e2e recording every client call (`b05978e1de`); Phase 9.6 - the graph pane ships the mockup filter set (depth 1-3, tag ring, orphans, note-link summary) and one documents query now feeds both backlinks and the graph (`b217f0579d`); rename wikilink auto-refactor deferred, issue #93. Local gates at HEAD: app suite 1483 pass / 21 todo / 0 fail, typecheck 0, biome 0 on touched files, e2e targeted 5/5 stable. **Memory surface: toutes les lignes de la matrice sont ✅ sauf pan/zoom/fit dans la pane (⚠️ partial)**. Next session entry point: Phase 5 (Code chrome) - the largest remaining surface. Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*
