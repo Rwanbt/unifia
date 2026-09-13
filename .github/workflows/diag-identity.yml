@@ -1,6 +1,8 @@
 name: diag-identity
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - new-ui
 jobs:
   diag:
     runs-on: windows-latest
