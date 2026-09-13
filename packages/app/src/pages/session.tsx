@@ -28,6 +28,7 @@ import { useNavigate, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
 import { SessionMobileTabsSection } from "@/pages/session/session-mobile-tabs"
 import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
+import { buildFollowupDockProps } from "@/pages/session/followup-dock-props"
 import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
 import { useComments } from "@/context/comments"
 import { useGlobalSync } from "@/context/global-sync"
@@ -1000,27 +1001,18 @@ export default function Page() {
               resumeScroll()
             }}
             onResponseSubmit={resumeScroll}
-            followup={
-              params.id
-                ? {
-                    queue: queueEnabled,
-                    items: followupDock(),
-                    sending: sendingFollowup(),
-                    edit: editingFollowup(),
-                    onQueue: queueFollowup,
-                    onAbort: () => {
-                      const id = params.id
-                      if (!id) return
-                      setFollowup("paused", id, true)
-                    },
-                    onSend: (id) => {
-                      void sendFollowup(params.id!, id, { manual: true })
-                    },
-                    onEdit: editFollowup,
-                    onEditLoaded: clearFollowupEdit,
-                  }
-                : undefined
-            }
+            followup={buildFollowupDockProps({
+              paramsId: () => params.id,
+              queueEnabled,
+              followupDock,
+              sendingFollowup,
+              editingFollowup,
+              queueFollowup,
+              setFollowup,
+              sendFollowup,
+              editFollowup,
+              clearFollowupEdit,
+            })}
             revert={buildRevertDockProps({ rolled, restoring, reverting, restore })}
             setPromptDockRef={(el) => {
               promptDock = el
