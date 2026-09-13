@@ -91,16 +91,19 @@ export function wouldBeContained(realRoot: string, candidate: string): boolean {
   // An existing path is decided directly.
   if (realOrNull(candidate) !== null) return isContained(root, candidate)
 
-  // Otherwise: the lexical path must not climb out...
-  const normalised = stripWindowsNamespace(resolve(candidate))
-  const lexical = relative(root, normalised)
-  if (lexical.length === 0 || lexical.startsWith("..") || isAbsolute(lexical)) return false
-
-  // ...and the nearest existing ancestor must itself be inside, so the new
-  // file cannot be created through a link that escapes the workspace.
-  let dir = dirname(normalised)
+  // The nearest existing ancestor decides: it is the only segment a
+  // junction/symlink could redirect, and comparing real paths handles the
+  // junctioned roots the CI runner uses (D:\a\_temp) as well as namespace
+  // prefixes. There is deliberately NO lexical pre-check on the raw
+  // candidate: on a junctioned root the kernel path and the real path
+  // legitimately share no textual prefix, and rejecting on that difference
+  // refused every write (#79). resolve() still normalises any '.', '..' and
+  // separator noise before the walk, so a candidate that climbs out with
+  // '..' resolves to a real ancestor outside the root and is refused there.
+  let dir = dirname(resolve(candidate))
   for (;;) {
-    if (realOrNull(dir) !== null) return isContained(root, dir)
+    const real = realOrNull(dir)
+    if (real !== null) return isContained(root, real)
     const parent = dirname(dir)
     if (parent === dir) return false
     dir = parent

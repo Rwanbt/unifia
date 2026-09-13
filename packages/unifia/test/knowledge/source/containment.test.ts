@@ -2,7 +2,7 @@
 /* Copyright (c) 2026 Unifia contributors */
 
 import { describe, expect, test } from "bun:test"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -66,4 +66,29 @@ describe("containment with a namespaced real root (#79)", () => {
     expect(wouldBeContained(root, join(outside, "n.md"))).toBe(false)
     expect(isContained(root, outside)).toBe(false)
   })
+
+  test("still refuses a new file that climbs out with ..", () => {
+    const root = mkdtempSync(join(tmpdir(), "containment-climb-"))
+    const sibling = mkdtempSync(join(tmpdir(), "containment-outside-"))
+    expect(wouldBeContained(root, join(sibling, "x.md"))).toBe(false)
+    expect(wouldBeContained(root, root + "\\..\\..\\escape\\x.md")).toBe(false)
+  })
+
+  test.skipIf(process.platform !== "win32")(
+    "accepts a candidate under a junctioned root (CI temp condition)",
+    () => {
+      // The CI runner can expose its temp root through a reparse point:
+      // realpathSync.native(root) is the junction target while
+      // join(root, locator) keeps the kernel path. The removed lexical
+      // pre-check rejected exactly that pair on every write (#79).
+      const target = mkdtempSync(join(tmpdir(), "containment-junction-"))
+      const link = target + "-link"
+      symlinkSync(target, link, "junction")
+      const realTarget = realpathSync.native(target)
+      expect(wouldBeContained(realTarget, join(link, "new.md"))).toBe(true)
+      const file = join(target, "note.md")
+      writeFileSync(file, "x")
+      expect(isContained(realTarget, join(link, "note.md"))).toBe(true)
+    },
+  )
 })
