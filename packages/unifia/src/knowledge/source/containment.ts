@@ -70,7 +70,13 @@ export function toNfd(s: string): string {
  * through untouched.
  */
 export function isContained(realRoot: string, candidate: string): boolean {
-  const root = stripWindowsNamespace(realRoot)
+  // Canonicalise the root through the same resolver as the candidate: on
+  // the CI runner GetFinalPathNameByHandle returns the Volume-GUID form
+  // (\\?\Volume{...}) for paths under the temp volume, so a raw
+  // drive-letter root and a volume-form candidate share no textual prefix
+  // even though they denote the same directory. Resolving both sides makes
+  // the comparison form-independent.
+  const root = realOrNull(realRoot) ?? stripWindowsNamespace(realRoot)
   const real = realOrNull(candidate)
   if (real === null) return false
   if (real === root) return true
@@ -87,7 +93,7 @@ export function isContained(realRoot: string, candidate: string): boolean {
  * through a link that escapes the workspace.
  */
 export function wouldBeContained(realRoot: string, candidate: string): boolean {
-  const root = stripWindowsNamespace(realRoot)
+  const root = realOrNull(realRoot) ?? stripWindowsNamespace(realRoot)
   // An existing path is decided directly.
   if (realOrNull(candidate) !== null) return isContained(root, candidate)
 
