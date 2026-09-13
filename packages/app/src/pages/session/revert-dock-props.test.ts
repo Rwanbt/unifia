@@ -20,14 +20,11 @@ describe("buildRevertDockProps", () => {
       { id: "a", text: "first" },
       { id: "b", text: "second" },
     ]
-    let restored: string | undefined
     const props = buildRevertDockProps({
       rolled: () => items,
       restoring: () => "a",
       reverting: () => true,
-      restore: (id) => {
-        restored = id
-      },
+      restore: () => {},
     })
 
     expect(props).toBeDefined()
