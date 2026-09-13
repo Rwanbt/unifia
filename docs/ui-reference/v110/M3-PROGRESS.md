@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh shipped (19 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slice 1 (Automate studio canvas) shipped (21 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `ca4bed48c7 docs(v110): refresh M3-PROGRESS.md after v110 test fix`
+> **HEAD** : `7db9bab3a2 chore(i18n): parity coverage for Phase 8 canvas keys across 14 locales`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -45,6 +45,8 @@ source of truth future agents can read without vault access.
 | chore | Use `import type` for type-only imports | `217dd2adc3` | LIVREE |
 | chore | Silence 8 remaining biome warnings (repo-wide 13→0) | `2b929565a5` | LIVREE |
 | chore | gitignore `.tmp-*.md` agent scratch files | `88cb9ea3fc` | LIVREE |
+| **8.1** | **Phase 8 slice 1 — Automate studio canvas (read-only nodes + pan/zoom)** | **`87f3c1ab97`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 canvas keys (14 locales) | `7db9bab3a2` | LIVREE |
 
 ---
 
@@ -69,6 +71,8 @@ forwards every prop verbatim.
 | `createWorkspaceSidebarContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
 | `createProjectSidebarContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
 | `createSidebarPanelContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
+| `layoutWorkflowSteps` | `workbench/automate-graph-layout.ts` | 8.1 | Pure layout (nodes + edges + bounding box, sequential flow) |
+| `AutomateStudioCanvas` | `workbench/automate-studio-canvas.tsx` | 8.1 | SolidJS SVG pane: pan (pointer + Space), zoom (Ctrl/Cmd + wheel 0.5-2.0), reset, approval badges, SR fallback |
 
 session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slices 2-3-4-5-6).
 
@@ -78,12 +82,15 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 | Check | Result | Evidence |
 |---|---|---|
-| `bunx biome check` (1802 files) | 0 warnings | `Checked 1802 files in 2s. No fixes applied.` |
+| `bunx biome check` (1809 files) | 0 warnings | `Checked 1809 files in 2s. No fixes applied.` |
 | `tsgo -b` (packages/app) | exit 0 | single-package verification |
 | `bun turbo typecheck` (47 packages) | 47/47 PASS | pre-push hook gate |
 | Working tree | clean | `git status --short` empty |
 | Lint warnings in packages/app | 0 | was 9, all silenced in `dd6defe949` |
 | Lint warnings repo-wide | 0 | was 22, all silenced across 3 commits |
+| `bun test packages/app` | 1315 pass / 21 todo / 0 fail (3.92s) | pre-push hook gate |
+| Phase 8 canvas unit tests | 4 / 4 pass (16 expect) | `automate-graph-layout.test.ts` |
+| Phase 8 canvas smoke tests | 8 / 8 pass | `automate-studio-canvas.test.ts` |
 
 ---
 
@@ -110,15 +117,39 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 ## Where to resume next session
 
-Recommended entry point: **Phase 8 (Automate P1)**.
+Recommended entry point: **Phase 8 slice 2 (Automate studio — interaction layer)**.
 
-The infrastructure is ready:
+Slice 1 shipped a read-only canvas (`87f3c1ab97`) that visualises the
+current workflow's steps as a node graph with pan/zoom. The remaining
+work in Phase 8 — interaction, library, inspector, run bar — is
+broken into the following slices. The next session should pick the
+one most aligned with the maquette priority.
+
+| Slice | Sujet | Effort | Depends on |
+|---|---|---|---|
+| 8.2 | Click-to-select propagates to a right-side Inspector pane | 1-2 h | 8.1 |
+| 8.3 | Drag-to-move nodes inside the canvas (positions live in component state, not in the on-disk file yet) | 2-3 h | 8.2 |
+| 8.4 | Port connectors — click on a port, drag to another port to draw an edge; edge kinds mirror `WorkflowDefinition.edges` (flow / branch-true / branch-false / case-value / branch-N / on-failure) | 3-4 h | 8.3 |
+| 8.5 | Node library (left pane) — drag a NodeFamily from `NodeFamilySchema` onto the canvas; on drop, instantiate a node with default `config` per family | 2-3 h | 8.3 |
+| 8.6 | Run bar (bottom) — Start / Stop / Validate against the connected runtime, with the existing approval gate flow | 1-2 h | 8.2 |
+| 8.7 | Persist positions + edges back to the on-disk file (replace the legacy `steps[]` editor with the canonical `WorkflowDefinition {nodes, edges}` IR) | 4-6 h | 8.4, 8.5 |
+| 8.8 | Mobile + responsive — canvas collapses to a step list below tablet-portrait; library + inspector become drawers | 2-3 h | 8.7 |
+| 8.9 | Minimap + zoom-to-fit + breadcrumb navigation | 1-2 h | 8.7 |
+
+**Total remaining Phase 8**: ~17-25 h of work, ~3-4 dedicated
+sessions. Phase 8.7 is the largest because it crosses from a pure
+visual studio into the durable IR — it must include a one-way
+migration path for existing `steps[]` files and a parallel-write
+safety check (the current `automate-decode.ts` only validates the
+legacy shape).
+
+The infrastructure from earlier phases is still ready:
 - `M3-ACCEPTANCE-MATRIX.md` surfaces the 6 viewports × 4 modes (Code, Work, Design, Automate) × N states coverage
 - `packages/app/e2e/m3-harness.ts` exports `setViewportFamily`, `pickShellMode`, `assertShellOverflow`, `assertFocusVisible`
 - `packages/app/e2e/v110-shell-gate.spec.ts` is the global gate spec stub
-- 5 session wrappers extracted (Phase 4 slices 2-6) are isolated test targets
-- 0 lint warnings + 47/47 typecheck = no baseline drag
+- 5 session wrappers extracted (Phase 4 slices 2-6) + 2 Automate wrappers (Phase 8 slice 1) are isolated test targets
+- 0 lint warnings + 47/47 typecheck + 1315/1315 unit tests = no baseline drag
 
 ---
 
-*Last updated 2026-09-13 04:10 Europe/Paris by Mavis root session after v110.test.ts guard fix + lint warning cleanup. Next checkpoint when Phase 8 begins.*
+*Last updated 2026-09-13 12:30 Europe/Paris by Mavis root session after Phase 8 slice 1 (Automate studio canvas). Next checkpoint when Phase 8 slice 2 begins.*
