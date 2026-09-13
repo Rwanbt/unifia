@@ -55,4 +55,13 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
   test("marks approval-required nodes via data attributes", () => {
     expect(source).toMatch(/data-automate-studio-node-approval=/)
   })
+
+  test("exposes a controlled-selection API (selectedNodeId + onSelectNode)", () => {
+    // Slice 2: selection is parent-owned so the canvas and the
+    // inspector pane share one source of truth. The canvas must NOT
+    // call setSelectedNodeId internally anymore.
+    expect(source).toMatch(/readonly\s+selectedNodeId\?:\s*string/)
+    expect(source).toMatch(/readonly\s+onSelectNode\?:\s*\(nodeId:\s*string\s*\|\s*undefined\)/)
+    expect(source).not.toMatch(/createSignal<string\s*\|\s*undefined>\(\)/)
+  })
 })

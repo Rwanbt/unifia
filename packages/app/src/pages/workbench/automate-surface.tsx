@@ -12,6 +12,7 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
+import { AutomateStudioInspector } from "./automate-studio-inspector"
 
 export function AutomateSurface(): JSX.Element {
   const language = useLanguage()
@@ -39,6 +40,7 @@ export function AutomateSurface(): JSX.Element {
   const [draftSource, setDraftSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number>()
   const [draftStatus, setDraftStatus] = createSignal("Published definition")
+  const [selectedStepId, setSelectedStepId] = createSignal<string | undefined>()
   const draftStore = createIndexedDbWorkflowDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
@@ -193,7 +195,7 @@ export function AutomateSurface(): JSX.Element {
             <For each={workflowFiles()}>
               {(entry) => (
                 <li class="rounded-lg border border-border-base bg-background-stronger p-4" data-automate-definition={entry.path}>
-                  <div class="flex items-center justify-between gap-3"><span>{entry.path}</span><button type="button" class="rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => { setSelectedDefinition(entry.path); setWorkflowError(undefined) }}>{t("workbench.automate.inspect")}</button></div>
+                  <div class="flex items-center justify-between gap-3"><span>{entry.path}</span><button type="button" class="rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => { setSelectedDefinition(entry.path); setSelectedStepId(undefined); setWorkflowError(undefined) }}>{t("workbench.automate.inspect")}</button></div>
                 </li>
               )}
             </For>
@@ -214,14 +216,34 @@ export function AutomateSurface(): JSX.Element {
                         {(() => {
                           if (parsed.kind !== "ok") return null
                           const steps = summarizeWorkflowSteps(parsed.definition)
+                          const totalSteps = steps.length
+                          const selectedIndex = (() => {
+                            const id = selectedStepId()
+                            if (!id) return undefined
+                            const index = steps.findIndex((step) => step.id === id)
+                            return index >= 0 ? index : undefined
+                          })()
+                          const selectedStep = selectedIndex !== undefined ? steps[selectedIndex] : undefined
                           return (
-                            <div class="mt-3 h-72">
-                              <AutomateStudioCanvas
-                                steps={steps}
-                                definitionId={parsed.definition.id}
-                                width={640}
-                                height={288}
-                              />
+                            <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                              <div class="h-72 lg:h-[28rem]">
+                                <AutomateStudioCanvas
+                                  steps={steps}
+                                  definitionId={parsed.definition.id}
+                                  width={640}
+                                  height={448}
+                                  selectedNodeId={selectedStepId()}
+                                  onSelectNode={setSelectedStepId}
+                                />
+                              </div>
+                              <div class="h-72 lg:h-[28rem]">
+                                <AutomateStudioInspector
+                                  node={selectedStep}
+                                  index={selectedIndex}
+                                  total={totalSteps}
+                                  onClose={() => setSelectedStepId(undefined)}
+                                />
+                              </div>
                             </div>
                           )
                         })()}

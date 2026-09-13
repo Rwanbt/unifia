@@ -41,6 +41,20 @@ export type AutomateStudioCanvasProps = {
   readonly width: number
   /** Height of the viewport pane in CSS pixels. */
   readonly height: number
+  /**
+   * Externally-controlled selected node id. The canvas highlights the
+   * node whose id matches this prop. Parent components (e.g. the
+   * Automate surface) own the selection state so they can drive both
+   * the canvas visual feedback and a sibling Inspector pane from a
+   * single source. When undefined, no node is selected.
+   */
+  readonly selectedNodeId?: string
+  /**
+   * Fires when the user clicks a node (with the node id) or the
+   * canvas background (with `undefined`). The parent is expected to
+   * mirror the value back via `selectedNodeId`.
+   */
+  readonly onSelectNode?: (nodeId: string | undefined) => void
 }
 
 export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Element {
@@ -50,9 +64,10 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
   const [panX, setPanX] = createSignal(0)
   const [panY, setPanY] = createSignal(0)
   const [zoom, setZoom] = createSignal(1)
-  const [selectedNodeId, setSelectedNodeId] = createSignal<string | undefined>()
   const [spaceHeld, setSpaceHeld] = createSignal(false)
   const [dragging, setDragging] = createSignal<{ x: number; y: number } | undefined>()
+  const selectedNodeId = (): string | undefined => props.selectedNodeId
+  const selectNode = (id: string | undefined): void => props.onSelectNode?.(id)
 
   function onWheel(event: WheelEvent): void {
     if (!(event.ctrlKey || event.metaKey)) return
@@ -96,7 +111,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
       event.preventDefault()
     }
     if (event.key === "Escape" && selectedNodeId()) {
-      setSelectedNodeId(undefined)
+      selectNode(undefined)
     }
   }
 
@@ -221,7 +236,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
               <NodeRect
                 node={node}
                 selected={selectedNodeId() === node.id}
-                onSelect={() => setSelectedNodeId(node.id)}
+                onSelect={() => selectNode(node.id)}
               />
             )}
           </For>
