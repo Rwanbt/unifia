@@ -16,17 +16,35 @@ export type Track = { logs: string[]; pages: string[]; stop: () => void }
 export function track(page: Page): Track {
   const logs: string[] = []
   const pages: string[] = []
+  // The hermetic e2e server has no model-intelligence snapshot, so the
+  // models registry probe answers 503 by design ("registry is not loaded
+  // yet"); the app handles it through Reachability, but the browser still
+  // logs the failed resource. A console "Failed to load resource ... 503"
+  // carries no URL, so only ignore it when every 503 this page received
+  // was /model-intelligence/ (issue: seed a snapshot in the e2e server).
+  const env503 = new Set<string>()
+  const onResponse = (response: Response) => {
+    if (response.status() === 503) env503.add(response.url())
+  }
   const onConsole = (msg: ConsoleMessage) => {
-    if (msg.type() === "error") logs.push(msg.text().slice(0, 500))
+    if (msg.type() !== "error") return
+    const text = msg.text()
+    if (text.includes("Failed to load resource") && text.includes("503")) {
+      const urls = [...env503]
+      if (urls.length > 0 && urls.every((url) => url.includes("/model-intelligence/"))) return
+    }
+    logs.push(text.slice(0, 500))
   }
   const onPage = (err: Error) => {
     pages.push(String(err.stack ?? err.message).slice(0, 500))
   }
   page.on("console", onConsole)
   page.on("pageerror", onPage)
+  page.on("response", onResponse)
   const stop = () => {
     page.off("console", onConsole)
     page.off("pageerror", onPage)
+    page.off("response", onResponse)
   }
   return { logs, pages, stop }
 }
@@ -81,9 +99,21 @@ export async function goto(page: Page, mode: string) {
 
 // Active view present + workspace geometry sane.
 export async function panels(page: Page) {
-  const box = (sel: string) => page.locator(sel).first().boundingBox().catch(() => null)
-  const workspace = await box('[data-component="session-workspace"]')
-  const surface = await box("[data-workbench-surface]")
+  // WHY evaluate() instead of locator.boundingBox(): bisected on 2026-09-13
+  // (#71) - boundingBox() on these two elements reproducibly wedged the
+  // renderer (the next call never resolved, whatever it was), while
+  // evaluate() and locator queries in the same run stayed responsive.
+  // getBoundingClientRect() measures the same boxes without the protocol
+  // round-trip that hung.
+  const rect = (sel: string) =>
+    page.evaluate((selector) => {
+      const el = document.querySelector(selector)
+      if (!el) return null
+      const box = el.getBoundingClientRect()
+      return { width: box.width, height: box.height }
+    }, sel)
+  const workspace = await rect('[data-component="session-workspace"]')
+  const surface = await rect("[data-workbench-surface]")
   expect(workspace ?? surface, "active view present").not.toBeNull()
   for (const b of [workspace, surface]) {
     if (b) expect(b.width * b.height, "panel geometry must be non-degenerate").toBeGreaterThan(0)
