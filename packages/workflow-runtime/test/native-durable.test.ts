@@ -16,7 +16,7 @@ import { tmpdir } from "node:os"
 import { NativeDurableHistoryAuthority } from "../src/native-history"
 import { NativeApprovalAuthority, type NativeApprovalAuthorityOptions } from "../src/native-approval-authority"
 import { AttemptAuthorityError, DefaultSecretRedactor, NativeAttemptAuthority, type AttemptAuthorityErrorCode } from "../src/native-attempts"
-import { ApprovalBrokerV4, ApprovalV4Error, type AuthorityToken, type ApprovalBinding } from "../src/approval-v4"
+import { ApprovalBrokerV4, type AuthorityToken, type ApprovalBinding } from "../src/approval-v4"
 import { claimAuthority } from "../src/authority"
 import type { WorkflowRun } from "@unifia/contracts"
 

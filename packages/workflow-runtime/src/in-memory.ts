@@ -49,10 +49,8 @@ import type {
 } from "@unifia/contracts"
 import {
   WorkflowRunSchema,
-  WorkflowRunStatusSchema,
   AtomicTransitionBoundarySchema,
 } from "@unifia/contracts"
-import { z } from "zod"
 import type { DurableHistoryAuthority } from "./adapter.js"
 import { assertTokenForRun, type AuthorityToken } from "./authority.js"
 

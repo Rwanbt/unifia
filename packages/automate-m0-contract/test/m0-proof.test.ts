@@ -56,11 +56,9 @@ import {
   assertWellFormedEffectSlot,
   effectKeyEquals,
   effectSlotEquals,
-  isReconcilable,
   mayAutoReplayUnderUncertainty,
   UNKNOWN_EXTERNAL_STATE,
   type EffectKey,
-  type EffectPolicy,
   type EffectRecord,
   type EffectSlot,
   type UncertaintyAction,
@@ -189,7 +187,7 @@ function buildTimerRecord(
   }
 }
 
-function buildEffectRecord(key: EffectKey): EffectRecord {
+function _buildEffectRecord(key: EffectKey): EffectRecord {
   return {
     effectId: asEffectId(`eff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
     key,
