@@ -83,7 +83,7 @@ Pour chaque surface :
 | Inline AI suggestions | desktop | accept/reject | editor pane | inline | ⚠️ partial |
 | Code split (editor + inspector) | desktop-large | resize | inline editor pane | `data-v110="resize-chat"` Separator | ✅ partial |
 | Git blame annotations | desktop | hover → blame | inline | inline | ⚠️ à tester |
-| Search/Replace | desktop | type + Enter | editor pane | inline | ⚠️ à tester |
+| Search/Replace | desktop | type + Enter | editor pane | `@codemirror/search` réel (`searchKeymap`) — e2e `editor-search` : Mod+F, matches surlignés, replace-all vérifié | ✅ |
 | LSP diagnostics | desktop | hover → docs | editor pane | inline | ⚠️ à tester |
 
 ---
