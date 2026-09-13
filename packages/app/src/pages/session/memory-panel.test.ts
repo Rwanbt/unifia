@@ -97,3 +97,28 @@ describe("MemoryPanel autosave (v110 700 ms contract)", () => {
     expect(source).toMatch(/data-memory-save-state=\{saveState\(\)\}/)
   })
 })
+
+describe("MemoryPanel context actions (Phase 9.5)", () => {
+  test("opens a right-click menu per row kind with only real actions", () => {
+    expect(source).toMatch(/onContextMenu=\{\(event\) => openMenu\(event, "note", item\.path, item\.name\)\}/)
+    expect(source).toMatch(/onContextMenu=\{\(event\) => openMenu\(event, "folder", item\.path, item\.name\)\}/)
+    expect(source).toMatch(/memoryMenuActions\(current\(\)\.kind\)/)
+  })
+
+  test("routes each action to the real workspace client", () => {
+    expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
+    expect(source).toMatch(/createFiles\(current\.workspaceId, \[\{ path, content \}\]\)/)
+    expect(source).toMatch(/removeFiles\(current\.workspaceId, \[target\]\)/)
+    expect(source).toMatch(/sdk\.client\.file\.mkdir\(\{ path \}\)/)
+  })
+
+  test("renames inline with Enter/Escape and no clobber on blur", () => {
+    expect(source).toMatch(/if \(event\.key === "Enter"\) void commitRename\(\)/)
+    expect(source).toMatch(/onBlur=\{\(\) => \{ if \(renaming\(\) === item\.path\) void commitRename\(\) \}\}/)
+  })
+
+  test("exports a real Markdown download and confirms deletes", () => {
+    expect(source).toMatch(/anchor\.download = target\.slice/)
+    expect(source).toMatch(/window\.confirm\(t\("workbench\.memory\.actions\.confirmDelete"/)
+  })
+})

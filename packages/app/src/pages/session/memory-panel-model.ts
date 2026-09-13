@@ -192,3 +192,31 @@ export function memorySaveState(draft: string, diskContent: string | undefined, 
   if (diskContent === undefined) return "saved"
   return draft === diskContent ? "saved" : "unsaved"
 }
+
+/** Context-menu actions the vault offers per row kind. `pin`, `archive`,
+ * folder rename/move/delete are absent on purpose: the runtime has no
+ * capability behind them, and the port must not fake one. */
+export type MemoryAction = "open" | "rename" | "duplicate" | "move" | "export" | "delete" | "newNote" | "newFolder"
+
+export function memoryMenuActions(kind: "note" | "folder"): readonly MemoryAction[] {
+  return kind === "folder" ? ["newNote", "newFolder"] : ["open", "rename", "duplicate", "move", "export", "delete"]
+}
+
+/** Unique destination inside a vault folder, maquette style: `name.md`,
+ * `name-2.md`, ... (`name`, `name-2`, ... when the extension is empty). */
+export function memoryUniquePath(existing: readonly string[], folder: string, stem: string, extension = ".md"): string {
+  const clean = stem.replace(/[\\/]/g, "-").replace(/^\.+/, "").trim() || "note"
+  for (let index = 1; ; index += 1) {
+    const candidate = folder + "/" + (index === 1 ? clean : clean + "-" + index) + extension
+    if (!existing.includes(candidate)) return candidate
+  }
+}
+
+/** Exact rename target for a note stem; `undefined` when the stem is empty
+ * or the source is not a vault note. Collisions are the caller's guard. */
+export function memoryRenamePath(notePath: string, stem: string): string | undefined {
+  if (!isMemoryMarkdown(notePath)) return undefined
+  const clean = stem.replace(/[\\/]/g, "-").replace(/^\.+/, "").trim()
+  if (!clean) return undefined
+  return memoryParentFolder(notePath) + "/" + clean + ".md"
+}

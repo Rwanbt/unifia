@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memorySaveState, memoryTitle, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
 
 describe("Memory inspector model", () => {
   test("only exposes Markdown notes from the configured workspace vault", () => {
@@ -108,5 +108,25 @@ describe("Memory editor save state (autosave 700 ms)", () => {
 
   test("a note that has not loaded yet is not reported as unsaved", () => {
     expect(memorySaveState("draft", undefined, false)).toBe("saved")
+  })
+})
+
+describe("Memory context actions (Phase 9.5)", () => {
+  test("offers only runtime-backed actions per row kind", () => {
+    expect(memoryMenuActions("note")).toEqual(["open", "rename", "duplicate", "move", "export", "delete"])
+    expect(memoryMenuActions("folder")).toEqual(["newNote", "newFolder"])
+  })
+
+  test("memoryUniquePath suffixes collisions maquette-style", () => {
+    const existing = [".unifia/memory/New note.md", ".unifia/memory/New note-2.md"]
+    expect(memoryUniquePath(existing, ".unifia/memory", "New note")).toBe(".unifia/memory/New note-3.md")
+    expect(memoryUniquePath([], ".unifia/memory/10 - Projects", "Plan")).toBe(".unifia/memory/10 - Projects/Plan.md")
+    expect(memoryUniquePath([".unifia/memory/New folder"], ".unifia/memory", "New folder", "")).toBe(".unifia/memory/New folder-2")
+  })
+
+  test("memoryRenamePath sanitises the stem and rejects empty or foreign paths", () => {
+    expect(memoryRenamePath(".unifia/memory/Note.md", " Renamed/note ")).toBe(".unifia/memory/Renamed-note.md")
+    expect(memoryRenamePath(".unifia/memory/Note.md", "   ")).toBeUndefined()
+    expect(memoryRenamePath("README.md", "X")).toBeUndefined()
   })
 })

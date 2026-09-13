@@ -4,6 +4,7 @@ import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCle
 import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
+import { Icon } from "@unifia/ui/icon"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
@@ -11,7 +12,7 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memorySaveState, memoryTitle, parseMemoryNote, visibleMemoryRows, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
@@ -61,6 +62,10 @@ export function MemoryPanel(): JSX.Element {
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set())
   const [dragPath, setDragPath] = createSignal<string>()
   const [dropFolder, setDropFolder] = createSignal<string>()
+  const [menu, setMenu] = createSignal<{ kind: "note" | "folder"; target: string; name: string; x: number; y: number }>()
+  const [moving, setMoving] = createSignal(false)
+  const [renaming, setRenaming] = createSignal<string>()
+  const [renameDraft, setRenameDraft] = createSignal("")
   let expandTimer: ReturnType<typeof setTimeout> | undefined
   let vaultScroll: HTMLDivElement | undefined
   let autosaveTimer: ReturnType<typeof setTimeout> | undefined
@@ -90,6 +95,8 @@ export function MemoryPanel(): JSX.Element {
   const files = createQuery(filesQueryOptions)
   const notes = createMemo(() => (files.data?.entries ?? []).filter((entry) => entry.kind === "file" && isMemoryMarkdown(entry.path)).map((entry) => ({ path: entry.path, title: memoryTitle(entry.path) })))
   const rows = createMemo(() => buildMemoryTree(files.data?.entries ?? []))
+  const allPaths = createMemo(() => (files.data?.entries ?? []).map((entry) => entry.path))
+  const folders = createMemo(() => rows().filter((row) => row.kind === "folder"))
   const visibleRows = createMemo(() => {
     const term = query().trim().toLocaleLowerCase()
     if (!term) return visibleMemoryRows(rows(), collapsed())
@@ -276,6 +283,198 @@ export function MemoryPanel(): JSX.Element {
     }
   }
 
+  function openMenu(event: MouseEvent, kind: "note" | "folder", target: string, name: string): void {
+    if (!connection()) return
+    event.preventDefault()
+    setMoving(false)
+    setRenaming(undefined)
+    const width = 200
+    const height = kind === "folder" ? 96 : 260
+    setMenu({ kind, target, name, x: Math.max(8, Math.min(event.clientX, window.innerWidth - width)), y: Math.max(8, Math.min(event.clientY, window.innerHeight - height)) })
+  }
+
+  function closeMenu(): void {
+    setMenu(undefined)
+    setMoving(false)
+  }
+
+  function startRename(target: string, name: string): void {
+    closeMenu()
+    setRenaming(target)
+    setRenameDraft(name)
+  }
+
+  async function commitRename(): Promise<void> {
+    const from = renaming()
+    const current = connection()
+    if (!from || !current) return
+    const to = memoryRenamePath(from, renameDraft())
+    if (!to || to === from) {
+      setRenaming(undefined)
+      return
+    }
+    if (allPaths().includes(to)) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.nameTaken") })
+      return
+    }
+    try {
+      await current.client.renameFile(current.workspaceId, from, to)
+      await files.refetch()
+      if (selectedPath() === from) setSelectedPath(to)
+      setRenaming(undefined)
+      showToast({ variant: "success", title: t("workbench.memory.actions.renamed") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.move.failed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  async function readContent(path: string): Promise<string> {
+    if (path === selectedPath() && noteFile.data) return noteFile.data.content
+    const result = await sdk.client.file.readRaw({ path })
+    if (!result.data) throw new Error(t("workbench.memory.actions.exportFailed"))
+    return result.data.content
+  }
+
+  async function createNote(folder: string): Promise<void> {
+    const current = connection()
+    if (!current) return
+    const name = t("workbench.memory.defaults.noteName")
+    const path = memoryUniquePath(allPaths(), folder, name)
+    try {
+      await current.client.createFiles(current.workspaceId, [{ path, content: `# ${name}\n\n` }])
+      await files.refetch()
+      closeMenu()
+      setSelectedPath(path)
+      setMobilePane("note")
+      showToast({ variant: "success", title: t("workbench.memory.actions.created") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.createFailed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  async function createFolder(folder: string): Promise<void> {
+    if (!connection()) return
+    const name = t("workbench.memory.defaults.folderName")
+    const path = memoryUniquePath(allPaths(), folder, name, "")
+    try {
+      await sdk.client.file.mkdir({ path })
+      await files.refetch()
+      closeMenu()
+      showToast({ variant: "success", title: t("workbench.memory.actions.folderCreated") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.mkdirFailed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  async function duplicateNote(target: string): Promise<void> {
+    const current = connection()
+    if (!current) return
+    try {
+      const content = await readContent(target)
+      const stem = target.slice(target.lastIndexOf("/") + 1).replace(/\.md$/i, "")
+      const path = memoryUniquePath(allPaths(), memoryParentFolder(target), `${stem} copy`)
+      await current.client.createFiles(current.workspaceId, [{ path, content }])
+      await files.refetch()
+      closeMenu()
+      setSelectedPath(path)
+      setMobilePane("note")
+      showToast({ variant: "success", title: t("workbench.memory.actions.duplicated") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.createFailed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  async function exportNote(target: string): Promise<void> {
+    try {
+      const content = await readContent(target)
+      const url = URL.createObjectURL(new Blob([content], { type: "text/markdown" }))
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = target.slice(target.lastIndexOf("/") + 1)
+      anchor.click()
+      setTimeout(() => URL.revokeObjectURL(url), 500)
+      closeMenu()
+      showToast({ variant: "success", title: t("workbench.memory.actions.exported") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.exportFailed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  async function deleteNote(target: string): Promise<void> {
+    const current = connection()
+    if (!current) return
+    const name = target.slice(target.lastIndexOf("/") + 1)
+    if (!window.confirm(t("workbench.memory.actions.confirmDelete", { name }))) {
+      closeMenu()
+      return
+    }
+    try {
+      await current.client.removeFiles(current.workspaceId, [target])
+      await files.refetch()
+      if (selectedPath() === target) setSelectedPath(undefined)
+      closeMenu()
+      showToast({ variant: "success", title: t("workbench.memory.actions.deleted") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.deleteFailed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  async function moveNoteTo(target: string, folder: string): Promise<void> {
+    const current = connection()
+    if (!current) return
+    const to = memoryMovePath(target, folder)
+    if (!to) {
+      closeMenu()
+      return
+    }
+    if (allPaths().includes(to)) {
+      showToast({ variant: "error", title: t("workbench.memory.actions.nameTaken") })
+      return
+    }
+    try {
+      await current.client.renameFile(current.workspaceId, target, to)
+      await files.refetch()
+      if (selectedPath() === target) setSelectedPath(to)
+      closeMenu()
+      showToast({ variant: "success", title: t("workbench.memory.move.moved") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.move.failed"), description: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  function runAction(action: MemoryAction): void {
+    const current = menu()
+    if (!current) return
+    switch (action) {
+      case "open":
+        setSelectedPath(current.target)
+        setMobilePane("note")
+        closeMenu()
+        return
+      case "rename":
+        startRename(current.target, current.name)
+        return
+      case "duplicate":
+        void duplicateNote(current.target)
+        return
+      case "move":
+        setMoving(true)
+        return
+      case "export":
+        void exportNote(current.target)
+        return
+      case "delete":
+        void deleteNote(current.target)
+        return
+      case "newNote":
+        void createNote(current.target)
+        return
+      case "newFolder":
+        void createFolder(current.target)
+        return
+    }
+  }
+
   return (
     <section class="flex size-full min-w-0 flex-col gap-2 bg-background-base p-3" data-v110="memory-panel">
       <ConnectionBanner dataAttr="memory-connection" dataRetryAttr="memory-retry" />
@@ -286,19 +485,21 @@ export function MemoryPanel(): JSX.Element {
         data-memory-layout={narrow() ? "single" : "triptych"}
       >
         <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "vault" }} data-memory-vault onDragEnd={endDrag}>
-          <div class="border-b border-border-base p-3"><h2 class="text-14-medium">{t("workbench.memory.vault.title")}</h2><input class="mt-2 w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" value={query()} onInput={(event) => setQuery(event.currentTarget.value)} aria-label={t("workbench.memory.vault.searchLabel")} placeholder={t("workbench.memory.vault.searchPlaceholder")} /></div>
+          <div class="border-b border-border-base p-3"><div class="flex items-center gap-1"><h2 class="text-14-medium">{t("workbench.memory.vault.title")}</h2><div class="ml-auto flex items-center gap-1"><button type="button" class="rounded p-1 text-text-weak hover:bg-background-base hover:text-text-strong" data-memory-new-note title={t("workbench.memory.actions.newNote")} aria-label={t("workbench.memory.actions.newNote")} onClick={() => void createNote(MEMORY_ROOT)}><Icon name="plus" size="small" /></button><button type="button" class="rounded p-1 text-text-weak hover:bg-background-base hover:text-text-strong" data-memory-new-folder title={t("workbench.memory.actions.newFolder")} aria-label={t("workbench.memory.actions.newFolder")} onClick={() => void createFolder(MEMORY_ROOT)}><Icon name="folder-add-left" size="small" /></button></div></div><input class="mt-2 w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" value={query()} onInput={(event) => setQuery(event.currentTarget.value)} aria-label={t("workbench.memory.vault.searchLabel")} placeholder={t("workbench.memory.vault.searchPlaceholder")} /></div>
           <div ref={(element) => { vaultScroll = element }} class="h-[calc(100%-76px)] overflow-y-auto p-2">
             <Show when={files.error}><p class="text-12-regular text-text-danger">{t("workbench.memory.vault.loadError")}</p></Show>
             <For each={visibleRows()}>{(item) => <Switch>
               <Match when={item.kind === "folder"}>
-                <button type="button" class="mb-1 flex w-full items-center gap-1 rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base ring-1 ring-accent-base": dropFolder() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX}px` }} data-memory-folder={item.path} aria-expanded={!collapsed().has(item.path)} aria-label={t(collapsed().has(item.path) ? "workbench.memory.tree.expand" : "workbench.memory.tree.collapse", { name: item.name })} onClick={() => toggleFolder(item.path)} onDragOver={(event) => overFolder(event, item.path)} onDragLeave={() => { if (dropFolder() === item.path) setDropFolder(undefined) }} onDrop={(event) => void dropOnFolder(event, item.path)}>
+                <button type="button" class="mb-1 flex w-full items-center gap-1 rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base ring-1 ring-accent-base": dropFolder() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX}px` }} data-memory-folder={item.path} aria-expanded={!collapsed().has(item.path)} aria-label={t(collapsed().has(item.path) ? "workbench.memory.tree.expand" : "workbench.memory.tree.collapse", { name: item.name })} onContextMenu={(event) => openMenu(event, "folder", item.path, item.name)} onClick={() => toggleFolder(item.path)} onDragOver={(event) => overFolder(event, item.path)} onDragLeave={() => { if (dropFolder() === item.path) setDropFolder(undefined) }} onDrop={(event) => void dropOnFolder(event, item.path)}>
                   <span class="w-3 shrink-0 text-text-weak" aria-hidden="true">{collapsed().has(item.path) ? "▸" : "⌄"}</span>
                   <span class="min-w-0 flex-1 truncate">{item.name}</span>
                   <Show when={item.count > 0}><span class="text-11-regular text-text-weak">{item.count}</span></Show>
                 </button>
               </Match>
               <Match when={item.kind === "note"}>
-                <button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path, "opacity-50": dragPath() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" data-memory-note={item.path} title={item.path} onDragStart={(event) => startDrag(event, item.path)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setMobilePane("note") }}><span class="mr-1 text-text-weak" aria-hidden="true">◈</span>{item.name}</button>
+                <Show when={renaming() === item.path} fallback={<button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path, "opacity-50": dragPath() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" data-memory-note={item.path} title={item.path} onDragStart={(event) => startDrag(event, item.path)} onContextMenu={(event) => openMenu(event, "note", item.path, item.name)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setMobilePane("note") }}><span class="mr-1 text-text-weak" aria-hidden="true">◈</span>{item.name}</button>}>
+                  <input class="mb-1 w-full rounded border border-border-base bg-background-base px-2 py-1.5 text-12-regular" style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} value={renameDraft()} aria-label={t("workbench.memory.actions.rename")} ref={(element) => element.focus()} onInput={(event) => setRenameDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void commitRename(); if (event.key === "Escape") setRenaming(undefined) }} onBlur={() => { if (renaming() === item.path) void commitRename() }} />
+                </Show>
               </Match>
             </Switch>}</For>
             <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p class="p-2 text-12-regular text-text-weak">{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
@@ -318,6 +519,17 @@ export function MemoryPanel(): JSX.Element {
           <div class="overflow-y-auto p-3"><Show when={contextView() === "links"} fallback={<Show when={graph().length > 0} fallback={<p class="text-12-regular text-text-weak">Choose a note to inspect its graph.</p>}><svg class="h-56 w-full" viewBox="0 0 100 100" role="img" aria-label="Local memory graph"> <For each={graph().slice(1)}>{(node) => <line x1="50" y1="50" x2={node.x} y2={node.y} stroke="currentColor" opacity="0.35" />}</For><For each={graph()}>{(node, index) => <g class="cursor-pointer" role="button" tabindex="0" onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}><circle cx={node.x} cy={node.y} r={index() === 0 ? 8 : 6} class={index() === 0 ? "fill-accent-base" : "fill-background-strong"} stroke="currentColor" /><text x={node.x} y={node.y + 13} text-anchor="middle" class="fill-text-base text-[5px]">{node.title.slice(0, 16)}</text></g>}</For></svg></Show>}><Show when={note() && linked().length > 0} fallback={<p class="text-12-regular text-text-weak">No resolved links for this note.</p>}><For each={linked()}>{(item) => <button type="button" class="mb-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show><Show when={backlinks.data?.length}><h3 class="mt-4 text-12-medium">Backlinks</h3><For each={backlinks.data}>{(item) => <button type="button" class="mt-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show></Show></div>
         </aside>
       </div>
+      <Show when={menu()}>{(current) => <>
+        <div class="fixed inset-0 z-40" data-memory-menu-backdrop onClick={closeMenu} onContextMenu={(event) => { event.preventDefault(); closeMenu() }} />
+        <div class="fixed z-50 min-w-44 rounded-lg border border-border-base bg-background-stronger p-1 shadow-lg" style={{ left: `${current().x}px`, top: `${current().y}px` }} data-memory-menu role="menu">
+          <Show when={!moving()} fallback={<>
+            <button type="button" class="block w-full truncate rounded px-2 py-1.5 text-left text-12-regular hover:bg-background-base" data-memory-menu-item="move-root" onClick={() => void moveNoteTo(current().target, MEMORY_ROOT)}>{t("workbench.memory.vault.title")}</button>
+            <For each={folders()}>{(folder) => <button type="button" class="block w-full truncate rounded px-2 py-1.5 text-left text-12-regular hover:bg-background-base" data-memory-menu-item="move-folder" onClick={() => void moveNoteTo(current().target, folder.path)}>{folder.name}</button>}</For>
+          </>}>
+            <For each={memoryMenuActions(current().kind)}>{(action) => <button type="button" class="block w-full rounded px-2 py-1.5 text-left text-12-regular hover:bg-background-base" classList={{ "text-text-danger": action === "delete" }} data-memory-menu-item={action} onClick={() => runAction(action)}>{t(`workbench.memory.actions.${action}`)}</button>}</For>
+          </Show>
+        </div>
+      </>}</Show>
     </section>
   )
 }

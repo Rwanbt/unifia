@@ -163,6 +163,22 @@ export function workbenchMockInitScript(): string {
           allEntries = allEntries.map((entry) => (entry.path === from ? { ...entry, path: to } : entry))
           return reply({ result: { path: to, bytesWritten: 1, sha: "mock" } })
         },
+        createFiles: (_workspaceId, writes) => {
+          record("createFiles", writes.map((write) => write.path))
+          const conflict = writes.find((write) => allEntries.some((entry) => entry.path === write.path))
+          if (conflict) return Promise.reject(new Error("workspace file already exists"))
+          allEntries = [...allEntries, ...writes.map((write) => ({ path: write.path, kind: "file", size: write.content.length, modifiedAt: Date.now() }))]
+          return reply({ results: writes.map((write) => ({ path: write.path, bytesWritten: write.content.length, sha: "mock" })) })
+        },
+        removeFiles: (_workspaceId, paths) => {
+          record("removeFiles", [paths])
+          const results = paths.map((path) => {
+            const existed = allEntries.some((entry) => entry.path === path)
+            allEntries = allEntries.filter((entry) => entry.path !== path)
+            return { path, removed: existed }
+          })
+          return reply({ results })
+        },
         readFiles: () => reply({ results: [] }),
         listApprovals: () => reply({ approvals: [] }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
