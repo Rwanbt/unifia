@@ -122,3 +122,25 @@ describe("MemoryPanel context actions (Phase 9.5)", () => {
     expect(source).toMatch(/window\.confirm\(t\("workbench\.memory\.actions\.confirmDelete"/)
   })
 })
+
+describe("MemoryPanel depth graph filters (Phase 9.6)", () => {
+  test("cycles depth and toggles tags/orphans with the mockup defaults", () => {
+    expect(source).toMatch(/const \[graphDepth, setGraphDepth\] = createSignal\(2\)/)
+    expect(source).toMatch(/graphDepth\(\) >= 3 \? 1 : graphDepth\(\) \+ 1/)
+    expect(source).toMatch(/data-memory-graph-depth/)
+    expect(source).toMatch(/data-memory-graph-tags/)
+    expect(source).toMatch(/data-memory-graph-orphans/)
+  })
+
+  test("draws nodes, tag nodes and edges from the pure graph model", () => {
+    expect(source).toMatch(/memoryGraphAtDepth\(current, notes\(\), documents\.data \?\? \[\], graphDepth\(\), \{ orphans: graphOrphans\(\), tags: graphTags\(\) \}\)/)
+    expect(source).toMatch(/data-memory-graph-node=\{node\.path\}/)
+    expect(source).toMatch(/data-memory-graph-tag=\{tag\.tag\}/)
+    expect(source).toMatch(/data-memory-graph-summary/)
+  })
+
+  test("derives backlinks and graph from one documents query", () => {
+    expect(source).toMatch(/queryKey: \["memory-documents", sdk\.directory/)
+    expect(source).not.toMatch(/memory-backlinks/)
+  })
+})

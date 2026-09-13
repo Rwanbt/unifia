@@ -220,3 +220,110 @@ export function memoryRenamePath(notePath: string, stem: string): string | undef
   if (!clean) return undefined
   return memoryParentFolder(notePath) + "/" + clean + ".md"
 }
+
+/** Graph edges are either resolvable note-to-note links or tag-to-note
+ * membership edges (`from` is `tag:<name>` for the latter). */
+export type MemoryGraphEdge = { readonly from: string; readonly to: string; readonly kind: "note" | "tag" }
+export type MemoryGraphTag = { readonly tag: string; readonly x: number; readonly y: number }
+export type MemoryGraphData = {
+  readonly nodes: readonly MemoryGraphNode[]
+  readonly tags: readonly MemoryGraphTag[]
+  readonly edges: readonly MemoryGraphEdge[]
+}
+
+const GRAPH_NOTE_RADIUS = 30
+const GRAPH_TAG_RADIUS = 44
+const GRAPH_MAX_TAGS = 8
+const GRAPH_TAG_NOTES = 3
+
+function graphKey(value: string): string {
+  return value.replace(/\.md$/i, "").toLocaleLowerCase()
+}
+
+/** Depth-N knowledge graph around the selected note (maquette defaults:
+ * depth 2, tags on, orphans on). Reachability walks resolved links in both
+ * directions; `orphans: false` drops nodes without any edge, the selected
+ * one included, exactly like the reference filter. Tags render as an outer
+ * ring of the 8 most frequent tags with up to 3 note membership edges. */
+export function memoryGraphAtDepth(
+  selected: MemoryNoteSummary,
+  notes: readonly MemoryNoteSummary[],
+  documents: readonly MemoryNoteDocument[],
+  depth: number,
+  options: { readonly orphans: boolean; readonly tags: boolean },
+): MemoryGraphData {
+  const byKey = new Map(notes.map((note) => [graphKey(memoryTitle(note.path)), note.path]))
+  const byPath = new Map(notes.map((note) => [note.path, note]))
+  const documentByPath = new Map(documents.map((document) => [document.path, document]))
+
+  const adjacency = new Map<string, Set<string>>()
+  const connect = (left: string, right: string): void => {
+    if (left === right) return
+    if (!adjacency.has(left)) adjacency.set(left, new Set())
+    if (!adjacency.has(right)) adjacency.set(right, new Set())
+    adjacency.get(left)!.add(right)
+    adjacency.get(right)!.add(left)
+  }
+  for (const note of notes) {
+    const document = documentByPath.get(note.path)
+    if (!document) continue
+    for (const link of document.links) {
+      const target = byKey.get(graphKey(link))
+      if (target) connect(note.path, target)
+    }
+  }
+
+  const start = byPath.has(selected.path) ? selected.path : (byKey.get(graphKey(memoryTitle(selected.path))) ?? selected.path)
+  const hops = Math.max(1, Math.min(3, Math.trunc(depth)))
+  const reachable = new Set<string>([start])
+  let front = [start]
+  for (let step = 0; step < hops; step += 1) {
+    const next: string[] = []
+    for (const path of front) {
+      for (const neighbour of adjacency.get(path) ?? []) {
+        if (reachable.has(neighbour)) continue
+        reachable.add(neighbour)
+        next.push(neighbour)
+      }
+    }
+    front = next
+  }
+
+  const included = notes.filter((note) => {
+    if (!reachable.has(note.path)) return false
+    if (options.orphans) return true
+    return (adjacency.get(note.path)?.size ?? 0) > 0
+  })
+  const includedPaths = new Set(included.map((note) => note.path))
+
+  const others = included.filter((note) => note.path !== start)
+  const positions = new Map<string, { x: number; y: number }>([[start, { x: 50, y: 50 }]])
+  others.forEach((note, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(1, others.length) - Math.PI / 2
+    positions.set(note.path, { x: 50 + Math.cos(angle) * GRAPH_NOTE_RADIUS, y: 50 + Math.sin(angle) * GRAPH_NOTE_RADIUS })
+  })
+  const nodes: MemoryGraphNode[] = included.map((note) => ({ ...note, ...positions.get(note.path)! }))
+
+  const countByTag = new Map<string, number>()
+  for (const note of included) {
+    for (const tag of documentByPath.get(note.path)?.tags ?? []) countByTag.set(tag, (countByTag.get(tag) ?? 0) + 1)
+  }
+  const tags: MemoryGraphTag[] = []
+  const tagEdges: MemoryGraphEdge[] = []
+  if (options.tags) {
+    const top = [...countByTag.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0])).slice(0, GRAPH_MAX_TAGS)
+    top.forEach(([tag], index) => {
+      const angle = (Math.PI * 2 * index) / Math.max(1, top.length) - Math.PI / 2
+      tags.push({ tag, x: 50 + Math.cos(angle) * GRAPH_TAG_RADIUS, y: 50 + Math.sin(angle) * GRAPH_TAG_RADIUS })
+      const tagged = included.filter((note) => (documentByPath.get(note.path)?.tags ?? []).includes(tag)).slice(0, GRAPH_TAG_NOTES)
+      for (const note of tagged) tagEdges.push({ from: 'tag:' + tag, to: note.path, kind: 'tag' })
+    })
+  }
+
+  const edges: MemoryGraphEdge[] = []
+  for (const [from, neighbours] of adjacency) {
+    if (!includedPaths.has(from)) continue
+    for (const to of neighbours) if (includedPaths.has(to) && from < to) edges.push({ from, to, kind: 'note' })
+  }
+  return { nodes, tags, edges: [...edges, ...tagEdges] }
+}

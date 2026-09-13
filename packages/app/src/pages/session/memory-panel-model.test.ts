@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
 
 describe("Memory inspector model", () => {
   test("only exposes Markdown notes from the configured workspace vault", () => {
@@ -128,5 +128,48 @@ describe("Memory context actions (Phase 9.5)", () => {
     expect(memoryRenamePath(".unifia/memory/Note.md", " Renamed/note ")).toBe(".unifia/memory/Renamed-note.md")
     expect(memoryRenamePath(".unifia/memory/Note.md", "   ")).toBeUndefined()
     expect(memoryRenamePath("README.md", "X")).toBeUndefined()
+  })
+})
+
+describe("Memory depth graph (Phase 9.6)", () => {
+  const notes = [
+    { path: ".unifia/memory/a.md", title: "A" },
+    { path: ".unifia/memory/b.md", title: "B" },
+    { path: ".unifia/memory/c.md", title: "C" },
+    { path: ".unifia/memory/isolated.md", title: "Isolated" },
+  ]
+  const documents = [
+    parseMemoryNote(".unifia/memory/a.md", "# A\n[[B]] #alpha"),
+    parseMemoryNote(".unifia/memory/b.md", "# B\n[[C]] #alpha #beta"),
+    parseMemoryNote(".unifia/memory/c.md", "# C\n#beta"),
+    parseMemoryNote(".unifia/memory/isolated.md", "# Isolated"),
+  ]
+  const options = { orphans: true, tags: false }
+
+  test("depth 1 keeps direct neighbours, depth 2 walks one more hop", () => {
+    const one = memoryGraphAtDepth(notes[0], notes, documents, 1, options)
+    expect(one.nodes.map((node) => node.title).sort()).toEqual(["A", "B"])
+    expect(one.edges).toEqual([{ from: ".unifia/memory/a.md", to: ".unifia/memory/b.md", kind: "note" }])
+    const two = memoryGraphAtDepth(notes[0], notes, documents, 2, options)
+    expect(two.nodes.map((node) => node.title).sort()).toEqual(["A", "B", "C"])
+    expect(two.nodes.find((node) => node.title === "A")).toMatchObject({ x: 50, y: 50 })
+  })
+
+  test("tags render as an outer ring with membership edges", () => {
+    const tagged = memoryGraphAtDepth(notes[0], notes, documents, 2, { orphans: true, tags: true })
+    expect(tagged.tags.map((tag) => tag.tag)).toEqual(["alpha", "beta"])
+    expect(tagged.edges.filter((edge) => edge.kind === "tag")).toEqual([
+      { from: "tag:alpha", to: ".unifia/memory/a.md", kind: "tag" },
+      { from: "tag:alpha", to: ".unifia/memory/b.md", kind: "tag" },
+      { from: "tag:beta", to: ".unifia/memory/b.md", kind: "tag" },
+      { from: "tag:beta", to: ".unifia/memory/c.md", kind: "tag" },
+    ])
+  })
+
+  test("orphans filtering can empty the graph when the selected note is isolated", () => {
+    const shown = memoryGraphAtDepth(notes[3], notes, documents, 2, { orphans: true, tags: false })
+    expect(shown.nodes.map((node) => node.title)).toEqual(["Isolated"])
+    const hidden = memoryGraphAtDepth(notes[3], notes, documents, 2, { orphans: false, tags: false })
+    expect(hidden.nodes).toEqual([])
   })
 })

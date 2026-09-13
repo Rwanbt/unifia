@@ -12,7 +12,7 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
@@ -127,24 +127,38 @@ export function MemoryPanel(): JSX.Element {
     return path && file ? parseMemoryNote(path, file.content) : undefined
   })
   const linked = createMemo(() => note() ? linkedMemoryNotes(note()!.links, notes()) : [])
-  const backlinksQueryOptions = createMemo(() => {
-    const selected = selectedPath()
+  // One document read feeds both the backlinks list and the depth-N graph:
+  // the previous dedicated backlinks query refetched every document on each
+  // selection change and could not serve the graph.
+  const documentsQueryOptions = createMemo(() => {
     const candidates = notes()
     return {
-      queryKey: ["memory-backlinks", sdk.directory, selected ?? "", candidates.map((candidate) => candidate.path).join("|")] as const,
-      enabled: !!selected && candidates.length > 0,
+      queryKey: ["memory-documents", sdk.directory, candidates.map((candidate) => candidate.path).join("|")] as const,
+      enabled: candidates.length > 0,
       queryFn: async () => {
-        const documents = await Promise.all(candidates.map(async (candidate) => {
+        const parsed = await Promise.all(candidates.map(async (candidate) => {
           const result = await sdk.client.file.readRaw({ path: candidate.path })
           return result.data ? parseMemoryNote(candidate.path, result.data.content) : undefined
         }))
-        return memoryBacklinks({ path: selected!, title: memoryTitle(selected!) }, documents.filter((document): document is MemoryNoteDocument => !!document))
+        return parsed.filter((document): document is MemoryNoteDocument => !!document)
       },
     }
   })
-  const backlinks = createQuery(backlinksQueryOptions)
-  const relatedNotes = createMemo(() => [...new Map([...linked(), ...(backlinks.data ?? [])].map((related) => [related.path, related])).values()])
-  const graph = createMemo(() => note() ? localMemoryGraph(note()!, relatedNotes()) : [])
+  const documents = createQuery(documentsQueryOptions)
+  const backlinks = createMemo(() => {
+    const selected = selectedPath()
+    if (!selected) return []
+    return memoryBacklinks({ path: selected, title: memoryTitle(selected) }, documents.data ?? [])
+  })
+  // v110 graph defaults (module m69): depth 2, tags on, orphans on.
+  const [graphDepth, setGraphDepth] = createSignal(2)
+  const [graphTags, setGraphTags] = createSignal(true)
+  const [graphOrphans, setGraphOrphans] = createSignal(true)
+  const graph = createMemo(() => {
+    const current = note()
+    if (!current) return { nodes: [], tags: [], edges: [] } as const
+    return memoryGraphAtDepth(current, notes(), documents.data ?? [], graphDepth(), { orphans: graphOrphans(), tags: graphTags() })
+  })
   const linkedExcerpt = createMemo(() => {
     const current = note()
     if (!current) return new Map<string, string>()
@@ -153,7 +167,7 @@ export function MemoryPanel(): JSX.Element {
   const backlinksExcerpt = createMemo(() => {
     const current = note()
     if (!current) return new Map<string, string>()
-    return new Map((backlinks.data ?? []).map((item) => [item.path, memoryExcerpt(current.body, 120)]))
+    return new Map(backlinks().map((item) => [item.path, memoryExcerpt(current.body, 120)]))
   })
   const saveState = createMemo(() => memorySaveState(draft(), noteFile.data?.content, saving()))
   createEffect(() => {
@@ -516,7 +530,7 @@ export function MemoryPanel(): JSX.Element {
         </article>
         <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "links" }} data-memory-links>
           <header class="border-b border-border-base p-3"><Show when={narrow()}><button type="button" class="mb-2 rounded px-2 py-1 text-11-medium" data-memory-back-to-note onClick={() => setMobilePane("note")}>← Note</button></Show><h2 class="text-14-medium">Links &amp; context</h2><div class="mt-2 flex gap-1"><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": contextView() === "links" }} onClick={() => setContextView("links")}>Links</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": contextView() === "graph" }} onClick={() => setContextView("graph")}>Local graph</button></div></header>
-          <div class="overflow-y-auto p-3"><Show when={contextView() === "links"} fallback={<Show when={graph().length > 0} fallback={<p class="text-12-regular text-text-weak">Choose a note to inspect its graph.</p>}><svg class="h-56 w-full" viewBox="0 0 100 100" role="img" aria-label="Local memory graph"> <For each={graph().slice(1)}>{(node) => <line x1="50" y1="50" x2={node.x} y2={node.y} stroke="currentColor" opacity="0.35" />}</For><For each={graph()}>{(node, index) => <g class="cursor-pointer" role="button" tabindex="0" onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}><circle cx={node.x} cy={node.y} r={index() === 0 ? 8 : 6} class={index() === 0 ? "fill-accent-base" : "fill-background-strong"} stroke="currentColor" /><text x={node.x} y={node.y + 13} text-anchor="middle" class="fill-text-base text-[5px]">{node.title.slice(0, 16)}</text></g>}</For></svg></Show>}><Show when={note() && linked().length > 0} fallback={<p class="text-12-regular text-text-weak">No resolved links for this note.</p>}><For each={linked()}>{(item) => <button type="button" class="mb-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show><Show when={backlinks.data?.length}><h3 class="mt-4 text-12-medium">Backlinks</h3><For each={backlinks.data}>{(item) => <button type="button" class="mt-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show></Show></div>
+          <div class="overflow-y-auto p-3"><Show when={contextView() === "links"} fallback={<Show when={graph().nodes.length > 0} fallback={<p class="text-12-regular text-text-weak">Choose a note to inspect its graph.</p>}><div class="flex flex-wrap items-center gap-1" data-memory-graph-controls><button type="button" class="rounded bg-background-base px-2 py-1 text-11-medium" data-memory-graph-depth onClick={() => setGraphDepth(graphDepth() >= 3 ? 1 : graphDepth() + 1)}>{t("workbench.memory.graph.depth", { depth: graphDepth() })}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphTags() }} data-memory-graph-tags aria-pressed={graphTags()} onClick={() => setGraphTags(!graphTags())}>{t("workbench.memory.graph.tags")}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphOrphans() }} data-memory-graph-orphans aria-pressed={graphOrphans()} onClick={() => setGraphOrphans(!graphOrphans())}>{t("workbench.memory.graph.orphans")}</button></div><svg class="mt-2 h-56 w-full" viewBox="0 0 100 100" role="img" aria-label="Local memory graph"><For each={graph().edges}>{(edge) => { const from = () => edge.kind === "tag" ? graph().tags.find((tag) => `tag:${tag.tag}` === edge.from) : graph().nodes.find((node) => node.path === edge.from); const to = () => graph().nodes.find((node) => node.path === edge.to); return <Show when={from() && to()}><line x1={from()!.x} y1={from()!.y} x2={to()!.x} y2={to()!.y} stroke="currentColor" opacity={edge.kind === "tag" ? "0.2" : "0.35"} stroke-dasharray={edge.kind === "tag" ? "2 2" : undefined} /></Show> }}</For><For each={graph().tags}>{(tag) => <g data-memory-graph-tag={tag.tag}><circle cx={tag.x} cy={tag.y} r="4" class="fill-background-strong" stroke="currentColor" /><text x={tag.x} y={tag.y + 8} text-anchor="middle" class="fill-text-base text-[4px]">#{tag.tag.slice(0, 12)}</text></g>}</For><For each={graph().nodes}>{(node) => <g class="cursor-pointer" role="button" tabindex="0" data-memory-graph-node={node.path} onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}><circle cx={node.x} cy={node.y} r={node.path === selectedPath() ? 8 : 6} class={node.path === selectedPath() ? "fill-accent-base" : "fill-background-strong"} stroke="currentColor" /><text x={node.x} y={node.y + 13} text-anchor="middle" class="fill-text-base text-[5px]">{node.title.slice(0, 16)}</text></g>}</For></svg><p class="mt-1 text-11-regular text-text-weak" data-memory-graph-summary>{t("workbench.memory.graph.summary", { notes: graph().nodes.length, links: graph().edges.filter((edge) => edge.kind === "note").length })}</p></Show>}><Show when={note() && linked().length > 0} fallback={<p class="text-12-regular text-text-weak">No resolved links for this note.</p>}><For each={linked()}>{(item) => <button type="button" class="mb-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show><Show when={backlinks().length}><h3 class="mt-4 text-12-medium">Backlinks</h3><For each={backlinks()}>{(item) => <button type="button" class="mt-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show></Show></div>
         </aside>
       </div>
       <Show when={menu()}>{(current) => <>

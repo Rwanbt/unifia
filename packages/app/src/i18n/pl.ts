@@ -2060,4 +2060,8 @@ export const dict = {
   "workbench.memory.actions.mkdirFailed": "Could not create the folder",
   "workbench.memory.defaults.noteName": "New note",
   "workbench.memory.defaults.folderName": "New folder",
+  "workbench.memory.graph.depth": "Depth {{depth}}",
+  "workbench.memory.graph.tags": "Tags",
+  "workbench.memory.graph.orphans": "Orphans",
+  "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
 }

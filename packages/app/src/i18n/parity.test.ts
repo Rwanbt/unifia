@@ -287,6 +287,11 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.memory.actions.mkdirFailed",
   "workbench.memory.defaults.noteName",
   "workbench.memory.defaults.folderName",
+  // Phase 9.6: Memory depth graph filters.
+  "workbench.memory.graph.depth",
+  "workbench.memory.graph.tags",
+  "workbench.memory.graph.orphans",
+  "workbench.memory.graph.summary",
   // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
   // rationale as the canvas control labels above — short UI labels
   // ("Inspector", "Close", "Approval"), section titles, and a
