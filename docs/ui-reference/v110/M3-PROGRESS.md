@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-2 (Automate studio canvas + Inspector pane) shipped (24 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-3 (Automate studio canvas + Inspector pane + drag-to-move) shipped (27 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `935adad06e chore(i18n): parity coverage for Phase 8 slice 2 inspector keys across 14 locales`
+> **HEAD** : `ceb432a48a chore(i18n): parity coverage for Phase 8 slice 3 coordinates keys across 14 locales`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -49,6 +49,8 @@ source of truth future agents can read without vault access.
 | chore | i18n parity coverage for Phase 8 canvas keys (14 locales) | `7db9bab3a2` | LIVREE |
 | **8.2** | **Phase 8 slice 2 — Inspector pane wired to canvas selection (controlled API)** | **`607dfc2696`** | **LIVREE** |
 | chore | i18n parity coverage for Phase 8 inspector keys (14 locales) | `935adad06e` | LIVREE |
+| **8.3** | **Phase 8 slice 3 — Drag-to-move (parent-controlled positions, edges follow)** | **`95f5c77349`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 coordinates keys (14 locales) | `ceb432a48a` | LIVREE |
 
 ---
 
@@ -75,7 +77,8 @@ forwards every prop verbatim.
 | `createSidebarPanelContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
 | `layoutWorkflowSteps` | `workbench/automate-graph-layout.ts` | 8.1 | Pure layout (nodes + edges + bounding box, sequential flow) |
 | `AutomateStudioCanvas` | `workbench/automate-studio-canvas.tsx` | 8.1 | SolidJS SVG pane: pan (pointer + Space), zoom (Ctrl/Cmd + wheel 0.5-2.0), reset, approval badges, SR fallback |
-| `AutomateStudioInspector` | `workbench/automate-studio-inspector.tsx` | 8.2 | SolidJS read-only pane: empty state, id/label/position/approval metadata, close button |
+| `AutomateStudioInspector` | `workbench/automate-studio-inspector.tsx` | 8.2 | SolidJS read-only pane: empty state, id/label/position/approval/coordinates metadata, close button |
+| `edgeEndpoints` | `workbench/automate-graph-layout.ts` | 8.3 | Pure helper: re-derive bezier endpoints from current effective positions |
 
 session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slices 2-3-4-5-6).
 
@@ -85,16 +88,16 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 | Check | Result | Evidence |
 |---|---|---|
-| `bunx biome check` (1811 files) | 0 warnings | `Checked 1811 files in 1.6s. No fixes applied.` |
+| `bunx biome check` (1811 files) | 0 warnings | `Checked 1811 files in 1.5s. No fixes applied.` |
 | `tsgo -b` (packages/app) | exit 0 | single-package verification |
 | `bun turbo typecheck` (47 packages) | 47/47 PASS | pre-push hook gate |
 | Working tree | clean | `git status --short` empty |
 | Lint warnings in packages/app | 0 | was 9, all silenced in `dd6defe949` |
 | Lint warnings repo-wide | 0 | was 22, all silenced across 3 commits |
-| `bun test packages/app` | 1322 pass / 21 todo / 0 fail (2.62s) | pre-push hook gate |
-| Phase 8 canvas unit tests | 4 / 4 pass (16 expect) | `automate-graph-layout.test.ts` |
-| Phase 8 canvas smoke tests | 9 / 9 pass | `automate-studio-canvas.test.ts` |
-| Phase 8 inspector smoke tests | 6 / 6 pass | `automate-studio-inspector.test.ts` |
+| `bun test packages/app` | 1334 pass / 21 todo / 0 fail (2.42s) | pre-push hook gate |
+| Phase 8 canvas unit tests | 9 / 9 pass (21 expect) | `automate-graph-layout.test.ts` |
+| Phase 8 canvas smoke tests | 14 / 14 pass | `automate-studio-canvas.test.ts` |
+| Phase 8 inspector smoke tests | 8 / 8 pass | `automate-studio-inspector.test.ts` |
 
 ---
 
@@ -131,8 +134,7 @@ one most aligned with the maquette priority.
 
 | Slice | Sujet | Effort | Depends on |
 |---|---|---|---|
-| **8.2** | **Click-to-select → right-side Inspector pane (DONE — `607dfc2696`)** | **1-2 h** | **8.1** |
-| 8.3 | Drag-to-move nodes inside the canvas (positions live in component state, not in the on-disk file yet) | 2-3 h | 8.2 |
+| **8.3** | **Drag-to-move (DONE — `95f5c77349`) — parent-controlled positions, edges follow** | **2-3 h** | **8.2** |
 | 8.4 | Port connectors — click on a port, drag to another port to draw an edge; edge kinds mirror `WorkflowDefinition.edges` (flow / branch-true / branch-false / case-value / branch-N / on-failure) | 3-4 h | 8.3 |
 | 8.5 | Node library (left pane) — drag a NodeFamily from `NodeFamilySchema` onto the canvas; on drop, instantiate a node with default `config` per family | 2-3 h | 8.3 |
 | 8.6 | Run bar (bottom) — Start / Stop / Validate against the connected runtime, with the existing approval gate flow | 1-2 h | 8.2 |
@@ -140,7 +142,7 @@ one most aligned with the maquette priority.
 | 8.8 | Mobile + responsive — canvas collapses to a step list below tablet-portrait; library + inspector become drawers | 2-3 h | 8.7 |
 | 8.9 | Minimap + zoom-to-fit + breadcrumb navigation | 1-2 h | 8.7 |
 
-**Total remaining Phase 8**: ~15-22 h of work, ~3-4 dedicated
+**Total remaining Phase 8**: ~13-19 h of work, ~3-4 dedicated
 sessions. Phase 8.7 is the largest because it crosses from a pure
 visual studio into the durable IR — it must include a one-way
 migration path for existing `steps[]` files and a parallel-write
@@ -151,9 +153,9 @@ The infrastructure from earlier phases is still ready:
 - `M3-ACCEPTANCE-MATRIX.md` surfaces the 6 viewports × 4 modes (Code, Work, Design, Automate) × N states coverage
 - `packages/app/e2e/m3-harness.ts` exports `setViewportFamily`, `pickShellMode`, `assertShellOverflow`, `assertFocusVisible`
 - `packages/app/e2e/v110-shell-gate.spec.ts` is the global gate spec stub
-- 5 session wrappers extracted (Phase 4 slices 2-6) + 3 Automate wrappers (Phase 8 slices 1-2) are isolated test targets
-- 0 lint warnings + 47/47 typecheck + 1322/1322 unit tests = no baseline drag
+- 5 session wrappers extracted (Phase 4 slices 2-6) + 4 Automate wrappers (Phase 8 slices 1-3) are isolated test targets
+- 0 lint warnings + 47/47 typecheck + 1334/1334 unit tests = no baseline drag
 
 ---
 
-*Last updated 2026-09-13 13:00 Europe/Paris by Mavis root session after Phase 8 slice 2 (Inspector pane + controlled canvas selection). Next checkpoint when Phase 8 slice 3 begins (drag-to-move).*
+*Last updated 2026-09-13 13:30 Europe/Paris by Mavis root session after Phase 8 slice 3 (drag-to-move). Next checkpoint when Phase 8 slice 4 begins (port connectors).*
