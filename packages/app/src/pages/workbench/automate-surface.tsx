@@ -7,6 +7,7 @@ import { createIndexedDbWorkflowDraftStore } from "@unifia/workbench-shell"
 import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
+import { useViewport } from "@/shell/v110-store"
 import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
@@ -14,12 +15,23 @@ import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-grap
 import { buildCanonicalFromState, serializeCanonical } from "./automate-migrate-legacy"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES } from "./automate-studio-library"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
+import { AutomateStudioStepList } from "./automate-studio-step-list"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
 
 export function AutomateSurface(): JSX.Element {
   const language = useLanguage()
+  const viewport = useViewport()
+  // Slice 8.8: when the viewport is too narrow for the 3-column
+  // studio, swap the SVG canvas for the step list and collapse the
+  // library + inspector into accordions. The breakpoint mirrors
+  // the existing `lg:` Tailwind boundary (RESPONSIVE-MATRIX.md).
+  const isMobileLayout = createMemo(() => {
+    const v = viewport()
+    if (v === "phone-portrait" || v === "tablet-portrait" || v === "compact-landscape") return true
+    return false
+  })
   const t = language.t
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
@@ -261,34 +273,71 @@ export function AutomateSurface(): JSX.Element {
                           return (
                             <div class="mt-3 grid gap-3 lg:grid-cols-[16rem_minmax(0,1fr)_18rem]">
                               <div class="h-72 lg:h-[28rem]">
-                                <AutomateStudioLibrary
-                                  categories={DEFAULT_LIBRARY_CATEGORIES}
-                                  onAdd={(entry) => {
-                                    const id = `${entry.family.split(".")[0] ?? "node"}-${extraNodeList.length + 1}-${Date.now().toString(36)}`
-                                    const newNode = {
-                                      id,
-                                      label: entry.label,
-                                      requiresApproval: entry.family === "human.approval",
-                                      family: entry.family,
-                                    }
-                                    setExtraNodes([...extraNodeList, newNode])
-                                    setSelectedStepId(id)
-                                  }}
-                                />
+                                <Show
+                                  when={!isMobileLayout()}
+                                  fallback={
+                    <details class="rounded-lg border border-border-base bg-background-stronger" data-automate-studio-library-accordion>
+                      <summary class="cursor-pointer px-3 py-2 text-12-medium">{t("workbench.automate.library.title")}</summary>
+                      <div class="px-3 pb-3">
+                        <AutomateStudioLibrary
+                          categories={DEFAULT_LIBRARY_CATEGORIES}
+                          onAdd={(entry) => {
+                            const id = `${entry.family.split(".")[0] ?? "node"}-${extraNodeList.length + 1}-${Date.now().toString(36)}`
+                            const newNode = {
+                              id,
+                              label: entry.label,
+                              requiresApproval: entry.family === "human.approval",
+                              family: entry.family,
+                            }
+                            setExtraNodes([...extraNodeList, newNode])
+                            setSelectedStepId(id)
+                          }}
+                        />
+                      </div>
+                    </details>
+                  }
+                >
+                  <AutomateStudioLibrary
+                    categories={DEFAULT_LIBRARY_CATEGORIES}
+                    onAdd={(entry) => {
+                      const id = `${entry.family.split(".")[0] ?? "node"}-${extraNodeList.length + 1}-${Date.now().toString(36)}`
+                      const newNode = {
+                        id,
+                        label: entry.label,
+                        requiresApproval: entry.family === "human.approval",
+                        family: entry.family,
+                      }
+                      setExtraNodes([...extraNodeList, newNode])
+                      setSelectedStepId(id)
+                    }}
+                  />
+                </Show>
                               </div>
                               <div class="h-72 lg:h-[28rem]">
-                                <AutomateStudioCanvas
-                                  steps={allSteps}
-                                  definitionId={parsed.definition.id}
-                                  width={640}
-                                  height={448}
-                                  selectedNodeId={selectedStepId()}
-                                  onSelectNode={setSelectedStepId}
-                                  positions={positions}
-                                  onPositionsChange={setStepPositions}
-                                  edges={userEdgeList}
-                                  onEdgesChange={setStepEdges}
-                                />
+                                <Show
+                                  when={!isMobileLayout()}
+                                  fallback={
+                                    <AutomateStudioStepList
+                                      steps={allSteps}
+                                      selectedStepId={selectedStepId()}
+                                      onSelectStep={setSelectedStepId}
+                                      positions={positions}
+                                    />
+                                  }
+                                >
+                                  <AutomateStudioCanvas
+                                    steps={allSteps}
+                                    definitionId={parsed.definition.id}
+                                    width={640}
+                                    height={448}
+                                    selectedNodeId={selectedStepId()}
+                                    onSelectNode={setSelectedStepId}
+                                    positions={positions}
+                                    onPositionsChange={setStepPositions}
+                                    edges={userEdgeList}
+                                    onEdgesChange={setStepEdges}
+                                  />
+                                </Show>
                               </div>
                               <div class="h-72 lg:h-[28rem]">
                                 <AutomateStudioInspector

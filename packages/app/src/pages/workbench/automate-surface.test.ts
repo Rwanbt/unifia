@@ -61,4 +61,17 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     expect(source).toMatch(/buildCanonicalFromState\(/)
     expect(source).toMatch(/serializeCanonical\(/)
   })
+
+  test("swaps canvas ↔ step list based on the responsive viewport (slice 8)", () => {
+    // Anti-regression: a future refactor that drops the mobile swap
+    // would break the studio on phone-portrait and tablet-portrait
+    // viewports (the SVG canvas pan/zoom is too heavy for small screens).
+    expect(source).toMatch(/AutomateStudioStepList/)
+    expect(source).toMatch(/useViewport\(\)/)
+    expect(source).toMatch(/isMobileLayout/)
+  })
+
+  test("collapses the library into an accordion on mobile (slice 8)", () => {
+    expect(source).toMatch(/data-automate-studio-library-accordion/)
+  })
 })
