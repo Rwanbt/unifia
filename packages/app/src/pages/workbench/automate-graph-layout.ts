@@ -57,6 +57,54 @@ export type LaidOutGraph = {
   readonly height: number
 }
 
+export type NodePositionOverride = { readonly x: number; readonly y: number }
+
+export type EdgeEndpoint = {
+  readonly from: string
+  readonly to: string
+  readonly x1: number
+  readonly y1: number
+  readonly x2: number
+  readonly y2: number
+}
+
+/**
+ * Recompute the edge endpoints from the current effective node
+ * positions. Pure: takes the laid-out graph + the user override map
+ * and returns one endpoint set per edge. When a node has been
+ * dragged (slice 3 of Phase 8), the bezier follows it instead of
+ * snapping back to the deterministic layout. The function lives next
+ * to `layoutWorkflowSteps` because both functions describe the same
+ * graph geometry, just at different lifecycle stages (initial layout
+ * vs. live drag override).
+ */
+export function edgeEndpoints(
+  graph: LaidOutGraph,
+  overrides: Readonly<Record<string, NodePositionOverride>>,
+): readonly EdgeEndpoint[] {
+  return graph.edges.map((edge) => {
+    const fromNode = graph.nodes.find((node) => node.id === edge.from)
+    const toNode = graph.nodes.find((node) => node.id === edge.to)
+    if (!fromNode || !toNode) {
+      return { from: edge.from, to: edge.to, x1: edge.x1, y1: edge.y1, x2: edge.x2, y2: edge.y2 }
+    }
+    const fromOverride = overrides[edge.from]
+    const toOverride = overrides[edge.to]
+    const fromX = fromOverride?.x ?? fromNode.x
+    const fromY = fromOverride?.y ?? fromNode.y
+    const toX = toOverride?.x ?? toNode.x
+    const toY = toOverride?.y ?? toNode.y
+    return {
+      from: edge.from,
+      to: edge.to,
+      x1: fromX + fromNode.width,
+      y1: fromY + fromNode.height / 2,
+      x2: toX,
+      y2: toY + toNode.height / 2,
+    }
+  })
+}
+
 /**
  * Compute deterministic positions and edges for a sequential step list.
  *

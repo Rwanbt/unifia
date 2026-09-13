@@ -27,6 +27,12 @@ export type AutomateStudioInspectorProps = {
   readonly index?: number
   /** Total step count in the source pipeline (for "step N of M"). */
   readonly total?: number
+  /** Current effective x coordinate of the node (in graph units). */
+  readonly x?: number
+  /** Current effective y coordinate of the node (in graph units). */
+  readonly y?: number
+  /** Whether the position has been overridden by the user dragging the node. */
+  readonly positionOverridden?: boolean
   /** Optional callback invoked when the user dismisses the inspector. */
   readonly onClose?: () => void
 }
@@ -89,6 +95,24 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                     index: (props.index ?? 0) + 1,
                     total: props.total ?? 0,
                   })}
+                </p>
+              </section>
+            </Show>
+            <Show when={props.x !== undefined && props.y !== undefined}>
+              <section class="space-y-1">
+                <p class="text-11-regular uppercase tracking-wide text-text-weak">
+                  {t("workbench.automate.inspector.field.coordinates")}
+                </p>
+                <p class="font-mono text-12-regular" data-automate-studio-inspector-coordinates>
+                  {t("workbench.automate.inspector.coordinatesValue", {
+                    x: Math.round(props.x ?? 0),
+                    y: Math.round(props.y ?? 0),
+                  })}
+                  <Show when={props.positionOverridden}>
+                    <span class="ml-2 text-11-regular text-accent-base">
+                      {t("workbench.automate.inspector.coordinatesOverridden")}
+                    </span>
+                  </Show>
                 </p>
               </section>
             </Show>

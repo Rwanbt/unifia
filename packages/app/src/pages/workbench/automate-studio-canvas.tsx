@@ -2,30 +2,46 @@
 /* Copyright (c) 2026 Unifia contributors */
 
 /**
- * Studio canvas — the read-only center pane of the Automate surface.
+ * Studio canvas — the center pane of the Automate surface.
  *
- * Phase 8 first slice: render the selected workflow's steps as a
- * left-to-right node graph with pan/zoom and a deterministic layout.
- * Editing (drag-to-move, port connections) lives in a follow-up slice.
+ * Phase 8 progress:
+ * - Slice 1: render the selected workflow's steps as a node graph
+ *   with pan/zoom and a deterministic layout.
+ * - Slice 2: expose `selectedNodeId` + `onSelectNode` so a parent
+ *   can drive both the visual selection and a sibling Inspector.
+ * - Slice 3: drag-to-move. Each node can be dragged with the left
+ *   mouse button; the new position overrides the deterministic
+ *   layout. Positions live in component state (the `<g>` transform
+ *   handles pan/zoom separately), so a future slice can lift them
+ *   to the parent for persistence without changing the canvas
+ *   contract.
  *
  * Interactions:
  * - Pan: left-button drag on the background, or hold Space + drag.
  * - Zoom: Ctrl/Cmd + mouse wheel (range 0.5 - 2.0).
  * - Reset: double-click on the background.
- * - Selection: click on a node sets the `selectedNodeId` signal (parent
- *   can pass it through to the right-side inspector in a follow-up
- *   slice; for now the selection is local to the canvas so the
- *   component remains a pure view).
+ * - Selection: click on a node fires `onSelectNode`.
+ * - Drag-to-move: pointerdown on a node + drag = move; pointerup
+ *   releases. The drag deltas are divided by the current zoom so
+ *   the node tracks the cursor in screen pixels regardless of the
+ *   pan/zoom transform.
  *
- * Accessibility: the canvas exposes a single `role="img"` element with
- * an `aria-label` summarising the workflow (id, step count, approval
- * count) and a parallel hidden `<ol>` listing every step so screen
- * readers don't have to descend into the SVG subtree. Keyboard users
- * can Tab through the reset/zoom buttons instead of navigating pixels.
+ * Accessibility: the canvas exposes a single `role="img"` element
+ * with an `aria-label` summarising the workflow (id, step count,
+ * approval count) and a parallel hidden `<ol>` listing every step
+ * so screen readers don't have to descend into the SVG subtree.
+ * Keyboard users can Tab through the reset/zoom buttons instead
+ * of navigating pixels.
  */
 import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
-import { layoutWorkflowSteps, type LaidOutGraph, type LaidOutNode } from "./automate-graph-layout"
+import {
+  edgeEndpoints,
+  layoutWorkflowSteps,
+  type LaidOutGraph,
+  type LaidOutNode,
+  type NodePositionOverride,
+} from "./automate-graph-layout"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
 const MIN_ZOOM = 0.5
@@ -55,6 +71,22 @@ export type AutomateStudioCanvasProps = {
    * mirror the value back via `selectedNodeId`.
    */
   readonly onSelectNode?: (nodeId: string | undefined) => void
+  /**
+   * Externally-controlled position override map (slice 3 drag-to-move).
+   * When a node id appears here, the canvas renders it at the supplied
+   * (x, y) instead of the deterministic layout position. The parent
+   * (Automate surface) owns this map so the Inspector pane can read
+   * the same coordinates and so future slices can persist them.
+   */
+  readonly positions?: Readonly<Record<string, NodePositionOverride>>
+  /**
+   * Fires whenever a drag updates the position override map. The
+   * parent is expected to mirror the value back via `positions`. The
+   * callback is invoked on every pointermove during a drag, so the
+   * parent should keep the mirror update cheap (a SolidJS signal
+   * setter is fine).
+   */
+  readonly onPositionsChange?: (positions: Record<string, NodePositionOverride>) => void
 }
 
 export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Element {
@@ -65,9 +97,16 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
   const [panY, setPanY] = createSignal(0)
   const [zoom, setZoom] = createSignal(1)
   const [spaceHeld, setSpaceHeld] = createSignal(false)
-  const [dragging, setDragging] = createSignal<{ x: number; y: number } | undefined>()
+  const [panDragging, setPanDragging] = createSignal<{ x: number; y: number } | undefined>()
+  /** Active node drag, if any. Stored separately from pan so the two handlers don't fight. */
+  const [nodeDragging, setNodeDragging] = createSignal<{ nodeId: string; startClientX: number; startClientY: number; startX: number; startY: number } | undefined>()
   const selectedNodeId = (): string | undefined => props.selectedNodeId
   const selectNode = (id: string | undefined): void => props.onSelectNode?.(id)
+  /** Read-only effective override map: parent-controlled or empty. */
+  const overrides = (): Readonly<Record<string, NodePositionOverride>> => props.positions ?? {}
+  /** Effective position accessor: parent-controlled drag position wins over the deterministic layout. */
+  const effectiveX = (node: LaidOutNode): number => overrides()[node.id]?.x ?? node.x
+  const effectiveY = (node: LaidOutNode): number => overrides()[node.id]?.y ?? node.y
 
   function onWheel(event: WheelEvent): void {
     if (!(event.ctrlKey || event.metaKey)) return
@@ -77,25 +116,54 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
     setZoom(next)
   }
 
-  function onPointerDown(event: PointerEvent): void {
+  function onBackgroundPointerDown(event: PointerEvent): void {
     if (event.button !== 0) return
     if (!spaceHeld() && !(event.target as Element).hasAttribute?.("data-canvas-background")) return
-    setDragging({ x: event.clientX, y: event.clientY })
+    setPanDragging({ x: event.clientX, y: event.clientY })
     ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
   }
 
+  function startNodeDrag(node: LaidOutNode, event: PointerEvent): void {
+    if (event.button !== 0) return
+    setNodeDragging({
+      nodeId: node.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: effectiveX(node),
+      startY: effectiveY(node),
+    })
+    ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
+    selectNode(node.id)
+  }
+
   function onPointerMove(event: PointerEvent): void {
-    const drag = dragging()
-    if (!drag) return
-    setPanX(panX() + (event.clientX - drag.x))
-    setPanY(panY() + (event.clientY - drag.y))
-    setDragging({ x: event.clientX, y: event.clientY })
+    const nodeDrag = nodeDragging()
+    if (nodeDrag) {
+      // Screen deltas divided by current zoom = local SVG deltas.
+      const scale = zoom()
+      if (scale === 0) return
+      const nextX = nodeDrag.startX + (event.clientX - nodeDrag.startClientX) / scale
+      const nextY = nodeDrag.startY + (event.clientY - nodeDrag.startClientY) / scale
+      const next = { ...overrides(), [nodeDrag.nodeId]: { x: nextX, y: nextY } }
+      props.onPositionsChange?.(next)
+      return
+    }
+    const panDrag = panDragging()
+    if (!panDrag) return
+    setPanX(panX() + (event.clientX - panDrag.x))
+    setPanY(panY() + (event.clientY - panDrag.y))
+    setPanDragging({ x: event.clientX, y: event.clientY })
   }
 
   function onPointerUp(event: PointerEvent): void {
-    if (!dragging()) return
+    if (nodeDragging()) {
+      ;(event.currentTarget as Element).releasePointerCapture?.(event.pointerId)
+      setNodeDragging(undefined)
+      return
+    }
+    if (!panDragging()) return
     ;(event.currentTarget as Element).releasePointerCapture?.(event.pointerId)
-    setDragging(undefined)
+    setPanDragging(undefined)
   }
 
   function onDoubleClick(event: MouseEvent): void {
@@ -178,7 +246,7 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
         viewBox={`0 0 ${Math.max(props.width, 1)} ${Math.max(props.height, 1)}`}
         preserveAspectRatio="xMidYMid meet"
         onWheel={onWheel}
-        onPointerDown={onPointerDown}
+        onPointerDown={onBackgroundPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
@@ -203,15 +271,15 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
           />
           <Show when={graph().edges.length > 0}>
             <g data-automate-studio-edges>
-              <For each={graph().edges}>
-                {(edge) => (
+              <For each={edgeEndpoints(graph(), overrides())}>
+                {(endpoints) => (
                   <path
-                    d={edgePath(edge.x1, edge.y1, edge.x2, edge.y2)}
+                    d={edgePath(endpoints.x1, endpoints.y1, endpoints.x2, endpoints.y2)}
                     stroke="currentColor"
                     stroke-width="1.5"
                     fill="none"
                     class="text-border-base"
-                    data-automate-studio-edge={`${edge.from}->${edge.to}`}
+                    data-automate-studio-edge={`${endpoints.from}->${endpoints.to}`}
                     marker-end="url(#automate-arrowhead)"
                   />
                 )}
@@ -235,8 +303,11 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
             {(node) => (
               <NodeRect
                 node={node}
+                x={effectiveX(node)}
+                y={effectiveY(node)}
                 selected={selectedNodeId() === node.id}
                 onSelect={() => selectNode(node.id)}
+                onPointerDown={(event) => startNodeDrag(node, event)}
               />
             )}
           </For>
@@ -263,8 +334,13 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
 
 type NodeRectProps = {
   readonly node: LaidOutNode
+  /** Effective x position (layout, possibly overridden by user drag). */
+  readonly x: number
+  /** Effective y position (layout, possibly overridden by user drag). */
+  readonly y: number
   readonly selected: boolean
   readonly onSelect: () => void
+  readonly onPointerDown: (event: PointerEvent) => void
 }
 
 function NodeRect(props: NodeRectProps): JSX.Element {
@@ -273,15 +349,18 @@ function NodeRect(props: NodeRectProps): JSX.Element {
   const stroke = () => (props.selected ? "stroke-accent-base" : "stroke-border-base")
   return (
     <g
-      transform={`translate(${props.node.x} ${props.node.y})`}
+      transform={`translate(${props.x} ${props.y})`}
       data-automate-studio-node={props.node.id}
       data-automate-studio-node-selected={props.selected ? "true" : "false"}
       data-automate-studio-node-approval={props.node.requiresApproval ? "true" : "false"}
+      data-automate-studio-node-x={Math.round(props.x)}
+      data-automate-studio-node-y={Math.round(props.y)}
+      onPointerDown={props.onPointerDown}
       onClick={(event) => {
         event.stopPropagation()
         props.onSelect()
       }}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: "grab" }}
     >
       <rect
         width={props.node.width}

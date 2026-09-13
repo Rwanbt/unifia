@@ -43,4 +43,15 @@ describe("AutomateStudioInspector smoke test (static)", () => {
   test("exposes a close button when onClose is provided", () => {
     expect(source).toMatch(/aria-label=\{t\("workbench\.automate\.inspector\.close"\)\}/)
   })
+
+  test("renders a Coordinates section when x/y are provided", () => {
+    // Slice 3: drag-to-move surfaces the effective coordinates here
+    // so the user sees where the node currently sits in the canvas.
+    expect(source).toMatch(/data-automate-studio-inspector-coordinates/)
+    expect(source).toMatch(/workbench\.automate\.inspector\.coordinatesValue/)
+  })
+
+  test("shows a badge when the position has been overridden by drag", () => {
+    expect(source).toMatch(/workbench\.automate\.inspector\.coordinatesOverridden/)
+  })
 })

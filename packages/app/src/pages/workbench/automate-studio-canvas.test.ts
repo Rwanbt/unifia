@@ -64,4 +64,42 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
     expect(source).toMatch(/readonly\s+onSelectNode\?:\s*\(nodeId:\s*string\s*\|\s*undefined\)/)
     expect(source).not.toMatch(/createSignal<string\s*\|\s*undefined>\(\)/)
   })
+
+  test("exposes a controlled-positions API (positions + onPositionsChange)", () => {
+    // Slice 3: drag-to-move positions are parent-owned too, so the
+    // canvas and the inspector pane share the same coordinates. The
+    // canvas reads from `positions` and emits `onPositionsChange` on
+    // every drag update.
+    expect(source).toMatch(/readonly\s+positions\?:\s*Readonly<Record<string,\s*NodePositionOverride>>/)
+    expect(source).toMatch(/readonly\s+onPositionsChange\?:\s*\(positions:\s*Record<string,\s*NodePositionOverride>\)\s*=>\s*void/)
+  })
+
+  test("wires drag-to-move via NodeRect onPointerDown", () => {
+    // Each node group must start a drag on pointerdown so the canvas
+    // can track the cursor and emit position updates. The handler is
+    // `startNodeDrag` and the canvas splits pan and node drags via
+    // two separate signals.
+    expect(source).toMatch(/function\s+startNodeDrag/)
+    expect(source).toMatch(/onPointerDown=\{props\.onPointerDown\}/)
+    expect(source).toMatch(/nodeDragging/)
+  })
+
+  test("divides screen drag deltas by zoom so nodes track the cursor", () => {
+    // Anti-regression: a future refactor that forgets the /zoom factor
+    // would make nodes drift faster or slower than the cursor.
+    expect(source).toMatch(/\(event\.clientX\s*-\s*nodeDrag\.startClientX\)\s*\/\s*scale/)
+    expect(source).toMatch(/\(event\.clientY\s*-\s*nodeDrag\.startClientY\)\s*\/\s*scale/)
+  })
+
+  test("follows the user drag for edges too (no layout snap-back)", () => {
+    // Slice 3: when a node is dragged, its outgoing + incoming edges
+    // must follow. The canvas re-derives endpoints from the override
+    // map on every render.
+    expect(source).toMatch(/edgeEndpoints\(graph\(\),\s*overrides\(\)\)/)
+  })
+
+  test("exposes per-node x/y as data attributes for the Inspector", () => {
+    expect(source).toMatch(/data-automate-studio-node-x=/)
+    expect(source).toMatch(/data-automate-studio-node-y=/)
+  })
 })
