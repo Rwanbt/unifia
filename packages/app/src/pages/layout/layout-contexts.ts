@@ -80,8 +80,8 @@ export function createWorkspaceSidebarContext(deps: WorkspaceSidebarDeps): Works
     isBusy: deps.isBusy,
     workspaceExpanded: (directory, local) => deps.store.workspaceExpanded[directory] ?? local,
     setWorkspaceExpanded: (directory, value) => deps.setStore("workspaceExpanded", directory, value),
-    showResetWorkspaceDialog: (root, directory) => deps.dialog.show(() => null as never),
-    showDeleteWorkspaceDialog: (root, directory) => deps.dialog.show(() => null as never),
+    showResetWorkspaceDialog: (_root, _directory) => deps.dialog.show(() => null as never),
+    showDeleteWorkspaceDialog: (_root, _directory) => deps.dialog.show(() => null as never),
     setScrollContainerRef: deps.setScrollContainerRef,
   }
 }

@@ -20,8 +20,6 @@ import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { useLocal } from "@/context/local"
 import { useFile } from "@/context/file"
 import { createStore, produce } from "solid-js/store"
-import { Separator } from "@/primitives/separator"
-import { Tabs } from "@unifia/ui/tabs"
 import { createSessionScroll } from "@/pages/session/session-scroll"
 import { showToast } from "@unifia/ui/toast"
 import { useNavigate, useSearchParams } from "@solidjs/router"
@@ -44,8 +42,6 @@ import { useTerminal } from "@/context/terminal"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { createSessionComposerState, SessionComposerRegion } from "@/pages/session/composer"
 import { createOpenReviewFile, createSessionTabs, createSizing } from "@/pages/session/helpers"
-import { MessageTimeline } from "@/pages/session/message-timeline"
-import { PromptIndex } from "@/pages/session/prompt-index"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
@@ -90,7 +86,7 @@ export default function Page() {
   const terminal = useTerminal()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
   const navigate = useNavigate()
-  const workbench = useWorkspaceWorkbench()
+  const _workbench = useWorkspaceWorkbench()
   // Read-only capture of the message-timeline scroll viewport for
   // PromptIndex (A3-01). Wraps setScrollRef below rather than reaching
   // into createSessionScroll/createAutoScroll internals: this signal
