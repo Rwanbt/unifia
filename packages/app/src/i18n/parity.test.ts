@@ -261,6 +261,9 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.memory.save.conflict",
   "workbench.memory.save.saved",
   "workbench.memory.save.failed",
+  "workbench.memory.status.saved",
+  "workbench.memory.status.saving",
+  "workbench.memory.status.unsaved",
   // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
   // rationale as the canvas control labels above — short UI labels
   // ("Inspector", "Close", "Approval"), section titles, and a

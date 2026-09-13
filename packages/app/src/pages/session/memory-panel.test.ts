@@ -75,3 +75,25 @@ describe("MemoryPanel vault tree + DnD (Phase 9 remainder)", () => {
     expect(source).toMatch(/t\("workbench\.memory\.vault\.searchPlaceholder"\)/)
   })
 })
+
+describe("MemoryPanel autosave (v110 700 ms contract)", () => {
+  test("debounces writes at 700 ms and flushes on the explicit Save", () => {
+    expect(source).toMatch(/AUTOSAVE_DELAY_MS = 700/)
+    expect(source).toMatch(/void persistNote\("auto"\)/)
+    expect(source).toMatch(/void persistNote\("manual"\)/)
+  })
+
+  test("advances the CAS stamp in place instead of racing a refetch", () => {
+    expect(source).toMatch(/queryClient\.setQueryData\(\["memory-note", sdk\.directory, path\], result\.data\)/)
+    expect(source).toMatch(/if \(draft\(\) !== content\) scheduleAutosave\(\)/)
+  })
+
+  test("persists pending edits before switching notes and never clobbers newer ones", () => {
+    expect(source).toMatch(/if \(saveState\(\) === "unsaved"\) void persistNote\("auto"\); setSelectedPath\(item\.path\); setMobilePane\("note"\)/)
+    expect(source).toMatch(/if \(memorySaveState\(draft\(\), content, false\) === "unsaved"\) return/)
+  })
+
+  test("renders the save-state chip from the shared dictionary", () => {
+    expect(source).toMatch(/data-memory-save-state=\{saveState\(\)\}/)
+  })
+})

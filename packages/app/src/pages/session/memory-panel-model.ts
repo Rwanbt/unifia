@@ -182,3 +182,13 @@ export function visibleMemoryRows(rows: readonly MemoryTreeRow[], collapsed: Rea
   if (collapsed.size === 0) return rows
   return rows.filter((row) => ![...collapsed].some((folder) => row.path.startsWith(folder + "/")))
 }
+
+/** v110 Memory editor: the mockup shows one status chip next to the note
+ * ("Saved" / "Saving..." / "Unsaved") and debounces writes by 700 ms. */
+export type MemorySaveState = "saved" | "unsaved" | "saving"
+
+export function memorySaveState(draft: string, diskContent: string | undefined, saving: boolean): MemorySaveState {
+  if (saving) return "saving"
+  if (diskContent === undefined) return "saved"
+  return draft === diskContent ? "saved" : "unsaved"
+}

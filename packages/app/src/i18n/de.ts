@@ -2051,4 +2051,7 @@ export const dict = {
   "workbench.memory.save.conflict": "Memory note changed on disk; reload it before saving.",
   "workbench.memory.save.saved": "Memory note saved",
   "workbench.memory.save.failed": "Unable to save memory note",
+  "workbench.memory.status.saved": "Saved",
+  "workbench.memory.status.saving": "Saving…",
+  "workbench.memory.status.unsaved": "Unsaved",
 } satisfies Partial<Record<Keys, string>>

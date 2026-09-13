@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, type JSX } from "solid-js"
-import { createQuery } from "@tanstack/solid-query"
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
+import { createQuery, useQueryClient } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
 import type { WorkbenchConnection } from "@unifia/workbench-shell"
@@ -11,12 +11,15 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memoryTitle, parseMemoryNote, visibleMemoryRows, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memorySaveState, memoryTitle, parseMemoryNote, visibleMemoryRows, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
 // mirrors that so a deep drop target is reachable without stopping the drag.
 const AUTO_EXPAND_DELAY_MS = 620
+// INTERACTIONS.md: the Memory editor autosaves 700 ms after the last keystroke;
+// the explicit Save button flushes immediately instead of resetting the delay.
+const AUTOSAVE_DELAY_MS = 700
 const TREE_INDENT_PX = 18
 const MAX_MEMORY_PAGES = 20
 
@@ -48,6 +51,7 @@ export function MemoryPanel(): JSX.Element {
   const language = useLanguage()
   const t = language.t
   const connection = workbench.connection
+  const queryClient = useQueryClient()
   const [selectedPath, setSelectedPath] = createSignal<string>()
   const [query, setQuery] = createSignal("")
   const [view, setView] = createSignal<"preview" | "source" | "split">("preview")
@@ -59,6 +63,8 @@ export function MemoryPanel(): JSX.Element {
   const [dropFolder, setDropFolder] = createSignal<string>()
   let expandTimer: ReturnType<typeof setTimeout> | undefined
   let vaultScroll: HTMLDivElement | undefined
+  let autosaveTimer: ReturnType<typeof setTimeout> | undefined
+  let draftPath: string | undefined
   /**
    * Phase 9 (Memory mobile single-pane): the canonical viewport authority
    * decides the layout. On the overlay families the triptych collapses to
@@ -142,31 +148,71 @@ export function MemoryPanel(): JSX.Element {
     if (!current) return new Map<string, string>()
     return new Map((backlinks.data ?? []).map((item) => [item.path, memoryExcerpt(current.body, 120)]))
   })
+  const saveState = createMemo(() => memorySaveState(draft(), noteFile.data?.content, saving()))
   createEffect(() => {
+    // Adopt the disk content when the selected note changes, and after a
+    // write lands while the editor has not moved on (autosave keeps
+    // draft === disk otherwise).
+    const path = selectedPath()
     const content = noteFile.data?.content
-    if (content !== undefined) setDraft(content)
+    if (!path || content === undefined) return
+    if (draftPath !== path) {
+      draftPath = path
+      setDraft(content)
+      return
+    }
+    if (memorySaveState(draft(), content, false) === "unsaved") return
+    setDraft(content)
   })
 
-  async function saveNote(): Promise<void> {
+  function clearAutosave(): void {
+    if (autosaveTimer !== undefined) {
+      clearTimeout(autosaveTimer)
+      autosaveTimer = undefined
+    }
+  }
+
+  function scheduleAutosave(): void {
+    if (!selectedPath()) return
+    clearAutosave()
+    autosaveTimer = setTimeout(() => {
+      autosaveTimer = undefined
+      void persistNote("auto")
+    }, AUTOSAVE_DELAY_MS)
+  }
+
+  function onDraftChange(value: string): void {
+    setDraft(value)
+    scheduleAutosave()
+  }
+
+  async function persistNote(kind: "auto" | "manual"): Promise<void> {
     const path = selectedPath()
     const current = noteFile.data
-    if (!path || !current || saving()) return
+    const content = draft()
+    if (!path || !current || saving() || content === current.content) return
     setSaving(true)
     try {
-      const result = await sdk.client.file.write({ path, content: draft(), expectedHash: current.stamp.hash })
+      const result = await sdk.client.file.write({ path, content, expectedHash: current.stamp.hash })
       if (result.response?.status === 409) {
+        clearAutosave()
         showToast({ variant: "error", title: t("workbench.memory.save.conflict") })
         return
       }
       if (!result.data) throw new Error(t("workbench.memory.save.failed"))
-      await noteFile.refetch()
-      showToast({ variant: "success", title: t("workbench.memory.save.saved") })
+      // Advance the CAS stamp in place: a refetch would race the next
+      // keystroke, while this keeps draft-vs-disk comparison honest.
+      queryClient.setQueryData(["memory-note", sdk.directory, path], result.data)
+      if (draft() !== content) scheduleAutosave()
+      if (kind === "manual") showToast({ variant: "success", title: t("workbench.memory.save.saved") })
     } catch (error) {
       showToast({ variant: "error", title: t("workbench.memory.save.failed"), description: error instanceof Error ? error.message : String(error) })
     } finally {
       setSaving(false)
     }
   }
+
+  onCleanup(clearAutosave)
 
   function toggleFolder(path: string): void {
     const next = new Set(collapsed())
@@ -252,18 +298,18 @@ export function MemoryPanel(): JSX.Element {
                 </button>
               </Match>
               <Match when={item.kind === "note"}>
-                <button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path, "opacity-50": dragPath() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" data-memory-note={item.path} title={item.path} onDragStart={(event) => startDrag(event, item.path)} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}><span class="mr-1 text-text-weak" aria-hidden="true">◈</span>{item.name}</button>
+                <button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path, "opacity-50": dragPath() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" data-memory-note={item.path} title={item.path} onDragStart={(event) => startDrag(event, item.path)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setMobilePane("note") }}><span class="mr-1 text-text-weak" aria-hidden="true">◈</span>{item.name}</button>
               </Match>
             </Switch>}</For>
             <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p class="p-2 text-12-regular text-text-weak">{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
           </div>
         </aside>
         <article class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "note" }} data-memory-note-pane>
-          <header class="flex items-center gap-2 border-b border-border-base px-3 py-2"><Show when={narrow()}><button type="button" class="rounded px-2 py-1 text-11-medium" data-memory-back-to-vault onClick={() => setMobilePane("vault")}>← Vault</button></Show><span class="text-12-medium">Memory</span><span class="ml-auto text-11-regular text-text-weak">CAS-protected</span><Show when={narrow()}><button type="button" class="rounded px-2 py-1 text-11-medium" data-memory-open-links onClick={() => setMobilePane("links")}>Links</button></Show><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": view() === "preview" }} onClick={() => setView("preview")}>Preview</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": view() === "source" }} onClick={() => setView("source")}>Edit</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": view() === "split", hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button><button type="button" class="rounded bg-accent-base px-2 py-1 text-11-medium text-text-on-accent disabled:opacity-50" disabled={saving() || draft() === noteFile.data?.content} onClick={() => void saveNote()}>{saving() ? "Saving…" : "Save"}</button></header>
+          <header class="flex items-center gap-2 border-b border-border-base px-3 py-2"><Show when={narrow()}><button type="button" class="rounded px-2 py-1 text-11-medium" data-memory-back-to-vault onClick={() => setMobilePane("vault")}>← Vault</button></Show><span class="text-12-medium">Memory</span><span class="ml-auto text-11-regular text-text-weak" data-memory-save-state={saveState()}>{t(`workbench.memory.status.${saveState()}`)}</span><Show when={narrow()}><button type="button" class="rounded px-2 py-1 text-11-medium" data-memory-open-links onClick={() => setMobilePane("links")}>Links</button></Show><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": view() === "preview" }} onClick={() => setView("preview")}>Preview</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": view() === "source" }} onClick={() => setView("source")}>Edit</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": view() === "split", hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button><button type="button" class="rounded bg-accent-base px-2 py-1 text-11-medium text-text-on-accent disabled:opacity-50" disabled={saving() || saveState() !== "unsaved"} onClick={() => void persistNote("manual")}>{saving() ? "Saving…" : "Save"}</button></header>
           <div class="h-[calc(100%-43px)] overflow-y-auto p-5">
             <Show when={noteFile.isLoading}><p class="text-12-regular text-text-weak">Loading note…</p></Show>
             <Show when={noteFile.error}><p class="text-12-regular text-text-danger">Unable to read this note.</p></Show>
-            <Show when={note()}>{(current) => <><p class="text-11-regular text-text-weak">{current().path}</p><Show when={view() === "source"} fallback={<Show when={view() === "split"} fallback={<MemoryPreview note={current()} />}><div class="mt-3 grid min-h-[calc(100%-28px)] grid-cols-2 gap-3"><MemoryEditor value={draft()} onInput={setDraft} /><div class="min-w-0 overflow-y-auto rounded border border-border-base bg-background-base p-3"><MemoryPreview note={parseMemoryNote(current().path, draft())} /></div></div></Show>}><div class="mt-3 h-[calc(100%-28px)]"><MemoryEditor value={draft()} onInput={setDraft} /></div></Show></>}</Show>
+            <Show when={note()}>{(current) => <><p class="text-11-regular text-text-weak">{current().path}</p><Show when={view() === "source"} fallback={<Show when={view() === "split"} fallback={<MemoryPreview note={current()} />}><div class="mt-3 grid min-h-[calc(100%-28px)] grid-cols-2 gap-3"><MemoryEditor value={draft()} onInput={onDraftChange} /><div class="min-w-0 overflow-y-auto rounded border border-border-base bg-background-base p-3"><MemoryPreview note={parseMemoryNote(current().path, draft())} /></div></div></Show>}><div class="mt-3 h-[calc(100%-28px)]"><MemoryEditor value={draft()} onInput={onDraftChange} /></div></Show></>}</Show>
             <Show when={!note() && !noteFile.isLoading && !noteFile.error}><p class="text-12-regular text-text-weak">Choose a note from the vault.</p></Show>
           </div>
         </article>

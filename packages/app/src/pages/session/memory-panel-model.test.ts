@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memoryTitle, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memorySaveState, memoryTitle, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
 
 describe("Memory inspector model", () => {
   test("only exposes Markdown notes from the configured workspace vault", () => {
@@ -93,5 +93,20 @@ describe("Memory vault tree and move target (Phase 9 folders)", () => {
     expect(memoryMovePath(".unifia/memory/00 - Inbox/README.md", ".unifia/memory/00 - Inbox")).toBeUndefined()
     expect(memoryMovePath(".unifia/memory/README.md", ".unifia/memory")).toBeUndefined()
     expect(memoryMovePath("README.md", ".unifia/memory/00 - Inbox")).toBeUndefined()
+  })
+})
+
+describe("Memory editor save state (autosave 700 ms)", () => {
+  test("reports unsaved only while the draft differs from disk", () => {
+    expect(memorySaveState("one", "one", false)).toBe("saved")
+    expect(memorySaveState("two", "one", false)).toBe("unsaved")
+  })
+
+  test("a write in flight wins over the draft comparison", () => {
+    expect(memorySaveState("two", "one", true)).toBe("saving")
+  })
+
+  test("a note that has not loaded yet is not reported as unsaved", () => {
+    expect(memorySaveState("draft", undefined, false)).toBe("saved")
   })
 })
