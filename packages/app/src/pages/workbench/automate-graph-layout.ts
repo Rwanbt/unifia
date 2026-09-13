@@ -208,11 +208,20 @@ export const PORT_RADIUS = 6
  * resulting `width`/`height` are the canvas bounds; the SolidJS
  * component places an inner `<g transform="translate(panX,panY)
  * scale(zoom)">` and lets CSS scroll/overflow handle the rest.
+ *
+ * Slice 5: when `extraNodes` are passed (slice 8.5 node library),
+ * they extend the vertical stack after the legacy steps. Sequential
+ * edges connect each consecutive pair across the boundary so the
+ * canvas renders one continuous flow.
  */
-export function layoutWorkflowSteps(steps: readonly WorkflowStepSummary[]): LaidOutGraph {
+export function layoutWorkflowSteps(
+  steps: readonly WorkflowStepSummary[],
+  extraNodes: readonly WorkflowStepSummary[] = [],
+): LaidOutGraph {
   const nodes: LaidOutNode[] = []
   const edges: LaidOutEdge[] = []
-  steps.forEach((step, index) => {
+  const all = [...steps, ...extraNodes]
+  all.forEach((step, index) => {
     const y = PADDING + index * (NODE_HEIGHT + NODE_GAP_Y)
     const currentNode: LaidOutNode = {
       id: step.id,
@@ -221,7 +230,7 @@ export function layoutWorkflowSteps(steps: readonly WorkflowStepSummary[]): Laid
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
       label: step.label,
-      family: undefined,
+      family: step.family,
       requiresApproval: step.requiresApproval,
     }
     nodes.push(currentNode)

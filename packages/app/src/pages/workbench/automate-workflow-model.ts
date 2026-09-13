@@ -6,6 +6,14 @@ export type WorkflowStepSummary = {
   readonly id: string
   readonly label: string
   readonly requiresApproval: boolean
+  /**
+   * Slice 8.5: the canonical `NodeFamily` for this step, when known.
+   * Legacy `{steps[]}` files always carry a `family` field on each
+   * step; user-added nodes from the library pass an explicit
+   * `NodeFamily`. Optional so the type remains a structural subset of
+   * what the canvas needs to render (no node = no family).
+   */
+  readonly family?: string
 }
 
 /**

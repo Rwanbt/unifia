@@ -153,6 +153,32 @@ describe("mergeEndpoints", () => {
   })
 })
 
+describe("layoutWorkflowSteps with extraNodes (slice 5)", () => {
+  test("extends the stack with extraNodes after the legacy steps", () => {
+    const graph = layoutWorkflowSteps(
+      [step("a", "cap.a"), step("b", "cap.b")],
+      [{ id: "lib-1", label: "If / else", requiresApproval: false, family: "control.if" }],
+    )
+    expect(graph.nodes).toHaveLength(3)
+    expect(graph.nodes[0]?.id).toBe("a")
+    expect(graph.nodes[1]?.id).toBe("b")
+    expect(graph.nodes[2]?.id).toBe("lib-1")
+    expect(graph.edges).toHaveLength(2)
+    expect(graph.edges[0]?.from).toBe("a")
+    expect(graph.edges[0]?.to).toBe("b")
+    expect(graph.edges[1]?.from).toBe("b")
+    expect(graph.edges[1]?.to).toBe("lib-1")
+    expect(graph.nodes[2]?.family).toBe("control.if")
+  })
+
+  test("works with only extraNodes and no legacy steps", () => {
+    const graph = layoutWorkflowSteps([], [step("only-lib", "transform"), step("second", "approval", true)])
+    expect(graph.nodes).toHaveLength(2)
+    expect(graph.edges).toHaveLength(1)
+    expect(graph.edges[0]).toMatchObject({ from: "only-lib", to: "second" })
+  })
+})
+
 describe("port hit-test helpers", () => {
   test("PORT_HIT_RADIUS exceeds PORT_RADIUS so drop zones are forgiving", () => {
     // Anti-regression: a future tuning of the rendered port radius

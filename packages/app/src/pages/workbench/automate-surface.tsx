@@ -11,6 +11,7 @@ import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
+import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES } from "./automate-studio-library"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
@@ -46,6 +47,8 @@ export function AutomateSurface(): JSX.Element {
   const [stepPositions, setStepPositions] = createSignal<Record<string, { readonly x: number; readonly y: number }>>({})
   /** User-added edges (slice 4 port connectors). */
   const [stepEdges, setStepEdges] = createSignal<readonly UserEdge[]>([])
+  /** User-added nodes from the library (slice 5 node library). */
+  const [extraNodes, setExtraNodes] = createSignal<readonly { readonly id: string; readonly label: string; readonly requiresApproval: boolean; readonly family?: string }[]>([])
   const draftStore = createIndexedDbWorkflowDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
@@ -200,7 +203,7 @@ export function AutomateSurface(): JSX.Element {
             <For each={workflowFiles()}>
               {(entry) => (
                 <li class="rounded-lg border border-border-base bg-background-stronger p-4" data-automate-definition={entry.path}>
-                  <div class="flex items-center justify-between gap-3"><span>{entry.path}</span><button type="button" class="rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => { setSelectedDefinition(entry.path); setSelectedStepId(undefined); setWorkflowError(undefined) }}>{t("workbench.automate.inspect")}</button></div>
+                  <div class="flex items-center justify-between gap-3"><span>{entry.path}</span><button type="button" class="rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => { setSelectedDefinition(entry.path); setSelectedStepId(undefined); setWorkflowError(undefined); setExtraNodes([]) }}>{t("workbench.automate.inspect")}</button></div>
                 </li>
               )}
             </For>
@@ -221,32 +224,53 @@ export function AutomateSurface(): JSX.Element {
                         {(() => {
                           if (parsed.kind !== "ok") return null
                           const steps = summarizeWorkflowSteps(parsed.definition)
-                          const totalSteps = steps.length
-                          const selectedIndex = (() => {
-                            const id = selectedStepId()
-                            if (!id) return undefined
-                            const index = steps.findIndex((step) => step.id === id)
-                            return index >= 0 ? index : undefined
-                          })()
-                          const selectedStep = selectedIndex !== undefined ? steps[selectedIndex] : undefined
                           const positions = stepPositions()
                           const userEdgeList = stepEdges()
-                          const selectedOverride = selectedStep ? positions[selectedStep.id] : undefined
+                          const extraNodeList = extraNodes()
+                          const allSteps = [...steps, ...extraNodeList]
+                          const totalSteps = allSteps.length
+                          // Re-index selection against the merged list so the Inspector
+                          // can target both legacy steps AND user-added nodes.
+                          const mergedSelectedIndex = (() => {
+                            const id = selectedStepId()
+                            if (!id) return undefined
+                            const index = allSteps.findIndex((step) => step.id === id)
+                            return index >= 0 ? index : undefined
+                          })()
+                          const mergedSelectedStep =
+                            mergedSelectedIndex !== undefined ? allSteps[mergedSelectedIndex] : undefined
+                          const selectedOverride = mergedSelectedStep ? positions[mergedSelectedStep.id] : undefined
                           const selectedX = selectedOverride?.x ?? PADDING
                           const selectedY =
                             selectedOverride?.y ??
-                            (selectedIndex !== undefined ? PADDING + selectedIndex * (NODE_HEIGHT + NODE_GAP_Y) : undefined)
-                          const outgoingTo = selectedStep
-                            ? userEdgeList.filter((edge) => edge.from === selectedStep.id).map((edge) => edge.to)
+                            (mergedSelectedIndex !== undefined ? PADDING + mergedSelectedIndex * (NODE_HEIGHT + NODE_GAP_Y) : undefined)
+                          const outgoingTo = mergedSelectedStep
+                            ? userEdgeList.filter((edge) => edge.from === mergedSelectedStep.id).map((edge) => edge.to)
                             : []
-                          const incomingFrom = selectedStep
-                            ? userEdgeList.filter((edge) => edge.to === selectedStep.id).map((edge) => edge.from)
+                          const incomingFrom = mergedSelectedStep
+                            ? userEdgeList.filter((edge) => edge.to === mergedSelectedStep.id).map((edge) => edge.from)
                             : []
                           return (
-                            <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                            <div class="mt-3 grid gap-3 lg:grid-cols-[16rem_minmax(0,1fr)_18rem]">
+                              <div class="h-72 lg:h-[28rem]">
+                                <AutomateStudioLibrary
+                                  categories={DEFAULT_LIBRARY_CATEGORIES}
+                                  onAdd={(entry) => {
+                                    const id = `${entry.family.split(".")[0] ?? "node"}-${extraNodeList.length + 1}-${Date.now().toString(36)}`
+                                    const newNode = {
+                                      id,
+                                      label: entry.label,
+                                      requiresApproval: entry.family === "human.approval",
+                                      family: entry.family,
+                                    }
+                                    setExtraNodes([...extraNodeList, newNode])
+                                    setSelectedStepId(id)
+                                  }}
+                                />
+                              </div>
                               <div class="h-72 lg:h-[28rem]">
                                 <AutomateStudioCanvas
-                                  steps={steps}
+                                  steps={allSteps}
                                   definitionId={parsed.definition.id}
                                   width={640}
                                   height={448}
@@ -260,8 +284,8 @@ export function AutomateSurface(): JSX.Element {
                               </div>
                               <div class="h-72 lg:h-[28rem]">
                                 <AutomateStudioInspector
-                                  node={selectedStep}
-                                  index={selectedIndex}
+                                  node={mergedSelectedStep}
+                                  index={mergedSelectedIndex}
                                   total={totalSteps}
                                   x={selectedX}
                                   y={selectedY}
