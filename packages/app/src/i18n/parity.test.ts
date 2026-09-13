@@ -248,6 +248,19 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.runBar.validateCycle",
   "workbench.automate.runBar.validateDuplicateBranch",
   "workbench.automate.runBar.validateBranchNonBranching",
+  // Phase 9 remainder: Memory vault tree + note DnD labels.
+  "workbench.memory.vault.title",
+  "workbench.memory.vault.searchLabel",
+  "workbench.memory.vault.searchPlaceholder",
+  "workbench.memory.vault.loadError",
+  "workbench.memory.vault.empty",
+  "workbench.memory.tree.expand",
+  "workbench.memory.tree.collapse",
+  "workbench.memory.move.moved",
+  "workbench.memory.move.failed",
+  "workbench.memory.save.conflict",
+  "workbench.memory.save.saved",
+  "workbench.memory.save.failed",
   // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
   // rationale as the canvas control labels above — short UI labels
   // ("Inspector", "Close", "Approval"), section titles, and a

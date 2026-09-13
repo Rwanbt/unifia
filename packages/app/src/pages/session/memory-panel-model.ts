@@ -86,3 +86,99 @@ export function localMemoryGraph(
     }),
   ]
 }
+
+/** A vault row: one folder or one note, in pre-order render order. */
+export type MemoryTreeRow = {
+  readonly kind: "folder" | "note"
+  readonly path: string
+  readonly name: string
+  /** 0 for a direct child of the memory root. */
+  readonly depth: number
+  /** Notes in the folder's subtree; always 0 for note rows. */
+  readonly count: number
+}
+
+/** The subset of `WorkspaceFileEntry` the vault tree needs - structural, so the
+ * panel passes the real listing without this model depending on workbench-shell. */
+export type MemoryFileEntry = {
+  readonly path: string
+  readonly kind: "file" | "directory"
+}
+
+type MemoryFolderDraft = {
+  path: string
+  name: string
+  depth: number
+  count: number
+  folders: MemoryFolderDraft[]
+  notes: MemoryNoteSummary[]
+}
+
+export function memoryParentFolder(path: string): string {
+  const index = path.lastIndexOf("/")
+  return index === -1 ? "" : path.slice(0, index)
+}
+
+/** New path when `notePath` is dropped on `folderPath`. `undefined` when the
+ * move is a no-op (same folder) or the target is not a vault folder. */
+export function memoryMovePath(notePath: string, folderPath: string): string | undefined {
+  if (!isMemoryMarkdown(notePath)) return undefined
+  if (!folderPath.startsWith(MEMORY_PREFIX) || folderPath.endsWith(".md")) return undefined
+  if (memoryParentFolder(notePath) === folderPath) return undefined
+  return folderPath + "/" + notePath.slice(notePath.lastIndexOf("/") + 1)
+}
+
+/** Flat pre-order vault tree (folders before notes, alphabetical). Directory
+ * entries keep empty folders visible; note parent segments are added
+ * defensively so a paginated listing still reconstructs the shape. */
+export function buildMemoryTree(entries: readonly MemoryFileEntry[]): readonly MemoryTreeRow[] {
+  const root: MemoryFolderDraft = { path: "", name: "", depth: -1, count: 0, folders: [], notes: [] }
+  const folders = new Map<string, MemoryFolderDraft>([["", root]])
+
+  function ensureFolder(path: string): MemoryFolderDraft {
+    // The vault root is implicit: anything at or above it maps to the root
+    // draft, so recursion never climbs into `.unifia` itself.
+    if (!path.startsWith(MEMORY_PREFIX)) return root
+    const existing = folders.get(path)
+    if (existing) return existing
+    const parent = ensureFolder(memoryParentFolder(path))
+    const folder: MemoryFolderDraft = { path, name: path.slice(path.lastIndexOf("/") + 1), depth: parent.depth + 1, count: 0, folders: [], notes: [] }
+    folders.set(path, folder)
+    parent.folders.push(folder)
+    return folder
+  }
+
+  for (const entry of entries) {
+    if (entry.kind === "directory" && entry.path.startsWith(MEMORY_PREFIX)) ensureFolder(entry.path)
+  }
+  const seen = new Set<string>()
+  for (const entry of entries) {
+    if (entry.kind !== "file" || !isMemoryMarkdown(entry.path) || seen.has(entry.path)) continue
+    seen.add(entry.path)
+    ensureFolder(memoryParentFolder(entry.path)).notes.push({ path: entry.path, title: memoryTitle(entry.path) })
+  }
+
+  const rows: MemoryTreeRow[] = []
+  function countNotes(folder: MemoryFolderDraft): number {
+    folder.count = folder.notes.length + folder.folders.reduce((sum, child) => sum + countNotes(child), 0)
+    return folder.count
+  }
+  countNotes(root)
+  function flatten(folder: MemoryFolderDraft): void {
+    folder.folders.sort((left, right) => left.name.localeCompare(right.name))
+    folder.notes.sort((left, right) => left.title.localeCompare(right.title))
+    for (const child of folder.folders) {
+      rows.push({ kind: "folder", path: child.path, name: child.name, depth: child.depth, count: child.count })
+      flatten(child)
+    }
+    for (const note of folder.notes) rows.push({ kind: "note", path: note.path, name: note.title, depth: folder.depth + 1, count: 0 })
+  }
+  flatten(root)
+  return rows
+}
+
+/** Rows whose ancestor folders are all expanded. */
+export function visibleMemoryRows(rows: readonly MemoryTreeRow[], collapsed: ReadonlySet<string>): readonly MemoryTreeRow[] {
+  if (collapsed.size === 0) return rows
+  return rows.filter((row) => ![...collapsed].some((folder) => row.path.startsWith(folder + "/")))
+}

@@ -41,6 +41,8 @@ export type WorkbenchMockOptions = {
   approvalDecision?: "allow" | "deny"
   /** Make cancelApproval reject, the way a broker that already expired it does. */
   cancelFails?: boolean
+  /** Vault/file entries returned by listFiles; renameFile mutates this list. Default: empty. */
+  files?: ReadonlyArray<{ path: string; kind: "file" | "directory" }>
 }
 
 /** One recorded call on the mock client, in order. */
@@ -113,6 +115,7 @@ export function workbenchMockInitScript(): string {
           provenance: input.provenance || {},
         }
       }
+      let allEntries = (descriptor.files || []).slice()
       // Keep the mock structurally close to a real client. A permissive Proxy
       // made every property lookup look like an async method, including
       // framework-internal probes, which caused a Solid update recursion.
@@ -147,7 +150,19 @@ export function workbenchMockInitScript(): string {
         artifactHistory: () => reply({ history: [] }),
         listArtifacts: () => reply({ artifacts: [] }),
         listDocuments: () => reply({ documents: [] }),
-        listFiles: () => reply({ entries: [], skipped: 0 }),
+        listFiles: (_workspaceId, prefix) => {
+          record("listFiles", [prefix || "."])
+          const list = prefix ? allEntries.filter((entry) => entry.path.startsWith(prefix)) : allEntries
+          return reply({ entries: list, skipped: 0 })
+        },
+        renameFile: (_workspaceId, from, to) => {
+          record("renameFile", [from, to])
+          if (allEntries.some((entry) => entry.path === to)) {
+            return Promise.reject(new Error("workspace rename target already exists"))
+          }
+          allEntries = allEntries.map((entry) => (entry.path === from ? { ...entry, path: to } : entry))
+          return reply({ result: { path: to, bytesWritten: 1, sha: "mock" } })
+        },
         readFiles: () => reply({ results: [] }),
         listApprovals: () => reply({ approvals: [] }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
@@ -201,6 +216,7 @@ export async function installWorkbenchMock(
     exportOutcome: opts.exportOutcome ?? "exported",
     approvalDecision: opts.approvalDecision ?? "allow",
     cancelFails: opts.cancelFails ?? false,
+    files: opts.files ?? [],
   }
   // Pass the descriptor through a single init script so the
   // page side can read it. Two scripts: first sets the

@@ -2022,4 +2022,19 @@ export const dict = {
   "workbench.design.tools.line": "Line",
   "workbench.design.tools.ellipse": "Ellipse",
   "workbench.design.tools.bezier": "Bezier",
+  // 2026-09-13: Memory vault tree + note DnD (Phase 9 remainder). Short
+  // workbench labels kept as English fallback across locales (allowlist),
+  // same convention as the Phase 8/9 canvas keys.
+  "workbench.memory.vault.title": "Vault",
+  "workbench.memory.vault.searchLabel": "Search memory notes",
+  "workbench.memory.vault.searchPlaceholder": "Search notes",
+  "workbench.memory.vault.loadError": "Unable to load the workspace vault.",
+  "workbench.memory.vault.empty": "No Markdown note in {{root}}.",
+  "workbench.memory.tree.expand": "Expand {{name}}",
+  "workbench.memory.tree.collapse": "Collapse {{name}}",
+  "workbench.memory.move.moved": "Note moved",
+  "workbench.memory.move.failed": "Could not move the note",
+  "workbench.memory.save.conflict": "Memory note changed on disk; reload it before saving.",
+  "workbench.memory.save.saved": "Memory note saved",
+  "workbench.memory.save.failed": "Unable to save memory note",
 }

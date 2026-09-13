@@ -49,3 +49,29 @@ describe("MemoryPanel mobile single-pane (Phase 9)", () => {
     expect(source).not.toMatch(/max-\[900px\]/)
   })
 })
+
+describe("MemoryPanel vault tree + DnD (Phase 9 remainder)", () => {
+  test("renders the tree from the pure model and keeps the folder rows droppable", () => {
+    expect(source).toMatch(/buildMemoryTree/)
+    expect(source).toMatch(/visibleMemoryRows/)
+    expect(source).toMatch(/data-memory-folder=\{item\.path\}/)
+    expect(source).toMatch(/aria-expanded=\{!collapsed\(\)\.has\(item\.path\)\}/)
+  })
+
+  test("moves a dragged note through the real workspace rename route", () => {
+    expect(source).toMatch(/renameFile\(current\.workspaceId, from, to\)/)
+    expect(source).toMatch(/memoryMovePath\(from, folder\)/)
+    expect(source).toMatch(/draggable="true"/)
+  })
+
+  test("expands a collapsed drop target after the 620 ms hover delay", () => {
+    expect(source).toMatch(/AUTO_EXPAND_DELAY_MS = 620/)
+    expect(source).toMatch(/overFolder\(event, item\.path\)/)
+    expect(source).toMatch(/onDrop=\{\(event\) => void dropOnFolder\(event, item\.path\)\}/)
+  })
+
+  test("labels the vault through the shared i18n dictionary", () => {
+    expect(source).toMatch(/t\("workbench\.memory\.vault\.title"\)/)
+    expect(source).toMatch(/t\("workbench\.memory\.vault\.searchPlaceholder"\)/)
+  })
+})

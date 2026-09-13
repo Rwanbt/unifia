@@ -1,17 +1,38 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { Markdown } from "@unifia/ui/markdown"
+import type { WorkbenchConnection } from "@unifia/workbench-shell"
 import { useSDK } from "@/context/sdk"
+import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
-import { isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryTitle, parseMemoryNote, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryMovePath, memoryTitle, parseMemoryNote, visibleMemoryRows, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
+// The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
+// mirrors that so a deep drop target is reachable without stopping the drag.
+const AUTO_EXPAND_DELAY_MS = 620
+const TREE_INDENT_PX = 18
+const MAX_MEMORY_PAGES = 20
+
+type MemoryFiles = { readonly entries: readonly MemoryFileEntry[]; readonly skipped: number }
+
+async function collectMemoryFiles(current: WorkbenchConnection): Promise<MemoryFiles> {
+  let page = await current.client.listFiles(current.workspaceId, MEMORY_ROOT)
+  const entries: MemoryFileEntry[] = [...page.entries]
+  let pages = 1
+  while (page.nextCursor && pages < MAX_MEMORY_PAGES) {
+    page = await current.client.listFiles(current.workspaceId, MEMORY_ROOT, page.nextCursor)
+    entries.push(...page.entries)
+    pages += 1
+  }
+  return { entries, skipped: page.skipped }
+}
 
 function MemoryPreview(props: { note: MemoryNoteDocument }): JSX.Element {
   return <><h1 class="mt-2 text-20-medium">{props.note.title}</h1><Show when={props.note.tags.length > 0}><div class="mt-3 flex flex-wrap gap-1"><For each={props.note.tags}>{(tag) => <span class="rounded bg-background-base px-2 py-1 text-11-regular">#{tag}</span>}</For></div></Show><Markdown text={props.note.body} class="mt-5 text-13-regular leading-6 text-text-base" /></>
@@ -24,6 +45,8 @@ function MemoryEditor(props: { value: string; onInput: (value: string) => void }
 export function MemoryPanel(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   const sdk = useSDK()
+  const language = useLanguage()
+  const t = language.t
   const connection = workbench.connection
   const [selectedPath, setSelectedPath] = createSignal<string>()
   const [query, setQuery] = createSignal("")
@@ -31,6 +54,11 @@ export function MemoryPanel(): JSX.Element {
   const [contextView, setContextView] = createSignal<"links" | "graph">("links")
   const [draft, setDraft] = createSignal("")
   const [saving, setSaving] = createSignal(false)
+  const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set())
+  const [dragPath, setDragPath] = createSignal<string>()
+  const [dropFolder, setDropFolder] = createSignal<string>()
+  let expandTimer: ReturnType<typeof setTimeout> | undefined
+  let vaultScroll: HTMLDivElement | undefined
   /**
    * Phase 9 (Memory mobile single-pane): the canonical viewport authority
    * decides the layout. On the overlay families the triptych collapses to
@@ -50,14 +78,16 @@ export function MemoryPanel(): JSX.Element {
     return {
       queryKey: workbenchQueryKey(current, "files", { prefix: MEMORY_ROOT }),
       enabled: !!current,
-      queryFn: () => current!.client.listFiles(current!.workspaceId, MEMORY_ROOT),
+      queryFn: () => collectMemoryFiles(current!),
     }
   })
   const files = createQuery(filesQueryOptions)
   const notes = createMemo(() => (files.data?.entries ?? []).filter((entry) => entry.kind === "file" && isMemoryMarkdown(entry.path)).map((entry) => ({ path: entry.path, title: memoryTitle(entry.path) })))
-  const visibleNotes = createMemo(() => {
+  const rows = createMemo(() => buildMemoryTree(files.data?.entries ?? []))
+  const visibleRows = createMemo(() => {
     const term = query().trim().toLocaleLowerCase()
-    return term ? notes().filter((note) => note.title.toLocaleLowerCase().includes(term) || note.path.toLocaleLowerCase().includes(term)) : notes()
+    if (!term) return visibleMemoryRows(rows(), collapsed())
+    return rows().filter((row) => row.kind === "note" && (row.name.toLocaleLowerCase().includes(term) || row.path.toLocaleLowerCase().includes(term)))
   })
   createEffect(() => {
     // Narrow viewports start on the vault list (tap to navigate); only the
@@ -125,16 +155,78 @@ export function MemoryPanel(): JSX.Element {
     try {
       const result = await sdk.client.file.write({ path, content: draft(), expectedHash: current.stamp.hash })
       if (result.response?.status === 409) {
-        showToast({ variant: "error", title: "Memory note changed on disk", description: "Reload the note before saving your edits." })
+        showToast({ variant: "error", title: t("workbench.memory.save.conflict") })
         return
       }
-      if (!result.data) throw new Error("Memory note was not saved")
+      if (!result.data) throw new Error(t("workbench.memory.save.failed"))
       await noteFile.refetch()
-      showToast({ variant: "success", title: "Memory note saved" })
+      showToast({ variant: "success", title: t("workbench.memory.save.saved") })
     } catch (error) {
-      showToast({ variant: "error", title: "Unable to save memory note", description: error instanceof Error ? error.message : String(error) })
+      showToast({ variant: "error", title: t("workbench.memory.save.failed"), description: error instanceof Error ? error.message : String(error) })
     } finally {
       setSaving(false)
+    }
+  }
+
+  function toggleFolder(path: string): void {
+    const next = new Set(collapsed())
+    if (next.has(path)) next.delete(path)
+    else next.add(path)
+    setCollapsed(next)
+  }
+
+  function startDrag(event: DragEvent, path: string): void {
+    if (!connection()) return
+    setDragPath(path)
+    event.dataTransfer?.setData("text/plain", path)
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move"
+  }
+
+  function endDrag(): void {
+    if (expandTimer !== undefined) {
+      clearTimeout(expandTimer)
+      expandTimer = undefined
+    }
+    setDragPath(undefined)
+    setDropFolder(undefined)
+  }
+
+  function overFolder(event: DragEvent, path: string): void {
+    if (!dragPath()) return
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move"
+    if (dropFolder() !== path) setDropFolder(path)
+    if (collapsed().has(path)) {
+      if (expandTimer !== undefined) clearTimeout(expandTimer)
+      expandTimer = setTimeout(() => {
+        expandTimer = undefined
+        const next = new Set(collapsed())
+        next.delete(path)
+        setCollapsed(next)
+      }, AUTO_EXPAND_DELAY_MS)
+    }
+    const scroll = vaultScroll
+    if (scroll) {
+      const rect = scroll.getBoundingClientRect()
+      if (event.clientY < rect.top + 42) scroll.scrollTop -= 14
+      else if (event.clientY > rect.bottom - 42) scroll.scrollTop += 14
+    }
+  }
+
+  async function dropOnFolder(event: DragEvent, folder: string): Promise<void> {
+    event.preventDefault()
+    const from = dragPath()
+    endDrag()
+    const to = from ? memoryMovePath(from, folder) : undefined
+    const current = connection()
+    if (!from || !to || !current) return
+    try {
+      await current.client.renameFile(current.workspaceId, from, to)
+      await files.refetch()
+      if (selectedPath() === from) setSelectedPath(to)
+      showToast({ variant: "success", title: t("workbench.memory.move.moved") })
+    } catch (error) {
+      showToast({ variant: "error", title: t("workbench.memory.move.failed"), description: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -147,12 +239,23 @@ export function MemoryPanel(): JSX.Element {
           : "grid min-h-0 flex-1 grid-cols-[minmax(180px,0.8fr)_minmax(0,1.7fr)_minmax(180px,0.8fr)] gap-3"}
         data-memory-layout={narrow() ? "single" : "triptych"}
       >
-        <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "vault" }} data-memory-vault>
-          <div class="border-b border-border-base p-3"><h2 class="text-14-medium">Vault</h2><input class="mt-2 w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" value={query()} onInput={(event) => setQuery(event.currentTarget.value)} aria-label="Search memory notes" placeholder="Search notes" /></div>
-          <div class="h-[calc(100%-76px)] overflow-y-auto p-2">
-            <Show when={files.error}><p class="text-12-regular text-text-danger">Unable to load the workspace vault.</p></Show>
-            <For each={visibleNotes()}>{(item) => <button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path }} data-memory-note={item.path} title={item.path} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For>
-            <Show when={!!connection() && !files.isLoading && !files.error && notes().length === 0}><p class="p-2 text-12-regular text-text-weak">No Markdown note in {MEMORY_ROOT}.</p></Show>
+        <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "vault" }} data-memory-vault onDragEnd={endDrag}>
+          <div class="border-b border-border-base p-3"><h2 class="text-14-medium">{t("workbench.memory.vault.title")}</h2><input class="mt-2 w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" value={query()} onInput={(event) => setQuery(event.currentTarget.value)} aria-label={t("workbench.memory.vault.searchLabel")} placeholder={t("workbench.memory.vault.searchPlaceholder")} /></div>
+          <div ref={(element) => { vaultScroll = element }} class="h-[calc(100%-76px)] overflow-y-auto p-2">
+            <Show when={files.error}><p class="text-12-regular text-text-danger">{t("workbench.memory.vault.loadError")}</p></Show>
+            <For each={visibleRows()}>{(item) => <Switch>
+              <Match when={item.kind === "folder"}>
+                <button type="button" class="mb-1 flex w-full items-center gap-1 rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base ring-1 ring-accent-base": dropFolder() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX}px` }} data-memory-folder={item.path} aria-expanded={!collapsed().has(item.path)} aria-label={t(collapsed().has(item.path) ? "workbench.memory.tree.expand" : "workbench.memory.tree.collapse", { name: item.name })} onClick={() => toggleFolder(item.path)} onDragOver={(event) => overFolder(event, item.path)} onDragLeave={() => { if (dropFolder() === item.path) setDropFolder(undefined) }} onDrop={(event) => void dropOnFolder(event, item.path)}>
+                  <span class="w-3 shrink-0 text-text-weak" aria-hidden="true">{collapsed().has(item.path) ? "▸" : "⌄"}</span>
+                  <span class="min-w-0 flex-1 truncate">{item.name}</span>
+                  <Show when={item.count > 0}><span class="text-11-regular text-text-weak">{item.count}</span></Show>
+                </button>
+              </Match>
+              <Match when={item.kind === "note"}>
+                <button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path, "opacity-50": dragPath() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" data-memory-note={item.path} title={item.path} onDragStart={(event) => startDrag(event, item.path)} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}><span class="mr-1 text-text-weak" aria-hidden="true">◈</span>{item.name}</button>
+              </Match>
+            </Switch>}</For>
+            <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p class="p-2 text-12-regular text-text-weak">{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
           </div>
         </aside>
         <article class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "note" }} data-memory-note-pane>
