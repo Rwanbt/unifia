@@ -256,6 +256,27 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.library.empty",
   "workbench.automate.library.footerHint",
   "workbench.automate.library.addEntry",
+  // 2026-09-13: Automate studio run bar (Phase 8 slice 6). State
+  // chip labels (idle / waiting / running / cancelled / failed),
+  // action button labels (Validate + Start + Allow/Deny/Cancel),
+  // dismiss button, and validate-result messages. Same rationale
+  // as the canvas + inspector + library keys in slices 1-5.
+  "workbench.automate.runBar.state.idle",
+  "workbench.automate.runBar.state.waitingApproval",
+  "workbench.automate.runBar.state.running",
+  "workbench.automate.runBar.state.cancelled",
+  "workbench.automate.runBar.state.failed",
+  "workbench.automate.runBar.stateLabel",
+  "workbench.automate.runBar.action.validate",
+  "workbench.automate.runBar.action.start",
+  "workbench.automate.runBar.action.allow",
+  "workbench.automate.runBar.action.deny",
+  "workbench.automate.runBar.action.cancel",
+  "workbench.automate.runBar.dismiss",
+  "workbench.automate.runBar.dismissError",
+  "workbench.automate.runBar.validateOk",
+  "workbench.automate.runBar.validateFailed",
+  "workbench.automate.runBar.validateEmpty",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
