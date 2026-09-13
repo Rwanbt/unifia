@@ -225,6 +225,13 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.inspector.positionValue",
   "workbench.automate.inspector.approvalYes",
   "workbench.automate.inspector.approvalNo",
+  // 2026-09-13: Automate studio inspector Coordinates section
+  // (Phase 8 slice 3, drag-to-move). Section title + templated figure
+  // "x {{x}}, y {{y}}" + drag status marker "(dragged)" — same
+  // rationale as the canvas control labels.
+  "workbench.automate.inspector.field.coordinates",
+  "workbench.automate.inspector.coordinatesValue",
+  "workbench.automate.inspector.coordinatesOverridden",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
