@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests shipped (15 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix shipped (18 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `044ad07ef1 test(session): unit tests for buildRevertDockProps + buildFollowupDockProps`
+> **HEAD** : `11a3278a75 test(v110): scope the "!important" guard to non-mobile-side-panel selectors`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -121,4 +121,4 @@ The infrastructure is ready:
 
 ---
 
-*Last updated 2026-09-13 04:05 Europe/Paris by Mavis root session after factory tests commit. Next checkpoint when Phase 8 begins.*
+*Last updated 2026-09-13 04:10 Europe/Paris by Mavis root session after v110.test.ts guard fix + lint warning cleanup. Next checkpoint when Phase 8 begins.*
