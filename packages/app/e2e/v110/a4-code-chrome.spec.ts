@@ -57,5 +57,18 @@ test("code chrome markers: file tab bar, editor content, terminal panel", async 
 
   // Always mounted (height:0 + aria-hidden when closed), not conditionally
   // rendered — attached is the correct assertion, not visible.
-  await expect(page.locator('[data-v110="code-terminal"]')).toBeAttached()
+  // Phase 5.3: the panel carries the canonical v110 marker (`terminal-panel`,
+  // per PORTING.md) and the v110.css rule really wins the cascade.
+  const terminal = page.locator('[data-v110="terminal-panel"]')
+  await expect(terminal).toBeAttached()
+  const border = await page.evaluate(() => {
+    const el = document.querySelector('[data-v110="terminal-panel"]')
+    const probe = document.createElement("div")
+    probe.style.color = "var(--border-base)"
+    document.body.appendChild(probe)
+    const expected = getComputedStyle(probe).color
+    probe.remove()
+    return { actual: el ? getComputedStyle(el).borderTopColor : "", expected }
+  })
+  expect(border.actual).toBe(border.expected)
 })
