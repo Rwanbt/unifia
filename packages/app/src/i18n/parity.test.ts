@@ -232,6 +232,17 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.inspector.field.coordinates",
   "workbench.automate.inspector.coordinatesValue",
   "workbench.automate.inspector.coordinatesOverridden",
+  // 2026-09-13: Automate studio port connectors (Phase 8 slice 4).
+  // Port aria-labels + inspector Edges section labels. Same rationale
+  // as the canvas + inspector control labels in slices 1-3: short
+  // UI labels + section titles + templated figure captions where
+  // English is the canonical UI surface.
+  "workbench.automate.canvas.portInput",
+  "workbench.automate.canvas.portOutput",
+  "workbench.automate.inspector.field.edges",
+  "workbench.automate.inspector.edgesOutgoingLabel",
+  "workbench.automate.inspector.edgesIncomingLabel",
+  "workbench.automate.inspector.userEdgeCount",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
