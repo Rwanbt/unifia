@@ -218,6 +218,25 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.breadcrumb.label",
   "workbench.automate.breadcrumb.workspace",
   "workbench.automate.breadcrumb.automate",
+  // 2026-09-13: Automate studio environment (Phase 9.1). Drawer
+  // title, workspace label template, capabilities section header,
+  // inactive-capabilities subtitle, approvals / recent-runs headers
+  // and empty-state strings, cancel button, close button, and the
+  // "Environment" button on the run bar that opens the drawer.
+  // Same rationale as the canvas + inspector + library + run bar
+  // + minimap + breadcrumb keys in slices 1-9.
+  "workbench.automate.environment.title",
+  "workbench.automate.environment.workspaceLabel",
+  "workbench.automate.environment.capabilities",
+  "workbench.automate.environment.capabilitiesInactive",
+  "workbench.automate.environment.approvals",
+  "workbench.automate.environment.approvalsEmpty",
+  "workbench.automate.environment.recentRuns",
+  "workbench.automate.environment.runsEmpty",
+  "workbench.automate.environment.cancel",
+  "workbench.automate.environment.drawerTitle",
+  "workbench.automate.environment.close",
+  "workbench.automate.runBar.action.showEnvironment",
   // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
   // rationale as the canvas control labels above — short UI labels
   // ("Inspector", "Close", "Approval"), section titles, and a

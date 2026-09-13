@@ -13,6 +13,7 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
 import { buildCanonicalFromState, serializeCanonical } from "./automate-migrate-legacy"
+import { AutomateStudioEnvironment } from "./automate-studio-environment"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES } from "./automate-studio-library"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
 import { AutomateStudioStepList } from "./automate-studio-step-list"
@@ -47,6 +48,11 @@ export function AutomateSurface(): JSX.Element {
     return { queryKey: workbenchQueryKey(current, "workflow-runs"), enabled: !!current, queryFn: () => current!.client.listWorkflows() }
   })
   const workflowRuns = createQuery(workflowRunsQueryOptions)
+  const approvalsQueryOptions = createMemo(() => {
+    const current = connection()
+    return { queryKey: workbenchQueryKey(current, "approvals"), enabled: !!current, queryFn: () => current!.client.listApprovals(current!.workspaceId) }
+  })
+  const approvals = createQuery(approvalsQueryOptions)
   const [selectedDefinition, setSelectedDefinition] = createSignal<string>()
   const [workflowState, setWorkflowState] = createSignal<string>()
   const [workflowError, setWorkflowError] = createSignal<string>()
@@ -69,6 +75,14 @@ export function AutomateSurface(): JSX.Element {
   const [savedAt, setSavedAt] = createSignal<Date | undefined>()
   /** Slice 7: parallel-write safety — disables the Save button while a save is in flight. */
   const [savePending, setSavePending] = createSignal(false)
+  /** Phase 9.1: Environment pane visibility (slide-out). */
+  const [showEnvironment, setShowEnvironment] = createSignal(false)
+  createEffect(() => {
+    if (!showEnvironment()) return
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setShowEnvironment(false) }
+    document.addEventListener("keydown", onKey)
+    onCleanup(() => document.removeEventListener("keydown", onKey))
+  })
   const draftStore = createIndexedDbWorkflowDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
@@ -418,6 +432,7 @@ export function AutomateSurface(): JSX.Element {
                 }}
                 savedAt={savedAt()}
                 savePending={savePending()}
+                onShowEnvironment={() => setShowEnvironment(true)}
               />
             </div>
           </div>
@@ -432,6 +447,44 @@ export function AutomateSurface(): JSX.Element {
           <ul class="mt-3 space-y-2"><For each={workflowRuns.data?.workflows ?? []}>{(run) => <li class="flex items-center justify-between gap-3 rounded border border-border-weaker-base bg-background-base px-3 py-2 text-12-regular"><span class="min-w-0 truncate">{run.definitionId}</span><span class="shrink-0 text-text-weak">{run.status}</span></li>}</For></ul>
         </section>
       </div>
+      <Show when={showEnvironment()}>
+        <div
+          class="fixed inset-0 z-20 flex justify-end bg-background-base/60"
+          data-automate-studio-environment-overlay
+        >
+          <div class="h-full w-full max-w-sm overflow-auto border-l border-border-base bg-background-stronger p-4 shadow-xl">
+            <div class="mb-3 flex items-center justify-between">
+              <h2 class="text-14-medium">{t("workbench.automate.environment.drawerTitle")}</h2>
+              <button
+                type="button"
+                class="rounded border border-border-base bg-background-base px-2 py-0.5 text-11-regular hover:bg-background-stronger"
+                onClick={() => setShowEnvironment(false)}
+                aria-label={t("workbench.automate.environment.close")}
+                data-automate-studio-environment-close
+              >
+                {t("workbench.automate.environment.close")}
+              </button>
+            </div>
+            <div class="h-[calc(100%-3rem)]">
+              <AutomateStudioEnvironment
+                workspaceId={connection()?.workspaceId ?? ""}
+                grants={workbench.grants()}
+                approvals={approvals.data?.approvals ?? []}
+                runs={(workflowRuns.data?.workflows ?? []).map((run) => ({
+                  id: run.workflowId,
+                  definitionId: run.definitionId,
+                  status: run.status,
+                }))}
+                onCancelRun={(runId) => {
+                  const current = connection()
+                  if (!current) return
+                  void current.client.updateWorkflow(runId, "cancel").then(() => workflowRuns.refetch()).catch(() => undefined)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </Show>
     </section>
   )
 }

@@ -58,6 +58,8 @@ export type AutomateStudioRunBarProps = {
   readonly savedAt?: Date
   /** Slice 7: disable Save while a save is in flight (parallel-write safety). */
   readonly savePending?: boolean
+  /** Phase 9.1: callback to open the Environment pane. */
+  readonly onShowEnvironment?: () => void
 }
 
 export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Element {
@@ -125,6 +127,16 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         >
           {props.savePending === true ? t("workbench.automate.runBar.action.saving") : t("workbench.automate.runBar.action.save")}
         </button>
+        <Show when={props.onShowEnvironment}>
+          <button
+            type="button"
+            class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:bg-background-stronger"
+            onClick={() => props.onShowEnvironment?.()}
+            data-automate-studio-run-bar-action="show-environment"
+          >
+            {t("workbench.automate.runBar.action.showEnvironment")}
+          </button>
+        </Show>
         <Show when={props.savedAt}>
           <span class="text-11-regular text-text-weak" data-automate-studio-run-bar-saved-at>
             {t("workbench.automate.runBar.savedAt", { time: formatSavedAt(props.savedAt!) })}
