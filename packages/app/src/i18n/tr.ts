@@ -623,6 +623,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "Düzenleme araç bileşenlerini genişlet",
   "settings.general.row.editToolPartsExpanded.description":
     "Zaman çizelgesinde düzenleme, yazma ve yama araç bileşenlerini varsayılan olarak genişletilmiş göster",
+  "settings.general.row.uiAnimations.title": "Animasyonlar",
+  "settings.general.row.uiAnimations.description": "Mod geçişlerini, panelleri ve gezinme öğelerini canlandırır. Varsayılan olarak açık.",
   "settings.general.row.wayland.title": "Yerel Wayland kullan",
   "settings.general.row.wayland.description":
     "Wayland'da X11 geri dönüşünü devre dışı bırak. Yeniden başlatma gerektirir.",

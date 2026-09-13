@@ -685,6 +685,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "Proširi dijelove alata za uređivanje",
   "settings.general.row.editToolPartsExpanded.description":
     "Prikaži dijelove alata za uređivanje, pisanje i patch podrazumijevano proširene na vremenskoj traci",
+  "settings.general.row.uiAnimations.title": "Animacije",
+  "settings.general.row.uiAnimations.description": "Animira promjene načina rada, panele i elemente navigacije. Omogućeno po defaultu.",
   "settings.general.row.wayland.title": "Koristi nativni Wayland",
   "settings.general.row.wayland.description": "Onemogući X11 fallback na Waylandu. Zahtijeva restart.",
   "settings.general.row.wayland.tooltip":

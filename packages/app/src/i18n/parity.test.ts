@@ -324,6 +324,10 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.runBar.action.saving",
   "workbench.automate.runBar.savedAt",
   "workbench.automate.runBar.saveMigratedWarning",
+  // 2026-09-13: General > Animations (v110 Motion contract). "Animations"
+  // is the same word in French; the description sentence is translated in
+  // every locale, so the title is a true cognate, not a missing translation.
+  "settings.general.row.uiAnimations.title",
 ])
 
 // Recursively collect every language.t("literal.key") call from the

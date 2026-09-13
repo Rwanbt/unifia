@@ -317,6 +317,18 @@ export const SettingsGeneral: Component = () => {
             />
           </div>
         </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.uiAnimations.title")}
+          description={language.t("settings.general.row.uiAnimations.description")}
+        >
+          <div data-action="settings-general-ui-animations">
+            <Switch
+              checked={settings.general.uiAnimations()}
+              onChange={(checked) => settings.general.setUiAnimations(checked)}
+            />
+          </div>
+        </SettingsRow>
       </SettingsList>
     </div>
   )

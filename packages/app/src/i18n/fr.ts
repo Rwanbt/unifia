@@ -645,6 +645,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "Développer les parties de l'outil edit",
   "settings.general.row.editToolPartsExpanded.description":
     "Afficher les parties des outils edit, write et patch développées par défaut dans la chronologie",
+  "settings.general.row.uiAnimations.title": "Animations",
+  "settings.general.row.uiAnimations.description": "Anime les changements de mode, les panneaux et les éléments de navigation. Activé par défaut.",
   "settings.general.row.wayland.title": "Utiliser Wayland natif",
   "settings.general.row.wayland.description": "Désactiver le repli X11 sur Wayland. Nécessite un redémarrage.",
   "settings.general.row.wayland.tooltip":

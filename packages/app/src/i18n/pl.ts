@@ -618,6 +618,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "Rozwijaj elementy narzędzia edit",
   "settings.general.row.editToolPartsExpanded.description":
     "Domyślnie pokazuj rozwinięte elementy narzędzi edit, write i patch na osi czasu",
+  "settings.general.row.uiAnimations.title": "Animacje",
+  "settings.general.row.uiAnimations.description": "Animuje przełączanie trybów, panele i elementy nawigacji. Domyślnie włączone.",
   "settings.general.row.wayland.title": "Użyj natywnego Wayland",
   "settings.general.row.wayland.description": "Wyłącz fallback X11 na Wayland. Wymaga restartu.",
   "settings.general.row.wayland.tooltip":

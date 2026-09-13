@@ -617,6 +617,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "edit ツールパーツを展開",
   "settings.general.row.editToolPartsExpanded.description":
     "タイムラインで edit、write、patch ツールパーツをデフォルトで展開して表示します",
+  "settings.general.row.uiAnimations.title": "アニメーション",
+  "settings.general.row.uiAnimations.description": "モード切替、パネル、ナビゲーション要素をアニメーション化します。既定で有効です。",
   "settings.general.row.wayland.title": "ネイティブWaylandを使用",
   "settings.general.row.wayland.description": "WaylandでのX11フォールバックを無効にします。再起動が必要です。",
   "settings.general.row.wayland.tooltip":

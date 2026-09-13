@@ -612,6 +612,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "توسيع أجزاء أداة edit",
   "settings.general.row.editToolPartsExpanded.description":
     "إظهار أجزاء أدوات edit و write و patch موسعة بشكل افتراضي في الشريط الزمني",
+  "settings.general.row.uiAnimations.title": "الرسوم المتحركة",
+  "settings.general.row.uiAnimations.description": "يحرّك تبديل الأوضاع واللوحات وعناصر التنقل. مفعّل افتراضيًا.",
   "settings.general.row.wayland.title": "استخدام Wayland الأصلي",
   "settings.general.row.wayland.description": "تعطيل التراجع إلى X11 على Wayland. يتطلب إعادة التشغيل.",
   "settings.general.row.wayland.tooltip":

@@ -631,6 +631,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "Edit-Tool-Abschnitte ausklappen",
   "settings.general.row.editToolPartsExpanded.description":
     "Edit-, Write- und Patch-Tool-Abschnitte standardmäßig in der Timeline ausgeklappt anzeigen",
+  "settings.general.row.uiAnimations.title": "Animationen",
+  "settings.general.row.uiAnimations.description": "Animiert Moduswechsel, Panels und Navigationselemente. Standardmäßig aktiviert.",
   "settings.general.row.wayland.title": "Natives Wayland verwenden",
   "settings.general.row.wayland.description": "X11-Fallback unter Wayland deaktivieren. Erfordert Neustart.",
   "settings.general.row.wayland.tooltip":

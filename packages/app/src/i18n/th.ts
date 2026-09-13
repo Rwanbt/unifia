@@ -677,6 +677,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "ขยายส่วนเครื่องมือ edit",
   "settings.general.row.editToolPartsExpanded.description":
     "แสดงส่วนเครื่องมือ edit, write และ patch แบบขยายตามค่าเริ่มต้นในไทม์ไลน์",
+  "settings.general.row.uiAnimations.title": "แอนิเมชัน",
+  "settings.general.row.uiAnimations.description": "เพิ่มแอนิเมชันให้การสลับโหมด แผง และองค์ประกอบนำทาง เปิดใช้ตามค่าเริ่มต้น",
   "settings.general.row.wayland.title": "ใช้ Wayland แบบเนทีฟ",
   "settings.general.row.wayland.description": "ปิดใช้งาน X11 fallback บน Wayland ต้องรีสตาร์ท",
   "settings.general.row.wayland.tooltip": "บน Linux ที่มีจอภาพรีเฟรชเรตแบบผสม Wayland แบบเนทีฟอาจเสถียรกว่า",

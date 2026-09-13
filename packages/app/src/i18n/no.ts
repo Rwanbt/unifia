@@ -618,6 +618,8 @@ export const dict = {
   "settings.general.row.editToolPartsExpanded.title": "Utvid edit-verktøydeler",
   "settings.general.row.editToolPartsExpanded.description":
     "Vis edit-, write- og patch-verktøydeler utvidet som standard i tidslinjen",
+  "settings.general.row.uiAnimations.title": "Animasjoner",
+  "settings.general.row.uiAnimations.description": "Animerer modusbytter, paneler og navigasjonselementer. Aktivert som standard.",
   "settings.general.row.wayland.title": "Bruk innebygd Wayland",
   "settings.general.row.wayland.description": "Deaktiver X11-fallback på Wayland. Krever omstart.",
   "settings.general.row.wayland.tooltip":
