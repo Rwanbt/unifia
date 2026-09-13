@@ -45,6 +45,7 @@ import { createOpenReviewFile, createSessionTabs, createSizing } from "@/pages/s
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
+import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
@@ -902,15 +903,10 @@ export default function Page() {
     <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
       <SessionHeader />
       <Show when={artifactDocument() || artifactError()}>
-        <section class="mx-4 mt-2 max-h-72 overflow-auto rounded-lg border border-border-base bg-background-stronger p-3" data-code-artifact-viewer>
-          <div class="flex items-center justify-between gap-3 text-12-medium">
-            <span>{artifactDocument()?.filename ?? "Artifact"}</span>
-            <span class="text-text-weak">Workbench artifact · read-only</span>
-          </div>
-          <Show when={artifactError()} fallback={<pre class="mt-3 whitespace-pre-wrap font-mono text-12-regular text-text-weak">{artifactDocument()?.content}</pre>}>
-            <p class="mt-3 text-12-regular text-text-danger">{artifactError()}</p>
-          </Show>
-        </section>
+        <SessionArtifactViewerSection
+          artifactDocument={artifactDocument}
+          artifactError={artifactError}
+        />
       </Show>
       <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
         <div data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col shell:flex-row">
