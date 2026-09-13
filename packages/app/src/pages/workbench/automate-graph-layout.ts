@@ -198,6 +198,36 @@ export const PORT_HIT_RADIUS = 12
 export const PORT_RADIUS = 6
 
 /**
+ * Slice 8.9: zoom-to-fit math. Given the laid-out graph's bounding
+ * box and the canvas viewport size (in CSS pixels), compute the
+ * pan + zoom that centres the graph and fits it with a small
+ * margin. Pure function — easy to unit-test in plain Node.
+ *
+ * `viewportPadding` defaults to 24 CSS pixels (matches the canvas
+ * wrapper padding). Caller clamps the returned zoom to the
+ * existing MIN_ZOOM / MAX_ZOOM range if it has to remain
+ * user-zoomable.
+ */
+export function computeZoomToFit(
+  graph: LaidOutGraph,
+  viewportWidth: number,
+  viewportHeight: number,
+  viewportPadding = 24,
+): { readonly panX: number; readonly panY: number; readonly zoom: number } {
+  if (graph.nodes.length === 0) return { panX: 0, panY: 0, zoom: 1 }
+  const innerWidth = Math.max(0, viewportWidth - viewportPadding * 2)
+  const innerHeight = Math.max(0, viewportHeight - viewportPadding * 2)
+  if (innerWidth === 0 || innerHeight === 0) return { panX: 0, panY: 0, zoom: 1 }
+  const zoom = Math.min(innerWidth / graph.width, innerHeight / graph.height)
+  const renderedWidth = graph.width * zoom
+  const renderedHeight = graph.height * zoom
+  // Centre the rendered graph in the viewport.
+  const panX = (viewportWidth - renderedWidth) / 2
+  const panY = (viewportHeight - renderedHeight) / 2
+  return { panX, panY, zoom }
+}
+
+/**
  * Compute deterministic positions and edges for a sequential step list.
  *
  * Algorithm: one column per step, stacked top-to-bottom (so a long

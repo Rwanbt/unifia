@@ -238,7 +238,13 @@ export function AutomateSurface(): JSX.Element {
                 return (
                   <div class="mt-3 rounded border border-border-weaker-base bg-background-base p-3" data-automate-definition-preview={parsed.kind}>
                     <Show when={parsed.kind === "ok"} fallback={<p class="text-12-regular text-text-danger">{t("workbench.automate.invalidDefinition")}</p>}>
-                      <p class="text-12-medium">{parsed.kind === "ok" ? parsed.definition.id : ""}</p>
+                      <nav class="flex items-baseline gap-1 text-12-regular" data-automate-studio-breadcrumb aria-label={t("workbench.automate.breadcrumb.label")}>
+                        <span class="text-text-weak">{t("workbench.automate.breadcrumb.workspace")}</span>
+                        <span class="text-text-weak" aria-hidden="true">›</span>
+                        <span class="text-text-weak">{t("workbench.automate.breadcrumb.automate")}</span>
+                        <span class="text-text-weak" aria-hidden="true">›</span>
+                        <span class="font-mono text-12-medium text-text-strong">{parsed.kind === "ok" ? parsed.definition.id : ""}</span>
+                      </nav>
                       <p class="text-12-regular text-text-weak">v{parsed.kind === "ok" ? parsed.definition.version : ""} · {parsed.kind === "ok" ? parsed.definition.steps.length : 0} steps</p>
                       <Show when={parsed.kind === "ok" && parsed.definition.steps.length > 0}>
                         {(() => {

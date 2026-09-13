@@ -74,6 +74,19 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
     expect(source).toMatch(/readonly\s+onPositionsChange\?:\s*\(positions:\s*Record<string,\s*NodePositionOverride>\)\s*=>\s*void/)
   })
 
+  test("renders a zoom-to-fit button that calls computeZoomToFit (slice 9)", () => {
+    // Anti-regression: a future refactor that drops the zoom-to-fit
+    // wiring would leave the user with no way to recover when they
+    // pan off-canvas and lose the graph.
+    expect(source).toMatch(/function\s+onZoomToFit/)
+    expect(source).toMatch(/aria-label=\{t\("workbench\.automate\.canvas\.zoomToFit"\)\}/)
+  })
+
+  test("embeds the minimap at the bottom-right corner (slice 9)", () => {
+    expect(source).toMatch(/data-automate-studio-minimap-wrapper/)
+    expect(source).toMatch(/AutomateStudioMinimap\s+/)
+  })
+
   test("wires drag-to-move via NodeRect onPointerDown", () => {
     // Each node group must start a drag on pointerdown so the canvas
     // can track the cursor and emit position updates. The handler is

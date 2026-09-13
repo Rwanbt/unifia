@@ -39,6 +39,7 @@ import {
   PORT_HIT_RADIUS,
   PORT_RADIUS,
   closestInputPortDistance,
+  computeZoomToFit,
   hasEdge,
   layoutWorkflowSteps,
   mergeEndpoints,
@@ -49,6 +50,7 @@ import {
   type UserEdge,
 } from "./automate-graph-layout"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
+import { AutomateStudioMinimap } from "./automate-studio-minimap"
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2
@@ -275,6 +277,20 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
     setPanY(0)
     setZoom(1)
   }
+  function onZoomToFit(): void {
+    // Slice 8.9: compute the pan + zoom that fits the entire
+    // graph (including any drag-overridden positions) inside the
+    // canvas viewport. We use the live CSS pixel size of the
+    // SVG so the math adapts to the actual rendered pane, not
+    // the configured `width` / `height` props.
+    const svg = svgRef
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const fit = computeZoomToFit(graph(), rect.width || props.width, rect.height || props.height)
+    setPanX(fit.panX)
+    setPanY(fit.panY)
+    setZoom(clampZoom(fit.zoom))
+  }
 
   const approvalCount = createMemo(() => props.steps.filter((step) => step.requiresApproval).length)
   const summary = createMemo(() => {
@@ -306,6 +322,14 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
           onClick={onZoomIn}
         >
           +
+        </button>
+        <button
+          type="button"
+          class="rounded px-2 py-1 hover:bg-background-stronger"
+          aria-label={t("workbench.automate.canvas.zoomToFit")}
+          onClick={onZoomToFit}
+        >
+          {t("workbench.automate.canvas.zoomToFit")}
         </button>
         <button
           type="button"
@@ -424,6 +448,23 @@ export function AutomateStudioCanvas(props: AutomateStudioCanvasProps): JSX.Elem
           <p class="text-12-regular text-text-weak">{t("workbench.automate.canvas.empty")}</p>
         </div>
       </Show>
+      <div
+        class="absolute bottom-2 right-2 z-10 h-28 w-40 rounded border border-border-base bg-background-base p-1 shadow-sm"
+        data-automate-studio-minimap-wrapper
+      >
+        <AutomateStudioMinimap
+          graph={graph()}
+          viewportWidth={props.width}
+          viewportHeight={props.height}
+          viewport={{ panX: panX(), panY: panY(), zoom: zoom() }}
+          positions={overrides()}
+          onJumpTo={(jPanX, jPanY, jZoom) => {
+            setPanX(jPanX)
+            setPanY(jPanY)
+            setZoom(clampZoom(jZoom))
+          }}
+        />
+      </div>
       <ol class="sr-only" aria-label={t("workbench.automate.canvas.stepsLabel")}>
         <For each={props.steps}>
           {(step) => (

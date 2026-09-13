@@ -10,6 +10,7 @@ import {
   PORT_HIT_RADIUS,
   PORT_RADIUS,
   closestInputPortDistance,
+  computeZoomToFit,
   hasEdge,
   layoutWorkflowSteps,
   mergeEndpoints,
@@ -176,6 +177,43 @@ describe("layoutWorkflowSteps with extraNodes (slice 5)", () => {
     expect(graph.nodes).toHaveLength(2)
     expect(graph.edges).toHaveLength(1)
     expect(graph.edges[0]).toMatchObject({ from: "only-lib", to: "second" })
+  })
+})
+
+describe("computeZoomToFit (slice 8.9)", () => {
+  test("returns identity pan/zoom for an empty graph", () => {
+    const graph = layoutWorkflowSteps([])
+    const fit = computeZoomToFit(graph, 640, 448)
+    expect(fit).toEqual({ panX: 0, panY: 0, zoom: 1 })
+  })
+
+  test("fits the graph inside the viewport with the default padding", () => {
+    const graph = layoutWorkflowSteps([step("a", "x"), step("b", "y"), step("c", "z")])
+    const fit = computeZoomToFit(graph, 640, 448)
+    // The graph fits comfortably inside the 640×448 viewport, so the
+    // helper zooms UP (>1) and centres the result with positive pan.
+    expect(fit.zoom).toBeGreaterThan(1)
+    expect(fit.panX).toBeGreaterThan(0)
+    expect(fit.panY).toBeGreaterThan(0)
+    // Centred: panX = (viewportWidth - graph.width * zoom) / 2.
+    expect(fit.panX).toBeCloseTo((640 - graph.width * fit.zoom) / 2, 5)
+    expect(fit.panY).toBeCloseTo((448 - graph.height * fit.zoom) / 2, 5)
+  })
+
+  test("respects a custom padding", () => {
+    const graph = layoutWorkflowSteps([step("only", "x")])
+    const fit = computeZoomToFit(graph, 400, 200, 100)
+    // inner: 200 x 0 → returns identity (degenerate viewport)
+    expect(fit).toEqual({ panX: 0, panY: 0, zoom: 1 })
+  })
+
+  test("zooms out (zoom < 1) when the graph is larger than the viewport", () => {
+    // Force a long graph so it exceeds the viewport width.
+    const steps: WorkflowStepSummary[] = []
+    for (let index = 0; index < 20; index += 1) steps.push(step(`s${index}`, "label"))
+    const graph = layoutWorkflowSteps(steps)
+    const fit = computeZoomToFit(graph, 320, 480)
+    expect(fit.zoom).toBeLessThan(1)
   })
 })
 
