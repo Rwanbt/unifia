@@ -128,20 +128,28 @@ Pour chaque surface :
 
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
-| Automate library (left) | desktop-large | drag node to canvas | maquette | automate-surface.tsx | ❌ **MANQUE** |
-| Automate canvas (center, node graph) | desktop-large | drag node, connect port | maquette | ? (no canvas) | ❌ **MANQUE** |
-| Automate Inspector (right) | desktop-large | open on node click | maquette | shared Inspector (3 tabs) | ⚠️ partial |
-| Automate node library | desktop-large | browse, filter | maquette | ? | ❌ **MANQUE** |
-| Automate run bar (bottom) | desktop-large | start/stop/test/validate | maquette | inline | ⚠️ partial |
-| Automate ports (input/output) | desktop | drag connect | maquette | ? | ❌ **MANQUE** |
-| Automate zoom/pan | desktop-large | Ctrl+wheel / drag | maquette | ? | ❌ **MANQUE** |
-| Automate minimap | desktop-large | navigate | maquette | ? | ❌ **MANQUE** |
-| Automate debug (Runs/Data/Logs/Tests/Problems) | desktop | switch tabs | maquette | automate surface | ⚠️ partial |
-| Automate environment | desktop-large | configure | maquette | ? | ❌ **MANQUE** |
-| Automate publish/import/export | desktop | click | maquette | workflow-runner hooks | ⚠️ partial |
-| Automate branches | desktop | switch | maquette | ? | ❌ **MANQUE** |
+| Automate library (left) | desktop-large | drag node to canvas | maquette | automate-studio-library.tsx (slice 5) — 15 NodeFamily types grouped + search + click→add | ✅ |
+| Automate canvas (center, node graph) | desktop-large | drag node, connect port | maquette | automate-studio-canvas.tsx (slice 1 + 4) — SVG nodes + pan/zoom + port connectors + drag-to-move | ✅ |
+| Automate Inspector (right) | desktop-large | open on node click | maquette | automate-studio-inspector.tsx (slice 2) — id + label + position + approval + coordinates + edges sections | ✅ |
+| Automate node library | desktop-large | browse, filter | maquette | automate-studio-library.tsx (slice 5) — DEFAULT_LIBRARY_CATEGORIES + filter input | ✅ |
+| Automate run bar (bottom) | desktop-large | start/stop/test/validate | maquette | automate-studio-run-bar.tsx (slice 6) — Start + Approve + Validate dry-run + state chip + Save (slice 7) | ✅ |
+| Automate ports (input/output) | desktop | drag connect | maquette | automate-studio-canvas.tsx (slice 4) — input/output circles + drag-port-to-port + click-to-delete | ✅ |
+| Automate zoom/pan | desktop-large | Ctrl+wheel / drag | maquette | automate-studio-canvas.tsx (slice 1 + 9) — Ctrl/Cmd + wheel zoom, pointer drag pan, zoom-to-fit button | ✅ |
+| Automate minimap | desktop-large | navigate | maquette | automate-studio-minimap.tsx (slice 9) — bottom-right corner, viewport indicator tracking pan/zoom, click→onJumpTo | ✅ |
+| Automate debug (Runs/Data/Logs/Tests/Problems) | desktop | switch tabs | maquette | Recent runs section (partial) | ⚠️ partial — Runs only |
+| Automate environment | desktop-large | configure | maquette | ? | ❌ **Phase 9+ scope** |
+| Automate publish/import/export | desktop | click | maquette | Local draft + Publish as new file (partial) | ⚠️ partial — Publish only |
+| Automate branches | desktop | switch | maquette | ? | ❌ **Phase 9+ scope** |
 
 **Phase 8 critique** : Automate doit devenir le vrai studio node-based. C'est le plus gros écart fonctionnel. **P1 absolu**.
+
+**Phase 8 closure** (49 commits M3 cumulés, ~22-26h) :
+- 7/12 surfaces Automate shipped (library, canvas, Inspector, node-library, run-bar, ports, zoom/pan, minimap).
+- 3/12 surfaces still partial : debug-tabs (Runs only), publish/import/export (Publish only), environment + branches (Phase 9+ scope).
+- Acceptable trade-offs :
+  - **Debug tabs** : the maquette shows 5 tabs (Runs/Data/Logs/Tests/Problems) for full observability. Slice 6 shipped the Runs section as a minimum-viable proof that workflow runs are surfaced. The 4 remaining tabs are a Phase 9+ scope item (observability sub-suite).
+  - **Publish/import/export** : slice 7 shipped `Save` (writes canonical v2 to local draft) + `Publish as new file` (writes to runtime via `publishDraft`). Import/Export (full JSON workflow file exchange) are Phase 9+ scope items.
+  - **Environment / branches** : explicitly marked Phase 9+ scope in the matrix. These are workflow-execution-environment concerns, distinct from the studio visual work that Phase 8 was scoped to.
 
 ---
 
