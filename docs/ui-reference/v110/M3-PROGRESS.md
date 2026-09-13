@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `85f6ed05bf fix(shell): closed mobile drawer must not intercept clicks (#91)` + CI e2e wedge #71 fixed
+> **HEAD** : `b474fe7463 feat(memory): vault folder tree + drag-and-drop notes onto folders` (after `0290fdadf2` conformance SPDX fix)
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -71,6 +71,8 @@ source of truth future agents can read without vault access.
 | fix | **#79 root cause** — `\\?\` prefix de `realpathSync.native` sur runner Windows rejetait chaque écriture vault ; strip + tests containment | `5eb46e56d7` | LIVREE |
 | fix | **#71 e2e wedge** — `panels()` mesuré via `evaluate`+`getBoundingClientRect` (boundingBox wedgait le renderer) ; console 503 filtrée seulement si tout vient de `/model-intelligence/` | `a019b4ef77` | LIVREE |
 | fix | **#91 compact-landscape** — drawer mobile fermé = `invisible pointer-events-none` (left:62px décalait le sliver de 62px au z-50) ; a3-responsive 2/2 toutes familles | `85f6ed05bf` | LIVREE |
+| fix | **conformance SPDX** — `workflow-draft.test.ts` sans header SPDX = seul rouge new-ui ; scan local 363/363 fichiers couverts | `0290fdadf2` | LIVREE |
+| **9.3** | **Phase 9 slice 3 — Memory vault folder tree + DnD notes (réel `renameFile` `/v1/files/rename`)** | **`b474fe7463`** | **LIVREE** |
 
 ---
 
@@ -146,6 +148,11 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | `playwright test --list` | 195 tests / 71 fichiers | était 0 (loader `bun:`) |
 | Phase 9 graph validation tests | 8 / 8 pass | `automate-graph-validation.test.ts` |
 | Phase 9 branch port tests | 7 / 7 pass | `automate-graph-layout.test.ts` (slice 9.2 block) |
+| Phase 9.3 memory tree unit tests | 8 / 8 pass (memory-panel-model) | `memory-panel-model.test.ts` (tree shape/counts/collapse/move target) |
+| Phase 9.3 memory panel static tests | 10 / 10 pass | `memory-panel.test.ts` (single-pane + tree/DnD/i18n wiring) |
+| Phase 9.3 i18n keys | 12 keys × 17 dicts + allowlist | `bun test src/i18n/parity.test.ts` |
+| Phase 9.3 e2e | 1/1 PASS (46.6 s) | `e2e/v110/memory-vault-dnd.spec.ts` — rename call asserted on the mock client |
+| `bun test src` (Phase 9.3) | 1460 pass / 21 todo / 0 fail | full app suite |
 
 ---
 
@@ -176,9 +183,11 @@ Phase 9 (Automate continuation) slices 1-2 are shipped:
 - 9.1 environment pane (read-only grants/approvals/runs) — `f061fff246`
 - 9.2 branch true/false ports + graph validation — `701306f06a`
 
-Recommended entry point for the next session: **Phase 5 (Code chrome)**
-or **Phase 4 (plan/debate/build/auto tabs + motion)** — both have real
-runtime surfaces to port against.
+Recommended entry point for the next session: **Phase 4 remainder**
+(plan/debate/build/auto tabs + motion) or **Phase 5 (Code chrome)** —
+both have real runtime surfaces to port against. Memory folders + DnD
+are done (9.3); the remaining Memory ⚠️ rows (context menu, autosave,
+graph filters) are separate slices.
 
 **Phase 7 (Design canvas) is BLOCKED on a product decision**: the repo
 has no design-document runtime — `packages/design-sketch` is a ~1 KB
@@ -213,4 +222,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 (second autonomous session) by OpenCode. Head: `85f6ed05bf` on `new-ui` (pushed). CI infra: #79 closed by root-causing 6 Windows containment bugs (136 -> 0 failures on unit(windows)); #71 closed (renderer wedge in panels() + #92-known 503 noise scoped); #91 layering fixed (closed mobile drawer was intercepting left-edge clicks at compact-landscape); a3-responsive runs all five viewport families again, no fixme. GitHub: #71/#74/#75/#79/#82/#84/#90 closed with evidence; #91 has one remaining acceptance item (can reset a workspace, Expected not ""); #92 open (seed model-intelligence snapshot in script/e2e-local.ts). Local gates at HEAD: app suite 1473 pass / 0 fail, unifia knowledge 902 pass, typecheck 0, biome 0. Next session entry point: Phase 5 (Code chrome) or Phase 4 remainder (tabs + motion) per baseline priority; Phase 7 stays blocked on the design-document ADR. Handoff + relaunch prompt: vault `projects/unifia/sessions/Session-Handoff-v110-Portage-Autonome-Suite-2026-09-13.md`.*
+*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `b474fe7463` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2` (workflow-draft.test.ts was the only red on new-ui) then Phase 9.3 shipped - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`), with 8 model tests, 10 static panel tests, 12 i18n keys across 17 dictionaries and the e2e `memory-vault-dnd.spec.ts` asserting the rename call the browser made. Local gates at HEAD: app suite 1460 pass / 21 todo / 0 fail, typecheck 0, biome 0 on touched files, e2e targeted 1/1. CI: conformance green on 0290fdadf2; test.yml dispatch for b474fe7463. Next session entry point: Phase 4 remainder (plan/debate/build/auto tabs + motion) or Phase 5 (Code chrome); Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*

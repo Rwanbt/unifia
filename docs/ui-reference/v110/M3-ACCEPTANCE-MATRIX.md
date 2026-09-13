@@ -164,15 +164,15 @@ Pour chaque surface :
 | Memory links + graph (right) | desktop-large | hover link, pan graph | `data-memory-links` | memory-panel.tsx | ✅ partial |
 | Memory hover preview | desktop | hover linked note | tooltip `title=` attr | memory-panel.tsx (Phase 10) | ✅ partial |
 | Memory mobile single-pane | mobile-portrait | tap to navigate | maquette mobile | memory-panel.tsx (Phase 9, 2026-09-13) — canonical viewport authority collapses the triptych to one pane (vault/note/links) + tap-to-navigate + back nav | ✅ |
-| Memory folder tree | desktop | expand/collapse | maquette | ? | ⚠️ à tester |
-| Memory DnD notes | desktop | drag to folder | maquette | ? | ❌ **MANQUE** |
+| Memory folder tree | desktop | expand/collapse | maquette | memory-panel.tsx (9.3) — `buildMemoryTree` folders-first + subtree counts + collapse carets | ✅ |
+| Memory DnD notes | desktop | drag to folder | maquette | memory-panel.tsx (9.3) — HTML5 DnD → `WorkbenchClient.renameFile` (réel `/v1/files/rename`) + auto-expand 620 ms + e2e `memory-vault-dnd` | ✅ |
 | Memory context actions | desktop | right-click | maquette | ? | ⚠️ à tester |
 | Memory autosave | desktop | debounced | maquette | ? | ⚠️ à tester |
 | Memory wikilinks | desktop | type [[ | maquette | parseMemoryNote (model) | ✅ partial |
 | Memory graph pan/zoom/fit | desktop-large | drag/wheel/dblclick | maquette | localMemoryGraph (model) | ✅ partial |
 | Memory graph depth/tags/orphans | desktop | filter | maquette | ? | ⚠️ à tester |
 
-**Phase 9** : mobile single-pane LIVREE (commit `46aa98c9c3`, 2026-09-13) ; il reste folders + DnD notes.
+**Phase 9** : mobile single-pane LIVREE (`46aa98c9c3`) ; folders + DnD notes LIVRES (slice 9.3, `b474fe7463`).
 
 ---
 
