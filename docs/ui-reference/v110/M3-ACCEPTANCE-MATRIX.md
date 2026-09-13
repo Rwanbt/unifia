@@ -167,7 +167,7 @@ Pour chaque surface :
 | Memory folder tree | desktop | expand/collapse | maquette | memory-panel.tsx (9.3) — `buildMemoryTree` folders-first + subtree counts + collapse carets | ✅ |
 | Memory DnD notes | desktop | drag to folder | maquette | memory-panel.tsx (9.3) — HTML5 DnD → `WorkbenchClient.renameFile` (réel `/v1/files/rename`) + auto-expand 620 ms + e2e `memory-vault-dnd` | ✅ |
 | Memory context actions | desktop | right-click | maquette | ? | ⚠️ à tester |
-| Memory autosave | desktop | debounced | maquette | ? | ⚠️ à tester |
+| Memory autosave | desktop | debounced | maquette | memory-panel.tsx (9.4) — debounce 700 ms (`AUTOSAVE_DELAY_MS`) vers `file.write` CAS + flush avant navigation + chip Saved/Saving…/Unsaved ; e2e `memory-note-autosave` | ✅ |
 | Memory wikilinks | desktop | type [[ | maquette | parseMemoryNote (model) | ✅ partial |
 | Memory graph pan/zoom/fit | desktop-large | drag/wheel/dblclick | maquette | localMemoryGraph (model) | ✅ partial |
 | Memory graph depth/tags/orphans | desktop | filter | maquette | ? | ⚠️ à tester |

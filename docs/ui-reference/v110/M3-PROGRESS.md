@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `853666f8ea feat(chat): v16 agent mode glyphs + real mode-switch controls` (after `b474fe7463` memory 9.3)
+> **HEAD** : `f7cf812eb3 feat(memory): 700 ms debounced autosave for the note editor` (after `853666f8ea` phase 4.8)
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -74,6 +74,7 @@ source of truth future agents can read without vault access.
 | fix | **conformance SPDX** — `workflow-draft.test.ts` sans header SPDX = seul rouge new-ui ; scan local 363/363 fichiers couverts | `0290fdadf2` | LIVREE |
 | **9.3** | **Phase 9 slice 3 — Memory vault folder tree + DnD notes (réel `renameFile` `/v1/files/rename`)** | **`b474fe7463`** | **LIVREE** |
 | **4.8** | **Phase 4 reste — glyphes de mode agent v16 (chat/plan/debate/build/team/auto) + contrôles réels de bascule (Debate/TeamModelSelector)** | **`853666f8ea`** | **LIVREE** |
+| **9.4** | **Phase 9 slice 4 — Memory autosave 700 ms (debounce, flush avant navigation, chip d'état, CAS en place)** | **`f7cf812eb3`** | **LIVREE** |
 
 ---
 
@@ -157,6 +158,10 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 4.8 agent-mode mapper tests | 3 / 3 pass | `agent-mode.test.ts` |
 | Phase 4.8 e2e | 1/1 PASS (41.9 s) | `e2e/v110/chat-agent-modes.spec.ts` — glyph + Debate/Team control swap |
 | `bun test src` (Phase 4.8) | 1463 pass / 21 todo / 0 fail | full app suite |
+| Phase 9.4 save-state unit tests | 3 / 3 pass | `memory-panel-model.test.ts` (saved/unsaved/saving/not-loaded) |
+| Phase 9.4 static autosave tests | 4 / 4 pass | `memory-panel.test.ts` (700 ms, CAS in place, flush, chip) |
+| Phase 9.4 e2e | 1/1 PASS (49.6 s) | `e2e/v110/memory-note-autosave.spec.ts` — real bytes after debounce + immediate switch |
+| `bun test src` (Phase 9.4) | 1470 pass / 21 todo / 0 fail | full app suite |
 
 ---
 
@@ -226,4 +231,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `853666f8ea` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2`; Phase 9.3 - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`); Phase 4.8 - composer agent control now carries the six v16 mode glyphs (chat/plan/debate/build/team/auto, chat fallback) and the e2e `chat-agent-modes.spec.ts` pins the real control swaps (DebateModelSelector, TeamModelSelector, no fabricated Auto tab) (`853666f8ea`). Local gates at HEAD: app suite 1463 pass / 21 todo / 0 fail, typecheck 0 (app + ui), biome 0 on touched files, e2e targeted 2/2. Next session entry point: Phase 5 (Code chrome) - the largest remaining surface - or Phase 9.4 memory extras (context menu/autosave/graph filters); motion stays in phases 13-16. Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*
+*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `f7cf812eb3` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2`; Phase 9.3 - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`); Phase 4.8 - composer agent control now carries the six v16 mode glyphs (chat/plan/debate/build/team/auto, chat fallback) and the e2e `chat-agent-modes.spec.ts` pins the real control swaps (DebateModelSelector, TeamModelSelector, no fabricated Auto tab) (`853666f8ea`); Phase 9.4 - Memory note editor autosaves 700 ms after the last keystroke through the real CAS write route, flushes before note switches, and shows the mockup's Saved/Saving/Unsaved chip (`f7cf812eb3`). Local gates at HEAD: app suite 1470 pass / 21 todo / 0 fail, typecheck 0 (app + ui), biome 0 on touched files, e2e targeted 3/3. Next session entry point: Phase 5 (Code chrome) - the largest remaining surface - then Phase 9.5 memory extras (context menu/graph filters); motion stays in phases 13-16. Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*
