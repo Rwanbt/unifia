@@ -79,7 +79,7 @@ source of truth future agents can read without vault access.
 | **9.6** | **Phase 9 slice 6 — Graphe depth 1-3 + tags + orphans (dernière ligne Memory de la matrice)** | **`b217f0579d`** | **LIVREE** |
 | fix | **#94** — `port-gate` exigeait un rail visible < 900px : la gate ouvre la drawer et asserte les 4 modes ; local 5/5 sans retry | `c561e89c95` | LIVREE |
 | **5.1** | **Phase 5 slice 1 — marqueurs v110 dormants montés (editor-pane, workspace-tabs-bar, file-tree) + labels tabs-bar i18n 17 dictionnaires** | **`a7bdea7de8`** | **LIVREE** |
-| **5.2** | **Phase 5 slice 2 — vérification Search/Replace éditeur (@codemirror/search réel)** | **`<sha>`** | **LIVREE** |
+| **5.2** | **Phase 5 slice 2 — vérification Search/Replace éditeur (@codemirror/search réel)** | **`74a3816760`** | **LIVREE** |
 
 ---
 
