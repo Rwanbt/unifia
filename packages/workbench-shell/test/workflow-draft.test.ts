@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 import { expect, test } from "bun:test"
 import { workflowDraftKey } from "../src/workflow-draft.js"
 
