@@ -57,11 +57,11 @@ Pour chaque surface :
 | Chat followup dock | desktop | queue / send / edit | inline object in session.tsx | followupDock signal | ⚠️ à extraire (Vague 4) |
 | Chat revert dock | desktop | items / restore | inline object in session.tsx | rolled()/reverting() | ⚠️ à extraire |
 | Chat permission dock | desktop | grant / deny | SessionComposerRegion | permission logic | ✅ partial |
-| Chat plan tab | desktop-large | show plan | conversation plan mode | ? | ⚠️ à tester |
-| Chat debate tab | desktop | show debate | debate mode | ? | ⚠️ à tester |
-| Chat build tab | desktop | show build | build mode | ? | ⚠️ à tester |
-| Chat team tab | desktop | show team | team mode | TeamPanel | ✅ partial |
-| Chat auto tab | desktop | show auto | auto mode | ? | ⚠️ à tester |
+| Chat plan tab | desktop-large | show plan | conversation plan mode | agent `plan` (primary) + glyphe v16 + model control ; e2e `chat-agent-modes` | ✅ |
+| Chat debate tab | desktop | show debate | debate mode | agent `debate` + DebateModelSelector réel (contrôle modèle remplacé) ; e2e `chat-agent-modes` | ✅ |
+| Chat build tab | desktop | show build | build mode | agent `build` (default) + model control standard ; e2e `chat-agent-modes` | ✅ |
+| Chat team tab | desktop | show team | team mode | agent `team` + TeamModelSelector réel + TeamPanel ; e2e `chat-agent-modes` | ✅ partial |
+| Chat auto tab | desktop | show auto | auto mode | agent `auto` réel (primary, permission `*: allow`) — aucun fake ; e2e `chat-agent-modes` | ✅ |
 | Chat prompt context meter (token ring) | desktop-large | hover → tooltip | composer context meter | usage ring + tooltip | ✅ partial |
 | Chat prompt index (right rail) | desktop | hover → reveal | PromptIndex in session.tsx | PromptIndex component | ✅ partial (PromptIndex simplification noted in ADR-037) |
 

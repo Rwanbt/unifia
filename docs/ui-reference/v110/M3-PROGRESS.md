@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `b474fe7463 feat(memory): vault folder tree + drag-and-drop notes onto folders` (after `0290fdadf2` conformance SPDX fix)
+> **HEAD** : `853666f8ea feat(chat): v16 agent mode glyphs + real mode-switch controls` (after `b474fe7463` memory 9.3)
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -73,6 +73,7 @@ source of truth future agents can read without vault access.
 | fix | **#91 compact-landscape** — drawer mobile fermé = `invisible pointer-events-none` (left:62px décalait le sliver de 62px au z-50) ; a3-responsive 2/2 toutes familles | `85f6ed05bf` | LIVREE |
 | fix | **conformance SPDX** — `workflow-draft.test.ts` sans header SPDX = seul rouge new-ui ; scan local 363/363 fichiers couverts | `0290fdadf2` | LIVREE |
 | **9.3** | **Phase 9 slice 3 — Memory vault folder tree + DnD notes (réel `renameFile` `/v1/files/rename`)** | **`b474fe7463`** | **LIVREE** |
+| **4.8** | **Phase 4 reste — glyphes de mode agent v16 (chat/plan/debate/build/team/auto) + contrôles réels de bascule (Debate/TeamModelSelector)** | **`853666f8ea`** | **LIVREE** |
 
 ---
 
@@ -153,6 +154,9 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 9.3 i18n keys | 12 keys × 17 dicts + allowlist | `bun test src/i18n/parity.test.ts` |
 | Phase 9.3 e2e | 1/1 PASS (46.6 s) | `e2e/v110/memory-vault-dnd.spec.ts` — rename call asserted on the mock client |
 | `bun test src` (Phase 9.3) | 1460 pass / 21 todo / 0 fail | full app suite |
+| Phase 4.8 agent-mode mapper tests | 3 / 3 pass | `agent-mode.test.ts` |
+| Phase 4.8 e2e | 1/1 PASS (41.9 s) | `e2e/v110/chat-agent-modes.spec.ts` — glyph + Debate/Team control swap |
+| `bun test src` (Phase 4.8) | 1463 pass / 21 todo / 0 fail | full app suite |
 
 ---
 
@@ -160,7 +164,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 | Phase | Sujet | Effort | Faisable en 1 session |
 |---|---|---|---|
-| **4 reste** | plan/debate/build/auto tabs + motion | 2-3 h | partiel |
+| **4 reste** | ~~tabs plan/debate/build/auto~~ LIVREES (4.8) ; motion reste (phases 13-16) | - | LIVREE |
 | 5 | Code mode (editor + terminal + LSP) | 3-4 h | non |
 | 6 | Work mode (Kanban DnD + run details) | 1-2 h | partiel |
 | 7 | Design runtime (canvas Sketch integration, rotate, snap) | 4-6 h | non |
@@ -222,4 +226,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `b474fe7463` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2` (workflow-draft.test.ts was the only red on new-ui) then Phase 9.3 shipped - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`), with 8 model tests, 10 static panel tests, 12 i18n keys across 17 dictionaries and the e2e `memory-vault-dnd.spec.ts` asserting the rename call the browser made. Local gates at HEAD: app suite 1460 pass / 21 todo / 0 fail, typecheck 0, biome 0 on touched files, e2e targeted 1/1. CI: conformance green on 0290fdadf2; test.yml dispatch for b474fe7463. Next session entry point: Phase 4 remainder (plan/debate/build/auto tabs + motion) or Phase 5 (Code chrome); Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*
+*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `853666f8ea` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2`; Phase 9.3 - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`); Phase 4.8 - composer agent control now carries the six v16 mode glyphs (chat/plan/debate/build/team/auto, chat fallback) and the e2e `chat-agent-modes.spec.ts` pins the real control swaps (DebateModelSelector, TeamModelSelector, no fabricated Auto tab) (`853666f8ea`). Local gates at HEAD: app suite 1463 pass / 21 todo / 0 fail, typecheck 0 (app + ui), biome 0 on touched files, e2e targeted 2/2. Next session entry point: Phase 5 (Code chrome) - the largest remaining surface - or Phase 9.4 memory extras (context menu/autosave/graph filters); motion stays in phases 13-16. Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*
