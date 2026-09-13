@@ -5,7 +5,7 @@
 
 > **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `0109c1f795 fix(e2e): resolve #90 — gated rail modes + inspector pane on-canvas`
+> **HEAD** : `85f6ed05bf fix(shell): closed mobile drawer must not intercept clicks (#91)` + CI e2e wedge #71 fixed
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -69,6 +69,8 @@ source of truth future agents can read without vault access.
 | **M13** | **Motion: Settings > General > Animations toggle + `<html data-ui-animations>`** | **`26ab510fbf`** | **LIVREE** |
 | fix | **e2e collection restored** — gate spec importait `bun:test` (0 test collecté en CI) ; harness aligné HEAD + 2 findings tracés puis corrigés (#90) | `bf87fc66ba` + `0109c1f795` | LIVREE |
 | fix | **#79 root cause** — `\\?\` prefix de `realpathSync.native` sur runner Windows rejetait chaque écriture vault ; strip + tests containment | `5eb46e56d7` | LIVREE |
+| fix | **#71 e2e wedge** — `panels()` mesuré via `evaluate`+`getBoundingClientRect` (boundingBox wedgait le renderer) ; console 503 filtrée seulement si tout vient de `/model-intelligence/` | `a019b4ef77` | LIVREE |
+| fix | **#91 compact-landscape** — drawer mobile fermé = `invisible pointer-events-none` (left:62px décalait le sliver de 62px au z-50) ; a3-responsive 2/2 toutes familles | `85f6ed05bf` | LIVREE |
 
 ---
 
@@ -211,4 +213,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 by the OpenCode autonomous session. Shipped: Phase 9.1/9.2 (Automate environment pane + branch ports), #82 Team-dialog host, Memory mobile single-pane, Motion animations toggle, e2e collection restored (`bun:test` import removed from the Playwright tree; 0 → 195 tests collected), #90 fixed (gated rail modes + inspector pane on-canvas), #79 root-caused and fixed (`\\?\` prefix on the Windows runner). GitHub at HEAD: #74/#75/#79/#82/#84/#90 closed with evidence; #71 (cartesian browser hang) and #77 (interrupt race) and #86 (Kanban HTTP capability) remain open. Next checkpoint: Phase 5 (Code chrome) or Phase 4 (tabs/motion); Phase 7 (Design) stays blocked on an ADR.*
+*Last updated 2026-09-13 (second autonomous session) by OpenCode. Head: `85f6ed05bf` on `new-ui` (pushed). CI infra: #79 closed by root-causing 6 Windows containment bugs (136 -> 0 failures on unit(windows)); #71 closed (renderer wedge in panels() + #92-known 503 noise scoped); #91 layering fixed (closed mobile drawer was intercepting left-edge clicks at compact-landscape); a3-responsive runs all five viewport families again, no fixme. GitHub: #71/#74/#75/#79/#82/#84/#90 closed with evidence; #91 has one remaining acceptance item (can reset a workspace, Expected not ""); #92 open (seed model-intelligence snapshot in script/e2e-local.ts). Local gates at HEAD: app suite 1473 pass / 0 fail, unifia knowledge 902 pass, typecheck 0, biome 0. Next session entry point: Phase 5 (Code chrome) or Phase 4 remainder (tabs + motion) per baseline priority; Phase 7 stays blocked on the design-document ADR. Handoff + relaunch prompt: vault `projects/unifia/sessions/Session-Handoff-v110-Portage-Autonome-Suite-2026-09-13.md`.*
