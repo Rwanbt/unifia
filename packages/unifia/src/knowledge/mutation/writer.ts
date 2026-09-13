@@ -841,13 +841,14 @@ export class VaultMutationWriter implements MutationWriter {
    * synchronous walk instead.
    */
   private locateSync(id: KnowledgeId): { locator: string; full: string; raw: string } {
-    return this.locateSyncInner(id, this.realRoot, this.root)
+    return this.locateSyncInner(id, this.realRoot, this.root, "")
   }
 
   private locateSyncInner(
     id: KnowledgeId,
     realRoot: string,
     root: string,
+    prefix: string,
   ): { locator: string; full: string; raw: string } {
     let names: string[]
     try {
@@ -866,7 +867,7 @@ export class VaultMutationWriter implements MutationWriter {
       }
       if (stats.isDirectory()) {
         try {
-          return this.locateSyncInner(id, realRoot, full)
+          return this.locateSyncInner(id, realRoot, full, prefix.length > 0 ? prefix + "/" + name : name)
         } catch {
           // Not in this subtree; keep looking.
         }
@@ -880,7 +881,15 @@ export class VaultMutationWriter implements MutationWriter {
         }
         try {
           if (parseFrontmatter(raw).frontmatter.unifia_id === id) {
-            return { locator: full.slice(realRoot.length + 1).replace(/\\/g, "/"), full, raw }
+            // WHY the locator is carried through the walk instead of sliced
+            // out of `full` by comparing lengths with realRoot: the
+            // configured root and its real path can differ in form (drive
+            // letter vs Volume-GUID on the CI runner), so a length-based
+            // slice produced garbage such as ".md" and the supersede CAS
+            // then saw a phantom "target relocated" (#79). The walk knows
+            // the relative name structurally; walkMarkdown() pins the same
+            // posix + NFC form for the reader.
+            return { locator: (prefix.length > 0 ? prefix + "/" + name : name).normalize("NFC"), full, raw }
           }
         } catch {
           // A note that does not parse is not the target.
