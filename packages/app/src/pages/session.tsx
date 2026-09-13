@@ -48,7 +48,7 @@ import { MessageTimeline } from "@/pages/session/message-timeline"
 import { PromptIndex } from "@/pages/session/prompt-index"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
-import { SessionSidePanel } from "@/pages/session/session-side-panel"
+import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
@@ -1030,7 +1030,7 @@ export default function Page() {
           </Show>
         </div>
 
-        <SessionSidePanel
+        <SessionSidePanelSection
           canReview={canReview}
           diffs={reviewDiffs}
           diffsReady={reviewReady}
