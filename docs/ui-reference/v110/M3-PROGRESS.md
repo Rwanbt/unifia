@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `46aa98c9c3 feat(memory): mobile single-pane navigation (campaign Phase 9)`
+> **HEAD** : `26ab510fbf feat(settings): General > Animations toggle drives data-ui-animations (v110 motion)`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -66,6 +66,7 @@ source of truth future agents can read without vault access.
 | **9.2** | **Phase 9 slice 2 — Branch ports (true/false) + cycle/duplicate graph validation** | **`701306f06a`** | **LIVREE** |
 | chore | fix(team): host Team dialog inside TeamProvider (#82) — closes GitHub #82 | `05831355b2` | LIVREE |
 | **M9** | **Memory mobile single-pane (triptych → single pane on overlay viewports)** | **`46aa98c9c3`** | **LIVREE** |
+| **M13** | **Motion: Settings > General > Animations toggle + `<html data-ui-animations>`** | **`26ab510fbf`** | **LIVREE** |
 
 ---
 
@@ -134,7 +135,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 8 step list smoke tests | 7 / 7 pass | `automate-studio-step-list.test.ts` |
 | Phase 8 minimap smoke tests | 6 / 6 pass | `automate-studio-minimap.test.ts` |
 | Phase 8 migration unit tests | 17 / 17 pass | `automate-migrate-legacy.test.ts` |
-| `bun test packages/app` (Phase 9 current) | 1450 pass / 21 todo / 0 fail | full app suite |
+| `bun test packages/app` (Phase 9 current) | 1452 pass / 21 todo / 0 fail | full app suite |
 | Phase 9 graph validation tests | 8 / 8 pass | `automate-graph-validation.test.ts` |
 | Phase 9 branch port tests | 7 / 7 pass | `automate-graph-layout.test.ts` (slice 9.2 block) |
 
@@ -204,4 +205,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 by the OpenCode autonomous session after Phase 9 slices 1-2 (environment pane + branch ports), the #82 Team-dialog fix, and the Memory mobile single-pane slice. GitHub triage at HEAD: #74, #75, #84, #82 closed with evidence. Next checkpoint : Phase 5 (Code chrome) or Phase 4 (tabs/motion) ; Phase 7 (Design) stays blocked on an ADR.*
+*Last updated 2026-09-13 by the OpenCode autonomous session after Phase 9 slices 1-2 (environment pane + branch ports), the #82 Team-dialog fix, the Memory mobile single-pane slice, and the Motion animations toggle. GitHub triage at HEAD: #74, #75, #84, #82 closed with evidence ; #79 has local Windows evidence (892 pass / 0 fail on test/knowledge) plus CI run 34759190377 for confirmation. Next checkpoint : Phase 5 (Code chrome) or Phase 4 (tabs) ; Phase 7 (Design) stays blocked on an ADR.*
