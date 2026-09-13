@@ -38,6 +38,7 @@ import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
 import { ModeProvider } from "@/context/mode"
+import { TeamDialogProvider } from "@/context/team-dialog"
 import { WorkspaceTabsProvider } from "@/context/workspace-tabs-provider"
 import { NotificationProvider } from "@/context/notification"
 import { PermissionProvider } from "@/context/permission"
@@ -133,7 +134,9 @@ function AppShellProviders(props: ParentProps) {
             <HighlightsProvider>
               <ModeProvider>
                 <WorkspaceTabsProvider>
-                  <Layout>{props.children}</Layout>
+                  <TeamDialogProvider>
+                    <Layout>{props.children}</Layout>
+                  </TeamDialogProvider>
                 </WorkspaceTabsProvider>
               </ModeProvider>
             </HighlightsProvider>

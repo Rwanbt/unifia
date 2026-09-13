@@ -35,6 +35,7 @@ import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
 
 import { useDialog } from "@unifia/ui/context/dialog"
+import { useTeamDialog } from "@/context/team-dialog"
 import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
 import { useCommand } from "@/context/command"
 import { useWorkspaceTabs } from "@/context/workspace-tabs-provider"
@@ -108,6 +109,7 @@ export default function Layout(props: ParentProps) {
   const workspaceTabs = useWorkspaceTabs()
   const providers = useProviders()
   const dialog = useDialog()
+  const teamDialog = useTeamDialog()
   const command = useCommand()
   const theme = useTheme()
   const language = useLanguage()
@@ -548,11 +550,10 @@ export default function Layout(props: ParentProps) {
   }
 
   function openTeam() {
-    const run = ++dialogRef.run
-    void import("@/components/dialog-team").then((x) => {
-      if (dialogRef.dead || dialogRef.run !== run) return
-      dialog.show(() => <x.DialogTeam />)
-    })
+    // Team data is workspace-scoped (#82): without a directory there is no
+    // TeamProvider below to host the dialog, so the command is a no-op.
+    if (!decode64(params.dir)) return
+    teamDialog.open()
   }
 
   function projectRoot(directory: string) {

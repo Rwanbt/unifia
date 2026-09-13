@@ -8,6 +8,7 @@ import { LocalProvider } from "@/context/local"
 import { SDKProvider } from "@/context/sdk"
 import { SyncProvider, useSync } from "@/context/sync"
 import { TeamProvider } from "@/context/team"
+import { TeamDialogHost } from "@/components/team-dialog-host"
 import { decode64 } from "@/utils/base64"
 // FORK: editor context (ADR-0005)
 import { EditorProvider, EditorTabCleanup } from "@/context/editor"
@@ -147,7 +148,10 @@ export default function Layout(props: ParentProps) {
                         disposed every open terminal. */}
                     <TerminalProvider>
                       <WorkspaceWorkbenchProvider workspacePath={resolved} codeSessionId={mode.sessionId()}>
-                        <AutomateGrantBridge>{props.children}</AutomateGrantBridge>
+                        <AutomateGrantBridge>
+                          {props.children}
+                          <TeamDialogHost />
+                        </AutomateGrantBridge>
                       </WorkspaceWorkbenchProvider>
                     </TerminalProvider>
                   </DirectoryDataProvider>
