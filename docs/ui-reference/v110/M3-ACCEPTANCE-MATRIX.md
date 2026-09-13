@@ -166,7 +166,7 @@ Pour chaque surface :
 | Memory mobile single-pane | mobile-portrait | tap to navigate | maquette mobile | memory-panel.tsx (Phase 9, 2026-09-13) — canonical viewport authority collapses the triptych to one pane (vault/note/links) + tap-to-navigate + back nav | ✅ |
 | Memory folder tree | desktop | expand/collapse | maquette | memory-panel.tsx (9.3) — `buildMemoryTree` folders-first + subtree counts + collapse carets | ✅ |
 | Memory DnD notes | desktop | drag to folder | maquette | memory-panel.tsx (9.3) — HTML5 DnD → `WorkbenchClient.renameFile` (réel `/v1/files/rename`) + auto-expand 620 ms + e2e `memory-vault-dnd` | ✅ |
-| Memory context actions | desktop | right-click | maquette | ? | ⚠️ à tester |
+| Memory context actions | desktop | right-click | maquette | memory-panel.tsx (9.5) — menu note (open/rename inline/duplicate/move/export/delete) + dossier (new note/sub-folder) via routes réelles ; pin/archive absents (pas de capacité runtime) ; e2e `memory-note-actions` | ✅ |
 | Memory autosave | desktop | debounced | maquette | memory-panel.tsx (9.4) — debounce 700 ms (`AUTOSAVE_DELAY_MS`) vers `file.write` CAS + flush avant navigation + chip Saved/Saving…/Unsaved ; e2e `memory-note-autosave` | ✅ |
 | Memory wikilinks | desktop | type [[ | maquette | parseMemoryNote (model) | ✅ partial |
 | Memory graph pan/zoom/fit | desktop-large | drag/wheel/dblclick | maquette | localMemoryGraph (model) | ✅ partial |
