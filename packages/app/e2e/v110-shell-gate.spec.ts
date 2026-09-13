@@ -28,6 +28,7 @@ import {
   pickShellMode,
   pickInspectorTab,
   setViewportFamily,
+  shellModeEnabled,
   toggleWorkspaceSidebar,
   type ViewportFamily,
 } from "./m3-harness"
@@ -55,17 +56,21 @@ test.describe("M3 shell gate (Phase 3)", () => {
   }
 
   test("desktop-large can switch all four shell modes", async ({ page, gotoSession }) => {
-    // #90: the rail mode trigger is not actionable at 1440x900 (click
-    // timeout); the A8-02 strict gate covers mode-button registration in
-    // the meantime.
-    test.fixme(true, "rail mode trigger not actionable at 1440x900; see #90")
     await setViewportFamily(page, "desktopLarge")
     await gotoSession()
     await assertShellMounted(page)
+    // Automate is grant-gated (ADR-1041): its trigger is present but
+    // disabled without workflow.run, and clicking a disabled button is a
+    // 60 s actionability timeout. Switch the enabled modes and require the
+    // two non-gated ones (code + work) at minimum.
+    let switched = 0
     for (const mode of ["code", "work", "design", "automate"] as const) {
+      if (!(await shellModeEnabled(page, mode))) continue
       const resolved = await pickShellMode(page, mode)
-      expect(resolved, `mode switch`).toBe(mode)
+      expect(resolved, `mode switch ${mode}`).toBe(mode)
+      switched += 1
     }
+    expect(switched, "code + work must be switchable in the e2e fixture").toBeGreaterThanOrEqual(2)
   })
 
   test("desktop-compact sidebar toggles open and closed", async ({ page, gotoSession }) => {
@@ -79,9 +84,6 @@ test.describe("M3 shell gate (Phase 3)", () => {
   })
 
   test("desktop-large inspector tabs are reachable", async ({ page, gotoSession }) => {
-    // #90: the side-panel content subtree intercepts pointer events on the
-    // inspector-frame toggle at 1440x900.
-    test.fixme(true, "inspector-frame toggle intercepted by side-panel subtree; see #90")
     await setViewportFamily(page, "desktopLarge")
     await gotoSession()
     await assertShellMounted(page)

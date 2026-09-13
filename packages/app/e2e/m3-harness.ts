@@ -44,6 +44,13 @@ export async function setViewportFamily(page: Page, family: ViewportFamily): Pro
   await page.setViewportSize(size)
 }
 
+/** True when the rail exposes an enabled trigger for this mode. Automate is grant-gated (ADR-1041), so callers must skip disabled triggers instead of clicking them. */
+export async function shellModeEnabled(page: Page, mode: ShellMode): Promise<boolean> {
+  const trigger = page.locator(`[data-component="sidebar-rail"] [data-mode="${mode}"]`).first()
+  if ((await trigger.count()) === 0) return false
+  return trigger.isEnabled()
+}
+
 /**
  * Pick a shell mode by clicking the corresponding rail trigger.
  * Asserts the mode change took effect by reading the data attribute
@@ -81,15 +88,40 @@ export async function toggleWorkspaceSidebar(page: Page): Promise<boolean> {
 }
 
 /** Toggle one of the three inspector tabs (Explorer, Inspector, Execution). */
+/**
+ * Bring the inspector frame on-canvas. The frame lives inside the session
+ * side panel (session-side-panel.tsx) and sits off the right edge when the
+ * panel is closed (probe: x=1441 at a 1440 viewport), so the header's
+ * "Toggle review" control opens it first.
+ */
+export async function openInspectorPane(page: Page): Promise<void> {
+  const onCanvas = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('[data-action="inspector-toggle"]')
+      if (!el) return false
+      const rect = el.getBoundingClientRect()
+      // The toggle is a narrow icon button (~7-9 px wide) when open, and
+      // sits at x=viewportWidth+1 when the panel is collapsed off-canvas.
+      return rect.width > 0 && rect.x >= 0 && rect.right <= window.innerWidth + 1
+    })
+  if (await onCanvas()) return
+  await page.getByRole("button", { name: "Toggle review" }).first().click()
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-action="inspector-toggle"]')
+    if (!el) return false
+    const rect = el.getBoundingClientRect()
+    return rect.width > 0 && rect.x >= 0 && rect.right <= window.innerWidth + 1
+  }, undefined, { timeout: 10_000 })
+}
+
 export async function pickInspectorTab(
   page: Page,
   tab: "explorer" | "inspector" | "execution",
 ): Promise<void> {
   // The frame renders three role=tab buttons (data-v110-tab) over a single
   // #v110-inspector-panel whose visibility follows the open state
-  // (v110-inspector-frame.tsx). Open the frame first when it is collapsed.
-  const toggle = page.locator('[data-action="inspector-toggle"][aria-expanded="false"]')
-  if ((await toggle.count()) > 0) await toggle.first().click()
+  // (v110-inspector-frame.tsx).
+  await openInspectorPane(page)
   await page.locator(`[role="tab"][data-v110-tab="${tab}"]`).first().click()
   await page.locator("#v110-inspector-panel").first().waitFor({ state: "visible" })
 }
