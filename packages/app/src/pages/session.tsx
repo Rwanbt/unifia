@@ -30,6 +30,7 @@ import { SessionMobileTabsSection } from "@/pages/session/session-mobile-tabs"
 import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
 import { buildFollowupDockProps } from "@/pages/session/followup-dock-props"
 import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
+import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
 import { useComments } from "@/context/comments"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -1020,20 +1021,12 @@ export default function Page() {
           />
 
           <Show when={desktopInspectorWide()}>
-            <div onPointerDown={() => size.start()}>
-              <Separator
-                axis="x"
-                label={language.t("design.split.handle")}
-                data-v110="resize-chat"
-                size={layout.session.width()}
-                min={450}
-                max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
-                onResize={(width) => {
-                  size.touch()
-                  layout.session.resize(width)
-                }}
-              />
-            </div>
+            <DesktopChatSeparator
+              desktopInspectorWide={desktopInspectorWide}
+              size={size}
+              layout={layout}
+              language={language}
+            />
           </Show>
         </div>
 
