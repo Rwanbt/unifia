@@ -54,4 +54,19 @@ describe("AutomateStudioInspector smoke test (static)", () => {
   test("shows a badge when the position has been overridden by drag", () => {
     expect(source).toMatch(/workbench\.automate\.inspector\.coordinatesOverridden/)
   })
+
+  test("renders an Edges section listing outgoing + incoming connections", () => {
+    // Slice 4: the inspector surfaces the user-drawn connections from
+    // the canvas so the user can see which nodes their selected
+    // node connects to / from.
+    expect(source).toMatch(/data-automate-studio-inspector-edges-out/)
+    expect(source).toMatch(/data-automate-studio-inspector-edges-in/)
+    expect(source).toMatch(/data-automate-studio-inspector-edge-out=/)
+    expect(source).toMatch(/data-automate-studio-inspector-edge-in=/)
+  })
+
+  test("shows the total user-added edge count for the workflow", () => {
+    expect(source).toMatch(/data-automate-studio-inspector-user-edge-count/)
+    expect(source).toMatch(/workbench\.automate\.inspector\.userEdgeCount/)
+  })
 })

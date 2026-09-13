@@ -7,8 +7,13 @@ import {
   NODE_HEIGHT,
   NODE_WIDTH,
   PADDING,
-  edgeEndpoints,
+  PORT_HIT_RADIUS,
+  PORT_RADIUS,
+  closestInputPortDistance,
+  hasEdge,
   layoutWorkflowSteps,
+  mergeEndpoints,
+  nearestInputPortId,
 } from "./automate-graph-layout"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
@@ -80,15 +85,16 @@ describe("layoutWorkflowSteps", () => {
   })
 })
 
-describe("edgeEndpoints", () => {
-  test("falls back to the laid-out endpoint when no override exists", () => {
+describe("mergeEndpoints", () => {
+  test("returns synthetic edges when no user edges are provided", () => {
     const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
-    const endpoints = edgeEndpoints(graph, {})
+    const endpoints = mergeEndpoints(graph, {}, [])
     expect(endpoints).toHaveLength(1)
     // Source is a's right edge at vertical midline; target is b's left edge.
     expect(endpoints[0]).toMatchObject({
       from: "a",
       to: "b",
+      user: false,
       x1: PADDING + NODE_WIDTH,
       y1: PADDING + NODE_HEIGHT / 2,
       x2: PADDING,
@@ -96,10 +102,19 @@ describe("edgeEndpoints", () => {
     })
   })
 
-  test("follows the source node when the user dragged it", () => {
+  test("appends user edges after the synthetic ones with user=true", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
+    const endpoints = mergeEndpoints(graph, {}, [{ from: "a", to: "c" }])
+    expect(endpoints).toHaveLength(3) // 2 synthetic + 1 user
+    expect(endpoints[0]?.user).toBe(false)
+    expect(endpoints[1]?.user).toBe(false)
+    expect(endpoints[2]).toMatchObject({ from: "a", to: "c", user: true })
+  })
+
+  test("follows the source node when the user dragged it (synthetic)", () => {
     const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
     const overrides = { a: { x: 500, y: 120 } }
-    const endpoints = edgeEndpoints(graph, overrides)
+    const endpoints = mergeEndpoints(graph, overrides, [])
     expect(endpoints).toHaveLength(1)
     // Source's x/y come from the override; target stays laid-out.
     expect(endpoints[0]?.x1).toBe(500 + NODE_WIDTH)
@@ -108,10 +123,10 @@ describe("edgeEndpoints", () => {
     expect(endpoints[0]?.y2).toBe(PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2)
   })
 
-  test("follows the target node when the user dragged it", () => {
+  test("follows the target node when the user dragged it (synthetic)", () => {
     const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
     const overrides = { b: { x: 800, y: 600 } }
-    const endpoints = edgeEndpoints(graph, overrides)
+    const endpoints = mergeEndpoints(graph, overrides, [])
     expect(endpoints[0]?.x1).toBe(PADDING + NODE_WIDTH)
     expect(endpoints[0]?.y1).toBe(PADDING + NODE_HEIGHT / 2)
     expect(endpoints[0]?.x2).toBe(800)
@@ -121,21 +136,52 @@ describe("edgeEndpoints", () => {
   test("follows both endpoints when both nodes were dragged", () => {
     const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
     const overrides = { a: { x: 200, y: 50 }, b: { x: 600, y: 250 } }
-    const endpoints = edgeEndpoints(graph, overrides)
+    const endpoints = mergeEndpoints(graph, overrides, [])
     expect(endpoints).toHaveLength(2)
-    // a→b edge: source from a's override, target from b's override.
     expect(endpoints[0]).toMatchObject({ from: "a", to: "b", x1: 200 + NODE_WIDTH, y1: 50 + NODE_HEIGHT / 2, x2: 600, y2: 250 + NODE_HEIGHT / 2 })
-    // b→c edge: source from b's override, target falls back to layout.
     expect(endpoints[1]).toMatchObject({ from: "b", to: "c", x1: 600 + NODE_WIDTH, y1: 250 + NODE_HEIGHT / 2, x2: PADDING, y2: PADDING + 2 * (NODE_HEIGHT + NODE_GAP_Y) + NODE_HEIGHT / 2 })
   })
 
-  test("returns the original layout endpoint when the edge references an unknown node", () => {
+  test("renders a zero endpoint for an unknown node reference", () => {
     const graph = layoutWorkflowSteps([step("a", "cap.a")])
     // Forge an edge that references a missing target — the helper must
-    // not throw, and must fall back to the layout values.
+    // not throw, and must fall back to a safe zero endpoint.
     const broken = { ...graph, edges: [{ from: "a", to: "ghost", x1: 1, y1: 2, x2: 3, y2: 4 }] }
-    const endpoints = edgeEndpoints(broken, {})
+    const endpoints = mergeEndpoints(broken, {}, [])
     expect(endpoints).toHaveLength(1)
-    expect(endpoints[0]).toMatchObject({ from: "a", to: "ghost", x1: 1, y1: 2, x2: 3, y2: 4 })
+    expect(endpoints[0]).toMatchObject({ from: "a", to: "ghost", user: false, x1: 0, y1: 0, x2: 0, y2: 0 })
+  })
+})
+
+describe("port hit-test helpers", () => {
+  test("PORT_HIT_RADIUS exceeds PORT_RADIUS so drop zones are forgiving", () => {
+    // Anti-regression: a future tuning of the rendered port radius
+    // must not silently shrink the hit zone.
+    expect(PORT_HIT_RADIUS).toBeGreaterThan(PORT_RADIUS)
+  })
+
+  test("nearestInputPortId returns the closest node by Euclidean distance", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
+    // a sits at (PADDING, PADDING), b below a, c below b — all on x=PADDING.
+    expect(nearestInputPortId(graph, {}, PADDING, PADDING + NODE_HEIGHT / 2)).toBe("a")
+    expect(nearestInputPortId(graph, {}, PADDING, PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2)).toBe("b")
+  })
+
+  test("nearestInputPortId respects drag overrides when computing positions", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
+    // Move a to x=999 so the cursor near (1000, PADDING + NODE_HEIGHT/2)
+    // is closest to a, not b.
+    const overrides = { a: { x: 999, y: PADDING } }
+    expect(nearestInputPortId(graph, overrides, 1000, PADDING + NODE_HEIGHT / 2)).toBe("a")
+  })
+
+  test("closestInputPortDistance returns Infinity on an empty graph", () => {
+    expect(closestInputPortDistance(layoutWorkflowSteps([]), {}, 0, 0)).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  test("hasEdge detects an existing pair", () => {
+    expect(hasEdge([{ from: "a", to: "b" }, { from: "b", to: "c" }], "a", "b")).toBe(true)
+    expect(hasEdge([{ from: "a", to: "b" }], "b", "a")).toBe(false)
+    expect(hasEdge([], "a", "b")).toBe(false)
   })
 })

@@ -59,6 +59,8 @@ export type LaidOutGraph = {
 
 export type NodePositionOverride = { readonly x: number; readonly y: number }
 
+export type UserEdge = { readonly from: string; readonly to: string }
+
 export type EdgeEndpoint = {
   readonly from: string
   readonly to: string
@@ -66,44 +68,134 @@ export type EdgeEndpoint = {
   readonly y1: number
   readonly x2: number
   readonly y2: number
+  /** True when the edge came from the parent's `edges` prop (i.e. user-added). Synthetic sequential edges from the layout are not marked. */
+  readonly user: boolean
 }
 
 /**
  * Recompute the edge endpoints from the current effective node
  * positions. Pure: takes the laid-out graph + the user override map
- * and returns one endpoint set per edge. When a node has been
- * dragged (slice 3 of Phase 8), the bezier follows it instead of
- * snapping back to the deterministic layout. The function lives next
- * to `layoutWorkflowSteps` because both functions describe the same
+ * + the user-added edges and returns one endpoint set per edge.
+ * Synthetic edges (from `graph.edges`) and user edges (from
+ * `userEdges`) are merged. When a node has been dragged (slice 3 of
+ * Phase 8), the bezier follows it instead of snapping back to the
+ * deterministic layout. The function lives next to
+ * `layoutWorkflowSteps` because both functions describe the same
  * graph geometry, just at different lifecycle stages (initial layout
- * vs. live drag override).
+ * vs. live drag override vs. user-added connections).
  */
-export function edgeEndpoints(
+export function mergeEndpoints(
   graph: LaidOutGraph,
   overrides: Readonly<Record<string, NodePositionOverride>>,
+  userEdges: readonly UserEdge[],
 ): readonly EdgeEndpoint[] {
-  return graph.edges.map((edge) => {
-    const fromNode = graph.nodes.find((node) => node.id === edge.from)
-    const toNode = graph.nodes.find((node) => node.id === edge.to)
-    if (!fromNode || !toNode) {
-      return { from: edge.from, to: edge.to, x1: edge.x1, y1: edge.y1, x2: edge.x2, y2: edge.y2 }
-    }
-    const fromOverride = overrides[edge.from]
-    const toOverride = overrides[edge.to]
-    const fromX = fromOverride?.x ?? fromNode.x
-    const fromY = fromOverride?.y ?? fromNode.y
-    const toX = toOverride?.x ?? toNode.x
-    const toY = toOverride?.y ?? toNode.y
-    return {
-      from: edge.from,
-      to: edge.to,
-      x1: fromX + fromNode.width,
-      y1: fromY + fromNode.height / 2,
-      x2: toX,
-      y2: toY + toNode.height / 2,
-    }
-  })
+  const synthetic = graph.edges.map((edge) => endpointFor(edge.from, edge.to, graph, overrides, false))
+  const user = userEdges.map((edge) => endpointFor(edge.from, edge.to, graph, overrides, true))
+  return [...synthetic, ...user]
 }
+
+/**
+ * Single-edge endpoint helper. Returns the layout value when the
+ * edge references an unknown node (defensive — keeps the canvas from
+ * crashing if the workflow file is malformed).
+ */
+function endpointFor(
+  fromId: string,
+  toId: string,
+  graph: LaidOutGraph,
+  overrides: Readonly<Record<string, NodePositionOverride>>,
+  user: boolean,
+): EdgeEndpoint {
+  const fromNode = graph.nodes.find((node) => node.id === fromId)
+  const toNode = graph.nodes.find((node) => node.id === toId)
+  if (!fromNode || !toNode) {
+    return { from: fromId, to: toId, x1: 0, y1: 0, x2: 0, y2: 0, user }
+  }
+  const fromOverride = overrides[fromId]
+  const toOverride = overrides[toId]
+  const fromX = fromOverride?.x ?? fromNode.x
+  const fromY = fromOverride?.y ?? fromNode.y
+  const toX = toOverride?.x ?? toNode.x
+  const toY = toOverride?.y ?? toNode.y
+  return {
+    from: fromId,
+    to: toId,
+    x1: fromX + fromNode.width,
+    y1: fromY + fromNode.height / 2,
+    x2: toX,
+    y2: toY + toNode.height / 2,
+    user,
+  }
+}
+
+/**
+ * Distance between a candidate point (cx, cy) and the closest input
+ * port of any node in the graph, expressed in graph units. The
+ * caller compares the result to a hit-test radius (see
+ * `PORT_HIT_RADIUS`). Returns `Infinity` when the graph is empty.
+ */
+export function closestInputPortDistance(
+  graph: LaidOutGraph,
+  overrides: Readonly<Record<string, NodePositionOverride>>,
+  cx: number,
+  cy: number,
+): number {
+  let best = Number.POSITIVE_INFINITY
+  for (const node of graph.nodes) {
+    const x = (overrides[node.id]?.x ?? node.x)
+    const y = (overrides[node.id]?.y ?? node.y) + node.height / 2
+    const dx = cx - x
+    const dy = cy - y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < best) best = dist
+  }
+  return best
+}
+
+/**
+ * Id of the input port closest to (cx, cy), or undefined when the
+ * graph is empty. Pure function — used by the canvas to commit a
+ * new edge after the user releases a port-to-port drag.
+ */
+export function nearestInputPortId(
+  graph: LaidOutGraph,
+  overrides: Readonly<Record<string, NodePositionOverride>>,
+  cx: number,
+  cy: number,
+): string | undefined {
+  let best: { id: string; dist: number } | undefined
+  for (const node of graph.nodes) {
+    const x = (overrides[node.id]?.x ?? node.x)
+    const y = (overrides[node.id]?.y ?? node.y) + node.height / 2
+    const dx = cx - x
+    const dy = cy - y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (!best || dist < best.dist) best = { id: node.id, dist }
+  }
+  return best?.id
+}
+
+/**
+ * O(n) membership test on the user-controlled edge list. Used by the
+ * canvas to skip committing a duplicate edge on port-to-port drop.
+ */
+export function hasEdge(edges: readonly UserEdge[], from: string, to: string): boolean {
+  return edges.some((edge) => edge.from === from && edge.to === to)
+}
+
+/**
+ * Hit-test radius for the drag-port-to-port gesture, in graph units.
+ * Tuned so the user can drop on a port without pixel-perfect aim;
+ * the value matches the rendered port circle radius (PORT_RADIUS in
+ * the canvas) plus a 6-unit safety margin.
+ */
+export const PORT_HIT_RADIUS = 12
+
+/**
+ * Visual port radius (canvas only). Exported so the hit-test radius
+ * stays in lockstep with the rendered circle.
+ */
+export const PORT_RADIUS = 6
 
 /**
  * Compute deterministic positions and edges for a sequential step list.

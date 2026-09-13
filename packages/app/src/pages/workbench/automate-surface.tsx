@@ -10,7 +10,7 @@ import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
-import { NODE_GAP_Y, NODE_HEIGHT, PADDING } from "./automate-graph-layout"
+import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
 import { AutomateStudioCanvas } from "./automate-studio-canvas"
 import { AutomateStudioInspector } from "./automate-studio-inspector"
@@ -44,6 +44,8 @@ export function AutomateSurface(): JSX.Element {
   const [selectedStepId, setSelectedStepId] = createSignal<string | undefined>()
   /** Override map (nodeId -> {x, y}) shared between canvas and inspector. */
   const [stepPositions, setStepPositions] = createSignal<Record<string, { readonly x: number; readonly y: number }>>({})
+  /** User-added edges (slice 4 port connectors). */
+  const [stepEdges, setStepEdges] = createSignal<readonly UserEdge[]>([])
   const draftStore = createIndexedDbWorkflowDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
@@ -228,11 +230,18 @@ export function AutomateSurface(): JSX.Element {
                           })()
                           const selectedStep = selectedIndex !== undefined ? steps[selectedIndex] : undefined
                           const positions = stepPositions()
+                          const userEdgeList = stepEdges()
                           const selectedOverride = selectedStep ? positions[selectedStep.id] : undefined
                           const selectedX = selectedOverride?.x ?? PADDING
                           const selectedY =
                             selectedOverride?.y ??
                             (selectedIndex !== undefined ? PADDING + selectedIndex * (NODE_HEIGHT + NODE_GAP_Y) : undefined)
+                          const outgoingTo = selectedStep
+                            ? userEdgeList.filter((edge) => edge.from === selectedStep.id).map((edge) => edge.to)
+                            : []
+                          const incomingFrom = selectedStep
+                            ? userEdgeList.filter((edge) => edge.to === selectedStep.id).map((edge) => edge.from)
+                            : []
                           return (
                             <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
                               <div class="h-72 lg:h-[28rem]">
@@ -245,6 +254,8 @@ export function AutomateSurface(): JSX.Element {
                                   onSelectNode={setSelectedStepId}
                                   positions={positions}
                                   onPositionsChange={setStepPositions}
+                                  edges={userEdgeList}
+                                  onEdgesChange={setStepEdges}
                                 />
                               </div>
                               <div class="h-72 lg:h-[28rem]">
@@ -255,6 +266,9 @@ export function AutomateSurface(): JSX.Element {
                                   x={selectedX}
                                   y={selectedY}
                                   positionOverridden={selectedOverride !== undefined}
+                                  outgoingTo={outgoingTo}
+                                  incomingFrom={incomingFrom}
+                                  userEdgeCount={userEdgeList.length}
                                   onClose={() => setSelectedStepId(undefined)}
                                 />
                               </div>

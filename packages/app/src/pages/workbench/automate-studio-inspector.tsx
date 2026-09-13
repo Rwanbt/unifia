@@ -16,7 +16,7 @@
  * that clears the selection. This matches the controlled pattern used
  * by `AutomateStudioCanvas`.
  */
-import { Show, type JSX } from "solid-js"
+import { For, Show, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import type { WorkflowStepSummary } from "./automate-workflow-model"
 
@@ -33,6 +33,12 @@ export type AutomateStudioInspectorProps = {
   readonly y?: number
   /** Whether the position has been overridden by the user dragging the node. */
   readonly positionOverridden?: boolean
+  /** Ids of nodes that the selected node connects TO (slice 4 port connectors). */
+  readonly outgoingTo?: readonly string[]
+  /** Ids of nodes that connect TO the selected node (slice 4 port connectors). */
+  readonly incomingFrom?: readonly string[]
+  /** Total user-added edge count for the workflow (for the inspector header chip). */
+  readonly userEdgeCount?: number
   /** Optional callback invoked when the user dismisses the inspector. */
   readonly onClose?: () => void
 }
@@ -114,6 +120,46 @@ export function AutomateStudioInspector(props: AutomateStudioInspectorProps): JS
                     </span>
                   </Show>
                 </p>
+              </section>
+            </Show>
+            <Show when={(props.outgoingTo && props.outgoingTo.length > 0) || (props.incomingFrom && props.incomingFrom.length > 0)}>
+              <section class="space-y-1">
+                <p class="text-11-regular uppercase tracking-wide text-text-weak">
+                  {t("workbench.automate.inspector.field.edges")}
+                </p>
+                <Show when={props.outgoingTo && props.outgoingTo.length > 0}>
+                  <p class="text-11-regular text-text-weak" data-automate-studio-inspector-edges-out>
+                    {t("workbench.automate.inspector.edgesOutgoingLabel")}
+                  </p>
+                  <ul class="space-y-0.5">
+                    <For each={props.outgoingTo ?? []}>
+                      {(targetId) => (
+                        <li class="font-mono text-12-regular text-accent-base" data-automate-studio-inspector-edge-out={targetId}>
+                          → {targetId}
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
+                <Show when={props.incomingFrom && props.incomingFrom.length > 0}>
+                  <p class="mt-2 text-11-regular text-text-weak" data-automate-studio-inspector-edges-in>
+                    {t("workbench.automate.inspector.edgesIncomingLabel")}
+                  </p>
+                  <ul class="space-y-0.5">
+                    <For each={props.incomingFrom ?? []}>
+                      {(sourceId) => (
+                        <li class="font-mono text-12-regular text-accent-base" data-automate-studio-inspector-edge-in={sourceId}>
+                          ← {sourceId}
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
+                <Show when={(props.userEdgeCount ?? 0) > 0}>
+                  <p class="mt-2 text-11-regular text-text-weak" data-automate-studio-inspector-user-edge-count>
+                    {t("workbench.automate.inspector.userEdgeCount", { count: props.userEdgeCount ?? 0 })}
+                  </p>
+                </Show>
               </section>
             </Show>
             <section class="space-y-1">

@@ -92,14 +92,60 @@ describe("AutomateStudioCanvas smoke test (static)", () => {
   })
 
   test("follows the user drag for edges too (no layout snap-back)", () => {
-    // Slice 3: when a node is dragged, its outgoing + incoming edges
-    // must follow. The canvas re-derives endpoints from the override
-    // map on every render.
-    expect(source).toMatch(/edgeEndpoints\(graph\(\),\s*overrides\(\)\)/)
+    // Slice 3+4: when a node is dragged, its outgoing + incoming
+    // edges must follow. The canvas re-derives endpoints from the
+    // override map + user edges on every render.
+    expect(source).toMatch(/mergeEndpoints\(graph\(\),\s*overrides\(\),\s*userEdges\(\)\)/)
   })
 
   test("exposes per-node x/y as data attributes for the Inspector", () => {
     expect(source).toMatch(/data-automate-studio-node-x=/)
     expect(source).toMatch(/data-automate-studio-node-y=/)
+  })
+
+  test("exposes a controlled-edges API (edges + onEdgesChange) for slice 4", () => {
+    // Same controlled shape as `positions`. The canvas merges
+    // synthetic sequential edges with user-added edges and commits
+    // additions/removals through `onEdgesChange`.
+    expect(source).toMatch(/readonly\s+edges\?:\s*readonly\s+UserEdge\[\]/)
+    expect(source).toMatch(/readonly\s+onEdgesChange\?:\s*\(edges:\s*readonly\s*UserEdge\[\]\)\s*=>\s*void/)
+  })
+
+  test("renders one input port + one output port per node", () => {
+    // The data-attr template is `data-automate-studio-port="${id}:in|out"`.
+    expect(source).toMatch(/data-automate-studio-port=\{`\$\{props\.node\.id\}:in`\}/)
+    expect(source).toMatch(/data-automate-studio-port=\{`\$\{props\.node\.id\}:out`\}/)
+  })
+
+  test("starts a port-to-port connection drag from the output port", () => {
+    expect(source).toMatch(/function\s+startPortDrag/)
+    expect(source).toMatch(/setConnecting\(\{/)
+  })
+
+  test("commits a new edge when the user releases near an input port", () => {
+    // The canvas calls onEdgesChange with the new edge after
+    // hit-testing against the closest input port within
+    // PORT_HIT_RADIUS.
+    expect(source).toMatch(/hasEdge\(userEdges\(\),\s*conn\.fromNodeId,\s*targetId\)/)
+    expect(source).toMatch(/nearestInputPortId\(graph\(\),\s*overrides\(\),\s*graphCoords\.x,\s*graphCoords\.y\)/)
+    expect(source).toMatch(/\[\.\.\.userEdges\(\),\s*\{\s*from:\s*conn\.fromNodeId,\s*to:\s*targetId\s*\}\]/)
+  })
+
+  test("renders a ghost edge while the user is dragging a connection", () => {
+    expect(source).toMatch(/data-automate-studio-ghost-edge/)
+  })
+
+  test("lets the user delete a user edge by clicking it", () => {
+    // The path element for user edges carries
+    // data-automate-studio-edge-user="true" and an onClick that
+    // filters the edge out via onEdgesChange.
+    expect(source).toMatch(/data-automate-studio-edge-user=/)
+  })
+
+  test("converts client coordinates to graph coordinates for hit-testing", () => {
+    // The conversion must account for the SVG bounding rect, the
+    // current pan, and the zoom.
+    expect(source).toMatch(/function\s+clientToGraphCoords/)
+    expect(source).toMatch(/rect\.left\s*-\s*panX\(\)/)
   })
 })
