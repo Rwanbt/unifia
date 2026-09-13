@@ -71,11 +71,11 @@ Pour chaque surface :
 
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
-| Editor (center pane) | desktop-large | type, scroll, format | `data-component="editor-pane"` | terminal.tsx + editor.tsx | ⚠️ partial — only chrome |
-| Editor tabs | desktop | click tab, close tab | `data-component="workspace-tabs-bar"` | WorkspaceTabsBar | ✅ partial |
-| Explorer (file tree, left) | desktop-large | click file, expand folder | `data-component="file-tree"` | sidebar-panel file-tree | ⚠️ partial |
+| Editor (center pane) | desktop-large | type, scroll, format | `data-component="editor-pane"` | editor-panel.tsx + file-tabs.tsx — marqueur `editor-pane` monté (5.1), CSS v110 actif sur le CodeMirror réel ; refonte visuelle au-delà des marqueurs non livrée | ✅ partial |
+| Editor tabs | desktop | click tab, close tab | `data-component="workspace-tabs-bar"` | WorkspaceTabsBar — marqueur `workspace-tabs-bar` monté + labels i18n (5.1) | ✅ partial |
+| Explorer (file tree, left) | desktop-large | click file, expand folder | `data-component="file-tree"` | components/file-tree.tsx — valeur alignée `file-tree` (5.1, était `filetree`) ; CSS v110 actif | ✅ partial |
 | Inspector (3 tabs) | desktop-large | click tab | covered in Shell section | v110-inspector-frame | ✅ partial |
-| Inspector file tree | desktop | show files | inline in sidebar-panel | file-tree | ⚠️ partial |
+| Inspector file tree | desktop | show files | inline in sidebar-panel | components/file-tree.tsx (`data-component="file-tree"`) — rendu dans session-side-panel | ✅ partial |
 | Inspector git panel | desktop | show git status | sidebar-project sidebar-source-control | source-control.tsx | ⚠️ partial |
 | Terminal (bottom) | desktop | show/hide, resize | `data-v110-terminal-panel` | terminal.tsx | ✅ partial |
 | Diagnostic markers | desktop | hover → message | inline editor pane | inline | ⚠️ partial |
