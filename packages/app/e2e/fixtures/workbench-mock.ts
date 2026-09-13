@@ -151,7 +151,6 @@ export function workbenchMockInitScript(): string {
         listArtifacts: () => reply({ artifacts: [] }),
         listDocuments: () => reply({ documents: [] }),
         listFiles: (_workspaceId, prefix) => {
-          record("listFiles", [prefix || "."])
           const list = prefix ? allEntries.filter((entry) => entry.path.startsWith(prefix)) : allEntries
           return reply({ entries: list, skipped: 0 })
         },
