@@ -161,13 +161,20 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 ## Where to resume next session
 
-Recommended entry point: **Phase 8 slice 2 (Automate studio — interaction layer)**.
+Phase 9 (Automate continuation) slices 1-2 are shipped:
+- 9.1 environment pane (read-only grants/approvals/runs) — `f061fff246`
+- 9.2 branch true/false ports + graph validation — `701306f06a`
 
-Slice 1 shipped a read-only canvas (`87f3c1ab97`) that visualises the
-current workflow's steps as a node graph with pan/zoom. The remaining
-work in Phase 8 — interaction, library, inspector, run bar — is
-broken into the following slices. The next session should pick the
-one most aligned with the maquette priority.
+Recommended entry point for the next session: **Phase 5 (Code chrome)**
+or **Phase 4 (plan/debate/build/auto tabs + motion)** — both have real
+runtime surfaces to port against.
+
+**Phase 7 (Design canvas) is BLOCKED on a product decision**: the repo
+has no design-document runtime — `packages/design-sketch` is a ~1 KB
+Excalidraw embed and `design-vector-tools.tsx` / `design-layers-panel.tsx`
+are orphaned stubs (zero imports outside their own files). Replacing the
+Excalidraw iframe with a real editor requires an ADR on the design
+document format and runtime; do not fake it with more stubs.
 
 | Slice | Sujet | Effort | Depends on |
 |---|---|---|---|
