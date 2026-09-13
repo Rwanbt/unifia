@@ -34,6 +34,7 @@ import { usePlatform } from "@/context/platform"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { promptEnabled, promptProbe } from "@/testing/prompt"
+import { AgentModeIcon } from "@/components/agent-mode-icon"
 import { DebateModelSelector } from "@/components/debate-model-selector"
 import { TeamModelSelector } from "@/components/team-model-selector"
 import {
@@ -1333,6 +1334,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       valueClass="truncate text-13-regular text-text-base"
                       triggerStyle={control()}
                       triggerProps={{ "data-action": "prompt-agent" }}
+                      triggerPrefix={<AgentModeIcon name={local.agent.current()?.name} class="size-4 shrink-0 text-icon-base" />}
                       variant="ghost"
                     />
                   </TooltipKeybind>
