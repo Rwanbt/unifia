@@ -3,10 +3,11 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 shipped (12 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests shipped (15 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `88cb9ea3fc chore(gitignore): ignore .tmp-*.md scratch commit-message files`
+> **HEAD** : `044ad07ef1 test(session): unit tests for buildRevertDockProps + buildFollowupDockProps`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
+> **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
 ---
 
@@ -39,6 +40,7 @@ source of truth future agents can read without vault access.
 | 4.4 | Vague 4 slice 4 — DesktopChatSeparator sub-component | `80329ff8f6` | LIVREE |
 | 4.5 | Vague 4 slice 5 — integrate SessionSidePanelSection | `527b941a31` | LIVREE |
 | 4.6 | Vague 4 slice 6 — SessionArtifactViewerSection | `b62427eeed` | LIVREE |
+| 4.7 | Vague 4 factory tests — buildRevertDockProps + buildFollowupDockProps (7 pass / 21 expect) | `044ad07ef1` | LIVREE |
 | chore | Silence 9 M3-wrapper biome warnings | `dd6defe949` | LIVREE |
 | chore | Use `import type` for type-only imports | `217dd2adc3` | LIVREE |
 | chore | Silence 8 remaining biome warnings (repo-wide 13→0) | `2b929565a5` | LIVREE |
@@ -119,4 +121,4 @@ The infrastructure is ready:
 
 ---
 
-*Last updated 2026-09-13 03:50 Europe/Paris by Mavis root session. Next checkpoint when Phase 8 begins.*
+*Last updated 2026-09-13 04:05 Europe/Paris by Mavis root session after factory tests commit. Next checkpoint when Phase 8 begins.*
