@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-4 (Automate studio canvas + Inspector pane + drag-to-move + port connectors) shipped (31 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-5 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library) shipped (35 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `4af063846d chore(i18n): parity coverage for Phase 8 slice 4 port + edges keys across 14 locales`
+> **HEAD** : `9dea1e8f8f chore(i18n): parity coverage for Phase 8 slice 5 library keys across 14 locales`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -53,6 +53,8 @@ source of truth future agents can read without vault access.
 | chore | i18n parity coverage for Phase 8 coordinates keys (14 locales) | `ceb432a48a` | LIVREE |
 | **8.4** | **Phase 8 slice 4 — Port connectors (parent-controlled edges, drag-port-to-port)** | **`d39e91a43c`** | **LIVREE** |
 | chore | i18n parity coverage for Phase 8 port + edges keys (14 locales) | `4af063846d` | LIVREE |
+| **8.5** | **Phase 8 slice 5 — Node library (parent-controlled extraNodes, 15 NodeFamily grouped)** | **`a4aba02736`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 library keys (14 locales) | `9dea1e8f8f` | LIVREE |
 
 ---
 
@@ -79,7 +81,9 @@ forwards every prop verbatim.
 | `createSidebarPanelContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
 | `layoutWorkflowSteps` | `workbench/automate-graph-layout.ts` | 8.1 | Pure layout (nodes + edges + bounding box, sequential flow) |
 | `AutomateStudioCanvas` | `workbench/automate-studio-canvas.tsx` | 8.1 | SolidJS SVG pane: pan (pointer + Space), zoom (Ctrl/Cmd + wheel 0.5-2.0), reset, approval badges, SR fallback |
-| `AutomateStudioInspector` | `workbench/automate-studio-inspector.tsx` | 8.2 | SolidJS read-only pane: empty state, id/label/position/approval/coordinates metadata, close button |
+| `AutomateStudioInspector` | `workbench/automate-studio-inspector.tsx` | 8.2 | SolidJS read-only pane: empty state, id/label/position/approval/coordinates/edges metadata, close button |
+| `AutomateStudioLibrary` | `workbench/automate-studio-library.tsx` | 8.5 | SolidJS pane: 15 NodeFamily types grouped into 5 categories, search filter, click → onAdd |
+| `DEFAULT_LIBRARY_CATEGORIES` | `workbench/automate-studio-library.tsx` | 8.5 | Exported catalog: mirrors the canonical `NodeFamilySchema` enum |
 | `edgeEndpoints` | `workbench/automate-graph-layout.ts` | 8.3 | Pure helper: re-derive bezier endpoints from current effective positions (superseded by `mergeEndpoints` in slice 4) |
 | `mergeEndpoints` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: combine synthetic + user edges, apply position overrides, return one endpoint set per edge |
 | `closestInputPortDistance` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: Euclidean distance from cursor to closest input port |
@@ -95,16 +99,17 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 | Check | Result | Evidence |
 |---|---|---|
-| `bunx biome check` (1811 files) | 0 warnings | `Checked 1811 files in 2s. No fixes applied.` |
+| `bunx biome check` (1813 files) | 0 warnings | `Checked 1813 files in 2s. No fixes applied.` |
 | `tsgo -b` (packages/app) | exit 0 | single-package verification |
 | `bun turbo typecheck` (47 packages) | 47/47 PASS | pre-push hook gate |
 | Working tree | clean | `git status --short` empty |
 | Lint warnings in packages/app | 0 | was 9, all silenced in `dd6defe949` |
 | Lint warnings repo-wide | 0 | was 22, all silenced across 3 commits |
-| `bun test packages/app` | 1349 pass / 21 todo / 0 fail (3.14s) | pre-push hook gate |
-| Phase 8 canvas unit tests | 18 / 18 pass (33 expect) | `automate-graph-layout.test.ts` |
+| `bun test packages/app` | 1358 pass / 21 todo / 0 fail (2.91s) | pre-push hook gate |
+| Phase 8 canvas unit tests | 20 / 20 pass (37 expect) | `automate-graph-layout.test.ts` |
 | Phase 8 canvas smoke tests | 20 / 20 pass | `automate-studio-canvas.test.ts` |
 | Phase 8 inspector smoke tests | 10 / 10 pass | `automate-studio-inspector.test.ts` |
+| Phase 8 library smoke tests | 7 / 7 pass | `automate-studio-library.test.ts` |
 
 ---
 
@@ -141,28 +146,26 @@ one most aligned with the maquette priority.
 
 | Slice | Sujet | Effort | Depends on |
 |---|---|---|---|
-| **8.4** | **Port connectors (DONE — `d39e91a43c`) — drag-port-to-port, click-to-delete, parent-controlled edges** | **3-4 h** | **8.3** |
-| 8.5 | Node library (left pane) — drag a NodeFamily from `NodeFamilySchema` onto the canvas; on drop, instantiate a node with default `config` per family | 2-3 h | 8.3 |
+| **8.5** | **Node library (DONE — `a4aba02736`) — parent-controlled extraNodes, 15 NodeFamily grouped** | **2-3 h** | **8.3** |
 | 8.6 | Run bar (bottom) — Start / Stop / Validate against the connected runtime, with the existing approval gate flow | 1-2 h | 8.2 |
-| 8.7 | Persist positions + edges back to the on-disk file (replace the legacy `steps[]` editor with the canonical `WorkflowDefinition {nodes, edges}` IR) | 4-6 h | 8.4, 8.5 |
+| 8.7 | Persist positions + edges + extra nodes back to the on-disk file (replace the legacy `steps[]` editor with the canonical `WorkflowDefinition {nodes, edges}` IR) | 4-6 h | 8.4, 8.5 |
 | 8.8 | Mobile + responsive — canvas collapses to a step list below tablet-portrait; library + inspector become drawers | 2-3 h | 8.7 |
 | 8.9 | Minimap + zoom-to-fit + breadcrumb navigation | 1-2 h | 8.7 |
 
-**Total remaining Phase 8**: ~10-15 h of work, ~2-3 dedicated
+**Total remaining Phase 8**: ~7-12 h of work, ~2-3 dedicated
 sessions. Phase 8.7 is the largest because it crosses from a pure
 visual studio into the durable IR — it must include a one-way
 migration path for existing `steps[]` files and a parallel-write
 safety check (the current `automate-decode.ts` only validates the
-legacy shape). Slice 8.5 is the other sizeable piece (it has to
-read `NodeFamilySchema` and instantiate default nodes on drop).
+legacy shape).
 
 The infrastructure from earlier phases is still ready:
 - `M3-ACCEPTANCE-MATRIX.md` surfaces the 6 viewports × 4 modes (Code, Work, Design, Automate) × N states coverage
 - `packages/app/e2e/m3-harness.ts` exports `setViewportFamily`, `pickShellMode`, `assertShellOverflow`, `assertFocusVisible`
 - `packages/app/e2e/v110-shell-gate.spec.ts` is the global gate spec stub
-- 5 session wrappers extracted (Phase 4 slices 2-6) + 4 Automate wrappers (Phase 8 slices 1-4) are isolated test targets
-- 0 lint warnings + 47/47 typecheck + 1349/1349 unit tests = no baseline drag
+- 5 session wrappers extracted (Phase 4 slices 2-6) + 5 Automate wrappers (Phase 8 slices 1-5) are isolated test targets
+- 0 lint warnings + 47/47 typecheck + 1358/1358 unit tests = no baseline drag
 
 ---
 
-*Last updated 2026-09-13 14:00 Europe/Paris by Mavis root session after Phase 8 slice 4 (port connectors). Next checkpoint when Phase 8 slice 5 begins (node library).*
+*Last updated 2026-09-13 14:30 Europe/Paris by Mavis root session after Phase 8 slice 5 (node library). Next checkpoint when Phase 8 slice 6 begins (run bar).*
