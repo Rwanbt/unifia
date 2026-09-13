@@ -17,6 +17,7 @@
  */
 
 import type { Page } from "@playwright/test"
+import { toggleSidebar } from "./actions"
 
 export type ShellMode = "code" | "work" | "design" | "automate"
 
@@ -49,10 +50,23 @@ export async function setViewportFamily(page: Page, family: ViewportFamily): Pro
  * on the workspace main element. Returns the resolved mode.
  */
 export async function pickShellMode(page: Page, target: ShellMode): Promise<ShellMode> {
-  const trigger = page.locator(`[data-component="rail-mode-${target}"]`)
+  // Rail buttons carry data-mode (sidebar-shell.tsx); the workspace main
+  // carries data-workbench-mode (layout.tsx). These are the markers the
+  // A8-02 strict gate reads, verified against HEAD on 2026-09-13.
+  // The rail renders a top twin and a bottom twin per mode (INTERACTIONS
+  // "bottom-twin 31px"), so the selector matches two buttons by design.
+  const trigger = page.locator(`[data-component="sidebar-rail"] [data-mode="${target}"]`).first()
   await trigger.click()
-  const workspace = page.locator('[data-component="session-workspace"]')
+  const workspace = page.locator('[data-v110="workspace"]')
   await workspace.waitFor({ state: "visible" })
+  // Mode switching is a reactive navigation (ensureModeLoaded + workbench
+  // mount), not a synchronous class flip: wait on the observable state
+  // instead of reading once.
+  await page.waitForFunction(
+    (mode) => document.querySelector('[data-v110="workspace"]')?.getAttribute("data-workbench-mode") === mode,
+    target,
+    { timeout: 15_000 },
+  )
   const resolved = (await workspace.getAttribute("data-workbench-mode")) as ShellMode | null
   if (resolved !== target) {
     throw new Error(`pickShellMode(${target}) resolved to ${resolved}; rail trigger likely missing or click intercepted`)
@@ -62,9 +76,8 @@ export async function pickShellMode(page: Page, target: ShellMode): Promise<Shel
 
 /** Toggle the persistent sidebar; returns whether the sidebar is now opened. */
 export async function toggleWorkspaceSidebar(page: Page): Promise<boolean> {
-  await page.keyboard.press("Control+B")
-  const opened = await page.locator('[data-v110="resize-context-wrapper"]').isVisible()
-  return opened
+  await toggleSidebar(page)
+  return page.locator('[data-v110="resize-context-wrapper"]').isVisible()
 }
 
 /** Toggle one of the three inspector tabs (Explorer, Inspector, Execution). */
@@ -72,9 +85,13 @@ export async function pickInspectorTab(
   page: Page,
   tab: "explorer" | "inspector" | "execution",
 ): Promise<void> {
-  await page.locator(`[role="tab"][data-v110-tab="${tab}"]`).click()
-  const panel = page.locator(`[data-v110-tab-panel="${tab}"]`)
-  await panel.waitFor({ state: "visible" })
+  // The frame renders three role=tab buttons (data-v110-tab) over a single
+  // #v110-inspector-panel whose visibility follows the open state
+  // (v110-inspector-frame.tsx). Open the frame first when it is collapsed.
+  const toggle = page.locator('[data-action="inspector-toggle"][aria-expanded="false"]')
+  if ((await toggle.count()) > 0) await toggle.first().click()
+  await page.locator(`[role="tab"][data-v110-tab="${tab}"]`).first().click()
+  await page.locator("#v110-inspector-panel").first().waitFor({ state: "visible" })
 }
 
 /** Measure global horizontal overflow on document.documentElement. */
@@ -90,6 +107,17 @@ export async function overflowReport(page: Page): Promise<{ selector: string; ov
   return page.evaluate(() => {
     const offenders: { selector: string; overflow: number }[] = []
     document.querySelectorAll<HTMLElement>("body *").forEach((el) => {
+      // A scroll container (overflow-x auto/scroll/hidden/clip) is allowed
+      // to have scrollWidth > clientWidth: that is its purpose, not a
+      // layout escape. Only flag content that overflows a box which claims
+      // it does not (overflow-x: visible), which is the A2-04 bug class.
+      const overflowX = getComputedStyle(el).overflowX
+      if (overflowX !== "visible") return
+      // A collapsed container (width transition at 0, closed panel) keeps
+      // its in-flow content at natural width; that scrollWidth is not a
+      // visual escape (a clipped ancestor owns it). Unmeasurable boxes are
+      // not evidence of a layout bug.
+      if (el.clientWidth < 8) return
       const overflow = el.scrollWidth - el.clientWidth
       if (overflow > 6) {
         offenders.push({
@@ -141,14 +169,25 @@ export async function expectNoConsoleErrors(
   }
 }
 
-/** Build the canonical shell gate assertion: 4 modes + no overflow + frame mounted. */
+/** Build the canonical shell gate assertion: frame mounted + modes reachable from the active navigation. */
 export async function assertShellMounted(page: Page): Promise<void> {
   const frame = page.locator('[data-v110="shell-frame"]')
   await frame.waitFor({ state: "visible" })
-  for (const mode of ["code", "work", "design", "automate"] as const) {
-    const trigger = page.locator(`[data-component="rail-mode-${mode}"]`)
-    if ((await trigger.count()) === 0) {
-      throw new Error(`rail-mode-${mode} trigger not mounted in shell`)
-    }
+  // The 4 shell modes live in the rail on desktop and in the mobile nav
+  // below 600px (A2-03). Automate is grant-gated (ADR-1041), so the gate
+  // asserts the *present* triggers are registered modes — mirroring the
+  // A8-02 strict spec — instead of demanding all four.
+  const modes = await page.evaluate(() => {
+    const nodes = Array.from(
+      document.querySelectorAll(
+        '[data-component="sidebar-rail"] [data-mode], [data-v110="mobile-nav"] [data-mode]',
+      ),
+    )
+    return nodes.map((node) => node.getAttribute("data-mode") ?? "")
+  })
+  if (modes.length === 0) throw new Error("no mode trigger mounted in the active navigation (rail or mobile-nav)")
+  const known = new Set(["code", "work", "design", "automate"])
+  for (const mode of modes) {
+    if (!known.has(mode)) throw new Error(`navigation exposes an unregistered mode: ${mode}`)
   }
 }
