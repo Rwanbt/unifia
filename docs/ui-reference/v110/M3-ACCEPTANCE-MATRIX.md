@@ -137,9 +137,9 @@ Pour chaque surface :
 | Automate zoom/pan | desktop-large | Ctrl+wheel / drag | maquette | automate-studio-canvas.tsx (slice 1 + 9) — Ctrl/Cmd + wheel zoom, pointer drag pan, zoom-to-fit button | ✅ |
 | Automate minimap | desktop-large | navigate | maquette | automate-studio-minimap.tsx (slice 9) — bottom-right corner, viewport indicator tracking pan/zoom, click→onJumpTo | ✅ |
 | Automate debug (Runs/Data/Logs/Tests/Problems) | desktop | switch tabs | maquette | Recent runs section (partial) | ⚠️ partial — Runs only |
-| Automate environment | desktop-large | configure | maquette | ? | ❌ **Phase 9+ scope** |
+| Automate environment | desktop-large | configure | maquette | automate-studio-environment.tsx (Phase 9.1, 2026-09-13) — read-only pane: grants (active/inactive), workspace id, pending approvals, recent runs | ⚠️ partial — read-only overview; configure has no runtime endpoint |
 | Automate publish/import/export | desktop | click | maquette | Local draft + Publish as new file (partial) | ⚠️ partial — Publish only |
-| Automate branches | desktop | switch | maquette | ? | ❌ **Phase 9+ scope** |
+| Automate branches | desktop | switch | maquette | automate-studio-canvas.tsx (Phase 9.2) — labelled true/false ports on control.if + kind-tagged edges + cycle/duplicate validation | ✅ |
 
 **Phase 8 critique** : Automate doit devenir le vrai studio node-based. C'est le plus gros écart fonctionnel. **P1 absolu**.
 
@@ -150,6 +150,8 @@ Pour chaque surface :
   - **Debug tabs** : the maquette shows 5 tabs (Runs/Data/Logs/Tests/Problems) for full observability. Slice 6 shipped the Runs section as a minimum-viable proof that workflow runs are surfaced. The 4 remaining tabs are a Phase 9+ scope item (observability sub-suite).
   - **Publish/import/export** : slice 7 shipped `Save` (writes canonical v2 to local draft) + `Publish as new file` (writes to runtime via `publishDraft`). Import/Export (full JSON workflow file exchange) are Phase 9+ scope items.
   - **Environment / branches** : explicitly marked Phase 9+ scope in the matrix. These are workflow-execution-environment concerns, distinct from the studio visual work that Phase 8 was scoped to.
+
+**Phase 9 continuation (2026-09-13)** : the two `Phase 9+ scope` lines shipped as Phase 9.1 (environment read-only pane, commit `f061fff246`) + Phase 9.2 (branch true/false ports + graph validation, commit `701306f06a`). Remaining Automate gaps : debug tabs (Runs only) and publish/import/export (Publish only).
 
 ---
 

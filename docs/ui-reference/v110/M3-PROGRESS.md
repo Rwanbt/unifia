@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `4a9839cd6f chore(i18n): parity coverage for Phase 8 slice 9 minimap + breadcrumb keys across 14 locales`
+> **HEAD** : `701306f06a feat(automate): Phase 9 slice 2 — branch ports (true/false) + graph validation`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -62,6 +62,8 @@ source of truth future agents can read without vault access.
 | **8.8** | **Phase 8 slice 8 — Mobile + responsive (step list + accordion library)** | **`a1ff81aecd`** | **LIVREE** |
 | **8.9** | **Phase 8 slice 9 — Minimap + zoom-to-fit + breadcrumb (FERME Phase 8)** | **`9700b91630`** | **LIVREE** |
 | chore | i18n parity coverage for Phase 8 slice 9 minimap + breadcrumb keys (14 locales) | `4a9839cd6f` | LIVREE |
+| **9.1** | **Phase 9 slice 1 — Environment pane (grants + approvals + runs, read-only drawer)** | **`f061fff246`** | **LIVREE** |
+| **9.2** | **Phase 9 slice 2 — Branch ports (true/false) + cycle/duplicate graph validation** | **`701306f06a`** | **LIVREE** |
 
 ---
 
@@ -130,6 +132,9 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 8 step list smoke tests | 7 / 7 pass | `automate-studio-step-list.test.ts` |
 | Phase 8 minimap smoke tests | 6 / 6 pass | `automate-studio-minimap.test.ts` |
 | Phase 8 migration unit tests | 17 / 17 pass | `automate-migrate-legacy.test.ts` |
+| `bun test packages/app` (Phase 9 slices 1-2) | 1437 pass / 21 todo / 0 fail | full app suite |
+| Phase 9 graph validation tests | 8 / 8 pass | `automate-graph-validation.test.ts` |
+| Phase 9 branch port tests | 7 / 7 pass | `automate-graph-layout.test.ts` (slice 9.2 block) |
 
 ---
 
@@ -190,4 +195,4 @@ branches" line).
 
 ---
 
-*Last updated 2026-09-13 16:30 Europe/Paris by Mavis root session after Phase 8 slice 9 (minimap + zoom-to-fit + breadcrumb) — **PHASE 8 FERMÉE**. Next checkpoint : Phase 8 acceptance-matrix audit.*
+*Last updated 2026-09-13 by the OpenCode autonomous session after Phase 9 slices 1-2 (environment pane + branch ports/validation). Phase 8 was closed and audited; Phase 9 continuation opened on the same `new-ui` branch. Next checkpoint : Phase 7 (Design runtime) or Phase 5 (Code chrome) per the M3 priority order.*
