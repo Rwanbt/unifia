@@ -11,6 +11,7 @@ import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
+import { buildCanonicalFromState, serializeCanonical } from "./automate-migrate-legacy"
 import { AutomateStudioLibrary, DEFAULT_LIBRARY_CATEGORIES } from "./automate-studio-library"
 import { AutomateStudioRunBar, validateDefinition, type RunBarState, type ValidateReport } from "./automate-studio-run-bar"
 import { publishedDraftPath, summarizeWorkflowSteps } from "./automate-workflow-model"
@@ -52,6 +53,10 @@ export function AutomateSurface(): JSX.Element {
   const [extraNodes, setExtraNodes] = createSignal<readonly { readonly id: string; readonly label: string; readonly requiresApproval: boolean; readonly family?: string }[]>([])
   /** Slice 6: report from the last dry-run validate. */
   const [validateReport, setValidateReport] = createSignal<ValidateReport | undefined>()
+  /** Slice 7: timestamp of the last successful canonical save. */
+  const [savedAt, setSavedAt] = createSignal<Date | undefined>()
+  /** Slice 7: parallel-write safety — disables the Save button while a save is in flight. */
+  const [savePending, setSavePending] = createSignal(false)
   const draftStore = createIndexedDbWorkflowDraftStore()
   let draftTimer: ReturnType<typeof setTimeout> | undefined
   let draftLoadEpoch = 0
@@ -336,6 +341,28 @@ export function AutomateSurface(): JSX.Element {
                 onDeny={() => void resolveWorkflowApproval("deny")}
                 onCancel={() => void cancelWorkflowApproval()}
                 onDismissError={() => setWorkflowError(undefined)}
+                onSave={() => {
+                  if (savePending()) return
+                  const parsedNow = parseWorkflowDefinition(draftSource() || (definitionFile.data?.results[0] ? decodeFile(definitionFile.data.results[0]) : ""))
+                  if (parsedNow.kind !== "ok") return
+                  setSavePending(true)
+                  try {
+                    const canonical = buildCanonicalFromState({
+                      legacy: parsedNow.definition,
+                      positions: stepPositions(),
+                      userEdges: stepEdges(),
+                      extraNodes: extraNodes(),
+                    })
+                    const serialized = serializeCanonical(canonical)
+                    setDraftSource(serialized)
+                    setSavedAt(new Date())
+                    setValidateReport({ ok: true, lines: [{ severity: "warning", message: t("workbench.automate.runBar.saveMigratedWarning") }] })
+                  } finally {
+                    setSavePending(false)
+                  }
+                }}
+                savedAt={savedAt()}
+                savePending={savePending()}
               />
             </div>
           </div>

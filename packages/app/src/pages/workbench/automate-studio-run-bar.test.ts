@@ -42,6 +42,15 @@ describe("AutomateStudioRunBar smoke test (static)", () => {
     expect(source).toMatch(/data-automate-studio-run-bar-validate/)
     expect(source).toMatch(/data-automate-studio-run-bar-validate-line=/)
   })
+
+  test("renders a Save button (slice 7 canonical IR migration)", () => {
+    expect(source).toMatch(/data-automate-studio-run-bar-action="save"/)
+  })
+
+  test("renders a 'saved at HH:MM' chip when savedAt is provided", () => {
+    expect(source).toMatch(/data-automate-studio-run-bar-saved-at/)
+    expect(source).toMatch(/function\s+formatSavedAt/)
+  })
 })
 
 describe("validateDefinition (pure)", () => {

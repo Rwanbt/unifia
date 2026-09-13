@@ -52,4 +52,13 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     // exists, the decoded server file remains the safe fallback.
     expect(source).toMatch(/parseWorkflowDefinition\(draftSource\(\) \|\| decodeFile\(file\)\)/)
   })
+
+  test("wires the run-bar Save action to the canonical IR migration (slice 7)", () => {
+    // Anti-regression: a future refactor that drops the Save wiring
+    // would lose the user's visual state (positions, edges, library
+    // nodes) on reload.
+    expect(source).toMatch(/onSave=\{/)
+    expect(source).toMatch(/buildCanonicalFromState\(/)
+    expect(source).toMatch(/serializeCanonical\(/)
+  })
 })

@@ -52,6 +52,12 @@ export type AutomateStudioRunBarProps = {
   readonly onDeny?: () => void
   readonly onCancel?: () => void
   readonly onDismissError?: () => void
+  /** Slice 7: save the current visual state (positions + edges + extra nodes) to the workflow file as canonical v2. */
+  readonly onSave?: () => void
+  /** Slice 7: timestamp of the last successful save (for the "saved at HH:MM" chip). */
+  readonly savedAt?: Date
+  /** Slice 7: disable Save while a save is in flight (parallel-write safety). */
+  readonly savePending?: boolean
 }
 
 export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Element {
@@ -110,6 +116,20 @@ export function AutomateStudioRunBar(props: AutomateStudioRunBarProps): JSX.Elem
         >
           {t("workbench.automate.runBar.action.validate")}
         </button>
+        <button
+          type="button"
+          class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular hover:bg-background-stronger disabled:opacity-50"
+          disabled={props.definitionLoading || props.savePending === true}
+          onClick={() => props.onSave?.()}
+          data-automate-studio-run-bar-action="save"
+        >
+          {props.savePending === true ? t("workbench.automate.runBar.action.saving") : t("workbench.automate.runBar.action.save")}
+        </button>
+        <Show when={props.savedAt}>
+          <span class="text-11-regular text-text-weak" data-automate-studio-run-bar-saved-at>
+            {t("workbench.automate.runBar.savedAt", { time: formatSavedAt(props.savedAt!) })}
+          </span>
+        </Show>
         <Show when={canStart()}>
           <button
             type="button"
@@ -256,4 +276,11 @@ export function validateDefinition(source: string): ValidateReport {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+/** Formats the savedAt timestamp as HH:MM in the local timezone. */
+function formatSavedAt(date: Date): string {
+  const hours = date.getHours().toString().padStart(2, "0")
+  const minutes = date.getMinutes().toString().padStart(2, "0")
+  return `${hours}:${minutes}`
 }
