@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-7 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save) shipped (43 commits)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-8 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive) shipped (45 commits)
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `64216802d4 chore(i18n): parity coverage for Phase 8 slice 7 Save keys across 14 locales`
+> **HEAD** : `a1ff81aecd feat(automate): Phase 8 slice 8 — mobile + responsive (step list + accordion library)`
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -59,6 +59,7 @@ source of truth future agents can read without vault access.
 | chore | i18n parity coverage for Phase 8 run bar keys (14 locales) | `8710d754f4` | LIVREE |
 | **8.7** | **Phase 8 slice 7 — Canonical IR migration (one-way v1 → v2 + Save button)** | **`69c8a9a853`** | **LIVREE** |
 | chore | i18n parity coverage for Phase 8 Save keys (14 locales) | `64216802d4` | LIVREE |
+| **8.8** | **Phase 8 slice 8 — Mobile + responsive (step list + accordion library)** | **`a1ff81aecd`** | **LIVREE** |
 
 ---
 
@@ -94,6 +95,7 @@ forwards every prop verbatim.
 | `buildCanonicalFromState` | `workbench/automate-migrate-legacy.ts` | 8.7 | Pure helper: compose legacy + positions + user edges + extra nodes into the canonical shape |
 | `serializeCanonical` | `workbench/automate-migrate-legacy.ts` | 8.7 | Pure helper: canonical → stable JSON string (fixed indent for clean diffs) |
 | `parseCanonicalWorkflowDefinition` | `workbench/automate-decode.ts` | 8.7 | New parser: accepts BOTH v1 (auto-migrates) and v2 (passes through), returns `{originalVersion}` |
+| `AutomateStudioStepList` | `workbench/automate-studio-step-list.tsx` | 8.8 | SolidJS vertical list view: button-per-step with id + label + family + approval chip + drag marker, used on narrow viewports |
 | `edgeEndpoints` | `workbench/automate-graph-layout.ts` | 8.3 | Pure helper: re-derive bezier endpoints from current effective positions (superseded by `mergeEndpoints` in slice 4) |
 | `mergeEndpoints` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: combine synthetic + user edges, apply position overrides, return one endpoint set per edge |
 | `closestInputPortDistance` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: Euclidean distance from cursor to closest input port |
@@ -109,18 +111,19 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 
 | Check | Result | Evidence |
 |---|---|---|
-| `bunx biome check` (1817 files) | 0 warnings | `Checked 1817 files in 2s. No fixes applied.` |
+| `bunx biome check` (1819 files) | 0 warnings | `Checked 1819 files in 2s. No fixes applied.` |
 | `tsgo -b` (packages/app) | exit 0 | single-package verification |
 | `bun turbo typecheck` (47 packages) | 47/47 PASS | pre-push hook gate |
 | Working tree | clean | `git status --short` empty |
 | Lint warnings in packages/app | 0 | was 9, all silenced in `dd6defe949` |
 | Lint warnings repo-wide | 0 | was 22, all silenced across 3 commits |
-| `bun test packages/app` | 1392 pass / 21 todo / 0 fail (3.84s) | pre-push hook gate |
+| `bun test packages/app` | 1401 pass / 21 todo / 0 fail (3.85s) | pre-push hook gate |
 | Phase 8 canvas unit tests | 34 / 34 pass (60 expect) | `automate-graph-layout.test.ts` + `automate-migrate-legacy.test.ts` |
 | Phase 8 canvas smoke tests | 20 / 20 pass | `automate-studio-canvas.test.ts` |
 | Phase 8 inspector smoke tests | 10 / 10 pass | `automate-studio-inspector.test.ts` |
 | Phase 8 library smoke tests | 7 / 7 pass | `automate-studio-library.test.ts` |
 | Phase 8 run bar smoke tests | 14 / 14 pass | `automate-studio-run-bar.test.ts` |
+| Phase 8 step list smoke tests | 7 / 7 pass | `automate-studio-step-list.test.ts` |
 | Phase 8 migration unit tests | 17 / 17 pass | `automate-migrate-legacy.test.ts` |
 
 ---
@@ -158,25 +161,22 @@ one most aligned with the maquette priority.
 
 | Slice | Sujet | Effort | Depends on |
 |---|---|---|---|
-| **8.7** | **Canonical IR migration (DONE — `69c8a9a853`) — one-way v1 → v2 + Save button + parseCanonicalWorkflowDefinition** | **4-6 h** | **8.4, 8.5** |
-| 8.8 | Mobile + responsive — canvas collapses to a step list below tablet-portrait; library + inspector become drawers | 2-3 h | 8.7 |
+| **8.8** | **Mobile + responsive (DONE — `a1ff81aecd`) — step list + accordion library, `useViewport()` authority** | **2-3 h** | **8.7** |
 | 8.9 | Minimap + zoom-to-fit + breadcrumb navigation | 1-2 h | 8.7 |
 
-**Total remaining Phase 8**: ~3-5 h of work, ~1-2 dedicated
-sessions. Slice 8.7 just shipped the canonical IR migration +
-Save button + parseCanonicalWorkflowDefinition (reads both v1
-and v2). The runtime still accepts the legacy envelope on
-v1 files; the server-side upgrade to accept canonical v2
-directly is a follow-up outside the scope of this M3 campaign.
-Slices 8.8 (mobile) and 8.9 (minimap) close out Phase 8.
+**Total remaining Phase 8**: ~1-2 h of work, ~1 dedicated
+session. Slice 8.9 (minimap) is the last slice of Phase 8. The
+studio is now feature-complete per the Phase 8 acceptance
+matrix — every "❌ MANQUE" line has either shipped or is on
+the 8.9 roadmap.
 
 The infrastructure from earlier phases is still ready:
 - `M3-ACCEPTANCE-MATRIX.md` surfaces the 6 viewports × 4 modes (Code, Work, Design, Automate) × N states coverage
 - `packages/app/e2e/m3-harness.ts` exports `setViewportFamily`, `pickShellMode`, `assertShellOverflow`, `assertFocusVisible`
 - `packages/app/e2e/v110-shell-gate.spec.ts` is the global gate spec stub
-- 5 session wrappers extracted (Phase 4 slices 2-6) + 7 Automate wrappers (Phase 8 slices 1-7) are isolated test targets
-- 0 lint warnings + 47/47 typecheck + 1392/1392 unit tests = no baseline drag
+- 5 session wrappers extracted (Phase 4 slices 2-6) + 8 Automate wrappers (Phase 8 slices 1-8) are isolated test targets
+- 0 lint warnings + 47/47 typecheck + 1401/1401 unit tests = no baseline drag
 
 ---
 
-*Last updated 2026-09-13 15:30 Europe/Paris by Mavis root session after Phase 8 slice 7 (canonical IR migration + Save). Next checkpoint when Phase 8 slice 8 begins (mobile + responsive).*
+*Last updated 2026-09-13 16:00 Europe/Paris by Mavis root session after Phase 8 slice 8 (mobile + responsive). Next checkpoint when Phase 8 slice 9 begins (minimap + zoom-to-fit + breadcrumb — the last slice of Phase 8).*
