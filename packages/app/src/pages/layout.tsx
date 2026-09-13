@@ -1085,9 +1085,18 @@ export default function Layout(props: ParentProps) {
                 aria-label={language.t("sidebar.nav.projectsAndSessions")}
                 data-component="sidebar-nav-mobile"
                 classList={{
-                  "@container fixed top-12 bottom-0 left-0 z-50 w-full max-w-[400px] overflow-hidden border-r border-border-weaker-base bg-background-base transition-transform duration-200 ease-out": true,
+                  // WHY visibility + pointer-events: at compact-landscape
+                  // v110-shell.css shifts the closed drawer to left: 62px
+                  // (behind the compact rail), so a -100% self-width
+                  // translate still leaves its last 62px on screen at z-50
+                  // - over the rail and any overlay at the left edge. It
+                  // intercepted every click there (a3-responsive #91).
+                  // visibility flips after the slide (transition list).
+                  "@container fixed top-12 bottom-0 left-0 z-50 w-full max-w-[400px] overflow-hidden border-r border-border-weaker-base bg-background-base transition-[transform,visibility] duration-200 ease-out": true,
                   "translate-x-0": layout.mobileSidebar.opened(),
                   "-translate-x-full": !layout.mobileSidebar.opened(),
+                  "visible pointer-events-auto": layout.mobileSidebar.opened(),
+                  "invisible pointer-events-none": !layout.mobileSidebar.opened(),
                 }}
                 onClick={(e) => e.stopPropagation()}
               >

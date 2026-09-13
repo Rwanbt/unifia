@@ -72,14 +72,6 @@ test("composer context-meter and Inspector tabs render without overflow across t
   })
 })
 
-// compact-landscape is excluded from the main matrix: at 844x390 the
-// projects sidebar (shell:hidden below the shell breakpoint) covers the
-// inspector frame tabs, so the clicks are intercepted. Real layering issue,
-// tracked with evidence in #91; the case below is a fixme placeholder so
-// the four working families stay asserted.
-const REACHABLE_CASES = CASES.filter((c) => c.name !== "compact-landscape-844x390")
-const COMPACT_LANDSCAPE = CASES.filter((c) => c.name === "compact-landscape-844x390")
-
 async function walkInspectorTabs(
   page: import("@playwright/test").Page,
   gotoSession: () => Promise<void>,
@@ -128,10 +120,5 @@ async function walkInspectorTabs(
 }
 
 test("Inspector Explorer/Inspector/Execution tabs reachable across viewport modes", async ({ page, gotoSession }) => {
-  await walkInspectorTabs(page, gotoSession, REACHABLE_CASES)
-})
-
-test("Inspector tabs reachable at compact-landscape (844x390)", async ({ page, gotoSession }) => {
-  test.fixme(true, "inspector frame tabs are covered by the projects sidebar at 844x390; see #91")
-  await walkInspectorTabs(page, gotoSession, COMPACT_LANDSCAPE)
+  await walkInspectorTabs(page, gotoSession, CASES)
 })
