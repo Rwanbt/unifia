@@ -24,6 +24,12 @@ import { toggleSidebar } from "../actions"
 import { promptSelector } from "../selectors"
 import { classify } from "../../src/tokens/viewport"
 import { WAVE05 } from "./matrix"
+
+// tokens/viewport.ts COMPACT: the `shell:` variant - and therefore the
+// desktop rail - starts at 900px. Below it RESPONSIVE-MATRIX puts the rail
+// inside the (closed) drawer; the modes stay reachable through the titlebar
+// menu toggle, so the gate opens the drawer and asserts the same contract.
+const RAIL_MIN_WIDTH = 900
 import { goto, keys, modes, overflow, panels, shot, track } from "./gate"
 
 test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
@@ -57,11 +63,29 @@ test.describe("v110 port gate (Wave 0.5 skeleton)", () => {
         expect(classify(c.width, c.height), c.name + ": matrix id drifts from A1 contract").toBe(c.id)
         const over = await overflow(page)
         expect(over.dx, c.name + ": global x-overflow " + over.dx + "px exceeds 6px").toBeLessThanOrEqual(6)
-        const got = await modes(page)
-        expect(got, c.name).toContain("code")
-        expect(got, c.name).toContain("work")
-        expect(got, c.name).toContain("design")
-        expect(got.length, c.name + ": rail must expose at most 4 shell modes, saw " + got.join(",")).toBeLessThanOrEqual(4)
+        const assertModes = (got: string[], surface: string) => {
+          expect(got, c.name).toContain("code")
+          expect(got, c.name).toContain("work")
+          expect(got, c.name).toContain("design")
+          expect(got.length, c.name + ": " + surface + " must expose at most 4 shell modes, saw " + got.join(",")).toBeLessThanOrEqual(4)
+        }
+        if (c.width >= RAIL_MIN_WIDTH) {
+          assertModes(await modes(page), "rail")
+        } else {
+          // RESPONSIVE-MATRIX: under the shell breakpoint the rail lives in
+          // the closed drawer. Open it through the menu toggle, assert the
+          // same mode contract, and close it again.
+          const menu = page
+            .getByRole("button", { name: "Toggle menu", exact: true })
+            .or(page.getByRole("button", { name: "Basculer le menu", exact: true }))
+            .first()
+          await expect(menu, c.name + ": narrow viewports must expose the drawer toggle").toBeVisible()
+          await menu.click()
+          await expect(menu).toHaveAttribute("aria-expanded", "true")
+          assertModes(await modes(page), "drawer rail")
+          await menu.click()
+          await expect(menu).toHaveAttribute("aria-expanded", "false")
+        }
         await panels(page)
         await keys(page)
         if (missionViewports.has(c.name)) await shot(page, c.name)
