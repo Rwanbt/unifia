@@ -229,7 +229,12 @@ async function walkMarkdown(
     state.truncated = true
     state.reason = "maxDepth"
     if (state.truncatedPaths.length < MAX_RECORDED_TRUNCATIONS) {
-      state.truncatedPaths.push(relative(realRoot, dir).split(sep).join("/"))
+      // The real path must be used for the relative: the configured root and
+      // its realpath can differ in form (drive letter vs Volume-GUID on the
+      // CI runner), and path.relative() is purely textual (#79). Without
+      // this the diagnostic named a subtree that does not exist, and the
+      // P2/W-FS-02 assertions on the truncated names failed on CI only.
+      state.truncatedPaths.push(relative(realRoot, realOrNull(dir) ?? dir).split(sep).join("/"))
     }
     return
   }
