@@ -208,6 +208,16 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.automate.canvas.workflowLabel",
   "workbench.automate.canvas.stepsLabel",
   "workbench.automate.canvas.canvasLabel",
+  // 2026-09-13: Automate studio minimap + breadcrumb (Phase 8
+  // slice 9). Zoom-to-fit button label, minimap aria-label,
+  // breadcrumb wrapper label, and the two breadcrumb segments
+  // ("Workspace", "Automate"). Same rationale as the canvas +
+  // inspector + library keys in slices 1-8.
+  "workbench.automate.canvas.zoomToFit",
+  "workbench.automate.minimap.label",
+  "workbench.automate.breadcrumb.label",
+  "workbench.automate.breadcrumb.workspace",
+  "workbench.automate.breadcrumb.automate",
   // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
   // rationale as the canvas control labels above — short UI labels
   // ("Inspector", "Close", "Approval"), section titles, and a
