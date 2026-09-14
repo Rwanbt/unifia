@@ -1828,6 +1828,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Uruchamianie…",
   "workbench.work.startRun.error": "Nie udało się uruchomić runu",
   "workbench.design.title": "Projektowanie",
+  "workbench.design.browser.back": "Wstecz",
+  "workbench.design.files.modeLabel": "Podgląd lub źródło",
   "workbench.design.heading": "Zwalidowany responsywny podgląd",
   "workbench.design.description": "Podgląd powstaje dopiero po walidacji manifestu i spec oraz jest ładowany jako obraz neutralny.",
   "workbench.design.chatPrompt": "Utwórz responsywną specyfikację projektową dla bieżącego obszaru roboczego.",

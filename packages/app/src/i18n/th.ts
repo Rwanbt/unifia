@@ -1896,6 +1896,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "กำลังเริ่ม…",
   "workbench.work.startRun.error": "ไม่สามารถเริ่มการรันได้",
   "workbench.design.title": "การออกแบบ",
+  "workbench.design.browser.back": "ย้อนกลับ",
+  "workbench.design.files.modeLabel": "ตัวอย่างหรือซอร์สโค้ด",
   "workbench.design.heading": "พรีวิวที่ตอบสนองซึ่งผ่านการตรวจสอบแล้ว",
   "workbench.design.description": "พรีวิวจะถูกสร้างหลังจากตรวจสอบ manifest และ spec แล้วเท่านั้น และโหลดเป็นภาพที่ไม่โต้ตอบ",
   "workbench.design.chatPrompt": "สร้างสเปกการออกแบบที่ตอบสนองสำหรับพื้นที่ทำงานปัจจุบัน",

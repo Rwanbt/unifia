@@ -1818,6 +1818,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "جارٍ البدء…",
   "workbench.work.startRun.error": "تعذّر بدء التشغيل",
   "workbench.design.title": "التصميم",
+  "workbench.design.browser.back": "رجوع",
+  "workbench.design.files.modeLabel": "معاينة أو مصدر",
   "workbench.design.heading": "معاينة متجاوبة تم التحقق منها",
   "workbench.design.description": "لا تُنشأ المعاينة إلا بعد التحقق من البيان والمواصفة، وتُحمّل كمصورة خاملة.",
   "workbench.design.chatPrompt": "أنشئ مواصفة تصميم متجاوبة لمساحة العمل الحالية.",

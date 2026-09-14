@@ -1845,6 +1845,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Wird gestartet…",
   "workbench.work.startRun.error": "Der Lauf konnte nicht gestartet werden",
   "workbench.design.title": "Design",
+  "workbench.design.browser.back": "Zurück",
+  "workbench.design.files.modeLabel": "Vorschau oder Quelltext",
   "workbench.design.heading": "Validierte Responsive-Vorschau",
   "workbench.design.description": "Die Vorschau wird erst nach Manifest- und Spec-Validierung erzeugt und als inertes Bild geladen.",
   "workbench.design.chatPrompt": "Erstelle eine Responsive-Design-Spec für den aktuellen Arbeitsbereich.",

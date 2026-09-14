@@ -1824,6 +1824,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "시작 중…",
   "workbench.work.startRun.error": "실행을 시작할 수 없습니다",
   "workbench.design.title": "디자인",
+  "workbench.design.browser.back": "뒤로",
+  "workbench.design.files.modeLabel": "미리보기 또는 소스",
   "workbench.design.heading": "검증된 반응형 미리보기",
   "workbench.design.description": "미리보기는 워크스페이스 manifest와 spec을 검증한 후에만 생성되며 비활성 이미지로 로드됩니다.",
   "workbench.design.chatPrompt": "현재 워크스페이스에 대한 반응형 디자인 spec을 만드세요.",

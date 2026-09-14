@@ -1825,6 +1825,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Starter…",
   "workbench.work.startRun.error": "Kunne ikke starte kjøringen",
   "workbench.design.title": "Design",
+  "workbench.design.browser.back": "Tilbake",
+  "workbench.design.files.modeLabel": "Forhåndsvisning eller kilde",
   "workbench.design.heading": "Validert responsiv forhåndsvisning",
   "workbench.design.description": "Forhåndsvisningen genereres først etter validering av manifest og spec, og lastes som et inert bilde.",
   "workbench.design.chatPrompt": "Lag en responsiv designspec for det nåværende arbeidsområdet.",

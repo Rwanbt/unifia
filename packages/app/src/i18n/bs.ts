@@ -1906,6 +1906,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Pokretanje…",
   "workbench.work.startRun.error": "Nije moguće pokrenuti izvršavanje",
   "workbench.design.title": "Dizajn",
+  "workbench.design.browser.back": "Nazad",
+  "workbench.design.files.modeLabel": "Pregled ili izvorni kod",
   "workbench.design.heading": "Validirani responzivni pregled",
   "workbench.design.description": "Pregled se generiše tek nakon validacije manifesta i specifikacije, te se učitava kao inertna slika.",
   "workbench.design.chatPrompt": "Kreiraj responzivnu dizajn specifikaciju za trenutni radni prostor.",

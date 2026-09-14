@@ -1832,6 +1832,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Iniciando…",
   "workbench.work.startRun.error": "No se pudo iniciar el run",
   "workbench.design.title": "Diseño",
+  "workbench.design.browser.back": "Atrás",
+  "workbench.design.files.modeLabel": "Vista previa o código fuente",
   "workbench.design.heading": "Vista previa responsive validada",
   "workbench.design.description": "La vista previa solo se genera tras validar el manifiesto y la spec, y se carga como imagen inerte.",
   "workbench.design.chatPrompt": "Crea una spec de diseño responsive para el espacio de trabajo actual.",

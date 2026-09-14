@@ -394,6 +394,27 @@ function collectUsedKeys(dir: string, acc: Set<string> = new Set()): Set<string>
   return acc
 }
 
+// #95: an accented literal inside a JSX `aria-label="..."` attribute can only
+// be hard-coded French copy that never went through language.t() — it renders
+// as the accessible name in every locale. The guard is deliberately scoped to
+// literal aria-labels (no template literals, no prose/comments) so it stays a
+// mechanical check, not a French-detection heuristic.
+const ACCENTED_ARIA_LABEL = /aria-label="[^"]*[éèêëàâäôöûüîïçœÉÈÊÀÂÔÖÛÜÎÏÇŒ]/
+
+function collectAccentedAriaLabels(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      collectAccentedAriaLabels(full, acc)
+      continue
+    }
+    if (!/\.tsx$/.test(entry.name)) continue
+    if (ACCENTED_ARIA_LABEL.test(readFileSync(full, "utf8"))) acc.push(full)
+  }
+  return acc
+}
+
 describe("i18n parity", () => {
   test("all locales expose every English key", () => {
     for (const locale of locales) {
@@ -439,6 +460,11 @@ describe("i18n parity", () => {
       const used = collectUsedKeys(dir)
       const missing = [...used].filter((key) => !(key in en) && !(key in uiEn)).sort()
       expect(missing, `${dirName}: keys used in code but absent from every dictionary`).toEqual([])
+    })
+
+    test(`no hard-coded accented aria-label literals in ${dirName}`, () => {
+      const dir = join(import.meta.dir, "..", dirName)
+      expect(collectAccentedAriaLabels(dir), `${dirName}: hard-coded accented aria-label`).toEqual([])
     })
   }
 

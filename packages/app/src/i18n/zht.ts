@@ -1891,6 +1891,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "啟動中…",
   "workbench.work.startRun.error": "無法啟動執行",
   "workbench.design.title": "設計",
+  "workbench.design.browser.back": "後退",
+  "workbench.design.files.modeLabel": "預覽或原始碼",
   "workbench.design.heading": "已驗證的回應式預覽",
   "workbench.design.description": "預覽僅在工作區 manifest 與 spec 驗證後才會產生,並以惰性影像方式載入。",
   "workbench.design.chatPrompt": "為目前工作區建立一份回應式設計 spec。",

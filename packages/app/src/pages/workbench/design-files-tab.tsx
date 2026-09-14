@@ -3,6 +3,7 @@
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import { useLanguage } from "@/context/language"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { FileIcon } from "@unifia/ui/file-icon"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
@@ -188,6 +189,7 @@ function TreeRow(props: {
 
 export function DesignFilesTab(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
+  const language = useLanguage()
   const connection = workbench.connection
   const [selectedPath, setSelectedPath] = createSignal<string>()
   const [search, setSearch] = createSignal("")
@@ -560,7 +562,7 @@ export function DesignFilesTab(): JSX.Element {
                   </Show>
                 </div>
                 <Show when={isRenderable(path())}>
-                  <div class="flex shrink-0 items-center gap-1 rounded border border-border-base p-0.5" role="group" aria-label="Aperçu ou source" data-design-files-mode-toggle>
+                  <div class="flex shrink-0 items-center gap-1 rounded border border-border-base p-0.5" role="group" aria-label={language.t("workbench.design.files.modeLabel")} data-design-files-mode-toggle>
                     <button
                       type="button"
                       class="rounded px-2 py-1 text-12-medium"

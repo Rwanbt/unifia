@@ -1829,6 +1829,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Başlatılıyor…",
   "workbench.work.startRun.error": "Çalıştırma başlatılamadı",
   "workbench.design.title": "Tasarım",
+  "workbench.design.browser.back": "Geri",
+  "workbench.design.files.modeLabel": "Önizleme veya kaynak",
   "workbench.design.heading": "Doğrulanmış duyarlı önizleme",
   "workbench.design.description": "Önizleme yalnızca çalışma alanı manifesti ve spec doğrulandıktan sonra üretilir ve inert bir görsel olarak yüklenir.",
   "workbench.design.chatPrompt": "Geçerli çalışma alanı için duyarlı bir tasarım spec’i oluştur.",

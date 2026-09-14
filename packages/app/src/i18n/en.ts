@@ -1828,6 +1828,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Starting…",
   "workbench.work.startRun.error": "Could not start the run",
   "workbench.design.title": "Design",
+  "workbench.design.browser.back": "Back",
+  "workbench.design.files.modeLabel": "Preview or source",
   "workbench.design.heading": "Validated responsive preview",
   "workbench.design.description": "The preview is produced only after workspace manifest and spec validation and is loaded as an inert image source.",
   "workbench.design.chatPrompt": "Create a responsive design spec for the current workspace.",

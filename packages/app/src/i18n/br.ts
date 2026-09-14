@@ -1830,6 +1830,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Iniciando…",
   "workbench.work.startRun.error": "Não foi possível iniciar a execução",
   "workbench.design.title": "Design",
+  "workbench.design.browser.back": "Voltar",
+  "workbench.design.files.modeLabel": "Pré-visualização ou código-fonte",
   "workbench.design.heading": "Pré-visualização responsiva validada",
   "workbench.design.description": "A pré-visualização só é gerada após a validação do manifesto e da spec, e é carregada como imagem inerte.",
   "workbench.design.chatPrompt": "Crie uma spec de design responsiva para o espaço de trabalho atual.",

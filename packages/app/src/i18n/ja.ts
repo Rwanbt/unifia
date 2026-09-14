@@ -1824,6 +1824,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "開始中…",
   "workbench.work.startRun.error": "実行を開始できませんでした",
   "workbench.design.title": "デザイン",
+  "workbench.design.browser.back": "戻る",
+  "workbench.design.files.modeLabel": "プレビューまたはソース",
   "workbench.design.heading": "検証済みレスポンシブプレビュー",
   "workbench.design.description": "プレビューはワークスペースの manifest と spec の検証を経た後にのみ生成され、不活性な画像として読み込まれます。",
   "workbench.design.chatPrompt": "現在のワークスペース向けのレスポンシブデザイン spec を作成してください。",

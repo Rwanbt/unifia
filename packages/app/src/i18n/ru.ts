@@ -1832,6 +1832,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Запуск…",
   "workbench.work.startRun.error": "Не удалось запустить run",
   "workbench.design.title": "Дизайн",
+  "workbench.design.browser.back": "Назад",
+  "workbench.design.files.modeLabel": "Предпросмотр или исходный код",
   "workbench.design.heading": "Проверенный адаптивный предпросмотр",
   "workbench.design.description": "Предпросмотр создаётся только после проверки манифеста и спецификации и загружается как инертное изображение.",
   "workbench.design.chatPrompt": "Создай адаптивную дизайн-спецификацию для текущего рабочего пространства.",

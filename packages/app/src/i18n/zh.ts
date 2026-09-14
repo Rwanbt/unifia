@@ -1895,6 +1895,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "正在启动…",
   "workbench.work.startRun.error": "无法启动运行",
   "workbench.design.title": "设计",
+  "workbench.design.browser.back": "后退",
+  "workbench.design.files.modeLabel": "预览或源代码",
   "workbench.design.heading": "已验证的自适应预览",
   "workbench.design.description": "预览仅在工作区 manifest 与 spec 验证通过后生成,并以惰性图像方式加载。",
   "workbench.design.chatPrompt": "为当前工作区创建一个自适应设计 spec。",

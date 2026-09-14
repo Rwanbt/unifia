@@ -1845,6 +1845,8 @@ export const dict = {
   "workbench.work.startRun.submitting": "Démarrage…",
   "workbench.work.startRun.error": "Impossible de démarrer le run",
   "workbench.design.title": "Design",
+  "workbench.design.browser.back": "Précédent",
+  "workbench.design.files.modeLabel": "Aperçu ou source",
   "workbench.design.heading": "Aperçu responsive validé",
   "workbench.design.description": "L’aperçu n’est généré qu’après validation du manifeste et de la spec, puis chargé comme image statique.",
   "workbench.design.chatPrompt": "Crée une spec de design responsive pour l’espace de travail actuel.",

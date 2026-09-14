@@ -2,6 +2,7 @@
 
 import { createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { invoke } from "@tauri-apps/api/core"
+import { useLanguage } from "@/context/language"
 import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/workbench/design-browser-model"
 
 /**
@@ -18,6 +19,7 @@ import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/work
  * build never pays for a second document it does not use.
  */
 export function DesignBrowserTab(): JSX.Element {
+  const language = useLanguage()
   const [address, setAddress] = createSignal("")
   const [fallbackUrl, setFallbackUrl] = createSignal("")
   const [label, setLabel] = createSignal<string>()
@@ -66,7 +68,7 @@ export function DesignBrowserTab(): JSX.Element {
 
   return <div class="flex h-full min-h-0 flex-col" data-design-browser>
     <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" onSubmit={open}>
-      <button type="button" class={buttonClass} disabled={!label()} aria-label="Précédent" data-design-browser-back onClick={() => history("back")}>←</button>
+      <button type="button" class={buttonClass} disabled={!label()} aria-label={language.t("workbench.design.browser.back")} data-design-browser-back onClick={() => history("back")}>←</button>
       <button type="button" class={buttonClass} disabled={!label()} aria-label="Suivant" data-design-browser-forward onClick={() => history("forward")}>→</button>
       <button type="button" class={buttonClass} disabled={!label()} aria-label="Recharger" data-design-browser-reload onClick={() => history("reload")}>⟳</button>
       <input
