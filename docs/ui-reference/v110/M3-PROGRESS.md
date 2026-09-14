@@ -86,6 +86,7 @@ source of truth future agents can read without vault access.
 | **11a** | **Phase 11 audit — gate de parité Settings (12 onglets desktop : pane + contrôles réels, zéro error boundary) + matrice honnête par dialog ; gaps maquette sans capacité → #98** | **`0fe7bb5b8a`** | **LIVREE** |
 | fix | **#95** — 2 aria-labels FR codés en dur (Design browser back, files mode toggle) → `language.t()` × 17 dictionnaires + garde mécanique « aria-label accentué interdit » dans `parity.test.ts` ; reste des libellés FR des mêmes surfaces → #99 | `d491541ad0` | LIVREE |
 | audit | **Work — audit matrice** : les 6 vues v65 existent avec du contenu réel ; divergences de présentation (grille de cartes, chip santé, sélecteur d'autonomie, Plan IA, undo Work) → #100 ; DnD Kanban toujours bloqué par #86 | `docs` | LIVREE |
+| **12.2** | **Phase 12 slice 2 — contrat responsive du dialogue Settings (onglets desktop vs drill-down mobile sur les 5 familles, zéro overflow)** | `6c0ea13d26` | LIVREE |
 
 ---
 
@@ -191,6 +192,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 11a — gate Settings | 1/1 local (49.8 s) + CI PASS 3.5 s | `e2e/v110/settings-parity.spec.ts` — 11 onglets web (Remote access desktop-gated, hors gate) ; CI run `34829848985` e2e linux **146 pass / 0 fail / 46 skip** |
 | #95 — parity i18n | 9/9 PASS | 2 gardes nouvelles « aria-label accentué » (components + pages) |
 | #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
+| Phase 12.2 — contrat Settings | 5/5 familles (étapes) PASS local | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; verdict CI en cours au moment de la rédaction |
 
 ---
 

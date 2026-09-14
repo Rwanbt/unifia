@@ -42,6 +42,24 @@ Pour chaque mode pertinent (code/work/design/automate + memory note/graph + sett
 - Explorer, Trajectory/Observability (onglet Execution de l inspector natif).
 - desktop + tablet + mobile portrait + mobile landscape.
 
+## Contrats par vue (verifies e2e, phase 12)
+
+Les cinq familles certifiees sont desktop-wide-1440x900, desktop-compact-1024x768,
+tablet-portrait-768x1024, phone-portrait-390x844, compact-landscape-844x390.
+
+- **12.1 — panneau Memory** (`e2e/v110/a3-responsive.spec.ts`) : triptyque 3 panes
+  visibles sur les familles desktop, 1 seule pane sur les familles overlay
+  (`tablet-portrait`, `phone-portrait`, `compact-landscape`), zero x-overflow
+  global a chaque etape.
+- **12.2 — dialogue Settings** (`e2e/v110/settings-responsive.spec.ts`) : listes
+  verticales d onglets (`role=tab`, General selectionne) sur les familles
+  desktop, et drill-down mobile (`[data-slot="settings-mobile-nav"]` :
+  liste -> detail -> retour) sur les familles overlay ; la liste d onglets
+  desktop ne monte jamais en overlay et inversement ; zero x-overflow.
+- **Inspector Explorer/Inspector/Execution** (`a3-responsive.spec.ts`) : les
+  3 onglets restent atteignables et selectionnables sur les 5 familles, y
+  compris compact-landscape depuis le fix #91 (drawer fermee invisible).
+
 ## Handset specifics (valide v99-v110)
 
 - Code: terminal cache par defaut a la premiere entree compacte; codebar 38px homogene.
