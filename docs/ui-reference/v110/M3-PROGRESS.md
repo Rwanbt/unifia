@@ -198,7 +198,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 12.2 — contrat Settings | 5/5 familles PASS local + CI PASS 5.6 s | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; CI run `34836854332` e2e linux **147 pass / 0 fail / 46 skip** |
 | #92 — seed registry e2e | 4/4 tests + route 200 vérifiée + CI e2e verte | `empty-registry.test.ts` ; `unifia serve` avec le flag → `GET /model-intelligence/models` 200 `{"items":[],"total":0}` (était 503) ; CI run `34846235066` e2e linux **147 pass / 0 fail / 46 skip** (gate console stricte sans filtre) |
 | Phase 11b — preuves comportementales Settings | 2/2 PASS CI (4.9 s + 3.1 s) | `e2e/v110/settings-behavior.spec.ts` ; CI run `34859853273` e2e linux **149 pass / 0 fail / 46 skip** |
-| Phase 11c — MCP | pane atteignable (#101) prouvé CI (le toggle apparaît) ; ajout non persisté → `test.fixme` + issue **#102** | CI run `34866627308` (snapshot « unavailable » avant #101, puis row absente après) ; probe brut `POST /mcp` → 200 `{}`, `GET /mcp` → `{}`, `DELETE` → 500 |
+| Phase 11c — MCP | pane atteignable (#101) prouvé CI ; ajout non persisté → `test.fixme` + issue **#102** | CI run `34866627308` (snapshot « unavailable » avant #101, puis row absente après) ; probe brut `POST /mcp` → 200 `{}`, `GET /mcp` → `{}`, `DELETE` → 500 ; **CI finale run `34869731240` : 149 pass / 0 fail / 47 skip** (fixme compté skip) |
 
 ---
 
