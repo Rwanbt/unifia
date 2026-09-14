@@ -584,6 +584,22 @@ export async function clickMenuItem(menu: Locator, itemName: string | RegExp, op
   await item.click({ force: options?.force })
 }
 
+/**
+ * Click a menu item once it is actionable.
+ *
+ * Workspace Reset/Delete are intentionally disabled while the worktree is
+ * busy (creation still running): a forced click on a disabled item closes
+ * the menu and silently does nothing (#91 - the reset dialog then never
+ * opens and the spec times out waiting for it). Wait for `aria-disabled`
+ * to flip to false, then click without force.
+ */
+export async function clickMenuItemWhenEnabled(menu: Locator, itemName: string | RegExp) {
+  const item = menu.getByRole("menuitem").filter({ hasText: itemName }).first()
+  await expect(item).toBeVisible()
+  await expect(item).toHaveAttribute("aria-disabled", "false")
+  await item.click()
+}
+
 export async function confirmDialog(page: Page, buttonName: string | RegExp) {
   const dialog = page.getByRole("dialog").first()
   await expect(dialog).toBeVisible()
