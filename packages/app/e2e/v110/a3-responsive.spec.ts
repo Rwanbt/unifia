@@ -122,3 +122,44 @@ async function walkInspectorTabs(
 test("Inspector Explorer/Inspector/Execution tabs reachable across viewport modes", async ({ page, gotoSession }) => {
   await walkInspectorTabs(page, gotoSession, CASES)
 })
+
+// RESPONSIVE-MATRIX: the triptych keeps three panes on desktop families and
+// collapses to one visible pane on the overlay families. Asserted on the real
+// panel (the bridge-less web state still renders the layout contract) so a
+// regression in v110-store classification fails here, not in production.
+const OVERLAY_FAMILIES = new Set(["tablet-portrait-768x1024", "phone-portrait-390x844", "compact-landscape-844x390"])
+
+test("memory pane keeps the triptych/single-pane contract across viewport modes", async ({ page, gotoSession }) => {
+  await page.setViewportSize({ width: CASES[0].width, height: CASES[0].height })
+  await gotoSession()
+
+  const toggle = page.getByRole("button", { name: "Toggle file tree" }).first()
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click()
+  await page.getByRole("tab", { name: "Inspector", exact: true }).click()
+  await page.getByRole("button", { name: "Memory", exact: true }).click()
+  const panel = page.locator('[data-v110="memory-panel"]')
+  await expect(panel).toBeVisible()
+
+  for (const c of CASES) {
+    await test.step(c.name, async () => {
+      await page.setViewportSize({ width: c.width, height: c.height })
+      // Crosses the overlay/desktop boundary (isMobile()) plus the 200ms
+      // panel transitions, same reasoning as walkInspectorTabs.
+      await page.waitForTimeout(250)
+      const over = await overflow(page)
+      expect(over.dx, c.name + ": global x-overflow " + over.dx + "px exceeds 6px").toBeLessThanOrEqual(6)
+      await expect(panel, c.name + ": memory panel must stay mounted").toBeAttached()
+      const grid = panel.locator("[data-memory-layout]")
+      await expect(grid).toBeAttached()
+      const layout = await grid.getAttribute("data-memory-layout")
+      expect(layout, c.name + ": layout contract").toBe(OVERLAY_FAMILIES.has(c.name) ? "single" : "triptych")
+      const visiblePanes = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("[data-memory-vault], [data-memory-note-pane], [data-memory-links]")).filter((el) => {
+          const box = el.getBoundingClientRect()
+          return box.width > 0 && box.height > 0
+        }).length,
+      )
+      expect(visiblePanes, c.name + ": visible panes").toBe(OVERLAY_FAMILIES.has(c.name) ? 1 : 3)
+    })
+  }
+})
