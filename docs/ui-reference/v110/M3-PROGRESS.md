@@ -196,7 +196,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
 | Phase 12.2 — contrat Settings | 5/5 familles PASS local + CI PASS 5.6 s | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; CI run `34836854332` e2e linux **147 pass / 0 fail / 46 skip** |
 | #92 — seed registry e2e | 4/4 tests + route 200 vérifiée + CI e2e verte | `empty-registry.test.ts` ; `unifia serve` avec le flag → `GET /model-intelligence/models` 200 `{"items":[],"total":0}` (était 503) ; CI run `34846235066` e2e linux **147 pass / 0 fail / 46 skip** (gate console stricte sans filtre) |
-| Phase 11b — preuves comportementales Settings | 2 tests (Audio localStorage+reload, Mémoire PATCH config) | `e2e/v110/settings-behavior.spec.ts` ; verdict CI en vol au moment de la rédaction |
+| Phase 11b — preuves comportementales Settings | 2/2 PASS CI (4.9 s + 3.1 s) | `e2e/v110/settings-behavior.spec.ts` ; CI run `34859853273` e2e linux **149 pass / 0 fail / 46 skip** |
 
 ---
 
