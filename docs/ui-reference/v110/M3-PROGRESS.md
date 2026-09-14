@@ -83,6 +83,8 @@ source of truth future agents can read without vault access.
 | **5.3** | **Phase 5 slice 3 — marqueur canonique `terminal-panel` + preuve de cascade e2e ; matrice Code mise à l'heure (blame/lens ❌, issue #96)** | **`904eeb930e`** | **LIVREE** |
 | **12.1** | **Phase 12 slice 1 — contrat responsive du panneau Memory (triptyque/single, 5 familles, zéro overflow)** | **`5129902f4e`** | **LIVREE** |
 | fix | **#91 ROOT CAUSE** — la Vague 5 (`886b5a0d6b`) remplaçait les vrais déclencheurs Reset/Delete par `dialog.show(() => null)` : le menu ouvrait un stack vide (overlay seul, Content jamais monté). Re-câblage des deux triggers + suppression des 7 deps fantômes + test de régression | `ee9f4ac9d9` | LIVREE |
+| **11a** | **Phase 11 audit — gate de parité Settings (12 onglets desktop : pane + contrôles réels, zéro error boundary) + matrice honnête par dialog ; gaps maquette sans capacité → #98** | **`0fe7bb5b8a`** | **LIVREE** |
+| fix | **#95** — 2 aria-labels FR codés en dur (Design browser back, files mode toggle) → `language.t()` × 17 dictionnaires + garde mécanique « aria-label accentué interdit » dans `parity.test.ts` ; reste des libellés FR des mêmes surfaces → #99 | `d491541ad0` | LIVREE |
 
 ---
 
@@ -185,6 +187,9 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | #91 fix — unit | 2/2 pass | `layout-contexts.test.ts` : forwarding des triggers réels (pas de stub `() => null`) |
 | #91 fix — `bun test src` (packages/app) | 1485 pass / 21 todo / 0 fail | après ajout des 2 tests de régression |
 | #91 fix — conformance locale | 8/8 PASS | `node scripts/unifia-conformance.mjs` |
+| Phase 11a — gate Settings | 1/1 PASS (49.8 s), sans retry | `e2e/v110/settings-parity.spec.ts` — 11 onglets web (Remote access desktop-gated, hors gate) |
+| #95 — parity i18n | 9/9 PASS | 2 gardes nouvelles « aria-label accentué » (components + pages) |
+| #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
 
 ---
 
