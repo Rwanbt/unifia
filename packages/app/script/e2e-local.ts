@@ -43,6 +43,19 @@ async function waitForHealth(url: string) {
   throw new Error(`Timed out waiting for server health: ${url}${last}`)
 }
 
+// #92: the hermetic e2e server never syncs the model-intelligence registry,
+// so `/model-intelligence/models` answered 503 by design on every boot and
+// every page load logged the failed resource (the gate harness had to filter
+// that console error). Seed an empty, schema-valid registry into the
+// in-process default storage before the server starts: the route answers an
+// empty page and the console stays clean. The seed must run in THIS process —
+// the registry storage is module-level memory, so seeding from the separate
+// seed-e2e.ts process would not reach the server.
+async function seedModelIntelligence() {
+  const { seedEmptyRegistry } = await import("../../unifia/src/model-intelligence/empty-registry")
+  await seedEmptyRegistry()
+}
+
 const appDir = process.cwd()
 const repoDir = path.resolve(appDir, "../..")
 
@@ -181,6 +194,7 @@ try {
 
     const servermod = await import("../../unifia/src/server/server")
     inst = await import("../../unifia/src/project/instance")
+    await seedModelIntelligence()
     server = servermod.Server.listen({ port: serverPort, hostname: "127.0.0.1" })
     console.log(`unifia server listening on http://127.0.0.1:${serverPort}`)
 
