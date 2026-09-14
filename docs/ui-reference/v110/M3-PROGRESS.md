@@ -202,6 +202,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 11b — preuves comportementales Settings | 2/2 PASS CI (4.9 s + 3.1 s) | `e2e/v110/settings-behavior.spec.ts` ; CI run `34859853273` e2e linux **149 pass / 0 fail / 46 skip** |
 | Phase 11c — MCP | pane atteignable (#101) prouvé CI ; ajout non persisté → `test.fixme` + issue **#102** | CI run `34866627308` (snapshot « unavailable » avant #101, puis row absente après) ; probe brut `POST /mcp` → 200 `{}`, `GET /mcp` → `{}`, `DELETE` → 500 ; **CI finale run `34869731240` : 149 pass / 0 fail / 47 skip** (fixme compté skip) |
 | Phase 12.3 — contrat Code | CI PASS 4.1 s | `e2e/v110/a4-responsive.spec.ts` ; CI run `34875743524` e2e linux **150 pass / 0 fail / 47 skip** |
+| Phase 12.4 — contrat Design | CI PASS 21.7 s | `e2e/v110/a6-responsive.spec.ts` ; CI run `34907033720` e2e linux **151 pass / 0 fail / 47 skip** (1er dispatch `34899431828` bloqué 1h26 sans sortie runner — flake infra, re-dispatch identique vert, classe #58) |
 
 ---
 
