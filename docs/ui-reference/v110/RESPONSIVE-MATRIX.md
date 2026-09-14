@@ -56,6 +56,13 @@ tablet-portrait-768x1024, phone-portrait-390x844, compact-landscape-844x390.
   desktop, et drill-down mobile (`[data-slot="settings-mobile-nav"]` :
   liste -> detail -> retour) sur les familles overlay ; la liste d onglets
   desktop ne monte jamais en overlay et inversement ; zero x-overflow.
+- **12.3 — surface Code** (`e2e/v110/a4-responsive.spec.ts`) : sur les 5
+  familles, le workspace Code est monte et visible, le toggle terminal reste
+  atteignable et rapporte l etat ferme (`aria-expanded=false`,
+  `#terminal-panel[aria-hidden=true]`) — contrat handset « terminal cache par
+  defaut » — zero x-overflow, zero erreur console. L ouverture du terminal
+  (PTY ghostty-web, latence CI connue #71) reste couverte par la suite
+  terminal, pas par ce gate.
 - **Inspector Explorer/Inspector/Execution** (`a3-responsive.spec.ts`) : les
   3 onglets restent atteignables et selectionnables sur les 5 familles, y
   compris compact-landscape depuis le fix #91 (drawer fermee invisible).

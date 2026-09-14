@@ -89,6 +89,7 @@ source of truth future agents can read without vault access.
 | **12.2** | **Phase 12 slice 2 — contrat responsive du dialogue Settings (onglets desktop vs drill-down mobile sur les 5 familles, zéro overflow)** | `6c0ea13d26` | LIVREE |
 | **11b** | **Phase 11 durcissement — preuves comportementales Audio (localStorage + reload) et Mémoire (PATCH `/global/config` vérifié puis restauré) + wrappers `data-action`** | `d23b5ff7c2` | LIVREE |
 | **11c** | **Phase 11 durcissement — preuve MCP : la pane était inatteignable dans le dialogue (SyncProvider absent) → fallback SDK (#101, corrigé) ; l'ajout ne persiste pas (`<projet>/config.json` jamais relu + dispose d'instance) → `test.fixme` + preuves brutes + #102** | `9a95392a1a` + `b511728855` | LIVREE |
+| **12.3** | **Phase 12 slice 3 — contrat responsive de la surface Code (terminal fermé par défaut + toggle atteignable + zéro overflow sur les 5 familles)** | `333b91c0a2` | LIVREE |
 | fix | **#92** — seed d'un registry model-intelligence vide au boot du **backend e2e isolé** (`UNIFIA_E2E_SEED_EMPTY_REGISTRY` → `unifia serve`, `empty-registry.ts` + 4 tests) ; contournement 503 de `gate.ts` retiré ; e2e linux **147 pass / 0 fail** (run `34846235066`) | `5f63a1418c` + `163ebfc852` | LIVREE |
 
 ---
