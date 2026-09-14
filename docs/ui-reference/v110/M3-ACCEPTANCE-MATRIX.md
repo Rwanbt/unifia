@@ -204,8 +204,8 @@ Pour chaque surface :
 | Surface | Viewport | Interaction | Source maquette | Runtime actuel | Status |
 |---|---|---|---|---|---|
 | Settings dialog (Général) | desktop-large | click tab | maquette | settings-general — langue/thème/polices/notifications/sons/mises à jour réels (settings context + localStorage) ; e2e `settings.spec.ts` 19 tests + gate parité | ✅ |
-| Settings dialog (Audio) | desktop | click | maquette | settings-audio — STT/TTS persistés localStorage ; pane + contrôles prouvés par le gate parité | ⚠️ partial |
-| Settings dialog (Mémoire) | desktop | click | maquette | settings-memory — lecture/écriture `sdk.client.global.config` ; gate parité | ⚠️ partial |
+| Settings dialog (Audio) | desktop | click | maquette | settings-audio — STT/TTS persistés localStorage ; preuve comportementale : bascule des deux switches + reload conservé (e2e `settings-behavior`) ; gate parité | ⚠️ partial |
+| Settings dialog (Mémoire) | desktop | click | maquette | settings-memory — lecture/écriture `sdk.client.global.config` ; preuve comportementale : switch enable → PATCH `/global/config` vérifié puis restauré (e2e `settings-behavior`) ; gate parité | ⚠️ partial |
 | Settings dialog (Compute) | desktop | click | maquette | settings-configuration (accélérateur/backend/engine — réel) ; la page maquette « Compute » (local/distant/pairing) n'a aucune capacité runtime → #98 | ⚠️ partial |
 | Settings dialog (Observabilité) | desktop | click | maquette | settings-observability — ressources SDK réelles (settings/exporters/health/sessions/events/summary/compare) ; gate parité | ⚠️ partial |
 | Settings dialog (Fournisseurs) | desktop | click | maquette | settings-providers — e2e `settings-providers.spec.ts` 4 tests + gate parité | ✅ |

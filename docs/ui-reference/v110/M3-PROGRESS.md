@@ -87,6 +87,7 @@ source of truth future agents can read without vault access.
 | fix | **#95** — 2 aria-labels FR codés en dur (Design browser back, files mode toggle) → `language.t()` × 17 dictionnaires + garde mécanique « aria-label accentué interdit » dans `parity.test.ts` ; reste des libellés FR des mêmes surfaces → #99 | `d491541ad0` | LIVREE |
 | audit | **Work — audit matrice** : les 6 vues v65 existent avec du contenu réel ; divergences de présentation (grille de cartes, chip santé, sélecteur d'autonomie, Plan IA, undo Work) → #100 ; DnD Kanban toujours bloqué par #86 | `docs` | LIVREE |
 | **12.2** | **Phase 12 slice 2 — contrat responsive du dialogue Settings (onglets desktop vs drill-down mobile sur les 5 familles, zéro overflow)** | `6c0ea13d26` | LIVREE |
+| **11b** | **Phase 11 durcissement — preuves comportementales Audio (localStorage + reload) et Mémoire (PATCH `/global/config` vérifié puis restauré) + wrappers `data-action`** | `d23b5ff7c2` | LIVREE |
 | fix | **#92** — seed d'un registry model-intelligence vide au boot du **backend e2e isolé** (`UNIFIA_E2E_SEED_EMPTY_REGISTRY` → `unifia serve`, `empty-registry.ts` + 4 tests) ; contournement 503 de `gate.ts` retiré ; e2e linux **147 pass / 0 fail** (run `34846235066`) | `5f63a1418c` + `163ebfc852` | LIVREE |
 
 ---
@@ -195,6 +196,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
 | Phase 12.2 — contrat Settings | 5/5 familles PASS local + CI PASS 5.6 s | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; CI run `34836854332` e2e linux **147 pass / 0 fail / 46 skip** |
 | #92 — seed registry e2e | 4/4 tests + route 200 vérifiée + CI e2e verte | `empty-registry.test.ts` ; `unifia serve` avec le flag → `GET /model-intelligence/models` 200 `{"items":[],"total":0}` (était 503) ; CI run `34846235066` e2e linux **147 pass / 0 fail / 46 skip** (gate console stricte sans filtre) |
+| Phase 11b — preuves comportementales Settings | 2 tests (Audio localStorage+reload, Mémoire PATCH config) | `e2e/v110/settings-behavior.spec.ts` ; verdict CI en vol au moment de la rédaction |
 
 ---
 
