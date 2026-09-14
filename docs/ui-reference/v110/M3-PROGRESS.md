@@ -3,9 +3,9 @@
 
 # MiniMax M3 — Progress Log (2026-09-13)
 
-> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions) + Phase 9.6 (Memory depth graph filters) + Phase 5.1 (v110 chrome markers mounted)
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions) + Phase 9.6 (Memory depth graph filters) + Phase 5.1 (v110 chrome markers mounted) + **#91 fixed (workspace Reset/Delete dialogs re-wired — product regression from the Vague 5 factory stubs)**
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
-> **HEAD** : `a7bdea7de8 feat(code): mount the dormant v110 chrome markers on the real components` (after `c561e89c95` port-gate #94 fix)
+> **HEAD** : `ee9f4ac9d9` fix(layout): wire the real workspace reset/delete dialogs (#91)
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
 > **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
 
@@ -82,7 +82,7 @@ source of truth future agents can read without vault access.
 | **5.2** | **Phase 5 slice 2 — vérification Search/Replace éditeur (@codemirror/search réel)** | **`74a3816760`** | **LIVREE** |
 | **5.3** | **Phase 5 slice 3 — marqueur canonique `terminal-panel` + preuve de cascade e2e ; matrice Code mise à l'heure (blame/lens ❌, issue #96)** | **`904eeb930e`** | **LIVREE** |
 | **12.1** | **Phase 12 slice 1 — contrat responsive du panneau Memory (triptyque/single, 5 familles, zéro overflow)** | **`5129902f4e`** | **LIVREE** |
-| fix | **#91 reset** — `clickMenuItemWhenEnabled` attend `aria-disabled=false` avant Reset/Delete (race d'activation éliminée) ; l'échec CI persiste (dialogue absent) → analyse + repro locale consignées sur #91 | `5ca626113a` | EN COURS (#91) |
+| fix | **#91 ROOT CAUSE** — la Vague 5 (`886b5a0d6b`) remplaçait les vrais déclencheurs Reset/Delete par `dialog.show(() => null)` : le menu ouvrait un stack vide (overlay seul, Content jamais monté). Re-câblage des deux triggers + suppression des 7 deps fantômes + test de régression | `ee9f4ac9d9` | LIVREE |
 
 ---
 
@@ -180,6 +180,10 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | `bun test src` (Phase 9.6) | 1483 pass / 21 todo / 0 fail | full app suite |
 | Phase 5.1 e2e | 2/2 PASS (1.4 min) | `a4-code-chrome` (3 marqueurs visibles) + `file-tree` |
 | Phase 5.1 i18n | parity 7/7 | 2 clés × 17 dictionnaires, traductions réelles (pas d'allowlist) |
+| #91 fix — e2e local | 7/7 PASS (1.9 min) | `workspaces.spec.ts` complet : reset + reorder (précédemment skip) + delete |
+| #91 fix — unit | 2/2 pass | `layout-contexts.test.ts` : forwarding des triggers réels (pas de stub `() => null`) |
+| #91 fix — `bun test src` (packages/app) | 1485 pass / 21 todo / 0 fail | après ajout des 2 tests de régression |
+| #91 fix — conformance locale | 8/8 PASS | `node scripts/unifia-conformance.mjs` |
 
 ---
 
@@ -205,6 +209,13 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 ---
 
 ## Where to resume next session
+
+> **Session 4 (2026-09-14)** : `#91` est résolue — cause racine produit
+> (stubs `dialog.show(() => null)` hérités de la Vague 5), fix `ee9f4ac9d9`,
+> e2e local `workspaces.spec.ts` 7/7. La file restante est :
+> **Settings — parité (11 dialogs ⚠️)**, **Work — parité**, **Responsive
+> exhaustif (12.2+)**, **#95** (aria-labels FR), **#93** (wikilinks rename),
+> **#96** (parité éditeur), **#92** (seed e2e-local).
 
 Phase 9 (Automate continuation) slices 1-2 are shipped:
 - 9.1 environment pane (read-only grants/approvals/runs) — `f061fff246`
