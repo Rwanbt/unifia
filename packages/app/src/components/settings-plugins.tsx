@@ -1,6 +1,6 @@
 // FORK: ADR-0005 Phase 5 — Plugin manager (MCP Servers full CRUD + Skills placeholder).
 // Integrates as the "Plugins" tab in dialog-settings.tsx.
-import { createMemo, createResource, createSignal, For, Show, type Component } from "solid-js"
+import { createMemo, createResource, createSignal, For, onMount, Show, type Component } from "solid-js"
 import { useMutation } from "@tanstack/solid-query"
 import { Button } from "@unifia/ui/button"
 import { Icon } from "@unifia/ui/icon"
@@ -36,21 +36,32 @@ function statusLabel(language: ReturnType<typeof useLanguage>, kind: McpStatusKi
 
 const McpSection: Component = () => {
   const language = useLanguage()
+  const sdk = useSDK()
+  // WHY the local fallback: the settings dialog renders through the shared
+  // DialogOutlet at RouterRoot, above SyncProvider (route-scoped), so
+  // `useSync()` throws there and MCP management was unreachable from Settings
+  // ("unavailable outside an active session" — reproduced in CI, issue #101).
+  // Outside the dialog the sync store stays the one in-memory source; inside
+  // it, the same real backend route (`mcp.status`) feeds a local signal.
+  // Both paths read and write the real registry — no fabricated state.
   let sync: ReturnType<typeof useSync> | undefined
   try {
     sync = useSync()
-  } catch {
-    // Outside Router context (dialog portal) — SyncProvider not available
-  }
-  const sdk = useSDK()
+  } catch {}
+  const [local, setLocal] = createSignal<Record<string, { status: McpStatusKind; error?: string }> | undefined>()
 
-  if (!sync) {
-    return (
-      <div class="text-12-regular text-text-weak text-center py-6 bg-surface-base rounded-lg">
-        {language.t("settings.fork.plugins.unavailable")}
-      </div>
-    )
+  const data = () => sync?.data.mcp ?? local() ?? {}
+
+  const refreshStatus = async () => {
+    const result = await sdk.client.mcp.status()
+    if (!result.data) return
+    if (sync) sync.set("mcp", result.data)
+    else setLocal(result.data as Record<string, { status: McpStatusKind; error?: string }>)
   }
+
+  onMount(() => {
+    if (!sync) void refreshStatus().catch(() => undefined)
+  })
 
   const [showAdd, setShowAdd] = createSignal(false)
   const [addType, setAddType] = createSignal<"remote" | "local">("remote")
@@ -58,20 +69,15 @@ const McpSection: Component = () => {
   const [addUrl, setAddUrl] = createSignal("")
   const [addCommand, setAddCommand] = createSignal("")
 
-  const refreshStatus = async () => {
-    const result = await sdk.client.mcp.status()
-    if (result.data) sync.set("mcp", result.data)
-  }
-
   const servers = createMemo(() =>
-    Object.entries(sync.data.mcp ?? {})
+    Object.entries(data())
       .map(([name, s]) => ({ name, status: s as { status: McpStatusKind; error?: string } }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   )
 
   const toggle = useMutation(() => ({
     mutationFn: async (name: string) => {
-      const status = (sync.data.mcp[name] as { status: McpStatusKind })?.status
+      const status = (data()[name] as { status: McpStatusKind } | undefined)?.status
       if (status === "connected") {
         await sdk.client.mcp.disconnect({ name })
       } else {
