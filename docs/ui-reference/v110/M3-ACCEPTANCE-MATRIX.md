@@ -90,14 +90,16 @@ Pour chaque surface :
 
 ## Surface : Work mode (A5 v110, plus avancé)
 
-| Surface | Viewport | Interaction | Source maquette | Runtime | Status |
+> **Audit Work (2026-09-14)** : les 6 vues de la maquette v65 (Overview/Tasks/Board/Timeline/Activity/Runs) existent toutes avec du contenu réel (`WorkViewSwitcher` + panneaux `work-*`), adossées à l'orchestration Team (`runs.refresh`, `details.tasks/gates`). La présentation v65 (grille de cartes Plan/Agents/Progression/Next safe action/Approvals/Project update, chip santé « Off track », sélecteur d'autonomie Ask/Assisted/Auto Safe/Auto/Custom, bouton « Plan IA », Undo local) n'a pas d'équivalent runtime → **#100** (décision de présentation, pas d'UI fabriquée). Le DnD Kanban reste bloqué par l'absence de capacité HTTP (#86).
+
+| Surface | Viewport | Interaction | Source maquette | Runtime actuel | Status |
 |---|---|---|---|---|---|
-| Work surface (tabs) | desktop-large | switch tab | `data-v110-work-surface` | work-surface.tsx | ✅ partial |
-| Work board (Kanban) | desktop-large | drag task, click card | maquette | work-team-panels + workboard | ⚠️ partial (no DnD on task status yet) |
-| Work list | desktop-large | scroll, filter | maquette | work-team-panels | ⚠️ partial |
-| Work run details | desktop | view logs | maquette | work-team-panels | ⚠️ partial |
-| Work team panels | desktop | click team member | maquette | work-team-panels + team components | ✅ partial |
-| Work agent policy | desktop | configure | maquette | settings page | ⚠️ à tester |
+| Work surface (tabs) | desktop-large | switch tab | `data-v110-work-surface` | work-surface.tsx + work-view-switcher.tsx — 6 vues, chacune avec panneau réel (progress/next-action/plan/board/timeline/activity/runs) | ✅ partial |
+| Work board (Kanban) | desktop-large | drag task, click card | maquette | work-board-panel.tsx — lecture réelle du plan ; pas de DnD de statut (aucune capacité HTTP) → #86 | ⚠️ partial |
+| Work list | desktop-large | scroll, filter | maquette | work-plan-panel.tsx — liste des tâches du run actif (lecture réelle) | ⚠️ partial |
+| Work run details | desktop | view logs | maquette | work-runs-panel.tsx + team.details — statut/gates/tâches réels | ⚠️ partial |
+| Work team panels | desktop | click team member | maquette | work-team-panels.tsx + team components | ✅ partial |
+| Work agent policy | desktop | configure | maquette | Aucun sélecteur d'autonomie Work (Ask/Assisted/Auto Safe/Auto/Custom) ; l'autonomie passe par les permissions par capability + le mode agent → #100 | ⚠️ partiel |
 
 **Note** : Work est relativement avancé. PRD-037 Vague 5 documente qu'on peut éviter de le réécrire (passe de parité précise uniquement).
 

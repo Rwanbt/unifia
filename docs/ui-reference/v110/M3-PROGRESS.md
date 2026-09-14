@@ -85,6 +85,7 @@ source of truth future agents can read without vault access.
 | fix | **#91 ROOT CAUSE** — la Vague 5 (`886b5a0d6b`) remplaçait les vrais déclencheurs Reset/Delete par `dialog.show(() => null)` : le menu ouvrait un stack vide (overlay seul, Content jamais monté). Re-câblage des deux triggers + suppression des 7 deps fantômes + test de régression | `ee9f4ac9d9` | LIVREE |
 | **11a** | **Phase 11 audit — gate de parité Settings (12 onglets desktop : pane + contrôles réels, zéro error boundary) + matrice honnête par dialog ; gaps maquette sans capacité → #98** | **`0fe7bb5b8a`** | **LIVREE** |
 | fix | **#95** — 2 aria-labels FR codés en dur (Design browser back, files mode toggle) → `language.t()` × 17 dictionnaires + garde mécanique « aria-label accentué interdit » dans `parity.test.ts` ; reste des libellés FR des mêmes surfaces → #99 | `d491541ad0` | LIVREE |
+| audit | **Work — audit matrice** : les 6 vues v65 existent avec du contenu réel ; divergences de présentation (grille de cartes, chip santé, sélecteur d'autonomie, Plan IA, undo Work) → #100 ; DnD Kanban toujours bloqué par #86 | `docs` | LIVREE |
 
 ---
 
