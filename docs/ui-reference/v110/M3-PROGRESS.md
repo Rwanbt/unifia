@@ -192,7 +192,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 11a — gate Settings | 1/1 local (49.8 s) + CI PASS 3.5 s | `e2e/v110/settings-parity.spec.ts` — 11 onglets web (Remote access desktop-gated, hors gate) ; CI run `34829848985` e2e linux **146 pass / 0 fail / 46 skip** |
 | #95 — parity i18n | 9/9 PASS | 2 gardes nouvelles « aria-label accentué » (components + pages) |
 | #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
-| Phase 12.2 — contrat Settings | 5/5 familles (étapes) PASS local | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; verdict CI en cours au moment de la rédaction |
+| Phase 12.2 — contrat Settings | 5/5 familles PASS local + CI PASS 5.6 s | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; CI run `34836854332` e2e linux **147 pass / 0 fail / 46 skip** |
 
 ---
 
