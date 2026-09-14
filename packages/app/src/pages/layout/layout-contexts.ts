@@ -16,7 +16,7 @@
 
 import type { Session } from "../../types/sdk-shim"
 import type { LocalProject } from "@/context/layout"
-import type { Accessor, JSX } from "solid-js"
+import type { Accessor } from "solid-js"
 import type { WorkspaceSidebarContext } from "./sidebar-workspace"
 import type { ProjectSidebarContext } from "./sidebar-project"
 import type { SidebarPanelContext } from "./sidebar-panel"
@@ -42,8 +42,6 @@ export interface WorkspaceSidebarDeps {
   setEditor: (key: "value", value: string) => void
   InlineEditor: InlineEditorComponent
   isBusy: (directory: string) => boolean
-  workspaceExpanded: (directory: string, local: boolean) => boolean
-  setWorkspaceExpanded: (directory: string, value: boolean) => void
   showResetWorkspaceDialog: (root: string, directory: string) => void
   showDeleteWorkspaceDialog: (root: string, directory: string) => void
   setScrollContainerRef: (el: HTMLDivElement | undefined, mobile?: boolean) => void
@@ -51,11 +49,6 @@ export interface WorkspaceSidebarDeps {
     workspaceExpanded: Record<string, boolean | undefined>
   }
   setStore: (key: "workspaceExpanded", directory: string, value: boolean) => void
-  resetWorkspace: (root: string, directory: string) => void | Promise<void>
-  deleteWorkspace: (root: string, directory: string, leaveDeletedWorkspace?: boolean) => void | Promise<void>
-  currentDirValue: string
-  navigateWithSidebarReset: (target: string) => void
-  dialog: { show: (factory: () => JSX.Element) => void }
 }
 
 export function createWorkspaceSidebarContext(deps: WorkspaceSidebarDeps): WorkspaceSidebarContext {
@@ -80,8 +73,8 @@ export function createWorkspaceSidebarContext(deps: WorkspaceSidebarDeps): Works
     isBusy: deps.isBusy,
     workspaceExpanded: (directory, local) => deps.store.workspaceExpanded[directory] ?? local,
     setWorkspaceExpanded: (directory, value) => deps.setStore("workspaceExpanded", directory, value),
-    showResetWorkspaceDialog: (_root, _directory) => deps.dialog.show(() => null as never),
-    showDeleteWorkspaceDialog: (_root, _directory) => deps.dialog.show(() => null as never),
+    showResetWorkspaceDialog: deps.showResetWorkspaceDialog,
+    showDeleteWorkspaceDialog: deps.showDeleteWorkspaceDialog,
     setScrollContainerRef: deps.setScrollContainerRef,
   }
 }

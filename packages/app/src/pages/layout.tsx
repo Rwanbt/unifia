@@ -893,8 +893,6 @@ export default function Layout(props: ParentProps) {
     setEditor,
     InlineEditor,
     isBusy,
-    workspaceExpanded: (directory, local) => store.workspaceExpanded[directory] ?? local,
-    setWorkspaceExpanded: (directory, value) => setStore("workspaceExpanded", directory, value),
     showResetWorkspaceDialog: (root, directory) =>
       dialog.show(() => <DialogResetWorkspace root={root} directory={directory} onReset={resetWorkspace} />),
     showDeleteWorkspaceDialog: (root, directory) =>
@@ -912,11 +910,6 @@ export default function Layout(props: ParentProps) {
     },
     store,
     setStore: (key, directory, value) => setStore(key, directory, value),
-    resetWorkspace,
-    deleteWorkspace,
-    currentDirValue: currentDir(),
-    navigateWithSidebarReset,
-    dialog,
   })
 
   const projectSidebarCtx: ProjectSidebarContext = createProjectSidebarContext({
