@@ -63,6 +63,13 @@ tablet-portrait-768x1024, phone-portrait-390x844, compact-landscape-844x390.
   defaut » — zero x-overflow, zero erreur console. L ouverture du terminal
   (PTY ghostty-web, latence CI connue #71) reste couverte par la suite
   terminal, pas par ce gate.
+- **12.4 — split Design** (`e2e/v110/a6-responsive.spec.ts`) : le split suit
+  la classification v110 — `desktop` (split + handle) sur desktop-wide,
+  `tablet` sur desktop-compact et compact-landscape, `mobile` (une surface +
+  switcher assistant/atelier) sur tablet-portrait et phone-portrait ; le
+  switcher n existe que sur les familles mobiles, zero x-overflow et zero
+  erreur console. Complete V14 (overflow 375/768/1280/1440 + switcher 375) en
+  couvrant compact-landscape et les kinds tablet/desktop certifies.
 - **Inspector Explorer/Inspector/Execution** (`a3-responsive.spec.ts`) : les
   3 onglets restent atteignables et selectionnables sur les 5 familles, y
   compris compact-landscape depuis le fix #91 (drawer fermee invisible).
