@@ -197,24 +197,27 @@ Pour chaque surface :
 
 ## Surface : User / Settings
 
-| Surface | Viewport | Interaction | Source maquette | Runtime | Status |
+> **Audit Phase 11 (2026-09-14)** : la sidebar de la maquette a 17 destinations ; le runtime livre le sous-ensemble adossé à une capacité réelle (12 onglets desktop). Gate e2e `v110/settings-parity.spec.ts` : chaque onglet monte sa pane et expose des contrôles réels (1/1 PASS, 49.8 s). Les destinations maquette **sans capacité runtime** (Préférences IA, Compute, Sécurité consolidée, Réseau, Système/diagnostic, Hooks) sont tracées sur **#98** — pas d'UI fabriquée. Statut ⚠️ = câblé réel mais preuve e2e comportementale absente ; ✅ = e2e comportemental nommé.
+
+| Surface | Viewport | Interaction | Source maquette | Runtime actuel | Status |
 |---|---|---|---|---|---|
-| Settings dialog (Général) | desktop-large | click tab | maquette | settings-general | ⚠️ partial |
-| Settings dialog (Audio) | desktop | click | maquette | settings-audio | ⚠️ partial |
-| Settings dialog (Mémoire) | desktop | click | maquette | settings-memory | ⚠️ partial |
-| Settings dialog (Compute) | desktop | click | maquette | settings-configuration | ⚠️ partial |
-| Settings dialog (Observabilité) | desktop | click | maquette | settings-observability | ⚠️ partial |
-| Settings dialog (Fournisseurs) | desktop | click | maquette | settings-providers | ⚠️ partial |
-| Settings dialog (Benchmarks) | desktop | click | maquette | settings-benchmark | ⚠️ partial |
-| Settings dialog (Android) | desktop | click | maquette | settings-android | ⚠️ partial |
-| Settings dialog (Plugins) | desktop | click | maquette | settings-plugins | ⚠️ partial |
-| Settings dialog (Remote Access) | desktop | click | maquette | settings-remote-access | ⚠️ partial |
-| Settings dialog (Collaborative Auth) | desktop | click | maquette | settings-collaborative-auth | ⚠️ partial |
+| Settings dialog (Général) | desktop-large | click tab | maquette | settings-general — langue/thème/polices/notifications/sons/mises à jour réels (settings context + localStorage) ; e2e `settings.spec.ts` 19 tests + gate parité | ✅ |
+| Settings dialog (Audio) | desktop | click | maquette | settings-audio — STT/TTS persistés localStorage ; pane + contrôles prouvés par le gate parité | ⚠️ partial |
+| Settings dialog (Mémoire) | desktop | click | maquette | settings-memory — lecture/écriture `sdk.client.global.config` ; gate parité | ⚠️ partial |
+| Settings dialog (Compute) | desktop | click | maquette | settings-configuration (accélérateur/backend/engine — réel) ; la page maquette « Compute » (local/distant/pairing) n'a aucune capacité runtime → #98 | ⚠️ partial |
+| Settings dialog (Observabilité) | desktop | click | maquette | settings-observability — ressources SDK réelles (settings/exporters/health/sessions/events/summary/compare) ; gate parité | ⚠️ partial |
+| Settings dialog (Fournisseurs) | desktop | click | maquette | settings-providers — e2e `settings-providers.spec.ts` 4 tests + gate parité | ✅ |
+| Settings dialog (Benchmarks) | desktop | click | maquette | settings-benchmark — exécution réelle + historique localStorage ; gate parité | ⚠️ partial |
+| Settings dialog (Android) | desktop | click | maquette | settings-android — platform-gated (non exerçable en CI desktop) | ⚠️ partial |
+| Settings dialog (Plugins) | desktop | click | maquette | settings-plugins — MCP CRUD réel + Skills réel (`app.skills`, `/skill/install`) ; gate parité ; Hooks absent → #98 | ⚠️ partial |
+| Settings dialog (Remote Access) | desktop | click | maquette | settings-remote-access — réel mais desktop-gated (`platform.getRemoteAccess`) : pane vide dans le build web e2e | ⚠️ partial |
+| Settings dialog (Collaborative Auth) | desktop | click | maquette | settings-collaborative-auth — formulaire réel (`/collab/login`) ; gate parité | ⚠️ partial |
 | User Account / Sign-in / Sign-up | desktop-large | submit | maquette auth | inline | ⚠️ partial |
 | User Connect Provider | desktop | click | maquette | inline | ⚠️ partial |
 | User Connect Local LLM | desktop | configure | maquette | inline | ⚠️ partial |
 
 **Phase 11 critique** : tous les controls doivent modifier réellement le runtime/config.
+**Bilan audit 2026-09-14** : les 12 onglets runtime sont câblés à des capacités réelles (localStorage, settings context, `global.config`, SDK observabilité, MCP/skills) ; les contrôles maquette sans capacité (routing IA, compute, sécurité consolidée, réseau, diagnostic, hooks) sont hors fabrication → #98. Prochaine étape Phase 11 : durcir les preuves comportementales (e2e par onglet) et statuer #98.
 
 ---
 

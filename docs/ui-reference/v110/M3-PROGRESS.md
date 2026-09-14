@@ -181,6 +181,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 5.1 e2e | 2/2 PASS (1.4 min) | `a4-code-chrome` (3 marqueurs visibles) + `file-tree` |
 | Phase 5.1 i18n | parity 7/7 | 2 clés × 17 dictionnaires, traductions réelles (pas d'allowlist) |
 | #91 fix — e2e local | 7/7 PASS (1.9 min) | `workspaces.spec.ts` complet : reset + reorder (précédemment skip) + delete |
+| #91 fix — CI e2e (linux) | **145 pass / 0 fail / 46 skip** (19 min) | run `34821473192` — les 8 tests `workspaces.spec.ts` PASS (reset, reorder, delete inclus) ; issue #91 FERMÉE |
 | #91 fix — unit | 2/2 pass | `layout-contexts.test.ts` : forwarding des triggers réels (pas de stub `() => null`) |
 | #91 fix — `bun test src` (packages/app) | 1485 pass / 21 todo / 0 fail | après ajout des 2 tests de régression |
 | #91 fix — conformance locale | 8/8 PASS | `node scripts/unifia-conformance.mjs` |
