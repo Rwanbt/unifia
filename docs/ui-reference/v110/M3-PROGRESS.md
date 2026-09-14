@@ -81,6 +81,8 @@ source of truth future agents can read without vault access.
 | **5.1** | **Phase 5 slice 1 — marqueurs v110 dormants montés (editor-pane, workspace-tabs-bar, file-tree) + labels tabs-bar i18n 17 dictionnaires** | **`a7bdea7de8`** | **LIVREE** |
 | **5.2** | **Phase 5 slice 2 — vérification Search/Replace éditeur (@codemirror/search réel)** | **`74a3816760`** | **LIVREE** |
 | **5.3** | **Phase 5 slice 3 — marqueur canonique `terminal-panel` + preuve de cascade e2e ; matrice Code mise à l'heure (blame/lens ❌, issue #96)** | **`904eeb930e`** | **LIVREE** |
+| **12.1** | **Phase 12 slice 1 — contrat responsive du panneau Memory (triptyque/single, 5 familles, zéro overflow)** | **`5129902f4e`** | **LIVREE** |
+| fix | **#91 reset** — course sur `busy()` : `clickMenuItemWhenEnabled` attend `aria-disabled=false` avant Reset/Delete | `5ca626113a` | EN VERIF CI |
 
 ---
 

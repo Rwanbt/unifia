@@ -33,7 +33,7 @@ Pour chaque surface :
 | Sidebar | mobile-portrait | hidden, drawer | maquette | mobile | ? | ⚠️ à tester |
 | Inspector (3 tabs Explorer/Inspector/Execution) | desktop-large | click tab | `data-v110-inspector-frame` | v110-inspector-frame.tsx (TABS=["explorer","inspector","execution"]) | ✅ partiel |
 | Inspector | desktop-compact | persist open/close | maquette | layout.inspector | ✅ partiel |
-| Inspector | tablet/mobile | collapse by default | maquette | ? | ⚠️ à tester |
+| Inspector | tablet/mobile | collapse by default | maquette | e2e `a3-responsive` — onglets Explorer/Inspector/Execution atteignables + panneau Memory triptyque/single sur les 5 familles | ✅ partial |
 | Workspace (main content area) | all | scroll, focus, resize | inline JSX | session.tsx + workspace | ✅ partiel |
 | Composer (bottom chat input) | desktop-large | type + send | `data-v110-composer` | SessionComposerRegion (extracted) | ✅ partiel |
 | Composer | mobile-portrait | adapt to mobile | maquette mobile | composer mobile | ✅ partiel |
@@ -163,7 +163,7 @@ Pour chaque surface :
 | Memory note pane (center) | desktop-large | edit, scroll | `data-memory-note-pane` | memory-panel.tsx | ✅ partial |
 | Memory links + graph (right) | desktop-large | hover link, pan graph | `data-memory-links` | memory-panel.tsx | ✅ partial |
 | Memory hover preview | desktop | hover linked note | tooltip `title=` attr | memory-panel.tsx (Phase 10) | ✅ partial |
-| Memory mobile single-pane | mobile-portrait | tap to navigate | maquette mobile | memory-panel.tsx (Phase 9, 2026-09-13) — canonical viewport authority collapses the triptych to one pane (vault/note/links) + tap-to-navigate + back nav | ✅ |
+| Memory mobile single-pane | mobile-portrait | tap to navigate | maquette mobile | memory-panel.tsx (Phase 9) — canonical viewport authority collapses the triptych to one pane + tap-to-navigate + back nav ; contrat vérifié sur les 5 familles (e2e `a3-responsive`, 12.1) | ✅ |
 | Memory folder tree | desktop | expand/collapse | maquette | memory-panel.tsx (9.3) — `buildMemoryTree` folders-first + subtree counts + collapse carets | ✅ |
 | Memory DnD notes | desktop | drag to folder | maquette | memory-panel.tsx (9.3) — HTML5 DnD → `WorkbenchClient.renameFile` (réel `/v1/files/rename`) + auto-expand 620 ms + e2e `memory-vault-dnd` | ✅ |
 | Memory context actions | desktop | right-click | maquette | memory-panel.tsx (9.5) — menu note (open/rename inline/duplicate/move/export/delete) + dossier (new note/sub-folder) via routes réelles ; pin/archive absents (pas de capacité runtime) ; e2e `memory-note-actions` | ✅ |
