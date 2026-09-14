@@ -188,7 +188,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | #91 fix — unit | 2/2 pass | `layout-contexts.test.ts` : forwarding des triggers réels (pas de stub `() => null`) |
 | #91 fix — `bun test src` (packages/app) | 1485 pass / 21 todo / 0 fail | après ajout des 2 tests de régression |
 | #91 fix — conformance locale | 8/8 PASS | `node scripts/unifia-conformance.mjs` |
-| Phase 11a — gate Settings | 1/1 PASS (49.8 s), sans retry | `e2e/v110/settings-parity.spec.ts` — 11 onglets web (Remote access desktop-gated, hors gate) |
+| Phase 11a — gate Settings | 1/1 local (49.8 s) + CI PASS 3.5 s | `e2e/v110/settings-parity.spec.ts` — 11 onglets web (Remote access desktop-gated, hors gate) ; CI run `34829848985` e2e linux **146 pass / 0 fail / 46 skip** |
 | #95 — parity i18n | 9/9 PASS | 2 gardes nouvelles « aria-label accentué » (components + pages) |
 | #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
 
