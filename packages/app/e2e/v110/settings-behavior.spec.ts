@@ -87,3 +87,38 @@ test("memory tab enable switch writes the real backend config and restores it", 
 
   await expect.poll(readMemory, { timeout: 15_000 }).toBe(initial)
 })
+
+test("plugins tab adds and removes a real MCP server", async ({ page, backend, gotoSession }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await gotoSession()
+
+  // Transport-level view of the same route the tab reads (GET /mcp): the e2e
+  // SDK client is the v1 shape, and the backend registry is what must change.
+  const readServers = async (): Promise<Record<string, unknown>> => (await fetch(`${backend.url}/mcp`)).json()
+  const name = `e2e-mcp-${Date.now()}`
+
+  const dialog = await openSettings(page)
+  await dialog.getByRole("tab", { name: "Plugins", exact: true }).click()
+  // The MCP sub-tab is the default; click it so a future default change
+  // fails here instead of silently testing a different pane.
+  await dialog.getByRole("tab", { name: "MCP Servers", exact: true }).click()
+
+  await dialog.locator('[data-action="settings-mcp-add-toggle"]').click()
+  await dialog.locator('[data-action="settings-mcp-type-remote"]').click()
+  await dialog.locator('[data-action="settings-mcp-name"] input').fill(name)
+  // Port 1 is closed by construction: the add must not need a live server.
+  await dialog.locator('[data-action="settings-mcp-url"] input').fill("http://127.0.0.1:1/mcp")
+  await dialog.locator('[data-action="settings-mcp-submit"]').click()
+
+  const row = dialog.locator(`[data-mcp-server="${name}"]`)
+  await expect(row).toBeVisible()
+  await expect
+    .poll(async () => name in (await readServers()), { timeout: 20_000 })
+    .toBe(true)
+
+  await row.locator('[data-action="settings-mcp-remove"]').click()
+  await expect(row).toHaveCount(0)
+  await expect
+    .poll(async () => name in (await readServers()), { timeout: 20_000 })
+    .toBe(false)
+})

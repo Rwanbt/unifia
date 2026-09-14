@@ -168,7 +168,10 @@ const McpSection: Component = () => {
               const error = () => ("error" in server.status ? server.status.error : undefined)
 
               return (
-                <div class="flex items-start gap-3 py-3 border-b border-border-weak-base last:border-none">
+                <div
+                  class="flex items-start gap-3 py-3 border-b border-border-weak-base last:border-none"
+                  data-mcp-server={server.name}
+                >
                   {/* status dot */}
                   <div class="mt-1 shrink-0">
                     <div class={`w-2 h-2 rounded-full mt-1 ${statusDotClass(kind())}`} />
@@ -211,6 +214,7 @@ const McpSection: Component = () => {
                       class="text-text-weaker hover:text-[#ef4444] transition-colors p-1 rounded disabled:opacity-40"
                       disabled={isPending()}
                       title={language.t("settings.fork.plugins.confirmRemove", { name: server.name })}
+                      data-action="settings-mcp-remove"
                       onClick={() => remove.mutate(server.name)}
                     >
                       <Icon name="trash" class="w-3.5 h-3.5" />
@@ -230,6 +234,7 @@ const McpSection: Component = () => {
           <button
             type="button"
             class="flex items-center gap-2 text-12-regular text-text-weak hover:text-text-base transition-colors py-1"
+            data-action="settings-mcp-add-toggle"
             onClick={() => setShowAdd(true)}
           >
             <Icon name="plus" class="w-3.5 h-3.5" />
@@ -245,6 +250,7 @@ const McpSection: Component = () => {
             <button
               type="button"
               class={`px-3 py-1 text-12-regular rounded border transition-colors ${addType() === "remote" ? "border-accent-primary text-accent-primary bg-accent-primary/10" : "border-border-weak-base text-text-weak hover:border-border-base"}`}
+              data-action="settings-mcp-type-remote"
               onClick={() => setAddType("remote")}
             >
               {language.t("settings.fork.plugins.remote")}
@@ -252,36 +258,43 @@ const McpSection: Component = () => {
             <button
               type="button"
               class={`px-3 py-1 text-12-regular rounded border transition-colors ${addType() === "local" ? "border-accent-primary text-accent-primary bg-accent-primary/10" : "border-border-weak-base text-text-weak hover:border-border-base"}`}
+              data-action="settings-mcp-type-local"
               onClick={() => setAddType("local")}
             >
               {language.t("settings.fork.plugins.local")}
             </button>
           </div>
 
-          <TextField
-            label={language.t("settings.fork.plugins.name")}
-            value={addName()}
-            onChange={setAddName}
-            placeholder={language.t("settings.fork.plugins.serverNamePlaceholder")}
-          />
+          <div data-action="settings-mcp-name">
+            <TextField
+              label={language.t("settings.fork.plugins.name")}
+              value={addName()}
+              onChange={setAddName}
+              placeholder={language.t("settings.fork.plugins.serverNamePlaceholder")}
+            />
+          </div>
 
           <Show
             when={addType() === "remote"}
             fallback={
-              <TextField
-                label={language.t("settings.fork.plugins.command")}
-                value={addCommand()}
-                onChange={setAddCommand}
-                placeholder={language.t("settings.fork.plugins.commandPlaceholderExample")}
-              />
+              <div data-action="settings-mcp-command">
+                <TextField
+                  label={language.t("settings.fork.plugins.command")}
+                  value={addCommand()}
+                  onChange={setAddCommand}
+                  placeholder={language.t("settings.fork.plugins.commandPlaceholderExample")}
+                />
+              </div>
             }
           >
-            <TextField
-              label={language.t("settings.fork.plugins.url")}
-              value={addUrl()}
-              onChange={setAddUrl}
-              placeholder={language.t("settings.fork.plugins.urlPlaceholderExample")}
-            />
+            <div data-action="settings-mcp-url">
+              <TextField
+                label={language.t("settings.fork.plugins.url")}
+                value={addUrl()}
+                onChange={setAddUrl}
+                placeholder={language.t("settings.fork.plugins.urlPlaceholderExample")}
+              />
+            </div>
           </Show>
 
           <div class="flex gap-2 justify-end">
@@ -300,6 +313,7 @@ const McpSection: Component = () => {
             <Button
               size="small"
               disabled={addServer.isPending || !addName().trim() || (addType() === "remote" ? !addUrl().trim() : !addCommand().trim())}
+              data-action="settings-mcp-submit"
               onClick={() => addServer.mutate()}
             >
               {addServer.isPending ? language.t("settings.fork.plugins.adding") : language.t("settings.fork.plugins.add")}
