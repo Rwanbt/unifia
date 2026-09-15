@@ -188,9 +188,9 @@ violerait le contrat de campagne.
 | Memory mobile single-pane | mobile-portrait | tap to navigate | maquette mobile | memory-panel.tsx (Phase 9) — canonical viewport authority collapses the triptych to one pane + tap-to-navigate + back nav ; contrat vérifié sur les 5 familles (e2e `a3-responsive`, 12.1) | ✅ |
 | Memory folder tree | desktop | expand/collapse | maquette | memory-panel.tsx (9.3) — `buildMemoryTree` folders-first + subtree counts + collapse carets | ✅ |
 | Memory DnD notes | desktop | drag to folder | maquette | memory-panel.tsx (9.3) — HTML5 DnD → `WorkbenchClient.renameFile` (réel `/v1/files/rename`) + auto-expand 620 ms + e2e `memory-vault-dnd` | ✅ |
-| Memory context actions | desktop | right-click | maquette | memory-panel.tsx (9.5) — menu note (open/rename inline/duplicate/move/export/delete) + dossier (new note/sub-folder) via routes réelles ; pin/archive absents (pas de capacité runtime) ; e2e `memory-note-actions` | ✅ |
+| Memory context actions | desktop | right-click | maquette | memory-panel.tsx (9.5) — menu note (open/rename inline/duplicate/move/export/delete) + dossier (new note/sub-folder) via routes réelles ; rename réécrit les wikilinks non ambigus (#93, e2e `memory-rename-links`) ; pin/archive absents (pas de capacité runtime) ; e2e `memory-note-actions` | ✅ |
 | Memory autosave | desktop | debounced | maquette | memory-panel.tsx (9.4) — debounce 700 ms (`AUTOSAVE_DELAY_MS`) vers `file.write` CAS + flush avant navigation + chip Saved/Saving…/Unsaved ; e2e `memory-note-autosave` | ✅ |
-| Memory wikilinks | desktop | type [[ | maquette | parseMemoryNote (model) | ✅ partial |
+| Memory wikilinks | desktop | type [[ | maquette | parseMemoryNote (model) + refactor au renommage (#93, `rewriteMemoryWikilinks` : cibles non ambiguës `[[Ancien]]`/`[[Ancien|alias]]`/`[[Ancien#section]]` réécrites sur fichiers réels avec CAS par fichier, échecs partiels remontés ; e2e `memory-rename-links`) | ✅ |
 | Memory graph pan/zoom/fit | desktop-large | drag/wheel/dblclick | maquette | rendu + filtres (9.6, `memoryGraphAtDepth`) ; pan/zoom/fit dans la pane non livrés | ⚠️ partial |
 | Memory graph depth/tags/orphans | desktop | filter | maquette | memory-panel (9.6) — depth 1-3 (défaut 2), anneau tags (8 max, 3 arêtes/tag), filtre orphans, résumé notes/liens ; e2e `memory-graph-filters` | ✅ |
 

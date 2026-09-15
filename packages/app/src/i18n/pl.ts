@@ -2072,6 +2072,8 @@ export const dict = {
   "workbench.memory.actions.confirmDelete": "Delete {{name}}?",
   "workbench.memory.actions.nameTaken": "A note with this name already exists in this folder",
   "workbench.memory.actions.renamed": "Note renamed",
+  "workbench.memory.rename.linksRefactored": "Zaktualizowano linki w {{count}} notatkach",
+  "workbench.memory.rename.linksFailed": "Nie udało się zaktualizować niektórych notatek: {{paths}}",
   "workbench.memory.actions.created": "Note created",
   "workbench.memory.actions.folderCreated": "Folder created",
   "workbench.memory.actions.duplicated": "Note duplicated",

@@ -12,7 +12,7 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
@@ -333,13 +333,63 @@ export function MemoryPanel(): JSX.Element {
     }
     try {
       await current.client.renameFile(current.workspaceId, from, to)
+      // #93 / v110 mockup: a note rename rewrites the wikilinks that point at
+      // it. Folder renames change paths, not titles, so links are unaffected.
+      const refactor = isMemoryMarkdown(from) ? await refactorWikilinksAfterRename(from, to) : undefined
       await files.refetch()
+      if (refactor && (refactor.updated > 0 || refactor.failed.length > 0)) {
+        void queryClient.invalidateQueries({ queryKey: ["memory-documents"] })
+      }
       if (selectedPath() === from) setSelectedPath(to)
       setRenaming(undefined)
       showToast({ variant: "success", title: t("workbench.memory.actions.renamed") })
+      if (refactor && refactor.updated > 0) {
+        showToast({ variant: "success", title: t("workbench.memory.rename.linksRefactored", { count: refactor.updated }) })
+      }
+      if (refactor && refactor.failed.length > 0) {
+        showToast({
+          variant: "error",
+          title: t("workbench.memory.rename.linksFailed", { paths: refactor.failed.join(", ") }),
+        })
+      }
     } catch (error) {
       showToast({ variant: "error", title: t("workbench.memory.move.failed"), description: error instanceof Error ? error.message : String(error) })
     }
+  }
+
+  /**
+   * Rewrites the unambiguous wikilinks that pointed at the renamed note,
+   * note by note, through the real file routes with a CAS write per file
+   * (the same `expectedHash` discipline the autosave uses). Partial failures
+   * are reported instead of being swallowed: a rename that left some links
+   * stale must say which notes it could not touch.
+   */
+  async function refactorWikilinksAfterRename(
+    from: string,
+    to: string,
+  ): Promise<{ updated: number; failed: string[] }> {
+    const oldTitle = memoryTitle(from)
+    const newTitle = memoryTitle(to)
+    const ambiguous = memoryTitleIsAmbiguous(notes(), oldTitle)
+    let updated = 0
+    const failed: string[] = []
+    for (const candidate of notes()) {
+      // The renamed note itself needs no rewrite, and its old path is already
+      // gone on disk; on the mock harness its new path is not readable either.
+      if (candidate.path === from) continue
+      try {
+        const result = await sdk.client.file.readRaw({ path: candidate.path })
+        if (!result.data) continue
+        const next = rewriteMemoryWikilinks({ body: result.data.content, oldTitle, newTitle, ambiguous })
+        if (next === result.data.content) continue
+        const write = await sdk.client.file.write({ path: candidate.path, content: next, expectedHash: result.data.stamp.hash })
+        if (write.response?.status === 409 || !write.data) failed.push(candidate.path)
+        else updated += 1
+      } catch {
+        failed.push(candidate.path)
+      }
+    }
+    return { updated, failed }
   }
 
   async function readContent(path: string): Promise<string> {

@@ -2068,6 +2068,8 @@ export const dict = {
   "workbench.memory.actions.confirmDelete": "Delete {{name}}?",
   "workbench.memory.actions.nameTaken": "A note with this name already exists in this folder",
   "workbench.memory.actions.renamed": "Note renamed",
+  "workbench.memory.rename.linksRefactored": "Wikilinker oppdatert i {{count}} notater",
+  "workbench.memory.rename.linksFailed": "Noen notater kunne ikke oppdateres: {{paths}}",
   "workbench.memory.actions.created": "Note created",
   "workbench.memory.actions.folderCreated": "Folder created",
   "workbench.memory.actions.duplicated": "Note duplicated",

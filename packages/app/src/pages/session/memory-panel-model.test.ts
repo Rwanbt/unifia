@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryUniquePath, parseMemoryNote, visibleMemoryRows } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows } from "./memory-panel-model"
 
 describe("Memory inspector model", () => {
   test("only exposes Markdown notes from the configured workspace vault", () => {
@@ -26,6 +26,33 @@ describe("Memory inspector model", () => {
     const target = { path: ".unifia/memory/Vision.md", title: "Vision" }
     const architecture = parseMemoryNote(".unifia/memory/Architecture.md", "# Architecture\n[[Vision]]")
     expect(memoryBacklinks(target, [architecture])).toEqual([{ path: architecture.path, title: "Architecture" }])
+  })
+
+  test("rewrites plain, aliased and sectioned wikilink targets, preserving their shape", () => {
+    const body = "# A\n\n[[B]] and [[B|bee]] and [[B#Part|bee]] and [[b.md]] and [[Other]]\n"
+    const next = rewriteMemoryWikilinks({ body, oldTitle: "B", newTitle: "C", ambiguous: false })
+    expect(next).toContain("[[C]] and [[C|bee]] and [[C#Part|bee]] and [[C.md]] and [[Other]]")
+  })
+
+  test("matches targets case-insensitively like linkedMemoryNotes and leaves similar names alone", () => {
+    const next = rewriteMemoryWikilinks({ body: "[[b]] [[B2]] [[Bee]]", oldTitle: "B", newTitle: "C", ambiguous: false })
+    expect(next).toBe("[[C]] [[B2]] [[Bee]]")
+  })
+
+  test("leaves ambiguous titles and unchanged titles untouched", () => {
+    expect(rewriteMemoryWikilinks({ body: "[[B]]", oldTitle: "B", newTitle: "C", ambiguous: true })).toBe("[[B]]")
+    expect(rewriteMemoryWikilinks({ body: "[[b]]", oldTitle: "B", newTitle: "B", ambiguous: false })).toBe("[[b]]")
+  })
+
+  test("detects title ambiguity the way linkedMemoryNotes resolves it", () => {
+    const notes = [
+      { path: ".unifia/memory/B.md", title: "B" },
+      { path: ".unifia/memory/archive/b.md", title: "b" },
+      { path: ".unifia/memory/C.md", title: "C" },
+    ]
+    expect(memoryTitleIsAmbiguous(notes, "B")).toBe(true)
+    expect(memoryTitleIsAmbiguous(notes, "B.md")).toBe(true)
+    expect(memoryTitleIsAmbiguous(notes, "C")).toBe(false)
   })
 
   test("memoryExcerpt strips markdown noise, collapses whitespace and truncates with ellipsis", () => {

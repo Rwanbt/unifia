@@ -72,6 +72,49 @@ export function memoryBacklinks(
     .map(({ path, title }) => ({ path, title }))
 }
 
+/**
+ * True when more than one note normalizes to `title` (case-insensitive,
+ * trailing `.md` stripped — the same rule `linkedMemoryNotes` resolves with).
+ * A link that matches an ambiguous title cannot be attributed to the renamed
+ * note, so the rename refactor leaves it untouched.
+ */
+export function memoryTitleIsAmbiguous(notes: readonly MemoryNoteSummary[], title: string): boolean {
+  const target = title.replace(/\.md$/i, "").toLocaleLowerCase()
+  return notes.filter((note) => memoryTitle(note.path).toLocaleLowerCase() === target).length > 1
+}
+
+/**
+ * Rewrites wikilink targets that unambiguously point at a renamed note
+ * (#93 / v110 mockup: « les WikiLinks qui pointent sans ambiguïté vers cette
+ * note seront mis à jour automatiquement »).
+ *
+ * Matching is the resolution rule from `linkedMemoryNotes`: the target with a
+ * trailing `.md` stripped, compared case-insensitively against the old title.
+ * Section (`#…`) and alias (`|…`) parts are preserved verbatim; a target that
+ * carried `.md` keeps it. The caller passes `ambiguous` from
+ * `memoryTitleIsAmbiguous`: rewriting a link that could have meant a
+ * different same-named note would silently repoint the vault, so it is left
+ * untouched instead.
+ */
+export function rewriteMemoryWikilinks(input: {
+  readonly body: string
+  readonly oldTitle: string
+  readonly newTitle: string
+  readonly ambiguous: boolean
+}): string {
+  if (input.ambiguous || input.oldTitle === input.newTitle) return input.body
+  const target = input.oldTitle.replace(/\.md$/i, "").toLocaleLowerCase()
+  return input.body.replace(
+    /\[\[([^\]|#]+)(#[^\]|]+)?(\|[^\]]+)?\]\]/g,
+    (match, rawName: string, section: string | undefined, alias: string | undefined) => {
+      const name = rawName.trim()
+      if (name.replace(/\.md$/i, "").toLocaleLowerCase() !== target) return match
+      const extension = /\.md$/i.test(name) ? ".md" : ""
+      return `[[${input.newTitle}${extension}${section ?? ""}${alias ?? ""}]]`
+    },
+  )
+}
+
 /** A deterministic local graph: the selected note and its resolved neighbours. */
 export function localMemoryGraph(
   selected: MemoryNoteSummary,

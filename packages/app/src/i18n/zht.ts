@@ -2134,6 +2134,8 @@ export const dict = {
   "workbench.memory.actions.confirmDelete": "Delete {{name}}?",
   "workbench.memory.actions.nameTaken": "A note with this name already exists in this folder",
   "workbench.memory.actions.renamed": "Note renamed",
+  "workbench.memory.rename.linksRefactored": "已更新 {{count}} 個筆記中的連結",
+  "workbench.memory.rename.linksFailed": "部分筆記無法更新：{{paths}}",
   "workbench.memory.actions.created": "Note created",
   "workbench.memory.actions.folderCreated": "Folder created",
   "workbench.memory.actions.duplicated": "Note duplicated",
