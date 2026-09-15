@@ -3,7 +3,9 @@
 import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
 import type { DesignDocumentV1, DesignNodeId, DesignNodeV1 } from "../../model/schema"
+import { nodeMatrix } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
+import { designSnapThresholdPx, snapCandidates, snapRect, type DesignSnapGuide } from "../snapping"
 import { panBy, zoomAt, type DesignViewport } from "../viewport"
 import { commitTransform, toKonvaAttrs } from "./attrs"
 
@@ -31,6 +33,8 @@ const strokeColor = "#18181b"
 const placeholderFill = "#f4f4f5"
 const placeholderStroke = "#a1a1aa"
 const zoomFactor = 1.1
+const guideStroke = "#2563eb"
+const guideExtent = 5000
 
 /**
  * Imperative Konva adapter. Konva is loaded lazily so it never reaches the
@@ -54,6 +58,14 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     anchorSize: 8,
   })
   overlay.add(transformer)
+  // Transient snap guides live in the overlay: rebuilt layers must never
+  // carry them and the document never sees them (ADR-039 section 9).
+  const guideX = new Konva.Line({ points: [0, 0, 0, 0], stroke: guideStroke, strokeWidth: 1, dash: [4, 4], listening: false, visible: false })
+  const guideY = new Konva.Line({ points: [0, 0, 0, 0], stroke: guideStroke, strokeWidth: 1, dash: [4, 4], listening: false, visible: false })
+  const guides = new Konva.Group({ listening: false })
+  guides.add(guideX)
+  guides.add(guideY)
+  overlay.add(guides)
   stage.add(content)
   stage.add(overlay)
 
@@ -196,6 +208,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   const rebuild = () => {
     content.destroyChildren()
     shapes.clear()
+    hideGuides()
     if (!document) return
     for (const item of projectDocument(document)) buildNode(item, content)
     applySelection()
@@ -216,10 +229,77 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     options.onCommand({ kind: "updateTransform", id, transform })
   }
 
+  const showGuides = (items: readonly DesignSnapGuide[], offsetX: number, offsetY: number) => {
+    for (const guide of items) {
+      if (guide.axis === "x") {
+        const x = guide.position + offsetX
+        guideX.points([x, -guideExtent, x, guideExtent])
+        guideX.visible(true)
+        continue
+      }
+      const y = guide.position + offsetY
+      guideY.points([-guideExtent, y, guideExtent, y])
+      guideY.visible(true)
+    }
+    overlay.batchDraw()
+  }
+
+  const hideGuides = () => {
+    if (!guideX.visible() && !guideY.visible()) return
+    guideX.visible(false)
+    guideY.visible(false)
+    overlay.batchDraw()
+  }
+
+  /**
+   * Guides are drawn in layer space, so only translation-only ancestors can
+   * map to axis-aligned lines. A rotated ancestor keeps snapping (the domain
+   * geometry is right) but skips the transient overlay rather than drawing a
+   * misleading guide.
+   */
+  const parentOffsetOf = (id: DesignNodeId): { x: number; y: number } | undefined => {
+    const doc = document
+    const node = doc?.nodes[id]
+    if (!doc || !node) return undefined
+    if (node.parentId === null) return { x: 0, y: 0 }
+    const matrix = nodeMatrix(doc, node.parentId)
+    if (Math.abs(matrix.b) > 1e-9 || Math.abs(matrix.c) > 1e-9) return undefined
+    return { x: matrix.e, y: matrix.f }
+  }
+
+  const snapWhileDragging = (node: KonvaNode) => {
+    const id = node.getAttr("designId")
+    if (typeof id !== "string" || !document) return
+    const canonical = document.nodes[id]
+    if (!canonical) return
+    const width = canonical.transform.width
+    const height = canonical.transform.height
+    const rect = { x: node.x() - width / 2, y: node.y() - height / 2, width, height }
+    const snapped = snapRect(rect, snapCandidates(document, id), designSnapThresholdPx / viewport.zoom)
+    if (snapped.x !== rect.x || snapped.y !== rect.y) {
+      node.position({ x: snapped.x + width / 2, y: snapped.y + height / 2 })
+    }
+    if (snapped.guides.length === 0) {
+      hideGuides()
+      return
+    }
+    const offset = parentOffsetOf(id)
+    if (!offset) {
+      hideGuides()
+      return
+    }
+    showGuides(snapped.guides, offset.x, offset.y)
+  }
+
   // `transformend` is fired by the Transformer with `_fire` (no bubbling), so
   // both events are wired per node; only `dragend` would reach the stage.
   const wire = (node: KonvaNode) => {
-    node.on("dragend", () => commitNode(node))
+    node.on("dragstart", () => options.container.focus({ preventScroll: true }))
+    node.on("dragmove", () => snapWhileDragging(node))
+    node.on("dragend", () => {
+      hideGuides()
+      commitNode(node)
+    })
     node.on("transformend", () => {
       commitNode(node)
       node.scaleX(1)
@@ -235,6 +315,8 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     }
     return false
   }
+
+  stage.on("mousedown touchstart", () => options.container.focus({ preventScroll: true }))
 
   stage.on("click tap", (event) => {
     if (event.target === stage) {

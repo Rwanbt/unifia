@@ -3,6 +3,7 @@
 export * from "./commands"
 export * from "./document"
 export * from "./errors"
+export * from "./history"
 export * from "./migrations"
 export * from "./reducer"
 export * from "./repository"
