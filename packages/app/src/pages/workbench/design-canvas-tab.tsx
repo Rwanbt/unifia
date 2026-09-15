@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js"
+import { createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js"
 import type { DesignCommand } from "./design/model/commands"
 import { createDesignDocument } from "./design/model/document"
 import { DesignDocumentError } from "./design/model/errors"
@@ -18,6 +18,7 @@ import { importLegacySketch } from "./design/persistence/legacy-import"
 import { createLocalStorageDesignDocumentRepository } from "./design/persistence/local-storage-repository"
 import { DesignCanvas } from "./design/runtime/design-canvas"
 import { DesignLayersPanel } from "./design/runtime/layers-panel"
+import { designTools, draftToNode, type DesignDraft, type DesignTool } from "./design/runtime/tools"
 
 const saveDelayMs = 400
 const legacySketchKey = "unifia-design-sketch:v1:sketch"
@@ -32,6 +33,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
   const repository = createLocalStorageDesignDocumentRepository()
   const [document, setDocument] = createSignal<DesignDocumentV1>(createDesignDocument(props.id, "Canvas"))
   const [selection, setSelection] = createSignal<readonly DesignNodeId[]>([])
+  const [tool, setTool] = createSignal<DesignTool>("select")
   const [history, setHistory] = createSignal<DesignHistoryState>(emptyDesignHistory)
   const [error, setError] = createSignal<string>()
   const [importInfo, setImportInfo] = createSignal<string>()
@@ -96,20 +98,12 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
 
   const select = (id: DesignNodeId | undefined) => setSelection(id === undefined ? [] : [id])
 
-  const addRectangle = () =>
-    dispatch({
-      kind: "insertNode",
-      parentId: null,
-      node: {
-        id: `node-${Math.random().toString(36).slice(2, 10)}`,
-        name: "Rectangle",
-        parentId: null,
-        visible: true,
-        locked: false,
-        type: "rectangle",
-        transform: { x: 40, y: 40, width: 160, height: 100, rotation: 0 },
-      },
-    })
+  const createFromDraft = (draft: DesignDraft) => {
+    const node = draftToNode(draft, `node-${Math.random().toString(36).slice(2, 10)}`)
+    if (!node) return
+    dispatch({ kind: "insertNode", node, parentId: null })
+    setSelection([node.id])
+  }
 
   const importSketch = () => {
     const raw = localStorage.getItem(legacySketchKey)
@@ -186,14 +180,19 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
   return (
     <div class="flex size-full min-h-0 flex-col" tabindex={0} onKeyDown={handleKey} data-design-canvas-tab>
       <div class="flex items-center gap-2 border-b border-border-base px-2 py-1">
-        <button
-          type="button"
-          class="rounded border border-border-base px-2 py-1 text-12-regular"
-          data-design-canvas-add-rectangle
-          onClick={addRectangle}
-        >
-          Rectangle
-        </button>
+        <For each={designTools}>
+          {(entry) => (
+            <button
+              type="button"
+              class="rounded border border-border-base px-2 py-1 text-12-regular capitalize"
+              classList={{ "bg-background-stronger": tool() === entry }}
+              data-design-tool={entry}
+              onClick={() => setTool(entry)}
+            >
+              {entry}
+            </button>
+          )}
+        </For>
         <button
           type="button"
           class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-40"
@@ -244,7 +243,14 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
             onCommand={dispatch}
           />
           <div class="relative min-h-0 flex-1">
-            <DesignCanvas document={document()} selection={selection()} onSelect={select} onCommand={dispatch} />
+            <DesignCanvas
+              document={document()}
+              selection={selection()}
+              tool={tool()}
+              onSelect={select}
+              onCommand={dispatch}
+              onCreate={createFromDraft}
+            />
           </div>
         </Show>
       </div>

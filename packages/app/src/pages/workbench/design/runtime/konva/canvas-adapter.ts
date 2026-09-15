@@ -3,10 +3,11 @@
 import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
 import type { DesignDocumentV1, DesignNodeId, DesignNodeV1 } from "../../model/schema"
-import { nodeMatrix } from "../geometry"
+import { nodeMatrix, type DesignPoint } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
 import { designSnapThresholdPx, snapCandidates, snapRect, type DesignSnapGuide } from "../snapping"
-import { panBy, zoomAt, type DesignViewport } from "../viewport"
+import { draftRect, isDraftUsable, type DesignDraft, type DesignTool } from "../tools"
+import { panBy, screenToWorld, zoomAt, type DesignViewport } from "../viewport"
 import { commitTransform, toKonvaAttrs } from "./attrs"
 
 type KonvaModule = typeof KonvaNS
@@ -19,10 +20,11 @@ export type KonvaCanvasOptions = {
   onSelect: (id: DesignNodeId | undefined) => void
   onCommand: (command: DesignCommand) => void
   onViewport: (viewport: DesignViewport) => void
+  onCreate: (draft: DesignDraft) => void
 }
 
 export type KonvaCanvasHandle = {
-  sync: (document: DesignDocumentV1, selection: readonly DesignNodeId[], viewport: DesignViewport) => void
+  sync: (document: DesignDocumentV1, selection: readonly DesignNodeId[], viewport: DesignViewport, tool: DesignTool) => void
   destroy: () => void
 }
 
@@ -73,6 +75,13 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   let document: DesignDocumentV1 | undefined
   let viewport: DesignViewport = { panX: 0, panY: 0, zoom: 1 }
   let selection: readonly DesignNodeId[] = []
+  let tool: DesignTool = "select"
+  let draft: DraftState | undefined
+  let preview: KonvaShape | undefined
+
+  type DraftState =
+    | { kind: "rectangle" | "ellipse" | "line"; start: DesignPoint }
+    | { kind: "pen"; points: DesignPoint[] }
 
   const applyViewport = () => {
     content.position({ x: viewport.panX, y: viewport.panY })
@@ -161,7 +170,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     if (node.type === "frame" || node.type === "group") {
       const group = new Konva.Group(toKonvaAttrs(node.transform))
       group.setAttr("designId", item.id)
-      group.draggable(!node.locked)
+      group.draggable(tool === "select" && !node.locked)
       wire(group)
       if (node.type === "frame") {
         group.add(
@@ -186,7 +195,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     const shape = createShape(node)
     if (!shape) return
     shape.setAttr("designId", item.id)
-    shape.draggable(!node.locked)
+    shape.draggable(tool === "select" && !node.locked)
     wire(shape)
     shapes.set(item.id, shape)
     parent.add(shape)
@@ -194,6 +203,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
 
   const applySelection = () => {
     transformer.nodes([])
+    if (tool !== "select") return
     if (!document || selection.length !== 1) return
     const id = selection[0]
     const node = id ? shapes.get(id) : undefined
@@ -291,6 +301,116 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     showGuides(snapped.guides, offset.x, offset.y)
   }
 
+  const clearPreview = () => {
+    preview?.destroy()
+    preview = undefined
+    overlay.batchDraw()
+  }
+
+  const showPreview = (shape: KonvaShape) => {
+    preview?.destroy()
+    preview = shape
+    shape.setAttrs({ stroke: guideStroke, strokeWidth: 1, dash: [4, 4], listening: false, opacity: 0.9 })
+    overlay.add(shape)
+    overlay.batchDraw()
+  }
+
+  const showDraftPreview = (state: DraftState, hover: DesignPoint) => {
+    if (state.kind === "pen") {
+      showPreview(new Konva.Line({ points: state.points.flatMap((point) => [point.x, point.y]) }))
+      return
+    }
+    if (state.kind === "line") {
+      showPreview(new Konva.Line({ points: [state.start.x, state.start.y, hover.x, hover.y] }))
+      return
+    }
+    const rect = draftRect(state.start, hover)
+    if (state.kind === "ellipse") {
+      showPreview(
+        new Konva.Ellipse({
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2,
+          radiusX: rect.width / 2,
+          radiusY: rect.height / 2,
+        }),
+      )
+      return
+    }
+    showPreview(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.width, height: rect.height }))
+  }
+
+  const worldPoint = (): DesignPoint | undefined => {
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return undefined
+    return screenToWorld(viewport, pointer)
+  }
+
+  const finishDraft = (end?: DesignPoint) => {
+    if (!draft) return
+    if (draft.kind === "pen") {
+      const finished: DesignDraft = { kind: "path", points: draft.points }
+      draft = undefined
+      clearPreview()
+      if (isDraftUsable(finished)) options.onCreate(finished)
+      return
+    }
+    const target = end ?? draft.start
+    const finished: DesignDraft =
+      draft.kind === "line"
+        ? { kind: "line", start: draft.start, end: target }
+        : draft.kind === "ellipse"
+          ? { kind: "ellipse", rect: draftRect(draft.start, target) }
+          : { kind: "rectangle", rect: draftRect(draft.start, target) }
+    draft = undefined
+    clearPreview()
+    if (isDraftUsable(finished)) options.onCreate(finished)
+  }
+
+  const cancelDraft = () => {
+    if (!draft) return
+    draft = undefined
+    clearPreview()
+  }
+
+  stage.on("pointerdown", () => {
+    if (tool === "select") return
+    const world = worldPoint()
+    if (!world) return
+    if (tool === "pen") {
+      const points = draft?.kind === "pen" ? draft.points : []
+      const last = points[points.length - 1]
+      if (last && Math.abs(last.x - world.x) < 0.01 && Math.abs(last.y - world.y) < 0.01) return
+      const next: DraftState = { kind: "pen", points: [...points, world] }
+      draft = next
+      showDraftPreview(next, world)
+      return
+    }
+    const next: DraftState = { kind: tool, start: world }
+    draft = next
+    showDraftPreview(next, world)
+  })
+
+  stage.on("pointermove", () => {
+    if (!draft) return
+    const world = worldPoint()
+    if (!world) return
+    showDraftPreview(draft, world)
+  })
+
+  stage.on("pointerup pointercancel", () => {
+    if (!draft || draft.kind === "pen") return
+    finishDraft(worldPoint() ?? draft.start)
+  })
+
+  // The pen finishes on Enter: Konva synthesises `dblclick` from any two
+  // clicks inside its time window (no distance threshold), so a double-click
+  // finish would cut a polyline short as soon as the user clicks twice fast.
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") cancelDraft()
+    if (event.key === "Enter") finishDraft()
+  }
+  options.container.addEventListener("keydown", onKeyDown)
+
   // `transformend` is fired by the Transformer with `_fire` (no bubbling), so
   // both events are wired per node; only `dragend` would reach the stage.
   const wire = (node: KonvaNode) => {
@@ -331,6 +451,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   let panning = false
   let lastPointer: { x: number; y: number } | undefined
   stage.on("pointerdown", (event) => {
+    if (tool !== "select") return
     if (event.target !== stage) return
     panning = true
     lastPointer = stage.getPointerPosition() ?? undefined
@@ -368,16 +489,20 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   observer.observe(options.container)
 
   return {
-    sync: (nextDocument, nextSelection, nextViewport) => {
+    sync: (nextDocument, nextSelection, nextViewport, nextTool) => {
+      if (nextTool !== tool) cancelDraft()
       document = nextDocument
       selection = nextSelection
       viewport = nextViewport
+      tool = nextTool
+      options.container.style.cursor = tool === "select" ? "" : "crosshair"
       rebuild()
       applyViewport()
       content.batchDraw()
       overlay.batchDraw()
     },
     destroy: () => {
+      options.container.removeEventListener("keydown", onKeyDown)
       observer.disconnect()
       stage.destroy()
     },

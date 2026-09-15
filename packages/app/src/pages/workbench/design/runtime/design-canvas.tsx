@@ -4,18 +4,22 @@ import { createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-
 import type { DesignCommand } from "../model/commands"
 import type { DesignDocumentV1, DesignNodeId } from "../model/schema"
 import { createKonvaCanvas, type KonvaCanvasHandle } from "./konva/canvas-adapter"
+import type { DesignDraft, DesignTool } from "./tools"
 import type { DesignViewport } from "./viewport"
 
 /**
  * Solid wrapper around the imperative Konva adapter. The renderer is
  * loaded on mount (lazy import inside the adapter), synced from the
- * reactive document/selection props, and emits canonical commands only.
+ * reactive document/selection/tool props, and emits canonical commands or
+ * creation drafts only.
  */
 export function DesignCanvas(props: {
   document: DesignDocumentV1
   selection: readonly DesignNodeId[]
+  tool: DesignTool
   onSelect: (id: DesignNodeId | undefined) => void
   onCommand: (command: DesignCommand) => void
+  onCreate: (draft: DesignDraft) => void
 }): JSX.Element {
   let container!: HTMLDivElement
   let handle: KonvaCanvasHandle | undefined
@@ -24,7 +28,7 @@ export function DesignCanvas(props: {
   const [viewport, setViewport] = createSignal<DesignViewport>({ panX: 0, panY: 0, zoom: 1 })
 
   const push = () => {
-    handle?.sync(props.document, props.selection, viewport())
+    handle?.sync(props.document, props.selection, viewport(), props.tool)
   }
 
   onMount(() => {
@@ -33,6 +37,7 @@ export function DesignCanvas(props: {
       onSelect: props.onSelect,
       onCommand: props.onCommand,
       onViewport: setViewport,
+      onCreate: props.onCreate,
     })
       .then((created) => {
         if (disposed) {
@@ -47,9 +52,10 @@ export function DesignCanvas(props: {
   })
 
   createEffect(() => {
-    // Tracks the document, the selection and the viewport, then re-syncs.
+    // Tracks the document, the selection, the tool and the viewport, then re-syncs.
     void props.document
     void props.selection
+    void props.tool
     void viewport()
     push()
   })
@@ -63,7 +69,8 @@ export function DesignCanvas(props: {
   return (
     <div
       ref={container}
-      class="relative size-full overflow-hidden bg-background-base"
+      class="relative size-full overflow-hidden bg-background-base outline-none"
+      tabindex={0}
       data-design-canvas
       data-design-canvas-status={status()}
     />
