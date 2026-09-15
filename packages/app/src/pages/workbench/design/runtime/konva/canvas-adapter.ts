@@ -2,8 +2,9 @@
 
 import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
+import { parsePathPoints, serializePathPoints } from "../../model/path"
 import type { DesignDocumentV1, DesignNodeId, DesignNodeV1 } from "../../model/schema"
-import { nodeMatrix, type DesignPoint } from "../geometry"
+import { applyToPoint, identityMatrix, nodeMatrix, type DesignPoint } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
 import { designSnapThresholdPx, snapCandidates, snapRect, type DesignSnapGuide } from "../snapping"
 import { draftRect, isDraftUsable, type DesignDraft, type DesignTool } from "../tools"
@@ -37,6 +38,7 @@ const placeholderStroke = "#a1a1aa"
 const zoomFactor = 1.1
 const guideStroke = "#2563eb"
 const guideExtent = 5000
+const anchorRadius = 5
 
 /**
  * Imperative Konva adapter. Konva is loaded lazily so it never reaches the
@@ -68,6 +70,9 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   guides.add(guideX)
   guides.add(guideY)
   overlay.add(guides)
+  // Anchor handles for polyline editing (line/path nodes, unrotated).
+  const anchors = new Konva.Group()
+  overlay.add(anchors)
   stage.add(content)
   stage.add(overlay)
 
@@ -212,7 +217,62 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     // Container resize semantics (children follow the new size) land with
     // the layer runtime; scaling a group now would visually lie.
     if (canonical.type === "frame" || canonical.type === "group") return
+    // Editable polylines get anchor handles instead of the transformer, so
+    // the two affordances never overlap.
+    if ((canonical.type === "line" || canonical.type === "path") && canonical.transform.rotation === 0) return
     transformer.nodes([node])
+  }
+
+  /**
+   * Anchor handles: a polyline's points, drawn world-space in the overlay and
+   * draggable. Dragging previews locally (the node's own shape follows) and a
+   * finished drag commits one `updatePoints` command in parent space.
+   */
+  const applyAnchors = () => {
+    anchors.destroyChildren()
+    if (tool !== "select" || !document || selection.length !== 1) return
+    const id = selection[0]
+    const node = id ? document.nodes[id] : undefined
+    if (!node || node.locked) return
+    if (node.type !== "line" && node.type !== "path") return
+    if (node.transform.rotation !== 0) return
+    const matrix = nodeMatrix(document, id)
+    if (Math.abs(matrix.b) > 1e-9 || Math.abs(matrix.c) > 1e-9) return
+    const parent = node.parentId === null ? identityMatrix : nodeMatrix(document, node.parentId)
+    const originX = parent.e + node.transform.x
+    const originY = parent.f + node.transform.y
+    const local = node.type === "line" ? [...node.points] : parsePathPoints(node.d)
+    if (!local || local.length < 2) return
+    const world = local.map((point) => applyToPoint(matrix, point))
+    const shape = shapes.get(id)
+    world.forEach((point, index) => {
+      const circle = new Konva.Circle({
+        x: point.x,
+        y: point.y,
+        radius: anchorRadius,
+        fill: frameFill,
+        stroke: guideStroke,
+        strokeWidth: 1,
+        draggable: true,
+      })
+      circle.on("dragmove", () => {
+        const live = world.map((entry, at) => (at === index ? { x: circle.x(), y: circle.y() } : entry))
+        const localLive = live.map((entry) => ({ x: entry.x - originX, y: entry.y - originY }))
+        if (node.type === "line") shape?.setAttrs({ points: localLive.flatMap((entry) => [entry.x, entry.y]) })
+        else shape?.setAttrs({ data: serializePathPoints(localLive) ?? node.d })
+        overlay.batchDraw()
+      })
+      circle.on("dragend", () => {
+        const next = world.map((entry, at) => (at === index ? { x: circle.x(), y: circle.y() } : entry))
+        options.onCommand({
+          kind: "updatePoints",
+          id,
+          points: next.map((entry) => ({ x: entry.x - parent.e, y: entry.y - parent.f })),
+        })
+      })
+      anchors.add(circle)
+    })
+    overlay.batchDraw()
   }
 
   const rebuild = () => {
@@ -222,6 +282,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     if (!document) return
     for (const item of projectDocument(document)) buildNode(item, content)
     applySelection()
+    applyAnchors()
   }
 
   const commitNode = (node: KonvaNode) => {
@@ -427,10 +488,10 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     })
   }
 
-  const isTransformerPart = (node: KonvaNode): boolean => {
+  const isOverlayControl = (node: KonvaNode): boolean => {
     let current: KonvaNode | null = node
     while (current) {
-      if (current === transformer) return true
+      if (current === transformer || current === anchors) return true
       current = current.getParent()
     }
     return false
@@ -444,7 +505,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
       return
     }
     const target = event.target as KonvaNode
-    if (isTransformerPart(target)) return
+    if (isOverlayControl(target)) return
     options.onSelect(designIdOf(target))
   })
 

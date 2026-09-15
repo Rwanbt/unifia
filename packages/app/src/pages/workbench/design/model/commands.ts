@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
-import type { DesignNodeId, DesignNodeV1, DesignTransformV1 } from "./schema"
+import type { DesignNodeId, DesignNodeV1, DesignPointV1, DesignTransformV1 } from "./schema"
 
 export type DesignNodePatch = {
   name?: string
@@ -18,6 +18,7 @@ export type DesignCommand =
   | { kind: "deleteNode"; id: DesignNodeId }
   | ({ kind: "updateNode"; id: DesignNodeId } & DesignNodePatch)
   | { kind: "updateTransform"; id: DesignNodeId; transform: DesignTransformV1 }
+  | { kind: "updatePoints"; id: DesignNodeId; points: readonly DesignPointV1[] }
   | { kind: "reorderNode"; id: DesignNodeId; toIndex: number }
   | { kind: "reparentNode"; id: DesignNodeId; parentId: DesignNodeId | null; index?: number }
   | { kind: "setVisibility"; id: DesignNodeId; visible: boolean }

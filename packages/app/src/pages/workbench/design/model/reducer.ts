@@ -2,12 +2,14 @@
 
 import type { DesignCommand } from "./commands"
 import { DesignDocumentError } from "./errors"
+import { serializePathPoints } from "./path"
 import {
   isContainerNode,
   type ContainerNodeV1,
   type DesignDocumentV1,
   type DesignNodeId,
   type DesignNodeV1,
+  type DesignPointV1,
   type DesignTransformV1,
 } from "./schema"
 
@@ -27,6 +29,8 @@ export function applyCommand(document: DesignDocumentV1, command: DesignCommand)
       return updateNode(document, command.id, command)
     case "updateTransform":
       return updateTransform(document, command.id, command.transform)
+    case "updatePoints":
+      return updatePoints(document, command.id, command.points)
     case "reorderNode":
       return reorderNode(document, command.id, command.toIndex)
     case "reparentNode":
@@ -136,6 +140,46 @@ function assertTransform(transform: DesignTransformV1): void {
   if (values.some((value) => !Number.isFinite(value)) || transform.width < 0 || transform.height < 0) {
     throw new DesignDocumentError("invalid-transform", "transform must be finite with non-negative dimensions")
   }
+}
+
+/**
+ * Anchor editing: the caller supplies points in parent space (where the
+ * transform lives); the reducer re-derives the bounding-box transform and the
+ * node-local representation, so a dragged anchor keeps world geometry exact
+ * even when the bounding box moves.
+ */
+function updatePoints(document: DesignDocumentV1, id: DesignNodeId, points: readonly DesignPointV1[]): DesignDocumentV1 {
+  const node = requireUnlocked(document, id)
+  if (node.type !== "line" && node.type !== "path") {
+    throw new DesignDocumentError("not-editable", `node "${id}" has no editable points`)
+  }
+  if (node.transform.rotation !== 0) {
+    throw new DesignDocumentError("not-editable", `node "${id}" must not be rotated to edit its points`)
+  }
+  if (points.length < 2) throw new DesignDocumentError("invalid-points", "point editing needs at least two points")
+  for (const point of points) {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      throw new DesignDocumentError("invalid-points", "points must be finite")
+    }
+  }
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const minX = Math.min(...xs)
+  const minY = Math.min(...ys)
+  const local = points.map((point) => ({ x: point.x - minX, y: point.y - minY }))
+  const transform: DesignTransformV1 = {
+    x: minX,
+    y: minY,
+    width: Math.max(...xs) - minX,
+    height: Math.max(...ys) - minY,
+    rotation: 0,
+  }
+  if (node.type === "line") {
+    return { ...document, nodes: { ...document.nodes, [id]: { ...node, transform, points: local } } }
+  }
+  const d = serializePathPoints(local)
+  if (!d) throw new DesignDocumentError("invalid-points", "path serialization failed")
+  return { ...document, nodes: { ...document.nodes, [id]: { ...node, transform, d } } }
 }
 
 function reorderNode(document: DesignDocumentV1, id: DesignNodeId, toIndex: number): DesignDocumentV1 {

@@ -106,6 +106,145 @@ describe("design command reducer", () => {
     expect(error.code).toBe("node-locked")
   })
 
+  test("updatePoints rewrites a path's data and bounding box", () => {
+    const base = doc([
+      {
+        id: "p",
+        name: "p",
+        parentId: null,
+        visible: true,
+        locked: false,
+        type: "path",
+        transform: { x: 10, y: 10, width: 60, height: 60, rotation: 0 },
+        d: "M 0 0 L 60 0 L 60 60",
+      },
+    ])
+    const next = applyCommand(base, {
+      kind: "updatePoints",
+      id: "p",
+      points: [
+        { x: 40, y: 30 },
+        { x: 70, y: 60 },
+        { x: 70, y: 120 },
+      ],
+    })
+    expect(next.nodes.p).toMatchObject({
+      transform: { x: 40, y: 30, width: 30, height: 90, rotation: 0 },
+      d: "M 0 0 L 30 30 L 30 90",
+    })
+  })
+
+  test("updatePoints rewrites a line's local points", () => {
+    const base = doc([
+      {
+        id: "l",
+        name: "l",
+        parentId: null,
+        visible: true,
+        locked: false,
+        type: "line",
+        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
+        points: [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ],
+      },
+    ])
+    const next = applyCommand(base, {
+      kind: "updatePoints",
+      id: "l",
+      points: [
+        { x: 5, y: 5 },
+        { x: 25, y: 5 },
+      ],
+    })
+    expect(next.nodes.l).toMatchObject({
+      transform: { x: 5, y: 5, width: 20, height: 0, rotation: 0 },
+      points: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+      ],
+    })
+  })
+
+  test("updatePoints refuses non-polyline, rotated, short and locked targets", () => {
+    expect(
+      expectError(() =>
+        applyCommand(doc([rect("a")]), {
+          kind: "updatePoints",
+          id: "a",
+          points: [
+            { x: 0, y: 0 },
+            { x: 1, y: 1 },
+          ],
+        }),
+      ).code,
+    ).toBe("not-editable")
+    const rotated = doc([
+      {
+        id: "p",
+        name: "p",
+        parentId: null,
+        visible: true,
+        locked: false,
+        type: "path",
+        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 45 },
+        d: "M 0 0 L 10 10",
+      },
+    ])
+    expect(
+      expectError(() =>
+        applyCommand(rotated, {
+          kind: "updatePoints",
+          id: "p",
+          points: [
+            { x: 0, y: 0 },
+            { x: 20, y: 20 },
+          ],
+        }),
+      ).code,
+    ).toBe("not-editable")
+    const path = doc([
+      {
+        id: "p",
+        name: "p",
+        parentId: null,
+        visible: true,
+        locked: false,
+        type: "path",
+        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
+        d: "M 0 0 L 10 10",
+      },
+    ])
+    expect(
+      expectError(() => applyCommand(path, { kind: "updatePoints", id: "p", points: [{ x: 0, y: 0 }] })).code,
+    ).toBe("invalid-points")
+    const locked = doc([
+      {
+        id: "p",
+        name: "p",
+        parentId: null,
+        visible: true,
+        locked: true,
+        type: "path",
+        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
+        d: "M 0 0 L 10 10",
+      },
+    ])
+    expect(
+      expectError(() =>
+        applyCommand(locked, {
+          kind: "updatePoints",
+          id: "p",
+          points: [
+            { x: 0, y: 0 },
+            { x: 20, y: 20 },
+          ],
+        }),
+      ).code,
+    ).toBe("node-locked")
+  })
+
   test("reorderNode moves within siblings and clamps", () => {
     const base = doc([rect("a"), rect("b"), rect("c")])
     expect(applyCommand(base, { kind: "reorderNode", id: "a", toIndex: 2 }).rootIds).toEqual(["b", "c", "a"])

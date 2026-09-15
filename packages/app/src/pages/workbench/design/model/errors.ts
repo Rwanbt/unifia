@@ -14,6 +14,8 @@ export type DesignDocumentErrorCode =
   | "target-locked"
   | "cycle"
   | "invalid-transform"
+  | "invalid-points"
+  | "not-editable"
   | "invalid-child-ids"
   | "missing-new-id"
 
