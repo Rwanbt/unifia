@@ -91,6 +91,7 @@ source of truth future agents can read without vault access.
 | **11c** | **Phase 11 durcissement — preuve MCP : la pane était inatteignable dans le dialogue (SyncProvider absent) → fallback SDK (#101, corrigé) ; l'ajout ne persiste pas (`<projet>/config.json` jamais relu + dispose d'instance) → `test.fixme` + preuves brutes + #102** | `9a95392a1a` + `b511728855` | LIVREE |
 | **12.3** | **Phase 12 slice 3 — contrat responsive de la surface Code (terminal fermé par défaut + toggle atteignable + zéro overflow sur les 5 familles)** | `333b91c0a2` | LIVREE |
 | **12.4** | **Phase 12 slice 4 — contrat responsive du split Design (desktop/tablet/mobile selon la classification v110, switcher mobile-only, 5 familles)** | `7ff1dedacf` | LIVREE |
+| fix | **#102** — persistance MCP : `MCP.add`/`remove` passent par la config **globale** (`updateGlobal`) + nouvelle primitive `Config.unsetGlobal` (suppression réelle, jsonc-safe) ; probe brut ADD/LIST/DELETE vert, test e2e réactivé | `2c8a142f9d` | LIVREE |
 | fix | **#92** — seed d'un registry model-intelligence vide au boot du **backend e2e isolé** (`UNIFIA_E2E_SEED_EMPTY_REGISTRY` → `unifia serve`, `empty-registry.ts` + 4 tests) ; contournement 503 de `gate.ts` retiré ; e2e linux **147 pass / 0 fail** (run `34846235066`) | `5f63a1418c` + `163ebfc852` | LIVREE |
 
 ---
@@ -203,6 +204,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 11c — MCP | pane atteignable (#101) prouvé CI ; ajout non persisté → `test.fixme` + issue **#102** | CI run `34866627308` (snapshot « unavailable » avant #101, puis row absente après) ; probe brut `POST /mcp` → 200 `{}`, `GET /mcp` → `{}`, `DELETE` → 500 ; **CI finale run `34869731240` : 149 pass / 0 fail / 47 skip** (fixme compté skip) |
 | Phase 12.3 — contrat Code | CI PASS 4.1 s | `e2e/v110/a4-responsive.spec.ts` ; CI run `34875743524` e2e linux **150 pass / 0 fail / 47 skip** |
 | Phase 12.4 — contrat Design | CI PASS 21.7 s | `e2e/v110/a6-responsive.spec.ts` ; CI run `34907033720` e2e linux **151 pass / 0 fail / 47 skip** (1er dispatch `34899431828` bloqué 1h26 sans sortie runner — flake infra, re-dispatch identique vert, classe #58) |
+| #102 — persistance MCP | probe brut vert + e2e réactivé | `POST /mcp` → 200 avec le serveur dans la réponse, `GET /mcp` → listé, `DELETE` → 200 puis liste vide, plus de `<projet>/config.json` ; unifia typecheck 0, biome 0, model-intelligence 424 pass ; verdict CI en cours |
 
 ---
 

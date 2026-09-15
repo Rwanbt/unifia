@@ -211,7 +211,7 @@ Pour chaque surface :
 | Settings dialog (Fournisseurs) | desktop | click | maquette | settings-providers — e2e `settings-providers.spec.ts` 4 tests + gate parité | ✅ |
 | Settings dialog (Benchmarks) | desktop | click | maquette | settings-benchmark — exécution réelle + historique localStorage ; gate parité | ⚠️ partial |
 | Settings dialog (Android) | desktop | click | maquette | settings-android — platform-gated (non exerçable en CI desktop) | ⚠️ partial |
-| Settings dialog (Plugins) | desktop | click | maquette | settings-plugins — Skills réel (`app.skills`, `/skill/install`) ; MCP : la pane est maintenant atteignable dans le dialogue (fallback SDK, #101) mais l'ajout d'un serveur ne persiste pas (écrit dans `<projet>/config.json` jamais relu + dispose d'instance) → preuve comportementale `test.fixme` + **#102** ; Hooks absent → #98 | ⚠️ partial |
+| Settings dialog (Plugins) | desktop | click | maquette | settings-plugins — Skills réel (`app.skills`, `/skill/install`) ; MCP : pane atteignable (#101) et **CRUD persistant** depuis #102 (`updateGlobal` + `Config.unsetGlobal`), preuve e2e `settings-behavior` (ajout UI + `GET /mcp` → suppression) ; Hooks absent → #98 | ✅ (MCP) / ⚠️ (Hooks) |
 | Settings dialog (Remote Access) | desktop | click | maquette | settings-remote-access — réel mais desktop-gated (`platform.getRemoteAccess`) : pane vide dans le build web e2e | ⚠️ partial |
 | Settings dialog (Collaborative Auth) | desktop | click | maquette | settings-collaborative-auth — formulaire réel (`/collab/login`) ; gate parité | ⚠️ partial |
 | User Account / Sign-in / Sign-up | desktop-large | submit | maquette auth | inline | ⚠️ partial |
