@@ -204,7 +204,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | Phase 11c — MCP | pane atteignable (#101) prouvé CI ; ajout non persisté → `test.fixme` + issue **#102** | CI run `34866627308` (snapshot « unavailable » avant #101, puis row absente après) ; probe brut `POST /mcp` → 200 `{}`, `GET /mcp` → `{}`, `DELETE` → 500 ; **CI finale run `34869731240` : 149 pass / 0 fail / 47 skip** (fixme compté skip) |
 | Phase 12.3 — contrat Code | CI PASS 4.1 s | `e2e/v110/a4-responsive.spec.ts` ; CI run `34875743524` e2e linux **150 pass / 0 fail / 47 skip** |
 | Phase 12.4 — contrat Design | CI PASS 21.7 s | `e2e/v110/a6-responsive.spec.ts` ; CI run `34907033720` e2e linux **151 pass / 0 fail / 47 skip** (1er dispatch `34899431828` bloqué 1h26 sans sortie runner — flake infra, re-dispatch identique vert, classe #58) |
-| #102 — persistance MCP | probe brut vert + e2e réactivé + suite MCP 39/39 | `POST /mcp` → 200 avec le serveur dans la réponse, `GET /mcp` → listé, `DELETE` → 200 puis liste vide, plus de `<projet>/config.json` ; `test/mcp/fixture.ts` isole `Global.Path.config` par test (pattern config.test.ts) — sans lui 22/17, avec lui 39/0 ; unifia typecheck 0, biome 0 ; verdict CI en cours |
+| #102 — persistance MCP | probe brut vert + e2e réactivé + suite MCP 39/39 + CI tous jobs verts | `POST /mcp` → 200 avec le serveur dans la réponse, `GET /mcp` → listé, `DELETE` → 200 puis liste vide, plus de `<projet>/config.json` ; `test/mcp/fixture.ts` isole `Global.Path.config` par test (sans : 22/17 ; avec : 39/0) ; **CI run `34935712118` : 4/4 jobs verts**, e2e linux **152 pass / 0 fail / 46 skip** |
 
 ---
 
