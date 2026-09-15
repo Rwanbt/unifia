@@ -106,6 +106,18 @@ test("native design canvas renders and persists a drag as a canonical command", 
   await expect.poll(async () => (await readTransform(page))?.width ?? 0, { message: "the resize must persist" })
     .toBeGreaterThan(moved.width + 30)
 
+  // Rotate: the handle sits 50px above the top edge at zoom 1. The shape is
+  // still selected (anchor clicks no longer clear the selection).
+  const resized = await readTransform(page)
+  expect(resized, "the resize must leave a canonical transform behind").not.toBeNull()
+  if (!resized) return
+  await page.mouse.move(box.x + resized.x + resized.width / 2, box.y + resized.y - 50)
+  await page.mouse.down()
+  await page.mouse.move(box.x + resized.x + resized.width + 80, box.y + resized.y + resized.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect.poll(async () => (await readTransform(page))?.rotation ?? 0, { message: "the rotation must persist" })
+    .not.toBe(0)
+
   // The persisted document is still the canonical v1 shape (no renderer state).
   const persisted = await page.evaluate((key) => {
     const raw = window.localStorage.getItem(key)
