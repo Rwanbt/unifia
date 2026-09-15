@@ -8,6 +8,8 @@ import {
   type DesignNodeV1,
   type DesignTransformV1,
   type FrameNodeV1,
+  type LineNodeV1,
+  type PathNodeV1,
   type RectangleNodeV1,
 } from "./schema"
 
@@ -38,6 +40,37 @@ export function frame(id: string, childIds: string[] = [], overrides: Partial<Fr
     type: "frame",
     transform: { ...zeroTransform },
     childIds,
+    ...overrides,
+  }
+}
+
+export function line(id: string, overrides: Partial<LineNodeV1> = {}): LineNodeV1 {
+  return {
+    id,
+    name: id,
+    parentId: null,
+    visible: true,
+    locked: false,
+    type: "line",
+    transform: { ...zeroTransform },
+    points: [
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    ],
+    ...overrides,
+  }
+}
+
+export function path(id: string, overrides: Partial<PathNodeV1> = {}): PathNodeV1 {
+  return {
+    id,
+    name: id,
+    parentId: null,
+    visible: true,
+    locked: false,
+    type: "path",
+    transform: { ...zeroTransform },
+    d: "M 0 0 L 10 10",
     ...overrides,
   }
 }

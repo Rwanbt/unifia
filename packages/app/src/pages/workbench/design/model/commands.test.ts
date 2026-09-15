@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test"
 import { applyCommand } from "./reducer"
-import { childrenOf, doc, expectError, frame, rect, zeroTransform } from "./fixtures"
+import { childrenOf, doc, expectError, frame, line, path, rect, zeroTransform } from "./fixtures"
 import type { DesignDocumentV1 } from "./schema"
 
 function nested(): DesignDocumentV1 {
@@ -106,50 +106,26 @@ describe("design command reducer", () => {
     expect(error.code).toBe("node-locked")
   })
 
-  test("updatePoints rewrites a path's data and bounding box", () => {
+  test("updatePath rewrites a curved path's data and bounding box", () => {
     const base = doc([
-      {
-        id: "p",
-        name: "p",
-        parentId: null,
-        visible: true,
-        locked: false,
-        type: "path",
-        transform: { x: 10, y: 10, width: 60, height: 60, rotation: 0 },
-        d: "M 0 0 L 60 0 L 60 60",
-      },
+      path("p", { transform: { x: 10, y: 10, width: 60, height: 40, rotation: 0 }, d: "M 0 0 Q 30 60 60 30" }),
     ])
     const next = applyCommand(base, {
-      kind: "updatePoints",
+      kind: "updatePath",
       id: "p",
-      points: [
-        { x: 40, y: 30 },
-        { x: 70, y: 60 },
-        { x: 70, y: 120 },
-      ],
+      data: {
+        start: { x: 40, y: 30 },
+        segments: [{ kind: "quad", control: { x: 70, y: 90 }, to: { x: 100, y: 60 } }],
+      },
     })
     expect(next.nodes.p).toMatchObject({
-      transform: { x: 40, y: 30, width: 30, height: 90, rotation: 0 },
-      d: "M 0 0 L 30 30 L 30 90",
+      transform: { x: 40, y: 30, width: 60, height: 40, rotation: 0 },
+      d: "M 0 0 Q 30 60 60 30",
     })
   })
 
   test("updatePoints rewrites a line's local points", () => {
-    const base = doc([
-      {
-        id: "l",
-        name: "l",
-        parentId: null,
-        visible: true,
-        locked: false,
-        type: "line",
-        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
-        points: [
-          { x: 0, y: 0 },
-          { x: 10, y: 10 },
-        ],
-      },
-    ])
+    const base = doc([line("l")])
     const next = applyCommand(base, {
       kind: "updatePoints",
       id: "l",
@@ -167,7 +143,7 @@ describe("design command reducer", () => {
     })
   })
 
-  test("updatePoints refuses non-polyline, rotated, short and locked targets", () => {
+  test("updatePoints refuses non-line, rotated, short and locked targets", () => {
     expect(
       expectError(() =>
         applyCommand(doc([rect("a")]), {
@@ -180,21 +156,9 @@ describe("design command reducer", () => {
         }),
       ).code,
     ).toBe("not-editable")
-    const rotated = doc([
-      {
-        id: "p",
-        name: "p",
-        parentId: null,
-        visible: true,
-        locked: false,
-        type: "path",
-        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 45 },
-        d: "M 0 0 L 10 10",
-      },
-    ])
     expect(
       expectError(() =>
-        applyCommand(rotated, {
+        applyCommand(doc([path("p")]), {
           kind: "updatePoints",
           id: "p",
           points: [
@@ -204,43 +168,57 @@ describe("design command reducer", () => {
         }),
       ).code,
     ).toBe("not-editable")
-    const path = doc([
-      {
-        id: "p",
-        name: "p",
-        parentId: null,
-        visible: true,
-        locked: false,
-        type: "path",
-        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
-        d: "M 0 0 L 10 10",
-      },
-    ])
-    expect(
-      expectError(() => applyCommand(path, { kind: "updatePoints", id: "p", points: [{ x: 0, y: 0 }] })).code,
-    ).toBe("invalid-points")
-    const locked = doc([
-      {
-        id: "p",
-        name: "p",
-        parentId: null,
-        visible: true,
-        locked: true,
-        type: "path",
-        transform: { x: 0, y: 0, width: 10, height: 10, rotation: 0 },
-        d: "M 0 0 L 10 10",
-      },
-    ])
     expect(
       expectError(() =>
-        applyCommand(locked, {
+        applyCommand(doc([line("l", { transform: { x: 0, y: 0, width: 10, height: 10, rotation: 45 } })]), {
           kind: "updatePoints",
-          id: "p",
+          id: "l",
           points: [
             { x: 0, y: 0 },
             { x: 20, y: 20 },
           ],
         }),
+      ).code,
+    ).toBe("not-editable")
+    expect(expectError(() => applyCommand(doc([line("l")]), { kind: "updatePoints", id: "l", points: [{ x: 0, y: 0 }] })).code).toBe(
+      "invalid-points",
+    )
+    expect(
+      expectError(() =>
+        applyCommand(doc([line("l", { locked: true })]), {
+          kind: "updatePoints",
+          id: "l",
+          points: [
+            { x: 0, y: 0 },
+            { x: 20, y: 20 },
+          ],
+        }),
+      ).code,
+    ).toBe("node-locked")
+  })
+
+  test("updatePath refuses non-path, rotated, empty and locked targets", () => {
+    const segment = { kind: "line" as const, to: { x: 20, y: 20 } }
+    expect(
+      expectError(() =>
+        applyCommand(doc([rect("a")]), { kind: "updatePath", id: "a", data: { start: { x: 0, y: 0 }, segments: [segment] } }),
+      ).code,
+    ).toBe("not-editable")
+    expect(
+      expectError(() =>
+        applyCommand(doc([path("p", { transform: { x: 0, y: 0, width: 10, height: 10, rotation: 90 } })]), {
+          kind: "updatePath",
+          id: "p",
+          data: { start: { x: 0, y: 0 }, segments: [segment] },
+        }),
+      ).code,
+    ).toBe("not-editable")
+    expect(
+      expectError(() => applyCommand(doc([path("p")]), { kind: "updatePath", id: "p", data: { start: { x: 0, y: 0 }, segments: [] } })).code,
+    ).toBe("invalid-points")
+    expect(
+      expectError(() =>
+        applyCommand(doc([path("p", { locked: true })]), { kind: "updatePath", id: "p", data: { start: { x: 0, y: 0 }, segments: [segment] } }),
       ).code,
     ).toBe("node-locked")
   })

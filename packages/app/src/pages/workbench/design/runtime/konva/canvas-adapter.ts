@@ -2,9 +2,9 @@
 
 import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
-import { parsePathPoints, serializePathPoints } from "../../model/path"
-import type { DesignDocumentV1, DesignNodeId, DesignNodeV1 } from "../../model/schema"
-import { applyToPoint, identityMatrix, nodeMatrix, type DesignPoint } from "../geometry"
+import { movePathHandle, parsePath, pathHandles, serializePath, translatePath } from "../../model/path"
+import type { DesignDocumentV1, DesignNodeId, DesignNodeV1, LineNodeV1, PathNodeV1 } from "../../model/schema"
+import { applyToPoint, identityMatrix, nodeMatrix, type DesignMatrix, type DesignPoint } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
 import { designSnapThresholdPx, snapCandidates, snapRect, type DesignSnapGuide } from "../snapping"
 import { draftRect, isDraftUsable, type DesignDraft, type DesignTool } from "../tools"
@@ -39,6 +39,7 @@ const zoomFactor = 1.1
 const guideStroke = "#2563eb"
 const guideExtent = 5000
 const anchorRadius = 5
+const controlRadius = 4
 
 /**
  * Imperative Konva adapter. Konva is loaded lazily so it never reaches the
@@ -217,16 +218,106 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     // Container resize semantics (children follow the new size) land with
     // the layer runtime; scaling a group now would visually lie.
     if (canonical.type === "frame" || canonical.type === "group") return
-    // Editable polylines get anchor handles instead of the transformer, so
-    // the two affordances never overlap.
-    if ((canonical.type === "line" || canonical.type === "path") && canonical.transform.rotation === 0) return
+    // Editable polylines already show anchors instead of the transformer; a
+    // rotated one keeps rotation only — resize would need per-point scaling
+    // the model cannot express (scale is never persisted).
+    if (canonical.type === "line" || canonical.type === "path") {
+      if (canonical.transform.rotation === 0) return
+      transformer.resizeEnabled(false)
+      transformer.nodes([node])
+      return
+    }
+    transformer.resizeEnabled(true)
     transformer.nodes([node])
   }
 
+  const anchorCircle = (point: DesignPoint, control = false) =>
+    new Konva.Circle({
+      x: point.x,
+      y: point.y,
+      radius: control ? controlRadius : anchorRadius,
+      fill: control ? guideStroke : frameFill,
+      stroke: control ? frameFill : guideStroke,
+      strokeWidth: 1,
+      draggable: true,
+    })
+
+  const addLineAnchors = (id: DesignNodeId, node: LineNodeV1, matrix: DesignMatrix, parent: DesignMatrix) => {
+    const shape = shapes.get(id)
+    const originX = parent.e + node.transform.x
+    const originY = parent.f + node.transform.y
+    const world = node.points.map((point) => applyToPoint(matrix, point))
+    world.forEach((point, index) => {
+      const circle = anchorCircle(point)
+      circle.on("dragmove", () => {
+        world[index] = { x: circle.x(), y: circle.y() }
+        const local = world.map((entry) => ({ x: entry.x - originX, y: entry.y - originY }))
+        shape?.setAttrs({ points: local.flatMap((entry) => [entry.x, entry.y]) })
+        overlay.batchDraw()
+      })
+      circle.on("dragend", () => {
+        world[index] = { x: circle.x(), y: circle.y() }
+        options.onCommand({
+          kind: "updatePoints",
+          id,
+          points: world.map((entry) => ({ x: entry.x - parent.e, y: entry.y - parent.f })),
+        })
+      })
+      anchors.add(circle)
+    })
+  }
+
+  const addPathAnchors = (id: DesignNodeId, node: PathNodeV1, matrix: DesignMatrix) => {
+    const data = parsePath(node.d)
+    if (!data) return
+    const shape = shapes.get(id)
+    const origin = { x: matrix.e, y: matrix.f }
+    const handles = pathHandles(data)
+    const world = handles.map((entry) => applyToPoint(matrix, entry.point))
+    const guides: { anchor: number; index: number; line: InstanceType<KonvaModule["Line"]> }[] = []
+    handles.forEach((entry, index) => {
+      if (entry.handle.kind !== "control") return
+      const anchor = handles.findIndex((candidate) => candidate.point === entry.anchor)
+      if (anchor < 0) return
+      const line = new Konva.Line({ points: [], stroke: guideStroke, strokeWidth: 1, dash: [3, 3], opacity: 0.6, listening: false })
+      guides.push({ anchor, index, line })
+      anchors.add(line)
+    })
+    const refresh = () => {
+      for (const guide of guides) {
+        const from = world[guide.anchor]
+        const to = world[guide.index]
+        if (from && to) guide.line.points([from.x, from.y, to.x, to.y])
+      }
+    }
+    refresh()
+    handles.forEach((entry, index) => {
+      const circle = anchorCircle(world[index], entry.handle.kind === "control")
+      circle.on("dragmove", () => {
+        world[index] = { x: circle.x(), y: circle.y() }
+        refresh()
+        const local = { x: circle.x() - origin.x, y: circle.y() - origin.y }
+        shape?.setAttrs({ data: serializePath(movePathHandle(data, entry.handle, local)) })
+        overlay.batchDraw()
+      })
+      circle.on("dragend", () => {
+        const local = { x: circle.x() - origin.x, y: circle.y() - origin.y }
+        const moved = movePathHandle(data, entry.handle, local)
+        options.onCommand({
+          kind: "updatePath",
+          id,
+          data: translatePath(moved, { x: node.transform.x, y: node.transform.y }),
+        })
+      })
+      anchors.add(circle)
+    })
+  }
+
   /**
-   * Anchor handles: a polyline's points, drawn world-space in the overlay and
-   * draggable. Dragging previews locally (the node's own shape follows) and a
-   * finished drag commits one `updatePoints` command in parent space.
+   * Anchor handles: a line's points or a path's anchors and Bezier controls,
+   * drawn world-space in the overlay and draggable. Dragging previews locally
+   * (the node's own shape follows) and a finished drag commits one
+   * `updatePoints` / `updatePath` command in parent space.
    */
   const applyAnchors = () => {
     anchors.destroyChildren()
@@ -238,40 +329,8 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     if (node.transform.rotation !== 0) return
     const matrix = nodeMatrix(document, id)
     if (Math.abs(matrix.b) > 1e-9 || Math.abs(matrix.c) > 1e-9) return
-    const parent = node.parentId === null ? identityMatrix : nodeMatrix(document, node.parentId)
-    const originX = parent.e + node.transform.x
-    const originY = parent.f + node.transform.y
-    const local = node.type === "line" ? [...node.points] : parsePathPoints(node.d)
-    if (!local || local.length < 2) return
-    const world = local.map((point) => applyToPoint(matrix, point))
-    const shape = shapes.get(id)
-    world.forEach((point, index) => {
-      const circle = new Konva.Circle({
-        x: point.x,
-        y: point.y,
-        radius: anchorRadius,
-        fill: frameFill,
-        stroke: guideStroke,
-        strokeWidth: 1,
-        draggable: true,
-      })
-      circle.on("dragmove", () => {
-        const live = world.map((entry, at) => (at === index ? { x: circle.x(), y: circle.y() } : entry))
-        const localLive = live.map((entry) => ({ x: entry.x - originX, y: entry.y - originY }))
-        if (node.type === "line") shape?.setAttrs({ points: localLive.flatMap((entry) => [entry.x, entry.y]) })
-        else shape?.setAttrs({ data: serializePathPoints(localLive) ?? node.d })
-        overlay.batchDraw()
-      })
-      circle.on("dragend", () => {
-        const next = world.map((entry, at) => (at === index ? { x: circle.x(), y: circle.y() } : entry))
-        options.onCommand({
-          kind: "updatePoints",
-          id,
-          points: next.map((entry) => ({ x: entry.x - parent.e, y: entry.y - parent.f })),
-        })
-      })
-      anchors.add(circle)
-    })
+    if (node.type === "line") addLineAnchors(id, node, matrix, node.parentId === null ? identityMatrix : nodeMatrix(document, node.parentId))
+    else addPathAnchors(id, node, matrix)
     overlay.batchDraw()
   }
 

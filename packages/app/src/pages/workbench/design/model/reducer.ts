@@ -2,7 +2,7 @@
 
 import type { DesignCommand } from "./commands"
 import { DesignDocumentError } from "./errors"
-import { serializePathPoints } from "./path"
+import { pathBounds, serializePath, translatePath, type PathData } from "./path"
 import {
   isContainerNode,
   type ContainerNodeV1,
@@ -31,6 +31,8 @@ export function applyCommand(document: DesignDocumentV1, command: DesignCommand)
       return updateTransform(document, command.id, command.transform)
     case "updatePoints":
       return updatePoints(document, command.id, command.points)
+    case "updatePath":
+      return updatePath(document, command.id, command.data)
     case "reorderNode":
       return reorderNode(document, command.id, command.toIndex)
     case "reparentNode":
@@ -143,14 +145,14 @@ function assertTransform(transform: DesignTransformV1): void {
 }
 
 /**
- * Anchor editing: the caller supplies points in parent space (where the
+ * Line anchor editing: the caller supplies points in parent space (where the
  * transform lives); the reducer re-derives the bounding-box transform and the
- * node-local representation, so a dragged anchor keeps world geometry exact
- * even when the bounding box moves.
+ * node-local points, so a dragged anchor keeps world geometry exact even when
+ * the bounding box moves.
  */
 function updatePoints(document: DesignDocumentV1, id: DesignNodeId, points: readonly DesignPointV1[]): DesignDocumentV1 {
   const node = requireUnlocked(document, id)
-  if (node.type !== "line" && node.type !== "path") {
+  if (node.type !== "line") {
     throw new DesignDocumentError("not-editable", `node "${id}" has no editable points`)
   }
   if (node.transform.rotation !== 0) {
@@ -174,12 +176,27 @@ function updatePoints(document: DesignDocumentV1, id: DesignNodeId, points: read
     height: Math.max(...ys) - minY,
     rotation: 0,
   }
-  if (node.type === "line") {
-    return { ...document, nodes: { ...document.nodes, [id]: { ...node, transform, points: local } } }
+  return { ...document, nodes: { ...document.nodes, [id]: { ...node, transform, points: local } } }
+}
+
+/**
+ * Path editing: same contract as `updatePoints`, for the editable path
+ * subset. The bounding box is the tight curve bounds, so the transform never
+ * claims space the curve does not fill.
+ */
+function updatePath(document: DesignDocumentV1, id: DesignNodeId, data: PathData): DesignDocumentV1 {
+  const node = requireUnlocked(document, id)
+  if (node.type !== "path") throw new DesignDocumentError("not-editable", `node "${id}" is not a path`)
+  if (node.transform.rotation !== 0) {
+    throw new DesignDocumentError("not-editable", `node "${id}" must not be rotated to edit its path`)
   }
-  const d = serializePathPoints(local)
-  if (!d) throw new DesignDocumentError("invalid-points", "path serialization failed")
-  return { ...document, nodes: { ...document.nodes, [id]: { ...node, transform, d } } }
+  const bounds = pathBounds(data)
+  if (!bounds) throw new DesignDocumentError("invalid-points", "path data must be finite with at least one segment")
+  const transform: DesignTransformV1 = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, rotation: 0 }
+  return {
+    ...document,
+    nodes: { ...document.nodes, [id]: { ...node, transform, d: serializePath(translatePath(data, { x: -bounds.x, y: -bounds.y })) } },
+  }
 }
 
 function reorderNode(document: DesignDocumentV1, id: DesignNodeId, toIndex: number): DesignDocumentV1 {
