@@ -216,6 +216,7 @@ export const SettingsBenchmark: Component = () => {
             </div>
             <div class="flex items-center gap-3 mt-2">
               <Button
+                data-action="settings-benchmark-run"
                 onClick={runBenchmark}
                 disabled={running() || !selectedModel()}
                 variant="primary"
@@ -223,7 +224,7 @@ export const SettingsBenchmark: Component = () => {
                 {running() ? language.t("settings.fork.benchmark.running") : history().length > 0 ? language.t("settings.fork.benchmark.rerun") : language.t("settings.fork.benchmark.run")}
               </Button>
               <Show when={history().length > 0}>
-                <Button onClick={clearHistory} variant="ghost" disabled={running()}>
+                <Button data-action="settings-benchmark-clear" onClick={clearHistory} variant="ghost" disabled={running()}>
                   {language.t("settings.fork.benchmark.clearHistory")}
                 </Button>
               </Show>
@@ -304,7 +305,7 @@ export const SettingsBenchmark: Component = () => {
         </Show>
 
         <Show when={history().length === 0 && !running()}>
-          <div class="text-12-regular text-text-weak px-1">
+          <div data-action="settings-benchmark-empty" class="text-12-regular text-text-weak px-1">
             {language.t("settings.fork.benchmark.empty")}
           </div>
         </Show>

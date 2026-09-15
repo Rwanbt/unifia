@@ -65,6 +65,7 @@ export function LoginForm(props: LoginFormProps) {
         <span class="text-xs font-medium text-secondary">{language.t("auth.username")}</span>
         <input
           type="text"
+          data-action="auth-username"
           value={username()}
           onInput={(e) => setUsername(e.currentTarget.value)}
           class="px-3 py-2 border rounded-lg bg-background text-sm"
@@ -89,6 +90,7 @@ export function LoginForm(props: LoginFormProps) {
         <span class="text-xs font-medium text-secondary">{language.t("auth.password")}</span>
         <input
           type="password"
+          data-action="auth-password"
           value={password()}
           onInput={(e) => setPassword(e.currentTarget.value)}
           class="px-3 py-2 border rounded-lg bg-background text-sm"
@@ -99,11 +101,12 @@ export function LoginForm(props: LoginFormProps) {
       </label>
 
       <Show when={error()}>
-        <p class="text-xs text-red-500">{error()}</p>
+        <p data-action="auth-error" class="text-xs text-red-500">{error()}</p>
       </Show>
 
       <button
         type="submit"
+        data-action="auth-submit"
         disabled={loading()}
         class="px-4 py-2 bg-primary text-white rounded-lg font-medium text-sm disabled:opacity-50"
       >
