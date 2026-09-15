@@ -106,6 +106,7 @@ source of truth future agents can read without vault access.
 | **7.1** | **ADR-039 slice 1 — canonical design domain (schema/validation/commands/migrations/repository) + 43 headless tests** | `699effa4f4` | LIVREE |
 | chore | konva@10.5.0 pinned for the Design renderer adapter (dependency validation, no import yet) | `b4e2895757` | LIVREE |
 | **7.2a** | **ADR-039 slice 2a — runtime geometry + viewport + render-model projection (pure, headless tests)** | `9074b3143f` | LIVREE |
+| **7.2b** | **ADR-039 slice 2b — Konva adapter + sélection/transform + onglet Canvas sur la surface Design + repli de persistance ; e2e `canvas-native` (drag + resize + rotation canoniques persistés, chunk Konva paresseux 190,2 kB / 58,8 kB gzip)** | `97c27e6e96` | LIVREE |
 
 ---
 
