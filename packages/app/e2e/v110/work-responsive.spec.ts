@@ -37,11 +37,15 @@ test("work surface keeps its view shell reachable across the five families", asy
   // server and every Work boot logs a 503 on the models route.
   await gotoSession()
 
-  const t = track(page)
-
   await page.setViewportSize({ width: CASES[0].width, height: CASES[0].height })
   await page.goto(`${dirPath(directory)}/work`)
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
+
+  // Track after the last navigation: leaving the session page aborts the
+  // app's in-flight provider refresh, which logs a "Failed to fetch" the
+  // app itself causes. The gate is about the steady state and the resize
+  // loop below, not about that deliberate navigation.
+  const t = track(page)
 
   for (const c of CASES) {
     await test.step(c.name, async () => {

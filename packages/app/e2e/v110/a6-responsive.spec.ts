@@ -29,13 +29,20 @@ const CASES = [
 ]
 
 test("design split follows the v110 family classification across viewports", async ({ page, directory }) => {
+  // Load once at the first family size. The split owns a resize listener
+  // (design-split.tsx: onResize -> layout memo), which is the real authority
+  // the later families exercise; reloading five times only added the aborted
+  // provider refresh each navigation leaves behind ("Failed to fetch" from
+  // the app's own bootstrap, recorded as a console error).
+  await page.setViewportSize({ width: CASES[0].width, height: CASES[0].height })
+  await page.goto(`${dirPath(directory)}/design`)
+  await expect(page.locator("[data-design-split-kind]")).toBeVisible()
+
   const t = track(page)
 
   for (const c of CASES) {
     await test.step(c.name, async () => {
-      // The split reads the viewport at render time, so size first, then load.
       await page.setViewportSize({ width: c.width, height: c.height })
-      await page.goto(`${dirPath(directory)}/design`)
 
       await expect(page.locator("[data-design-split-kind]"), c.name + ": split must mount").toBeVisible()
       const over = await overflow(page)

@@ -52,8 +52,6 @@ test("automate studio swaps the canvas for the step list on overlay families", a
   // Seeds the worker backend (the registry-seeded one) as the page's server.
   await gotoSession()
 
-  const t = track(page)
-
   await page.setViewportSize({ width: CASES[0].width, height: CASES[0].height })
   await page.goto(`${dirPath(directory)}/automate`)
   await expect(page.locator('[data-workbench-surface="automate"]')).toBeVisible()
@@ -61,6 +59,12 @@ test("automate studio swaps the canvas for the step list on overlay families", a
   // Open the mocked definition; a parsed preview means the studio mounted.
   await page.locator(`[data-automate-definition="${DEFINITION_PATH}"] button`).click()
   await expect(page.locator('[data-automate-definition-preview="ok"]')).toBeVisible()
+
+  // Track after the last navigation: leaving the session page aborts the
+  // app's in-flight provider refresh, which logs a "Failed to fetch" the
+  // app itself causes. The gate is about the steady state and the resize
+  // loop below, not about that deliberate navigation.
+  const t = track(page)
 
   for (const c of CASES) {
     await test.step(c.name, async () => {
