@@ -15,6 +15,7 @@ import { applyCommand } from "./design/model/reducer"
 import type { DesignDocumentV1, DesignNodeId } from "./design/model/schema"
 import { createLocalStorageDesignDocumentRepository } from "./design/persistence/local-storage-repository"
 import { DesignCanvas } from "./design/runtime/design-canvas"
+import { DesignLayersPanel } from "./design/runtime/layers-panel"
 
 const saveDelayMs = 400
 
@@ -188,9 +189,17 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
           )}
         </Show>
       </div>
-      <div class="relative min-h-0 flex-1">
+      <div class="relative flex min-h-0 flex-1">
         <Show when={loaded()}>
-          <DesignCanvas document={document()} selection={selection()} onSelect={select} onCommand={dispatch} />
+          <DesignLayersPanel
+            document={document()}
+            selection={selection()}
+            onSelect={(id) => setSelection([id])}
+            onCommand={dispatch}
+          />
+          <div class="relative min-h-0 flex-1">
+            <DesignCanvas document={document()} selection={selection()} onSelect={select} onCommand={dispatch} />
+          </div>
         </Show>
       </div>
     </div>
