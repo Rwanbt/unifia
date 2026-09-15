@@ -109,6 +109,7 @@ source of truth future agents can read without vault access.
 | **7.2b** | **ADR-039 slice 2b — Konva adapter + sélection/transform + onglet Canvas sur la surface Design + repli de persistance ; e2e `canvas-native` (drag + resize + rotation canoniques persistés, chunk Konva paresseux 190,2 kB / 58,8 kB gzip)** | `97c27e6e96` | LIVREE |
 | **7.3** | **ADR-039 slice 3 — snapping arêtes/centres + guides transitoires + clavier (nudge, delete, escape, undo/redo) + historique par commande ; e2e snap sibling + undo/redo + nudge (2 passed)** | `80d9b71c06` | LIVREE |
 | **7.4** | **ADR-039 slice 4 — panneau Layers sur la hiérarchie canonique (visibilité/verrou/reorder/reparent) + suppression des modèles parallèles orphelins (D7-G11) ; e2e `canvas-layers` (1 passed)** | `ccc95ad4db` | LIVREE |
+| **7.5** | **ADR-039 #108 partie import — importeur legacy Excalidraw → V1 validé + merge canonique + action Import ; e2e `canvas-import` (1 passed) ; D7-G9/G10 prouvés. Retrait iframe NON fait (bloqué parité native) — #108 reste ouverte** | `799b1784ab` | LIVREE (partielle) |
 
 ---
 
