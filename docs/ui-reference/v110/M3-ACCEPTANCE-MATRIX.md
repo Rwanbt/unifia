@@ -127,20 +127,22 @@ violerait le contrat de campagne.
 
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
-| Design layers panel | desktop-large | drag-reorder, toggle vis | maquette | design-layers-panel.tsx (Phase 3 MVP) | ✅ partial — réimplémenté sur le document canonique (ADR-039 #107, D7-G11) |
-| Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | design-vector-tools.tsx (Phase 3 MVP) | ✅ partial (canvas wiring pending — ADR-039 #105/#106, nodes Line/Path) |
-| Design canvas (real Sketch integration) | desktop-large | draw, select, edit | maquette | Excalidraw iframe | ❌ **FAKE** — Phase 7 scopée par ADR-039, slices #104-#108 |
-| Design layers DnD (real reorder) | desktop-large | drag up/down | maquette | up/down buttons (Phase 3) | ⚠️ partial (no real drag-reorder — ADR-039 #107, gate D7-G6) |
-| Design selection handles (8 points) | desktop-large | drag handle | maquette | DesignSelectionHandles (Phase 3) | ✅ partial (retargeted to the canonical canvas — ADR-039 #105) |
-| Design Bézier path | desktop-large | drag control points | maquette | DesignBezierPath (Phase 3 cubic) | ✅ partial (PathNodeV1 in ADR-039 §5 — #105/#106) |
-| Design rotate transform | desktop-large | drag | maquette | ? (not implemented) | ❌ Phase 7 (ADR-039 #105, gate D7-G4) |
-| Design resize transform | desktop-large | drag | maquette | via handle drag | ✅ partial (ADR-039 #105, gate D7-G4) |
-| Design snap/grid | desktop-large | drag with snap | maquette | ? | ❌ Phase 7 (ADR-039 #106, gate D7-G5) |
-| Design undo/redo | desktop | Ctrl+Z/Y | maquette | rolled()/restoring() (inline) | ⚠️ partial (ADR-039 #106, gate D7-G8 — history at the document-op layer) |
+| Design layers panel | desktop-large | drag-reorder, toggle vis | maquette | `design/runtime/layers-panel.tsx` (ADR-039 #107) — vue pure du document canonique : ordre, sélection, visibilité, verrou ; l'ancien `design-layers-panel.tsx` a été supprimé (D7-G11) | ✅ |
+| Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | stubs orphelins supprimés (D7-G11, #107) — à reconstruire sur le canvas canonique (`LineNodeV1`/`PathNodeV1` existent) | ❌ manque |
+| Design canvas (real Sketch integration) | desktop-large | draw, select, edit | maquette | canvas natif Konva livré (#105-#107 : drag/resize/rotate + snapping + layers) ; l'iframe Excalidraw ne survit que dans l'onglet Croquis legacy jusqu'à #108 | ⚠️ partiel — natif livré, legacy à retirer |
+| Design layers DnD (real reorder) | desktop-large | drag up/down | maquette | e2e `canvas-layers` (ADR-039 #107) — reorder + reparent réels qui réécrivent `childIds` (D7-G6) | ✅ |
+| Design selection handles (8 points) | desktop-large | drag handle | maquette | stubs supprimés (D7-G11, #107) — à reconstruire sur le canvas canonique | ❌ manque |
+| Design Bézier path | desktop-large | drag control points | maquette | `PathNodeV1` prêt (ADR-039 §5) et rendu par le canvas ; édition des poignées à reconstruire (stubs supprimés, #107) | ❌ manque |
+| Design rotate transform | desktop-large | drag | maquette | transformer Konva, commit canonique + e2e (ADR-039 #105, gate D7-G4) | ✅ |
+| Design resize transform | desktop-large | drag | maquette | transformer Konva, scale replié en width/height + e2e (ADR-039 #105, gate D7-G4) | ✅ |
+| Design snap/grid | desktop-large | drag with snap | maquette | `runtime/snapping.ts` — arêtes/centres, seuil px écran ÷ zoom + e2e (ADR-039 #106, gate D7-G5) | ✅ |
+| Design undo/redo | desktop | Ctrl+Z/Y | maquette | `model/history.ts` — 1 commande = 1 entrée, undo/redo clavier + e2e (ADR-039 #106, gate D7-G8) | ✅ |
 | Design export | desktop | click | maquette | export hooks | ✅ partial (SVG export target noted in ADR-039 §5) |
 | Design comments | desktop | add comment | maquette | comment-panel | ⚠️ partial (non traité par ADR-039 — à cadrer séparément) |
 
-**Phase 7 critique** : Design canvas doit être réellement câblé au runtime, pas un iframe Excalidraw cosmétique. **Débloquée par ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2) : document canonique versionné possédé par Unifia, renderer Konva agnostique derrière un adapter (pas de React dans l'app SolidJS), autorité de stockage nommée (workspace/artifact ; localStorage = repli web temporaire), validation zod, `LineNodeV1`/`PathNodeV1` pour les lignes vectorielles. Slices tracées : **#104** domaine canonique (sans renderer — point d'entrée), **#105** canvas natif (D7-G3/G4), **#106** snapping/guides/history (D7-G5/G8), **#107** layer runtime + DnD (D7-G6/G7), **#108** import legacy + retrait iframe (D7-G9/G10) ; D7-G11 exige l'absorption des stubs Phase 3 — aucun modèle parallèle ne survit.
+**Phase 7 critique** : Design canvas doit être réellement câblé au runtime, pas un iframe Excalidraw cosmétique. **Débloquée par ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Accepted) : document canonique versionné possédé par Unifia, renderer Konva agnostique derrière un adapter (pas de React dans l'app SolidJS), autorité de stockage nommée (workspace/artifact ; localStorage = repli web temporaire), validation zod, `LineNodeV1`/`PathNodeV1` pour les lignes vectorielles.
+
+**État des slices au 2026-09-15** : **#104** domaine canonique livré (43 tests) ; **#105** canvas natif livré (D7-G3/G4, e2e drag/resize/rotation) ; **#106** interactions livrées (D7-G5/G8, e2e snap + undo/redo + nudge) ; **#107** layer runtime livré (D7-G6/G7/G11, e2e visibilité/verrou/reorder/reparent) avec suppression des modèles parallèles orphelins (`design-layers-model.ts`, `design-layers-panel.tsx`, `design-vector-tools.tsx`). **Reste #108** (D7-G9/G10 : import legacy + retrait iframe) et la reconstruction des outils vectoriels (sélection multi-points, poignées, Bézier) sur le canvas canonique.
 
 ---
 
