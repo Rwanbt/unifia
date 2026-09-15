@@ -103,6 +103,8 @@ source of truth future agents can read without vault access.
 | **#99** | **i18n Design — les 2 fichiers de l'issue nettoyés** : 18 clés × 17 dictionnaires (`workbench.design.browser.*` forward/reload/go/erreurs/aides + `workbench.design.files.*` titres/placeholder/créer/états + réutilisation `common.rename/cancel/delete/loading` ; seule `workbench.design.files.source` allowlistée, cognate fr) ; placeholder navigateur neutralisé en `https://example.com` (était `exemple.com`) ; **garde mécanique « mots FR sans accent »** (liste curée, portée aux 2 fichiers, décision de scope documentée) ; parity 10/10, suite app **1494 pass / 21 todo / 0 fail** ; reste de la famille design-* inventorié → **#103** | `969c3f6914` | LIVREE |
 | **#93** | **Memory — le renommage réécrit les wikilinks non ambigus** : `rewriteMemoryWikilinks` + `memoryTitleIsAmbiguous` (purs, règle de normalisation identique à `linkedMemoryNotes` ; alias/sections préservés ; cas ambigu laissé intact) ; câblage dans `commitRename` sur les notes uniquement, écriture réelle par fichier avec CAS `expectedHash` (discipline de l'autosave), échecs partiels remontés par toast nommant les notes ; 5 tests unitaires + e2e `memory-rename-links` (fichiers réels sur disque) | ce commit | LIVREE |
 
+| **7.1** | **ADR-039 slice 1 — canonical design domain (schema/validation/commands/migrations/repository) + 43 headless tests** | `699effa4f4` | LIVREE |
+
 ---
 
 ## Extracted wrappers (Vague 4 pattern)
