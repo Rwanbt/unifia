@@ -131,8 +131,8 @@ violerait le contrat de campagne.
 | Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | outils natifs de création livrés (#109) : drag rect/ellipse/ligne + plume clic-à-clic (Entrée clôt, Échap annule), previews transitoires, création via `insertNode` ; édition de nœuds (poignées Bézier) → #110 | ⚠️ partiel |
 | Design canvas (real Sketch integration) | desktop-large | draw, select, edit | maquette | canvas natif Konva livré (#105-#107 : drag/resize/rotate + snapping + layers) ; l'iframe Excalidraw ne survit que dans l'onglet Croquis legacy jusqu'à #108 | ⚠️ partiel — natif livré, legacy à retirer |
 | Design layers DnD (real reorder) | desktop-large | drag up/down | maquette | e2e `canvas-layers` (ADR-039 #107) — reorder + reparent réels qui réécrivent `childIds` (D7-G6) | ✅ |
-| Design selection handles (8 points) | desktop-large | drag handle | maquette | stubs supprimés (D7-G11, #107) — à reconstruire sur le canvas canonique | ❌ manque |
-| Design Bézier path | desktop-large | drag control points | maquette | `PathNodeV1` prêt (ADR-039 §5) et rendu par le canvas ; édition des poignées à reconstruire (stubs supprimés, #107) | ❌ manque |
+| Design selection handles (8 points) | desktop-large | drag handle | maquette | transformer Konva (8 ancres + rotation) vérifié par e2e (#105) ; poly-lignes : ancres d'édition (#110) ; multi-sélection/marquee absents → #111 | ⚠️ partiel |
+| Design Bézier path | desktop-large | drag control points | maquette | ancres éditables livrées (#110) : parseur M/L, commande `updatePoints` (bbox + local recalculés), e2e drag d'ancre + 1 undo/1 redo ; courbes C/Q (poignées) → #111 | ⚠️ partiel |
 | Design rotate transform | desktop-large | drag | maquette | transformer Konva, commit canonique + e2e (ADR-039 #105, gate D7-G4) | ✅ |
 | Design resize transform | desktop-large | drag | maquette | transformer Konva, scale replié en width/height + e2e (ADR-039 #105, gate D7-G4) | ✅ |
 | Design snap/grid | desktop-large | drag with snap | maquette | `runtime/snapping.ts` — arêtes/centres, seuil px écran ÷ zoom + e2e (ADR-039 #106, gate D7-G5) | ✅ |
