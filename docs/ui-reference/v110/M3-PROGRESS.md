@@ -104,6 +104,8 @@ source of truth future agents can read without vault access.
 | **#93** | **Memory — le renommage réécrit les wikilinks non ambigus** : `rewriteMemoryWikilinks` + `memoryTitleIsAmbiguous` (purs, règle de normalisation identique à `linkedMemoryNotes` ; alias/sections préservés ; cas ambigu laissé intact) ; câblage dans `commitRename` sur les notes uniquement, écriture réelle par fichier avec CAS `expectedHash` (discipline de l'autosave), échecs partiels remontés par toast nommant les notes ; 5 tests unitaires + e2e `memory-rename-links` (fichiers réels sur disque) | ce commit | LIVREE |
 
 | **7.1** | **ADR-039 slice 1 — canonical design domain (schema/validation/commands/migrations/repository) + 43 headless tests** | `699effa4f4` | LIVREE |
+| chore | konva@10.5.0 pinned for the Design renderer adapter (dependency validation, no import yet) | `b4e2895757` | LIVREE |
+| **7.2a** | **ADR-039 slice 2a — runtime geometry + viewport + render-model projection (pure, headless tests)** | `9074b3143f` | LIVREE |
 
 ---
 
