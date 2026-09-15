@@ -12,12 +12,15 @@ import {
   type DesignHistoryState,
 } from "./design/model/history"
 import { applyCommand } from "./design/model/reducer"
+import { mergeDesignDocuments } from "./design/model/merge"
 import type { DesignDocumentV1, DesignNodeId } from "./design/model/schema"
+import { importLegacySketch } from "./design/persistence/legacy-import"
 import { createLocalStorageDesignDocumentRepository } from "./design/persistence/local-storage-repository"
 import { DesignCanvas } from "./design/runtime/design-canvas"
 import { DesignLayersPanel } from "./design/runtime/layers-panel"
 
 const saveDelayMs = 400
+const legacySketchKey = "unifia-design-sketch:v1:sketch"
 
 /**
  * Native design document tab (ADR-039): canonical document in, typed
@@ -31,6 +34,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
   const [selection, setSelection] = createSignal<readonly DesignNodeId[]>([])
   const [history, setHistory] = createSignal<DesignHistoryState>(emptyDesignHistory)
   const [error, setError] = createSignal<string>()
+  const [importInfo, setImportInfo] = createSignal<string>()
   const [loaded, setLoaded] = createSignal(false)
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let dirty = false
@@ -107,6 +111,33 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
       },
     })
 
+  const importSketch = () => {
+    const raw = localStorage.getItem(legacySketchKey)
+    if (raw === null) {
+      setError("no-legacy-sketch")
+      return
+    }
+    try {
+      const result = importLegacySketch(JSON.parse(raw), { id: props.id, name: "Canvas" })
+      const merged = mergeDesignDocuments(document(), result.document)
+      if (!merged) {
+        setError("import-conflict")
+        return
+      }
+      setHistory((state) => recordDesignHistory(state, document()))
+      setDocument(merged)
+      setError(undefined)
+      setImportInfo(
+        `Imported ${Object.keys(result.document.nodes).length}` +
+          (result.skipped.length > 0 ? `, skipped ${result.skipped.length}` : "") +
+          (result.approximated.length > 0 ? `, ${result.approximated.length} approximated` : ""),
+      )
+      schedule()
+    } catch (thrown) {
+      setError(thrown instanceof DesignDocumentError ? thrown.code : "import-failed")
+    }
+  }
+
   const handleKey = (event: KeyboardEvent) => {
     const mod = event.ctrlKey || event.metaKey
     const key = event.key.toLowerCase()
@@ -181,9 +212,24 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
         >
           Redo
         </button>
+        <button
+          type="button"
+          class="rounded border border-border-base px-2 py-1 text-12-regular"
+          data-design-canvas-import-sketch
+          onClick={importSketch}
+        >
+          Import
+        </button>
         <Show when={error()}>
           {(value) => (
             <span class="text-12-regular text-text-weak" data-design-canvas-error>
+              {value()}
+            </span>
+          )}
+        </Show>
+        <Show when={importInfo()}>
+          {(value) => (
+            <span class="text-12-regular text-text-weak" data-design-canvas-import-info>
               {value()}
             </span>
           )}

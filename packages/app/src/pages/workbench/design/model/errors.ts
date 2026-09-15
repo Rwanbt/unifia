@@ -2,6 +2,7 @@
 
 export type DesignDocumentErrorCode =
   | "invalid-document"
+  | "invalid-legacy-snapshot"
   | "missing-schema-version"
   | "unsupported-schema-version"
   | "no-migration-path"
