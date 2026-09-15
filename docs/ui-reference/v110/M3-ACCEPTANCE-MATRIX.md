@@ -204,22 +204,23 @@ Pour chaque surface :
 | Surface | Viewport | Interaction | Source maquette | Runtime actuel | Status |
 |---|---|---|---|---|---|
 | Settings dialog (Général) | desktop-large | click tab | maquette | settings-general — langue/thème/polices/notifications/sons/mises à jour réels (settings context + localStorage) ; e2e `settings.spec.ts` 19 tests + gate parité | ✅ |
-| Settings dialog (Audio) | desktop | click | maquette | settings-audio — STT/TTS persistés localStorage ; preuve comportementale : bascule des deux switches + reload conservé (e2e `settings-behavior`) ; gate parité | ⚠️ partial |
-| Settings dialog (Mémoire) | desktop | click | maquette | settings-memory — lecture/écriture `sdk.client.global.config` ; preuve comportementale : switch enable → PATCH `/global/config` vérifié puis restauré (e2e `settings-behavior`) ; gate parité | ⚠️ partial |
+| Settings dialog (Audio) | desktop | click | maquette | settings-audio — STT/TTS persistés localStorage ; preuve comportementale : bascule des deux switches + reload conservé (e2e `settings-behavior`) ; gate parité | ✅ |
+| Settings dialog (Mémoire) | desktop | click | maquette | settings-memory — lecture/écriture `sdk.client.global.config` ; preuve comportementale : switch enable → PATCH `/global/config` vérifié puis restauré (e2e `settings-behavior`) ; gate parité | ✅ |
 | Settings dialog (Compute) | desktop | click | maquette | settings-configuration (accélérateur/backend/engine — réel) ; la page maquette « Compute » (local/distant/pairing) n'a aucune capacité runtime → #98 | ⚠️ partial |
-| Settings dialog (Observabilité) | desktop | click | maquette | settings-observability — ressources SDK réelles (settings/exporters/health/sessions/events/summary/compare) ; gate parité | ⚠️ partial |
+| Settings dialog (Observabilité) | desktop | click | maquette | settings-observability — ressources SDK réelles (settings/exporters/health/sessions/events/summary/compare) ; preuve comportementale : switch enable → `experimental.observability` écrit via `/global/config` puis restauré (e2e `settings-behavior`) ; gate parité | ✅ |
 | Settings dialog (Fournisseurs) | desktop | click | maquette | settings-providers — e2e `settings-providers.spec.ts` 4 tests + gate parité | ✅ |
-| Settings dialog (Benchmarks) | desktop | click | maquette | settings-benchmark — exécution réelle + historique localStorage ; gate parité | ⚠️ partial |
+| Settings dialog (Benchmarks) | desktop | click | maquette | settings-benchmark — exécution réelle Tauri (platform-gated, absente du build web) ; preuve comportementale web : run désactivé sans runtime local (aucun résultat fabriqué) + historique localStorage rendu/effacé (e2e `settings-behavior`) ; gate parité | ⚠️ partial |
 | Settings dialog (Android) | desktop | click | maquette | settings-android — platform-gated (non exerçable en CI desktop) | ⚠️ partial |
 | Settings dialog (Plugins) | desktop | click | maquette | settings-plugins — Skills réel (`app.skills`, `/skill/install`) ; MCP : pane atteignable (#101) et **CRUD persistant** depuis #102 (`updateGlobal` + `Config.unsetGlobal`), preuve e2e `settings-behavior` (ajout UI + `GET /mcp` → suppression) ; Hooks absent → #98 | ✅ (MCP) / ⚠️ (Hooks) |
 | Settings dialog (Remote Access) | desktop | click | maquette | settings-remote-access — réel mais desktop-gated (`platform.getRemoteAccess`) : pane vide dans le build web e2e | ⚠️ partial |
-| Settings dialog (Collaborative Auth) | desktop | click | maquette | settings-collaborative-auth — formulaire réel (`/collab/login`) ; gate parité | ⚠️ partial |
+| Settings dialog (Collaborative Auth) | desktop | click | maquette | settings-collaborative-auth — formulaire réel (`/collab/login`) ; preuve comportementale : le formulaire poste vers la route réelle et expose le 401 backend (e2e `settings-behavior`) ; gate parité | ✅ |
 | User Account / Sign-in / Sign-up | desktop-large | submit | maquette auth | inline | ⚠️ partial |
 | User Connect Provider | desktop | click | maquette | inline | ⚠️ partial |
 | User Connect Local LLM | desktop | configure | maquette | inline | ⚠️ partial |
 
 **Phase 11 critique** : tous les controls doivent modifier réellement le runtime/config.
 **Bilan audit 2026-09-14** : les 12 onglets runtime sont câblés à des capacités réelles (localStorage, settings context, `global.config`, SDK observabilité, MCP/skills) ; les contrôles maquette sans capacité (routing IA, compute, sécurité consolidée, réseau, diagnostic, hooks) sont hors fabrication → #98. Prochaine étape Phase 11 : durcir les preuves comportementales (e2e par onglet) et statuer #98.
+**Bilan durcissement 2026-09-15 (fin Phase 11)** : preuves comportementales nommées pour Audio, Mémoire, Observabilité, Benchmark (contrat web) et Auth (e2e `settings-behavior`, CI run `34952975362`) ; MCP persistant (#102) ; #98 statué (divergences acceptées, ci-dessous). Restent ⚠️ les lignes platform-gated (Benchmark exécution Tauri, Android, Remote Access) — non exerçables dans le build web.
 
 ### Décision #98 — destinations maquette sans capacité runtime (2026-09-15)
 
