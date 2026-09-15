@@ -128,7 +128,7 @@ violerait le contrat de campagne.
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
 | Design layers panel | desktop-large | drag-reorder, toggle vis | maquette | `design/runtime/layers-panel.tsx` (ADR-039 #107) — vue pure du document canonique : ordre, sélection, visibilité, verrou ; l'ancien `design-layers-panel.tsx` a été supprimé (D7-G11) | ✅ |
-| Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | stubs orphelins supprimés (D7-G11, #107) — à reconstruire sur le canvas canonique (`LineNodeV1`/`PathNodeV1` existent) | ❌ manque |
+| Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | outils natifs de création livrés (#109) : drag rect/ellipse/ligne + plume clic-à-clic (Entrée clôt, Échap annule), previews transitoires, création via `insertNode` ; édition de nœuds (poignées Bézier) → #110 | ⚠️ partiel |
 | Design canvas (real Sketch integration) | desktop-large | draw, select, edit | maquette | canvas natif Konva livré (#105-#107 : drag/resize/rotate + snapping + layers) ; l'iframe Excalidraw ne survit que dans l'onglet Croquis legacy jusqu'à #108 | ⚠️ partiel — natif livré, legacy à retirer |
 | Design layers DnD (real reorder) | desktop-large | drag up/down | maquette | e2e `canvas-layers` (ADR-039 #107) — reorder + reparent réels qui réécrivent `childIds` (D7-G6) | ✅ |
 | Design selection handles (8 points) | desktop-large | drag handle | maquette | stubs supprimés (D7-G11, #107) — à reconstruire sur le canvas canonique | ❌ manque |
