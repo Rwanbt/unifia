@@ -1,4 +1,8 @@
 import { test, expect, mock, beforeEach } from "bun:test"
+
+import { isolateGlobalConfig } from "./fixture"
+
+isolateGlobalConfig()
 import { EventEmitter } from "events"
 
 // Track open() calls and control failure behavior

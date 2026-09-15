@@ -1,5 +1,9 @@
 import { test, expect, mock, beforeEach } from "bun:test"
 
+import { isolateGlobalConfig } from "./fixture"
+
+isolateGlobalConfig()
+
 // Mock UnauthorizedError to match the SDK's class
 class MockUnauthorizedError extends Error {
   constructor(message?: string) {

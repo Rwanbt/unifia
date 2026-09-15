@@ -1,5 +1,9 @@
 import { test, expect, mock, beforeEach } from "bun:test"
 
+import { isolateGlobalConfig } from "./fixture"
+
+isolateGlobalConfig()
+
 // --- Mock infrastructure ---
 
 // Per-client state for controlling mock behavior
