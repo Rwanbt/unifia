@@ -112,6 +112,7 @@ source of truth future agents can read without vault access.
 | **7.5** | **ADR-039 #108 partie import — importeur legacy Excalidraw → V1 validé + merge canonique + action Import ; e2e `canvas-import` (1 passed) ; D7-G9/G10 prouvés. Retrait iframe NON fait (bloqué parité native) — #108 reste ouverte** | `799b1784ab` | LIVREE (partielle) |
 | **7.6** | **Outils vectoriels natifs (#109 slice 1) — modes select/rect/ellipse/ligne/plume, previews transitoires, création par commande ; e2e `canvas-vector` (1 passed) ; édition de chemins/poignées → #110** | `e1ae7e78c3` | LIVREE |
 | **7.7** | **Édition de chemins (#110 slice 1) — parseur/sérialiseur M/L pur, commande `updatePoints` (bbox + local recalculés), ancres draggables sur poly-lignes ; e2e `canvas-path-edit` (1 passed, undo/redo) ; courbes C/Q + multi-sélection → #111** | `445361982a` | LIVREE |
+| **7.8** | **Édition des courbes (#111 slice 1) — parseur/sérialiseur M/L/C/Q, bornes serrées (extrema de Bézier), commande `updatePath`, poignées de contrôle tetherées (ancres emportent leurs contrôles cubiques), transformer rotation-seule sur polylignes ; e2e `canvas-path-curve` (1 passed, drag + undo/redo + reload) ; multi-sélection → #112, plume Bézier/fermeture Z → #113** | `60d059f46b` | LIVREE |
 
 ---
 
