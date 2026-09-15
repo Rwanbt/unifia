@@ -372,6 +372,10 @@ const TECHNICAL_ALLOWLIST = new Set([
   // is the same word in French; the description sentence is translated in
   // every locale, so the title is a true cognate, not a missing translation.
   "settings.general.row.uiAnimations.title",
+  // 2026-09-15: Design files preview toggle (#99). "Source" is a cognate
+  // spelled identically in English and French; the other 15 locales carry
+  // distinct words (Quelltext, Fuente, Fonte, Izvor, Kilde, Źródło, …).
+  "workbench.design.files.source",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
@@ -411,6 +415,49 @@ function collectAccentedAriaLabels(dir: string, acc: string[] = []): string[] {
     }
     if (!/\.tsx$/.test(entry.name)) continue
     if (ACCENTED_ARIA_LABEL.test(readFileSync(full, "utf8"))) acc.push(full)
+  }
+  return acc
+}
+
+// #99: the #95 guard above only sees accented aria-labels. The Design surfaces
+// also shipped French UI words without accents ("Renommer", "Chargement",
+// "Suivant", …), which that regex can never catch. This guard is a curated
+// word list rather than a French-detection heuristic, for the same reason the
+// aria-label guard is literal-only: a mechanical check must not guess. A
+// wordlist false-positive would block a legitimate English string, which is
+// worse than the class it catches; when a real label needs one of these words
+// verbatim in English, narrow the pattern instead of renaming the UI.
+// Comment lines are skipped: the files legitimately carry French prose in
+// their headers, and those are not rendered copy.
+//
+// Scope decision (#99 AC): only the two files the issue cleared —
+// design-browser-tab.tsx and design-files-tab.tsx. The rest of the design-*
+// family (design-artifact-tab, design-surface, design-toolbar) still carries
+// French titles/status messages; widening this guard requires clearing them
+// first, which is tracked separately. Widening without that would fail on
+// files nobody has fixed yet, which is how a guard gets deleted.
+const GUARDED_DESIGN_FILES = new Set(["design-browser-tab.tsx", "design-files-tab.tsx"])
+const FRENCH_UI_WORD =
+  /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible)\b/
+
+function collectFrenchUiWords(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      collectFrenchUiWords(full, acc)
+      continue
+    }
+    if (!GUARDED_DESIGN_FILES.has(entry.name)) continue
+    const lines = readFileSync(full, "utf8").split(/\r?\n/)
+    for (const [index, line] of lines.entries()) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue
+      if (FRENCH_UI_WORD.test(line)) {
+        acc.push(`${full}:${index + 1}`)
+        break
+      }
+    }
   }
   return acc
 }
@@ -467,6 +514,14 @@ describe("i18n parity", () => {
       expect(collectAccentedAriaLabels(dir), `${dirName}: hard-coded accented aria-label`).toEqual([])
     })
   }
+
+  // #99: the Design workbench surfaces are the class of files the #95 guard
+  // could not cover (unaccented French words). Scoped to them for now; widen
+  // the scope only with a wordlist review, never silently.
+  test("no hard-coded French UI words in the Design workbench surfaces (#99)", () => {
+    const dir = join(import.meta.dir, "..", "pages", "workbench")
+    expect(collectFrenchUiWords(dir), "French UI words outside language.t()").toEqual([])
+  })
 
   test("audited settings scope (Audio/Configuration/Benchmark/Android/Plugins/RemoteAccess/GitAuth/LocalAI/Debate) has dedicated translations in every locale", () => {
     const scopeKeys = Object.keys(en).filter((key) => AUDITED_SCOPE_PREFIXES.some((prefix) => key.startsWith(prefix)))
