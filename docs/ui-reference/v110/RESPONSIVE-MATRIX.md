@@ -70,6 +70,13 @@ tablet-portrait-768x1024, phone-portrait-390x844, compact-landscape-844x390.
   switcher n existe que sur les familles mobiles, zero x-overflow et zero
   erreur console. Complete V14 (overflow 375/768/1280/1440 + switcher 375) en
   couvrant compact-landscape et les kinds tablet/desktop certifies.
+- **12.5 — surface Work** (`e2e/v110/work-responsive.spec.ts`) : avec le bridge
+  workbench mocke (`fixtures/workbench-mock`, deja utilise par Memory/Design),
+  la surface Work monte sur les 5 familles, ses 6 onglets de vues restent
+  atteignables et commutent le contenu (board puis overview), zero x-overflow
+  et zero erreur console. Le contenu Team est desormais prouve en web par
+  `e2e/v110/work-team-panels.spec.ts` (mock installe, plus de skip bridge) :
+  etats vides honnetes des 6 panneaux + grille d operations intacte.
 - **Inspector Explorer/Inspector/Execution** (`a3-responsive.spec.ts`) : les
   3 onglets restent atteignables et selectionnables sur les 5 familles, y
   compris compact-landscape depuis le fix #91 (drawer fermee invisible).

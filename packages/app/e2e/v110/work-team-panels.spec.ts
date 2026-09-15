@@ -8,20 +8,24 @@
 // next action — plus a regression guard that the pre-existing operations
 // grid (data-workbench-operation, count 11, export) survived being
 // relocated underneath the new panels unchanged.
+//
+// Until session 5 this spec skipped on web because the surface needs the
+// native workbench bridge. The established mock (fixtures/workbench-mock,
+// already used by the memory and design journeys) now stands in for it, so
+// the panels are exercised in web CI instead of skipped.
 
 import { test, expect } from "../fixtures"
 import { openPalette } from "../actions"
-import { workbenchBridgeUnsupported } from "../fixtures/workbench-mock"
+import { installWorkbenchMock } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
 
 test("work surface's view-switcher gates the real Team-backed panels, empty state included", async ({
   page,
   directory,
   sdk,
+  gotoSession,
 }) => {
-  if (await workbenchBridgeUnsupported(page)) {
-    test.skip(true, "Work/Team panels need the native workbench bridge; web e2e runs without it")
-  }
+  await installWorkbenchMock(page, { workspaceId: "mock-workspace-1" })
   await page.setViewportSize({ width: 1400, height: 800 })
   // The backend is worker-scoped and another v110 test may have created a
   // run already. Cancel those runs so this empty-state assertion remains
@@ -32,8 +36,10 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
       await sdk.team.cancelRun({ runID: run.runId })
     }
   }
-  await page.goto(`${dirPath(directory)}/session`)
-  await page.getByRole("button", { name: "work mode" }).click()
+  // Seeded navigation: the page must talk to the worker backend (with the
+  // registry seed), not the unseeded harness server, before Work boots.
+  await gotoSession()
+  await page.goto(`${dirPath(directory)}/work`)
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
 
   await expect(page.locator('[data-v110="work-active-runs"]')).toBeVisible()

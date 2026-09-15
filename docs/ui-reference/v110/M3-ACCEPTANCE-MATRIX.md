@@ -94,7 +94,7 @@ Pour chaque surface :
 
 | Surface | Viewport | Interaction | Source maquette | Runtime actuel | Status |
 |---|---|---|---|---|---|
-| Work surface (tabs) | desktop-large | switch tab | `data-v110-work-surface` | work-surface.tsx + work-view-switcher.tsx — 6 vues, chacune avec panneau réel (progress/next-action/plan/board/timeline/activity/runs) | ✅ partial |
+| Work surface (tabs) | desktop-large | switch tab | `data-v110-work-surface` | work-surface.tsx + work-view-switcher.tsx — 6 vues, chacune avec panneau réel (progress/next-action/plan/board/timeline/activity/runs) ; layout prouvé sur les 5 familles (e2e `work-responsive`, bridge mocké) et contenu vide honnête par onglet (e2e `work-team-panels`, plus de skip web depuis 12.5) | ✅ partial |
 | Work board (Kanban) | desktop-large | drag task, click card | maquette | work-board-panel.tsx — lecture réelle du plan ; pas de DnD de statut (aucune capacité HTTP) → #86 | ⚠️ partial |
 | Work list | desktop-large | scroll, filter | maquette | work-plan-panel.tsx — liste des tâches du run actif (lecture réelle) | ⚠️ partial |
 | Work run details | desktop | view logs | maquette | work-runs-panel.tsx + team.details — statut/gates/tâches réels | ⚠️ partial |
