@@ -77,6 +77,14 @@ tablet-portrait-768x1024, phone-portrait-390x844, compact-landscape-844x390.
   et zero erreur console. Le contenu Team est desormais prouve en web par
   `e2e/v110/work-team-panels.spec.ts` (mock installe, plus de skip bridge) :
   etats vides honnetes des 6 panneaux + grille d operations intacte.
+- **12.6 — studio Automate** (`e2e/v110/automate-responsive.spec.ts`) : le mock
+  sert une definition reelle (`fileContents` -> `readFiles`, + `listWorkflows`)
+  et le studio monte sur les 5 familles. Le canvas SVG est remplace par la
+  step list exactement sur les overlay (`tablet-portrait`, `phone-portrait`,
+  `compact-landscape`) et la librairie se replie dans l accordion ; le run bar
+  et l inspecteur restent atteignables sur toutes les familles, la selection
+  d un noeud quitte l etat vide de l inspecteur, zero x-overflow et zero
+  erreur console.
 - **Inspector Explorer/Inspector/Execution** (`a3-responsive.spec.ts`) : les
   3 onglets restent atteignables et selectionnables sur les 5 familles, y
   compris compact-landscape depuis le fix #91 (drawer fermee invisible).

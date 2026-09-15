@@ -155,6 +155,8 @@ Pour chaque surface :
 
 **Phase 9 continuation (2026-09-13)** : the two `Phase 9+ scope` lines shipped as Phase 9.1 (environment read-only pane, commit `f061fff246`) + Phase 9.2 (branch true/false ports + graph validation, commit `701306f06a`). Remaining Automate gaps : debug tabs (Runs only) and publish/import/export (Publish only).
 
+**Phase 12.6 (2026-09-15)** : responsive du studio certifié sur les 5 familles (`e2e/v110/automate-responsive.spec.ts`) — canvas ↔ step list selon la classification edge (viewport), librairie en accordion sur overlay, run bar + inspecteur atteignables, sélection de nœud fonctionnelle. Le mock bridge sert désormais une définition réelle (`fileContents` → `readFiles`) au lieu de l'état vide.
+
 ---
 
 ## Surface : Memory mode (A7)

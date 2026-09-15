@@ -43,6 +43,12 @@ export type WorkbenchMockOptions = {
   cancelFails?: boolean
   /** Vault/file entries returned by listFiles; renameFile mutates this list. Default: empty. */
   files?: ReadonlyArray<{ path: string; kind: "file" | "directory" }>
+  /**
+   * File bodies returned by readFiles, keyed by path. Default: empty (the
+   * mock answers no results). Used by journeys that need a real workflow
+   * definition (or any file body) to leave the empty state.
+   */
+  fileContents?: Readonly<Record<string, string>>
 }
 
 /** One recorded call on the mock client, in order. */
@@ -178,8 +184,15 @@ export function workbenchMockInitScript(): string {
           })
           return reply({ results })
         },
-        readFiles: () => reply({ results: [] }),
+        readFiles: (_workspaceId, paths) => {
+          const contents = descriptor.fileContents || {}
+          const results = paths
+            .filter((path) => Object.prototype.hasOwnProperty.call(contents, path))
+            .map((path) => ({ path, content: contents[path], encoding: "utf-8" }))
+          return reply({ results })
+        },
         listApprovals: () => reply({ approvals: [] }),
+        listWorkflows: () => reply({ workflows: [] }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
         activity: () => reply({ kind: "activity", events: [], nextCursor: null }),
         searchCapabilities: () => reply({ records: [] }),
@@ -232,6 +245,7 @@ export async function installWorkbenchMock(
     approvalDecision: opts.approvalDecision ?? "allow",
     cancelFails: opts.cancelFails ?? false,
     files: opts.files ?? [],
+    fileContents: opts.fileContents ?? {},
   }
   // Pass the descriptor through a single init script so the
   // page side can read it. Two scripts: first sets the
