@@ -569,7 +569,7 @@ function makeProject(
   }
 }
 
-async function seedStorage(
+export async function seedStorage(
   page: Page,
   input: {
     directory: string

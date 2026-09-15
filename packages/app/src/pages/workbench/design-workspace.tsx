@@ -46,6 +46,7 @@ export function DesignWorkspace(props: {
   onOpenTerminal?: () => void
   onOpenBrowser?: () => void
   onOpenSketch?: () => void
+  onOpenCanvas?: () => void
   github?: GithubConnectionView
 }): JSX.Element {
   const language = useLanguage()
@@ -76,7 +77,7 @@ export function DesignWorkspace(props: {
           class="flex h-9 shrink-0 items-center gap-1 border-b border-border-base bg-background-stronger px-2"
           data-design-workspace-tab-bar
         >
-          <div class="ml-auto flex items-center gap-1"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show><Show when={props.onOpenSketch}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-sketch onClick={() => props.onOpenSketch?.()}>Croquis</button></Show></div>
+          <div class="ml-auto flex items-center gap-1"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>Canvas</button></Show><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show><Show when={props.onOpenSketch}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-sketch onClick={() => props.onOpenSketch?.()}>Croquis</button></Show></div>
           <div class="flex items-center gap-1" role="tablist" aria-label={t("design.workspace.tabsLabel")} data-design-workspace-tablist>
             <For each={state().tabs}>
               {(item) => (
