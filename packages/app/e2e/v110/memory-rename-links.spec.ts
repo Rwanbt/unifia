@@ -55,9 +55,9 @@ test("memory note rename refactors unambiguous wikilinks on real files", async (
     await noteB.click({ button: "right" })
     await page.locator('[data-memory-menu-item="rename"]').click()
     const input = vault.locator('input[aria-label="Rename"]')
-    await input.fill("c")
+    await input.fill("C")
     await input.press("Enter")
-    await expect(vault.locator(`[data-memory-note="${MEMORY_DIR}/c.md"]`)).toBeVisible()
+    await expect(vault.locator(`[data-memory-note="${MEMORY_DIR}/C.md"]`)).toBeVisible()
     await expect
       .poll(async () => await readFile(join(directory, A), "utf8"), { timeout: 15_000 })
       .toBe("# A\n\n[[C]] and [[C|bee]] and [[C#Part|section alias]] and [[Other]] and [[Dup]]\n")
