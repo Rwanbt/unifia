@@ -15,6 +15,8 @@ import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { WorkActivityPanel } from "@/pages/workbench/work-activity-panel"
 import { WorkBoardPanel } from "@/pages/workbench/work-board-panel"
 import { WorkHero } from "@/pages/workbench/work-hero"
+import { WorkHealthChip } from "@/pages/workbench/work-health-chip"
+import { workHealth } from "@/pages/workbench/work-health"
 import { WorkNextActionPanel } from "@/pages/workbench/work-next-action-panel"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
 import { WorkProgressPanel } from "@/pages/workbench/work-progress-panel"
@@ -67,6 +69,16 @@ export function WorkSurface(): JSX.Element {
   const planTasks = createMemo<TeamGraphTask[]>(() => [...team.details.tasks()])
   const planProgress = createMemo(() => taskProgress(planTasks()))
   const activeRunCount = createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length)
+  // Issue #100: the v65 header chip, mapped from real run/task/gate facts
+  // (work-health.ts). No run yet is not a problem state — it is "On track",
+  // exactly as the mockup computes over an empty task list.
+  const health = createMemo(() =>
+    workHealth({
+      runStatuses: team.runs.page().items.map((run) => run.status),
+      taskStatuses: planTasks().map((task) => task.status),
+      gateVerdicts: team.details.gates().map((gate) => gate.verdict),
+    }),
+  )
   const gatesReadyCount = createMemo(
     () => team.details.gates().filter((gate) => gate.verdict !== "CHANGES_REQUESTED").length,
   )
@@ -135,7 +147,10 @@ export function WorkSurface(): JSX.Element {
               <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.work.title")}</p>
               <h1 class="text-24-medium">{t("workbench.work.heading")}</h1>
             </div>
-            <WorkHero activeRunCount={activeRunCount()} />
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <WorkHealthChip health={health()} />
+              <WorkHero activeRunCount={activeRunCount()} />
+            </div>
           </div>
           <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.work.description")}</p>
           <ConnectionBanner dataAttr="workbench-connection" dataRetryAttr="workbench-retry" />

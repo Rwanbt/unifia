@@ -44,6 +44,14 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
 
   await expect(page.locator('[data-v110="work-active-runs"]')).toBeVisible()
 
+  // Issue #100: the v65 header chip maps real run/task/gate facts. No run is
+  // in flight in this harness, so it must show the mockup's all-clear state —
+  // never a fabricated "At risk".
+  const health = page.locator('[data-v110="work-health"]')
+  await expect(health).toBeVisible()
+  await expect(health).toHaveAttribute("data-work-health", "ok")
+  await expect(health).toHaveText("On track")
+
   // All six mockup views now render tabs.
   const tabs = page.locator('[data-work-view-tablist] [role="tab"]')
   await expect(tabs).toHaveCount(6)

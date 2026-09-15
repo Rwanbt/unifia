@@ -95,13 +95,31 @@ Pour chaque surface :
 | Surface | Viewport | Interaction | Source maquette | Runtime actuel | Status |
 |---|---|---|---|---|---|
 | Work surface (tabs) | desktop-large | switch tab | `data-v110-work-surface` | work-surface.tsx + work-view-switcher.tsx — 6 vues, chacune avec panneau réel (progress/next-action/plan/board/timeline/activity/runs) ; layout prouvé sur les 5 familles (e2e `work-responsive`, bridge mocké) et contenu vide honnête par onglet (e2e `work-team-panels`, plus de skip web depuis 12.5) | ✅ partial |
+| Work health chip | desktop | view | `work65-health` | work-health-chip.tsx + work-health.ts (issue #100) — mapping réel run (`failed` → Off track) / tâche (`blocked` → At risk) / gate (`CHANGES_REQUESTED` → At risk), état vide = On track comme la maquette ; preuve e2e `work-team-panels` | ✅ |
 | Work board (Kanban) | desktop-large | drag task, click card | maquette | work-board-panel.tsx — lecture réelle du plan ; pas de DnD de statut (aucune capacité HTTP) → #86 | ⚠️ partial |
 | Work list | desktop-large | scroll, filter | maquette | work-plan-panel.tsx — liste des tâches du run actif (lecture réelle) | ⚠️ partial |
 | Work run details | desktop | view logs | maquette | work-runs-panel.tsx + team.details — statut/gates/tâches réels | ⚠️ partial |
 | Work team panels | desktop | click team member | maquette | work-team-panels.tsx + team components | ✅ partial |
-| Work agent policy | desktop | configure | maquette | Aucun sélecteur d'autonomie Work (Ask/Assisted/Auto Safe/Auto/Custom) ; l'autonomie passe par les permissions par capability + le mode agent → #100 | ⚠️ partiel |
+| Work agent policy | desktop | configure | maquette | Aucun sélecteur d'autonomie Work (Ask/Assisted/Auto Safe/Auto/Custom) ; l'autonomie passe par les permissions par capability + le mode agent → décision #100 ci-dessous (divergence acceptée) | ❌ DIVERGENCE ACCEPTÉE |
 
 **Note** : Work est relativement avancé. PRD-037 Vague 5 documente qu'on peut éviter de le réécrire (passe de parité précise uniquement).
+
+### Décision #100 — présentation v65 Work (2026-09-15)
+
+**Verdict : une ligne portée (chip santé), le reste acté en divergence.** Le
+chip santé a été implémenté sur des faits runtime réels ; les autres lignes
+n'ont pas de source de données ou de capacité de runtime, et les fabriquer
+violerait le contrat de campagne.
+
+| Ligne v65 | Sort | Preuve / raison |
+|---|---|---|
+| Chip santé `work65-health` (« On track » / « At risk » / « Off track ») | ✅ **PORTÉ** | `work-health.ts` (pur) + `work-health-chip.tsx` : run `failed` → Off track ; tâche `blocked` ou gate `CHANGES_REQUESTED` → At risk ; sinon On track (état vide inclus, comme la maquette). Preuve e2e `work-team-panels` (chip `data-work-health="ok"` affiché). |
+| Grille de cartes (Plan/Agents/Progression/Next safe action/Approvals/Project update) | ❌ **DIVERGENCE ACCEPTÉE** | Les 6 vues existent en onglets avec les mêmes données réelles ; « Agents » (statut par rôle) et « Project update » n'ont aucune source runtime (pas d'agents nommés ni de texte de projet côté Team). L'Overview compose déjà Progression + Next safe action en cartes. Recomposer la grille exigerait d'inventer deux cartes. |
+| Sélecteur d'autonomie (Ask/Assisted/Auto Safe/Auto/Custom) | ❌ **DIVERGENCE ACCEPTÉE** | Pas de surface de politique Work : l'autonomie réelle est appliquée par les permissions par capability + le mode agent du composer. Créer un sélecteur qui n'écrit rien = fake. |
+| « ✦ Plan IA » | ❌ **DIVERGENCE ACCEPTÉE** | Le flux existe (prompt de chat Work) ; un bouton header le dupliquerait sans capacité nouvelle. |
+| « ↶ Undo » local | ❌ **DIVERGENCE ACCEPTÉE** | Aucune sémantique d'undo Work (les mutations Team sont serveur : runs, gates, statuts). L'undo vit là où la mutation vit (éditeur/design). |
+| « + Task » | ❌ **DIVERGENCE ACCEPTÉE** | Le formulaire de start-run existe (work-start-run, vue Runs) ; l'entrée est ailleurs, pas de story manquante. |
+| DnD board (statut de tâche) | ⏸️ **BLOQUÉ #86** | Aucune capacité HTTP pour muter un statut ; ne pas construire avant #86 (AC de #100). |
 
 ---
 
