@@ -93,6 +93,7 @@ source of truth future agents can read without vault access.
 | **12.4** | **Phase 12 slice 4 — contrat responsive du split Design (desktop/tablet/mobile selon la classification v110, switcher mobile-only, 5 familles)** | `7ff1dedacf` | LIVREE |
 | fix | **#102** — persistance MCP : `MCP.add`/`remove` passent par la config **globale** (`updateGlobal`) + nouvelle primitive `Config.unsetGlobal` (suppression réelle, jsonc-safe) ; probe brut ADD/LIST/DELETE vert, test e2e réactivé ; suite MCP isolée par test sur `Global.Path.config` (39/39) | `2c8a142f9d` + `1ea89f20de` | LIVREE |
 | fix | **#92** — seed d'un registry model-intelligence vide au boot du **backend e2e isolé** (`UNIFIA_E2E_SEED_EMPTY_REGISTRY` → `unifia serve`, `empty-registry.ts` + 4 tests) ; contournement 503 de `gate.ts` retiré ; e2e linux **147 pass / 0 fail** (run `34846235066`) | `5f63a1418c` + `163ebfc852` | LIVREE |
+| décision | **#98** — les 6 destinations maquette sans capacité runtime (Préférences IA, Compute, Sécurité, Réseau, Système, Hooks) sont des **divergences acceptées** documentées dans la matrice (preuves runtime par ligne : `config.model` existe mais aucun consommateur des profils ; permissions réelles mais pas de destination consolidée ; updates/export-import déjà en Général) ; issue fermée not-planned | ce commit | LIVREE |
 
 ---
 

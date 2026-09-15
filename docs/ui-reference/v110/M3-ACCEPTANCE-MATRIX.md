@@ -221,6 +221,29 @@ Pour chaque surface :
 **Phase 11 critique** : tous les controls doivent modifier réellement le runtime/config.
 **Bilan audit 2026-09-14** : les 12 onglets runtime sont câblés à des capacités réelles (localStorage, settings context, `global.config`, SDK observabilité, MCP/skills) ; les contrôles maquette sans capacité (routing IA, compute, sécurité consolidée, réseau, diagnostic, hooks) sont hors fabrication → #98. Prochaine étape Phase 11 : durcir les preuves comportementales (e2e par onglet) et statuer #98.
 
+### Décision #98 — destinations maquette sans capacité runtime (2026-09-15)
+
+**Verdict : divergences acceptées et documentées.** Les 6 destinations de la
+maquette absentes du runtime (Préférences IA, Compute, Sécurité, Réseau,
+Système, Hooks) reposent sur des capacités qui n'existent pas dans le runtime ;
+les fabriquer violerait le contrat de campagne (« fonction absente backend →
+pas de fake »). Chaque ligne est tracée ci-dessous avec ce qui a été vérifié.
+Une implémentation future exige un PRD définissant la surface de config **et**
+son consommateur runtime — pas un portage UI.
+
+| Destination maquette | Capacité runtime vérifiée | Verdict |
+|---|---|---|
+| Préférences IA (`routing91` : profils Privé/Équilibré/Qualité/Économie, « local quand pertinent », « secours cloud », routage par capacité, mode manuel) | Aucun routeur par préférence. `config.model` existe (`Provider.defaultModel()`, `packages/unifia/src/provider/provider.ts:922`) mais la page maquette ne l'expose pas comme un simple sélecteur : profils + toggles + routage par capacité n'ont aucun consommateur | ❌ DIVERGENCE ACCEPTÉE — si le produit veut un « modèle par défaut », c'est une capability `config.model` (réelle) à cadrer en PRD séparé |
+| Compute (`compute32` : registre d'appareils, auto-routing, wizard de connexion) | Aucun registre de compute nodes exposé à l'app ; `settings-configuration` couvre l'accélérateur/backend local (autre sujet) | ❌ DIVERGENCE ACCEPTÉE (backlog produit) |
+| Sécurité (`security91` : confirmation actions sensibles, secrets verrouillés session, connexions/clés, permissions techniques) | Le système de permissions existe (`permission.external_directory`, ask/allow/deny par outil) mais : aucun « verrouillage secrets » de session, la sémantique « confirmer les actions sensibles » ne mappe pas sur les règles par outil, et « Connexions et clés » vit déjà dans Fournisseurs (réel). Pas de destination consolidée | ⚠️ DIVERGENCE ACCEPTÉE — les capacités réelles existent ailleurs (Fournisseurs, config `permission`) ; pas de regroupement fabriqué |
+| Réseau (`network91` : proxy HTTP(S), certificats d'entreprise) | Aucune surface de config proxy/CA dans l'app (Bun lit l'environnement, non exposé) | ❌ DIVERGENCE ACCEPTÉE |
+| Système (`system91` : mises à jour, diagnostic, export/import) | Mises à jour réelles dans Général (`platform.checkUpdate`, `settings-general.tsx:162`), export/import config réels (`ConfigExportImport`, `settings-general.tsx:33`) ; pas de diagnostic consolidé (Observabilité expose déjà santé/événements réels) | ⚠️ DIVERGENCE ACCEPTÉE — capacités existantes ailleurs, destination non dupliquée |
+| Hooks (`hooks49` : lifecycle events + formulaire) | Les hooks existent au niveau **API plugin** (code), pas de config JSON de hooks dans le runtime | ❌ DIVERGENCE ACCEPTÉE (l'extension passe par les plugins) |
+
+**Conséquence campagne** : le gate de parité Settings couvre les 12 onglets
+runtime ; les 6 destinations ci-dessus ne sont pas des ❌ de portage mais des
+absences produit assumées. Issue #98 fermée (not planned) avec cette décision.
+
 ---
 
 ## Viewport matrix (à appliquer à toutes les surfaces)
