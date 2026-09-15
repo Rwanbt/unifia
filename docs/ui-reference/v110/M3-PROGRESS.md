@@ -4,6 +4,7 @@
 # MiniMax M3 — Progress Log (2026-09-13)
 
 > **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions) + Phase 9.6 (Memory depth graph filters) + Phase 5.1 (v110 chrome markers mounted) + **#91 fixed (workspace Reset/Delete dialogs re-wired — product regression from the Vague 5 factory stubs)**
+> **Phase 7 (Design)** : débloquée par **ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2 — ratification en attente) ; 5 slices tracées **#104 → #105 → #106 → #107 → #108** (domaine → canvas → interactions → layers → legacy).
 > **Branch** : `new-ui` (worktree `_a7-automate-memory`)
 > **HEAD** : `ee9f4ac9d9` fix(layout): wire the real workspace reset/delete dialogs (#91)
 > **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
@@ -223,7 +224,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | **4 reste** | ~~tabs plan/debate/build/auto~~ LIVREES (4.8) ; motion reste (phases 13-16) | - | LIVREE |
 | 5 | Code mode (editor + terminal + LSP) | 3-4 h | non |
 | 6 | Work mode (Kanban DnD + run details) | 1-2 h | partiel |
-| 7 | Design runtime (canvas Sketch integration, rotate, snap) | 4-6 h | non |
+| 7 | Design runtime — **scopé par ADR-039** : #104 domaine → #105 canvas → #106 interactions → #107 layers → #108 legacy | multi-session | non |
 | **8** | **Automate P1 (studio node-based) — PRIORITE 1** | **5-8 h** | **non, multi-session** |
 | 9 | Memory complet (folders + DnD notes ; mobile single-pane LIVREE) | 2-3 h | partiel |
 | 10 | Browser (mobile, takeover, AI Activity) | 2-3 h | non |
@@ -233,7 +234,7 @@ session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slice
 | 17 | Cleanup P1-5 post-parite | 2-3 h | non |
 | 18-19 | Gates completes + Audit final | 4-6 h | non |
 
-**Total remaining**: ~27-45 h of work, ~4-6 dedicated sessions.
+**Total remaining**: ~27-45 h of work, ~4-6 dedicated sessions — hors Phase 7, désormais séquencée en 5 slices multi-session par ADR-039 (#104-#108).
 
 ---
 
@@ -256,12 +257,17 @@ both have real runtime surfaces to port against. Memory folders + DnD
 are done (9.3); the remaining Memory ⚠️ rows (context menu, autosave,
 graph filters) are separate slices.
 
-**Phase 7 (Design canvas) is BLOCKED on a product decision**: the repo
-has no design-document runtime — `packages/design-sketch` is a ~1 KB
-Excalidraw embed and `design-vector-tools.tsx` / `design-layers-panel.tsx`
-are orphaned stubs (zero imports outside their own files). Replacing the
-Excalidraw iframe with a real editor requires an ADR on the design
-document format and runtime; do not fake it with more stubs.
+**Phase 7 (Design canvas) is UNBLOCKED** (ratification pending): ADR-039
+(`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2)
+defines the canonical versioned Design document owned by Unifia, a
+framework-agnostic Konva renderer behind an adapter (no React in the
+SolidJS app), the storage authority (workspace/artifact; localStorage is a
+temporary web fallback), and `LineNodeV1`/`PathNodeV1` for the vector rows.
+The five implementation slices are filed: **#104** domain foundation
+(renderer-independent — the entry point), **#105** native canvas,
+**#106** snapping/guides/history, **#107** layer runtime + DnD, **#108**
+legacy importer + iframe removal. Gate mapping in ADR-039 §28. Do not fake
+the canvas with more stubs.
 
 | Slice | Sujet | Effort | Depends on |
 |---|---|---|---|

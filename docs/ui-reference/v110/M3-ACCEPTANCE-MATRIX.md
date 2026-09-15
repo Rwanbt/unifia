@@ -127,20 +127,20 @@ violerait le contrat de campagne.
 
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
-| Design layers panel | desktop-large | drag-reorder, toggle vis | maquette | design-layers-panel.tsx (Phase 3 MVP) | ✅ partial |
-| Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | design-vector-tools.tsx (Phase 3 MVP) | ✅ partial (canvas wiring pending) |
-| Design canvas (real Sketch integration) | desktop-large | draw, select, edit | maquette | Excalidraw iframe | ❌ **FAKE** — voir Phase 7 refonte |
-| Design layers DnD (real reorder) | desktop-large | drag up/down | maquette | up/down buttons (Phase 3) | ⚠️ partial (no real drag-reorder) |
-| Design selection handles (8 points) | desktop-large | drag handle | maquette | DesignSelectionHandles (Phase 3) | ✅ partial |
-| Design Bézier path | desktop-large | drag control points | maquette | DesignBezierPath (Phase 3 cubic) | ✅ partial |
-| Design rotate transform | desktop-large | drag | maquette | ? (not implemented) | ❌ Phase 7 |
-| Design resize transform | desktop-large | drag | maquette | via handle drag | ✅ partial |
-| Design snap/grid | desktop-large | drag with snap | maquette | ? | ❌ Phase 7 |
-| Design undo/redo | desktop | Ctrl+Z/Y | maquette | rolled()/restoring() (inline) | ⚠️ partial |
-| Design export | desktop | click | maquette | export hooks | ✅ partial |
-| Design comments | desktop | add comment | maquette | comment-panel | ⚠️ partial |
+| Design layers panel | desktop-large | drag-reorder, toggle vis | maquette | design-layers-panel.tsx (Phase 3 MVP) | ✅ partial — réimplémenté sur le document canonique (ADR-039 #107, D7-G11) |
+| Design vector tools (select/rect/line/ellipse/bezier) | desktop-large | click tool, drag | maquette | design-vector-tools.tsx (Phase 3 MVP) | ✅ partial (canvas wiring pending — ADR-039 #105/#106, nodes Line/Path) |
+| Design canvas (real Sketch integration) | desktop-large | draw, select, edit | maquette | Excalidraw iframe | ❌ **FAKE** — Phase 7 scopée par ADR-039, slices #104-#108 |
+| Design layers DnD (real reorder) | desktop-large | drag up/down | maquette | up/down buttons (Phase 3) | ⚠️ partial (no real drag-reorder — ADR-039 #107, gate D7-G6) |
+| Design selection handles (8 points) | desktop-large | drag handle | maquette | DesignSelectionHandles (Phase 3) | ✅ partial (retargeted to the canonical canvas — ADR-039 #105) |
+| Design Bézier path | desktop-large | drag control points | maquette | DesignBezierPath (Phase 3 cubic) | ✅ partial (PathNodeV1 in ADR-039 §5 — #105/#106) |
+| Design rotate transform | desktop-large | drag | maquette | ? (not implemented) | ❌ Phase 7 (ADR-039 #105, gate D7-G4) |
+| Design resize transform | desktop-large | drag | maquette | via handle drag | ✅ partial (ADR-039 #105, gate D7-G4) |
+| Design snap/grid | desktop-large | drag with snap | maquette | ? | ❌ Phase 7 (ADR-039 #106, gate D7-G5) |
+| Design undo/redo | desktop | Ctrl+Z/Y | maquette | rolled()/restoring() (inline) | ⚠️ partial (ADR-039 #106, gate D7-G8 — history at the document-op layer) |
+| Design export | desktop | click | maquette | export hooks | ✅ partial (SVG export target noted in ADR-039 §5) |
+| Design comments | desktop | add comment | maquette | comment-panel | ⚠️ partial (non traité par ADR-039 — à cadrer séparément) |
 
-**Phase 7 critique** : Design canvas doit être réellement câblé au runtime, pas un iframe Excalidraw cosmétique.
+**Phase 7 critique** : Design canvas doit être réellement câblé au runtime, pas un iframe Excalidraw cosmétique. **Débloquée par ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2) : document canonique versionné possédé par Unifia, renderer Konva agnostique derrière un adapter (pas de React dans l'app SolidJS), autorité de stockage nommée (workspace/artifact ; localStorage = repli web temporaire), validation zod, `LineNodeV1`/`PathNodeV1` pour les lignes vectorielles. Slices tracées : **#104** domaine canonique (sans renderer — point d'entrée), **#105** canvas natif (D7-G3/G4), **#106** snapping/guides/history (D7-G5/G8), **#107** layer runtime + DnD (D7-G6/G7), **#108** import legacy + retrait iframe (D7-G9/G10) ; D7-G11 exige l'absorption des stubs Phase 3 — aucun modèle parallèle ne survit.
 
 ---
 
