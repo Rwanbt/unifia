@@ -12,7 +12,7 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { useViewport } from "@/shell/v110-store"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryNoteDocument } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryGraphFit, memoryGraphZoom, memoryMenuActions, memoryMovePath, memoryParentFolder, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows, type MemoryAction, type MemoryFileEntry, type MemoryGraphView, type MemoryNoteDocument } from "./memory-panel-model"
 
 const MEMORY_ROOT = ".unifia/memory"
 // The mockup expands a collapsed folder after 620 ms of drag-hover; the panel
@@ -23,6 +23,8 @@ const AUTO_EXPAND_DELAY_MS = 620
 const AUTOSAVE_DELAY_MS = 700
 const TREE_INDENT_PX = 18
 const MAX_MEMORY_PAGES = 20
+// Margin kept around the graph content by the fit gesture, in graph units.
+const MEMORY_GRAPH_PAD = 6
 
 type MemoryFiles = { readonly entries: readonly MemoryFileEntry[]; readonly skipped: number }
 
@@ -158,6 +160,92 @@ export function MemoryPanel(): JSX.Element {
     const current = note()
     if (!current) return { nodes: [], tags: [], edges: [] } as const
     return memoryGraphAtDepth(current, notes(), documents.data ?? [], graphDepth(), { orphans: graphOrphans(), tags: graphTags() })
+  })
+  // Mockup m69 viewport: drag pans, the wheel zooms (clamped 0.55-1.8) and a
+  // double-click fits the content. The layout normalises nodes around
+  // (50, 50), so the identity view is the fallback when a fit is impossible.
+  const [graphView, setGraphView] = createSignal<MemoryGraphView>({ x: 0, y: 0, zoom: 1 })
+  const [graphPanning, setGraphPanning] = createSignal(false)
+  let graphSvg: SVGSVGElement | undefined
+  let graphWorld: SVGGElement | undefined
+  let graphContent: SVGGElement | undefined
+  let graphPan: { pointerId: number; from: { x: number; y: number }; start: MemoryGraphView } | undefined
+
+  const graphPoint = (clientX: number, clientY: number) => {
+    const matrix = graphSvg?.getScreenCTM()
+    if (!graphSvg || !matrix) return undefined
+    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse())
+    return { x: point.x, y: point.y }
+  }
+
+  const fitGraph = () => {
+    const svg = graphSvg
+    const content = graphContent
+    if (!svg || !content) return
+    const rect = svg.getBoundingClientRect()
+    // The square viewBox uses `meet`, so one user unit is the smaller side.
+    const scale = Math.min(rect.width, rect.height) / 100
+    if (!Number.isFinite(scale) || scale <= 0) return
+    // getBBox includes the element's own transform, so the bounds are read
+    // from the untransformed content group: the fit stays idempotent across
+    // pan and zoom.
+    let box: { x: number; y: number; width: number; height: number }
+    try {
+      box = content.getBBox()
+    } catch {
+      return
+    }
+    const viewport = { width: rect.width / scale, height: rect.height / scale }
+    setGraphView(memoryGraphFit(box, viewport, { x: 50, y: 50 }, MEMORY_GRAPH_PAD) ?? { x: 0, y: 0, zoom: 1 })
+  }
+
+  const onGraphWheel = (event: WheelEvent) => {
+    event.preventDefault()
+    const cursor = graphPoint(event.clientX, event.clientY)
+    if (!cursor) return
+    const current = graphView()
+    const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1
+    const zoom = Math.max(memoryGraphZoom.min, Math.min(memoryGraphZoom.max, current.zoom * factor))
+    if (zoom === current.zoom) return
+    setGraphView({
+      zoom,
+      x: cursor.x - ((cursor.x - current.x) / current.zoom) * zoom,
+      y: cursor.y - ((cursor.y - current.y) / current.zoom) * zoom,
+    })
+  }
+
+  const onGraphPointerDown = (event: PointerEvent) => {
+    const target = event.target as Element | null
+    if (target?.closest("[data-memory-graph-node], [data-memory-graph-tag], button, input")) return
+    const from = graphPoint(event.clientX, event.clientY)
+    if (!from) return
+    graphPan = { pointerId: event.pointerId, from, start: graphView() }
+    setGraphPanning(true)
+    graphSvg?.setPointerCapture(event.pointerId)
+  }
+
+  const onGraphPointerMove = (event: PointerEvent) => {
+    const pan = graphPan
+    if (!pan || pan.pointerId !== event.pointerId) return
+    const to = graphPoint(event.clientX, event.clientY)
+    if (!to) return
+    setGraphView({ zoom: pan.start.zoom, x: pan.start.x + (to.x - pan.from.x), y: pan.start.y + (to.y - pan.from.y) })
+  }
+
+  const endGraphPan = (event: PointerEvent) => {
+    const pan = graphPan
+    if (!pan || pan.pointerId !== event.pointerId) return
+    graphPan = undefined
+    setGraphPanning(false)
+    graphSvg?.releasePointerCapture(event.pointerId)
+  }
+
+  createEffect(() => {
+    // Refit when the content or the visible pane changes; the fit is
+    // deterministic, so new content simply replaces pan and zoom.
+    graph()
+    contextView()
+    requestAnimationFrame(fitGraph)
   })
   const linkedExcerpt = createMemo(() => {
     const current = note()
@@ -580,7 +668,7 @@ export function MemoryPanel(): JSX.Element {
         </article>
         <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "links" }} data-memory-links>
           <header class="border-b border-border-base p-3"><Show when={narrow()}><button type="button" class="mb-2 rounded px-2 py-1 text-11-medium" data-memory-back-to-note onClick={() => setMobilePane("note")}>← Note</button></Show><h2 class="text-14-medium">Links &amp; context</h2><div class="mt-2 flex gap-1"><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": contextView() === "links" }} onClick={() => setContextView("links")}>Links</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": contextView() === "graph" }} onClick={() => setContextView("graph")}>Local graph</button></div></header>
-          <div class="overflow-y-auto p-3"><Show when={contextView() === "links"} fallback={<Show when={graph().nodes.length > 0} fallback={<p class="text-12-regular text-text-weak">Choose a note to inspect its graph.</p>}><div class="flex flex-wrap items-center gap-1" data-memory-graph-controls><button type="button" class="rounded bg-background-base px-2 py-1 text-11-medium" data-memory-graph-depth onClick={() => setGraphDepth(graphDepth() >= 3 ? 1 : graphDepth() + 1)}>{t("workbench.memory.graph.depth", { depth: graphDepth() })}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphTags() }} data-memory-graph-tags aria-pressed={graphTags()} onClick={() => setGraphTags(!graphTags())}>{t("workbench.memory.graph.tags")}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphOrphans() }} data-memory-graph-orphans aria-pressed={graphOrphans()} onClick={() => setGraphOrphans(!graphOrphans())}>{t("workbench.memory.graph.orphans")}</button></div><svg class="mt-2 h-56 w-full" viewBox="0 0 100 100" role="img" aria-label="Local memory graph"><For each={graph().edges}>{(edge) => { const from = () => edge.kind === "tag" ? graph().tags.find((tag) => `tag:${tag.tag}` === edge.from) : graph().nodes.find((node) => node.path === edge.from); const to = () => graph().nodes.find((node) => node.path === edge.to); return <Show when={from() && to()}><line x1={from()!.x} y1={from()!.y} x2={to()!.x} y2={to()!.y} stroke="currentColor" opacity={edge.kind === "tag" ? "0.2" : "0.35"} stroke-dasharray={edge.kind === "tag" ? "2 2" : undefined} /></Show> }}</For><For each={graph().tags}>{(tag) => <g data-memory-graph-tag={tag.tag}><circle cx={tag.x} cy={tag.y} r="4" class="fill-background-strong" stroke="currentColor" /><text x={tag.x} y={tag.y + 8} text-anchor="middle" class="fill-text-base text-[4px]">#{tag.tag.slice(0, 12)}</text></g>}</For><For each={graph().nodes}>{(node) => <g class="cursor-pointer" role="button" tabindex="0" data-memory-graph-node={node.path} onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}><circle cx={node.x} cy={node.y} r={node.path === selectedPath() ? 8 : 6} class={node.path === selectedPath() ? "fill-accent-base" : "fill-background-strong"} stroke="currentColor" /><text x={node.x} y={node.y + 13} text-anchor="middle" class="fill-text-base text-[5px]">{node.title.slice(0, 16)}</text></g>}</For></svg><p class="mt-1 text-11-regular text-text-weak" data-memory-graph-summary>{t("workbench.memory.graph.summary", { notes: graph().nodes.length, links: graph().edges.filter((edge) => edge.kind === "note").length })}</p></Show>}><Show when={note() && linked().length > 0} fallback={<p class="text-12-regular text-text-weak">No resolved links for this note.</p>}><For each={linked()}>{(item) => <button type="button" class="mb-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show><Show when={backlinks().length}><h3 class="mt-4 text-12-medium">Backlinks</h3><For each={backlinks()}>{(item) => <button type="button" class="mt-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show></Show></div>
+          <div class="overflow-y-auto p-3"><Show when={contextView() === "links"} fallback={<Show when={graph().nodes.length > 0} fallback={<p class="text-12-regular text-text-weak">Choose a note to inspect its graph.</p>}><div class="flex flex-wrap items-center gap-1" data-memory-graph-controls><button type="button" class="rounded bg-background-base px-2 py-1 text-11-medium" data-memory-graph-depth onClick={() => setGraphDepth(graphDepth() >= 3 ? 1 : graphDepth() + 1)}>{t("workbench.memory.graph.depth", { depth: graphDepth() })}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphTags() }} data-memory-graph-tags aria-pressed={graphTags()} onClick={() => setGraphTags(!graphTags())}>{t("workbench.memory.graph.tags")}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphOrphans() }} data-memory-graph-orphans aria-pressed={graphOrphans()} onClick={() => setGraphOrphans(!graphOrphans())}>{t("workbench.memory.graph.orphans")}</button></div><svg ref={graphSvg} class="mt-2 h-56 w-full cursor-grab touch-none" classList={{ "cursor-grabbing": graphPanning() }} viewBox="0 0 100 100" role="img" aria-label="Local memory graph" data-memory-graph-viewport onWheel={onGraphWheel} onPointerDown={onGraphPointerDown} onPointerMove={onGraphPointerMove} onPointerUp={endGraphPan} onPointerCancel={endGraphPan} onDblClick={() => fitGraph()}><g ref={graphWorld} data-memory-graph-world transform={`translate(${graphView().x} ${graphView().y}) scale(${graphView().zoom})`}><g ref={graphContent}><For each={graph().edges}>{(edge) => { const from = () => edge.kind === "tag" ? graph().tags.find((tag) => `tag:${tag.tag}` === edge.from) : graph().nodes.find((node) => node.path === edge.from); const to = () => graph().nodes.find((node) => node.path === edge.to); return <Show when={from() && to()}><line x1={from()!.x} y1={from()!.y} x2={to()!.x} y2={to()!.y} stroke="currentColor" opacity={edge.kind === "tag" ? "0.2" : "0.35"} stroke-dasharray={edge.kind === "tag" ? "2 2" : undefined} /></Show> }}</For><For each={graph().tags}>{(tag) => <g data-memory-graph-tag={tag.tag}><circle cx={tag.x} cy={tag.y} r="4" class="fill-background-strong" stroke="currentColor" /><text x={tag.x} y={tag.y + 8} text-anchor="middle" class="fill-text-base text-[4px]">#{tag.tag.slice(0, 12)}</text></g>}</For><For each={graph().nodes}>{(node) => <g class="cursor-pointer" role="button" tabindex="0" data-memory-graph-node={node.path} onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}><circle cx={node.x} cy={node.y} r={node.path === selectedPath() ? 8 : 6} class={node.path === selectedPath() ? "fill-accent-base" : "fill-background-strong"} stroke="currentColor" /><text x={node.x} y={node.y + 13} text-anchor="middle" class="fill-text-base text-[5px]">{node.title.slice(0, 16)}</text></g>}</For></g></g></svg><p class="mt-1 text-11-regular text-text-weak" data-memory-graph-summary>{t("workbench.memory.graph.summary", { notes: graph().nodes.length, links: graph().edges.filter((edge) => edge.kind === "note").length })}</p></Show>}><Show when={note() && linked().length > 0} fallback={<p class="text-12-regular text-text-weak">No resolved links for this note.</p>}><For each={linked()}>{(item) => <button type="button" class="mb-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show><Show when={backlinks().length}><h3 class="mt-4 text-12-medium">Backlinks</h3><For each={backlinks()}>{(item) => <button type="button" class="mt-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show></Show></div>
         </aside>
       </div>
       <Show when={menu()}>{(current) => <>

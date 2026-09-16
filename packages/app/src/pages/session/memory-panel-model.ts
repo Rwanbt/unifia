@@ -370,3 +370,27 @@ export function memoryGraphAtDepth(
   }
   return { nodes, tags, edges: [...edges, ...tagEdges] }
 }
+
+/** Graph viewport transform: a graph point maps to `p * zoom + (x, y)`. */
+export type MemoryGraphView = { x: number; y: number; zoom: number }
+
+/** Mockup m69 clamp, shared by wheel zoom and fit. */
+export const memoryGraphZoom = { min: 0.55, max: 1.8 }
+
+/**
+ * Fits `bounds` into a viewport (both in graph units) around `center`,
+ * leaving `pad` graph units of margin, and clamps the zoom. Degenerate input
+ * returns undefined so callers keep the identity view — the layout is already
+ * normalised around (50, 50).
+ */
+export function memoryGraphFit(
+  bounds: { x: number; y: number; width: number; height: number },
+  viewport: { width: number; height: number },
+  center: { x: number; y: number },
+  pad: number,
+): MemoryGraphView | undefined {
+  if (bounds.width <= 0 || bounds.height <= 0 || viewport.width <= 0 || viewport.height <= 0) return undefined
+  const raw = Math.min(viewport.width / (bounds.width + pad * 2), viewport.height / (bounds.height + pad * 2))
+  const zoom = Math.max(memoryGraphZoom.min, Math.min(memoryGraphZoom.max, raw))
+  return { zoom, x: center.x - (bounds.x + bounds.width / 2) * zoom, y: center.y - (bounds.y + bounds.height / 2) * zoom }
+}

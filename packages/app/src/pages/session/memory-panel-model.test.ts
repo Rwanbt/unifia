@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows } from "./memory-panel-model"
+import { buildMemoryTree, isMemoryMarkdown, linkedMemoryNotes, localMemoryGraph, memoryBacklinks, memoryExcerpt, memoryGraphAtDepth, memoryGraphFit, memoryGraphZoom, memoryMenuActions, memoryMovePath, memoryRenamePath, memorySaveState, memoryTitle, memoryTitleIsAmbiguous, memoryUniquePath, parseMemoryNote, rewriteMemoryWikilinks, visibleMemoryRows } from "./memory-panel-model"
 
 describe("Memory inspector model", () => {
   test("only exposes Markdown notes from the configured workspace vault", () => {
@@ -198,5 +198,22 @@ describe("Memory depth graph (Phase 9.6)", () => {
     expect(shown.nodes.map((node) => node.title)).toEqual(["Isolated"])
     const hidden = memoryGraphAtDepth(notes[3], notes, documents, 2, { orphans: false, tags: false })
     expect(hidden.nodes).toEqual([])
+  })
+
+  test("memoryGraphFit centres the bounds and clamps the zoom", () => {
+    const tight = memoryGraphFit({ x: 40, y: 40, width: 20, height: 20 }, { width: 100, height: 100 }, { x: 50, y: 50 }, 6)
+    expect(tight?.zoom).toBe(memoryGraphZoom.max)
+    expect(tight?.x).toBeCloseTo(-40, 6)
+    expect(tight?.y).toBeCloseTo(-40, 6)
+    const wide = memoryGraphFit({ x: 0, y: 0, width: 100, height: 100 }, { width: 100, height: 100 }, { x: 50, y: 50 }, 6)
+    expect(wide?.zoom).toBeCloseTo(100 / 112, 6)
+    expect(wide?.x).toBeCloseTo(50 - 50 * (100 / 112), 6)
+    const huge = memoryGraphFit({ x: 0, y: 0, width: 2000, height: 1000 }, { width: 100, height: 100 }, { x: 50, y: 50 }, 6)
+    expect(huge?.zoom).toBe(memoryGraphZoom.min)
+  })
+
+  test("memoryGraphFit refuses degenerate bounds", () => {
+    expect(memoryGraphFit({ x: 0, y: 0, width: 0, height: 10 }, { width: 100, height: 100 }, { x: 50, y: 50 }, 6)).toBeUndefined()
+    expect(memoryGraphFit({ x: 0, y: 0, width: 10, height: 10 }, { width: 0, height: 100 }, { x: 50, y: 50 }, 6)).toBeUndefined()
   })
 })
