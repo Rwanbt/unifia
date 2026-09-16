@@ -29,6 +29,7 @@
 
 - Toolbar unique v55 (select/node/pen/pencil/line/rect/ellipse + snap), vector-toolbar v54 en remplacement (pas empilement).
 - Selection: handles 13-16px, rotate handle, guides smart/grid snap 8px, marquee, Alt-click parent, dblclick texte inline.
+- Selection runtime (ADR-039 #110-#112, écart assumé) : clic = remplace, Maj/Ctrl/Cmd+clic = bascule ; une sélection ne mélange jamais un conteneur et ses descendants (escalade en cliquant le conteneur, forage en cliquant l'enfant) ; drag gauche sur le vide = marquee (AABB monde, nœuds visibles/déverrouillés, préfère les descendants) ; pan = Espace+drag ou bouton du milieu (le drag gauche sur le vide est réservé au marquee) ; multi-sélection = un outline par nœud (transformer pour la sélection simple) ; un drag de groupe = une seule entrée d'historique (`translateNodes`), sans snapping ; Suppr supprime toute la sélection (`deleteNodes`), les flèches déplacent toute la sélection ; Shift+marquee et Alt-click parent restent à cadrer.
 - Layers: renommage inline, visibilite, lock (snapshot-avant-mutation), drag-reorder, hierarchy carets, recherche.
 - Source backed: Apply source securise (sanitize), meta DesignDocument transactionnel, undo/redo, changebar, versions, audit, compare, export, present isole.
 - Tokens: bindings semantiques, variables CSS, rename migre bindings, delete detache en conservant valeur resolue.
