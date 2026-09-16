@@ -78,13 +78,13 @@ Pour chaque surface :
 | Inspector file tree | desktop | show files | inline in sidebar-panel | components/file-tree.tsx (`data-component="file-tree"`) — rendu dans session-side-panel | ✅ partial |
 | Inspector git panel | desktop | show git status | sidebar-project sidebar-source-control | source-control.tsx | ⚠️ partial |
 | Terminal (bottom) | desktop | show/hide, resize | `data-v110-terminal-panel` | terminal-panel.tsx — marqueur canonique monté (5.3), règle v110 (bordure `--border-base` + focus-within) prouvée gagnante dans la cascade par e2e | ✅ partial |
-| Diagnostic markers | desktop | hover → message | inline editor pane | ❌ aucune implémentation (issue #96) — règle v110 `diagnostic-marker` dormante | ❌ MANQUE |
+| Diagnostic markers | desktop | hover → message | inline editor pane | livré (#96 slice 1) : gouttière LSP émettant le contrat v110 `data-component="diagnostic-marker" data-severity="error\|warning\|info"` + `title` = messages de la ligne (sévérité maximale, messages joints), squiggles/tooltip CM conservés ; géométrie dans `code-mirror.css`, couleur par la règle de thème (jadis dormante) ; preuve : tests unitaires mapping + DOM du marqueur (`lsp-diagnostic-markers.test.ts`), e2e éditeur sans régression (`editor-search`, `a4-code-chrome`) ; e2e de bout en bout conditionné à un serveur LSP (non installé en CI) | ✅ |
 | Code lens | desktop | hover → action | editor pane | ❌ aucune implémentation (issue #96) | ❌ MANQUE |
 | Inline AI suggestions | desktop | accept/reject | editor pane | auto-edit (double-clic → mode édition) réel ; suggestions inline absentes (issue #96) | ⚠️ partial |
 | Code split (editor + inspector) | desktop-large | resize | inline editor pane | `data-v110="resize-chat"` Separator | ✅ partial |
 | Git blame annotations | desktop | hover → blame | inline | ❌ aucune implémentation (issue #96) | ❌ MANQUE |
 | Search/Replace | desktop | type + Enter | editor pane | `@codemirror/search` réel (`searchKeymap`) — e2e `editor-search` : Mod+F, matches surlignés, replace-all vérifié | ✅ |
-| LSP diagnostics | desktop | hover → docs | editor pane | extensions LSP câblées (diagnostics/hover/F12 via `code-mirror-lsp`) ; vérification e2e conditionnée à un serveur LSP (non installé en CI) | ⚠️ partial |
+| LSP diagnostics | desktop | hover → docs | editor pane | extensions LSP câblées (diagnostics/hover/F12 via `code-mirror-lsp`) ; marqueurs v110 livrés (#96 slice 1, voir « Diagnostic markers ») ; vérification e2e conditionnée à un serveur LSP (non installé en CI) | ⚠️ partial |
 
 ---
 
