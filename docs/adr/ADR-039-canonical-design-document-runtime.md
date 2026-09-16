@@ -1188,6 +1188,33 @@ The iframe implementation becomes transitional legacy infrastructure and SHALL b
 
 ---
 
+# 31. Amendment — Comments (schema v2)
+
+**Status:** accepted 2026-09-16; extends sections 4-5 and 15-16.
+
+## Context
+
+The v110 acceptance matrix tracks a "Design comments" row (v51 comment tool). The mockup stores comments per page with an optional element target plus artboard-relative coordinates, draws numbered pins anchored to the target's top-right corner, falls back to the stored coordinates when the target is gone, and offers a resolve toggle. This ADR did not cover annotations, so the behavior lived outside the canonical document.
+
+## Decision
+
+1. **Comments belong to the canonical document.** Schema v2 adds an optional `comments` array (`DesignCommentV1`: `id`, `nodeId | null`, `x`, `y`, `note`, `author?`, `status`, `createdAt`). `x`/`y` are world-space fallback coordinates.
+
+2. **The version bump is deliberate even though the field is optional.** `strictObject` would make an older runtime reject a document carrying comments as `invalid-document`, losing the intended "newer format" protocol of section 16. Stamping v2 makes older runtimes refuse cleanly and keep the bytes untouched; v1 documents migrate by stamping the version alone.
+
+3. **Anchoring is presentation, identity is structural.** A pin derives its position from the anchored node's world rect while `nodeId` resolves; when the node is deleted the comment survives at its stored coordinates (lenient on load, exactly like the mockup). Creating a comment for an unknown node is refused (strict on new input).
+
+4. **Commands:** `addComment`, `setCommentResolved`, `deleteComment` — one gesture, one history entry, like every other domain operation. Deleting a node does not cascade into comments.
+
+5. **Non-goals** for this amendment: threaded replies, author identity beyond an optional label, mention notifications, comments on assets or artifact previews (those keep their existing separate flow), and agent round-trips.
+
+## Consequences
+
+- `DESIGN_SCHEMA_VERSION` becomes 2 with a one-step migration chain; stored v1 documents load and are re-saved as v2 (pinned by e2e).
+- The canvas UI (comment tool, numbered pins, panel) is a separate implementation slice; the domain lands first, like the rest of the runtime.
+
+---
+
 ## References
 
 - `packages/app/src/pages/workbench/design-sketch-tab.tsx` — legacy iframe + localStorage runtime

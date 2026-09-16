@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import type { PathData } from "./path"
-import type { DesignNodeId, DesignNodeV1, DesignPointV1, DesignTransformV1 } from "./schema"
+import type { DesignCommentV1, DesignNodeId, DesignNodeV1, DesignPointV1, DesignTransformV1 } from "./schema"
 
 export type DesignNodePatch = {
   name?: string
@@ -28,3 +28,6 @@ export type DesignCommand =
   | { kind: "setVisibility"; id: DesignNodeId; visible: boolean }
   | { kind: "setLocked"; id: DesignNodeId; locked: boolean }
   | { kind: "duplicateNode"; id: DesignNodeId; ids: Record<DesignNodeId, DesignNodeId> }
+  | { kind: "addComment"; comment: DesignCommentV1 }
+  | { kind: "setCommentResolved"; id: string; resolved: boolean }
+  | { kind: "deleteComment"; id: string }

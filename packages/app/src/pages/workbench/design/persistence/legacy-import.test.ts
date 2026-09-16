@@ -28,7 +28,7 @@ const scene = {
 describe("legacy sketch import", () => {
   test("converts rectangles and text into a validated canonical document", () => {
     const result = importLegacySketch(scene, { id: "canvas", name: "Canvas" })
-    expect(result.document.schemaVersion).toBe(1)
+    expect(result.document.schemaVersion).toBe(2)
     expect(result.document.rootIds).toEqual(["r1", "t1"])
     const rect = result.document.nodes.r1
     expect(rect?.type).toBe("rectangle")

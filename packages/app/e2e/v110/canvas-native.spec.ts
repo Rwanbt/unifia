@@ -143,7 +143,7 @@ test("native design canvas renders and persists drag, resize and rotation", asyn
     const parsed = JSON.parse(raw ?? "{}") as { schemaVersion?: number; nodes?: Record<string, { type?: string }> }
     return { schemaVersion: parsed.schemaVersion, type: parsed.nodes?.r1?.type }
   }, STORAGE_KEY)
-  expect(persisted).toEqual({ schemaVersion: 1, type: "rectangle" })
+  expect(persisted).toEqual({ schemaVersion: 2, type: "rectangle" })
 
   t.stop()
   expect(t.pages, "pageerrors: " + t.pages.join(" | ")).toEqual([])

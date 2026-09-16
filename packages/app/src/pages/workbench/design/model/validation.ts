@@ -43,7 +43,21 @@ function collectStructureIssues(document: DesignDocumentV1): string[] {
   collectContainerIssues(document, parentOf, issues)
   collectParentIssues(document, roots, parentOf, issues)
   collectReachabilityIssues(document, roots, issues)
+  collectCommentIssues(document, issues)
   return issues
+}
+
+/**
+ * Comments anchor to nodes, but a dangling anchor is deliberately accepted:
+ * a comment survives the deletion of its node and falls back to its stored
+ * world position (ADR-039 section 31). Only identity is structural.
+ */
+function collectCommentIssues(document: DesignDocumentV1, issues: string[]): void {
+  const seen = new Set<string>()
+  for (const comment of document.comments ?? []) {
+    if (seen.has(comment.id)) issues.push(`comments: duplicate id "${comment.id}"`)
+    seen.add(comment.id)
+  }
 }
 
 function collectRootIssues(document: DesignDocumentV1, roots: Set<DesignNodeId>, issues: string[]): void {

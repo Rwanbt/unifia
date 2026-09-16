@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test"
 import { applyCommand } from "./reducer"
-import { childrenOf, doc, expectError, frame, line, path, rect, zeroTransform } from "./fixtures"
+import { childrenOf, comment, doc, expectError, frame, line, path, rect, zeroTransform } from "./fixtures"
 import type { DesignDocumentV1 } from "./schema"
 
 function nested(): DesignDocumentV1 {
@@ -373,5 +373,38 @@ describe("design command reducer", () => {
     applyCommand(base, { kind: "reorderNode", id: "root", toIndex: 0 })
     applyCommand(base, { kind: "duplicateNode", id: "a", ids: { a: "a2" } })
     expect(JSON.stringify(base)).toBe(frozen)
+  })
+
+  test("addComment anchors, resolves and deletes in one document", () => {
+    const base = doc([rect("a")])
+    const added = applyCommand(base, { kind: "addComment", comment: comment("c1", { nodeId: "a", x: 10, y: 20 }) })
+    expect(added.comments).toEqual([comment("c1", { nodeId: "a", x: 10, y: 20 })])
+    const resolved = applyCommand(added, { kind: "setCommentResolved", id: "c1", resolved: true })
+    expect(resolved.comments?.[0]?.status).toBe("resolved")
+    const reopened = applyCommand(resolved, { kind: "setCommentResolved", id: "c1", resolved: false })
+    expect(reopened.comments?.[0]?.status).toBe("open")
+    expect(applyCommand(reopened, { kind: "deleteComment", id: "c1" }).comments).toEqual([])
+  })
+
+  test("addComment refuses duplicates, unknown anchors, empty notes and bad positions", () => {
+    const base = applyCommand(doc([rect("a")]), { kind: "addComment", comment: comment("c1") })
+    expect(expectError(() => applyCommand(base, { kind: "addComment", comment: comment("c1") })).code).toBe("invalid-command")
+    expect(
+      expectError(() => applyCommand(base, { kind: "addComment", comment: comment("c2", { nodeId: "ghost" }) })).code,
+    ).toBe("node-not-found")
+    expect(
+      expectError(() => applyCommand(base, { kind: "addComment", comment: comment("c3", { note: "   " }) })).code,
+    ).toBe("invalid-command")
+    expect(
+      expectError(() => applyCommand(base, { kind: "addComment", comment: comment("c4", { x: Number.NaN }) })).code,
+    ).toBe("invalid-command")
+  })
+
+  test("comment commands refuse an unknown comment", () => {
+    const base = doc([rect("a")])
+    expect(expectError(() => applyCommand(base, { kind: "setCommentResolved", id: "ghost", resolved: true })).code).toBe(
+      "comment-not-found",
+    )
+    expect(expectError(() => applyCommand(base, { kind: "deleteComment", id: "ghost" })).code).toBe("comment-not-found")
   })
 })

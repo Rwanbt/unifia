@@ -4,6 +4,7 @@ import { DesignDocumentError } from "./errors"
 import {
   DESIGN_SCHEMA_VERSION,
   isContainerNode,
+  type DesignCommentV1,
   type DesignDocumentV1,
   type DesignNodeV1,
   type DesignTransformV1,
@@ -71,6 +72,19 @@ export function path(id: string, overrides: Partial<PathNodeV1> = {}): PathNodeV
     type: "path",
     transform: { ...zeroTransform },
     d: "M 0 0 L 10 10",
+    ...overrides,
+  }
+}
+
+export function comment(id: string, overrides: Partial<DesignCommentV1> = {}): DesignCommentV1 {
+  return {
+    id,
+    nodeId: null,
+    x: 0,
+    y: 0,
+    note: `note ${id}`,
+    status: "open",
+    createdAt: "2026-09-16T00:00:00.000Z",
     ...overrides,
   }
 }

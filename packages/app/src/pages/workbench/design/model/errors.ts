@@ -7,6 +7,7 @@ export type DesignDocumentErrorCode =
   | "unsupported-schema-version"
   | "no-migration-path"
   | "node-not-found"
+  | "comment-not-found"
   | "parent-not-found"
   | "parent-not-container"
   | "duplicate-id"

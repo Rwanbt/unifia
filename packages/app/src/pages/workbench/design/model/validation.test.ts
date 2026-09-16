@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import { createDesignDocument } from "./document"
 import { DesignDocumentError } from "./errors"
-import { doc, frame, rect } from "./fixtures"
+import { comment, doc, frame, rect } from "./fixtures"
 import { inspectDesignDocument, parseDesignDocument } from "./validation"
 
 describe("design document validation", () => {
@@ -26,7 +26,7 @@ describe("design document validation", () => {
   })
 
   test("an unsupported schema version is rejected by the strict schema", () => {
-    const inspection = inspectDesignDocument({ ...doc([rect("a")]), schemaVersion: 2 })
+    const inspection = inspectDesignDocument({ ...doc([rect("a")]), schemaVersion: 3 })
     expect(inspection.ok).toBe(false)
   })
 
@@ -35,6 +35,17 @@ describe("design document validation", () => {
     const inspection = inspectDesignDocument(doc([broken]))
     expect(inspection.ok).toBe(false)
     if (!inspection.ok) expect(inspection.issues.join(" ")).toContain("width")
+  })
+
+  test("duplicate comment ids are rejected, dangling anchors are accepted", () => {
+    const duplicated = { ...doc([rect("a")]), comments: [comment("c1"), comment("c1")] }
+    const inspection = inspectDesignDocument(duplicated)
+    expect(inspection.ok).toBe(false)
+    if (!inspection.ok) expect(inspection.issues.join(" ")).toContain("duplicate id")
+    // A comment outlives its node and falls back to its stored position
+    // (ADR-039 section 31), so an unknown anchor is not a structure issue.
+    const dangling = { ...doc([rect("a")]), comments: [comment("c1", { nodeId: "deleted-node" })] }
+    expect(inspectDesignDocument(dangling).ok).toBe(true)
   })
 
   test("unknown properties are rejected", () => {

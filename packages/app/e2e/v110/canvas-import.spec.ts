@@ -79,7 +79,7 @@ test("the legacy sketch imports into the canonical document and keeps its bytes"
         }, DOCUMENT_KEY),
       { message: "the imported nodes must persist canonically" },
     )
-    .toEqual({ schemaVersion: 1, rootIds: ["legacy-rect", "legacy-text"], rect: "rectangle", text: "text" })
+    .toEqual({ schemaVersion: 2, rootIds: ["legacy-rect", "legacy-text"], rect: "rectangle", text: "text" })
 
   // Unsupported elements are surfaced, never silently dropped.
   await expect(page.locator("[data-design-canvas-import-info]")).toContainText("Imported 2")

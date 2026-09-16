@@ -3,7 +3,7 @@
 import { z } from "zod"
 
 /** Canonical format version understood by this runtime (ADR-039 section 4). */
-export const DESIGN_SCHEMA_VERSION = 1
+export const DESIGN_SCHEMA_VERSION = 2
 
 export type DesignNodeId = string
 
@@ -107,6 +107,22 @@ export const designAssetV1Schema = z.strictObject({
   source: z.string().optional(),
 })
 
+/**
+ * A canvas comment (ADR-039 section 31). `nodeId` anchors the pin to a node
+ * while that node resolves; `x`/`y` are the world-space fallback used when it
+ * is gone, mirroring the mockup's artboard coordinates.
+ */
+export const designCommentV1Schema = z.strictObject({
+  id: idSchema,
+  nodeId: idSchema.nullable(),
+  x: z.number(),
+  y: z.number(),
+  note: z.string().min(1),
+  author: z.string().min(1).optional(),
+  status: z.enum(["open", "resolved"]),
+  createdAt: z.string().min(1),
+})
+
 export const designDocumentV1Schema = z.strictObject({
   schemaVersion: z.literal(DESIGN_SCHEMA_VERSION),
   id: idSchema,
@@ -114,6 +130,7 @@ export const designDocumentV1Schema = z.strictObject({
   rootIds: z.array(idSchema),
   nodes: z.record(idSchema, designNodeV1Schema),
   assets: z.record(z.string().min(1), designAssetV1Schema).optional(),
+  comments: z.array(designCommentV1Schema).optional(),
   metadata: z
     .strictObject({
       createdAt: z.string().optional(),
@@ -135,6 +152,7 @@ export type TextNodeV1 = z.infer<typeof textNodeV1Schema>
 export type ImageNodeV1 = z.infer<typeof imageNodeV1Schema>
 export type DesignNodeV1 = z.infer<typeof designNodeV1Schema>
 export type DesignAssetV1 = z.infer<typeof designAssetV1Schema>
+export type DesignCommentV1 = z.infer<typeof designCommentV1Schema>
 export type DesignDocumentV1 = z.infer<typeof designDocumentV1Schema>
 export type ContainerNodeV1 = FrameNodeV1 | GroupNodeV1
 

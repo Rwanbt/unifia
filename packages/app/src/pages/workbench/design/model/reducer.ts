@@ -7,6 +7,7 @@ import {
   isAncestor,
   isContainerNode,
   type ContainerNodeV1,
+  type DesignCommentV1,
   type DesignDocumentV1,
   type DesignNodeId,
   type DesignNodeV1,
@@ -48,6 +49,12 @@ export function applyCommand(document: DesignDocumentV1, command: DesignCommand)
       return updateNode(document, command.id, { locked: command.locked })
     case "duplicateNode":
       return duplicateNode(document, command.id, command.ids)
+    case "addComment":
+      return addComment(document, command.comment)
+    case "setCommentResolved":
+      return setCommentResolved(document, command.id, command.resolved)
+    case "deleteComment":
+      return deleteComment(document, command.id)
   }
 }
 
@@ -316,4 +323,44 @@ function newIdFor(ids: Record<DesignNodeId, DesignNodeId>, id: DesignNodeId): De
   const next = ids[id]
   if (!next) throw new DesignDocumentError("missing-new-id", `missing new id for "${id}"`)
   return next
+}
+
+/**
+ * Comments are document metadata (ADR-039 section 31): one gesture adds one
+ * comment. A node anchor must resolve when the comment is created; stored
+ * documents stay lenient so a comment outlives its node and falls back to
+ * its world position.
+ */
+function addComment(document: DesignDocumentV1, comment: DesignCommentV1): DesignDocumentV1 {
+  const comments = document.comments ?? []
+  if (comments.some((entry) => entry.id === comment.id)) {
+    throw new DesignDocumentError("invalid-command", `comment "${comment.id}" already exists`)
+  }
+  if (comment.nodeId !== null && !document.nodes[comment.nodeId]) {
+    throw new DesignDocumentError("node-not-found", `no design node "${comment.nodeId}"`)
+  }
+  if (comment.note.trim().length === 0) throw new DesignDocumentError("invalid-command", "a comment needs a note")
+  if (!Number.isFinite(comment.x) || !Number.isFinite(comment.y)) {
+    throw new DesignDocumentError("invalid-command", "comment positions must be finite")
+  }
+  return { ...document, comments: [...comments, comment] }
+}
+
+function setCommentResolved(document: DesignDocumentV1, id: string, resolved: boolean): DesignDocumentV1 {
+  const comments = document.comments ?? []
+  if (!comments.some((entry) => entry.id === id)) {
+    throw new DesignDocumentError("comment-not-found", `no comment "${id}"`)
+  }
+  return {
+    ...document,
+    comments: comments.map((entry) => (entry.id === id ? { ...entry, status: resolved ? "resolved" : "open" } : entry)),
+  }
+}
+
+function deleteComment(document: DesignDocumentV1, id: string): DesignDocumentV1 {
+  const comments = document.comments ?? []
+  if (!comments.some((entry) => entry.id === id)) {
+    throw new DesignDocumentError("comment-not-found", `no comment "${id}"`)
+  }
+  return { ...document, comments: comments.filter((entry) => entry.id !== id) }
 }
