@@ -114,6 +114,7 @@ source of truth future agents can read without vault access.
 | **7.7** | **Édition de chemins (#110 slice 1) — parseur/sérialiseur M/L pur, commande `updatePoints` (bbox + local recalculés), ancres draggables sur poly-lignes ; e2e `canvas-path-edit` (1 passed, undo/redo) ; courbes C/Q + multi-sélection → #111** | `445361982a` | LIVREE |
 | **7.8** | **Édition des courbes (#111 slice 1) — parseur/sérialiseur M/L/C/Q, bornes serrées (extrema de Bézier), commande `updatePath`, poignées de contrôle tetherées (ancres emportent leurs contrôles cubiques), transformer rotation-seule sur polylignes ; e2e `canvas-path-curve` (1 passed, drag + undo/redo + reload) ; multi-sélection → #112, plume Bézier/fermeture Z → #113** | `60d059f46b` | LIVREE |
 | **7.9** | **Multi-sélection (#112) — Maj/Ctrl-clic (invariant conteneur/descendants), marquee sur AABB monde préférant les descendants, commandes groupées `translateNodes`/`deleteNodes` (1 geste = 1 entrée), outlines par nœud, pan Espace/milieu, dessin synchrone après rebuild (hit-test immédiat) ; e2e `canvas-multiselect` (1 passed) + 7 régressions canvas** | `aa6bbc9c55` | LIVREE |
+| **7.10** | **Plume parité maquette (#113) — clic-glisser = poignées Bézier symétriques (`handleOut = delta`, `handleIn = -delta`), preview = vrai chemin, clic sur le premier ancre = fermeture par segment final explicite (pas de `Z`, décision épinglée par tests), Entrée clôt ; e2e `canvas-pen-curve` (1 passed, courbe + fermeture + reload)** | `75da95ee93` | LIVREE |
 
 ---
 
