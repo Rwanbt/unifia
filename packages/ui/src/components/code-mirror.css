@@ -203,3 +203,17 @@
 .cm-opencode .tok-deleted {
   color: var(--syntax-diff-delete, currentColor);
 }
+/* v110 diagnostic markers: geometry only — the severity background comes
+   from the app theme rule [data-component="diagnostic-marker"][data-severity],
+   so a marker is neutral unless the theme colours it. */
+.cm-opencode .cm-v110-diagnostic {
+  width: 10px;
+  height: 10px;
+  margin: 2px auto 0;
+  border-radius: 999px;
+}
+
+.cm-opencode .cm-v110-diagnostic[data-severity="info"] {
+  background: var(--text-weak, rgba(127, 127, 127, 0.45));
+  opacity: 0.55;
+}
