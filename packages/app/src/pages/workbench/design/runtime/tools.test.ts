@@ -59,4 +59,42 @@ describe("design tools", () => {
     })
     expect(draftToNode({ kind: "path", points: [{ x: 0, y: 0 }] }, "p2")).toBeUndefined()
   })
+
+  test("pen drafts with symmetric handles become cubic paths", () => {
+    const path = draftToNode(
+      {
+        kind: "path",
+        points: [
+          { x: 200, y: 300, handleOut: { x: 50, y: 0 }, handleIn: { x: -50, y: 0 } },
+          { x: 350, y: 400 },
+        ],
+      },
+      "p3",
+    )
+    expect(path).toMatchObject({
+      transform: { x: 200, y: 300, width: 150, height: 100, rotation: 0 },
+      d: "M 0 0 C 50 0 150 100 150 100",
+    })
+  })
+
+  test("closing a pen draft appends an explicit segment back to the start", () => {
+    // There is no `Z` in the editable subset: closing is a real final segment,
+    // pinned here together with the parser refusal in path.test.ts (#113).
+    const path = draftToNode(
+      {
+        kind: "path",
+        points: [
+          { x: 200, y: 500 },
+          { x: 300, y: 500 },
+          { x: 280, y: 560 },
+          { x: 200, y: 500 },
+        ],
+      },
+      "p4",
+    )
+    expect(path).toMatchObject({
+      transform: { x: 200, y: 500, width: 100, height: 60, rotation: 0 },
+      d: "M 0 0 L 100 0 L 80 60 L 0 0",
+    })
+  })
 })

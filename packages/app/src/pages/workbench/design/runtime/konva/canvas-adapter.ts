@@ -8,7 +8,7 @@ import { applyInverseLinear, applyLinear, applyToPoint, identityMatrix, nodeMatr
 import { projectDocument, type DesignProjectionNode } from "../project"
 import { nodeWorldRect, parentMatrix, pickInRect, selectionMoves, toggleSelection } from "../selection"
 import { designSnapThresholdPx, snapCandidates, snapRect, type DesignSnapGuide } from "../snapping"
-import { draftRect, isDraftUsable, type DesignDraft, type DesignTool } from "../tools"
+import { draftRect, isDraftUsable, penPathData, type DesignDraft, type DesignPenPoint, type DesignTool } from "../tools"
 import { panBy, screenToWorld, zoomAt, type DesignViewport } from "../viewport"
 import { commitTransform, toKonvaAttrs } from "./attrs"
 
@@ -42,6 +42,9 @@ const guideExtent = 5000
 const anchorRadius = 5
 const controlRadius = 4
 const marqueeFill = "rgba(37, 99, 235, 0.12)"
+// Screen-space pen gestures, converted to world units per zoom.
+const penCloseThresholdPx = 10
+const penHandleThresholdPx = 3
 
 /**
  * Imperative Konva adapter. Konva is loaded lazily so it never reaches the
@@ -100,12 +103,13 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   let preview: KonvaShape | undefined
   let marquee: DesignPoint | undefined
   let dragGroup: DragGroup | undefined
+  let penPress: { index: number; start: DesignPoint } | undefined
   let spaceHeld = false
   let suppressClick = false
 
   type DraftState =
     | { kind: "rectangle" | "ellipse" | "line"; start: DesignPoint }
-    | { kind: "pen"; points: DesignPoint[] }
+    | { kind: "pen"; points: DesignPenPoint[] }
 
   type DragGroup = {
     /** Leader position at dragstart, in its parent's space. */
@@ -485,7 +489,16 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
 
   const showDraftPreview = (state: DraftState, hover: DesignPoint) => {
     if (state.kind === "pen") {
-      showPreview(new Konva.Line({ points: state.points.flatMap((point) => [point.x, point.y]) }))
+      const points: DesignPenPoint[] = [...state.points]
+      const last = points[points.length - 1]
+      // While a handle drag is in progress the cursor defines the tangent, not
+      // a new anchor, so the hover point is only appended between points.
+      if (!penPress && last && (Math.abs(last.x - hover.x) > 0.01 || Math.abs(last.y - hover.y) > 0.01)) {
+        points.push({ x: hover.x, y: hover.y })
+      }
+      const data = penPathData(points)
+      if (!data) return
+      showPreview(new Konva.Path({ data: serializePath(data), fill: undefined }))
       return
     }
     if (state.kind === "line") {
@@ -518,6 +531,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     if (draft.kind === "pen") {
       const finished: DesignDraft = { kind: "path", points: draft.points }
       draft = undefined
+      penPress = undefined
       clearPreview()
       if (isDraftUsable(finished)) options.onCreate(finished)
       return
@@ -537,6 +551,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   const cancelDraft = () => {
     if (!draft) return
     draft = undefined
+    penPress = undefined
     clearPreview()
   }
 
@@ -546,10 +561,19 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     if (!world) return
     if (tool === "pen") {
       const points = draft?.kind === "pen" ? draft.points : []
+      const first = points[0]
+      // Clicking the first anchor closes the path: the start point is appended
+      // as a final explicit segment, so the document never needs `Z`.
+      if (first && points.length >= 2 && Math.hypot(first.x - world.x, first.y - world.y) <= penCloseThresholdPx / viewport.zoom) {
+        draft = { kind: "pen", points: [...points, { x: first.x, y: first.y, handleIn: first.handleIn }] }
+        finishDraft()
+        return
+      }
       const last = points[points.length - 1]
       if (last && Math.abs(last.x - world.x) < 0.01 && Math.abs(last.y - world.y) < 0.01) return
-      const next: DraftState = { kind: "pen", points: [...points, world] }
+      const next: DraftState = { kind: "pen", points: [...points, { x: world.x, y: world.y }] }
       draft = next
+      penPress = { index: next.points.length - 1, start: world }
       showDraftPreview(next, world)
       return
     }
@@ -562,11 +586,28 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     if (!draft) return
     const world = worldPoint()
     if (!world) return
+    if (draft.kind === "pen" && penPress) {
+      // A click-drag on the fresh anchor sets symmetric handles (pen parity).
+      const delta = { x: world.x - penPress.start.x, y: world.y - penPress.start.y }
+      if (Math.hypot(delta.x, delta.y) > penHandleThresholdPx / viewport.zoom) {
+        const index = penPress.index
+        draft = {
+          kind: "pen",
+          points: draft.points.map((point, at) =>
+            at === index ? { ...point, handleOut: delta, handleIn: { x: -delta.x, y: -delta.y } } : point,
+          ),
+        }
+      }
+    }
     showDraftPreview(draft, world)
   })
 
   stage.on("pointerup pointercancel", () => {
-    if (!draft || draft.kind === "pen") return
+    if (!draft) return
+    if (draft.kind === "pen") {
+      penPress = undefined
+      return
+    }
     finishDraft(worldPoint() ?? draft.start)
   })
 
