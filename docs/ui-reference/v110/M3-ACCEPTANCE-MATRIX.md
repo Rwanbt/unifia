@@ -138,7 +138,7 @@ violerait le contrat de campagne.
 | Design snap/grid | desktop-large | drag with snap | maquette | `runtime/snapping.ts` — arêtes/centres, seuil px écran ÷ zoom + e2e (ADR-039 #106, gate D7-G5) | ✅ |
 | Design undo/redo | desktop | Ctrl+Z/Y | maquette | `model/history.ts` — 1 commande = 1 entrée, undo/redo clavier + e2e (ADR-039 #106, gate D7-G8) | ✅ |
 | Design export | desktop | click | maquette | export hooks | ✅ partial (SVG export target noted in ADR-039 §5) |
-| Design comments | desktop | add comment | maquette | comment-panel | ⚠️ partial (non traité par ADR-039 — à cadrer séparément) |
+| Design comments | desktop | add comment | maquette | domaine livré (ADR-039 §31, amendement 2026-09-16) : schéma v2 `comments`, migration v1→v2, validation (ids uniques, ancres pendantes tolérées), commandes `addComment`/`setCommentResolved`/`deleteComment` ; outil/épingles/panneau → **#114** | ⚠️ partiel |
 
 **Phase 7 critique** : Design canvas doit être réellement câblé au runtime, pas un iframe Excalidraw cosmétique. **Débloquée par ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Accepted) : document canonique versionné possédé par Unifia, renderer Konva agnostique derrière un adapter (pas de React dans l'app SolidJS), autorité de stockage nommée (workspace/artifact ; localStorage = repli web temporaire), validation zod, `LineNodeV1`/`PathNodeV1` pour les lignes vectorielles.
 

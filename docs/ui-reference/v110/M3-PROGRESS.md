@@ -116,6 +116,7 @@ source of truth future agents can read without vault access.
 | **7.9** | **Multi-sélection (#112) — Maj/Ctrl-clic (invariant conteneur/descendants), marquee sur AABB monde préférant les descendants, commandes groupées `translateNodes`/`deleteNodes` (1 geste = 1 entrée), outlines par nœud, pan Espace/milieu, dessin synchrone après rebuild (hit-test immédiat) ; e2e `canvas-multiselect` (1 passed) + 7 régressions canvas** | `aa6bbc9c55` | LIVREE |
 | **7.10** | **Plume parité maquette (#113) — clic-glisser = poignées Bézier symétriques (`handleOut = delta`, `handleIn = -delta`), preview = vrai chemin, clic sur le premier ancre = fermeture par segment final explicite (pas de `Z`, décision épinglée par tests), Entrée clôt ; e2e `canvas-pen-curve` (1 passed, courbe + fermeture + reload)** | `75da95ee93` | LIVREE |
 | **parité** | **Memory graph pan/zoom/fit (matrice m69, ligne 198) — pan drag (curseur grab, nodes cliquables), zoom molette ancré au curseur clampé 0.55-1.8, double-clic = fit déterministe (bbox lue sur groupe non transformé) + refit auto au changement de contenu ; `memoryGraphFit` pur + tests ; e2e `memory-graph-pan-zoom` (1 passed) + batch mémoire 9 passed** | `69e310a055` | LIVREE |
+| **parité** | **Comments Design — slice 1 domaine (ADR-039 §31) : schéma v2 + `comments`, migration v1→v2 (+ tests), validation (ids uniques, ancres pendantes tolérées), commandes `addComment`/`setCommentResolved`/`deleteComment` (+ tests) ; outil/épingles/panneau → #114** | `1bf720afc4` | LIVREE |
 
 ---
 
