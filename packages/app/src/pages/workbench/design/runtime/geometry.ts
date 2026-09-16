@@ -36,6 +36,21 @@ export function applyToPoint(matrix: DesignMatrix, point: DesignPoint): DesignPo
   }
 }
 
+/** Linear part of the matrix applied to a vector, translation excluded. */
+export function applyLinear(matrix: DesignMatrix, vector: DesignPoint): DesignPoint {
+  return { x: matrix.a * vector.x + matrix.c * vector.y, y: matrix.b * vector.x + matrix.d * vector.y }
+}
+
+/**
+ * Inverse of the linear part applied to a vector. Every design matrix is
+ * rotation + translation only — `localMatrix` never encodes scale, since
+ * `width`/`height` are the authoritative size — so the linear part is
+ * orthogonal and its inverse is the transpose.
+ */
+export function applyInverseLinear(matrix: DesignMatrix, vector: DesignPoint): DesignPoint {
+  return { x: matrix.d * vector.x - matrix.c * vector.y, y: -matrix.b * vector.x + matrix.a * vector.y }
+}
+
 /**
  * Node-local -> parent-local matrix. Rotation is clockwise (screen y-down)
  * around the node centre, matching the canonical transform semantics of

@@ -18,6 +18,7 @@ import { importLegacySketch } from "./design/persistence/legacy-import"
 import { createLocalStorageDesignDocumentRepository } from "./design/persistence/local-storage-repository"
 import { DesignCanvas } from "./design/runtime/design-canvas"
 import { DesignLayersPanel } from "./design/runtime/layers-panel"
+import { selectionMoves } from "./design/runtime/selection"
 import { designTools, draftToNode, type DesignDraft, type DesignTool } from "./design/runtime/tools"
 
 const saveDelayMs = 400
@@ -96,8 +97,6 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
     schedule()
   }
 
-  const select = (id: DesignNodeId | undefined) => setSelection(id === undefined ? [] : [id])
-
   const createFromDraft = (draft: DesignDraft) => {
     const node = draftToNode(draft, `node-${Math.random().toString(36).slice(2, 10)}`)
     if (!node) return
@@ -146,11 +145,11 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
       redo()
       return
     }
-    const id = selection()[0]
-    if (!id) return
+    const ids = selection()
+    if (ids.length === 0) return
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault()
-      dispatch({ kind: "deleteNode", id })
+      dispatch({ kind: "deleteNodes", ids })
       setSelection([])
       return
     }
@@ -167,18 +166,19 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
     }
     const delta = deltas[event.key]
     if (!delta) return
-    const node = document().nodes[id]
-    if (!node) return
     event.preventDefault()
-    dispatch({
-      kind: "updateTransform",
-      id,
-      transform: { ...node.transform, x: node.transform.x + delta[0], y: node.transform.y + delta[1] },
-    })
+    const moves = selectionMoves(document(), ids, { x: delta[0], y: delta[1] })
+    if (moves.length > 0) dispatch({ kind: "translateNodes", moves })
   }
 
   return (
-    <div class="flex size-full min-h-0 flex-col" tabindex={0} onKeyDown={handleKey} data-design-canvas-tab>
+    <div
+      class="flex size-full min-h-0 flex-col"
+      tabindex={0}
+      onKeyDown={handleKey}
+      data-design-canvas-tab
+      data-design-canvas-selection={selection().join(",")}
+    >
       <div class="flex items-center gap-2 border-b border-border-base px-2 py-1">
         <For each={designTools}>
           {(entry) => (
@@ -247,7 +247,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
               document={document()}
               selection={selection()}
               tool={tool()}
-              onSelect={select}
+              onSelect={(ids) => setSelection(ids)}
               onCommand={dispatch}
               onCreate={createFromDraft}
             />

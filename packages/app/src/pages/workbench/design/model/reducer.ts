@@ -4,6 +4,7 @@ import type { DesignCommand } from "./commands"
 import { DesignDocumentError } from "./errors"
 import { pathBounds, serializePath, translatePath, type PathData } from "./path"
 import {
+  isAncestor,
   isContainerNode,
   type ContainerNodeV1,
   type DesignDocumentV1,
@@ -25,10 +26,14 @@ export function applyCommand(document: DesignDocumentV1, command: DesignCommand)
       return insertNode(document, command.node, command.parentId, command.index)
     case "deleteNode":
       return deleteNode(document, command.id)
+    case "deleteNodes":
+      return deleteNodes(document, command.ids)
     case "updateNode":
       return updateNode(document, command.id, command)
     case "updateTransform":
       return updateTransform(document, command.id, command.transform)
+    case "translateNodes":
+      return translateNodes(document, command.moves)
     case "updatePoints":
       return updatePoints(document, command.id, command.points)
     case "updatePath":
@@ -122,6 +127,18 @@ function deleteNode(document: DesignDocumentV1, id: DesignNodeId): DesignDocumen
   return withSiblings({ ...document, nodes }, node.parentId, siblings)
 }
 
+/**
+ * Multi-select delete: every listed node is validated against the source
+ * document before any removal, and a container listed alongside one of its
+ * descendants collapses to the container alone (its subtree already goes).
+ */
+function deleteNodes(document: DesignDocumentV1, ids: readonly DesignNodeId[]): DesignDocumentV1 {
+  if (ids.length === 0) throw new DesignDocumentError("invalid-command", "a deletion needs at least one node")
+  const roots = ids.filter((id) => !ids.some((other) => other !== id && isAncestor(document, other, id)))
+  for (const id of roots) requireUnlocked(document, id)
+  return roots.reduce((next, id) => deleteNode(next, id), document)
+}
+
 function updateNode(document: DesignDocumentV1, id: DesignNodeId, patch: { name?: string; visible?: boolean; locked?: boolean }): DesignDocumentV1 {
   const node = requireNode(document, id)
   const next: DesignNodeV1 = { ...node }
@@ -142,6 +159,32 @@ function assertTransform(transform: DesignTransformV1): void {
   if (values.some((value) => !Number.isFinite(value)) || transform.width < 0 || transform.height < 0) {
     throw new DesignDocumentError("invalid-transform", "transform must be finite with non-negative dimensions")
   }
+}
+
+/**
+ * Multi-select move: each entry carries its own parent-space delta because
+ * the caller derives it per node (parents may sit at different rotations).
+ * Every target is validated before any node is touched, so a batch that
+ * contains a locked or unknown node fails whole instead of moving half a
+ * selection.
+ */
+function translateNodes(document: DesignDocumentV1, moves: readonly { id: DesignNodeId; delta: DesignPointV1 }[]): DesignDocumentV1 {
+  if (moves.length === 0) throw new DesignDocumentError("invalid-command", "a translation needs at least one node")
+  const moved = new Set<DesignNodeId>()
+  const nodes = { ...document.nodes }
+  for (const move of moves) {
+    if (moved.has(move.id)) throw new DesignDocumentError("invalid-command", `node "${move.id}" is moved twice`)
+    moved.add(move.id)
+    const node = requireUnlocked(document, move.id)
+    if (!Number.isFinite(move.delta.x) || !Number.isFinite(move.delta.y)) {
+      throw new DesignDocumentError("invalid-command", "translation deltas must be finite")
+    }
+    nodes[move.id] = {
+      ...node,
+      transform: { ...node.transform, x: node.transform.x + move.delta.x, y: node.transform.y + move.delta.y },
+    }
+  }
+  return { ...document, nodes }
 }
 
 /**

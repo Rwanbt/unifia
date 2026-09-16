@@ -17,7 +17,7 @@ export function DesignCanvas(props: {
   document: DesignDocumentV1
   selection: readonly DesignNodeId[]
   tool: DesignTool
-  onSelect: (id: DesignNodeId | undefined) => void
+  onSelect: (ids: readonly DesignNodeId[]) => void
   onCommand: (command: DesignCommand) => void
   onCreate: (draft: DesignDraft) => void
 }): JSX.Element {

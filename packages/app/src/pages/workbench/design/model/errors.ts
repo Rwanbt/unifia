@@ -15,6 +15,7 @@ export type DesignDocumentErrorCode =
   | "cycle"
   | "invalid-transform"
   | "invalid-points"
+  | "invalid-command"
   | "not-editable"
   | "invalid-child-ids"
   | "missing-new-id"

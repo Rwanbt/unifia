@@ -64,6 +64,65 @@ describe("design command reducer", () => {
     expect(expectError(() => applyCommand(base, { kind: "deleteNode", id: "a" })).code).toBe("node-locked")
   })
 
+  test("deleteNodes collapses a container and its descendant into one removal", () => {
+    const next = applyCommand(nested(), { kind: "deleteNodes", ids: ["f", "a", "root"] })
+    expect(Object.keys(next.nodes)).toEqual([])
+    expect(next.rootIds).toEqual([])
+  })
+
+  test("deleteNodes validates every listed node before removing anything", () => {
+    const locked = doc([frame("f", ["a"]), rect("a", { parentId: "f", locked: true }), rect("b")])
+    expect(expectError(() => applyCommand(locked, { kind: "deleteNodes", ids: ["b", "a"] })).code).toBe("node-locked")
+    expect(expectError(() => applyCommand(locked, { kind: "deleteNodes", ids: [] })).code).toBe("invalid-command")
+    expect(expectError(() => applyCommand(locked, { kind: "deleteNodes", ids: ["ghost"] })).code).toBe("node-not-found")
+  })
+
+  test("translateNodes moves every listed node in one command", () => {
+    const base = doc([
+      rect("a", { transform: { x: 10, y: 10, width: 10, height: 10, rotation: 0 } }),
+      rect("b", { transform: { x: 100, y: 50, width: 10, height: 10, rotation: 30 } }),
+    ])
+    const next = applyCommand(base, {
+      kind: "translateNodes",
+      moves: [
+        { id: "a", delta: { x: 5, y: -5 } },
+        { id: "b", delta: { x: 5, y: -5 } },
+      ],
+    })
+    expect(next.nodes.a.transform).toEqual({ x: 15, y: 5, width: 10, height: 10, rotation: 0 })
+    expect(next.nodes.b.transform).toEqual({ x: 105, y: 45, width: 10, height: 10, rotation: 30 })
+  })
+
+  test("translateNodes refuses empty, repeated, non-finite and locked moves whole", () => {
+    const base = doc([rect("a"), rect("b", { locked: true })])
+    expect(expectError(() => applyCommand(base, { kind: "translateNodes", moves: [] })).code).toBe("invalid-command")
+    expect(
+      expectError(() =>
+        applyCommand(base, {
+          kind: "translateNodes",
+          moves: [
+            { id: "a", delta: { x: 1, y: 1 } },
+            { id: "a", delta: { x: 1, y: 1 } },
+          ],
+        }),
+      ).code,
+    ).toBe("invalid-command")
+    expect(
+      expectError(() => applyCommand(base, { kind: "translateNodes", moves: [{ id: "a", delta: { x: Number.NaN, y: 0 } }] })).code,
+    ).toBe("invalid-command")
+    expect(
+      expectError(() =>
+        applyCommand(base, {
+          kind: "translateNodes",
+          moves: [
+            { id: "a", delta: { x: 1, y: 1 } },
+            { id: "b", delta: { x: 1, y: 1 } },
+          ],
+        }),
+      ).code,
+    ).toBe("node-locked")
+  })
+
   test("updateNode renames, toggles visibility and lock state", () => {
     const base = doc([rect("a")])
     const renamed = applyCommand(base, { kind: "updateNode", id: "a", name: "Hero" })

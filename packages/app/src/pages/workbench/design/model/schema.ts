@@ -141,3 +141,17 @@ export type ContainerNodeV1 = FrameNodeV1 | GroupNodeV1
 export function isContainerNode(node: DesignNodeV1): node is ContainerNodeV1 {
   return node.type === "frame" || node.type === "group"
 }
+
+/**
+ * True when `ancestorId` sits anywhere up `id`'s parent chain. Selection and
+ * deletion need it so a container and one of its descendants never take part
+ * in the same operation (translating both would move the descendant twice).
+ */
+export function isAncestor(document: DesignDocumentV1, ancestorId: DesignNodeId, id: DesignNodeId): boolean {
+  let current: DesignNodeId | null = document.nodes[id]?.parentId ?? null
+  while (current !== null) {
+    if (current === ancestorId) return true
+    current = document.nodes[current]?.parentId ?? null
+  }
+  return false
+}

@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import { DesignDocumentError } from "../model/errors"
 import { doc, frame, rect, zeroTransform } from "../model/fixtures"
-import { applyToPoint, identityMatrix, localMatrix, multiplyMatrices, nodeMatrix } from "./geometry"
+import { applyInverseLinear, applyLinear, applyToPoint, identityMatrix, localMatrix, multiplyMatrices, nodeMatrix } from "./geometry"
 
 function translate(x: number, y: number) {
   return { a: 1, b: 0, c: 0, d: 1, e: x, f: y }
@@ -40,5 +40,17 @@ describe("design geometry", () => {
 
   test("nodeMatrix refuses an unknown node", () => {
     expect(() => nodeMatrix(doc([]), "ghost")).toThrow(DesignDocumentError)
+  })
+
+  test("linear helpers ignore translation and invert a rotation", () => {
+    const move = translate(100, 100)
+    expect(applyLinear(move, { x: 3, y: 4 })).toEqual({ x: 3, y: 4 })
+    const rotated = localMatrix({ ...zeroTransform, rotation: 90 })
+    const world = applyLinear(rotated, { x: 10, y: 0 })
+    expect(world.x).toBeCloseTo(0, 10)
+    expect(world.y).toBeCloseTo(10, 10)
+    const back = applyInverseLinear(rotated, world)
+    expect(back.x).toBeCloseTo(10, 10)
+    expect(back.y).toBeCloseTo(0, 10)
   })
 })

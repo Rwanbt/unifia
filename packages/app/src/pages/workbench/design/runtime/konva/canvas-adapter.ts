@@ -4,8 +4,9 @@ import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
 import { movePathHandle, parsePath, pathHandles, serializePath, translatePath } from "../../model/path"
 import type { DesignDocumentV1, DesignNodeId, DesignNodeV1, LineNodeV1, PathNodeV1 } from "../../model/schema"
-import { applyToPoint, identityMatrix, nodeMatrix, type DesignMatrix, type DesignPoint } from "../geometry"
+import { applyInverseLinear, applyLinear, applyToPoint, identityMatrix, nodeMatrix, type DesignMatrix, type DesignPoint } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
+import { nodeWorldRect, parentMatrix, pickInRect, selectionMoves, toggleSelection } from "../selection"
 import { designSnapThresholdPx, snapCandidates, snapRect, type DesignSnapGuide } from "../snapping"
 import { draftRect, isDraftUsable, type DesignDraft, type DesignTool } from "../tools"
 import { panBy, screenToWorld, zoomAt, type DesignViewport } from "../viewport"
@@ -18,7 +19,7 @@ type KonvaContainer = InstanceType<KonvaModule["Container"]>
 
 export type KonvaCanvasOptions = {
   container: HTMLDivElement
-  onSelect: (id: DesignNodeId | undefined) => void
+  onSelect: (ids: readonly DesignNodeId[]) => void
   onCommand: (command: DesignCommand) => void
   onViewport: (viewport: DesignViewport) => void
   onCreate: (draft: DesignDraft) => void
@@ -40,6 +41,7 @@ const guideStroke = "#2563eb"
 const guideExtent = 5000
 const anchorRadius = 5
 const controlRadius = 4
+const marqueeFill = "rgba(37, 99, 235, 0.12)"
 
 /**
  * Imperative Konva adapter. Konva is loaded lazily so it never reaches the
@@ -74,6 +76,18 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   // Anchor handles for polyline editing (line/path nodes, unrotated).
   const anchors = new Konva.Group()
   overlay.add(anchors)
+  // Selection chrome (multi-select outlines) and the transient marquee are
+  // editor state and never reach the document (ADR-039 section 9).
+  const outlines = new Konva.Group({ listening: false })
+  overlay.add(outlines)
+  const marqueeRect = new Konva.Rect({
+    stroke: guideStroke,
+    strokeWidth: 1,
+    fill: marqueeFill,
+    visible: false,
+    listening: false,
+  })
+  overlay.add(marqueeRect)
   stage.add(content)
   stage.add(overlay)
 
@@ -84,10 +98,21 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   let tool: DesignTool = "select"
   let draft: DraftState | undefined
   let preview: KonvaShape | undefined
+  let marquee: DesignPoint | undefined
+  let dragGroup: DragGroup | undefined
+  let spaceHeld = false
+  let suppressClick = false
 
   type DraftState =
     | { kind: "rectangle" | "ellipse" | "line"; start: DesignPoint }
     | { kind: "pen"; points: DesignPoint[] }
+
+  type DragGroup = {
+    /** Leader position at dragstart, in its parent's space. */
+    start: DesignPoint
+    parent: DesignMatrix
+    members: { node: KonvaNode; id: DesignNodeId; start: DesignPoint }[]
+  }
 
   const applyViewport = () => {
     content.position({ x: viewport.panX, y: viewport.panY })
@@ -231,6 +256,28 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     transformer.nodes([node])
   }
 
+  /** Multi-selection shows one world-space outline per node (the single-node
+   *  case keeps the transformer, which already draws its own border). */
+  const applyOutlines = () => {
+    outlines.destroyChildren()
+    if (!document || selection.length < 2) return
+    for (const id of selection) {
+      const box = nodeWorldRect(document, id)
+      if (!box) continue
+      outlines.add(
+        new Konva.Rect({
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          stroke: guideStroke,
+          strokeWidth: 1,
+          listening: false,
+        }),
+      )
+    }
+  }
+
   const anchorCircle = (point: DesignPoint, control = false) =>
     new Konva.Circle({
       x: point.x,
@@ -342,6 +389,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     for (const item of projectDocument(document)) buildNode(item, content)
     applySelection()
     applyAnchors()
+    applyOutlines()
   }
 
   const commitNode = (node: KonvaNode) => {
@@ -528,16 +576,86 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") cancelDraft()
     if (event.key === "Enter") finishDraft()
+    if (event.code === "Space") {
+      // Space+drag is the pan gesture; keep it from scrolling the page.
+      event.preventDefault()
+      spaceHeld = true
+      options.container.style.cursor = "grab"
+    }
+  }
+  const onKeyUp = (event: KeyboardEvent) => {
+    if (event.code !== "Space") return
+    spaceHeld = false
+    options.container.style.cursor = tool === "select" ? "" : "crosshair"
   }
   options.container.addEventListener("keydown", onKeyDown)
+  options.container.addEventListener("keyup", onKeyUp)
+
+  /**
+   * Multi-selection dragging: the grabbed node (leader) drives, every other
+   * member follows by the same world delta converted into its own parent
+   * space. Snapping and outlines are single-selection affordances, so they
+   * step aside while a group moves.
+   */
+  const beginDragGroup = (leader: KonvaNode) => {
+    dragGroup = undefined
+    if (tool !== "select" || !document || selection.length < 2) return
+    const id = designIdOf(leader)
+    if (id === undefined || !selection.includes(id)) return
+    const parent = parentMatrix(document, id)
+    if (!parent) return
+    outlines.destroyChildren()
+    dragGroup = {
+      start: { x: leader.x(), y: leader.y() },
+      parent,
+      members: selection.flatMap((memberId) => {
+        if (memberId === id) return []
+        const member = shapes.get(memberId)
+        return member ? [{ node: member, id: memberId, start: { x: member.x(), y: member.y() } }] : []
+      }),
+    }
+  }
+
+  const moveDragGroup = (leader: KonvaNode) => {
+    const group = dragGroup
+    if (!group || !document) return
+    const world = applyLinear(group.parent, { x: leader.x() - group.start.x, y: leader.y() - group.start.y })
+    for (const member of group.members) {
+      const delta = applyInverseLinear(parentMatrix(document, member.id) ?? identityMatrix, world)
+      member.node.position({ x: member.start.x + delta.x, y: member.start.y + delta.y })
+    }
+    overlay.batchDraw()
+  }
+
+  const commitDragGroup = (leader: KonvaNode) => {
+    const group = dragGroup
+    dragGroup = undefined
+    if (!group || !document) return
+    const world = applyLinear(group.parent, { x: leader.x() - group.start.x, y: leader.y() - group.start.y })
+    const moves = selectionMoves(document, selection, world)
+    if (moves.length > 0) options.onCommand({ kind: "translateNodes", moves })
+  }
 
   // `transformend` is fired by the Transformer with `_fire` (no bubbling), so
   // both events are wired per node; only `dragend` would reach the stage.
   const wire = (node: KonvaNode) => {
-    node.on("dragstart", () => options.container.focus({ preventScroll: true }))
-    node.on("dragmove", () => snapWhileDragging(node))
+    node.on("dragstart", () => {
+      options.container.focus({ preventScroll: true })
+      beginDragGroup(node)
+    })
+    node.on("dragmove", () => {
+      if (dragGroup) {
+        moveDragGroup(node)
+        return
+      }
+      snapWhileDragging(node)
+    })
     node.on("dragend", () => {
       hideGuides()
+      if (dragGroup) {
+        commitDragGroup(node)
+        return
+      }
       commitNode(node)
     })
     node.on("transformend", () => {
@@ -559,36 +677,89 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   stage.on("mousedown touchstart", () => options.container.focus({ preventScroll: true }))
 
   stage.on("click tap", (event) => {
+    if (suppressClick) {
+      suppressClick = false
+      return
+    }
+    if (tool !== "select" || !document) return
     if (event.target === stage) {
-      options.onSelect(undefined)
+      options.onSelect([])
       return
     }
     const target = event.target as KonvaNode
     if (isOverlayControl(target)) return
-    options.onSelect(designIdOf(target))
+    const hit = designIdOf(target)
+    if (hit === undefined) return
+    const evt = event.evt as MouseEvent
+    if (evt.metaKey || evt.ctrlKey || evt.shiftKey) {
+      options.onSelect(toggleSelection(document, selection, hit))
+      return
+    }
+    // A plain click keeps an existing multi-selection so the whole set can be
+    // dragged as one; it replaces the selection otherwise (mockup parity).
+    if (!selection.includes(hit)) options.onSelect([hit])
   })
 
   let panning = false
   let lastPointer: { x: number; y: number } | undefined
   stage.on("pointerdown", (event) => {
     if (tool !== "select") return
-    if (event.target !== stage) return
-    panning = true
-    lastPointer = stage.getPointerPosition() ?? undefined
+    const button = (event.evt as MouseEvent).button
+    // Space or the middle button pans; a plain left drag on empty space is
+    // the marquee (INTERACTIONS.md — Design).
+    if (button === 1 || spaceHeld) {
+      panning = true
+      suppressClick = true
+      lastPointer = stage.getPointerPosition() ?? undefined
+      return
+    }
+    if (button !== 0 || event.target !== stage || !document) return
+    const world = worldPoint()
+    if (!world) return
+    suppressClick = true
+    marquee = world
+    marqueeRect.setAttrs({ x: world.x, y: world.y, width: 0, height: 0, visible: true })
+    overlay.batchDraw()
   })
   stage.on("pointermove", () => {
-    if (!panning) return
-    const pointer = stage.getPointerPosition()
-    if (!pointer || !lastPointer) return
-    viewport = panBy(viewport, pointer.x - lastPointer.x, pointer.y - lastPointer.y)
-    lastPointer = pointer
-    applyViewport()
+    if (panning) {
+      const pointer = stage.getPointerPosition()
+      if (!pointer || !lastPointer) return
+      viewport = panBy(viewport, pointer.x - lastPointer.x, pointer.y - lastPointer.y)
+      lastPointer = pointer
+      applyViewport()
+      return
+    }
+    if (!marquee) return
+    const world = worldPoint()
+    if (!world) return
+    marqueeRect.setAttrs({
+      x: Math.min(marquee.x, world.x),
+      y: Math.min(marquee.y, world.y),
+      width: Math.abs(world.x - marquee.x),
+      height: Math.abs(world.y - marquee.y),
+    })
+    overlay.batchDraw()
   })
   stage.on("pointerup pointercancel", () => {
-    if (!panning) return
-    panning = false
-    lastPointer = undefined
-    options.onViewport(viewport)
+    if (panning) {
+      panning = false
+      lastPointer = undefined
+      options.onViewport(viewport)
+      return
+    }
+    if (!marquee) return
+    marquee = undefined
+    const rect = { x: marqueeRect.x(), y: marqueeRect.y(), width: marqueeRect.width(), height: marqueeRect.height() }
+    marqueeRect.visible(false)
+    overlay.batchDraw()
+    if (!document) return
+    // A zero-size drag is a plain click on empty space.
+    if (rect.width < 2 && rect.height < 2) {
+      options.onSelect([])
+      return
+    }
+    options.onSelect(pickInRect(document, rect))
   })
 
   stage.on("wheel", (event) => {
@@ -618,11 +789,15 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
       options.container.style.cursor = tool === "select" ? "" : "crosshair"
       rebuild()
       applyViewport()
-      content.batchDraw()
-      overlay.batchDraw()
+      // Synchronous draw: `batchDraw` defers to the next frame, which leaves a
+      // window where the hit canvas is empty and an immediate click misses the
+      // shapes it should hit (and falls through to the marquee).
+      content.draw()
+      overlay.draw()
     },
     destroy: () => {
       options.container.removeEventListener("keydown", onKeyDown)
+      options.container.removeEventListener("keyup", onKeyUp)
       observer.disconnect()
       stage.destroy()
     },

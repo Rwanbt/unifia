@@ -17,8 +17,10 @@ export type DesignNodePatch = {
 export type DesignCommand =
   | { kind: "insertNode"; node: DesignNodeV1; parentId: DesignNodeId | null; index?: number }
   | { kind: "deleteNode"; id: DesignNodeId }
+  | { kind: "deleteNodes"; ids: readonly DesignNodeId[] }
   | ({ kind: "updateNode"; id: DesignNodeId } & DesignNodePatch)
   | { kind: "updateTransform"; id: DesignNodeId; transform: DesignTransformV1 }
+  | { kind: "translateNodes"; moves: readonly { id: DesignNodeId; delta: DesignPointV1 }[] }
   | { kind: "updatePoints"; id: DesignNodeId; points: readonly DesignPointV1[] }
   | { kind: "updatePath"; id: DesignNodeId; data: PathData }
   | { kind: "reorderNode"; id: DesignNodeId; toIndex: number }
