@@ -25,12 +25,12 @@ Pour chaque surface :
 | Topbar | mobile-portrait | show topbar | maquette mobile mockup | layout.tsx topbar mobile | ✅ partiel |
 | Rail (mode nav 4 buttons) | desktop-large | click → switch mode | `data-v110-rail` mode nav | context/mode (4 modes) | ✅ partiel |
 | Rail | desktop-compact | collapse mode label | maquette | mode.modes accessor | ✅ partiel |
-| Rail | tablet-portrait | collapse | maquette | ? | ⚠️ à tester |
-| Rail | mobile-portrait | hide, mobile-nav only | `data-v110-mobile-nav` | shell/v110-mobile-nav.tsx | ✅ partiel |
+| Rail | tablet-portrait | collapse | maquette | livré et vérifié : rail replié dans le tiroir hors-canvas (drawer `sidebar-nav-mobile` x<0, pas de nav basse, hamburger topbar) ; e2e `a3-shell-mobile` | ✅ |
+| Rail | mobile-portrait | hide, mobile-nav only | `data-v110-mobile-nav` | vérifié : rail hors-canvas, nav basse visible avec exactement les modes du rail (comptage dynamique, pas de liste codée) ; e2e `a3-shell-mobile` | ✅ |
 | Sidebar (WorkspaceSidebarContext) | desktop-large | open/close + hover-peek | inline JSX + 3 factories (Phase 49-50) | OK factories shipped | ✅ partial |
 | Sidebar | desktop-compact | close on smaller | maquette | `state.peeked` | ✅ partiel |
 | Sidebar | tablet-portrait | collapse, peek on hover | maquette | aim.move | ✅ partiel |
-| Sidebar | mobile-portrait | hidden, drawer | maquette | mobile | ? | ⚠️ à tester |
+| Sidebar | mobile-portrait | hidden, drawer | maquette | vérifié : cachée hors-canvas, ouverte/fermée par le bouton « Toggle menu » de la topbar (`aria-expanded` synchronisé) ; e2e `a3-shell-mobile` | ✅ |
 | Inspector (3 tabs Explorer/Inspector/Execution) | desktop-large | click tab | `data-v110-inspector-frame` | v110-inspector-frame.tsx (TABS=["explorer","inspector","execution"]) | ✅ partiel |
 | Inspector | desktop-compact | persist open/close | maquette | layout.inspector | ✅ partiel |
 | Inspector | tablet/mobile | collapse by default | maquette | e2e `a3-responsive` — onglets Explorer/Inspector/Execution atteignables + panneau Memory triptyque/single sur les 5 familles | ✅ partial |
@@ -51,9 +51,9 @@ Pour chaque surface :
 | Surface | Viewport | Interaction | Source maquette | Runtime | Status |
 |---|---|---|---|---|---|
 | Chat composer (textarea + send) | desktop-large | type + Enter send | `data-v110-composer` | SessionComposerRegion | ✅ partial |
-| Chat composer | mobile-portrait | show keyboard, full-width | maquette | mobile adapter | ⚠️ à tester |
+| Chat composer | mobile-portrait | show keyboard, full-width | maquette | vérifié : composeur pleine largeur (≥ viewport−40) et au-dessus de la nav basse (dock ≤ nav) ; le clavier virtuel est un comportement Tauri/mobile hors CI ; e2e `a3-shell-mobile` | ✅ |
 | Chat message timeline | desktop-large | scroll, jump-to-anchor | session timeline | SessionTimelineSection (Vague 3) | ✅ partial |
-| Chat message timeline | mobile-portrait | compress, sticky composer | maquette | mobile mode | ⚠️ à tester |
+| Chat message timeline | mobile-portrait | compress, sticky composer | maquette | vérifié : message rendu compressé (overflow x = 0 à 390 px) et dock du composeur immobile pendant le scroll de la zone messages ; e2e `a3-shell-mobile` | ✅ |
 | Chat followup dock | desktop | queue / send / edit | inline object in session.tsx | followupDock signal | ⚠️ à extraire (Vague 4) |
 | Chat revert dock | desktop | items / restore | inline object in session.tsx | rolled()/reverting() | ⚠️ à extraire |
 | Chat permission dock | desktop | grant / deny | SessionComposerRegion | permission logic | ✅ partial |
