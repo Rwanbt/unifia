@@ -3,9 +3,9 @@
 import { pathBounds, serializePath, translatePath, type PathData, type PathSegment } from "../model/path"
 import type { DesignNodeV1, DesignPointV1 } from "../model/schema"
 
-export type DesignTool = "select" | "rectangle" | "ellipse" | "line" | "pen"
+export type DesignTool = "select" | "rectangle" | "ellipse" | "line" | "pen" | "comment"
 
-export const designTools: readonly DesignTool[] = ["select", "rectangle", "ellipse", "line", "pen"]
+export const designTools: readonly DesignTool[] = ["select", "rectangle", "ellipse", "line", "pen", "comment"]
 
 /** A click without a drag must not create a degenerate node. */
 export const designDraftMinSize = 4

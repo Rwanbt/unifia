@@ -16,6 +16,8 @@ import { mergeDesignDocuments } from "./design/model/merge"
 import type { DesignDocumentV1, DesignNodeId } from "./design/model/schema"
 import { importLegacySketch } from "./design/persistence/legacy-import"
 import { createLocalStorageDesignDocumentRepository } from "./design/persistence/local-storage-repository"
+import type { DesignCommentTarget } from "./design/runtime/comments"
+import { DesignCommentsPanel } from "./design/runtime/comments-panel"
 import { DesignCanvas } from "./design/runtime/design-canvas"
 import { DesignLayersPanel } from "./design/runtime/layers-panel"
 import { selectionMoves } from "./design/runtime/selection"
@@ -35,6 +37,9 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
   const [document, setDocument] = createSignal<DesignDocumentV1>(createDesignDocument(props.id, "Canvas"))
   const [selection, setSelection] = createSignal<readonly DesignNodeId[]>([])
   const [tool, setTool] = createSignal<DesignTool>("select")
+  const [commentsOpen, setCommentsOpen] = createSignal(false)
+  const [commentTarget, setCommentTarget] = createSignal<DesignCommentTarget>()
+  const [highlightedComment, setHighlightedComment] = createSignal<string>()
   const [history, setHistory] = createSignal<DesignHistoryState>(emptyDesignHistory)
   const [error, setError] = createSignal<string>()
   const [importInfo, setImportInfo] = createSignal<string>()
@@ -95,6 +100,14 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
     setHistory(result.state)
     setDocument(result.document)
     schedule()
+  }
+
+  const chooseTool = (entry: DesignTool) => {
+    setTool(entry)
+    // v51: picking the comment tool opens its panel; leaving it drops the
+    // pending target so a stale chip never survives a tool switch.
+    if (entry === "comment") setCommentsOpen(true)
+    else setCommentTarget(undefined)
   }
 
   const createFromDraft = (draft: DesignDraft) => {
@@ -187,7 +200,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
               class="rounded border border-border-base px-2 py-1 text-12-regular capitalize"
               classList={{ "bg-background-stronger": tool() === entry }}
               data-design-tool={entry}
-              onClick={() => setTool(entry)}
+              onClick={() => chooseTool(entry)}
             >
               {entry}
             </button>
@@ -242,7 +255,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
             onSelect={(id) => setSelection([id])}
             onCommand={dispatch}
           />
-          <div class="relative min-h-0 flex-1">
+          <div class="relative min-h-0 min-w-0 flex-1">
             <DesignCanvas
               document={document()}
               selection={selection()}
@@ -250,8 +263,29 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
               onSelect={(ids) => setSelection(ids)}
               onCommand={dispatch}
               onCreate={createFromDraft}
+              onCommentTarget={setCommentTarget}
+              onCommentFocus={(id) => {
+                setCommentsOpen(true)
+                setHighlightedComment(id)
+              }}
             />
           </div>
+          <Show when={commentsOpen()}>
+            <DesignCommentsPanel
+              document={document()}
+              target={commentTarget()}
+              highlighted={highlightedComment()}
+              onCommand={dispatch}
+              onSelect={(ids) => setSelection(ids)}
+              onClearTarget={() => setCommentTarget(undefined)}
+              onClose={() => {
+                setCommentsOpen(false)
+                setCommentTarget(undefined)
+                setHighlightedComment(undefined)
+                if (tool() === "comment") setTool("select")
+              }}
+            />
+          </Show>
         </Show>
       </div>
     </div>

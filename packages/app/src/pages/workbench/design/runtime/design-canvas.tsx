@@ -3,6 +3,7 @@
 import { createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js"
 import type { DesignCommand } from "../model/commands"
 import type { DesignDocumentV1, DesignNodeId } from "../model/schema"
+import type { DesignCommentTarget } from "./comments"
 import { createKonvaCanvas, type KonvaCanvasHandle } from "./konva/canvas-adapter"
 import type { DesignDraft, DesignTool } from "./tools"
 import type { DesignViewport } from "./viewport"
@@ -20,6 +21,8 @@ export function DesignCanvas(props: {
   onSelect: (ids: readonly DesignNodeId[]) => void
   onCommand: (command: DesignCommand) => void
   onCreate: (draft: DesignDraft) => void
+  onCommentTarget?: (target: DesignCommentTarget) => void
+  onCommentFocus?: (id: string) => void
 }): JSX.Element {
   let container!: HTMLDivElement
   let handle: KonvaCanvasHandle | undefined
@@ -38,6 +41,8 @@ export function DesignCanvas(props: {
       onCommand: props.onCommand,
       onViewport: setViewport,
       onCreate: props.onCreate,
+      onCommentTarget: props.onCommentTarget,
+      onCommentFocus: props.onCommentFocus,
     })
       .then((created) => {
         if (disposed) {

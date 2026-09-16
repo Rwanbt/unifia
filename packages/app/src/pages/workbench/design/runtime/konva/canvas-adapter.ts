@@ -4,6 +4,7 @@ import type KonvaNS from "konva"
 import type { DesignCommand } from "../../model/commands"
 import { movePathHandle, parsePath, pathHandles, serializePath, translatePath } from "../../model/path"
 import type { DesignDocumentV1, DesignNodeId, DesignNodeV1, LineNodeV1, PathNodeV1 } from "../../model/schema"
+import { commentPinPosition, type DesignCommentTarget } from "../comments"
 import { applyInverseLinear, applyLinear, applyToPoint, identityMatrix, nodeMatrix, type DesignMatrix, type DesignPoint } from "../geometry"
 import { projectDocument, type DesignProjectionNode } from "../project"
 import { nodeWorldRect, parentMatrix, pickInRect, selectionMoves, toggleSelection } from "../selection"
@@ -23,6 +24,8 @@ export type KonvaCanvasOptions = {
   onCommand: (command: DesignCommand) => void
   onViewport: (viewport: DesignViewport) => void
   onCreate: (draft: DesignDraft) => void
+  onCommentTarget?: (target: DesignCommentTarget) => void
+  onCommentFocus?: (id: string) => void
 }
 
 export type KonvaCanvasHandle = {
@@ -42,6 +45,7 @@ const guideExtent = 5000
 const anchorRadius = 5
 const controlRadius = 4
 const marqueeFill = "rgba(37, 99, 235, 0.12)"
+const pinRadius = 9
 // Screen-space pen gestures, converted to world units per zoom.
 const penCloseThresholdPx = 10
 const penHandleThresholdPx = 3
@@ -91,6 +95,10 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     listening: false,
   })
   overlay.add(marqueeRect)
+  // Comment pins (ADR-039 section 31): document chrome drawn in world space,
+  // clickable to focus the matching row in the comments panel.
+  const pins = new Konva.Group()
+  overlay.add(pins)
   stage.add(content)
   stage.add(overlay)
 
@@ -385,6 +393,37 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     overlay.batchDraw()
   }
 
+  /** Comment pins: numbered, resolved ones faded, click focuses the row. */
+  const applyPins = () => {
+    pins.destroyChildren()
+    const doc = document
+    if (!doc) return
+    const comments = doc.comments ?? []
+    comments.forEach((comment, index) => {
+      const point = commentPinPosition(doc, comment)
+      if (!point) return
+      const pin = new Konva.Group({ x: point.x, y: point.y, opacity: comment.status === "resolved" ? 0.45 : 1 })
+      pin.add(new Konva.Circle({ radius: pinRadius, fill: guideStroke, stroke: frameFill, strokeWidth: 1.5 }))
+      pin.add(
+        new Konva.Text({
+          text: String(index + 1),
+          fontSize: 9,
+          fill: frameFill,
+          width: pinRadius * 2,
+          x: -pinRadius,
+          y: -4.5,
+          align: "center",
+          listening: false,
+        }),
+      )
+      pin.on("click tap", (event) => {
+        event.cancelBubble = true
+        options.onCommentFocus?.(comment.id)
+      })
+      pins.add(pin)
+    })
+  }
+
   const rebuild = () => {
     content.destroyChildren()
     shapes.clear()
@@ -394,6 +433,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     applySelection()
     applyAnchors()
     applyOutlines()
+    applyPins()
   }
 
   const commitNode = (node: KonvaNode) => {
@@ -555,10 +595,16 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
     clearPreview()
   }
 
-  stage.on("pointerdown", () => {
+  stage.on("pointerdown", (event) => {
     if (tool === "select") return
     const world = worldPoint()
     if (!world) return
+    if (tool === "comment") {
+      const target = event.target as KonvaNode
+      if (isOverlayControl(target)) return
+      options.onCommentTarget?.({ nodeId: designIdOf(target) ?? null, x: world.x, y: world.y })
+      return
+    }
     if (tool === "pen") {
       const points = draft?.kind === "pen" ? draft.points : []
       const first = points[0]
@@ -709,7 +755,7 @@ export async function createKonvaCanvas(options: KonvaCanvasOptions): Promise<Ko
   const isOverlayControl = (node: KonvaNode): boolean => {
     let current: KonvaNode | null = node
     while (current) {
-      if (current === transformer || current === anchors) return true
+      if (current === transformer || current === anchors || current === pins) return true
       current = current.getParent()
     }
     return false
