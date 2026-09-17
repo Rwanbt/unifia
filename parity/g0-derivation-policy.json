@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Derive G0 mode from the lock state. The mode is never author-filled; it is computed at run time and must equal the slice's contract.",
+  "variables": {
+    "currentHarnessCommit": "PENDING-F0",
+    "pilotToolchainCommit": null,
+    "pilotContractLockHash": null,
+    "fullToolchainCommit": null,
+    "fullContractLockHash": null,
+    "environmentLockHash": "PENDING-F0",
+    "aaCalibrationHash": null,
+    "aaPrimeHash": null
+  },
+  "derivation": [
+    {
+      "if": "pilotContractLockHash == null && fullContractLockHash == null",
+      "mode": "G0_BOOTSTRAP",
+      "qualifying": false
+    },
+    {
+      "if": "pilotContractLockHash != null && fullContractLockHash == null && environmentLockHash == ENV_LOCK_HASH && aaCalibrationHash != null && aaPrimeHash != null",
+      "mode": "G0_PILOT",
+      "qualifying": true
+    },
+    {
+      "if": "fullContractLockHash != null && pilotContractLockHash != null && environmentLockHash == ENV_LOCK_HASH && currentHarnessCommit != fullToolchainCommit",
+      "mode": "G0_TOOL_CHANGE",
+      "qualifying": false
+    },
+    {
+      "if": "fullContractLockHash != null && environmentLockHash == ENV_LOCK_HASH && currentHarnessCommit == fullToolchainCommit && aaCalibrationHash != null && aaPrimeHash != null",
+      "mode": "G0_FULL",
+      "qualifying": true
+    },
+    {
+      "if": "ANY_OTHER_STATE",
+      "mode": "INVALID_G0_STATE",
+      "qualifying": false
+    }
+  ],
+  "initialState": "G0_BOOTSTRAP",
+  "notes": [
+    "PF0 establishes G0_BOOTSTRAP until L0 (pilot lock) and QF0 (full lock) are written.",
+    "G0_TOOL_CHANGE stays NOT_QUALIFYING until requalified.",
+    "Each toolchain rotation must be a separate commit; do not mix tool + UI."
+  ]
+}

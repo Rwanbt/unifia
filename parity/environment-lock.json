@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Pin the reference maquette and the environment that qualifies the v110 visual parity port. Any divergence on the listed fields fails G0.",
+  "reference": {
+    "path": "docs/ui-reference/v110/Unifia-UI-UX-v110-PORT-READY-R1.html",
+    "sha256": "6c01e84c27abf7665bb4de65e0c3969b7af0f020129aa971916376b1ca69818b",
+    "kind": "html-maquette-frozen",
+    "verifiedAt": "2026-09-18T00:00:00Z"
+  },
+  "image": {
+    "kind": "host-toolchain",
+    "note": "F0 ships a Docker image; PF0 only fingerprints the host as a warning. Locked image digest enters pilot-contract-lock.json at L0.",
+    "dockerfilePath": "Dockerfile",
+    "dockerfileHash": "PENDING-F0",
+    "buildScriptHash": "PENDING-F0"
+  },
+  "runtimes": {
+    "bun": "1.3.14",
+    "node": "22.15.1",
+    "packageManager": "bun@1.3.11",
+    "playwright": "1.57.0",
+    "typescript": "5.8.2",
+    "postcss": "8.5.26",
+    "axe": "4.13.0",
+    "biome": "2.4.14"
+  },
+  "config": {
+    "bunLockHash": "PENDING-F0",
+    "rootPackageJsonHash": "PENDING-F0",
+    "appPackageJsonHash": "PENDING-F0",
+    "playwrightConfigHash": "PENDING-F0",
+    "viteConfigHash": "PENDING-F0",
+    "vitestConfigHash": "PENDING-F0"
+  },
+  "clock": {
+    "fixedClockUtc": "2026-09-18T00:00:00Z",
+    "randomSeed": "v110-port-2026-09-18",
+    "timezone": "UTC"
+  },
+  "rendering": {
+    "dpr": [1, 2],
+    "motionPreference": ["reduce", "no-preference"],
+    "colorSchemes": ["dark", "light"]
+  },
+  "locales": {
+    "required": ["fr-FR/ltr", "de-DE/ltr", "ar/rtl"],
+    "available": [],
+    "note": "Filled by reference-locale-capabilities.json; UNSUPPORTED_REFERENCE if absent."
+  },
+  "fonts": {
+    "fontSetPath": "PENDING-F0",
+    "fontSetHash": "PENDING-F0",
+    "families": [],
+    "note": "F0 fingerprints system + packaged fonts. G0 compares fc-list to fontSet."
+  },
+  "network": {
+    "blockedDuringQualification": true
+  }
+}

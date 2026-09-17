@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Catalogue every generated artefact that should be excluded from LOC accounting. Each entry must be reproducible: regenerate → canonical hash identical, else FAIL.",
+  "outputs": [
+    {
+      "path": "parity/artifacts/aa-calibration.json",
+      "generatorPath": "packages/app/scripts/parity/aa.ts",
+      "generatorSha256": "PENDING-F0",
+      "inputSet": ["reference-maquette", "browser-fresh-contexts-x4"],
+      "derivedOnly": true,
+      "regenerationCommand": "bun run --cwd packages/app parity:aa"
+    },
+    {
+      "path": "parity/artifacts/parity-run.json",
+      "generatorPath": "packages/app/scripts/parity/run.ts",
+      "generatorSha256": "PENDING-F0",
+      "inputSet": ["locks", "manifest", "environment"],
+      "derivedOnly": true,
+      "regenerationCommand": "bun run --cwd packages/app parity:full"
+    },
+    {
+      "path": "parity/artifacts/parity-result.json",
+      "generatorPath": "packages/app/scripts/parity/result.ts",
+      "generatorSha256": "PENDING-F0",
+      "inputSet": ["parity-run.json", "manifest"],
+      "derivedOnly": true,
+      "regenerationCommand": "bun run --cwd packages/app parity:full"
+    },
+    {
+      "path": "packages/app/dist/**",
+      "generatorPath": "vite build",
+      "generatorSha256": "PENDING-F0",
+      "inputSet": ["packages/app/src/**"],
+      "derivedOnly": true,
+      "regenerationCommand": "bun run --cwd packages/app build"
+    },
+    {
+      "path": "packages/app/.vite/**",
+      "generatorPath": "vite dev",
+      "generatorSha256": "PENDING-F0",
+      "inputSet": ["packages/app/src/**"],
+      "derivedOnly": true,
+      "regenerationCommand": "bun run --cwd packages/app dev"
+    }
+  ],
+  "regenerationGate": "regenerate → canonical hash identical, else G0 FAIL",
+  "manualEditPolicy": "FORBIDDEN"
+}

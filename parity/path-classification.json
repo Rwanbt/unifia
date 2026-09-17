@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Every tracked path must map to the set of flags it touches. Classification is cumulative (a path that touches both UI and harness is flagged with both). Unknown paths fail.",
+  "default": "OTHER",
+  "classes": {
+    "UI_PRODUCT": ["touchesApplicationUI"],
+    "HARNESS": ["touchesHarness"],
+    "POLICIES": ["touchesPolicies"],
+    "QUALIFICATION": ["touchesQualification"],
+    "DOCUMENTATION": ["touchesDocumentationOnly"],
+    "CONFIGURATION": ["touchesConfiguration"],
+    "INFRASTRUCTURE": ["touchesInfrastructure"],
+    "GENERATED": ["touchesGeneratedOutput"],
+    "REFERENCE": ["touchesReference"],
+    "OTHER": []
+  },
+  "rules": [
+    {
+      "match": "packages/app/src/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/ui/src/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/app/scripts/parity/**",
+      "flags": ["touchesHarness"]
+    },
+    {
+      "match": "packages/app/e2e/v110/parity/**",
+      "flags": ["touchesHarness"]
+    },
+    {
+      "match": "packages/app/e2e/v110/parity-manifest/**",
+      "flags": ["touchesHarness"]
+    },
+    {
+      "match": "packages/app/e2e/v110/**/*.spec.ts",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "parity/schemas/**",
+      "flags": ["touchesPolicies"]
+    },
+    {
+      "match": "parity/*.json",
+      "flags": ["touchesPolicies"]
+    },
+    {
+      "match": "parity/*.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "docs/ui-reference/v110/Unifia-UI-UX-v110-PORT-READY-R1.html",
+      "flags": ["touchesReference"]
+    },
+    {
+      "match": "package.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "bun.lock",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "tsconfig.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "biome.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "playwright.config.*",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": "vite.config.*",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": "vitest.config.*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "Dockerfile",
+      "flags": ["touchesInfrastructure"]
+    },
+    {
+      "match": "docker-compose.yml",
+      "flags": ["touchesInfrastructure"]
+    },
+    {
+      "match": "README*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "docs/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "AGENTS.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "CLAUDE.md",
+      "flags": ["touchesDocumentationOnly"]
+    }
+  ],
+  "generatedOutputs": {
+    "managedBy": "parity/generated-paths-policy.json"
+  },
+  "untrackedFilePolicy": "WARN_ONLY",
+  "notes": [
+    "Wildcards above are allowed for class boundaries, NOT for one-shot dumps.",
+    "Per-file entries for the inner surface live in parity/path-classification-inventory.json when S0 expands it."
+  ]
+}

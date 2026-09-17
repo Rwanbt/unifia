@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Deterministic union of static + preload + post-ready census entries. Identity is hashable; conflicts are surfaced.",
+  "identity": ["semanticTargetId", "eventType", "eventPhase", "handlerFingerprint", "delegationRootSemanticId"],
+  "operator": "deterministic union",
+  "sources": ["static", "preload", "post-ready"],
+  "mergeRules": [
+    "Same identity across sources → single canonical entry with sources array.",
+    "Different identity, same delegation root → two entries, no collapse.",
+    "Conflict on identity values → CENSUS_CONFLICT, FAIL."
+  ],
+  "deterministicRequirements": [
+    "Inputs sorted by (semanticTargetId, eventType, eventPhase, handlerFingerprint, delegationRootSemanticId).",
+    "No timestamps in canonical hash.",
+    "Two runs on identical fixtures must produce identical hash."
+  ],
+  "evidence": "parity-result.json#census",
+  "postReady": {
+    "executed": true,
+    "rationale": "Handlers installed after hydration (e.g. SolidJS createEffect) must be captured.",
+    "method": "Playwright trace + TS Compiler API on TS/TSX/JS"
+  }
+}

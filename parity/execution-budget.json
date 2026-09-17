@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Observatory execution budget. Never auto-reduces coverage, pair count, mutations, profiles, DPR or locales.",
+  "capturedAt": "2026-09-18T00:00:00Z",
+  "default": {
+    "aaRuns": 20,
+    "aaPrimeRuns": 20,
+    "ciMinutesPerSlice": 30,
+    "artifactSizeMbCap": 2048,
+    "browserProcessesPerRun": 4
+  },
+  "observerOnly": true,
+  "ownerBudgets": {},
+  "notes": [
+    "If an explicit owner budget exists, it is signed and hashed in ownerBudgets.",
+    "No automatic tightening of coverage, mutations, profiles, DPR or locales."
+  ]
+}

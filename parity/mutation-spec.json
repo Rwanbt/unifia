@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Per-mutation contract: a mutation that is not actually injected is not counted as detected.",
+  "families": [
+    {
+      "id": "M01",
+      "family": "inline-style-divergent",
+      "inject": "add inline style to one anchor in app",
+      "detect": "G2 anchor style delta != 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M01",
+      "earliestGate": "G2",
+      "cleanup": "revert inline style"
+    },
+    {
+      "id": "M02",
+      "family": "important-declaration",
+      "inject": "append !important to a property used by the profile",
+      "detect": "G2 anchor computed style delta != 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M02",
+      "earliestGate": "G2",
+      "cleanup": "revert !important"
+    },
+    {
+      "id": "M03",
+      "family": "css-import-order",
+      "inject": "reorder @import declarations in v110.css",
+      "detect": "G2 cascade delta != 0 on >=1 anchor",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M03",
+      "earliestGate": "G2",
+      "cleanup": "restore import order"
+    },
+    {
+      "id": "M04",
+      "family": "media-query-wrong",
+      "inject": "swap a media query breakpoint to a wrong bucket",
+      "detect": "G2 viewport-specific delta != 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M04",
+      "earliestGate": "G2",
+      "cleanup": "restore correct breakpoint"
+    },
+    {
+      "id": "M05",
+      "family": "key-permutation",
+      "inject": "rename a manifest key on one side only",
+      "detect": "G1 pairingErrors > 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M05",
+      "earliestGate": "G1",
+      "cleanup": "restore key"
+    },
+    {
+      "id": "M06",
+      "family": "mask-bypass",
+      "inject": "wrap an anchor in a mask whose bbox covers a control",
+      "detect": "G2 maskBudgetViolations > 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M06",
+      "earliestGate": "G2",
+      "cleanup": "remove wrap"
+    },
+    {
+      "id": "M07",
+      "family": "env-divergence",
+      "inject": "change randomSeed or fixedClockUtc by one bucket",
+      "detect": "G2 env-divergence delta != 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M07",
+      "earliestGate": "G2",
+      "cleanup": "restore lock"
+    },
+    {
+      "id": "M08",
+      "family": "context-leak",
+      "inject": "share a localStorage key between reference and app",
+      "detect": "G2 isolation probe fails",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M08",
+      "earliestGate": "G2",
+      "cleanup": "drop shared key"
+    },
+    {
+      "id": "M09",
+      "family": "harness-mutation",
+      "inject": "edit diff-engine.ts in same commit as home.tsx",
+      "detect": "G0 commit lint rejects (harness+UI)",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-checkpoint-lint.json#M09",
+      "earliestGate": "G0",
+      "cleanup": "split commit"
+    },
+    {
+      "id": "M10",
+      "family": "motion-static-alias",
+      "inject": "replace animation currentTime with a fixed wait",
+      "detect": "G2 motionAliasToStatic > 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M10",
+      "earliestGate": "G2",
+      "cleanup": "restore sampler"
+    },
+    {
+      "id": "M11",
+      "family": "delegated-handler-removed",
+      "inject": "delete one delegated event listener on a row container",
+      "detect": "G3 functional test fails on the matching surface",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M11",
+      "earliestGate": "G3",
+      "cleanup": "restore listener"
+    },
+    {
+      "id": "M12",
+      "family": "probe-bias",
+      "inject": "add a CSS-injecting observation probe",
+      "detect": "A/A' delta > envelope(A/A)",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M12",
+      "earliestGate": "G0",
+      "cleanup": "remove probe"
+    },
+    {
+      "id": "M13",
+      "family": "fake-g0-full",
+      "inject": "claim G0_FULL while fullContractLockHash == null",
+      "detect": "G0 derivation rejects",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-checkpoint-lint.json#M13",
+      "earliestGate": "G0",
+      "cleanup": "n/a"
+    },
+    {
+      "id": "M14",
+      "family": "loc-budget-overrun",
+      "inject": "commit >400 LOC of UI changes without splitting",
+      "detect": "checkpoint lint flags LOC",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-checkpoint-lint.json#M14",
+      "earliestGate": "G0",
+      "cleanup": "split commit"
+    },
+    {
+      "id": "M15",
+      "family": "harness-ui-mix",
+      "inject": "combine harness + UI in same commit",
+      "detect": "INVALID_CHECKPOINT",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-checkpoint-lint.json#M15",
+      "earliestGate": "G0",
+      "cleanup": "split commit"
+    },
+    {
+      "id": "M16",
+      "family": "secondary-authority-missing",
+      "inject": "use ar/rtl without UNSUPPORTED_REFERENCE or approved secondary authority",
+      "detect": "G2 locale gate rejects",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M16",
+      "earliestGate": "G2",
+      "cleanup": "mark UNSUPPORTED_REFERENCE"
+    },
+    {
+      "id": "M17",
+      "family": "pilot-census-reused-as-full",
+      "inject": "ship S3 with the pilot census manifest unchanged",
+      "detect": "G1 schema rejects (pilot vs full keys mismatch)",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M17",
+      "earliestGate": "G1",
+      "cleanup": "regenerate full census"
+    },
+    {
+      "id": "M18",
+      "family": "locale-unsupported-no-decision",
+      "inject": "qualify a locale not in the resolved set",
+      "detect": "G2 locale gate rejects",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M18",
+      "earliestGate": "G2",
+      "cleanup": "mark UNSUPPORTED_REFERENCE"
+    },
+    {
+      "id": "M19",
+      "family": "required-state-to-na",
+      "inject": "remove a required state from the manifest without N/A",
+      "detect": "G1 missingStateCoverage > 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M19",
+      "earliestGate": "G1",
+      "cleanup": "restore state"
+    },
+    {
+      "id": "M20",
+      "family": "unstable-ignored",
+      "inject": "retry a flaky mandatory until PASS",
+      "detect": "G0 mandatory UNSTABLE counter > 0",
+      "expectedDetection": "FAIL",
+      "evidence": "parity-result.json#mutations.M20",
+      "earliestGate": "G0",
+      "cleanup": "mark UNSTABLE"
+    },
+    {
+      "id": "M21",
+      "family": "remote-state-incoherent",
+      "inject": "push while origin/new-ui HEAD moved",
+      "detect": "REMOTE_DIVERGENCE",
+      "expectedDetection": "STOP",
+      "evidence": "pre-push probe",
+      "earliestGate": "G0",
+      "cleanup": "fetch + rebase"
+    },
+    {
+      "id": "M22",
+      "family": "path-classification-corruption",
+      "inject": "leave an unclassified path in a checkpoint",
+      "detect": "G0 unclassifiedFiles.length > 0",
+      "expectedDetection": "FAIL",
+      "evidence": "path-classification-coverage.json",
+      "earliestGate": "G0",
+      "cleanup": "classify path"
+    },
+    {
+      "id": "M23",
+      "family": "generated-output-manual-edit",
+      "inject": "edit a file listed in generated-paths-policy.json",
+      "detect": "canonical hash drift",
+      "expectedDetection": "FAIL",
+      "evidence": "generated-verify report",
+      "earliestGate": "G0",
+      "cleanup": "regenerate"
+    },
+    {
+      "id": "M24",
+      "family": "g0-artifact-removed",
+      "inject": "delete a lock or schema outside rotation policy",
+      "detect": "G0 derivation rejects",
+      "expectedDetection": "FAIL",
+      "evidence": "g0-derivation-policy.json",
+      "earliestGate": "G0",
+      "cleanup": "restore artefact"
+    },
+    {
+      "id": "M25",
+      "family": "census-merge-policy-edit",
+      "inject": "edit census-merge-policy.json without requalification",
+      "detect": "G0 schema hash fails",
+      "expectedDetection": "FAIL",
+      "evidence": "census-merge-policy.json hash diff",
+      "earliestGate": "G0",
+      "cleanup": "rotate toolchain"
+    },
+    {
+      "id": "M26",
+      "family": "owner-budget-bypass",
+      "inject": "exceed a signed owner budget without re-signature",
+      "detect": "G0 budget gate rejects",
+      "expectedDetection": "FAIL",
+      "evidence": "execution-budget.json",
+      "earliestGate": "G0",
+      "cleanup": "stop or get owner approval"
+    }
+  ],
+  "evidence": "parity-result.json#mutations",
+  "earlyGateCoverage": {
+    "G0": ["M09", "M12", "M13", "M14", "M15", "M20", "M21", "M22", "M23", "M24", "M25", "M26"],
+    "G1": ["M05", "M17", "M19"],
+    "G2": ["M01", "M02", "M03", "M04", "M06", "M07", "M08", "M10", "M16", "M18"],
+    "G3": ["M11"]
+  }
+}

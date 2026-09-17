@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Allowlist of design chrome the v110 port may touch. Runtime, canvas, editor engines are denied. The silence does not approve.",
+  "baseSha": "8cc914c0ea575ae675d4067e27754b86f4e9171b",
+  "owner": "design-team@unifia",
+  "escalationOwner": "lead@unifia",
+  "issue": 116,
+  "nextReviewAt": "2026-12-18T00:00:00Z",
+  "status": "PENDING",
+  "blocksQualifications": ["S8"],
+  "chromeAllowlist": [
+    "packages/app/src/pages/home.tsx",
+    "packages/app/src/pages/session.tsx (chrome-only)",
+    "packages/app/src/pages/layout.tsx (chrome-only)",
+    "packages/app/src/styles/v110.css",
+    "packages/app/src/styles/unifia-brand.css",
+    "packages/app/src/tokens/viewport.ts",
+    "packages/app/src/tokens/panels.ts",
+    "packages/app/src/tokens/resizer.ts",
+    "packages/app/src/tokens/semantic.ts",
+    "packages/app/src/primitives/separator.tsx"
+  ],
+  "runtimeCanvasDenylist": [
+    "packages/app/src/components/diff/**",
+    "packages/app/src/components/session/**",
+    "packages/app/src/components/prompt-input/**",
+    "packages/app/src/primitives/editor-engine/**"
+  ],
+  "stateMachine": {
+    "PENDING": ["APPROVED", "AWAITING_OWNERSHIP_APPROVAL", "CONTESTED"],
+    "AWAITING_OWNERSHIP_APPROVAL": ["APPROVED", "CONTESTED"],
+    "CONTESTED": ["APPROVED", "WITHDRAWN"],
+    "WITHDRAWN": ["ARCHIVED"]
+  },
+  "notes": [
+    "Approval gate modal: no .approval-gate class — built by interaction with Inspecter button. Localised semantically by role + title + DOM relation.",
+    "FULL_PARITY remains blocked until S8 lands with status APPROVED."
+  ]
+}
