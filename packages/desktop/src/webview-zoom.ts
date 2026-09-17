@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-import { invoke } from "@tauri-apps/api/core"
+import { invoke, isTauri } from "@tauri-apps/api/core"
 import { type as ostype } from "@tauri-apps/plugin-os"
 import { createSignal } from "solid-js"
 
-const OS_NAME = ostype()
+// Guarded: opening the desktop dev server in a plain browser must not abort
+// the entry module graph (no Tauri IPC there) — it renders the app instead of
+// a black screen.
+const OS_NAME = isTauri() ? ostype() : "unknown"
 
 const [webviewZoom, setWebviewZoom] = createSignal(1)
 
