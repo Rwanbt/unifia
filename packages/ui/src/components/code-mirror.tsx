@@ -20,6 +20,7 @@ import { search, searchKeymap, openSearchPanel } from "@codemirror/search"
 import { indentOnInput, bracketMatching, syntaxHighlighting } from "@codemirror/language"
 import { classHighlighter, tagHighlighter, tags } from "@lezer/highlight"
 import { buildLspExtensions, type LspCallbacks, type LspLocation } from "./code-mirror-lsp"
+import { buildBlameExtensions, type BlameLookup } from "./code-mirror-blame"
 
 // classHighlighter has no rule for tags.function(...), so function/method
 // names (CallExpression, FunctionDeclaration, etc. across the JS/TS/Python/
@@ -166,6 +167,8 @@ export function CodeMirrorEditor(props: {
   onNavigate?: (file: string, line: number, character: number) => void
   /** Called by the find-all-references command (Shift+F12) with the list of locations. */
   onReferences?: (refs: LspLocation[]) => void
+  /** Optional per-line blame lookup — when provided, enables the inline annotation + hover tooltip. */
+  blame?: () => BlameLookup | undefined
 }): JSX.Element {
   let container!: HTMLDivElement
   let view: EditorView | undefined
@@ -215,6 +218,8 @@ export function CodeMirrorEditor(props: {
         // Phase 2: LSP extensions (diagnostics, hover, F12).
         // Only activated when the parent passes lsp callbacks.
         ...(props.lsp ? buildLspExtensions(props.path, props.lsp, props.onNavigate, props.onReferences) : []),
+        // Blame annotations (#96): only when the parent supplies a lookup.
+        ...(props.blame ? buildBlameExtensions(props.blame) : []),
       ],
     })
 
