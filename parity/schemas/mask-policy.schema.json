@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/mask-policy.schema.json",
+  "title": "Mask Policy",
+  "description": "Default mask=null. A mask must cover a real dynamic leaf value, declare owner/issue/reviewBy, and keep container controls.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "default", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "default": { "const": null },
+    "rules": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "forbiddenTargets": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

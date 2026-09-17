@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/execution-budget.schema.json",
+  "title": "Execution Budget",
+  "description": "Observatory execution budget. Never auto-reduces coverage, pair count, mutations, profiles, DPR, locales.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "default", "observerOnly"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "default": {
+      "type": "object",
+      "required": ["aaRuns", "aaPrimeRuns", "ciMinutesPerSlice", "artifactSizeMbCap", "browserProcessesPerRun"],
+      "properties": {
+        "aaRuns": { "type": "integer", "minimum": 0 },
+        "aaPrimeRuns": { "type": "integer", "minimum": 0 },
+        "ciMinutesPerSlice": { "type": "integer", "minimum": 0 },
+        "artifactSizeMbCap": { "type": "integer", "minimum": 0 },
+        "browserProcessesPerRun": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "observerOnly": { "type": "boolean" },
+    "ownerBudgets": { "type": "object", "additionalProperties": true },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

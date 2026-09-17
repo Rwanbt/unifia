@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/parity-result.schema.json",
+  "title": "Parity Result",
+  "description": "Full qualification output of a parity run. Counts are computed, never author-filled.",
+  "type": "object",
+  "required": ["schemaVersion", "run", "counters"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "run": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "counters": {
+      "type": "object",
+      "required": [
+        "staticCases",
+        "motionCases",
+        "assertions",
+        "pass",
+        "fail",
+        "notRun",
+        "blocked",
+        "na",
+        "unsupportedReference",
+        "invalidOracle",
+        "invalidProbe",
+        "unstable"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "staticCases": { "type": "integer", "minimum": 0 },
+        "motionCases": { "type": "integer", "minimum": 0 },
+        "assertions": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "notRun": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "na": { "type": "integer", "minimum": 0 },
+        "unsupportedReference": { "type": "integer", "minimum": 0 },
+        "invalidOracle": { "type": "integer", "minimum": 0 },
+        "invalidProbe": { "type": "integer", "minimum": 0 },
+        "unstable": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bySurface": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "mutations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["mutationId", "expectedDetection", "actualDetection"],
+        "properties": {
+          "mutationId": { "type": "string" },
+          "expectedDetection": { "enum": ["FAIL", "STOP"] },
+          "actualDetection": { "enum": ["FAIL", "STOP", "PASS", "NOT_RUN"] },
+          "gate": { "enum": ["G0", "G1", "G2", "G3"] },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "census": {
+      "type": "object",
+      "required": ["hash", "untrackedReferenceNodes", "untrackedAppNodes"],
+      "properties": {
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "untrackedReferenceNodes": { "type": "integer", "minimum": 0 },
+        "untrackedAppNodes": { "type": "integer", "minimum": 0 },
+        "unexpectedFocusableAppNodes": { "type": "integer", "minimum": 0 },
+        "duplicateAllDomIds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "a11y": {
+      "type": "object",
+      "properties": {
+        "axeCritical": { "type": "integer", "minimum": 0 },
+        "axeSerious": { "type": "integer", "minimum": 0 },
+        "keyboardNavigationPass": { "type": "boolean" },
+        "focusVisiblePass": { "type": "boolean" },
+        "focusOrderPass": { "type": "boolean" },
+        "accessibleNamesPass": { "type": "boolean" },
+        "contrastPass": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "verdict": {
+      "enum": [
+        "NEW_UI_PARITY_QUALIFIED",
+        "NOT_QUALIFIED",
+        "BLOCKED",
+        "G0_FAILS",
+        "G1_FAILS",
+        "G2_FAILS",
+        "G3_FAILS"
+      ]
+    }
+  }
+}

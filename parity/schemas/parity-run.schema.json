@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/parity-run.schema.json",
+  "title": "Parity Run",
+  "description": "Per-run proof descriptor. No PR fields: branches, base, target head, locks, derived G0 mode.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "branch",
+    "sourceCommit",
+    "checkpointId",
+    "newUiHeadAtRun",
+    "environmentLockHash",
+    "derivedG0Mode"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "branch": { "const": "new-ui" },
+    "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sourceTree": { "enum": ["clean", "dirty-not-ours"] },
+    "checkpointId": { "type": "string" },
+    "checkpointBaseCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "newUiHeadAtRun": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "pilotToolchainCommit": { "type": ["string", "null"], "pattern": "^[a-f0-9]{40}$" },
+    "fullToolchainCommit": { "type": ["string", "null"], "pattern": "^[a-f0-9]{40}$" },
+    "environmentLockHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "contractLockHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "manifestHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "skipBaselineHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "evidenceHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+    "derivedG0Mode": {
+      "enum": [
+        "G0_BOOTSTRAP",
+        "G0_PILOT",
+        "G0_TOOL_CHANGE",
+        "G0_FULL",
+        "INVALID_G0_STATE"
+      ]
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" }
+  }
+}

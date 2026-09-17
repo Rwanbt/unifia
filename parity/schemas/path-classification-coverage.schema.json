@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/path-classification-coverage.schema.json",
+  "title": "Path Classification Coverage",
+  "description": "100% coverage of git ls-files is mandatory. Wildcard dumps are forbidden.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "trackedFiles",
+    "classifiedFiles",
+    "unclassifiedFiles",
+    "classificationCounts"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "trackedFiles": { "type": "integer", "minimum": 0 },
+    "classifiedFiles": { "type": "integer", "minimum": 0 },
+    "unclassifiedFiles": { "type": "array", "items": { "type": "string" } },
+    "classificationCounts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}
