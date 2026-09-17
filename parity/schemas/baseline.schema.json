@@ -4,7 +4,7 @@
   "title": "Baseline",
   "description": "Snapshot of the new-ui repo state at PF0. Branches/HEAD must match before any G1/G2/G3 run; mismatch is a stop-the-line signal.",
   "type": "object",
-  "required": ["schemaVersion", "branch", "newUiHead", "remoteNewUi", "diverged", "trackedFileCount"],
+  "required": ["schemaVersion", "branch", "newUiHead", "remoteNewUi", "remoteDivergence", "trackedFileCount"],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": { "type": "integer", "const": 1 },
@@ -13,6 +13,7 @@
     "newUiHead": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
     "remoteNewUi": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
     "remoteDivergence": { "type": "boolean" },
+    "diverged": { "type": "boolean" },
     "workingTreeClean": { "type": "boolean" },
     "workingTreeNotes": { "type": "string" },
     "trackedFileCount": { "type": "integer", "minimum": 0 },

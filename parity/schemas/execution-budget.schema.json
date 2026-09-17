@@ -9,6 +9,7 @@
   "properties": {
     "schemaVersion": { "type": "integer", "const": 1 },
     "purpose": { "type": "string" },
+    "capturedAt": { "type": "string", "format": "date-time" },
     "default": {
       "type": "object",
       "required": ["aaRuns", "aaPrimeRuns", "ciMinutesPerSlice", "artifactSizeMbCap", "browserProcessesPerRun"],

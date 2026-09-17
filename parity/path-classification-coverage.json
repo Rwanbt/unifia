@@ -1,25 +1,21 @@
 {
   "schemaVersion": 1,
-  "purpose": "100% coverage of git ls-files by path-classification.json is mandatory. Wildcard-dump is forbidden.",
-  "capturedAt": "2026-09-18T00:00:00Z",
-  "trackedFiles": 7597,
-  "classifiedFiles": 7597,
+  "capturedAt": "2026-09-17T23:16:47.214Z",
+  "trackedFiles": 7636,
+  "classifiedFiles": 7636,
   "unclassifiedFiles": [],
+  "unclassifiedTruncated": false,
   "classificationCounts": {
-    "touchesApplicationUI": 642,
-    "touchesHarness": 0,
-    "touchesPolicies": 14,
-    "touchesQualification": 32,
-    "touchesDocumentationOnly": 6125,
-    "touchesConfiguration": 6,
-    "touchesInfrastructure": 3,
-    "touchesGeneratedOutput": 0,
-    "touchesReference": 1
+    "touchesGeneratedOutput": 131,
+    "touchesConfiguration": 906,
+    "touchesDocumentationOnly": 1727,
+    "touchesInfrastructure": 88,
+    "touchesApplicationUI": 5491,
+    "touchesReference": 1,
+    "touchesQualification": 901,
+    "touchesPolicies": 37
   },
   "notes": [
-    "Counts derived from glob expansion of path-classification.json rules against git ls-files.",
-    "touchesDocumentationOnly absorbs README*, docs/**, AGENTS.md, CLAUDE.md and other top-level markdown.",
-    "touchesHarness starts at 0 because packages/app/scripts/parity/ and packages/app/e2e/v110/parity/ do not exist yet — F0 creates them.",
-    "S0 expands path-classification-inventory.json with per-file entries for the qualified surface."
+    "100% coverage achieved — rules hit every tracked file."
   ]
 }

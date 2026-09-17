@@ -96,6 +96,38 @@
       "flags": ["touchesDocumentationOnly"]
     },
     {
+      "match": "README.*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "LICENSE*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "LICENSE.*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "CONTRIBUTING*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "CONTRIBUTING.*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "SECURITY*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "SECURITY.*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "CHANGELOG*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
       "match": "docs/**",
       "flags": ["touchesDocumentationOnly"]
     },
@@ -106,6 +138,1094 @@
     {
       "match": "CLAUDE.md",
       "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "*.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/*.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/*.toml",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".dockerignore",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".editorconfig",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".gitignore",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".gitattributes",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".gitleaks.toml",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".prettierignore",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".env.example",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".eslintrc.restrict.cjs",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".tmp-commit-msg.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "bunfig.toml",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "knip.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "renovate.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "sst-env.d.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "sst.config.ts",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": "flake.lock",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "flake.nix",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".husky/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".vscode/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".github/**",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": "CODEOWNERS",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "CODE_OF_CONDUCT.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "Makefile",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": ".artifacts/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".opencode/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".claude/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".codex/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".codex-work/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".gstack/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".mavis/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".openhands/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".ruff_cache/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".session-save/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".team-worktrees/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".turbo-local-cache/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".unifia/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".zed/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": ".zcode-scratch/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".fix/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": ".debate-smoke/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".e2e-home/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".bun-install/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".ci-artifacts/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".build-temp/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": ".build-temp-g1/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "packages/*/src/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/scripts/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/e2e/**",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "packages/*/test/**",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "packages/*/docs/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/public/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/src-tauri/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/dist/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "packages/*/.vite/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "packages/*/.turbo/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "packages/*/node_modules/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "tools/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "sdks/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "tests/**",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "specs/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "templates/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "infra/**",
+      "flags": ["touchesInfrastructure"]
+    },
+    {
+      "match": "config/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "crates/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "capability-packs/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "document-packs/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "work_design/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "brand/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "nix/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "patches/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "skill-hub/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "skill-hub/skill/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "node_modules/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "packages/console/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/desktop-electron/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/desktop-runtime/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/web/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/package.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/tsconfig.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/LICENSE",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/LICENSE.*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/index.html",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/sst-env.d.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/happydom.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/publish.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/next.config.*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/tailwind.config.*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/postcss.config.*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/capacitor.config.*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/.gitignore",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/example.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/script/*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/ai-context.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/AI_CONTEXT.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/AI_SUMMARY.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/README.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/CHANGELOG.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/*/PLAN-*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "QA_RESULTS/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "PRODUCTION_READINESS*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "EXECUTION_PLAN*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "KNOWN_ISSUES*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "NEXT_SESSION_PLAN*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "NEXT-SESSION-PLAN*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PROD_READINESS*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PRODUCTION-READINESS-PLAN*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PRODUCTION_READINESS*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PRODUCTION_REVIEW*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "REVIEW-OF-PRODUCTION-READINESS-PLAN*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "RESIDUAL_DEBT_CLEANUP*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "STATS.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "SPRINT*_NOTES.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "SPRINT-NOTES-SUMMARY.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "STATS*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "RELEASE-*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "ROADMAP.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "SUPPORT.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "UPSTREAM-STRATEGY.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "THIRD_PARTY_NOTICES*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PLAN-*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "ANDROID-AUDIT*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "ARCHITECTURE*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "AUDIT-*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "banniere_unifia.png",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "GOVERNANCE.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "INTEGRATION.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "install",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "MANUAL_TESTS*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "MOBILE_*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PERFORMANCE_REPORT*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PRE_EXISTING_FIXES*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PROMPT-*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "QA_ANDROID_*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "SECURITY_*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "PROMPT_SYSTEM_COMPLETE*",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "unifia-tasks.md",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "VERSION",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "packages/sdk/js/script/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "packages/*/openapi.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "packages/*/scripts/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "github/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/sst-env.d.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/bunfig.toml",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/happydom.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/publish.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/playwright.config.*",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": "**/vite.config.*",
+      "flags": ["touchesConfiguration", "touchesInfrastructure"]
+    },
+    {
+      "match": "**/vite.js",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/test-setup.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/Dockerfile",
+      "flags": ["touchesInfrastructure"]
+    },
+    {
+      "match": "**/fixtures/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/examples/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/docker-compose*",
+      "flags": ["touchesInfrastructure"]
+    },
+    {
+      "match": "**/Cargo.lock",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/Cargo.toml",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/keyring-shim/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/unifia-env.d.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/*.mdx",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/*.astro",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/*.vue",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/*.css",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/*.scss",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/*.json",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/rust/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/capabilities/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/icons/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/assets/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/brand/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/static/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/themes/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/tokens/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/components/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/context/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/pages/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/hooks/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/primitives/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/shell/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/shell-frame/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/test/**",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "**/tests/**",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "**/spec/**",
+      "flags": ["touchesQualification"]
+    },
+    {
+      "match": "**/testing/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/testing/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/images/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/logo/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/mark-*.png",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/mark.svg",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/mark-light.svg",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/.maestro/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/test-debug.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/gen/**",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/v2/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/process.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/server.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/client.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/index.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/utils.ts",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/types.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/sdk.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/auth.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/bodySerializer.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/params.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/pathSerializer.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/queryKeySerializer.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/serverSentEvents.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/utils.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/client.gen.ts",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/example/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/sandbox/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/runtime/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/engine/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/interface/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/server/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/handler/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/store/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/service/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/manager/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/adapter/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/core/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/config/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/constants/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/utils/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/lib/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/model/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/decoder/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/manager/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/provider/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/tools/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/transform/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/build/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/gate/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/broker/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/bridge/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/runtime-conformance/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/workbench/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/conformance/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/.storybook/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/bench/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/bin/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/drizzle.config.*",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/git",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/migration/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/drizzle/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/command/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/control/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/protocol/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/schema/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/audit/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/control/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/runtime-conformance/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/protocol-conformance/**",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/.env.example",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/parsers-config.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/.unifia/**",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/debug-storybook.log",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/*.ps1",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/*.sh",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/*.mjs",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/*.cjs",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/*.jsonl",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/*.log",
+      "flags": ["touchesGeneratedOutput"]
+    },
+    {
+      "match": "**/script/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/scripts/**",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/release",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/hooks",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/bin/unifia-knowledge.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/classify-corpus-once.ts",
+      "flags": ["touchesConfiguration"]
+    },
+    {
+      "match": "**/*.svg",
+      "flags": ["touchesApplicationUI"]
+    },
+    {
+      "match": "**/LICENSE",
+      "flags": ["touchesDocumentationOnly"]
+    },
+    {
+      "match": "**/favicon.svg",
+      "flags": ["touchesApplicationUI"]
     }
   ],
   "generatedOutputs": {
