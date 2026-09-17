@@ -904,6 +904,8 @@ export function MessageTimeline(props: MessageTimelineProps) {
             <div
               role="log"
               data-slot="session-turn-list"
+              data-v110="chat-timeline"
+              data-parity="session.chat"
               class="flex flex-col items-start justify-start pb-16 transition-[margin]"
               classList={{
                 "w-full": true,
