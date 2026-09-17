@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/g0-derivation-policy.schema.json",
+  "title": "G0 Derivation Policy",
+  "description": "Derive G0 mode from lock state. The mode is never author-filled; computed at run time.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "variables", "derivation"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "variables": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "null"] }
+    },
+    "derivation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["if", "mode", "qualifying"],
+        "properties": {
+          "if": { "type": "string" },
+          "mode": {
+            "enum": [
+              "G0_BOOTSTRAP",
+              "G0_PILOT",
+              "G0_TOOL_CHANGE",
+              "G0_FULL",
+              "INVALID_G0_STATE"
+            ]
+          },
+          "qualifying": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "initialState": {
+      "enum": ["G0_BOOTSTRAP", "G0_PILOT", "G0_TOOL_CHANGE", "G0_FULL", "INVALID_G0_STATE"]
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/reference-locale-capabilities.schema.json",
+  "title": "Reference Locale Capabilities",
+  "description": "Reference / app locale capabilities. UNSUPPORTED_REFERENCE if maquette cannot produce a locale.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "locales"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "locales": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "dir", "referenceSupported", "appSupported", "activationMethod"],
+        "properties": {
+          "code": { "type": "string" },
+          "dir": { "enum": ["ltr", "rtl"] },
+          "referenceSupported": { "type": "boolean" },
+          "referenceCaptureHash": { "type": ["string", "null"] },
+          "appSupported": { "type": "boolean" },
+          "activationMethod": { "type": "string" },
+          "fixture": { "type": "string" },
+          "expectedText": { "type": ["string", "null"] },
+          "decision": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

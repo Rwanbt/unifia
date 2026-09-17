@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/generated-paths-policy.schema.json",
+  "title": "Generated Paths Policy",
+  "description": "Generated outputs excluded from LOC; each must be reproducible.",
+  "type": "object",
+  "required": ["schemaVersion", "purpose", "outputs", "regenerationGate"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "generatorPath", "inputSet", "derivedOnly", "regenerationCommand"],
+        "properties": {
+          "path": { "type": "string" },
+          "generatorPath": { "type": "string" },
+          "generatorSha256": { "type": "string" },
+          "inputSet": { "type": "array", "items": { "type": "string" } },
+          "derivedOnly": { "type": "boolean" },
+          "regenerationCommand": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "regenerationGate": { "type": "string" },
+    "manualEditPolicy": { "enum": ["FORBIDDEN", "REVIEW"] }
+  }
+}

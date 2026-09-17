@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/probe-policy.schema.json",
+  "title": "Probe Policy",
+  "description": "Allowlist of observation probes. DENY default; a probe that mutates reference DOM/style, or whose A/A' delta exceeds envelope, fails G0.",
+  "type": "object",
+  "required": ["schemaVersion", "default", "probes", "fields", "enforcement"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "default": { "const": "DENY" },
+    "probes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["probeId", "api", "purpose", "owner"],
+        "properties": {
+          "probeId": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{2,}$" },
+          "api": { "type": "string" },
+          "purpose": { "type": "string" },
+          "wrapperSha256": { "type": "string" },
+          "capturedFields": { "type": "array", "items": { "type": "string" } },
+          "forbiddenEffects": { "type": "array", "items": { "type": "string" } },
+          "aaPrimeCase": { "type": "string" },
+          "owner": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "enforcement": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

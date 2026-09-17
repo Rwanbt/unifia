@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/baseline.schema.json",
+  "title": "Baseline",
+  "description": "Snapshot of the new-ui repo state at PF0. Branches/HEAD must match before any G1/G2/G3 run; mismatch is a stop-the-line signal.",
+  "type": "object",
+  "required": ["schemaVersion", "branch", "newUiHead", "remoteNewUi", "diverged", "trackedFileCount"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "branch": { "const": "new-ui" },
+    "newUiHead": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "remoteNewUi": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "remoteDivergence": { "type": "boolean" },
+    "workingTreeClean": { "type": "boolean" },
+    "workingTreeNotes": { "type": "string" },
+    "trackedFileCount": { "type": "integer", "minimum": 0 },
+    "packagesAppFileCount": { "type": "integer", "minimum": 0 },
+    "packagesAppSrcFileCount": { "type": "integer", "minimum": 0 },
+    "tools": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "runtimesPresent": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "existingV110Infra": { "type": "object", "additionalProperties": true },
+    "deliveredPerComponentMapS8": { "type": "object", "additionalProperties": { "type": "string" } },
+    "realVisualGapsIdentified": { "type": "array", "items": { "type": "string" } }
+  }
+}

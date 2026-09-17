@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/environment-lock.schema.json",
+  "title": "Environment Lock",
+  "description": "Pinned reference maquette, image, runtimes, clock, fonts and locales for v110 qualification. Any divergence on a non-PENDING field fails G0.",
+  "type": "object",
+  "required": ["schemaVersion", "reference", "runtimes", "clock", "rendering", "locales", "network", "fonts"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "reference": {
+      "type": "object",
+      "required": ["path", "sha256", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "kind": { "enum": ["html-maquette-frozen"] },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "image": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["host-toolchain", "docker-image"] },
+        "note": { "type": "string" },
+        "dockerfilePath": { "type": "string" },
+        "dockerfileHash": { "type": "string" },
+        "buildScriptHash": { "type": "string" },
+        "digest": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "runtimes": {
+      "type": "object",
+      "required": ["bun", "node", "playwright", "typescript", "postcss", "axe", "biome"],
+      "properties": {
+        "bun": { "type": "string" },
+        "node": { "type": "string" },
+        "packageManager": { "type": "string" },
+        "playwright": { "type": "string" },
+        "typescript": { "type": "string" },
+        "postcss": { "type": "string" },
+        "axe": { "type": "string" },
+        "biome": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "clock": {
+      "type": "object",
+      "required": ["fixedClockUtc", "randomSeed", "timezone"],
+      "properties": {
+        "fixedClockUtc": { "type": "string", "format": "date-time" },
+        "randomSeed": { "type": "string" },
+        "timezone": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "rendering": {
+      "type": "object",
+      "required": ["dpr", "motionPreference", "colorSchemes"],
+      "properties": {
+        "dpr": { "type": "array", "items": { "enum": [1, 2] }, "minItems": 1 },
+        "motionPreference": { "type": "array", "items": { "enum": ["reduce", "no-preference"] } },
+        "colorSchemes": { "type": "array", "items": { "enum": ["dark", "light"] } }
+      },
+      "additionalProperties": false
+    },
+    "locales": {
+      "type": "object",
+      "required": ["required"],
+      "properties": {
+        "required": { "type": "array", "items": { "type": "string" } },
+        "available": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "fonts": {
+      "type": "object",
+      "properties": {
+        "fontSetPath": { "type": "string" },
+        "fontSetHash": { "type": "string" },
+        "families": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "network": {
+      "type": "object",
+      "required": ["blockedDuringQualification"],
+      "properties": {
+        "blockedDuringQualification": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

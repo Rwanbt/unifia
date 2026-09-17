@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unifia.local/parity/path-classification.schema.json",
+  "title": "Path Classification",
+  "description": "Every tracked path maps to the set of flags it touches. Classification is cumulative; unknown paths fail.",
+  "type": "object",
+  "required": ["schemaVersion", "default", "classes", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "purpose": { "type": "string" },
+    "default": { "const": "OTHER" },
+    "classes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["match", "flags"],
+        "properties": {
+          "match": { "type": "string", "minLength": 1 },
+          "flags": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "touchesApplicationUI",
+                "touchesHarness",
+                "touchesPolicies",
+                "touchesQualification",
+                "touchesDocumentationOnly",
+                "touchesConfiguration",
+                "touchesInfrastructure",
+                "touchesGeneratedOutput",
+                "touchesReference"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "generatedOutputs": { "type": "object", "additionalProperties": true },
+    "untrackedFilePolicy": { "enum": ["WARN_ONLY", "FAIL"] },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}
