@@ -36,31 +36,28 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
     Persist.workspace(directory() ?? "", "design-split.v1"),
     createStore<{ chatWidth: number; mobileSurface: Surface }>({ chatWidth: DEFAULT_CHAT_WIDTH, mobileSurface: "assistant" }),
   )
-  // WHY unused setter: `focused` is read for the workspace-focus layout
-  // (grid collapse, chat hidden) but nothing calls the setter yet — no UI
-  // trigger toggles focus mode. Kept as a stub so the layout branch stays
-  // exercised; see the spawned task for wiring a real trigger.
-  const [focused, _setFocused] = createSignal(false)
   const [resizing, setResizing] = createSignal(false)
-  // V06 — track the current viewport width. Read once on mount, then
+  // V06 — track the current viewport size. Read once on mount, then
   // resize. The split is a small island inside the workbench shell; a
   // window-level listener is fine here (no perf cost, no leak across
   // worktree changes because `onCleanup` removes it).
-  const [viewport, setViewport] = createSignal(typeof window === "undefined" ? 1440 : window.innerWidth)
+  const [viewport, setViewport] = createSignal(
+    typeof window === "undefined" ? { width: 1440, height: 900 } : { width: window.innerWidth, height: window.innerHeight },
+  )
   onMount(() => {
     const onResize = (): void => {
-      setViewport(window.innerWidth)
+      setViewport({ width: window.innerWidth, height: window.innerHeight })
     }
     window.addEventListener("resize", onResize)
     onCleanup(() => window.removeEventListener("resize", onResize))
   })
-  const layout = createMemo(() => resolveLayout(viewport(), preferences.chatWidth))
+  const layout = createMemo(() => resolveLayout(viewport().width, viewport().height, preferences.chatWidth))
   // V06 — when the user picks a surface on mobile, persist it. The
   // model reads the same key on the next mobile mount and restores
   // the choice. On non-mobile viewports the choice is kept but
   // ignored.
   const setMobileSurface = (surface: Surface): void => setPreferences("mobileSurface", surface)
-  const currentMobileSurface = (): Surface => pickMobileSurface(preferences.mobileSurface, viewport())
+  const currentMobileSurface = (): Surface => pickMobileSurface(preferences.mobileSurface, viewport().width, viewport().height)
 
   function startResize(event: PointerEvent): void {
     if (event.button !== 0) return
@@ -68,9 +65,9 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
     if (!layout().resizable) return
     setResizing(true)
     const startX = event.clientX
-    const startWidth = clampChatWidthForViewport(preferences.chatWidth, viewport())
+    const startWidth = clampChatWidthForViewport(preferences.chatWidth, viewport().width)
     function onMove(e: PointerEvent): void {
-      const next = clampChatWidthForViewport(startWidth + (e.clientX - startX), viewport())
+      const next = clampChatWidthForViewport(startWidth + (e.clientX - startX), viewport().width)
       setPreferences("chatWidth", next)
     }
     function onUp(): void {
@@ -89,10 +86,10 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
     if (!layout().resizable) return
     if (event.key === "ArrowLeft") {
       event.preventDefault()
-      setPreferences("chatWidth", clampChatWidthForViewport(preferences.chatWidth - KEYBOARD_STEP, viewport()))
+      setPreferences("chatWidth", clampChatWidthForViewport(preferences.chatWidth - KEYBOARD_STEP, viewport().width))
     } else if (event.key === "ArrowRight") {
       event.preventDefault()
-      setPreferences("chatWidth", clampChatWidthForViewport(preferences.chatWidth + KEYBOARD_STEP, viewport()))
+      setPreferences("chatWidth", clampChatWidthForViewport(preferences.chatWidth + KEYBOARD_STEP, viewport().width))
     } else if (event.key === "Home") {
       event.preventDefault()
       setPreferences("chatWidth", DEFAULT_CHAT_WIDTH)
@@ -100,7 +97,6 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
   }
 
   const gridTemplate = createMemo(() => {
-    if (focused()) return "minmax(0, 1fr)"
     if (layout().kind === "mobile") return "minmax(0, 1fr)"
     if (layout().kind === "tablet") {
       return `${layout().chatWidth}px 8px minmax(0, 1fr)`
@@ -125,10 +121,9 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
       classList={{ "is-resizing": resizing() }}
       style={{
         "grid-template-columns": gridTemplate(),
-        "--design-chat-width": `${clampChatWidthForViewport(preferences.chatWidth, viewport())}px`,
+        "--design-chat-width": `${clampChatWidthForViewport(preferences.chatWidth, viewport().width)}px`,
         ...safeAreaStyle,
       }}
-      data-design-split-focused={focused() ? "true" : "false"}
       data-design-split-kind={layout().kind}
     >
       <Show when={layout().kind === "mobile"}>
@@ -149,15 +144,15 @@ export function DesignSplit(props: { chat: JSX.Element; workspace: JSX.Element }
         </div>
       </Show>
       <Show when={layout().kind !== "mobile"}>
-        <div class="flex h-full min-w-0 flex-col overflow-hidden" hidden={focused()} data-design-split-chat>
+        <div class="flex h-full min-w-0 flex-col overflow-hidden" data-design-split-chat>
           {props.chat}
         </div>
-        <Show when={!focused() && layout().resizable}>
+        <Show when={layout().resizable}>
           <div
             role="separator"
             aria-orientation="vertical"
             aria-label={t("design.split.handle")}
-            aria-valuenow={clampChatWidthForViewport(preferences.chatWidth, viewport())}
+            aria-valuenow={clampChatWidthForViewport(preferences.chatWidth, viewport().width)}
             aria-valuemin={MIN_CHAT_WIDTH}
             aria-valuemax={MAX_CHAT_WIDTH}
             tabindex="0"

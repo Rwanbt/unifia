@@ -3,12 +3,13 @@
 // without coupling packages/ui to the SDK or app context.  The parent
 // (file-tabs.tsx) owns the API calls and passes them in via LspCallbacks;
 // this module only deals with CM internals.
-import { linter, lintGutter } from "@codemirror/lint"
+import { forEachDiagnostic, linter } from "@codemirror/lint"
 import type { Diagnostic as CMDiagnostic } from "@codemirror/lint"
-import { hoverTooltip, keymap } from "@codemirror/view"
+import { GutterMarker, gutter, hoverTooltip, keymap } from "@codemirror/view"
 import { autocompletion } from "@codemirror/autocomplete"
 import type { CompletionContext, CompletionResult, Completion } from "@codemirror/autocomplete"
 import type { Extension, Text } from "@codemirror/state"
+import { RangeSet } from "@codemirror/state"
 
 // ─── Public types (consumed by code-mirror.tsx props) ────────────────────────
 
@@ -177,6 +178,85 @@ function buildLspCompletionSource(path: string, callbacks: LspCallbacks) {
 
 // ─── Extension builder ───────────────────────────────────────────────────────
 
+/** One v110 diagnostic marker: severity token + the hover message. */
+export type V110DiagnosticMarker = { line: number; severity: "error" | "warning" | "info"; message: string }
+
+const severityRank = { error: 3, warning: 2, info: 1 } as const
+
+function v110Severity(severity: CMDiagnostic["severity"]): V110DiagnosticMarker["severity"] {
+  if (severity === "error") return "error"
+  if (severity === "warning") return "warning"
+  return "info"
+}
+
+/**
+ * Maps CM diagnostics onto v110 gutter markers. One marker per line, the
+ * highest severity wins, and every message on the line is kept for the
+ * hover title. `lineAt` is injected so the mapping stays pure.
+ */
+export function collectDiagnosticMarkers(
+  diagnostics: readonly CMDiagnostic[],
+  lineAt: (offset: number) => number,
+): V110DiagnosticMarker[] {
+  const byLine = new Map<number, V110DiagnosticMarker>()
+  for (const diagnostic of diagnostics) {
+    const line = lineAt(diagnostic.from)
+    const severity = v110Severity(diagnostic.severity)
+    const existing = byLine.get(line)
+    if (!existing) {
+      byLine.set(line, { line, severity, message: diagnostic.message })
+      continue
+    }
+    const winner = severityRank[severity] > severityRank[existing.severity] ? severity : existing.severity
+    byLine.set(line, { line, severity: winner, message: `${existing.message}\n${diagnostic.message}` })
+  }
+  return [...byLine.values()].sort((left, right) => left.line - right.line)
+}
+
+/** Gutter marker carrying the v110 contract (`data-component`/`data-severity`). */
+export class V110DiagnosticGutterMarker extends GutterMarker {
+  constructor(readonly marker: V110DiagnosticMarker) {
+    super()
+  }
+
+  elementClass = "cm-v110-diagnostic"
+
+  toDOM(): Node {
+    const dom = document.createElement("div")
+    dom.setAttribute("data-component", "diagnostic-marker")
+    dom.setAttribute("data-severity", this.marker.severity)
+    dom.setAttribute("title", this.marker.message)
+    return dom
+  }
+}
+
+/**
+ * LSP diagnostics gutter using the v110 marker contract instead of CM's own
+ * lint gutter, so the theme rule `[data-component="diagnostic-marker"]`
+ * styles real server diagnostics. Squiggles and the lint tooltip stay on the
+ * linter extension.
+ */
+export function v110DiagnosticGutter(): Extension {
+  return gutter({
+    class: "cm-v110-diagnostic-gutter",
+    markers: (view) => {
+      const diagnostics: CMDiagnostic[] = []
+      forEachDiagnostic(view.state, (diagnostic, from) => {
+        // `from` is the clamp-adjusted offset CM reports for the diagnostic.
+        diagnostics.push({ ...diagnostic, from })
+      })
+      const lines = collectDiagnosticMarkers(diagnostics, (offset) => view.state.doc.lineAt(offset).number)
+      // Gutter markers are a range set anchored at each line start.
+      return RangeSet.of(
+        lines.map((marker) => {
+          const from = view.state.doc.line(marker.line).from
+          return { from, to: from, value: new V110DiagnosticGutterMarker(marker) as GutterMarker }
+        }),
+      )
+    },
+  })
+}
+
 /**
  * Build CM6 extensions for LSP features:
  *  - Diagnostics gutter + squiggles (750 ms debounce)
@@ -203,7 +283,7 @@ export function buildLspExtensions(
 
   // ── Diagnostics ──────────────────────────────────────────────────────────
   extensions.push(
-    lintGutter(),
+    v110DiagnosticGutter(),
     linter(
       async (view) => {
         let diags: LspDiagnosticEntry[]

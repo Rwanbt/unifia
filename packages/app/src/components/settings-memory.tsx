@@ -162,11 +162,13 @@ export const SettingsMemory: Component = () => {
           title={language.t("settings.fork.memory.enableTitle")}
           description={language.t("settings.fork.memory.enableDescription")}
         >
-          <SwitchComponent
-            checked={enabled()}
-            disabled={busy() || config.loading || loadError() !== undefined}
-            onChange={(value) => void update({ enabled: value })}
-          />
+          <div data-action="settings-memory-enabled">
+            <SwitchComponent
+              checked={enabled()}
+              disabled={busy() || config.loading || loadError() !== undefined}
+              onChange={(value) => void update({ enabled: value })}
+            />
+          </div>
         </SettingsRow>
       </SettingsList>
 

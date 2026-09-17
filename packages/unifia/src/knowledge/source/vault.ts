@@ -12,7 +12,7 @@
  * directly and never consults a derived index.
  */
 
-import { constants } from "node:fs"
+import { constants, lstatSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { isAbsolute, join, relative, sep } from "node:path"
 import type {
@@ -52,10 +52,26 @@ const MAX_RECORDED_TRUNCATIONS = 20
  */
 const O_NOFOLLOW_IF_AVAILABLE = constants.O_NOFOLLOW ?? 0
 
-/** A file's identity, as the kernel reports it. */
+/**
+ * A file's identity, as the kernel reports it.
+ *
+ * WHY mtimeNs and birthtimeNs are part of the identity: on the Windows CI
+ * runner (bun 1.3.11) ctimeNs and mtimeNs are observed frozen across a
+ * delete+recreate, and NTFS reuses file ids - the ino alone can then
+ * collide for the replacement, so a same-size regular-file swap escaped
+ * detection (#79). birthtimeNs changed in every measured configuration
+ * (bun 1.3.11 and 1.3.14, local and CI), and a rename preserves it, so
+ * the legitimate rename case still passes while a recreate is caught.
+ * On filesystems without a birth time the field is 0 on both sides and
+ * the other fields keep deciding.
+ */
 interface FileIdentity {
   dev: bigint
   ino: bigint
+  ctimeNs: bigint
+  mtimeNs: bigint
+  birthtimeNs: bigint
+  size: bigint
 }
 
 /**
@@ -88,13 +104,12 @@ function emptyScanStatus(): VaultScanStatus {
  *
  * This closes it by changing what the read is addressed to:
  *
- *   1. capture the identity of the validated path with `lstat` (which does
- *      not follow, so a link substituted here reports *its own* inode);
+ *   1. capture the identity of the validated path with synchronous `lstat`;
  *   2. open it once, with `O_NOFOLLOW` where the platform has it;
- *   3. `fstat` the descriptor and require the same `dev`/`ino`. A swap that
- *      raced step 2 shows up as a mismatch — on Windows, where the flag does
- *      not exist, this is the whole check;
- *   4. check the size and read the bytes *from the descriptor*.
+ *   3. `fstat` the descriptor and require the same identity. A swap that
+ *      raced step 2 shows up as a mismatch;
+ *   4. re-check the directory entry after opening, then read bytes from the
+ *      descriptor.
  *
  * After step 2 the descriptor names an inode, not a path, so no later
  * substitution can redirect the read at all. `null` means absent — a
@@ -106,7 +121,7 @@ async function readContainedByHandle(
   locator: string,
   maxNoteBytes: number,
 ): Promise<string | null> {
-  const before = await identityOf(real)
+  const before = identityOfSync(real)
   if (before === null) return null
 
   let handle: fsp.FileHandle
@@ -131,10 +146,29 @@ async function readContainedByHandle(
         `locator is not a regular file: ${locator}`,
       )
     }
-    if (st.dev !== before.dev || st.ino !== before.ino) {
+    if (!sameIdentity(st, before)) {
       throw KnowledgeFailure.pathUnresolved(
         `locator identity changed after validation: ${locator}` +
           ` (was ${before.dev}:${before.ino}, now ${st.dev}:${st.ino})`,
+      )
+    }
+    // Re-check the directory entry after opening. The descriptor is already
+    // stable, so a replacement cannot redirect the bytes we will read, but it
+    // must still be surfaced as an identity change.
+    const after = await identityOf(real)
+    // A hostile replacement can happen immediately after the first
+    // directory-entry check. A second observation turns that narrow race into
+    // an explicit identity transition while the descriptor remains pinned.
+    const settled = await identityOf(real)
+    if (
+      after === null ||
+      settled === null ||
+      !sameIdentity(st, after) ||
+      !sameIdentity(st, settled) ||
+      !sameIdentity(after, settled)
+    ) {
+      throw KnowledgeFailure.pathUnresolved(
+        `locator identity changed after validation: ${locator}`,
       )
     }
     // W-FS-03: the size comes from the descriptor, before any bytes are
@@ -157,10 +191,47 @@ async function readContainedByHandle(
 async function identityOf(path: string): Promise<FileIdentity | null> {
   try {
     const st = await fsp.lstat(path, { bigint: true })
-    return { dev: st.dev, ino: st.ino }
+    return {
+      dev: st.dev,
+      ino: st.ino,
+      ctimeNs: st.ctimeNs,
+      mtimeNs: st.mtimeNs,
+      birthtimeNs: st.birthtimeNs,
+      size: st.size,
+    }
   } catch {
     return null
   }
+}
+
+function identityOfSync(path: string): FileIdentity | null {
+  try {
+    const st = lstatSync(path, { bigint: true })
+    return {
+      dev: st.dev,
+      ino: st.ino,
+      ctimeNs: st.ctimeNs,
+      mtimeNs: st.mtimeNs,
+      birthtimeNs: st.birthtimeNs,
+      size: st.size,
+    }
+  } catch {
+    return null
+  }
+}
+
+function sameIdentity(
+  st: { dev: bigint; ino: bigint; ctimeNs: bigint; mtimeNs: bigint; birthtimeNs: bigint; size: bigint },
+  identity: FileIdentity,
+): boolean {
+  return (
+    st.dev === identity.dev &&
+    st.ino === identity.ino &&
+    st.ctimeNs === identity.ctimeNs &&
+    st.mtimeNs === identity.mtimeNs &&
+    st.birthtimeNs === identity.birthtimeNs &&
+    st.size === identity.size
+  )
 }
 
 /**
@@ -188,7 +259,12 @@ async function walkMarkdown(
     state.truncated = true
     state.reason = "maxDepth"
     if (state.truncatedPaths.length < MAX_RECORDED_TRUNCATIONS) {
-      state.truncatedPaths.push(relative(realRoot, dir).split(sep).join("/"))
+      // The real path must be used for the relative: the configured root and
+      // its realpath can differ in form (drive letter vs Volume-GUID on the
+      // CI runner), and path.relative() is purely textual (#79). Without
+      // this the diagnostic named a subtree that does not exist, and the
+      // P2/W-FS-02 assertions on the truncated names failed on CI only.
+      state.truncatedPaths.push(relative(realRoot, realOrNull(dir) ?? dir).split(sep).join("/"))
     }
     return
   }

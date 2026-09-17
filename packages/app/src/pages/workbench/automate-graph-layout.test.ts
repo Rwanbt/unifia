@@ -1,0 +1,312 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (c) 2026 Unifia contributors */
+
+import { describe, expect, test } from "bun:test"
+import {
+  BRANCH_PORT_OFFSET,
+  NODE_GAP_Y,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  PADDING,
+  PORT_HIT_RADIUS,
+  PORT_RADIUS,
+  closestInputPortDistance,
+  computeZoomToFit,
+  hasEdge,
+  isBranchingFamily,
+  layoutWorkflowSteps,
+  mergeEndpoints,
+  nearestInputPortId,
+  outputPortDy,
+  outputPortsFor,
+} from "./automate-graph-layout"
+import type { WorkflowStepSummary } from "./automate-workflow-model"
+
+function step(id: string, label: string, requiresApproval = false): WorkflowStepSummary {
+  return { id, label, requiresApproval }
+}
+
+describe("layoutWorkflowSteps", () => {
+  test("returns an empty graph for an empty input", () => {
+    const graph = layoutWorkflowSteps([])
+    expect(graph.nodes).toHaveLength(0)
+    expect(graph.edges).toHaveLength(0)
+    expect(graph.width).toBe(0)
+    expect(graph.height).toBe(0)
+  })
+
+  test("lays out a single step at the origin padding without edges", () => {
+    const graph = layoutWorkflowSteps([step("only", "capability.read")])
+    expect(graph.nodes).toHaveLength(1)
+    expect(graph.edges).toHaveLength(0)
+    expect(graph.nodes[0]).toMatchObject({
+      id: "only",
+      x: PADDING,
+      y: PADDING,
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      label: "capability.read",
+      requiresApproval: false,
+    })
+    expect(graph.width).toBe(PADDING * 2 + NODE_WIDTH)
+    expect(graph.height).toBe(PADDING * 2 + NODE_HEIGHT)
+  })
+
+  test("stacks multiple steps vertically with one edge between each consecutive pair", () => {
+    const graph = layoutWorkflowSteps([
+      step("a", "capability.read"),
+      step("b", "capability.write"),
+      step("c", "capability.publish", true),
+    ])
+    expect(graph.nodes).toHaveLength(3)
+    expect(graph.edges).toHaveLength(2)
+    // Vertical layout — same x for every step, y increases by NODE_HEIGHT + GAP.
+    expect(graph.nodes[0]?.y).toBe(PADDING)
+    expect(graph.nodes[1]?.y).toBe(PADDING + NODE_HEIGHT + NODE_GAP_Y)
+    expect(graph.nodes[2]?.y).toBe(PADDING + 2 * (NODE_HEIGHT + NODE_GAP_Y))
+    // Edges go from previous.x+width to next.x at the vertical midline.
+    expect(graph.edges[0]).toMatchObject({
+      from: "a",
+      to: "b",
+      x1: PADDING + NODE_WIDTH,
+      y1: PADDING + NODE_HEIGHT / 2,
+      x2: PADDING,
+      y2: PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2,
+    })
+    expect(graph.edges[1]?.from).toBe("b")
+    expect(graph.edges[1]?.to).toBe("c")
+    // The approval flag is preserved on the laid-out node.
+    expect(graph.nodes[2]?.requiresApproval).toBe(true)
+  })
+
+  test("computes a deterministic bounding box sized for the entire pipeline", () => {
+    const steps: WorkflowStepSummary[] = []
+    for (let index = 0; index < 5; index += 1) steps.push(step(`s${index}`, `label-${index}`))
+    const graph = layoutWorkflowSteps(steps)
+    expect(graph.nodes).toHaveLength(5)
+    expect(graph.edges).toHaveLength(4)
+    expect(graph.width).toBe(PADDING * 2 + NODE_WIDTH)
+    expect(graph.height).toBe(PADDING * 2 + 5 * NODE_HEIGHT + 4 * NODE_GAP_Y)
+  })
+})
+
+describe("mergeEndpoints", () => {
+  test("returns synthetic edges when no user edges are provided", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
+    const endpoints = mergeEndpoints(graph, {}, [])
+    expect(endpoints).toHaveLength(1)
+    // Source is a's right edge at vertical midline; target is b's left edge.
+    expect(endpoints[0]).toMatchObject({
+      from: "a",
+      to: "b",
+      user: false,
+      x1: PADDING + NODE_WIDTH,
+      y1: PADDING + NODE_HEIGHT / 2,
+      x2: PADDING,
+      y2: PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2,
+    })
+  })
+
+  test("appends user edges after the synthetic ones with user=true", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
+    const endpoints = mergeEndpoints(graph, {}, [{ from: "a", to: "c" }])
+    expect(endpoints).toHaveLength(3) // 2 synthetic + 1 user
+    expect(endpoints[0]?.user).toBe(false)
+    expect(endpoints[1]?.user).toBe(false)
+    expect(endpoints[2]).toMatchObject({ from: "a", to: "c", user: true })
+  })
+
+  test("follows the source node when the user dragged it (synthetic)", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
+    const overrides = { a: { x: 500, y: 120 } }
+    const endpoints = mergeEndpoints(graph, overrides, [])
+    expect(endpoints).toHaveLength(1)
+    // Source's x/y come from the override; target stays laid-out.
+    expect(endpoints[0]?.x1).toBe(500 + NODE_WIDTH)
+    expect(endpoints[0]?.y1).toBe(120 + NODE_HEIGHT / 2)
+    expect(endpoints[0]?.x2).toBe(PADDING)
+    expect(endpoints[0]?.y2).toBe(PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2)
+  })
+
+  test("follows the target node when the user dragged it (synthetic)", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
+    const overrides = { b: { x: 800, y: 600 } }
+    const endpoints = mergeEndpoints(graph, overrides, [])
+    expect(endpoints[0]?.x1).toBe(PADDING + NODE_WIDTH)
+    expect(endpoints[0]?.y1).toBe(PADDING + NODE_HEIGHT / 2)
+    expect(endpoints[0]?.x2).toBe(800)
+    expect(endpoints[0]?.y2).toBe(600 + NODE_HEIGHT / 2)
+  })
+
+  test("follows both endpoints when both nodes were dragged", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
+    const overrides = { a: { x: 200, y: 50 }, b: { x: 600, y: 250 } }
+    const endpoints = mergeEndpoints(graph, overrides, [])
+    expect(endpoints).toHaveLength(2)
+    expect(endpoints[0]).toMatchObject({ from: "a", to: "b", x1: 200 + NODE_WIDTH, y1: 50 + NODE_HEIGHT / 2, x2: 600, y2: 250 + NODE_HEIGHT / 2 })
+    expect(endpoints[1]).toMatchObject({ from: "b", to: "c", x1: 600 + NODE_WIDTH, y1: 250 + NODE_HEIGHT / 2, x2: PADDING, y2: PADDING + 2 * (NODE_HEIGHT + NODE_GAP_Y) + NODE_HEIGHT / 2 })
+  })
+
+  test("renders a zero endpoint for an unknown node reference", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a")])
+    // Forge an edge that references a missing target — the helper must
+    // not throw, and must fall back to a safe zero endpoint.
+    const broken = { ...graph, edges: [{ from: "a", to: "ghost", x1: 1, y1: 2, x2: 3, y2: 4 }] }
+    const endpoints = mergeEndpoints(broken, {}, [])
+    expect(endpoints).toHaveLength(1)
+    expect(endpoints[0]).toMatchObject({ from: "a", to: "ghost", user: false, x1: 0, y1: 0, x2: 0, y2: 0 })
+  })
+})
+
+describe("layoutWorkflowSteps with extraNodes (slice 5)", () => {
+  test("extends the stack with extraNodes after the legacy steps", () => {
+    const graph = layoutWorkflowSteps(
+      [step("a", "cap.a"), step("b", "cap.b")],
+      [{ id: "lib-1", label: "If / else", requiresApproval: false, family: "control.if" }],
+    )
+    expect(graph.nodes).toHaveLength(3)
+    expect(graph.nodes[0]?.id).toBe("a")
+    expect(graph.nodes[1]?.id).toBe("b")
+    expect(graph.nodes[2]?.id).toBe("lib-1")
+    expect(graph.edges).toHaveLength(2)
+    expect(graph.edges[0]?.from).toBe("a")
+    expect(graph.edges[0]?.to).toBe("b")
+    expect(graph.edges[1]?.from).toBe("b")
+    expect(graph.edges[1]?.to).toBe("lib-1")
+    expect(graph.nodes[2]?.family).toBe("control.if")
+  })
+
+  test("works with only extraNodes and no legacy steps", () => {
+    const graph = layoutWorkflowSteps([], [step("only-lib", "transform"), step("second", "approval", true)])
+    expect(graph.nodes).toHaveLength(2)
+    expect(graph.edges).toHaveLength(1)
+    expect(graph.edges[0]).toMatchObject({ from: "only-lib", to: "second" })
+  })
+})
+
+describe("computeZoomToFit (slice 8.9)", () => {
+  test("returns identity pan/zoom for an empty graph", () => {
+    const graph = layoutWorkflowSteps([])
+    const fit = computeZoomToFit(graph, 640, 448)
+    expect(fit).toEqual({ panX: 0, panY: 0, zoom: 1 })
+  })
+
+  test("fits the graph inside the viewport with the default padding", () => {
+    const graph = layoutWorkflowSteps([step("a", "x"), step("b", "y"), step("c", "z")])
+    const fit = computeZoomToFit(graph, 640, 448)
+    // The graph fits comfortably inside the 640×448 viewport, so the
+    // helper zooms UP (>1) and centres the result with positive pan.
+    expect(fit.zoom).toBeGreaterThan(1)
+    expect(fit.panX).toBeGreaterThan(0)
+    expect(fit.panY).toBeGreaterThan(0)
+    // Centred: panX = (viewportWidth - graph.width * zoom) / 2.
+    expect(fit.panX).toBeCloseTo((640 - graph.width * fit.zoom) / 2, 5)
+    expect(fit.panY).toBeCloseTo((448 - graph.height * fit.zoom) / 2, 5)
+  })
+
+  test("respects a custom padding", () => {
+    const graph = layoutWorkflowSteps([step("only", "x")])
+    const fit = computeZoomToFit(graph, 400, 200, 100)
+    // inner: 200 x 0 → returns identity (degenerate viewport)
+    expect(fit).toEqual({ panX: 0, panY: 0, zoom: 1 })
+  })
+
+  test("zooms out (zoom < 1) when the graph is larger than the viewport", () => {
+    // Force a long graph so it exceeds the viewport width.
+    const steps: WorkflowStepSummary[] = []
+    for (let index = 0; index < 20; index += 1) steps.push(step(`s${index}`, "label"))
+    const graph = layoutWorkflowSteps(steps)
+    const fit = computeZoomToFit(graph, 320, 480)
+    expect(fit.zoom).toBeLessThan(1)
+  })
+})
+
+describe("port hit-test helpers", () => {
+  test("PORT_HIT_RADIUS exceeds PORT_RADIUS so drop zones are forgiving", () => {
+    // Anti-regression: a future tuning of the rendered port radius
+    // must not silently shrink the hit zone.
+    expect(PORT_HIT_RADIUS).toBeGreaterThan(PORT_RADIUS)
+  })
+
+  test("nearestInputPortId returns the closest node by Euclidean distance", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b"), step("c", "cap.c")])
+    // a sits at (PADDING, PADDING), b below a, c below b — all on x=PADDING.
+    expect(nearestInputPortId(graph, {}, PADDING, PADDING + NODE_HEIGHT / 2)).toBe("a")
+    expect(nearestInputPortId(graph, {}, PADDING, PADDING + NODE_HEIGHT + NODE_GAP_Y + NODE_HEIGHT / 2)).toBe("b")
+  })
+
+  test("nearestInputPortId respects drag overrides when computing positions", () => {
+    const graph = layoutWorkflowSteps([step("a", "cap.a"), step("b", "cap.b")])
+    // Move a to x=999 so the cursor near (1000, PADDING + NODE_HEIGHT/2)
+    // is closest to a, not b.
+    const overrides = { a: { x: 999, y: PADDING } }
+    expect(nearestInputPortId(graph, overrides, 1000, PADDING + NODE_HEIGHT / 2)).toBe("a")
+  })
+
+  test("closestInputPortDistance returns Infinity on an empty graph", () => {
+    expect(closestInputPortDistance(layoutWorkflowSteps([]), {}, 0, 0)).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  test("hasEdge detects an existing pair", () => {
+    expect(hasEdge([{ from: "a", to: "b" }, { from: "b", to: "c" }], "a", "b")).toBe(true)
+    expect(hasEdge([{ from: "a", to: "b" }], "b", "a")).toBe(false)
+    expect(hasEdge([], "a", "b")).toBe(false)
+  })
+})
+
+
+describe("branch output ports (slice 9.2)", () => {
+  test("isBranchingFamily only accepts control.if", () => {
+    expect(isBranchingFamily("control.if")).toBe(true)
+    expect(isBranchingFamily("tool.http")).toBe(false)
+    expect(isBranchingFamily(undefined)).toBe(false)
+  })
+
+  test("outputPortsFor returns true-above / false-below for control.if", () => {
+    expect(outputPortsFor("control.if")).toEqual([
+      { kind: "branch-true", dy: -BRANCH_PORT_OFFSET },
+      { kind: "branch-false", dy: BRANCH_PORT_OFFSET },
+    ])
+  })
+
+  test("outputPortsFor returns a single flow port for every other family", () => {
+    expect(outputPortsFor("tool.http")).toEqual([{ kind: "flow", dy: 0 }])
+    expect(outputPortsFor(undefined)).toEqual([{ kind: "flow", dy: 0 }])
+  })
+
+  test("outputPortDy resolves the port offset and falls back to 0", () => {
+    expect(outputPortDy("control.if", "branch-true")).toBe(-BRANCH_PORT_OFFSET)
+    expect(outputPortDy("control.if", "branch-false")).toBe(BRANCH_PORT_OFFSET)
+    expect(outputPortDy("control.if", "flow")).toBe(0)
+    expect(outputPortDy("tool.http", "branch-true")).toBe(0)
+  })
+
+  test("mergeEndpoints anchors a branch edge on the matching port and tags its kind", () => {
+    const graph = layoutWorkflowSteps([
+      { id: "check", label: "If", requiresApproval: false, family: "control.if" },
+      step("done", "x"),
+    ])
+    const endpoints = mergeEndpoints(graph, {}, [{ from: "check", to: "done", kind: "branch-true" }])
+    const user = endpoints.find((endpoint) => endpoint.user)
+    expect(user?.kind).toBe("branch-true")
+    expect(user?.y1).toBe(PADDING + NODE_HEIGHT / 2 - BRANCH_PORT_OFFSET)
+  })
+
+  test("mergeEndpoints defaults user edges to the flow kind on the midline", () => {
+    const graph = layoutWorkflowSteps([step("a", "x"), step("b", "y")])
+    const endpoints = mergeEndpoints(graph, {}, [{ from: "a", to: "b" }])
+    const user = endpoints.find((endpoint) => endpoint.user)
+    expect(user?.kind).toBe("flow")
+    expect(user?.y1).toBe(PADDING + NODE_HEIGHT / 2)
+  })
+
+  test("synthetic sequential edges stay flow regardless of node family", () => {
+    const graph = layoutWorkflowSteps([
+      { id: "check", label: "If", requiresApproval: false, family: "control.if" },
+      step("after", "x"),
+    ])
+    const endpoints = mergeEndpoints(graph, {}, [])
+    expect(endpoints[0]?.kind).toBe("flow")
+    expect(endpoints[0]?.user).toBe(false)
+  })
+})

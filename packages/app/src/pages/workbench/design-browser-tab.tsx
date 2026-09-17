@@ -2,6 +2,7 @@
 
 import { createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { invoke } from "@tauri-apps/api/core"
+import { useLanguage } from "@/context/language"
 import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/workbench/design-browser-model"
 
 /**
@@ -18,6 +19,7 @@ import { normalizeBrowserAddress, type BrowserHistoryAction } from "@/pages/work
  * build never pays for a second document it does not use.
  */
 export function DesignBrowserTab(): JSX.Element {
+  const language = useLanguage()
   const [address, setAddress] = createSignal("")
   const [fallbackUrl, setFallbackUrl] = createSignal("")
   const [label, setLabel] = createSignal<string>()
@@ -35,7 +37,7 @@ export function DesignBrowserTab(): JSX.Element {
     event.preventDefault()
     const next = normalizeBrowserAddress(address())
     if (!next) {
-      setError("Saisis une adresse http(s).")
+      setError(language.t("workbench.design.browser.addressRequired"))
       return
     }
     setAddress(next)
@@ -52,7 +54,11 @@ export function DesignBrowserTab(): JSX.Element {
       // Say so rather than leaving an unexplained empty panel.
       setLabel(undefined)
       setFallbackUrl(next)
-      setError(`Fenêtre native indisponible (${cause instanceof Error ? cause.message : String(cause)}). Affichage intégré — bloqué par la politique de sécurité dans l'application packagée.`)
+      setError(
+        language.t("workbench.design.browser.nativeUnavailable", {
+          reason: cause instanceof Error ? cause.message : String(cause),
+        }),
+      )
     }
   }
 
@@ -66,24 +72,24 @@ export function DesignBrowserTab(): JSX.Element {
 
   return <div class="flex h-full min-h-0 flex-col" data-design-browser>
     <form class="flex shrink-0 items-center gap-2 border-b border-border-base p-2" onSubmit={open}>
-      <button type="button" class={buttonClass} disabled={!label()} aria-label="Précédent" data-design-browser-back onClick={() => history("back")}>←</button>
-      <button type="button" class={buttonClass} disabled={!label()} aria-label="Suivant" data-design-browser-forward onClick={() => history("forward")}>→</button>
-      <button type="button" class={buttonClass} disabled={!label()} aria-label="Recharger" data-design-browser-reload onClick={() => history("reload")}>⟳</button>
+      <button type="button" class={buttonClass} disabled={!label()} aria-label={language.t("workbench.design.browser.back")} data-design-browser-back onClick={() => history("back")}>←</button>
+      <button type="button" class={buttonClass} disabled={!label()} aria-label={language.t("workbench.design.browser.forward")} data-design-browser-forward onClick={() => history("forward")}>→</button>
+      <button type="button" class={buttonClass} disabled={!label()} aria-label={language.t("workbench.design.browser.reload")} data-design-browser-reload onClick={() => history("reload")}>⟳</button>
       <input
         class="min-w-0 flex-1 rounded border border-border-base bg-background-base px-2 py-1 text-12-regular"
         aria-label="URL"
-        placeholder="https://exemple.com"
+        placeholder="https://example.com"
         value={address()}
         onInput={(event) => setAddress(event.currentTarget.value)}
         data-design-browser-address
       />
-      <button type="submit" class="rounded border border-border-base px-2 py-1 text-12-medium" data-design-browser-go>Go</button>
+      <button type="submit" class="rounded border border-border-base px-2 py-1 text-12-medium" data-design-browser-go>{language.t("workbench.design.browser.go")}</button>
     </form>
     <Show when={error()}>{(message) => <p class="shrink-0 px-2 py-1 text-12-regular text-text-weak" data-design-browser-error>{message()}</p>}</Show>
     <Show
       when={fallbackUrl()}
       fallback={<div class="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-12-regular text-text-weak" data-design-browser-native>
-        {label() ? "La page est ouverte dans une fenêtre navigateur. Utilise les boutons ci-dessus pour la piloter." : "Saisis une adresse pour ouvrir une fenêtre navigateur."}
+        {label() ? language.t("workbench.design.browser.nativeHintOpen") : language.t("workbench.design.browser.nativeHintIdle")}
       </div>}
     >
       {(url) => <iframe class="min-h-0 flex-1 border-0" title="Browser" src={url()} referrerPolicy="no-referrer" data-design-browser-frame />}

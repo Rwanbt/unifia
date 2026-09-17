@@ -3,6 +3,7 @@
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import { useLanguage } from "@/context/language"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { FileIcon } from "@unifia/ui/file-icon"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
@@ -188,6 +189,7 @@ function TreeRow(props: {
 
 export function DesignFilesTab(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
+  const language = useLanguage()
   const connection = workbench.connection
   const [selectedPath, setSelectedPath] = createSignal<string>()
   const [search, setSearch] = createSignal("")
@@ -249,7 +251,7 @@ export function DesignFilesTab(): JSX.Element {
     const current = connection()
     const target = selectedPath()
     if (!current || !target) return
-    if (typeof window !== "undefined" && !window.confirm(`Supprimer « ${target} » ?`)) return
+    if (typeof window !== "undefined" && !window.confirm(language.t("workbench.design.files.deleteConfirm", { target }))) return
     await withMutation(async () => {
       await current.client.removeFiles(current.workspaceId, [target])
       await files.refetch()
@@ -384,7 +386,7 @@ export function DesignFilesTab(): JSX.Element {
             <input
               type="search"
               class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
-              placeholder="Rechercher un fichier…"
+              placeholder={language.t("workbench.design.files.searchPlaceholder")}
               value={search()}
               onInput={(event) => setSearch(event.currentTarget.value)}
               data-design-files-search
@@ -394,7 +396,7 @@ export function DesignFilesTab(): JSX.Element {
               class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
               disabled={mutating()}
               onClick={() => setShowCreateForm((value) => !value)}
-              title="Nouveau fichier"
+              title={language.t("workbench.design.files.newButtonTitle")}
               data-design-files-new-button
             >
               +
@@ -404,7 +406,7 @@ export function DesignFilesTab(): JSX.Element {
               class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50"
               disabled={mutating()}
               onClick={() => uploadInput?.click()}
-              title="Importer un fichier"
+              title={language.t("workbench.design.files.uploadButtonTitle")}
               data-design-files-upload-button
             >
               ↑
@@ -433,14 +435,14 @@ export function DesignFilesTab(): JSX.Element {
               <input
                 type="text"
                 class="w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular text-text-base placeholder:text-text-weak focus:outline-none"
-                placeholder="chemin/du/fichier.ext"
+                placeholder={language.t("workbench.design.files.newPathPlaceholder")}
                 value={newFilePath()}
                 onInput={(event) => setNewFilePath(event.currentTarget.value)}
                 data-design-files-new-path
                 autofocus
               />
               <button type="submit" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !newFilePath().trim()}>
-                Créer
+                {language.t("workbench.design.files.create")}
               </button>
             </form>
           </Show>
@@ -453,7 +455,7 @@ export function DesignFilesTab(): JSX.Element {
         <div class="flex-1 min-h-0 overflow-y-auto p-1">
           <Show when={files.isLoading}>
             <p class="p-2 text-12-regular text-text-weak" data-design-files-loading>
-              Chargement…
+              {language.t("common.loading")}…
             </p>
           </Show>
           <Show when={files.error}>
@@ -463,7 +465,7 @@ export function DesignFilesTab(): JSX.Element {
           </Show>
           <Show when={!files.isLoading && !files.error && rows().length === 0}>
             <p class="p-2 text-12-regular text-text-weak" data-design-files-empty>
-              Aucun fichier trouvé.
+              {language.t("workbench.design.files.empty")}
             </p>
           </Show>
           <Show
@@ -498,7 +500,7 @@ export function DesignFilesTab(): JSX.Element {
           when={selectedPath()}
           fallback={
             <div class="flex h-full items-center justify-center p-6 text-center">
-              <p class="text-12-regular text-text-weak">Sélectionne un fichier pour l'aperçu.</p>
+              <p class="text-12-regular text-text-weak">{language.t("workbench.design.files.selectForPreview")}</p>
             </div>
           }
         >
@@ -530,10 +532,10 @@ export function DesignFilesTab(): JSX.Element {
                       autofocus
                     />
                     <button type="submit" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium disabled:opacity-50" disabled={mutating() || !(renameDraft() ?? "").trim()}>
-                      Renommer
+                      {language.t("common.rename")}
                     </button>
                     <button type="button" class="shrink-0 rounded border border-border-base px-2 py-1 text-12-medium" onClick={() => setRenameDraft(undefined)}>
-                      Annuler
+                      {language.t("common.cancel")}
                     </button>
                   </form>
                 </Show>
@@ -546,7 +548,7 @@ export function DesignFilesTab(): JSX.Element {
                       onClick={() => setRenameDraft(path())}
                       data-design-files-rename-button
                     >
-                      Renommer
+                      {language.t("common.rename")}
                     </button>
                     <button
                       type="button"
@@ -555,12 +557,12 @@ export function DesignFilesTab(): JSX.Element {
                       onClick={() => void deleteSelected()}
                       data-design-files-delete-button
                     >
-                      Supprimer
+                      {language.t("common.delete")}
                     </button>
                   </Show>
                 </div>
                 <Show when={isRenderable(path())}>
-                  <div class="flex shrink-0 items-center gap-1 rounded border border-border-base p-0.5" role="group" aria-label="Aperçu ou source" data-design-files-mode-toggle>
+                  <div class="flex shrink-0 items-center gap-1 rounded border border-border-base p-0.5" role="group" aria-label={language.t("workbench.design.files.modeLabel")} data-design-files-mode-toggle>
                     <button
                       type="button"
                       class="rounded px-2 py-1 text-12-medium"
@@ -568,7 +570,7 @@ export function DesignFilesTab(): JSX.Element {
                       aria-pressed={previewMode() === "preview"}
                       onClick={() => setPreviewMode("preview")}
                     >
-                      Aperçu
+                      {language.t("workbench.design.files.preview")}
                     </button>
                     <button
                       type="button"
@@ -577,13 +579,13 @@ export function DesignFilesTab(): JSX.Element {
                       aria-pressed={previewMode() === "source"}
                       onClick={() => setPreviewMode("source")}
                     >
-                      Source
+                      {language.t("workbench.design.files.source")}
                     </button>
                   </div>
                 </Show>
               </div>
               <Show when={content.isLoading}>
-                <p class="p-3 text-12-regular text-text-weak">Chargement…</p>
+                <p class="p-3 text-12-regular text-text-weak">{language.t("common.loading")}…</p>
               </Show>
               <Show when={content.error}>
                 <p class="p-3 text-12-regular text-text-danger">
@@ -608,7 +610,7 @@ export function DesignFilesTab(): JSX.Element {
                   </Show>
                   <Show
                     when={renderedSource() !== undefined}
-                    fallback={<p class="p-3 text-12-regular text-text-weak">Chargement des styles…</p>}
+                    fallback={<p class="p-3 text-12-regular text-text-weak">{language.t("workbench.design.files.loadingStyles")}</p>}
                   >
                     <div class="flex-1 min-h-0 overflow-hidden" data-design-files-preview-render>
                       <ArtifactPreview

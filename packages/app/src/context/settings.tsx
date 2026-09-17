@@ -33,6 +33,12 @@ export interface Settings {
     showReasoningSummaries: boolean
     shellToolPartsExpanded: boolean
     editToolPartsExpanded: boolean
+    /**
+     * v110 Motion contract (INTERACTIONS.md): user-level animations
+     * toggle. Persisted, default on (maquette General > Animations);
+     * applied to <html data-ui-animations="on|off">.
+     */
+    uiAnimations: boolean
     // FORK: ADR-0005 dual-mode Agent ⇄ IDE
     viewMode: "agent" | "ide"
   }
@@ -102,6 +108,7 @@ const defaultSettings: Settings = {
     showReasoningSummaries: false,
     shellToolPartsExpanded: false,
     editToolPartsExpanded: false,
+    uiAnimations: true,
     viewMode: "agent" as "agent" | "ide",
   },
   updates: {
@@ -165,6 +172,11 @@ export function migrateAutoSave(raw: unknown): unknown {
   }
 }
 
+/** v110 Motion contract: maps the persisted preference to the <html> attribute value. */
+export function uiAnimationsValue(enabled: boolean): "on" | "off" {
+  return enabled ? "on" : "off"
+}
+
 export const { use: useSettings, provider: SettingsProvider } = createSimpleContext({
   name: "Settings",
   init: () => {
@@ -178,6 +190,15 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       const root = document.documentElement
       root.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.mono))
       root.style.setProperty("--font-family-sans", sansFontFamily(store.appearance?.sans))
+    })
+
+    createEffect(() => {
+      if (typeof document === "undefined") return
+      // v110 Motion contract: the attribute drives the animation-free path
+      // in the shell stylesheet (prefers-reduced-motion is handled in CSS).
+      document.documentElement.dataset.uiAnimations = uiAnimationsValue(
+        store.general?.uiAnimations ?? defaultSettings.general.uiAnimations,
+      )
     })
 
     createEffect(() => {
@@ -233,6 +254,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setEditToolPartsExpanded(value: boolean) {
           setStore("general", "editToolPartsExpanded", value)
+        },
+        uiAnimations: withFallback(
+          () => store.general?.uiAnimations,
+          defaultSettings.general.uiAnimations,
+        ),
+        setUiAnimations(value: boolean) {
+          setStore("general", "uiAnimations", value)
         },
         viewMode: withFallback(
           () => store.general?.viewMode,

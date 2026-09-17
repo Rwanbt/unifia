@@ -1,16 +1,35 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
+import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
+import { useTeam } from "@/context/team"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { base64Encode } from "@unifia/util/encode"
 import { useNavigate } from "@solidjs/router"
 import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
+import { WorkActivityPanel } from "@/pages/workbench/work-activity-panel"
+import { WorkBoardPanel } from "@/pages/workbench/work-board-panel"
+import { WorkHero } from "@/pages/workbench/work-hero"
+import { WorkHealthChip } from "@/pages/workbench/work-health-chip"
+import { workHealth } from "@/pages/workbench/work-health"
+import { WorkNextActionPanel } from "@/pages/workbench/work-next-action-panel"
+import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
+import { WorkProgressPanel } from "@/pages/workbench/work-progress-panel"
+import { WorkRunsPanel } from "@/pages/workbench/work-runs-panel"
+import { WorkTimelinePanel } from "@/pages/workbench/work-timeline-panel"
+import { pickActiveRun, taskProgress } from "@/pages/workbench/work-team"
+import type { WorkView } from "@/pages/workbench/work-view"
+import { WorkViewSwitcher } from "@/pages/workbench/work-view-switcher"
 import { createMobileNavigationModel, WORK_V1_FUNCTIONS, type WorkFunction } from "@unifia/workbench-shell"
+
+// A5-03/04/05: views ship incrementally as their real content lands — a tab
+// only appears once it opens onto something real, never onto a placeholder.
+const AVAILABLE_WORK_VIEWS: readonly WorkView[] = ["overview", "tasks", "board", "timeline", "activity", "runs"]
 
 const OPERATION_I18N_KEY: Record<WorkFunction, string> = {
   "workspace-switcher": "workbench.operations.workspaceSwitcher",
@@ -35,7 +54,35 @@ export function WorkSurface(): JSX.Element {
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
   const navigate = useNavigate()
+  const team = useTeam()
   createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
+  onMount(() => {
+    void Promise.all([team.runs.refresh(), team.models.refresh()])
+  })
+  const activeRun = createMemo(() => pickActiveRun(team.runs.page().items))
+  createEffect(() => {
+    const run = activeRun()
+    if (run && team.details.runId() !== run.runId) {
+      void team.details.select(run.runId).catch(() => undefined)
+    }
+  })
+  const planTasks = createMemo<TeamGraphTask[]>(() => [...team.details.tasks()])
+  const planProgress = createMemo(() => taskProgress(planTasks()))
+  const activeRunCount = createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length)
+  // Issue #100: the v65 header chip, mapped from real run/task/gate facts
+  // (work-health.ts). No run yet is not a problem state — it is "On track",
+  // exactly as the mockup computes over an empty task list.
+  const health = createMemo(() =>
+    workHealth({
+      runStatuses: team.runs.page().items.map((run) => run.status),
+      taskStatuses: planTasks().map((task) => task.status),
+      gateVerdicts: team.details.gates().map((gate) => gate.verdict),
+    }),
+  )
+  const gatesReadyCount = createMemo(
+    () => team.details.gates().filter((gate) => gate.verdict !== "CHANGES_REQUESTED").length,
+  )
+  const [activeView, setActiveView] = createSignal<WorkView>("overview")
   const [activeOperation, setActiveOperation] = createSignal<WorkFunction>("documents")
   const [exportState, setExportState] = createSignal<"idle" | "running" | "success" | "error">("idle")
   const [exportMessage, setExportMessage] = createSignal("")
@@ -95,11 +142,50 @@ export function WorkSurface(): JSX.Element {
     <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="work">
       <div class="mx-auto max-w-5xl space-y-8">
         <header class="space-y-2">
-          <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.work.title")}</p>
-          <h1 class="text-24-medium">{t("workbench.work.heading")}</h1>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.work.title")}</p>
+              <h1 class="text-24-medium">{t("workbench.work.heading")}</h1>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <WorkHealthChip health={health()} />
+              <WorkHero activeRunCount={activeRunCount()} />
+            </div>
+          </div>
           <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.work.description")}</p>
           <ConnectionBanner dataAttr="workbench-connection" dataRetryAttr="workbench-retry" />
         </header>
+        <div data-v110="work-view-shell">
+          <WorkViewSwitcher views={AVAILABLE_WORK_VIEWS} active={activeView()} onSelect={setActiveView} />
+          <div class="mt-4" data-v110="work-view-content" data-work-view-content={activeView()}>
+            <Show when={activeView() === "overview"}>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <WorkProgressPanel
+                  percent={planProgress().percent}
+                  taskCount={planProgress().total}
+                  runCount={team.runs.page().items.length}
+                  gatesReadyCount={gatesReadyCount()}
+                />
+                <WorkNextActionPanel tasks={planTasks()} />
+              </div>
+            </Show>
+            <Show when={activeView() === "tasks"}>
+              <WorkPlanPanel tasks={planTasks()} percent={planProgress().percent} canRead={team.capabilities().canRead} />
+            </Show>
+            <Show when={activeView() === "board"}>
+              <WorkBoardPanel tasks={planTasks()} />
+            </Show>
+            <Show when={activeView() === "timeline"}>
+              <WorkTimelinePanel />
+            </Show>
+            <Show when={activeView() === "activity"}>
+              <WorkActivityPanel />
+            </Show>
+            <Show when={activeView() === "runs"}>
+              <WorkRunsPanel />
+            </Show>
+          </div>
+        </div>
         <WorkbenchChat
           mode="work"
           prompt={t("workbench.work.chatPrompt")}

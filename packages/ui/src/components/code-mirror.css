@@ -203,3 +203,44 @@
 .cm-opencode .tok-deleted {
   color: var(--syntax-diff-delete, currentColor);
 }
+/* v110 diagnostic markers: geometry only — the severity background comes
+   from the app theme rule [data-component="diagnostic-marker"][data-severity],
+   so a marker is neutral unless the theme colours it. */
+.cm-opencode .cm-v110-diagnostic {
+  width: 10px;
+  height: 10px;
+  margin: 2px auto 0;
+  border-radius: 999px;
+}
+
+.cm-opencode .cm-v110-diagnostic[data-severity="info"] {
+  background: var(--text-weak, rgba(127, 127, 127, 0.45));
+  opacity: 0.55;
+}
+/* Git blame annotations (#96): inline end-of-line label + hover card. */
+.cm-opencode .cm-blame-inline {
+  margin-left: 1.5ch;
+  color: var(--text-weak, rgba(127, 127, 127, 0.65));
+  font-size: 0.85em;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.cm-opencode .cm-blame-tooltip {
+  max-width: 46ch;
+  padding: 6px 8px;
+  border: 1px solid var(--border-base, rgba(127, 127, 127, 0.35));
+  border-radius: 6px;
+  background: var(--background-stronger, rgba(20, 20, 20, 0.96));
+  color: var(--text-base, inherit);
+  font-size: 11px;
+}
+
+.cm-opencode .cm-blame-tooltip-head {
+  color: var(--text-weak, rgba(127, 127, 127, 0.85));
+}
+
+.cm-opencode .cm-blame-tooltip pre {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}

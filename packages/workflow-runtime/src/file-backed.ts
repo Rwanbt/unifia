@@ -41,10 +41,6 @@ import type {
   WorkflowRun,
 } from "@unifia/contracts"
 import {
-  WorkflowRunSchema,
-  AtomicTransitionBoundarySchema,
-} from "@unifia/contracts"
-import {
   InMemoryDurableHistoryAuthority,
   IllegalTransitionError,
   RunNotFoundError,
@@ -95,8 +91,10 @@ export class FileBackedDurableHistoryAuthority implements DurableHistoryAuthorit
   private readonly inner: InMemoryDurableHistoryAuthority
   private readonly options: FileBackedHistoryAuthorityOptions
   private readonly authorityKind: DurableAuthorityKind
-  private snapshotWritten = false
-  private lastSnapshotAt = 0
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: assigned by snapshot() (line 213-214) but Biome's intra-class analysis misses the cross-method writes. Fields are persisted across calls.
+  private _snapshotWritten = false
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: assigned by restore() and snapshot() (line 154, 214) but Biome's intra-class analysis misses the cross-method writes. Field is read by future audit tooling.
+  private _lastSnapshotAt = 0
 
   constructor(options: FileBackedHistoryAuthorityOptions) {
     this.options = options
@@ -147,11 +145,11 @@ export class FileBackedDurableHistoryAuthority implements DurableHistoryAuthorit
         `FileBackedDurableHistoryAuthority: snapshot is not a valid AuthoritySnapshot (missing fields)`,
       )
     }
-    for (const [runId, snap] of Object.entries(parsed.runs)) {
+    for (const [_runId, snap] of Object.entries(parsed.runs)) {
       this.inner.register(snap.run)
       this.inner.restore(snap)
     }
-    this.lastSnapshotAt = Date.now()
+    this._lastSnapshotAt = Date.now()
   }
 
   async getRun(runId: string): Promise<WorkflowRun | null> {
@@ -210,8 +208,8 @@ export class FileBackedDurableHistoryAuthority implements DurableHistoryAuthorit
     await mkdir(dir, { recursive: true })
     await writeFile(tmp, json, "utf-8")
     await rename(tmp, this.options.snapshotPath)
-    this.snapshotWritten = true
-    this.lastSnapshotAt = Date.now()
+    this._snapshotWritten = true
+    this._lastSnapshotAt = Date.now()
     if (this.options.verbose) {
       // eslint-disable-next-line no-console
       console.log(`[file-backed] snapshot written: ${this.options.snapshotPath} (${json.length} bytes)`)

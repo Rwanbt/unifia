@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test"
-import { mkdtempSync, rmSync, writeFileSync, symlinkSync, unlinkSync } from "node:fs"
+import { mkdtempSync, realpathSync, rmSync, writeFileSync, symlinkSync, unlinkSync } from "node:fs"
 import * as fsp from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -90,12 +90,26 @@ describe("P1-C — TOCTOU injected inside a single read", () => {
   function injectAfterFirstStat(target: string, swap: () => void, skipHits = 0): void {
     let hits = 0
     let fired = false
+    // The read path stats the CANONICAL real path, which on the CI runner
+    // is the Volume-GUID form (\?\Volume{...}) while `target` is the
+    // kernel path. Matching the strings verbatim meant the hook never
+    // fired there: no swap, and the test silently degraded to "reads
+    // normally" (#79). Compare canonical forms so the injection lands
+    // wherever the implementation actually stats.
+    const canonical = (p: string): string => {
+      try {
+        return realpathSync.native(p)
+      } catch {
+        return p
+      }
+    }
+    const wanted = canonical(target)
     for (const name of ["lstat", "stat"] as const) {
       const spy = spyOn(fsp, name)
       const original = spy.getMockImplementation() as (...a: unknown[]) => Promise<unknown>
       spy.mockImplementation((async (...args: unknown[]) => {
         const result = await original(...args)
-        if (!fired && String(args[0]) === target) {
+        if (!fired && canonical(String(args[0])) === wanted) {
           hits += 1
           if (hits > skipHits) {
             fired = true

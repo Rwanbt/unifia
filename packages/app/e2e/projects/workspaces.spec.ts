@@ -12,6 +12,7 @@ import {
   clickMenuItem,
   confirmDialog,
   openSidebar,
+  clickMenuItemWhenEnabled,
   openWorkspaceMenu,
   resolveSlug,
   setWorkspacesEnabled,
@@ -198,7 +199,7 @@ test("can reset a workspace", async ({ page, project }) => {
     .toBeGreaterThan(0)
 
   const menu = await openWorkspaceMenu(page, slug)
-  await clickMenuItem(menu, /^Reset$/i, { force: true })
+  await clickMenuItemWhenEnabled(menu, /^Reset$/i)
   await confirmDialog(page, /^Reset workspace$/i)
 
   await expect
@@ -349,7 +350,7 @@ test("can delete a workspace", async ({ page, project }) => {
     .toBe(true)
 
   const menu = await openWorkspaceMenu(page, slug)
-  await clickMenuItem(menu, /^Delete$/i, { force: true })
+  await clickMenuItemWhenEnabled(menu, /^Delete$/i)
   await confirmDialog(page, /^Delete workspace$/i)
 
   await expect.poll(() => base64Decode(slugFromUrl(page.url()))).toBe(project.directory)

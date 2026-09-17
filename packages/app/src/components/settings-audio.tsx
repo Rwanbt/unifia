@@ -150,7 +150,9 @@ export const SettingsAudio: Component = () => {
           <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.stt")}</h3>
           <SettingsList>
             <SettingsRow title={language.t("settings.fork.audio.enableStt")} description={language.t("settings.fork.audio.enableSttDescription")}>
-              <Switch checked={settings.sttEnabled} onChange={(v) => update("sttEnabled", v)} />
+              <div data-action="settings-audio-stt-enabled">
+                <Switch checked={settings.sttEnabled} onChange={(v) => update("sttEnabled", v)} />
+              </div>
             </SettingsRow>
             <SettingsRow title={language.t("settings.fork.audio.engine")} description={language.t("settings.fork.audio.engineDescription")}>
               <span class="text-12-regular text-text-weak">{language.t("settings.fork.audio.parakeet")}</span>
@@ -175,7 +177,9 @@ export const SettingsAudio: Component = () => {
           <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.tts")}</h3>
           <SettingsList>
             <SettingsRow title={language.t("settings.fork.audio.enableTts")} description={language.t("settings.fork.audio.enableTtsDescription")}>
-              <Switch checked={settings.ttsEnabled} onChange={(v) => update("ttsEnabled", v)} />
+              <div data-action="settings-audio-tts-enabled">
+                <Switch checked={settings.ttsEnabled} onChange={(v) => update("ttsEnabled", v)} />
+              </div>
             </SettingsRow>
             <SettingsRow
               title={language.t("settings.fork.audio.provider")}

@@ -12,21 +12,32 @@ describe("session workspace layout", () => {
   test("the workspace remains the positioning context for mobile overlays", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     expect(source).toContain('data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col"')
-    expect(source).toContain('data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col md:flex-row"')
+    expect(source).toContain('data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col shell:flex-row"')
   })
 
-  test("mobile overlay is bounded by the workspace instead of viewport height", async () => {
-    const css = await Bun.file(new URL("../../../../mobile/src/mobile.css", import.meta.url)).text()
-    // Scoped to the overlay block itself: #root legitimately falls back to
-    // 100dvh/--vvh elsewhere in this file for Android keyboard avoidance
-    // (see the KEYBOARD AVOIDANCE section) — that's an unrelated, documented
-    // mechanism, not something this overlay-positioning test should assert on.
-    const overlayBlock = css.slice(css.indexOf("MOBILE SIDE PANEL"))
-    expect(overlayBlock.length).toBeGreaterThan(0)
-    expect(overlayBlock).toContain("bottom: 0 !important")
+  test("overlay panels are styled by the web bundle, not Android-only CSS", async () => {
+    const css = await Bun.file(new URL("../../styles/v110.css", import.meta.url)).text()
+    const overlayBlock = css.slice(css.indexOf(".mobile-side-panel"))
+    expect(overlayBlock).toContain("position: absolute !important")
+    expect(overlayBlock).toContain("inset: 0 !important")
+    expect(overlayBlock).toContain("z-index: 30 !important")
     expect(overlayBlock).toContain("height: auto !important")
     expect(overlayBlock).not.toContain("100dvh")
     expect(overlayBlock).not.toContain("--vvh")
+  })
+
+  test("inspector overlay follows the v110 viewport contract", async () => {
+    const source = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
+    expect(source).toContain('const isOverlay = createMemo(() => shell.kind() === "overlay")')
+    expect(source).not.toContain('createMediaQuery("(min-width: 768px)")')
+    expect(source).not.toContain("isMobile()")
+  })
+
+  test("session coordinator uses the same viewport contract as the inspector", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    expect(source).toContain('const isDesktop = createMemo(() => shell.kind() !== "overlay")')
+    expect(source).toContain("shell:flex-none")
+    expect(source).not.toContain('createMediaQuery("(min-width: 768px)")')
   })
 
   test("terminal resize handle follows the platform, not a width breakpoint", async () => {

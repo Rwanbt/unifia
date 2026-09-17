@@ -428,6 +428,7 @@ export namespace Config {
     readonly getConsoleState: () => Effect.Effect<ConsoleState>
     readonly update: (config: Info) => Effect.Effect<void>
     readonly updateGlobal: (config: Info) => Effect.Effect<Info>
+    readonly unsetGlobal: (path: readonly string[]) => Effect.Effect<Info>
     readonly invalidate: (wait?: boolean) => Effect.Effect<void>
     readonly directories: () => Effect.Effect<string[]>
     readonly waitForDependencies: () => Effect.Effect<void>
@@ -949,12 +950,33 @@ export namespace Config {
           return next
         })
 
+        /**
+         * Delete one key from the global config file, comment-preserving.
+         *
+         * `updateGlobal` merges by contract: it can add or replace a key but
+         * never delete one (`mergeDeep` keeps every key present on both sides
+         * and `patchJsonc` skips `undefined` values). A caller that removes a
+         * configured entry — MCP server removal (#102) — needs a real delete,
+         * otherwise the entry comes back on the next boot.
+         */
+        const unsetGlobal = Effect.fn("Config.unsetGlobal")(function* (path: readonly string[]) {
+          const file = globalConfigFile()
+          const before = (yield* readConfigFile(file)) ?? "{}"
+          // jsonc-parser's `modify` with `undefined` deletes the property and
+          // preserves formatting/comments for both .json and .jsonc files.
+          const updated = patchJsonc(before, undefined, [...path])
+          if (updated !== before) yield* fs.writeFileString(file, updated).pipe(Effect.orDie)
+          yield* invalidate()
+          return parseConfig(updated, file)
+        })
+
         return Service.of({
           get,
           getGlobal,
           getConsoleState,
           update,
           updateGlobal,
+          unsetGlobal,
           invalidate,
           directories,
           waitForDependencies,

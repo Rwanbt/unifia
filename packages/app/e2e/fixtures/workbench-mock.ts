@@ -41,6 +41,14 @@ export type WorkbenchMockOptions = {
   approvalDecision?: "allow" | "deny"
   /** Make cancelApproval reject, the way a broker that already expired it does. */
   cancelFails?: boolean
+  /** Vault/file entries returned by listFiles; renameFile mutates this list. Default: empty. */
+  files?: ReadonlyArray<{ path: string; kind: "file" | "directory" }>
+  /**
+   * File bodies returned by readFiles, keyed by path. Default: empty (the
+   * mock answers no results). Used by journeys that need a real workflow
+   * definition (or any file body) to leave the empty state.
+   */
+  fileContents?: Readonly<Record<string, string>>
 }
 
 /** One recorded call on the mock client, in order. */
@@ -59,6 +67,20 @@ export interface MockCall {
  */
 export async function readMockCalls(page: Page): Promise<MockCall[]> {
   return await page.evaluate(() => (window as unknown as { __UNIFIA_MOCK_CALLS__?: MockCall[] }).__UNIFIA_MOCK_CALLS__ ?? [])
+}
+
+/**
+ * True when the page has no workbench bridge at all (no native injection
+ * and no installed mock) - the default web-e2e state. Work/Team surfaces
+ * derive their panels from that bridge, so tests that assert connected
+ * panels must skip on web instead of failing against the honest
+ * "Disponible dans l'application desktop" state.
+ */
+export async function workbenchBridgeUnsupported(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const platform = (window as { __UNIFIA_PLATFORM__?: { workbench?: unknown } }).__UNIFIA_PLATFORM__
+    return !platform?.workbench
+  })
 }
 
 /**
@@ -99,6 +121,7 @@ export function workbenchMockInitScript(): string {
           provenance: input.provenance || {},
         }
       }
+      let allEntries = (descriptor.files || []).slice()
       // Keep the mock structurally close to a real client. A permissive Proxy
       // made every property lookup look like an async method, including
       // framework-internal probes, which caused a Solid update recursion.
@@ -133,9 +156,43 @@ export function workbenchMockInitScript(): string {
         artifactHistory: () => reply({ history: [] }),
         listArtifacts: () => reply({ artifacts: [] }),
         listDocuments: () => reply({ documents: [] }),
-        listFiles: () => reply({ entries: [], skipped: 0 }),
-        readFiles: () => reply({ results: [] }),
+        listFiles: (_workspaceId, prefix) => {
+          const list = prefix ? allEntries.filter((entry) => entry.path.startsWith(prefix)) : allEntries
+          return reply({ entries: list, skipped: 0 })
+        },
+        renameFile: (_workspaceId, from, to) => {
+          record("renameFile", [from, to])
+          if (allEntries.some((entry) => entry.path === to)) {
+            return Promise.reject(new Error("workspace rename target already exists"))
+          }
+          allEntries = allEntries.map((entry) => (entry.path === from ? { ...entry, path: to } : entry))
+          return reply({ result: { path: to, bytesWritten: 1, sha: "mock" } })
+        },
+        createFiles: (_workspaceId, writes) => {
+          record("createFiles", writes.map((write) => write.path))
+          const conflict = writes.find((write) => allEntries.some((entry) => entry.path === write.path))
+          if (conflict) return Promise.reject(new Error("workspace file already exists"))
+          allEntries = [...allEntries, ...writes.map((write) => ({ path: write.path, kind: "file", size: write.content.length, modifiedAt: Date.now() }))]
+          return reply({ results: writes.map((write) => ({ path: write.path, bytesWritten: write.content.length, sha: "mock" })) })
+        },
+        removeFiles: (_workspaceId, paths) => {
+          record("removeFiles", [paths])
+          const results = paths.map((path) => {
+            const existed = allEntries.some((entry) => entry.path === path)
+            allEntries = allEntries.filter((entry) => entry.path !== path)
+            return { path, removed: existed }
+          })
+          return reply({ results })
+        },
+        readFiles: (_workspaceId, paths) => {
+          const contents = descriptor.fileContents || {}
+          const results = paths
+            .filter((path) => Object.prototype.hasOwnProperty.call(contents, path))
+            .map((path) => ({ path, content: contents[path], encoding: "utf-8" }))
+          return reply({ results })
+        },
         listApprovals: () => reply({ approvals: [] }),
+        listWorkflows: () => reply({ workflows: [] }),
         trace: () => reply({ kind: "trace", events: [], nextCursor: null }),
         activity: () => reply({ kind: "activity", events: [], nextCursor: null }),
         searchCapabilities: () => reply({ records: [] }),
@@ -187,6 +244,8 @@ export async function installWorkbenchMock(
     exportOutcome: opts.exportOutcome ?? "exported",
     approvalDecision: opts.approvalDecision ?? "allow",
     cancelFails: opts.cancelFails ?? false,
+    files: opts.files ?? [],
+    fileContents: opts.fileContents ?? {},
   }
   // Pass the descriptor through a single init script so the
   // page side can read it. Two scripts: first sets the

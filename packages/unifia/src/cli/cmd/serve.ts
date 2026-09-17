@@ -34,6 +34,17 @@ export const ServeCommand = cmd({
     startParentWatchdog()
 
     const opts = await resolveNetworkOptions(args)
+
+    // #92: the hermetic e2e backend runs without a model-intelligence sync,
+    // so /model-intelligence/models answered 503 on every page load and the
+    // e2e console gate had to filter it. e2e/backend.ts sets this flag so the
+    // route answers an empty schema-valid page instead. The registry storage
+    // is process-local memory, so the seed must run in THIS process at boot.
+    if (process.env.UNIFIA_E2E_SEED_EMPTY_REGISTRY === "true") {
+      const { seedEmptyRegistry } = await import("../../model-intelligence/empty-registry")
+      await seedEmptyRegistry()
+    }
+
     const server = Server.listen(opts)
     const scheme = process.env.UNIFIA_TLS_CERT_PATH ? "https" : "http"
     console.log(`unifia server listening on ${scheme}://${server.hostname}:${server.port}`)

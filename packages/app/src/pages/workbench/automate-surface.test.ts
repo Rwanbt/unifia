@@ -47,9 +47,31 @@ describe("C-PRE1-01 automate-surface smoke test (static)", () => {
     expect(source).toMatch(/approvalRequired/)
   })
 
-  test("still uses decodeFile on the file body before parsing", () => {
-    // The decoded file body is what we parse. Pin the call order:
-    // parseWorkflowDefinition(decodeFile(file)).
-    expect(source).toMatch(/parseWorkflowDefinition\(decodeFile\(/)
+  test("parses the editable draft and falls back to the decoded file body", () => {
+    // A restored local draft is the authoritative editor value. Before it
+    // exists, the decoded server file remains the safe fallback.
+    expect(source).toMatch(/parseWorkflowDefinition\(draftSource\(\) \|\| decodeFile\(file\)\)/)
+  })
+
+  test("wires the run-bar Save action to the canonical IR migration (slice 7)", () => {
+    // Anti-regression: a future refactor that drops the Save wiring
+    // would lose the user's visual state (positions, edges, library
+    // nodes) on reload.
+    expect(source).toMatch(/onSave=\{/)
+    expect(source).toMatch(/buildCanonicalFromState\(/)
+    expect(source).toMatch(/serializeCanonical\(/)
+  })
+
+  test("swaps canvas ↔ step list based on the responsive viewport (slice 8)", () => {
+    // Anti-regression: a future refactor that drops the mobile swap
+    // would break the studio on phone-portrait and tablet-portrait
+    // viewports (the SVG canvas pan/zoom is too heavy for small screens).
+    expect(source).toMatch(/AutomateStudioStepList/)
+    expect(source).toMatch(/useViewport\(\)/)
+    expect(source).toMatch(/isMobileLayout/)
+  })
+
+  test("collapses the library into an accordion on mobile (slice 8)", () => {
+    expect(source).toMatch(/data-automate-studio-library-accordion/)
   })
 })

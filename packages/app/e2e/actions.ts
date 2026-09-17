@@ -249,11 +249,17 @@ async function assertHealthy(page: Page, context: string) {
 }
 
 async function waitSidebarButton(page: Page, context: string) {
-  const button = page.getByRole("button", { name: /toggle sidebar/i }).first()
+  // Two mutually-exclusive buttons drive the same sidebar/opened() state:
+  // "Toggle sidebar" (xl+ desktop) and "Toggle menu" (below xl, the mobile
+  // hamburger). Below xl the desktop button is not just hidden, it never
+  // renders — a test that only looks for "toggle sidebar" times out at
+  // every viewport under 1280px instead of exercising the drawer there.
+  const desktop = page.getByRole("button", { name: /toggle sidebar/i }).first()
+  const mobile = page.getByRole("button", { name: /toggle menu/i }).first()
   const boundary = page.getByRole("heading", { name: /something went wrong/i }).first()
-  await button.or(boundary).first().waitFor({ state: "visible", timeout: DEFAULT_TIMEOUT })
+  await desktop.or(mobile).or(boundary).first().waitFor({ state: "visible", timeout: DEFAULT_TIMEOUT })
   await assertHealthy(page, context)
-  return button
+  return (await desktop.isVisible().catch(() => false)) ? desktop : mobile
 }
 
 export async function toggleSidebar(page: Page) {
@@ -576,6 +582,22 @@ export async function clickMenuItem(menu: Locator, itemName: string | RegExp, op
   const item = menu.getByRole("menuitem").filter({ hasText: itemName }).first()
   await expect(item).toBeVisible()
   await item.click({ force: options?.force })
+}
+
+/**
+ * Click a menu item once it is actionable.
+ *
+ * Workspace Reset/Delete are intentionally disabled while the worktree is
+ * busy (creation still running): a forced click on a disabled item closes
+ * the menu and silently does nothing (#91 - the reset dialog then never
+ * opens and the spec times out waiting for it). Wait for `aria-disabled`
+ * to flip to false, then click without force.
+ */
+export async function clickMenuItemWhenEnabled(menu: Locator, itemName: string | RegExp) {
+  const item = menu.getByRole("menuitem").filter({ hasText: itemName }).first()
+  await expect(item).toBeVisible()
+  await expect(item).toHaveAttribute("aria-disabled", "false")
+  await item.click()
 }
 
 export async function confirmDialog(page: Page, buttonName: string | RegExp) {

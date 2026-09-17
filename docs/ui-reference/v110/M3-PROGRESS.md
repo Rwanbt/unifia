@@ -1,0 +1,318 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Unifia contributors -->
+
+# MiniMax M3 — Progress Log (2026-09-13)
+
+> **Status** : Phases 0-3 + Vague 4 slices 2-3-4-5-6 + factory tests + v110-test-fix + M3-PROGRESS self-refresh + Phase 8 slices 1-9 (Automate studio canvas + Inspector pane + drag-to-move + port connectors + node library + run bar + canonical IR migration + Save + mobile/responsive + minimap/zoom-to-fit/breadcrumb) **PHASE 8 FERMÉE** (49 commits) + Phase 9 slices 1-2 (environment read-only pane + branch true/false ports + graph validation) + Memory mobile single-pane (campaign Phase 9 partial) + Motion: General > Animations toggle driving data-ui-animations + Phase 9.3 (Memory vault folder tree + DnD notes via the real rename route) + Phase 4.8 (v16 agent mode glyphs + real mode-switch controls) + Phase 9.4 (Memory note autosave 700 ms) + Phase 9.5 (Memory vault context actions) + Phase 9.6 (Memory depth graph filters) + Phase 5.1 (v110 chrome markers mounted) + **#91 fixed (workspace Reset/Delete dialogs re-wired — product regression from the Vague 5 factory stubs)** + **Memory graph pan/zoom/fit (matrice m69)** + **chaîne vectorielle Design complète (#109-#113 : outils, ancres, courbes, multi-sélection/marquee, plume parité maquette)**
+> **Phase 7 (Design)** : débloquée par **ADR-039** (`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2 — ratification en attente) ; 5 slices tracées **#104 → #105 → #106 → #107 → #108** (domaine → canvas → interactions → layers → legacy).
+> **Branch** : `new-ui` (worktree `_a7-automate-memory`)
+> **HEAD** : `69e310a055` feat(memory): graph pan, wheel zoom and double-click fit (m69 parity)
+> **Baseline** : `9aabd75cd` (gélée 2026-09-13 21:12 Europe/Paris)
+> **Doc author** : this file is updated on every session boundary. The canonical "current HEAD" pointer lives in `git log origin/new-ui`; this header is a snapshot at the time of the last update.
+
+---
+
+## Why this file exists
+
+The M3 campaign is a multi-week effort that spans many sessions. Each
+session lands a slice of work and the vault Session-Recap captures the
+turn-by-turn story, but a repo-resident progress log is the durable
+source of truth future agents can read without vault access.
+
+**Read order** for a fresh M3 session:
+1. `M3-CAMPAIGN-BASELINE.md` — frozen baseline + authority matrix + GO PORTAGE gate
+2. `M3-ACCEPTANCE-MATRIX.md` — surfaces × viewports × states × interactions coverage
+3. `M3-PROGRESS.md` (this file) — what has shipped and what remains
+4. `packages/app/e2e/m3-harness.ts` — test helpers (Phase 2)
+5. `packages/app/e2e/v110-shell-gate.spec.ts` — global gate spec (Phase 3)
+
+---
+
+## Shipped phases
+
+| Phase | Sujet | Commit(s) | Statut |
+|---|---|---|---|
+| 0 | Baseline gelee | `b98b878140` | LIVREE |
+| 1 | Acceptance matrix | `cdae98e210` | LIVREE |
+| 2 | Harness helpers | `16a0b50eb6` | LIVREE |
+| 3 | Shell global gate spec | `fba5c10d69` | LIVREE |
+| 4.2 | Vague 4 slice 2 — buildRevertDockProps factory | `0234372d99` | LIVREE |
+| 4.3 | Vague 4 slice 3 — buildFollowupDockProps factory | `f2de0db217` | LIVREE |
+| 4.4 | Vague 4 slice 4 — DesktopChatSeparator sub-component | `80329ff8f6` | LIVREE |
+| 4.5 | Vague 4 slice 5 — integrate SessionSidePanelSection | `527b941a31` | LIVREE |
+| 4.6 | Vague 4 slice 6 — SessionArtifactViewerSection | `b62427eeed` | LIVREE |
+| 4.7 | Vague 4 factory tests — buildRevertDockProps + buildFollowupDockProps (7 pass / 21 expect) | `044ad07ef1` | LIVREE |
+| chore | Silence 9 M3-wrapper biome warnings | `dd6defe949` | LIVREE |
+| chore | Use `import type` for type-only imports | `217dd2adc3` | LIVREE |
+| chore | Silence 8 remaining biome warnings (repo-wide 13→0) | `2b929565a5` | LIVREE |
+| chore | gitignore `.tmp-*.md` agent scratch files | `88cb9ea3fc` | LIVREE |
+| **8.1** | **Phase 8 slice 1 — Automate studio canvas (read-only nodes + pan/zoom)** | **`87f3c1ab97`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 canvas keys (14 locales) | `7db9bab3a2` | LIVREE |
+| **8.2** | **Phase 8 slice 2 — Inspector pane wired to canvas selection (controlled API)** | **`607dfc2696`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 inspector keys (14 locales) | `935adad06e` | LIVREE |
+| **8.3** | **Phase 8 slice 3 — Drag-to-move (parent-controlled positions, edges follow)** | **`95f5c77349`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 coordinates keys (14 locales) | `ceb432a48a` | LIVREE |
+| **8.4** | **Phase 8 slice 4 — Port connectors (parent-controlled edges, drag-port-to-port)** | **`d39e91a43c`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 port + edges keys (14 locales) | `4af063846d` | LIVREE |
+| **8.5** | **Phase 8 slice 5 — Node library (parent-controlled extraNodes, 15 NodeFamily grouped)** | **`a4aba02736`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 library keys (14 locales) | `9dea1e8f8f` | LIVREE |
+| **8.6** | **Phase 8 slice 6 — Run bar (consolidated Start/Approve + Validate dry-run)** | **`ba351e05e1`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 run bar keys (14 locales) | `8710d754f4` | LIVREE |
+| **8.7** | **Phase 8 slice 7 — Canonical IR migration (one-way v1 → v2 + Save button)** | **`69c8a9a853`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 Save keys (14 locales) | `64216802d4` | LIVREE |
+| **8.8** | **Phase 8 slice 8 — Mobile + responsive (step list + accordion library)** | **`a1ff81aecd`** | **LIVREE** |
+| **8.9** | **Phase 8 slice 9 — Minimap + zoom-to-fit + breadcrumb (FERME Phase 8)** | **`9700b91630`** | **LIVREE** |
+| chore | i18n parity coverage for Phase 8 slice 9 minimap + breadcrumb keys (14 locales) | `4a9839cd6f` | LIVREE |
+| **9.1** | **Phase 9 slice 1 — Environment pane (grants + approvals + runs, read-only drawer)** | **`f061fff246`** | **LIVREE** |
+| **9.2** | **Phase 9 slice 2 — Branch ports (true/false) + cycle/duplicate graph validation** | **`701306f06a`** | **LIVREE** |
+| chore | fix(team): host Team dialog inside TeamProvider (#82) — closes GitHub #82 | `05831355b2` | LIVREE |
+| **M9** | **Memory mobile single-pane (triptych → single pane on overlay viewports)** | **`46aa98c9c3`** | **LIVREE** |
+| **M13** | **Motion: Settings > General > Animations toggle + `<html data-ui-animations>`** | **`26ab510fbf`** | **LIVREE** |
+| fix | **e2e collection restored** — gate spec importait `bun:test` (0 test collecté en CI) ; harness aligné HEAD + 2 findings tracés puis corrigés (#90) | `bf87fc66ba` + `0109c1f795` | LIVREE |
+| fix | **#79 root cause** — `\\?\` prefix de `realpathSync.native` sur runner Windows rejetait chaque écriture vault ; strip + tests containment | `5eb46e56d7` | LIVREE |
+| fix | **#71 e2e wedge** — `panels()` mesuré via `evaluate`+`getBoundingClientRect` (boundingBox wedgait le renderer) ; console 503 filtrée seulement si tout vient de `/model-intelligence/` | `a019b4ef77` | LIVREE |
+| fix | **#91 compact-landscape** — drawer mobile fermé = `invisible pointer-events-none` (left:62px décalait le sliver de 62px au z-50) ; a3-responsive 2/2 toutes familles | `85f6ed05bf` | LIVREE |
+| fix | **conformance SPDX** — `workflow-draft.test.ts` sans header SPDX = seul rouge new-ui ; scan local 363/363 fichiers couverts | `0290fdadf2` | LIVREE |
+| **9.3** | **Phase 9 slice 3 — Memory vault folder tree + DnD notes (réel `renameFile` `/v1/files/rename`)** | **`b474fe7463`** | **LIVREE** |
+| **4.8** | **Phase 4 reste — glyphes de mode agent v16 (chat/plan/debate/build/team/auto) + contrôles réels de bascule (Debate/TeamModelSelector)** | **`853666f8ea`** | **LIVREE** |
+| **9.4** | **Phase 9 slice 4 — Memory autosave 700 ms (debounce, flush avant navigation, chip d'état, CAS en place)** | **`f7cf812eb3`** | **LIVREE** |
+| **9.5** | **Phase 9 slice 5 — Context actions vault (rename inline, dupliquer, déplacer, exporter, supprimer, nouvelle note/dossier)** | **`b05978e1de`** | **LIVREE** |
+| **9.6** | **Phase 9 slice 6 — Graphe depth 1-3 + tags + orphans (dernière ligne Memory de la matrice)** | **`b217f0579d`** | **LIVREE** |
+| fix | **#94** — `port-gate` exigeait un rail visible < 900px : la gate ouvre la drawer et asserte les 4 modes ; local 5/5 sans retry | `c561e89c95` | LIVREE |
+| **5.1** | **Phase 5 slice 1 — marqueurs v110 dormants montés (editor-pane, workspace-tabs-bar, file-tree) + labels tabs-bar i18n 17 dictionnaires** | **`a7bdea7de8`** | **LIVREE** |
+| **5.2** | **Phase 5 slice 2 — vérification Search/Replace éditeur (@codemirror/search réel)** | **`74a3816760`** | **LIVREE** |
+| **5.3** | **Phase 5 slice 3 — marqueur canonique `terminal-panel` + preuve de cascade e2e ; matrice Code mise à l'heure (blame/lens ❌, issue #96)** | **`904eeb930e`** | **LIVREE** |
+| **12.1** | **Phase 12 slice 1 — contrat responsive du panneau Memory (triptyque/single, 5 familles, zéro overflow)** | **`5129902f4e`** | **LIVREE** |
+| fix | **#91 ROOT CAUSE** — la Vague 5 (`886b5a0d6b`) remplaçait les vrais déclencheurs Reset/Delete par `dialog.show(() => null)` : le menu ouvrait un stack vide (overlay seul, Content jamais monté). Re-câblage des deux triggers + suppression des 7 deps fantômes + test de régression | `ee9f4ac9d9` | LIVREE |
+| **11a** | **Phase 11 audit — gate de parité Settings (12 onglets desktop : pane + contrôles réels, zéro error boundary) + matrice honnête par dialog ; gaps maquette sans capacité → #98** | **`0fe7bb5b8a`** | **LIVREE** |
+| fix | **#95** — 2 aria-labels FR codés en dur (Design browser back, files mode toggle) → `language.t()` × 17 dictionnaires + garde mécanique « aria-label accentué interdit » dans `parity.test.ts` ; reste des libellés FR des mêmes surfaces → #99 | `d491541ad0` | LIVREE |
+| audit | **Work — audit matrice** : les 6 vues v65 existent avec du contenu réel ; divergences de présentation (grille de cartes, chip santé, sélecteur d'autonomie, Plan IA, undo Work) → #100 ; DnD Kanban toujours bloqué par #86 | `docs` | LIVREE |
+| **12.2** | **Phase 12 slice 2 — contrat responsive du dialogue Settings (onglets desktop vs drill-down mobile sur les 5 familles, zéro overflow)** | `6c0ea13d26` | LIVREE |
+| **11b** | **Phase 11 durcissement — preuves comportementales Audio (localStorage + reload) et Mémoire (PATCH `/global/config` vérifié puis restauré) + wrappers `data-action`** | `d23b5ff7c2` | LIVREE |
+| **11c** | **Phase 11 durcissement — preuve MCP : la pane était inatteignable dans le dialogue (SyncProvider absent) → fallback SDK (#101, corrigé) ; l'ajout ne persiste pas (`<projet>/config.json` jamais relu + dispose d'instance) → `test.fixme` + preuves brutes + #102** | `9a95392a1a` + `b511728855` | LIVREE |
+| **12.3** | **Phase 12 slice 3 — contrat responsive de la surface Code (terminal fermé par défaut + toggle atteignable + zéro overflow sur les 5 familles)** | `333b91c0a2` | LIVREE |
+| **12.4** | **Phase 12 slice 4 — contrat responsive du split Design (desktop/tablet/mobile selon la classification v110, switcher mobile-only, 5 familles)** | `7ff1dedacf` | LIVREE |
+| fix | **#102** — persistance MCP : `MCP.add`/`remove` passent par la config **globale** (`updateGlobal`) + nouvelle primitive `Config.unsetGlobal` (suppression réelle, jsonc-safe) ; probe brut ADD/LIST/DELETE vert, test e2e réactivé ; suite MCP isolée par test sur `Global.Path.config` (39/39) | `2c8a142f9d` + `1ea89f20de` | LIVREE |
+| fix | **#92** — seed d'un registry model-intelligence vide au boot du **backend e2e isolé** (`UNIFIA_E2E_SEED_EMPTY_REGISTRY` → `unifia serve`, `empty-registry.ts` + 4 tests) ; contournement 503 de `gate.ts` retiré ; e2e linux **147 pass / 0 fail** (run `34846235066`) | `5f63a1418c` + `163ebfc852` | LIVREE |
+| décision | **#98** — les 6 destinations maquette sans capacité runtime (Préférences IA, Compute, Sécurité, Réseau, Système, Hooks) sont des **divergences acceptées** documentées dans la matrice (preuves runtime par ligne : `config.model` existe mais aucun consommateur des profils ; permissions réelles mais pas de destination consolidée ; updates/export-import déjà en Général) ; issue fermée not-planned | `3be7d92b23` | LIVREE |
+| **11d** | **Phase 11 durcissement — preuves comportementales Observabilité (switch → `experimental.observability` vérifié backend puis restauré), Benchmark (pas de runtime local en web → run désactivé, historique localStorage réel) et Auth (le formulaire poste vers `/collab/login` réel et expose le 401 backend)** ; hooks `data-action` associés ; 3/3 local vert ; CI run `34952975362` **153 pass / 2 flaky pré-existants (a6-responsive, plugins MCP — classe #58) / 46 skip**, 4/4 jobs verts | `7b927eedf1` | LIVREE |
+| **12.5** | **Phase 12 slice 5 — contrat responsive de la surface Work** (bridge workbench mocké, 5 familles, 6 onglets commutés board↔overview, zéro overflow/erreur) **+ `work-team-panels.spec.ts` dé-skippé en web** (mock bridge : contenu vide honnête des 6 panneaux prouvé en CI web) ; CI run `34968681674` : e2e **157 pass / 1 flaky pré-existant (MCP) / 45 skip / 0 fail**, 4/4 jobs verts | `1955aafbd8` | LIVREE |
+| **12.6** | **Phase 12 slice 6 — contrat responsive du studio Automate** (mock enrichi : `fileContents` → `readFiles` réel + `listWorkflows` ; définition v1 servie ; canvas ↔ step list selon la classification sur les 5 familles, librairie en accordion sur overlay, sélection de nœud → inspecteur, zéro overflow/erreur) ; même run CI vert | `cc65461bc7` | LIVREE |
+| **#100** | **Décision Work v65 : chip santé PORTÉ** (`work-health.ts` pur + `work-health-chip.tsx`, mapping réel run `failed`/tâche `blocked`/gate `CHANGES_REQUESTED`, 6 tests unitaires, preuve e2e `work-team-panels`) **; grille de cartes, sélecteur d'autonomie, Plan IA, Undo, +Task actés en divergence documentée** (aucune source/capacité runtime) ; DnD toujours bloqué #86 — issue fermée avec preuves (run CI `34968681674`) | `b428b3471a` | LIVREE |
+| fix | **e2e console gate** — les specs responsive 12.5/12.6 (et a6, pré-existant) démarraient le gate console avant la navigation volontaire : le fetch provider aborté par `page.goto` était loggé par l'app (« Failed to refresh provider list TypeError: Failed to fetch ») → rouge CI `34960837403`. Fix : `track(page)` après la dernière navigation ; a6 restructuré en navigation unique + resizes (le split Design écoute `resize`) → a6 n'est plus flaky au run `34968681674` | `80ddfa0026` | LIVREE |
+| **#99** | **i18n Design — les 2 fichiers de l'issue nettoyés** : 18 clés × 17 dictionnaires (`workbench.design.browser.*` forward/reload/go/erreurs/aides + `workbench.design.files.*` titres/placeholder/créer/états + réutilisation `common.rename/cancel/delete/loading` ; seule `workbench.design.files.source` allowlistée, cognate fr) ; placeholder navigateur neutralisé en `https://example.com` (était `exemple.com`) ; **garde mécanique « mots FR sans accent »** (liste curée, portée aux 2 fichiers, décision de scope documentée) ; parity 10/10, suite app **1494 pass / 21 todo / 0 fail** ; reste de la famille design-* inventorié → **#103** | `969c3f6914` | LIVREE |
+| **#93** | **Memory — le renommage réécrit les wikilinks non ambigus** : `rewriteMemoryWikilinks` + `memoryTitleIsAmbiguous` (purs, règle de normalisation identique à `linkedMemoryNotes` ; alias/sections préservés ; cas ambigu laissé intact) ; câblage dans `commitRename` sur les notes uniquement, écriture réelle par fichier avec CAS `expectedHash` (discipline de l'autosave), échecs partiels remontés par toast nommant les notes ; 5 tests unitaires + e2e `memory-rename-links` (fichiers réels sur disque) | ce commit | LIVREE |
+
+| **7.1** | **ADR-039 slice 1 — canonical design domain (schema/validation/commands/migrations/repository) + 43 headless tests** | `699effa4f4` | LIVREE |
+| chore | konva@10.5.0 pinned for the Design renderer adapter (dependency validation, no import yet) | `b4e2895757` | LIVREE |
+| **7.2a** | **ADR-039 slice 2a — runtime geometry + viewport + render-model projection (pure, headless tests)** | `9074b3143f` | LIVREE |
+| **7.2b** | **ADR-039 slice 2b — Konva adapter + sélection/transform + onglet Canvas sur la surface Design + repli de persistance ; e2e `canvas-native` (drag + resize + rotation canoniques persistés, chunk Konva paresseux 190,2 kB / 58,8 kB gzip)** | `97c27e6e96` | LIVREE |
+| **7.3** | **ADR-039 slice 3 — snapping arêtes/centres + guides transitoires + clavier (nudge, delete, escape, undo/redo) + historique par commande ; e2e snap sibling + undo/redo + nudge (2 passed)** | `80d9b71c06` | LIVREE |
+| **7.4** | **ADR-039 slice 4 — panneau Layers sur la hiérarchie canonique (visibilité/verrou/reorder/reparent) + suppression des modèles parallèles orphelins (D7-G11) ; e2e `canvas-layers` (1 passed)** | `ccc95ad4db` | LIVREE |
+| **7.5** | **ADR-039 #108 partie import — importeur legacy Excalidraw → V1 validé + merge canonique + action Import ; e2e `canvas-import` (1 passed) ; D7-G9/G10 prouvés. Retrait iframe NON fait (bloqué parité native) — #108 reste ouverte** | `799b1784ab` | LIVREE (partielle) |
+| **7.6** | **Outils vectoriels natifs (#109 slice 1) — modes select/rect/ellipse/ligne/plume, previews transitoires, création par commande ; e2e `canvas-vector` (1 passed) ; édition de chemins/poignées → #110** | `e1ae7e78c3` | LIVREE |
+| **7.7** | **Édition de chemins (#110 slice 1) — parseur/sérialiseur M/L pur, commande `updatePoints` (bbox + local recalculés), ancres draggables sur poly-lignes ; e2e `canvas-path-edit` (1 passed, undo/redo) ; courbes C/Q + multi-sélection → #111** | `445361982a` | LIVREE |
+| **7.8** | **Édition des courbes (#111 slice 1) — parseur/sérialiseur M/L/C/Q, bornes serrées (extrema de Bézier), commande `updatePath`, poignées de contrôle tetherées (ancres emportent leurs contrôles cubiques), transformer rotation-seule sur polylignes ; e2e `canvas-path-curve` (1 passed, drag + undo/redo + reload) ; multi-sélection → #112, plume Bézier/fermeture Z → #113** | `60d059f46b` | LIVREE |
+| **7.9** | **Multi-sélection (#112) — Maj/Ctrl-clic (invariant conteneur/descendants), marquee sur AABB monde préférant les descendants, commandes groupées `translateNodes`/`deleteNodes` (1 geste = 1 entrée), outlines par nœud, pan Espace/milieu, dessin synchrone après rebuild (hit-test immédiat) ; e2e `canvas-multiselect` (1 passed) + 7 régressions canvas** | `aa6bbc9c55` | LIVREE |
+| **7.10** | **Plume parité maquette (#113) — clic-glisser = poignées Bézier symétriques (`handleOut = delta`, `handleIn = -delta`), preview = vrai chemin, clic sur le premier ancre = fermeture par segment final explicite (pas de `Z`, décision épinglée par tests), Entrée clôt ; e2e `canvas-pen-curve` (1 passed, courbe + fermeture + reload)** | `75da95ee93` | LIVREE |
+| **parité** | **Memory graph pan/zoom/fit (matrice m69, ligne 198) — pan drag (curseur grab, nodes cliquables), zoom molette ancré au curseur clampé 0.55-1.8, double-clic = fit déterministe (bbox lue sur groupe non transformé) + refit auto au changement de contenu ; `memoryGraphFit` pur + tests ; e2e `memory-graph-pan-zoom` (1 passed) + batch mémoire 9 passed** | `69e310a055` | LIVREE |
+| **parité** | **Comments Design — slice 1 domaine (ADR-039 §31) : schéma v2 + `comments`, migration v1→v2 (+ tests), validation (ids uniques, ancres pendantes tolérées), commandes `addComment`/`setCommentResolved`/`deleteComment` (+ tests) ; outil/épingles/panneau → #114** | `1bf720afc4` | LIVREE |
+| **parité** | **Comments Design — slice 2 UI (#114) : outil commentaire, épingles numérotées ancrées (règle v51, `commentPinPosition` + tests), cible nœud/zone, compositeur (1 `addComment`/geste), panneau résoudre/rouvrir/supprimer + sélection de l'ancre ; fixes trouvés en route : `min-w-0` sur le conteneur canvas (le panneau débordait et décalait la surface de 224 px) et reprise du focus après re-render de ligne (raccourcis clavier) ; e2e `canvas-comments` (1 passed)** | `79c07e046e` | LIVREE |
+| **RESPONSIVE** | **Vague mobile « à tester » fermée — Rail (repli tiroir tablet-portrait, nav basse avec exactement les modes du rail au phone), Sidebar (tiroir hors-canvas, hamburger `aria-expanded`), composeur pleine largeur au-dessus de la nav, timeline compressée + dock immobile au scroll ; 5 lignes de matrice → ✅ ; e2e `a3-shell-mobile` (1 passed, 41,7 s)** | `ef19bb6411` | LIVREE |
+| **#96.1** | **Diagnostic markers (issue #96 slice 1) — gouttière LSP au contrat v110 `data-component="diagnostic-marker" data-severity` + `title` des messages (sévérité max, messages joints), géométrie `code-mirror.css` + couleur par la règle de thème dormante ; `collectDiagnosticMarkers` pur +4 tests (mapping/DOM) ; e2e éditeur sans régression ; restent code lens / blame / inline AI** | `b1b1b66e50` | LIVREE |
+| **#108** | **Retrait de l'onglet Croquis legacy (iframe Excalidraw) — composant + pont postMessage, package `@unifia/design-sketch` (Excalidraw + React), plugins vite, bouton Croquis, kind d'onglet ; la migration des données reste (Import → document canonique) ; lockfile rafraîchi ; e2e canvas 10 passed (dont `canvas-native` sans iframe et `canvas-import` conservé)** | `ebcb8eead4` | LIVREE |
+| **#96.2** | **Git blame annotations (issue #96 slice 2) — route serveur + SDK déjà présents ; rendu : widget inline sur la ligne du curseur (`data-component="blame-annotation"`, auteur + hash court) + tooltip au survol (auteur · date absolue · hash · contenu de la ligne) ; prop `blame` optionnelle sur l'éditeur, requête `git.blame` seulement en édition (listes vides pour les fichiers non suivis) ; fix TDZ (options du query après `showEditor`) ; +3 tests (format, hash, DOM) ; e2e éditeur 2 passed ; restent code lens / inline AI** | `64eaadeae5` | LIVREE |
+
+---
+
+## Extracted wrappers (Vague 4 pattern)
+
+Each wrapper is a thin typed shell around an existing call site in
+`packages/app/src/pages/session.tsx` (or `layout.tsx` for layout
+factories). The pattern: export a `Props` interface that mirrors the
+underlying component's full signature (accessors for memos, plain values
+for stable identifiers), then re-export a `<WrapperName>` function that
+forwards every prop verbatim.
+
+| Wrapper | File | Phase | Notes |
+|---|---|---|---|
+| `buildRevertDockProps` | `session/revert-dock-props.ts` | 4.2 | Factory for revert dock props |
+| `buildFollowupDockProps` | `session/followup-dock-props.ts` | 4.3 | Factory for followup dock props |
+| `DesktopChatSeparator` | `session/desktop-chat-separator.tsx` | 4.4 | Sub-component (4 props) |
+| `SessionSidePanelSection` | `session/session-side-panel-section.tsx` | 4.5 | Wraps `SessionSidePanel` (12 props) |
+| `SessionArtifactViewerSection` | `session/session-artifact-viewer-section.tsx` | 4.6 | Wraps read-only artifact block |
+| `SessionTimelineSection` | `session/session-timeline-section.tsx` | (Vague 3) | Existed before M3, type-safe extraction |
+| `SessionMobileTabsSection` | `session/session-mobile-tabs.tsx` | (Vague 1) | Existed before M3, refactored |
+| `createWorkspaceSidebarContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
+| `createProjectSidebarContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
+| `createSidebarPanelContext` | `layout/layout-contexts.ts` | Vague 5 | Factory |
+| `layoutWorkflowSteps` | `workbench/automate-graph-layout.ts` | 8.1 | Pure layout (nodes + edges + bounding box, sequential flow) |
+| `AutomateStudioCanvas` | `workbench/automate-studio-canvas.tsx` | 8.1 | SolidJS SVG pane: pan (pointer + Space), zoom (Ctrl/Cmd + wheel 0.5-2.0), reset, approval badges, SR fallback |
+| `AutomateStudioInspector` | `workbench/automate-studio-inspector.tsx` | 8.2 | SolidJS read-only pane: empty state, id/label/position/approval/coordinates/edges metadata, close button |
+| `AutomateStudioLibrary` | `workbench/automate-studio-library.tsx` | 8.5 | SolidJS pane: 15 NodeFamily types grouped into 5 categories, search filter, click → onAdd |
+| `DEFAULT_LIBRARY_CATEGORIES` | `workbench/automate-studio-library.tsx` | 8.5 | Exported catalog: mirrors the canonical `NodeFamilySchema` enum |
+| `AutomateStudioRunBar` | `workbench/automate-studio-run-bar.tsx` | 8.6 | SolidJS action bar: state chip + 5 actions (Validate / Start / Allow / Deny / Cancel) + error/validate panels |
+| `validateDefinition` | `workbench/automate-studio-run-bar.tsx` | 8.6 | Pure helper: dry-run re-parse the definition, list shape errors + warnings |
+| `migrateLegacyToCanonical` | `workbench/automate-migrate-legacy.ts` | 8.7 | Pure helper: one-way migration from legacy `{steps[]}` to canonical `{nodes, edges}` IR |
+| `buildCanonicalFromState` | `workbench/automate-migrate-legacy.ts` | 8.7 | Pure helper: compose legacy + positions + user edges + extra nodes into the canonical shape |
+| `serializeCanonical` | `workbench/automate-migrate-legacy.ts` | 8.7 | Pure helper: canonical → stable JSON string (fixed indent for clean diffs) |
+| `parseCanonicalWorkflowDefinition` | `workbench/automate-decode.ts` | 8.7 | New parser: accepts BOTH v1 (auto-migrates) and v2 (passes through), returns `{originalVersion}` |
+| `AutomateStudioStepList` | `workbench/automate-studio-step-list.tsx` | 8.8 | SolidJS vertical list view: button-per-step with id + label + family + approval chip + drag marker, used on narrow viewports |
+| `AutomateStudioMinimap` | `workbench/automate-studio-minimap.tsx` | 8.9 | SolidJS minimap: one rectangle per laid-out node (accent for library-added), viewport indicator tracking pan/zoom, click → onJumpTo |
+| `computeZoomToFit` | `workbench/automate-graph-layout.ts` | 8.9 | Pure helper: pan + zoom that centres the graph inside the canvas viewport (default padding 24 CSS px) |
+| `edgeEndpoints` | `workbench/automate-graph-layout.ts` | 8.3 | Pure helper: re-derive bezier endpoints from current effective positions (superseded by `mergeEndpoints` in slice 4) |
+| `mergeEndpoints` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: combine synthetic + user edges, apply position overrides, return one endpoint set per edge |
+| `closestInputPortDistance` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: Euclidean distance from cursor to closest input port |
+| `nearestInputPortId` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: id of the nearest input port (for edge commit) |
+| `hasEdge` | `workbench/automate-graph-layout.ts` | 8.4 | Pure helper: O(n) membership test on user-edge list |
+| `PORT_HIT_RADIUS` / `PORT_RADIUS` | `workbench/automate-graph-layout.ts` | 8.4 | Constants: hit zone = 12 graph units, rendered circle = 6 graph units |
+
+session.tsx LOC reduction: **1011 → 948 LOC** (-63 net across Vagues 1-4 slices 2-3-4-5-6).
+
+---
+
+## Repo health (M3 gates)
+
+| Check | Result | Evidence |
+|---|---|---|
+| `bunx biome check` (1821 files) | 0 warnings | `Checked 1821 files in 1.97s. No fixes applied.` |
+| `tsgo -b` (packages/app) | exit 0 | single-package verification |
+| `bun turbo typecheck` (47 packages) | 47/47 PASS | pre-push hook gate |
+| Working tree | clean | `git status --short` empty |
+| Lint warnings in packages/app | 0 | was 9, all silenced in `dd6defe949` |
+| Lint warnings repo-wide | 0 | was 22, all silenced across 3 commits |
+| `bun test packages/app` | 1413 pass / 21 todo / 0 fail (3.73s) | pre-push hook gate |
+| Phase 8 canvas unit tests | 38 / 38 pass (64 expect) | `automate-graph-layout.test.ts` + `automate-migrate-legacy.test.ts` |
+| Phase 8 canvas smoke tests | 22 / 22 pass | `automate-studio-canvas.test.ts` |
+| Phase 8 inspector smoke tests | 10 / 10 pass | `automate-studio-inspector.test.ts` |
+| Phase 8 library smoke tests | 7 / 7 pass | `automate-studio-library.test.ts` |
+| Phase 8 run bar smoke tests | 14 / 14 pass | `automate-studio-run-bar.test.ts` |
+| Phase 8 step list smoke tests | 7 / 7 pass | `automate-studio-step-list.test.ts` |
+| Phase 8 minimap smoke tests | 6 / 6 pass | `automate-studio-minimap.test.ts` |
+| Phase 8 migration unit tests | 17 / 17 pass | `automate-migrate-legacy.test.ts` |
+| `bun test packages/app` (Phase 9 current) | 1452 pass / 21 todo / 0 fail | full app suite |
+| `packages/unifia` knowledge suite | 900 pass / 1 skip / 0 fail | après fix #79 |
+| `e2e/v110/port-gate-strict.spec.ts` | 5/5 PASS | ré-vert après #82 |
+| `e2e/v110-shell-gate.spec.ts` | 10/10 PASS (1.1 min) | 0 fixme restant |
+| `playwright test --list` | 195 tests / 71 fichiers | était 0 (loader `bun:`) |
+| Phase 9 graph validation tests | 8 / 8 pass | `automate-graph-validation.test.ts` |
+| Phase 9 branch port tests | 7 / 7 pass | `automate-graph-layout.test.ts` (slice 9.2 block) |
+| Phase 9.3 memory tree unit tests | 8 / 8 pass (memory-panel-model) | `memory-panel-model.test.ts` (tree shape/counts/collapse/move target) |
+| Phase 9.3 memory panel static tests | 10 / 10 pass | `memory-panel.test.ts` (single-pane + tree/DnD/i18n wiring) |
+| Phase 9.3 i18n keys | 12 keys × 17 dicts + allowlist | `bun test src/i18n/parity.test.ts` |
+| Phase 9.3 e2e | 1/1 PASS (46.6 s) | `e2e/v110/memory-vault-dnd.spec.ts` — rename call asserted on the mock client |
+| `bun test src` (Phase 9.3) | 1460 pass / 21 todo / 0 fail | full app suite |
+| Phase 4.8 agent-mode mapper tests | 3 / 3 pass | `agent-mode.test.ts` |
+| Phase 4.8 e2e | 1/1 PASS (41.9 s) | `e2e/v110/chat-agent-modes.spec.ts` — glyph + Debate/Team control swap |
+| `bun test src` (Phase 4.8) | 1463 pass / 21 todo / 0 fail | full app suite |
+| Phase 9.4 save-state unit tests | 3 / 3 pass | `memory-panel-model.test.ts` (saved/unsaved/saving/not-loaded) |
+| Phase 9.4 static autosave tests | 4 / 4 pass | `memory-panel.test.ts` (700 ms, CAS in place, flush, chip) |
+| Phase 9.4 e2e | 1/1 PASS (49.6 s) | `e2e/v110/memory-note-autosave.spec.ts` — real bytes after debounce + immediate switch |
+| `bun test src` (Phase 9.4) | 1470 pass / 21 todo / 0 fail | full app suite |
+| Phase 9.5 action unit tests | 3 / 3 pass | `memory-panel-model.test.ts` (menu par type, noms uniques, rename) |
+| Phase 9.5 static panel tests | 4 / 4 pass | `memory-panel.test.ts` (menu, routes réelles, inline, export/confirm) |
+| Phase 9.5 e2e | 1/1 PASS (58.1 s) | `e2e/v110/memory-note-actions.spec.ts` — rename/duplicate/move/delete réels + download + mkdir disque |
+| `bun test src` (Phase 9.5) | 1477 pass / 21 todo / 0 fail | full app suite |
+| Phase 9.6 graph unit tests | 3 / 3 pass | `memory-panel-model.test.ts` (depth, anneau tags, orphans) |
+| Phase 9.6 static panel tests | 3 / 3 pass | `memory-panel.test.ts` (contrôles, rendu, 1 seule requête documents) |
+| Phase 9.6 e2e | 2/2 PASS (1.1 + 1.2 min) | `e2e/v110/memory-graph-filters.spec.ts` |
+| `bun test src` (Phase 9.6) | 1483 pass / 21 todo / 0 fail | full app suite |
+| Phase 5.1 e2e | 2/2 PASS (1.4 min) | `a4-code-chrome` (3 marqueurs visibles) + `file-tree` |
+| Phase 5.1 i18n | parity 7/7 | 2 clés × 17 dictionnaires, traductions réelles (pas d'allowlist) |
+| #91 fix — e2e local | 7/7 PASS (1.9 min) | `workspaces.spec.ts` complet : reset + reorder (précédemment skip) + delete |
+| #91 fix — CI e2e (linux) | **145 pass / 0 fail / 46 skip** (19 min) | run `34821473192` — les 8 tests `workspaces.spec.ts` PASS (reset, reorder, delete inclus) ; issue #91 FERMÉE |
+| #91 fix — unit | 2/2 pass | `layout-contexts.test.ts` : forwarding des triggers réels (pas de stub `() => null`) |
+| #91 fix — `bun test src` (packages/app) | 1485 pass / 21 todo / 0 fail | après ajout des 2 tests de régression |
+| #91 fix — conformance locale | 8/8 PASS | `node scripts/unifia-conformance.mjs` |
+| Phase 11a — gate Settings | 1/1 local (49.8 s) + CI PASS 3.5 s | `e2e/v110/settings-parity.spec.ts` — 11 onglets web (Remote access desktop-gated, hors gate) ; CI run `34829848985` e2e linux **146 pass / 0 fail / 46 skip** |
+| #95 — parity i18n | 9/9 PASS | 2 gardes nouvelles « aria-label accentué » (components + pages) |
+| #95 — `bun test src` (packages/app) | 1487 pass / 21 todo / 0 fail | après gardes + clés × 17 dictionnaires |
+| Phase 12.2 — contrat Settings | 5/5 familles PASS local + CI PASS 5.6 s | `e2e/v110/settings-responsive.spec.ts` — onglets desktop vs drill-down mobile ; CI run `34836854332` e2e linux **147 pass / 0 fail / 46 skip** |
+| #92 — seed registry e2e | 4/4 tests + route 200 vérifiée + CI e2e verte | `empty-registry.test.ts` ; `unifia serve` avec le flag → `GET /model-intelligence/models` 200 `{"items":[],"total":0}` (était 503) ; CI run `34846235066` e2e linux **147 pass / 0 fail / 46 skip** (gate console stricte sans filtre) |
+| Phase 11b — preuves comportementales Settings | 2/2 PASS CI (4.9 s + 3.1 s) | `e2e/v110/settings-behavior.spec.ts` ; CI run `34859853273` e2e linux **149 pass / 0 fail / 46 skip** |
+| Phase 11c — MCP | pane atteignable (#101) prouvé CI ; ajout non persisté → `test.fixme` + issue **#102** | CI run `34866627308` (snapshot « unavailable » avant #101, puis row absente après) ; probe brut `POST /mcp` → 200 `{}`, `GET /mcp` → `{}`, `DELETE` → 500 ; **CI finale run `34869731240` : 149 pass / 0 fail / 47 skip** (fixme compté skip) |
+| Phase 12.3 — contrat Code | CI PASS 4.1 s | `e2e/v110/a4-responsive.spec.ts` ; CI run `34875743524` e2e linux **150 pass / 0 fail / 47 skip** |
+| Phase 12.4 — contrat Design | CI PASS 21.7 s | `e2e/v110/a6-responsive.spec.ts` ; CI run `34907033720` e2e linux **151 pass / 0 fail / 47 skip** (1er dispatch `34899431828` bloqué 1h26 sans sortie runner — flake infra, re-dispatch identique vert, classe #58) |
+| #102 — persistance MCP | probe brut vert + e2e réactivé + suite MCP 39/39 + CI tous jobs verts | `POST /mcp` → 200 avec le serveur dans la réponse, `GET /mcp` → listé, `DELETE` → 200 puis liste vide, plus de `<projet>/config.json` ; `test/mcp/fixture.ts` isole `Global.Path.config` par test (sans : 22/17 ; avec : 39/0) ; **CI run `34935712118` : 4/4 jobs verts**, e2e linux **152 pass / 0 fail / 46 skip** |
+
+---
+
+## Remaining M3 phases (priority order from baseline)
+
+| Phase | Sujet | Effort | Faisable en 1 session |
+|---|---|---|---|
+| **4 reste** | ~~tabs plan/debate/build/auto~~ LIVREES (4.8) ; motion reste (phases 13-16) | - | LIVREE |
+| 5 | Code mode (editor + terminal + LSP) | 3-4 h | non |
+| 6 | Work mode (Kanban DnD + run details) | 1-2 h | partiel |
+| 7 | Design runtime — **scopé par ADR-039** : #104 domaine → #105 canvas → #106 interactions → #107 layers → #108 legacy | multi-session | non |
+| **8** | **Automate P1 (studio node-based) — PRIORITE 1** | **5-8 h** | **non, multi-session** |
+| 9 | Memory complet (folders + DnD notes ; mobile single-pane LIVREE) | 2-3 h | partiel |
+| 10 | Browser (mobile, takeover, AI Activity) | 2-3 h | non |
+| 11 | Settings (11 dialogs) | 3-4 h | non |
+| 12 | Responsive exhaustif | 2-3 h | non |
+| 13-16 | Motion + A11y + Visual + Audit | 4-6 h | non |
+| 17 | Cleanup P1-5 post-parite | 2-3 h | non |
+| 18-19 | Gates completes + Audit final | 4-6 h | non |
+
+**Total remaining**: ~27-45 h of work, ~4-6 dedicated sessions — hors Phase 7, désormais séquencée en 5 slices multi-session par ADR-039 (#104-#108).
+
+---
+
+## Where to resume next session
+
+> **Session 4 (2026-09-14)** : `#91` est résolue — cause racine produit
+> (stubs `dialog.show(() => null)` hérités de la Vague 5), fix `ee9f4ac9d9`,
+> e2e local `workspaces.spec.ts` 7/7. La file restante est :
+> **Settings — parité (11 dialogs ⚠️)**, **Work — parité**, **Responsive
+> exhaustif (12.2+)**, **#95** (aria-labels FR), **#93** (wikilinks rename),
+> **#96** (parité éditeur), **#92** (seed e2e-local).
+
+Phase 9 (Automate continuation) slices 1-2 are shipped:
+- 9.1 environment pane (read-only grants/approvals/runs) — `f061fff246`
+- 9.2 branch true/false ports + graph validation — `701306f06a`
+
+Recommended entry point for the next session: **Phase 4 remainder**
+(plan/debate/build/auto tabs + motion) or **Phase 5 (Code chrome)** —
+both have real runtime surfaces to port against. Memory folders + DnD
+are done (9.3); the remaining Memory ⚠️ rows (context menu, autosave,
+graph filters) are separate slices.
+
+**Phase 7 (Design canvas) is UNBLOCKED** (ratification pending): ADR-039
+(`docs/adr/ADR-039-canonical-design-document-runtime.md`, Proposed rev. 2)
+defines the canonical versioned Design document owned by Unifia, a
+framework-agnostic Konva renderer behind an adapter (no React in the
+SolidJS app), the storage authority (workspace/artifact; localStorage is a
+temporary web fallback), and `LineNodeV1`/`PathNodeV1` for the vector rows.
+The five implementation slices are filed: **#104** domain foundation
+(renderer-independent — the entry point), **#105** native canvas,
+**#106** snapping/guides/history, **#107** layer runtime + DnD, **#108**
+legacy importer + iframe removal. Gate mapping in ADR-039 §28. Do not fake
+the canvas with more stubs.
+
+| Slice | Sujet | Effort | Depends on |
+|---|---|---|---|
+| **8.9** | **Minimap + zoom-to-fit + breadcrumb (DONE — `9700b91630`) — FERME Phase 8** | **1-2 h** | **8.7** |
+
+**Phase 8 is CLOSED** (9 slices delivered, ~22-26 h of work).
+The Automate studio is now feature-complete per the Phase 8
+acceptance matrix: canvas + zoom/pan + Inspector + drag-to-move
++ ports + connectors + library + run bar + persistence
+(canonical IR + Save) + mobile/responsive + minimap/zoom-to-fit.
+Only "Environment / branches" remains, which is Phase 9+
+scope (a different M3 campaign).
+
+The infrastructure from earlier phases is still ready:
+- `M3-ACCEPTANCE-MATRIX.md` surfaces the 6 viewports × 4 modes (Code, Work, Design, Automate) × N states coverage
+- `packages/app/e2e/m3-harness.ts` exports `setViewportFamily`, `pickShellMode`, `assertShellOverflow`, `assertFocusVisible`
+- `packages/app/e2e/v110-shell-gate.spec.ts` is the global gate spec stub
+- 5 session wrappers extracted (Phase 4 slices 2-6) + 9 Automate wrappers (Phase 8 slices 1-9) are isolated test targets
+- 0 lint warnings + 47/47 typecheck + 1413/1413 unit tests = no baseline drag
+
+The next M3 checkpoint will be the Phase 8 acceptance-matrix
+audit (verify every "❌ MANQUE" line is now ✅ for the
+Automate studio, aside from the Phase 9+ "Environment /
+branches" line).
+
+---
+
+*Last updated 2026-09-13 (third autonomous session) by OpenCode. Head: `a7bdea7de8` on `new-ui` (pushed). Session 3: conformance SPDX fix `0290fdadf2`; Phase 9.3 - Memory vault folder tree + DnD notes through the real `/v1/files/rename` route (`b474fe7463`); Phase 4.8 - composer agent control now carries the six v16 mode glyphs (chat/plan/debate/build/team/auto, chat fallback) and the e2e `chat-agent-modes.spec.ts` pins the real control swaps (DebateModelSelector, TeamModelSelector, no fabricated Auto tab) (`853666f8ea`); Phase 9.4 - Memory note editor autosaves 700 ms after the last keystroke through the real CAS write route, flushes before note switches, and shows the mockup's Saved/Saving/Unsaved chip (`f7cf812eb3`); Phase 9.5 - the vault context menu ships real workspace actions only (open/inline rename/duplicate/move/export/delete on notes, new note/sub-folder on folders; pin/archive and folder rename are absent, no runtime backs them) with the e2e recording every client call (`b05978e1de`); Phase 9.6 - the graph pane ships the mockup filter set (depth 1-3, tag ring, orphans, note-link summary) and one documents query now feeds both backlinks and the graph (`b217f0579d`); rename wikilink auto-refactor deferred, issue #93. Local gates at HEAD: app suite 1483 pass / 21 todo / 0 fail, typecheck 0, biome 0 on touched files, e2e targeted 5/5 stable. **Memory surface: toutes les lignes de la matrice sont ✅ sauf pan/zoom/fit dans la pane (⚠️ partial)**. CI e2e (linux) state: 141/142 green, run 34792665489 - `port-gate` fixed and #94 closed with CI evidence; the Phase 9.3 mock regression (listFiles) fixed in `0c5276eda1`; the single remaining failure is `workspaces.spec.ts can reset a workspace` (#91): the activation race is fixed by `clickMenuItemWhenEnabled`, the dialog still never opens on CI and the local harness shows a different shape (Kobalte Content not mounted for BOTH workspace dialogs) - full evidence and next steps are on #91. Next session entry point: Phase 5 (Code chrome) - markers v110 now really mounted (5.1); the remaining gaps are the visual refit beyond markers (gutter/diagnostics markers, diff, terminal-panel rule) and the LSP/search-replace rows. Also open: 2 aria-labels still hard-coded French in Design tabs (issue filed). Phase 7 stays blocked on the design-document ADR. Handoff: vault `projects/unifia/sessions/`.*

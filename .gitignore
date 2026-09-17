@@ -34,6 +34,8 @@ packages/automate-m0-harness/test/dbos-real-debug.test.ts
 docs/automation-v2/m0/.publish-staging/
 # M0 diagnostic runs (NON_CANONICAL_DIAGNOSTIC_MODE=1)
 .tmp/m0-diagnostic/
+# M3 agent scratch commit-message files (written when -m has shell-unsafe chars)
+.tmp-*.md
 # M0 candidate Go binaries (build artefacts, mandate §71 — do not commit)
 tools/dbos-qualify/dbos-qualify.exe
 tools/dbos-real-qualify/dbos-real-qualify.exe

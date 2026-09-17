@@ -2,8 +2,9 @@ import { createSignal, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 
 export interface LoginFormProps {
-  onLogin: (tokens: { accessToken: string; refreshToken: string; user: { id: string; username: string; role: string } }) => void
+  onLogin: (tokens: { accessToken: string; refreshToken: string; user: { id: string; username: string; role: "admin" | "member" | "viewer" } }) => void
   serverUrl: string
+  fetch?: typeof fetch
 }
 
 /**
@@ -34,7 +35,7 @@ export function LoginForm(props: LoginFormProps) {
       }
       if (mode() === "register" && email()) body.email = email()
 
-      const res = await fetch(`${props.serverUrl}${endpoint}`, {
+      const res = await (props.fetch ?? fetch)(`${props.serverUrl}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -64,6 +65,7 @@ export function LoginForm(props: LoginFormProps) {
         <span class="text-xs font-medium text-secondary">{language.t("auth.username")}</span>
         <input
           type="text"
+          data-action="auth-username"
           value={username()}
           onInput={(e) => setUsername(e.currentTarget.value)}
           class="px-3 py-2 border rounded-lg bg-background text-sm"
@@ -88,6 +90,7 @@ export function LoginForm(props: LoginFormProps) {
         <span class="text-xs font-medium text-secondary">{language.t("auth.password")}</span>
         <input
           type="password"
+          data-action="auth-password"
           value={password()}
           onInput={(e) => setPassword(e.currentTarget.value)}
           class="px-3 py-2 border rounded-lg bg-background text-sm"
@@ -98,11 +101,12 @@ export function LoginForm(props: LoginFormProps) {
       </label>
 
       <Show when={error()}>
-        <p class="text-xs text-red-500">{error()}</p>
+        <p data-action="auth-error" class="text-xs text-red-500">{error()}</p>
       </Show>
 
       <button
         type="submit"
+        data-action="auth-submit"
         disabled={loading()}
         class="px-4 py-2 bg-primary text-white rounded-lg font-medium text-sm disabled:opacity-50"
       >

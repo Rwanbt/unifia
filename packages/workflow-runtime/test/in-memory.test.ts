@@ -27,7 +27,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { type WorkflowRun } from "@unifia/contracts"
+import type { WorkflowRun } from "@unifia/contracts"
 import {
   IllegalTransitionError,
   InMemoryDurableHistoryAuthority,

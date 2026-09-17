@@ -16,17 +16,19 @@ import {
   untrack,
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
-import { createMediaQuery } from "@solid-primitives/media"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { useLocal } from "@/context/local"
 import { useFile } from "@/context/file"
 import { createStore, produce } from "solid-js/store"
-import { ResizeHandle } from "@unifia/ui/resize-handle"
-import { Tabs } from "@unifia/ui/tabs"
 import { createSessionScroll } from "@/pages/session/session-scroll"
 import { showToast } from "@unifia/ui/toast"
-import { useSearchParams } from "@solidjs/router"
+import { useNavigate, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
+import { SessionMobileTabsSection } from "@/pages/session/session-mobile-tabs"
+import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
+import { buildFollowupDockProps } from "@/pages/session/followup-dock-props"
+import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
+import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
 import { useComments } from "@/context/comments"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -40,10 +42,10 @@ import { useTerminal } from "@/context/terminal"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { createSessionComposerState, SessionComposerRegion } from "@/pages/session/composer"
 import { createOpenReviewFile, createSessionTabs, createSizing } from "@/pages/session/helpers"
-import { MessageTimeline } from "@/pages/session/message-timeline"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
-import { SessionSidePanel } from "@/pages/session/session-side-panel"
+import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
+import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
@@ -62,6 +64,9 @@ import { Persist, persisted } from "@/utils/persist"
 import { same } from "@/utils/same"
 import { formatServerError } from "@/utils/server-errors"
 import { useViewMode } from "@/hooks/use-view-mode"
+import { useShell, useViewport } from "@/shell/v110-store"
+import { useArtifactLoader } from "@/pages/session/use-artifact-loader"
+import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
 
 const emptyUserMessages: UserMessage[] = []
 
@@ -81,38 +86,24 @@ export default function Page() {
   const comments = useComments()
   const terminal = useTerminal()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
-  const workbench = useWorkspaceWorkbench()
-  const [artifactDocument, setArtifactDocument] = createSignal<{ filename: string; content: string }>()
-  const [artifactError, setArtifactError] = createSignal<string>()
+  const navigate = useNavigate()
+  const _workbench = useWorkspaceWorkbench()
+  // Read-only capture of the message-timeline scroll viewport for
+  // PromptIndex (A3-01). Wraps setScrollRef below rather than reaching
+  // into createSessionScroll/createAutoScroll internals: this signal
+  // has no write path back into the existing scroll machinery.
+  const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>()
   const { params, sessionKey, tabs, view } = useSessionLayout()
   // FORK: ADR-0005 dual-mode layout effect (Agent ⇄ IDE toggle).
   useViewMode()
 
-  createEffect(() => {
-    const artifactId = (searchParams as { artifact?: string }).artifact
-    const connection = workbench.connection()
-    if (!artifactId || !connection) {
-      setArtifactDocument(undefined)
-      return
-    }
-    setArtifactError(undefined)
-    void connection.client.getArtifact(connection.workspaceId, artifactId)
-      .then((result) => {
-        const bytes = Uint8Array.from(atob(result.content), (value) => value.charCodeAt(0))
-        setArtifactDocument({ filename: result.artifact.filename, content: new TextDecoder().decode(bytes) })
-      })
-      .catch((error) => setArtifactError(error instanceof Error ? error.message : "Artifact could not be loaded"))
-  })
+  const { artifactDocument, artifactError } = useArtifactLoader(() => (searchParams as { artifact?: string }).artifact)
 
-  createEffect(() => {
-    if (!prompt.ready()) return
-    untrack(() => {
-      if (params.id) return
-      const text = searchParams.prompt
-      if (!text) return
-      prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
-      setSearchParams({ ...searchParams, prompt: undefined })
-    })
+  usePromptInitializer({
+    prompt,
+    hasSessionId: () => Boolean(params.id),
+    searchParams: () => searchParams as { prompt?: string },
+    setSearchParams: (next) => setSearchParams(next as Parameters<typeof setSearchParams>[0]),
   })
 
   const [ui, setUi] = createStore({
@@ -167,22 +158,25 @@ export default function Page() {
     ),
   )
 
-  const isDesktop = createMediaQuery("(min-width: 768px)")
+  const shell = useShell(useViewport())
+  const isDesktop = createMemo(() => shell.kind() !== "overlay")
   const platformCtx = usePlatform()
   const isMobileDevice = createMemo(() => platformCtx.platform === "mobile")
   const size = createSizing()
-  const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const desktopFileTreeOpen = createMemo(() => isDesktop() && layout.fileTree.opened())
-  const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
+  const desktopInspectorOpen = createMemo(() => isDesktop() && layout.inspector.opened())
+  // "inspector" tab (opened files, diffs) is the old review pane's wide
+  // content; "explorer"/"execution" are the old file-tree pane's narrow
+  // browsing width.
+  const desktopInspectorWide = createMemo(() => desktopInspectorOpen() && layout.inspector.tab() === "inspector")
   const sessionPanelWidth = createMemo(() => {
     // FORK: Stretch Phase 6 — editor focus mode collapses the chat panel
-    if (isDesktop() && layout.editorFocus.enabled() && desktopSidePanelOpen()) return "0px"
-    if (!desktopSidePanelOpen()) return "100%"
+    if (isDesktop() && layout.editorFocus.enabled() && desktopInspectorOpen()) return "0px"
+    if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
-    if (desktopReviewOpen()) return `${layout.session.width()}px`
-    return `calc(100% - ${layout.fileTree.width()}px)`
+    if (desktopInspectorWide()) return `${layout.session.width()}px`
+    return `calc(100% - ${layout.inspector.width()}px)`
   })
-  const centered = createMemo(() => isDesktop() && !desktopReviewOpen())
+  const centered = createMemo(() => isDesktop() && !desktopInspectorWide())
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -202,7 +196,8 @@ export default function Page() {
   }
 
   const openReviewPanel = () => {
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
+    layout.inspector.setTab("inspector")
+    if (!layout.inspector.opened()) layout.inspector.open()
   }
 
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
@@ -351,7 +346,7 @@ export default function Page() {
   }
 
   createComputed((prev) => {
-    const open = desktopReviewOpen()
+    const open = desktopInspectorWide()
     if (prev === undefined || prev === open) return open
 
     if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
@@ -361,7 +356,7 @@ export default function Page() {
       setUi("reviewSnap", false)
     })
     return open
-  }, desktopReviewOpen())
+  }, desktopInspectorWide())
 
   const turnDiffs = createMemo(() => lastUserMessage()?.summary?.diffs ?? [])
   const changesOptions = createMemo<ChangeMode[]>(() => {
@@ -621,7 +616,8 @@ export default function Page() {
   const mobileChanges = createMemo(() => !isDesktop() && store.mobileTab === "changes")
   const wantsReview = createMemo(() =>
     isDesktop()
-      ? desktopFileTreeOpen() || (desktopReviewOpen() && activeTab() === "review")
+      ? (desktopInspectorOpen() && layout.inspector.tab() === "explorer") ||
+        (desktopInspectorWide() && activeTab() === "review")
       : store.mobileTab === "changes",
   )
 
@@ -633,8 +629,7 @@ export default function Page() {
     setStore("changes", next)
   })
 
-  const fileTreeTab = () => layout.fileTree.tab()
-  const setFileTreeTab = (value: "changes" | "all" | "git" | "tasks") => layout.fileTree.setTab(value)
+  const explorerView = () => layout.inspector.explorerView()
 
   createSessionSyncEffects({
     sdk,
@@ -650,7 +645,7 @@ export default function Page() {
     loadVcs,
     refreshVcs,
     activeFileTab,
-    fileTreeTab,
+    explorerView,
     isVcsReady: (mode) => vcs.ready[mode],
   })
 
@@ -675,8 +670,8 @@ export default function Page() {
   )
 
   const showAllFiles = () => {
-    if (fileTreeTab() !== "changes") return
-    setFileTreeTab("all")
+    if (explorerView() !== "changed") return
+    layout.inspector.setExplorerView("all")
   }
 
   const focusInput = () => inputRef?.focus()
@@ -729,7 +724,7 @@ export default function Page() {
       activeFileTab,
       (active) => {
         if (!active) return
-        if (fileTreeTab() !== "changes") return
+        if (explorerView() !== "changed") return
         showAllFiles()
       },
       { defer: true },
@@ -792,6 +787,7 @@ export default function Page() {
     userMessages,
     revertMessageID,
     language,
+    navigate,
   })
 
   const {
@@ -907,47 +903,28 @@ export default function Page() {
     <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
       <SessionHeader />
       <Show when={artifactDocument() || artifactError()}>
-        <section class="mx-4 mt-2 max-h-72 overflow-auto rounded-lg border border-border-base bg-background-stronger p-3" data-code-artifact-viewer>
-          <div class="flex items-center justify-between gap-3 text-12-medium">
-            <span>{artifactDocument()?.filename ?? "Artifact"}</span>
-            <span class="text-text-weak">Workbench artifact · read-only</span>
-          </div>
-          <Show when={artifactError()} fallback={<pre class="mt-3 whitespace-pre-wrap font-mono text-12-regular text-text-weak">{artifactDocument()?.content}</pre>}>
-            <p class="mt-3 text-12-regular text-text-danger">{artifactError()}</p>
-          </Show>
-        </section>
+        <SessionArtifactViewerSection
+          artifactDocument={artifactDocument}
+          artifactError={artifactError}
+        />
       </Show>
       <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
-        <div data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col md:flex-row">
+        <div data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col shell:flex-row">
         <Show when={!isDesktop() && !!params.id}>
-          <Tabs value={store.mobileTab} class="h-auto">
-            <Tabs.List>
-              <Tabs.Trigger
-                value="session"
-                class="!w-1/2 !max-w-none"
-                classes={{ button: "w-full" }}
-                onClick={() => setStore("mobileTab", "session")}
-              >
-                {language.t("session.tab.session")}
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                value="changes"
-                class="!w-1/2 !max-w-none !border-r-0"
-                classes={{ button: "w-full" }}
-                onClick={() => setStore("mobileTab", "changes")}
-              >
-                {hasReview()
-                  ? language.t("session.review.filesChanged", { count: reviewCount() })
-                  : language.t("session.review.change.other")}
-              </Tabs.Trigger>
-            </Tabs.List>
-          </Tabs>
+          <SessionMobileTabsSection
+            mobileTab={store.mobileTab}
+            hasReview={hasReview()}
+            reviewCount={reviewCount()}
+            language={language}
+            setMobileTab={(next) => setStore("mobileTab", next)}
+            visible={true}
+          />
         </Show>
 
         {/* Session panel */}
         <div
           classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 md:flex-none": true,
+            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
             "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
               !size.active() && !ui.reviewSnap,
           }}
@@ -955,26 +932,25 @@ export default function Page() {
             width: sessionPanelWidth(),
           }}
         >
-          <div class="flex-1 min-h-0 overflow-hidden">
+          <div class="relative flex-1 min-h-0 overflow-hidden">
             <Switch>
               <Match when={params.id}>
                 <Show when={messagesReady()}>
-                  <MessageTimeline
+                  <SessionTimelineSection
                     mobileChanges={mobileChanges()}
                     mobileFallback={reviewContent({
                       diffStyle: "unified",
-                      classes: {
-                        root: "pb-8",
-                        header: "px-4",
-                        container: "px-4",
-                      },
+                      classes: { root: "pb-8", header: "px-4", container: "px-4" },
                       loadingClass: "px-4 py-4 text-text-weak",
                       emptyClass: "h-full pb-64 -mt-4 flex flex-col items-center justify-center text-center gap-6",
                     })}
                     actions={actions}
                     scroll={ui.scroll}
                     onResumeScroll={resumeScroll}
-                    setScrollRef={setScrollRef}
+                    setScrollRef={(el) => {
+                      setScrollRef(el)
+                      setScrollEl(el)
+                    }}
                     onScheduleScrollState={scheduleScrollState}
                     onAutoScrollHandleScroll={autoScroll.handleScroll}
                     onMarkScrollGesture={markScrollGesture}
@@ -982,16 +958,18 @@ export default function Page() {
                     onUserScroll={markUserScroll}
                     onTurnBackfillScroll={historyWindow.onScrollerScroll}
                     onAutoScrollInteraction={autoScroll.handleInteraction}
-                    centered={centered()}
+                    centered={centered}
                     setContentRef={setContentRef}
-
-                    turnStart={historyWindow.turnStart()}
-                    historyMore={historyMore()}
-                    historyLoading={historyLoading()}
+                    turnStart={historyWindow.turnStart}
+                    historyMore={historyMore}
+                    historyLoading={historyLoading}
                     onLoadEarlier={() => {
                       void historyWindow.loadAndReveal()
                     }}
-                    renderedUserMessages={historyWindow.renderedUserMessages()}
+                    renderedUserMessages={() => historyWindow.renderedUserMessages()}
+                    visibleUserMessages={visibleUserMessages}
+                    messagesReady={messagesReady}
+                    scrollEl={scrollEl}
                     anchor={anchor}
                   />
                 </Show>
@@ -1016,59 +994,35 @@ export default function Page() {
               resumeScroll()
             }}
             onResponseSubmit={resumeScroll}
-            followup={
-              params.id
-                ? {
-                    queue: queueEnabled,
-                    items: followupDock(),
-                    sending: sendingFollowup(),
-                    edit: editingFollowup(),
-                    onQueue: queueFollowup,
-                    onAbort: () => {
-                      const id = params.id
-                      if (!id) return
-                      setFollowup("paused", id, true)
-                    },
-                    onSend: (id) => {
-                      void sendFollowup(params.id!, id, { manual: true })
-                    },
-                    onEdit: editFollowup,
-                    onEditLoaded: clearFollowupEdit,
-                  }
-                : undefined
-            }
-            revert={
-              rolled().length > 0
-                ? {
-                    items: rolled(),
-                    restoring: restoring(),
-                    disabled: reverting(),
-                    onRestore: restore,
-                  }
-                : undefined
-            }
+            followup={buildFollowupDockProps({
+              paramsId: () => params.id,
+              queueEnabled,
+              followupDock,
+              sendingFollowup,
+              editingFollowup,
+              queueFollowup,
+              setFollowup,
+              sendFollowup,
+              editFollowup,
+              clearFollowupEdit,
+            })}
+            revert={buildRevertDockProps({ rolled, restoring, reverting, restore })}
             setPromptDockRef={(el) => {
               promptDock = el
             }}
           />
 
-          <Show when={desktopReviewOpen()}>
-            <div onPointerDown={() => size.start()}>
-              <ResizeHandle
-                direction="horizontal"
-                size={layout.session.width()}
-                min={450}
-                max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
-                onResize={(width) => {
-                  size.touch()
-                  layout.session.resize(width)
-                }}
-              />
-            </div>
+          <Show when={desktopInspectorWide()}>
+            <DesktopChatSeparator
+              desktopInspectorWide={desktopInspectorWide}
+              size={size}
+              layout={layout}
+              language={language}
+            />
           </Show>
         </div>
 
-        <SessionSidePanel
+        <SessionSidePanelSection
           canReview={canReview}
           diffs={reviewDiffs}
           diffsReady={reviewReady}
@@ -1080,6 +1034,7 @@ export default function Page() {
           focusReviewDiff={focusReviewDiff}
           reviewSnap={ui.reviewSnap}
           size={size}
+          sessionId={params.id}
         />
 
         </div>

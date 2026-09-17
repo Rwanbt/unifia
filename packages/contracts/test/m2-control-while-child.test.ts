@@ -33,7 +33,6 @@ import {
   WAIT_DURATION_MAX_MS,
   WAIT_JITTER_MAX,
   type ControlWhileConfig,
-  type ControlChildConfig,
 } from "../src/workflow-ir.ts"
 
 describe("M2-07 control.while schema", () => {

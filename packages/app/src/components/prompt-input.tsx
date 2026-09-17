@@ -34,6 +34,7 @@ import { usePlatform } from "@/context/platform"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { promptEnabled, promptProbe } from "@/testing/prompt"
+import { AgentModeIcon } from "@/components/agent-mode-icon"
 import { DebateModelSelector } from "@/components/debate-model-selector"
 import { TeamModelSelector } from "@/components/team-model-selector"
 import {
@@ -65,6 +66,7 @@ import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { EXAMPLES } from "./prompt-input/examples"
 import { promptPlaceholder } from "./prompt-input/placeholder"
 import { ImagePreview } from "@unifia/ui/image-preview"
+import { SessionContextUsage } from "@/components/session-context-usage"
 
 interface PromptInputProps {
   class?: string
@@ -95,7 +97,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
-  const { params, tabs, view } = useSessionLayout()
+  const { params, tabs } = useSessionLayout()
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -185,15 +187,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     const wantsReview = item.commentOrigin === "review" || (item.commentOrigin !== "file" && commentInReview(item.path))
     if (wantsReview) {
-      if (!view().reviewPanel.opened()) view().reviewPanel.open()
-      layout.fileTree.setTab("changes")
+      layout.inspector.setTab("inspector")
+      if (!layout.inspector.opened()) layout.inspector.open()
       tabs().setActive("review")
       queueCommentFocus()
       return
     }
 
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
-    layout.fileTree.setTab("all")
+    layout.inspector.setTab("inspector")
+    if (!layout.inspector.opened()) layout.inspector.open()
     const tab = files.tab(item.path)
     tabs().open(tab)
     tabs().setActive(tab)
@@ -1249,6 +1251,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   }}
                 />
               </Tooltip>
+              {/* v110 composer footer: context-meter ring sits directly left of send (COMPONENT-MAP.md, context-meter). */}
+              <SessionContextUsage placement="top" />
               <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
                 <IconButton
                   data-action="prompt-submit"
@@ -1330,6 +1334,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       valueClass="truncate text-13-regular text-text-base"
                       triggerStyle={control()}
                       triggerProps={{ "data-action": "prompt-agent" }}
+                      triggerPrefix={<AgentModeIcon name={local.agent.current()?.name} class="size-4 shrink-0 text-icon-base" />}
                       variant="ghost"
                     />
                   </TooltipKeybind>

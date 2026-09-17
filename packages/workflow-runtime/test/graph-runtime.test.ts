@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { GraphRuntimeEngine, GraphRuntimeError } from "../src/graph-runtime"
+import { GraphRuntimeEngine, type GraphRuntimeError } from "../src/graph-runtime"
 import { AuthorityError } from "../src/authority"
 import type { WorkflowDefinition } from "@unifia/contracts"
 

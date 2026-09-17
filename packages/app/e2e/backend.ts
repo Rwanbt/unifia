@@ -93,6 +93,11 @@ export async function startBackend(label: string, input?: { llmUrl?: string }): 
     XDG_STATE_HOME: path.join(sandbox, "state"),
     UNIFIA_CLIENT: "app",
     UNIFIA_STRICT_CONFIG_DEPS: "true",
+    // #92: seed an empty model-intelligence registry at boot so the models
+    // route answers 200 instead of 503 (the browser talks to THIS backend,
+    // not the e2e-local harness server). Without it every page load logs the
+    // failed resource and the console-error gates had to filter it.
+    UNIFIA_E2E_SEED_EMPTY_REGISTRY: "true",
     OPENCODE_E2E_LLM_URL: input?.llmUrl,
   } satisfies Record<string, string | undefined>
   const out: string[] = []

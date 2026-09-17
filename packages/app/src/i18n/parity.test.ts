@@ -139,6 +139,45 @@ const TECHNICAL_ALLOWLIST = new Set([
   // unit are typographic constants shared across all locales, so the
   // string itself is intentionally identical to the English source.
   "workbench.design.previewCaption",
+  // 2026-09-11: Team event fallback for an unrecognized event kind. "{{kind}}"
+  // is a pure template placeholder — every character is the interpolation
+  // variable, so there is no translatable text for any locale to render
+  // differently. Never used in practice today (the five kinds the DAG
+  // executor actually emits — team.started/budget_handoff/task_finished/
+  // final_validation/runtime_failed — all have dedicated translated labels),
+  // this only fires if a sixth kind is added server-side later.
+  "workbench.work.event.unknown",
+  // 2026-09-11: Start-run form (A5-06). Genuine cross-language loanwords/
+  // cognates for this exact technical domain, not untranslated laziness —
+  // every OTHER key in this same form (task.id, budget.maxCostUsd, the
+  // validation messages, etc.) got a real, distinct translation per locale.
+  // "Prompt" (an LLM-specific term) is borrowed as-is in Portuguese-BR,
+  // Bosnian, Danish, German, Spanish, French, Norwegian, Polish and Turkish.
+  // "Agent" is a native cognate spelled identically in Bosnian, Danish,
+  // German, French, Norwegian and Polish. "Start" (the submit button) is the
+  // same imperative in Danish and Norwegian. French "Description" is an
+  // identical English/French cognate. German "Budget (optional)" pairs two
+  // loanwords already spelled the same way in German.
+  "workbench.work.startRun.task.prompt",
+  // 2026-09-12: A6 D02-D06 MVP labels (ADR-034/035). Design tool proper
+  // nouns and short action verbs, identical across locales — same
+  // rationale as `workbench.design.title` already in this list.
+  "workbench.design.layers.title",
+  "workbench.design.layers.toggleVisibility",
+  "workbench.design.layers.toggleLock",
+  "workbench.design.layers.rename",
+  "workbench.design.layers.moveUp",
+  "workbench.design.layers.moveDown",
+  "workbench.design.tools.label",
+  "workbench.design.tools.select",
+  "workbench.design.tools.rect",
+  "workbench.design.tools.line",
+  "workbench.design.tools.ellipse",
+  "workbench.design.tools.bezier",
+  "workbench.work.startRun.task.agent",
+  "workbench.work.startRun.submit",
+  "workbench.work.startRun.task.description",
+  "workbench.work.startRun.budget.title",
   // 2026-08-16: International technical loan-words. "Design" (fr/de/ja/ko
   // surface forms may differ, but pt-BR/bs/da/keep the English token as a
   // lexical borrowing), "Trace" (used in de/no/ru as an engineering
@@ -153,6 +192,190 @@ const TECHNICAL_ALLOWLIST = new Set([
   "workbench.chat.assistant",
   "workbench.operations.documents",
   "workbench.operations.documentsCount",
+  // 2026-09-13: Automate studio canvas (Phase 8 slice 1). International
+  // UI loan-words and short canvas control labels — "Zoom", "Reset",
+  // "Approval" are Figma/Sketch-style UI conventions that stay in
+  // English across every locale; the "Workflow {{summary}}" template
+  // is a status figure caption whose only interpolation is the runtime-
+  // computed step count. Real French translations live in fr.ts; the
+  // remaining 14 locales fall back to English pending translator review.
+  "workbench.automate.canvas.zoomIn",
+  "workbench.automate.canvas.zoomOut",
+  "workbench.automate.canvas.reset",
+  "workbench.automate.canvas.resetView",
+  "workbench.automate.canvas.empty",
+  "workbench.automate.canvas.approvalTag",
+  "workbench.automate.canvas.workflowLabel",
+  "workbench.automate.canvas.stepsLabel",
+  "workbench.automate.canvas.canvasLabel",
+  // 2026-09-13: Automate studio minimap + breadcrumb (Phase 8
+  // slice 9). Zoom-to-fit button label, minimap aria-label,
+  // breadcrumb wrapper label, and the two breadcrumb segments
+  // ("Workspace", "Automate"). Same rationale as the canvas +
+  // inspector + library keys in slices 1-8.
+  "workbench.automate.canvas.zoomToFit",
+  "workbench.automate.minimap.label",
+  "workbench.automate.breadcrumb.label",
+  "workbench.automate.breadcrumb.workspace",
+  "workbench.automate.breadcrumb.automate",
+  // 2026-09-13: Automate studio environment (Phase 9.1). Drawer
+  // title, workspace label template, capabilities section header,
+  // inactive-capabilities subtitle, approvals / recent-runs headers
+  // and empty-state strings, cancel button, close button, and the
+  // "Environment" button on the run bar that opens the drawer.
+  // Same rationale as the canvas + inspector + library + run bar
+  // + minimap + breadcrumb keys in slices 1-9.
+  "workbench.automate.environment.title",
+  "workbench.automate.environment.workspaceLabel",
+  "workbench.automate.environment.capabilities",
+  "workbench.automate.environment.capabilitiesInactive",
+  "workbench.automate.environment.approvals",
+  "workbench.automate.environment.approvalsEmpty",
+  "workbench.automate.environment.recentRuns",
+  "workbench.automate.environment.runsEmpty",
+  "workbench.automate.environment.cancel",
+  "workbench.automate.environment.drawerTitle",
+  "workbench.automate.environment.close",
+  "workbench.automate.runBar.action.showEnvironment",
+  // 2026-09-13: Automate studio branches (Phase 9 slice 2). Labelled
+  // true/false branch ports + branch edge captions + graph topology
+  // dry-run messages (cycle / duplicate branch / branch out of a
+  // non-branching family). Same rationale as the slices 1-9 keys.
+  "workbench.automate.canvas.portTrue",
+  "workbench.automate.canvas.portFalse",
+  "workbench.automate.canvas.edgeBranchTrue",
+  "workbench.automate.canvas.edgeBranchFalse",
+  "workbench.automate.runBar.validateCycle",
+  "workbench.automate.runBar.validateDuplicateBranch",
+  "workbench.automate.runBar.validateBranchNonBranching",
+  // Phase 9 remainder: Memory vault tree + note DnD labels.
+  "workbench.memory.vault.title",
+  "workbench.memory.vault.searchLabel",
+  "workbench.memory.vault.searchPlaceholder",
+  "workbench.memory.vault.loadError",
+  "workbench.memory.vault.empty",
+  "workbench.memory.tree.expand",
+  "workbench.memory.tree.collapse",
+  "workbench.memory.move.moved",
+  "workbench.memory.move.failed",
+  "workbench.memory.save.conflict",
+  "workbench.memory.save.saved",
+  "workbench.memory.save.failed",
+  "workbench.memory.status.saved",
+  "workbench.memory.status.saving",
+  "workbench.memory.status.unsaved",
+  // Phase 9.5: Memory context actions + vault creation defaults.
+  "workbench.memory.actions.open",
+  "workbench.memory.actions.rename",
+  "workbench.memory.actions.duplicate",
+  "workbench.memory.actions.move",
+  "workbench.memory.actions.export",
+  "workbench.memory.actions.delete",
+  "workbench.memory.actions.newNote",
+  "workbench.memory.actions.newFolder",
+  "workbench.memory.actions.confirmDelete",
+  "workbench.memory.actions.nameTaken",
+  "workbench.memory.actions.renamed",
+  "workbench.memory.actions.created",
+  "workbench.memory.actions.folderCreated",
+  "workbench.memory.actions.duplicated",
+  "workbench.memory.actions.deleted",
+  "workbench.memory.actions.exported",
+  "workbench.memory.actions.exportFailed",
+  "workbench.memory.actions.createFailed",
+  "workbench.memory.actions.deleteFailed",
+  "workbench.memory.actions.mkdirFailed",
+  "workbench.memory.defaults.noteName",
+  "workbench.memory.defaults.folderName",
+  // Phase 9.6: Memory depth graph filters.
+  "workbench.memory.graph.depth",
+  "workbench.memory.graph.tags",
+  "workbench.memory.graph.orphans",
+  "workbench.memory.graph.summary",
+  // 2026-09-13: Automate studio inspector (Phase 8 slice 2). Same
+  // rationale as the canvas control labels above — short UI labels
+  // ("Inspector", "Close", "Approval"), section titles, and a
+  // templated figure caption ("Step N of M") where English is the
+  // canonical UI surface. Real French translations live in fr.ts; the
+  // remaining 14 locales fall back to English pending translator
+  // review.
+  "workbench.automate.inspector.title",
+  "workbench.automate.inspector.close",
+  "workbench.automate.inspector.empty",
+  "workbench.automate.inspector.field.id",
+  "workbench.automate.inspector.field.label",
+  "workbench.automate.inspector.field.position",
+  "workbench.automate.inspector.field.approval",
+  "workbench.automate.inspector.positionValue",
+  "workbench.automate.inspector.approvalYes",
+  "workbench.automate.inspector.approvalNo",
+  // 2026-09-13: Automate studio inspector Coordinates section
+  // (Phase 8 slice 3, drag-to-move). Section title + templated figure
+  // "x {{x}}, y {{y}}" + drag status marker "(dragged)" — same
+  // rationale as the canvas control labels.
+  "workbench.automate.inspector.field.coordinates",
+  "workbench.automate.inspector.coordinatesValue",
+  "workbench.automate.inspector.coordinatesOverridden",
+  // 2026-09-13: Automate studio port connectors (Phase 8 slice 4).
+  // Port aria-labels + inspector Edges section labels. Same rationale
+  // as the canvas + inspector control labels in slices 1-3: short
+  // UI labels + section titles + templated figure captions where
+  // English is the canonical UI surface.
+  "workbench.automate.canvas.portInput",
+  "workbench.automate.canvas.portOutput",
+  "workbench.automate.inspector.field.edges",
+  "workbench.automate.inspector.edgesOutgoingLabel",
+  "workbench.automate.inspector.edgesIncomingLabel",
+  "workbench.automate.inspector.userEdgeCount",
+  // 2026-09-13: Automate studio node library (Phase 8 slice 5).
+  // Header title, family-count chip, search input placeholder + label,
+  // empty state, footer hint, and "Add X" aria-label. Same rationale
+  // as the canvas + inspector control labels in slices 1-4: short UI
+  // labels + templated figure captions where English is the canonical
+  // UI surface.
+  "workbench.automate.library.title",
+  "workbench.automate.library.familyCount",
+  "workbench.automate.library.searchPlaceholder",
+  "workbench.automate.library.searchLabel",
+  "workbench.automate.library.empty",
+  "workbench.automate.library.footerHint",
+  "workbench.automate.library.addEntry",
+  // 2026-09-13: Automate studio run bar (Phase 8 slice 6). State
+  // chip labels (idle / waiting / running / cancelled / failed),
+  // action button labels (Validate + Start + Allow/Deny/Cancel),
+  // dismiss button, and validate-result messages. Same rationale
+  // as the canvas + inspector + library keys in slices 1-5.
+  "workbench.automate.runBar.state.idle",
+  "workbench.automate.runBar.state.waitingApproval",
+  "workbench.automate.runBar.state.running",
+  "workbench.automate.runBar.state.cancelled",
+  "workbench.automate.runBar.state.failed",
+  "workbench.automate.runBar.stateLabel",
+  "workbench.automate.runBar.action.validate",
+  "workbench.automate.runBar.action.start",
+  "workbench.automate.runBar.action.allow",
+  "workbench.automate.runBar.action.deny",
+  "workbench.automate.runBar.action.cancel",
+  "workbench.automate.runBar.dismiss",
+  "workbench.automate.runBar.dismissError",
+  "workbench.automate.runBar.validateOk",
+  "workbench.automate.runBar.validateFailed",
+  "workbench.automate.runBar.validateEmpty",
+  // 2026-09-13: Automate studio run bar Save (Phase 8 slice 7,
+  // canonical IR migration). Same rationale as the slice 6 keys:
+  // short UI labels + a templated timestamp caption.
+  "workbench.automate.runBar.action.save",
+  "workbench.automate.runBar.action.saving",
+  "workbench.automate.runBar.savedAt",
+  "workbench.automate.runBar.saveMigratedWarning",
+  // 2026-09-13: General > Animations (v110 Motion contract). "Animations"
+  // is the same word in French; the description sentence is translated in
+  // every locale, so the title is a true cognate, not a missing translation.
+  "settings.general.row.uiAnimations.title",
+  // 2026-09-15: Design files preview toggle (#99). "Source" is a cognate
+  // spelled identically in English and French; the other 15 locales carry
+  // distinct words (Quelltext, Fuente, Fonte, Izvor, Kilde, Źródło, …).
+  "workbench.design.files.source",
 ])
 
 // Recursively collect every language.t("literal.key") call from the
@@ -170,6 +393,70 @@ function collectUsedKeys(dir: string, acc: Set<string> = new Set()): Set<string>
     const content = readFileSync(full, "utf8")
     for (const match of content.matchAll(/\.t\(\s*"([a-zA-Z0-9_.]+)"/g)) {
       acc.add(match[1])
+    }
+  }
+  return acc
+}
+
+// #95: an accented literal inside a JSX `aria-label="..."` attribute can only
+// be hard-coded French copy that never went through language.t() — it renders
+// as the accessible name in every locale. The guard is deliberately scoped to
+// literal aria-labels (no template literals, no prose/comments) so it stays a
+// mechanical check, not a French-detection heuristic.
+const ACCENTED_ARIA_LABEL = /aria-label="[^"]*[éèêëàâäôöûüîïçœÉÈÊÀÂÔÖÛÜÎÏÇŒ]/
+
+function collectAccentedAriaLabels(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      collectAccentedAriaLabels(full, acc)
+      continue
+    }
+    if (!/\.tsx$/.test(entry.name)) continue
+    if (ACCENTED_ARIA_LABEL.test(readFileSync(full, "utf8"))) acc.push(full)
+  }
+  return acc
+}
+
+// #99: the #95 guard above only sees accented aria-labels. The Design surfaces
+// also shipped French UI words without accents ("Renommer", "Chargement",
+// "Suivant", …), which that regex can never catch. This guard is a curated
+// word list rather than a French-detection heuristic, for the same reason the
+// aria-label guard is literal-only: a mechanical check must not guess. A
+// wordlist false-positive would block a legitimate English string, which is
+// worse than the class it catches; when a real label needs one of these words
+// verbatim in English, narrow the pattern instead of renaming the UI.
+// Comment lines are skipped: the files legitimately carry French prose in
+// their headers, and those are not rendered copy.
+//
+// Scope decision (#99 AC): only the two files the issue cleared —
+// design-browser-tab.tsx and design-files-tab.tsx. The rest of the design-*
+// family (design-artifact-tab, design-surface, design-toolbar) still carries
+// French titles/status messages; widening this guard requires clearing them
+// first, which is tracked separately. Widening without that would fail on
+// files nobody has fixed yet, which is how a guard gets deleted.
+const GUARDED_DESIGN_FILES = new Set(["design-browser-tab.tsx", "design-files-tab.tsx"])
+const FRENCH_UI_WORD =
+  /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible)\b/
+
+function collectFrenchUiWords(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      collectFrenchUiWords(full, acc)
+      continue
+    }
+    if (!GUARDED_DESIGN_FILES.has(entry.name)) continue
+    const lines = readFileSync(full, "utf8").split(/\r?\n/)
+    for (const [index, line] of lines.entries()) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue
+      if (FRENCH_UI_WORD.test(line)) {
+        acc.push(`${full}:${index + 1}`)
+        break
+      }
     }
   }
   return acc
@@ -221,7 +508,20 @@ describe("i18n parity", () => {
       const missing = [...used].filter((key) => !(key in en) && !(key in uiEn)).sort()
       expect(missing, `${dirName}: keys used in code but absent from every dictionary`).toEqual([])
     })
+
+    test(`no hard-coded accented aria-label literals in ${dirName}`, () => {
+      const dir = join(import.meta.dir, "..", dirName)
+      expect(collectAccentedAriaLabels(dir), `${dirName}: hard-coded accented aria-label`).toEqual([])
+    })
   }
+
+  // #99: the Design workbench surfaces are the class of files the #95 guard
+  // could not cover (unaccented French words). Scoped to them for now; widen
+  // the scope only with a wordlist review, never silently.
+  test("no hard-coded French UI words in the Design workbench surfaces (#99)", () => {
+    const dir = join(import.meta.dir, "..", "pages", "workbench")
+    expect(collectFrenchUiWords(dir), "French UI words outside language.t()").toEqual([])
+  })
 
   test("audited settings scope (Audio/Configuration/Benchmark/Android/Plugins/RemoteAccess/GitAuth/LocalAI/Debate) has dedicated translations in every locale", () => {
     const scopeKeys = Object.keys(en).filter((key) => AUDITED_SCOPE_PREFIXES.some((prefix) => key.startsWith(prefix)))

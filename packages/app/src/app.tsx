@@ -31,12 +31,14 @@ import { CommandPaletteMount } from "@/components/dialog-command-palette"
 import { CommentsProvider } from "@/context/comments"
 import { FileProvider } from "@/context/file"
 import { GlobalSDKProvider } from "@/context/global-sdk"
+import { CollaborativeAuthProvider } from "@/context/collaborative-auth"
 import { GlobalSyncProvider } from "@/context/global-sync"
 import { HighlightsProvider } from "@/context/highlights"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
 import { ModeProvider } from "@/context/mode"
+import { TeamDialogProvider } from "@/context/team-dialog"
 import { WorkspaceTabsProvider } from "@/context/workspace-tabs-provider"
 import { NotificationProvider } from "@/context/notification"
 import { PermissionProvider } from "@/context/permission"
@@ -132,7 +134,9 @@ function AppShellProviders(props: ParentProps) {
             <HighlightsProvider>
               <ModeProvider>
                 <WorkspaceTabsProvider>
-                  <Layout>{props.children}</Layout>
+                  <TeamDialogProvider>
+                    <Layout>{props.children}</Layout>
+                  </TeamDialogProvider>
                 </WorkspaceTabsProvider>
               </ModeProvider>
             </HighlightsProvider>
@@ -396,21 +400,23 @@ export function AppProviders(props: ParentProps<{
           <LanguageProvider locale={props.locale}>
             <UiI18nBridge>
               <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
-                <GlobalSDKProvider>
-                  <ConnectionGate disableHealthCheck={props.disableHealthCheck}>
-                    <ServerKey>
-                      <GlobalSyncProvider>
-                        <AppBaseProviders>
-                          <AppInterface
-                            router={props.router}
-                          >
-                            {props.children}
-                          </AppInterface>
-                        </AppBaseProviders>
-                      </GlobalSyncProvider>
-                    </ServerKey>
-                  </ConnectionGate>
-                </GlobalSDKProvider>
+                <CollaborativeAuthProvider>
+                  <GlobalSDKProvider>
+                    <ConnectionGate disableHealthCheck={props.disableHealthCheck}>
+                      <ServerKey>
+                        <GlobalSyncProvider>
+                          <AppBaseProviders>
+                            <AppInterface
+                              router={props.router}
+                            >
+                              {props.children}
+                            </AppInterface>
+                          </AppBaseProviders>
+                        </GlobalSyncProvider>
+                      </ServerKey>
+                    </ConnectionGate>
+                  </GlobalSDKProvider>
+                </CollaborativeAuthProvider>
               </ErrorBoundary>
             </UiI18nBridge>
           </LanguageProvider>

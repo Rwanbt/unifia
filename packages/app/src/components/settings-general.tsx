@@ -26,7 +26,6 @@ import { Link } from "./link"
 import { SettingsList } from "./settings-list"
 import { SettingsRow } from "./settings-row"
 import { SettingsGithubAuth } from "./settings-github-auth"
-import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsGitAuth } from "./settings-git-auth"
 import { SettingsDiskQuota } from "./settings-disk-quota"
 
@@ -315,6 +314,18 @@ export const SettingsGeneral: Component = () => {
             <Switch
               checked={settings.general.editToolPartsExpanded()}
               onChange={(checked) => settings.general.setEditToolPartsExpanded(checked)}
+            />
+          </div>
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.uiAnimations.title")}
+          description={language.t("settings.general.row.uiAnimations.description")}
+        >
+          <div data-action="settings-general-ui-animations">
+            <Switch
+              checked={settings.general.uiAnimations()}
+              onChange={(checked) => settings.general.setUiAnimations(checked)}
             />
           </div>
         </SettingsRow>
@@ -645,8 +656,6 @@ export const SettingsGeneral: Component = () => {
             <SettingsGitAuth />
           </Collapsible.Content>
         </Collapsible>
-
-        <SettingsRemoteAccess />
 
         {/* FORK: Stretch — disk quota warning (hidden on Windows where statfs is unavailable) */}
         <SettingsList>

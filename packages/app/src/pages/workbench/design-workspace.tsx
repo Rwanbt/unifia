@@ -45,7 +45,7 @@ export function DesignWorkspace(props: {
   renderContent?: (tab: DesignTab) => JSX.Element
   onOpenTerminal?: () => void
   onOpenBrowser?: () => void
-  onOpenSketch?: () => void
+  onOpenCanvas?: () => void
   github?: GithubConnectionView
 }): JSX.Element {
   const language = useLanguage()
@@ -76,39 +76,38 @@ export function DesignWorkspace(props: {
           class="flex h-9 shrink-0 items-center gap-1 border-b border-border-base bg-background-stronger px-2"
           data-design-workspace-tab-bar
         >
-          <div class="ml-auto flex items-center gap-1"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show><Show when={props.onOpenSketch}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-sketch onClick={() => props.onOpenSketch?.()}>Croquis</button></Show></div>
+          <div class="ml-auto flex items-center gap-1"><Show when={props.github}>{(view) => <GithubBadge view={view()} />}</Show><Show when={props.onOpenCanvas}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-canvas onClick={() => props.onOpenCanvas?.()}>Canvas</button></Show><Show when={props.onOpenTerminal}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-terminal onClick={() => props.onOpenTerminal?.()}>Terminal</button></Show><Show when={props.onOpenBrowser}><button type="button" class="rounded border border-border-base px-2 py-1 text-12-regular" data-design-open-browser onClick={() => props.onOpenBrowser?.()}>Navigateur</button></Show></div>
           <div class="flex items-center gap-1" role="tablist" aria-label={t("design.workspace.tabsLabel")} data-design-workspace-tablist>
             <For each={state().tabs}>
               {(item) => (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={item.id === state().activeId}
-                  class="flex h-7 items-center gap-2 rounded px-3 text-12-medium transition-colors"
-                  classList={{
-                    "bg-background-base text-text-base": item.id === state().activeId,
-                    "text-text-weak hover:bg-background-base": item.id !== state().activeId,
-                  }}
-                  data-design-workspace-tab={item.id}
-                  data-design-workspace-tab-kind={item.kind}
-                  onClick={() => setState("activeId", activateTab(state(), item.id).activeId ?? undefined)}
-                >
-                  <span>{item.title}</span>
+                <div class="flex h-7 items-center gap-1 rounded" data-design-workspace-tab-group={item.id}>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={item.id === state().activeId}
+                    class="flex h-7 items-center rounded px-3 text-12-medium transition-colors"
+                    classList={{
+                      "bg-background-base text-text-base": item.id === state().activeId,
+                      "text-text-weak hover:bg-background-base": item.id !== state().activeId,
+                    }}
+                    data-design-workspace-tab={item.id}
+                    data-design-workspace-tab-kind={item.kind}
+                    onClick={() => setState("activeId", activateTab(state(), item.id).activeId ?? undefined)}
+                  >
+                    <span>{item.title}</span>
+                  </button>
                   <Show when={item.closable}>
                     <button
                       type="button"
                       aria-label={t("design.workspace.closeTab", { title: item.title })}
                       class="rounded p-1 text-12-regular text-text-weak hover:bg-border-base hover:text-text-base"
                       data-design-workspace-tab-close={item.id}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setState(closeTab(state(), item.id))
-                      }}
+                      onClick={() => setState(closeTab(state(), item.id))}
                     >
                       ×
                     </button>
                   </Show>
-                </button>
+                </div>
               )}
             </For>
           </div>
