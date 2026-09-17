@@ -628,7 +628,7 @@ export function MemoryPanel(): JSX.Element {
   }
 
   return (
-    <section class="flex size-full min-w-0 flex-col gap-2 bg-background-base p-3" data-v110="memory-panel">
+    <section class="flex size-full min-w-0 flex-col gap-2 bg-background-base p-3" data-v110="memory-panel" data-parity="memory.panel">
       <ConnectionBanner dataAttr="memory-connection" dataRetryAttr="memory-retry" />
       <div
         class={narrow()

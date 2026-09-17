@@ -155,9 +155,9 @@ export function WorkSurface(): JSX.Element {
           <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.work.description")}</p>
           <ConnectionBanner dataAttr="workbench-connection" dataRetryAttr="workbench-retry" />
         </header>
-        <div data-v110="work-view-shell">
+        <div data-v110="work-view-shell" data-parity="work.shell">
           <WorkViewSwitcher views={AVAILABLE_WORK_VIEWS} active={activeView()} onSelect={setActiveView} />
-          <div class="mt-4" data-v110="work-view-content" data-work-view-content={activeView()}>
+          <div class="mt-4" data-v110="work-view-content" data-parity="work.content" data-work-view-content={activeView()}>
             <Show when={activeView() === "overview"}>
               <div class="grid gap-3 sm:grid-cols-2">
                 <WorkProgressPanel

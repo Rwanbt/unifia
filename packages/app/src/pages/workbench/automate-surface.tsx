@@ -243,7 +243,7 @@ export function AutomateSurface(): JSX.Element {
     return { ok: report.ok && added.every((line) => line.severity !== "error"), lines }
   }
   return (
-    <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate">
+    <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate" data-v110="automate-surface" data-parity="automate.surface">
       <div class="mx-auto max-w-5xl space-y-8">
         <header class="space-y-2">
           <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.automate.title")}</p>
