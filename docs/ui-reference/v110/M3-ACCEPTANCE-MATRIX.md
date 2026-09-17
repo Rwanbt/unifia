@@ -82,7 +82,7 @@ Pour chaque surface :
 | Code lens | desktop | hover → action | editor pane | ❌ aucune implémentation (issue #96) | ❌ MANQUE |
 | Inline AI suggestions | desktop | accept/reject | editor pane | auto-edit (double-clic → mode édition) réel ; suggestions inline absentes (issue #96) | ⚠️ partial |
 | Code split (editor + inspector) | desktop-large | resize | inline editor pane | `data-v110="resize-chat"` Separator | ✅ partial |
-| Git blame annotations | desktop | hover → blame | inline | ❌ aucune implémentation (issue #96) | ❌ MANQUE |
+| Git blame annotations | desktop | hover → blame | inline | livré (#96 slice 2) : la route serveur (`GET /git/blame`, `git blame --porcelain`) et la méthode SDK existaient ; l'éditeur affiche un widget inline sur la ligne du curseur (`data-component="blame-annotation"`, auteur + hash court) et un tooltip au survol (auteur · date · hash · contenu) ; lookup vide → rien pour les fichiers non suivis ; preuve : tests unitaires (format/DOM) + e2e éditeur sans régression | ✅ |
 | Search/Replace | desktop | type + Enter | editor pane | `@codemirror/search` réel (`searchKeymap`) — e2e `editor-search` : Mod+F, matches surlignés, replace-all vérifié | ✅ |
 | LSP diagnostics | desktop | hover → docs | editor pane | extensions LSP câblées (diagnostics/hover/F12 via `code-mirror-lsp`) ; marqueurs v110 livrés (#96 slice 1, voir « Diagnostic markers ») ; vérification e2e conditionnée à un serveur LSP (non installé en CI) | ⚠️ partial |
 
