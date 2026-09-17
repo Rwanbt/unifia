@@ -163,6 +163,8 @@ export function Titlebar() {
   return (
     <header
       data-component="v110-topbar"
+      data-v110="topbar"
+      data-parity="shell.topbar"
       class="shrink-0 bg-background-base relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
       style={{ height: "var(--v110-topbar, 48px)", "min-height": minHeight() }}
       data-tauri-drag-region

@@ -39,6 +39,7 @@ export function InspectorFrame(props: Props): JSX.Element {
     <aside
       data-v110="inspector-frame"
       data-component="v110-inspector-frame"
+      data-parity="shell.inspector"
       role="complementary"
       aria-label={props.label}
       style={{ width: "var(--v110-inspector, 300px)" }}

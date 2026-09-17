@@ -179,6 +179,8 @@ export function WorkspaceTabsBar(): JSX.Element {
       aria-label={language.t("workbench.workspaceTabs.label")}
       data-component="workspace-tabs-bar"
       data-workspace-tabs-bar
+      data-v110="workspace-tabs"
+      data-parity="shell.workspace-tabs"
     >
       <Show when={entryTab()}>
         {(tab) => (
