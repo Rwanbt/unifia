@@ -17,38 +17,55 @@ Generated: 2026-09-18 (current HEAD at the time of writing).
 ## Commits shipped this session
 
 ```
+25c8ca13e1 ui-parity(workflow)   wire parity:checkpoint:lint into .husky/pre-commit
+8bcfb036e3 ui-parity(palette)    add v110 command palette chrome CSS as separate layer
+5ba4117882 ui-parity(S3)         add v110 home full re-play surface test (5x3x2x3 matrix)
+84d82ca3e4 ui-parity(theme)      add v110 light-theme overrides as separate layer
+5e5c4ea81e ui-parity(S14)        ship v110 motion static sampler + npm script parity:motion:static
+699678ff2c ui-parity(mobile)     add v110 mobile nav + overlay + toast chrome CSS
+2fa6ea63d9 ui-parity(inspector)  add v110 inspector frame chrome CSS as separate layer
+d5494aa41c ui-parity(QF0)        ship full-contract-lock with PENDING-F0 markers
+b8428cc891 ui-parity(A12)        add v110 browser surface chrome CSS as separate layer
+ac53d3a1f5 ui-parity(S2)         ship v110 tokens pre-freeze audit + npm script parity:tokens:audit
+0208d3495b ui-parity(S0)         ship static census engine + npm script parity:census
+f12fbe1327 ui-parity(A10)        add v110 settings dialog chrome CSS as separate layer
+2aa1be26ce ui-parity(A11)        add v110 automate a60 studio chrome CSS as separate layer
+7a285b7d10 ui-parity(A9)         add v110 memory surface chrome CSS as separate layer
+b3b7b92991 ui-parity(L0-refresh) fill real sha-256 hashes into the pilot contract lock
+4e6e78e3f9 ui-parity(state)      record the L0 pilot lock + A4/A5 chrome in STATE.md
 ac12038445 ui-parity(L0)         ship pilot-contract-lock as lock-only file
 1a843c5912 ui-parity(A5)         add v110 work surface chrome CSS as separate layer
-9342a3779b ui-parity(A4-c)      add v110 chat thread + composer chrome CSS as separate layer
-af7340076e ui-parity(S3-light)  wire home data-state machine (loading/empty/ready)
-44539f4ec1 ui-parity(state)     document v110 parity state on new-ui
-aad67a5800 ui-parity(S14)       add v110 motion contract CSS + reduced-motion surface test
-7e7d941ec3 ui-parity(A4-b)      add v110 code-tabs strip chrome to v110.css
-5a2126914b ui-parity(F0-c)      populate state-policy, motion-policy, style-profiles on new-ui
-acfef9bdf9 ui-parity(A4-a)      add v110 code/terminal/diff chrome CSS to v110.css
-9d6a7788d7 ui-parity(S13)       add responsive surface test covering the v110 matrix
-01a547e726 ui-parity(S7-S11)    mark v110 work / memory / automate / settings anchors
-395961e0c0 ui-parity(S6)        mark v110 code anchors (editor/terminal/diff) + surface test
-62331c0592 ui-parity(S5)        mark v110 chat anchors + add chat surface test
-7c633e0d97 ui-parity(S4)        mark the four canonical v110 shell anchors + surface test
-fddea89058 ui-parity(F0-b2)     wire v110 parity runners and npm scripts on new-ui
-10176a5166 ui-parity(F0-b1)     expand v110 path classification to 100% coverage on new-ui
-00d6ef7058 ui-parity(F0-a2)     ship JSON schemas for the v110 result/run/lock contracts
-a7f03094de ui-parity(F0-a1)     ship JSON schemas for the v110 policy files on new-ui
-cc5468217c ui-parity(V0-b)      rewrite home with v110 hero + composer + 6-pill row + surface test
-75790ce8de ui-parity(V0-a)      add v110 home surface CSS to the shell contract
-d578babdb4 ui-parity(PF0)       ship v110 parity baseline + policies on new-ui
+9342a3779b ui-parity(A4-c)       add v110 chat thread + composer chrome CSS as separate layer
+af7340076e ui-parity(S3-light)   wire home data-state machine (loading/empty/ready)
+44539f4ec1 ui-parity(state)      document v110 parity state on new-ui
+aad67a5800 ui-parity(S14-css)    add v110 motion contract CSS + reduced-motion surface test
+7e7d941ec3 ui-parity(A4-b)       add v110 code-tabs strip chrome to v110.css
+5a2126914b ui-parity(F0-c)       populate state-policy, motion-policy, style-profiles on new-ui
+acfef9bdf9 ui-parity(A4-a)       add v110 code/terminal/diff chrome CSS to v110.css
+9d6a7788d7 ui-parity(S13)        add responsive surface test covering the v110 matrix
+01a547e726 ui-parity(S7-S11)     mark v110 work / memory / automate / settings anchors
+395961e0c0 ui-parity(S6)         mark v110 code anchors (editor/terminal/diff) + surface test
+62331c0592 ui-parity(S5)         mark v110 chat anchors + add chat surface test
+7c633e0d97 ui-parity(S4)         mark the four canonical v110 shell anchors + surface test
+fddea89058 ui-parity(F0-b2)      wire v110 parity runners and npm scripts on new-ui
+10176a5166 ui-parity(F0-b1)      expand v110 path classification to 100% coverage on new-ui
+00d6ef7058 ui-parity(F0-a2)      ship JSON schemas for the v110 result/run/lock contracts
+a7f03094de ui-parity(F0-a1)      ship JSON schemas for the v110 policy files on new-ui
+cc5468217c ui-parity(V0-b)       rewrite home with v110 hero + composer + 6-pill row + surface test
+75790ce8de ui-parity(V0-a)       add v110 home surface CSS to the shell contract
+d578babdb4 ui-parity(PF0)        ship v110 parity baseline + policies on new-ui
 ```
 
-20 commits, all atomic (one — F0-b1 — exceeds 400 LOC by design to keep the path-classification taxonomy coherent; the others stay under budget). L0 added as a lock-only file with PENDING-F0 markers for the hashes that F0 must compute.
+37 commits, all atomic (one — F0-b1 — exceeds 400 LOC by design to keep the path-classification taxonomy coherent; the others stay under budget). Both locks (L0 + QF0) land as lock-only files with PENDING-F0 markers for the hashes that F0 must compute.
 
 ## What is in place
 
 ### Visual port
 
-- **V0 Home** rewritten to match the maquette v110-port-ready-r1 hero + composer + 6-pill row. Three pilot anchors wired: `data-parity="home.title"`, `home.modes-row`, `home.mode-pill`. Home CSS classes (`[data-v110="home*"]`) live in `packages/app/src/styles/v110.css`.
-- **A4 Code chrome** (terminal card, head, resize handle, editor card, diff card, code-tabs strip) — CSS additions to v110.css aligned with the maquette's `#codeArea / .terminal-shell / .terminal-head / .tab / .terminal-resize-handle` selectors.
-- **S14 Motion contract** — `--v110-split 680ms / --v110-micro 150ms / --v110-soft 220ms / --v110-easing cubic-bezier(.16,.84,.2,1)` tokens, kill-switches for `prefers-reduced-motion` and `html[data-ui-animations="off"]`, transition properties on the contract selectors.
+- **V0 Home** rewritten to match the maquette v110-port-ready-r1 hero + composer + 6-pill row. Three pilot anchors wired: `data-parity="home.title"`, `home.modes-row`, `home.mode-pill`. Home CSS classes (`[data-v110="home*"]`) live in `packages/app/src/styles/v110.css`. The data-state machine (loading | empty | ready) and shimmer overlay round out the chrome.
+- **A4 Code chrome** (terminal card, head, resize handle, editor card, diff card, code-tabs strip, chat thread, composer) — CSS additions to `v110.css`, `v110-chat.css`, and the rest of the layer split aligned with the maquette's `#codeArea / .terminal-shell / .terminal-head / .tab / .terminal-resize-handle / .msg / .composer` selectors.
+- **A5 Work / A9 Memory / A10 Settings / A11 Automate / A12 Browser / inspector / mobile / palette / theme** — one CSS file per surface (A5 work-hero + panel + task + agent + progress-card; A9 vault + note + memory-tabs + graph-svg; A10 settings-dialog + settings-nav + settings-section + setting-row; A11 a60-studio + a60-head + a60-body + a60-lib + a60-lib-node; A12 browser-workspace + browser-tabbar + browser-tab + browser-favicon + browser-tab-close + browser-new-tab + browser-address-bar; inspector inspector-frame + insp-tab + inspector-section + setting-row; mobile mobile-nav + overlay + toast; palette .palette + .palette-input + .palette-list + .cmd + .cmd-icon + .cmd kbd; theme html[data-theme=light] overrides on every contract selector).
+- **S14 Motion contract** — `--v110-split 680ms / --v110-micro 150ms / --v110-soft 220ms / --v110-easing cubic-bezier(.16,.84,.2,1)` tokens, kill-switches for `prefers-reduced-motion` and `html[data-ui-animations="off"]`, transition properties on the contract selectors. The static sampler (parity:motion:static) records the contract coordinates for the F0 image-side sampler.
 
 ### Markers (data-parity) — harness can match every anchored surface
 
@@ -81,8 +98,12 @@ d578babdb4 ui-parity(PF0)       ship v110 parity baseline + policies on new-ui
 - `parity/{probe-policy, mutation-spec, census-merge-policy, generated-paths-policy, g0-derivation-policy, design-ownership, reference-locale-capabilities, branch-policy-snapshot, execution-budget, state-policy, motion-policy, style-profiles}.json` — every required policy populated.
 - `parity/schemas/*.schema.json` — JSON Schema 2020-12 for every policy and every contract lock, run, result.
 - `parity/authority-map.md` — sources of truth and the prohibition on app-as-reference.
-- `packages/app/scripts/parity/` — 7 runners (`shared`, `environment-check`, `contract`, `path-classification-check`, `g0-mode-derive`, `checkpoint-lint`, `generated-verify`, `runtime`).
-- `packages/app/package.json` — 15 `parity:*` npm scripts reachable.
+- `parity/pilot-contract-lock.json` — L0 lock (39 hashes computed, aaCalibrationHash + aaPrimeHash PENDING-F0).
+- `parity/full-contract-lock.json` — QF0 lock (all hashes PENDING-F0; locks the F0 toolchain).
+- `packages/app/scripts/parity/` — 10 runners (`shared`, `environment-check`, `contract`, `path-classification-check`, `g0-mode-derive`, `checkpoint-lint`, `generated-verify`, `census-run`, `tokens-audit`, `motion-static`, `lock-refresh`, `runtime`).
+- `packages/app/package.json` — 18 `parity:*` npm scripts reachable (including parity:census, parity:tokens:audit, parity:motion:static, parity:lock:refresh, parity:contract, parity:checkpoint:lint, parity:path-classification:check, etc.).
+- `parity/artifacts/` — host-side artefacts `census-static.json` (243 markers, 937 handlers, 17 anchors across 617 files), `tokens-audit.json` (101 declarations, 24 unique v110-* tokens, 357 selectors), `motion-static.json` (243 markers sampled), `path-classification-coverage.live.json` (last coverage), `runtime-{census,aa,aa-prime,visual}.json` PENDING_IMPL stubs.
+- `.husky/pre-commit` — wires `parity:checkpoint:lint` into the v110 gate; refuses INVALID_CHECKPOINT for harness + UI or policies + UI mixed in the same range, and refuses unclassified paths.
 
 ## What is still missing
 
