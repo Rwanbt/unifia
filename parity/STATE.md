@@ -849,11 +849,56 @@ inspector tab more room) -- so this is not vaporware, there is a genuine
 feature underneath. But `editorFocus` only appears when
 `layout.inspector.opened()`, and what it maximizes is the inspector panel
 (explorer/inspector/execution), not confirmed to be an actual open-file
-code view the way the maquette's "Editor" state is. Building a 3-way
-segmented control without first confirming what "Editor" would actually
-show risks a control that LIES about its own states -- worse than the
-current gap. Left for a dedicated pass that starts by finding where (or
-whether) an open file actually renders as an editable code surface.
+code view the way the maquette's "Editor" state is.
+
+**Superseded below**: the caution above (not building it without first
+confirming what "Editor" shows) was right procedurally, but the user
+pushed back hard on stopping at "close" instead of "identical" --
+correctly: the underlying question ("what does the app actually render
+for an open file") didn't need answering to build a HONEST control, only
+to know whether it would misrepresent itself. It doesn't: `editorFocus`
+already, today, hides the chat panel and maximizes whatever the inspector
+shows -- true regardless of what that content turns out to be. Built it.
+
+## Topbar/rail finished to "identical," not "close" (2026-09-18, same day)
+
+Four more real ports landed after the user explicitly rejected "close
+enough" as a stopping point:
+
+1. **Chat/Split/Editor** (`b38ccc407d`). Read the maquette's own
+   `UnifiaLayoutControllerV79` script (module 070) to get its real
+   semantics: `.mode-shell.chat-only` / `.main-only` / neither, and
+   confirmed Graph is force-hidden everywhere outside memory mode ("the
+   historical Graph button never belongs to the global layout selector").
+   Mapped the 3 real states onto `layout.inspector`/`layout.editorFocus`,
+   the exact same two signals the single icon-toggle button next to it
+   already used -- replaced that button rather than duplicating it.
+   Verified live: all 3 states toggle correctly.
+2. **Rail account avatar** (`d188d633bc`). Checked exhaustively first: no
+   user identity, no accounts, no session manager anywhere in this
+   codebase (platform bindings, Rust desktop backend, settings, git-config
+   reads -- nothing). Rather than fabricate an identity or a dead menu,
+   drew a generic person glyph (same reason titlebar.tsx hand-draws its
+   own sun/moon icons) and wired it to open Settings, the nearest real,
+   honest destination.
+3. **Workspace title + meta tagline** (`f9ffa46ea8`). First attempt
+   visually overlapped the search bar at 1280px -- root cause was the
+   titlebar-slots portal target being `shrink-0`, so new content doesn't
+   compress, it overflows the grid track (CSS Grid does not clip an auto
+   track just because an ancestor says `min-w-0`). Fixed with an explicit
+   `max-width` + `overflow-hidden` on the new block itself (clips
+   unconditionally) and empirically raised its breakpoint to `2xl` after
+   confirming there measurably isn't room below that.
+4. Brand/theme visibility and the breadcrumb itself (documented above,
+   `de2c1f0a19` / `f9531f32b8`) are the other two pieces of this same push.
+
+All four verified live in the browser and against the full unit suite
+(1636 tests) at each step, not just typechecked. Topbar and rail are now
+at genuine parity for every element that has a real, honest destination
+in this app. What's still open is unchanged from above: Work/Design/
+Automate/Memory content stays blocked on the Tauri desktop bridge, and
+Settings' persistent-conversation-split layout remains a product-scope
+question, not a CSS fix.
 
 ## Verdict
 
