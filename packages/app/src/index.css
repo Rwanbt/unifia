@@ -13,6 +13,7 @@
 @import '@/styles/v110-mobile.css';
 @import '@/styles/v110-palette.css';
 @import '@/styles/v110-select.css';
+@import '@/styles/v110-dialog.css';
 @import '@/shell/v110-shell.css';
 @import '@/pages/session/v110-chat.css';
 @import '@/pages/session/v110-inspector.css';
