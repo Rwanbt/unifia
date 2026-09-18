@@ -150,6 +150,33 @@ for (const key of markersByKey) {
   errors.push(`coverage: app data-parity marker ${key} is neither fragmented nor a recorded finding`)
 }
 
+// Reverse direction: every fragment's app selector must point at a marker the
+// census actually discovered in the source. A fragment referencing a marker
+// that does not exist is a dangling contract that would never pair at runtime.
+const censusKeys = new Set<string>()
+if (existsSync(CENSUS)) {
+  const census = readJson<{ markers: Array<{ kind: string; key: string }> }>(CENSUS)
+  for (const marker of census.markers) {
+    if (marker.kind === "data-parity" || marker.kind === "data-v110") censusKeys.add(marker.key)
+  }
+}
+
+let dangling = 0
+for (const file of files) {
+  const data = JSON.parse(readFileSync(join(MANIFEST_DIR, file), "utf8")) as Record<string, unknown>
+  const app = data.app as Record<string, unknown> | undefined
+  const selector = app && typeof app.selector === "string" ? app.selector : ""
+  const match = selector.match(/data-(?:parity|v110)="([^"]+)"/)
+  if (!match) {
+    errors.push(`${file}: app selector carries no data-parity/data-v110 marker`)
+    continue
+  }
+  if (censusKeys.size > 0 && !censusKeys.has(match[1]!)) {
+    dangling += 1
+    errors.push(`${file}: app marker ${match[1]} is not present in the census`)
+  }
+}
+
 const status = errors.length === 0 ? "PASS" : "FAIL"
 process.stdout.write(
   JSON.stringify(
@@ -160,6 +187,8 @@ process.stdout.write(
         appDataParityMarkers: markers,
         fragmented: fragmentedKeys.size,
         findings: knownIds.size,
+        censusKeys: censusKeys.size,
+        danglingAppSelectors: dangling,
         errors: errors.length,
       },
       manifestHashes,
