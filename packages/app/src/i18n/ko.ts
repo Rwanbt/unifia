@@ -566,6 +566,7 @@ export const dict = {
   "sidebar.menu.toggle": "메뉴 토글",
   "sidebar.nav.projectsAndSessions": "프로젝트 및 세션",
   "sidebar.settings": "설정",
+  "sidebar.account": "계정",
   "sidebar.help": "도움말",
   "sidebar.resize": "사이드바 크기 조정",
   "inspector.resize": "인스펙터 크기 조정",

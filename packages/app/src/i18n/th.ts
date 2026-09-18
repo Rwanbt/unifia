@@ -622,6 +622,7 @@ export const dict = {
   "sidebar.menu.toggle": "สลับเมนู",
   "sidebar.nav.projectsAndSessions": "โปรเจกต์และเซสชัน",
   "sidebar.settings": "การตั้งค่า",
+  "sidebar.account": "บัญชี",
   "sidebar.help": "ช่วยเหลือ",
   "sidebar.resize": "ปรับขนาดแถบด้านข้าง",
   "inspector.resize": "ปรับขนาดแผงตรวจสอบ",

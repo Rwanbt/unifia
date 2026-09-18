@@ -621,6 +621,7 @@ export const dict = {
   "sidebar.menu.toggle": "切换菜单",
   "sidebar.nav.projectsAndSessions": "项目和会话",
   "sidebar.settings": "设置",
+  "sidebar.account": "账户",
   "sidebar.help": "帮助",
   "sidebar.resize": "调整侧边栏宽度",
   "inspector.resize": "调整检查器宽度",

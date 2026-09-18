@@ -628,6 +628,7 @@ export const dict = {
   "sidebar.menu.toggle": "Prikaži/sakrij meni",
   "sidebar.nav.projectsAndSessions": "Projekti i sesije",
   "sidebar.settings": "Postavke",
+  "sidebar.account": "Račun",
   "sidebar.help": "Pomoć",
   "sidebar.resize": "Promijeni veličinu bočne trake",
   "inspector.resize": "Promijeni veličinu inspektora",

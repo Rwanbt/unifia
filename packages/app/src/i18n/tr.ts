@@ -569,6 +569,7 @@ export const dict = {
   "sidebar.menu.toggle": "Menüyü aç/kapat",
   "sidebar.nav.projectsAndSessions": "Projeler ve oturumlar",
   "sidebar.settings": "Ayarlar",
+  "sidebar.account": "Hesap",
   "sidebar.help": "Yardım",
   "sidebar.resize": "Kenar çubuğunu yeniden boyutlandır",
   "inspector.resize": "Denetçiyi yeniden boyutlandır",

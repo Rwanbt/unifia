@@ -567,6 +567,7 @@ export const dict = {
   "sidebar.menu.toggle": "Veksle meny",
   "sidebar.nav.projectsAndSessions": "Prosjekter og sesjoner",
   "sidebar.settings": "Innstillinger",
+  "sidebar.account": "Konto",
   "sidebar.help": "Hjelp",
   "sidebar.resize": "Endre størrelse på sidepanelet",
   "inspector.resize": "Endre størrelse på inspektøren",

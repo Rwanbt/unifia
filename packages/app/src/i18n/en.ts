@@ -717,6 +717,7 @@ export const dict = {
   "sidebar.menu.toggle": "Toggle menu",
   "sidebar.nav.projectsAndSessions": "Projects and sessions",
   "sidebar.settings": "Settings",
+  "sidebar.account": "Account",
   "sidebar.help": "Help",
   "sidebar.resize": "Resize sidebar",
   "inspector.resize": "Resize inspector",

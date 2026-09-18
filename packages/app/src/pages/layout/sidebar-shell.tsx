@@ -30,6 +30,7 @@ export const SidebarContent = (props: {
   settingsLabel: Accessor<string>
   settingsKeybind: Accessor<string | undefined>
   onOpenSettings: () => void
+  accountLabel: Accessor<string>
   helpLabel: Accessor<string>
   onOpenHelp: () => void
   renderPanel: () => JSX.Element
@@ -126,6 +127,34 @@ export const SidebarContent = (props: {
           </DragDropProvider>
         </div>
         <div class="shrink-0 w-full pt-3 pb-6 flex flex-col items-center gap-2">
+          {/* Ports .rail-avatar-wrap > .avatar (Unifia-UI-UX-v110-PORT-READY-R1.html:15349,
+              CSS at line 136-139: 28px circle, bordered, centered content).
+              The maquette's avatar shows a demo initial and opens an account/
+              session manager -- neither exists anywhere in this app (no user
+              identity, no accounts, grepped the whole tree). Rather than
+              fabricate one, this draws a generic person glyph (the shared
+              icon set has none, same reason titlebar.tsx hand-draws its own
+              sun/moon icons) and opens Settings, the nearest real destination
+              -- honest about being an entry point, not a pretend account
+              switcher. */}
+          <Tooltip placement={placement()} value={props.accountLabel()}>
+            <button
+              type="button"
+              class="size-7 shrink-0 rounded-full border border-border-strong-base bg-surface-raised-base grid place-items-center text-icon-weak hover:text-icon-strong hover:bg-surface-raised-base-active transition-colors"
+              onClick={props.onOpenSettings}
+              aria-label={props.accountLabel()}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8" />
+                <path
+                  d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </Tooltip>
           <TooltipKeybind placement={placement()} title={props.settingsLabel()} keybind={props.settingsKeybind() ?? ""}>
             <IconButton
               icon="settings-gear"

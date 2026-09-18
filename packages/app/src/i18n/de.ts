@@ -575,6 +575,7 @@ export const dict = {
   "sidebar.menu.toggle": "Menü umschalten",
   "sidebar.nav.projectsAndSessions": "Projekte und Sitzungen",
   "sidebar.settings": "Einstellungen",
+  "sidebar.account": "Konto",
   "sidebar.help": "Hilfe",
   "sidebar.resize": "Seitenleiste anpassen",
   "inspector.resize": "Inspektor anpassen",

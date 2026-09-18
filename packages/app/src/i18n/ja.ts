@@ -564,6 +564,7 @@ export const dict = {
   "sidebar.menu.toggle": "メニューを切り替え",
   "sidebar.nav.projectsAndSessions": "プロジェクトとセッション",
   "sidebar.settings": "設定",
+  "sidebar.account": "アカウント",
   "sidebar.help": "ヘルプ",
   "sidebar.resize": "サイドバーの幅を変更",
   "inspector.resize": "インスペクターの幅を変更",

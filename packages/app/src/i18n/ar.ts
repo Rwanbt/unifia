@@ -560,6 +560,7 @@ export const dict = {
   "sidebar.menu.toggle": "تبديل القائمة",
   "sidebar.nav.projectsAndSessions": "المشاريع والجلسات",
   "sidebar.settings": "الإعدادات",
+  "sidebar.account": "الحساب",
   "sidebar.help": "مساعدة",
   "sidebar.resize": "تغيير حجم الشريط الجانبي",
   "inspector.resize": "تغيير حجم لوحة الفحص",

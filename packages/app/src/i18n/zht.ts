@@ -618,6 +618,7 @@ export const dict = {
   "sidebar.menu.toggle": "切換選單",
   "sidebar.nav.projectsAndSessions": "專案與工作階段",
   "sidebar.settings": "設定",
+  "sidebar.account": "帳戶",
   "sidebar.help": "說明",
   "sidebar.resize": "調整側邊欄寬度",
   "inspector.resize": "調整檢查器寬度",
