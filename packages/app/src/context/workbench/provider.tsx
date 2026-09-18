@@ -54,9 +54,16 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     // `bridgeError` accessors are functions so the UI-phase derivation
     // keeps a uniform call shape (`x()` instead of `x ?? x()`).
     const bridgeUnavailable = !platform.workbench
-    const bridgeErrorValue: Error | undefined = bridgeUnavailable ? new Error(t("workbench.errors.bridgeUnavailable")) : undefined
     const unsupported = (): boolean => bridgeUnavailable
-    const bridgeError = (): Error | undefined => bridgeErrorValue
+    // Text only, computed fresh on every read so it tracks the resolved
+    // locale: a plain `const` here previously baked in whatever `t()`
+    // returned before the persisted locale's dictionary had finished
+    // loading (this component mounts early enough to race it), permanently
+    // showing English even after the French dictionary resolved.
+    // `bridgeUnavailable` above is what must stay frozen at init -- see the
+    // comment on it.
+    const bridgeError = (): Error | undefined =>
+      bridgeUnavailable ? new Error(t("workbench.errors.bridgeUnavailable")) : undefined
     const [retrying, setRetrying] = createSignal(false)
     let pending: Promise<WorkbenchConnection> | undefined
     let providerGeneration = 0
