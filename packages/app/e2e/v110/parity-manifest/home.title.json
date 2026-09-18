@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "home.title",
+  "slice": "S3",
+  "scene": "home.default",
+  "anchorKind": "home-title",
+  "reference": { "selector": "h1.home-title", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "h1[data-parity=\"home.title\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "home-title",
+  "mask": null,
+  "disposition": "port"
+}

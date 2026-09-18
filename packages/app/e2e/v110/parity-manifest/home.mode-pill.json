@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "home.mode-pill",
+  "slice": "S3",
+  "scene": "home.default",
+  "anchorKind": "home-mode-pill",
+  "reference": { "selector": "button.home-mode-pill", "count": 6, "visibleCount": 6 },
+  "app": { "selector": "button[data-parity=\"home.mode-pill\"]", "count": 6, "visibleCount": 6 },
+  "matchBy": { "kind": "attribute", "reference": "data-home-open-mode", "app": "data-home-open-mode" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default", "hover", "focus-visible"],
+  "styleProfile": "home-mode-pill",
+  "mask": null,
+  "disposition": "port"
+}
