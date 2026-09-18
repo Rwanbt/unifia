@@ -60,6 +60,7 @@ const GATES: GateSpec[] = [
   { name: "motion-static", script: "scripts/parity/motion-static.ts", args: ["--emit=artifact"] },
   { name: "census-extended", script: "scripts/parity/census-extended.ts", args: ["--emit=artifact"] },
   { name: "checkpoint-lint", script: "scripts/parity/checkpoint-lint.ts", args: [] },
+  { name: "manifest-check", script: "scripts/parity/manifest-check.ts", args: [] },
   { name: "unit", script: "test:unit", args: [], summarize: summarizeUnit },
 ]
 
