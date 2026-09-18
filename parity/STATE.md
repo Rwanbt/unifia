@@ -14,13 +14,60 @@ Generated: 2026-09-18 (current HEAD at the time of writing).
 - `new-ui` — every commit in this session lands directly on this branch (no feature branch, no worktree, no PR).
 - Local HEAD and `origin/new-ui` HEAD stay aligned: a `git fetch` then `git rev-parse origin/new-ui == git rev-parse HEAD` is the pre-push gate.
 
+## Correction -- 2026-09-18 (late)
+
+An audit found that sessions 10 and 11 shipped 9 CSS layers whose class
+hooks the app never references. The host-only liveness script
+`parity/css-liveness.ts` compared every class defined in
+`packages/app/src/styles/v110-*.css` against every source file in
+`packages/app/src` and `packages/ui/src`: **192 inert class selectors out of
+274**. The app renders Tailwind plus `@unifia/ui` primitives, not the v110
+class names, so those layers were inert.
+
+Two correction commits:
+- `cd6810e872 fix(ui-parity-harness)` -- fixes the census marker regex
+  (it skipped the JS object-literal form) and adds the dead-CSS detector to
+  `tokens-audit` plus the `css-liveness` script.
+- `f1928f6e7e fix(ui-parity)` -- deletes the 9 fully-inert layers, trims the
+  7 partially-inert ones to their real `data-v110` anchors, retargets the
+  browser layer to the real `data-design-browser` markup, and removes the
+  dead `code-diff` rule. **Net -3074 LOC of inert CSS.**
+
+CSS after the correction (11 files, ~1857 LOC):
+
+| File | LOC | Targets |
+|---|---|---|
+| v110.css | 1064 | shell geometry, motion tokens, focus ring, A4 code tabs, terminal, mobile-diff |
+| v110-home.css | 320 | `home`, `home-title`, `home-subtitle`, `home-state-line/dot`, `home-composer-*`, `home-meta-pill`, `home-icon-btn`, `home-send-btn`, `home-recent-row`, `home-quick-chip`, `home-modes-row`, `home-mode-pill`, `home-hint`, `home-empty`, `home-loading`, `home-glance`, `home-glance-cell` |
+| v110-browser.css | 101 | `data-design-browser`, `-back`, `-forward`, `-reload`, `-address`, `-go`, `-error`, `-native`, `-frame` |
+| v110-settings.css | 83 | `settings-dialog` + its `[role=tablist]` / `[role=tab]` / `[role=tabpanel]` |
+| v110-inspector.css | 64 | `inspector-frame`, `inspector-tabs`, `inspector-content` |
+| v110-mobile.css | 60 | `mobile-nav` |
+| v110-chat.css | 49 | `chat-timeline`, `composer-dock` |
+| v110-theme.css | 46 | light-theme overrides on the emitted anchors |
+| v110-work.css | 24 | `work-view-shell`, `work-view-content` |
+| v110-memory.css | 24 | `memory-panel` |
+| v110-editor.css | 22 | `code-editor` |
+
+`css-liveness` reports **0 inert class selectors**. `tokens-audit` reports
+`deadDataV110Selectors: 8` (all pre-existing, out of this session's scope:
+`composer`, `design-bezier`, `design-layers-panel`, `design-selection-handles`,
+`design-split`, `design-vector-canvas`, `design-vector-toolbar`, `work-surface`)
+and `unStyledDataV110Markers: 34` (markers the app emits that rely on Tailwind
+rather than a v110 layer). Both lists are in
+`parity/artifacts/tokens-audit.json`.
+
 ## Commits shipped this session
 
 ```
-4ff6236f3d ui-parity(content)    add v110 chip + breadcrumb + pre + table chrome CSS
-af309326ce ui-parity(skeleton)  add v110 skeleton + spinner + progress + empty-state CSS
-b94b1bf75f ui-parity(form)      add v110 switch + checkbox + radio + toggle chrome CSS
-5cb00235c5 ui-parity(controls)  add v110 button + input + badge + card chrome CSS
+f1928f6e7e fix(ui-parity)         delete 192 inert v110 CSS class hooks
+cd6810e872 fix(ui-parity-harness) fix census marker regex + add dead-CSS detector
+8a9f2ed641 ui-parity(S0)          ship extended census with data + aria + role + handler + class
+2062ef4656 ui-parity(work-primitives) add v110 kanban + timeline + accordion + kbd + slider CSS (deleted)
+4ff6236f3d ui-parity(content)    add v110 chip + breadcrumb + pre + table chrome CSS (deleted)
+af309326ce ui-parity(skeleton)  add v110 skeleton + spinner + progress + empty-state CSS (deleted)
+b94b1bf75f ui-parity(form)      add v110 switch + checkbox + radio + toggle chrome CSS (deleted)
+5cb00235c5 ui-parity(controls)  add v110 button + input + badge + card chrome CSS (deleted)
 2a1bae1518 ui-parity(state)     refresh STATE.md after i18n + select + dialog + editor + S15-prep
 63288f79b4 ui-parity(editor)     add v110 editor + statusbar + theme-toggle chrome CSS
 8049ede27f ui-parity(S15-prep)  add v110 anchor surface test (8 contract anchors + CSS layer count)
