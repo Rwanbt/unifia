@@ -58,7 +58,7 @@ export const SidebarContent = (props: {
       <div
         data-component="sidebar-rail"
         data-v110="rail"
-        data-parity="shell.rail"
+        data-parity={props.mobile ? undefined : "shell.rail"}
         class="shrink-0 bg-background-base flex flex-col items-center overflow-hidden"
         style={{ width: "var(--v110-rail, 78px)" }}
         onMouseMove={props.aimMove}
