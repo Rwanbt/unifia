@@ -18,6 +18,7 @@
 @import '@/styles/v110-controls.css';
 @import '@/styles/v110-form.css';
 @import '@/styles/v110-skeleton.css';
+@import '@/styles/v110-content.css';
 @import '@/shell/v110-shell.css';
 @import '@/pages/session/v110-chat.css';
 @import '@/pages/session/v110-inspector.css';
