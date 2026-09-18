@@ -411,6 +411,48 @@ privilege-blocked). Runtime fragment/DOM pairing remains the S1 G1 runner's job
 F0 Docker harness absent. Product approval still missing for the three
 intentional-difference dispositions and the `code.diff` reference strategy.
 
+## Runtime pairing evidence (manual, this session)
+
+The plan's S1 G1 runner is still unbuilt and e2e is blocked on this host, but
+the host CAN drive a real browser through the brave-devtools MCP. That was used
+to pair fragments against the live DOM directly, which is how the shell.rail
+defect below was found -- the static manifest gate cannot see this class of
+problem.
+
+Method (repeatable): Vite dev server on http://127.0.0.1:4444, emulated
+viewport 1440x900x1 (the "desktop-wide" the fragments declare), dark scheme.
+Visibility counts an element only when display != none, visibility != hidden,
+and its rect width and height are both > 0. Each fragment is queried with its
+exact declared app selector.
+
+Route "/" -- data-route="home", dark, 1440x900. All six home fragments pair
+exactly: home.composer-card 1/1, home.mode-pill 6/6, home.modes-row 1/1,
+home.state-line 1/1, home.subtitle 1/1, home.title 1/1 (raw/visible, matching
+each declared count and visibleCount). Zero mismatches.
+
+Route "/<project>/session" -- data-route="workspace-root", dark, 1440x900.
+shell.topbar 1/1, shell.workspace-tabs 1/1, shell.rail 1/1 after the fix (was
+2/1 before it), shell.inspector 1/1, session.composer 1/1.
+
+That is 11 anchors paired exactly against the live DOM.
+
+Defect found and fixed in 1c8172e31a: data-parity="shell.rail" was emitted by
+both the desktop and the mobile instantiation of SidebarContent, so the bare
+selector matched 2 elements. Beyond the harness, this would have failed
+shell.spec.ts and anchors.spec.ts under Playwright strict mode, which rejects a
+locator resolving to 2 elements.
+
+Not yet paired, and why: code.editor and code.terminal are not mounted on a
+session with no file open; work.shell, work.content, memory.panel,
+automate.surface and settings.dialog sit behind project-gated modes -- with no
+project open, clicking a mode pill on home opens the "Ouvrir un projet" dialog
+instead of switching mode. Reaching them needs a project to be opened first.
+
+Caveat, stated plainly: this evidence was captured by driving the browser
+manually, not by a committed script, so it is not a CI gate and cannot be
+re-run by CI on this host (e2e remains blocked). The backend on :4096 was down
+throughout and did not prevent these routes from rendering.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness is missing. Open the next session on `_a7-automate-memory`, branch `new-ui` at `aad67a5800caab473b95b0509a0c4564ba52d56a`, and enchaîner le complément F0 (Docker + Playwright dans l'image) puis S0 census → S1 G1/G2 → S2 tokens pre-freeze → QF0 → S3 home full re-play → S4–S12 visual polish → S13 responsive/DLR/locales étendu → S14 motion → S15 full qualification. Le verdict final `NEW_UI_PARITY_QUALIFIED / READY_FOR_PROMOTION_DECISION` viendra à l'achèvement de S15.
