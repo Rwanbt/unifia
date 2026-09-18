@@ -38,6 +38,14 @@
 [data-v110="home"] {
   position: relative;
   width: 100%;
+  /* flex: 1 is load-bearing, not decorative: [data-v110="workspace"] (the
+   * <main> this mounts into) is a flex column, and without a flex-grow this
+   * box only sizes to its own content -- measured 548px against the 850px
+   * <main> gives it. place-items: center then centers within that
+   * undersized box, landing near the TOP of the viewport instead of the
+   * maquette's actual vertical center (.home-screen uses the same
+   * flex: 1; min-height: 0; pair, maquette lines 3995-4001/4382-4386). */
+  flex: 1;
   min-height: 0;
   display: grid;
   place-items: center;
