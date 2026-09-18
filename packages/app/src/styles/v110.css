@@ -1040,15 +1040,19 @@ html[data-ui-animations="off"] *::after {
   background: var(--surface-3);
 }
 
+// No important flag here: this selector is already 0,2,0 and unlayered, so
+// it beats Tailwind's layered utilities on its own. The v110.css contract
+// test forbids the flag outside .mobile-side-panel, and the maquette's own
+// flags on this rule only exist to fight the demo's inline styles.
 [data-v110="terminal"] .terminal,
 .terminal-shell .terminal {
   min-height: 0;
   height: auto;
   overflow: auto;
   padding: 10px 12px 12px;
-  border: 0 !important;
+  border: 0;
   border-radius: 0 0 var(--v110-radius-lg) var(--v110-radius-lg);
-  background: transparent !important;
+  background: transparent;
 }
 
 .terminal-resize-handle {
