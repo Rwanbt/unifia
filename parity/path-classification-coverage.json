@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-09-18T12:24:57.492Z",
-  "trackedFiles": 7697,
-  "classifiedFiles": 7697,
+  "capturedAt": "2026-09-18T13:04:06.703Z",
+  "trackedFiles": 7703,
+  "classifiedFiles": 7703,
   "unclassifiedFiles": [],
   "unclassifiedTruncated": false,
   "classificationCounts": {
     "touchesApplicationUI": 5502,
     "touchesConfiguration": 945,
-    "touchesDocumentationOnly": 1728,
+    "touchesDocumentationOnly": 1734,
     "touchesGeneratedOutput": 131,
     "touchesHarness": 32,
     "touchesInfrastructure": 88,
