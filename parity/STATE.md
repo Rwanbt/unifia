@@ -413,45 +413,63 @@ intentional-difference dispositions and the `code.diff` reference strategy.
 
 ## Runtime pairing evidence (manual, this session)
 
-The plan's S1 G1 runner is still unbuilt and e2e is blocked on this host, but
-the host CAN drive a real browser through the brave-devtools MCP. That was used
-to pair fragments against the live DOM directly, which is how the shell.rail
-defect below was found -- the static manifest gate cannot see this class of
-problem.
+Purpose: the S1 G1 runner is unbuilt and e2e is blocked on this host, but the host
+CAN drive a real browser through the brave-devtools MCP. Fragments were paired
+against the live DOM directly. That is how the shell.rail defect below was found:
+the static manifest gate cannot see this class of problem.
 
-Method (repeatable): Vite dev server on http://127.0.0.1:4444, emulated
-viewport 1440x900x1 (the "desktop-wide" the fragments declare), dark scheme.
-Visibility counts an element only when display != none, visibility != hidden,
-and its rect width and height are both > 0. Each fragment is queried with its
-exact declared app selector.
+Method (repeatable): Vite dev server on http://127.0.0.1:4444, emulated viewport
+1440x900x1 (the "desktop-wide" the fragments declare), dark scheme unless stated.
+An element counts as visible only when display != none, visibility != hidden, and
+its rect width and height are both > 0. Each fragment is queried with its exact
+declared app selector.
 
-Route "/" -- data-route="home", dark, 1440x900. All six home fragments pair
-exactly: home.composer-card 1/1, home.mode-pill 6/6, home.modes-row 1/1,
-home.state-line 1/1, home.subtitle 1/1, home.title 1/1 (raw/visible, matching
-each declared count and visibleCount). Zero mismatches.
+CORRECTION: an earlier draft of this section claimed "11 anchors paired". That was
+wrong. It counted two anchors that exist only as findings (shell.workspace-tabs,
+session.composer) as if they were fragments. No fragment exists for either, so
+neither can be paired. There are 16 fragments, and the accurate figure is 12.
 
-Route "/<project>/session" -- data-route="workspace-root", dark, 1440x900.
-shell.topbar 1/1, shell.workspace-tabs 1/1, shell.rail 1/1 after the fix (was
-2/1 before it), shell.inspector 1/1, session.composer 1/1.
+12 of the 16 fragments paired exactly (raw/visible vs declared):
 
-That is 11 anchors paired exactly against the live DOM.
+  Route "/" -- data-route="home", dark, 1440x900:
+    home.title 1/1, home.subtitle 1/1, home.modes-row 1/1, home.mode-pill 6/6,
+    home.composer-card 1/1, home.state-line 1/1
+  Route "/<project>/session" -- dark, 1440x900:
+    shell.topbar 1/1, shell.rail 1/1 (was 2/1 before the fix), shell.inspector 1/1
+  Route "/<project>/work" -- dark, 1440x900:
+    work.shell 1/1, work.content 1/1
+  Settings dialog opened over /work -- dark, 1440x900:
+    settings.dialog 1/1
 
-Defect found and fixed in 1c8172e31a: data-parity="shell.rail" was emitted by
-both the desktop and the mobile instantiation of SidebarContent, so the bare
-selector matched 2 elements. Beyond the harness, this would have failed
-shell.spec.ts and anchors.spec.ts under Playwright strict mode, which rejects a
-locator resolving to 2 elements.
+Observed in the DOM but NOT pairable, because no fragment exists for them:
+shell.workspace-tabs 1/1 and session.composer 1/1 on the session route. Recorded
+as observation only, not as evidence of parity.
 
-Not yet paired, and why: code.editor and code.terminal are not mounted on a
-session with no file open; work.shell, work.content, memory.panel,
-automate.surface and settings.dialog sit behind project-gated modes -- with no
-project open, clicking a mode pill on home opens the "Ouvrir un projet" dialog
-instead of switching mode. Reaching them needs a project to be opened first.
+Not paired, and why:
+  code.editor, code.terminal -- not mounted on a session with no file open.
+  memory.panel, automate.surface -- gated. With no project open, clicking a mode
+  pill on home opens the "Ouvrir un projet" dialog instead of switching mode
+  (confirmed for both Work and Automate). In the open-project session route the
+  rail exposes only Code, Travail and Design, and no affordance reaches Memory or
+  Automate, so those surfaces are unreachable in this workspace. Capability
+  gating, not a regression.
+  Design mode renders at /design but has no fragment, so there is nothing to pair.
+  Its empty canvas column is the already-documented A6 gap, not a new finding.
+
+Defect found and fixed in 1c8172e31a: data-parity="shell.rail" was emitted by both
+the desktop and the mobile instantiation of SidebarContent, so the bare selector
+matched 2 elements. Beyond the harness, this would have failed shell.spec.ts and
+anchors.spec.ts under Playwright strict mode, which rejects a locator resolving to
+2 elements.
+
+Screenshots captured this session live in docs/ui-reference/v110/verification/
+(home dark, home light, work, settings, design).
 
 Caveat, stated plainly: this evidence was captured by driving the browser
-manually, not by a committed script, so it is not a CI gate and cannot be
-re-run by CI on this host (e2e remains blocked). The backend on :4096 was down
-throughout and did not prevent these routes from rendering.
+manually, not by a committed script, so it is not a CI gate and cannot be re-run
+by CI on this host (e2e remains blocked). The backend on :4096 was down
+throughout and did not prevent these routes from rendering; only the workbench
+bridge reported unavailable.
 
 ## Verdict
 
