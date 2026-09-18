@@ -430,13 +430,24 @@ function collectAccentedAriaLabels(dir: string, acc: string[] = []): string[] {
 // Comment lines are skipped: the files legitimately carry French prose in
 // their headers, and those are not rendered copy.
 //
-// Scope decision (#99 AC): only the two files the issue cleared —
-// design-browser-tab.tsx and design-files-tab.tsx. The rest of the design-*
-// family (design-artifact-tab, design-surface, design-toolbar) still carries
-// French titles/status messages; widening this guard requires clearing them
-// first, which is tracked separately. Widening without that would fail on
-// files nobody has fixed yet, which is how a guard gets deleted.
-const GUARDED_DESIGN_FILES = new Set(["design-browser-tab.tsx", "design-files-tab.tsx"])
+// Scope decision (#99 AC): originally only the two files that issue cleared —
+// design-browser-tab.tsx and design-files-tab.tsx. design-artifact-tab.tsx,
+// design-surface.tsx and design-toolbar.tsx carried hardcoded French (and, in
+// design-toolbar.tsx, hardcoded English mixed into the same JSX) with no i18n
+// key at all; cleared by routing every string through
+// i18n/design-artifact.ts and i18n/design-approval.ts (both en/fr, falling
+// back to English for every other locale — the same pattern as i18n/home.ts,
+// used instead of en.ts/fr.ts directly because both already exceed the
+// AGENTS.md 1500 LOC ceiling). Widen this set only after clearing a file the
+// same way; widening without that fails on files nobody has fixed yet, which
+// is how a guard gets deleted.
+const GUARDED_DESIGN_FILES = new Set([
+  "design-browser-tab.tsx",
+  "design-files-tab.tsx",
+  "design-artifact-tab.tsx",
+  "design-surface.tsx",
+  "design-toolbar.tsx",
+])
 const FRENCH_UI_WORD =
   /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible)\b/
 

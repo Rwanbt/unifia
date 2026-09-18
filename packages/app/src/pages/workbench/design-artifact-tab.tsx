@@ -2,7 +2,9 @@
 
 import { Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { ArtifactPreview } from "@/pages/workbench/artifact-preview"
+import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
+import { tDesignArtifact } from "@/i18n/design-artifact"
 import { CommentPanel } from "@/pages/workbench/comment-panel"
 import { deriveExportFilename } from "@/pages/workbench/design-artifact-export"
 import { DesignToolbar, type DesignToolbarMode, type DesignToolbarSnapshotState } from "@/pages/workbench/design-toolbar"
@@ -91,6 +93,7 @@ export function DesignArtifactTab(props: {
   /** Phase 9.2 — a manual edit was persisted as a new artifact version; DesignSurface pushes it through the stream so entry.content stays in sync. */
   onArtifactEdited: (artifactId: string, filename: string, kind: string, content: string) => void
 }): JSX.Element {
+  const language = useLanguage()
   const workbench = useWorkspaceWorkbench()
   const connection = workbench.connection
 
@@ -119,7 +122,10 @@ export function DesignArtifactTab(props: {
       await navigator.clipboard.writeText(url)
       setShareLinkState({ kind: "ready", url, expiresAt })
     } catch (error) {
-      setShareLinkState({ kind: "error", error: error instanceof Error ? error.message : "share link could not be created" })
+      setShareLinkState({
+        kind: "error",
+        error: error instanceof Error ? error.message : tDesignArtifact(language.locale(), "artifact.error.shareLinkFailed"),
+      })
     }
   }
 
@@ -156,7 +162,9 @@ export function DesignArtifactTab(props: {
         props.onArtifactEdited(entry.artifactId, result.artifact.filename, result.artifact.kind, html)
       })
       .catch((error: unknown) => {
-        setEditSaveError(error instanceof Error ? error.message : "manual edit could not be saved")
+        setEditSaveError(
+          error instanceof Error ? error.message : tDesignArtifact(language.locale(), "artifact.error.editSaveFailed"),
+        )
       })
   }
 
@@ -192,7 +200,11 @@ export function DesignArtifactTab(props: {
         if (epoch !== annotationLoadEpoch) return
         setAnnotationState(state ?? EMPTY_ANNOTATION_STATE)
       })
-      .catch((error) => setAnnotationPersistError(error instanceof Error ? error.message : "annotations could not be loaded"))
+      .catch((error) =>
+        setAnnotationPersistError(
+          error instanceof Error ? error.message : tDesignArtifact(language.locale(), "artifact.error.annotationsLoadFailed"),
+        ),
+      )
   })
   onCleanup(() => {
     if (annotationSaveTimer) clearTimeout(annotationSaveTimer)
@@ -203,7 +215,9 @@ export function DesignArtifactTab(props: {
     if (annotationSaveTimer) clearTimeout(annotationSaveTimer)
     annotationSaveTimer = setTimeout(() => {
       void annotationStore.save(artifactId, state).catch((error) => {
-        setAnnotationPersistError(error instanceof Error ? error.message : "annotations could not be saved")
+        setAnnotationPersistError(
+          error instanceof Error ? error.message : tDesignArtifact(language.locale(), "artifact.error.annotationsSaveFailed"),
+        )
       })
     }, 250)
   }
@@ -260,7 +274,10 @@ export function DesignArtifactTab(props: {
       const { url } = await current.client.presentArtifactLink(current.workspaceId, artifactId)
       window.open(url, "_blank", "noopener")
     } catch (error) {
-      setShareLinkState({ kind: "error", error: error instanceof Error ? error.message : "present link could not be created" })
+      setShareLinkState({
+        kind: "error",
+        error: error instanceof Error ? error.message : tDesignArtifact(language.locale(), "artifact.error.presentLinkFailed"),
+      })
     } finally {
       setPresentLinkPending(false)
     }
@@ -295,7 +312,10 @@ export function DesignArtifactTab(props: {
       URL.revokeObjectURL(url)
       setArtifactExportState({ kind: "exported" })
     } catch (error) {
-      setArtifactExportState({ kind: "error", error: error instanceof Error ? error.message : "html export failed" })
+      setArtifactExportState({
+        kind: "error",
+        error: error instanceof Error ? error.message : tDesignArtifact(language.locale(), "artifact.error.htmlExportFailed"),
+      })
     }
   }
 
@@ -322,7 +342,7 @@ export function DesignArtifactTab(props: {
     // reach back into the workshop.
     const printWindow = window.open("", "_blank")
     if (!printWindow) {
-      setArtifactExportState({ kind: "error", error: "popup blocked — allow popups to export as PDF" })
+      setArtifactExportState({ kind: "error", error: tDesignArtifact(language.locale(), "artifact.error.popupBlocked") })
       return
     }
     printWindow.opener = null
@@ -373,9 +393,11 @@ export function DesignArtifactTab(props: {
                 data-design-select-mode={props.selectMode ? "on" : "off"}
                 aria-pressed={props.selectMode}
                 onClick={() => props.onSelectMode(!props.selectMode)}
-                title="Arme le pont de sélection : survole pour surligner, clique pour cibler un élément"
+                title={tDesignArtifact(language.locale(), "artifact.select.tooltip")}
               >
-                {props.selectMode ? "Sélection active…" : "Sélectionner un élément"}
+                {props.selectMode
+                  ? tDesignArtifact(language.locale(), "artifact.select.active")
+                  : tDesignArtifact(language.locale(), "artifact.select.idle")}
               </button>
               <button
                 type="button"
@@ -387,9 +409,11 @@ export function DesignArtifactTab(props: {
                 data-design-annotate-mode={annotateMode() ? "on" : "off"}
                 aria-pressed={annotateMode()}
                 onClick={() => setAnnotateMode((value) => !value)}
-                title="Dessine librement par-dessus le rendu"
+                title={tDesignArtifact(language.locale(), "artifact.annotate.tooltip")}
               >
-                {annotateMode() ? "Annotation active…" : "Annoter"}
+                {annotateMode()
+                  ? tDesignArtifact(language.locale(), "artifact.annotate.active")
+                  : tDesignArtifact(language.locale(), "artifact.annotate.idle")}
               </button>
               <button
                 type="button"
@@ -401,9 +425,11 @@ export function DesignArtifactTab(props: {
                 data-design-edit-mode={editMode() ? "on" : "off"}
                 aria-pressed={editMode()}
                 onClick={() => setEditMode((value) => !value)}
-                title="Clique un élément du rendu pour éditer son texte directement"
+                title={tDesignArtifact(language.locale(), "artifact.edit.tooltip")}
               >
-                {editMode() ? "Modification active…" : "Modifier"}
+                {editMode()
+                  ? tDesignArtifact(language.locale(), "artifact.edit.active")
+                  : tDesignArtifact(language.locale(), "artifact.edit.idle")}
               </button>
               <Show when={editSaveError()}>
                 <span class="text-12-regular text-text-danger" data-design-edit-save-error>
@@ -421,7 +447,7 @@ export function DesignArtifactTab(props: {
                     persistAnnotationState(next)
                   }}
                 >
-                  Annuler le trait
+                  {tDesignArtifact(language.locale(), "artifact.annotate.undo")}
                 </button>
                 <button
                   type="button"
@@ -433,18 +459,18 @@ export function DesignArtifactTab(props: {
                     persistAnnotationState(next)
                   }}
                 >
-                  Effacer
+                  {tDesignArtifact(language.locale(), "artifact.annotate.clear")}
                 </button>
               </Show>
               <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
-              <span class="text-12-regular text-text-weak">Présenter :</span>
+              <span class="text-12-regular text-text-weak">{tDesignArtifact(language.locale(), "artifact.present.label")}</span>
               <button
                 type="button"
                 class="rounded border border-border-base px-2 py-1 text-12-regular text-text-weak"
                 data-design-present-in-tab
                 onClick={presentInTab}
               >
-                Dans l'onglet
+                {tDesignArtifact(language.locale(), "artifact.present.inTab")}
               </button>
               <button
                 type="button"
@@ -452,7 +478,7 @@ export function DesignArtifactTab(props: {
                 data-design-present-fullscreen
                 onClick={() => void presentFullscreen()}
               >
-                Plein écran
+                {tDesignArtifact(language.locale(), "artifact.present.fullscreen")}
               </button>
               <button
                 type="button"
@@ -460,7 +486,7 @@ export function DesignArtifactTab(props: {
                 data-design-present-new-tab
                 onClick={() => void presentNewTab()}
               >
-                Nouvel onglet
+                {tDesignArtifact(language.locale(), "artifact.present.newTab")}
               </button>
               <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
               <button
@@ -469,12 +495,16 @@ export function DesignArtifactTab(props: {
                 disabled={shareLinkState().kind === "minting"}
                 data-design-share-link
                 onClick={() => void shareLink()}
-                title="Génère un lien signé (5 minutes) et le copie dans le presse-papiers"
+                title={tDesignArtifact(language.locale(), "artifact.share.tooltip")}
               >
-                {shareLinkState().kind === "minting" ? "Lien…" : "Lien de partage"}
+                {shareLinkState().kind === "minting"
+                  ? tDesignArtifact(language.locale(), "artifact.share.minting")
+                  : tDesignArtifact(language.locale(), "artifact.share.idle")}
               </button>
               <Show when={shareLinkState().kind === "ready"}>
-                <span class="text-12-regular text-text-weak" data-design-share-link-copied>Copié !</span>
+                <span class="text-12-regular text-text-weak" data-design-share-link-copied>
+                  {tDesignArtifact(language.locale(), "artifact.copied")}
+                </span>
               </Show>
               <Show when={shareLinkError()}>
                 {(error) => (
@@ -513,7 +543,8 @@ export function DesignArtifactTab(props: {
       />
       <Show when={props.connectionError}>
         <p class="rounded border border-border-danger bg-background-stronger px-3 py-2 text-12-regular text-text-danger" data-design-artifact-connection-error role="alert">
-          Connexion perdue — l'aperçu reste figé sur le dernier état reçu. {props.connectionError}
+          {tDesignArtifact(language.locale(), "artifact.connectionError")}
+          {props.connectionError}
         </p>
       </Show>
       <div class="flex h-full min-h-0 flex-1 gap-3">
@@ -530,9 +561,9 @@ export function DesignArtifactTab(props: {
               class="absolute right-3 top-3 z-10 rounded border border-border-base bg-background-stronger px-2 py-1 text-12-medium shadow"
               data-design-present-exit
               onClick={exitPresent}
-              title="Fermer (Échap)"
+              title={tDesignArtifact(language.locale(), "artifact.present.closeTooltip")}
             >
-              Fermer
+              {tDesignArtifact(language.locale(), "artifact.present.close")}
             </button>
           </Show>
           <ArtifactPreview

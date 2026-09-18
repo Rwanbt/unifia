@@ -20,6 +20,7 @@ import { createArtifactStreamController } from "@/pages/workbench/use-artifact-s
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
 import { toggleAttachedCommentId } from "@/pages/workbench/thread-comment-attach"
+import { tDesignApproval } from "@/i18n/design-approval"
 import { toggleActiveDesignSystemId } from "@/pages/workbench/context-chips"
 import { encodeBase64 } from "@/pages/workbench/design-files-preview"
 import {
@@ -846,6 +847,7 @@ function ApprovalModal(props: {
   onCancel: () => void
   onRerequest: () => void
 }): JSX.Element {
+  const language = useLanguage()
   return (
     <Show when={isApprovalModalVisible(props.state)}>
       <div
@@ -858,30 +860,31 @@ function ApprovalModal(props: {
       >
         <div class="w-full max-w-md rounded-lg border border-border-base bg-background-base p-5 shadow-xl">
           <h2 id="design-approval-title" class="text-16-medium text-text-base">
-            Approbation requise
+            {tDesignApproval(language.locale(), "title")}
           </h2>
           <Show when={props.state.kind === "approval-required" ? props.state : null}>
             {(s) => (
               <>
                 <p class="mt-2 text-13-regular text-text-weak" data-design-approval-id={s().approvalId}>
-                  Cette opération nécessite une approbation ({s().capability}). Le serveur attend votre décision avant de continuer.
+                  {tDesignApproval(language.locale(), "description", { capability: s().capability })}
                 </p>
                 <Show when={s().expired}>
                   <p
                     data-design-approval-expired-warning
                     class="mt-2 rounded border border-border-warning bg-background-warning/30 p-2 text-12-regular text-text-warning"
                   >
-                    L'approbation a expiré. Vous pouvez en demander une nouvelle.
+                    {tDesignApproval(language.locale(), "expiredWarning")}
                   </p>
                 </Show>
                 <p class="mt-2 text-11-regular text-text-weak" data-design-approval-deadline>
-                  Expire à : {new Date(s().expiresAt).toLocaleTimeString()}
+                  {tDesignApproval(language.locale(), "expiresAt")}
+                  {new Date(s().expiresAt).toLocaleTimeString()}
                 </p>
               </>
             )}
           </Show>
           <Show when={props.state.kind === "resolving"}>
-            <p class="mt-2 text-13-regular text-text-weak">Envoi de la décision au serveur…</p>
+            <p class="mt-2 text-13-regular text-text-weak">{tDesignApproval(language.locale(), "resolving")}</p>
           </Show>
           <div class="mt-4 flex flex-wrap justify-end gap-2">
             {/* An expired approval gets its own pair of actions. The first
@@ -895,7 +898,7 @@ function ApprovalModal(props: {
                 class="rounded border border-border-base px-3 py-1.5 text-12-medium"
                 onClick={() => props.onCancel()}
               >
-                Annuler
+                {tDesignApproval(language.locale(), "cancel")}
               </button>
               <button
                 type="button"
@@ -903,7 +906,7 @@ function ApprovalModal(props: {
                 class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
                 onClick={() => props.onRerequest()}
               >
-                Demander une nouvelle approbation
+                {tDesignApproval(language.locale(), "rerequest")}
               </button>
             </Show>
             <Show when={props.state.kind === "approval-required" && !props.state.expired}>
@@ -913,7 +916,7 @@ function ApprovalModal(props: {
                 class="rounded border border-border-base px-3 py-1.5 text-12-medium"
                 onClick={() => props.onDeny()}
               >
-                Refuser
+                {tDesignApproval(language.locale(), "deny")}
               </button>
               <button
                 type="button"
@@ -921,7 +924,7 @@ function ApprovalModal(props: {
                 class="rounded border border-border-base px-3 py-1.5 text-12-medium"
                 onClick={() => props.onCancel()}
               >
-                Annuler
+                {tDesignApproval(language.locale(), "cancel")}
               </button>
               <button
                 type="button"
@@ -929,7 +932,7 @@ function ApprovalModal(props: {
                 class="rounded border border-border-focus bg-background-focus px-3 py-1.5 text-12-medium text-text-inverse"
                 onClick={() => props.onAllow()}
               >
-                Approuver et réessayer
+                {tDesignApproval(language.locale(), "allow")}
               </button>
             </Show>
           </div>

@@ -2,6 +2,7 @@
 
 import { For, Show, type JSX, createMemo } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { tDesignArtifact } from "@/i18n/design-artifact"
 import {
   DEFAULT_VIEWPORT,
   DEFAULT_ZOOM,
@@ -156,9 +157,9 @@ export function DesignToolbar(props: {
             aria-pressed={props.commentPanelOpen === true}
             data-design-toolbar-comments-toggle
             onClick={() => props.onToggleCommentPanel?.()}
-            title="Afficher ou masquer le panneau de commentaires"
+            title={tDesignArtifact(language.locale(), "toolbar.comments.tooltip")}
           >
-            Commentaires
+            {tDesignArtifact(language.locale(), "toolbar.comments.label")}
             <Show when={(props.commentCount ?? 0) > 0}>
               <span
                 class="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-10-medium text-primary-foreground"
@@ -179,9 +180,11 @@ export function DesignToolbar(props: {
           data-design-toolbar-export-html
           data-design-toolbar-export-state={props.exportState?.kind ?? "idle"}
           onClick={() => props.onExportHtml?.()}
-          title="Inline CSS, scripts, and images into a single self-contained HTML file"
+          title={tDesignArtifact(language.locale(), "toolbar.exportHtml.tooltip")}
         >
-          {props.exportState?.kind === "exporting" ? "Exporting…" : "Export HTML"}
+          {props.exportState?.kind === "exporting"
+            ? tDesignArtifact(language.locale(), "toolbar.exportHtml.exporting")
+            : tDesignArtifact(language.locale(), "toolbar.exportHtml.button")}
         </button>
         <button
           type="button"
@@ -189,12 +192,14 @@ export function DesignToolbar(props: {
           disabled={!props.onExportPdf || !props.hasSource || (props.exportState?.kind === "exporting")}
           data-design-toolbar-export-pdf
           onClick={() => props.onExportPdf?.()}
-          title="Build a PDF from the current page captures"
+          title={tDesignArtifact(language.locale(), "toolbar.exportPdf.tooltip")}
         >
-          Export PDF
+          {tDesignArtifact(language.locale(), "toolbar.exportPdf.button")}
         </button>
         <Show when={props.exportState?.kind === "error"}>
-          <span data-design-toolbar-export-error class="text-12-regular text-text-danger">{props.exportState?.error ?? "export failed"}</span>
+          <span data-design-toolbar-export-error class="text-12-regular text-text-danger">
+            {props.exportState?.error ?? tDesignArtifact(language.locale(), "toolbar.export.failed")}
+          </span>
         </Show>
       </div>
       <div class="mx-1 h-5 w-px bg-border-base" aria-hidden="true" />
@@ -206,9 +211,11 @@ export function DesignToolbar(props: {
           data-design-toolbar-snapshot-button
           data-design-toolbar-snapshot-state={props.snapshot.kind}
           onClick={() => props.onSnapshot()}
-          title="Envoie un message unifia:snapshot à l'iframe pour obtenir une image PNG du rendu"
+          title={tDesignArtifact(language.locale(), "toolbar.snapshot.tooltip")}
         >
-          {props.snapshot.kind === "capturing" ? "Capture…" : "Capture PNG"}
+          {props.snapshot.kind === "capturing"
+            ? tDesignArtifact(language.locale(), "toolbar.snapshot.capturing")
+            : tDesignArtifact(language.locale(), "toolbar.snapshot.button")}
         </button>
         <Show when={props.snapshot.kind === "ready"}>
           <a
@@ -217,7 +224,11 @@ export function DesignToolbar(props: {
             class="text-12-regular text-text-weak hover:text-text-base"
             data-design-toolbar-snapshot-download
           >
-            {props.snapshot.kind === "ready" ? `télécharger ${props.snapshot.w}×${props.snapshot.h}` : ""}
+            {props.snapshot.kind === "ready"
+              ? tDesignArtifact(language.locale(), "toolbar.snapshot.download", {
+                  size: `${props.snapshot.w}×${props.snapshot.h}`,
+                })
+              : ""}
           </a>
           <Show when={props.onCopySnapshot}>
             <button
@@ -227,15 +238,21 @@ export function DesignToolbar(props: {
               data-design-toolbar-snapshot-copy
               data-design-toolbar-snapshot-copy-state={props.copyState ?? "idle"}
               onClick={() => props.onCopySnapshot?.()}
-              title="Copier l'image dans le presse-papiers"
+              title={tDesignArtifact(language.locale(), "toolbar.snapshot.copy.tooltip")}
             >
-              {props.copyState === "copying" ? "Copie…" : props.copyState === "copied" ? "Copié !" : "Copier"}
+              {props.copyState === "copying"
+                ? tDesignArtifact(language.locale(), "toolbar.snapshot.copy.copying")
+                : props.copyState === "copied"
+                  ? tDesignArtifact(language.locale(), "artifact.copied")
+                  : tDesignArtifact(language.locale(), "toolbar.snapshot.copy.idle")}
             </button>
           </Show>
         </Show>
         <Show when={props.snapshot.kind === "error"}>
           <span class="text-12-regular text-text-danger" data-design-toolbar-snapshot-error>
-            {props.snapshot.kind === "error" ? `échec : ${props.snapshot.error}` : ""}
+            {props.snapshot.kind === "error"
+              ? tDesignArtifact(language.locale(), "toolbar.snapshot.error", { error: props.snapshot.error })
+              : ""}
           </span>
         </Show>
       </div>
