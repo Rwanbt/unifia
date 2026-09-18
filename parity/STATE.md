@@ -900,6 +900,65 @@ Automate/Memory content stays blocked on the Tauri desktop bridge, and
 Settings' persistent-conversation-split layout remains a product-scope
 question, not a CSS fix.
 
+## Follow-up i18n pass: one fixed, one correctly refused (2026-09-18)
+
+Picked up the spawned follow-up recorded above ("remaining Design Assistant
+French strings"). Read all three cited call sites before touching any of them,
+and they are NOT one class of problem -- two are real inconsistencies, one is a
+deliberate decision that is enforced by a test.
+
+**Fixed: the skill-picker fallback (7456a20790).**
+`workbench-thread.tsx:487` rendered `"Aucun skill"` as the skill-picker
+trigger label when nothing was selected, in a file that already binds `t` at
+line 132 for every one of its other strings. That is a genuine inconsistency.
+New key `workbench.thread.skill.none`, translated into en plus all 16 other
+locales rather than falling back to English.
+
+Did NOT reuse `settings.fork.plugins.noSkills` ("No skill installed"): that key
+belongs to the plugins list where "installed" carries the meaning, and a picker
+trigger with nothing selected is a different state. Sharing it would have been a
+false sharing of knowledge, which is exactly the DRY failure AGENTS.md warns
+about.
+
+Verified live, both directions, by driving the app's own persisted locale and
+reloading (not by mutating the DOM): locale=fr renders "Aucun skill",
+locale=en renders "No skill". Before this change it read "Aucun skill" in both.
+Unit suite unchanged at 1636 pass / 0 fail / 185 files; i18n/parity.test.ts
+10/10, including the per-locale translation-parity guard that proves the 17 new
+entries are complete.
+
+**Correctly NOT fixed: `connection-banner.tsx:29`.**
+It hardcodes `"Disponible dans l'application desktop"`, but this is not an
+oversight and must not be "cleaned up" by a future session without an explicit
+decision. `provider.test.ts:155-163` asserts BOTH that the literal is present
+AND that no `workbench.connection.unsupported` key is introduced, citing a
+"V10 (visual contract)" phase. Searching the repo, that V10 phase does not exist
+anywhere -- the note is a forward-looking plan from V03 that never materialised.
+
+Converting it therefore requires editing a test that encodes a scope decision.
+That is a product/scope choice, not a mechanical fix, so it is surfaced here
+instead of overridden. Note the neighbouring phases (ready/connecting/retrying/
+failed) all DO use `t(...)` already, so `unsupported` is the lone exception.
+
+**Separation of concerns, recorded because it is easy to conflate:** the third
+cited site, `thread-comment-attach-panel.tsx` ("Commenter la conversation"),
+belongs to the comment/design-comment family (`comment-panel.tsx`,
+`comment-popover.tsx`) which is French-only by an explicit, documented
+convention -- its own header says so and notes the parity test does not cover
+it. `comment-panel.tsx` and `comment-popover.tsx` confirmed to use no i18n at
+all. That is a batch conversion with a product question attached (should that
+whole surface be localised?), not a drive-by string fix.
+
+**Guard-coverage gap found while verifying, worth its own task.**
+The #99 guard that is supposed to catch exactly this class scans only five
+hardcoded filenames in `GUARDED_DESIGN_FILES` (design-browser-tab,
+design-files-tab, design-artifact-tab, design-surface, design-toolbar). Every
+other file under `pages/workbench` is unguarded, which is why
+`connection-banner.tsx` and `workbench-thread.tsx` both slipped through.
+The guard's own comment calls the allowlist "how a guard gets deleted" -- the
+allowlist is the weakness, not the regex. Widening it needs care (the comment
+family would fail it by design), so it is recorded rather than changed here.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
