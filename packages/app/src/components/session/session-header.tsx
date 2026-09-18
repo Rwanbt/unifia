@@ -14,6 +14,7 @@ import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
@@ -138,6 +139,7 @@ export function SessionHeader() {
   const sync = useSync()
   const terminal = useTerminal()
   const titlebarSlots = useTitlebarSlots()
+  const mode = useMode()
   const { params, view } = useSessionLayout()
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
@@ -302,6 +304,20 @@ export function SessionHeader() {
         {(mount) => (
           <Portal mount={mount()}>
             <div class="flex items-center gap-2">
+              {/* Ports .workspace-head's title+meta pair
+                  (Unifia-UI-UX-v110-PORT-READY-R1.html:15234-15236; CSS at
+                  lines 219-225: one flex row, bold 11px title + muted 9px
+                  meta, gap 8px -- not stacked). Reuses the same
+                  workbench.modes.name.* key the breadcrumb already uses for
+                  the title; the meta tagline is new (workbench.modes.meta.*). */}
+              <div class="hidden 2xl:flex items-center gap-2 max-w-[220px] overflow-hidden shrink-0">
+                <b class="text-11-medium text-text-strong shrink-0">
+                  {language.t(`workbench.modes.name.${mode.active()}`)}
+                </b>
+                <span class="text-11-regular text-text-weak whitespace-nowrap overflow-hidden text-ellipsis">
+                  {language.t(`workbench.modes.meta.${mode.active()}`)}
+                </span>
+              </div>
               <Show when={projectDirectory()}>
                 <div class="hidden xl:flex items-center">
                   <Show
