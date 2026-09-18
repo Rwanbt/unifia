@@ -16,6 +16,10 @@
       ],
       "tolerancePx": 0
     },
+    "home-subtitle": {
+      "properties": ["max-width", "margin", "color", "font-size", "line-height"],
+      "tolerancePx": 0
+    },
     "home-modes-row": {
       "properties": [
         "display",

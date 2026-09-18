@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "home.subtitle",
+  "slice": "S3",
+  "scene": "home.default",
+  "anchorKind": "home-subtitle",
+  "reference": { "selector": "p.home-subtitle", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "p[data-parity=\"home.subtitle\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "home-subtitle",
+  "mask": null,
+  "disposition": "port"
+}

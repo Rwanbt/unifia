@@ -5,6 +5,9 @@
     "home-title": {
       "states": ["default"]
     },
+    "home-subtitle": {
+      "states": ["default"]
+    },
     "home-modes-row": {
       "states": ["default"]
     },
