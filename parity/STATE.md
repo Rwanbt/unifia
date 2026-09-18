@@ -543,15 +543,80 @@ too (the harness's `code.editor` / `code.terminal` BLOCKED outcomes and the
 `automate.surface` / `memory.panel` capability-gated BLOCKED outcomes are
 unchanged from HANDOFF and are the same honest, non-regressed state).
 
+## S4/S8 visual-polish increments (2026-09-18, same Claude Code session, after the harness fix)
+
+The human picked "continue S4-S12 visual polish, small atomic commits" over
+generalizing the CDP harness workaround into S1 G1/G2 (an architecture
+decision requiring separate human approval -- not attempted). Every item
+below was found by actually driving the app in the isolated CDP browser
+(`:9333`) side by side with the frozen maquette, not by guessing from code:
+
+- **S4 topbar** (`b35cd2493b`): the session-header.tsx file-search trigger
+  (portals into the titlebar center slot, matches the maquette's `#searchBtn`
+  affordance) had no search icon, unlike every other search input in the app,
+  and `cursor-default` on a clickable button. Both fixed; verified in-browser
+  (icon renders, computed cursor is `pointer`).
+- **Home i18n** (`b00801e73e`): `i18n/home.ts` (`homeDict`/`tHome`) was dead
+  code -- never imported. `home.tsx` hardcoded its hero title, subtitle,
+  composer placeholder/actions and hint directly in English, bypassing i18n
+  entirely, while every other string on the page (state line, empty/loading,
+  mode pills) correctly localized. Rewrote `home.ts` as a real per-locale
+  dict (en authoritative, fr sourced verbatim from the frozen maquette) with
+  English fallback for every other locale, and wired all five spots.
+- **Workbench bridge banner i18n** (`c98e4ffd7d`): `WorkspaceWorkbenchProvider`
+  froze `bridgeErrorValue` as a plain `const` built from `t(...)` at init,
+  so it permanently captured whatever the (async-loading) locale dictionary
+  returned at that instant -- English, even after French finished loading.
+  Confirmed live on the Work surface. Fixed by computing the message fresh
+  on every read; `bridgeUnavailable` (the boolean) stays frozen, which is
+  correct and documented (avoids a reconnect loop an earlier audit caught).
+- **`sdk-unwrap.ts` i18n** (`cf4c4bdec6`): the shared `unwrap()` helper (26
+  call sites across 6 observability/memory settings panels) hardcoded
+  "Request failed" in English always. Fixed by reading
+  `document.documentElement.lang` (kept in sync by `context/language.tsx`)
+  since this plain utility runs outside any component's reactive scope and
+  cannot call `useLanguage()`. Added `sdk-unwrap.test.ts` (none existed).
+- **Design workbench i18n** (`d4eeb4057d`): cleared the exact three files
+  `i18n/parity.test.ts`'s own `FRENCH_UI_WORD` guard comment named as
+  tracked debt -- `design-artifact-tab.tsx`, `design-surface.tsx`,
+  `design-toolbar.tsx` -- ~35 strings mixing hardcoded French and hardcoded
+  English in the same JSX. Added `i18n/design-artifact.ts` and
+  `i18n/design-approval.ts` (same per-locale-with-fallback pattern as
+  `i18n/home.ts`, needed because `en.ts`/`fr.ts` are already past the
+  AGENTS.md 1500 LOC ceiling). Widened `GUARDED_DESIGN_FILES` to include all
+  three; mutation-proved (reintroduced "Annuler", confirmed the guard fails,
+  restored the fix, confirmed it passes).
+- Two `path-classification` baseline refreshes for the new tracked files
+  along the way, kept in their own policy-only commits per this branch's
+  commit discipline.
+
+**Not fixed, flagged as a follow-up task** (spawned, not attempted): the
+Design Assistant panel still hardcodes French regardless of locale in at
+least `connection-banner.tsx:29` ("Disponible dans l'application desktop"),
+`workbench-thread.tsx:487` ("Aucun skill"), and a "Commenter" button in
+`thread-comment-attach-panel.tsx` / `workbench-thread.tsx`. Not in the #99
+guard's documented scope, so left for a dedicated pass rather than folded
+into this batch.
+
+Full unit suite (1636 tests, 185 files) and typecheck stayed green
+throughout; each fix was verified live in the browser (both `locale=en` and
+`locale=fr` where applicable) before committing.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
-committed, re-runnable check is closed as of `691a9d151f` on `new-ui`
-(pushed to `origin/new-ui`). Open the next session on
-`_a7-automate-memory`, branch `new-ui` at `691a9d151f`, and enchaîner le
-complément F0 (Docker + Playwright dans l'image) puis S0 census → S1 G1/G2 →
-S2 tokens pre-freeze → QF0 → S3 home full re-play → S4–S12 visual polish →
-S13 responsive/DLR/locales étendu → S14 motion → S15 full qualification.
+committed, re-runnable check is closed (`691a9d151f`), and six real,
+verified i18n/visual bugs found while doing S4/S8 visual polish are fixed as
+of `1329ef531c` on `new-ui` (pushed to `origin/new-ui`). Open the next
+session on `_a7-automate-memory`, branch `new-ui` at `1329ef531c`. Two
+independent threads are ready to pick up:
+1. The spawned follow-up task (remaining Design Assistant French strings).
+2. Continue S4-S12 visual polish the same way (drive the app in the
+   isolated CDP browser side by side with the frozen maquette, fix what's
+   actually wrong, verify live, small atomic commits) -- or enchaîner le
+   complément F0 (Docker + Playwright dans l'image) puis S0 census → S1
+   G1/G2 → S2 tokens pre-freeze → QF0 → S3 home full re-play → S13
+   responsive/DLR/locales étendu → S14 motion → S15 full qualification.
 F0/e2e both need a human decision before they can proceed (Docker
 availability, `chromium.launch()` privilege block) -- do not silently invent
 a workaround for either. Le verdict final `NEW_UI_PARITY_QUALIFIED /
