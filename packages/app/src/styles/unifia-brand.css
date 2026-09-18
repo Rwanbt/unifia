@@ -47,3 +47,23 @@
   --font-sans: "Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif;
   --font-mono: "Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace;
 }
+
+/* Light scheme. The brand tokens above are dark-only, so without this block
+ * `--text-primary` stays ivory on a light `--background-base` and every
+ * surface that reads it (the v110 home, the shell chrome) renders invisible
+ * text. A1-CONTRACT.md line 28 pins the app's scheme on
+ * html[data-color-scheme], so the light overrides live there. Values are the
+ * maquette v110-port-ready-r1 light palette (lines 57-72), mapped onto the
+ * brand token names. */
+html[data-color-scheme="light"] {
+  --surface-canvas: #f1f1f2;
+  --surface-panel: #ffffff;
+  --surface-card: #f4f4f5;
+  --surface-elevated: #ececee;
+
+  --text-primary: #17171a;
+  --text-secondary: #6b6b72;
+  --text-tertiary: #92929a;
+
+  --color-focus: #424bd5;
+}

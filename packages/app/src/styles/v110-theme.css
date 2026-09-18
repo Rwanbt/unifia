@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
 /* Light-theme overrides -- maquette v110-port-ready-r1 line 5566
- * html[data-theme=light] block. Kept in its own layer so v110.css stays
+ * html[data-theme=light] block, adapted to the app's real mechanism:
+ * A1-CONTRACT.md line 28 pins light mode on html[data-color-scheme="light"]
+ * (data-theme carries the theme id, not the scheme), so the maquette's
+ * data-theme selectors are inert in the app and are translated here. Kept
+ * in its own layer so v110.css stays
  * under the AGENTS.md 1500 LOC ceiling. Targets only the real data-v110 /
  * data-parity anchors the app emits; the earlier version also declared
  * inert class hooks (a60-*, ai-text, browser-tab, graph-node, insp-tab)
@@ -11,49 +15,49 @@
   --faint: #4a4a52;
 }
 
-html[data-theme="light"] {
+html[data-color-scheme="light"] {
   --faint: #74747c;
 }
 
-html[data-theme="light"] [data-v110="home"] {
+html[data-color-scheme="light"] [data-v110="home"] {
   background:
     radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--surface-2) 18%, transparent), transparent 36%),
     var(--bg);
 }
 
-html[data-theme="light"] [data-v110="terminal"] {
+html[data-color-scheme="light"] [data-v110="terminal"] {
   background: var(--surface);
   box-shadow: 0 5px 14px color-mix(in srgb, var(--text) 6%, transparent);
 }
 
-html[data-theme="light"] [data-v110="code-editor"] {
+html[data-color-scheme="light"] [data-v110="code-editor"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="chat-timeline"] {
+html[data-color-scheme="light"] [data-v110="chat-timeline"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="composer-dock"] textarea {
+html[data-color-scheme="light"] [data-v110="composer-dock"] textarea {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="composer-dock"] {
+html[data-color-scheme="light"] [data-v110="composer-dock"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="memory-panel"] {
+html[data-color-scheme="light"] [data-v110="memory-panel"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="settings-dialog"] {
+html[data-color-scheme="light"] [data-v110="settings-dialog"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="inspector-frame"] {
+html[data-color-scheme="light"] [data-v110="inspector-frame"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="work-view-content"] {
+html[data-color-scheme="light"] [data-v110="work-view-content"] {
   background: var(--surface);
 }
