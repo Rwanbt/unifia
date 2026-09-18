@@ -97,9 +97,41 @@ flipped the pill's aria-pressed to true, and left the URL on "/" until a
 project is chosen. The six pills, the composer actions and the recent chips
 all wire to the real handlers.
 
+## Surface sweep -- 2026-09-18 (later)
+
+Every shell mode and the settings overlay were opened in the running app and
+inspected. Results, with the honest states preserved:
+
+| Surface | Result | Notes |
+|---|---|---|
+| Home (dark / light / 1440 / 390) | renders | topbar, watermark, state line, title, composer, chips, 6 pills, hint |
+| Home interaction | renders | clicking "Code" raises the project picker and flips aria-pressed |
+| Theme toggle | renders | click flips data-color-scheme and repaints both palettes |
+| Session / Code | renders | full shell: rail, context, chat, inspector, explorer, composer |
+| Work | renders | view switcher (Apercu/Taches/Tableau/Chronologie/Activite/Executions), progression, next-safe-action, assistant |
+| Design | renders | chat column + tabs (GitHub/Canvas/Terminal/Navigateur/Spec/Fichiers) + file search + canvas empty state |
+| Automate | gated | renders "Mode d'espace de travail invalide" because workflow.run is not granted -- correct capability gating, not a fake |
+| Settings | renders | 200px sidebar with groups, General page, appearance rows, version footer |
+
+Two notes that are NOT defects:
+
+- `FRAME` in the debug bar showed 1000ms on the routes I opened after the
+  MCP reconnected. The metric is "worst frame gap over the last 5 seconds",
+  and those tabs were backgrounded while another tab held focus, which stops
+  requestAnimationFrame and inflates the first gap on refocus. The same bar
+  read 5-8ms on the foregrounded home, and `LONG` stayed 0/0, so this is a
+  measurement artifact, not a one-second main-thread block.
+- One `TypeError: Failed to fetch dynamically imported module
+  .../src/pages/session.tsx` appeared while I was editing titlebar.tsx with
+  the page live. A reload cleared it; it is a Vite HMR transient, not a
+  shipped defect.
+
 Remaining visual gaps vs the frozen maquette: none identified for the home
-surface. The next real work is the harness (F0) that can diff pixels, then
-S3-S12 for the other surfaces.
+surface. The Design canvas column is reserved by the grid but empty -- that
+is the documented A6 gap in COMPONENT-MAP §8, and the panel shows an honest
+"Sélectionne un fichier pour l'aperçu." rather than a fake render. The next
+real work is the harness (F0) that can diff pixels, then S3-S12 for the
+remaining surfaces.
 
 ## Correction -- 2026-09-18 (late)
 
