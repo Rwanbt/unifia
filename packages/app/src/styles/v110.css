@@ -1198,3 +1198,149 @@ html[data-ui-animations="off"] *::after {
     justify-content: flex-end;
   }
 }
+
+/* A4 Code chrome — terminal card + head + resize handle + diff card.
+ * Mirrors the maquette v110-port-ready-r1 #codeArea / .terminal-shell /
+ * .terminal-head / .terminal-resize-handle / .terminal classes from
+ * COMPONENT-MAP §3 (A4 Code+Browser) and INTERACTIONS.md §Code. The
+ * geometry tokens (--v110-radius-*, --v110-fast) stay owned by the
+ * shell contract; this sheet only maps the maquette selectors onto them. */
+
+[data-v110="code-editor"] {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-md);
+  overflow: hidden;
+  min-height: 0;
+  transition: border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="code-editor"]:focus-within {
+  border-color: var(--border-focus);
+}
+
+.terminal-shell {
+  position: relative;
+  min-height: 96px;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 30px minmax(0, 1fr);
+  overflow: visible;
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-lg);
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.terminal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+
+.terminal-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.terminal-title b {
+  font-size: 8px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.terminal-title span:not(.terminal-dot) {
+  font-size: 7px;
+  color: var(--muted);
+}
+
+.terminal-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--success, var(--text-success, rgb(80, 170, 100)));
+}
+
+.terminal-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.terminal-head-btn {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.terminal-head-btn:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+[data-v110="terminal"] .terminal,
+.terminal-shell .terminal {
+  min-height: 0;
+  height: auto;
+  overflow: auto;
+  padding: 10px 12px 12px;
+  border: 0 !important;
+  border-radius: 0 0 var(--v110-radius-lg) var(--v110-radius-lg);
+  background: transparent !important;
+}
+
+.terminal-resize-handle {
+  position: absolute;
+  z-index: 25;
+  left: 14px;
+  right: 14px;
+  top: -7px;
+  height: 12px;
+  cursor: row-resize;
+}
+
+.terminal-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 34px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--line);
+  opacity: 0.32;
+  transition:
+    opacity var(--v110-fast) var(--v110-ease),
+    width var(--v110-fast) var(--v110-ease);
+}
+
+.terminal-resize-handle:hover::after,
+.terminal-resize-handle.dragging::after {
+  opacity: 0.9;
+  width: 46px;
+}
+
+[data-v110="code-diff"] {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-md);
+  overflow: hidden;
+}
+
+[data-v110="code-diff"]:focus-within {
+  border-color: var(--border-focus);
+}
