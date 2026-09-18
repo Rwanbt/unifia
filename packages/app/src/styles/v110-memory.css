@@ -1,0 +1,159 @@
+/* SPDX-License-Identifier: MIT */
+
+/* A9 Memory surface chrome -- maquette v110-port-ready-r1 §INTERACTIONS Memory
+ * + COMPONENT-MAP §6 (A7 Automate+Memory). Kept in its own layer so v110.css
+ * stays under the AGENTS.md 1500 LOC ceiling. The .memory-view / .vault-pane
+ * / .note-pane / .memory-side / .note / .memory-tabs / .graph-svg classes
+ * below map onto the existing data-v110=memory-panel selector; host
+ * components keep their own element tags, this layer supplies the contract
+ * geometry and chrome. */
+
+[data-v110="memory-panel"] .memory-view {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 246px;
+  gap: 10px;
+  padding: 10px;
+  transition: grid-template-columns 200ms var(--v110-ease);
+}
+
+[data-v110="memory-panel"] .memory-view.hide-vault {
+  grid-template-columns: 0 minmax(0, 1fr) 246px;
+}
+
+[data-v110="memory-panel"] .memory-view.hide-right {
+  grid-template-columns: 250px minmax(0, 1fr) 0;
+}
+
+[data-v110="memory-panel"] .memory-view.hide-vault.hide-right {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+[data-v110="memory-panel"] .vault-pane,
+[data-v110="memory-panel"] .note-pane,
+[data-v110="memory-panel"] .memory-side {
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-xl);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+[data-v110="memory-panel"] .vault-pane,
+[data-v110="memory-panel"] .memory-side {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-v110="memory-panel"] .vault-head,
+[data-v110="memory-panel"] .note-toolbar,
+[data-v110="memory-panel"] .memory-side-head {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="memory-panel"] .vault-head b,
+[data-v110="memory-panel"] .memory-side-head b {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-v110="memory-panel"] .vault-head .spacer,
+[data-v110="memory-panel"] .note-toolbar .spacer,
+[data-v110="memory-panel"] .memory-side-head .spacer {
+  flex: 1;
+}
+
+[data-v110="memory-panel"] .note {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+[data-v110="memory-panel"] .note .path {
+  font-size: 10px;
+  color: var(--faint, var(--text-tertiary));
+  margin-bottom: 14px;
+}
+
+[data-v110="memory-panel"] .note h1 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: -0.035em;
+}
+
+[data-v110="memory-panel"] .note .meta {
+  display: flex;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  margin-bottom: 24px;
+}
+
+[data-v110="memory-panel"] .memory-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="memory-panel"] .memory-tabs button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  height: 34px;
+  transition: color var(--v110-fast) var(--v110-ease), box-shadow var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="memory-panel"] .memory-tabs button:hover {
+  color: var(--text);
+}
+
+[data-v110="memory-panel"] .memory-tabs button.active {
+  color: var(--text);
+  box-shadow: inset 0 -2px var(--text);
+}
+
+[data-v110="memory-panel"] .graph-svg {
+  width: 100%;
+  height: 100%;
+}
+
+[data-v110="memory-panel"] .graph-edge {
+  stroke: var(--line-strong);
+  stroke-width: 1.1;
+  opacity: 0.65;
+  fill: none;
+}
+
+[data-v110="memory-panel"] .graph-node circle {
+  fill: var(--surface-3);
+  stroke: var(--line-strong);
+  stroke-width: 1.2;
+}
+
+[data-v110="memory-panel"] .graph-node text {
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+[data-v110="memory-panel"] .graph-node.main circle {
+  fill: var(--text);
+  stroke: var(--bg);
+}
+
+[data-v110="memory-panel"] .graph-node.main text {
+  fill: var(--bg);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="memory-panel"] .memory-view {
+    transition: none;
+  }
+}
