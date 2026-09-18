@@ -56,6 +56,16 @@ interface Anchor {
 // silently skipped every spread-props object (file-tabs.tsx, workspace-tabs
 // fragments, work-start-run dialog props) where the key is quoted.
 const markerPattern = /["']?(data-(?:v110|parity|component|action))["']?\s*[:=]\s*["']([a-zA-Z0-9_.\-:/ ]+)["']/g
+// JSX also allows an expression value, e.g.
+// `data-parity={props.mobile ? undefined : "shell.rail"}`. The literal pattern
+// above requires a quote straight after `=` so it cannot see those: a
+// conditional marker would vanish from the census and every fragment
+// referencing it would report as dangling. This second pass records each
+// quoted key-like string inside such an expression, which covers both the
+// single-value and the ternary form. Limitation: a conditional written in a
+// JS object literal without braces (`"k": cond ? "a" : "b"`) is still unseen.
+const exprPattern = /["']?(data-(?:v110|parity|component|action))["']?\s*[:=]\s*\{([^{}]*)\}/g
+const exprKeyPattern = /["']([a-zA-Z0-9_.\-:/ ]+)["']/g
 const handlerPattern = /\b(on(?:Click|Input|Change|Focus|Blur|Submit|KeyDown|KeyUp|KeyPress|Click|MouseDown|MouseUp|Click|ContextMenu|PointerDown|PointerUp|PointerMove|Drop|DragOver|DragStart|DragEnd|CompositionStart|CompositionEnd|Scroll|Resize|Load|Error|AnimationStart|AnimationEnd|AnimationIteration))\b/g
 
 function listFiles(dir: string): string[] {
@@ -129,6 +139,29 @@ for (const file of files) {
         selector: `[data-parity="${key}"]`,
         disposition: null,
       })
+    }
+  }
+
+  const exprRe = new RegExp(exprPattern.source, "g")
+  while ((match = exprRe.exec(content)) !== null) {
+    const lineNumber = content.slice(0, match.index).split("\n").length
+    const kind = match[1] as MarkerHit["kind"]
+    const body = match[2] ?? ""
+    const keyRe = new RegExp(exprKeyPattern.source, "g")
+    let keyMatch: RegExpExecArray | null
+    while ((keyMatch = keyRe.exec(body)) !== null) {
+      const key = keyMatch[1]
+      if (!key) continue
+      markers.push({ kind, key, file: fileRel(file), line: lineNumber })
+      if (kind === "data-parity") {
+        anchors.push({
+          semanticTargetId: key,
+          file: fileRel(file),
+          line: lineNumber,
+          selector: `[data-parity="${key}"]`,
+          disposition: null,
+        })
+      }
     }
   }
 
