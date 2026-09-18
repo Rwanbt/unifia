@@ -1,0 +1,144 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Editor + status bar + theme toggle + line numbers chrome -- the v110
+ * contract for the small code and theme primitives. Kept in its own
+ * layer so v110.css stays under the AGENTS.md 1500 LOC ceiling. The
+ * .editor / .ln / .kw / .fn / .st / .cm / .ty / .nu / .statusbar /
+ * #themeBtn / .theme-icon classes below map onto the existing data-v110
+ * markers on the code-editor container, the status bar host, and the
+ * theme toggle button. */
+
+[data-v110="code-editor"] .editor {
+  padding: 15px 17px;
+  overflow: auto;
+  white-space: pre;
+  font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: var(--text);
+  caret-color: var(--border-focus);
+  background: var(--surface);
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+[data-v110="code-editor"] .ln {
+  display: inline-block;
+  width: 30px;
+  color: var(--muted);
+  user-select: none;
+}
+
+[data-v110="code-editor"] .kw {
+  color: color-mix(in srgb, var(--text) 75%, var(--accent-strong, rgb(140, 160, 240)));
+}
+
+[data-v110="code-editor"] .fn {
+  color: color-mix(in srgb, var(--text) 85%, var(--accent-base, rgb(120, 140, 220)));
+}
+
+[data-v110="code-editor"] .st {
+  color: color-mix(in srgb, var(--text-success, rgb(80, 170, 100)) 90%, var(--text));
+}
+
+[data-v110="code-editor"] .cm {
+  color: var(--muted);
+  font-style: italic;
+}
+
+[data-v110="code-editor"] .ty {
+  color: color-mix(in srgb, var(--text-warning, rgb(220, 170, 60)) 80%, var(--text));
+}
+
+[data-v110="code-editor"] .nu {
+  color: color-mix(in srgb, var(--text-danger, rgb(220, 80, 80)) 60%, var(--text));
+}
+
+html[data-theme="light"] [data-v110="code-editor"] .editor {
+  color: var(--text);
+}
+
+.statusbar {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.statusbar .status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusbar .status-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.statusbar .status-item .dot.run {
+  background: var(--text-success, var(--success));
+}
+
+.statusbar .status-item .dot.ok {
+  background: var(--text-success, var(--success));
+}
+
+.statusbar .status-item .dot.warn {
+  background: var(--text-warning, var(--warning));
+}
+
+.statusbar .status-item .dot.err {
+  background: var(--text-danger, var(--danger));
+}
+
+.statusbar .status-item .label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.statusbar .status-spacer {
+  flex: 1;
+}
+
+#themeBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--v110-radius-sm);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease);
+}
+
+#themeBtn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+#themeBtn .theme-icon {
+  display: none;
+}
+
+#themeBtn .theme-icon-moon,
+#themeBtn .theme-icon-sun {
+  width: 16px;
+  height: 16px;
+}
+
+html[data-theme="dark"] #themeBtn .theme-icon-sun {
+  display: block;
+}
+
+html[data-theme="light"] #themeBtn .theme-icon-moon {
+  display: block;
+}
