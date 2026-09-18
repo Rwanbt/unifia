@@ -735,6 +735,31 @@ explicit reason -- pixel parity has only been measured for two surfaces
 out of the 16-fragment manifest, and one of the two open gaps is
 architectural, not cosmetic.
 
+**`code.default` (the default Code/chat view) attempted, result discarded
+as not meaningful.** Diffed at 3.83% (`parity/artifacts/pixel-diff/code-*`)
+but the comparison is unfair on its face: the app side is a brand-new
+session with no history (`Créez ce que vous voulez`, no open file), while
+the maquette shows its usual populated demo (an in-progress Rust editing
+session with file tabs, git status, tests). A low diff number here reflects
+two different kinds of empty/simple screens, not agreement. Confirming
+real Code parity needs a session with an actual file open, which needs the
+file-search/open flow to work -- see next paragraph for why that wasn't
+reachable this session.
+
+**Unrelated bug found while trying to open a file for that comparison, not
+investigated further, spawned as a follow-up task instead of chased here**:
+one of the app's own open workspace tabs (`workspace-tabs-bar.tsx`) has a
+corrupted directory segment -- decodes towards
+`D:\App\unifia\_a7-automate-memory\packages\unifia\` followed by U+FFFD
+replacement-character garbage instead of a real path. With that tab
+focused, `Ctrl+P` file search hangs forever on "Chargement" and
+`GET /global/event` (the SSE stream) loops `net::ERR_ABORTED`. Likely the
+same class of non-ASCII round-trip bug HANDOFF-CLAUDE.md's Windows gotchas
+section already documents, but happening at runtime in whatever persists
+open workspace tabs rather than in an editor tool. Not chased further --
+orthogonal to pixel-perfect visual parity, and this session was already
+deep into unrelated territory. Left for a dedicated investigation.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
