@@ -1,0 +1,237 @@
+/* SPDX-License-Identifier: MIT */
+
+/* A11 Automate studio chrome -- maquette v110-port-ready-r1 §INTERACTIONS Automate
+ * + COMPONENT-MAP §6 (A7 Automate+Memory) + the .a60-* selectors from the
+ * maquette. Kept in its own layer so v110.css stays under the AGENTS.md
+ * 1500 LOC ceiling. The .a60-* classes below map onto the existing
+ * data-v110=automate-surface selector; host components keep their own
+ * element tags, this layer supplies the contract geometry and chrome. */
+
+[data-v110="automate-surface"] .a60-studio {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  background: var(--surface);
+  color: var(--text);
+}
+
+[data-v110="automate-surface"] .a60-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  min-width: 0;
+}
+
+[data-v110="automate-surface"] .a60-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+[data-v110="automate-surface"] .a60-title b {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-v110="automate-surface"] .a60-dirty {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-warning, var(--warning));
+  opacity: 0;
+}
+
+[data-v110="automate-surface"] .a60-dirty.on {
+  opacity: 1;
+}
+
+[data-v110="automate-surface"] .a60-sub {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+[data-v110="automate-surface"] .a60-spacer {
+  flex: 1;
+}
+
+[data-v110="automate-surface"] .a60-head button,
+[data-v110="automate-surface"] .a60-head select {
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 9px;
+  padding: 0 9px;
+  transition: background-color var(--v110-fast) var(--v110-ease), border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="automate-surface"] .a60-head button:hover,
+[data-v110="automate-surface"] .a60-head select:hover {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+[data-v110="automate-surface"] .a60-head .primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+[data-v110="automate-surface"] .a60-body {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  position: relative;
+  overflow: hidden;
+}
+
+[data-v110="automate-surface"] .a60-body.lib-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+[data-v110="automate-surface"] .a60-lib {
+  grid-column: 1;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+[data-v110="automate-surface"] .a60-body.lib-collapsed .a60-lib {
+  display: none;
+}
+
+[data-v110="automate-surface"] .a60-body.lib-collapsed .a60-main {
+  grid-column: 2 !important;
+}
+
+[data-v110="automate-surface"] .a60-lib-head {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="automate-surface"] .a60-lib-head b {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+[data-v110="automate-surface"] .a60-lib-head button {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background-color var(--v110-fast) var(--v110-ease), color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="automate-surface"] .a60-lib-head button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="automate-surface"] .a60-search {
+  margin: 8px 8px 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  padding: 0 8px;
+}
+
+[data-v110="automate-surface"] .a60-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 10px;
+}
+
+[data-v110="automate-surface"] .a60-search span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+[data-v110="automate-surface"] .a60-lib-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 8px 16px;
+}
+
+[data-v110="automate-surface"] .a60-cat {
+  margin: 11px 3px 5px;
+  color: var(--faint, var(--text-tertiary));
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 700;
+}
+
+[data-v110="automate-surface"] .a60-node-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+[data-v110="automate-surface"] .a60-lib-node {
+  min-height: 52px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  cursor: grab;
+  transition: background-color var(--v110-fast) var(--v110-ease), border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="automate-surface"] .a60-lib-node:hover {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+[data-v110="automate-surface"] .a60-lib-node b {
+  font-size: 9px;
+}
+
+[data-v110="automate-surface"] .a60-lib-node small {
+  font-size: 8px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+[data-v110="automate-surface"] .a60-lib-node.dragging {
+  opacity: 0.55;
+}
