@@ -602,6 +602,89 @@ Full unit suite (1636 tests, 185 files) and typecheck stayed green
 throughout; each fix was verified live in the browser (both `locale=en` and
 `locale=fr` where applicable) before committing.
 
+## Pixel-perfect phase: real bugs, a new tool, and a hard scope boundary (2026-09-18)
+
+User's standing directive this phase: the sole objective is pixel-perfect
+parity against the frozen maquette, pursued rigorously. Scope so far: Home
+only.
+
+**Two real, verified bugs found and fixed on Home:**
+
+1. `packages/app/src/styles/v110.css` (around line 1043) contained a
+   JS-style `//` comment, invalid in CSS. This silently broke Tailwind's
+   `@tailwindcss/vite:generate:serve` transform for the *entire* bundled
+   `index.css` -- Vite kept serving a stale-but-successfully-compiled
+   bundle from before the comment was introduced, with no error surfaced to
+   normal requests. Found only because Vite was restarted (user-approved
+   exception to `packages/app/AGENTS.md`'s "never restart" rule) after
+   proving via a cache-bust marker that disk edits were not reaching the
+   served CSS at all. Fixed: `/* ... */`.
+2. `packages/app/src/styles/v110-home.css`'s `[data-v110="home"]` rule was
+   missing `flex: 1` inside its flex-column parent (`[data-v110="workspace"]`
+   / `<main>`), so it sized to content (548px measured) instead of filling
+   the 850px available -- `place-items: center` then centered inside an
+   undersized box, landing the hero ~185px above the maquette's actual
+   vertical center. Fixed by adding `flex: 1; min-height: 0;`, matching the
+   maquette's own `.home-screen` pair (lines 3995-4001 / 4382-4386).
+
+Home diff after both fixes: **2.04%** (`parity/artifacts/pixel-diff/home-*`,
+gitignored). Residual is the already-adjudicated real-project-vs-demo-chips
+difference and the demo-only "Auto · 2" topbar pill -- not chased further.
+
+**New tool: `packages/app/scripts/parity/pixel-diff.ts`**
+(`bun run --cwd packages/app parity:pixel:diff`). Screenshots the frozen
+maquette and the live app at matched viewport/theme/locale over the same
+isolated CDP browser `runtime-pair.ts` uses, diffs with `pixelmatch`. This
+is the closest practical substitute for the blocked S1 G2 Docker visual
+engine on this host. It carries the same host-resource-ceiling health check
+as `runtime-pair.ts` (throws instead of silently diffing a starved render).
+Extended this session with `--maquette-mode=<mode>` (calls the maquette's
+own `window.unifiaEnterWorkspace(mode)`, since the maquette is one static
+demo file that starts on its home screen and has no URL-addressable routes)
+and separate `--maquette-ready=` / `--app-ready=` selectors (the two sides
+never share a "this surface finished mounting" DOM convention).
+
+**Hard scope boundary found, not a bug: Workbench-bridge-gated surfaces
+cannot be pixel-diffed via this browser-only harness.**
+Navigated the real app interactively (Home -> open project ->
+"Mode Travail") and via `pixel-diff.ts` at `/<project>/work`. Both show
+`workbench.errors.bridgeUnavailable` ("Le pont Workbench est indisponible
+pour cet espace de travail") instead of the maquette's populated Work board
+(plan/agents/progression grid). Root cause, read directly:
+`packages/app/src/context/workbench/provider.tsx:56` --
+`const bridgeUnavailable = !platform.workbench`. `platform.workbench` is a
+Tauri-only native binding; it does not exist when the app is loaded in a
+plain browser against the Vite dev server, which is exactly how this
+harness (and `runtime-pair.ts`) drives it. The measured 6.91% diff for
+`work` is therefore evidence of nothing -- it is comparing the maquette's
+demo content against an environment fallback screen, not against the app's
+real, possibly-already-ported Work UI. **Do not trust or re-report that
+6.91% figure.** Pixel-diffing any Workbench-bridge-gated surface (Work
+executions, likely Code file operations, Automate, Memory -- STATE.md
+already recorded Memory/Automate as capability-gated for other reasons)
+needs the actual Tauri desktop build running, not this CDP-over-Vite
+harness. This is a real, new blocker of the same kind as the F0 Docker gap
+-- record it, do not silently work around it.
+
+Also observed, not yet root-caused: a direct full-page load of
+`/<project>/session` failed once with
+`TypeError: Failed to fetch dynamically imported module` and, on immediate
+retry, failed the health-check guard (`sheets=0 bodyLen=209`) -- both while
+`tasklist` showed 60 `brave.exe` processes, inside the host-resource-ceiling
+range HANDOFF-CLAUDE.md §8b documents. Both failures are consistent with
+resource starvation, not a routing defect, but this was not proven (no
+clean run was captured to compare against). The one `session` diff number
+obtained (2.90%) was captured before the second failure and should be
+treated as **unverified**, not as evidence of shell parity.
+
+**Net effect on scope**: only Home is pixel-diff-verified this phase.
+Work is blocked pending a Tauri-desktop-driven variant of this harness (or
+manual verification in the real desktop app). Session/shell parity is
+unmeasured (the one data point is unverified). Verdict below is unchanged
+by this phase: still `NOT_QUALIFIED`, now for an additional, explicit
+reason -- pixel parity has only been measured for one surface out of the
+16-fragment manifest.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
