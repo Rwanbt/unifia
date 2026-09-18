@@ -2,6 +2,7 @@
 @import "@/styles/unifia-brand.css";
 @import '@/styles/v110.css';
 @import '@/styles/v110-chat.css';
+@import '@/styles/v110-work.css';
 @import '@/shell/v110-shell.css';
 @import '@/pages/session/v110-chat.css';
 @import '@/pages/session/v110-inspector.css';
