@@ -72,13 +72,17 @@ const maquetteMode = arg("maquette-mode", "")
 const sharedReady = arg("ready", "")
 const maquetteReady = arg("maquette-ready", sharedReady)
 const appReady = arg("app-ready", sharedReady)
+// Some app surfaces (settings) are a dialog opened by a shortcut, not a
+// route -- runtime-pair.ts opens it the same way (Control+Comma) rather than
+// via a URL, since there is no URL for "the settings dialog is open".
+const appKey = arg("app-key", "")
 
 if (!maquetteUrl || !appUrl) {
   process.stderr.write(
     "usage: pixel-diff.ts --maquette=<url> --app=<url> [--name=out] [--cdp=http://127.0.0.1:9333] " +
       "[--width=1440] [--height=900] [--theme=dark|light] [--locale=fr] [--threshold=0.1] " +
       "[--keep-debug-bar] [--maquette-mode=work] [--ready=<selector>] " +
-      "[--maquette-ready=<selector>] [--app-ready=<selector>]\n",
+      "[--maquette-ready=<selector>] [--app-ready=<selector>] [--app-key=Control+Comma]\n",
   )
   process.exit(1)
 }
@@ -183,7 +187,16 @@ try {
         hideDebug: hideDebugBar,
       },
     )
-  })
+  }, appKey
+    ? async (page) => {
+        // The app only binds its shortcut handlers once mounted; pressing
+        // before that races the app's own hydration and silently no-ops
+        // (a real failure runtime-pair.ts hit first, see its expectedKind
+        // wait). [data-route] is the same "app has mounted" signal it uses.
+        await page.waitForSelector("[data-route]", { state: "attached", timeout: 20000 })
+        await page.keyboard.press(appKey)
+      }
+    : undefined)
 
   const img1 = PNG.sync.read(maquetteBuf)
   const img2 = PNG.sync.read(appBuf)
