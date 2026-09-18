@@ -959,6 +959,66 @@ The guard's own comment calls the allowlist "how a guard gets deleted" -- the
 allowlist is the weakness, not the regex. Widening it needs care (the comment
 family would fail it by design), so it is recorded rather than changed here.
 
+## Guard widened after two more real i18n bugs (2026-09-18, same day)
+
+Continuing the follow-up i18n work: the previous note said the #99 guard had a
+coverage gap. This session closed it for the two files that were already
+cleared, not by guessing but by finding more bugs first.
+
+**More bugs found by broadening the search before touching the guard:**
+1. `workbench-thread.tsx:503-504` -- the attach button carried hardcoded
+   French aria-label and title ("Joindre un fichier") on a button whose file
+   already binds `t`. Fixed by reusing `prompt.action.attachFile`, which
+   exists in all 17 locales with the exact French value -- no new key.
+2. `workbench-thread-list.tsx` -- five hardcoded French strings on action
+   buttons (Copier, Regenerate/Hint, Helpful, NeedsImprovement) AND three
+   visible state strings (empty-thread, next-steps heading, next-steps hint).
+   All eight routed through new `workbench.thread.*` keys, with translations
+   in all 17 locales. Note that "Copier" was a new key rather than reusing
+   `terminal.selection.copy`: that key is semantically scoped to terminal
+   selection, and a thread list button is a different control -- reusing it
+   would be a false sharing of knowledge.
+
+**Decisions to reuse rather than duplicate:**
+- `prompt.action.attachFile` (already all 17 locales, French is "Joindre un
+  fichier") for the thread attach button.
+- `workbench.thread.copy` rather than `terminal.selection.copy` -- same
+  reason as the previous session's `workbench.thread.skill.none` vs
+  `settings.fork.plugins.noSkills`: the keys belong to different controls.
+
+**Guard widened (`b4a0712af5`)** to cover workbench-thread.tsx and
+workbench-thread-list.tsx, after both were cleared, following the guard's own
+comment ("Widen this set only after clearing a file the same way; widening
+without that fails on files nobody has fixed yet, which is how a guard gets
+deleted"). Mutation-proven in the previous session's harness discipline.
+
+**Discipline correction (`014454db94`):** the widening was originally in the
+same commit as the UI fix (`fc59794528`), violating this branch's harness+UI
+separation rule. Corrected with two follow-up commits -- one to remove the
+widening, one to re-add it -- so each commit carries one intent. Verbose but
+traceable, and preferred over a force-push / interactive rebase of pushed
+history.
+
+**Honestly recorded mid-process defects, not hidden:**
+1. First edit pass used `lastIndexOf("}")` as the insertion point. Six
+   locales (de, ko, no, tr, zh, zht) end with `} satisfies
+   Partial<Record<Keys, string>>`, so the keys landed after the satisfies
+   clause and broke the syntax. A follow-up pass parsed the actual object
+   literal by brace matching and reinserted correctly. The final state is
+   clean and the parity test confirms it, but the intermediate broken state
+   would have shown up in typecheck had I caught it earlier -- I did not.
+2. The same brace-matching parser initially used a wrong arity (incomplete
+   translations map) and threw a value-undefined error, which left the
+   locales in their broken state and aborted before any write. That threw
+   cleanly before any commit, which is what saved this from a worse
+   outcome, but the misleading "all green" that came from a crude
+   `node -e` syntax check on the sliced object literal is itself recorded:
+   the check passed because the satisfies clause was outside its slice.
+   Real validation was the i18n/parity.test.ts 10/10 run plus bun typecheck.
+
+Verified: bun typecheck exit 0; full unit suite 1636 pass / 0 fail / 185
+files; i18n/parity.test.ts 10/10; manifest:check PASS.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
