@@ -60,12 +60,25 @@ this session; the frozen maquette's final home composition has no glance
 block and explicitly neutralises the earlier `.home-glance` rules, so
 shipping them would have been a fabricated addition presented as parity.
 
+Closed after the verification pass:
+
+- `5a172e5f14` ports the decorative Unifia symbol watermark behind the home
+  launch column (maquette markup line 15273, rules 4784-4822).
+- `cdf344033a` restores the simplified home topbar: brand wordmark on the
+  left, theme toggle on the right (maquette #themeBtn, lines 4871-4880).
+  The toggle was clicked in the browser and it flips data-color-scheme
+  dark <-> light, repainting the whole surface correctly.
+
+Correction to an earlier claim: the composer meta pills ARE "Build" /
+"MiniMax-M3" / "Default" in the frozen maquette (line 15291-15293), so the
+app already matched; the "Auto" I saw was the demo's runtime rewrite, not
+the frozen markup.
+
 Remaining visual gaps vs the frozen maquette (not yet ported):
 
-- the topbar on home is missing the Unifia wordmark (left) and the
-  right-side actions (theme toggle, server pill) that the maquette keeps;
-- the decorative Unifia symbol watermark behind the home is absent;
-- the composer meta pill reads "Build" where the maquette reads "Auto";
+- the home topbar does not carry the maquette's GitHub link or its
+  "Auto -2" server pill (the app shows the server as the in-body state line
+  instead);
 - the recent-project chips show filesystem paths where the maquette shows
   named workspace chips.
 
