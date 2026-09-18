@@ -33,6 +33,7 @@
     "parity:g0-mode:check": "bun run scripts/parity/g0-mode-derive.ts",
     "parity:census": "bun run scripts/parity/census-run.ts --emit=artifact",
     "parity:census:stdout": "bun run scripts/parity/census-run.ts --emit=stdout",
+    "parity:census:extended": "bun run scripts/parity/census-extended.ts --emit=artifact",
     "parity:tokens:audit": "bun run scripts/parity/tokens-audit.ts --emit=artifact",
     "parity:motion:static": "bun run scripts/parity/motion-static.ts --emit=artifact",
     "parity:aa": "bun run scripts/parity/runtime.ts aa",
