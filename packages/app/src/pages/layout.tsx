@@ -1003,7 +1003,7 @@ export default function Layout(props: ParentProps) {
 
   return (
     <TitlebarSlotsProvider>
-      <div data-v110="shell-frame" data-component="v110-shell-frame" class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
+      <div data-v110="shell-frame" data-component="v110-shell-frame" data-route={mode.routeKind()} class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
       <WorkspaceTabsBar />
       <div class="flex-1 min-h-0 min-w-0 flex">
@@ -1116,7 +1116,15 @@ export default function Layout(props: ParentProps) {
                   !state.sizing,
               }}
               style={{
-                "--main-left": layout.sidebar.opened() ? `${side()}px` : "var(--v110-rail, 78px)",
+                // Home renders full-bleed: no context panel, no workspace
+                // gutter. The v110 maquette collapses the shell to the rail
+                // only on the home route (see v110-home.css §home-mode).
+                "--main-left":
+                  mode.routeKind() === "home"
+                    ? "0px"
+                    : layout.sidebar.opened()
+                      ? `${side()}px`
+                      : "var(--v110-rail, 78px)",
               }}
             >
               <main

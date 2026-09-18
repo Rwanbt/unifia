@@ -4,8 +4,36 @@
  * Kept in its own layer so v110.css stays under the AGENTS.md 1500 LOC
  * ceiling. The [data-v110=home*] selectors below map onto the existing
  * home.tsx anchors; the host component keeps its own element tags, this
- * layer supplies the contract geometry, the state machine chrome, the
- * shimmer overlay, the loading / empty chrome and the glance cards. */
+ * layer supplies the contract geometry, the state machine chrome and the
+ * shimmer overlay. */
+
+/* Home mode -- the maquette v110-port-ready-r1 `.app.show-home` rules
+ * (lines 4013-4034 and 4701-4752). On the home route the shell collapses to
+ * the rail only: the context panel, the workspace-tabs strip and the
+ * inspector are hidden, and the home fills the full window. The rail stays
+ * visible so the user can still switch modes.
+ *
+ * WHY !important: the desktop nav carries the Tailwind `hidden shell:block`
+ * pair, whose generated rule is emitted after this layer and would otherwise
+ * win the cascade. The maquette uses `!important` on the same rules for the
+ * same reason. */
+
+[data-v110="shell-frame"][data-route="home"] [data-component="sidebar-nav-desktop"],
+[data-v110="shell-frame"][data-route="home"] [data-component="sidebar-nav-mobile"],
+[data-v110="shell-frame"][data-route="home"] [data-v110="workspace-tabs"],
+[data-v110="shell-frame"][data-route="home"] [data-component="v110-inspector-frame"],
+[data-v110="shell-frame"][data-route="home"] [data-v110="inspector-frame"] {
+  display: none !important;
+}
+
+/* The workspace wrapper keeps the home full-bleed: no border, no rounding,
+ * no left gutter (layout.tsx sets --main-left: 0px on the home route). */
+[data-v110="shell-frame"][data-route="home"] [data-v110="workspace"] {
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-radius: 0 !important;
+  align-items: stretch !important;
+}
 
 [data-v110="home"] {
   position: relative;
@@ -320,40 +348,4 @@
 [data-v110="home-loading"] {
   color: var(--muted);
   text-align: center;
-}
-
-/* Glance cards (3 stat cells under the subtitle). */
-[data-v110="home-glance"] {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  width: min(560px, 100%);
-  margin-top: 4px;
-}
-
-[data-v110="home-glance-cell"] {
-  padding: 14px 12px;
-  border-radius: var(--v110-radius-md);
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
-  min-height: 84px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-}
-
-[data-v110="home-glance-cell"] b {
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text);
-  font-weight: 700;
-}
-
-[data-v110="home-glance-cell"] span {
-  font-size: 10px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 650;
 }
