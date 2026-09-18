@@ -23,6 +23,7 @@ import { createHash } from "node:crypto"
 import { REPO_ROOT, PARITY_DIR, SCHEMAS_DIR, hashFile, hashCanonical, stableStringify } from "./shared"
 
 const lockPath = join(PARITY_DIR, "pilot-contract-lock.json")
+const fullLockPath = join(PARITY_DIR, "full-contract-lock.json")
 
 if (!existsSync(lockPath)) {
   process.stderr.write(`missing file: ${lockPath}\n`)
@@ -124,6 +125,51 @@ if (existsSync(join(PARITY_DIR, "environment-lock.json"))) {
 
 writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n")
 
+type FullLockFile = {
+  planCommit: string
+  policyHashes: Record<string, string>
+  schemaHashes: Record<string, string>
+  environmentLockHash: string
+  mutationSpecHash: string
+  censusMergePolicyHash: string
+  pathClassificationHash: string
+}
+
+let fullSummary: Record<string, unknown> = {}
+if (existsSync(fullLockPath)) {
+  const full = JSON.parse(readFileSync(fullLockPath, "utf8")) as FullLockFile
+  for (const policy of policyFiles) {
+    const fullPath = join(PARITY_DIR, policy)
+    if (existsSync(fullPath)) {
+      full.policyHashes[policy] = hashCanonicalJson(fullPath)
+    }
+  }
+  for (const schema of schemaFiles) {
+    const fullSchemaPath = join(SCHEMAS_DIR, schema)
+    if (existsSync(fullSchemaPath)) {
+      full.schemaHashes[schema] = hashFile(fullSchemaPath)
+    }
+  }
+  if (existsSync(join(PARITY_DIR, "mutation-spec.json"))) {
+    full.mutationSpecHash = hashCanonicalJson(join(PARITY_DIR, "mutation-spec.json"))
+  }
+  if (existsSync(join(PARITY_DIR, "census-merge-policy.json"))) {
+    full.censusMergePolicyHash = hashCanonicalJson(join(PARITY_DIR, "census-merge-policy.json"))
+  }
+  if (existsSync(join(PARITY_DIR, "path-classification.json"))) {
+    full.pathClassificationHash = hashCanonicalJson(join(PARITY_DIR, "path-classification.json"))
+  }
+  if (existsSync(join(PARITY_DIR, "environment-lock.json"))) {
+    full.environmentLockHash = hashCanonicalJson(join(PARITY_DIR, "environment-lock.json"))
+  }
+  writeFileSync(fullLockPath, JSON.stringify(full, null, 2) + "\n")
+  fullSummary = {
+    fullPolicyCount: Object.keys(full.policyHashes).length,
+    fullSchemaCount: Object.keys(full.schemaHashes).length,
+    fullEnvironmentLockHash: full.environmentLockHash,
+  }
+}
+
 const written = JSON.parse(readFileSync(lockPath, "utf8")) as LockFile
 const summary = {
   status: "REFRESH_OK",
@@ -136,6 +182,7 @@ const summary = {
     aaCalibrationHash: written.aaCalibrationHash,
     aaPrimeHash: written.aaPrimeHash,
   },
+  full: fullSummary,
   refreshCommand: "bun run --cwd packages/app parity:lock:refresh",
 }
 
