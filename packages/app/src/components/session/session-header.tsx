@@ -310,7 +310,7 @@ export function SessionHeader() {
                   meta, gap 8px -- not stacked). Reuses the same
                   workbench.modes.name.* key the breadcrumb already uses for
                   the title; the meta tagline is new (workbench.modes.meta.*). */}
-              <div class="hidden 2xl:flex items-center gap-2 max-w-[220px] overflow-hidden shrink-0">
+              <div class="hidden shell:flex items-center gap-2 max-w-[220px] overflow-hidden shrink-0">
                 <b class="text-11-medium text-text-strong shrink-0">
                   {language.t(`workbench.modes.name.${mode.active()}`)}
                 </b>
