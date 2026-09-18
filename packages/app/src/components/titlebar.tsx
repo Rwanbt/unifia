@@ -9,7 +9,6 @@ import { Logo } from "@unifia/ui/logo"
 import { useTheme } from "@unifia/ui/theme/context"
 
 import { useLayout } from "@/context/layout"
-import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
@@ -49,13 +48,7 @@ export function Titlebar() {
   const location = useLocation()
   const params = useParams()
   const slots = useTitlebarSlots()
-  const mode = useMode()
 
-  // The home route keeps a simplified topbar: brand wordmark on the left,
-  // theme toggle on the right, history and per-workspace chrome hidden. The
-  // frozen maquette does the same with its `.app.show-home` topbar rules
-  // (Unifia-UI-UX-v110-PORT-READY-R1.html lines 4013-4034).
-  const home = createMemo(() => mode.routeKind() === "home")
   const toggleScheme = () => theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
 
   const mac = createMemo(() => platform.platform === "desktop" && platform.os === "macos")
@@ -229,9 +222,7 @@ export function Titlebar() {
               <Icon size="small" name={layout.sidebar.opened() ? "sidebar-active" : "sidebar"} />
             </Button>
           </TooltipKeybind>
-          <Show when={home()}>
-            <Logo class="h-6 w-auto ml-1 shrink-0" />
-          </Show>
+          <Logo class="h-6 w-auto ml-1 shrink-0" />
           <div class="hidden shell:flex items-center shrink-0">
             <Show when={params.dir}>
               <div
@@ -318,42 +309,43 @@ export function Titlebar() {
         onMouseDown={drag}
       >
         <div ref={slots.registerRight} class="flex items-center gap-1 shrink-0 justify-end" />
-        <Show when={home()}>
-          {/* The icon set has no sun/moon glyph, so the theme toggle draws its
-              own. Maquette keeps this control in the home topbar
-              (Unifia-UI-UX-v110-PORT-READY-R1.html #themeBtn, lines 4871-4880). */}
-          <button
-            type="button"
-            class="titlebar-icon rounded-md shrink-0 text-text-weak hover:text-text-strong grid place-items-center w-8 h-6"
-            onClick={toggleScheme}
-            aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
-            title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
-          >
-            <Show
-              when={theme.mode() === "light"}
-              fallback={
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.4" />
-                  <path
-                    d="M10 2.2v2M10 15.8v2M2.2 10h2M15.8 10h2M4.5 4.5l1.4 1.4M14.1 14.1l1.4 1.4M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4 1.4"
-                    stroke="currentColor"
-                    stroke-width="1.4"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              }
-            >
+        {/* The icon set has no sun/moon glyph, so the theme toggle draws its
+            own. #themeBtn (Unifia-UI-UX-v110-PORT-READY-R1.html, lines
+            4871-4880) is never in the .app.show-home hide-list (lines
+            4013-4027), so the maquette keeps it visible on every route, not
+            just home -- this used to be gated behind `home()`, which hid it
+            the moment a project was opened. */}
+        <button
+          type="button"
+          class="titlebar-icon rounded-md shrink-0 text-text-weak hover:text-text-strong grid place-items-center w-8 h-6"
+          onClick={toggleScheme}
+          aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
+          title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
+        >
+          <Show
+            when={theme.mode() === "light"}
+            fallback={
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.4" />
                 <path
-                  d="M16.2 12.4A7 7 0 0 1 7.6 3.8a7 7 0 1 0 8.6 8.6Z"
+                  d="M10 2.2v2M10 15.8v2M2.2 10h2M15.8 10h2M4.5 4.5l1.4 1.4M14.1 14.1l1.4 1.4M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4 1.4"
                   stroke="currentColor"
                   stroke-width="1.4"
-                  stroke-linejoin="round"
+                  stroke-linecap="round"
                 />
               </svg>
-            </Show>
-          </button>
-        </Show>
+            }
+          >
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M16.2 12.4A7 7 0 0 1 7.6 3.8a7 7 0 1 0 8.6 8.6Z"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </Show>
+        </button>
         <Show when={platform.windowControls}>
           <div data-window-controls class="flex flex-row shrink-0">
             <button
