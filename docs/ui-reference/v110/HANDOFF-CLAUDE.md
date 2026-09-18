@@ -239,6 +239,54 @@ onto one `<Dynamic>`) shows as a duplicate while only one element exists at
 runtime. This is exactly why runtime pairing exists and why the `shell.rail`
 defect could only be found against the DOM.
 
+## 8b. Host resource ceiling -- the dominant confound (added 2026-09-18, second session)
+
+Do not skip this. It invalidated a whole round of verification.
+
+Measured on this host during the follow-up session:
+
+  free RAM: 2058-2562 MB of 16087 MB  (13-16% free)
+  brave.exe processes: 53-64
+  node.exe processes: up to 17
+
+At that occupancy, loading the app in an attached browser produces
+`net::ERR_INSUFFICIENT_RESOURCES` and the page silently renders **nothing**:
+body length 0, zero stylesheets, no `[data-route]`. The navigation itself still
+succeeds, so nothing throws -- every fragment simply measures 0 and the runner
+reports a wall of FAILs that have nothing to do with the code under test.
+
+Decisive evidence that this is the host and not the runner: the SAME health check,
+with NO code change in between, passed and then failed minutes later.
+
+    HEALTH: {"route":"workspace-root","sheets":2,"shell":true,"bodyLen":418}   <- good
+    HEALTH: {"route":null,"sheets":1,"shell":false,"bodyLen":203}              <- starved
+
+Consequences, and the rule that follows:
+
+1. Any "FAIL: scene did not become ready" or "raw 0/1" must be **disbelieved**
+   until a health check on that same browser passes. Report the environment, not
+   a verdict.
+2. Do NOT read a failing run as proof the runner regressed. In the follow-up
+   session, three runs against a starved browser produced 2/10/4, 3/9/4 and
+   9/3/4 -- wildly varied, and none of it attributable to the script.
+3. Before ANY pairing run, assert the app rendered. Bail out loudly if not:
+
+       route == "workspace-root" && styleSheets.length >= 2 &&
+       document.querySelector('[data-v110="shell-frame"]') != null
+
+4. Free memory first. Close idle tabs and stop browsers you started. Do not
+   touch the MCP browser or the :9222 Holberton instance -- they are not yours.
+
+What remains genuinely unverified because of this: runtime-pair.ts had earlier
+reported 12 passed / 0 failed / 4 blocked on a healthy browser (commit
+463821e886, whose root-cause analysis of the two original defects -- the theme
+toggle racing the app's own reactivity through localStorage, and the blind
+waitForTimeout -- is correct and matches the observed symptoms). That 12/0/4 was
+NOT reproduced in the follow-up session, but the follow-up session never once had
+a healthy browser, so it neither confirms nor refutes it. **Treat 12/0/4 as
+reported-but-not-independently-reproduced.** Re-run it on a quiet host before
+relying on it.
+
 ## 9. Your first actions, in order
 
 1. Read `parity/STATE.md` and this file end to end.
