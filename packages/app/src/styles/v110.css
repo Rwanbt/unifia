@@ -1396,3 +1396,65 @@ html[data-ui-animations="off"] *::after {
   background: var(--surface);
   border-bottom-color: var(--text);
 }
+
+/* A4 motion contract — maquette v110-port-ready-r1 §INTERACTIONS Motion.
+ * The motion-policy.json pins the durations; this sheet only wires the
+ * utility tokens and the transition property on the contract selectors.
+ * The reduced-motion kill-switch sits at the top of v110.css (line 123). */
+
+:root {
+  --v110-split: 680ms;
+  --v110-micro: 150ms;
+  --v110-soft: 220ms;
+  --v110-easing: cubic-bezier(0.16, 0.84, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --v110-split: 0ms;
+    --v110-micro: 0ms;
+    --v110-soft: 0ms;
+  }
+}
+
+html[data-ui-animations="off"] {
+  --v110-split: 0ms;
+  --v110-micro: 0ms;
+  --v110-soft: 0ms;
+}
+
+/* The motion policy says shell.inspector and shell.workspace-tabs use a
+ * finite 220ms transition. The data-v110 selectors let the harness match
+ * them and the contract anchors stay rendered. */
+[data-parity="shell.inspector"],
+[data-v110="inspector-frame"] {
+  transition:
+    width var(--v110-soft) var(--v110-easing),
+    transform var(--v110-soft) var(--v110-easing),
+    opacity var(--v110-soft) var(--v110-easing);
+}
+
+[data-parity="shell.workspace-tabs"] {
+  transition: background-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-parity="work.content"],
+[data-parity="session.chat"] {
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    opacity var(--v110-fast) var(--v110-ease);
+}
+
+[data-parity="home-mode-pill"]:hover,
+[data-parity="home-mode-pill"][aria-pressed="true"] {
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-parity="code.terminal"] {
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
