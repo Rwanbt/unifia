@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "code.terminal",
+  "slice": "S6",
+  "scene": "code.default",
+  "anchorKind": "code.terminal",
+  "reference": { "selector": "div.terminal", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "div[data-parity=\"code.terminal\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "code.terminal",
+  "mask": null,
+  "disposition": "port"
+}
