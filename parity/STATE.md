@@ -666,24 +666,74 @@ needs the actual Tauri desktop build running, not this CDP-over-Vite
 harness. This is a real, new blocker of the same kind as the F0 Docker gap
 -- record it, do not silently work around it.
 
-Also observed, not yet root-caused: a direct full-page load of
-`/<project>/session` failed once with
-`TypeError: Failed to fetch dynamically imported module` and, on immediate
-retry, failed the health-check guard (`sheets=0 bodyLen=209`) -- both while
-`tasklist` showed 60 `brave.exe` processes, inside the host-resource-ceiling
-range HANDOFF-CLAUDE.md §8b documents. Both failures are consistent with
-resource starvation, not a routing defect, but this was not proven (no
-clean run was captured to compare against). The one `session` diff number
-obtained (2.90%) was captured before the second failure and should be
-treated as **unverified**, not as evidence of shell parity.
+**Correction, found and fixed within this same phase**: the `work` and the
+first `session` diff runs above used
+`--app=http://127.0.0.1:4444/4b0ea68d7af9a6031a7ffda7ad66e0cb83315750/...`
+-- `4b0ea68d7af9a6031a7ffda7ad66e0cb83315750` is a project **id** from the
+backend's `GET /project`, not what the app's own router expects. Read
+directly: `packages/app/src/context/mode-directory.ts:29` decodes the first
+path segment with `base64Decode` (`packages/util/src/encode.ts:7-11`, a
+base64url variant) into a filesystem directory path. A hex project id
+happens to be valid base64url alphabet, so it silently decoded into a
+garbage-but-truthy directory instead of throwing -- the app then tried to
+treat that garbage string as a real project path. This, not host resource
+starvation, is the more likely cause of the earlier
+`TypeError: Failed to fetch dynamically imported module` on `/session`.
+**The earlier "unverified, possible resource ceiling" framing for that
+failure is superseded by this -- the actual bug was in the test URL.**
+Correct form: `base64Encode(worktreePath)` (same file, line 1-5), e.g.
+`D:\App\unifia\unifia` -> `RDpcQXBwXHVuaWZpYVx1bmlmaWE`. Confirmed by
+decoding the app's own tab title after opening that project by hand and
+by a matching `node` computation. With the corrected URL, `/session`
+loads cleanly and repeatably -- no further resource-ceiling symptoms
+observed once the project segment was right.
 
-**Net effect on scope**: only Home is pixel-diff-verified this phase.
-Work is blocked pending a Tauri-desktop-driven variant of this harness (or
-manual verification in the real desktop app). Session/shell parity is
-unmeasured (the one data point is unverified). Verdict below is unchanged
-by this phase: still `NOT_QUALIFIED`, now for an additional, explicit
-reason -- pixel parity has only been measured for one surface out of the
-16-fragment manifest.
+**Settings dialog, corrected URL**: `parity:pixel:diff --name=settings`
+(maquette via `--maquette-mode=settings`, app via
+`--app-key=Control+Comma` on `/RDpcQXBwXHVuaWZpYVx1bmlmaWE/session`) ->
+**5.58%** (`parity/artifacts/pixel-diff/settings-*`). Screenshots compared
+directly. The dialog's own content is close: same field set on the
+Général tab (Langue, Développer shell/edit, Animations, Schéma de
+couleurs, Thème), same visual language (`dialog-settings.tsx` already
+carries `data-v110` markers). Two real, sourced, NOT-yet-fixed gaps drive
+most of the remaining diff, both bigger than a CSS nudge:
+1. **Category grouping differs.** App: two groups (Bureau; Serveur, which
+   bundles Fournisseurs/Modèles/Configuration/Remote access/Se
+   connecter/Benchmark/Observabilité/Mémoire/Plugins together). Maquette:
+   four groups (Bureau; IA; Infrastructure; Extensions) that split what the
+   app calls "Serveur" apart. A few maquette-only fields are also missing
+   app-side (Couleur d'accent, Police de l'interface, Police de code,
+   Observabilité du chat's granularity picker).
+2. **No persistent left conversation panel.** The maquette renders Settings
+   (like Work) as a split view: a permanent left "Conversation" chat-thread
+   column plus the mode's own content on the right, inside the same shell
+   frame the maquette uses for every mode. The app renders Settings as a
+   dialog/panel over the session view (composer peeking below, dimmed
+   backdrop) with no such split -- confirmed this is not simply an unstyled
+   v110 component: `layout.tsx:1006` (`data-v110="shell-frame"`) and
+   `titlebar.tsx:176` (`data-v110="topbar"`) already wrap every route, home
+   included, and the app's single topbar has no per-mode breadcrumb
+   ("Prism EQ / Paramètres"), no Chat/Split/Editor toggle, and no status
+   pill -- these are simply not built yet for non-home routes, not a
+   partially-applied style.
+
+Not a bug, already adjudicated (STATE.md above, "Observed in the DOM but
+NOT pairable"): the topmost workspace-tabs row (Accueil/master/new-ui/...)
+visible in the app screenshots is `workspace-tabs-bar.tsx`, itself
+`data-v110`-tagged -- a real, intentional multi-workspace-tab feature with
+no maquette equivalent, not an unported legacy holdover. It inflates the
+settings/session diff percentage without being a defect.
+
+**Net effect on scope**: Home (2.04%) and now Settings (5.58%, gaps
+identified and sourced above) are pixel-diff-verified. Work remains
+blocked on the Tauri-desktop requirement. The Settings result surfaces a
+scope-level question -- whether Settings/Work should adopt the maquette's
+persistent-conversation split layout -- that is bigger than incremental
+CSS work and needs a product decision, not a silent fix. Verdict below is
+unchanged by this phase: still `NOT_QUALIFIED`, now for an additional,
+explicit reason -- pixel parity has only been measured for two surfaces
+out of the 16-fragment manifest, and one of the two open gaps is
+architectural, not cosmetic.
 
 ## Verdict
 
