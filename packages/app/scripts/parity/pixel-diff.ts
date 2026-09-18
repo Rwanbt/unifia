@@ -57,11 +57,28 @@ const theme = arg("theme", "dark")
 const locale = arg("locale", "fr")
 const threshold = Number(arg("threshold", "0.1"))
 const hideDebugBar = !flag("keep-debug-bar")
+// The maquette is one static HTML file covering every surface: it starts on
+// its home screen and only reaches Work/Chat/etc. by running the same click
+// the user would make (window.unifiaEnterWorkspace, exposed by the maquette's
+// own home-rail script). Without this every surface but Home would diff the
+// maquette's home screen against the app's real one -- 100% "different" and
+// meaningless.
+const maquetteMode = arg("maquette-mode", "")
+// The maquette and the app almost never share a DOM shape for "this surface
+// finished mounting" (the app marks routes with data-route; the maquette has
+// no such convention and uses its own per-view class), so each side gets its
+// own selector. --ready sets both when they DO happen to match (e.g. neither
+// side needs one, or a shared convention exists).
+const sharedReady = arg("ready", "")
+const maquetteReady = arg("maquette-ready", sharedReady)
+const appReady = arg("app-ready", sharedReady)
 
 if (!maquetteUrl || !appUrl) {
   process.stderr.write(
     "usage: pixel-diff.ts --maquette=<url> --app=<url> [--name=out] [--cdp=http://127.0.0.1:9333] " +
-      "[--width=1440] [--height=900] [--theme=dark|light] [--locale=fr] [--threshold=0.1] [--keep-debug-bar]\n",
+      "[--width=1440] [--height=900] [--theme=dark|light] [--locale=fr] [--threshold=0.1] " +
+      "[--keep-debug-bar] [--maquette-mode=work] [--ready=<selector>] " +
+      "[--maquette-ready=<selector>] [--app-ready=<selector>]\n",
   )
   process.exit(1)
 }
@@ -71,6 +88,7 @@ async function shoot(
   url: string,
   readySelector: string | null,
   initFn?: (page: Page) => Promise<void>,
+  afterLoadFn?: (page: Page) => Promise<void>,
 ): Promise<Buffer> {
   const page = await context.newPage()
   try {
@@ -99,6 +117,7 @@ async function shoot(
           `browser tabs/processes you started) and retry.`,
       )
     }
+    if (afterLoadFn) await afterLoadFn(page)
     if (readySelector) {
       await page.waitForSelector(readySelector, { state: "attached", timeout: 20000 })
     }
@@ -128,8 +147,24 @@ try {
   const context = browser.contexts()[0]
   if (!context) throw new Error("CDP browser exposed no context")
 
-  const maquetteBuf = await shoot(context, maquetteUrl, null)
-  const appBuf = await shoot(context, appUrl, null, async (page) => {
+  const maquetteBuf = await shoot(
+    context,
+    maquetteUrl,
+    maquetteReady || null,
+    undefined,
+    maquetteMode
+      ? async (page) => {
+          await page.evaluate((mode) => {
+            const win = window as unknown as { unifiaEnterWorkspace?: (mode: string) => void }
+            if (typeof win.unifiaEnterWorkspace !== "function") {
+              throw new Error("maquette does not expose window.unifiaEnterWorkspace")
+            }
+            win.unifiaEnterWorkspace(mode)
+          }, maquetteMode)
+        }
+      : undefined,
+  )
+  const appBuf = await shoot(context, appUrl, appReady || null, async (page) => {
     await page.addInitScript(
       ({ colorKey, colorValue, langKey, langValue, hideDebug }) => {
         localStorage.setItem(colorKey, colorValue)
