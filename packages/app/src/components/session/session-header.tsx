@@ -514,32 +514,65 @@ export function SessionHeader() {
                     </Button>
                   </TooltipKeybind>
 
-                  {/* FORK: Stretch Phase 6 — editor focus mode (tablet mode).
-                      sessionPanelWidth (session.tsx) only reacts to this when
-                      isDesktop(), so on mobile the button toggles state with
-                      no visible effect — hide it there. */}
-                  <Show when={platform.platform !== "mobile" && layout.inspector.opened()}>
-                    <TooltipKeybind
-                      title={layout.editorFocus.enabled() ? language.t("session.header.restoreChat") : language.t("session.header.editorFocus")}
-                      keybind=""
-                    >
-                      <Button
-                        variant="ghost"
-                        class="titlebar-icon w-8 h-6 p-0 box-border"
-                        onClick={() => layout.editorFocus.toggle()}
-                        aria-label={layout.editorFocus.enabled() ? language.t("session.header.restoreChat") : language.t("session.header.editorFocus")}
-                        aria-pressed={layout.editorFocus.enabled()}
-                      >
-                        <Icon
-                          size="small"
-                          name={layout.editorFocus.enabled() ? "collapse" : "expand"}
-                          classList={{
-                            "text-icon-strong": layout.editorFocus.enabled(),
-                            "text-icon-weak": !layout.editorFocus.enabled(),
-                          }}
-                        />
-                      </Button>
-                    </TooltipKeybind>
+                  {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239).
+                      The maquette's own script (module 070) reduces this to
+                      exactly these 3 states for every non-memory mode --
+                      "Graph" is force-hidden outside memory (line 27926-27929,
+                      "the historical Graph button never belongs to the global
+                      layout selector"). Backed by the same two signals the old
+                      single icon-toggle button above used
+                      (layout.inspector/layout.editorFocus), so this REPLACES
+                      that button rather than duplicating it: "Editor" here is
+                      exactly the old button's enabled state. No visible effect
+                      on mobile (sessionPanelWidth only reacts on isDesktop()),
+                      same as the button it replaces. */}
+                  <Show when={platform.platform !== "mobile"}>
+                    {(() => {
+                      const view = createMemo<"chat" | "split" | "main">(() => {
+                        if (!layout.inspector.opened()) return "chat"
+                        return layout.editorFocus.enabled() ? "main" : "split"
+                      })
+                      const setView = (next: "chat" | "split" | "main") => {
+                        if (next === "chat") {
+                          layout.editorFocus.disable()
+                          layout.inspector.close()
+                          return
+                        }
+                        if (!layout.inspector.opened()) layout.inspector.open()
+                        if (next === "main") layout.editorFocus.enable()
+                        else layout.editorFocus.disable()
+                      }
+                      const options = [
+                        { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                        { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                        { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                      ]
+                      return (
+                        <div
+                          role="radiogroup"
+                          aria-label={language.t("session.header.viewSwitch.label")}
+                          class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-surface-panel p-0.5 shrink-0"
+                        >
+                          <For each={options}>
+                            {(option) => (
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked={view() === option.id}
+                                class="rounded-md px-2 h-5 text-11-medium transition-colors"
+                                classList={{
+                                  "bg-surface-raised-base text-text-strong": view() === option.id,
+                                  "text-text-weak hover:text-text-strong": view() !== option.id,
+                                }}
+                                onClick={() => setView(option.id)}
+                              >
+                                {option.label}
+                              </button>
+                            )}
+                          </For>
+                        </div>
+                      )
+                    })()}
                   </Show>
                 </div>
 
