@@ -14,6 +14,61 @@ Generated: 2026-09-18 (current HEAD at the time of writing).
 - `new-ui` — every commit in this session lands directly on this branch (no feature branch, no worktree, no PR).
 - Local HEAD and `origin/new-ui` HEAD stay aligned: a `git fetch` then `git rev-parse origin/new-ui == git rev-parse HEAD` is the pre-push gate.
 
+## Browser verification -- 2026-09-18 (late)
+
+The port was rendered in a real browser for the first time: backend on
+:4096, Vite on :4444, Chromium at 1440x900. Three real defects surfaced that
+the CSS-only work had hidden, and all three are fixed.
+
+1. **Broken app (regression, mine).** Commit `f1928f6e7e` overwrote
+   `packages/app/src/index.css` and dropped `@import
+   "@unifia/ui/styles/tailwind"` plus the `getting-started` component layer.
+   With no Tailwind pipeline, `max-w-[400px]` resolved to `none`, `fixed` to
+   `static`, `shell:hidden` produced no rule, the shell collapsed and the
+   mobile sidebar rendered at desktop width. Fixed in `29874507e9`. The
+   regression was live on `origin/new-ui` from `f1928f6e7e` until that fix.
+
+2. **Home was not full-bleed.** The shell rendered on the home route (the
+   router wraps every route in `<Layout>`), so the home sat inside the
+   workspace gutter below the context panel. Fixed in `29874507e9`:
+   `layout.tsx` now emits `data-route={mode.routeKind()}` and sets
+   `--main-left: 0px` on home; `v110-home.css` hides the desktop sidebar,
+   the mobile sidebar, the workspace-tabs strip and the inspector on home,
+   matching the maquette's `.app.show-home` rules.
+
+3. **Light mode was unreadable.** `unifia-brand.css` defined dark-only
+   `--text-primary` etc., and `v110-theme.css` targeted the maquette's
+   `html[data-theme="light"]` while the app uses `html[data-color-scheme]`
+   (A1-CONTRACT line 28). Fixed in `41626f480c`: the brand layer gains the
+   maquette's light palette, the v110 theme layer targets the app's scheme.
+
+Verified state after the fixes (measured, not eyeballed):
+
+| Check | Home (dark) | Home (light) | Session |
+|---|---|---|---|
+| `overflowX` | 0 | 0 | 0 |
+| `overflowY` | 0 | 0 | 0 |
+| home size | 1439x506 | 1437x506 | n/a |
+| mode pills | 6 | 6 | n/a |
+| sidebar-nav-desktop | `display: none` | none | visible |
+| sidebar-nav-mobile | `display: none` | none | hidden |
+| workspace-tabs | `display: none` | none | visible |
+| `--text-primary` | #F2EFED | #17171a | #F2EFED |
+
+Also removed in `29874507e9`: the `home.glance` cards. They were invented in
+this session; the frozen maquette's final home composition has no glance
+block and explicitly neutralises the earlier `.home-glance` rules, so
+shipping them would have been a fabricated addition presented as parity.
+
+Remaining visual gaps vs the frozen maquette (not yet ported):
+
+- the topbar on home is missing the Unifia wordmark (left) and the
+  right-side actions (theme toggle, server pill) that the maquette keeps;
+- the decorative Unifia symbol watermark behind the home is absent;
+- the composer meta pill reads "Build" where the maquette reads "Auto";
+- the recent-project chips show filesystem paths where the maquette shows
+  named workspace chips.
+
 ## Correction -- 2026-09-18 (late)
 
 An audit found that sessions 10 and 11 shipped 9 CSS layers whose class
