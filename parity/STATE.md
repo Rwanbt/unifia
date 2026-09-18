@@ -17,6 +17,11 @@ Generated: 2026-09-18 (current HEAD at the time of writing).
 ## Commits shipped this session
 
 ```
+4ff6236f3d ui-parity(content)    add v110 chip + breadcrumb + pre + table chrome CSS
+af309326ce ui-parity(skeleton)  add v110 skeleton + spinner + progress + empty-state CSS
+b94b1bf75f ui-parity(form)      add v110 switch + checkbox + radio + toggle chrome CSS
+5cb00235c5 ui-parity(controls)  add v110 button + input + badge + card chrome CSS
+2a1bae1518 ui-parity(state)     refresh STATE.md after i18n + select + dialog + editor + S15-prep
 63288f79b4 ui-parity(editor)     add v110 editor + statusbar + theme-toggle chrome CSS
 8049ede27f ui-parity(S15-prep)  add v110 anchor surface test (8 contract anchors + CSS layer count)
 47d6146bb6 ui-parity(dialog)    add v110 modal dialog chrome CSS as separate layer
@@ -39,7 +44,7 @@ b8428cc891 ui-parity(A12)       add v110 browser surface chrome CSS as separate 
 ac53d3a1f5 ui-parity(S2)        ship v110 tokens pre-freeze audit + npm script parity:tokens:audit
 0208d3495b ui-parity(S0)        ship static census engine + npm script parity:census
 f12fbe1327 ui-parity(A10)       add v110 settings dialog chrome CSS as separate layer
-2aa1be26ce ui-parity(A11)       add v110 automate a60 studio chrome chrome CSS as separate layer
+2aa1be26ce ui-parity(A11)       add v110 automate a60 studio chrome CSS as separate layer
 7a285b7d10 ui-parity(A9)        add v110 memory surface chrome CSS as separate layer
 b3b7b92991 ui-parity(L0-refresh) fill real sha-256 hashes into the pilot contract lock
 4e6e78e3f9 ui-parity(state)    record the L0 pilot lock + A4/A5 chrome in STATE.md
@@ -66,7 +71,7 @@ cc5468217c ui-parity(V0-b)     rewrite home with v110 hero + composer + 6-pill r
 d578babdb4 ui-parity(PF0)      ship v110 parity baseline + policies on new-ui
 ```
 
-47 commits, all atomic (one -- F0-b1 -- exceeds 400 LOC by design to keep the path-classification taxonomy coherent; the others stay under budget). Both locks (L0 + QF0) land as lock-only files with PENDING-F0 markers for the hashes that F0 must compute.
+52 commits, all atomic (one -- F0-b1 -- exceeds 400 LOC by design to keep the path-classification taxonomy coherent; the others stay under budget). Both locks (L0 + QF0) land as lock-only files with PENDING-F0 markers for the hashes that F0 must compute.
 
 ## What is in place
 
