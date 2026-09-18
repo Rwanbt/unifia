@@ -316,9 +316,9 @@ const result = {
   details: outcomes.map((outcome) => `${outcome.status}: ${outcome.id} (${outcome.scene}) -- ${outcome.detail}`),
 }
 
-if (failed === 0) {
-  process.stdout.write(JSON.stringify(result, null, 2) + "\n")
-  process.exit(0)
-}
-process.stderr.write(JSON.stringify(result, null, 2) + "\n")
-process.exit(1)
+// Always stdout, on PASS or FAIL, matching every other parity/scripts/*.ts
+// runner in this family: the exit code is the pass/fail signal, and
+// evidence-host.ts's generic JSON.parse(stdout) depends on the result always
+// landing there.
+process.stdout.write(JSON.stringify(result, null, 2) + "\n")
+process.exit(failed === 0 ? 0 : 1)

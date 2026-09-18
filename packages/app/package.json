@@ -45,6 +45,7 @@
     "parity:full": "bun run scripts/parity/runtime.ts full",
     "parity:lock:refresh": "bun run scripts/parity/lock-refresh.ts",
     "parity:evidence:host": "bun run scripts/parity/evidence-host.ts",
+    "parity:runtime:pair": "node --experimental-strip-types scripts/parity/runtime-pair.ts",
     "parity:manifest:check": "bun run scripts/parity/manifest-check.ts",
     "parity:unit": "bun run test:unit"
   },

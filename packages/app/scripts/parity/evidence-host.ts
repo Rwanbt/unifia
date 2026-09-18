@@ -128,6 +128,69 @@ function runGate(spec: GateSpec): GateEvidence {
   }
 }
 
+// Non-required by design (HANDOFF-CLAUDE.md §9.6): runtime-pair.ts needs an
+// external CDP browser plus an already-open project, neither of which this
+// host-computable bundle can provide for itself. Skipped by default
+// (SKIPPED_NO_ENV) so a normal `parity:evidence:host` run, including in CI,
+// never blocks on it; set both env vars to opt in and get a real report.
+function runOptionalRuntimePair(): GateEvidence {
+  const cdp = process.env.PARITY_RUNTIME_CDP
+  const project = process.env.PARITY_RUNTIME_PROJECT
+  if (!cdp || !project) {
+    return {
+      name: "runtime-pair",
+      command: [],
+      exitCode: null,
+      signal: null,
+      timedOut: false,
+      durationMs: 0,
+      status: "SKIPPED_NO_ENV",
+      counters: null,
+      stdoutBytes: 0,
+      stdoutSha256: hashString(""),
+      stderrHead: "",
+    }
+  }
+  // Must be "node", never process.execPath: this file runs under bun, but
+  // runtime-pair.ts's own header documents that playwright's connectOverCDP
+  // times out under bun 1.3.14 on this host and only succeeds under node.
+  const exeArgs = ["--experimental-strip-types", "scripts/parity/runtime-pair.ts", `--cdp=${cdp}`, `--project=${project}`]
+  const command = ["node", ...exeArgs]
+  const started = Date.now()
+  const result = spawnSync("node", exeArgs, {
+    cwd: APP_DIR,
+    timeout: GATE_TIMEOUT_MS,
+    encoding: "utf-8",
+    maxBuffer: 16 * 1024 * 1024,
+  })
+  const durationMs = Date.now() - started
+  const stdout = typeof result.stdout === "string" ? result.stdout : ""
+  const stderr = typeof result.stderr === "string" ? result.stderr : ""
+  let status: string | null = null
+  let counters: unknown = null
+  try {
+    const parsed = JSON.parse(stdout) as Record<string, unknown>
+    if (typeof parsed.status === "string") status = parsed.status
+    if (parsed.counters !== undefined) counters = parsed.counters
+  } catch {
+    status = null
+    counters = null
+  }
+  return {
+    name: "runtime-pair",
+    command,
+    exitCode: result.status,
+    signal: result.signal,
+    timedOut: durationMs >= GATE_TIMEOUT_MS && result.status === null,
+    durationMs,
+    status,
+    counters,
+    stdoutBytes: stdout.length,
+    stdoutSha256: hashString(stdout),
+    stderrHead: stderr.slice(0, 500),
+  }
+}
+
 const branch = shell("git branch --show-current")
 const head = shell("git rev-parse HEAD")
 const dirtyRaw = shell("git status --short")
@@ -137,6 +200,7 @@ const nodeVersion = shell("node --version")
 
 const gates = GATES.map(runGate)
 const overall = gates.every((gate) => gate.exitCode === 0) ? "PASS" : "FAIL"
+const optionalGates = [runOptionalRuntimePair()]
 
 const bundle = {
   schemaVersion: 1,
@@ -151,12 +215,14 @@ const bundle = {
     nodeVersion,
   },
   gates,
+  optionalGates,
   overall,
   notes: [
     "Host-computable gates only: 10 parity runners plus the unit suite. F0 image-side runners (aa, aa-prime, visual, motion, mutations, g3, full) are excluded by construction.",
     "path-classification-check rewrites parity/path-classification-coverage.json (tracked) as a side effect; census/tokens/motion runners refresh their parity/artifacts sidecars (gitignored).",
     "checkpoint-lint inspects the staged diff; on a clean tree it reports zero files, which is recorded, not hidden.",
     "overall is PASS iff every gate exits 0. Per-gate declared statuses are recorded verbatim.",
+    "optionalGates never factor into overall (HANDOFF-CLAUDE.md §9.6: report, don't gate). runtime-pair needs PARITY_RUNTIME_CDP and PARITY_RUNTIME_PROJECT to actually run against a live browser; it is SKIPPED_NO_ENV otherwise, including in CI.",
   ],
 }
 
@@ -195,6 +261,7 @@ process.stdout.write(
     {
       status: overall,
       gates: gates.map((gate) => ({ name: gate.name, exitCode: gate.exitCode, status: gate.status })),
+      optionalGates: optionalGates.map((gate) => ({ name: gate.name, exitCode: gate.exitCode, status: gate.status })),
       canonicalHash,
       artifact: `${ARTIFACTS_DIR}/host-evidence.json`,
     },
