@@ -1344,3 +1344,55 @@ html[data-ui-animations="off"] *::after {
 [data-v110="code-diff"]:focus-within {
   border-color: var(--border-focus);
 }
+
+/* A4 Code tabs strip — maquette v110-port-ready-r1 .tabs / .tab. The
+ * data-v110="code-tabs" element wraps the Kobalte Tabs.List (a role="tablist"
+ * div); individual tabs are Tabs.Trigger elements that Kobalte renders with
+ * data-orientation="horizontal" and the [aria-selected="true"] state. */
+[data-v110="code-tabs"] {
+  height: 34px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: stretch;
+  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 0 0 auto;
+}
+
+[data-v110="code-tabs"]::-webkit-scrollbar {
+  display: none;
+}
+
+[data-v110="code-tabs"] [role="tab"] {
+  height: 34px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  border-right: 1px solid var(--line);
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--v110-fast) var(--v110-ease), border-color var(--v110-fast) var(--v110-ease), background-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="code-tabs"] [role="tab"]:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+[data-v110="code-tabs"] [role="tab"][aria-selected="true"] {
+  color: var(--text);
+  background: var(--surface);
+  border-bottom-color: var(--text);
+}
+
+[data-v110="code-tabs"] [role="tab"][data-state="active"] {
+  color: var(--text);
+  background: var(--surface);
+  border-bottom-color: var(--text);
+}
