@@ -51,7 +51,11 @@ interface Anchor {
   disposition: string | null
 }
 
-const markerPattern = /\[?(data-(?:v110|parity|component|action))[= ]\s*["']?([a-zA-Z0-9_.\-:/]+)["']?\]?/g
+// Matches both the JSX form `data-v110="x"` and the JS object-literal form
+// `"data-v110": "x"`. The earlier regex required `[= ]` after the key, so it
+// silently skipped every spread-props object (file-tabs.tsx, workspace-tabs
+// fragments, work-start-run dialog props) where the key is quoted.
+const markerPattern = /["']?(data-(?:v110|parity|component|action))["']?\s*[:=]\s*["']([a-zA-Z0-9_.\-:/ ]+)["']/g
 const handlerPattern = /\b(on(?:Click|Input|Change|Focus|Blur|Submit|KeyDown|KeyUp|KeyPress|Click|MouseDown|MouseUp|Click|ContextMenu|PointerDown|PointerUp|PointerMove|Drop|DragOver|DragStart|DragEnd|CompositionStart|CompositionEnd|Scroll|Resize|Load|Error|AnimationStart|AnimationEnd|AnimationIteration))\b/g
 
 function listFiles(dir: string): string[] {

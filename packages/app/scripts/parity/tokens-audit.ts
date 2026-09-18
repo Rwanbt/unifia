@@ -82,6 +82,64 @@ for (const used of usedSet) {
 
 const v110Properties = declarations.filter((d) => d.property.startsWith("v110-"))
 
+// Dead-CSS detector: every `[data-v110="x"]` selector in the CSS layers must
+// be referenced by at least one marker in the app source. A selector with no
+// matching marker is speculative chrome and must be removed or wired, per the
+// AGENTS.md "no dead code" rule and the consolidated plan §9 (unclassified
+// and dead paths must surface, never be hidden).
+const cssDir = join(REPO_ROOT, "packages", "app", "src", "styles")
+const srcDir = join(REPO_ROOT, "packages", "app", "src")
+const selectorPattern2 = /\[data-v110="([^"]+)"\]/g
+const dataV110InCss: string[] = []
+for (const file of cssFiles) {
+  const content = readFileSync(file, "utf8")
+  const rel = file.replace(cssDir, "packages/app/src/styles").replaceAll("\\", "/")
+  let m: RegExpExecArray | null
+  const re = new RegExp(selectorPattern2.source, "g")
+  while ((m = re.exec(content)) !== null) {
+    dataV110InCss.push(m[1]!)
+  }
+  void rel
+}
+
+// Collect every data-v110 marker key referenced in the app source, covering
+// both the JSX form `data-v110="x"` and the object-literal form
+// `"data-v110": "x"`.
+const dataV110InApp = new Set<string>()
+const appMarkerPattern = /["']?(data-v110)["']?\s*[:=]\s*["']([a-zA-Z0-9_.\-:/ ]+)["']/g
+function walkSrc(dir: string): void {
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return
+  }
+  for (const entry of entries) {
+    const full = join(dir, entry)
+    let stat
+    try {
+      stat = require("node:fs").statSync(full)
+    } catch {
+      continue
+    }
+    if (stat.isDirectory()) {
+      walkSrc(full)
+    } else if (/\.(tsx?|jsx?)$/.test(entry)) {
+      const content = readFileSync(full, "utf8")
+      let m: RegExpExecArray | null
+      const re = new RegExp(appMarkerPattern.source, "g")
+      while ((m = re.exec(content)) !== null) {
+        dataV110InApp.add(m[2]!)
+      }
+    }
+  }
+}
+walkSrc(srcDir)
+
+const uniqueCssSelectors = [...new Set(dataV110InCss)].sort()
+const deadSelectors = uniqueCssSelectors.filter((s) => !dataV110InApp.has(s))
+const unStyledMarkers = [...dataV110InApp].filter((s) => !uniqueCssSelectors.includes(s)).sort()
+
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value)
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`
@@ -100,6 +158,10 @@ const counts = {
   uniqueV110Declared: new Set(v110Properties.map((v) => v.property)).size,
   undeclaredUsed: undeclaredUsed.length,
   selectors: selectors.length,
+  cssDataV110Selectors: uniqueCssSelectors.length,
+  appDataV110Markers: dataV110InApp.size,
+  deadDataV110Selectors: deadSelectors.length,
+  unStyledDataV110Markers: unStyledMarkers.length,
 }
 
 const canonical = stableStringify({ declarations, usages, selectors, counts })
@@ -115,6 +177,8 @@ const report = {
   selectors: selectors.sort((a, b) => a.file.localeCompare(b.file)),
   undeclaredUsed: undeclaredUsed.sort(),
   v110Tokens: Array.from(new Set(v110Properties.map((v) => v.property))).sort(),
+  deadDataV110Selectors: deadSelectors,
+  unStyledDataV110Markers: unStyledMarkers,
   canonicalHash,
 }
 
