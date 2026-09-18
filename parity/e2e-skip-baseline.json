@@ -122,13 +122,6 @@
       "title": "current model has no variants",
       "status": "skip",
       "reason": "line 13"
-    },
-    {
-      "stableId": "v110-work-start-run-no-bridge",
-      "specPath": "e2e/v110/work-start-run.spec.ts",
-      "title": "start-run needs the native workbench bridge; web e2e runs without it",
-      "status": "skip",
-      "reason": "line 18: conditional test.skip(true) inside the test body when workbenchBridgeUnsupported(page) is true. This is a v110 parity spec and the consolidated plan section 57 forbids test.skip in parity specs; the skip must be converted to a blocked-external disposition on the S7 manifest or removed. Tracked as a finding below."
     }
   ],
   "playwrightConfigIgnores": [
@@ -138,8 +131,8 @@
     "**/session/session-model-persistence*"
   ],
   "notes": [
-    "18 skip-ish lines across 107 e2e spec files, captured from the working tree at the source commit.",
+    "17 skip-ish lines across 107 e2e spec files, captured from the working tree at the source commit.",
     "CI-only skips (process.env.CI) and env-gated skips (UNIFIA_DISABLE_SHARE) are recorded, not removed: deleting a legitimately conditional skip would fabricate coverage.",
-    "The v110 work-start-run skip is the only parity-spec skip in the tree. It fails plan section 57 as written and is carried as finding SKIP-V110-001 in the session report, not silently accepted."
+    "RESOLVED 2026-09-18 (former finding SKIP-V110-001): e2e/v110/work-start-run.spec.ts no longer contains any skip mechanism. The conditional test.skip(true) was replaced with a deterministic branch — no-bridge asserts the fail-closed [data-workbench-connection=\"unsupported\"] banner, bridge runs the submit happy path. Zero test.skip/test.fixme remain in any v110 parity spec; the entry was removed from the skips array per the accepted disappearance rule."
   ]
 }

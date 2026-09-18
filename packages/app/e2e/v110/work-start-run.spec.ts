@@ -8,16 +8,31 @@
 // completion (would require mocking arbitrary per-task LLM calls for a
 // user-authored task list) — only that the real 202-accepted path works and
 // the new run becomes visible in the Runs tab.
+//
+// No test.skip anywhere in this spec (consolidated plan section 57): a web
+// run has no native workbench bridge, so instead of skipping, that state is
+// asserted as its own fail-closed branch. The work surface renders the
+// connection banner in the terminal `unsupported` phase
+// (connection-banner.tsx: the literal "Disponible dans l'application
+// desktop" string, keyed on [data-workbench-connection="unsupported"]),
+// which is exactly the honest capability state the port must preserve.
 
 import { test, expect } from "../fixtures"
 import { workbenchBridgeUnsupported } from "../fixtures/workbench-mock"
 import { dirPath } from "../utils"
 
 test("start-run form submits a real run and it appears in the Runs tab", async ({ page, directory, sdk }) => {
-  if (await workbenchBridgeUnsupported(page)) {
-    test.skip(true, "start-run needs the native workbench bridge; web e2e runs without it")
-  }
   await page.setViewportSize({ width: 1400, height: 800 })
+  if (await workbenchBridgeUnsupported(page)) {
+    // No-bridge fail-closed branch: the runs surface must surface the
+    // honest terminal state instead of the run workflow.
+    await page.goto(`${dirPath(directory)}/session`)
+    await page.getByRole("button", { name: "work mode" }).click()
+    await expect(page.locator('[data-workbench-connection="unsupported"]')).toContainText(
+      "Disponible dans l'application desktop",
+    )
+    return
+  }
   // Team execution is intentionally fail-closed unless two distinct models
   // are configured. The isolated E2E provider exposes both; seed the same
   // server-owned selection the settings surface would persist.
