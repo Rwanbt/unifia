@@ -6,7 +6,7 @@
 // against parity/path-classification-coverage.json.
 
 import { execSync } from "node:child_process"
-import { writeFileSync } from "node:fs"
+import { existsSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { PARITY_DIR, REPO_ROOT, readJson, writeArtifact, hashCanonical } from "./shared"
 
@@ -68,23 +68,62 @@ for (const path of tracked) {
   for (const f of flags) counts[f] = (counts[f] ?? 0) + 1
 }
 
-const coverage = {
+const sortedCounts: Record<string, number> = {}
+for (const key of Object.keys(counts).sort()) sortedCounts[key] = counts[key]!
+
+const live = {
   schemaVersion: 1,
   capturedAt: new Date().toISOString(),
   trackedFiles: tracked.length,
   classifiedFiles: tracked.length - unclassified.length,
   unclassifiedFiles: unclassified.slice(0, 200),
   unclassifiedTruncated: unclassified.length > 200,
-  classificationCounts: counts,
+  classificationCounts: sortedCounts,
   notes: unclassified.length === 0
-    ? ["100% coverage achieved — rules hit every tracked file."]
+    ? ["100% coverage achieved - rules hit every tracked file."]
     : [`${unclassified.length} file(s) unmatched by any rule; widen the rules (no wildcards allowed in rules).`],
 }
 
-writeArtifact("path-classification-coverage.live.json", coverage)
-writeFileSync(join(PARITY_DIR, "path-classification-coverage.json"), JSON.stringify(coverage, null, 2))
+writeArtifact("path-classification-coverage.live.json", live)
 
-const status = unclassified.length === 0 ? "PASS" : "FAIL"
+// The committed baseline is compared against, not silently overwritten. A
+// check that rewrites its own baseline can never detect drift. `capturedAt`
+// is volatile metadata and is excluded from the comparison; the substantive
+// fields describe the tracked-file set and must change only deliberately
+// (via --refresh) in the same commit that changes that set.
+const BASELINE_PATH = join(PARITY_DIR, "path-classification-coverage.json")
+const errors: string[] = []
+const comparable = (coverage: typeof live) =>
+  JSON.stringify({
+    schemaVersion: coverage.schemaVersion,
+    trackedFiles: coverage.trackedFiles,
+    classifiedFiles: coverage.classifiedFiles,
+    unclassifiedFiles: coverage.unclassifiedFiles,
+    unclassifiedTruncated: coverage.unclassifiedTruncated,
+    classificationCounts: coverage.classificationCounts,
+  })
+
+if (!existsSync(BASELINE_PATH)) {
+  errors.push(`baseline missing at ${BASELINE_PATH}: run with --refresh to establish it`)
+} else {
+  const baseline = readJson<typeof live>(BASELINE_PATH)
+  if (comparable(baseline) !== comparable(live)) {
+    errors.push("baseline drift: the tracked-file set or rule counts changed; re-run with --refresh if intended")
+  }
+}
+
+const refresh = process.argv.includes("--refresh")
+if (refresh) {
+  writeFileSync(BASELINE_PATH, JSON.stringify(live, null, 2))
+}
+
+// --refresh is the deliberate opt-in that updates the baseline. It still
+// reports the drift it detected, but accepts it: an operator who asked to
+// refresh should not be told the gate failed. CI never passes --refresh, so
+// CI still fails on any drift.
+const driftAccepted = refresh && errors.length > 0 && errors.every((e) => e.startsWith("baseline drift") || e.startsWith("baseline missing"))
+const status =
+  unclassified.length === 0 && (errors.length === 0 || driftAccepted) ? "PASS" : "FAIL"
 process.stdout.write(
   JSON.stringify(
     {
@@ -93,8 +132,11 @@ process.stdout.write(
         tracked: tracked.length,
         classified: tracked.length - unclassified.length,
         unclassified: unclassified.length,
+        baselineErrors: errors.length,
+        refreshed: refresh,
       },
-      coverage,
+      errors,
+      coverage: live,
       classificationHash: hashCanonical(classification),
     },
     null,
