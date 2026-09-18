@@ -1040,10 +1040,10 @@ html[data-ui-animations="off"] *::after {
   background: var(--surface-3);
 }
 
-// No important flag here: this selector is already 0,2,0 and unlayered, so
-// it beats Tailwind's layered utilities on its own. The v110.css contract
-// test forbids the flag outside .mobile-side-panel, and the maquette's own
-// flags on this rule only exist to fight the demo's inline styles.
+/* No important flag here: this selector is already 0,2,0 and unlayered, so
+ * it beats Tailwind's layered utilities on its own. The v110.css contract
+ * test forbids the flag outside .mobile-side-panel, and the maquette's own
+ * flags on this rule only exist to fight the demo's inline styles. */
 [data-v110="terminal"] .terminal,
 .terminal-shell .terminal {
   min-height: 0;
