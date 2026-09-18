@@ -1,19 +1,20 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-09-17T23:16:47.214Z",
-  "trackedFiles": 7636,
-  "classifiedFiles": 7636,
+  "capturedAt": "2026-09-18T10:04:32.687Z",
+  "trackedFiles": 7678,
+  "classifiedFiles": 7678,
   "unclassifiedFiles": [],
   "unclassifiedTruncated": false,
   "classificationCounts": {
     "touchesGeneratedOutput": 131,
-    "touchesConfiguration": 906,
-    "touchesDocumentationOnly": 1727,
+    "touchesConfiguration": 926,
+    "touchesDocumentationOnly": 1728,
     "touchesInfrastructure": 88,
-    "touchesApplicationUI": 5491,
+    "touchesApplicationUI": 5502,
     "touchesReference": 1,
-    "touchesQualification": 901,
-    "touchesPolicies": 37
+    "touchesQualification": 911,
+    "touchesHarness": 14,
+    "touchesPolicies": 43
   },
   "notes": [
     "100% coverage achieved — rules hit every tracked file."
