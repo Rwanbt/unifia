@@ -1,0 +1,195 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Select / dropdown / menu / popover / tooltip chrome -- the v110
+ * contract for the small surfaces that wrap the rest of the app.
+ * Kept in its own layer so v110.css stays under the AGENTS.md 1500 LOC
+ * ceiling. The .select / .select-trigger / .select-content / .select-item /
+ * .menu / .menu-item / .popover / .popover-item / .tooltip classes below
+ * map onto the Kobalte + SolidJS primitives; host components keep their
+ * own element tags, this layer supplies the contract geometry and chrome. */
+
+.select-trigger {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+.select-trigger:hover {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+.select-trigger:focus,
+.select-trigger:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--v110-focus);
+}
+
+.select-trigger[data-placeholder] {
+  color: var(--muted);
+}
+
+.select-content,
+.menu,
+.popover {
+  z-index: 45000;
+  min-width: 148px;
+  max-width: 280px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--v110-radius-md);
+  background: var(--surface);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: v110PopoverEnter 130ms ease both;
+  transform-origin: top left;
+}
+
+@keyframes v110PopoverEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.select-item,
+.menu-item,
+.popover-item {
+  width: 100%;
+  min-height: 31px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--v110-radius-sm);
+  text-align: left;
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease);
+}
+
+.select-item:hover,
+.menu-item:hover,
+.popover-item:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.select-item[data-highlighted],
+.menu-item[data-highlighted],
+.popover-item[data-highlighted] {
+  background: var(--surface-3);
+  color: var(--text);
+  outline: none;
+}
+
+.select-item[data-state="checked"],
+.menu-item[data-state="checked"],
+.popover-item[data-state="checked"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.select-item .select-item-indicator,
+.menu-item .menu-item-indicator,
+.popover-item .popover-item-indicator {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+}
+
+.select-item .select-item-label,
+.menu-item .menu-item-label,
+.popover-item .popover-item-label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.select-item .select-item-label small,
+.menu-item .menu-item-label small,
+.popover-item .popover-item-label small {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.select-item-danger,
+.menu-item-danger,
+.popover-item-danger {
+  color: var(--text-danger, var(--danger));
+}
+
+.select-separator,
+.menu-separator,
+.popover-separator {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+}
+
+.tooltip {
+  z-index: 50000;
+  padding: 6px 8px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 650;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  animation: v110TooltipEnter 100ms ease both;
+}
+
+@keyframes v110TooltipEnter {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip .tooltip-arrow {
+  fill: var(--surface-3);
+  stroke: var(--line-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select-content,
+  .menu,
+  .popover,
+  .tooltip {
+    animation: none;
+  }
+}
