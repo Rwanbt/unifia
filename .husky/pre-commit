@@ -44,6 +44,18 @@ if [ -n "$NEW_FILES" ]; then
   done
 fi
 
+# 4. v110 parity checkpoint lint -- refuses INVALID_CHECKPOINT for harness + UI
+# or policies + UI in the same commit, LOC > 400 warnings, and unclassified
+# paths. Runs against the staged diff (file names + numstat) so it stays
+# cheap and only inspects what is actually being committed. Skips silently
+# if no parity infrastructure is in place yet.
+if [ -d "packages/app/scripts/parity" ]; then
+  if ! bun run --cwd packages/app parity:checkpoint:lint HEAD >/dev/null 2>&1; then
+    echo "parity:checkpoint:lint FAILED -- see packages/app/scripts/parity/checkpoint-lint.ts" >&2
+    bun run --cwd packages/app parity:checkpoint:lint HEAD || exit 1
+  fi
+fi
+
 # 3. TEAM-G01: lease validate (skip if no lease is present)
 # A worker holding a lease MUST validate it is still ACTIVE before commit.
 # The lease id is read from .team/active_lease (if present); absent means

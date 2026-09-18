@@ -46,9 +46,15 @@ function flagsFor(path: string): Set<string> {
   return acc
 }
 
-const range = process.argv[2] ?? "HEAD^..HEAD"
-const diff = execSync(`git diff --name-only ${range}`, { encoding: "utf8" }).trim().split("\n").filter(Boolean)
-const numstat = execSync(`git diff --numstat ${range}`, { encoding: "utf8" }).trim().split("\n").filter(Boolean)
+const range = process.argv[2] ?? "HEAD"
+const diff = execSync(`git diff --cached --name-only`, { encoding: "utf8", cwd: REPO_ROOT })
+  .trim()
+  .split("\n")
+  .filter(Boolean)
+const numstat = execSync(`git diff --cached --numstat`, { encoding: "utf8", cwd: REPO_ROOT })
+  .trim()
+  .split("\n")
+  .filter(Boolean)
 
 const loc = numstat.reduce(
   (acc, line) => {
