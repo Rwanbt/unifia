@@ -17,6 +17,7 @@ import { For, Match, Show, Switch, createMemo, createSignal } from "solid-js"
 import { useNavigate } from "@solidjs/router"
 import { Button } from "@unifia/ui/button"
 import { Icon } from "@unifia/ui/icon"
+import { Mark } from "@unifia/ui/logo"
 import { useDialog } from "@unifia/ui/context/dialog"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { DialogSelectDirectory } from "@/components/dialog-select-directory"
@@ -123,6 +124,11 @@ export default function Home() {
       data-v110="home"
       data-state={sync.ready ? (sync.data.project.length === 0 ? "empty" : "ready") : "loading"}
     >
+      {/* Maquette v40: the Unifia symbol sits behind the launch column as a
+          very low-opacity watermark (maquette lines 4784-4802). */}
+      <div data-v110="home-symbol-bg" aria-hidden="true">
+        <Mark class="home-symbol" />
+      </div>
       <div data-v110="home-launch">
         <button
           type="button"

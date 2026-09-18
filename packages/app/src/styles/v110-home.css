@@ -48,6 +48,64 @@
     var(--bg);
 }
 
+/* The decorative Unifia symbol behind the launch column. Maquette markup at
+ * line 15273, rules at 4784-4802. In the app the asset is the brand Mark
+ * (SVG) rather than the maquette's base64 PNG of the same symbol. */
+[data-v110="home-symbol-bg"] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-v110="home-symbol-bg"] .home-symbol {
+  width: min(34vw, 430px);
+  max-width: 430px;
+  min-width: 220px;
+  height: auto;
+  opacity: 0.11;
+  transform: translateY(-108px);
+  filter: saturate(1.02) drop-shadow(0 18px 42px rgba(0, 0, 0, 0.2));
+  user-select: none;
+  animation: homeSymbolEnter var(--v110-layout) cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes homeSymbolEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-150px) scale(0.94);
+  }
+  to {
+    opacity: 0.11;
+    transform: translateY(-108px) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  [data-v110="home-symbol-bg"] .home-symbol {
+    width: min(46vw, 280px);
+    min-width: 160px;
+    transform: translateY(-82px);
+    opacity: 0.1;
+  }
+}
+
+@media (max-width: 560px) {
+  [data-v110="home-symbol-bg"] .home-symbol {
+    width: min(52vw, 220px);
+    transform: translateY(-72px);
+    opacity: 0.09;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="home-symbol-bg"] .home-symbol {
+    animation: none;
+  }
+}
+
 [data-v110="home-launch"] {
   position: relative;
   z-index: 1;
