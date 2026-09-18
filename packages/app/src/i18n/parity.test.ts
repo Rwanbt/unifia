@@ -376,6 +376,18 @@ const TECHNICAL_ALLOWLIST = new Set([
   // spelled identically in English and French; the other 15 locales carry
   // distinct words (Quelltext, Fuente, Fonte, Izvor, Kilde, Źródło, …).
   "workbench.design.files.source",
+  // 2026-09-18: Topbar breadcrumb mode names (bare noun form of the
+  // existing workbench.modes.<mode> labels above, e.g. fr "Mode Code" ->
+  // "Code"). "Code" is already the identical loanword French and German
+  // use inside their own "Mode Code"/"Code-Modus" strings, so keeping it
+  // identical here is consistent with those, not a missed translation --
+  // every other locale (bs "Kod", da/no "Kode", pl/tr "Kod", …) carries its
+  // own distinct spelling. Same rationale as workbench.design.title above
+  // for "Design": fr/de/br/no already keep the English word verbatim in
+  // their own "Mode Design"/"Design-Modus"/"Modo Design"/"Designmodus";
+  // bs/es/pl/tr/da/ru/… all carry distinct translated forms.
+  "workbench.modes.name.code",
+  "workbench.modes.name.design",
 ])
 
 // Recursively collect every language.t("literal.key") call from the

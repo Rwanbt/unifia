@@ -293,7 +293,7 @@ export function Titlebar() {
             </Show>
           </div>
         </div>
-        <div id="unifia-titlebar-left" class="flex items-center gap-3 min-w-0 px-2" />
+        <div ref={slots.registerLeft} class="flex items-center gap-3 min-w-0 px-2" />
       </div>
 
       <div class="min-w-0 flex items-center justify-center pointer-events-none">

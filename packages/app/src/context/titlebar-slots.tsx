@@ -6,9 +6,10 @@ import { createSimpleContext } from "@unifia/ui/context"
 const { use: useTitlebarSlots, provider: TitlebarSlotsContextProvider } = createSimpleContext({
   name: "TitlebarSlots",
   init: () => {
+    const [left, setLeft] = createSignal<HTMLElement>()
     const [center, setCenter] = createSignal<HTMLElement>()
     const [right, setRight] = createSignal<HTMLElement>()
-    return { center, right, registerCenter: setCenter, registerRight: setRight }
+    return { left, center, right, registerLeft: setLeft, registerCenter: setCenter, registerRight: setRight }
   },
 })
 
