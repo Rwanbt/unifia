@@ -364,6 +364,53 @@ Motion contract CSS + surface test are in place. Full motion sampling (Animation
 
 `parity-result.json` is not written. `verdict` is not set. `NEW_UI_PARITY_QUALIFIED` is not reached.
 
+## S0 gate hardening (this session, 2026-09-18)
+
+Five harness defects found and closed on `new-ui`. Each was mutation-proven:
+the gate was made to FAIL on a deliberately corrupted input, then restored and
+confirmed to PASS. A gate that cannot fail is not a gate.
+
+1. `parity:manifest:check` added (new) -- validates fragment shape, cross-refs
+   (anchorKind -> state-policy, styleProfile -> style-profiles), and that every
+   app `data-parity` marker is fragmented or a recorded finding.
+   16 fragments, 18 markers, 14 fragmented + 4 findings = 18/18 covered.
+2. The same gate made bidirectional -- every fragment's app selector must name a
+   marker the census actually discovered (92 data-parity + data-v110 keys).
+   Catches dangling contracts that would never pair at runtime.
+3. The same gate made fail-closed on a missing census. It previously guarded the
+   coverage and reverse checks with `existsSync`, so a checkout without a prior
+   `parity:census` run silently lost both checks. Now an explicit error.
+4. `parity:path-classification:check` fixed to COMPARE its baseline. It claimed
+   in its own header to reconcile against `parity/path-classification-coverage.json`
+   but never read the file -- it regenerated and overwrote it every run, so drift
+   was undetectable and the tree was dirtied by a fresh `capturedAt` each time.
+   Now: substantive-field comparison ignoring `capturedAt`, live result written to
+   the gitignored `.live` artifact, tracked baseline written only under `--refresh`
+   (which accepts the drift it reports and exits 0; CI never passes it).
+   `classificationCounts` keys sorted for order-independence -- adopting that
+   canonical form is why the baseline was refreshed in the same commit.
+5. Repaired a broken string literal in item 4's file: an em-dash had round-tripped
+   to U+FFFD + quote through an earlier edit and terminated the string early.
+   Replaced with an ASCII hyphen. Lesson: keep string literals ASCII-only; this
+   host's toolchain mangles non-ASCII through some edit paths.
+
+`parity:evidence:host` now runs 12 gates and reports overall PASS.
+
+Considered and rejected -- do not re-litigate. Six gates show `status: null` in
+the bundle (census-run, tokens-audit, motion-static, census-extended, unit,
+g0-mode-derive). This is NOT fail-open. `evidence-host.ts:139` derives `overall`
+from `exitCode`, exactly as the file header states ("overall is PASS iff every
+gate exits 0"); declared statuses are recorded verbatim for information. Those
+gates emit artifacts rather than stdout JSON, so there is no status to parse.
+exitCode is the authority; that is documented and intentional.
+
+Still open, unchanged: e2e UNVERIFIED on this host (Playwright chromium hangs
+under bun on this Windows box; `npx playwright install chrome` is
+privilege-blocked). Runtime fragment/DOM pairing remains the S1 G1 runner's job
+-- the manifest gate proves the contract statically, not the DOM at runtime.
+F0 Docker harness absent. Product approval still missing for the three
+intentional-difference dispositions and the `code.diff` reference strategy.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness is missing. Open the next session on `_a7-automate-memory`, branch `new-ui` at `aad67a5800caab473b95b0509a0c4564ba52d56a`, and enchaîner le complément F0 (Docker + Playwright dans l'image) puis S0 census → S1 G1/G2 → S2 tokens pre-freeze → QF0 → S3 home full re-play → S4–S12 visual polish → S13 responsive/DLR/locales étendu → S14 motion → S15 full qualification. Le verdict final `NEW_UI_PARITY_QUALIFIED / READY_FOR_PROMOTION_DECISION` viendra à l'achèvement de S15.
