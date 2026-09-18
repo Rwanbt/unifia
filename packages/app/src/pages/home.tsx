@@ -119,7 +119,10 @@ export default function Home() {
   }
 
   return (
-    <div data-v110="home">
+    <div
+      data-v110="home"
+      data-state={sync.ready ? (sync.data.project.length === 0 ? "empty" : "ready") : "loading"}
+    >
       <div data-v110="home-launch">
         <button
           type="button"
@@ -231,7 +234,11 @@ export default function Home() {
         </div>
 
         <Show when={sync.data.project.length === 0 && sync.ready}>
-          <div class="mt-2 flex flex-col items-center gap-1">
+          <div
+            data-v110="home-empty"
+            data-state="empty"
+            class="mt-2 flex flex-col items-center gap-1"
+          >
             <Icon name="folder-add-left" size="large" />
             <div class="text-12-medium text-text-strong">{language.t("home.empty.title")}</div>
             <div class="text-11-regular text-text-weak">{language.t("home.empty.description")}</div>
@@ -242,7 +249,13 @@ export default function Home() {
         </Show>
 
         <Show when={!sync.ready}>
-          <div class="mt-2 text-11-regular text-text-weak">{language.t("common.loading")}</div>
+          <div
+            data-v110="home-loading"
+            data-state="loading"
+            class="mt-2 text-11-regular text-text-weak"
+          >
+            {language.t("common.loading")}
+          </div>
         </Show>
 
         <div data-v110="home-hint">Click the Unifia logotype at any time to come back to this home.</div>

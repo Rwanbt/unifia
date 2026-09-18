@@ -1458,3 +1458,57 @@ html[data-ui-animations="off"] {
     background-color var(--v110-fast) var(--v110-ease),
     border-color var(--v110-fast) var(--v110-ease);
 }
+
+/* A3 Home loading + empty state chrome. The data-state attribute on the
+ * home root reflects the state-machine: loading / empty / ready. Per
+ * COMPONENT-MAP §1 and the state-policy.json (home.title / home-modes-row
+ * / home-mode-pill keep a loading contract). */
+[data-v110="home"][data-state="loading"] [data-v110="home-launch"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+[data-v110="home"][data-state="loading"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--surface-3) 30%, transparent),
+    transparent
+  );
+  animation: homeLoadingShimmer 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes homeLoadingShimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="home"][data-state="loading"]::after {
+    animation: none;
+    background: none;
+  }
+}
+
+[data-v110="home-empty"] {
+  padding: 18px 22px;
+  border: 1px dashed var(--line);
+  border-radius: var(--v110-radius-lg);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  color: var(--muted);
+  max-width: 360px;
+  text-align: center;
+}
+
+[data-v110="home-loading"] {
+  color: var(--muted);
+  text-align: center;
+}
