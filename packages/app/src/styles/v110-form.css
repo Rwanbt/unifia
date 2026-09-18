@@ -1,0 +1,211 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Switch + Checkbox + Radio + Toggle chrome -- the v110 contract for the
+ * form-control primitives. Kept in its own layer so v110.css stays
+ * under the AGENTS.md 1500 LOC ceiling. The .switch / .switch-thumb /
+ * .checkbox / .checkbox-indicator / .radio / .radio-indicator /
+ * .toggle / .toggle-thumb classes below map onto the existing
+ * @unifia/ui primitives; host components keep their own element tags,
+ * this layer supplies the contract geometry and chrome. */
+
+.switch {
+  width: 36px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+.switch[data-state="checked"] {
+  background: var(--text);
+  border-color: transparent;
+}
+
+.switch:focus,
+.switch:focus-visible {
+  outline: none;
+  box-shadow: var(--v110-focus);
+}
+
+.switch:disabled,
+.switch[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.switch-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform var(--v110-fast) var(--v110-ease);
+}
+
+.switch[data-state="checked"] .switch-thumb {
+  background: var(--bg);
+  transform: translateX(16px);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+.checkbox:hover {
+  border-color: var(--line);
+}
+
+.checkbox:focus,
+.checkbox:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--v110-focus);
+}
+
+.checkbox[data-state="checked"],
+.checkbox[aria-checked="true"] {
+  background: var(--text);
+  border-color: transparent;
+}
+
+.checkbox[data-state="checked"] .checkbox-indicator,
+.checkbox[aria-checked="true"] .checkbox-indicator {
+  display: block;
+  color: var(--bg);
+}
+
+.checkbox-indicator {
+  display: none;
+  width: 10px;
+  height: 10px;
+}
+
+.checkbox:disabled,
+.checkbox[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.radio {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+.radio:hover {
+  border-color: var(--line);
+}
+
+.radio:focus,
+.radio:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--v110-focus);
+}
+
+.radio[data-state="checked"],
+.radio[aria-checked="true"] {
+  background: var(--surface);
+  border-color: var(--text);
+}
+
+.radio-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: transparent;
+  display: block;
+}
+
+.radio[data-state="checked"] .radio-indicator,
+.radio[aria-checked="true"] .radio-indicator {
+  background: var(--text);
+}
+
+.radio:disabled,
+.radio[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.toggle {
+  width: 48px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
+}
+
+.toggle[data-state="checked"] {
+  background: var(--text-success, var(--success));
+  border-color: transparent;
+}
+
+.toggle:focus,
+.toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--v110-focus);
+}
+
+.toggle:disabled,
+.toggle[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.toggle-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform var(--v110-fast) var(--v110-ease);
+}
+
+.toggle[data-state="checked"] .toggle-thumb {
+  background: var(--bg);
+  transform: translateX(24px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-thumb,
+  .toggle-thumb {
+    transition: none;
+  }
+}
