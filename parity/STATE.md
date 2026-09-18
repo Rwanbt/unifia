@@ -74,13 +74,32 @@ Correction to an earlier claim: the composer meta pills ARE "Build" /
 app already matched; the "Auto" I saw was the demo's runtime rewrite, not
 the frozen markup.
 
-Remaining visual gaps vs the frozen maquette (not yet ported):
+Second correction, after reading the frozen topbar markup
+(Unifia-UI-UX-v110-PORT-READY-R1.html lines 15226-15270): there is **no
+GitHub link and no "Auto -2" server pill in the frozen topbar**. The topbar
+ends at #themeBtn, then #topInspectorBtn, then `</header>`. The
+`.app.show-home` rules explicitly hide #serverBtn, #openInBtn and the other
+per-workspace chrome. What I read as "GitHub + Auto -2" in the demo
+screenshot was runtime JS state, not the frozen markup. The app's home
+topbar (rail toggle + Unifia wordmark + theme toggle) therefore **matches
+the frozen maquette**; the earlier claim of a gap was wrong.
 
-- the home topbar does not carry the maquette's GitHub link or its
-  "Auto -2" server pill (the app shows the server as the in-body state line
-  instead);
-- the recent-project chips show filesystem paths where the maquette shows
-  named workspace chips.
+The recent-project chips are also not a gap: the maquette renders four
+hard-coded demo chips ("Prism EQ / Code", "Guide OpenDesign / Design",
+"Unifia Vault / Memory", "Réglages / Paramètres"). The plan's authority
+order puts real behaviour above the maquette's demo data, so the app shows
+real recent workspaces. That is an `intentional-difference`, not a missing
+port.
+
+Home interaction verified in the browser: clicking the "Code" pill raised
+the project picker (dialog "Ouvrir un projet" over the directory list),
+flipped the pill's aria-pressed to true, and left the URL on "/" until a
+project is chosen. The six pills, the composer actions and the recent chips
+all wire to the real handlers.
+
+Remaining visual gaps vs the frozen maquette: none identified for the home
+surface. The next real work is the harness (F0) that can diff pixels, then
+S3-S12 for the other surfaces.
 
 ## Correction -- 2026-09-18 (late)
 
