@@ -38,7 +38,8 @@
     "parity:motion": "bun run scripts/parity/runtime.ts motion",
     "parity:mutations": "bun run scripts/parity/runtime.ts mutations",
     "parity:g3": "bun run scripts/parity/runtime.ts g3",
-    "parity:full": "bun run scripts/parity/runtime.ts full"
+    "parity:full": "bun run scripts/parity/runtime.ts full",
+    "parity:lock:refresh": "bun run scripts/parity/lock-refresh.ts"
   },
   "license": "MIT",
   "devDependencies": {
