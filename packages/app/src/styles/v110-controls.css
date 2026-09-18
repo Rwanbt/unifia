@@ -1,0 +1,290 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Button + Input + Badge + Card primitives -- the v110 contract for the
+ * small chrome primitives the rest of the app uses. Kept in its own
+ * layer so v110.css stays under the AGENTS.md 1500 LOC ceiling. The
+ * .btn / .btn-primary / .btn-secondary / .btn-ghost / .btn-danger /
+ * .input / .input-search / .badge / .badge-success / .badge-warning /
+ * .badge-danger / .card / .card-head / .card-body / .card-foot classes
+ * below map onto the existing @unifia/ui primitives; host components
+ * keep their own element tags, this layer supplies the contract geometry
+ * and chrome. */
+
+.btn {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease),
+    box-shadow var(--v110-fast) var(--v110-ease);
+}
+
+.btn:hover {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+.btn:focus,
+.btn:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--v110-focus);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+.btn-lg {
+  min-height: 38px;
+  padding: 0 18px;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+}
+
+.btn-primary:hover {
+  opacity: 0.92;
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn-ghost:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-danger {
+  color: var(--text-danger, var(--danger));
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-2));
+}
+
+.btn-icon {
+  width: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.btn-icon.btn-sm {
+  width: 26px;
+}
+
+.btn-icon.btn-lg {
+  width: 38px;
+}
+
+.input {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  transition:
+    border-color var(--v110-fast) var(--v110-ease),
+    box-shadow var(--v110-fast) var(--v110-ease);
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.input:hover {
+  border-color: var(--line);
+}
+
+.input:focus,
+.input:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--v110-focus);
+}
+
+.input:disabled,
+.input[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.input.input-search {
+  padding-left: 32px;
+  background: var(--surface-2);
+}
+
+.input.input-search.input-search-with-icon::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background: var(--muted);
+  border-radius: 999px;
+}
+
+.input.input-search-wrap {
+  position: relative;
+}
+
+.input.input-error {
+  border-color: var(--text-danger, var(--danger));
+}
+
+.input.input-error:focus,
+.input.input-error:focus-visible {
+  border-color: var(--text-danger, var(--danger));
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text-danger, var(--danger));
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.badge-success {
+  color: var(--text-success, var(--success));
+  border-color: color-mix(in srgb, var(--success) 30%, var(--line));
+}
+
+.badge-success .dot {
+  background: var(--text-success, var(--success));
+}
+
+.badge-warning {
+  color: var(--text-warning, var(--warning));
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--line));
+}
+
+.badge-warning .dot {
+  background: var(--text-warning, var(--warning));
+}
+
+.badge-danger {
+  color: var(--text-danger, var(--danger));
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));
+}
+
+.badge-danger .dot {
+  background: var(--text-danger, var(--danger));
+}
+
+.badge-info {
+  color: var(--text-info, var(--info));
+  border-color: color-mix(in srgb, var(--info) 30%, var(--line));
+}
+
+.badge-info .dot {
+  background: var(--text-info, var(--info));
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.card-head {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.card-head b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.card-head small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.card-head .spacer {
+  flex: 1;
+}
+
+.card-body {
+  padding: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.card-foot {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.card.card-elevated {
+  box-shadow: var(--shadow);
+}
