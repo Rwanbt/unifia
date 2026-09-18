@@ -252,6 +252,31 @@
         "min-height"
       ],
       "tolerancePx": 0
+    },
+    "work.shell": {
+      "properties": [
+        "height",
+        "min-width",
+        "min-height",
+        "overflow",
+        "padding"
+      ],
+      "tolerancePx": 0
+    },
+    "settings.dialog": {
+      "properties": [
+        "position",
+        "width",
+        "height",
+        "display",
+        "grid-template-columns",
+        "overflow",
+        "border",
+        "border-radius",
+        "background",
+        "box-shadow"
+      ],
+      "tolerancePx": 0
     }
   }
 }

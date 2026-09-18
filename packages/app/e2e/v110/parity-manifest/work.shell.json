@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "work.shell",
+  "slice": "S7",
+  "scene": "work.default",
+  "anchorKind": "work.shell",
+  "reference": { "selector": "div.work-view", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "div[data-parity=\"work.shell\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "work.shell",
+  "mask": null,
+  "disposition": "port"
+}
