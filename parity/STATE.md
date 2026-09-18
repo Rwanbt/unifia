@@ -17,7 +17,12 @@ Generated: 2026-09-18 (current HEAD at the time of writing).
 ## Commits shipped this session
 
 ```
-aad67a5800 ui-parity(S14)        add v110 motion contract CSS + reduced-motion surface test
+ac12038445 ui-parity(L0)         ship pilot-contract-lock as lock-only file
+1a843c5912 ui-parity(A5)         add v110 work surface chrome CSS as separate layer
+9342a3779b ui-parity(A4-c)      add v110 chat thread + composer chrome CSS as separate layer
+af7340076e ui-parity(S3-light)  wire home data-state machine (loading/empty/ready)
+44539f4ec1 ui-parity(state)     document v110 parity state on new-ui
+aad67a5800 ui-parity(S14)       add v110 motion contract CSS + reduced-motion surface test
 7e7d941ec3 ui-parity(A4-b)      add v110 code-tabs strip chrome to v110.css
 5a2126914b ui-parity(F0-c)      populate state-policy, motion-policy, style-profiles on new-ui
 acfef9bdf9 ui-parity(A4-a)      add v110 code/terminal/diff chrome CSS to v110.css
@@ -35,7 +40,7 @@ cc5468217c ui-parity(V0-b)      rewrite home with v110 hero + composer + 6-pill 
 d578babdb4 ui-parity(PF0)       ship v110 parity baseline + policies on new-ui
 ```
 
-15 commits, all atomic (one — F0-b1 — exceeds 400 LOC by design to keep the path-classification taxonomy coherent; the others stay under budget).
+20 commits, all atomic (one — F0-b1 — exceeds 400 LOC by design to keep the path-classification taxonomy coherent; the others stay under budget). L0 added as a lock-only file with PENDING-F0 markers for the hashes that F0 must compute.
 
 ## What is in place
 
@@ -87,7 +92,7 @@ The harness has not been built. The runners for `parity:census`, `parity:aa`, `p
 
 ### L0 — pilot lock
 
-`pilot-contract-lock.json` is not written. The `pilotToolchainCommit` and `pilotContractLockHash` variables in `g0-derivation-policy.json` stay `null`. Until A/A calibration is recorded, no pilot lock.
+`parity/pilot-contract-lock.json` IS written as a lock-only file with PENDING-F0 markers for `environmentLockHash`, `aaCalibrationHash`, `aaPrimeHash`, plus every policy and schema hash. The plan and toolchain commits are pinned (`8cc914c0ea` and `1a843c5912`). The lock cannot certify any surface on its own per §30; V0 (home pilot) is the only surface proven by it, the rest stays NOT_RUN.
 
 ### QF0 — full qualification lock
 
