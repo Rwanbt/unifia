@@ -2107,4 +2107,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Открытые рабочие пространства",
   "workbench.workspaceTabs.close": "Закрыть {{title}}",
   "workbench.thread.skill.none": "Нет навыка",
+  "workbench.thread.copy": "Копировать",
+  "workbench.thread.regenerate": "Сгенерировать заново",
+  "workbench.thread.regenerateHint": "Сгенерировать ответ заново",
+  "workbench.thread.helpful": "Полезный ответ",
+  "workbench.thread.needsImprovement": "Ответ требует улучшения",
+  "workbench.thread.empty": "Начните общение с сообщения. Ветка остаётся видимой при смене режима.",
+  "workbench.thread.nextSteps": "Следующие шаги",
+  "workbench.thread.nextStepsHint": "Несколько предложений для продолжения общения.",
 }

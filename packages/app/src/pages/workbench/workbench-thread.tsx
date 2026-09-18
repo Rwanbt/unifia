@@ -500,8 +500,8 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
                 type="button"
                 class="rounded border border-border-base px-2 py-1 text-12-regular"
                 data-workbench-thread-attach
-                aria-label="Joindre un fichier"
-                title="Joindre un fichier"
+                aria-label={t("prompt.action.attachFile")}
+                title={t("prompt.action.attachFile")}
                 onClick={() => fileInputRef?.click()}
               >
                 📎

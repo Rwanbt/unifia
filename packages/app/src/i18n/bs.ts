@@ -2181,4 +2181,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Otvoreni radni prostori",
   "workbench.workspaceTabs.close": "Zatvori {{title}}",
   "workbench.thread.skill.none": "Bez skill-a",
+  "workbench.thread.copy": "Kopiraj",
+  "workbench.thread.regenerate": "Regeneriši",
+  "workbench.thread.regenerateHint": "Regeneriši odgovor",
+  "workbench.thread.helpful": "Korisni odgovor",
+  "workbench.thread.needsImprovement": "Odgovor treba poboljšati",
+  "workbench.thread.empty": "Započni razgovor porukom. Nit ostaje vidljiva kada promijeniš način rada.",
+  "workbench.thread.nextSteps": "Sljedeći koraci",
+  "workbench.thread.nextStepsHint": "Nekoliko prijedloga za nastavak razgovora.",
 }

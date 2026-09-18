@@ -2103,4 +2103,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Açık çalışma alanları",
   "workbench.workspaceTabs.close": "{{title}} kapat",
   "workbench.thread.skill.none": "Skill yok",
+  "workbench.thread.copy": "Kopyala",
+  "workbench.thread.regenerate": "Yeniden oluştur",
+  "workbench.thread.regenerateHint": "Yanıtı yeniden oluştur",
+  "workbench.thread.helpful": "Yardımcı yanıt",
+  "workbench.thread.needsImprovement": "Yanıt geliştirilmeli",
+  "workbench.thread.empty": "Konuşmayı bir mesajla başlat. Mod değiştirdiğinde ileti dizisi görünür kalır.",
+  "workbench.thread.nextSteps": "Sonraki adımlar",
+  "workbench.thread.nextStepsHint": "Konuşmayı sürdürmek için birkaç öneri.",
 } satisfies Partial<Record<Keys, string>>

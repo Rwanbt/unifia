@@ -459,6 +459,8 @@ const GUARDED_DESIGN_FILES = new Set([
   "design-artifact-tab.tsx",
   "design-surface.tsx",
   "design-toolbar.tsx",
+  "workbench-thread.tsx",
+  "workbench-thread-list.tsx",
 ])
 const FRENCH_UI_WORD =
   /\b(Chargement|Renommer|Supprimer|Créer|Aperçu|Rechercher|Saisis|Fichier|fichier|Dossier|dossier|Nouveau|Importer|Fenêtre|Suivant|Recharger|Annuler|Sélectionne|indisponible)\b/

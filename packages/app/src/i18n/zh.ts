@@ -2169,4 +2169,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "已打开的工作区",
   "workbench.workspaceTabs.close": "关闭 {{title}}",
   "workbench.thread.skill.none": "无技能",
+  "workbench.thread.copy": "复制",
+  "workbench.thread.regenerate": "重新生成",
+  "workbench.thread.regenerateHint": "重新生成回复",
+  "workbench.thread.helpful": "有用的回复",
+  "workbench.thread.needsImprovement": "回复需要改进",
+  "workbench.thread.empty": "发送消息开始对话。切换模式时会话线程仍会显示。",
+  "workbench.thread.nextSteps": "后续步骤",
+  "workbench.thread.nextStepsHint": "继续对话的一些建议。",
 } satisfies Partial<Record<Keys, string>>

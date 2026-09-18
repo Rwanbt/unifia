@@ -2107,4 +2107,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Espacios de trabajo abiertos",
   "workbench.workspaceTabs.close": "Cerrar {{title}}",
   "workbench.thread.skill.none": "Sin skill",
+  "workbench.thread.copy": "Copiar",
+  "workbench.thread.regenerate": "Regenerar",
+  "workbench.thread.regenerateHint": "Regenerar la respuesta",
+  "workbench.thread.helpful": "Respuesta útil",
+  "workbench.thread.needsImprovement": "Respuesta a mejorar",
+  "workbench.thread.empty": "Inicia la conversación con un mensaje. El hilo permanece visible al cambiar de modo.",
+  "workbench.thread.nextSteps": "Próximos pasos",
+  "workbench.thread.nextStepsHint": "Algunas sugerencias para continuar la conversación.",
 }

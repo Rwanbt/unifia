@@ -2105,4 +2105,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Espaços de trabalho abertos",
   "workbench.workspaceTabs.close": "Fechar {{title}}",
   "workbench.thread.skill.none": "Nenhum skill",
+  "workbench.thread.copy": "Copiar",
+  "workbench.thread.regenerate": "Regenerar",
+  "workbench.thread.regenerateHint": "Regenerar a resposta",
+  "workbench.thread.helpful": "Resposta útil",
+  "workbench.thread.needsImprovement": "Resposta a melhorar",
+  "workbench.thread.empty": "Comece a conversa com uma mensagem. A conversa permanece visível ao mudar de modo.",
+  "workbench.thread.nextSteps": "Próximos passos",
+  "workbench.thread.nextStepsHint": "Algumas sugestões para continuar a conversa.",
 }

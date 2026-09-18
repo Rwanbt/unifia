@@ -2175,4 +2175,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Åbne arbejdsområder",
   "workbench.workspaceTabs.close": "Luk {{title}}",
   "workbench.thread.skill.none": "Ingen skill",
+  "workbench.thread.copy": "Kopier",
+  "workbench.thread.regenerate": "Regenerer",
+  "workbench.thread.regenerateHint": "Regenerer svaret",
+  "workbench.thread.helpful": "Nyttigt svar",
+  "workbench.thread.needsImprovement": "Svar kan forbedres",
+  "workbench.thread.empty": "Start samtalen med en besked. Tråden forbliver synlig, når du skifter tilstand.",
+  "workbench.thread.nextSteps": "Næste trin",
+  "workbench.thread.nextStepsHint": "Et par forslag til at fortsætte samtalen.",
 }

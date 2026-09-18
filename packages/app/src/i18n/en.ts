@@ -2105,4 +2105,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Open workspaces",
   "workbench.workspaceTabs.close": "Close {{title}}",
   "workbench.thread.skill.none": "No skill",
+  "workbench.thread.copy": "Copy",
+  "workbench.thread.regenerate": "Regenerate",
+  "workbench.thread.regenerateHint": "Regenerate the response",
+  "workbench.thread.helpful": "Helpful response",
+  "workbench.thread.needsImprovement": "Response needs improvement",
+  "workbench.thread.empty": "Start the conversation with a message. The thread stays visible when you switch modes.",
+  "workbench.thread.nextSteps": "Next steps",
+  "workbench.thread.nextStepsHint": "A few suggestions to continue the conversation.",
 }

@@ -54,7 +54,7 @@ export function WorkbenchThreadList(props: {
         when={items().length > 0}
         fallback={
           <p class="px-4 py-3 text-12-regular text-text-weak" data-workbench-thread-empty>
-            Démarre la conversation par un message. Le fil reste affiché quand tu changes de mode.
+            {props.t("workbench.thread.empty")}
           </p>
         }
       >
@@ -80,17 +80,17 @@ export function WorkbenchThreadList(props: {
                                   data-workbench-thread-action="copy"
                                   onClick={() => props.onCopy(message().id, message().text)}
                                 >
-                                  Copier
+                                  {props.t("workbench.thread.copy")}
                                 </button>
                                 <button
                                   type="button"
                                   class="rounded border border-border-base px-2 py-1 text-12-regular disabled:opacity-50"
                                   data-workbench-thread-action="regenerate"
-                                  title="Régénérer la réponse"
+                                  title={props.t("workbench.thread.regenerateHint")}
                                   disabled={props.regenerating}
                                   onClick={() => props.onRegenerate(message().id)}
                                 >
-                                  Régénérer
+                                  {props.t("workbench.thread.regenerate")}
                                 </button>
                                 <button
                                   type="button"
@@ -99,7 +99,7 @@ export function WorkbenchThreadList(props: {
                                   data-workbench-thread-action="like"
                                   aria-pressed={props.feedback[message().id] === "like"}
                                   onClick={() => props.onRate(message().id, "like")}
-                                  title="Réponse utile"
+                                  title={props.t("workbench.thread.helpful")}
                                 >
                                   👍
                                 </button>
@@ -110,7 +110,7 @@ export function WorkbenchThreadList(props: {
                                   data-workbench-thread-action="dislike"
                                   aria-pressed={props.feedback[message().id] === "dislike"}
                                   onClick={() => props.onRate(message().id, "dislike")}
-                                  title="Réponse à améliorer"
+                                  title={props.t("workbench.thread.needsImprovement")}
                                 >
                                   👎
                                 </button>
@@ -166,9 +166,9 @@ export function WorkbenchThreadList(props: {
                   class="rounded-md border border-border-weak-base bg-background-stronger p-3"
                   data-workbench-thread-next-step
                 >
-                  <p class="text-12-medium text-text-weak">Étapes suivantes</p>
+                  <p class="text-12-medium text-text-weak">{props.t("workbench.thread.nextSteps")}</p>
                   <p class="mt-1 text-12-regular text-text-weak">
-                    Quelques suggestions pour continuer la conversation.
+                    {props.t("workbench.thread.nextStepsHint")}
                   </p>
                   <ul class="mt-2 flex flex-col gap-1">
                     <For each={props.suggestions}>

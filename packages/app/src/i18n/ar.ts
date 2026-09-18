@@ -2093,4 +2093,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "مساحات العمل المفتوحة",
   "workbench.workspaceTabs.close": "إغلاق {{title}}",
   "workbench.thread.skill.none": "لا مهارة",
+  "workbench.thread.copy": "نسخ",
+  "workbench.thread.regenerate": "إعادة التوليد",
+  "workbench.thread.regenerateHint": "إعادة توليد الرد",
+  "workbench.thread.helpful": "رد مفيد",
+  "workbench.thread.needsImprovement": "الرد بحاجة إلى تحسين",
+  "workbench.thread.empty": "ابدأ المحادثة برسالة. يبقى الخيط مرئيًا عند تغيير الوضع.",
+  "workbench.thread.nextSteps": "الخطوات التالية",
+  "workbench.thread.nextStepsHint": "بعض الاقتراحات لمتابعة المحادثة.",
 }

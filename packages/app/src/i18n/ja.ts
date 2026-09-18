@@ -2099,4 +2099,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "開いているワークスペース",
   "workbench.workspaceTabs.close": "{{title}} を閉じる",
   "workbench.thread.skill.none": "スキルなし",
+  "workbench.thread.copy": "コピー",
+  "workbench.thread.regenerate": "再生成",
+  "workbench.thread.regenerateHint": "応答を再生成",
+  "workbench.thread.helpful": "役に立った応答",
+  "workbench.thread.needsImprovement": "改善の余地がある応答",
+  "workbench.thread.empty": "メッセージで会話を始めましょう。モードを切り替えてもスレッドは表示されます。",
+  "workbench.thread.nextSteps": "次のステップ",
+  "workbench.thread.nextStepsHint": "会話を続けるためのいくつかの提案です。",
 }

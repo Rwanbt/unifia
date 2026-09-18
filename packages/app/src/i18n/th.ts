@@ -2171,4 +2171,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "พื้นที่ทำงานที่เปิดอยู่",
   "workbench.workspaceTabs.close": "ปิด {{title}}",
   "workbench.thread.skill.none": "ไม่มีสกิล",
+  "workbench.thread.copy": "คัดลอก",
+  "workbench.thread.regenerate": "สร้างใหม่",
+  "workbench.thread.regenerateHint": "สร้างคำตอบใหม่",
+  "workbench.thread.helpful": "คำตอบที่มีประโยชน์",
+  "workbench.thread.needsImprovement": "คำตอบที่ควรปรับปรุง",
+  "workbench.thread.empty": "เริ่มบทสนทนด้วยข้อความ เธรียดจะยังคงแสดงเมื่อเปลี่ยนโหมด",
+  "workbench.thread.nextSteps": "ขั้นตอนถัดไป",
+  "workbench.thread.nextStepsHint": "คำแนะนำสองสามสำหรับการสนทนาต่อ",
 }

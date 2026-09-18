@@ -2119,4 +2119,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Geöffnete Arbeitsbereiche",
   "workbench.workspaceTabs.close": "{{title}} schließen",
   "workbench.thread.skill.none": "Kein Skill",
+  "workbench.thread.copy": "Kopieren",
+  "workbench.thread.regenerate": "Neu generieren",
+  "workbench.thread.regenerateHint": "Die Antwort neu generieren",
+  "workbench.thread.helpful": "Hilfreiche Antwort",
+  "workbench.thread.needsImprovement": "Antwort verbesserungswürdig",
+  "workbench.thread.empty": "Starte das Gespräch mit einer Nachricht. Der Thread bleibt sichtbar, wenn du den Modus wechselst.",
+  "workbench.thread.nextSteps": "Nächste Schritte",
+  "workbench.thread.nextStepsHint": "Ein paar Vorschläge, um das Gespräch fortzusetzen.",
 } satisfies Partial<Record<Keys, string>>

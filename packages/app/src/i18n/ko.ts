@@ -2099,4 +2099,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "열린 워크스페이스",
   "workbench.workspaceTabs.close": "{{title}} 닫기",
   "workbench.thread.skill.none": "스킬 없음",
+  "workbench.thread.copy": "복사",
+  "workbench.thread.regenerate": "재생성",
+  "workbench.thread.regenerateHint": "응답 재생성",
+  "workbench.thread.helpful": "유용한 응답",
+  "workbench.thread.needsImprovement": "개선이 필요한 응답",
+  "workbench.thread.empty": "메시지로 대화를 시작하세요. 모드를 바꿔도 스레드가 표시됩니다.",
+  "workbench.thread.nextSteps": "다음 단계",
+  "workbench.thread.nextStepsHint": "대화를 계속할 수 있는 몇 가지 제안입니다.",
 }

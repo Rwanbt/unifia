@@ -2099,4 +2099,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Åpne arbeidsområder",
   "workbench.workspaceTabs.close": "Lukk {{title}}",
   "workbench.thread.skill.none": "Ingen skill",
+  "workbench.thread.copy": "Kopier",
+  "workbench.thread.regenerate": "Regenerer",
+  "workbench.thread.regenerateHint": "Regenerer svaret",
+  "workbench.thread.helpful": "Nyttig svar",
+  "workbench.thread.needsImprovement": "Svar kan forbedres",
+  "workbench.thread.empty": "Start samtalen med en melding. Tråden forblir synlig når du bytter modus.",
+  "workbench.thread.nextSteps": "Neste steg",
+  "workbench.thread.nextStepsHint": "Noen forslag for å fortsette samtalen.",
 } satisfies Partial<Record<Keys, string>>

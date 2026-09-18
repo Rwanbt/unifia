@@ -2103,4 +2103,12 @@ export const dict = {
   "workbench.workspaceTabs.label": "Otwarte przestrzenie robocze",
   "workbench.workspaceTabs.close": "Zamknij {{title}}",
   "workbench.thread.skill.none": "Brak skilla",
+  "workbench.thread.copy": "Kopiuj",
+  "workbench.thread.regenerate": "Wygeneruj ponownie",
+  "workbench.thread.regenerateHint": "Wygeneruj odpowiedź ponownie",
+  "workbench.thread.helpful": "Przydatna odpowiedź",
+  "workbench.thread.needsImprovement": "Odpowiedź do poprawy",
+  "workbench.thread.empty": "Rozpocznij rozmowę wiadomością. Wątek pozostaje widoczny po zmianie trybu.",
+  "workbench.thread.nextSteps": "Następne kroki",
+  "workbench.thread.nextStepsHint": "Kilka propozycji kontynuowania rozmowy.",
 }
