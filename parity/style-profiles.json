@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Style profiles per anchorKind. Each property is attacked by a mutation. Profiles start at 0-pixel tolerance and absorb A/A calibration envelopes only.",
+  "profiles": {
+    "home-title": {
+      "properties": [
+        "color",
+        "font-family",
+        "font-size",
+        "font-weight",
+        "line-height",
+        "letter-spacing",
+        "margin",
+        "padding",
+        "text-align"
+      ],
+      "tolerancePx": 0
+    },
+    "home-modes-row": {
+      "properties": [
+        "display",
+        "flex-wrap",
+        "gap",
+        "justify-content",
+        "align-items",
+        "width",
+        "min-width",
+        "max-width",
+        "padding",
+        "margin"
+      ],
+      "tolerancePx": 0
+    },
+    "home-mode-pill": {
+      "properties": [
+        "height",
+        "padding",
+        "border",
+        "border-radius",
+        "background",
+        "color",
+        "font-size",
+        "font-weight",
+        "outline",
+        "outline-offset",
+        "box-shadow",
+        "transition",
+        "animation",
+        "caret-color",
+        "accent-color"
+      ],
+      "tolerancePx": 0
+    },
+    "home-composer-card": {
+      "properties": [
+        "background",
+        "border",
+        "border-radius",
+        "box-shadow",
+        "padding",
+        "margin",
+        "width",
+        "max-width",
+        "overflow"
+      ],
+      "tolerancePx": 0
+    },
+    "home-state-line": {
+      "properties": [
+        "height",
+        "padding",
+        "border",
+        "border-radius",
+        "background",
+        "color",
+        "font-size",
+        "font-weight",
+        "display",
+        "align-items",
+        "gap",
+        "backdrop-filter"
+      ],
+      "tolerancePx": 0
+    },
+    "shell.topbar": {
+      "properties": [
+        "height",
+        "min-height",
+        "background",
+        "border-bottom",
+        "padding",
+        "display",
+        "grid-template-columns",
+        "align-items"
+      ],
+      "tolerancePx": 0
+    },
+    "shell.workspace-tabs": {
+      "properties": [
+        "height",
+        "background",
+        "border-bottom",
+        "padding",
+        "display",
+        "gap"
+      ],
+      "tolerancePx": 0
+    },
+    "shell.rail": {
+      "properties": [
+        "width",
+        "min-width",
+        "max-width",
+        "background",
+        "border-right",
+        "display",
+        "flex-direction",
+        "align-items",
+        "overflow",
+        "padding",
+        "gap"
+      ],
+      "tolerancePx": 0
+    },
+    "shell.inspector": {
+      "properties": [
+        "width",
+        "min-width",
+        "max-width",
+        "background",
+        "border-left",
+        "padding",
+        "display",
+        "flex-direction",
+        "transition"
+      ],
+      "tolerancePx": 0
+    },
+    "code.editor": {
+      "properties": [
+        "background",
+        "border",
+        "border-radius",
+        "padding",
+        "margin",
+        "overflow",
+        "font-family",
+        "font-size",
+        "line-height",
+        "caret-color",
+        "text-decoration",
+        "text-shadow",
+        "outline",
+        "outline-offset",
+        "visibility",
+        "pointer-events"
+      ],
+      "tolerancePx": 0
+    },
+    "code.terminal": {
+      "properties": [
+        "background",
+        "border",
+        "border-radius",
+        "padding",
+        "font-family",
+        "font-size",
+        "line-height",
+        "caret-color",
+        "color"
+      ],
+      "tolerancePx": 0
+    },
+    "code.diff": {
+      "properties": [
+        "background",
+        "border",
+        "border-radius",
+        "padding",
+        "margin",
+        "font-family",
+        "font-size",
+        "line-height",
+        "color",
+        "background-color"
+      ],
+      "tolerancePx": 0
+    },
+    "session.composer": {
+      "properties": [
+        "background",
+        "border",
+        "border-radius",
+        "padding",
+        "min-height",
+        "height",
+        "font-family",
+        "font-size",
+        "line-height",
+        "color",
+        "caret-color",
+        "accent-color"
+      ],
+      "tolerancePx": 0
+    },
+    "session.chat": {
+      "properties": [
+        "background",
+        "padding",
+        "max-width",
+        "margin",
+        "border-radius",
+        "border",
+        "display",
+        "flex-direction",
+        "gap"
+      ],
+      "tolerancePx": 0
+    },
+    "memory.panel": {
+      "properties": [
+        "background",
+        "padding",
+        "gap",
+        "display",
+        "flex-direction",
+        "min-width",
+        "max-width",
+        "border"
+      ],
+      "tolerancePx": 0
+    },
+    "automate.surface": {
+      "properties": [
+        "background",
+        "padding",
+        "display",
+        "flex-direction",
+        "gap",
+        "min-height",
+        "height"
+      ],
+      "tolerancePx": 0
+    },
+    "work.content": {
+      "properties": [
+        "background",
+        "padding",
+        "display",
+        "grid-template-columns",
+        "gap",
+        "min-height"
+      ],
+      "tolerancePx": 0
+    }
+  }
+}

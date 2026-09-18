@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Required states derived from anchorKind + DOM role. A surface that removes a required state without an N/A disposition fails before G2.",
+  "byAnchorKind": {
+    "home-title": {
+      "states": ["default"]
+    },
+    "home-modes-row": {
+      "states": ["default"]
+    },
+    "home-mode-pill": {
+      "states": ["default", "hover", "focus-visible", "pressed"]
+    },
+    "home-quick-chip": {
+      "states": ["default", "hover", "focus-visible"]
+    },
+    "home-composer-card": {
+      "states": ["default", "focus-within"]
+    },
+    "home-state-line": {
+      "states": ["default", "hover", "focus-visible"]
+    },
+    "shell.topbar": {
+      "states": ["default"]
+    },
+    "shell.workspace-tabs": {
+      "states": ["default"]
+    },
+    "shell.rail": {
+      "states": ["default", "compact"]
+    },
+    "shell.inspector": {
+      "states": ["closed", "open"]
+    },
+    "session.chat": {
+      "states": ["loading", "empty", "present", "error"]
+    },
+    "session.composer": {
+      "states": ["default", "focus-within", "submitting", "disabled"]
+    },
+    "code.editor": {
+      "states": ["loading", "present", "dirty", "conflict", "error"]
+    },
+    "code.terminal": {
+      "states": ["default", "running", "error"]
+    },
+    "code.diff": {
+      "states": ["loading", "present", "error"]
+    },
+    "memory.panel": {
+      "states": ["loading", "present", "empty"]
+    },
+    "automate.surface": {
+      "states": ["loading", "draft", "published", "running", "error"]
+    },
+    "settings.dialog": {
+      "states": ["closed", "open"]
+    },
+    "work.shell": {
+      "states": ["loading", "present", "empty"]
+    },
+    "work.content": {
+      "states": ["overview", "tasks", "board", "timeline", "activity", "runs"]
+    }
+  }
+}
