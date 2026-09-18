@@ -226,6 +226,24 @@ try {
     // pre-fix script had exactly this failure mode (HANDOFF §4: "then a hard
     // throw" on the third of three runs).
     try {
+      // Host resource ceiling (HANDOFF-CLAUDE.md §8b, found independently
+      // re-running this file on a low-free-RAM host): under that condition
+      // the browser answers navigation with net::ERR_INSUFFICIENT_RESOURCES
+      // and renders nothing -- zero stylesheets, near-empty body -- without
+      // throwing, so every fragment on the scene would silently measure 0
+      // and read as a real regression. Distinguishing this from a genuine
+      // "scene did not become ready" matters: one is the app, the other is
+      // the host.
+      const health = await page.evaluate(() => ({
+        sheets: document.styleSheets.length,
+        bodyLen: document.body.innerHTML.length,
+      }))
+      if (health.sheets === 0 || health.bodyLen < 200) {
+        throw new Error(
+          `page did not render, likely host resource ceiling not this scene: sheets=${health.sheets} bodyLen=${health.bodyLen}`,
+        )
+      }
+
       const expectedKind = expectedRouteKind(scene)
       if (expectedKind) {
         await page.waitForFunction(

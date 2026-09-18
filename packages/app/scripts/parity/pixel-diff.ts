@@ -82,6 +82,23 @@ async function shoot(
     await page.emulateMedia({ colorScheme: theme === "light" ? "light" : "dark" })
     if (initFn) await initFn(page)
     await page.goto(url, { waitUntil: "load", timeout: 60000 })
+    // Host resource ceiling (HANDOFF-CLAUDE.md §8b): under low free RAM this
+    // host's CDP-attached browser answers navigation with
+    // net::ERR_INSUFFICIENT_RESOURCES and renders NOTHING -- zero
+    // stylesheets, near-empty body -- without throwing. A diff against that
+    // would look like a real visual regression and isn't one. Bail loudly
+    // instead of measuring a starved render.
+    const health = await page.evaluate(() => ({
+      sheets: document.styleSheets.length,
+      bodyLen: document.body.innerHTML.length,
+    }))
+    if (health.sheets === 0 || health.bodyLen < 500) {
+      throw new Error(
+        `page did not render (possible host resource ceiling, see HANDOFF-CLAUDE.md §8b): ` +
+          `${url} -> sheets=${health.sheets} bodyLen=${health.bodyLen}. Free memory (close idle ` +
+          `browser tabs/processes you started) and retry.`,
+      )
+    }
     if (readySelector) {
       await page.waitForSelector(readySelector, { state: "attached", timeout: 20000 })
     }
