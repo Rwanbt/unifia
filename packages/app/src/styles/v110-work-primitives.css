@@ -1,0 +1,342 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Work surface primitives -- kanban board + timeline + accordion + kbd
+ * + slider + divider + spacer. Kept in its own layer so v110.css stays
+ * under the AGENTS.md 1500 LOC ceiling. The .kanban / .kanban-column /
+ * .kanban-card / .timeline / .timeline-event / .accordion / .accordion-item
+ * / .kbd / .kbd-key / .slider / .divider / .spacer classes below map
+ * onto the work surface anchors. */
+
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  min-height: 240px;
+  padding: 12px;
+}
+
+.kanban-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 240px;
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-lg);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  padding: 10px;
+}
+
+.kanban-column-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.kanban-column-head b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.kanban-column-head .badge {
+  margin-left: auto;
+}
+
+.kanban-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.kanban-card {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-md);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: grab;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease),
+    box-shadow var(--v110-fast) var(--v110-ease);
+}
+
+.kanban-card:hover {
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-card b {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.kanban-card p {
+  margin: 0;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.kanban-card .kanban-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 16px;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--line);
+}
+
+.timeline-event {
+  position: relative;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.timeline-event::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+}
+
+.timeline-event.is-active::before {
+  background: var(--text-success, var(--success));
+  border-color: var(--text-success, var(--success));
+}
+
+.timeline-event.is-warn::before {
+  background: var(--text-warning, var(--warning));
+  border-color: var(--text-warning, var(--warning));
+}
+
+.timeline-event.is-error::before {
+  background: var(--text-danger, var(--danger));
+  border-color: var(--text-danger, var(--danger));
+}
+
+.timeline-event .timeline-event-time {
+  font-size: 9px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-event .timeline-event-title {
+  font-size: 11px;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.timeline-event .timeline-event-description {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.accordion-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.accordion-item:last-child {
+  border-bottom: 0;
+}
+
+.accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--v110-fast) var(--v110-ease);
+}
+
+.accordion-trigger:hover {
+  background: var(--surface-2);
+}
+
+.accordion-trigger[data-state="open"] {
+  background: var(--surface-2);
+}
+
+.accordion-trigger .accordion-icon {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  transition: transform var(--v110-fast) var(--v110-ease);
+}
+
+.accordion-trigger[data-state="open"] .accordion-icon {
+  transform: rotate(90deg);
+}
+
+.accordion-content {
+  padding: 0 14px 14px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.accordion-content[data-state="closed"] {
+  display: none;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.kbd-key {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.kbd-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.kbd-separator {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 0 2px;
+}
+
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.slider .slider-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  position: relative;
+}
+
+.slider .slider-range {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--text);
+  border-radius: 999px;
+}
+
+.slider .slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--text);
+  transform: translate(-50%, -50%);
+}
+
+.slider .slider-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin: 12px 0;
+  border: 0;
+}
+
+.divider.divider-vertical {
+  width: 1px;
+  height: auto;
+  align-self: stretch;
+  margin: 0 12px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.spacer-fixed {
+  flex: 0 0 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-trigger .accordion-icon,
+  .kanban-card,
+  .slider .slider-range {
+    transition: none;
+  }
+}
