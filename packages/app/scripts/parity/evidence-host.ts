@@ -32,6 +32,21 @@ type GateSpec = {
   name: string
   script: string
   args: string[]
+  summarize?: (stdout: string, stderr: string) => unknown
+}
+
+// bun test's pretty reporter is not JSON, and when piped it writes the
+// per-test log plus the summary tail to stderr, not stdout. Parse the
+// stable tail lines ("1632 pass", "0 fail", "Ran 1632 tests") from both
+// streams; anything unrecognized yields null and the gate's exit code
+// still rules the verdict.
+function summarizeUnit(stdout: string, stderr: string): unknown {
+  const text = `${stdout}\n${stderr}`
+  const pass = text.match(/(\d+) pass\b/)
+  const fail = text.match(/(\d+) fail\b/)
+  const ran = text.match(/Ran (\d+) tests/)
+  if (!pass || !fail || !ran) return null
+  return { pass: Number(pass[1]), fail: Number(fail[1]), ran: Number(ran[1]) }
 }
 
 const GATES: GateSpec[] = [
@@ -45,6 +60,7 @@ const GATES: GateSpec[] = [
   { name: "motion-static", script: "scripts/parity/motion-static.ts", args: ["--emit=artifact"] },
   { name: "census-extended", script: "scripts/parity/census-extended.ts", args: ["--emit=artifact"] },
   { name: "checkpoint-lint", script: "scripts/parity/checkpoint-lint.ts", args: [] },
+  { name: "unit", script: "test:unit", args: [], summarize: summarizeUnit },
 ]
 
 type GateEvidence = {
@@ -83,14 +99,18 @@ function runGate(spec: GateSpec): GateEvidence {
   const stderr = typeof result.stderr === "string" ? result.stderr : ""
   let status: string | null = null
   let counters: unknown = null
-  try {
-    const parsed = JSON.parse(stdout) as Record<string, unknown>
-    if (typeof parsed.status === "string") status = parsed.status
-    if (parsed.counters !== undefined) counters = parsed.counters
-    else if (parsed.counts !== undefined) counters = parsed.counts
-  } catch {
-    status = null
-    counters = null
+  if (spec.summarize) {
+    counters = spec.summarize(stdout, stderr)
+  } else {
+    try {
+      const parsed = JSON.parse(stdout) as Record<string, unknown>
+      if (typeof parsed.status === "string") status = parsed.status
+      if (parsed.counters !== undefined) counters = parsed.counters
+      else if (parsed.counts !== undefined) counters = parsed.counts
+    } catch {
+      status = null
+      counters = null
+    }
   }
   return {
     name: spec.name,
@@ -132,7 +152,7 @@ const bundle = {
   gates,
   overall,
   notes: [
-    "Host-computable gates only. F0 image-side runners (aa, aa-prime, visual, motion, mutations, g3, full) are excluded by construction.",
+    "Host-computable gates only: 10 parity runners plus the unit suite. F0 image-side runners (aa, aa-prime, visual, motion, mutations, g3, full) are excluded by construction.",
     "path-classification-check rewrites parity/path-classification-coverage.json (tracked) as a side effect; census/tokens/motion runners refresh their parity/artifacts sidecars (gitignored).",
     "checkpoint-lint inspects the staged diff; on a clean tree it reports zero files, which is recorded, not hidden.",
     "overall is PASS iff every gate exits 0. Per-gate declared statuses are recorded verbatim.",

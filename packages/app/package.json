@@ -44,7 +44,8 @@
     "parity:g3": "bun run scripts/parity/runtime.ts g3",
     "parity:full": "bun run scripts/parity/runtime.ts full",
     "parity:lock:refresh": "bun run scripts/parity/lock-refresh.ts",
-    "parity:evidence:host": "bun run scripts/parity/evidence-host.ts"
+    "parity:evidence:host": "bun run scripts/parity/evidence-host.ts",
+    "parity:unit": "bun run test:unit"
   },
   "license": "MIT",
   "devDependencies": {
