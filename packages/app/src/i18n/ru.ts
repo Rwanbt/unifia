@@ -2106,4 +2106,5 @@ export const dict = {
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
   "workbench.workspaceTabs.label": "Открытые рабочие пространства",
   "workbench.workspaceTabs.close": "Закрыть {{title}}",
+  "workbench.thread.skill.none": "Нет навыка",
 }

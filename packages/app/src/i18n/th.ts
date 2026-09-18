@@ -2170,4 +2170,5 @@ export const dict = {
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
   "workbench.workspaceTabs.label": "พื้นที่ทำงานที่เปิดอยู่",
   "workbench.workspaceTabs.close": "ปิด {{title}}",
+  "workbench.thread.skill.none": "ไม่มีสกิล",
 }

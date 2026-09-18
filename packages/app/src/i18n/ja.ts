@@ -2098,4 +2098,5 @@ export const dict = {
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
   "workbench.workspaceTabs.label": "開いているワークスペース",
   "workbench.workspaceTabs.close": "{{title}} を閉じる",
+  "workbench.thread.skill.none": "スキルなし",
 }

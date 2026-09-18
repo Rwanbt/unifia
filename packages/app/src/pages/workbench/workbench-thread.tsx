@@ -484,7 +484,7 @@ export function WorkbenchThread(props: WorkbenchThreadProps): JSX.Element {
                       aria-expanded={skillPickerOpen()}
                       onClick={() => setSkillPickerOpen((open) => !open)}
                     >
-                      {active()?.name ?? "Aucun skill"}
+                      {active()?.name ?? t("workbench.thread.skill.none")}
                     </button>
                     <Show when={skillPickerOpen()}>
                       <div class="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-lg border border-border-base bg-background-stronger p-3 shadow-lg">

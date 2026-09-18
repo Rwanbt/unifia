@@ -2118,4 +2118,5 @@ export const dict = {
   "workbench.memory.graph.summary": "{{notes}} notes · {{links}} links",
   "workbench.workspaceTabs.label": "Geöffnete Arbeitsbereiche",
   "workbench.workspaceTabs.close": "{{title}} schließen",
+  "workbench.thread.skill.none": "Kein Skill",
 } satisfies Partial<Record<Keys, string>>
