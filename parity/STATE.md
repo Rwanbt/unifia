@@ -818,14 +818,42 @@ which icon was which. Two small, real, sourced gaps, neither fixed:
    `settings-collaborative-auth.tsx` and grepped for `avatar`/`useAuth`/
    `useAccount` -- nothing). Inventing placeholder identity UI with no
    real data behind it would be worse than the gap; left alone.
-2. **Browser and Memory modes have no dedicated icon.** In
-   `sidebar-shell.tsx`'s icon ternary
-   (`mode === "code" ? "code" : mode === "work" ? "folder" : mode ===
-   "design" ? "edit" : "checklist"`), both `browser` and `memory` fall
-   through to the generic `"checklist"` glyph. Low priority: neither mode
-   is reachable in any workspace tested this session (already documented
-   above as capability-gated), so this has not been visually confirmed to
-   matter yet.
+2. ~~Browser and Memory modes have no dedicated icon~~ -- **correction**:
+   this was wrong, based on misreading the ternary as a 6-mode switch. Read
+   `packages/workbench-shell/src/modes.ts:13`: `ShellMode` is a strict
+   4-entry union (`"code" | "work" | "design" | "automate"`), confirmed by
+   its own comment ("still the 4-entry contract"). Browser and Memory are
+   maquette-only rail concepts with no corresponding `ShellMode` at all --
+   `sidebar-shell.tsx`'s icon ternary's `"checklist"` fallback is reached
+   only by `automate`, never by a mode that doesn't exist in the type
+   system. No gap to fix here.
+
+## Topbar breadcrumb ported (2026-09-18)
+
+`.crumbs` (`Unifia-UI-UX-v110-PORT-READY-R1.html:15232`) is now real,
+tested UI, not just a documented gap: `components/topbar-breadcrumb.tsx`
+(`f9531f32b8`), a new `left` slot on `titlebar-slots.tsx`, bare-noun i18n
+keys (`workbench.modes.name.*`) added to English and all 16 other
+locales with real distinct translations (workbench.* is in the i18n
+parity guard's audited scope, so an English fallback would have failed
+CI). Verified live in French on both Code and Work modes ("unifia /
+Code", "unifia / Travail"); full unit suite (1636 tests) and the i18n
+parity suite (10 tests, 33030 assertions) both green.
+
+**Investigated, deliberately not attempted this pass**: the maquette's
+`#layoutSwitch` (Chat/Split/Editor/Graph). Traced the app's actual backing
+state before deciding -- `context/layout.tsx` has a real per-session file
+tabs model (`SessionTabs.all`/`.active`) and a real `editorFocus`
+toggle (`session-header.tsx`, "tablet mode": hides chat to give the open
+inspector tab more room) -- so this is not vaporware, there is a genuine
+feature underneath. But `editorFocus` only appears when
+`layout.inspector.opened()`, and what it maximizes is the inspector panel
+(explorer/inspector/execution), not confirmed to be an actual open-file
+code view the way the maquette's "Editor" state is. Building a 3-way
+segmented control without first confirming what "Editor" would actually
+show risks a control that LIES about its own states -- worse than the
+current gap. Left for a dedicated pass that starts by finding where (or
+whether) an open file actually renders as an editable code surface.
 
 ## Verdict
 
