@@ -1,6 +1,7 @@
 @import "@unifia/ui/styles/tailwind";
 @import "@/styles/unifia-brand.css";
 @import '@/styles/v110.css';
+@import '@/styles/v110-home.css';
 @import '@/styles/v110-theme.css';
 @import '@/styles/v110-chat.css';
 @import '@/styles/v110-work.css';

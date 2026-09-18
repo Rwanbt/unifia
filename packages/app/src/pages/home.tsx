@@ -142,6 +142,21 @@ export default function Home() {
           Open a project, resume a recent session, or jump straight into the mode that fits the task.
         </p>
 
+        <div data-v110="home-glance" data-parity="home.glance">
+          <div data-v110="home-glance-cell">
+            <b>{sync.data.project.length}</b>
+            <span>Projects</span>
+          </div>
+          <div data-v110="home-glance-cell">
+            <b>{mode.modes.length}</b>
+            <span>Modes</span>
+          </div>
+          <div data-v110="home-glance-cell">
+            <b>{serverDotClass().includes("success") ? "online" : serverDotClass().includes("critical") ? "offline" : "checking"}</b>
+            <span>Server</span>
+          </div>
+        </div>
+
         <div data-v110="home-composer-card">
           <div data-v110="home-composer-input">
             Ask anything — <b>/</b> for commands, <b>@</b> for context.
