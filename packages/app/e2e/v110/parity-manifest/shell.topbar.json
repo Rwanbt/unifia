@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "shell.topbar",
+  "slice": "S4",
+  "scene": "shell.default",
+  "anchorKind": "shell.topbar",
+  "reference": { "selector": "header.topbar", "count": 1, "visibleCount": 1 },
+  "app": { "selector": "header[data-parity=\"shell.topbar\"]", "count": 1, "visibleCount": 1 },
+  "matchBy": { "kind": "attribute", "reference": "data-parity", "app": "data-parity" },
+  "viewports": ["desktop-wide"],
+  "themes": ["dark"],
+  "stateVectors": ["default"],
+  "styleProfile": "shell.topbar",
+  "mask": null,
+  "disposition": "port"
+}
