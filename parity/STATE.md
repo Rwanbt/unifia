@@ -465,12 +465,94 @@ anchors.spec.ts under Playwright strict mode, which rejects a locator resolving 
 Screenshots captured this session live in docs/ui-reference/v110/verification/
 (home dark, home light, work, settings, design).
 
-Caveat, stated plainly: this evidence was captured by driving the browser
-manually, not by a committed script, so it is not a CI gate and cannot be re-run
-by CI on this host (e2e remains blocked). The backend on :4096 was down
-throughout and did not prevent these routes from rendering; only the workbench
-bridge reported unavailable.
+Caveat, stated plainly at the time: this evidence was captured by driving the
+browser manually, not by a committed script. The following session (below)
+closed that gap.
+
+## Runtime pairing harness committed and made deterministic (2026-09-18, Claude Code session)
+
+`packages/app/scripts/parity/runtime-pair.ts` existed only as an uncommitted,
+non-deterministic file (HANDOFF-CLAUDE.md §4: three consecutive runs against
+one browser gave `12/0/4`, then `10/2/4`, then a hard throw). Both documented
+defects are fixed, plus two more found while actually proving determinism:
+
+1. **Order-dependent theme.** The old `ensureTheme()` clicked the app's
+   toggle button (home-only, flips relative to `theme.mode()`), racing the
+   app's own "system"-scheme reactivity and sometimes pinning the wrong
+   explicit value into `localStorage`, which then outlived the run. Replaced
+   with `page.addInitScript` writing `unifia-color-scheme`
+   (`packages/ui/src/theme/context.tsx` `STORAGE_KEYS.COLOR_SCHEME`) directly
+   before every navigation.
+2. **Fixed wait after navigation.** `waitForTimeout(1200)` replaced with
+   `waitForFunction` on the shell frame's `data-route` reaching the kind
+   `parseModeLocation()` assigns the URL, then -- because that alone still
+   measured home fragments as raw 0 (the outer shell mounts before the
+   scene's own content does) -- `waitForSelector` on each fragment's own
+   selector right before measuring it.
+3. **Viewport ordering (found proving determinism, not in the original two).**
+   A freshly created CDP page defaults to a narrow viewport (758x488 measured
+   on this host); `settings-general.tsx` renders `<SettingsMobileNav>` below
+   its mobile breakpoint, which carries no `data-parity="settings.dialog"`
+   marker. The settings scene opened the dialog via a keypress before its own
+   per-fragment loop would have set the viewport. Viewport is now resolved
+   and applied once, up front, the same way theme is.
+4. **Tab leak across runs (same category).** `browser.close()` detaches the
+   CDP session but does not close the page on a CDP-attached browser: 3
+   consecutive runs left 15 tabs open, each retrying its failed connection to
+   the down `:4096` backend, until a later navigation failed with
+   `net::ERR_INSUFFICIENT_RESOURCES`. Added `page.close()` in the same
+   `finally`.
+
+Also: a scene whose readiness wait times out now records FAIL for its own
+fragments and moves on, instead of throwing uncaught and losing every other
+scene's outcome (this is the shape the documented third run's "hard throw"
+took).
+
+**Proof, exactly as required**: 3 consecutive runs against the same isolated
+browser (CDP `:9333`, never `:9222`), same command, same `--project`:
+`12/0/4`, `12/0/4`, `12/0/4`, exit 0 every time. The tab-leak fix was
+confirmed separately (2 residual targets after 3 runs, not the 15+ an
+unfixed leak leaves). Committed harness-only in `463821e886`, after a
+pre-existing, unrelated `path-classification` baseline drift (two
+doc/screenshot commits had shifted the tracked-file count without a
+`--refresh`) was closed first in its own commit (`8b7ea8baeb`), and the
+harness commit's own new tracked file was reconciled in a third
+(`fcb3da8c4a`).
+
+`parity:evidence:host` then gained the harness as an **optional, non-gating**
+report (`691a9d151f`), per HANDOFF-CLAUDE.md §9.6: a new `optionalGates`
+array runs `runtime-pair` only when `PARITY_RUNTIME_CDP` and
+`PARITY_RUNTIME_PROJECT` are both set (otherwise `SKIPPED_NO_ENV`), and is
+excluded from both `overall` and the canonical hash -- a normal or CI run of
+`parity:evidence:host` is unaffected either way. Two more bugs surfaced
+wiring this in and were fixed in the same commit: `evidence-host.ts` runs
+under bun, so `process.execPath` resolved to `bun.exe` -- the exact
+combination `runtime-pair.ts`'s own header documents as broken -- so the
+child process is now hardcoded to `"node"`; and `runtime-pair.ts` wrote its
+JSON to stderr on FAIL (every sibling `parity/scripts/*.ts` runner always
+writes to stdout and lets the exit code carry pass/fail), which would have
+made evidence-host report `status: null` on a genuine failure instead of
+real counters -- fixed to always write stdout.
+
+Still true, unchanged by this session: e2e UNVERIFIED on this host
+(`chromium.launch()` hangs under bun, `npx playwright install chrome` is
+privilege-blocked); F0 Docker harness absent; product approval still missing
+for the three `intentional-difference` dispositions and the `code.diff`
+reference strategy; the backend on `:4096` was down throughout this session
+too (the harness's `code.editor` / `code.terminal` BLOCKED outcomes and the
+`automate.surface` / `memory.panel` capability-gated BLOCKED outcomes are
+unchanged from HANDOFF and are the same honest, non-regressed state).
 
 ## Verdict
 
-`NOT_QUALIFIED`. The harness is missing. Open the next session on `_a7-automate-memory`, branch `new-ui` at `aad67a5800caab473b95b0509a0c4564ba52d56a`, and enchaîner le complément F0 (Docker + Playwright dans l'image) puis S0 census → S1 G1/G2 → S2 tokens pre-freeze → QF0 → S3 home full re-play → S4–S12 visual polish → S13 responsive/DLR/locales étendu → S14 motion → S15 full qualification. Le verdict final `NEW_UI_PARITY_QUALIFIED / READY_FOR_PROMOTION_DECISION` viendra à l'achèvement de S15.
+`NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
+committed, re-runnable check is closed as of `691a9d151f` on `new-ui`
+(pushed to `origin/new-ui`). Open the next session on
+`_a7-automate-memory`, branch `new-ui` at `691a9d151f`, and enchaîner le
+complément F0 (Docker + Playwright dans l'image) puis S0 census → S1 G1/G2 →
+S2 tokens pre-freeze → QF0 → S3 home full re-play → S4–S12 visual polish →
+S13 responsive/DLR/locales étendu → S14 motion → S15 full qualification.
+F0/e2e both need a human decision before they can proceed (Docker
+availability, `chromium.launch()` privilege block) -- do not silently invent
+a workaround for either. Le verdict final `NEW_UI_PARITY_QUALIFIED /
+READY_FOR_PROMOTION_DECISION` viendra à l'achèvement de S15.
