@@ -123,11 +123,14 @@ for (const file of files) {
   details.push(`OK: ${file} (${String(data.id)} / ${String(data.anchorKind)})`)
 }
 
-// Coverage: every app data-parity marker must be either fragmented (a
-// fragment whose app selector references it) or explicitly recorded as an
-// unfragmented finding. A marker in neither list is an untracked gap.
+// The census is a required input: without it the coverage and reverse checks
+// would silently no-op, which is the fail-open behaviour the plan forbids.
+// evidence-host runs parity:census before this gate, so a missing census here
+// means the gate was invoked out of order.
 const markersByKey = new Set<string>()
-if (existsSync(CENSUS)) {
+if (!existsSync(CENSUS)) {
+  errors.push(`census missing at ${CENSUS}: run parity:census first (coverage + reverse checks cannot run)`)
+} else {
   const census = readJson<{ markers: Array<{ kind: string; key: string }> }>(CENSUS)
   for (const marker of census.markers) {
     if (marker.kind === "data-parity") markersByKey.add(marker.key)
@@ -171,7 +174,7 @@ for (const file of files) {
     errors.push(`${file}: app selector carries no data-parity/data-v110 marker`)
     continue
   }
-  if (censusKeys.size > 0 && !censusKeys.has(match[1]!)) {
+  if (!censusKeys.has(match[1]!)) {
     dangling += 1
     errors.push(`${file}: app marker ${match[1]} is not present in the census`)
   }
