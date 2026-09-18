@@ -1,0 +1,123 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Inspector panel chrome -- maquette v110-port-ready-r1 §INTERACTIONS Shell
+ * + §Sidebar (inspector frame). Kept in its own layer so v110.css stays
+ * under the AGENTS.md 1500 LOC ceiling. The .inspector / .inspector-head
+ * / .insp-tab / .inspector-section classes below map onto the existing
+ * data-v110=inspector-frame selector; host components keep their own
+ * element tags, this layer supplies the contract geometry and chrome. */
+
+[data-v110="inspector-frame"] {
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: var(--v110-inspector, 300px);
+}
+
+[data-v110="inspector-frame"] .inspector-head {
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-v110="inspector-frame"] .insp-tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+[data-v110="inspector-frame"] .insp-tab-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+}
+
+[data-v110="inspector-frame"] .insp-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="inspector-frame"] .insp-tab {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color var(--v110-fast) var(--v110-ease), color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="inspector-frame"] .insp-tab:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-v110="inspector-frame"] .insp-tab[aria-selected="true"],
+[data-v110="inspector-frame"] .insp-tab[data-state="active"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 -2px var(--text);
+}
+
+[data-v110="inspector-frame"] .inspector-section {
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-md);
+  background: var(--surface-2);
+  margin: 8px;
+  padding: 8px 10px;
+}
+
+[data-v110="inspector-frame"] .inspector-section h4 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+[data-v110="inspector-frame"] .inspector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  font-size: 11px;
+}
+
+[data-v110="inspector-frame"] .inspector-row:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="inspector-frame"] .inspector-row b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-v110="inspector-frame"] .inspector-row span {
+  color: var(--muted);
+  font-size: 10px;
+}
