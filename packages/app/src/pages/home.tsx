@@ -27,6 +27,7 @@ import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
+import { tHome } from "@/i18n/home"
 import { DateTime } from "luxon"
 
 const MODE_PILLS = ["code", "work", "design", "automate", "browser", "memory"] as const
@@ -142,15 +143,19 @@ export default function Home() {
         </button>
 
         <h1 data-v110="home-title" data-parity="home.title">
-          Get started with Unifia
+          {tHome(language.locale(), "home.title")}
         </h1>
         <p data-v110="home-subtitle" data-parity="home.subtitle">
-          Open a project, resume a recent session, or jump straight into the mode that fits the task.
+          {tHome(language.locale(), "home.subtitle")}
         </p>
 
         <div data-v110="home-composer-card">
           <div data-v110="home-composer-input">
-            Ask anything — <b>/</b> for commands, <b>@</b> for context.
+            {tHome(language.locale(), "home.composer.before")}
+            <b>/</b>
+            {tHome(language.locale(), "home.composer.commands")}
+            <b>@</b>
+            {tHome(language.locale(), "home.composer.context")}
           </div>
           <div data-v110="home-composer-bar">
             <div data-v110="home-composer-meta">
@@ -167,8 +172,8 @@ export default function Home() {
             <div data-v110="home-composer-actions">
               <button
                 type="button"
-                aria-label="Open project"
-                title="Open project"
+                aria-label={tHome(language.locale(), "home.composer.openProject")}
+                title={tHome(language.locale(), "home.composer.openProject")}
                 data-v110="home-icon-btn"
                 onClick={() => activate("code")}
               >
@@ -176,8 +181,8 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                aria-label="New session"
-                title="New session"
+                aria-label={tHome(language.locale(), "home.composer.newSession")}
+                title={tHome(language.locale(), "home.composer.newSession")}
                 data-v110="home-icon-btn"
                 onClick={() => activate("code")}
               >
@@ -185,8 +190,8 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                aria-label="Continue"
-                title="Continue"
+                aria-label={tHome(language.locale(), "home.composer.continue")}
+                title={tHome(language.locale(), "home.composer.continue")}
                 data-v110="home-send-btn"
                 onClick={() => activate("code")}
               >
@@ -264,7 +269,7 @@ export default function Home() {
           </div>
         </Show>
 
-        <div data-v110="home-hint">Click the Unifia logotype at any time to come back to this home.</div>
+        <div data-v110="home-hint">{tHome(language.locale(), "home.hint")}</div>
       </div>
     </div>
   )
