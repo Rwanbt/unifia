@@ -2,189 +2,26 @@
 
 /* A5 Work surface chrome -- maquette v110-port-ready-r1 §INTERACTIONS Work
  * + COMPONENT-MAP §4 (A5 Work+Team). Kept in its own layer so v110.css
- * stays under the AGENTS.md 1500 LOC ceiling. The .work-hero / .work-grid
- * / .panel / .task / .agent / .progress-card classes below map onto the
- * existing data-v110 markers and data-parity=work.shell / work.content
- * selectors; host components keep their own element tags, this layer
- * supplies the contract geometry and chrome. */
+ * stays under the AGENTS.md 1500 LOC ceiling. Targets the TWO real anchors
+ * the app emits: [data-v110="work-view-shell"] and
+ * [data-v110="work-view-content"] (work-surface.tsx).
+ *
+ * The earlier version of this file also declared .work-hero / .work-grid /
+ * .panel / .panel-head / .task / .agent / .progress-card class hooks that
+ * the app never references (the work panels render Tailwind +
+ * @unifia/ui primitives). parity:artifacts/tokens-audit.json flagged them
+ * inert; they are removed. */
 
-[data-v110="work-view-shell"] .work-hero {
+[data-v110="work-view-shell"] {
+  min-width: 0;
+  min-height: 0;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  flex-direction: column;
   gap: 12px;
 }
 
-[data-v110="work-view-shell"] .work-hero h2 {
-  margin: 0;
-  font-size: 19px;
-  letter-spacing: -0.035em;
-  font-weight: 700;
-}
-
-[data-v110="work-view-shell"] .work-hero p {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-[data-v110="work-view-content"] .work-grid {
-  display: grid;
-  grid-template-columns: 1.35fr 0.8fr;
-  gap: 11px;
-}
-
-[data-v110="work-view-content"] .panel {
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  border-radius: var(--v110-radius-lg);
-  overflow: hidden;
-}
-
-[data-v110="work-view-content"] .panel-head {
-  height: 38px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
-  border-bottom: 1px solid var(--line);
-}
-
-[data-v110="work-view-content"] .panel-head b {
-  font-size: 11px;
-  font-weight: 700;
-}
-
-[data-v110="work-view-content"] .panel-head span {
-  font-size: 10px;
-  color: var(--muted);
-}
-
-[data-v110="work-view-content"] .panel-head .spacer {
-  flex: 1;
-}
-
-[data-v110="work-view-content"] .task {
-  display: grid;
-  grid-template-columns: 19px minmax(0, 1fr) auto;
-  gap: 7px;
-  align-items: center;
-  padding: 10px 11px;
-  border-bottom: 1px solid var(--line);
-}
-
-[data-v110="work-view-content"] .task:last-child {
-  border-bottom: 0;
-}
-
-[data-v110="work-view-content"] .task.active {
-  background: color-mix(in srgb, var(--surface-3) 50%, transparent);
-}
-
-[data-v110="work-view-content"] .task-check {
-  width: 15px;
-  height: 15px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  display: grid;
-  place-items: center;
-  font-size: 8px;
-  color: var(--text-success, var(--success));
-}
-
-[data-v110="work-view-content"] .task b {
-  font-size: 11px;
-}
-
-[data-v110="work-view-content"] .task p {
-  margin: 2px 0 0;
-  font-size: 10px;
-  color: var(--muted);
-}
-
-[data-v110="work-view-content"] .agent {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 11px;
-  border-bottom: 1px solid var(--line);
-}
-
-[data-v110="work-view-content"] .agent:last-child {
-  border-bottom: 0;
-}
-
-[data-v110="work-view-content"] .agent-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 9px;
-  background: var(--surface-3);
-  border: 1px solid var(--line);
-  display: grid;
-  place-items: center;
-  font-size: 10px;
-  flex: 0 0 auto;
-}
-
-[data-v110="work-view-content"] .agent b {
-  font-size: 11px;
-}
-
-[data-v110="work-view-content"] .agent p {
-  margin: 2px 0 0;
-  font-size: 10px;
-  color: var(--muted);
-}
-
-[data-v110="work-view-content"] .agent .status {
-  margin-left: auto;
-}
-
-[data-v110="work-view-content"] .progress-card {
-  padding: 12px 11px;
-}
-
-[data-v110="work-view-content"] .progress-card .bar {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-[data-v110="work-view-content"] .progress-card .bar i {
+[data-v110="work-view-content"] {
+  min-width: 0;
+  min-height: 0;
   display: block;
-  height: 100%;
-  background: var(--text);
-  border-radius: 999px;
-}
-
-[data-v110="work-view-content"] .status .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  display: inline-block;
-  background: var(--muted);
-}
-
-[data-v110="work-view-content"] .status .dot.run {
-  background: var(--text-success, var(--success));
-}
-
-[data-v110="work-view-content"] .status .dot.ok {
-  background: var(--text-success, var(--success));
-}
-
-[data-v110="work-view-content"] .status .dot.warn {
-  background: var(--text-warning, var(--warning));
-}
-
-[data-v110="work-view-content"] .status .dot.err {
-  background: var(--text-danger, var(--danger));
-}
-
-@media (max-width: 1199px) {
-  [data-v110="work-view-content"] .work-grid {
-    grid-template-columns: 1fr;
-  }
 }

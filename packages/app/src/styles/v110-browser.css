@@ -1,147 +1,113 @@
 /* SPDX-License-Identifier: MIT */
 
-/* A12 Browser surface chrome -- maquette v110-port-ready-r1 §INTERACTIONS
- * Browser (Tauri WebView). Kept in its own layer so v110.css stays under
- * the AGENTS.md 1500 LOC ceiling. The .browser-workspace / .browser-tabbar
- * / .browser-tab / .browser-favicon / .browser-tab-title / .browser-tab-close
- * / .browser-new-tab classes below map onto the existing data-v110 markers
- * on the design-browser-tab host component; this layer supplies the
- * contract geometry and chrome. */
+/* Browser surface chrome -- the real markup in
+ * packages/app/src/pages/workbench/design-browser-tab.tsx uses the
+ * `data-design-browser*` attribute family (back / forward / reload /
+ * address / go / error / native / frame), not `data-v110=browser`.
+ * Per COMPONENT-MAP §3 (A4 Code+Browser) and INTERACTIONS.md Browser.
+ * Kept in its own layer so v110.css stays under the 1500 LOC ceiling.
+ *
+ * The earlier version of this file targeted a `data-v110=browser` marker
+ * that does not exist in the app; parity:tokens:audit flagged it as a dead
+ * data-v110 selector and the layer has been retargeted to the real markup. */
 
-[data-v110="browser"] .browser-workspace {
+[data-design-browser] {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   background: var(--surface);
   border-radius: inherit;
   overflow: hidden;
 }
 
-[data-v110="browser"] .browser-toolbar {
+[data-design-browser] > form {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
 }
 
-[data-v110="browser"] .browser-tabbar {
-  height: 34px;
-  display: flex;
-  align-items: end;
-  padding: 5px 7px 0;
-  gap: 4px;
-  border-bottom: 1px solid var(--line);
-}
-
-[data-v110="browser"] .browser-tab {
-  height: 29px;
-  min-width: 190px;
-  max-width: 280px;
-  padding: 0 8px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--line);
-  border-bottom-color: var(--surface);
-  border-radius: 9px 9px 0 0;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 9px;
-  transition: background-color var(--v110-fast) var(--v110-ease), border-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="browser"] .browser-tab.active {
-  background: var(--surface);
-  border-color: var(--line-strong);
-}
-
-[data-v110="browser"] .browser-favicon {
-  width: 16px;
-  height: 16px;
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-3);
-  font-size: 8px;
-  font-weight: 700;
-  flex: 0 0 auto;
-}
-
-[data-v110="browser"] .browser-tab-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-[data-v110="browser"] .browser-tab-close {
-  margin-left: auto;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  transition: background-color var(--v110-fast) var(--v110-ease), color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="browser"] .browser-tab-close:hover {
-  background: var(--surface-3);
-  color: var(--text);
-}
-
-[data-v110="browser"] .browser-new-tab {
-  width: 28px;
+[data-design-browser] > form button {
   height: 28px;
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 16px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  transition: background-color var(--v110-fast) var(--v110-ease), color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="browser"] .browser-new-tab:hover {
-  background: var(--surface-3);
-  color: var(--text);
-}
-
-[data-v110="browser"] .browser-address-bar {
-  height: 36px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-}
-
-[data-v110="browser"] .browser-address-bar input {
-  flex: 1;
-  height: 26px;
+  min-height: 28px;
   padding: 0 10px;
   border-radius: var(--v110-radius-sm);
   border: 1px solid var(--line);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text);
-  font-size: 10px;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    border-color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="browser"] .browser-address-bar input:focus,
-[data-v110="browser"] .browser-address-bar input:focus-visible {
-  border-color: var(--border-focus);
+[data-design-browser] > form button:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+[data-design-browser] > form button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+[data-design-browser] > form button[type="submit"] {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+  font-weight: 650;
+}
+
+[data-design-browser] > form input[data-design-browser-address] {
+  height: 28px;
+  min-width: 0;
+  flex: 1;
+  padding: 0 10px;
+  border-radius: var(--v110-radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+
+[data-design-browser] > form input[data-design-browser-address]:focus,
+[data-design-browser] > form input[data-design-browser-address]:focus-visible {
   outline: none;
+  border-color: var(--border-focus);
   box-shadow: var(--v110-focus);
 }
 
-[data-v110="browser"] .browser-surface-card {
-  padding: 0;
-  overflow: hidden;
-  height: 100%;
+[data-design-browser-error] {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-danger, var(--danger));
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+[data-design-browser-native] {
+  display: flex;
+  flex: 1;
   min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+[data-design-browser-frame] {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: var(--surface);
 }

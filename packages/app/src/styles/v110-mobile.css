@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 
-/* Mobile nav + overlay + toast chrome -- maquette v110-port-ready-r1
- * §INTERACTIONS (mobile nav + overlays + toast). Kept in its own layer
- * so v110.css stays under the AGENTS.md 1500 LOC ceiling. The .mobile-nav
- * / .mobile-mode-btn / .overlay / .toast classes below map onto the
- * existing data-v110=mobile-nav selector from packages/app/src/shell/
- * v110-mobile-nav.tsx; host components keep their own element tags, this
- * layer supplies the contract geometry and chrome. */
+/* Mobile nav + overlay chrome -- maquette v110-port-ready-r1 §INTERACTIONS
+ * (mobile nav + overlays). Kept in its own layer so v110.css stays under
+ * the AGENTS.md 1500 LOC ceiling. Targets the real anchor the app emits:
+ * [data-v110="mobile-nav"] (shell/v110-mobile-nav.tsx).
+ *
+ * The earlier version of this file also declared .mobile-mode-btn /
+ * .mobile-mode-icon / .toast / .toast-stack class hooks that the app never
+ * references (the mobile nav renders Tailwind, the toasts use
+ * @unifia/ui/toast). parity:artifacts/tokens-audit.json flagged them
+ * inert; they are removed. */
 
 [data-v110="mobile-nav"] {
   position: fixed;
@@ -24,7 +27,8 @@
   backdrop-filter: blur(18px);
 }
 
-[data-v110="mobile-nav"] .mobile-mode-btn {
+[data-v110="mobile-nav"] [role="tab"],
+[data-v110="mobile-nav"] button {
   min-width: 0;
   height: 48px;
   border-radius: 12px;
@@ -38,93 +42,25 @@
   background: transparent;
   border: 0;
   cursor: pointer;
-  transition: background-color var(--v110-fast) var(--v110-ease), color var(--v110-fast) var(--v110-ease);
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="mobile-nav"] .mobile-mode-btn.active {
+[data-v110="mobile-nav"] [role="tab"]:hover,
+[data-v110="mobile-nav"] button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-v110="mobile-nav"] [aria-pressed="true"],
+[data-v110="mobile-nav"] [aria-selected="true"] {
   color: var(--text);
   background: var(--surface-2);
 }
 
-[data-v110="mobile-nav"] .mobile-mode-icon {
-  height: 18px;
-  display: grid;
-  place-items: center;
-  font-size: 15px;
-}
-
-[data-v110="mobile-nav"] .mobile-mode-label {
-  font-size: 9px;
-  font-weight: 650;
-}
-
-/* The overlay used by modals + the command palette + the work capture. */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: color-mix(in srgb, var(--bg) 42%, transparent);
-  backdrop-filter: blur(5px);
-  display: none;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 12vh;
-  z-index: 100;
-}
-
-.overlay.open {
-  display: flex;
-}
-
-/* Toast chrome. */
-.toast-stack {
-  position: fixed;
-  bottom: 14px;
-  right: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 120;
-  max-width: min(420px, calc(100vw - 28px));
-}
-
-.toast {
-  padding: 10px 12px;
-  border-radius: var(--v110-radius-md);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 11px;
-  box-shadow: var(--shadow);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.toast .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text);
-  flex: 0 0 auto;
-}
-
-.toast.success .dot {
-  background: var(--text-success, var(--success));
-}
-
-.toast.warning .dot {
-  background: var(--text-warning, var(--warning));
-}
-
-.toast.danger .dot {
-  background: var(--text-danger, var(--danger));
-}
-
 @media (prefers-reduced-motion: reduce) {
   [data-v110="mobile-nav"] {
-    backdrop-filter: none;
-  }
-  .overlay {
     backdrop-filter: none;
   }
 }

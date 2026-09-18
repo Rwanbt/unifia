@@ -1,53 +1,14 @@
-@import "@unifia/ui/styles/tailwind";
 @import "@/styles/unifia-brand.css";
-@import '@/styles/v110.css';
-@import '@/styles/v110-home.css';
-@import '@/styles/v110-theme.css';
-@import '@/styles/v110-chat.css';
-@import '@/styles/v110-work.css';
-@import '@/styles/v110-memory.css';
-@import '@/styles/v110-automate.css';
-@import '@/styles/v110-settings.css';
-@import '@/styles/v110-browser.css';
-@import '@/styles/v110-inspector.css';
-@import '@/styles/v110-mobile.css';
-@import '@/styles/v110-palette.css';
-@import '@/styles/v110-select.css';
-@import '@/styles/v110-dialog.css';
-@import '@/styles/v110-editor.css';
-@import '@/styles/v110-controls.css';
-@import '@/styles/v110-form.css';
-@import '@/styles/v110-skeleton.css';
-@import '@/styles/v110-content.css';
-@import '@/styles/v110-work-primitives.css';
-@import '@/shell/v110-shell.css';
-@import '@/pages/session/v110-chat.css';
-@import '@/pages/session/v110-inspector.css';
-
-@layer components {
-  [data-component="getting-started"] {
-    container-type: inline-size;
-    container-name: getting-started;
-  }
-
-  [data-component="getting-started-actions"] {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem; /* gap-3 */
-  }
-
-  [data-component="getting-started-actions"] > [data-component="button"] {
-    width: 100%;
-  }
-
-  @container getting-started (min-width: 17rem) {
-    [data-component="getting-started-actions"] {
-      flex-direction: row;
-      align-items: center;
-    }
-
-    [data-component="getting-started-actions"] > [data-component="button"] {
-      width: auto;
-    }
-  }
-}
+@import "@/styles/v110.css";
+@import "@/styles/v110-home.css";
+@import "@/styles/v110-theme.css";
+@import "@/styles/v110-chat.css";
+@import "@/styles/v110-work.css";
+@import "@/styles/v110-memory.css";
+@import "@/styles/v110-inspector.css";
+@import "@/styles/v110-mobile.css";
+@import "@/styles/v110-editor.css";
+@import "@/styles/v110-browser.css";
+@import "@/shell/v110-shell.css";
+@import "@/pages/session/v110-chat.css";
+@import "@/pages/session/v110-inspector.css";

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
 /* Light-theme overrides -- maquette v110-port-ready-r1 line 5566
- * html[data-theme=light] block + the per-component light variants
- * (.editor / .terminal / .graph-node / .note / .terminal-shell).
- * Kept in its own layer so v110.css stays under the AGENTS.md 1500 LOC
- * ceiling. The selectors target the data-v110 anchors so the harness can
- * match them, the host components keep their own element tags. */
+ * html[data-theme=light] block. Kept in its own layer so v110.css stays
+ * under the AGENTS.md 1500 LOC ceiling. Targets only the real data-v110 /
+ * data-parity anchors the app emits; the earlier version also declared
+ * inert class hooks (a60-*, ai-text, browser-tab, graph-node, insp-tab)
+ * that parity:artifacts/tokens-audit.json flagged as dead. */
 
 :root {
   --faint: #4a4a52;
@@ -26,74 +26,34 @@ html[data-theme="light"] [data-v110="terminal"] {
   box-shadow: 0 5px 14px color-mix(in srgb, var(--text) 6%, transparent);
 }
 
-html[data-theme="light"] .terminal-shell {
-  background: var(--surface);
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--text) 6%, transparent);
-}
-
-html[data-theme="light"] [data-v110="chat-timeline"] .artifact {
+html[data-theme="light"] [data-v110="code-editor"] {
   background: var(--surface);
 }
 
-html[data-theme="light"] [data-v110="chat-timeline"] .ai-text {
-  color: var(--text);
-}
-
-html[data-theme="light"] [data-v110="memory-panel"] .graph-node circle {
-  fill: var(--bg);
-  stroke: var(--line-strong);
-}
-
-html[data-theme="light"] [data-v110="memory-panel"] .graph-node.main circle {
-  fill: var(--text);
-  stroke: var(--bg);
-}
-
-html[data-theme="light"] [data-v110="memory-panel"] .graph-node.main text {
-  fill: var(--bg);
-  font-weight: 700;
-}
-
-html[data-theme="light"] [data-v110="memory-panel"] .graph-edge {
-  stroke: var(--line-strong);
-  opacity: 0.6;
-}
-
-html[data-theme="light"] [data-v110="settings-dialog"] .settings-section {
-  background: color-mix(in srgb, var(--surface) 56%, transparent);
-}
-
-html[data-theme="light"] [data-v110="settings-dialog"] .setting-row {
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
-}
-
-html[data-theme="light"] [data-v110="browser"] .browser-tab.active {
+html[data-theme="light"] [data-v110="chat-timeline"] {
   background: var(--surface);
-}
-
-html[data-theme="light"] [data-v110="inspector-frame"] .insp-tab[aria-selected="true"],
-html[data-theme="light"] [data-v110="inspector-frame"] .insp-tab[data-state="active"] {
-  background: var(--surface);
-  color: var(--text);
-}
-
-html[data-theme="light"] [data-v110="automate-surface"] .a60-head button,
-html[data-theme="light"] [data-v110="automate-surface"] .a60-head select {
-  background: var(--surface);
-}
-
-html[data-theme="light"] [data-v110="automate-surface"] .a60-lib-node {
-  background: var(--surface);
-}
-
-html[data-theme="light"] [data-v110="work-view-content"] .panel {
-  background: var(--surface);
-}
-
-html[data-theme="light"] [data-v110="work-view-content"] .task.active {
-  background: color-mix(in srgb, var(--surface-2) 30%, transparent);
 }
 
 html[data-theme="light"] [data-v110="composer-dock"] textarea {
+  background: var(--surface);
+}
+
+html[data-theme="light"] [data-v110="composer-dock"] {
+  background: var(--surface);
+}
+
+html[data-theme="light"] [data-v110="memory-panel"] {
+  background: var(--surface);
+}
+
+html[data-theme="light"] [data-v110="settings-dialog"] {
+  background: var(--surface);
+}
+
+html[data-theme="light"] [data-v110="inspector-frame"] {
+  background: var(--surface);
+}
+
+html[data-theme="light"] [data-v110="work-view-content"] {
   background: var(--surface);
 }

@@ -1083,17 +1083,6 @@ html[data-ui-animations="off"] *::after {
   width: 46px;
 }
 
-[data-v110="code-diff"] {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--v110-radius-md);
-  overflow: hidden;
-}
-
-[data-v110="code-diff"]:focus-within {
-  border-color: var(--border-focus);
-}
-
 /* A4 Code tabs strip — maquette v110-port-ready-r1 .tabs / .tab. The
  * data-v110="code-tabs" element wraps the Kobalte Tabs.List (a role="tablist"
  * div); individual tabs are Tabs.Trigger elements that Kobalte renders with
