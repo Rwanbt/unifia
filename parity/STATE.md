@@ -760,6 +760,73 @@ open workspace tabs rather than in an editor tool. Not chased further --
 orthogonal to pixel-perfect visual parity, and this session was already
 deep into unrelated territory. Left for a dedicated investigation.
 
+## Topbar and rail, element by element (2026-09-18)
+
+User asked to continue the pixel-perfect pass one shell element at a time,
+starting with the topbar and the left rail. Read the maquette's topbar
+markup directly (`Unifia-UI-UX-v110-PORT-READY-R1.html:15226-15270`) and
+its `.app.show-home` hide-list (`lines 4013-4027`) to get the actual
+contract instead of guessing from screenshots, then compared element by
+element against `packages/app/src/components/titlebar.tsx` (topbar) and
+`packages/app/src/pages/layout/sidebar-shell.tsx` (rail).
+
+**Two real bugs found and fixed, both in the topbar**: the brand logo
+(`<Logo/>`) and the theme toggle button were both wrapped in
+`<Show when={home()}>`, so opening any project made them disappear
+entirely -- confirmed live (screenshot before/after,
+`theme.setColorScheme` toggle exercised on a non-home route). This was
+backwards: reading the maquette's own `.app.show-home` CSS rule shows it
+hides `.crumbs`, `#layoutSwitch`, the inspector toggles and the
+`#topExplorerBtn`/`#topReviewBtn`/`#topTerminalBtn`/`#serverBtn`/
+`#openInBtn`/`#topInspectorBtn` group *on home*, and never targets
+`.brand` or `#themeBtn` at all -- meaning the frozen design keeps brand
+and theme visible on **every** route, home included, and only hides the
+workspace-specific chrome on home (the opposite of what the app's
+`home()` gate did for these two elements). Fixed by removing both
+`<Show>` wrappers; this made the `home` memo and its `useMode()` call
+dead, so both were removed too (`de2c1f0a19`). Full unit suite stayed
+green (1636 tests).
+
+**Bigger topbar gaps found, not fixed -- out of scope for a CSS-level
+pass**: the maquette's `.crumbs` (breadcrumb: **Project** / Mode),
+`#workspaceTitle`/`#workspaceMeta` (bold mode title + subtitle), and
+`#layoutSwitch` (the Chat/Split/Editor/Graph view toggle -- the control
+that puts chat and the code editor side by side) have **no equivalent at
+all** in `titlebar.tsx` for non-home routes; nothing to un-hide, these
+elements were never built. `#serverBtn` (the "Auto · 2" pill) is already
+adjudicated demo-only JS state, not a gap. The app's own top-right icon
+group (`Basculer le terminal`, `Basculer la revue`, `Basculer
+l'arborescence des fichiers`) does map functionally to the maquette's
+`#topTerminalBtn`/`#topReviewBtn`/`#topExplorerBtn`, just in a different
+position and without the matching visual language -- not chased, since
+building breadcrumb/title/view-switch is new UI development, not a fix,
+and (like the Settings finding above) needs a product decision on
+whether non-home routes should adopt the maquette's persistent
+conversation-plus-content-plus-view-switch shell at all.
+
+**Rail: closer to the maquette than it first looked.** Read
+`sidebar-shell.tsx` and measured live button positions
+(`getBoundingClientRect` on `Mode Code`/`Mode Travail`/`Mode Design`,
+`Paramètres`, `Aide`): the skeleton matches -- mode icons at the top,
+a flex spacer, then bottom-anchored actions -- and the earlier "totally
+different rail" impression from a screenshot was simply a misreading of
+which icon was which. Two small, real, sourced gaps, neither fixed:
+1. **No avatar.** The maquette's rail has a user-avatar button
+   (`.rail-avatar-wrap`, a demo initial) between "+" and Settings. The
+   app has no equivalent, and no `currentUser`/avatar concept exists
+   anywhere in the app's source to wire one to (checked
+   `settings-collaborative-auth.tsx` and grepped for `avatar`/`useAuth`/
+   `useAccount` -- nothing). Inventing placeholder identity UI with no
+   real data behind it would be worse than the gap; left alone.
+2. **Browser and Memory modes have no dedicated icon.** In
+   `sidebar-shell.tsx`'s icon ternary
+   (`mode === "code" ? "code" : mode === "work" ? "folder" : mode ===
+   "design" ? "edit" : "checklist"`), both `browser` and `memory` fall
+   through to the generic `"checklist"` glyph. Low priority: neither mode
+   is reachable in any workspace tested this session (already documented
+   above as capability-gated), so this has not been visually confirmed to
+   matter yet.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
