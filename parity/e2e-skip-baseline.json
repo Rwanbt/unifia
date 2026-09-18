@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Known E2E skip set at the PF0-plus baseline. A new skip, a rename without renamedFrom, or a removed skip without an accepted status change is a FAIL per the consolidated plan section 57.",
+  "generatedAt": "2026-09-18T00:00:00Z",
+  "sourceCommit": "ba04d8293b067c12eedc1c085a2075f1ce196d55",
+  "skips": [
+    {
+      "stableId": "design-visual-flaky-ubuntu",
+      "specPath": "e2e/design/design-visual.spec.ts",
+      "title": "test.skip(",
+      "status": "skip",
+      "reason": "line 142: conditional/design skip"
+    },
+    {
+      "stableId": "model-picker-smoke",
+      "specPath": "e2e/models/model-picker.spec.ts",
+      "title": "smoke model selection updates prompt footer",
+      "status": "skip",
+      "reason": "test.fixme: depends on prompt footer state"
+    },
+    {
+      "stableId": "prompt-footer-focus-single-agent",
+      "specPath": "e2e/prompt/prompt-footer-focus.spec.ts",
+      "title": "only one agent available",
+      "status": "skip",
+      "reason": "line 50: test.skip when only one agent is available"
+    },
+    {
+      "stableId": "prompt-footer-focus-single-model",
+      "specPath": "e2e/prompt/prompt-footer-focus.spec.ts",
+      "title": "only one model available",
+      "status": "skip",
+      "reason": "line 75: test.skip when only one model is available"
+    },
+    {
+      "stableId": "prompt-history-shell-separate",
+      "specPath": "e2e/prompt/prompt-history.spec.ts",
+      "title": "shell history stays separate from normal prompt history",
+      "status": "skip",
+      "reason": "test.fixme"
+    },
+    {
+      "stableId": "prompt-slash-share-disabled",
+      "specPath": "e2e/prompt/prompt-slash-share.spec.ts",
+      "title": "Share is disabled in this environment",
+      "status": "skip",
+      "reason": "line 26: UNIFIA_DISABLE_SHARE"
+    },
+    {
+      "stableId": "session-composer-dock-aria-race",
+      "specPath": "e2e/session/session-composer-dock.spec.ts",
+      "title": "Flaky on ubuntu-latest: aria-pressed attribute race",
+      "status": "skip",
+      "reason": "line 290: CI-only skip"
+    },
+    {
+      "stableId": "session-model-persistence-no-alt-variant",
+      "specPath": "e2e/session/session-model-persistence.spec.ts",
+      "title": "no agent with alternate variants available",
+      "status": "skip",
+      "reason": "line 190"
+    },
+    {
+      "stableId": "session-model-persistence-single-agent",
+      "specPath": "e2e/session/session-model-persistence.spec.ts",
+      "title": "only one agent available",
+      "status": "skip",
+      "reason": "line 354"
+    },
+    {
+      "stableId": "session-review-scroll-position",
+      "specPath": "e2e/session/session-review.spec.ts",
+      "title": "review keeps scroll position after a live diff update",
+      "status": "skip",
+      "reason": "test.fixme"
+    },
+    {
+      "stableId": "session-share-disabled",
+      "specPath": "e2e/session/session.spec.ts",
+      "title": "Share is disabled in this environment",
+      "status": "skip",
+      "reason": "line 129: UNIFIA_DISABLE_SHARE"
+    },
+    {
+      "stableId": "settings-keybinds-terminal-focus-ci",
+      "specPath": "e2e/settings/settings-keybinds.spec.ts",
+      "title": "Flaky on ubuntu-latest: waitTerminalFocusIdle exceeds 90s",
+      "status": "skip",
+      "reason": "line 275: CI-only skip"
+    },
+    {
+      "stableId": "settings-keybinds-terminal-focus-ci-2",
+      "specPath": "e2e/settings/settings-keybinds.spec.ts",
+      "title": "Flaky on ubuntu-latest: waitTerminalFocusIdle exceeds 90s",
+      "status": "skip",
+      "reason": "line 312: CI-only skip"
+    },
+    {
+      "stableId": "settings-auto-update-disabled",
+      "specPath": "e2e/settings/settings.spec.ts",
+      "title": "auto-update startup toggle is disabled in this build",
+      "status": "skip",
+      "reason": "line 666: test.skip(true)"
+    },
+    {
+      "stableId": "status-popover-tab-race-ci",
+      "specPath": "e2e/status/status-popover.spec.ts",
+      "title": "Flaky on ubuntu-latest: tab switch timing race",
+      "status": "skip",
+      "reason": "line 18: CI-only skip"
+    },
+    {
+      "stableId": "status-popover-tab-race-ci-2",
+      "specPath": "e2e/status/status-popover.spec.ts",
+      "title": "Flaky on ubuntu-latest: tab switch timing race",
+      "status": "skip",
+      "reason": "line 45: CI-only skip"
+    },
+    {
+      "stableId": "thinking-level-no-variants",
+      "specPath": "e2e/thinking-level.spec.ts",
+      "title": "current model has no variants",
+      "status": "skip",
+      "reason": "line 13"
+    },
+    {
+      "stableId": "v110-work-start-run-no-bridge",
+      "specPath": "e2e/v110/work-start-run.spec.ts",
+      "title": "start-run needs the native workbench bridge; web e2e runs without it",
+      "status": "skip",
+      "reason": "line 18: conditional test.skip(true) inside the test body when workbenchBridgeUnsupported(page) is true. This is a v110 parity spec and the consolidated plan section 57 forbids test.skip in parity specs; the skip must be converted to a blocked-external disposition on the S7 manifest or removed. Tracked as a finding below."
+    }
+  ],
+  "playwrightConfigIgnores": [
+    "**/terminal/**",
+    "**/prompt-shell*",
+    "**/prompt-slash-terminal*",
+    "**/session/session-model-persistence*"
+  ],
+  "notes": [
+    "18 skip-ish lines across 107 e2e spec files, captured from the working tree at the source commit.",
+    "CI-only skips (process.env.CI) and env-gated skips (UNIFIA_DISABLE_SHARE) are recorded, not removed: deleting a legitimately conditional skip would fabricate coverage.",
+    "The v110 work-start-run skip is the only parity-spec skip in the tree. It fails plan section 57 as written and is carried as finding SKIP-V110-001 in the session report, not silently accepted."
+  ]
+}
