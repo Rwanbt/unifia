@@ -1224,6 +1224,43 @@ Every fix in this batch was verified by re-running the same audit
 script after the change and reading the new numbers back, not by
 eyeballing a screenshot. Full unit suite green at each step (1636 tests).
 
+## Color audit: two more real bugs (2026-09-19, "Corrige !")
+
+Extended the same full-audit script to background/border/text color on
+every topbar+rail button. Two real findings, both fixed:
+
+1. (`63dba3ba31`) Theme button measured `color: rgb(112,112,112)`,
+   visibly dimmer than every sibling icon button (`rgb(237,237,237)`) and
+   the maquette's own uniformly-bright `themeBtn` (`rgb(242,242,243)`).
+   Root cause: it is a raw `<button>` (no sun/moon glyph in the shared
+   icon set), so it never inherited `[data-variant="ghost"]`'s own
+   `color: var(--text-strong)` default the way sibling `Button`/
+   `IconButton` instances do -- had its own explicit `text-text-weak`
+   instead. Fixed to `text-text-strong`.
+2. (`9e98c68bb1`) Two bugs on the rail's active mode icon:
+   - `variant="primary"` (icon-button.css's inverted/CTA treatment)
+     measured live at `bg=rgb(237,232,228)` -- a bright warm off-white,
+     jarring on a dark rail. The maquette's own active state
+     (`.rail-btn.active`) is still dark, just a subtle raise (measured
+     ~`#2c2c2f`). Switched every mode button to `variant="ghost"`,
+     applying the active look explicitly instead of borrowing a variant
+     built for a different kind of control.
+   - Inactive icons never dimmed at all -- every mode button measured
+     identical pure-white icon color regardless of state, while the
+     maquette contrasts active (`rgb(242,242,243)`) against inactive
+     (`rgb(155,155,161)`). The icon's color comes from icon-button.css's
+     `[data-slot="icon-svg"]` rule, not the button's own `color` -- a
+     plain `text-*` class on the button has no visible effect on the
+     glyph, confirmed by first testing it and finding no visible change.
+     Fixed with the descendant-targeted
+     `[&_[data-slot=icon-svg]]:text-*` variant (an existing pattern in
+     this codebase, not invented for this).
+
+Verified by reading the icon-svg element's own computed color, not the
+button's -- the button-level reading is a false negative for this class
+of fix, learned by hitting it directly during verification. Full unit
+suite green (1636 tests).
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
