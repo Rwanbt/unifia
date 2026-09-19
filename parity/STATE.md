@@ -1280,3 +1280,73 @@ F0/e2e both need a human decision before they can proceed (Docker
 availability, `chromium.launch()` privilege block) -- do not silently invent
 a workaround for either. Le verdict final `NEW_UI_PARITY_QUALIFIED /
 READY_FOR_PROMOTION_DECISION` viendra à l'achèvement de S15.
+
+## Root cause found: the backend outage blocks far more than the breadcrumb (2026-09-19)
+
+Following the new scene-by-scene mission brief (SHELL -> HOME -> ...), ran
+`pixel-diff.ts` for HOME against the standing `:4444`/`:4096` pair. Result
+was a suspicious **0.85%** -- too good given the known BLOCKED_ENV backend.
+Viewed `home-checkpoint-app.png`: the app rendered **only the topbar**, a
+fully blank body. The low percentage was an artifact of text being a small
+fraction of total pixels, not real parity -- **this measurement is invalid
+and must be discarded, not reported.**
+
+Root-caused by reading `layout.tsx` directly: line 1140 gates the entire
+shell content behind `<Show when={!autoselecting.loading}>`; the
+`autoselecting` resource (line 413) awaits `ready.promise` and
+`layout.ready.promise` before doing anything, and both depend on a live
+backend connection. With `:4096` unreachable, `autoselecting.loading` never
+resolves, so **every route's content stays permanently blank** -- not just
+the breadcrumb SHELL flagged BLOCKED_ENV on. This affects HOME and
+presumably CODE/WORK/DESIGN/AUTOMATE/MEMORY/SETTINGS equally, since they
+all mount inside the same shell-frame gate.
+
+**`:4096` confirmed permanently wedged at the OS level, twice over.**
+`netstat` still shows PID 19664 LISTENING on `127.0.0.1:4096` plus dozens
+of accumulated CLOSE_WAIT sockets, but `Get-Process -Id 19664` reports the
+process does not exist. A live TCP endpoint outliving its owning process --
+not fixable from this session (no `netsh int ip reset` or other
+system-network-stack change without explicit user authorization; a full
+reboot would clear it).
+
+**Workaround verified working**: started a fresh backend on `:4097`
+(`bun run --cwd packages/unifia ... serve --port 4097`) and a paired Vite
+dev server (`VITE_OPENCODE_SERVER_HOST=127.0.0.1 VITE_OPENCODE_SERVER_PORT=4097
+npx vite --port 4445 --strictPort` -- the app reads these two `VITE_*` vars
+at dev-server start, `entry.tsx:104-105`). Confirmed by direct script: the
+real HOME content (hero, composer, mode pills, real recent-project list:
+`D:\App\unifia\unifia`, `D:\App\OpenCode\opencode-work-design`,
+`~\AppData\Local\Temp\opencode\unifia-manual`) rendered correctly. This
+also means SHELL's previously BLOCKED_ENV breadcrumb/back-forward items are
+very likely unblocked too, pending re-verification on a calmer host (see
+below) -- not yet re-confirmed live before this note was written.
+
+**HOME's true empty-state ("Aucun projet ouvert", matching the maquette's
+demo) cannot be reproduced on this dev machine without either removing real
+project data (refused -- never fabricate/destroy real state for a demo
+match) or a dedicated scratch-data backend.** Attempted the safe version: a
+third backend on `:4098` with `XDG_DATA_HOME`/`XDG_CONFIG_HOME`/
+`XDG_STATE_HOME`/`XDG_CACHE_HOME` pointed at a scratch directory (zero risk
+to real data, confirmed via `packages/unifia/src/global/path.ts`'s use of
+`xdg-basedir`). The backend itself started fine, but pairing it with a
+second/third concurrent Vite instance pushed this host into genuine,
+reproducible resource exhaustion (`net::ERR_INSUFFICIENT_RESOURCES` on
+nearly every request, including plain reloads of an already-working page --
+not the narrower "page did not render" health-check case `pixel-diff.ts`
+already guards against). Stopped all three extra processes (`:4097`
+backend, `:4445`/`:4446` Vite, `:4098` backend) to let the host recover
+rather than keep piling on background processes chasing one measurement --
+this is the same resource-ceiling class already documented in
+`pixel-diff.ts`'s own comments, just triggered by concurrent dev-server
+count this time instead of CDP page/tab leakage.
+
+**Net effect**: HOME's 0.85% figure from the previous checkpoint is
+withdrawn. HOME (and the rest of the scene queue) needs re-measurement
+against a healthy backend once the host has recovered, using the now-proven
+workaround (alternate port pair) since `:4096` will not come back on its
+own. The empty-project-state comparison against the maquette's demo is a
+secondary, lower-priority item -- real recent-project content is the
+correct, honest thing to measure primarily, per the plan's own
+authority-map rule that real behaviour outranks the maquette's demo data.
+Verdict unchanged: `NOT_QUALIFIED`, now additionally blocked on host
+resource recovery for any further live measurement.
