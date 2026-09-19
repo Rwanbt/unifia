@@ -529,7 +529,7 @@ export function SessionHeader() {
                   >
                     <Button
                       variant="ghost"
-                      class="titlebar-icon w-8 h-6 p-0 box-border"
+                      class="titlebar-icon w-8 h-[31px] p-0 box-border"
                       onClick={() => {
                         if (layout.inspector.opened()) {
                           layout.inspector.close()
@@ -565,7 +565,7 @@ export function SessionHeader() {
                   >
                     <Button
                       variant="ghost"
-                      class="group/review-toggle titlebar-icon w-8 h-6 p-0 box-border"
+                      class="group/review-toggle titlebar-icon w-8 h-[31px] p-0 box-border"
                       onClick={() => {
                         if (layout.inspector.opened()) {
                           layout.inspector.close()
@@ -596,7 +596,7 @@ export function SessionHeader() {
                 >
                   <Button
                     variant="ghost"
-                    class="group/terminal-toggle titlebar-icon w-8 h-6 p-0 box-border shrink-0"
+                    class="group/terminal-toggle titlebar-icon w-8 h-[31px] p-0 box-border shrink-0"
                     onClick={toggleTerminal}
                     aria-label={language.t("command.terminal.toggle")}
                     aria-expanded={view().terminal.opened()}

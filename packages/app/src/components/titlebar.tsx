@@ -214,7 +214,7 @@ export function Titlebar() {
           >
             <Button
               variant="ghost"
-              class="group/sidebar-toggle titlebar-icon w-8 h-6 p-0 box-border"
+              class="group/sidebar-toggle titlebar-icon w-8 h-[31px] p-0 box-border"
               onClick={layout.sidebar.toggle}
               aria-label={language.t("command.sidebar.toggle")}
               aria-expanded={layout.sidebar.opened()}
@@ -245,7 +245,7 @@ export function Titlebar() {
                     <Button
                       variant="ghost"
                       icon={creating() ? "new-session-active" : "new-session"}
-                      class="titlebar-icon w-8 h-6 p-0 box-border"
+                      class="titlebar-icon w-8 h-[31px] p-0 box-border"
                       disabled={layout.sidebar.opened()}
                       tabIndex={layout.sidebar.opened() ? -1 : undefined}
                       onClick={() => {
@@ -317,7 +317,7 @@ export function Titlebar() {
             the moment a project was opened. */}
         <button
           type="button"
-          class="titlebar-icon rounded-md shrink-0 text-text-weak hover:text-text-strong grid place-items-center w-8 h-6"
+          class="titlebar-icon rounded-md shrink-0 text-text-weak hover:text-text-strong grid place-items-center w-8 h-[31px]"
           onClick={toggleScheme}
           aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
           title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
