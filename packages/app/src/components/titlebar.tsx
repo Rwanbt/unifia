@@ -315,9 +315,18 @@ export function Titlebar() {
             4013-4027), so the maquette keeps it visible on every route, not
             just home -- this used to be gated behind `home()`, which hid it
             the moment a project was opened. */}
+        {/* Raw <button>, not the shared Button/IconButton component (no
+            sun/moon glyph in the shared icon set), so it does not inherit
+            [data-variant="ghost"]'s own `color: var(--text-strong)` default
+            (button.css:44) the way its sibling icon buttons do. Was
+            text-text-weak, rendering visibly dimmer (measured
+            rgb(112,112,112)) than every neighboring icon button (measured
+            rgb(237,237,237)) and the maquette's uniformly bright
+            themeBtn (rgb(242,242,243)) -- matched explicitly instead of
+            relying on a raw element's own default. */}
         <button
           type="button"
-          class="titlebar-icon rounded-md shrink-0 text-text-weak hover:text-text-strong grid place-items-center w-8 h-[31px]"
+          class="titlebar-icon rounded-md shrink-0 text-text-strong grid place-items-center w-8 h-[31px]"
           onClick={toggleScheme}
           aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
           title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
