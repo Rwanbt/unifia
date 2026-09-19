@@ -276,7 +276,8 @@ export function SessionHeader() {
               type="button"
               variant="ghost"
               size="small"
-              class="hidden md:flex w-[240px] max-w-full min-w-0 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-panel shadow-none cursor-pointer"
+              // .search { width: min(380px, 32vw) } -- Unifia-UI-UX-v110-PORT-READY-R1.html:126.
+              class="hidden md:flex w-[min(380px,32vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-panel shadow-none cursor-pointer"
               onClick={() => command.trigger("file.open")}
               aria-label={language.t("session.header.searchFiles")}
             >
