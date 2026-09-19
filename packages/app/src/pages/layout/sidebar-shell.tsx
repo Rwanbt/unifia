@@ -164,15 +164,22 @@ export const SidebarContent = (props: {
               aria-label={props.settingsLabel()}
             />
           </TooltipKeybind>
-          <Tooltip placement={placement()} value={props.helpLabel()}>
-            <IconButton
-              icon="help"
-              variant="ghost"
-              size="large"
-              onClick={props.onOpenHelp}
-              aria-label={props.helpLabel()}
-            />
-          </Tooltip>
+          {/* Desktop-only removal: the maquette's rail (lines 15326-15350) has
+              no help/support icon at all -- Nouveau, avatar, Réglages, done.
+              Kept on mobile, which has no maquette reference in this pass and
+              where removing a support entry point has no visual-parity
+              upside. */}
+          <Show when={props.mobile}>
+            <Tooltip placement={placement()} value={props.helpLabel()}>
+              <IconButton
+                icon="help"
+                variant="ghost"
+                size="large"
+                onClick={props.onOpenHelp}
+                aria-label={props.helpLabel()}
+              />
+            </Tooltip>
+          </Show>
         </div>
       </div>
 
