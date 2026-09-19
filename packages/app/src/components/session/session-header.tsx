@@ -318,6 +318,73 @@ export function SessionHeader() {
                   {language.t(`workbench.modes.meta.${mode.active()}`)}
                 </span>
               </div>
+
+              {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239),
+                  positioned exactly where the maquette's own DOM order puts it:
+                  read via live getBoundingClientRect() on the maquette at
+                  1440x900 -- every element there is order:0 (no CSS order
+                  anywhere), so visual order is DOM order, and layoutSwitch
+                  (x=745) sits directly after workspace-head's title/meta and
+                  BEFORE .top-actions (explorer/review/terminal/theme, which
+                  starts at x=1175) -- not after it, which is where an earlier
+                  attempt in this file had it. The maquette's own script
+                  (module 070) reduces this to exactly these 3 states for
+                  every non-memory mode -- "Graph" is force-hidden outside
+                  memory (line 27926-27929, "the historical Graph button
+                  never belongs to the global layout selector"). Backed by
+                  the same two signals the old single icon-toggle button used
+                  (layout.inspector/layout.editorFocus): "Editor" here is
+                  exactly that button's enabled state. No visible effect on
+                  mobile (sessionPanelWidth only reacts on isDesktop()). */}
+              <Show when={platform.platform !== "mobile"}>
+                {(() => {
+                  const view = createMemo<"chat" | "split" | "main">(() => {
+                    if (!layout.inspector.opened()) return "chat"
+                    return layout.editorFocus.enabled() ? "main" : "split"
+                  })
+                  const setView = (next: "chat" | "split" | "main") => {
+                    if (next === "chat") {
+                      layout.editorFocus.disable()
+                      layout.inspector.close()
+                      return
+                    }
+                    if (!layout.inspector.opened()) layout.inspector.open()
+                    if (next === "main") layout.editorFocus.enable()
+                    else layout.editorFocus.disable()
+                  }
+                  const options = [
+                    { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                    { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                    { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                  ]
+                  return (
+                    <div
+                      role="radiogroup"
+                      aria-label={language.t("session.header.viewSwitch.label")}
+                      class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-surface-panel p-0.5 shrink-0"
+                    >
+                      <For each={options}>
+                        {(option) => (
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={view() === option.id}
+                            class="rounded-md px-2 h-5 text-11-medium transition-colors"
+                            classList={{
+                              "bg-surface-raised-base text-text-strong": view() === option.id,
+                              "text-text-weak hover:text-text-strong": view() !== option.id,
+                            }}
+                            onClick={() => setView(option.id)}
+                          >
+                            {option.label}
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                  )
+                })()}
+              </Show>
+
               <Show when={projectDirectory()}>
                 <div class="hidden xl:flex items-center">
                   <Show
@@ -529,67 +596,6 @@ export function SessionHeader() {
                       </div>
                     </Button>
                   </TooltipKeybind>
-
-                  {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239).
-                      The maquette's own script (module 070) reduces this to
-                      exactly these 3 states for every non-memory mode --
-                      "Graph" is force-hidden outside memory (line 27926-27929,
-                      "the historical Graph button never belongs to the global
-                      layout selector"). Backed by the same two signals the old
-                      single icon-toggle button above used
-                      (layout.inspector/layout.editorFocus), so this REPLACES
-                      that button rather than duplicating it: "Editor" here is
-                      exactly the old button's enabled state. No visible effect
-                      on mobile (sessionPanelWidth only reacts on isDesktop()),
-                      same as the button it replaces. */}
-                  <Show when={platform.platform !== "mobile"}>
-                    {(() => {
-                      const view = createMemo<"chat" | "split" | "main">(() => {
-                        if (!layout.inspector.opened()) return "chat"
-                        return layout.editorFocus.enabled() ? "main" : "split"
-                      })
-                      const setView = (next: "chat" | "split" | "main") => {
-                        if (next === "chat") {
-                          layout.editorFocus.disable()
-                          layout.inspector.close()
-                          return
-                        }
-                        if (!layout.inspector.opened()) layout.inspector.open()
-                        if (next === "main") layout.editorFocus.enable()
-                        else layout.editorFocus.disable()
-                      }
-                      const options = [
-                        { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
-                        { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
-                        { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
-                      ]
-                      return (
-                        <div
-                          role="radiogroup"
-                          aria-label={language.t("session.header.viewSwitch.label")}
-                          class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-surface-panel p-0.5 shrink-0"
-                        >
-                          <For each={options}>
-                            {(option) => (
-                              <button
-                                type="button"
-                                role="radio"
-                                aria-checked={view() === option.id}
-                                class="rounded-md px-2 h-5 text-11-medium transition-colors"
-                                classList={{
-                                  "bg-surface-raised-base text-text-strong": view() === option.id,
-                                  "text-text-weak hover:text-text-strong": view() !== option.id,
-                                }}
-                                onClick={() => setView(option.id)}
-                              >
-                                {option.label}
-                              </button>
-                            )}
-                          </For>
-                        </div>
-                      )
-                    })()}
-                  </Show>
                 </div>
 
                 {/* Mobile-only: more actions menu */}
