@@ -276,8 +276,14 @@ export function SessionHeader() {
               type="button"
               variant="ghost"
               size="small"
-              // .search { width: min(380px, 32vw) } -- Unifia-UI-UX-v110-PORT-READY-R1.html:126.
-              class="hidden md:flex w-[min(380px,32vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-panel shadow-none cursor-pointer"
+              // .search { width:min(380px,32vw); height:31px; border-radius:11px;
+              // background:var(--surface) } -- Unifia-UI-UX-v110-PORT-READY-R1.html:126.
+              // variant="ghost" forces background/border-color to transparent
+              // (button.css:41-44), so bg-surface-panel/border-border-weak-base
+              // alone were silently losing that cascade fight -- confirmed via
+              // getComputedStyle (backgroundColor read back as transparent
+              // despite the class being present) rather than assumed.
+              class="hidden md:flex h-[31px] w-[min(380px,32vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--surface-panel)] shadow-none cursor-pointer"
               onClick={() => command.trigger("file.open")}
               aria-label={language.t("session.header.searchFiles")}
             >
@@ -362,7 +368,7 @@ export function SessionHeader() {
                     <div
                       role="radiogroup"
                       aria-label={language.t("session.header.viewSwitch.label")}
-                      class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-surface-panel p-0.5 shrink-0"
+                      class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--surface-panel)] p-0.5 shrink-0"
                     >
                       <For each={options}>
                         {(option) => (
@@ -391,7 +397,7 @@ export function SessionHeader() {
                   <Show
                     when={canOpen()}
                     fallback={
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
+                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
                         <Button
                           variant="ghost"
                           class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
@@ -407,7 +413,7 @@ export function SessionHeader() {
                     }
                   >
                     <div class="flex items-center">
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
+                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
                         <Button
                           variant="ghost"
                           class="rounded-none h-full px-0.5 border-none shadow-none disabled:!cursor-default"

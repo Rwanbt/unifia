@@ -325,7 +325,7 @@ export const SettingsRemoteAccess: Component = () => {
               </div>
               {/* Inline editor */}
               <Show when={editingCredentials()}>
-                <div class="flex flex-col gap-1.5 rounded-md border border-border-weak-base bg-surface-panel p-2">
+                <div class="flex flex-col gap-1.5 rounded-md border border-border-weak-base bg-[var(--surface-panel)] p-2">
                   <div class="flex items-center gap-2">
                     <span class="text-11-regular text-text-weak w-20 shrink-0">{language.t("settings.fork.remote.username")}</span>
                     <input
