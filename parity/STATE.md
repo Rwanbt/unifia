@@ -1425,3 +1425,83 @@ trusted at face value.
 **Net effect on SHELL's open items**: `showContextBtn` is resolved (no
 code change needed). Only the breadcrumb/project-dependent elements remain
 genuinely BLOCKED_ENV, pending host resource recovery for re-verification.
+
+## HOME VISUAL CHECKPOINT: 2.07%, root-caused, no code defect (2026-09-19, same day)
+
+The isolated CDP browser itself crashed mid-session (`brave.exe`'s own P3A
+telemetry subsystem hit `net::ERR_INSUFFICIENT_RESOURCES` and the process
+exited) -- independent, conclusive proof the resource ceiling was real and
+host-wide, not a Playwright/tooling artifact. Killed the dead instance,
+relaunched a fresh isolated headless Brave on `:9333` (own profile dir,
+`--disable-background-networking --disable-component-update --disable-sync
+--disable-breakpad` to cut unnecessary network/telemetry load) rather than
+waiting further, per the explicit instruction to keep producing results.
+
+Two intermediate captures were discarded before landing a valid one, each
+for a **timing** reason, not a resource-ceiling error this time:
+- One caught the recent-projects row mid-fetch, rendering the literal word
+  "Chargement" where the maquette shows its demo quick-chips.
+- One raced `layout.tsx:1140`'s `autoselecting.loading` gate and landed on
+  the same blank-shell state as the very first (withdrawn) measurement --
+  proof that gate is a real, recurring race on fresh page loads, not a
+  one-off tied to the dead `:4096` backend specifically.
+
+Fixed by using `pixel-diff.ts`'s existing `--app-ready` flag with
+`[data-v110='home'][data-state='ready']` (the real state machine
+`home.tsx:126` already exposes) instead of retrying blind -- no changes to
+the tool itself, just a correct invocation.
+
+**Valid result: `home-checkpoint7`, 2.07%** (`parity/artifacts/pixel-diff/
+home-checkpoint7-*.png`, real settled content both sides: full hero,
+composer, real recent-project rows -- not "Chargement", not blank).
+
+Root-caused the residual with a direct geometry probe
+(`getBoundingClientRect` on `home-launch`, both sides, same viewport):
+
+| | top | height |
+|---|---|---|
+| App `home-launch` | 249 | 447 |
+| Maquette `.home-launch` | 262 | 397 |
+
+The block is vertically centered (`place-items: center`) inside a fixed
+flex parent -- confirmed already fixed for this in an earlier session
+(`v110-home.css`'s `flex: 1; min-height: 0`). A **taller** block centered
+in the same box necessarily starts **higher**: the app's launch column is
+50px taller because it lists 3 real recent projects (full path + relative
+timestamp, wraps taller than the maquette's compact demo chips) --
+exactly the direction and rough magnitude (half of ~50px ≈ the observed
+13px top offset, allowing for the state-line/title/subtitle not scaling
+1:1 with the extra height) predicted by that math. **Not a CSS bug.**
+
+The remaining diff pixels are the same three already-adjudicated,
+intentional real-vs-demo differences (`parity/authority-map.md`: real
+behaviour outranks the maquette's static demo data):
+1. Real recent-project rows (paths + live relative timestamps) replacing
+   the maquette's 4 hard-coded demo quick-chips.
+2. The vertical-centering consequence of (1), above.
+3. The state-line pill showing this test rig's raw `127.0.0.1:4097`
+   instead of a friendly server name -- an artifact of using an unnamed
+   ad-hoc alternate-port backend for this session's workaround, not
+   something a real user's default-port connection would ever show.
+
+**VISUAL CHECKPOINT -- HOME**
+```
+SCENE: home | ROUTE: / | VIEWPORT: 1440x900 | THEME: dark | LOCALE: fr
+Diff: 2.07% (down from an invalid, withdrawn 0.85%/1.71%/0.80% measured
+against a dead backend / mid-load / raced states)
+Elements: DIRECT_EQUIVALENT (hero title/subtitle/composer/mode-pills/
+  watermark/hint), INTENTIONAL_DIFFERENCE (recent-project rows: real data
+  vs demo chips, and the resulting centering offset), 
+  REAL_RUNTIME_REPRESENTATION_CHANGE (state-line: real server identity vs
+  demo "Aucun projet ouvert", cosmetic only in this test rig)
+VERDICT: SCENE_LOCKED for desktop-wide/dark/fr. No further HOME code
+change identified. Extending to other viewports/themes/locales is
+follow-up work per the scene plan, not owed before moving to the next
+scene.
+```
+
+Housekeeping: the fresh Brave instance and its alternate-port backend
+(`:4097`)/Vite (`:4445`) pair remain running for the next scene (CODE).
+`.gitignore`d artifact pngs from the discarded intermediate captures
+(`home-checkpoint`, `-2` through `-6`) were left in place (host-side only,
+never tracked) rather than cleaned up mid-session.
