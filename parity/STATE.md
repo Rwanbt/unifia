@@ -1175,6 +1175,55 @@ hand-edit of the generated file). Verified live: computed
 `backgroundColor` on all three topbar elements went from transparent to
 `rgb(17, 20, 34)`.
 
+## Full audit ("audit complet"), two more systemic bugs closed (2026-09-19)
+
+User rejected one-off fixes again: "on est toujours très loin d'un
+résultat satisfaisant, fait un audit complet afin d'établir une
+correction convenable" (still far from satisfactory, do a complete audit
+to establish a proper correction). Built a real audit script this time
+(`.audit-topbar-rail.mjs`, scratch, not committed) capturing EVERY
+button's full computed style (position, size, color, border, radius,
+font, padding, gap) on both sides in one pass, instead of checking
+elements one at a time.
+
+**Two more systemic bugs found and fixed**:
+1. (`c3d7a76f17`) Every maquette icon-only topbar button measures 31px
+   tall (`toggleRailBtn`, `topExplorerBtn`, `topReviewBtn`,
+   `topTerminalBtn`, `serverBtn`, `openInBtn`, `themeBtn`,
+   `topInspectorBtn`). Every app equivalent measured 24px -- one root
+   cause (`titlebar-icon w-8 h-6`, h-6=24px, reused at 6 call sites), not
+   six bugs. Fixed to `h-[31px]` at each site.
+2. (`ec9b93cd71`) Every maquette rail button (mode icons, Nouveau,
+   Réglages) measures 42x42 with a 12px radius. The app's measured
+   32x32 with a 6px radius -- 24% smaller, again one root cause
+   (IconButton's shared `size="large"` token is 32px app-wide). Did not
+   touch that shared token -- it's used by every other "large" icon
+   button in the app outside this rail -- and instead overrode size on
+   the rail's own instances only. The radius override needed a literal
+   `!rounded-[12px]`, not `!rounded-xl`: `--radius-xl` is deliberately
+   20px in this app's own brand identity
+   (`styles/unifia-brand.css:38`), not the generic Tailwind 12px a
+   token named "xl" might suggest. Also corrected the avatar to 32x32
+   (a live measurement of the maquette's `#userBtn`, overriding what
+   its static `.avatar` CSS rule alone suggested was 28px), and the
+   rail's mode-icon gap to 8px (`gap-2`, was `gap-3`/12px).
+
+**A third, larger, pre-existing bug found and NOT silently fixed**:
+`text-11-medium`/`text-11-regular` (`4cadc25f8d`) -- used in my own
+title/meta/view-switch code AND in ~50 other files across the entire app
+-- are not real utilities (`utilities.css` only defines 12/14/16px
+tiers; no 11px theme token exists either). Every usage silently inherits
+an ambient font-size instead. Fixed my own three usages to the real
+`text-12-medium`/`text-12-regular` (13px via `--font-size-small`,
+despite the "12" in the name). Did not touch the other ~50 files or add
+the missing utility to the shared stylesheet -- that would silently
+change all of their rendered sizes at once with none of them reviewed.
+Spawned as `task_1c09b526` instead.
+
+Every fix in this batch was verified by re-running the same audit
+script after the change and reading the new numbers back, not by
+eyeballing a screenshot. Full unit suite green at each step (1636 tests).
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
