@@ -500,68 +500,23 @@ export function SessionHeader() {
                 </div>
               </Show>
               <div class="flex items-center gap-1">
-                <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
-                  <StatusPopover />
-                </Tooltip>
-                <TooltipKeybind
-                  title={language.t("command.terminal.toggle")}
-                  keybind={command.keybind("terminal.toggle")}
-                >
-                  <Button
-                    variant="ghost"
-                    class="group/terminal-toggle titlebar-icon w-8 h-6 p-0 box-border shrink-0"
-                    onClick={toggleTerminal}
-                    aria-label={language.t("command.terminal.toggle")}
-                    aria-expanded={view().terminal.opened()}
-                    aria-controls="terminal-panel"
-                  >
-                    <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
-                  </Button>
-                </TooltipKeybind>
-
-                {/* Was `hidden md:flex`, which dropped the review and file-tree
+                {/* Reordered to match .top-actions (Unifia-UI-UX-v110-PORT-READY-R1.html:
+                    15248-15251): #topExplorerBtn, #topReviewBtn, #topTerminalBtn,
+                    #serverBtn -- file-tree, review, terminal, status, in that
+                    order. Was Status/Terminal/Review/FileTree (reversed).
+                    Was `hidden md:flex`, which dropped the review and file-tree
                     toggles below 768px. The review panel defaults to open
                     (context/layout.tsx: `store.review?.panelOpened ?? true`),
                     so on a phone it appeared at launch with no control able to
                     close it — the conversation stayed unreachable. The terminal
-                    toggle above is already visible at this width and opens the
-                    same kind of overlay, so showing these two is consistent. */}
+                    toggle is already visible at this width and opens the same
+                    kind of overlay, so showing these two is consistent. */}
                 <div class="flex items-center gap-1 shrink-0">
                   {/* v110 InspectorFrame is one shared pane (session-side-panel.tsx):
                       each button below closes it if already open, otherwise opens
                       it on its own tab — never just switches tab while open, so a
                       second press of either always reads as "off" (verified by
                       e2e/commands/panels.spec.ts and e2e/files/file-tree.spec.ts). */}
-                  <TooltipKeybind
-                    title={language.t("command.review.toggle")}
-                    keybind={command.keybind("review.toggle")}
-                  >
-                    <Button
-                      variant="ghost"
-                      class="group/review-toggle titlebar-icon w-8 h-6 p-0 box-border"
-                      onClick={() => {
-                        if (layout.inspector.opened()) {
-                          layout.inspector.close()
-                          return
-                        }
-                        layout.inspector.setTab("inspector")
-                        layout.inspector.open()
-                      }}
-                      aria-label={language.t("command.review.toggle")}
-                      aria-expanded={layout.inspector.opened() && layout.inspector.tab() === "inspector"}
-                      aria-controls="v110-inspector-panel"
-                    >
-                      <Icon
-                        size="small"
-                        name={
-                          layout.inspector.opened() && layout.inspector.tab() === "inspector"
-                            ? "review-active"
-                            : "review"
-                        }
-                      />
-                    </Button>
-                  </TooltipKeybind>
-
                   <TooltipKeybind
                     title={language.t("command.fileTree.toggle")}
                     keybind={command.keybind("fileTree.toggle")}
@@ -597,7 +552,56 @@ export function SessionHeader() {
                       </div>
                     </Button>
                   </TooltipKeybind>
+
+                  <TooltipKeybind
+                    title={language.t("command.review.toggle")}
+                    keybind={command.keybind("review.toggle")}
+                  >
+                    <Button
+                      variant="ghost"
+                      class="group/review-toggle titlebar-icon w-8 h-6 p-0 box-border"
+                      onClick={() => {
+                        if (layout.inspector.opened()) {
+                          layout.inspector.close()
+                          return
+                        }
+                        layout.inspector.setTab("inspector")
+                        layout.inspector.open()
+                      }}
+                      aria-label={language.t("command.review.toggle")}
+                      aria-expanded={layout.inspector.opened() && layout.inspector.tab() === "inspector"}
+                      aria-controls="v110-inspector-panel"
+                    >
+                      <Icon
+                        size="small"
+                        name={
+                          layout.inspector.opened() && layout.inspector.tab() === "inspector"
+                            ? "review-active"
+                            : "review"
+                        }
+                      />
+                    </Button>
+                  </TooltipKeybind>
                 </div>
+
+                <TooltipKeybind
+                  title={language.t("command.terminal.toggle")}
+                  keybind={command.keybind("terminal.toggle")}
+                >
+                  <Button
+                    variant="ghost"
+                    class="group/terminal-toggle titlebar-icon w-8 h-6 p-0 box-border shrink-0"
+                    onClick={toggleTerminal}
+                    aria-label={language.t("command.terminal.toggle")}
+                    aria-expanded={view().terminal.opened()}
+                    aria-controls="terminal-panel"
+                  >
+                    <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
+                  </Button>
+                </TooltipKeybind>
+                <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
+                  <StatusPopover />
+                </Tooltip>
 
                 {/* Mobile-only: more actions menu */}
                 <Show when={platform.platform === "mobile"}>
