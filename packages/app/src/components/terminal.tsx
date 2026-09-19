@@ -44,6 +44,7 @@ export interface TerminalProps extends ComponentProps<"div"> {
   onConnectError?: (error: unknown) => void
   onSend?: (fn: ((data: string) => void) | undefined) => void
   onSelectionApi?: (api: TerminalSelectionApi | undefined) => void
+  onClearApi?: (fn: (() => void) | undefined) => void
 }
 
 let sharedModule: Promise<typeof import("ghostty-web")> | undefined
@@ -288,6 +289,7 @@ export const Terminal = (props: TerminalProps) => {
     "onConnectError",
     "onSend",
     "onSelectionApi",
+    "onClearApi",
   ])
   const id = local.pty.id
   const probe = terminalProbe(id)
@@ -945,6 +947,9 @@ export const Terminal = (props: TerminalProps) => {
       }
       local.onSend?.(sendBytes)
       cleanups.push(() => local.onSend?.(undefined))
+
+      local.onClearApi?.(() => t.clear())
+      cleanups.push(() => local.onClearApi?.(undefined))
 
       local.onSelectionApi?.({
         hasSelection: () => t.getSelection().length > 0,

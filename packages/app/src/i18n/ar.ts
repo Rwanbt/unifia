@@ -542,6 +542,7 @@ export const dict = {
   "terminal.title": "محطة طرفية",
   "terminal.title.numbered": "محطة طرفية {{number}}",
   "terminal.close": "إغلاق المحطة الطرفية",
+  "terminal.clear": "مسح المحطة الطرفية",
   "terminal.connectionLost.title": "فقد الاتصال",
   "terminal.connectionLost.description": "انقطع اتصال المحطة الطرفية. يمكن أن يحدث هذا عند إعادة تشغيل الخادم.",
   "common.closeTab": "إغلاق علامة التبويب",

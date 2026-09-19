@@ -4,7 +4,7 @@ import { makeEventListener } from "@solid-primitives/event-listener"
 import { Tabs } from "@unifia/ui/tabs"
 import { ResizeHandle } from "@unifia/ui/resize-handle"
 import { IconButton } from "@unifia/ui/icon-button"
-import { TooltipKeybind } from "@unifia/ui/tooltip"
+import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { showToast } from "@unifia/ui/toast"
 import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, closestCenter } from "@thisbeyond/solid-dnd"
 import type { DragEvent } from "@thisbeyond/solid-dnd"
@@ -214,6 +214,11 @@ export function TerminalPanel() {
   const close = () => view().terminal.close()
   let root: HTMLDivElement | undefined
   const sendHandles = new Map<string, (data: string) => void>()
+  const clearHandles = new Map<string, () => void>()
+  const clearActiveTerminal = () => {
+    const id = terminal.active()
+    if (id) clearHandles.get(id)?.()
+  }
 
   const selectionApis = new Map<string, TerminalSelectionApi>()
   const [activeSelectionApi, setActiveSelectionApi] = createSignal<TerminalSelectionApi | undefined>(undefined)
@@ -507,6 +512,15 @@ export function TerminalPanel() {
                     <For each={all()}>{(pty) => <SortableTerminalTab terminal={pty} onClose={close} />}</For>
                   </SortableProvider>
                   <div class="h-full flex items-center justify-center">
+                    <Tooltip value={language.t("terminal.clear")} class="flex items-center">
+                      <IconButton
+                        icon="reset"
+                        variant="ghost"
+                        iconSize="large"
+                        onClick={clearActiveTerminal}
+                        aria-label={language.t("terminal.clear")}
+                      />
+                    </Tooltip>
                     <TooltipKeybind
                       title={language.t("command.terminal.new")}
                       keybind={command.keybind("terminal.new")}
@@ -554,6 +568,7 @@ export function TerminalPanel() {
                             onConnectError={() => ops.clone(pty.id)}
                             onSend={(fn) => { if (fn) sendHandles.set(pty.id, fn); else sendHandles.delete(pty.id) }}
                             onSelectionApi={(api) => registerSelectionApi(pty.id, api)}
+                            onClearApi={(fn) => { if (fn) clearHandles.set(pty.id, fn); else clearHandles.delete(pty.id) }}
                           />
                         </div>
                       )}

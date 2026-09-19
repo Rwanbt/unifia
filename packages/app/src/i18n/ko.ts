@@ -547,6 +547,7 @@ export const dict = {
   "terminal.title": "터미널",
   "terminal.title.numbered": "터미널 {{number}}",
   "terminal.close": "터미널 닫기",
+  "terminal.clear": "터미널 지우기",
   "terminal.connectionLost.title": "연결 끊김",
   "terminal.connectionLost.description":
     "터미널 연결이 중단되었습니다. 서버가 재시작하면 이런 일이 발생할 수 있습니다.",

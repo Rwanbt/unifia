@@ -602,6 +602,7 @@ export const dict = {
   "terminal.title": "เทอร์มินัล",
   "terminal.title.numbered": "เทอร์มินัล {{number}}",
   "terminal.close": "ปิดเทอร์มินัล",
+  "terminal.clear": "ล้างเทอร์มินัล",
   "terminal.connectionLost.title": "การเชื่อมต่อขาดหาย",
   "terminal.connectionLost.description": "การเชื่อมต่อเทอร์มินัลถูกขัดจังหวะ อาจเกิดขึ้นเมื่อเซิร์ฟเวอร์รีสตาร์ท",
 

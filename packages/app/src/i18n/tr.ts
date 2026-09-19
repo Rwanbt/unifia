@@ -550,6 +550,7 @@ export const dict = {
   "terminal.title": "Terminal",
   "terminal.title.numbered": "Terminal {{number}}",
   "terminal.close": "Terminali kapat",
+  "terminal.clear": "Terminali temizle",
   "terminal.connectionLost.title": "Bağlantı Kesildi",
   "terminal.connectionLost.description":
     "Terminal bağlantısı kesildi. Bu durum sunucu yeniden başladığında oluşabilir.",

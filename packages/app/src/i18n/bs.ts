@@ -607,6 +607,7 @@ export const dict = {
   "terminal.title": "Terminal",
   "terminal.title.numbered": "Terminal {{number}}",
   "terminal.close": "Zatvori terminal",
+  "terminal.clear": "Očisti terminal",
   "terminal.connectionLost.title": "Veza prekinuta",
   "terminal.connectionLost.description":
     "Veza s terminalom je prekinuta. Ovo se može desiti kada se server restartuje.",
