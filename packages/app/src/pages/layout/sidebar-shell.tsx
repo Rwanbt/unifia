@@ -74,7 +74,11 @@ export const SidebarContent = (props: {
             <DragDropSensors />
             <ConstrainDragXAxis />
             <div class="h-full w-full flex flex-col items-center gap-3 px-3 py-3 overflow-y-auto no-scrollbar">
-              <nav aria-label={props.modesLabel} class="flex flex-col items-center gap-3">
+              {/* .rail-btn + .rail-btn gap measured live at 8px
+                  (y=127 - y=77 - 42px height =
+                  Unifia-UI-UX-v110-PORT-READY-R1.html:15327-15346); was
+                  gap-3 (12px). */}
+              <nav aria-label={props.modesLabel} class="flex flex-col items-center gap-2">
                 <For each={props.modes()}>
                   {(mode) => (
                     <Tooltip placement={placement()} value={props.modeLabel(mode)}>
