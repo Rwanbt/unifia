@@ -1350,3 +1350,26 @@ correct, honest thing to measure primarily, per the plan's own
 authority-map rule that real behaviour outranks the maquette's demo data.
 Verdict unchanged: `NOT_QUALIFIED`, now additionally blocked on host
 resource recovery for any further live measurement.
+
+**Addendum, same day**: after a ~20 minute gap, relaunched the minimal
+single-pair workaround (one backend on `:4097`, one paired Vite on `:4445`)
+and re-confirmed HOME renders real content -- this time via the **built-in
+Browser pane** (a separate browser process from the isolated CDP instance
+on `:9333`), independent proof the earlier finding wasn't specific to one
+browser tool. `pixel-diff.ts` itself failed 3 consecutive times with
+`connectOverCDP` timing out mid-handshake (WS connects, then Playwright's
+protocol negotiation stalls) -- `Get-Process node,bun,brave` showed 23
+node.exe / 36 brave.exe processes at the time, the same danger-zone process
+counts the 2026-09-18 session recap already correlated with starved
+renders on this host. Per AGENTS.md's anti-loop rule (stop after 3 failed
+identical attempts), switched tools instead of retrying a 4th time.
+
+Attempting to follow up (click into the real `D:\App\unifia\unifia`
+project to verify SHELL's previously BLOCKED_ENV breadcrumb) hit the exact
+same `net::ERR_INSUFFICIENT_RESOURCES` in the **Browser pane's own console**
+-- a third, independent browser tool hitting the identical wall. This
+closes the question of whether it was one degraded browser instance: it is
+host-wide. Stopped immediately rather than retrying a different tool again;
+freed the one backend process started for this check. The breadcrumb
+re-verification remains outstanding, blocked purely on host resource
+recovery -- not on anything code- or tool-specific.
