@@ -82,6 +82,14 @@ export const SidebarContent = (props: {
                         icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
                         variant={props.activeMode() === mode ? "primary" : "ghost"}
                         size="large"
+                        // .rail-btn is 42x42 with a 12px radius
+                        // (Unifia-UI-UX-v110-PORT-READY-R1.html:15326-15346,
+                        // measured live: w=42 h=42 border-radius=12px). The
+                        // shared IconButton size="large" token is 32px --
+                        // fixed there for every OTHER "large" icon button in
+                        // the app (settings, dialogs), so overridden here
+                        // only, not in icon-button.css, to keep this rail-only.
+                        class="!w-[42px] !h-[42px] !rounded-[12px]"
                         // Contrat technique de sélection pour les tests, stable
                         // quelle que soit la locale. L'`aria-label` ci-dessous
                         // vient de `modeLabel`, donc il est traduit : la suite
@@ -118,6 +126,7 @@ export const SidebarContent = (props: {
                   icon="plus"
                   variant="ghost"
                   size="large"
+                  class="!w-[42px] !h-[42px] !rounded-[12px]"
                   onClick={props.onOpenProject}
                   aria-label={typeof props.openProjectLabel === "string" ? props.openProjectLabel : undefined}
                 />
@@ -127,8 +136,12 @@ export const SidebarContent = (props: {
           </DragDropProvider>
         </div>
         <div class="shrink-0 w-full pt-3 pb-6 flex flex-col items-center gap-2">
-          {/* Ports .rail-avatar-wrap > .avatar (Unifia-UI-UX-v110-PORT-READY-R1.html:15349,
-              CSS at line 136-139: 28px circle, bordered, centered content).
+          {/* Ports .rail-avatar-wrap > #userBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15349).
+              The static .avatar CSS rule (lines 136-139) reads 28px, but a
+              live getBoundingClientRect() on the rendered #userBtn measured
+              32x32 -- trusted the live measurement over the static rule,
+              since #userBtn evidently carries more specific sizing this
+              class-only read missed the first time.
               The maquette's avatar shows a demo initial and opens an account/
               session manager -- neither exists anywhere in this app (no user
               identity, no accounts, grepped the whole tree). Rather than
@@ -140,7 +153,7 @@ export const SidebarContent = (props: {
           <Tooltip placement={placement()} value={props.accountLabel()}>
             <button
               type="button"
-              class="size-7 shrink-0 rounded-full border border-border-strong-base bg-surface-raised-base grid place-items-center text-icon-weak hover:text-icon-strong hover:bg-surface-raised-base-active transition-colors"
+              class="size-8 shrink-0 rounded-full border border-border-strong-base bg-surface-raised-base grid place-items-center text-icon-weak hover:text-icon-strong hover:bg-surface-raised-base-active transition-colors"
               onClick={props.onOpenSettings}
               aria-label={props.accountLabel()}
             >
@@ -160,6 +173,7 @@ export const SidebarContent = (props: {
               icon="settings-gear"
               variant="ghost"
               size="large"
+              class="!w-[42px] !h-[42px] !rounded-[12px]"
               onClick={props.onOpenSettings}
               aria-label={props.settingsLabel()}
             />
