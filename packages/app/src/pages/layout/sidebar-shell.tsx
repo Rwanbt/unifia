@@ -84,7 +84,7 @@ export const SidebarContent = (props: {
                     <Tooltip placement={placement()} value={props.modeLabel(mode)}>
                       <IconButton
                         icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
-                        variant={props.activeMode() === mode ? "primary" : "ghost"}
+                        variant="ghost"
                         size="large"
                         // .rail-btn is 42x42 with a 12px radius
                         // (Unifia-UI-UX-v110-PORT-READY-R1.html:15326-15346,
@@ -93,7 +93,34 @@ export const SidebarContent = (props: {
                         // fixed there for every OTHER "large" icon button in
                         // the app (settings, dialogs), so overridden here
                         // only, not in icon-button.css, to keep this rail-only.
+                        //
+                        // variant="primary" (the previous choice for the
+                        // active mode) is icon-button.css's inverted/CTA
+                        // treatment -- measured live at bg=rgb(237,232,228),
+                        // a bright warm off-white, jarring against a dark
+                        // rail and nothing like the maquette's active state
+                        // (bg #2c2c2f-ish, still dark, just a subtle raise --
+                        // Unifia-UI-UX-v110-PORT-READY-R1.html:15327,
+                        // .rail-btn.active). Always "ghost" now; the active
+                        // look is the classList below instead, matching the
+                        // maquette's actual measured contrast: active text
+                        // rgb(242,242,243) vs inactive rgb(155,155,161) --
+                        // the app previously rendered every mode icon at
+                        // pure white regardless of state, so inactive icons
+                        // never dimmed the way the maquette's do.
+                        //
+                        // The icon's own color comes from icon-button.css's
+                        // [data-slot="icon-svg"] { color: var(--icon-base) }
+                        // (line 83), not from the button's own `color` --
+                        // a plain text-* class on the button has no visible
+                        // effect on the glyph, only the descendant-targeted
+                        // [&_[data-slot=icon-svg]]:text-* variant does.
                         class="!w-[42px] !h-[42px] !rounded-[12px]"
+                        classList={{
+                          "!bg-surface-raised-base [&_[data-slot=icon-svg]]:!text-text-strong":
+                            props.activeMode() === mode,
+                          "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeMode() !== mode,
+                        }}
                         // Contrat technique de sélection pour les tests, stable
                         // quelle que soit la locale. L'`aria-label` ci-dessous
                         // vient de `modeLabel`, donc il est traduit : la suite
