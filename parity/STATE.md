@@ -1051,6 +1051,53 @@ must plan to verify after every step.
 Captured at HEAD = `985d528dc1`; 127 commits; tree clean; vault note
 records this as a fifth session of 2026-09-18.
 
+## Topbar ordering fixed with measured proof, not a screenshot guess (2026-09-19)
+
+User rejected "close" outright: "tu n'as vérifié que l'existence... pas
+leurs placements ni leur esthétique" (you only verified existence, not
+placement or aesthetics). Correct -- prior verification in this file was
+screenshots and `getBoundingClientRect` spot-checks on isolated elements,
+never a systematic position comparison against the maquette.
+
+Picked up right where MM2-B02-WORKER's abandoned attempt (`a98e513f88`)
+left off, but did not repeat their approach (full single-row flex
+refactor of `titlebar.tsx`, which is what broke for them). Instead: drove
+the maquette live over CDP, called `getBoundingClientRect()` +
+`getComputedStyle().order` on every `.topbar` child at 1440x900. Finding:
+every element is `order: 0` -- no CSS `order` anywhere in the maquette --
+so visual order is exactly DOM order. Measured `layoutSwitch` (Chat/Split/
+Editor) at x=745, directly after the search bar and BEFORE `.top-actions`
+(explorer/review/terminal/theme, starting x=1175). The app had the
+opposite: icon cluster before the switch, theme after it -- the switch
+and theme sat on opposite sides of where the maquette puts them together.
+
+Fixed (`36975e84b3`) by moving the Chat/Split/Editor JSX block in
+`session-header.tsx` to render right after the title/meta pair, before
+the icon cluster -- content reorder only, zero changes to
+`titlebar.tsx`'s slot/grid architecture, avoiding the exact failure mode
+that sank the other attempt. Verified with the same method that found the
+bug: measured live positions after the fix (switch at x=966, theme last
+at x=1399) instead of trusting a screenshot.
+
+Also measured and fixed (`b1fe15990f`): `.search { width: min(380px,
+32vw) }` (line 126) renders 380px at 1440px viewport; the app had a
+hardcoded 240px, a real 140px gap. Fixed to the same `min()` function
+(not a bare pixel value), so it still narrows correctly on a smaller
+window instead of overflowing. Verified live: 240px before, 380px after.
+
+**Still open, honestly**: the Chat/Split/Editor pill measures 143px wide
+against the maquette's 119px -- likely `text-11-medium` (11px, this
+codebase's convention) vs the maquette's literal 9px font-size plus a
+slightly larger padding scale, not chased further this pass since it is
+a deliberate type-scale consistency choice, not an oversight, but it is
+a real, still-unclosed 24px gap and should not be quietly assumed fixed.
+Left-side elements (rail toggle, brand, "Nouvelle session") were not
+compared 1:1 against the maquette's `toggleRailBtn`/`showContextBtn`
+because the app has real, additional navigation features (back/forward,
+new session) the maquette's static demo doesn't need -- absolute x
+position there is not a meaningful comparison, only relative order and
+explicit sizes are.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
