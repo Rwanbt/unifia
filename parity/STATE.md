@@ -1505,3 +1505,59 @@ Housekeeping: the fresh Brave instance and its alternate-port backend
 `.gitignore`d artifact pngs from the discarded intermediate captures
 (`home-checkpoint`, `-2` through `-6`) were left in place (host-side only,
 never tracked) rather than cleaned up mid-session.
+
+## CODE scene: host resource crisis worsened, one real gap fixed by pure code reading (2026-09-19, later)
+
+Attempting to open a real file for a meaningful `code.editor`/`code.terminal`
+comparison (the prerequisite this same file already names above, under
+"code.default ... discarded as not meaningful") hit a severe host resource
+crisis, worse than anything earlier this session: the built-in Browser
+pane -- a browser process entirely separate from the isolated CDP instance
+this session's tooling drives -- became unresponsive to clicks, screenshots,
+and even plain `find`. Switching to the reliable Playwright/CDP channel
+(the one that had just produced the valid HOME measurement) hit the exact
+same `net::ERR_INSUFFICIENT_RESOURCES`, and even a 45-second bare
+`page.evaluate()` timed out. That rules out "one degraded browser
+process" -- two independent browser engines failed identically.
+
+`Get-Process | Sort WorkingSet64` (no CIM, avoids the documented WMI hang)
+found the real cause: **`llama-server` alone was holding 5.42 GB**, out of
+353 total processes and 12.46 GB combined working set. Not a browser
+problem, not a code problem -- a local LLM inference process unrelated to
+this UI work. Asked the user whether it could be stopped; told to leave it
+running (in use for something else). Correctly did not kill it unilaterally
+-- it is not this session's process to reclaim.
+
+**With live verification off the table for now, switched to pure code
+reading and found one real, well-sourced, fixable gap**: the maquette's
+`.terminal-head-actions` has both a clear (⌫, `#terminalClearBtn`) and a
+close (×, `#terminalCloseBtn`) button (markup lines 15413-15414); grepping
+`terminal-panel.tsx` end to end found only `close` wired, never a clear
+action. Read `ghostty-web`'s own `.d.ts` before touching anything --
+`context/terminal.tsx`'s existing `clear()` (line 420) is a **different,
+destructive** operation (empties every terminal tab, not the visible
+screen), which would have been the wrong thing to bind to a button meant
+to mirror a shell `clear`/`cls`. The real match is `Term.clear()`
+("Clear terminal screen", ghostty-web `index.d.ts:1786`), never called
+anywhere in the app.
+
+Fixed in `69196c23f6`: a new `onClearApi` prop on `<Terminal>`
+(`components/terminal.tsx`), mirroring the existing `onSend`/
+`onSelectionApi` wiring pattern exactly, backing a new toolbar `IconButton`
+(icon `"reset"` -- already in the shared set, unused anywhere else, a
+better semantic fit than `"trash"` for a non-destructive screen clear)
+placed before the existing new-terminal button in `terminal-panel.tsx`.
+Added `terminal.clear` to all 17 locales next to the existing
+`terminal.close` key. Typecheck, the i18n parity suite (10 tests / 33302
+assertions), and the full unit suite (1636/1636) are all green.
+
+**Honestly labeled, not overclaimed**: this fix is `VERIFIED` for
+correctness of the underlying API (read directly in `ghostty-web`'s type
+definitions) and `VERIFIED` for not regressing anything (full test suite),
+but the actual on-screen result (icon renders where expected, click
+behavior, i18n string displays correctly at each locale) is `UNVERIFIED`
+pending browser access. Do not report this as visually confirmed.
+
+CODE scene itself remains blocked on the same prerequisite named earlier
+in this file: a session with a real file open, comparable against the
+maquette's populated demo. That still needs a live browser.
