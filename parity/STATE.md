@@ -1373,3 +1373,55 @@ host-wide. Stopped immediately rather than retrying a different tool again;
 freed the one backend process started for this check. The breadcrumb
 re-verification remains outstanding, blocked purely on host resource
 recovery -- not on anything code- or tool-specific.
+
+## `showContextBtn` / maquette context-panel: resolved by reading the authority, not by building anything (2026-09-19)
+
+With browser verification blocked by the resource ceiling, switched to a
+pure code-reading task: the open SHELL question about the maquette's
+`#showContextBtn` / `#contextPanel` (left column, title "Code / Chat" /
+project name, collapsible, hover-peek). Reading the maquette's own markup
+first (lines 15351-15360) showed this is **not** the same element as
+`.mode-chat` ("Conversation" thread + composer, a sibling inside each
+`.mode-shell`) -- an earlier framing in this session's own notes had
+conflated the two. `#contextPanel`/`#contextContent` is a separate,
+mode-aware navigator: a `.rs`-file list for Code, a project/agent picker
+for Work, a notes/graph/backlinks nav for Memory (traced via
+`#contextContent .nav-item` handlers and `removeWorkContext()` in the
+maquette's JS).
+
+That JS also carries version-tagged class names spanning many eras
+(`v41-panel-dynamic`, `v68-context-root`, `v84ContextPeek`, `w66-agent`,
+`m71-memory-context-strip`) -- this is an accumulated static demo file, not
+a clean spec, so its runtime behavior was **not** treated as authoritative.
+Read `docs/ui-reference/v110/COMPONENT-MAP.md` instead, which already
+resolves this exact mapping:
+- Line 17: "context panel (projets/sessions)" -> real equivalents
+  `context/file, sidebar-project/workspace, global-sync` -> **REFACTOR**
+  (keep the contract, change the representation -- not "build the
+  maquette's literal column").
+- Line 19: "inspector (Explorer + Details + Execution)" -> `session-side-panel,
+  references-panel, review-tab` -> REFACTOR, explicitly "un seul inspector
+  natif, pas de doublon par mode" (one native inspector, never duplicated
+  per mode).
+- Line 37: "explorer (doit rester dans Inspector uniquement)" -> `file-tree,
+  explorer existant` -> KEEP, **"interdiction de dupliquer"** (explicitly
+  forbidden to duplicate the file-tree/explorer outside the Inspector).
+
+**Verdict: building a separate maquette-literal context column is the
+wrong move, not an undone gap.** The app's real design deliberately
+consolidates what the maquette splits into `#contextPanel` + per-mode chat
+into a single Inspector (file tree, project/session state) plus the
+already-real session chat/composer -- confirmed no `v110-context-frame`-
+style file exists anywhere in `packages/` (checked directly), so this was
+never silently half-built either. Disposition: **INTENTIONAL_DIFFERENCE**,
+closed. This also means `COMPONENT-MAP.md`'s own line 88 ("Shell frame /
+topbar / rail / context / inspector / mobile-nav" listed as delivered
+under "A2 Shell — complet + certifié") overstates what actually shipped --
+its own file list two lines above (line 87) never names a context-specific
+file, consistent with this session's other finding that pre-existing
+"certified" claims in this doc need to be checked against real code, not
+trusted at face value.
+
+**Net effect on SHELL's open items**: `showContextBtn` is resolved (no
+code change needed). Only the breadcrumb/project-dependent elements remain
+genuinely BLOCKED_ENV, pending host resource recovery for re-verification.
