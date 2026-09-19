@@ -1019,6 +1019,38 @@ history.
 Verified: bun typecheck exit 0; full unit suite 1636 pass / 0 fail / 185
 files; i18n/parity.test.ts 10/10; manifest:check PASS.
 
+## Pixel-perfect topbar/rail: stopped mid-refactor (2026-09-18, same day)
+
+Continued the topbar/rail pixel-perfect pass. Read the maquette topbar
+(lines 15226-15270) and rail (15326-15350), built a static gap analyser
+(`parity/artifacts/pixel-diff/topbar-rail/gap.mjs`), and started the
+single-row flex refactor of `titlebar.tsx`.
+
+**Outcome: zero net progress.** The attempted change broke visually in
+the browser -- theme toggle landed on the wrong side, elements ordered
+incorrectly, the back/forward and Nouvelle-session real navigation
+features were stripped -- and was reverted. The tree is clean against
+`985d528dc1`; nothing was committed. The broken state is preserved as
+`parity/artifacts/pixel-diff/topbar-rail/app-topbar-flex.png` so the
+next attempt can see what to avoid.
+
+**Why the static gate didn't catch it**: typecheck exit 0 and the full
+1636-test unit suite stayed green throughout. The only signal that
+matters for layout is the live browser. Recorded honestly rather than
+hidden -- the next session should verify in the browser after every
+structural topbar change, not just at the end.
+
+**Honest re-framing of pixel-perfect**: this is a one-row flex in the
+maquette vs a 3-grid-columns-with-portals layout in the app. The
+mismatch is structural, not a one-line fix. Three options were laid out
+in the handoff (full single-row flex refactor; explicit-width 3-column;
+accept the gap at 1440 and document the breakpoint above which parity
+holds). The user asked for option (a). The next session picks it up but
+must plan to verify after every step.
+
+Captured at HEAD = `985d528dc1`; 127 commits; tree clean; vault note
+records this as a fifth session of 2026-09-18.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
