@@ -314,14 +314,23 @@ export function SessionHeader() {
               {/* Ports .workspace-head's title+meta pair
                   (Unifia-UI-UX-v110-PORT-READY-R1.html:15234-15236; CSS at
                   lines 219-225: one flex row, bold 11px title + muted 9px
-                  meta, gap 8px -- not stacked). Reuses the same
+                  meta, gap 8px -- not stacked). text-12-medium/text-12-regular
+                  (13px, per --font-size-small) is the smallest REAL utility
+                  this app defines -- text-11-medium/text-11-regular do not
+                  exist (checked utilities.css) despite being used in ~50
+                  other files across the app, all silently falling back to
+                  an inherited size instead of 11px. That is a real,
+                  pre-existing, wide bug, but adding the missing utility here
+                  would also change all 50 of those unreviewed call sites at
+                  once, so it is flagged as its own follow-up instead of
+                  fixed as a side effect of this file. Reuses the same
                   workbench.modes.name.* key the breadcrumb already uses for
                   the title; the meta tagline is new (workbench.modes.meta.*). */}
               <div class="hidden 2xl:flex items-center gap-2 max-w-[220px] overflow-hidden shrink-0">
-                <b class="text-11-medium text-text-strong shrink-0">
+                <b class="text-12-medium text-text-strong shrink-0">
                   {language.t(`workbench.modes.name.${mode.active()}`)}
                 </b>
-                <span class="text-11-regular text-text-weak whitespace-nowrap overflow-hidden text-ellipsis">
+                <span class="text-12-regular text-text-weak whitespace-nowrap overflow-hidden text-ellipsis">
                   {language.t(`workbench.modes.meta.${mode.active()}`)}
                 </span>
               </div>
@@ -376,7 +385,7 @@ export function SessionHeader() {
                             type="button"
                             role="radio"
                             aria-checked={view() === option.id}
-                            class="rounded-md px-2 h-5 text-11-medium transition-colors"
+                            class="rounded-md px-2 h-5 text-12-medium transition-colors"
                             classList={{
                               "bg-surface-raised-base text-text-strong": view() === option.id,
                               "text-text-weak hover:text-text-strong": view() !== option.id,
