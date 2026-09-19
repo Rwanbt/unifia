@@ -1098,6 +1098,50 @@ new session) the maquette's static demo doesn't need -- absolute x
 position there is not a meaningful comparison, only relative order and
 explicit sizes are.
 
+## Full button inventory both sides, two more real gaps closed (2026-09-19)
+
+User: "il manque encore des boutons, il y a encore des boutons non voulu
+et leurs placements n'est pas identique" (buttons still missing, unwanted
+buttons still there, placement still not identical). Did a complete
+button inventory on both sides this time -- every `<button>` in
+`[data-v110="topbar"]` and `[data-v110="rail"]`, not a spot check -- to
+answer this precisely instead of arguing about it.
+
+**Fixed**:
+1. (`1ed2e4ac23`) `.top-actions` order. Maquette:
+   `#topExplorerBtn, #topReviewBtn, #topTerminalBtn, #serverBtn`
+   (Unifia-UI-UX-v110-PORT-READY-R1.html:15248-15251). App rendered
+   Status, Terminal, Review, FileTree -- exactly reversed for the three
+   matching icons, Status on the wrong side too. Reordered to FileTree,
+   Review, Terminal, Status. Verified with the full ordered label list,
+   not one element.
+2. (`a41d630383`) Removed the desktop rail's Help icon. The maquette rail
+   (15326-15350) is exactly mode icons, spacer, Nouveau, avatar,
+   Réglages -- no help icon at all. This app added one with no maquette
+   basis. Not a silent deletion: the same GitHub link is still reachable
+   from the error page. Scoped to desktop only -- kept on mobile, which
+   has no maquette reference in this pass.
+
+**Found, not yet acted on -- flagged instead of guessed at**:
+- `#showContextBtn` (Unifia-UI-UX-v110-PORT-READY-R1.html:17149-17152)
+  toggles a left "context" panel independently from the mode rail
+  (`toggleRailBtn`). Read its handler: `shell.classList.toggle
+  ('hide-context')`, a second, separate collapse target from the rail.
+  The app has one combined sidebar toggle (`layout.sidebar.toggle`); it is
+  not yet established whether the app has an equivalent second panel to
+  wire a second toggle to, or whether this needs new state. Left open
+  rather than fabricating a toggle for a panel that may not exist.
+- Topbar's "Nouvelle session" and "Copier le chemin": real, working,
+  keybind-registered features with no maquette equivalent at all (the
+  maquette is a static demo with no sessions to create and no external
+  editor to open into). Not removed, unlike the rail's Help icon -- the
+  difference is these have no working substitute path if removed (Help's
+  GitHub link still exists on the error page; there is no equivalent
+  fallback for creating a session or copying the project path), and
+  removing a live keybind's only visible entry point is a different, more
+  consequential kind of scope decision than removing a redundant support
+  icon. Recorded explicitly rather than silently kept.
+
 ## Verdict
 
 `NOT_QUALIFIED`. The harness gap that blocked runtime pairing from being a
