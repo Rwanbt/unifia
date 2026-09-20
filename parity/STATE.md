@@ -1768,3 +1768,110 @@ silent fix" item this file's original Settings entry already named --
 re-confirmed, not newly discovered, and not something a font fix or CSS
 nudge resolves. No verdict change; Settings stays open, pending that
 decision.
+
+## Element-by-element audit: rail, topbar, chat, editor tabs (2026-09-20, same day)
+
+User directive: keep going element by element (rail, topbar, chat/editor
+panels, left panel, inspector) until pixel-perfect, not just percentages.
+Measured both sides directly (`getBoundingClientRect`/`getComputedStyle`),
+same discipline as the original topbar/rail pass.
+
+**Rail -- one real fix, already committed above (`9a12ca5e89`)**: active
+mode background was `rgb(35,35,35)` (`--surface-raised-base`), maquette's
+`.rail-btn.active` measures `rgb(44,44,47)`/`#2c2c2f`. Fixed with the exact
+value at this call site. Size (42x42), radius (12px), and gap (8px) all
+already matched exactly -- no other rail changes needed.
+
+**Topbar icon buttons** -- re-verified 31x31 (app 32x31, 1px rounding, not
+worth chasing) and 10px radius on both sides; unchanged since the earlier
+session's fix, still correct.
+
+**`--text-strong` token, 5-unit gap, deliberately not touched**: the
+maquette's active icon/text color measures `rgb(242,242,243)`; the app's
+`--text-strong` token resolves to `#EDEDED` (`rgb(237,237,237)`). This
+token is generated (`packages/ui/script/colors.txt`, alpha-composited
+`rgba(255,255,255,0.936)` in `theme.css`) and consumed in 98 files.
+A ~2% luminance difference from a broadly-shared, generated token is not
+worth the blast radius of a global edit for an imperceptible gain --
+noted, not chased, consistent with this project's "don't hand-edit
+generated design tokens" rule already established earlier this session.
+
+**Chat column width (600px vs the maquette's 348px) -- confirmed
+intentional, not a bug.** Traced to `context/layout.tsx`'s
+`DEFAULT_SESSION_WIDTH = 600`, a real, deliberately-chosen, **user-resizable**
+default (`layout.session.width()`, persisted via `setStore("session",
+"width", ...)`). The maquette's 348px is one static demo's fixed
+snapshot; the app's split is real, working, adjustable functionality.
+Forcing it to 348px would regress a real feature to match a demo
+screenshot -- exactly what this project's standing rule against
+fabricating/regressing real functionality forbids. Left alone.
+
+**Send button color (bright white/CTA in the maquette vs dark muted gray
+in the app) -- confirmed a state difference, not a style bug.** Read
+`prompt-input.tsx:1257-1267`: the button already uses `variant="primary"`
+(the correct bright/CTA treatment) and is `disabled` whenever
+`!local.agent.current()` -- true in every test session this segment,
+since none had a model selected. Disabled buttons render muted regardless
+of their base variant, by design. The maquette's demo shows an
+already-active, ready-to-send state. Not chased further to a proper
+enabled-state screenshot (would need to also drive model selection);
+the mechanism is already understood and correct.
+
+**Editor file-tab strip -- one real, confirmed-but-unresolved difference,
+root cause not found.** Live-measured the actual `terminal-panel.tsx` file
+tab precisely (`[role="tab"]` filtered by text content, after an earlier
+attempt mismeasured a *different* tab-role element entirely and reported
+h=48/13px -- both numbers were wrong, discarded). Corrected measurement:
+height 34px and font-size 11px both match the maquette **exactly**.
+Two real remaining differences:
+- border-radius: app renders `10px 10px 0 0` (rounded top), maquette's
+  `.tab` is `0px` (flat).
+- background: app `rgb(7,10,19)`, maquette's active `.tab` is
+  `rgb(22,22,24)`.
+
+Read the CSS that is clearly *meant* to control this exact element --
+`packages/app/src/styles/v110.css:1094-1140`, under the header "A4 Code
+tabs strip", explicitly targeting `[data-v110="code-tabs"] [role="tab"]`
+(the wrapping `data-v110="code-tabs"` marker is confirmed present at
+`session-side-panel.tsx:538`). That CSS declares no border-radius at all
+(implying flat, matching the maquette) and `background: var(--surface)`
+for the selected state -- neither matches what's actually rendering live.
+Checked the obvious suspects (`session-sortable-tab.tsx`'s own classes,
+the shared `Tabs.Trigger` base style in `packages/ui/src/components/
+tabs.css` which does declare `border-radius: var(--radius-md)` on
+`[data-slot="tabs-trigger-wrapper"]`) without conclusively confirming
+which one is actually winning the cascade against a selector that should,
+by specificity, lose (`[data-v110="code-tabs"] [role="tab"][aria-selected=
+"true"]` is a 3-attribute-selector compound, more specific than a single
+`[data-slot=...]` attribute selector). Did not guess a fix without being
+sure it holds -- stopped after several inspection passes per this
+project's own escalation discipline rather than patch blind. **Left
+open, root cause not found, needs a live specificity trace (e.g.
+DevTools "computed" panel showing which rule wins) rather than more
+static reading.**
+
+**Separate, more serious finding: file quick-open (Ctrl+P) intermittently
+never opens the selected file.** Reproduced multiple times, across
+different files (`terminal-panel.tsx`, `README.md`) and a genuinely fresh
+session (via "Nouvelle session", ruling out state pollution from this
+segment's own repeated testing). Network monitoring showed the
+`find/file?query=...` autocomplete calls firing correctly (the dropdown
+shows the right single match, confirmed by screenshot), but no
+corresponding `file/content`/`file/raw` request ever fires after pressing
+Enter to confirm the selection -- the open action itself doesn't appear to
+fire, or fires and silently no-ops. Not root-caused (stopped after several
+attempts per the same escalation discipline as above, including trying a
+longer settle delay before confirming). This is very plausibly connected
+to the previously-documented, already-spawned `task_8d6c7f15` follow-up
+(corrupted-tab Ctrl+P hang), but was reproduced here on a route that
+should be clean, so the two may not be the same bug or the fix scope may
+be broader than that task currently assumes -- flagging the connection,
+not merging the tickets myself.
+
+**Net effect**: one real fix shipped (rail color). Two plausible-looking
+differences (chat width, send button color) investigated to a confident
+"not a bug" conclusion instead of being fixed blind. One real, precisely
+measured styling gap (code-tabs radius/background) found but not
+root-caused -- needs live DevTools specificity tracing next. One
+separately serious, reproducible file-open bug found, not yet connected
+conclusively to existing tracked work.
