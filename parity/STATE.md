@@ -1702,3 +1702,32 @@ formally re-measured** the next time a clean/empty-project backend is
 available (fresh `XDG_DATA_HOME` scratch instance, or after this session's
 alternate-port backends are torn down) -- flagged explicitly rather than
 left as a silently-stale locked verdict.
+
+## HOME re-measured with the font fix live: 1.76%, down from 2.07% (2026-09-20, same day)
+
+Closed the loop from the entry above. A fresh scratch-`XDG_DATA_HOME`
+backend was spun up to get a cleaner project list, paired with a
+dedicated Vite instance (env-var backend selection, the approach already
+proven reliable this session -- a runtime `localStorage` server-URL
+override was tried first and did **not** actually redirect the app to the
+new backend, left unexplained, not chased further since the env-var
+approach worked). That fresh backend still surfaced one real project
+(`D:\App\unifia\unifia`, "il y a 3 minutes") rather than a true empty
+state -- accepted as the secondary/deferred concern this file already
+names, and measured the populated state instead, directly comparable to
+the original `home-checkpoint7` run.
+
+**Result: 1.76%** (`parity/artifacts/pixel-diff/home-postfontfix-*.png`),
+down from **2.07%** before the font fix -- a real, measured improvement
+(0.31 points), not just a plausible claim. The diff image shows visibly
+tighter, less blurred glyph edges on "Commencer avec Unifia" and the body
+copy compared to the pre-fix diff, consistent with the correct font now
+rendering instead of the mismatched system fallback. The residual is
+still fully accounted for by the same, already-adjudicated real-vs-demo
+content difference (one real recent-project chip here vs the maquette's
+four static demo chips, the resulting vertical-centering offset, and the
+test rig's raw server-address state-line) -- no new gap introduced or
+found.
+
+**HOME verdict stands: `SCENE_LOCKED` for desktop-wide/dark/fr**, now
+re-confirmed under the corrected typography rather than left stale.
