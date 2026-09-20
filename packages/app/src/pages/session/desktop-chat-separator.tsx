@@ -27,6 +27,12 @@ export interface DesktopChatSeparatorProps {
   language: { t: (key: string) => string }
 }
 
+// Matches the maquette's own --v110-chat-min / --v110-chat-max exactly
+// (v110.css:18-19, PLAN-PIXEL-PERFECT-PORT-2026-09-17-R2.md:60 -- these
+// tokens were declared with zero consumers before this fix).
+const CHAT_MIN_WIDTH = 280
+const CHAT_MAX_WIDTH = 620
+
 export function DesktopChatSeparator(props: DesktopChatSeparatorProps) {
   return (
     <Show when={props.desktopInspectorWide()}>
@@ -36,8 +42,8 @@ export function DesktopChatSeparator(props: DesktopChatSeparatorProps) {
           label={props.language.t("design.split.handle")}
           data-v110="resize-chat"
           size={props.layout.session.width()}
-          min={450}
-          max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
+          min={CHAT_MIN_WIDTH}
+          max={CHAT_MAX_WIDTH}
           onResize={(width: number) => {
             props.size.touch()
             props.layout.session.resize(width)

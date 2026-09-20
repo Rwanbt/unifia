@@ -1,10 +1,10 @@
 import { createEffect, createMemo, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
-import { useLocation, useNavigate, useParams } from "@solidjs/router"
+import { useLocation, useNavigate } from "@solidjs/router"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Icon } from "@unifia/ui/icon"
 import { Button } from "@unifia/ui/button"
-import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
+import { TooltipKeybind } from "@unifia/ui/tooltip"
 import { Logo } from "@unifia/ui/logo"
 import { useTheme } from "@unifia/ui/theme/context"
 
@@ -46,7 +46,6 @@ export function Titlebar() {
   const theme = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  const params = useParams()
   const slots = useTitlebarSlots()
 
   const toggleScheme = () => theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
@@ -64,12 +63,6 @@ export function Titlebar() {
   })
 
   const path = () => `${location.pathname}${location.search}${location.hash}`
-  const creating = createMemo(() => {
-    if (!params.dir) return false
-    if (params.id) return false
-    const parts = location.pathname.replace(/\/+$/, "").split("/")
-    return parts.at(-1) === "session"
-  })
 
   createEffect(() => {
     const current = path()
@@ -80,10 +73,6 @@ export function Titlebar() {
       setHistory(next)
     })
   })
-
-  const canBack = createMemo(() => history.index > 0)
-  const canForward = createMemo(() => history.index < history.stack.length - 1)
-  const hasProjects = createMemo(() => layout.projects.list().length > 0)
 
   const back = () => {
     const next = backPath(history)
@@ -223,75 +212,18 @@ export function Titlebar() {
             </Button>
           </TooltipKeybind>
           <Logo class="h-6 w-auto ml-1 shrink-0" />
-          <div class="hidden shell:flex items-center shrink-0">
-            <Show when={params.dir}>
-              <div
-                class="flex items-center shrink-0 w-8 mr-1"
-                aria-hidden={layout.sidebar.opened() ? "true" : undefined}
-              >
-                <div
-                  class="transition-opacity"
-                  classList={{
-                    "opacity-100 duration-120 ease-out": !layout.sidebar.opened(),
-                    "opacity-0 duration-120 ease-in delay-0 pointer-events-none": layout.sidebar.opened(),
-                  }}
-                >
-                  <TooltipKeybind
-                    placement="bottom"
-                    title={language.t("command.session.new")}
-                    keybind={command.keybind("session.new")}
-                    openDelay={2000}
-                  >
-                    <Button
-                      variant="ghost"
-                      icon={creating() ? "new-session-active" : "new-session"}
-                      class="titlebar-icon w-8 h-[31px] p-0 box-border"
-                      disabled={layout.sidebar.opened()}
-                      tabIndex={layout.sidebar.opened() ? -1 : undefined}
-                      onClick={() => {
-                        if (!params.dir) return
-                        navigate(`/${params.dir}/session`)
-                      }}
-                      aria-label={language.t("command.session.new")}
-                      aria-current={creating() ? "page" : undefined}
-                    />
-                  </TooltipKeybind>
-                </div>
-              </div>
-            </Show>
-            <Show when={hasProjects()}>
-              <div
-                class="flex items-center gap-0 transition-transform"
-                classList={{
-                  "translate-x-0": !layout.sidebar.opened(),
-                  "-translate-x-[36px]": layout.sidebar.opened(),
-                  "duration-180 ease-out": !layout.sidebar.opened(),
-                  "duration-180 ease-in": layout.sidebar.opened(),
-                }}
-              >
-                <Tooltip placement="bottom" value={language.t("common.goBack")} openDelay={2000}>
-                  <Button
-                    variant="ghost"
-                    icon="chevron-left"
-                    class="titlebar-icon w-6 h-6 p-0 box-border"
-                    disabled={!canBack()}
-                    onClick={back}
-                    aria-label={language.t("common.goBack")}
-                  />
-                </Tooltip>
-                <Tooltip placement="bottom" value={language.t("common.goForward")} openDelay={2000}>
-                  <Button
-                    variant="ghost"
-                    icon="chevron-right"
-                    class="titlebar-icon w-6 h-6 p-0 box-border"
-                    disabled={!canForward()}
-                    onClick={forward}
-                    aria-label={language.t("common.goForward")}
-                  />
-                </Tooltip>
-              </div>
-            </Show>
-          </div>
+          {/* The maquette's frozen topbar (Unifia-UI-UX-v110-PORT-READY-R1.html:
+              15226-15232) has no quick "new session" button, and no back/
+              forward navigation buttons, here at all -- rail-toggle ->
+              showContextBtn -> brand -> crumbs directly. Both button groups
+              previously here had no maquette slot; removed on explicit user
+              decision (2026-09-21, "rien de plus rien de moins"). Neither
+              capability is lost: session.new is a real, independently-
+              registered command (use-session-commands.tsx) with its own
+              keybind (mod+shift+s), command-palette entry, and /new slash
+              command; back/forward are registered right below
+              (common.goBack/common.goForward) with mod+[ / mod+] and a
+              command-palette entry, entirely independent of these buttons. */}
         </div>
         <div ref={slots.registerLeft} class="flex items-center gap-3 min-w-0 px-2" />
       </div>

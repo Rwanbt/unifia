@@ -2028,3 +2028,100 @@ plausible finding correctly walked back after more complete evidence,
 one real product/scope question flagged rather than decided alone, and
 one genuine, confirmed regression found but not yet root-caused --
 reported as such rather than glossed over.
+## "Zero differences" directive: two topbar buttons removed, chat panel default and resize bounds matched to the maquette exactly (2026-09-21)
+
+The topbar audit above closed with two items intentionally left as-is:
+the "Nouvelle session" quick-action button and the back/forward
+navigation buttons, both classified `INTENTIONAL_DIFFERENCE` on the
+theory that real functionality the frozen demo doesn't show is allowed
+to keep a visible affordance the maquette never had. The user rejected
+that theory outright:
+
+> "non la maquette est pensée pour tout et je ne souhaite aucunes
+> différences toute l'UI/UX a été longuement pensée je ne veux rien de
+> plus rien de moins tout à l'identique et avec les même
+> fonctionnalités."
+
+Corrected reading applied from here on: an element with no maquette slot
+gets removed, full stop -- but only once its functionality is confirmed
+reachable through some other real, independent mechanism (keybind,
+command-palette entry, slash command). This is narrower than "nothing
+in the app may exceed the maquette's demo behavior" -- real project data
+filling an *existing* maquette slot (recent-project chips, etc.) is not
+what this directive targeted and has not been touched.
+
+**Fix 1 -- `titlebar.tsx`, "Nouvelle session" button removed.**
+The maquette's frozen topbar (`Unifia-UI-UX-v110-PORT-READY-R1.html:15226-
+15232`) goes rail-toggle -> showContextBtn -> brand -> crumbs, no quick
+new-session button anywhere. Confirmed before removing: `session.new` is
+already registered independently in `use-session-commands.tsx` with its
+own keybind (`mod+shift+s`), a command-palette entry, and a `/new` slash
+command -- none of that lives inside the button being deleted.
+
+**Fix 2 -- `titlebar.tsx`, back/forward navigation buttons removed.**
+Same maquette line range, same absence. A first grep for an independent
+registration (`command.back`/`command.forward`-shaped ids) came back
+empty and nearly became a false "this one's not safe to remove" -- a
+direct re-read of the file caught it: `common.goBack`/`common.goForward`
+were already registered a few lines below the buttons themselves
+(`mod+[` / `mod+]`, command-palette entries), just under different ids
+than the ones grepped for. Live-verified after removal: pressing
+`Control+BracketLeft` on `/RDpcQXBwXHVuaWZpYVx1bmlmaWE/session` navigated
+back to `/` exactly as the old button did.
+
+Dead code removed as a direct consequence: the `creating`, `canBack`,
+`canForward`, `hasProjects` memos, the now-unused `params`/`useParams`
+import, and the now-unused `Tooltip` import (`TooltipKeybind` stays --
+still used by the sidebar-toggle tooltip). `bun run typecheck` clean
+after.
+
+Live-verified topbar left group after both removals: exactly 2 children
+(sidebar-toggle tooltip, logo) where there were previously 4-6 --
+matches the maquette's rail-toggle -> brand sequence with nothing extra.
+
+**Fix 3 -- `layout.tsx`, `DEFAULT_SESSION_WIDTH` 600 -> 348.**
+This directly reopens a finding from the element-by-element audit above
+that was classified acceptable because the panel is user-resizable --
+under "rien de plus rien de moins" the *default* also has to match, even
+though resizability (the actual functionality) is untouched.
+`v110.css:16` declares `--v110-chat: 348px` alongside `--v110-chat-min:
+280px` / `--v110-chat-max: 620px`; per
+`PLAN-PIXEL-PERFECT-PORT-2026-09-17-R2.md:60` all three tokens had **zero
+consumers** before this fix.
+
+**Fix 4 -- `desktop-chat-separator.tsx`, resize bounds hardcoded wrong.**
+Found while chasing fix 3: the resize-chat `Separator` hardcoded `min=
+{450}` / `max={window.innerWidth * 0.45}`, values with no relationship
+to the maquette at all -- and with the new 348px default, `min={450}`
+would have silently clamped the very first render upward, contradicting
+the fix directly above it. Replaced both with named constants (`CHAT_MIN
+_WIDTH = 280`, `CHAT_MAX_WIDTH = 620`) matching `--v110-chat-min/-max`
+exactly, closing the same zero-consumer gap as fix 3. Live-verified via
+CDP: `[data-v110="resize-chat"]`'s `aria-valuemin`/`aria-valuemax` read
+`280`/`620` after the fix (previously would have read `450`/~637 at the
+1416px viewport used for testing).
+
+The plain `min={200}`/`max={480}` bounds on the *other* separator
+(`session-side-panel.tsx:757-758`, `data-v110="resize-inspector"`, the
+narrow Explorer/Execution panel) were left untouched -- `v110.css` has no
+`--v110-inspector-min`/`-max` tokens to compare against, so there is no
+tracked gap there.
+
+**Verification run**: `bun run typecheck` (clean, `tsgo -b`), `bun test
+--preload ./happydom.ts ./src` (1636 pass / 0 fail, 37051 expect() calls
+-- the `ECONNREFUSED`/`boom` lines in the output are tests intentionally
+exercising network-failure paths, not real failures), then a live CDP
+check against the running app (backend `:4099`, Vite `:4447`) confirming
+the topbar button removals and the corrected `280`/`620` resize bounds.
+Did not force a from-scratch session (localStorage cleared, but the
+narrow explorer opened instead of the wide inspector tab needed to
+re-render the resize-chat handle) to re-read the raw `348` default
+in isolation -- stopped there per the project's own anti-loop rule
+rather than keep fighting the file-tree click target; the `280`/`620`
+bound change is confirmed live, and the `348` constant itself is a
+one-line, type-checked, test-covered change with only one consumer path.
+
+**Housekeeping**: `parity/STATE.md` is now past this project's own 1500
+LOC mandatory-refactor ceiling (2029 lines before this entry). Flagged,
+not fixed here -- splitting the running log is a separate, larger task
+than the fix this entry documents.
