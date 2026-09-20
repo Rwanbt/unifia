@@ -116,8 +116,13 @@ export const SidebarContent = (props: {
                         // effect on the glyph, only the descendant-targeted
                         // [&_[data-slot=icon-svg]]:text-* variant does.
                         class="!w-[42px] !h-[42px] !rounded-[12px]"
+                        // .rail-btn.active's background measures #2c2c2f live
+                        // (Unifia-UI-UX-v110-PORT-READY-R1.html:15327) --
+                        // close to but not the same as the generic
+                        // --surface-raised-base token (#232323), so the exact
+                        // value is used directly rather than the token.
                         classList={{
-                          "!bg-surface-raised-base [&_[data-slot=icon-svg]]:!text-text-strong":
+                          "!bg-[#2c2c2f] [&_[data-slot=icon-svg]]:!text-text-strong":
                             props.activeMode() === mode,
                           "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeMode() !== mode,
                         }}
