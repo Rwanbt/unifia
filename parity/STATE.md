@@ -1620,3 +1620,16 @@ opened the terminal:
 No code changes this entry -- verification and cleanup only. `parity/
 artifacts` and the scratch diagnostic scripts used for this were all
 removed before committing, same discipline as every prior segment.
+
+Re-attempted a formal `code.default` pixel-diff with the now-healthy pair
+and the real open file from the verification above: **4.31%**, discarded
+as not meaningful, same as the earlier attempt this file already records.
+Two independent reasons this time: the app screenshot caught the editor
+mid-load ("Chargement...", the same race class already fixed for HOME via
+`--app-ready`, not yet applied here), and even a settled capture would
+still compare a single-file session with no chat history against the
+maquette's richly populated demo (plan artifact, test results, git diff
+stats, multi-file tabs) -- the exact content-richness mismatch this file's
+"code.default ... discarded" entry above already names as the real
+blocker. Building that history for real would mean actually using the
+assistant to generate it, not fabricating it -- out of scope here.
