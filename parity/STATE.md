@@ -2125,3 +2125,69 @@ one-line, type-checked, test-covered change with only one consumer path.
 LOC mandatory-refactor ceiling (2029 lines before this entry). Flagged,
 not fixed here -- splitting the running log is a separate, larger task
 than the fix this entry documents.
+
+## Breadcrumb "regression" WITHDRAWN: it was a testing-methodology artifact, not a product bug (2026-09-21, same day)
+
+The topbar audit's one open "confirmed regression" -- `[data-v110="crumbs"]`
+rendering `null` -- is walked back here, the same way the 41px-gap finding
+was walked back earlier: the evidence for "confirmed" doesn't survive a
+more complete test, so the label was wrong, not the underlying app.
+
+**Root cause, found by instrumenting `project()`'s memo directly** (the
+exact next step this file already recorded): temporarily logged
+`mode.directory()`, `layout.projects.list()`, and `mode.routeKind()`
+inside `topbar-breadcrumb.tsx`, reloaded live via Vite HMR, read the
+console, then reverted the instrumentation (file diff confirmed clean
+afterward).
+
+- `mode.directory()` decoded correctly every time:
+  `"D:\App\unifia\unifia"`, `routeKind` correctly `"workspace-root"`.
+- `layout.projects.list()` came back **empty** every time -- not stale,
+  not late, genuinely empty for the lifetime of that page.
+- `layout.projects.list()` reads `store.projects[key]`
+  (`context/server.tsx:225`), a store **persisted** via
+  `persisted(Persist.global("server", ["server.v3"]), ...)`
+  (`context/server.tsx:111-113`) -- but the only writer is
+  `layout.projects.open(directory)`, called exclusively from in-app
+  navigation paths (`layout-navigation.ts`'s `openProject()`,
+  `home.tsx`, `project-actions.tsx`, `workspace-ops.ts`). Nothing in the
+  router itself calls `open()` when a URL is parsed.
+- **Every diagnostic script across this whole engagement** navigated
+  with `page.goto()` straight to the encoded session URL
+  (`/RDpcQXBwXHVuaWZpYVx1bmlmaWE/session`), which parses `mode.directory()`
+  from the URL directly without ever routing through `openProject()`.
+  That is exactly the one path that leaves `store.projects[key]` with no
+  entry for a project that was never explicitly opened in that browser
+  profile -- so every prior repro was reproducing the test harness's own
+  navigation shortcut, not a bug reachable through normal use.
+
+**Confirmed by testing the real path instead**: fresh `page.goto("/")` to
+Home, then a genuine `.click()` on the project's own recent-project
+button (not a direct URL jump) -- the diagnostic log showed
+`layout.projects.list()` starting empty on Home's first render, then
+populating (`["D:\App\unifia\unifia"]`) shortly after Home mounts
+(matches this file's own earlier note on `home.tsx` being one of the
+`projects.open()` call sites), and the crumb rendering correctly right
+after: `crumbs present: true text: "unifia/Code"`.
+
+**What is and isn't actually true**: a real user who opens a project
+once through the app's own UI has it persisted (`server.v3` in
+localStorage) and keeps the breadcrumb across ordinary reloads/F5 of
+that same project, because the persisted store already has the entry --
+`home.tsx` doesn't need to remount for that case. The one narrower,
+still-real edge case this surfaces: a **cold deep link** (bookmark,
+shared URL, or a script) straight to a project's session route, for a
+project that has *never* been opened via the app's own navigation in
+that browser profile, will show an empty breadcrumb, because nothing on
+that path calls `open()`. This is a real, much smaller-scope UX
+question (should a cold deep link auto-register the project it points
+at?) rather than the "regression in normal use" this file previously
+described -- flagged as a product question, not fixed here, since
+`home.tsx`'s prior documented autoselect behavior already treats this
+same directory-not-yet-open case as an open design area.
+
+**Correction to this file's own prior "Full topbar audit" verdict**:
+"one genuine, confirmed regression found but not yet root-caused" is
+wrong; replace with "one apparent regression, root-caused to a testing
+artifact and withdrawn, surfacing one narrower real edge case (cold deep
+link to a never-opened project) flagged as a product question."
