@@ -1633,3 +1633,72 @@ stats, multi-file tabs) -- the exact content-richness mismatch this file's
 "code.default ... discarded" entry above already names as the real
 blocker. Building that history for real would mean actually using the
 assistant to generate it, not fabricating it -- out of scope here.
+
+## Real bug found and fixed while doing a Code-scene geometry check: the brand font was never applied anywhere (2026-09-20)
+
+Per the decision above (compare structural chrome, not conversation
+content, while a fair CODE comparison stays out of reach), measured
+`.tab` height/font on both sides. The maquette showed `fontFamily: "Inter"`
+-- expected, since the maquette itself loads no web font either (checked:
+no `@font-face`, no Google Fonts `<link>`, on either side), so "Inter"
+simply happens to be installed locally on this machine. The app's own
+tab/body showed `"ui-sans-serif, system-ui, ..."` -- the raw browser
+default, not even reaching this app's own declared brand stack.
+
+Traced it to the actual root cause, in two layers, both wrong:
+
+1. `packages/app/src/styles/unifia-brand.css:47` set `--font-sans` /
+   `--font-mono` directly. Tailwind v4's own Preflight (confirmed by
+   reading the actually-served compiled CSS, not assumed) reads
+   `--font-family-sans` / `--font-family-mono` on `html, :host` --
+   `--font-sans` is merely Tailwind's own `@theme`-generated *alias of*
+   `--font-family-sans`, not the other way round. Setting only the alias
+   left Preflight's real consumption point untouched.
+2. The actual, decisive layer: `context/settings.tsx`'s `SettingsProvider`
+   runs a `createEffect` that unconditionally writes
+   `root.style.setProperty("--font-family-sans", sansFontFamily(...))` on
+   every mount -- an **inline style**, which wins over any stylesheet
+   regardless of layers or specificity. `sansFontFamily("")` (the default,
+   unconfigured `store.appearance.sans`) fell through to a hardcoded
+   `sansFallback` constant holding the generic system-font stack, not the
+   brand's. This is why fixing (1) alone measured no change live -- (2)
+   was overwriting it on every single page load, for every user who has
+   never opened Settings > Appearance and typed a custom font (i.e.
+   everyone, by default).
+
+Fixed both: `unifia-brand.css` now sets `--font-family-sans` /
+`--font-family-mono` (kept the `--font-sans`/`--font-mono` aliases too, so
+anything already reading those directly is unaffected) with a comment
+citing the exact Preflight line; `settings.tsx`'s `sansFallback`/
+`monoFallback` now hold the same brand stack (`"Manrope", "Inter", "Noto
+Sans", "Segoe UI", sans-serif` / `"Roboto Mono", "Cascadia Mono",
+"SFMono-Regular", monospace`) instead of the generic one, with a comment
+explaining why the JS-side constant has to match the CSS one. Verified
+live: `document.body`'s computed `font-family` now reads the brand stack
+end to end (confirmed with the browser cache fully cleared and disabled
+via CDP, not just a soft reload); a fresh screenshot shows a visibly
+different letterform on "Créez ce que vous voulez" et al. Typecheck and
+the full unit suite (1636/1636) stay green -- no test anywhere asserted
+on the old fallback values, which is itself part of why this went
+unnoticed.
+
+**Scope note**: this is an app-wide default-typography fix, not scoped to
+Code. It plausibly changes the rendered font on every screen measured so
+far this whole pixel-perfect phase (HOME's prior "SCENE_LOCKED at 2.07%"
+checkpoint was measured *before* this fix existed).
+
+Attempted an immediate HOME re-measurement to close the loop -- blocked,
+honestly, not silently skipped: this session's own interactive testing
+already registered `D:\App\unifia\unifia` as a real project on the running
+backend, so `layout.tsx`'s `autoselect` (`list.length > 0` -> always
+redirect to `list[0]`) now fires unconditionally on every fresh load of
+`/`, regardless of any client-side storage trick -- there is no longer a
+reachable "Home, no project" state on *this* backend instance, the exact
+same class of constraint STATE.md's HOME entry already named as secondary/
+deferred. A visual spot-check in the populated session route (screenshot,
+this same entry, "Créez ce que vous voulez") confirms the font change
+renders correctly in practice. **HOME's `SCENE_LOCKED` verdict should be
+formally re-measured** the next time a clean/empty-project backend is
+available (fresh `XDG_DATA_HOME` scratch instance, or after this session's
+alternate-port backends are torn down) -- flagged explicitly rather than
+left as a silently-stale locked verdict.
