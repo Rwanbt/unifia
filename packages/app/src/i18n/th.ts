@@ -73,6 +73,7 @@ export const dict = {
   "command.terminal.toggle": "สลับเทอร์มินัล",
   "command.fileTree.toggle": "สลับต้นไม้ไฟล์",
   "command.review.toggle": "สลับการตรวจสอบ",
+  "command.inspector.toggle": "แสดง/ซ่อนตัวตรวจสอบ",
   "command.terminal.new": "เทอร์มินัลใหม่",
   "command.terminal.new.description": "สร้างแท็บเทอร์มินัลใหม่",
   "command.steps.toggle": "สลับขั้นตอน",
@@ -567,6 +568,7 @@ export const dict = {
   "session.new.lastModified": "แก้ไขล่าสุด",
 
   "session.header.search.placeholder": "ค้นหา {{project}}",
+  "session.header.commandSearch.placeholder": "ค้นหา ดำเนินการ หรือเปิด…",
   "session.header.searchFiles": "ค้นหาไฟล์",
   "session.header.openIn": "เปิดใน",
   "session.header.open.action": "เปิด {{app}}",

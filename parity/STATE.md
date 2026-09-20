@@ -2258,3 +2258,122 @@ test targets `list.tsx`/`use-filtered-list.tsx` directly). Live re-run
 of the exact fast-typing repro after the fix: `file/content?path=
 AGENTS.md` and `file/raw?path=AGENTS.md` now fire ~440ms after the last
 `find/file?query=AGENTS.md`, where before nothing fired at all.
+
+## User rejected the previous round: rigorous element-by-element re-audit found real, confirmed structural gaps (2026-09-21, later)
+
+The user's response to the previous "zero differences" fixes was blunt and
+correct: *"non les éléments ne sont pas bon, pas au bon endroit et il
+manque des boutons donc pas ce que j'ai demandé"* -- the earlier "Full
+topbar audit" checked individual elements' colors/sizes but never did a
+full structural enumeration of the maquette's actual topbar DOM in its
+"code" mode, side by side with the app's. Doing that properly this round
+surfaced real, confirmed gaps the cosmetic spot-checks missed entirely.
+
+**Method**: loaded the maquette HTML directly in the CDP browser, called
+its own `window.unifiaEnterWorkspace("code")`, and read `.topbar`'s live
+`outerHTML` plus `getComputedStyle()`/`getBoundingClientRect()` on named
+elements -- not just the static markup, which turned out to be
+misleading on its own (see below). Cross-checked against a full ordered
+DOM dump of the app's `[data-v110="topbar"]` with positions.
+
+**Real, confirmed findings**:
+
+1. **Search trigger wrong position, command, and keybind.** Maquette's
+   `#searchBtn` ("Rechercher, agir ou ouvrir... Ctrl K") sits inline
+   right after the crumbs, in the left-flowing group (live x=301 of
+   1440). The app's equivalent was portaled into `titlebarSlots.center()`
+   -- the grid's mathematically-centered "auto" track -- leaving a ~266px
+   gap after the crumbs the maquette doesn't have. It was also wired to
+   `file.open` (Quick Open, mod+p) and showed "Ctrl+P", but the maquette's
+   own wording ("agir ou ouvrir", not "des fichiers") describes the
+   general command palette, not a file picker.
+2. **`#topInspectorBtn` genuinely missing.** A standalone, always-visible
+   "show/hide the whole inspector panel" toggle, confirmed live via
+   `getComputedStyle` (`display:grid`, visible, x=1375) in the maquette's
+   code mode. The app had `fileTree.toggle`/`review.toggle` (each forcing
+   a specific tab) but nothing generic matching this.
+3. **Button order wrong.** The "open in app / copy path" group was
+   rendered BEFORE the file-tree/review/terminal/status cluster; the
+   maquette's real order (live-verified, not just markup order) is
+   review, terminal, server, open-in, theme.
+
+**Findings that looked real but were re-verified as NOT bugs** (reported
+transparently rather than silently dropped, same discipline as the
+41px-gap and breadcrumb withdrawals earlier in this file):
+
+- **`#workspaceTitle`/`#workspaceMeta`** ("Code" / "Refonte Prism EQ ·
+  Scope..."): the RAW markup has no `display:none`, which is what an
+  earlier session read and ported behind a `2xl:` Tailwind breakpoint.
+  But a later, unconditional "v6 refinements" CSS layer in the same
+  maquette file overrides it: `.topbar .workspace-head #workspaceTitle,
+  .topbar .workspace-head #workspaceMeta{display:none}` -- no media
+  query, no other gate. Confirmed dead via live `getComputedStyle` too
+  (`display:"none"`), and confirmed the maquette's OWN rendered
+  screenshot never shows this pair either. Not a missing element -- removed
+  the app's `2xl:flex` reveal entirely instead of just re-gating it,
+  since the maquette never shows it at any width.
+- **`#showInspectorBtn`/`#toggleInspector`**: same "v6 refinements" layer
+  hides both with `!important`. Not a gap.
+- **`#topExplorerBtn`**: present in the raw static HTML but removed from
+  the DOM entirely by the maquette's own runtime JS when entering "code"
+  mode (confirmed via live `getElementById` returning `null` after
+  `unifiaEnterWorkspace("code")`) -- it belongs to a different mode, not
+  code. This leaves the app's `fileTree.toggle` button with no clean
+  code-mode maquette counterpart -- kept anyway (real, necessary
+  navigation the app doesn't reorganize per-mode the way the maquette's
+  17000-line script does) and flagged to the user rather than guessed
+  away.
+- **"Copier le chemin" is not a rogue extra button.** It is the
+  `canOpen()`-false fallback rendering of the same open-in-app feature
+  that maps to the maquette's `#openInBtn` -- `canOpen()` requires
+  `platform.platform === "desktop"`, which is false in this web-dev-server
+  test environment, not in the real Tauri desktop app. Same class of
+  mistake as the breadcrumb false-alarm earlier in this file: testing
+  through the web preview produced a state a real desktop user wouldn't
+  see, and it was misread as a structural defect.
+
+**Fixes applied**:
+
+- `session-header.tsx`: search button moved from `titlebarSlots.center()`
+  to `titlebarSlots.left()`; now calls `command.show()` (general palette)
+  instead of `command.trigger("file.open")`; keybind display now reads
+  `command.keybind("command.palette")` (real mod+shift+p, shown honestly
+  rather than a fake "Ctrl K" label); new i18n key
+  `session.header.commandSearch.placeholder` ("Rechercher, agir ou
+  ouvrir…") replaces the old `session.header.search.placeholder`
+  (project-name) wording for this button specifically -- the old key
+  stays for whatever else may still use it. Dead code removed as a
+  consequence: the `project`/`name` memos and the `getFilename` import
+  were only feeding the old placeholder. The open-in/copy-path block
+  moved to after the status button, before the mobile-only menu. The
+  dead `2xl:flex` workspace-title/meta block removed along with the
+  now-unused `mode`/`useMode` import.
+- `titlebar.tsx`: added the missing generic inspector-toggle button
+  (`layout-right`/`layout-right-full` icons, mirroring
+  `showContextBtn`'s `sidebar`/`sidebar-active` pair on the opposite
+  side), positioned right after the theme button -- matching the
+  maquette's `#topInspectorBtn` position exactly. New i18n key
+  `command.inspector.toggle`.
+- Added both new i18n keys (`session.header.commandSearch.placeholder`,
+  `command.inspector.toggle`) to all 17 locale files (`en`/`fr` with
+  real wording, the other 15 with a best-effort native translation) --
+  `src/i18n/parity.test.ts` type-checks that every locale has the exact
+  same key set, so a partial addition fails `bun run typecheck` outright
+  (caught immediately by the type error, not silently).
+
+**Verified**: `bun run typecheck` clean (47/47 packages, all locales
+satisfy the parity type). `bun test --preload ./happydom.ts ./src` still
+1636 pass / 0 fail. Live re-check via CDP: search button now at x=273
+(right after crumbs, was x=519 with a visible gap), full button-order
+dump confirms exact sequence file-tree, review, terminal, status,
+open-in, theme, inspector-toggle -- side-by-side screenshots sent to the
+user for direct visual comparison rather than asserting correctness from
+a text diff alone.
+
+**Not resolved, explicitly flagged rather than guessed**: whether
+`fileTree.toggle` should be removed from the topbar entirely (since the
+maquette's own `#topExplorerBtn` doesn't exist in code mode) with the
+file tree reachable only via the new generic inspector-toggle + an
+in-panel tab switch -- this is a real architectural question about the
+app's non-per-mode topbar, not something to decide unilaterally under
+"zero differences."

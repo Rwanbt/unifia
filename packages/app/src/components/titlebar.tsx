@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "@solidjs/router"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Icon } from "@unifia/ui/icon"
 import { Button } from "@unifia/ui/button"
-import { TooltipKeybind } from "@unifia/ui/tooltip"
+import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import { Logo } from "@unifia/ui/logo"
 import { useTheme } from "@unifia/ui/theme/context"
 
@@ -287,6 +287,26 @@ export function Titlebar() {
             </svg>
           </Show>
         </button>
+        {/* #topInspectorBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15269) --
+            a generic "show/hide the whole inspector panel" toggle, standalone
+            and always visible, distinct from fileTree.toggle/review.toggle
+            (session-header.tsx) which each also FORCE a specific tab. Live-
+            verified present and visible (display:grid) in the maquette's
+            "code" mode, right after themeBtn -- the app had no equivalent at
+            all before this. layout-right/layout-right-full mirror
+            showContextBtn's sidebar/sidebar-active pair, divider on the
+            opposite side (right panel, not left). */}
+        <Tooltip placement="bottom" value={language.t("command.inspector.toggle")}>
+          <Button
+            variant="ghost"
+            class="titlebar-icon rounded-md shrink-0 w-8 h-[31px] p-0 box-border"
+            onClick={() => (layout.inspector.opened() ? layout.inspector.close() : layout.inspector.open())}
+            aria-label={language.t("command.inspector.toggle")}
+            aria-expanded={layout.inspector.opened()}
+          >
+            <Icon size="small" name={layout.inspector.opened() ? "layout-right-full" : "layout-right"} />
+          </Button>
+        </Tooltip>
         <Show when={platform.windowControls}>
           <div data-window-controls class="flex flex-row shrink-0">
             <button

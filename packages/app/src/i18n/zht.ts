@@ -77,6 +77,7 @@ export const dict = {
   "command.terminal.toggle": "切換終端機",
   "command.fileTree.toggle": "切換檔案樹",
   "command.review.toggle": "切換審查",
+  "command.inspector.toggle": "顯示/隱藏檢查器",
   "command.terminal.new": "新增終端機",
   "command.terminal.new.description": "建立新的終端機標籤頁",
   "command.steps.toggle": "切換步驟",
@@ -563,6 +564,7 @@ export const dict = {
   "session.new.lastModified": "最後修改",
 
   "session.header.search.placeholder": "搜尋 {{project}}",
+  "session.header.commandSearch.placeholder": "搜尋、執行或開啟…",
   "session.header.searchFiles": "搜尋檔案",
   "session.header.openIn": "開啟於",
   "session.header.open.action": "開啟 {{app}}",

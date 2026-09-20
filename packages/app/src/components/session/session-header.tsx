@@ -7,14 +7,12 @@ import { Keybind } from "@unifia/ui/keybind"
 import { Spinner } from "@unifia/ui/spinner"
 import { showToast } from "@unifia/ui/toast"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
-import { getFilename } from "@unifia/util/path"
 import { createEffect, createMemo, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
-import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
@@ -139,21 +137,17 @@ export function SessionHeader() {
   const sync = useSync()
   const terminal = useTerminal()
   const titlebarSlots = useTitlebarSlots()
-  const mode = useMode()
   const { params, view } = useSessionLayout()
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
-  const project = createMemo(() => {
-    const directory = projectDirectory()
-    if (!directory) return
-    return layout.projects.list().find((p) => p.worktree === directory || p.sandboxes?.includes(directory))
-  })
-  const name = createMemo(() => {
-    const current = project()
-    if (current) return current.name || getFilename(current.worktree)
-    return getFilename(projectDirectory())
-  })
-  const hotkey = createMemo(() => command.keybind("file.open"))
+  // Ports #searchBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15233, "Rechercher,
+  // agir ou ouvrir... Ctrl K") -- a general search/act/open trigger, not a
+  // files-only one. Wired to command.palette (the app's own general command
+  // search), not file.open (Quick Open) -- the maquette's own wording ("agir
+  // ou ouvrir", not "des fichiers") describes the palette, not a file picker.
+  // The palette's real default keybind is mod+shift+p, not mod+k -- shown as
+  // the actual keybind rather than a "Ctrl K" label that would not work.
+  const hotkey = createMemo(() => command.keybind("command.palette"))
   const os = createMemo(() => detectOS(platform))
 
   const [exists, setExists] = createStore<Partial<Record<OpenApp, boolean>>>({
@@ -269,7 +263,7 @@ export function SessionHeader() {
 
   return (
     <>
-      <Show when={titlebarSlots.center()}>
+      <Show when={titlebarSlots.left()}>
         {(mount) => (
           <Portal mount={mount()}>
             <Button
@@ -278,21 +272,24 @@ export function SessionHeader() {
               size="small"
               // .search { width:min(380px,32vw); height:31px; border-radius:11px;
               // background:var(--surface) } -- Unifia-UI-UX-v110-PORT-READY-R1.html:126.
+              // Sits inline right after the breadcrumb in the maquette's left
+              // group (x=301 of 1440, live-measured), not centered across the
+              // whole topbar -- portaling into titlebarSlots.center() put it in
+              // the grid's mathematically-centered "auto" track instead, which
+              // left a large gap after the crumbs that the maquette doesn't have.
               // variant="ghost" forces background/border-color to transparent
               // (button.css:41-44), so bg-surface-panel/border-border-weak-base
               // alone were silently losing that cascade fight -- confirmed via
               // getComputedStyle (backgroundColor read back as transparent
               // despite the class being present) rather than assumed.
-              class="hidden md:flex h-[31px] w-[min(380px,32vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--surface-panel)] shadow-none cursor-pointer"
-              onClick={() => command.trigger("file.open")}
-              aria-label={language.t("session.header.searchFiles")}
+              class="hidden md:flex h-[31px] w-[min(380px,32vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--surface-panel)] shadow-none cursor-pointer ml-2"
+              onClick={() => command.show()}
+              aria-label={language.t("session.header.commandSearch.placeholder")}
             >
               <div class="flex min-w-0 flex-1 items-center gap-2 overflow-visible">
                 <Icon name="magnifying-glass" size="small" class="text-text-weaker shrink-0" />
                 <span class="flex-1 min-w-0 text-12-regular text-text-weak truncate text-left">
-                  {language.t("session.header.search.placeholder", {
-                    project: name(),
-                  })}
+                  {language.t("session.header.commandSearch.placeholder")}
                 </span>
               </div>
 
@@ -311,29 +308,18 @@ export function SessionHeader() {
         {(mount) => (
           <Portal mount={mount()}>
             <div class="flex items-center gap-2">
-              {/* Ports .workspace-head's title+meta pair
-                  (Unifia-UI-UX-v110-PORT-READY-R1.html:15234-15236; CSS at
-                  lines 219-225: one flex row, bold 11px title + muted 9px
-                  meta, gap 8px -- not stacked). text-12-medium/text-12-regular
-                  (13px, per --font-size-small) is the smallest REAL utility
-                  this app defines -- text-11-medium/text-11-regular do not
-                  exist (checked utilities.css) despite being used in ~50
-                  other files across the app, all silently falling back to
-                  an inherited size instead of 11px. That is a real,
-                  pre-existing, wide bug, but adding the missing utility here
-                  would also change all 50 of those unreviewed call sites at
-                  once, so it is flagged as its own follow-up instead of
-                  fixed as a side effect of this file. Reuses the same
-                  workbench.modes.name.* key the breadcrumb already uses for
-                  the title; the meta tagline is new (workbench.modes.meta.*). */}
-              <div class="hidden 2xl:flex items-center gap-2 max-w-[220px] overflow-hidden shrink-0">
-                <b class="text-12-medium text-text-strong shrink-0">
-                  {language.t(`workbench.modes.name.${mode.active()}`)}
-                </b>
-                <span class="text-12-regular text-text-weak whitespace-nowrap overflow-hidden text-ellipsis">
-                  {language.t(`workbench.modes.meta.${mode.active()}`)}
-                </span>
-              </div>
+              {/* #workspaceTitle/#workspaceMeta (Unifia-UI-UX-v110-PORT-READY-R1.html:
+                  15234-15236) were ported here believing the maquette showed
+                  them (its CSS at lines 219-225 does style them), but a later
+                  "v6 refinements" layer overrides that unconditionally:
+                  `.topbar .workspace-head #workspaceTitle,
+                  .topbar .workspace-head #workspaceMeta{display:none}` (no
+                  media query, no other gate) -- confirmed dead in the shipped
+                  maquette both by reading that rule and by live
+                  getComputedStyle() on the rendered page (display:"none" at
+                  every width tried, including the maquette's own 1440x900
+                  reference). Removed instead of just re-gating the breakpoint,
+                  since the maquette never shows this pair at all. */}
 
               {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239),
                   positioned exactly where the maquette's own DOM order puts it:
@@ -407,124 +393,19 @@ export function SessionHeader() {
                 })()}
               </Show>
 
-              <Show when={projectDirectory()}>
-                <div class="hidden xl:flex items-center">
-                  <Show
-                    when={canOpen()}
-                    fallback={
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
-                          onClick={copyPath}
-                          aria-label={language.t("session.header.open.copyPath")}
-                        >
-                          <Icon name="copy" size="small" class="text-icon-base" />
-                          <span class="text-12-regular text-text-strong">
-                            {language.t("session.header.open.copyPath")}
-                          </span>
-                        </Button>
-                      </div>
-                    }
-                  >
-                    <div class="flex items-center">
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          class="rounded-none h-full px-0.5 border-none shadow-none disabled:!cursor-default"
-                          classList={{
-                            "bg-surface-raised-base-active": opening(),
-                          }}
-                          onClick={() => openDir(current().id)}
-                          disabled={opening()}
-                          aria-label={language.t("session.header.open.ariaLabel", { app: current().label })}
-                        >
-                          <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
-                            <Show when={opening()} fallback={<AppIcon id={current().icon} />}>
-                              <Spinner class="size-3.5" style={{ color: tint() ?? "var(--icon-base)" }} />
-                            </Show>
-                          </div>
-                        </Button>
-                        <DropdownMenu
-                          gutter={4}
-                          placement="bottom-end"
-                          open={menu.open}
-                          onOpenChange={(open) => setMenu("open", open)}
-                        >
-                          <DropdownMenu.Trigger
-                            as={IconButton}
-                            icon="chevron-down"
-                            variant="ghost"
-                            disabled={opening()}
-                            class="rounded-none h-full w-[20px] p-0 border-none shadow-none data-[expanded]:bg-surface-raised-base-active disabled:!cursor-default"
-                            classList={{
-                              "bg-surface-raised-base-active": opening(),
-                            }}
-                            aria-label={language.t("session.header.open.menu")}
-                          />
-                          <DropdownMenu.Portal>
-                            <DropdownMenu.Content class="[&_[data-slot=dropdown-menu-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]+[data-slot=dropdown-menu-radio-item]]:mt-1">
-                              <DropdownMenu.Group>
-                                <DropdownMenu.GroupLabel class="!px-1 !py-1">
-                                  {language.t("session.header.openIn")}
-                                </DropdownMenu.GroupLabel>
-                                <DropdownMenu.RadioGroup
-                                  class="mt-1"
-                                  value={current().id}
-                                  onChange={(value) => {
-                                    if (!OPEN_APPS.includes(value as OpenApp)) return
-                                    selectApp(value as OpenApp)
-                                  }}
-                                >
-                                  <For each={options()}>
-                                    {(o) => (
-                                      <DropdownMenu.RadioItem
-                                        value={o.id}
-                                        disabled={opening()}
-                                        onSelect={() => {
-                                          setMenu("open", false)
-                                          openDir(o.id)
-                                        }}
-                                      >
-                                        <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
-                                          <AppIcon id={o.icon} />
-                                        </div>
-                                        <DropdownMenu.ItemLabel>{o.label}</DropdownMenu.ItemLabel>
-                                        <DropdownMenu.ItemIndicator>
-                                          <Icon name="check-small" size="small" class="text-icon-weak" />
-                                        </DropdownMenu.ItemIndicator>
-                                      </DropdownMenu.RadioItem>
-                                    )}
-                                  </For>
-                                </DropdownMenu.RadioGroup>
-                              </DropdownMenu.Group>
-                              <DropdownMenu.Separator />
-                              <DropdownMenu.Item
-                                onSelect={() => {
-                                  setMenu("open", false)
-                                  copyPath()
-                                }}
-                              >
-                                <div class="flex size-5 shrink-0 items-center justify-center">
-                                  <Icon name="copy" size="small" class="text-icon-weak" />
-                                </div>
-                                <DropdownMenu.ItemLabel>
-                                  {language.t("session.header.open.copyPath")}
-                                </DropdownMenu.ItemLabel>
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Portal>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </Show>
-                </div>
-              </Show>
               <div class="flex items-center gap-1">
-                {/* Reordered to match .top-actions (Unifia-UI-UX-v110-PORT-READY-R1.html:
-                    15248-15251): #topExplorerBtn, #topReviewBtn, #topTerminalBtn,
-                    #serverBtn -- file-tree, review, terminal, status, in that
-                    order. Was Status/Terminal/Review/FileTree (reversed).
+                {/* Reordered to match the maquette's real .top-actions order in
+                    "code" mode, live-verified (Unifia-UI-UX-v110-PORT-READY-R1.html):
+                    review, terminal, server-status, open-in -- #topExplorerBtn
+                    (file-tree) is removed by the maquette's own runtime JS in
+                    code mode and has no slot here; kept anyway since it is real,
+                    necessary navigation the app doesn't reorganize per-mode the
+                    way the maquette's script does. The earlier version of this
+                    comment cited raw markup order (which does list
+                    #topExplorerBtn/#topReviewBtn/#topTerminalBtn/#serverBtn in
+                    sequence) without checking runtime removal or the open-in
+                    button's real position -- #openInBtn actually sits AFTER
+                    #serverBtn, not in a separate slot before this whole group.
                     Was `hidden md:flex`, which dropped the review and file-tree
                     toggles below 768px. The review panel defaults to open
                     (context/layout.tsx: `store.review?.panelOpened ?? true`),
@@ -623,6 +504,120 @@ export function SessionHeader() {
                 <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
                   <StatusPopover />
                 </Tooltip>
+
+                <Show when={projectDirectory()}>
+                  <div class="hidden xl:flex items-center">
+                    <Show
+                      when={canOpen()}
+                      fallback={
+                        <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
+                          <Button
+                            variant="ghost"
+                            class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
+                            onClick={copyPath}
+                            aria-label={language.t("session.header.open.copyPath")}
+                          >
+                            <Icon name="copy" size="small" class="text-icon-base" />
+                            <span class="text-12-regular text-text-strong">
+                              {language.t("session.header.open.copyPath")}
+                            </span>
+                          </Button>
+                        </div>
+                      }
+                    >
+                      <div class="flex items-center">
+                        <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
+                          <Button
+                            variant="ghost"
+                            class="rounded-none h-full px-0.5 border-none shadow-none disabled:!cursor-default"
+                            classList={{
+                              "bg-surface-raised-base-active": opening(),
+                            }}
+                            onClick={() => openDir(current().id)}
+                            disabled={opening()}
+                            aria-label={language.t("session.header.open.ariaLabel", { app: current().label })}
+                          >
+                            <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
+                              <Show when={opening()} fallback={<AppIcon id={current().icon} />}>
+                                <Spinner class="size-3.5" style={{ color: tint() ?? "var(--icon-base)" }} />
+                              </Show>
+                            </div>
+                          </Button>
+                          <DropdownMenu
+                            gutter={4}
+                            placement="bottom-end"
+                            open={menu.open}
+                            onOpenChange={(open) => setMenu("open", open)}
+                          >
+                            <DropdownMenu.Trigger
+                              as={IconButton}
+                              icon="chevron-down"
+                              variant="ghost"
+                              disabled={opening()}
+                              class="rounded-none h-full w-[20px] p-0 border-none shadow-none data-[expanded]:bg-surface-raised-base-active disabled:!cursor-default"
+                              classList={{
+                                "bg-surface-raised-base-active": opening(),
+                              }}
+                              aria-label={language.t("session.header.open.menu")}
+                            />
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content class="[&_[data-slot=dropdown-menu-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]]:pl-1 [&_[data-slot=dropdown-menu-radio-item]+[data-slot=dropdown-menu-radio-item]]:mt-1">
+                                <DropdownMenu.Group>
+                                  <DropdownMenu.GroupLabel class="!px-1 !py-1">
+                                    {language.t("session.header.openIn")}
+                                  </DropdownMenu.GroupLabel>
+                                  <DropdownMenu.RadioGroup
+                                    class="mt-1"
+                                    value={current().id}
+                                    onChange={(value) => {
+                                      if (!OPEN_APPS.includes(value as OpenApp)) return
+                                      selectApp(value as OpenApp)
+                                    }}
+                                  >
+                                    <For each={options()}>
+                                      {(o) => (
+                                        <DropdownMenu.RadioItem
+                                          value={o.id}
+                                          disabled={opening()}
+                                          onSelect={() => {
+                                            setMenu("open", false)
+                                            openDir(o.id)
+                                          }}
+                                        >
+                                          <div class="flex size-5 shrink-0 items-center justify-center [&_[data-component=app-icon]]:size-5">
+                                            <AppIcon id={o.icon} />
+                                          </div>
+                                          <DropdownMenu.ItemLabel>{o.label}</DropdownMenu.ItemLabel>
+                                          <DropdownMenu.ItemIndicator>
+                                            <Icon name="check-small" size="small" class="text-icon-weak" />
+                                          </DropdownMenu.ItemIndicator>
+                                        </DropdownMenu.RadioItem>
+                                      )}
+                                    </For>
+                                  </DropdownMenu.RadioGroup>
+                                </DropdownMenu.Group>
+                                <DropdownMenu.Separator />
+                                <DropdownMenu.Item
+                                  onSelect={() => {
+                                    setMenu("open", false)
+                                    copyPath()
+                                  }}
+                                >
+                                  <div class="flex size-5 shrink-0 items-center justify-center">
+                                    <Icon name="copy" size="small" class="text-icon-weak" />
+                                  </div>
+                                  <DropdownMenu.ItemLabel>
+                                    {language.t("session.header.open.copyPath")}
+                                  </DropdownMenu.ItemLabel>
+                                </DropdownMenu.Item>
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </Show>
+                  </div>
+                </Show>
 
                 {/* Mobile-only: more actions menu */}
                 <Show when={platform.platform === "mobile"}>

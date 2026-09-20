@@ -73,6 +73,7 @@ export const dict = {
   "command.terminal.toggle": "Prikaži/sakrij terminal",
   "command.fileTree.toggle": "Prikaži/sakrij stablo datoteka",
   "command.review.toggle": "Prikaži/sakrij pregled",
+  "command.inspector.toggle": "Prikaži/sakrij inspektor",
   "command.terminal.new": "Novi terminal",
   "command.terminal.new.description": "Kreiraj novu karticu terminala",
   "command.steps.toggle": "Prikaži/sakrij korake",
@@ -572,6 +573,7 @@ export const dict = {
   "session.new.lastModified": "Posljednja izmjena",
 
   "session.header.search.placeholder": "Pretraži {{project}}",
+  "session.header.commandSearch.placeholder": "Pretraži, izvrši ili otvori…",
   "session.header.searchFiles": "Pretraži datoteke",
   "session.header.openIn": "Otvori u",
   "session.header.open.action": "Otvori {{app}}",

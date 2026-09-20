@@ -87,6 +87,7 @@ export const dict = {
   "command.terminal.toggle": "切换终端",
 
   "command.fileTree.toggle": "切换文件树",
+  "command.inspector.toggle": "显示/隐藏检查器",
 
   "command.review.toggle": "切换审查",
 
@@ -565,6 +566,7 @@ export const dict = {
   "session.new.worktree.create": "创建新的 worktree",
   "session.new.lastModified": "最后修改",
   "session.header.search.placeholder": "搜索 {{project}}",
+  "session.header.commandSearch.placeholder": "搜索、执行或打开…",
   "session.header.searchFiles": "搜索文件",
   "session.header.openIn": "打开方式",
   "session.header.open.action": "打开 {{app}}",

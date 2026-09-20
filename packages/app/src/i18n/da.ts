@@ -73,6 +73,7 @@ export const dict = {
   "command.terminal.toggle": "Skift terminal",
   "command.fileTree.toggle": "Skift filtræ",
   "command.review.toggle": "Skift gennemgang",
+  "command.inspector.toggle": "Vis/skjul inspektøren",
   "command.terminal.new": "Ny terminal",
   "command.terminal.new.description": "Opret en ny terminalfane",
   "command.steps.toggle": "Skift trin",
@@ -567,6 +568,7 @@ export const dict = {
   "session.new.lastModified": "Sidst ændret",
 
   "session.header.search.placeholder": "Søg {{project}}",
+  "session.header.commandSearch.placeholder": "Søg, udfør eller åbn…",
   "session.header.searchFiles": "Søg efter filer",
   "session.header.openIn": "Åbn i",
   "session.header.open.action": "Åbn {{app}}",
