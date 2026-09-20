@@ -932,11 +932,18 @@ html[data-ui-animations="off"] *::after {
 }
 
 /* A3 Home v110 — maquette v110-port-ready-r1 hero + composer + 6-pill row.
- * The maquette names surface / bg / line / text / muted are mapped onto the
- * brand tokens here so the home can stay aligned with the existing palette
- * without redefining colors. */
+ * --surface was originally mapped onto the brand's --surface-canvas
+ * (#070A13, via --unifia-obsidian) to stay aligned with the app's existing
+ * palette instead of redefining colors. Measured against the frozen
+ * maquette's own `--surface:#161618` (dark) / `--surface:#ffffff` (light,
+ * Unifia-UI-UX-v110-PORT-READY-R1.html lines 30/60) that mapping was
+ * visibly off (confirmed live: e.g. code-tabs' active background) --
+ * on explicit user decision, --surface now holds the maquette's exact
+ * values directly rather than the brand alias. --surface-2/--surface-3
+ * still map onto the brand's card/elevated tokens; only the base --surface
+ * tier changed. */
 :root {
-  --surface: var(--surface-canvas);
+  --surface: #161618;
   --surface-2: var(--surface-card);
   --surface-3: var(--surface-elevated);
   --bg: var(--background-base, var(--surface-canvas));
@@ -1106,7 +1113,17 @@ html[data-ui-animations="off"] *::after {
   display: none;
 }
 
-[data-v110="code-tabs"] [role="tab"] {
+/* The [data-v110="code-tabs"] wrapper always sits inside
+ * [data-v110="inspector-frame"] (session-side-panel.tsx), whose own generic
+ * [role="tab"] rule (line 435 above -- meant for the Explorateur/Inspecteur/
+ * Exécution category row) has equal selector specificity to the rules below
+ * and, on this build, was winning the tie -- measured live: rounded top
+ * corners and --background-stronger leaking into the flat, --surface file
+ * tabs the maquette's .tab actually specifies. Chaining the ancestor
+ * explicitly (matching the real DOM nesting, not a specificity hack) makes
+ * these three rules unambiguously more specific, independent of source
+ * order or future edits to the inspector-frame rule. */
+[data-v110="inspector-frame"] [data-v110="code-tabs"] [role="tab"] {
   height: 34px;
   padding: 0 10px;
   display: inline-flex;
@@ -1116,6 +1133,7 @@ html[data-ui-animations="off"] *::after {
   font-size: 11px;
   border-right: 1px solid var(--line);
   border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
@@ -1127,13 +1145,13 @@ html[data-ui-animations="off"] *::after {
   background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 
-[data-v110="code-tabs"] [role="tab"][aria-selected="true"] {
+[data-v110="inspector-frame"] [data-v110="code-tabs"] [role="tab"][aria-selected="true"] {
   color: var(--text);
   background: var(--surface);
   border-bottom-color: var(--text);
 }
 
-[data-v110="code-tabs"] [role="tab"][data-state="active"] {
+[data-v110="inspector-frame"] [data-v110="code-tabs"] [role="tab"][data-state="active"] {
   color: var(--text);
   background: var(--surface);
   border-bottom-color: var(--text);

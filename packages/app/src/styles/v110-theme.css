@@ -17,6 +17,9 @@
 
 html[data-color-scheme="light"] {
   --faint: #74747c;
+  /* Maquette light --surface:#ffffff (Unifia-UI-UX-v110-PORT-READY-R1.html
+   * line 60), mirroring the dark --surface:#161618 override in v110.css. */
+  --surface: #ffffff;
 }
 
 html[data-color-scheme="light"] [data-v110="home"] {
