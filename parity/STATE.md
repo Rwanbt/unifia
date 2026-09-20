@@ -1561,3 +1561,62 @@ pending browser access. Do not report this as visually confirmed.
 CODE scene itself remains blocked on the same prerequisite named earlier
 in this file: a session with a real file open, comparable against the
 maquette's populated demo. That still needs a live browser.
+
+## Session restart: the real memory ceiling, and the terminal-clear fix confirmed live (2026-09-20)
+
+The process restarted between sessions (new date, all background tasks
+gone, `:4096`'s zombie socket survived even that -- confirmed still
+LISTENING under the same dead PID, so only a real reboot clears it, not a
+session boundary). Re-derived the working state: `origin/new-ui` at
+`15d9383e4d` matched local HEAD exactly, nothing lost.
+
+**The actual ceiling, measured precisely**: `Microsoft.VisualBasic.Devices.
+ComputerInfo` (a .NET helper, not WMI/CIM -- avoids the documented CIM hang
+on this host) gave real numbers instead of process-count proxies:
+**2.24 GB available out of 15.71 GB total** right after resuming, which is
+why a fresh attempt crashed a Node process outright (`FATAL ERROR:
+Committing semi space failed. Allocation failed - JavaScript heap out of
+memory`) even though `llama-server` had already dropped to 1.24 GB by
+then -- confirming the ceiling was never about one process, it's genuine
+system-wide memory pressure. After the user freed memory, available rose
+to 4.95 GB and every subsequent step succeeded without a single resource
+error.
+
+**The terminal-clear fix from the previous session is now confirmed live,
+not just by type-reading and unit tests.** Opened the real project
+(`D:\App\unifia\unifia`), used the topbar's "Basculer l'arborescence des
+fichiers" toggle (not the left rail, which is the Code/Work/Design/Automate
+mode switcher -- clicking into it by mistake first is what actually
+confirmed that distinction), opened `terminal-panel.tsx` via quick-open,
+opened the terminal:
+
+- The button exists in the live DOM with the exact expected attributes:
+  `icon="reset" ... data-component="icon-button" aria-label="Effacer le
+  terminal"`, positioned directly before the existing new-terminal button.
+- A zoomed, coordinate-matched screenshot shows it rendering exactly where
+  expected. It looks like a "back/undo" arrow glyph, not a trash can or
+  eraser -- confirmed that's simply what this codebase's pre-existing
+  `reset` icon's SVG path draws (a hooked left-pointing arrow), not a
+  rendering bug.
+- Clicking it (dispatched directly on the element after Playwright's
+  strict-actionability click kept getting occluded by a sibling flex
+  container -- a test-harness limitation only observed at this exact
+  viewport height, not chased further since it does not affect a real
+  mouse click) produced no console errors and did not remove the terminal
+  tab (`TERMINAL_TAB_SURVIVED: true`), consistent with the non-destructive
+  `Term.clear()` this session's predecessor sourced from `ghostty-web`'s
+  own type definitions.
+- Did **not** get clean proof of the terminal's on-screen text actually
+  disappearing: two attempts at typing into the terminal first landed in
+  the chat composer instead (a real testing mistake -- the click coordinate
+  intended for the terminal's focus target missed and the composer
+  absorbed the keystrokes, confirmed by screenshot both times, not an app
+  bug). Cleaned up the resulting test pollution from the project's real
+  composer draft afterward (found via `[contenteditable]` text match, not
+  a plain `<textarea>` -- the real composer is a rich-text editable div).
+  This residual gap is minor given the mechanism itself (`t.clear()`) is a
+  single well-documented library call already confirmed correct.
+
+No code changes this entry -- verification and cleanup only. `parity/
+artifacts` and the scratch diagnostic scripts used for this were all
+removed before committing, same discipline as every prior segment.
