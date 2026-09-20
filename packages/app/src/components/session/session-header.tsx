@@ -385,7 +385,13 @@ export function SessionHeader() {
                             type="button"
                             role="radio"
                             aria-checked={view() === option.id}
-                            class="rounded-md px-2 h-5 text-12-medium transition-colors"
+                            // Maquette #layoutSwitch button measures h=22px,
+                            // font-size=9px, padding="5px 9px" live
+                            // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
+                            // text-12-medium is actually 13px (--font-size-
+                            // small), noticeably larger, which was widening
+                            // every button here.
+                            class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
                             classList={{
                               "bg-surface-raised-base text-text-strong": view() === option.id,
                               "text-text-weak hover:text-text-strong": view() !== option.id,
