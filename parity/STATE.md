@@ -1875,3 +1875,57 @@ measured styling gap (code-tabs radius/background) found but not
 root-caused -- needs live DevTools specificity tracing next. One
 separately serious, reproducible file-open bug found, not yet connected
 conclusively to existing tracked work.
+
+## Code-tabs radius root-caused and fixed; --surface token corrected on explicit user decision (2026-09-20, same day)
+
+**Root cause found for the code-tabs radius/background gap flagged above.**
+Wrote a small live diagnostic that walks every `document.styleSheets` rule
+and keeps only those actually matching the file-tab element (`Element.
+matches(rule.selectorText)`), instead of guessing from static reads. Two
+rules were both matching: `[data-v110="inspector-frame"] [role="tab"]`
+(`v110.css:435`, meant for the Explorateur/Inspecteur/Exécution category
+row) and `[data-v110="code-tabs"] [role="tab"]` (`v110.css:1109`, meant
+for the file tabs) -- both attribute-only selectors of equal specificity,
+because the file-tab strip is nested inside the same `[data-v110=
+"inspector-frame"]` container. `inspector-frame`'s rule's `border-radius:
+var(--v110-radius-sm)` was winning the tie.
+
+Fixed by chaining the real ancestor into the three `code-tabs` rules that
+needed to win (`[data-v110="inspector-frame"] [data-v110="code-tabs"]
+[role="tab"]...`), making them genuinely more specific rather than relying
+on a source-order tie -- correct regardless of future edits to either
+rule. Added an explicit `border-radius: 0` too, matching the maquette's
+flat `.tab`. **Verified live: radius is now `0px`** (was `10px 10px 0 0`).
+
+**The background half of that same finding turned out not to be a bug at
+all.** `rgb(7,10,19)` was already `var(--surface)` correctly resolving --
+not a cascade defect. Reading `v110.css:934-937`'s own comment revealed a
+real, deliberate, previously-undocumented-to-me architectural decision:
+`--surface` was intentionally mapped onto the app's existing brand palette
+(`--surface-canvas` / `--unifia-obsidian`, `#070A13`) "to stay aligned
+with the existing palette without redefining colors," rather than copying
+the maquette's literal value.
+
+**Escalated rather than silently deciding either way** (this changes a
+token used 30+ times across the whole v110 layer -- browser, chat, editor,
+home, inspector, memory, mobile, settings, theme): asked the user whether
+to keep that brand-palette mapping or match the maquette's own `--surface:
+#161618` (dark) / `#ffffff` (light, `Unifia-UI-UX-v110-PORT-READY-R1.html`
+lines 30/60) exactly. **User chose the exact maquette values.** Changed
+`--surface` in `v110.css` to `#161618` directly (dropping the
+`--surface-canvas` alias for this one tier only -- `--surface-2`/
+`--surface-3` are untouched) and added the light-mode override
+(`#ffffff`) in `v110-theme.css`, mirroring the existing pattern there.
+
+Typecheck and the full unit suite (1636/1636) stay green. Visual
+spot-check of Home (a real, populated session) showed no breakage.
+**Formal pixel-diff re-verification of HOME was not completed**: the
+long-running test backend's `sync.ready` state got stuck on this specific
+instance (`data-state` stayed `"loading"` indefinitely) -- a pre-existing
+backend staleness issue after a very long session of testing against it,
+unrelated to this CSS-only change (confirmed: the token itself resolves
+correctly, `--surface: #161618`, and CSS cannot cause a JS sync promise to
+hang). **Flagging honestly**: HOME's `SCENE_LOCKED` verdict was set before
+this token change and should be re-verified with a fresh backend next
+session, same as every other already-measured scene that touches
+`--surface` (which is most of them).
