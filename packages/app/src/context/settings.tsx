@@ -61,9 +61,15 @@ export interface Settings {
 export const monoDefault = "System Mono"
 export const sansDefault = "System Sans"
 
-const monoFallback =
-  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-const sansFallback = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+// Must match styles/unifia-brand.css's --font-family-mono/--font-family-sans:
+// this effect (below) always writes these as an inline style on <html>,
+// which wins over any CSS-level value regardless of layers or specificity,
+// so the brand stack has to live here too, not only in the stylesheet.
+// A previous mismatch (this file held the generic system-font stack while
+// the stylesheet held the brand stack) meant the CSS side was silently dead
+// and the whole app rendered in the browser's default UI font.
+const monoFallback = '"Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace'
+const sansFallback = '"Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif'
 
 const monoBase = monoFallback
 const sansBase = sansFallback

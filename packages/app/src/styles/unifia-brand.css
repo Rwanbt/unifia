@@ -44,6 +44,19 @@
   --motion-normal: 240ms;
   --motion-slow: 420ms;
 
+  /* Tailwind's own Preflight (`html, :host`) reads --font-family-sans /
+   * --font-family-mono directly, not --font-sans/--font-mono -- those are
+   * merely Tailwind's own @theme aliases *derived from* the -family-
+   * variables (packages/ui/src/styles/tailwind/index.css:46,48), not the
+   * other way round. Setting only --font-sans/--font-mono here left every
+   * default text element (html/body and everything that doesn't opt into
+   * an explicit `font-sans`/`font-mono` utility class) silently falling
+   * back to the browser's generic system font -- confirmed by reading the
+   * actually-served compiled CSS, not assumed. Both pairs are kept so nothing
+   * that already reads --font-sans/--font-mono directly changes behavior.
+   */
+  --font-family-sans: "Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif;
+  --font-family-mono: "Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace;
   --font-sans: "Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif;
   --font-mono: "Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace;
 }
