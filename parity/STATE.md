@@ -1929,3 +1929,102 @@ hang). **Flagging honestly**: HOME's `SCENE_LOCKED` verdict was set before
 this token change and should be re-verified with a fresh backend next
 session, same as every other already-measured scene that touches
 `--surface` (which is most of them).
+
+## Full topbar audit, on explicit user request to verify the objective was actually met (2026-09-20/21)
+
+User asked for a dedicated, rigorous audit of the topbar specifically --
+not a spot check, a verification that prior work actually holds up.
+Measured every real element on both sides directly (`getBoundingClientRect`
++ `getComputedStyle`), left to right, against the maquette's Code-mode
+topbar (`Unifia-UI-UX-v110-PORT-READY-R1.html:15226-15270`).
+
+**Confirmed still correct, no action needed**: `.topbar`/app-header height
+(48px both sides), sidebar-toggle/theme/file-tree/review/terminal icon
+sizes (31x31 maquette, 31-32x31 app, sub-pixel rounding only) and 10px
+radius, icon left-to-right order (rail-toggle → brand → search → view-
+switch → icon-cluster → theme, matching the earlier session's ordering
+fix), search bar width (380px, exact match both sides).
+
+**One real fix shipped: the Chat/Split/Editor view-switch was oversized.**
+Maquette buttons measure 22px tall, 9px font, ~35-41px wide each
+(`#layoutSwitch button`, live). The app used `text-12-medium` (actually
+13px, the `--font-size-small` token under a misleading name -- the same
+naming trap already documented earlier this session) and `h-5` (20px),
+making every button 7-10px wider than it should be. Fixed in
+`session-header.tsx` to `text-[9px] h-[22px] px-[9px]`. **Verified live
+after the fix: 22px/9px exact, widths within 1px of the maquette
+(37/36/42 vs 36/35/41).** Typecheck and the full unit suite (1636/1636)
+stay green.
+
+**A finding withdrawn after further checking -- recorded here so it isn't
+silently forgotten and re-investigated later.** Initially measured a
+41px gap between `#serverBtn` and `#themeBtn` in the maquette (vs 0px in
+the app) and treated it as a real spacing bug. Before implementing a fix,
+listed every actual child of `.top-actions` and found two elements the
+first pass had missed entirely: `#work66CaptureBtn` and `#openInBtn`,
+both sitting between `#serverBtn` and `#themeBtn`. With the full list,
+every gap in the maquette is a uniform ~5px -- there is no special
+spacing to replicate. Read both missing elements' own source to confirm
+they're safe to ignore: `#openInBtn` is a "Ouvrir dans…" dialog whose own
+click handler literally calls `notify('Ouverture simulée : ...')`
+("simulated opening") -- explicitly fake. `#work66CaptureBtn` is injected
+at runtime by the maquette's own JS (`installCaptureButton()`), titled
+"Créer une tâche Work depuis le contexte courant" -- a Work-mode demo
+gimmick, not present in the static markup at all. Both are the same class
+of demo-only JS state already adjudicated for `#serverBtn`
+("Auto · 2" pill) earlier in this file. **No fix applied; the 41px number
+was simply wrong, not a bug -- correcting the record instead of leaving a
+phantom TODO.**
+
+**"Nouvelle session" quick-action button (`titlebar.tsx`, appears right
+after the brand logo when a project is open and the sidebar is closed):
+has no equivalent anywhere in the maquette's frozen topbar markup**
+(which goes rail-toggle → showContextBtn → brand → crumbs directly, no
+slot for it). It is real, working functionality (`navigate(...)`,
+conditional on `params.dir`, keybound via `command.session.new`), not
+decorative. Classified `INTENTIONAL_DIFFERENCE` under the same
+authority-map rule already used for the home page's real-vs-demo recent
+projects (behavior outranks the frozen demo's appearance) -- not removed,
+flagged for awareness since the user is auditing this exact area closely.
+
+**One real, confirmed regression found, not resolved: the topbar
+breadcrumb (`unifia / Code`) does not render at all**, on a route that
+has a real, matching project. This is the same breadcrumb the
+2026-09-18 session explicitly verified working ("unifia / Code",
+"unifia / Travail") -- so this is a regression somewhere since then, not
+a pre-existing gap. Diagnosis so far, each step verified rather than
+assumed:
+- Read `topbar-breadcrumb.tsx`: it renders only when `mode.routeKind() !==
+  "home" && projectLabel()` is true. `projectLabel()` depends on
+  `layout.projects.list().find(p => p.worktree === directory || ...)`.
+- Ruled out a stale-backend explanation: killed the long-running test
+  backend, started a genuinely fresh one, re-checked -- `crumbs` still
+  `null`. Not the earlier `sync.ready` staleness issue.
+- Ruled out a path-format mismatch: decoded the exact URL directory
+  segment (`RDpcQXBwXHVuaWZpYVx1bmlmaWE` → `D:\App\unifia\unifia`) and
+  compared it byte-for-byte against the backend's own `GET /project`
+  response (`"worktree":"D:\\App\\unifia\\unifia"`, verified via direct
+  curl, not through the app) -- **identical strings**, not a
+  slash-direction or casing bug.
+- Did **not** find the actual failure point after these two ruled-out
+  hypotheses. Stopped here rather than keep guessing deeper into
+  `layout.tsx`'s project-list population/reactivity blind, per this
+  project's own escalation discipline (stop after several inspection
+  passes on one hypothesis, don't patch without being sure).
+
+**Next step for whoever picks this up**: instrument `project()`'s memo
+directly (log `mode.directory()` and `layout.projects.list()` at the
+exact moment the memo runs) rather than inferring from the outside --
+the two most likely remaining explanations are (a) the memo running
+before `layout.projects.list()` has populated and never re-running, or
+(b) `mode.directory()` itself resolving to something other than the raw
+decoded URL segment (e.g. resolved through a symlink/junction-normalized
+path) that then fails the exact-string comparison against the backend's
+raw `worktree` value.
+
+**Honest answer to "did you actually achieve the objective on the
+topbar"**: mostly yes, with one real fix shipped and verified, one
+plausible finding correctly walked back after more complete evidence,
+one real product/scope question flagged rather than decided alone, and
+one genuine, confirmed regression found but not yet root-caused --
+reported as such rather than glossed over.
