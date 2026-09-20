@@ -2191,3 +2191,70 @@ same directory-not-yet-open case as an open design area.
 wrong; replace with "one apparent regression, root-caused to a testing
 artifact and withdrawn, surfacing one narrower real edge case (cold deep
 link to a never-opened project) flagged as a product question."
+
+## Ctrl+P intermittent file-open failure: root-caused and fixed (async search vs. Enter race) (2026-09-21, later)
+
+The last open item from the earlier audits -- "Ctrl+P file-open intermittent
+failure... reproduced across multiple files... not root-caused" -- is
+closed here with a confirmed root cause and a real fix, not just another
+repro.
+
+**Repro, made deterministic instead of "intermittent"**: opened Quick
+Open (`mod+p`), typed a query fast (`delay: 15` per keystroke, no settle
+wait) and pressed Enter immediately after the last character, vs. the
+same query typed slowly with a pause before Enter. Watched network
+traffic for `/file/content` and `/file/raw`.
+
+- Slow path (settle, then Enter): `find/file?query=package.json` fires
+  incrementally as expected, then `file/content?path=package.json` /
+  `file/raw?path=package.json` fire right after Enter. Works.
+- Fast path (type "AGENTS.md", Enter with no wait): the incremental
+  `find/file?query=...` autocomplete requests fire correctly all the way
+  to `query=AGENTS.md`, but **no** `file/content`/`file/raw` request for
+  `AGENTS.md` ever fires. Confirms the original "intermittent failure"
+  report was real, not a fluke.
+
+**Root cause, found by correlating two instrumented points in one run**
+(temporarily logged inside `packages/ui/src/components/list.tsx`'s
+`handleKey` and reverted after -- diff confirmed clean): in the fast
+case, `active()` was still `"file:package.json"` (left over from the
+*previous* Quick Open session in the same test, not from this query at
+all) and `flat()` was a **stale, unrelated list** -- root-level dotfiles,
+not anything matching "AGENTS.md" -- because the debounced async search
+resource (`grouped`, a `createResource` in
+`packages/ui/src/hooks/use-filtered-list.tsx`) had not resolved for the
+current filter value yet. `handleKey`'s guard
+(`const selected = all.find((x) => props.key(x) === active())`) doesn't
+distinguish "no match because the list is stale" from "no match because
+nothing matches" -- and in this repro the stale `active` key happened to
+still exist in the stale `flat()` (both lists coincidentally started
+with `package.json`), so `selectedFound` was `true` and Enter silently
+re-committed the **previous, wrong file** instead of the one just
+searched for. No new network request for `AGENTS.md` fired because the
+"selected" file was `package.json` again, already cached from the prior
+open -- explaining exactly why nothing appeared to happen.
+
+**Fix** (`packages/ui/src/components/list.tsx`): Enter's commit now
+checks `grouped.loading` (already in scope, destructured from
+`useFilteredList` at the top of the component) before acting. If the
+search for the current filter is still in flight, the keypress is
+deferred via a `pendingEnter` signal instead of committing the stale
+selection immediately; a `createEffect` watches `grouped.loading`
+transition to `false` and then commits against the now-current
+`flat()`/`active()` -- already correctly reset to the top match by
+`useFilteredList`'s own `on(grouped, reset)` effect. If the search is
+already settled (the common case), behavior is unchanged -- commits
+immediately, no added latency.
+
+This is a shared list/combobox primitive (`packages/ui`), not something
+scoped to Quick Open alone -- per its own module comment it backs the
+command palette (`mod+shift+p`), go-to-symbol, global search, and the
+session switcher too, so this fix closes the same race for all of them,
+not just the one repro path.
+
+**Verified**: `bun run typecheck` clean (47/47 packages). `bun test
+--preload ./happydom.ts ./src` still 1636 pass / 0 fail (no existing
+test targets `list.tsx`/`use-filtered-list.tsx` directly). Live re-run
+of the exact fast-typing repro after the fix: `file/content?path=
+AGENTS.md` and `file/raw?path=AGENTS.md` now fire ~440ms after the last
+`find/file?query=AGENTS.md`, where before nothing fired at all.
