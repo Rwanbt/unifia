@@ -1731,3 +1731,40 @@ found.
 
 **HOME verdict stands: `SCENE_LOCKED` for desktop-wide/dark/fr**, now
 re-confirmed under the corrected typography rather than left stale.
+
+## SETTINGS re-measurement attempted: not directly comparable, same known gap re-confirmed (2026-09-20, same day)
+
+Tried to re-check Settings under the font fix the same way as HOME. First
+attempt reused `pixel-diff.ts`'s `--app-key=Control+Comma` exactly as the
+original 5.58% measurement did -- it silently did **not** open the dialog
+this time (confirmed: the "app" screenshot showed a plain empty editor tab,
+not Settings at all). Caught this before reporting a number, discarded the
+run rather than trusting an unverified screenshot -- a keyboard-shortcut
+click is not guaranteed to land the same way twice against a live app,
+and a diff against the wrong screen is worse than no diff.
+
+Switched to a direct DOM click on the visible `button[aria-label="Paramètres"]`
+(the rail has more than one instance -- desktop and mobile -- so the
+click targets the one with non-zero, non-hidden layout, not just `.first()`).
+This reliably opened the dialog, confirmed by screenshot. Measured: **6.01%**.
+
+**Not reported as a regression from 5.58% -- the two runs are not
+apples-to-apples.** The original measurement's exact backdrop session
+state (what was showing behind/around the dialog) isn't pinned down
+precisely enough in this file to reproduce identically, and this run's
+backdrop (a bare fresh session, inspector open on "Revue") visibly differs
+from whatever the original had. Comparing two numbers measured under
+different unstated conditions would be exactly the kind of unverified
+claim this project's own epistemic discipline exists to prevent.
+
+What the diff image **does** reconfirm, unambiguously: the real,
+already-documented architectural gap from the original Settings entry
+above is unchanged. The maquette dedicates the full viewport width to
+Settings as its own page (four category groups: Bureau/IA/Infrastructure/
+Extensions); the app renders it as a centered dialog over the still-visible
+session shell (composer, inspector tabs, rail), narrower and with only two
+groups (Bureau/Serveur). This is the same "needs a product decision, not a
+silent fix" item this file's original Settings entry already named --
+re-confirmed, not newly discovered, and not something a font fix or CSS
+nudge resolves. No verdict change; Settings stays open, pending that
+decision.
