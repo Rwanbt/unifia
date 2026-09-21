@@ -270,8 +270,10 @@ export function SessionHeader() {
               type="button"
               variant="ghost"
               size="small"
-              // .search { width:min(380px,32vw); height:31px; border-radius:11px;
-              // background:var(--surface) } -- Unifia-UI-UX-v110-PORT-READY-R1.html:126.
+              // Compact port override: keep the project/mode breadcrumb readable
+              // while preserving the reference height and radius contract.
+              // The frozen reference uses width:min(380px,32vw); this port narrows
+              // the control to 320px for the current visual target.
               // Sits inline right after the breadcrumb in the maquette's left
               // group (x=301 of 1440, live-measured), not centered across the
               // whole topbar -- portaling into titlebarSlots.center() put it in
@@ -282,7 +284,7 @@ export function SessionHeader() {
               // alone were silently losing that cascade fight -- confirmed via
               // getComputedStyle (backgroundColor read back as transparent
               // despite the class being present) rather than assumed.
-              class="hidden md:flex h-[31px] w-[min(380px,32vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--surface-panel)] shadow-none cursor-pointer ml-2"
+              class="hidden md:flex h-[31px] w-[min(320px,26vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--v110-rail-bg)] shadow-none cursor-pointer ml-2"
               onClick={() => command.show()}
               aria-label={language.t("session.header.commandSearch.placeholder")}
             >
@@ -341,7 +343,7 @@ export function SessionHeader() {
                   <div
                     role="radiogroup"
                     aria-label={language.t("session.header.viewSwitch.label")}
-                    class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--surface-panel)] p-0.5 shrink-0"
+                    class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
                   >
                     <For each={options}>
                       {(option) => (

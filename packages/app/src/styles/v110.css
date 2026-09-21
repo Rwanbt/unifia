@@ -27,6 +27,12 @@
   --v110-shell-gap: 10px;
   --v110-shell-pad: 10px;
 
+  /* Neutral shell chrome from the frozen v110 surface, not brand-mode blue. */
+  --v110-topbar-bg: #0e0e10;
+  --v110-rail-bg: #161618;
+  --v110-shell-line: rgba(255, 255, 255, 0.07);
+  --v110-shell-line-strong: rgba(255, 255, 255, 0.12);
+
   /* Radius (maquette --radius-sm/md/lg/xl). */
   --v110-radius-sm: 10px;
   --v110-radius-md: 12px;
@@ -308,8 +314,13 @@ html[data-ui-animations="off"] *::after {
 
 [data-component="v110-topbar"] {
   border-bottom: 1px solid var(--border-base);
-  background: var(--background-stronger);
+  background: var(--v110-topbar-bg);
+  color: #f2f2f3;
   transition: border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-component="v110-topbar"] [data-component="logo"] {
+  filter: grayscale(1) brightness(0) invert(1);
 }
 
 [data-component="v110-topbar"]:focus-within {
@@ -340,8 +351,8 @@ html[data-ui-animations="off"] *::after {
 
 /* Sidebar nav (desktop) — hover-peek authority. */
 [data-component="sidebar-nav-desktop"] {
-  background: var(--background-stronger);
-  border-right: 1px solid var(--border-base);
+  background: transparent;
+  border-right: 0;
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
@@ -356,6 +367,27 @@ html[data-ui-animations="off"] *::after {
 
 [data-component="sidebar-nav-desktop"] [role="button"]:hover {
   background: var(--background-base);
+}
+
+/* The reference rail is a floating surface, not a full-height blue/black
+ * strip. The negative top offset deliberately overlaps the workspace-tabs
+ * gutter by 8px, matching the frozen desktop shell geometry. */
+[data-v110="rail"] {
+  margin-left: 18px;
+  margin-top: -8px;
+  height: calc(100% + 8px);
+  border: 1px solid var(--v110-shell-line-strong);
+  border-radius: var(--v110-radius-xl);
+  background: var(--v110-rail-bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+[data-v110="rail"] [data-slot="icon-svg"] {
+  color: #9b9ba1;
+}
+
+[data-v110="rail"] [aria-pressed="true"] [data-slot="icon-svg"] {
+  color: #17171a;
 }
 
 /* Workspace tabs bar (between topbar and workspace body). */
