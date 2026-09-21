@@ -1032,15 +1032,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         commandKeybind={command.keybind}
         t={(key) => language.t(key as Parameters<typeof language.t>[0])}
       />
-      <DockShellForm
-        onSubmit={handleSubmit}
-        classList={{
-          "group/prompt-input": true,
-          "focus-within:shadow-xs-border": true,
-          "border-icon-info-active border-dashed": store.draggingType !== null,
-          [props.class ?? ""]: !!props.class,
-        }}
-      >
+      <div data-v110="prompt-composer">
+        <DockShellForm
+          onSubmit={handleSubmit}
+          classList={{
+            "group/prompt-input": true,
+            "focus-within:shadow-xs-border": true,
+            "border-icon-info-active border-dashed": store.draggingType !== null,
+            [props.class ?? ""]: !!props.class,
+          }}
+        >
         <PromptDragOverlay
           type={store.draggingType}
           label={language.t(store.draggingType === "@mention" ? "prompt.dropzone.file.label" : "prompt.dropzone.label")}
@@ -1299,9 +1300,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
           </div>
         </div>
-      </DockShellForm>
-      <Show when={store.mode === "normal" || store.mode === "shell"}>
-        <DockTray attach="top">
+        </DockShellForm>
+        <Show when={store.mode === "normal" || store.mode === "shell"}>
+          <DockTray attach="top">
           <div class="px-1.75 pt-5.5 pb-2 flex items-center gap-2 min-w-0">
             <div class="flex items-center gap-1.5 min-w-0 flex-1 relative">
               <div
@@ -1469,8 +1470,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               </div>
             </div>
           </div>
-        </DockTray>
-      </Show>
+          </DockTray>
+        </Show>
+      </div>
     </div>
   )
 }

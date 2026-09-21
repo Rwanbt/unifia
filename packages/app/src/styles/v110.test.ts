@@ -6,6 +6,7 @@ import { resolve } from "node:path"
 
 const APP_ENTRY = resolve(import.meta.dir, "..", "..", "src", "index.css")
 const V110_CSS = resolve(import.meta.dir, "..", "..", "src", "styles", "v110.css")
+const V110_CHAT_CSS = resolve(import.meta.dir, "..", "..", "src", "styles", "v110-chat.css")
 
 // A1 Wave 0 — v110.css contract. Follows the unifia-brand.test.ts pattern:
 // string match for the cascade wiring plus a happy-dom smoke for :root.
@@ -83,6 +84,15 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
     } finally {
       style.remove()
     }
+  })
+
+  test("chat composer targets the real prompt anchors", () => {
+    const css = readFileSync(V110_CHAT_CSS, "utf8")
+    expect(css).toContain('[data-dock-surface="shell"]')
+    expect(css).toContain('[data-component="prompt-input"]')
+    expect(css).toContain('[data-dock-surface="tray"]')
+    expect(css).toContain('[data-action^="prompt-"]')
+    expect(css).not.toContain('[data-v110="composer-dock"] textarea')
   })
 })
 
