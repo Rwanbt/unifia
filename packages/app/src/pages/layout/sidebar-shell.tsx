@@ -172,7 +172,11 @@ export const SidebarContent = (props: {
             </nav>
           </div>
         </div>
-        <div class="shrink-0 w-full pt-3 pb-6 flex flex-col items-center gap-2">
+        {/* .rail{padding:8px 6px} applies uniformly on all four sides
+            (Unifia-UI-UX-v110-PORT-READY-R1.html:438) -- live-measured gap
+            from #settingsBtn's own bottom edge to the rail's bottom edge:
+            9px, not the 24px pb-6 held. */}
+        <div class="shrink-0 w-full pt-3 pb-2 flex flex-col items-center gap-2">
           {/* Ports .rail-btn "Nouveau" (Unifia-UI-UX-v110-PORT-READY-R1.html:
               15348), positioned directly above the avatar via
               .rail-spacer -- was rendered inline with the mode icons

@@ -31,9 +31,13 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
     // the lookup threw during init and the error boundary replaced the
     // whole application, on every route.
     const [automateAccess, setAutomateAccess] = createSignal<AutomateAccess>("unknown")
-    const visibleModes = createMemo<readonly ShellMode[]>(() =>
-      automateAccess() === "allowed" ? SHELL_MODES : SHELL_MODES.filter((mode) => mode !== "automate"),
-    )
+    // Visibility and enforcement are two different concerns (ADR-1041's own
+    // point: "capability first, UI second"). This used to also hide the
+    // rail icon without workflow.run granted -- explicit user decision
+    // (2026-09-21) to always show it instead, matching the maquette's rail
+    // exactly; `isMode` below and the server's own workflow.run check keep
+    // denying the actual action when the capability is missing, unchanged.
+    const visibleModes = createMemo<readonly ShellMode[]>(() => SHELL_MODES)
     const isMode = (value: string | undefined): value is ShellMode =>
       !!value && SHELL_MODES.includes(value as ShellMode) && (value !== "automate" || automateAccess() !== "denied")
     const route = createMemo(() => parseModeLocation(location.pathname, location.search, automateAccess()))

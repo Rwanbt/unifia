@@ -2664,3 +2664,63 @@ espacement de 8px entre chaque, cohérent avec `gap-2`.
 propre sur les 3 fichiers touchés, `bun test` toujours 1636 pass / 0
 fail (aucun test ne couvrait spécifiquement le drag-and-drop de projet
 dans le rail). Capture d'écran envoyée pour comparaison directe.
+
+## Automate toujours visible (décision explicite), padding du bas resserré -- vérification live bloquée par une crise mémoire hôte (2026-09-21, later)
+
+Deux retours supplémentaires sur la même série :
+
+**1. "il manque toujours le bouton/icone du mode automation ... rend la
+visible ça n'a aucuns sens qu'elle ne le soit pas !"** -- avant de
+toucher quoi que ce soit, signalé explicitement à l'utilisateur que ce
+masquage est un vrai contrôle de sécurité documenté (ADR-1041,
+`workflow.run`), pas un bug -- puis demandé sa décision plutôt que de
+contourner silencieusement une porte de sécurité. Choix retenu : "1 et
+2" (toujours afficher l'icône ET étudier l'octroi réel de la capacité).
+
+Point 1 implémenté : `context/mode.tsx`'s `visibleModes` ne filtre plus
+"automate" selon `automateAccess()` -- retourne toujours `SHELL_MODES`
+au complet. Portée volontairement étroite : `isMode()` (validation de
+route, ligne 37-38) et `automateAccess`/`setAutomateAccess`
+(AutomateGrantBridge, `parseModeLocation`) restent intacts -- l'ADR-1041
+distingue explicitement "capability first, UI second" : seule la
+VISIBILITÉ dans le rail change, l'application réelle du contrôle
+(refus serveur si `workflow.run` manque) reste entièrement en place.
+`mode.modes` est consommé par le rail desktop ET `v110-mobile-nav.tsx`
+-- les deux bénéficient de la même correction, cohérence gardée en un
+seul point de vérité plutôt que de dupliquer la logique par surface.
+
+Point 2 (octroyer réellement `workflow.run` à ce projet de test)
+investigué mais volontairement non résolu unilatéralement : tracé
+jusqu'à `SURFACE_LEASE_CAPABILITIES` (`workbench-shell/src/routes.ts:185`,
+`["workspace.read","workspace.write","workspace.watch","artifact.preview"]`)
+-- **`workflow.run` n'y figure pas du tout**, donc le client ne le
+demande jamais dans son `connect()` initial. L'ajouter à cette constante
+rendrait Automate potentiellement accessible par défaut pour TOUTES les
+connexions, pas seulement ce projet de test -- une portée beaucoup plus
+large que "activer pour tester", donc arrêté avant de coder quoi que ce
+soit de plus, en attente d'une clarification de portée plutôt que de
+deviner.
+
+**2. "les boutons du bas ne sont toujours pas assez en bas de la
+barre"** -- re-mesuré précisément sur la maquette : l'écart réel entre
+le bas de `#settingsBtn` et le bas du rail est de 9px (`.rail{padding:
+8px 6px}`, appliqué uniformément), pas les 24px (`pb-6`) que j'avais.
+Confirmé au passage que le rail lui-même atteint bien le bord réel du
+viewport (`railBottom` ≈ `viewportHeight`, l'hypothèse "le rail ne
+s'étire pas" était fausse) -- le problème était uniquement la valeur du
+padding, pas la structure flex. Corrigé : `pb-6` → `pb-2` (8px).
+
+**Vérification live bloquée, pas contournée silencieusement** : après
+le fix, quatre tentatives de vérification en direct ont toutes échoué
+avec des symptômes d'épuisement mémoire hôte progressivement plus
+sévères (import dynamique échoué, page inerte, connexion CDP qui
+n'aboutit plus du tout après 30s) -- confirmé via `ComputerInfo` : 2,12
+puis 2,83 Go de RAM libre sur 15,71 Go, et 43 process Brave pour
+seulement 2 onglets ouverts (déséquilibre suggérant des process
+zombies, sans pouvoir distinguer du navigateur personnel de
+l'utilisateur -- aucun process arbitraire tué). Arrêté après 4 tentatives
+(règle anti-boucle du projet), plutôt que d'insister ou de prétendre
+une vérification qui n'a pas eu lieu. `bun run typecheck` (47/47) et
+`bun test` (1636/1636) restent propres après ces deux changements ;
+la confirmation visuelle reste à refaire dès que les ressources hôte le
+permettent.
