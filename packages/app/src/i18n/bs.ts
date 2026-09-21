@@ -575,6 +575,8 @@ export const dict = {
 
   "session.header.search.placeholder": "Pretraži {{project}}",
   "session.header.commandSearch.placeholder": "Pretraži, izvrši ili otvori…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Pretraži datoteke",
   "session.header.openIn": "Otvori u",
   "session.header.open.action": "Otvori {{app}}",

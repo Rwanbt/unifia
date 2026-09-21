@@ -520,6 +520,8 @@ export const dict = {
   "session.new.lastModified": "Последнее изменение",
   "session.header.search.placeholder": "Поиск {{project}}",
   "session.header.commandSearch.placeholder": "Искать, выполнить или открыть…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Поиск файлов",
   "session.header.openIn": "Открыть в",
   "session.header.open.action": "Открыть {{app}}",

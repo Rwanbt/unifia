@@ -518,6 +518,8 @@ export const dict = {
   "session.new.lastModified": "최근 수정",
   "session.header.search.placeholder": "{{project}} 검색",
   "session.header.commandSearch.placeholder": "검색, 실행 또는 열기…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "파일 검색",
   "session.header.openIn": "다음에서 열기",
   "session.header.open.action": "{{app}} 열기",

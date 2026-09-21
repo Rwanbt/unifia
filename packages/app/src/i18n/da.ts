@@ -570,6 +570,8 @@ export const dict = {
 
   "session.header.search.placeholder": "Søg {{project}}",
   "session.header.commandSearch.placeholder": "Søg, udfør eller åbn…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Søg efter filer",
   "session.header.openIn": "Åbn i",
   "session.header.open.action": "Åbn {{app}}",

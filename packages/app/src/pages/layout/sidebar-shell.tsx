@@ -13,6 +13,17 @@ import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import type { LocalProject } from "@/context/layout"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
 import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
+import { useLanguage } from "@/context/language"
+
+// Browser and Memory are destinations, not SHELL_MODES (ADR-1041,
+// home.tsx:13 -- SHELL_MODES is enforced at exactly 4 entries by
+// scripts/check-mode-registry.mjs). Home already solves this by mapping
+// them onto the closest real mode rather than adding fake modes; the
+// rail reuses the identical mapping so both entry points agree.
+const RAIL_PILLS = [
+  { id: "browser", icon: "browser", target: "design" as ShellMode, labelKey: "sidebar.rail.browser" },
+  { id: "memory", icon: "brain", target: "code" as ShellMode, labelKey: "sidebar.rail.memory" },
+] as const
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -41,6 +52,7 @@ export const SidebarContent = (props: {
   modesLabel: string
   modeLabel: (mode: ShellMode) => string
 }): JSX.Element => {
+  const language = useLanguage()
   const expanded = createMemo(() => !!props.mobile || props.opened())
   const placement = () => (props.mobile ? "bottom" : "right")
   let panel: HTMLDivElement | undefined
@@ -63,7 +75,7 @@ export const SidebarContent = (props: {
         data-parity={props.mobile ? undefined : "shell.rail"}
         class="shrink-0 bg-background-base flex flex-col items-center overflow-hidden transition-[width,opacity] duration-200"
         style={{
-          width: props.mobile || props.railOpened() ? "var(--v110-rail, 78px)" : "0px",
+          width: props.mobile || props.railOpened() ? "var(--v110-rail, 62px)" : "0px",
           "min-width": props.mobile || props.railOpened() ? undefined : "0px",
           opacity: props.mobile || props.railOpened() ? 1 : 0,
           "pointer-events": props.mobile || props.railOpened() ? "auto" : "none",
@@ -145,6 +157,27 @@ export const SidebarContent = (props: {
                         onFocus={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
                         aria-label={props.modeLabel(mode)}
                         aria-pressed={props.activeMode() === mode}
+                      />
+                    </Tooltip>
+                  )}
+                </For>
+                {/* Ports the maquette's Browser/Automate/Memory rail-btn
+                    trio's last two entries (Unifia-UI-UX-v110-PORT-READY-R1.html:
+                    15337-15346) -- not new SHELL_MODES (forbidden, see
+                    RAIL_PILLS above), just two more entry points into the
+                    same real modes Home's own Browser/Memory pills already
+                    open. onMode already accepts a plain ShellMode, so no
+                    new plumbing is needed beyond the mapping itself. */}
+                <For each={RAIL_PILLS}>
+                  {(pill) => (
+                    <Tooltip placement={placement()} value={language.t(pill.labelKey)}>
+                      <IconButton
+                        icon={pill.icon}
+                        variant="ghost"
+                        size="large"
+                        class="!w-[42px] !h-[42px] !rounded-[12px] [&_[data-slot=icon-svg]]:!text-text-weak"
+                        onClick={() => props.onMode(pill.target)}
+                        aria-label={language.t(pill.labelKey)}
                       />
                     </Tooltip>
                   )}

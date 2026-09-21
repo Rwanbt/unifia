@@ -568,6 +568,8 @@ export const dict = {
   "session.new.lastModified": "最后修改",
   "session.header.search.placeholder": "搜索 {{project}}",
   "session.header.commandSearch.placeholder": "搜索、执行或打开…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "搜索文件",
   "session.header.openIn": "打开方式",
   "session.header.open.action": "打开 {{app}}",

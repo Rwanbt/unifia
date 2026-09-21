@@ -1064,7 +1064,7 @@ export default function Layout(props: ParentProps) {
 
             <div
               class="hidden shell:block pointer-events-none absolute top-0 right-0 z-0 border-t border-border-weaker-base"
-              style={{ left: "calc(var(--v110-rail, 78px) + 12px)" }}
+              style={{ left: "calc(var(--v110-rail, 62px) + 12px)" }}
             />
 
             <div class="shell:hidden">
@@ -1128,7 +1128,7 @@ export default function Layout(props: ParentProps) {
                     ? "0px"
                     : layout.sidebar.opened()
                       ? `${side()}px`
-                      : "var(--v110-rail, 78px)",
+                      : "var(--v110-rail, 62px)",
               }}
             >
               <main
@@ -1146,7 +1146,7 @@ export default function Layout(props: ParentProps) {
 
             <div
               classList={{
-                "hidden shell:flex absolute inset-y-0 z-30 left-[var(--v110-rail,78px)]": true,
+                "hidden shell:flex absolute inset-y-0 z-30 left-[var(--v110-rail,62px)]": true,
                 "opacity-100 translate-x-0 pointer-events-auto": state.peeked && !layout.sidebar.opened(),
                 "opacity-0 -translate-x-2 pointer-events-none": !state.peeked || layout.sidebar.opened(),
                 "transition-[opacity,transform] motion-reduce:transition-none": true,
@@ -1177,7 +1177,7 @@ export default function Layout(props: ParentProps) {
                 "duration-180 ease-out": state.peeked && !layout.sidebar.opened(),
                 "duration-120 ease-in": !state.peeked || layout.sidebar.opened(),
               }}
-              style={{ left: `calc(var(--v110-rail, 78px) + ${panel()}px)` }}
+              style={{ left: `calc(var(--v110-rail, 62px) + ${panel()}px)` }}
             >
               <div class="h-full w-px" style={{ "box-shadow": "var(--shadow-sidebar-overlay)" }} />
             </div>

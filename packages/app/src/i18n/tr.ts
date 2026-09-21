@@ -521,6 +521,8 @@ export const dict = {
   "session.new.lastModified": "Son değişiklik",
   "session.header.search.placeholder": "{{project}} ara",
   "session.header.commandSearch.placeholder": "Ara, işlem yap veya aç…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Dosya ara",
   "session.header.openIn": "Aç",
   "session.header.open.action": "{{app}} ile aç",

@@ -21,7 +21,7 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
     const css = readFileSync(V110_CSS, "utf8")
     for (const token of [
       "--v110-topbar: 48px",
-      "--v110-rail: 78px",
+      "--v110-rail: 62px",
       "--v110-rail-compact: 62px",
       "--v110-context: 248px",
       "--v110-inspector: 300px",

@@ -518,6 +518,8 @@ export const dict = {
   "session.new.lastModified": "Última modificação",
   "session.header.search.placeholder": "Buscar {{project}}",
   "session.header.commandSearch.placeholder": "Buscar, executar ou abrir…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Buscar arquivos",
   "session.header.openIn": "Abrir em",
   "session.header.open.action": "Abrir {{app}}",

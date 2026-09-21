@@ -10,7 +10,14 @@
 :root {
   /* Shell geometry (maquette --topbar/--rail/--context/--inspector/--chat). */
   --v110-topbar: 48px;
-  --v110-rail: 78px;
+  /* Live-measured on the maquette's own #rail at its 1440x900 reference
+   * viewport: 62px, not the 78px this token previously held -- the
+   * "v6 refinements" layer (Unifia-UI-UX-v110-PORT-READY-R1.html:438-439)
+   * tightens .rail's padding to 8px 6px and .rail-btn to 42x42, and 78px
+   * was never the real rendered width at any point in that file.
+   * --v110-rail-compact keeps its own value/purpose (mobile-nav
+   * positioning, v110-shell.css) -- unrelated to this correction. */
+  --v110-rail: 62px;
   --v110-rail-compact: 62px;
   --v110-context: 248px;
   --v110-inspector: 300px;

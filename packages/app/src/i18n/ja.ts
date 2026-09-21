@@ -515,6 +515,8 @@ export const dict = {
   "session.new.lastModified": "最終更新",
   "session.header.search.placeholder": "{{project}}を検索",
   "session.header.commandSearch.placeholder": "検索、実行、または開く…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "ファイルを検索",
   "session.header.openIn": "で開く",
   "session.header.open.action": "{{app}}を開く",

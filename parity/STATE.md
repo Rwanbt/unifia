@@ -2476,3 +2476,76 @@ solve, so left untouched).
 CDP measurement: rail-button x minus topbar x now exactly 12px (was 8px
 before this entry, ~64px before the `ml-14` removal) -- screenshot sent
 to the user.
+
+## Rail (barre de gauche) : largeur corrigée, Browser/Memory ajoutés comme raccourcis réels, projet-chip confirmé nécessaire (2026-09-21, later)
+
+Sur demande explicite de l'utilisateur ("maintenant on se concentre sur
+la barre de gauche"), même méthodologie que la topbar : comparaison DOM
+live maquette (`#rail`) vs app (`[data-v110="rail"]`).
+
+**Fausse piste évitée avant d'agir** : la lecture initiale du markup
+statique du rail-btn (`<span class="label">Code</span>`) laissait penser
+que la maquette affiche un texte sous chaque icône. Vérifié via
+`getComputedStyle` avant de coder quoi que ce soit : `.rail-btn
+.label{display:none}` (ligne 187, inconditionnel, aucune media query ne
+le réactive) -- confirmé aussi par la capture d'écran réelle de la
+maquette, qui ne montre aucun texte. Le correctif "ajouter des labels"
+envisagé n'a **pas** été appliqué -- il aurait introduit une différence
+au lieu d'en corriger une.
+
+**Largeur du rail corrigée** : mesurée en direct sur la maquette à sa
+résolution de référence documentée (1440x900, `unifiaEnterWorkspace
+("code")`) : 62px, pas 78px. La "v6 refinements" layer de la maquette
+(lignes 438-439) réduit `.rail{padding:8px 6px}` et `.rail-btn{width:
+42px}` -- l'app avait déjà les boutons à la bonne taille (42x42,
+documenté par un commentaire existant) mais le conteneur `--v110-rail`
+gardait 78px, jamais mis à jour depuis que ce token avait été capturé.
+Corrigé à la source (`v110.css`, test associé mis à jour) plutôt que sur
+chaque site de consommation, pour que les 4 usages restent cohérents
+entre eux (positionnement du panneau context-resize, bordure décorative,
+etc.) -- `--v110-rail-compact` (62px) n'a pas été touché, son seul vrai
+consommateur est le nav mobile (`v110-shell.css`), un usage distinct.
+
+**Browser/Memory ajoutés au rail comme raccourcis réels, pas comme
+fausses SHELL_MODES** : `scripts/check-mode-registry.mjs` verrouille
+`SHELL_MODES` à exactement 4 entrées (`code/work/design/automate`) --
+confirmé en lisant le script avant de coder. `home.tsx` avait déjà
+résolu exactement ce problème (ADR-1041, commentaire ligne 13 : "Browser
+and Memory are destinations, not SHELL_MODES ... the home pill selects
+the closest shell-mode route") via `MODE_PILLS`/`PILL_TARGET`
+(browser→design, memory→code). Le rail réutilise la même correspondance
+(`RAIL_PILLS` dans `sidebar-shell.tsx`), pas de nouvelle route, pas de
+nouvelle capacité serveur -- juste deux points d'entrée de plus vers des
+modes déjà réels, via `props.onMode` déjà typé `(mode: ShellMode) =>
+void`. Icône "brain" déjà présente dans le set d'icônes partagé
+(réutilisée telle quelle) ; icône "browser" absente, ajoutée avec le
+tracé SVG exact de la maquette (espace de coordonnées 24x24 conservé,
+exception de viewBox ajoutée dans `Icon`, même pattern que
+`magnifying-glass`).
+
+**Faux positif pré-existant découvert en vérifiant, pas causé par cette
+session** : `node scripts/check-mode-registry.mjs` échoue sur
+`home.tsx` -- confirmé via `git stash` que ça échoue déjà identiquement
+sur HEAD propre, avant tout travail de cette session. La regex du script
+ne verrouille pas la fin du tableau, donc `MODE_PILLS` (6 entrées,
+partageant le même préfixe à 4 entrées que le vrai `SHELL_MODES`)
+déclenche un faux "third registry detected". Signalé séparément
+(`task_7fc2d3f6`), pas corrigé ici -- hors périmètre de ce travail sur la
+sidebar.
+
+**Bouton projet "unifia" dans le rail confirmé nécessaire, pas une
+extra** : investigation demandée explicitement par l'utilisateur.
+`SidebarPanel` (le panneau plus large, `layout.sidebar`/`showContextBtn`)
+est scopé au SEUL projet courant (`props.project = currentProject`,
+sessions/worktrees) -- ne liste pas les autres projets ouverts. Les
+chips de projet dans le rail (`SortableProvider`+`For` sur
+`props.projects()`) sont donc le seul moyen de changer de projet sans
+repasser par Home. Recommandation : garder, différence justifiée par le
+fait que la maquette est une démo statique mono-projet, pas une
+fonctionnalité multi-projet à masquer.
+
+**Vérifié** : `bun run typecheck` clean (47/47). `bun test --preload
+./happydom.ts ./src` toujours 1636 pass / 0 fail. Vérification live CDP :
+largeur du rail = 62px exactement, boutons Browser/Memory trouvés et
+fonctionnels (clic sur Browser navigue vers `/design`, confirmé par
+l'URL). Capture d'écran envoyée pour comparaison directe.

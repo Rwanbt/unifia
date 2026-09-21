@@ -566,6 +566,8 @@ export const dict = {
 
   "session.header.search.placeholder": "搜尋 {{project}}",
   "session.header.commandSearch.placeholder": "搜尋、執行或開啟…",
+  "sidebar.rail.browser": "Browser",
+  "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "搜尋檔案",
   "session.header.openIn": "開啟於",
   "session.header.open.action": "開啟 {{app}}",
