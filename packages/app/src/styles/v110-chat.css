@@ -108,7 +108,7 @@
   position: absolute;
   left: 44px;
   right: 152px;
-  bottom: 8px;
+  bottom: 18px;
   z-index: 20;
   margin-top: 0;
   border: 0;
@@ -158,11 +158,11 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--surface);
+  background: transparent;
   color: var(--muted);
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
+  box-shadow: none;
 }
 
 [data-v110="prompt-send-stack"] [data-v110="context-meter"] > div {
@@ -224,7 +224,7 @@
   [data-v110="composer-dock"] [data-dock-surface="tray"] {
     left: 44px;
     right: 8px;
-    bottom: 40px;
+    bottom: 50px;
   }
 
   [data-v110="composer-dock"] [data-dock-surface="tray"] > div > div {
