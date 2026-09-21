@@ -923,6 +923,7 @@ export default function Page() {
 
         {/* Session panel */}
         <div
+          data-v110="session-chat-surface"
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
             "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":

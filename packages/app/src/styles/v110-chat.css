@@ -24,12 +24,28 @@
   outline: none;
 }
 
+[data-v110="session-chat-surface"] {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-xl);
+  background: var(--bg-soft);
+  box-shadow: var(--shadow);
+}
+
+[data-v110="session-chat-surface"] > [data-component="session-composer-region"] {
+  border-top: 0;
+  background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 26%, var(--bg-soft) 100%);
+  padding: 10px;
+}
+
 [data-v110="composer-dock"] {
   display: flex;
   flex-direction: column;
   align-items: center;
   background: var(--surface);
-  border-top: 1px solid var(--line);
+  border-top: 0;
   padding-bottom: 12px;
 }
 
