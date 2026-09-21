@@ -4,6 +4,13 @@
   display: none;
 }
 
+[data-v110="workspace"] {
+  border-left: 0;
+  border-left-width: 0;
+  border-left-style: none;
+  border-top-left-radius: 0;
+}
+
 /* A3 Chat thread + composer chrome -- maquette v110-port-ready-r1
  * §INTERACTIONS Chat. Kept in its own layer so v110.css stays under the
  * AGENTS.md 1500 LOC ceiling. Targets the TWO real anchors the app emits:
@@ -60,6 +67,7 @@
 
 [data-v110="prompt-composer"] {
   position: relative;
+  filter: grayscale(1);
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: var(--surface);
@@ -99,7 +107,7 @@
 [data-v110="composer-dock"] [data-dock-surface="tray"] {
   position: absolute;
   left: 44px;
-  right: 8px;
+  right: 152px;
   bottom: 8px;
   z-index: 20;
   margin-top: 0;
@@ -115,20 +123,32 @@
   padding: 0;
 }
 
+[data-v110="composer-dock"] [data-dock-surface="tray"] > div > div {
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"] {
   box-sizing: border-box;
   height: 28px;
   min-height: 28px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: var(--surface-2);
-  color: var(--muted);
+  background: var(--v110-rail-bg);
+  color: #9b9ba1;
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-context"] {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
 }
 
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:hover,
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:focus-visible {
   border-color: var(--line-strong);
-  background: var(--surface-3);
+  background: var(--v110-rail-bg);
   color: var(--text);
 }
 

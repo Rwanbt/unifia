@@ -1075,7 +1075,7 @@ export default function Layout(props: ParentProps) {
                 data-v110="workspace"
                 data-workbench-mode={mode.active()}
                 classList={{
-                  "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base shell:border-l shell:rounded-tl-[12px]": true,
+                  "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
                 }}
               >
                 <Show when={!autoselecting.loading} fallback={<div class="size-full" />}>

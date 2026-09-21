@@ -109,6 +109,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
               type="button"
               variant="ghost"
               class="size-6"
+              data-action="prompt-context"
               onClick={openContext}
               aria-label={language.t("context.usage.view")}
             >
