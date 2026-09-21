@@ -135,8 +135,23 @@
   min-height: 28px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: var(--v110-rail-bg);
+  background: var(--surface-2);
   color: #9b9ba1;
+}
+
+[data-v110="prompt-attach-slot"] {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  bottom: 7px;
+  left: 8px;
+}
+
+[data-v110="prompt-attach-slot"] [data-action="prompt-attach"] {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
 }
 
 [data-v110="prompt-send-stack"] {
@@ -184,7 +199,7 @@
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:hover,
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:focus-visible {
   border-color: var(--line-strong);
-  background: var(--v110-rail-bg);
+  background: var(--surface-3);
   color: var(--text);
 }
 
@@ -237,6 +252,11 @@
     max-width: 34vw;
     padding-inline: 5px;
     font-size: 8px;
+  }
+
+  [data-v110="prompt-attach-slot"] {
+    bottom: 39px;
+    left: 8px;
   }
 
   [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
