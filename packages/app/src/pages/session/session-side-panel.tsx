@@ -236,11 +236,6 @@ export function SessionSidePanel(props: {
     openTab(file.tab(node.path))
   }
 
-  const setExplorerView = (value: string) => {
-    if (value !== "changed" && value !== "all") return
-    layout.inspector.setExplorerView(value)
-  }
-
   const showAllFiles = () => {
     if (layout.inspector.explorerView() !== "changed") return
     layout.inspector.setExplorerView("all")
@@ -358,99 +353,45 @@ export function SessionSidePanel(props: {
           }
         >
           <Switch>
-            {/* Explorer: file tree browsing. The old "Changes"/"All files"
-                split (two real, still-used views) survives as an internal
-                toggle instead of being dropped for a single tree. */}
+            {/* Explorer matches the reference: Workspace plus the live project tree. */}
             <Match when={layout.inspector.tab() === "explorer"}>
-              <div class="h-full flex flex-col overflow-hidden group/filetree">
-                <Tabs
-                  variant="pill"
-                  value={layout.inspector.explorerView()}
-                  onChange={setExplorerView}
-                  class="h-full"
-                  data-scope="filetree"
-                >
-                  <Tabs.List>
-                    <Tabs.Trigger value="changed" class="flex-1" classes={{ button: "w-full" }}>
-                      {props.reviewCount()}{" "}
-                      {language.t(
-                        props.reviewCount() === 1 ? "session.review.change.one" : "session.review.change.other",
-                      )}
-                    </Tabs.Trigger>
-                    <Tabs.Trigger value="all" class="flex-1" classes={{ button: "w-full" }}>
-                      {language.t("session.files.all")}
-                    </Tabs.Trigger>
-                  </Tabs.List>
-                  <Tabs.Content value="changed" class="bg-background-stronger px-3 py-0">
-                    <Switch>
-                      <Match when={props.hasReview() || !props.diffsReady()}>
-                        <Show
-                          when={props.diffsReady()}
-                          fallback={
-                            <div class="px-2 py-2 text-12-regular text-text-weak">
-                              {language.t("common.loading")}
-                              {language.t("common.loading.ellipsis")}
-                            </div>
-                          }
-                        >
-                          <FileTree
-                            path=""
-                            class="pt-3"
-                            allowed={diffFiles()}
-                            kinds={kinds()}
-                            draggable={false}
-                            active={props.activeDiff}
-                            onFileClick={(node) => {
-                              layout.inspector.setTab("inspector")
-                              props.focusReviewDiff(node.path)
-                            }}
-                          />
-                        </Show>
-                      </Match>
-                      <Match when={true}>{empty(props.empty())}</Match>
-                    </Switch>
-                  </Tabs.Content>
-                  <Tabs.Content value="all" class="bg-background-stronger px-3 py-0">
-                    <div class="flex items-center justify-between px-1 pt-2 pb-1">
-                      <span class="text-11-medium text-text-weaker uppercase tracking-wide">
-                        {language.t("session.files.all")}
-                      </span>
-                      <DropdownMenu gutter={4} placement="bottom-end">
-                        <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" />
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content>
-                            <DropdownMenu.Item onSelect={() => handleNewFile("")}>
-                              <DropdownMenu.ItemLabel>{language.t("fileOps.newFile")}</DropdownMenu.ItemLabel>
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Item onSelect={() => handleNewFolder("")}>
-                              <DropdownMenu.ItemLabel>{language.t("fileOps.newFolder")}</DropdownMenu.ItemLabel>
-                            </DropdownMenu.Item>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu>
-                    </div>
-                    <Switch>
-                      <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
-                      <Match when={true}>
-                        <FileTree
-                          path=""
-                          class="pt-1"
-                          modified={diffFiles()}
-                          kinds={kinds()}
-                          onFileClick={(node) => openTab(file.tab(node.path))}
-                          onFileDblClick={handleFileDblClick}
-                          onNewFile={handleNewFile}
-                          onNewFolder={handleNewFolder}
-                          onRename={handleRename}
-                          onDelete={handleDelete}
-                          onMove={handleMove}
-                          onCopyPath={handleCopyPath}
-                          onCopyRelativePath={handleCopyPath}
-                        />
-                      </Match>
-                    </Switch>
-                  </Tabs.Content>
-                </Tabs>
+              <div class="h-full flex flex-col overflow-hidden group/filetree bg-background-stronger px-3 py-2">
+                <div class="flex items-center justify-between px-1 pb-2">
+                  <span class="text-11-medium text-text-weaker uppercase tracking-wide">Workspace</span>
+                  <DropdownMenu gutter={4} placement="bottom-end">
+                    <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" />
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content>
+                        <DropdownMenu.Item onSelect={() => handleNewFile("")}>
+                          <DropdownMenu.ItemLabel>{language.t("fileOps.newFile")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item onSelect={() => handleNewFolder("")}>
+                          <DropdownMenu.ItemLabel>{language.t("fileOps.newFolder")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu>
+                </div>
+                <Switch>
+                  <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
+                  <Match when={true}>
+                    <FileTree
+                      path=""
+                      class="pt-1"
+                      modified={diffFiles()}
+                      kinds={kinds()}
+                      onFileClick={(node) => openTab(file.tab(node.path))}
+                      onFileDblClick={handleFileDblClick}
+                      onNewFile={handleNewFile}
+                      onNewFolder={handleNewFolder}
+                      onRename={handleRename}
+                      onDelete={handleDelete}
+                      onMove={handleMove}
+                      onCopyPath={handleCopyPath}
+                      onCopyRelativePath={handleCopyPath}
+                    />
+                  </Match>
+                </Switch>
               </div>
             </Match>
 
