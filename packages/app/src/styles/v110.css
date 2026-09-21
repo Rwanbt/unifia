@@ -327,6 +327,20 @@ html[data-ui-animations="off"] *::after {
   border-color: var(--border-focus);
 }
 
+/* Keep the left search control out of the centered view switch's track. The
+ * available width is computed from the measured breadcrumb/search start and
+ * the centered 125px switch, then removed entirely before it becomes unusable. */
+[data-component="v110-topbar"] [data-v110="session-search"] {
+  display: flex;
+  width: min(320px, calc(50vw - 430px));
+}
+
+@media (max-width: 1080px) {
+  [data-component="v110-topbar"] [data-v110="session-search"] {
+    display: none;
+  }
+}
+
 [data-component="v110-topbar"] [role="button"]:not(:disabled) {
   border-radius: var(--v110-radius-sm);
   transition: background-color var(--v110-fast) var(--v110-ease);

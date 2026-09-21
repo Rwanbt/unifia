@@ -284,7 +284,8 @@ export function SessionHeader() {
               // alone were silently losing that cascade fight -- confirmed via
               // getComputedStyle (backgroundColor read back as transparent
               // despite the class being present) rather than assumed.
-              class="hidden md:flex h-[31px] w-[min(320px,26vw)] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--v110-rail-bg)] shadow-none cursor-pointer ml-2"
+              data-v110="session-search"
+              class="h-[31px] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--v110-rail-bg)] shadow-none cursor-pointer ml-2"
               onClick={() => command.show()}
               aria-label={language.t("session.header.commandSearch.placeholder")}
             >
