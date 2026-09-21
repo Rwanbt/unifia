@@ -2549,3 +2549,39 @@ fonctionnalité multi-projet à masquer.
 largeur du rail = 62px exactement, boutons Browser/Memory trouvés et
 fonctionnels (clic sur Browser navigue vers `/design`, confirmé par
 l'URL). Capture d'écran envoyée pour comparaison directe.
+
+## Icônes des modes du rail corrigées : brackets/briefcase/flower/workflow remplacent code/folder/edit/checklist génériques (2026-09-21, later)
+
+Retour utilisateur direct : "il faut corriger les icones, code, work,
+design, automation et browser (memory est bien)". Confirmé en
+comparant : `sidebar-shell.tsx` utilisait des icônes génériques du set
+partagé (`code`, `folder`, `edit`, `checklist`) sans rapport visuel avec
+les glyphes réels de la maquette pour ces 4 modes (chevrons+barre,
+mallette, fleur à 4 pétales, 3 blocs reliés en L). L'icône Browser
+ajoutée à la session précédente était déjà correcte visuellement à un
+détail de rendu près (voir ci-dessous) ; Memory (`brain`, déjà présent
+dans le set) n'a pas été touché, confirmé correct par l'utilisateur.
+
+**Pas redéfini les icônes existantes en place** : `code`/`folder`/
+`edit`/`checklist` sont utilisées ailleurs dans l'app
+(`dialog-connect-provider.tsx`, `image-attachments.tsx`,
+`session-sortable-terminal-tab.tsx`, `message-part.tsx`) -- vérifié par
+grep avant de toucher quoi que ce soit. Quatre nouvelles icônes
+ajoutées à la place (`brackets`, `briefcase`, `flower`, `workflow`),
+tracés SVG exacts de la maquette (espace 24x24, exception de viewBox
+comme pour `browser`), noms choisis pour éviter toute collision.
+
+**Erreur détectée et corrigée avant de livrer** : les 4 cercles de
+l'icône `flower` (les "pétales") ont d'abord été codés avec
+`fill="currentColor" stroke="none"` en supposant qu'ils suivaient le
+même pattern que les 2 points de l'icône `browser`. Vérifié contre le
+CSS de la maquette avant de considérer que c'était fini :
+`.svgicon{stroke:currentColor;fill:none}` (ligne 425) est le défaut, et
+le markup brut des 4 cercles de l'icône design n'a aucune surcharge
+`fill` explicite (contrairement aux 2 points de browser, qui EN ont
+une) -- donc ce sont des anneaux creux, pas des points pleins. Corrigé
+avant de committer.
+
+**Vérifié** : `bun run typecheck` clean, `bun test` toujours 1636/1636.
+Capture d'écran du rail envoyée pour comparaison directe avec la
+maquette.

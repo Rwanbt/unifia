@@ -101,7 +101,21 @@ export const SidebarContent = (props: {
                   {(mode) => (
                     <Tooltip placement={placement()} value={props.modeLabel(mode)}>
                       <IconButton
-                        icon={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"}
+                        // Ports the maquette's actual per-mode rail-btn glyphs
+                        // (Unifia-UI-UX-v110-PORT-READY-R1.html:15327-15336) --
+                        // was "code"/"folder"/"edit"/"checklist", the shared
+                        // icon set's generic stand-ins, visually unrelated to
+                        // the maquette's own brackets/briefcase/flower/workflow
+                        // shapes for these four modes.
+                        icon={
+                          mode === "code"
+                            ? "brackets"
+                            : mode === "work"
+                              ? "briefcase"
+                              : mode === "design"
+                                ? "flower"
+                                : "workflow"
+                        }
                         variant="ghost"
                         size="large"
                         // .rail-btn is 42x42 with a 12px radius

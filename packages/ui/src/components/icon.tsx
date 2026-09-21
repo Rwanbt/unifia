@@ -108,10 +108,24 @@ const icons = {
   models: `<path fill-rule="evenodd" clip-rule="evenodd" d="M17.5 10C12.2917 10 10 12.2917 10 17.5C10 12.2917 7.70833 10 2.5 10C7.70833 10 10 7.70833 10 2.5C10 7.70833 12.2917 10 17.5 10Z" stroke="currentColor"/>`,
   speedometer: `<path d="M3.5 13.5A6.5 6.5 0 0 1 16.5 13.5M10 13.5L13.2 8.6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="13.5" r="1" fill="currentColor"/>`,
   // Authored in the maquette's own 24x24 space (Unifia-UI-UX-v110-PORT-
-  // READY-R1.html:15337, rail-btn data-mode="browser") -- kept as-is
-  // rather than rescaled; the viewBox exception below makes it render
-  // proportionally identical to a 20-unit icon.
+  // READY-R1.html:15327-15346, rail-btn data-mode="*") -- kept as-is
+  // rather than rescaled; the viewBox exception below makes each render
+  // proportionally identical to a 20-unit icon. Named distinctly from
+  // the app's existing generic "code"/"folder"/"edit"/"checklist" icons
+  // (used elsewhere -- dialog-connect-provider.tsx, image-attachments.tsx,
+  // session-sortable-terminal-tab.tsx, message-part.tsx -- so redefining
+  // those in place would have changed unrelated UI) rather than reusing
+  // them: the rail was showing generic stand-ins, not the maquette's
+  // actual per-mode glyphs.
   browser: `<rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor"/><path d="M3 8h18" stroke="currentColor"/><circle cx="6" cy="6" r=".75" fill="currentColor" stroke="none"/><circle cx="9" cy="6" r=".75" fill="currentColor" stroke="none"/><path d="M7 12h10M7 16h6" stroke="currentColor"/>`,
+  brackets: `<path d="m18 16 4-4-4-4" stroke="currentColor"/><path d="m6 8-4 4 4 4" stroke="currentColor"/><path d="m14.5 4-5 16" stroke="currentColor"/>`,
+  briefcase: `<rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor"/><path d="M3 12h18" stroke="currentColor"/>`,
+  // The maquette's own .svgicon default is stroke:currentColor;fill:none
+  // (line 425); these four circles carry no per-element fill override in
+  // the raw markup (unlike browser's two dots above, which explicitly set
+  // fill="currentColor"), so they render as hollow rings, not solid dots.
+  flower: `<path d="M12 3.5c-4.9 0-8.5 3.35-8.5 7.75 0 4.15 3.1 7.25 7.05 7.25h1.15c1.05 0 1.75-.7 1.75-1.6 0-.7-.35-1.15-.35-1.75 0-1.1.9-1.85 2.1-1.85h1.55c2.2 0 3.75-1.6 3.75-3.8C20.5 6.05 16.9 3.5 12 3.5Z" stroke="currentColor"/><circle cx="7.4" cy="10.1" r="1.15" stroke="currentColor"/><circle cx="10.1" cy="7.35" r="1.15" stroke="currentColor"/><circle cx="14.05" cy="7.3" r="1.15" stroke="currentColor"/><circle cx="16.65" cy="10.05" r="1.15" stroke="currentColor"/>`,
+  workflow: `<rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor"/><rect x="15" y="3" width="6" height="6" rx="1.5" stroke="currentColor"/><rect x="15" y="15" width="6" height="6" rx="1.5" stroke="currentColor"/><path d="M9 6h6" stroke="currentColor"/><path d="M18 9v6" stroke="currentColor"/><path d="M9 6v12h6" stroke="currentColor"/>`,
 }
 
 export interface IconProps extends ComponentProps<"svg"> {
@@ -119,11 +133,15 @@ export interface IconProps extends ComponentProps<"svg"> {
   size?: "small" | "normal" | "medium" | "large"
 }
 
+// Authored in the maquette's own 24x24 coordinate space -- see the
+// comment above `browser` in the icons map.
+const ICONS_24_VIEWBOX = new Set(["browser", "brackets", "briefcase", "flower", "workflow"])
+
 export function Icon(props: IconProps) {
   const [local, others] = splitProps(props, ["name", "size", "class", "classList"])
   const viewBox = () => {
     if (local.name === "magnifying-glass") return "0 0 16 16"
-    if (local.name === "browser") return "0 0 24 24"
+    if (ICONS_24_VIEWBOX.has(local.name)) return "0 0 24 24"
     return "0 0 20 20"
   }
   return (
