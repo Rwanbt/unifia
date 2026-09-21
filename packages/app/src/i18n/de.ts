@@ -46,6 +46,7 @@ export const dict = {
   "theme.scheme.light": "Hell",
   "theme.scheme.dark": "Dunkel",
   "command.sidebar.toggle": "Seitenleiste umschalten",
+  "command.rail.toggle": "Modusleiste umschalten",
   "command.project.open": "Projekt öffnen",
   "command.provider.connect": "Anbieter verbinden",
   "command.server.switch": "Server wechseln",

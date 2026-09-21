@@ -42,6 +42,7 @@ export const dict = {
   "theme.scheme.light": "فاتح",
   "theme.scheme.dark": "داكن",
   "command.sidebar.toggle": "تبديل الشريط الجانبي",
+  "command.rail.toggle": "إظهار / إخفاء شريط الأوضاع",
   "command.project.open": "فتح مشروع",
   "command.provider.connect": "اتصال بموفر",
   "command.server.switch": "تبديل الخادم",

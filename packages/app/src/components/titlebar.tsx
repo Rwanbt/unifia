@@ -195,8 +195,34 @@ export function Titlebar() {
           </div>
         </Show>
         <div class="flex items-center gap-1 shrink-0">
-          <TooltipKeybind
+          {/* #toggleRailBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15227,
+              "shell.classList.toggle('hide-rail')") -- toggles the mode-icon
+              rail (sidebar-shell.tsx, data-v110="rail"), distinct from the
+              context panel below (layout.sidebar / showContextBtn). Had no
+              app equivalent at all before this -- layout.rail is new state.
+              The maquette renders this as a literal "▸" text glyph (no SVG,
+              no state-dependent icon swap), matched literally rather than
+              guessing an icon, consistent with this file's own window-control
+              buttons a few lines down which also use raw unicode glyphs. */}
+          <Tooltip
+            placement="bottom"
+            value={language.t("command.rail.toggle")}
             class={web() ? "hidden shell:flex shrink-0 ml-14" : "hidden shell:flex shrink-0 ml-2"}
+          >
+            <Button
+              variant="ghost"
+              class="titlebar-icon w-8 h-[31px] p-0 box-border grid place-items-center"
+              onClick={layout.rail.toggle}
+              aria-label={language.t("command.rail.toggle")}
+              aria-expanded={layout.rail.opened()}
+            >
+              <span aria-hidden="true" class="text-icon-weak text-[12px] leading-none">
+                ▸
+              </span>
+            </Button>
+          </Tooltip>
+          <TooltipKeybind
+            class="hidden shell:flex shrink-0"
             placement="bottom"
             title={language.t("command.sidebar.toggle")}
             keybind={command.keybind("sidebar.toggle")}
@@ -293,9 +319,12 @@ export function Titlebar() {
             (session-header.tsx) which each also FORCE a specific tab. Live-
             verified present and visible (display:grid) in the maquette's
             "code" mode, right after themeBtn -- the app had no equivalent at
-            all before this. layout-right/layout-right-full mirror
-            showContextBtn's sidebar/sidebar-active pair, divider on the
-            opposite side (right panel, not left). */}
+            all before this. Reuses showContextBtn's own sidebar/sidebar-active
+            icon mirrored (-scale-x-100), not the layout-right/-full family --
+            those are solid-fill rectangles, a different visual language from
+            sidebar-active's stroke outline + 10%-opacity tint (no solid
+            fill), and the maquette's own two icons are literally the same
+            rect+single-divider shape reflected around the center. */}
         <Tooltip placement="bottom" value={language.t("command.inspector.toggle")}>
           <Button
             variant="ghost"
@@ -304,7 +333,11 @@ export function Titlebar() {
             aria-label={language.t("command.inspector.toggle")}
             aria-expanded={layout.inspector.opened()}
           >
-            <Icon size="small" name={layout.inspector.opened() ? "layout-right-full" : "layout-right"} />
+            <Icon
+              size="small"
+              class="-scale-x-100"
+              name={layout.inspector.opened() ? "sidebar-active" : "sidebar"}
+            />
           </Button>
         </Tooltip>
         <Show when={platform.windowControls}>

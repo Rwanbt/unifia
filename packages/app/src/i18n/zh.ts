@@ -48,6 +48,7 @@ export const dict = {
   "theme.scheme.dark": "深色",
 
   "command.sidebar.toggle": "切换侧边栏",
+  "command.rail.toggle": "切换模式栏",
 
   "command.project.open": "打开项目",
 

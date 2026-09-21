@@ -257,6 +257,15 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     const [store, setStore, _, ready] = persisted(
       { ...target, migrate },
       createStore({
+        // Ports #toggleRailBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15227,
+        // `shell.classList.toggle('hide-rail')`) -- the mode-icon strip
+        // (sidebar-shell.tsx, data-v110="rail") had no show/hide state at
+        // all before this; distinct from `sidebar` below, which is the
+        // wider context panel toggled by the maquette's separate
+        // showContextBtn.
+        rail: {
+          opened: true,
+        },
         sidebar: {
           opened: false,
           width: DEFAULT_SIDEBAR_WIDTH,
@@ -626,6 +635,12 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
         move(directory: string, toIndex: number) {
           server.projects.move(directory, toIndex)
+        },
+      },
+      rail: {
+        opened: createMemo(() => store.rail?.opened ?? true),
+        toggle() {
+          setStore("rail", "opened", (x) => !(x ?? true))
         },
       },
       sidebar: {

@@ -2377,3 +2377,73 @@ file tree reachable only via the new generic inspector-toggle + an
 in-panel tab switch -- this is a real architectural question about the
 app's non-per-mode topbar, not something to decide unilaterally under
 "zero differences."
+
+## Four precise, user-specified corrections: rail toggle added, view-switch centered, inspector icon fixed, copy-path made icon-only (2026-09-21, later)
+
+The user's response to the previous round was specific and correct on all
+four points -- no re-investigation needed, these were straightforward
+misses once named:
+
+1. **"le bouton copier le chemin est censé être une icone"** -- the
+   `canOpen()`-false fallback rendered icon+text ("Copier le chemin");
+   every sibling button in that row (file-tree, review, terminal, status)
+   is icon-only. Stripped the text `<span>` and the bordered-pill wrapper,
+   moved the label into a `Tooltip`, matching the plain `titlebar-icon`
+   style of its siblings (and the maquette's own `.top-quick` class, which
+   `#openInBtn` shares with review/terminal).
+2. **"le switch chat/split/editor est censé être au centre de la
+   topbar"** -- moved from `titlebarSlots.right()` to
+   `titlebarSlots.center()`. The maquette's `.workspace-head` gets
+   `justify-content:center!important` in the relevant layout context
+   (v110.css line ~13006); once its title/meta/spacer collapse away (dead,
+   per the previous entry), the view-switch is the only visible child left
+   to center. Live-verified exactly: view-switch center x=709, topbar
+   center x=709.
+3. **"le bouton du panneau inspector est censé être pareil que celui du
+   panneau de gauche mais en symétrie (sans remplissage!)"** -- had used
+   `layout-right`/`layout-right-full` (solid-fill rectangles, wrong visual
+   language). Replaced with the exact same `sidebar`/`sidebar-active` icon
+   showContextBtn already uses (stroke outline + 10%-opacity tint, no
+   solid fill), mirrored via `-scale-x-100` on the `<Icon>`'s forwarded
+   `class` -- matches the maquette's own two icons, which are literally
+   the same rect+single-divider shape reflected around the center
+   (divider at x=9 for showContextBtn, x=15 for topInspectorBtn, exactly
+   symmetric around x=12).
+4. **"il manque le bouton d'affichage de la barre de gauche (petit
+   triangle) tout à gauche de la topbar"** -- real, previously-unnoticed
+   gap: the app had `layout.sidebar` (context panel, mapped to
+   showContextBtn) but nothing for `#toggleRailBtn` (`shell.classList.
+   toggle('hide-rail')` in the maquette), which is a DIFFERENT panel --
+   the mode-icon rail itself (`sidebar-shell.tsx`, `data-v110="rail"`).
+   That component didn't even call `useLayout()` -- the rail had no
+   show/hide state at all before this. Added:
+   - `layout.rail.{opened,toggle}` in `context/layout.tsx`, persisted
+     the same way as `sidebar`/`inspector` (new `rail: {opened: true}`
+     store field, default visible).
+   - `sidebar-shell.tsx`'s `SidebarContent` takes a new `railOpened`
+     prop; the rail div's width/opacity/pointer-events now react to it
+     (collapses to 0 width, matching the maquette's `.shell.hide-rail
+     #rail{opacity:0;pointer-events:none;width:0}`), skipped on mobile
+     (`props.mobile` short-circuits to always-expanded, since mobile
+     doesn't render a rail-toggle button and previously always showed it).
+   - `pages/layout.tsx`'s call site passes `railOpened={() =>
+     layout.rail.opened()}`.
+   - `titlebar.tsx`: new button, first in the left group (before the
+     sidebar-toggle), literal "▸" text glyph -- matched literally rather
+     than guessing an SVG, since the maquette itself uses a plain unicode
+     character here (and this file's own window-control buttons a few
+     lines down already use raw glyphs for minimize/maximize/close). The
+     `ml-14`/`ml-2` margin that used to open the sidebar-toggle button now
+     lives on this new first button instead.
+
+New i18n key `command.rail.toggle` added to all 17 locales (same parity
+requirement as the previous round's keys).
+
+**Verified**: `bun run typecheck` clean (47/47). `bun test --preload
+./happydom.ts ./src` still 1636 pass / 0 fail. Live CDP re-check: rail
+button found (text "▸", x=65, now first), view-switch center exactly
+matches topbar center (709=709), inspector-toggle's rendered SVG confirmed
+using the `sidebar`/`sidebar-active` path data with `-scale-x-100`, copy-
+path button confirmed empty text content (icon-only). Side-by-side
+screenshot sent to the user for direct visual confirmation rather than
+asserting correctness from computed values alone.

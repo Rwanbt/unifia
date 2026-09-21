@@ -42,6 +42,7 @@ export const dict = {
   "theme.scheme.light": "ライト",
   "theme.scheme.dark": "ダーク",
   "command.sidebar.toggle": "サイドバーの切り替え",
+  "command.rail.toggle": "モードレールの切り替え",
   "command.project.open": "プロジェクトを開く",
   "command.provider.connect": "プロバイダーに接続",
   "command.server.switch": "サーバーの切り替え",

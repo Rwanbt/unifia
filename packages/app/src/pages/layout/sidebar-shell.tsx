@@ -17,6 +17,7 @@ import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 export const SidebarContent = (props: {
   mobile?: boolean
   opened: Accessor<boolean>
+  railOpened: Accessor<boolean>
   aimMove: (event: MouseEvent) => void
   projects: Accessor<LocalProject[]>
   renderProject: (project: LocalProject) => JSX.Element
@@ -60,8 +61,13 @@ export const SidebarContent = (props: {
         data-component="sidebar-rail"
         data-v110="rail"
         data-parity={props.mobile ? undefined : "shell.rail"}
-        class="shrink-0 bg-background-base flex flex-col items-center overflow-hidden"
-        style={{ width: "var(--v110-rail, 78px)" }}
+        class="shrink-0 bg-background-base flex flex-col items-center overflow-hidden transition-[width,opacity] duration-200"
+        style={{
+          width: props.mobile || props.railOpened() ? "var(--v110-rail, 78px)" : "0px",
+          "min-width": props.mobile || props.railOpened() ? undefined : "0px",
+          opacity: props.mobile || props.railOpened() ? 1 : 0,
+          "pointer-events": props.mobile || props.railOpened() ? "auto" : "none",
+        }}
         onMouseMove={props.aimMove}
       >
         <div class="flex-1 min-h-0 w-full">

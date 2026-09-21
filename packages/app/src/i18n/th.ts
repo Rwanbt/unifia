@@ -44,6 +44,7 @@ export const dict = {
   "theme.scheme.dark": "มืด",
 
   "command.sidebar.toggle": "สลับแถบข้าง",
+  "command.rail.toggle": "สลับแถบโหมด",
   "command.project.open": "เปิดโปรเจกต์",
   "command.provider.connect": "เชื่อมต่อผู้ให้บริการ",
   "command.server.switch": "สลับเซิร์ฟเวอร์",

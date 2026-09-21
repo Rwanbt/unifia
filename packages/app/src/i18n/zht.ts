@@ -48,6 +48,7 @@ export const dict = {
   "theme.scheme.dark": "深色",
 
   "command.sidebar.toggle": "切換側邊欄",
+  "command.rail.toggle": "切換模式欄",
   "command.project.open": "開啟專案",
   "command.provider.connect": "連接提供者",
   "command.server.switch": "切換伺服器",

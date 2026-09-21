@@ -304,95 +304,79 @@ export function SessionHeader() {
           </Portal>
         )}
       </Show>
+      {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239).
+          Earlier read this as flowing inline after workspace-head's
+          title/meta, mounting it in titlebarSlots.right() -- but that pair
+          is dead (see the removed-block note below) and the maquette's own
+          .workspace-head gets `justify-content:center!important` in the
+          relevant layout context (line ~13006), which centers whatever's
+          left visible inside it once title/meta/spacer collapse away --
+          i.e. the view-switch itself. Moved to titlebarSlots.center(),
+          the grid's own centered track, to match. */}
+      <Show when={titlebarSlots.center()}>
+        {(mount) => (
+          <Portal mount={mount()}>
+            <Show when={platform.platform !== "mobile"}>
+              {(() => {
+                const view = createMemo<"chat" | "split" | "main">(() => {
+                  if (!layout.inspector.opened()) return "chat"
+                  return layout.editorFocus.enabled() ? "main" : "split"
+                })
+                const setView = (next: "chat" | "split" | "main") => {
+                  if (next === "chat") {
+                    layout.editorFocus.disable()
+                    layout.inspector.close()
+                    return
+                  }
+                  if (!layout.inspector.opened()) layout.inspector.open()
+                  if (next === "main") layout.editorFocus.enable()
+                  else layout.editorFocus.disable()
+                }
+                const options = [
+                  { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                  { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                  { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                ]
+                return (
+                  <div
+                    role="radiogroup"
+                    aria-label={language.t("session.header.viewSwitch.label")}
+                    class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--surface-panel)] p-0.5 shrink-0"
+                  >
+                    <For each={options}>
+                      {(option) => (
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={view() === option.id}
+                          // Maquette #layoutSwitch button measures h=22px,
+                          // font-size=9px, padding="5px 9px" live
+                          // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
+                          // text-12-medium is actually 13px (--font-size-
+                          // small), noticeably larger, which was widening
+                          // every button here.
+                          class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
+                          classList={{
+                            "bg-surface-raised-base text-text-strong": view() === option.id,
+                            "text-text-weak hover:text-text-strong": view() !== option.id,
+                          }}
+                          onClick={() => setView(option.id)}
+                        >
+                          {option.label}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                )
+              })()}
+            </Show>
+          </Portal>
+        )}
+      </Show>
       <Show when={titlebarSlots.right()}>
         {(mount) => (
           <Portal mount={mount()}>
             <div class="flex items-center gap-2">
-              {/* #workspaceTitle/#workspaceMeta (Unifia-UI-UX-v110-PORT-READY-R1.html:
-                  15234-15236) were ported here believing the maquette showed
-                  them (its CSS at lines 219-225 does style them), but a later
-                  "v6 refinements" layer overrides that unconditionally:
-                  `.topbar .workspace-head #workspaceTitle,
-                  .topbar .workspace-head #workspaceMeta{display:none}` (no
-                  media query, no other gate) -- confirmed dead in the shipped
-                  maquette both by reading that rule and by live
-                  getComputedStyle() on the rendered page (display:"none" at
-                  every width tried, including the maquette's own 1440x900
-                  reference). Removed instead of just re-gating the breakpoint,
-                  since the maquette never shows this pair at all. */}
-
-              {/* Ports #layoutSwitch (Unifia-UI-UX-v110-PORT-READY-R1.html:15238-15239),
-                  positioned exactly where the maquette's own DOM order puts it:
-                  read via live getBoundingClientRect() on the maquette at
-                  1440x900 -- every element there is order:0 (no CSS order
-                  anywhere), so visual order is DOM order, and layoutSwitch
-                  (x=745) sits directly after workspace-head's title/meta and
-                  BEFORE .top-actions (explorer/review/terminal/theme, which
-                  starts at x=1175) -- not after it, which is where an earlier
-                  attempt in this file had it. The maquette's own script
-                  (module 070) reduces this to exactly these 3 states for
-                  every non-memory mode -- "Graph" is force-hidden outside
-                  memory (line 27926-27929, "the historical Graph button
-                  never belongs to the global layout selector"). Backed by
-                  the same two signals the old single icon-toggle button used
-                  (layout.inspector/layout.editorFocus): "Editor" here is
-                  exactly that button's enabled state. No visible effect on
-                  mobile (sessionPanelWidth only reacts on isDesktop()). */}
-              <Show when={platform.platform !== "mobile"}>
-                {(() => {
-                  const view = createMemo<"chat" | "split" | "main">(() => {
-                    if (!layout.inspector.opened()) return "chat"
-                    return layout.editorFocus.enabled() ? "main" : "split"
-                  })
-                  const setView = (next: "chat" | "split" | "main") => {
-                    if (next === "chat") {
-                      layout.editorFocus.disable()
-                      layout.inspector.close()
-                      return
-                    }
-                    if (!layout.inspector.opened()) layout.inspector.open()
-                    if (next === "main") layout.editorFocus.enable()
-                    else layout.editorFocus.disable()
-                  }
-                  const options = [
-                    { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
-                    { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
-                    { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
-                  ]
-                  return (
-                    <div
-                      role="radiogroup"
-                      aria-label={language.t("session.header.viewSwitch.label")}
-                      class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--surface-panel)] p-0.5 shrink-0"
-                    >
-                      <For each={options}>
-                        {(option) => (
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={view() === option.id}
-                            // Maquette #layoutSwitch button measures h=22px,
-                            // font-size=9px, padding="5px 9px" live
-                            // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
-                            // text-12-medium is actually 13px (--font-size-
-                            // small), noticeably larger, which was widening
-                            // every button here.
-                            class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
-                            classList={{
-                              "bg-surface-raised-base text-text-strong": view() === option.id,
-                              "text-text-weak hover:text-text-strong": view() !== option.id,
-                            }}
-                            onClick={() => setView(option.id)}
-                          >
-                            {option.label}
-                          </button>
-                        )}
-                      </For>
-                    </div>
-                  )
-                })()}
-              </Show>
-
               <div class="flex items-center gap-1">
                 {/* Reordered to match the maquette's real .top-actions order in
                     "code" mode, live-verified (Unifia-UI-UX-v110-PORT-READY-R1.html):
@@ -510,19 +494,23 @@ export function SessionHeader() {
                     <Show
                       when={canOpen()}
                       fallback={
-                        <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-[var(--surface-panel)] overflow-hidden">
+                        // #openInBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15263)
+                        // is a plain icon-only .top-quick button, same as its
+                        // review/terminal/status siblings -- the icon+text pill
+                        // here didn't match that when canOpen() is false (this
+                        // web-preview environment; a real desktop app has
+                        // canOpen() true and renders the open-in-app icon
+                        // below instead).
+                        <Tooltip placement="bottom" value={language.t("session.header.open.copyPath")}>
                           <Button
                             variant="ghost"
-                            class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
+                            class="titlebar-icon w-8 h-[31px] p-0 box-border"
                             onClick={copyPath}
                             aria-label={language.t("session.header.open.copyPath")}
                           >
                             <Icon name="copy" size="small" class="text-icon-base" />
-                            <span class="text-12-regular text-text-strong">
-                              {language.t("session.header.open.copyPath")}
-                            </span>
                           </Button>
-                        </div>
+                        </Tooltip>
                       }
                     >
                       <div class="flex items-center">

@@ -44,6 +44,7 @@ export const dict = {
   "theme.scheme.dark": "Tamno",
 
   "command.sidebar.toggle": "Prikaži/sakrij bočnu traku",
+  "command.rail.toggle": "Prikaži/sakrij traku načina rada",
   "command.project.open": "Otvori projekat",
   "command.provider.connect": "Poveži provajdera",
   "command.server.switch": "Promijeni server",

@@ -42,6 +42,7 @@ export const dict = {
   "theme.scheme.light": "Светлая",
   "theme.scheme.dark": "Тёмная",
   "command.sidebar.toggle": "Переключить боковую панель",
+  "command.rail.toggle": "Переключить панель режимов",
   "command.project.open": "Открыть проект",
   "command.provider.connect": "Подключить провайдера",
   "command.server.switch": "Переключить сервер",

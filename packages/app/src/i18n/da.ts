@@ -44,6 +44,7 @@ export const dict = {
   "theme.scheme.dark": "Mørk",
 
   "command.sidebar.toggle": "Skift sidebjælke",
+  "command.rail.toggle": "Skift tilstandsbjælke",
   "command.project.open": "Åbn projekt",
   "command.provider.connect": "Tilslut udbyder",
   "command.server.switch": "Skift server",

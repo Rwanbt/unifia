@@ -44,6 +44,7 @@ export const dict = {
   "theme.scheme.light": "Açık",
   "theme.scheme.dark": "Koyu",
   "command.sidebar.toggle": "Kenar çubuğunu aç/kapat",
+  "command.rail.toggle": "Mod rayını aç/kapat",
   "command.project.open": "Proje aç",
   "command.provider.connect": "Sağlayıcı bağla",
   "command.server.switch": "Sunucu değiştir",

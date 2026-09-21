@@ -42,6 +42,7 @@ export const dict = {
   "theme.scheme.light": "Jasny",
   "theme.scheme.dark": "Ciemny",
   "command.sidebar.toggle": "Przełącz pasek boczny",
+  "command.rail.toggle": "Przełącz pasek trybów",
   "command.project.open": "Otwórz projekt",
   "command.provider.connect": "Połącz dostawcę",
   "command.server.switch": "Przełącz serwer",

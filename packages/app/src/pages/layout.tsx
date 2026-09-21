@@ -974,6 +974,7 @@ export default function Layout(props: ParentProps) {
     <SidebarContent
       mobile={mobile}
       opened={() => layout.sidebar.opened()}
+      railOpened={() => layout.rail.opened()}
       aimMove={aim.move}
       projects={projects}
       renderProject={(project) => (
