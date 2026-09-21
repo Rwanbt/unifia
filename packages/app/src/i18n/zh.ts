@@ -649,6 +649,10 @@ export const dict = {
   "sidebar.project.recentSessions": "最近会话",
   "sidebar.project.viewAllSessions": "查看全部会话",
   "sidebar.project.clearNotifications": "清除通知",
+  "sidebar.header.navigation": "Navigation",
+  "sidebar.header.subtitle": "{{project}} · {{mode}}",
+  "sidebar.projects.title": "Projects",
+  "sidebar.project.active": "active",
 
   "app.name.desktop": "Unifia Desktop",
 

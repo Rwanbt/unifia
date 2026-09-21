@@ -650,6 +650,10 @@ export const dict = {
   "sidebar.project.recentSessions": "เซสชันล่าสุด",
   "sidebar.project.viewAllSessions": "ดูเซสชันทั้งหมด",
   "sidebar.project.clearNotifications": "ล้างการแจ้งเตือน",
+  "sidebar.header.navigation": "Navigation",
+  "sidebar.header.subtitle": "{{project}} · {{mode}}",
+  "sidebar.projects.title": "Projects",
+  "sidebar.project.active": "active",
 
   "app.name.desktop": "Unifia Desktop",
 

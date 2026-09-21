@@ -656,6 +656,10 @@ export const dict = {
   "sidebar.project.recentSessions": "Nedavne sesije",
   "sidebar.project.viewAllSessions": "Prikaži sve sesije",
   "sidebar.project.clearNotifications": "Očisti obavijesti",
+  "sidebar.header.navigation": "Navigation",
+  "sidebar.header.subtitle": "{{project}} · {{mode}}",
+  "sidebar.projects.title": "Projects",
+  "sidebar.project.active": "active",
 
   "app.name.desktop": "Unifia Desktop",
 

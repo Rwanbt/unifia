@@ -652,6 +652,10 @@ export const dict = {
   "sidebar.project.recentSessions": "Seneste sessioner",
   "sidebar.project.viewAllSessions": "Vis alle sessioner",
   "sidebar.project.clearNotifications": "Ryd notifikationer",
+  "sidebar.header.navigation": "Navigation",
+  "sidebar.header.subtitle": "{{project}} · {{mode}}",
+  "sidebar.projects.title": "Projects",
+  "sidebar.project.active": "active",
 
   "app.name.desktop": "Unifia Desktop",
   "settings.section.desktop": "Desktop",
