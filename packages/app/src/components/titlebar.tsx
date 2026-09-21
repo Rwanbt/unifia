@@ -52,7 +52,6 @@ export function Titlebar() {
 
   const mac = createMemo(() => platform.platform === "desktop" && platform.os === "macos")
   const windows = createMemo(() => platform.platform === "desktop" && platform.os === "windows")
-  const web = createMemo(() => platform.platform === "web")
   const zoom = () => platform.webviewZoom?.() ?? 1
   const minHeight = () => (mac() ? `${40 / zoom()}px` : undefined)
 
@@ -166,7 +165,8 @@ export function Titlebar() {
       <div
         classList={{
           "flex items-center min-w-0": true,
-          "pl-2": !mac(),
+          // .topbar{padding:0 12px} (Unifia-UI-UX-v110-PORT-READY-R1.html:102)
+          "pl-3": !mac(),
         }}
       >
         <Show when={mac()}>
@@ -204,11 +204,7 @@ export function Titlebar() {
               no state-dependent icon swap), matched literally rather than
               guessing an icon, consistent with this file's own window-control
               buttons a few lines down which also use raw unicode glyphs. */}
-          <Tooltip
-            placement="bottom"
-            value={language.t("command.rail.toggle")}
-            class={web() ? "hidden shell:flex shrink-0 ml-14" : "hidden shell:flex shrink-0 ml-2"}
-          >
+          <Tooltip placement="bottom" value={language.t("command.rail.toggle")} class="hidden shell:flex shrink-0">
             <Button
               variant="ghost"
               class="titlebar-icon w-8 h-[31px] p-0 box-border grid place-items-center"
@@ -261,7 +257,8 @@ export function Titlebar() {
       <div
         classList={{
           "flex items-center min-w-0 justify-end": true,
-          "pr-2": !windows(),
+          // .topbar{padding:0 12px} (Unifia-UI-UX-v110-PORT-READY-R1.html:102)
+          "pr-3": !windows(),
         }}
         data-tauri-drag-region
         onMouseDown={drag}

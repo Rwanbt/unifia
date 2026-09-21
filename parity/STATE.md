@@ -2447,3 +2447,32 @@ using the `sidebar`/`sidebar-active` path data with `-scale-x-100`, copy-
 path button confirmed empty text content (icon-only). Side-by-side
 screenshot sent to the user for direct visual confirmation rather than
 asserting correctness from computed values alone.
+
+## Root cause of "left buttons aren't really left-justified": a legacy web-only margin hack inherited by the new rail button (2026-09-21, later)
+
+User question: *"pourquoi les boutons a gauche de la topbar ne sont pas
+réellement justifiés à gauche"*. `git log -S "ml-14"` on titlebar.tsx
+found the origin: commit `ca4c91e001`, "fix: move left panel toggle
+over", whose own message says *"not sure how this impacts on the
+titlebar when the traffic lights are there"` -- a `web()`-only `ml-14`
+(56px) margin bolted onto whatever was the leftmost button at the time
+(the old sidebar-toggle). This session's new rail-toggle button copied
+that same class wholesale, inheriting a 56px offset that had nothing to
+do with it -- on top of the outer wrapper's own `pl-2` (8px), that put
+~64px of empty space before the first icon.
+
+Removed the `ml-14`/`ml-2`/`web()` conditional entirely (the `web` memo
+became dead code as a result, removed too) -- the maquette's own
+`.toggle-rail-btn` has no left margin at all, only `margin-right:2px`.
+
+While fixing this, also corrected the remaining gap to be exact: the
+maquette's `.topbar{padding:0 12px}` (line 102) vs. the app's `pl-2`/
+`pr-2` (8px). Changed both to `pl-3`/`pr-3` (12px) on the non-mac/
+non-windows sides (mac/windows keep their own native-window-chrome
+spacers, a real platform difference the maquette itself doesn't have to
+solve, so left untouched).
+
+**Verified**: `bun run typecheck` clean, `bun test` still 1636/1636. Live
+CDP measurement: rail-button x minus topbar x now exactly 12px (was 8px
+before this entry, ~64px before the `ml-14` removal) -- screenshot sent
+to the user.
