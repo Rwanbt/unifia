@@ -24,7 +24,6 @@ import { createSessionScroll } from "@/pages/session/session-scroll"
 import { showToast } from "@unifia/ui/toast"
 import { useNavigate, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
-import { SessionMobileTabsSection } from "@/pages/session/session-mobile-tabs"
 import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
 import { buildFollowupDockProps } from "@/pages/session/followup-dock-props"
 import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
@@ -296,7 +295,6 @@ export default function Page() {
 
   const [store, setStore] = createStore({
     messageId: undefined as string | undefined,
-    mobileTab: "session" as "session" | "changes",
     changes: "git" as ChangeMode,
     newSessionWorktree: "main",
     deferRender: false,
@@ -613,12 +611,12 @@ export default function Page() {
     markScrollGesture,
   })
 
-  const mobileChanges = createMemo(() => !isDesktop() && store.mobileTab === "changes")
+  const mobileChanges = createMemo(() => false)
   const wantsReview = createMemo(() =>
     isDesktop()
       ? (desktopInspectorOpen() && layout.inspector.tab() === "explorer") ||
         (desktopInspectorWide() && activeTab() === "review")
-      : store.mobileTab === "changes",
+      : false,
   )
 
   createEffect(() => {
@@ -910,17 +908,6 @@ export default function Page() {
       </Show>
       <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
         <div data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col shell:flex-row">
-        <Show when={!isDesktop() && !!params.id}>
-          <SessionMobileTabsSection
-            mobileTab={store.mobileTab}
-            hasReview={hasReview()}
-            reviewCount={reviewCount()}
-            language={language}
-            setMobileTab={(next) => setStore("mobileTab", next)}
-            visible={true}
-          />
-        </Show>
-
         {/* Session panel */}
         <div
           data-v110="session-chat-surface"
