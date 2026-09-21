@@ -14,8 +14,10 @@ import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
 
 const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] as const
-const DEFAULT_SIDEBAR_WIDTH = 344
-const DEFAULT_INSPECTOR_WIDTH = 200
+// v110 default shell width: 62px rail + 248px context panel at 1440px.
+const DEFAULT_SIDEBAR_WIDTH = 310
+// v110 default inspector width at the 1440px reference viewport.
+const DEFAULT_INSPECTOR_WIDTH = 300
 // Matches the maquette's own --v110-chat default exactly
 // (Unifia-UI-UX-v110-PORT-READY-R1.html, measured live at 348px). The panel
 // stays fully resizable by the user; only the starting width changed.
