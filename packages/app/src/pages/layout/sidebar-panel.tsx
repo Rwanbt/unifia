@@ -18,6 +18,7 @@ import { useLayout } from "@/context/layout"
 import { useLanguage } from "@/context/language"
 import { useMode } from "@/context/mode"
 import { useProviders } from "@/hooks/use-providers"
+import { ModeSections } from "./sidebar-panel-mode-sections"
 import { ProjectDisclosure } from "./sidebar-panel-project"
 import type { WorkspaceSidebarContext } from "./sidebar-workspace"
 
@@ -169,6 +170,8 @@ export function SidebarPanel(props: SidebarPanelProps) {
               </div>
             </Collapsible.Content>
           </Collapsible>
+
+          <ModeSections />
         </Show>
       </div>
 

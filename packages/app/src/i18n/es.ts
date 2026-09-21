@@ -600,6 +600,8 @@ export const dict = {
   "sidebar.header.subtitle": "{{project}} · {{mode}}",
   "sidebar.projects.title": "Projects",
   "sidebar.project.active": "active",
+  "sidebar.codeScope.title": "Code Scope",
+  "sidebar.codeScope.entireWorkspace": "Entire workspace",
   "app.name.desktop": "Unifia Desktop",
   "settings.section.desktop": "Escritorio",
   "settings.section.server": "Servidor",
