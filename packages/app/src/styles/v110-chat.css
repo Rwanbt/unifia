@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
+[data-v110="debug-bar"] {
+  display: none;
+}
+
 /* A3 Chat thread + composer chrome -- maquette v110-port-ready-r1
  * §INTERACTIONS Chat. Kept in its own layer so v110.css stays under the
  * AGENTS.md 1500 LOC ceiling. Targets the TWO real anchors the app emits:
@@ -38,6 +42,11 @@
   border-top: 0;
   background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 26%, var(--bg-soft) 100%);
   padding: 10px;
+}
+
+[data-v110="session-chat-surface"] > [data-component="session-composer-region"] > div {
+  width: 100%;
+  max-width: min(100%, 50vw);
 }
 
 [data-v110="composer-dock"] {
@@ -101,13 +110,13 @@
 }
 
 [data-v110="composer-dock"] [data-dock-surface="tray"] [data-action^="prompt-"] {
-  height: 24px;
-  min-height: 24px;
+  height: 28px;
+  min-height: 28px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface-2);
   padding: 0 7px;
-  font-size: 8px;
+  font-size: 9px;
   color: var(--muted);
 }
 
