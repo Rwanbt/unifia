@@ -911,7 +911,7 @@ export default function Layout(props: ParentProps) {
   const mainLeft = createMemo(() => {
     if (mode.routeKind() === "home") return "0px"
     if (!layout.rail.opened() && !layout.sidebar.opened()) return "0px"
-    if (layout.sidebar.opened()) return `calc(${side()}px + 12px)`
+    if (layout.sidebar.opened()) return `calc(${side()}px + 30px)`
     // Reserve the rail's 18px visual inset plus the 12px shell column gap.
     return "calc(var(--v110-rail, 62px) + 30px)"
   })
@@ -957,7 +957,7 @@ export default function Layout(props: ParentProps) {
                 "absolute inset-y-0 left-0": true,
                 "z-30": true,
               }}
-              style={{ width: `${side() + (layout.sidebar.opened() ? 12 : 0)}px` }}
+              style={{ width: `${side() + (layout.sidebar.opened() ? 30 : 0)}px` }}
               ref={(el) => {
                 setState("nav", el)
               }}
@@ -978,7 +978,7 @@ export default function Layout(props: ParentProps) {
               <div
                 class="absolute inset-y-0 z-30 w-0 overflow-visible"
                 data-v110="resize-context-wrapper"
-                style={{ left: `${side()}px` }}
+                style={{ left: `${side() + 30}px` }}
                 onPointerDown={() => setState("sizing", true)}
               >
                 <Separator
