@@ -909,6 +909,13 @@ export default function Layout(props: ParentProps) {
   })
 
   const mode = useMode()
+  const mainLeft = createMemo(() => {
+    if (mode.routeKind() === "home") return "0px"
+    if (!layout.rail.opened() && !layout.sidebar.opened()) return "0px"
+    if (layout.sidebar.opened()) return `calc(${side()}px + 12px)`
+    // Reserve the rail's 18px visual inset plus the 12px shell column gap.
+    return "calc(var(--v110-rail, 62px) + 30px)"
+  })
   const sidebarContent = (mobile?: boolean) => (
     <SidebarContent
       mobile={mobile}
@@ -950,7 +957,7 @@ export default function Layout(props: ParentProps) {
               classList={{
                 "hidden shell:block": true,
                 "absolute inset-y-0 left-0": true,
-                "z-10": true,
+                "z-30": true,
               }}
               style={{ width: `${side()}px` }}
               ref={(el) => {
@@ -995,7 +1002,7 @@ export default function Layout(props: ParentProps) {
 
             <div
               class="hidden shell:block pointer-events-none absolute top-0 right-0 z-0 border-t border-border-weaker-base"
-              style={{ left: "calc(var(--v110-rail, 62px) + 12px)" }}
+              style={{ left: mainLeft() }}
             />
 
             <div class="shell:hidden">
@@ -1054,12 +1061,7 @@ export default function Layout(props: ParentProps) {
                 // Home renders full-bleed: no context panel, no workspace
                 // gutter. The v110 maquette collapses the shell to the rail
                 // only on the home route (see v110-home.css §home-mode).
-                "--main-left":
-                  mode.routeKind() === "home"
-                    ? "0px"
-                    : layout.sidebar.opened()
-                      ? `${side()}px`
-                      : "var(--v110-rail, 62px)",
+                "--main-left": mainLeft(),
               }}
             >
               <main
