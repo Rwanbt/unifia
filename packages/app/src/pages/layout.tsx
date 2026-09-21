@@ -398,9 +398,18 @@ export default function Layout(props: ParentProps) {
 
     const meta = globalSync.data.project.find((p) => p.id === id)
     const root = meta?.worktree
-    if (!root) return
+    const restored = root ? projects.find((p) => p.worktree === root) : undefined
+    if (restored) return restored
 
-    return projects.find((p) => p.worktree === root)
+    // The route can be restored before the project cache/bootstrap finishes,
+    // or when the backend has no persisted project row for this checkout.
+    // Keep the active directory usable instead of rendering an empty panel.
+    return {
+      id: id ?? key,
+      name: getFilename(directory),
+      worktree: directory,
+      expanded: true,
+    } as LocalProject
   })
 
   const [autoselecting] = createResource(async () => {
