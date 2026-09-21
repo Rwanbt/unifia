@@ -57,17 +57,12 @@ import { createInlineEditorController } from "./layout/inline-editor"
 import type {
   WorkspaceSidebarContext,
 } from "./layout/sidebar-workspace"
-import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
 import { SidebarPanel, type SidebarPanelContext } from "./layout/sidebar-panel"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { MobileNav } from "@/shell/v110-mobile-nav"
 import { useMode } from "@/context/mode"
 import { DialogDeleteWorkspace, DialogResetWorkspace } from "./layout/dialog-workspace"
-import {
-  createProjectSidebarContext,
-  createSidebarPanelContext,
-  createWorkspaceSidebarContext,
-} from "./layout/layout-contexts"
+import { createSidebarPanelContext, createWorkspaceSidebarContext } from "./layout/layout-contexts"
 import { createPrefetchSystem } from "./layout/prefetch"
 import { useUpdatePolling, useSDKNotificationToasts } from "./layout/notifications"
 import { createWorkspaceOps, createWorkspaceCreate } from "./layout/workspace-ops"
@@ -80,7 +75,6 @@ export default function Layout(props: ParentProps) {
     Persist.global("layout.page", ["layout.page.v1"]),
     createStore({
       lastProjectSession: {} as { [directory: string]: { directory: string; id: string; at: number } },
-      activeProject: undefined as string | undefined,
       activeWorkspace: undefined as string | undefined,
       workspaceOrder: {} as Record<string, string[]>,
       workspaceName: {} as Record<string, string>,
@@ -748,29 +742,6 @@ export default function Layout(props: ParentProps) {
     ),
   )
 
-  function handleDragStart(event: unknown) {
-    const id = getDraggableId(event)
-    if (!id) return
-    setHoverProject(undefined)
-    setStore("activeProject", id)
-  }
-
-  function handleDragOver(event: DragEvent) {
-    const { draggable, droppable } = event
-    if (draggable && droppable) {
-      const projects = layout.projects.list()
-      const fromIndex = projects.findIndex((p) => p.worktree === draggable.id.toString())
-      const toIndex = projects.findIndex((p) => p.worktree === droppable.id.toString())
-      if (fromIndex !== toIndex && toIndex !== -1) {
-        layout.projects.move(draggable.id.toString(), toIndex)
-      }
-    }
-  }
-
-  function handleDragEnd() {
-    setStore("activeProject", undefined)
-  }
-
   function workspaceIds(project: LocalProject | undefined) {
     if (!project) return []
     const local = project.worktree
@@ -913,36 +884,6 @@ export default function Layout(props: ParentProps) {
     setStore: (key, directory, value) => setStore(key, directory, value),
   })
 
-  const projectSidebarCtx: ProjectSidebarContext = createProjectSidebarContext({
-    currentDir,
-    currentProject,
-    layout,
-    sidebarHovering,
-    aim,
-    state: {
-      hoverProject: () => state.hoverProject,
-      nav: () => state.nav,
-    },
-    setState: (key, value) => setState(key as "hoverProject", value),
-    navigateToProject,
-    openSidebar: () => layout.sidebar.open(),
-    closeProject,
-    showEditProjectDialog,
-    toggleProjectWorkspaces,
-    workspacesEnabled: (project) => project.vcs === "git" && layout.sidebar.workspaces(project.worktree)(),
-    workspaceIds,
-    workspaceLabel,
-    currentSessions,
-    sidebarExpanded,
-    nav: () => state.nav,
-    hoverSession: () => state.hoverSession,
-    setHoverSession,
-    clearHoverProjectSoon,
-    prefetchSession,
-    archiveSession,
-  })
-
-
   const sidebarPanelCtx: SidebarPanelContext = createSidebarPanelContext({
     sidebarHovering,
     workspaceIds,
@@ -967,26 +908,16 @@ export default function Layout(props: ParentProps) {
     handleWorkspaceDragOver: handleWorkspaceDragOver as (event: unknown) => void,
   })
 
-  const projects = () => layout.projects.list()
   const mode = useMode()
-  const projectOverlay = () => <ProjectDragOverlay projects={projects} activeProject={() => store.activeProject} />
   const sidebarContent = (mobile?: boolean) => (
     <SidebarContent
       mobile={mobile}
       opened={() => layout.sidebar.opened()}
       railOpened={() => layout.rail.opened()}
       aimMove={aim.move}
-      projects={projects}
-      renderProject={(project) => (
-        <SortableProject ctx={projectSidebarCtx} project={project} sortNow={sortNow} mobile={mobile} />
-      )}
-      handleDragStart={handleDragStart}
-      handleDragEnd={handleDragEnd}
-      handleDragOver={handleDragOver}
       openProjectLabel={language.t("command.project.open")}
       openProjectKeybind={() => command.keybind("project.open")}
       onOpenProject={chooseProject}
-      renderProjectOverlay={projectOverlay}
       settingsLabel={() => language.t("sidebar.settings")}
       settingsKeybind={() => command.keybind("settings.open")}
       onOpenSettings={openSettings}

@@ -18,7 +18,6 @@ import type { Session } from "../../types/sdk-shim"
 import type { LocalProject } from "@/context/layout"
 import type { Accessor } from "solid-js"
 import type { WorkspaceSidebarContext } from "./sidebar-workspace"
-import type { ProjectSidebarContext } from "./sidebar-project"
 import type { SidebarPanelContext } from "./sidebar-panel"
 
 type InlineEditorComponent = WorkspaceSidebarContext["InlineEditor"]
@@ -76,76 +75,6 @@ export function createWorkspaceSidebarContext(deps: WorkspaceSidebarDeps): Works
     showResetWorkspaceDialog: deps.showResetWorkspaceDialog,
     showDeleteWorkspaceDialog: deps.showDeleteWorkspaceDialog,
     setScrollContainerRef: deps.setScrollContainerRef,
-  }
-}
-
-export interface ProjectSidebarDeps {
-  currentDir: Accessor<string>
-  currentProject: Accessor<LocalProject | undefined>
-  layout: { sidebar: { opened: Accessor<boolean> } }
-  sidebarHovering: Accessor<boolean>
-  aim: {
-    enter: (worktree: string, event: MouseEvent) => void
-    leave: (worktree: string) => void
-    activate: (worktree: string) => void
-  }
-  state: { hoverProject: () => string | undefined; nav: () => HTMLElement | undefined }
-  setState: (key: "hoverProject", value: string | undefined) => void
-  navigateToProject: (directory: string) => void
-  openSidebar: () => void
-  closeProject: (directory: string) => void
-  showEditProjectDialog: (project: LocalProject) => void
-  toggleProjectWorkspaces: (project: LocalProject) => void
-  workspacesEnabled: (project: LocalProject) => boolean
-  workspaceIds: (project: LocalProject) => string[]
-  workspaceLabel: (directory: string, branch?: string, projectId?: string) => string
-  currentSessions: Accessor<Session[]>
-  sidebarExpanded: Accessor<boolean>
-  nav: Accessor<HTMLElement | undefined>
-  hoverSession: Accessor<string | undefined>
-  setHoverSession: (id: string | undefined) => void
-  clearHoverProjectSoon: () => void
-  prefetchSession: (session: Session, priority?: "high" | "low") => void
-  archiveSession: (session: Session) => Promise<void>
-}
-
-export function createProjectSidebarContext(deps: ProjectSidebarDeps): ProjectSidebarContext {
-  return {
-    currentDir: deps.currentDir,
-    currentProject: deps.currentProject,
-    sidebarOpened: () => deps.layout.sidebar.opened(),
-    sidebarHovering: deps.sidebarHovering,
-    hoverProject: deps.state.hoverProject,
-    nav: deps.state.nav,
-
-    onProjectMouseEnter: (worktree, event) => deps.aim.enter(worktree, event),
-    onProjectMouseLeave: (worktree) => deps.aim.leave(worktree),
-    onProjectFocus: (worktree) => deps.aim.activate(worktree),
-    onHoverOpenChanged: (worktree, hoverOpen) => {
-      if (!hoverOpen && deps.state.hoverProject() && deps.state.hoverProject() !== worktree) return
-      deps.setState("hoverProject", hoverOpen ? worktree : undefined)
-    },
-
-    navigateToProject: deps.navigateToProject,
-    openSidebar: deps.openSidebar,
-    closeProject: deps.closeProject,
-    showEditProjectDialog: deps.showEditProjectDialog,
-    toggleProjectWorkspaces: deps.toggleProjectWorkspaces,
-    workspacesEnabled: deps.workspacesEnabled,
-    workspaceIds: deps.workspaceIds,
-    workspaceLabel: deps.workspaceLabel,
-    sessionProps: {
-      navList: deps.currentSessions,
-      sidebarExpanded: deps.sidebarExpanded,
-      sidebarHovering: deps.sidebarHovering,
-      nav: deps.state.nav,
-      hoverSession: deps.hoverSession,
-      setHoverSession: deps.setHoverSession,
-      clearHoverProjectSoon: deps.clearHoverProjectSoon,
-      prefetchSession: deps.prefetchSession,
-      archiveSession: deps.archiveSession,
-    },
-    setHoverSession: deps.setHoverSession,
   }
 }
 

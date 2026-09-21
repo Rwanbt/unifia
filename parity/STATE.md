@@ -2585,3 +2585,82 @@ avant de committer.
 **Vérifié** : `bun run typecheck` clean, `bun test` toujours 1636/1636.
 Capture d'écran du rail envoyée pour comparaison directe avec la
 maquette.
+
+## Rail : esthétique du bouton actif corrigée, bouton projet supprimé, "+" repositionné, groupe du bas vraiment bottom-aligned (2026-09-21, later)
+
+Quatre retours utilisateur supplémentaires sur la même série de captures,
+tous vérifiés puis corrigés :
+
+**1. "il manque toujours l'icone automation"** -- investigué, PAS un bug.
+`visibleModes` (`context/mode.tsx`) filtre "automate" tant que
+`automateAccess() !== "allowed"`, une vraie capacité serveur
+(`workflow.run`, ADR-1041) que ce projet de test n'a pas. Vérifié en
+direct : `["code","work","design"]` seulement dans le DOM du rail de
+l'app, alors que l'icône `workflow` elle-même est correctement définie
+(vérifié par grep direct dans le registre d'icônes). Le bouton Automate
+lui-même n'existe simplement pas dans le DOM de cette session -- rien à
+corriger côté icône, la porte est légitime et pré-existante.
+
+**2. "le bouton sélectionné n'est pas censé avoir cette esthétique"** --
+confirmé et corrigé. Re-mesuré en direct sur la maquette (viewport
+1440x900 explicite, cette fois, après une tentative infructueuse de
+forcer le thème sombre qui n'a rien changé -- la maquette étant déjà en
+thème clair par défaut au runtime malgré `data-theme="dark"` codé en dur
+dans son HTML brut) : fond actif ≈ rgb(222,222,224), texte/icône ≈
+rgb(23,23,26), plus un repère `:before` (3px de large, 24px de haut,
+positionné à left:-7px, même couleur que le texte) -- un indicateur en
+forme de barre verticale à côté du bouton, pas un simple remplissage.
+Une note antérieure de ce même fichier documentait un remplissage sombre
+`#2c2c2f` "measured live" -- re-mesuré cette session et constaté que ça
+ne correspond pas du tout ; cette lecture antérieure a dû être prise
+dans un contexte différent (thème ou état non précisé). `--surface-
+raised-base-active` (#e2e2e2) et `--text-strong` (#171717) -- des tokens
+sémantiques déjà existants dans l'app -- tombent presque exactement sur
+les deux valeurs mesurées ; utilisés à la place d'un nouveau littéral
+codé en dur. Barre d'accent ajoutée via les utilitaires `before:` de
+Tailwind (positionnement absolu, nécessite `relative` sur le bouton).
+Vérifié en direct : fond mesuré rgb(226,226,226), correspond.
+
+**3. "il n'est pas censé y avoir de bouton de projet (opencode)"** --
+supprimé. Contredit la recommandation de la session précédente ("garder,
+différence justifiée") mais l'instruction de l'utilisateur est explicite
+et directe cette fois, pas une question ouverte. Nettoyage en cascade
+complet plutôt qu'un simple masquage visuel, chaque étape vérifiée par
+grep avant suppression :
+- Bloc `<SortableProvider><For>...</For></SortableProvider>` retiré de
+  `sidebar-shell.tsx`, ainsi que le wrapper `DragDropProvider`/
+  `DragDropSensors`/`ConstrainDragXAxis`/`DragOverlay` désormais sans
+  enfant draggable.
+- Props devenues inutiles retirées de l'interface `SidebarContent`
+  (`projects`, `renderProject`, `handleDragStart/End/Over`,
+  `renderProjectOverlay`) et du site d'appel dans `pages/layout.tsx`.
+- `handleDragStart`/`handleDragOver`/`handleDragEnd`, le champ persisté
+  `activeProject`, et `projectOverlay` supprimés de `pages/layout.tsx`
+  -- confirmé par grep qu'aucun n'avait d'autre lecteur/écrivain
+  (`getDraggableId` reste importé, utilisé séparément par
+  `handleWorkspaceDragStart`, une fonctionnalité distincte de réordonnancement
+  de *workspaces*, pas de *projets*, non touchée).
+- `packages/app/src/pages/layout/sidebar-project.tsx` (383 lignes,
+  `SortableProject`/`ProjectDragOverlay`/`ProjectSidebarContext`)
+  supprimé entièrement -- confirmé par grep qu'il n'avait plus aucun
+  consommateur nulle part dans l'app après le nettoyage ci-dessus.
+  `createProjectSidebarContext`/`ProjectSidebarDeps` retirés de
+  `layout-contexts.ts` pour la même raison (~70 lignes).
+- Chaque étape vérifiée par `bunx biome check` (a effectivement détecté
+  les imports/variables devenus inutiles à chaque passe -- `bun run
+  typecheck` seul seul ne les signale pas, ce projet n'a pas
+  `noUnusedLocals` actif) puis re-vérifiée propre après correction.
+
+**4. "les boutons en bas sont censé être plus justifié en bas" +
+"le bouton + est censé être juste au dessus du bouton compte"** --
+le bouton "+" (Ouvrir un projet), auparavant rendu juste après les
+icônes de mode (dans la zone scrollable du haut, avant les chips de
+projet maintenant supprimées), déplacé dans le groupe du bas,
+positionné en premier (juste au-dessus du compte). Vérifié en direct :
+ordre vertical +Â(651-693) → compte (701-733) → réglages (741-783),
+espacement de 8px entre chaque, cohérent avec `gap-2`.
+
+**Vérifié** : `bun run typecheck` clean (47/47), `bunx biome check`
+propre sur les 3 fichiers touchés, `bun test` toujours 1636 pass / 0
+fail (aucun test ne couvrait spécifiquement le drag-and-drop de projet
+dans le rail). Capture d'écran envoyée pour comparaison directe.
