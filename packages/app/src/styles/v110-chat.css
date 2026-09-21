@@ -139,12 +139,44 @@
   color: #9b9ba1;
 }
 
-[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-context"] {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  min-height: 28px;
+[data-v110="prompt-send-stack"] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+[data-v110="prompt-send-stack"] [data-v110="context-meter"] {
+  position: absolute;
+  right: 3px;
+  bottom: calc(100% + 6px);
+  z-index: 15;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
   padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
+}
+
+[data-v110="prompt-send-stack"] [data-v110="context-meter"] > div {
+  display: grid;
+  place-items: center;
+}
+
+[data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
+  width: 22px;
+  height: 22px;
+}
+
+[data-v110="prompt-send-stack"] [data-action="prompt-submit"] {
+  margin-left: 0;
 }
 
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:hover,
@@ -203,5 +235,17 @@
     max-width: 34vw;
     padding-inline: 5px;
     font-size: 8px;
+  }
+
+  [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
+    right: 6px;
+    bottom: calc(100% + 5px);
+    width: 24px;
+    height: 24px;
+  }
+
+  [data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
+    width: 24px;
+    height: 24px;
   }
 }

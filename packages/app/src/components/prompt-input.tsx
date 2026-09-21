@@ -1252,21 +1252,22 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   }}
                 />
               </Tooltip>
-              {/* v110 composer footer: context-meter ring sits directly left of send (COMPONENT-MAP.md, context-meter). */}
-              <SessionContextUsage placement="top" />
-              <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
-                <IconButton
-                  data-action="prompt-submit"
-                  type="submit"
-                  disabled={store.mode !== "normal" || (!working() && blank()) || !local.agent.current()}
-                  tabIndex={store.mode === "normal" ? undefined : -1}
-                  icon={stopping() ? "stop" : "arrow-up"}
-                  variant="primary"
-                  class="size-8"
-                  style={buttons()}
-                  aria-label={stopping() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
-                />
-              </Tooltip>
+              <div data-v110="prompt-send-stack">
+                <SessionContextUsage placement="top" />
+                <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
+                  <IconButton
+                    data-action="prompt-submit"
+                    type="submit"
+                    disabled={store.mode !== "normal" || (!working() && blank()) || !local.agent.current()}
+                    tabIndex={store.mode === "normal" ? undefined : -1}
+                    icon={stopping() ? "stop" : "arrow-up"}
+                    variant="primary"
+                    class="size-8"
+                    style={buttons()}
+                    aria-label={stopping() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
+                  />
+                </Tooltip>
+              </div>
             </div>
           </div>
 
