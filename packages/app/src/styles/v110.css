@@ -384,12 +384,11 @@ html[data-ui-animations="off"] *::after {
 }
 
 /* The reference rail is a floating surface, not a full-height blue/black
- * strip. The negative top offset deliberately overlaps the workspace-tabs
- * gutter by 8px, matching the frozen desktop shell geometry. */
+ * strip. Its 12px top inset matches the shell padding below the topbar. */
 [data-v110="rail"] {
   margin-left: 18px;
-  margin-top: -8px;
-  height: calc(100% + 8px);
+  margin-top: 12px;
+  height: calc(100% - 12px);
   border: 1px solid var(--v110-shell-line-strong);
   border-radius: var(--v110-radius-xl);
   background: var(--v110-rail-bg);
@@ -402,24 +401,6 @@ html[data-ui-animations="off"] *::after {
 
 [data-v110="rail"] [aria-pressed="true"] [data-slot="icon-svg"] {
   color: #17171a;
-}
-
-/* Workspace tabs bar (between topbar and workspace body). */
-[data-component="workspace-tabs-bar"] {
-  border-bottom: 1px solid var(--border-base);
-  background: var(--background-base);
-  transition: border-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-component="workspace-tabs-bar"] [role="tab"] {
-  border-radius: var(--v110-radius-sm) var(--v110-radius-sm) 0 0;
-  padding: var(--v110-shell-pad);
-  transition: background-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-component="workspace-tabs-bar"] [role="tab"][aria-selected="true"] {
-  background: var(--background-stronger);
-  color: var(--text-strong);
 }
 
 /* Composer (chat input region) — bottom anchor of every shell mode. */
@@ -722,7 +703,6 @@ html[data-ui-animations="off"] *::after {
   [data-v110="terminal"],
   [data-v110="composer"],
   [data-v110="mobile-nav"] *,
-  [data-component="workspace-tabs-bar"] *,
   [data-component="sidebar-nav-desktop"] *,
   [data-v110="inspector-frame"] *,
   [data-v110="work-surface"] * {
@@ -1236,19 +1216,13 @@ html[data-ui-animations="off"] {
   --v110-soft: 0ms;
 }
 
-/* The motion policy says shell.inspector and shell.workspace-tabs use a
- * finite 220ms transition. The data-v110 selectors let the harness match
- * them and the contract anchors stay rendered. */
+/* The motion policy says shell.inspector uses a finite 220ms transition. */
 [data-parity="shell.inspector"],
 [data-v110="inspector-frame"] {
   transition:
     width var(--v110-soft) var(--v110-easing),
     transform var(--v110-soft) var(--v110-easing),
     opacity var(--v110-soft) var(--v110-easing);
-}
-
-[data-parity="shell.workspace-tabs"] {
-  transition: background-color var(--v110-fast) var(--v110-ease);
 }
 
 [data-parity="work.content"],
