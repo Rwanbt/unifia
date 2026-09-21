@@ -142,6 +142,8 @@
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-context"] {
   width: 28px;
   min-width: 28px;
+  height: 28px;
+  min-height: 28px;
   padding: 0;
 }
 
@@ -180,4 +182,26 @@
   border-color: var(--line-strong);
   background: var(--surface-3);
   color: var(--text);
+}
+
+@media (max-width: 599px) {
+  [data-v110="prompt-composer"] {
+    padding-bottom: 42px;
+  }
+
+  [data-v110="composer-dock"] [data-dock-surface="tray"] {
+    left: 44px;
+    right: 8px;
+    bottom: 40px;
+  }
+
+  [data-v110="composer-dock"] [data-dock-surface="tray"] > div > div {
+    gap: 4px;
+  }
+
+  [data-v110="composer-dock"] [data-dock-surface="tray"] [data-action^="prompt-"] {
+    max-width: 34vw;
+    padding-inline: 5px;
+    font-size: 8px;
+  }
 }
