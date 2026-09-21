@@ -6,6 +6,7 @@ import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
+import { getFilename } from "@unifia/util/path"
 import { displayName } from "@/pages/layout/helpers"
 
 // Ports .crumbs (Unifia-UI-UX-v110-PORT-READY-R1.html:15232,
@@ -28,8 +29,10 @@ export function TopbarBreadcrumb() {
   })
 
   const projectLabel = createMemo(() => {
+    const directory = mode.directory()
+    if (!directory) return undefined
     const current = project()
-    return current ? displayName(current) : undefined
+    return current ? displayName(current) : getFilename(directory)
   })
 
   const modeLabel = createMemo(() => language.t(`workbench.modes.name.${mode.active()}`))

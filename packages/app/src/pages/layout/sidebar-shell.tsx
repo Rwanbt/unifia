@@ -52,7 +52,7 @@ export const SidebarContent = (props: {
   })
 
   return (
-    <div class="flex h-full w-full min-w-0 overflow-hidden">
+    <div class="flex h-full w-full min-w-0 overflow-x-clip overflow-y-visible">
       <div
         data-component="sidebar-rail"
         data-v110="rail"

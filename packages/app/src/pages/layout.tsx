@@ -943,7 +943,7 @@ export default function Layout(props: ParentProps) {
       <WorkspaceTabsBar />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
-          <div class="size-full relative overflow-x-hidden">
+          <div class="size-full relative overflow-x-clip overflow-y-visible">
             <nav
               aria-label={language.t("sidebar.nav.projectsAndSessions")}
               data-component="sidebar-nav-desktop"
@@ -966,7 +966,7 @@ export default function Layout(props: ParentProps) {
                 arm()
               }}
             >
-              <div class="@container w-full h-full contain-strict">{sidebarContent()}</div>
+              <div class="@container w-full h-full">{sidebarContent()}</div>
             </nav>
 
             <Show when={layout.sidebar.opened()}>
