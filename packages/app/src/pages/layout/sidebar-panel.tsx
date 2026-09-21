@@ -129,6 +129,8 @@ export function SidebarPanel(props: SidebarPanelProps) {
 
   return (
     <div
+      data-v110="context-panel"
+      data-mobile={props.mobile ? "true" : undefined}
       classList={{
         "flex flex-col min-h-0 min-w-0 box-border rounded-tl-[12px] px-3": true,
         "border border-b-0 border-border-weak-base": !merged(),

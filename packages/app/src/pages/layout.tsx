@@ -957,7 +957,7 @@ export default function Layout(props: ParentProps) {
                 "absolute inset-y-0 left-0": true,
                 "z-30": true,
               }}
-              style={{ width: `${side()}px` }}
+              style={{ width: `${side() + (layout.sidebar.opened() ? 12 : 0)}px` }}
               ref={(el) => {
                 setState("nav", el)
               }}

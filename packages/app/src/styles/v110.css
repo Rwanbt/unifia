@@ -403,6 +403,17 @@ html[data-ui-animations="off"] *::after {
   color: #17171a;
 }
 
+/* The context panel is a separate floating card in the reference shell. */
+[data-v110="context-panel"]:not([data-mobile]) {
+  margin-left: 12px;
+  margin-top: 12px;
+  height: calc(100% - 12px);
+  border: 1px solid var(--v110-shell-line-strong);
+  border-radius: var(--v110-radius-xl);
+  background: var(--v110-rail-bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
 /* Composer (chat input region) — bottom anchor of every shell mode. */
 [data-v110="composer"],
 [data-component="session-composer-region"] {
