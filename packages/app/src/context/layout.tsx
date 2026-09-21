@@ -163,12 +163,17 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       const sidebar = value.sidebar
       const migratedSidebar = (() => {
         if (!isRecord(sidebar)) return sidebar
-        if (typeof sidebar.workspaces !== "boolean") return sidebar
-        return {
-          ...sidebar,
-          workspaces: {},
-          workspacesDefault: sidebar.workspaces,
+        let next = sidebar
+        if (typeof sidebar.workspaces === "boolean") {
+          next = {
+            ...next,
+            workspaces: {},
+            workspacesDefault: sidebar.workspaces,
+          }
         }
+        // Migrate the pre-v110 default only; preserve user-resized widths.
+        if (next.width === 344) next = { ...next, width: DEFAULT_SIDEBAR_WIDTH }
+        return next
       })()
 
       // v110: fileTree + review.panelOpened (two independently-toggleable
@@ -179,7 +184,10 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       const fileTree = value.fileTree
       const inspector = value.inspector
       const migratedInspector = (() => {
-        if (isRecord(inspector)) return inspector
+        if (isRecord(inspector)) {
+          // Migrate the pre-v110 default only; preserve user-resized widths.
+          return inspector.width === 200 ? { ...inspector, width: DEFAULT_INSPECTOR_WIDTH } : inspector
+        }
 
         const fileTreeOpened = isRecord(fileTree) && typeof fileTree.opened === "boolean" ? fileTree.opened : false
         const reviewOpened = isRecord(review) && typeof review.panelOpened === "boolean" ? review.panelOpened : false
