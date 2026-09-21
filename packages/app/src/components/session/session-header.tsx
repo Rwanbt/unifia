@@ -321,19 +321,9 @@ export function SessionHeader() {
           <Portal mount={mount()}>
             <Show when={platform.platform !== "mobile"}>
               {(() => {
-                const view = createMemo<"chat" | "split" | "main">(() => {
-                  if (!layout.inspector.opened()) return "chat"
-                  return layout.editorFocus.enabled() ? "main" : "split"
-                })
+                const workspaceView = createMemo(() => view().workspace.current())
                 const setView = (next: "chat" | "split" | "main") => {
-                  if (next === "chat") {
-                    layout.editorFocus.disable()
-                    layout.inspector.close()
-                    return
-                  }
-                  if (!layout.inspector.opened()) layout.inspector.open()
-                  if (next === "main") layout.editorFocus.enable()
-                  else layout.editorFocus.disable()
+                  view().workspace.set(next)
                 }
                 const options = [
                   { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
@@ -351,7 +341,7 @@ export function SessionHeader() {
                         <button
                           type="button"
                           role="radio"
-                          aria-checked={view() === option.id}
+                          aria-checked={workspaceView() === option.id}
                           // Maquette #layoutSwitch button measures h=22px,
                           // font-size=9px, padding="5px 9px" live
                           // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
@@ -360,8 +350,8 @@ export function SessionHeader() {
                           // every button here.
                           class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
                           classList={{
-                            "bg-surface-raised-base text-text-strong": view() === option.id,
-                            "text-text-weak hover:text-text-strong": view() !== option.id,
+                            "bg-surface-raised-base text-text-strong": workspaceView() === option.id,
+                            "text-text-weak hover:text-text-strong": workspaceView() !== option.id,
                           }}
                           onClick={() => setView(option.id)}
                         >

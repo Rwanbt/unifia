@@ -45,6 +45,8 @@ type SessionTabs = {
 
 type SessionView = {
   scroll: Record<string, SessionScroll>
+  // The workspace presentation is independent from the utility Inspector.
+  workspaceView?: "chat" | "split" | "main"
   reviewOpen?: string[]
   pendingMessage?: string
   pendingMessageAt?: number
@@ -311,6 +313,87 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
       }),
     )
+
+    // Hover previews are deliberately ephemeral. The reference shell keeps
+    // pointer-preview state separate from the persisted "pinned" state so a
+    // pointer can reveal a panel without changing the user's layout.
+    type PeekPanel = "rail" | "sidebar" | "inspector"
+    const [peekState, setPeekState] = createStore({
+      rail: { trigger: false, panel: false },
+      sidebar: { trigger: false, panel: false },
+      inspector: { trigger: false, panel: false },
+    })
+    const peekOpenTimers: Record<PeekPanel, number | undefined> = {
+      rail: undefined,
+      sidebar: undefined,
+      inspector: undefined,
+    }
+    const peekCloseTimers: Record<PeekPanel, number | undefined> = {
+      rail: undefined,
+      sidebar: undefined,
+      inspector: undefined,
+    }
+
+    const createPeekController = (panel: PeekPanel, openDelay: number, closeDelay: number) => {
+      const clearOpen = () => {
+        if (peekOpenTimers[panel] === undefined) return
+        window.clearTimeout(peekOpenTimers[panel])
+        peekOpenTimers[panel] = undefined
+      }
+      const clearClose = () => {
+        if (peekCloseTimers[panel] === undefined) return
+        window.clearTimeout(peekCloseTimers[panel])
+        peekCloseTimers[panel] = undefined
+      }
+      const scheduleClose = () => {
+        clearClose()
+        peekCloseTimers[panel] = window.setTimeout(() => {
+          peekCloseTimers[panel] = undefined
+          if (!peekState[panel].trigger && !peekState[panel].panel) return
+          setPeekState(panel, "trigger", false)
+          setPeekState(panel, "panel", false)
+        }, closeDelay)
+      }
+      return {
+        active: createMemo(() => peekState[panel].trigger || peekState[panel].panel),
+        enterTrigger() {
+          clearClose()
+          clearOpen()
+          peekOpenTimers[panel] = window.setTimeout(() => {
+            peekOpenTimers[panel] = undefined
+            setPeekState(panel, "trigger", true)
+          }, openDelay)
+        },
+        leaveTrigger() {
+          clearOpen()
+          setPeekState(panel, "trigger", false)
+          scheduleClose()
+        },
+        enterPanel() {
+          clearClose()
+          setPeekState(panel, "panel", true)
+        },
+        leavePanel() {
+          setPeekState(panel, "panel", false)
+          scheduleClose()
+        },
+        cancel() {
+          clearOpen()
+          clearClose()
+          setPeekState(panel, "trigger", false)
+          setPeekState(panel, "panel", false)
+        },
+      }
+    }
+
+    const hover = {
+      rail: createPeekController("rail", 190, 360),
+      // The desktop app has a 12px titlebar-to-card gap plus a 240ms card
+      // transition; keep the close grace period long enough to cross that
+      // transition without making the panel open from unrelated navigation.
+      sidebar: createPeekController("sidebar", 210, 700),
+      inspector: createPeekController("inspector", 220, 400),
+    }
 
     const MAX_SESSION_KEYS = 50
     const PENDING_MESSAGE_TTL_MS = 2 * 60 * 1000
@@ -612,10 +695,14 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     onCleanup(() => {
       if (sessionFrame !== undefined) cancelAnimationFrame(sessionFrame)
       if (sessionTimer !== undefined) window.clearTimeout(sessionTimer)
+      for (const panel of ["rail", "sidebar", "inspector"] as const) {
+        hover[panel].cancel()
+      }
     })
 
     return {
       ready,
+      hover,
       handoff: {
         tabs: createMemo(() => store.handoff?.tabs),
         setTabs(dir: string, id: string) {
@@ -846,6 +933,17 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         }
 
         return {
+          workspace: {
+            current: createMemo<"chat" | "split" | "main">(() => s().workspaceView ?? "chat"),
+            set(next: "chat" | "split" | "main") {
+              const session = key()
+              if (!store.sessionView[session]) {
+                setStore("sessionView", session, { scroll: {}, workspaceView: next })
+                return
+              }
+              setStore("sessionView", session, "workspaceView", next)
+            },
+          },
           scroll(tab: string) {
             return scroll.scroll(key(), tab)
           },

@@ -1,5 +1,9 @@
 import type { FileDiff, Project, UserMessage } from "../types/sdk-shim"
 import { useDialog } from "@unifia/ui/context/dialog"
+import { Icon } from "@unifia/ui/icon"
+import { IconButton } from "@unifia/ui/icon-button"
+import { Tooltip } from "@unifia/ui/tooltip"
+import { getFilename } from "@unifia/util/path"
 import { getWorkerPool } from "@unifia/ui/pierre/worker"
 import { useMutation } from "@tanstack/solid-query"
 import {
@@ -27,7 +31,6 @@ import { NewSessionView, SessionHeader } from "@/components/session"
 import { SessionTimelineSection } from "@/pages/session/session-timeline-section"
 import { buildFollowupDockProps } from "@/pages/session/followup-dock-props"
 import { buildRevertDockProps } from "@/pages/session/revert-dock-props"
-import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
 import { useComments } from "@/context/comments"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -44,6 +47,7 @@ import { createOpenReviewFile, createSessionTabs, createSizing } from "@/pages/s
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
+import { SessionEditorSurface } from "@/pages/session/session-editor-surface"
 import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
@@ -162,20 +166,23 @@ export default function Page() {
   const platformCtx = usePlatform()
   const isMobileDevice = createMemo(() => platformCtx.platform === "mobile")
   const size = createSizing()
-  const desktopInspectorOpen = createMemo(() => isDesktop() && layout.inspector.opened())
-  // "inspector" tab (opened files, diffs) is the old review pane's wide
-  // content; "explorer"/"execution" are the old file-tree pane's narrow
-  // browsing width.
-  const desktopInspectorWide = createMemo(() => desktopInspectorOpen() && layout.inspector.tab() === "inspector")
+  const desktopInspectorOpen = createMemo(
+    () => isDesktop() && (layout.inspector.opened() || layout.hover.inspector.active()),
+  )
+  // Every inspector tab owns the same fixed-width track. The active tab only
+  // changes the content; it must never change the workspace geometry.
+  const desktopInspectorWide = createMemo(() => desktopInspectorOpen())
   const sessionPanelWidth = createMemo(() => {
-    // FORK: Stretch Phase 6 — editor focus mode collapses the chat panel
-    if (isDesktop() && layout.editorFocus.enabled() && desktopInspectorOpen()) return "0px"
+    // The editor view collapses only the chat surface. The Inspector remains
+    // independently open and keeps its own fixed track when visible.
+    const workspaceView = view().workspace.current()
+    if (isDesktop() && workspaceView === "main") return "0px"
+    if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`
     if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
-    if (desktopInspectorWide()) return `${layout.session.width()}px`
     return `calc(100% - ${layout.inspector.width()}px)`
   })
-  const centered = createMemo(() => isDesktop() && !desktopInspectorWide())
+  const centered = createMemo(() => isDesktop() && view().workspace.current() === "chat")
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -897,6 +904,29 @@ export default function Page() {
     if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
   })
 
+  // Reference `.mode-chat-head`'s scope badge: project name plus the active
+  // branch, read from the same sources session-new-view.tsx already uses so
+  // the two surfaces never disagree about what "the current project" is.
+  const chatScopeLabel = createMemo(() => {
+    const root = sync.project?.worktree ?? sdk.directory
+    const project = getFilename(root)
+    const branch = sync.data.vcs?.branch
+    return branch ? `${project} / ${branch}` : project
+  })
+
+  const copyConversationContext = async () => {
+    const root = scrollEl()
+    if (!root) return
+    const nodes = root.querySelectorAll<HTMLElement>("[data-message-id]")
+    const text = [...nodes]
+      .map((node) => node.textContent?.trim() ?? "")
+      .filter(Boolean)
+      .join("\n\n---\n\n")
+    if (!text) return
+    await navigator.clipboard.writeText(text)
+    showToast({ title: language.t("toast.session.contextCopied") })
+  }
+
   return (
     <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
       <SessionHeader />
@@ -920,6 +950,36 @@ export default function Page() {
             width: sessionPanelWidth(),
           }}
         >
+          <div
+            data-v110="mode-chat-head"
+            class="h-11 shrink-0 flex items-center gap-2 px-1"
+          >
+            <b class="text-12-medium text-text-strong shrink-0">{language.t("session.chat.conversation")}</b>
+            <Tooltip value={language.t("session.chat.scope.tooltip")}>
+              <span class="flex min-w-0 items-center gap-1 text-11-regular text-text-weak truncate">
+                <Icon name="scope" size="small" class="shrink-0" />
+                <span class="truncate">{chatScopeLabel()}</span>
+              </span>
+            </Tooltip>
+            <IconButton
+              icon="trajectory"
+              variant="ghost"
+              size="small"
+              aria-label={language.t("session.chat.trajectory")}
+              onClick={() => {
+                layout.inspector.setTab("execution")
+                layout.inspector.open()
+              }}
+            />
+            <div class="flex-1" />
+            <IconButton
+              icon="copy"
+              variant="ghost"
+              size="small"
+              aria-label={language.t("session.chat.copyContext")}
+              onClick={copyConversationContext}
+            />
+          </div>
           <div class="relative flex-1 min-h-0 overflow-hidden">
             <Switch>
               <Match when={params.id}>
@@ -1000,15 +1060,11 @@ export default function Page() {
             }}
           />
 
-          <Show when={desktopInspectorWide()}>
-            <DesktopChatSeparator
-              desktopInspectorWide={desktopInspectorWide}
-              size={size}
-              layout={layout}
-              language={language}
-            />
-          </Show>
         </div>
+
+        <Show when={view().workspace.current() !== "chat"}>
+          <SessionEditorSurface />
+        </Show>
 
         <SessionSidePanelSection
           canReview={canReview}

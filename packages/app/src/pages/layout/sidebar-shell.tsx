@@ -19,6 +19,12 @@ export const SidebarContent = (props: {
   mobile?: boolean
   opened: Accessor<boolean>
   railOpened: Accessor<boolean>
+  railPeeked: Accessor<boolean>
+  sidebarPeeked: Accessor<boolean>
+  onRailPanelEnter: () => void
+  onRailPanelLeave: () => void
+  onSidebarPanelEnter: () => void
+  onSidebarPanelLeave: () => void
   aimMove: (event: MouseEvent) => void
   openProjectLabel: JSX.Element
   openProjectKeybind: Accessor<string | undefined>
@@ -37,7 +43,8 @@ export const SidebarContent = (props: {
   modeLabel: (mode: ShellMode) => string
 }): JSX.Element => {
   const language = useLanguage()
-  const expanded = createMemo(() => !!props.mobile || props.opened())
+  const expanded = createMemo(() => !!props.mobile || props.opened() || props.sidebarPeeked())
+  const railVisible = createMemo(() => !!props.mobile || props.railOpened() || props.railPeeked())
   const placement = () => (props.mobile ? "bottom" : "right")
   let panel: HTMLDivElement | undefined
 
@@ -52,19 +59,30 @@ export const SidebarContent = (props: {
   })
 
   return (
-    <div class="flex h-full w-full min-w-0 overflow-x-clip overflow-y-visible">
+    <div
+      class="flex h-full w-full min-w-0 overflow-x-clip overflow-y-visible"
+      // The reference opens only from the titlebar trigger. Once the preview
+      // exists, the shell hit-area bridges the gap to the floating panel;
+      // entering this area while closed must remain a no-op.
+      onPointerEnter={() => {
+        if (props.sidebarPeeked()) props.onSidebarPanelEnter()
+      }}
+      onPointerLeave={props.onSidebarPanelLeave}
+    >
       <div
         data-component="sidebar-rail"
         data-v110="rail"
         data-parity={props.mobile ? undefined : "shell.rail"}
         class="shrink-0 bg-background-base flex flex-col items-center overflow-hidden transition-[width,opacity] duration-200"
         style={{
-          width: props.mobile || props.railOpened() ? "var(--v110-rail, 62px)" : "0px",
-          "min-width": props.mobile || props.railOpened() ? undefined : "0px",
-          opacity: props.mobile || props.railOpened() ? 1 : 0,
-          "pointer-events": props.mobile || props.railOpened() ? "auto" : "none",
+          width: railVisible() ? "var(--v110-rail, 62px)" : "0px",
+          "min-width": railVisible() ? undefined : "0px",
+          opacity: railVisible() ? 1 : 0,
+          "pointer-events": railVisible() ? "auto" : "none",
         }}
         onMouseMove={props.aimMove}
+        onPointerEnter={props.onRailPanelEnter}
+        onPointerLeave={props.onRailPanelLeave}
       >
         <div class="flex-1 min-h-0 w-full">
           <div class="h-full w-full flex flex-col items-center gap-3 px-3 py-3 overflow-y-auto no-scrollbar">
@@ -275,6 +293,10 @@ export const SidebarContent = (props: {
           "w-0 opacity-0 pointer-events-none overflow-hidden": !expanded(),
         }}
         aria-hidden={!expanded()}
+        onPointerEnter={props.onSidebarPanelEnter}
+        onPointerLeave={props.onSidebarPanelLeave}
+        onMouseEnter={props.onSidebarPanelEnter}
+        onMouseLeave={props.onSidebarPanelLeave}
       >
         {props.renderPanel()}
       </div>

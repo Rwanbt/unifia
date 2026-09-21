@@ -919,8 +919,10 @@ export default function Layout(props: ParentProps) {
   const mode = useMode()
   const mainLeft = createMemo(() => {
     if (mode.routeKind() === "home") return "0px"
-    if (!layout.rail.opened() && !layout.sidebar.opened()) return "0px"
-    if (layout.sidebar.opened()) return `calc(${side()}px + 30px)`
+    const railVisible = layout.rail.opened() || layout.hover.rail.active()
+    const sidebarVisible = layout.sidebar.opened() || layout.hover.sidebar.active()
+    if (!railVisible && !sidebarVisible) return "0px"
+    if (sidebarVisible) return `calc(${side()}px + 30px)`
     // Reserve the rail's 18px visual inset plus the 12px shell column gap.
     return "calc(var(--v110-rail, 62px) + 30px)"
   })
@@ -929,6 +931,12 @@ export default function Layout(props: ParentProps) {
       mobile={mobile}
       opened={() => layout.sidebar.opened()}
       railOpened={() => layout.rail.opened()}
+      railPeeked={layout.hover.rail.active}
+      sidebarPeeked={layout.hover.sidebar.active}
+      onRailPanelEnter={layout.hover.rail.enterPanel}
+      onRailPanelLeave={layout.hover.rail.leavePanel}
+      onSidebarPanelEnter={layout.hover.sidebar.enterPanel}
+      onSidebarPanelLeave={layout.hover.sidebar.leavePanel}
       aimMove={aim.move}
       openProjectLabel={language.t("command.project.open")}
       openProjectKeybind={() => command.keybind("project.open")}
@@ -966,7 +974,9 @@ export default function Layout(props: ParentProps) {
                 "absolute inset-y-0 left-0": true,
                 "z-30": true,
               }}
-              style={{ width: `${side() + (layout.sidebar.opened() ? 30 : 0)}px` }}
+              style={{
+                width: `${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px`,
+              }}
               ref={(el) => {
                 setState("nav", el)
               }}

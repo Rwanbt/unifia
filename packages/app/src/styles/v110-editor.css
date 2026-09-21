@@ -11,6 +11,38 @@
  * Tailwind). parity:artifacts/tokens-audit.json flagged them inert; they
  * are removed. */
 
+[data-v110="mode-main"] {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@media (min-width: 56.25rem) {
+  [data-component="session-editor-main"] {
+    height: calc(100% - 24px);
+    margin-block: 12px;
+  }
+}
+
+[data-v110="surface-card"] {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--v110-shell-line-strong);
+  border-radius: var(--v110-radius-xl);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+[data-v110="code-tabs"],
+[data-v110="editor-surface-content"] {
+  min-width: 0;
+}
+
 [data-v110="code-editor"] {
   background: var(--surface);
   border: 1px solid var(--line);

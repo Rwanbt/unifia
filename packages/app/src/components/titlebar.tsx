@@ -208,7 +208,14 @@ export function Titlebar() {
             <Button
               variant="ghost"
               class="titlebar-icon w-8 h-[31px] p-0 box-border grid place-items-center"
-              onClick={layout.rail.toggle}
+              onPointerEnter={layout.hover.rail.enterTrigger}
+              onPointerLeave={layout.hover.rail.leaveTrigger}
+              onMouseEnter={layout.hover.rail.enterTrigger}
+              onMouseLeave={layout.hover.rail.leaveTrigger}
+              onClick={() => {
+                layout.hover.rail.cancel()
+                layout.rail.toggle()
+              }}
               aria-label={language.t("command.rail.toggle")}
               aria-expanded={layout.rail.opened()}
             >
@@ -226,7 +233,14 @@ export function Titlebar() {
             <Button
               variant="ghost"
               class="group/sidebar-toggle titlebar-icon w-8 h-[31px] p-0 box-border"
-              onClick={layout.sidebar.toggle}
+              onPointerEnter={layout.hover.sidebar.enterTrigger}
+              onPointerLeave={layout.hover.sidebar.leaveTrigger}
+              onMouseEnter={layout.hover.sidebar.enterTrigger}
+              onMouseLeave={layout.hover.sidebar.leaveTrigger}
+              onClick={() => {
+                layout.hover.sidebar.cancel()
+                layout.sidebar.toggle()
+              }}
               aria-label={language.t("command.sidebar.toggle")}
               aria-expanded={layout.sidebar.opened()}
             >
@@ -326,7 +340,14 @@ export function Titlebar() {
           <Button
             variant="ghost"
             class="titlebar-icon rounded-md shrink-0 w-8 h-[31px] p-0 box-border"
-            onClick={() => (layout.inspector.opened() ? layout.inspector.close() : layout.inspector.open())}
+            onPointerEnter={layout.hover.inspector.enterTrigger}
+            onPointerLeave={layout.hover.inspector.leaveTrigger}
+            onMouseEnter={layout.hover.inspector.enterTrigger}
+            onMouseLeave={layout.hover.inspector.leaveTrigger}
+            onClick={() => {
+              layout.hover.inspector.cancel()
+              layout.inspector.opened() ? layout.inspector.close() : layout.inspector.open()
+            }}
             aria-label={language.t("command.inspector.toggle")}
             aria-expanded={layout.inspector.opened()}
           >

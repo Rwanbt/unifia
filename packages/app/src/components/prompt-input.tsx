@@ -1176,7 +1176,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               }}
             />
 
-            <div class="flex items-center gap-1 pointer-events-auto">
+            <div data-v110="prompt-actions" class="flex items-center gap-1 pointer-events-auto">
               <Show when={variants().length > 1}>
                 <Tooltip
                   placement="top"
@@ -1271,40 +1271,41 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
           </div>
 
-          <div data-v110="prompt-attach-slot" class="pointer-events-none absolute bottom-2 left-2">
-            <div
-              aria-hidden={store.mode !== "normal"}
-              class="pointer-events-auto"
-              style={{
-                "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
-              }}
-            >
-              <TooltipKeybind
-                placement="top"
-                title={language.t("prompt.action.attachFile")}
-                keybind={command.keybind("file.attach")}
-              >
-                <Button
-                  data-action="prompt-attach"
-                  type="button"
-                  variant="ghost"
-                  class="size-8 p-0"
-                  style={buttons()}
-                  onClick={pick}
-                  disabled={store.mode !== "normal"}
-                  tabIndex={store.mode === "normal" ? undefined : -1}
-                  aria-label={language.t("prompt.action.attachFile")}
-                >
-                  <Icon name="plus" class="size-4.5" />
-                </Button>
-              </TooltipKeybind>
-            </div>
-          </div>
         </div>
         </DockShellForm>
         <Show when={store.mode === "normal" || store.mode === "shell"}>
           <DockTray attach="top">
-          <div class="px-1.75 flex items-center gap-2 min-w-0">
+          <div data-v110="prompt-footer-controls" class="flex items-center gap-1.5 min-w-0">
+            <div data-v110="prompt-attach-slot" class="shrink-0">
+              <div
+                aria-hidden={store.mode !== "normal"}
+                class="pointer-events-auto"
+                style={{
+                  "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
+                }}
+              >
+                <TooltipKeybind
+                  placement="top"
+                  title={language.t("prompt.action.attachFile")}
+                  keybind={command.keybind("file.attach")}
+                >
+                  <Button
+                    data-action="prompt-attach"
+                    type="button"
+                    variant="ghost"
+                    class="size-8 p-0"
+                    style={buttons()}
+                    onClick={pick}
+                    disabled={store.mode !== "normal"}
+                    tabIndex={store.mode === "normal" ? undefined : -1}
+                    aria-label={language.t("prompt.action.attachFile")}
+                  >
+                    <Icon name="plus" class="size-4.5" />
+                  </Button>
+                </TooltipKeybind>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
             <div class="flex items-center gap-1.5 min-w-0 flex-1 relative">
               <div
                 class="h-7 flex items-center gap-1.5 max-w-[160px] min-w-0 absolute inset-y-0 left-0"
@@ -1335,7 +1336,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       class="capitalize max-w-[160px] text-text-base"
                       valueClass="truncate text-13-regular text-text-base"
                       triggerStyle={control()}
-                      triggerProps={{ "data-action": "prompt-agent" }}
+                      triggerProps={{ "data-action": "prompt-agent", "data-v110": "prompt-control" }}
                       triggerPrefix={<AgentModeIcon name={local.agent.current()?.name} class="size-4 shrink-0 text-icon-base" />}
                       variant="ghost"
                     />
@@ -1355,6 +1356,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         >
                           <Button
                             data-action="prompt-model"
+                            data-v110="prompt-control"
                             as="div"
                             variant="ghost"
                             size="normal"
@@ -1373,10 +1375,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                                 style={{ "will-change": "opacity", transform: "translateZ(0)" }}
                               />
                             </Show>
+                            <Show when={!local.model.current()?.provider?.id}>
+                              <Icon name="server" class="size-4 shrink-0" />
+                            </Show>
                             <span class="truncate">
                               {local.model.current()?.name ?? language.t("dialog.model.select.title")}
                             </span>
-                            <Icon name="chevron-down" size="small" class="shrink-0" />
                           </Button>
                         </TooltipKeybind>
                       }
@@ -1396,6 +1400,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                             style: control(),
                             class: "min-w-0 max-w-[320px] text-13-regular text-text-base group",
                             "data-action": "prompt-model",
+                            "data-v110": "prompt-control",
                           }}
                           onClose={restoreFocus}
                         >
@@ -1406,10 +1411,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                               style={{ "will-change": "opacity", transform: "translateZ(0)" }}
                             />
                           </Show>
+                          <Show when={!local.model.current()?.provider?.id}>
+                            <Icon name="server" class="size-4 shrink-0" />
+                          </Show>
                           <span class="truncate">
                             {local.model.current()?.name ?? language.t("dialog.model.select.title")}
                           </span>
-                          <Icon name="chevron-down" size="small" class="shrink-0" />
                         </ModelSelectorPopover>
                       </TooltipKeybind>
                     </Show>
@@ -1437,7 +1444,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       class="max-w-[120px] text-text-base"
                       valueClass="truncate text-13-regular text-text-base"
                       triggerStyle={control()}
-                      triggerProps={{ "data-action": "prompt-permissions" }}
+                      triggerProps={{ "data-action": "prompt-permissions", "data-v110": "prompt-control" }}
+                      triggerPrefix={<Icon name="checklist" class="size-4 shrink-0" />}
                       variant="ghost"
                     />
                   </div>
@@ -1468,6 +1476,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     </div>
                   </Show>
                 </Show>
+              </div>
               </div>
             </div>
           </div>

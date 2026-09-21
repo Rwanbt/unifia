@@ -9,6 +9,7 @@ import { Icon } from "@unifia/ui/icon"
 import { useSDK } from "@/context/sdk"
 import { unwrap } from "@/utils/sdk-unwrap"
 import { useLanguage } from "@/context/language"
+import { observableSessionId } from "./settings-observability-session-id"
 
 type SessionItem = { id: string; title?: string }
 type EventDto = {
@@ -57,7 +58,10 @@ export const SettingsObservabilityTimeline: Component<{
   const [expandedTraceId, setExpandedTraceId] = createSignal<string>()
 
   const [events] = createResource(
-    () => props.sessionId ? { sessionId: props.sessionId, refreshKey: props.refreshKey, scope: props.scope } : undefined,
+    () => {
+      const sessionId = observableSessionId(props.sessionId)
+      return sessionId ? { sessionId, refreshKey: props.refreshKey, scope: props.scope } : undefined
+    },
     (source) => unwrap(sdk.client.observability.events.list({ sessionId: source.sessionId, scope: props.scope, limit: 200 })) as Promise<EventDto[]>,
   )
 

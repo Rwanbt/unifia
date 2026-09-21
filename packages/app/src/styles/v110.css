@@ -388,7 +388,8 @@ html[data-ui-animations="off"] *::after {
 [data-v110="rail"] {
   margin-left: 18px;
   margin-top: 12px;
-  height: calc(100% - 12px);
+  margin-bottom: 12px;
+  height: auto;
   border: 1px solid var(--v110-shell-line-strong);
   border-radius: var(--v110-radius-xl);
   background: var(--v110-rail-bg);
@@ -407,7 +408,8 @@ html[data-ui-animations="off"] *::after {
 [data-v110="context-panel"]:not([data-mobile]) {
   margin-left: 12px;
   margin-top: 12px;
-  height: calc(100% - 12px);
+  margin-bottom: 12px;
+  height: auto;
   border: 1px solid var(--v110-shell-line-strong);
   border-radius: var(--v110-radius-xl);
   background: var(--v110-rail-bg);

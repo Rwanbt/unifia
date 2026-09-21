@@ -126,6 +126,10 @@ const icons = {
   // fill="currentColor"), so they render as hollow rings, not solid dots.
   flower: `<path d="M12 3.5c-4.9 0-8.5 3.35-8.5 7.75 0 4.15 3.1 7.25 7.05 7.25h1.15c1.05 0 1.75-.7 1.75-1.6 0-.7-.35-1.15-.35-1.75 0-1.1.9-1.85 2.1-1.85h1.55c2.2 0 3.75-1.6 3.75-3.8C20.5 6.05 16.9 3.5 12 3.5Z" stroke="currentColor"/><circle cx="7.4" cy="10.1" r="1.15" stroke="currentColor"/><circle cx="10.1" cy="7.35" r="1.15" stroke="currentColor"/><circle cx="14.05" cy="7.3" r="1.15" stroke="currentColor"/><circle cx="16.65" cy="10.05" r="1.15" stroke="currentColor"/>`,
   workflow: `<rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor"/><rect x="15" y="3" width="6" height="6" rx="1.5" stroke="currentColor"/><rect x="15" y="15" width="6" height="6" rx="1.5" stroke="currentColor"/><path d="M9 6h6" stroke="currentColor"/><path d="M18 9v6" stroke="currentColor"/><path d="M9 6v12h6" stroke="currentColor"/>`,
+  // Maquette's `.global-chat-scope` badge icon (session-chat-head), 24x24.
+  scope: `<circle cx="12" cy="12" r="3" stroke="currentColor"/><path d="M4 12h5M15 12h5M12 4v5M12 15v5" stroke="currentColor"/><path d="m6.5 6.5 3.3 3.3M14.2 14.2l3.3 3.3M17.5 6.5l-3.3 3.3M9.8 14.2l-3.3 3.3" stroke="currentColor"/>`,
+  // Maquette's `.v94-trajectory-btn` icon (session-chat-head), 24x24.
+  trajectory: `<path d="M5 6h14M5 12h9M5 18h14" stroke="currentColor"/><circle cx="17" cy="12" r="2" stroke="currentColor"/>`,
 }
 
 export interface IconProps extends ComponentProps<"svg"> {
@@ -135,7 +139,7 @@ export interface IconProps extends ComponentProps<"svg"> {
 
 // Authored in the maquette's own 24x24 coordinate space -- see the
 // comment above `browser` in the icons map.
-const ICONS_24_VIEWBOX = new Set(["browser", "brackets", "briefcase", "flower", "workflow"])
+const ICONS_24_VIEWBOX = new Set(["browser", "brackets", "briefcase", "flower", "workflow", "scope", "trajectory"])
 
 export function Icon(props: IconProps) {
   const [local, others] = splitProps(props, ["name", "size", "class", "classList"])

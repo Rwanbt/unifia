@@ -13,7 +13,8 @@
 
 [data-v110="inspector-frame"] {
   background: var(--surface);
-  border-left: 1px solid var(--line);
+  border: 0;
+  border-radius: inherit;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -64,9 +65,32 @@
 }
 
 [data-v110="inspector-content"] {
+  align-self: flex-start;
+  box-sizing: border-box;
+  height: calc(100% - 24px);
+  margin: 12px;
   min-height: 0;
   min-width: 0;
-  flex: 1;
+  flex: 0 0 auto;
   overflow: auto;
   background: var(--surface);
+  border: 1px solid var(--v110-shell-line-strong);
+  border-radius: var(--v110-radius-xl);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+[data-v110="inspector-content"] > div {
+  height: 100%;
+  min-height: 0;
+  border-left: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+[data-v110="inspector-content"].mobile-side-panel {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }

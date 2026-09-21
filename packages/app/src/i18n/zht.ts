@@ -557,6 +557,11 @@ export const dict = {
   "session.revertDock.collapse": "收合已回復訊息",
   "session.revertDock.expand": "展開已回復訊息",
   "session.revertDock.restore": "還原訊息",
+  "session.chat.conversation": "Conversation",
+  "session.chat.scope.tooltip": "One conversation is shared across every mode and tool",
+  "session.chat.trajectory": "Execution",
+  "session.chat.copyContext": "Copy the full conversation context",
+  "toast.session.contextCopied": "Context copied",
 
   "session.new.title": "建構任何東西",
   "session.new.worktree.main": "主分支",
@@ -617,6 +622,8 @@ export const dict = {
   "common.archive": "封存",
   "common.delete": "刪除",
   "common.close": "關閉",
+  "common.noFileOpen": "沒有開啟的檔案",
+  "common.editor": "編輯器",
   "common.edit": "編輯",
   "common.loadMore": "載入更多",
 

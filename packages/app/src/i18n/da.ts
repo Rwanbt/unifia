@@ -561,6 +561,11 @@ export const dict = {
   "session.revertDock.collapse": "Skjul tilbagerullede beskeder",
   "session.revertDock.expand": "Udvid tilbagerullede beskeder",
   "session.revertDock.restore": "Gendan besked",
+  "session.chat.conversation": "Conversation",
+  "session.chat.scope.tooltip": "One conversation is shared across every mode and tool",
+  "session.chat.trajectory": "Execution",
+  "session.chat.copyContext": "Copy the full conversation context",
+  "toast.session.contextCopied": "Context copied",
 
   "session.new.title": "Byg hvad som helst",
   "session.new.worktree.main": "Hovedgren",
@@ -623,6 +628,8 @@ export const dict = {
   "common.archive": "Arkivér",
   "common.delete": "Slet",
   "common.close": "Luk",
+  "common.noFileOpen": "No file open",
+  "common.editor": "Editor",
   "common.edit": "Rediger",
   "common.loadMore": "Indlæs flere",
 

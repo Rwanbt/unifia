@@ -45,6 +45,16 @@
   box-shadow: none;
 }
 
+/* Desktop surfaces share the same floating-card viewport as the rail and
+ * inspector. The chat wrapper used to remain h-full, so it was flush with
+ * the topbar and the bottom edge even though the side panels had gutters. */
+@media (min-width: 56.25rem) {
+  [data-v110="session-chat-surface"] {
+    height: calc(100% - 24px);
+    margin-block: 12px;
+  }
+}
+
 [data-v110="session-chat-surface"] > [data-component="session-composer-region"] {
   border-top: 0;
   background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 26%, var(--bg-soft) 100%);
@@ -67,6 +77,8 @@
 
 [data-v110="prompt-composer"] {
   position: relative;
+  container-type: inline-size;
+  --v110-prompt-actions-reserve: 164px;
   filter: grayscale(1);
   border: 1px solid var(--line-strong);
   border-radius: 14px;
@@ -85,6 +97,7 @@
 
 [data-v110="composer-dock"] [data-component="prompt-input"] {
   min-height: 42px;
+  padding-right: 34px;
   background: transparent;
   color: var(--text);
   border: 0;
@@ -106,8 +119,8 @@
 
 [data-v110="composer-dock"] [data-dock-surface="tray"] {
   position: absolute;
-  left: 44px;
-  right: 152px;
+  left: 8px;
+  right: calc(var(--v110-prompt-actions-reserve) + 8px);
   bottom: 14px;
   z-index: 20;
   margin-top: 0;
@@ -129,6 +142,10 @@
   overflow: hidden;
 }
 
+[data-v110="composer-dock"] [data-dock-surface="tray"] > div > div > div {
+  min-width: 0;
+}
+
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"] {
   box-sizing: border-box;
   height: 28px;
@@ -139,12 +156,15 @@
   color: #9b9ba1;
 }
 
+[data-v110="composer-dock"] [data-v110="prompt-control"] [data-slot="select-select-trigger-icon"] {
+  display: none;
+}
+
 [data-v110="prompt-attach-slot"] {
   display: flex;
   align-items: center;
   height: 28px;
-  bottom: 7px;
-  left: 8px;
+  flex: 0 0 28px;
 }
 
 [data-v110="prompt-attach-slot"] [data-action="prompt-attach"] {
@@ -162,10 +182,14 @@
   flex: 0 0 auto;
 }
 
+[data-v110="prompt-actions"] {
+  gap: 6px;
+}
+
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"] {
   position: absolute;
   right: 3px;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 14px);
   z-index: 15;
   width: 22px;
   height: 22px;
@@ -235,11 +259,16 @@
 
 @media (max-width: 599px) {
   [data-v110="prompt-composer"] {
+    --v110-prompt-actions-reserve: 0px;
     padding-bottom: 42px;
   }
 
+  [data-v110="composer-dock"] [data-component="prompt-input"] {
+    padding-right: 38px;
+  }
+
   [data-v110="composer-dock"] [data-dock-surface="tray"] {
-    left: 44px;
+    left: 8px;
     right: 8px;
     bottom: 46px;
   }
@@ -254,14 +283,9 @@
     font-size: 8px;
   }
 
-  [data-v110="prompt-attach-slot"] {
-    bottom: 39px;
-    left: 8px;
-  }
-
   [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
     right: 6px;
-    bottom: calc(100% + 5px);
+    bottom: calc(100% + 18px);
     width: 24px;
     height: 24px;
   }
@@ -269,5 +293,25 @@
   [data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
     width: 24px;
     height: 24px;
+  }
+}
+
+@container (max-width: 620px) {
+  [data-v110="composer-dock"] [data-v110="prompt-control"] {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-control"] [data-slot="select-select-trigger-value"] {
+    display: none;
+  }
+
+  [data-v110="composer-dock"] [data-v110="prompt-control"] > span.truncate,
+  [data-v110="composer-dock"] [data-v110="prompt-control"] > svg:last-child {
+    display: none;
   }
 }
