@@ -31,11 +31,11 @@
 [data-v110="session-chat-surface"] {
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--v110-radius-xl);
-  background: var(--bg-soft);
-  box-shadow: var(--shadow);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 [data-v110="session-chat-surface"] > [data-component="session-composer-region"] {
@@ -59,6 +59,7 @@
 }
 
 [data-v110="prompt-composer"] {
+  position: relative;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: var(--surface);
@@ -96,6 +97,11 @@
 }
 
 [data-v110="composer-dock"] [data-dock-surface="tray"] {
+  position: absolute;
+  left: 44px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 20;
   margin-top: 0;
   border: 0;
   border-radius: 0;
@@ -107,6 +113,36 @@
 [data-v110="composer-dock"] [data-dock-surface="tray"] > div {
   min-height: 24px;
   padding: 0;
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"] {
+  box-sizing: border-box;
+  height: 28px;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:hover,
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action^="prompt-"]:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] {
+  background: var(--text);
+  border-color: transparent;
+  color: var(--bg);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"]:hover,
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"]:focus-visible {
+  background: var(--text);
+  border-color: transparent;
+  color: var(--bg);
 }
 
 [data-v110="composer-dock"] [data-dock-surface="tray"] [data-action^="prompt-"] {
