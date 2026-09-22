@@ -75,6 +75,10 @@ import { useViewMode } from "@/hooks/use-view-mode"
 import { useShell, useViewport } from "@/shell/v110-store"
 import { useArtifactLoader } from "@/pages/session/use-artifact-loader"
 import { usePromptInitializer } from "@/pages/session/use-prompt-initializer"
+import { SettingsSurface } from "@/pages/settings/settings-surface"
+import { UserSurface } from "@/pages/settings/user-surface"
+import { BrowserSurface } from "@/pages/workbench/browser-surface"
+import { MemorySurface } from "@/pages/workbench/memory-surface"
 
 const emptyUserMessages: UserMessage[] = []
 
@@ -196,11 +200,9 @@ export default function Page() {
   const sessionPanelWidth = createMemo(() => {
     // The editor view collapses only the chat surface. The Inspector remains
     // independently open and keeps its own fixed track when visible.
-    // Non-code modes have no chat/split/main toggle of their own (that
-    // concept is Code's file-tab workspace view) -- they always show chat
-    // narrow + the mode surface wide, i.e. the same geometry as Code's
-    // "split".
-    const workspaceView = mode.active() === "code" ? view().workspace.current() : "split"
+    // Every session mode uses the same Chat/Split/Editor switch. The active
+    // mode changes the main surface content, never the workspace geometry.
+    const workspaceView = view().workspace.current()
     if (isDesktop() && workspaceView === "main") return "0px"
     if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`
     if (!desktopInspectorOpen()) return "100%"
@@ -962,7 +964,11 @@ export default function Page() {
         />
       </Show>
       <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
-        <div data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col shell:flex-row">
+        <div
+          data-component="session-workspace-main"
+          data-inspector-open={desktopInspectorOpen()}
+          class="flex-1 min-h-0 flex flex-col shell:flex-row"
+        >
         {/* Session panel */}
         <div
           data-v110="session-chat-surface"
@@ -997,13 +1003,6 @@ export default function Page() {
               }}
             />
             <div class="flex-1" />
-            <IconButton
-              icon="copy"
-              variant="ghost"
-              size="small"
-              aria-label={language.t("session.chat.copyContext")}
-              onClick={copyConversationContext}
-            />
           </div>
           <div class="relative flex-1 min-h-0 overflow-hidden">
             <Switch>
@@ -1053,6 +1052,15 @@ export default function Page() {
             </Switch>
           </div>
 
+          <IconButton
+            icon="copy"
+            variant="ghost"
+            size="small"
+            data-v110="chat-copy-context"
+            aria-label={language.t("session.chat.copyContext")}
+            onClick={copyConversationContext}
+          />
+
           <SessionComposerRegion
             state={composer}
             ready={!store.deferRender && messagesReady()}
@@ -1088,6 +1096,18 @@ export default function Page() {
         </div>
 
         <Switch>
+          <Match when={mode.destination() === "settings" && view().workspace.current() !== "chat"}>
+            <SettingsSurface onClose={() => mode.select("code")} />
+          </Match>
+          <Match when={mode.destination() === "user" && view().workspace.current() !== "chat"}>
+            <UserSurface onClose={() => mode.select("code")} />
+          </Match>
+          <Match when={mode.destination() === "browser" && view().workspace.current() !== "chat"}>
+            <BrowserSurface />
+          </Match>
+          <Match when={mode.destination() === "memory" && view().workspace.current() !== "chat"}>
+            <MemorySurface />
+          </Match>
           {/* workbench-mode.tsx had this exact branch before /:mode routed
               here (2026-09-22). Without it, a denied/invalid mode (e.g.
               Automate without workflow.run) silently falls through to the
@@ -1101,13 +1121,13 @@ export default function Page() {
               </p>
             </section>
           </Match>
-          <Match when={mode.active() === "work"}>
+          <Match when={mode.active() === "work" && view().workspace.current() !== "chat"}>
             <WorkSurface />
           </Match>
-          <Match when={mode.active() === "design"}>
+          <Match when={mode.active() === "design" && view().workspace.current() !== "chat"}>
             <DesignSurface />
           </Match>
-          <Match when={mode.active() === "automate"}>
+          <Match when={mode.active() === "automate" && view().workspace.current() !== "chat"}>
             <AutomateSurface />
           </Match>
           <Match when={view().workspace.current() !== "chat"}>

@@ -7,7 +7,13 @@ export type ModeLocation =
   | { kind: "home"; directory: ""; mode: undefined; sessionId?: undefined }
   | { kind: "workspace-root"; directory: string; mode: "code"; sessionId?: string }
   | { kind: "mode"; directory: string; mode: Exclude<ShellMode, "code">; sessionId?: string }
+  | { kind: "settings"; directory: string; mode: "settings"; sessionId?: string }
+  | { kind: "user"; directory: string; mode: "user"; sessionId?: string }
+  | { kind: "browser"; directory: string; mode: "browser"; sessionId?: string }
+  | { kind: "memory"; directory: string; mode: "memory"; sessionId?: string }
   | { kind: "invalid"; directory: string; mode: undefined; reason: "workspace" | "mode" | "session" }
+
+export type WorkspaceDestination = ShellMode | "settings" | "user" | "browser" | "memory"
 
 export type AutomateAccess = "unknown" | "allowed" | "denied"
 
@@ -20,7 +26,7 @@ export function sessionSearchFromLocation(search: string): string {
   return session ? `?session=${encodeURIComponent(session)}` : ""
 }
 
-export function parseModeLocation(pathname: string, search = "", automateAccess: AutomateAccess | boolean = "denied"): ModeLocation {
+export function parseModeLocation(pathname: string, search = "", _automateAccess: AutomateAccess | boolean = "denied"): ModeLocation {
   const segments = pathname.split("/").filter(Boolean)
   if (segments.length === 0) return { kind: "home", directory: "", mode: undefined }
 
@@ -43,12 +49,25 @@ export function parseModeLocation(pathname: string, search = "", automateAccess:
     }
     return { kind: "workspace-root", directory, mode: "code", sessionId: pathSession ?? querySession }
   }
-  // ADR-1033: automate is a valid SHELL_MODES entry but an unresolved route
-  // outside the dev flag — it must fail closed like an unknown mode, not
-  // fall through to a route that only fails later at render time.
-  const automateDenied = automateAccess === false || automateAccess === "denied"
-  if (route === "automate" && automateDenied) {
-    return { kind: "invalid", directory, mode: undefined, reason: "mode" }
+  // Keep Automate renderable without workflow.run. Capability enforcement
+  // belongs to the Workbench operation/server boundary; rejecting the route
+  // here produced a misleading invalid-mode screen before the surface could
+  // explain that the bridge or capability was unavailable.
+  if (route === "settings") {
+    if (segments.length > 2) return { kind: "invalid", directory, mode: undefined, reason: "mode" }
+    const session = new URLSearchParams(search).get("session") ?? undefined
+    return { kind: "settings", directory, mode: "settings", sessionId: session }
+  }
+  if (route === "user") {
+    if (segments.length > 2) return { kind: "invalid", directory, mode: undefined, reason: "mode" }
+    const session = new URLSearchParams(search).get("session") ?? undefined
+    return { kind: "user", directory, mode: "user", sessionId: session }
+  }
+  if (route === "browser" || route === "memory") {
+    if (segments.length > 2) return { kind: "invalid", directory, mode: undefined, reason: "mode" }
+    const session = new URLSearchParams(search).get("session") ?? undefined
+    if (route === "browser") return { kind: "browser", directory, mode: "browser", sessionId: session }
+    return { kind: "memory", directory, mode: "memory", sessionId: session }
   }
   if (!SHELL_MODES.includes(route as ShellMode) || route === "code" || segments.length > 2) {
     return { kind: "invalid", directory, mode: undefined, reason: "mode" }
@@ -58,7 +77,7 @@ export function parseModeLocation(pathname: string, search = "", automateAccess:
   return { kind: "mode", directory, mode: route as Exclude<ShellMode, "code">, sessionId: session }
 }
 
-export function modeHref(current: ModeLocation, targetMode: ShellMode): string | undefined {
+export function modeHref(current: ModeLocation, targetMode: WorkspaceDestination): string | undefined {
   if (!current.directory || current.kind === "invalid" || current.kind === "home") return
   const directory = base64Encode(current.directory)
   if (targetMode === "code") {
@@ -83,6 +102,16 @@ export function sessionAdoptionPath(current: ModeLocation, mode: ShellMode, sess
   if (current.kind === "invalid" || current.kind === "home") return
   if (current.sessionId === sessionId) return
   return modeNavigationPath(current.directory, mode, `?session=${encodeURIComponent(sessionId)}`)
+}
+
+export function destinationNavigationPath(
+  directory: string,
+  destination: WorkspaceDestination,
+  sessionSearch: string,
+): string | undefined {
+  if (!directory) return
+  if (destination === "code") return `/${base64Encode(directory)}/session${sessionSearch}`
+  return `/${base64Encode(directory)}/${destination}${sessionSearch}`
 }
 
 export function resolveModeDirectory(routeDirectory: string | undefined): string {

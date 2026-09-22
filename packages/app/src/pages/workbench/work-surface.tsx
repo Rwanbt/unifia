@@ -138,8 +138,10 @@ export function WorkSurface(): JSX.Element {
   }
 
   return (
-    <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="work">
-      <div class="mx-auto max-w-5xl space-y-8">
+    <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
+      <section data-v110="surface-card" data-component="workbench-work-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
+        <div class="size-full overflow-auto p-4 md:p-5" data-workbench-surface="work" data-parity="work.surface">
+          <div class="mx-auto max-w-5xl space-y-6">
         <header class="space-y-2">
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -229,7 +231,9 @@ export function WorkSurface(): JSX.Element {
             </Show>
           </Show>
         </div>
-      </div>
-    </section>
+          </div>
+        </div>
+      </section>
+    </main>
   )
 }

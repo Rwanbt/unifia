@@ -44,6 +44,19 @@ export function InspectorFrame(props: Props): JSX.Element {
       aria-label={props.label}
       style={{ width: "var(--v110-inspector, 300px)" }}
     >
+      <div data-v110="inspector-head" class="flex h-[46px] shrink-0 items-center justify-between border-b border-border-base px-3">
+        <span data-v110="inspector-title" class="min-w-0 truncate text-11-medium text-text-base">{props.title(current())}</span>
+        <button
+          type="button"
+          aria-expanded={props.open}
+          aria-controls="v110-inspector-panel"
+          data-action="inspector-toggle"
+          class="grid size-6 shrink-0 place-items-center rounded-md text-text-weak hover:bg-background-stronger hover:text-text-base"
+          onClick={props.onToggle}
+        >
+          {props.open ? "\u2013" : "+"}
+        </button>
+      </div>
       <div role="tablist" aria-label={props.label} data-v110="inspector-tabs">
         <For each={TABS}>
           {(tab) => (
@@ -58,15 +71,6 @@ export function InspectorFrame(props: Props): JSX.Element {
             </button>
           )}
         </For>
-        <button
-          type="button"
-          aria-expanded={props.open}
-          aria-controls="v110-inspector-panel"
-          data-action="inspector-toggle"
-          onClick={props.onToggle}
-        >
-          {props.open ? "\u2013" : "+"}
-        </button>
       </div>
       <div id="v110-inspector-panel" role="tabpanel" hidden={!props.open}>
         {props.children}

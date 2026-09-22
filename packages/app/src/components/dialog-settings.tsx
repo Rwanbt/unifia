@@ -38,7 +38,7 @@ export const DialogSettings: Component = () => {
   )
 }
 
-const DialogSettingsDesktop: Component = () => {
+export const SettingsPanel: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
 
@@ -165,3 +165,5 @@ const DialogSettingsDesktop: Component = () => {
     </Tabs>
   )
 }
+
+const DialogSettingsDesktop: Component = SettingsPanel

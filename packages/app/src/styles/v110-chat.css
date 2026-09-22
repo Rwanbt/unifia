@@ -45,6 +45,35 @@
   box-shadow: none;
 }
 
+/* The reference docks copy-context over the lower-right conversation edge,
+ * above the composer; keeping it out of the header preserves the header's
+ * breadcrumb rhythm and leaves the conversation controls in one place. */
+[data-v110="chat-copy-context"] {
+  position: absolute;
+  right: 8px;
+  bottom: 112px;
+  z-index: 35;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--muted);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(12px);
+  opacity: 0.74;
+}
+
+[data-v110="chat-copy-context"]:hover,
+[data-v110="chat-copy-context"]:focus-visible {
+  opacity: 1;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
 /* Desktop surfaces share the same floating-card viewport as the rail and
  * inspector. The chat wrapper used to remain h-full, so it was flush with
  * the topbar and the bottom edge even though the side panels had gutters. */
@@ -258,6 +287,16 @@
 }
 
 @media (max-width: 599px) {
+  [data-v110="chat-copy-context"] {
+    right: 8px;
+    bottom: 104px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 11px;
+  }
+
   [data-v110="prompt-composer"] {
     --v110-prompt-actions-reserve: 0px;
     padding-bottom: 42px;

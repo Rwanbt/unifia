@@ -412,6 +412,24 @@ export default function Layout(props: ParentProps) {
     } as LocalProject
   })
 
+  createEffect(() => {
+    const directory = currentDir()
+    if (!directory || !pageReady() || !layoutReady()) return
+    const key = workspaceKey(directory)
+    const registered = layout.projects.list().some(
+      (project) =>
+        workspaceKey(project.worktree) === key ||
+        project.sandboxes?.some((sandbox) => workspaceKey(sandbox) === key),
+    )
+    if (registered) return
+
+    // A direct deep link restores the workspace route but can arrive with an
+    // empty per-browser project registry. Registering the active directory
+    // here keeps the context-panel content available across browsers instead
+    // of rendering only its Navigation heading.
+    layout.projects.open(directory)
+  })
+
   const [autoselecting] = createResource(async () => {
     await ready.promise
     await layout.ready.promise
@@ -545,11 +563,23 @@ export default function Layout(props: ParentProps) {
   }
 
   function openSettings() {
+    if (params.dir) {
+      mode.selectDestination("settings")
+      return
+    }
     const run = ++dialogRef.run
     void import("@/components/dialog-settings").then((x) => {
       if (dialogRef.dead || dialogRef.run !== run) return
       dialog.show(() => <x.DialogSettings />)
     })
+  }
+
+  function openAccount() {
+    if (params.dir) {
+      mode.selectDestination("user")
+      return
+    }
+    openSettings()
   }
 
   function openTeam() {
@@ -922,7 +952,10 @@ export default function Layout(props: ParentProps) {
     const railVisible = layout.rail.opened() || layout.hover.rail.active()
     const sidebarVisible = layout.sidebar.opened() || layout.hover.sidebar.active()
     if (!railVisible && !sidebarVisible) return "0px"
-    if (sidebarVisible) return `calc(${side()}px + 30px)`
+    if (sidebarVisible) {
+      const sidebarWidth = railVisible ? side() : panel()
+      return `calc(${sidebarWidth}px + 30px)`
+    }
     // Reserve the rail's 18px visual inset plus the 12px shell column gap.
     return "calc(var(--v110-rail, 62px) + 30px)"
   })
@@ -944,6 +977,7 @@ export default function Layout(props: ParentProps) {
       settingsLabel={() => language.t("sidebar.settings")}
       settingsKeybind={() => command.keybind("settings.open")}
       onOpenSettings={openSettings}
+      onOpenAccount={openAccount}
       accountLabel={() => language.t("sidebar.account")}
       helpLabel={() => language.t("sidebar.help")}
       onOpenHelp={() => platform.openLink("https://github.com/Rwanbt/unifia")}
@@ -951,8 +985,8 @@ export default function Layout(props: ParentProps) {
         mobile ? <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} mobile /> : <SidebarPanel project={currentProject} ctx={sidebarPanelCtx} merged />
       }
       modes={mode.modes}
-      activeMode={mode.active}
-      onMode={mode.select}
+      activeDestination={mode.destination}
+      onMode={mode.selectDestination}
       modesLabel={language.t("workbench.modes.railLabel")}
       modeLabel={(m) => language.t(`workbench.modes.${m}`)}
     />
@@ -1058,12 +1092,14 @@ export default function Layout(props: ParentProps) {
 
             <MobileNav
               modes={mode.modes}
-              active={mode.active}
+              active={mode.destination}
               onMode={mode.select}
               onSettings={openSettings}
+              onAccount={openAccount}
               navLabel={language.t("workbench.modes.railLabel")}
               modeLabel={(m) => language.t(`workbench.modes.${m}`)}
               settingsLabel={language.t("sidebar.settings")}
+              accountLabel={language.t("sidebar.account")}
             />
 
             <div
@@ -1083,7 +1119,7 @@ export default function Layout(props: ParentProps) {
             >
               <main
                 data-v110="workspace"
-                data-workbench-mode={mode.active()}
+                data-workbench-mode={mode.destination()}
                 classList={{
                   "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
                 }}

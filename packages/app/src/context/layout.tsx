@@ -387,13 +387,40 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     }
 
     const hover = {
-      rail: createPeekController("rail", 190, 360),
+      rail: createPeekController("rail", 190, 900),
       // The desktop app has a 12px titlebar-to-card gap plus a 240ms card
       // transition; keep the close grace period long enough to cross that
       // transition without making the panel open from unrelated navigation.
-      sidebar: createPeekController("sidebar", 210, 700),
-      inspector: createPeekController("inspector", 220, 400),
+      sidebar: createPeekController("sidebar", 210, 1400),
+      inspector: createPeekController("inspector", 220, 1000),
     }
+
+    // Pointer capture can keep the trigger as the event target while the
+    // pointer crosses into a preview surface. The reference keeps the preview
+    // alive as soon as the pointer is geometrically over that surface, so use
+    // its live rectangle as a fallback when the local enter event is missed.
+    onMount(() => {
+      const targets = [
+        [hover.rail, '[data-v110="rail"]'],
+        [hover.sidebar, '[data-v110="context-panel"]'],
+        [hover.inspector, '[data-v110="inspector-content"]'],
+      ] as const
+      const handlePointerMove = (event: PointerEvent) => {
+        for (const [controller, selector] of targets) {
+          if (!controller.active()) continue
+          const element = document.querySelector<HTMLElement>(selector)
+          if (!element) continue
+          const rect = element.getBoundingClientRect()
+          // The trigger lives in the topbar while the preview card starts
+          // below it. Keep a vertical handoff corridor over the card column
+          // so crossing that gap cannot arm the close timer.
+          if (event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= 0 && event.clientY <= rect.bottom) {
+            controller.enterPanel()
+          }
+        }
+      }
+      makeEventListener(window, "pointermove", handlePointerMove)
+    })
 
     const MAX_SESSION_KEYS = 50
     const PENDING_MESSAGE_TTL_MS = 2 * 60 * 1000

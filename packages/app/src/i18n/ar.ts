@@ -523,6 +523,7 @@ export const dict = {
   "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "بحث عن الملفات",
   "session.header.openIn": "فتح في",
+  "session.header.createTaskFromContext": "إنشاء مهمة من السياق الحالي",
   "session.header.open.action": "فتح {{app}}",
   "session.header.open.ariaLabel": "فتح في {{app}}",
   "session.header.open.menu": "خيارات الفتح",

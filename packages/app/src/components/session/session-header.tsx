@@ -13,6 +13,7 @@ import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
@@ -130,6 +131,7 @@ const showRequestError = (language: ReturnType<typeof useLanguage>, err: unknown
 
 export function SessionHeader() {
   const layout = useLayout()
+  const mode = useMode()
   const command = useCommand()
   const server = useServer()
   const platform = usePlatform()
@@ -245,21 +247,7 @@ export function SessionHeader() {
       })
   }
 
-  const copyPath = () => {
-    const directory = projectDirectory()
-    if (!directory) return
-    navigator.clipboard
-      .writeText(directory)
-      .then(() => {
-        showToast({
-          variant: "success",
-          icon: "circle-check",
-          title: language.t("session.share.copy.copied"),
-          description: directory,
-        })
-      })
-      .catch((err: unknown) => showRequestError(language, err))
-  }
+  const createTaskFromContext = () => mode.selectDestination("work")
 
   return (
     <>
@@ -280,12 +268,10 @@ export function SessionHeader() {
               // the grid's mathematically-centered "auto" track instead, which
               // left a large gap after the crumbs that the maquette doesn't have.
               // variant="ghost" forces background/border-color to transparent
-              // (button.css:41-44), so bg-surface-panel/border-border-weak-base
-              // alone were silently losing that cascade fight -- confirmed via
-              // getComputedStyle (backgroundColor read back as transparent
-              // despite the class being present) rather than assumed.
+              // (button.css:41-44), so utility classes lose that cascade fight;
+              // background and border colour are owned by v110.css instead.
               data-v110="session-search"
-              class="h-[31px] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] !border !border-border-weak-base !bg-[var(--v110-rail-bg)] shadow-none cursor-pointer ml-2"
+              class="h-[31px] max-w-full min-w-0 items-center gap-2 justify-between rounded-[11px] border shadow-none cursor-pointer ml-2"
               onClick={() => command.show()}
               aria-label={language.t("session.header.commandSearch.placeholder")}
             >
@@ -396,41 +382,18 @@ export function SessionHeader() {
                       it on its own tab — never just switches tab while open, so a
                       second press of either always reads as "off" (verified by
                       e2e/commands/panels.spec.ts and e2e/files/file-tree.spec.ts). */}
-                  <TooltipKeybind
-                    title={language.t("command.fileTree.toggle")}
-                    keybind={command.keybind("fileTree.toggle")}
-                  >
+                  <Tooltip value={language.t("session.header.createTaskFromContext")}>
                     <Button
                       variant="ghost"
                       class="titlebar-icon w-8 h-[31px] p-0 box-border"
-                      onClick={() => {
-                        if (layout.inspector.opened()) {
-                          layout.inspector.close()
-                          return
-                        }
-                        layout.inspector.setTab("explorer")
-                        layout.inspector.open()
-                      }}
-                      aria-label={language.t("command.fileTree.toggle")}
-                      aria-expanded={layout.inspector.opened() && layout.inspector.tab() === "explorer"}
-                      aria-controls="v110-inspector-panel"
+                      onClick={createTaskFromContext}
+                      aria-label={language.t("session.header.createTaskFromContext")}
                     >
                       <div class="relative flex items-center justify-center size-4">
-                        <Icon
-                          size="small"
-                          name={
-                            layout.inspector.opened() && layout.inspector.tab() === "explorer"
-                              ? "file-tree-active"
-                              : "file-tree"
-                          }
-                          classList={{
-                            "text-icon-strong": layout.inspector.opened() && layout.inspector.tab() === "explorer",
-                            "text-icon-weak": !(layout.inspector.opened() && layout.inspector.tab() === "explorer"),
-                          }}
-                        />
+                        <Icon size="small" name="task-add" />
                       </div>
                     </Button>
-                  </TooltipKeybind>
+                  </Tooltip>
 
                   <TooltipKeybind
                     title={language.t("command.review.toggle")}
@@ -494,14 +457,14 @@ export function SessionHeader() {
                         // web-preview environment; a real desktop app has
                         // canOpen() true and renders the open-in-app icon
                         // below instead).
-                        <Tooltip placement="bottom" value={language.t("session.header.open.copyPath")}>
+                        <Tooltip placement="bottom" value={language.t("session.header.openIn")}>
                           <Button
                             variant="ghost"
                             class="titlebar-icon w-8 h-[31px] p-0 box-border"
-                            onClick={copyPath}
-                            aria-label={language.t("session.header.open.copyPath")}
+                            onClick={() => setMenu("open", true)}
+                            aria-label={language.t("session.header.openIn")}
                           >
-                            <Icon name="copy" size="small" class="text-icon-base" />
+                            <Icon name="open-in" size="small" class="text-icon-base" />
                           </Button>
                         </Tooltip>
                       }
@@ -577,20 +540,6 @@ export function SessionHeader() {
                                     </For>
                                   </DropdownMenu.RadioGroup>
                                 </DropdownMenu.Group>
-                                <DropdownMenu.Separator />
-                                <DropdownMenu.Item
-                                  onSelect={() => {
-                                    setMenu("open", false)
-                                    copyPath()
-                                  }}
-                                >
-                                  <div class="flex size-5 shrink-0 items-center justify-center">
-                                    <Icon name="copy" size="small" class="text-icon-weak" />
-                                  </div>
-                                  <DropdownMenu.ItemLabel>
-                                    {language.t("session.header.open.copyPath")}
-                                  </DropdownMenu.ItemLabel>
-                                </DropdownMenu.Item>
                               </DropdownMenu.Content>
                             </DropdownMenu.Portal>
                           </DropdownMenu>

@@ -12,7 +12,9 @@ describe("session workspace layout", () => {
   test("the workspace remains the positioning context for mobile overlays", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     expect(source).toContain('data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col"')
-    expect(source).toContain('data-component="session-workspace-main" class="flex-1 min-h-0 flex flex-col shell:flex-row"')
+    expect(source).toContain('data-component="session-workspace-main"')
+    expect(source).toContain('data-inspector-open={desktopInspectorOpen()}')
+    expect(source).toContain('class="flex-1 min-h-0 flex flex-col shell:flex-row"')
   })
 
   test("overlay panels are styled by the web bundle, not Android-only CSS", async () => {
@@ -42,6 +44,8 @@ describe("session workspace layout", () => {
     expect(cardBlock).toContain("height: calc(100% - 24px)")
     expect(cardBlock).toContain("border-radius: var(--v110-radius-xl)")
     expect(cardBlock).toContain("box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18)")
+    expect(css).toContain('[data-v110="inspector-content"][aria-hidden="true"]')
+    expect(css).toContain("border: 0")
     expect(cardBlock).toContain("border-left: 0")
     expect(cardBlock).toContain('[data-v110="inspector-content"].mobile-side-panel')
   })
@@ -49,12 +53,23 @@ describe("session workspace layout", () => {
   test("desktop chat and editor surfaces keep the same vertical shell gutters", async () => {
     const chatCss = await Bun.file(new URL("../../styles/v110-chat.css", import.meta.url)).text()
     const editorCss = await Bun.file(new URL("../../styles/v110-editor.css", import.meta.url)).text()
+    const shellCss = await Bun.file(new URL("../../styles/v110.css", import.meta.url)).text()
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     expect(chatCss).toContain('[data-v110="session-chat-surface"]')
     expect(chatCss).toContain("height: calc(100% - 24px)")
     expect(chatCss).toContain("margin-block: 12px")
     expect(editorCss).toContain('[data-component="session-editor-main"]')
+    expect(editorCss).toContain('[data-component="workbench-mode-main"]')
     expect(editorCss).toContain("height: calc(100% - 24px)")
     expect(editorCss).toContain("margin-block: 12px")
+    expect(editorCss).toContain('[data-inspector-open="false"] [data-component="session-editor-main"]')
+    expect(editorCss).toContain("margin-right: 12px")
+    expect(source).toContain('data-inspector-open={desktopInspectorOpen()}')
+    expect(shellCss).toContain('data-v110="rail"] {\n  margin-left: 12px')
+    expect(shellCss).toContain('[data-v110="rail"][data-visible="false"]')
+    expect(shellCss).toContain("  margin: 0;\n  border: 0;")
+    const sidebarShell = await Bun.file(new URL("../layout/sidebar-shell.tsx", import.meta.url)).text()
+    expect(sidebarShell).toContain("data-visible={railVisible()}")
   })
 
   test("session coordinator uses the same viewport contract as the inspector", async () => {
@@ -79,6 +94,24 @@ describe("session workspace layout", () => {
     expect(switchBlock).not.toContain("layout.inspector.close()")
   })
 
+  test("the topbar exposes Open in and context task actions", async () => {
+    const header = await Bun.file(new URL("../../components/session/session-header.tsx", import.meta.url)).text()
+    expect(header).toContain('language.t("session.header.openIn")')
+    expect(header).toContain('language.t("session.header.createTaskFromContext")')
+    expect(header).not.toContain('language.t("session.header.open.copyPath")')
+    expect(header).not.toContain('language.t("command.fileTree.toggle")')
+    expect(header).toContain('name="open-in"')
+    expect(header).toContain('name="task-add"')
+  })
+
+  test("topbar chrome uses the canonical neutral maquette palette", async () => {
+    const styles = await Bun.file(new URL("../../styles/v110.css", import.meta.url)).text()
+    expect(styles).toContain("--v110-topbar-bg: color-mix(in srgb, #121214 94%, transparent)")
+    expect(styles).toContain("--v110-topbar-hover: #2a2a2f")
+    expect(styles).toContain("--v110-topbar-active: #1b1b1e")
+    expect(styles).toContain("border-bottom: 1px solid rgba(255, 255, 255, 0.07)")
+  })
+
   test("Split and Editor mount a real editor surface outside the Inspector", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const editor = await Bun.file(new URL("./session-editor-surface.tsx", import.meta.url)).text()
@@ -94,18 +127,80 @@ describe("session workspace layout", () => {
 
   test("Work/Design/Automate mount their own surface in the same main slot as the editor", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
-    expect(source).toContain('<Match when={mode.active() === "work"}>')
+    const workSurface = await Bun.file(new URL("../workbench/work-surface.tsx", import.meta.url)).text()
+    expect(source).toContain('<Match when={mode.active() === "work" && view().workspace.current() !== "chat"}>')
     expect(source).toContain("<WorkSurface />")
-    expect(source).toContain('<Match when={mode.active() === "design"}>')
+    expect(workSurface).toContain('data-v110="mode-main"')
+    expect(workSurface).toContain('data-v110="surface-card"')
+    expect(workSurface).toContain('data-parity="work.surface"')
+    expect(source).toContain('<Match when={mode.active() === "design" && view().workspace.current() !== "chat"}>')
     expect(source).toContain("<DesignSurface />")
-    expect(source).toContain('<Match when={mode.active() === "automate"}>')
+    const designSurface = await Bun.file(new URL("../workbench/design-surface.tsx", import.meta.url)).text()
+    expect(designSurface).toContain('data-v110="mode-main"')
+    expect(designSurface).toContain('data-v110="surface-card"')
+    expect(designSurface).toContain('data-parity="design.surface"')
+    expect(designSurface).toContain("<DesignWorkspace")
+    expect(source).toContain('<Match when={mode.active() === "automate" && view().workspace.current() !== "chat"}>')
     expect(source).toContain("<AutomateSurface />")
+    const automateSurface = await Bun.file(new URL("../workbench/automate-surface.tsx", import.meta.url)).text()
+    expect(automateSurface).toContain('data-v110="mode-main"')
+    expect(automateSurface).toContain('data-v110="surface-card"')
+    expect(automateSurface).toContain('data-parity="automate.surface"')
+  })
+
+  test("the Chat/Split/Editor switch controls Work geometry exactly like Code", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    expect(source).toContain("const workspaceView = view().workspace.current()")
+    expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
+    expect(source).toContain('if (isDesktop() && workspaceView === "main") return "0px"')
+    expect(source).toContain('if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`')
+  })
+
+  test("the Chat/Split/Editor switch controls Design geometry exactly like Code", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    expect(source).toContain('<Match when={mode.active() === "design" && view().workspace.current() !== "chat"}>')
+    expect(source).toContain("<DesignSurface />")
+    expect(source).toContain("const workspaceView = view().workspace.current()")
+    expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
+  })
+
+  test("session settings reuse the editor slot instead of opening a separate dialog", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const surface = await Bun.file(new URL("../settings/settings-surface.tsx", import.meta.url)).text()
+    expect(source).toContain('mode.destination() === "settings" && view().workspace.current() !== "chat"')
+    expect(source).toContain("<SettingsSurface onClose={() => mode.select(\"code\")} />")
+    expect(surface).toContain('data-v110="mode-main"')
+    expect(surface).toContain('data-v110="surface-card"')
+    expect(surface).toContain('data-parity="settings.surface"')
+    expect(surface).toContain("<SettingsPanel />")
+  })
+
+  test("the account destination reuses the editor slot as an independent workspace surface", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const surface = await Bun.file(new URL("../settings/user-surface.tsx", import.meta.url)).text()
+    expect(source).toContain('mode.destination() === "user" && view().workspace.current() !== "chat"')
+    expect(source).toContain("<UserSurface onClose={() => mode.select(\"code\")} />")
+    expect(surface).toContain('data-v110="mode-main"')
+    expect(surface).toContain('data-v110="surface-card"')
+    expect(surface).toContain('data-parity="user.surface"')
+  })
+
+  test("Browser and Memory destinations mount dedicated editor surfaces", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const browser = await Bun.file(new URL("../workbench/browser-surface.tsx", import.meta.url)).text()
+    const memory = await Bun.file(new URL("../workbench/memory-surface.tsx", import.meta.url)).text()
+    expect(source).toContain('mode.destination() === "browser" && view().workspace.current() !== "chat"')
+    expect(source).toContain('mode.destination() === "memory" && view().workspace.current() !== "chat"')
+    expect(browser).toContain('data-parity="browser.surface"')
+    expect(browser).toContain("<DesignBrowserTab />")
+    expect(memory).toContain('data-parity="memory.surface"')
+    expect(memory).toContain("<MemoryPanel />")
   })
 
   test("the chat pane above is not gated behind mode -- one shared component and session for every mode", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const chatSurfaceIndex = source.indexOf('data-v110="session-chat-surface"')
-    const switchIndex = source.indexOf('<Match when={mode.active() === "work"}>')
+    const switchIndex = source.indexOf('<Match when={mode.active() === "work" && view().workspace.current() !== "chat"}>')
     expect(chatSurfaceIndex).toBeGreaterThan(-1)
     expect(switchIndex).toBeGreaterThan(chatSurfaceIndex)
     // The chat surface's own render has no `mode.active()` branch anywhere
@@ -114,21 +209,46 @@ describe("session workspace layout", () => {
     expect(chatBlock).not.toContain("mode.active()")
   })
 
+  test("chat keeps the prompt placeholder short and docks copy-context at the conversation edge", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const placeholder = await Bun.file(new URL("../../components/prompt-input/placeholder.ts", import.meta.url)).text()
+    const chatCss = await Bun.file(new URL("../../styles/v110-chat.css", import.meta.url)).text()
+    expect(placeholder).toContain('input.t("prompt.placeholder.simple")')
+    expect(source).toContain('data-v110="chat-copy-context"')
+    expect(chatCss).toContain('[data-v110="chat-copy-context"]')
+    expect(chatCss).toContain("bottom: 112px")
+  })
+
   test("every desktop inspector tab uses the same resize track", async () => {
     const source = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
     expect(source).toContain("<Show when={inspectorVisible() && !isOverlay()}>")
     expect(source).toContain("onPointerEnter={layout.hover.inspector.enterPanel}")
+    expect(source).toContain("onPointerMove={layout.hover.inspector.enterPanel}")
+    expect(source).toContain("!layout.inspector.opened()")
+    expect(source).toContain('class="size-full box-border flex border-l border-border-weaker-base"')
     expect(source).not.toContain('layout.inspector.tab() !== "inspector"')
   })
 
-  test("left panel hover has an independent preview state and reserves shell space", async () => {
+  test("left panel hover reserves only the visible panel width when the rail is retracted", async () => {
     const layout = await Bun.file(new URL("../../context/layout.tsx", import.meta.url)).text()
     const shell = await Bun.file(new URL("../layout.tsx", import.meta.url)).text()
     const sidebarShell = await Bun.file(new URL("../layout/sidebar-shell.tsx", import.meta.url)).text()
-    expect(layout).toContain('sidebar: createPeekController("sidebar", 210, 700)')
+    const titlebar = await Bun.file(new URL("../../components/titlebar.tsx", import.meta.url)).text()
+    expect(layout).toContain('sidebar: createPeekController("sidebar", 210, 1400)')
+    expect(layout).toContain('[data-v110="context-panel"]')
+    expect(layout).toContain('makeEventListener(window, "pointermove", handlePointerMove)')
+    expect(layout).toContain('event.clientY >= 0 && event.clientY <= rect.bottom')
     expect(shell).toContain("layout.hover.sidebar.active()")
     expect(shell).toContain("const sidebarVisible = layout.sidebar.opened() || layout.hover.sidebar.active()")
+    expect(shell).toContain("const sidebarWidth = railVisible ? side() : panel()")
+    expect(shell).not.toContain('if (sidebarVisible) return `calc(${side()}px + 30px)`')
     expect(sidebarShell).toContain("if (props.sidebarPeeked()) props.onSidebarPanelEnter()")
+    expect(sidebarShell).not.toContain("onMouseEnter={props.onSidebarPanelEnter}")
+    expect(sidebarShell).not.toContain("onMouseLeave={props.onSidebarPanelLeave}")
+    expect(sidebarShell).toContain('"transition-[width,opacity] duration-200": props.opened() || props.railOpened()')
+    expect(sidebarShell).toContain("onPointerMove={props.onSidebarPanelEnter}")
+    expect(titlebar).not.toContain("onMouseEnter={layout.hover.sidebar.enterTrigger}")
+    expect(titlebar).not.toContain("onMouseLeave={layout.hover.sidebar.leaveTrigger}")
   })
 
   test("terminal resize handle follows the platform, not a width breakpoint", async () => {

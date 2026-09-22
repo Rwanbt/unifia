@@ -2,17 +2,16 @@ import { createEffect, createMemo, For, Show, type Accessor, type JSX } from "so
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
+import type { WorkspaceDestination } from "@/context/mode-directory"
 import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 import { useLanguage } from "@/context/language"
 
-// Browser and Memory are destinations, not SHELL_MODES (ADR-1041,
-// home.tsx:13 -- SHELL_MODES is enforced at exactly 4 entries by
-// scripts/check-mode-registry.mjs). Home already solves this by mapping
-// them onto the closest real mode rather than adding fake modes; the
-// rail reuses the identical mapping so both entry points agree.
+// Browser and Memory are workspace destinations, not SHELL_MODES. They still
+// use the same route/selection contract as the four shell modes; keeping them
+// outside SHELL_MODES preserves the shared registry invariant.
 const RAIL_PILLS = [
-  { id: "browser", icon: "browser", target: "design" as ShellMode, labelKey: "sidebar.rail.browser" },
-  { id: "memory", icon: "brain", target: "code" as ShellMode, labelKey: "sidebar.rail.memory" },
+  { id: "browser", icon: "browser", target: "browser" as const, labelKey: "sidebar.rail.browser" },
+  { id: "memory", icon: "brain", target: "memory" as const, labelKey: "sidebar.rail.memory" },
 ] as const
 
 export const SidebarContent = (props: {
@@ -32,13 +31,14 @@ export const SidebarContent = (props: {
   settingsLabel: Accessor<string>
   settingsKeybind: Accessor<string | undefined>
   onOpenSettings: () => void
+  onOpenAccount: () => void
   accountLabel: Accessor<string>
   helpLabel: Accessor<string>
   onOpenHelp: () => void
   renderPanel: () => JSX.Element
   modes: Accessor<readonly ShellMode[]>
-  activeMode: Accessor<ShellMode>
-  onMode: (mode: ShellMode) => void
+  activeDestination: Accessor<WorkspaceDestination>
+  onMode: (mode: WorkspaceDestination) => void
   modesLabel: string
   modeLabel: (mode: ShellMode) => string
 }): JSX.Element => {
@@ -72,8 +72,12 @@ export const SidebarContent = (props: {
       <div
         data-component="sidebar-rail"
         data-v110="rail"
+        data-visible={railVisible()}
         data-parity={props.mobile ? undefined : "shell.rail"}
-        class="shrink-0 bg-background-base flex flex-col items-center overflow-hidden transition-[width,opacity] duration-200"
+        classList={{
+          "shrink-0 bg-background-base flex flex-col items-center overflow-hidden": true,
+          "transition-[width,opacity] duration-200": props.opened() || props.railOpened(),
+        }}
         style={{
           width: railVisible() ? "var(--v110-rail, 62px)" : "0px",
           "min-width": railVisible() ? undefined : "0px",
@@ -82,6 +86,7 @@ export const SidebarContent = (props: {
         }}
         onMouseMove={props.aimMove}
         onPointerEnter={props.onRailPanelEnter}
+        onPointerMove={props.onRailPanelEnter}
         onPointerLeave={props.onRailPanelLeave}
       >
         <div class="flex-1 min-h-0 w-full">
@@ -146,8 +151,8 @@ export const SidebarContent = (props: {
                       // the button's own fill.
                       classList={{
                         "!bg-surface-raised-base-active [&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full before:bg-text-strong":
-                          props.activeMode() === mode,
-                        "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeMode() !== mode,
+                          props.activeDestination() === mode,
+                        "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeDestination() !== mode,
                       }}
                       // Contrat technique de sélection pour les tests, stable
                       // quelle que soit la locale. L'`aria-label` ci-dessous
@@ -161,18 +166,13 @@ export const SidebarContent = (props: {
                       onMouseEnter={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
                       onFocus={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
                       aria-label={props.modeLabel(mode)}
-                      aria-pressed={props.activeMode() === mode}
+                      aria-pressed={props.activeDestination() === mode}
                     />
                   </Tooltip>
                 )}
               </For>
-              {/* Ports the maquette's Browser/Automate/Memory rail-btn
-                  trio's last two entries (Unifia-UI-UX-v110-PORT-READY-R1.html:
-                  15337-15346) -- not new SHELL_MODES (forbidden, see
-                  RAIL_PILLS above), just two more entry points into the
-                  same real modes Home's own Browser/Memory pills already
-                  open. onMode already accepts a plain ShellMode, so no
-                  new plumbing is needed beyond the mapping itself. */}
+              {/* Browser and Memory are real workspace destinations in the
+                  reference rail, not aliases for Design/Code. */}
               <For each={RAIL_PILLS}>
                 {(pill) => (
                   <Tooltip placement={placement()} value={language.t(pill.labelKey)}>
@@ -180,9 +180,14 @@ export const SidebarContent = (props: {
                       icon={pill.icon}
                       variant="ghost"
                       size="large"
-                      class="!w-[42px] !h-[42px] !rounded-[12px] [&_[data-slot=icon-svg]]:!text-text-weak"
+                      classList={{
+                        "!w-[42px] !h-[42px] !rounded-[12px]": true,
+                        "!bg-surface-raised-base-active [&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full before:bg-text-strong relative": props.activeDestination() === pill.target,
+                        "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeDestination() !== pill.target,
+                      }}
                       onClick={() => props.onMode(pill.target)}
                       aria-label={language.t(pill.labelKey)}
+                      aria-pressed={props.activeDestination() === pill.target}
                     />
                   </Tooltip>
                 )}
@@ -241,8 +246,12 @@ export const SidebarContent = (props: {
             <button
               type="button"
               class="size-8 shrink-0 rounded-full border border-border-strong-base bg-surface-raised-base grid place-items-center text-icon-weak hover:text-icon-strong hover:bg-surface-raised-base-active transition-colors"
-              onClick={props.onOpenSettings}
+              onClick={props.onOpenAccount}
               aria-label={props.accountLabel()}
+              aria-pressed={props.activeDestination() === "user"}
+              classList={{
+                "!bg-surface-raised-base-active text-text-strong": props.activeDestination() === "user",
+              }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8" />
@@ -260,9 +269,14 @@ export const SidebarContent = (props: {
               icon="settings-gear"
               variant="ghost"
               size="large"
-              class="!w-[42px] !h-[42px] !rounded-[12px]"
+              classList={{
+                "!w-[42px] !h-[42px] !rounded-[12px]": true,
+                "!bg-surface-raised-base-active [&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full before:bg-text-strong relative": props.activeDestination() === "settings",
+                "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeDestination() !== "settings",
+              }}
               onClick={props.onOpenSettings}
               aria-label={props.settingsLabel()}
+              aria-pressed={props.activeDestination() === "settings"}
             />
           </TooltipKeybind>
           {/* Desktop-only removal: the maquette's rail (lines 15326-15350) has
@@ -294,9 +308,8 @@ export const SidebarContent = (props: {
         }}
         aria-hidden={!expanded()}
         onPointerEnter={props.onSidebarPanelEnter}
+        onPointerMove={props.onSidebarPanelEnter}
         onPointerLeave={props.onSidebarPanelLeave}
-        onMouseEnter={props.onSidebarPanelEnter}
-        onMouseLeave={props.onSidebarPanelLeave}
       >
         {props.renderPanel()}
       </div>

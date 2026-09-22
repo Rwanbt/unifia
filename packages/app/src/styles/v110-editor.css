@@ -19,9 +19,15 @@
 }
 
 @media (min-width: 56.25rem) {
-  [data-component="session-editor-main"] {
+  [data-component="session-editor-main"],
+  [data-component="workbench-mode-main"] {
     height: calc(100% - 24px);
     margin-block: 12px;
+  }
+
+  [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="session-editor-main"],
+  [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="workbench-mode-main"] {
+    margin-right: 12px;
   }
 }
 

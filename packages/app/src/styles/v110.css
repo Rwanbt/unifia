@@ -28,7 +28,12 @@
   --v110-shell-pad: 10px;
 
   /* Neutral shell chrome from the frozen v110 surface, not brand-mode blue. */
-  --v110-topbar-bg: #0e0e10;
+  /* Exact v110 topbar palette: --bg-soft 94% over --bg, transparent
+   * controls, --hover for pointer feedback, --surface-2 when selected. */
+  --v110-topbar-bg: color-mix(in srgb, #121214 94%, transparent);
+  --v110-topbar-surface: #161618;
+  --v110-topbar-hover: #2a2a2f;
+  --v110-topbar-active: #1b1b1e;
   --v110-rail-bg: #161618;
   --v110-shell-line: rgba(255, 255, 255, 0.07);
   --v110-shell-line-strong: rgba(255, 255, 255, 0.12);
@@ -313,10 +318,44 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-component="v110-topbar"] {
-  border-bottom: 1px solid var(--border-base);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   background: var(--v110-topbar-bg);
   color: #f2f2f3;
   transition: border-color var(--v110-fast) var(--v110-ease);
+}
+
+[data-component="v110-topbar"] [data-component="button"][data-variant="ghost"],
+[data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+[data-component="v110-topbar"] [data-component="button"][data-variant="ghost"]:hover:not(:disabled),
+[data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"]:hover:not(:disabled) {
+  background: var(--v110-topbar-hover);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+[data-component="v110-topbar"] [data-component="button"][data-variant="ghost"][aria-expanded="true"],
+[data-component="v110-topbar"] [data-component="button"][data-variant="ghost"][aria-checked="true"],
+[data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"][aria-expanded="true"] {
+  background: var(--v110-topbar-active);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* The search trigger is a ghost Button: the topbar ghost rules above target
+ * the same element, so the search selector repeats their specificity and
+ * wins by source order, hover included -- no important flag needed. */
+[data-component="v110-topbar"] [data-component="button"][data-v110="session-search"],
+[data-component="v110-topbar"] [data-component="button"][data-v110="session-search"]:hover:not(:disabled),
+[data-component="v110-topbar"] [role="radiogroup"] {
+  background: var(--v110-topbar-surface);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+[data-component="v110-topbar"] [role="radiogroup"] [role="radio"][aria-checked="true"] {
+  background: var(--v110-topbar-active);
+  color: #f2f2f3;
 }
 
 [data-component="v110-topbar"] [data-component="logo"] {
@@ -386,7 +425,7 @@ html[data-ui-animations="off"] *::after {
 /* The reference rail is a floating surface, not a full-height blue/black
  * strip. Its 12px top inset matches the shell padding below the topbar. */
 [data-v110="rail"] {
-  margin-left: 18px;
+  margin-left: 12px;
   margin-top: 12px;
   margin-bottom: 12px;
   height: auto;
@@ -394,6 +433,12 @@ html[data-ui-animations="off"] *::after {
   border-radius: var(--v110-radius-xl);
   background: var(--v110-rail-bg);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+[data-v110="rail"][data-visible="false"] {
+  margin: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 [data-v110="rail"] [data-slot="icon-svg"] {

@@ -3,7 +3,7 @@ import { createStore } from "solid-js/store"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { createSimpleContext } from "@unifia/ui/context"
 import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
-import { modeHref, parseModeLocation, sessionAdoptionPath, type AutomateAccess } from "./mode-directory"
+import { modeHref, parseModeLocation, sessionAdoptionPath, type AutomateAccess, type WorkspaceDestination } from "./mode-directory"
 import { Persist, persisted } from "@/utils/persist"
 
 // ADR-1041 supersedes ADR-1033. SHELL_MODES is still the 4-entry contract
@@ -39,7 +39,7 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
     // denying the actual action when the capability is missing, unchanged.
     const visibleModes = createMemo<readonly ShellMode[]>(() => SHELL_MODES)
     const isMode = (value: string | undefined): value is ShellMode =>
-      !!value && SHELL_MODES.includes(value as ShellMode) && (value !== "automate" || automateAccess() !== "denied")
+      !!value && SHELL_MODES.includes(value as ShellMode)
     const route = createMemo(() => parseModeLocation(location.pathname, location.search, automateAccess()))
     const directory = createMemo(() => route().directory)
     const sessionId = createMemo(() => {
@@ -56,14 +56,29 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
       return isMode(routeMode) ? routeMode : "code"
     })
 
+    const destination = createMemo<WorkspaceDestination>(() => {
+      const current = route()
+      if (current.kind === "settings") return "settings"
+      if (current.kind === "user") return "user"
+      if (current.kind === "browser") return "browser"
+      if (current.kind === "memory") return "memory"
+      return active()
+    })
+
     function select(mode: ShellMode): void {
+      selectDestination(mode)
+    }
+
+    function selectDestination(target: WorkspaceDestination): void {
       if (route().kind === "home") {
-        setPendingMode(mode)
+        if (target === "code" || target === "work" || target === "design" || target === "automate") setPendingMode(target)
         return
       }
-      const path = modeHref(route(), mode)
+      const path = modeHref(route(), target)
       if (!path) return
-      setPreferences("lastModeByWorkspace", directory(), mode)
+      if (target === "code" || target === "work" || target === "design" || target === "automate") {
+        setPreferences("lastModeByWorkspace", directory(), target)
+      }
       navigate(path)
     }
 
@@ -104,7 +119,9 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
        setAutomateAccess,
        automateAccess,
       active,
+      destination,
       select,
+      selectDestination,
       directory,
       sessionId,
       adoptSession,

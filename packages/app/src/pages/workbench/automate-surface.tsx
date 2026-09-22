@@ -242,8 +242,10 @@ export function AutomateSurface(): JSX.Element {
     return { ok: report.ok && added.every((line) => line.severity !== "error"), lines }
   }
   return (
-    <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate" data-v110="automate-surface" data-parity="automate.surface">
-      <div class="mx-auto max-w-5xl space-y-8">
+    <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
+      <section data-v110="surface-card" data-component="workbench-automate-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
+        <section class="size-full overflow-auto p-6 md:p-10" data-workbench-surface="automate" data-v110="automate-surface" data-parity="automate.surface">
+          <div class="mx-auto max-w-5xl space-y-8">
         <header class="space-y-2">
           <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.automate.title")}</p>
           <h1 class="text-24-medium">{t("workbench.automate.heading")}</h1>
@@ -510,6 +512,8 @@ export function AutomateSurface(): JSX.Element {
           </div>
         </div>
       </Show>
-    </section>
+        </section>
+      </section>
+    </main>
   )
 }

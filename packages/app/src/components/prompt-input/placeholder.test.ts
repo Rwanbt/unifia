@@ -24,7 +24,7 @@ describe("promptPlaceholder", () => {
     )
   })
 
-  test("returns default placeholder with example when suggestions enabled", () => {
+  test("keeps the default placeholder short when suggestions are enabled", () => {
     const value = promptPlaceholder({
       mode: "normal",
       commentCount: 0,
@@ -32,7 +32,7 @@ describe("promptPlaceholder", () => {
       suggest: true,
       t,
     })
-    expect(value).toBe("prompt.placeholder.normal:translated-example")
+    expect(value).toBe("prompt.placeholder.simple")
   })
 
   test("returns simple placeholder when suggestions disabled", () => {

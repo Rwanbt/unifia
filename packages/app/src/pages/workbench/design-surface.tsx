@@ -734,7 +734,9 @@ export function DesignSurface(): JSX.Element {
   }
 
   return (
-    <section class="size-full" data-workbench-surface="design">
+    <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
+      <section data-v110="surface-card" data-component="workbench-design-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
+        <div class="size-full min-h-0 overflow-hidden" data-workbench-surface="design" data-parity="design.surface">
       {/* WorkbenchThread + DesignSplit's own "assistant" column used to own
           this mode's chat (2026-09-22 and earlier). Design now mounts under
           SessionRoute like every other mode (session.tsx), which already
@@ -779,7 +781,9 @@ export function DesignSurface(): JSX.Element {
         onCancel={() => void approvalOps.cancel()}
         onRerequest={() => void approvalOps.rerequest()}
       />
-    </section>
+        </div>
+      </section>
+    </main>
   )
 }
 

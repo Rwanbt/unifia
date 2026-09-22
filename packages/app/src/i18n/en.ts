@@ -636,6 +636,7 @@ export const dict = {
   "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Search files",
   "session.header.openIn": "Open in",
+  "session.header.createTaskFromContext": "Create a task from the current context",
   "session.header.open.action": "Open {{app}}",
   "session.header.open.ariaLabel": "Open in {{app}}",
   "session.header.open.menu": "Open options",

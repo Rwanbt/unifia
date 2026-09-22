@@ -530,6 +530,7 @@ export const dict = {
   "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Dosya ara",
   "session.header.openIn": "Aç",
+  "session.header.createTaskFromContext": "Geçerli bağlamdan görev oluştur",
   "session.header.open.action": "{{app}} ile aç",
   "session.header.open.ariaLabel": "{{app}} ile aç",
   "session.header.open.menu": "Açma seçenekleri",

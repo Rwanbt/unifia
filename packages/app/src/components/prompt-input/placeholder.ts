@@ -10,6 +10,7 @@ export function promptPlaceholder(input: PromptPlaceholderInput) {
   if (input.mode === "shell") return input.t("prompt.placeholder.shell")
   if (input.commentCount > 1) return input.t("prompt.placeholder.summarizeComments")
   if (input.commentCount === 1) return input.t("prompt.placeholder.summarizeComment")
-  if (!input.suggest) return input.t("prompt.placeholder.simple")
-  return input.t("prompt.placeholder.normal", { example: input.example })
+  // Keep the composer chrome stable; rotating examples made the prompt
+  // appear longer than the v110 maquette and shifted the action row.
+  return input.t("prompt.placeholder.simple")
 }

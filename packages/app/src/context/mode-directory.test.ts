@@ -75,6 +75,24 @@ describe("session survives a mode change", () => {
     expect(current.sessionId).toBeUndefined()
     expect(modeHref(current, "design")).toBe(`/${ENCODED}/design`)
   })
+
+  test("settings is a switchable workspace destination and preserves the session", () => {
+    const current = locate(`/${ENCODED}/session/${SESSION}`)
+    const href = modeHref(current, "settings")
+    expect(href).toBe(`/${ENCODED}/settings?session=${SESSION}`)
+    expect(readBack(href!).kind).toBe("settings")
+    expect(readBack(href!).sessionId).toBe(SESSION)
+    expect(modeHref(readBack(href!), "code")).toBe(`/${ENCODED}/session/${SESSION}`)
+  })
+
+  test("user is a switchable workspace destination and preserves the session", () => {
+    const current = locate(`/${ENCODED}/session/${SESSION}`)
+    const href = modeHref(current, "user")
+    expect(href).toBe(`/${ENCODED}/user?session=${SESSION}`)
+    expect(readBack(href!).kind).toBe("user")
+    expect(readBack(href!).sessionId).toBe(SESSION)
+    expect(modeHref(readBack(href!), "code")).toBe(`/${ENCODED}/session/${SESSION}`)
+  })
 })
 
 /**

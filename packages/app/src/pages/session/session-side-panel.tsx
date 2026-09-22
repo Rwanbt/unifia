@@ -14,8 +14,9 @@ import { useFile, type SelectedLineRange } from "@/context/file"
 import { createFileOpDeps } from "@/context/file/operations"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { useMode } from "@/context/mode"
 import { useSDK } from "@/context/sdk"
-import { SettingsObservabilityTimeline } from "@/components/settings-observability-timeline"
+import { ModeExecutionSurface, ModeExplorerSurface, ModeInspectorSurface } from "@/pages/session/mode-inspector-content"
 import { createOpenSessionFileTab, type Sizing } from "@/pages/session/helpers"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
@@ -40,11 +41,13 @@ export function SessionSidePanel(props: {
   const language = useLanguage()
   const dialog = useDialog()
   const sdk = useSDK()
+  const mode = useMode()
   const { sessionKey, tabs } = useSessionLayout()
 
   const shell = useShell(useViewport())
   const isOverlay = createMemo(() => shell.kind() === "overlay")
   const inspectorVisible = createMemo(() => layout.inspector.opened() || layout.hover.inspector.active())
+  const destination = createMemo(() => mode.destination())
 
   // The maquette keeps every inspector tab inside the fixed --inspector track.
   // Only the content inside that track scrolls; the review content does not
@@ -233,6 +236,7 @@ export function SessionSidePanel(props: {
     <div
       data-v110="inspector-content"
       onPointerEnter={layout.hover.inspector.enterPanel}
+      onPointerMove={layout.hover.inspector.enterPanel}
       onPointerLeave={layout.hover.inspector.leavePanel}
       aria-hidden={!inspectorVisible()}
       inert={!inspectorVisible()}
@@ -241,7 +245,7 @@ export function SessionSidePanel(props: {
         // Desktop: side panel with horizontal width transition
         "h-full": !isOverlay(),
         "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-          !isOverlay() && !props.size.active() && !props.reviewSnap,
+          !isOverlay() && !props.size.active() && !props.reviewSnap && layout.inspector.opened(),
         // Overlay viewports use a full-height inspector over session content.
         "mobile-side-panel w-full": isOverlay(),
         "pointer-events-none": !inspectorVisible(),
@@ -270,7 +274,7 @@ export function SessionSidePanel(props: {
             }
       }
     >
-      <div class="size-full flex border-l border-border-weaker-base">
+      <div class="size-full box-border flex border-l border-border-weaker-base">
         <InspectorFrame
           tab={layout.inspector.tab()}
           onTab={(tab) => layout.inspector.setTab(tab)}
@@ -290,8 +294,8 @@ export function SessionSidePanel(props: {
         >
           <Switch>
             {/* Explorer matches the reference: Workspace plus the live project tree. */}
-            <Match when={layout.inspector.tab() === "explorer"}>
-              <div class="h-full flex flex-col overflow-hidden group/filetree bg-background-stronger px-3 py-2">
+            <Match when={layout.inspector.tab() === "explorer" && destination() === "code"}>
+              <div data-mode-explorer="code" class="h-full flex flex-col overflow-hidden group/filetree bg-background-stronger px-3 py-2">
                 <div class="flex items-center justify-between px-1 pb-2">
                   <span class="text-11-medium text-text-weaker uppercase tracking-wide">Workspace</span>
                   <DropdownMenu gutter={4} placement="bottom-end">
@@ -331,42 +335,15 @@ export function SessionSidePanel(props: {
               </div>
             </Match>
 
+            <Match when={layout.inspector.tab() === "explorer" && destination() !== "code"}>
+              <ModeExplorerSurface mode={destination()} />
+            </Match>
+
             {/* Inspector is a property surface, not the code editor. The
                 editor owns file tabs and split panes in its own workspace;
                 this panel stays on the maquette's card-based inspection view. */}
             <Match when={layout.inspector.tab() === "inspector"}>
-              <div data-v110="inspector-body" class="h-full min-w-0 overflow-y-auto bg-background-base p-2.5">
-                <div class="mb-2.5 rounded-[13px] border border-border-base bg-background-stronger p-2.5">
-                  <h4 class="mb-2 text-10-medium text-text-base">Session</h4>
-                  <div class="flex items-center justify-between border-b border-border-base py-1.5 text-10-regular">
-                    <span class="text-text-weak">Mode</span>
-                    <span class="text-text-base">Code</span>
-                  </div>
-                  <div class="flex items-center justify-between border-b border-border-base py-1.5 text-10-regular">
-                    <span class="text-text-weak">Panneau actif</span>
-                    <span class="text-text-base">Inspector</span>
-                  </div>
-                  <div class="flex items-center justify-between py-1.5 text-10-regular">
-                    <span class="text-text-weak">Contexte</span>
-                    <span class="text-text-base">Session</span>
-                  </div>
-                </div>
-                <div class="rounded-[13px] border border-border-base bg-background-stronger p-2.5">
-                  <h4 class="mb-2 text-10-medium text-text-base">Propriétés</h4>
-                  <label class="mb-2.5 flex flex-col gap-1.5 text-9-regular text-text-weak">
-                    Densité
-                    <input type="range" value="56" aria-label={language.t("settings.fork.observability.level")} class="w-full accent-text-base" />
-                  </label>
-                  <label class="mb-2.5 flex flex-col gap-1.5 text-9-regular text-text-weak">
-                    Rayon
-                    <input type="range" value="68" aria-label="Rayon" class="w-full accent-text-base" />
-                  </label>
-                  <label class="flex flex-col gap-1.5 text-9-regular text-text-weak">
-                    Contraste
-                    <input type="range" value="74" aria-label="Contraste" class="w-full accent-text-base" />
-                  </label>
-                </div>
-              </div>
+              <ModeInspectorSurface mode={destination()} />
             </Match>
 
             {/* Execution: v110 names this tab "Trajectory/Observability"
@@ -377,12 +354,7 @@ export function SessionSidePanel(props: {
                 already wired into Settings > Observability's timeline —
                 reused here as-is rather than rebuilt. */}
             <Match when={layout.inspector.tab() === "execution"}>
-              <SettingsObservabilityTimeline
-                sessions={[{ id: props.sessionId ?? "", title: props.sessionId ?? "" }]}
-                sessionId={props.sessionId}
-                scope="project"
-                onSelectSession={() => {}}
-              />
+              <ModeExecutionSurface mode={destination()} sessionId={props.sessionId} />
             </Match>
           </Switch>
         </InspectorFrame>

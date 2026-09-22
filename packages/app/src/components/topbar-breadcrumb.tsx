@@ -12,10 +12,8 @@ import { displayName } from "@/pages/layout/helpers"
 // Ports .crumbs (Unifia-UI-UX-v110-PORT-READY-R1.html:15232,
 // "<strong>Prism EQ</strong><span>/</span><span id=crumb>Code</span>").
 // The maquette's .app.show-home rule (lines 4013-4027) hides .crumbs only on
-// home, so this renders on every other route -- there is no route for open
-// dialogs like Settings, so its mode label falls back to whatever route the
-// dialog is opened over (session -> "code"), same limitation the maquette
-// itself does not have to solve since it has no real routing.
+// home. Settings is a workspace destination, so it must own the second crumb
+// instead of inheriting the mode underneath it.
 export function TopbarBreadcrumb() {
   const layout = useLayout()
   const mode = useMode()
@@ -35,7 +33,17 @@ export function TopbarBreadcrumb() {
     return current ? displayName(current) : getFilename(directory)
   })
 
-  const modeLabel = createMemo(() => language.t(`workbench.modes.name.${mode.active()}`))
+  const modeLabel = createMemo(() =>
+    mode.destination() === "settings"
+      ? language.t("sidebar.settings")
+      : mode.destination() === "user"
+        ? language.t("sidebar.account")
+        : mode.destination() === "browser"
+          ? language.t("sidebar.rail.browser")
+          : mode.destination() === "memory"
+            ? language.t("sidebar.rail.memory")
+        : language.t(`workbench.modes.name.${mode.active()}`),
+  )
 
   return (
     <Show when={mode.routeKind() !== "home" && projectLabel()}>

@@ -7,10 +7,10 @@
  * Maquette's `.v68-context-root[data-mode]` appends different sections per
  * shell mode (extracted live via `window.UnifiaDemo.enter(mode)` + a DOM
  * dump: Code -> "Code Scope"; Work -> "Work"+"Agents"; Design ->
- * "Pages"+"Design System"; Automate -> "Workflows"+"Runs"; Browser ->
- * "Project Links"+"Library"; Memory -> "Memory"). Each mode's section(s)
- * land in their own follow-up commit; this file is the dispatcher plus
- * whichever sections have shipped so far.
+ * "Fichiers"+"Assets"; Automate -> "Workflows"+"Runs"; Browser ->
+ * "Project Links"+"Library"; Memory -> "Navigation"+"Raccourcis".
+ * Code keeps its live SDK-backed scope; the other sections mirror the
+ * maquette's mode-specific navigation structure.
  */
 import { createResource, createSignal, For, Match, Switch } from "solid-js"
 import { Collapsible } from "@unifia/ui/collapsible"
@@ -58,7 +58,7 @@ const CodeScopeSection = () => {
   }
 
   return (
-    <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0">
+    <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0" data-mode-section="code.scope">
       <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
         <SectionHeader title={language.t("sidebar.codeScope.title")} count={count()} open={open()} />
       </Collapsible.Trigger>
@@ -90,12 +90,181 @@ const CodeScopeSection = () => {
   )
 }
 
+type ModeSectionRow = {
+  label: string
+  icon: "briefcase" | "check-small" | "file-tree" | "flower" | "folder" | "link" | "magnifying-glass" | "open-file" | "photo" | "scope" | "status" | "task" | "workflow"
+  active?: boolean
+}
+
+const ModeNavigationSection = (props: {
+  testId: string
+  title: string
+  rows: readonly ModeSectionRow[]
+}) => {
+  const [open, setOpen] = createSignal(true)
+
+  return (
+    <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0" data-mode-section={props.testId}>
+      <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
+        <SectionHeader title={props.title} count={props.rows.length} open={open()} />
+      </Collapsible.Trigger>
+      <Collapsible.Content>
+        <div class="flex flex-col gap-0.5 pl-1 pt-1">
+          <For each={props.rows}>
+            {(row) => (
+              <button
+                type="button"
+                classList={{
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover": true,
+                  "bg-surface-raised-base text-text-strong": row.active === true,
+                }}
+              >
+                <Icon name={row.icon} size="small" class="shrink-0 text-icon-base" />
+                <span class="min-w-0 flex-1 truncate">{row.label}</span>
+              </button>
+            )}
+          </For>
+        </div>
+      </Collapsible.Content>
+    </Collapsible>
+  )
+}
+
+const WorkSections = () => (
+  <>
+    <ModeNavigationSection
+      testId="work.views"
+      title="Vue"
+      rows={[
+        { label: "Aujourd’hui", icon: "status", active: true },
+        { label: "Mes tâches", icon: "check-small" },
+        { label: "Runs", icon: "task" },
+      ]}
+    />
+    <ModeNavigationSection
+      testId="work.agents"
+      title="Agents"
+      rows={[
+        { label: "Designer", icon: "flower" },
+        { label: "Builder", icon: "briefcase" },
+        { label: "Reviewer", icon: "magnifying-glass" },
+      ]}
+    />
+  </>
+)
+
+const DesignSections = () => (
+  <>
+    <ModeNavigationSection
+      testId="design.files"
+      title="Fichiers"
+      rows={[
+        { label: "Landing page", icon: "file-tree", active: true },
+        { label: "Components", icon: "file-tree" },
+        { label: "Design system", icon: "folder" },
+      ]}
+    />
+    <ModeNavigationSection
+      testId="design.assets"
+      title="Assets"
+      rows={[
+        { label: "Images", icon: "photo" },
+        { label: "Icons", icon: "scope" },
+        { label: "Fonts", icon: "file-tree" },
+      ]}
+    />
+  </>
+)
+
+const AutomateSections = () => (
+  <>
+    <ModeNavigationSection
+      testId="automate.workflows"
+      title="Workflows"
+      rows={[
+        { label: "Issue triage v2", icon: "workflow", active: true },
+        { label: "Release notes", icon: "workflow" },
+        { label: "Nightly tests", icon: "workflow" },
+      ]}
+    />
+    <ModeNavigationSection
+      testId="automate.runs"
+      title="Runs"
+      rows={[
+        { label: "Historique", icon: "task" },
+        { label: "Échecs", icon: "magnifying-glass" },
+      ]}
+    />
+  </>
+)
+
+const BrowserSections = () => (
+  <>
+    <ModeNavigationSection
+      testId="browser.links"
+      title="Project Links"
+      rows={[
+        { label: "README.md", icon: "file-tree", active: true },
+        { label: "Documentation", icon: "folder" },
+        { label: "Issues", icon: "link" },
+      ]}
+    />
+    <ModeNavigationSection
+      testId="browser.library"
+      title="Library"
+      rows={[
+        { label: "Recent pages", icon: "open-file" },
+        { label: "Saved links", icon: "link" },
+      ]}
+    />
+  </>
+)
+
+const MemorySections = () => (
+  <>
+    <ModeNavigationSection
+      testId="memory.navigation"
+      title="Navigation"
+      rows={[
+        { label: "Notes", icon: "file-tree", active: true },
+        { label: "Graph", icon: "link" },
+        { label: "Search", icon: "magnifying-glass" },
+        { label: "Tags", icon: "scope" },
+      ]}
+    />
+    <ModeNavigationSection
+      testId="memory.shortcuts"
+      title="Raccourcis"
+      rows={[
+        { label: "Favorites", icon: "link" },
+        { label: "Recent", icon: "open-file" },
+        { label: "Backlinks", icon: "link" },
+      ]}
+    />
+  </>
+)
+
 export function ModeSections() {
   const mode = useMode()
   return (
     <Switch>
-      <Match when={mode.active() === "code"}>
+      <Match when={mode.destination() === "code"}>
         <CodeScopeSection />
+      </Match>
+      <Match when={mode.destination() === "work"}>
+        <WorkSections />
+      </Match>
+      <Match when={mode.destination() === "design"}>
+        <DesignSections />
+      </Match>
+      <Match when={mode.destination() === "automate"}>
+        <AutomateSections />
+      </Match>
+      <Match when={mode.destination() === "browser"}>
+        <BrowserSections />
+      </Match>
+      <Match when={mode.destination() === "memory"}>
+        <MemorySections />
       </Match>
     </Switch>
   )

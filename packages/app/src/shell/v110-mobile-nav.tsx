@@ -12,15 +12,18 @@
 import { For, type Accessor, type JSX } from "solid-js"
 import { Icon } from "@unifia/ui/icon"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
+import type { WorkspaceDestination } from "@/context/mode-directory"
 
 type Props = {
   modes: Accessor<readonly ShellMode[]>
-  active: Accessor<ShellMode>
+  active: Accessor<WorkspaceDestination>
   onMode: (mode: ShellMode) => void
   onSettings: () => void
+  onAccount: () => void
   navLabel: string
   modeLabel: (mode: ShellMode) => string
   settingsLabel: string
+  accountLabel: string
 }
 
 export function MobileNav(props: Props): JSX.Element {
@@ -57,6 +60,8 @@ export function MobileNav(props: Props): JSX.Element {
         type="button"
         data-action="mobile-settings"
         aria-label={props.settingsLabel}
+        aria-pressed={props.active() === "settings"}
+        data-mode="settings"
         style={{
           width: "var(--v110-target-touch, 44px)",
           height: "var(--v110-target-touch, 44px)",
@@ -64,6 +69,19 @@ export function MobileNav(props: Props): JSX.Element {
         onClick={props.onSettings}
       >
         <Icon size="medium" name="settings-gear" />
+      </button>
+      <button
+        type="button"
+        data-action="mobile-account"
+        aria-label={props.accountLabel}
+        aria-pressed={props.active() === "user"}
+        style={{
+          width: "var(--v110-target-touch, 44px)",
+          height: "var(--v110-target-touch, 44px)",
+        }}
+        onClick={props.onAccount}
+      >
+        <Icon size="medium" name="scope" />
       </button>
     </nav>
   )

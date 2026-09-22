@@ -86,10 +86,10 @@ describe("DA-UI-01 — Automate rail visibility tracks the workflow.run grant", 
   })
 })
 
-test("automate route resolves as unknown when the production build reaches it", () => {
+test("automate route remains renderable when the workflow capability is unavailable", () => {
   const directory = base64Encode("D:/App/OpenCode/opencode-work-design")
-  expect(parseModeLocation(`/${directory}/automate`)).toMatchObject({ kind: "invalid", reason: "mode" })
-  expect(parseModeLocation(`/${directory}/automate`, "", false)).toMatchObject({ kind: "invalid", reason: "mode" })
+  expect(parseModeLocation(`/${directory}/automate`)).toMatchObject({ kind: "mode", mode: "automate" })
+  expect(parseModeLocation(`/${directory}/automate`, "", false)).toMatchObject({ kind: "mode", mode: "automate" })
 })
 
 test("automate route resolves normally when explicitly unlocked", () => {

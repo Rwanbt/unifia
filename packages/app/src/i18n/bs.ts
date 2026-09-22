@@ -584,6 +584,7 @@ export const dict = {
   "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "Pretraži datoteke",
   "session.header.openIn": "Otvori u",
+  "session.header.createTaskFromContext": "Kreiraj zadatak iz trenutnog konteksta",
   "session.header.open.action": "Otvori {{app}}",
   "session.header.open.ariaLabel": "Otvori u {{app}}",
   "session.header.open.menu": "Opcije otvaranja",

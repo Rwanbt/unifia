@@ -579,6 +579,7 @@ export const dict = {
   "sidebar.rail.memory": "Memory",
   "session.header.searchFiles": "ค้นหาไฟล์",
   "session.header.openIn": "เปิดใน",
+  "session.header.createTaskFromContext": "สร้างงานจากบริบทปัจจุบัน",
   "session.header.open.action": "เปิด {{app}}",
   "session.header.open.ariaLabel": "เปิดใน {{app}}",
   "session.header.open.menu": "ตัวเลือกการเปิด",
