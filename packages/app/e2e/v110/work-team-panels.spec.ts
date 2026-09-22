@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
-// A5-01..A5-05: the Work surface's hero status badge, its full 6-tab
-// view-switcher (mirroring the v110 mockup's viewDefs), and the Team-backed
-// panels behind every tab (Overview/Tasks/Board/Timeline/Activity/Runs). No
-// Team run exists in this harness, so the honest assertion is the
-// gated/empty copy — never a fabricated percentage, task list, event, or
-// next action — plus a regression guard that the pre-existing operations
-// grid (data-workbench-operation, count 11, export) survived being
-// relocated underneath the new panels unchanged.
+// A5-01..A5-05: the Work cockpit (v110 maquette `.work65-*`) and the six
+// views (Overview/Tasks/Board/Timeline/Activity/Runs), picked from the
+// context panel's "Work" section (ADR-040). No Team run exists in this
+// harness, so the honest assertion is the gated/empty copy -- never a
+// fabricated percentage, task list, event, or next action -- plus a guard
+// that export survived the removal of the operations grid.
 //
 // Until session 5 this spec skipped on web because the surface needs the
 // native workbench bridge. The established mock (fixtures/workbench-mock,
@@ -40,9 +38,12 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   // registry seed), not the unseeded harness server, before Work boots.
   await gotoSession()
   await page.goto(`${dirPath(directory)}/work`)
+  // Mode surfaces render in the Split/Editor layouts only (Chat shows the
+  // conversation alone, as in the maquette).
+  await page.getByRole("radio", { name: "Editor" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
 
-  await expect(page.locator('[data-v110="work-active-runs"]')).toBeVisible()
+  await expect(page.locator('[data-v110="work-top"]')).toBeVisible()
 
   // Issue #100: the v65 header chip maps real run/task/gate facts. No run is
   // in flight in this harness, so it must show the mockup's all-clear state —
@@ -52,38 +53,40 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   await expect(health).toHaveAttribute("data-work-health", "ok")
   await expect(health).toHaveText("On track")
 
-  // All six mockup views now render tabs.
-  const tabs = page.locator('[data-work-view-tablist] [role="tab"]')
-  await expect(tabs).toHaveCount(6)
-  await expect(page.locator('[data-work-view="overview"]')).toBeVisible()
-  await expect(page.locator('[data-work-view="tasks"]')).toBeVisible()
-  await expect(page.locator('[data-work-view="board"]')).toBeVisible()
-  await expect(page.locator('[data-work-view="timeline"]')).toBeVisible()
-  await expect(page.locator('[data-work-view="activity"]')).toBeVisible()
-  await expect(page.locator('[data-work-view="runs"]')).toBeVisible()
+  // ADR-040: the six mockup views are picked from the context panel's
+  // "Work" section, as in the maquette -- no tab bar inside the card.
+  // Pin the panel: a hover peek also shows the sections but closes as soon
+  // as the pointer leaves, and the rail then intercepts the click. mod+B,
+  // never the toggle button (Wave 0.5 decision, see the vault memory).
+  const sidebarToggle = page.getByRole("button", { name: /toggle sidebar|basculer la barre latérale/i })
+  if ((await sidebarToggle.getAttribute("aria-expanded")) !== "true") {
+    await page.keyboard.press("ControlOrMeta+b")
+  }
+  await expect(sidebarToggle).toHaveAttribute("aria-expanded", "true")
+  await expect(page.locator("[data-work-view]:visible")).toHaveCount(6)
+  for (const view of ["overview", "tasks", "board", "timeline", "activity", "runs"]) {
+    await expect(page.locator(`[data-work-view="${view}"]:visible`)).toBeVisible()
+  }
 
-  // Overview (default tab): Progression + Next safe action, honest empty state.
-  await expect(page.locator('[data-work-view="overview"]')).toHaveAttribute("aria-selected", "true")
-  await expect(page.locator('[data-v110="work-progress-panel"]')).toBeVisible()
-  await expect(page.locator('[data-v110="work-next-action-panel"]')).toBeVisible()
-  await expect(page.locator('[data-v110="work-progress-panel"]').getByText(/0 tasks|0 tâches/i)).toBeVisible()
-  await expect(
-    page.locator('[data-v110="work-next-action-panel"]').getByText(/no actionable task|aucune tâche actionnable/i),
-  ).toBeVisible()
-  // Not on this tab: Plan/Runs panels stay tab-gated, not simultaneously visible.
+  // Overview (default): the cockpit's six cards, honest empty states.
+  await expect(page.locator('[data-work-view="overview"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-v110="work-grid"] [data-v110="work-card"]')).toHaveCount(6)
+  await expect(page.locator('[data-v110="work-grid"]').getByText(/no actionable task|aucune tâche actionnable/i)).toBeVisible()
+  // Not on this view: Plan/Runs panels stay view-gated, not simultaneously visible.
   await expect(page.locator('[data-v110="work-plan-panel"]')).not.toBeVisible()
   await expect(page.locator('[data-v110="work-runs-panel"]')).not.toBeVisible()
 
-  // Tasks tab: the real DAG view, empty-state text.
-  await page.locator('[data-work-view="tasks"]').click()
-  await expect(page.locator('[data-work-view="tasks"]')).toHaveAttribute("aria-selected", "true")
+  // Tasks view: the real DAG view, empty-state text.
+  await page.locator('[data-work-view="tasks"]:visible').click()
+  await expect(page.locator('[data-work-view="tasks"]:visible')).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator('[data-v110="work-plan-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-plan-panel"]').getByText(/no tasks|aucune tâche/i)).toBeVisible()
 
-  // Board tab: real 6-status columns, honest empty state (no fake "Review"
+  // Board view: real 6-status columns, honest empty state (no fake "Review"
   // column from the mockup, since the server has no such status).
-  await page.locator('[data-work-view="board"]').click()
-  await expect(page.locator('[data-work-view="board"]')).toHaveAttribute("aria-selected", "true")
+  await page.locator('[data-work-view="board"]:visible').click()
+  await expect(page.locator('[data-work-view="board"]:visible')).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator('[data-v110="work-content"]')).toHaveAttribute("data-work-view-content", "board")
   await expect(page.locator('[data-v110="work-board-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-board-panel"]').getByText(/no tasks|aucune tâche/i)).toBeVisible()
   const columns = page.locator('[data-v110="work-board-column"]')
@@ -95,8 +98,8 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   await expect(page.locator('[data-v110="work-board-column"][data-status="review"]')).toHaveCount(0)
 
   // Timeline tab: real event feed, honest empty state (no run means no events).
-  await page.locator('[data-work-view="timeline"]').click()
-  await expect(page.locator('[data-work-view="timeline"]')).toHaveAttribute("aria-selected", "true")
+  await page.locator('[data-work-view="timeline"]:visible').click()
+  await expect(page.locator('[data-work-view="timeline"]:visible')).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator('[data-v110="work-timeline-panel"]')).toBeVisible()
   await expect(
     page.locator('[data-v110="work-timeline-panel"]').getByText(/no events|aucun événement/i),
@@ -104,8 +107,8 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
 
   // Activity tab: the same event feed, with a real-kind filter (not the
   // mockup's fictional edit/run/approval/artifact taxonomy).
-  await page.locator('[data-work-view="activity"]').click()
-  await expect(page.locator('[data-work-view="activity"]')).toHaveAttribute("aria-selected", "true")
+  await page.locator('[data-work-view="activity"]:visible').click()
+  await expect(page.locator('[data-work-view="activity"]:visible')).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator('[data-v110="work-activity-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-activity-filter"]')).toBeVisible()
   await expect(
@@ -113,19 +116,21 @@ test("work surface's view-switcher gates the real Team-backed panels, empty stat
   ).toBeVisible()
 
   // Runs tab: the real Runs list + "Open Team" reaching the real Team dialog.
-  await page.locator('[data-work-view="runs"]').click()
-  await expect(page.locator('[data-work-view="runs"]')).toHaveAttribute("aria-selected", "true")
+  await page.locator('[data-work-view="runs"]:visible').click()
+  await expect(page.locator('[data-work-view="runs"]:visible')).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator('[data-v110="work-runs-panel"]')).toBeVisible()
   await expect(page.locator('[data-v110="work-runs-panel"]').getByText(/no runs|aucune exécution/i)).toBeVisible()
   await page.locator('[data-v110="work-open-team"]').click()
   await expect(page.getByRole("dialog")).toBeVisible()
   await page.keyboard.press("Escape")
 
-  // Regression guard: the pre-existing flat operations grid must keep its
-  // exact shape after being relocated below the tabbed view content.
-  await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
-  await page.locator('[data-workbench-operation="export"]').click()
+  // The operations grid is gone (not in the maquette); its two real actions
+  // survive in the header overflow menu.
+  await expect(page.locator("[data-workbench-operation]")).toHaveCount(0)
+  await page.getByRole("button", { name: /more actions|plus d'actions/i }).click()
   await expect(page.locator("[data-workbench-export]")).toBeVisible()
+  await expect(page.locator("[data-workbench-open-artifact]")).toBeVisible()
+  await page.keyboard.press("Escape")
 })
 
 

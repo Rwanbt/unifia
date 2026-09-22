@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store"
-import { batch, createEffect, createMemo, onCleanup, onMount, type Accessor } from "solid-js"
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, type Accessor } from "solid-js"
 import { createSimpleContext } from "@unifia/ui/context"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { useGlobalSync } from "./global-sync"
@@ -12,6 +12,7 @@ import { decode64 } from "@/utils/base64"
 import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
+import type { WorkView } from "./work-view"
 
 const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] as const
 // v110 default shell width: 62px rail + 248px context panel at 1440px.
@@ -318,6 +319,10 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     // Hover previews are deliberately ephemeral. The reference shell keeps
     // pointer-preview state separate from the persisted "pinned" state so a
     // pointer can reveal a panel without changing the user's layout.
+    // ADR-040: the Work view is picked in the context panel and rendered by
+    // the Work card; like the peek state it is session-scoped, not persisted.
+    const [workView, setWorkView] = createSignal<WorkView>("overview")
+
     type PeekPanel = "rail" | "sidebar" | "inspector"
     const [peekState, setPeekState] = createStore({
       rail: { trigger: false, panel: false },
@@ -805,6 +810,10 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         setDiffStyle(diffStyle: ReviewDiffStyle) {
           setStore("review", "diffStyle", diffStyle)
         },
+      },
+      work: {
+        view: workView,
+        setView: setWorkView,
       },
       // v110 InspectorFrame: one pane (Explorer/Inspector/Execution), one
       // tab visible at a time. Replaces the old fileTree + review.panelOpened

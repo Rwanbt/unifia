@@ -1,27 +1,363 @@
 /* SPDX-License-Identifier: MIT */
 
-/* A5 Work surface chrome -- maquette v110-port-ready-r1 §INTERACTIONS Work
- * + COMPONENT-MAP §4 (A5 Work+Team). Kept in its own layer so v110.css
- * stays under the AGENTS.md 1500 LOC ceiling. Targets the TWO real anchors
- * the app emits: [data-v110="work-view-shell"] and
- * [data-v110="work-view-content"] (work-surface.tsx).
- *
- * The earlier version of this file also declared .work-hero / .work-grid /
- * .panel / .panel-head / .task / .agent / .progress-card class hooks that
- * the app never references (the work panels render Tailwind +
- * @unifia/ui primitives). parity:artifacts/tokens-audit.json flagged them
- * inert; they are removed. */
+/* Work cockpit -- the maquette's `.work65-*` layer, measured live at
+ * 1440x900 (work-cockpit.tsx / work-surface.tsx). Colours come from the
+ * editor card palette (v110-editor.css) so light and dark follow it. */
 
-[data-v110="work-view-shell"] {
+[data-v110="work-view"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  line-height: normal;
 }
 
-[data-v110="work-view-content"] {
+/* Header (.work65-top): 62px, title + health pill + actions. */
+[data-v110="work-top"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 62px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: color-mix(in srgb, var(--v110-card-bg) 96%, transparent);
+}
+
+[data-v110="work-title"] {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
+}
+
+[data-v110="work-title"] h2 {
+  color: var(--v110-card-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+[data-v110="work-title"] p {
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="work-health"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  padding: 0 9px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 999px;
+  background: var(--v110-card-raised);
+  color: var(--v110-card-text);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+[data-v110="work-health"] i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--v110-card-success);
+}
+
+[data-v110="work-health"][data-work-health="risk"] i {
+  background: #d7ae74;
+}
+
+[data-v110="work-health"][data-work-health="off"] i {
+  background: #df848a;
+}
+
+[data-v110="work-actions"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Buttons (.work65-btn): 32px, 10px radius; primary is inverted. */
+[data-v110="work-btn"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 10px;
+  background: var(--v110-card-raised);
+  color: var(--v110-card-text);
+  font-size: 9px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+[data-v110="work-btn"][data-primary] {
+  border-color: var(--v110-card-text);
+  background: var(--v110-card-text);
+  color: var(--v110-card-bg);
+}
+
+[data-v110="work-btn"][aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+[data-v110="work-content"] {
+  flex: 1 1 auto;
   min-height: 0;
+  padding: 12px;
+  overflow: auto;
+}
+
+[data-v110="work-connection"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--v110-card-muted);
+  font-size: 11px;
+}
+
+/* Grid (.work65-grid): 1.8fr / 1fr, full-width cards span both. */
+[data-v110="work-grid"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+[data-v110="work-card"] {
+  overflow: hidden;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 14px;
+  background: var(--v110-card-raised);
+}
+
+[data-v110="work-card"][data-span] {
+  grid-column: 1 / -1;
+}
+
+[data-v110="work-card-head"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 39px;
+  padding: 0 11px;
+  border-bottom: 1px solid var(--v110-card-line);
+}
+
+[data-v110="work-card-head"] b {
+  color: var(--v110-card-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-v110="work-card-meta"],
+[data-v110="work-empty"] {
+  color: var(--v110-card-muted);
+  font-size: 9.5px;
+}
+
+[data-v110="work-empty"] {
+  padding: 11px;
+}
+
+[data-v110="work-card-body"] {
+  padding: 11px;
+}
+
+/* Plan rows (.work65-task): 54px, check / copy / meta. */
+[data-v110="work-task"] {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 54px;
+  padding: 8px 10px;
+}
+
+[data-v110="work-task"]:not(:last-child) {
+  border-bottom: 1px solid var(--v110-card-line);
+}
+
+[data-v110="work-task"] b,
+[data-v110="work-gate"] b {
+  color: var(--v110-card-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-v110="work-task"] small {
   display: block;
+  margin-top: 3px;
+  color: var(--v110-card-muted);
+  font-size: 9.5px;
+}
+
+[data-v110="work-check"] {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 50%;
+  color: var(--v110-card-success);
+  font-size: 8px;
+}
+
+html[data-color-scheme="light"] [data-v110="work-check"] {
+  border-color: rgba(0, 0, 0, 0.13);
+}
+
+[data-v110="work-task-meta"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+[data-v110="work-task-meta"] [data-v110="work-btn"] {
+  min-width: 28px;
+}
+
+[data-v110="work-pill"] {
+  display: inline-flex;
+  align-items: center;
+  height: 21px;
+  padding: 0 7px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 999px;
+  background: var(--v110-card-hover);
+  color: var(--v110-card-muted);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+[data-v110="work-pill"][data-tone="done"] {
+  color: var(--v110-card-success);
+}
+
+[data-v110="work-pill"][data-tone="running"] {
+  color: #b1b5bd;
+}
+
+[data-v110="work-pill"][data-tone="risk"] {
+  color: #d7ae74;
+}
+
+/* Progression (.work65-progress / .work65-stat). */
+[data-v110="work-progress"] {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--v110-card-chip);
+}
+
+[data-v110="work-progress"] i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--v110-card-text);
+}
+
+[data-v110="work-stat-grid"] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+
+[data-v110="work-stat"] {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 62px;
+  padding: 9px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 11px;
+  background: var(--v110-card-hover);
+}
+
+[data-v110="work-stat"] b {
+  color: var(--v110-card-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+[data-v110="work-stat"] span {
+  color: var(--v110-card-muted);
+  font-size: 8px;
+}
+
+/* Next safe action (.work65-safe). */
+[data-v110="work-safe-title"] {
+  color: var(--v110-card-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-v110="work-safe-detail"] {
+  margin-top: 5px;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="work-reasons"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+[data-v110="work-reason"] {
+  padding: 4px 6px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 8px;
+  background: var(--v110-card-hover);
+  color: var(--v110-card-muted);
+  font-size: 9.5px;
+}
+
+[data-v110="work-safe-actions"] {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+[data-v110="work-safe-actions"] > * {
+  flex: 1 1 0;
+}
+
+/* Approvals (.work65-gate) and project update (.work65-update). */
+[data-v110="work-gate"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px;
+}
+
+[data-v110="work-gate"] p {
+  margin-top: 4px;
+  color: var(--v110-card-muted);
+  font-size: 9.5px;
+}
+
+[data-v110="work-card-body"][data-update] {
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="work-card-body"][data-update] b {
+  color: var(--v110-card-text);
+  font-weight: 700;
+}
+
+/* A "coming soon" button sits inside its tooltip trigger wrapper. */
+[data-v110="work-safe-actions"] [data-v110="work-btn"] {
+  width: 100%;
 }

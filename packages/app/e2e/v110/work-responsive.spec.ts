@@ -39,6 +39,9 @@ test("work surface keeps its view shell reachable across the five families", asy
 
   await page.setViewportSize({ width: CASES[0].width, height: CASES[0].height })
   await page.goto(`${dirPath(directory)}/work`)
+  // Mode surfaces render in the Split/Editor layouts only (Chat shows the
+  // conversation alone, as in the maquette).
+  await page.getByRole("radio", { name: "Editor" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
 
   // Track after the last navigation: leaving the session page aborts the
@@ -59,19 +62,10 @@ test("work surface keeps its view shell reachable across the five families", asy
         .poll(async () => (await overflow(page)).dx, { message: c.name + ": global x-overflow exceeds 6px" })
         .toBeLessThanOrEqual(6)
 
-      const tabs = page.locator("[data-work-view-tablist] [role=tab]")
-      await expect(tabs, c.name + ": the six v110 view tabs").toHaveCount(6)
-
-      // Board is the densest view (six real status columns); if it mounts and
-      // switches back, every lighter view stays reachable on that family.
-      await page.locator('[data-work-view="board"]').click()
-      await expect(page.locator('[data-work-view="board"]')).toHaveAttribute("aria-selected", "true")
-      await expect(page.locator('[data-v110="work-view-content"]')).toHaveAttribute("data-work-view-content", "board")
-      await expect(page.locator('[data-v110="work-board-panel"]')).toBeVisible()
-
-      await page.locator('[data-work-view="overview"]').click()
-      await expect(page.locator('[data-v110="work-view-content"]')).toHaveAttribute("data-work-view-content", "overview")
-      await expect(page.locator('[data-v110="work-progress-panel"]')).toBeVisible()
+      // ADR-040: views are switched from the context panel, which is not on
+      // screen at every width; the card itself must render the cockpit.
+      await expect(page.locator('[data-v110="work-content"]')).toHaveAttribute("data-work-view-content", "overview")
+      await expect(page.locator('[data-v110="work-grid"]'), c.name + ": cockpit grid").toBeVisible()
     })
   }
 

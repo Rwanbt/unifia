@@ -14,26 +14,23 @@ test("multimode navigation keeps the route and projection aligned", async ({ pag
   // Work and Design, by choice: they are the two surfaces whose conversational
   // entry point it asserts.
   //
-  // The two surfaces no longer share that entry point. Work renders
-  // `WorkbenchChat` (`data-workbench-chat`, with a suggestion button); Design
-  // moved to `WorkbenchThread` (`data-workbench-thread`, composer-based, no
-  // suggestion). Asserting the Work contract on Design made this test red from
-  // the moment Design migrated — a red nobody read, because the rail path was
-  // otherwise untested for timing. Each mode is now asserted against the
-  // component it actually renders.
+  // Since 1c76014887 / 1171ccd387 every mode shares one chat pane and one
+  // session (session.tsx): the per-mode WorkbenchChat / WorkbenchThread
+  // entry points are gone, so each mode is asserted against the shared
+  // conversation header and composer it actually renders.
+  const sharedChat = async () => {
+    await expect(page.locator('[data-v110="mode-chat-head"]:visible')).toBeVisible()
+    await expect(page.locator('[data-v110="prompt-composer"]:visible').first()).toBeVisible()
+  }
   await page.getByRole("button", { name: "work mode" }).click()
   await expect(page).toHaveURL(new RegExp(`/${slug}/work(?:[/?#]|$)`))
   await expect(page.locator(`[data-workbench-mode="work"]`).first()).toBeVisible()
-  await expect(page.locator(`[data-workbench-chat="work"]`)).toBeVisible()
-  await expect(page.locator("[data-workbench-chat-input]")).toBeVisible()
-  await page.locator("[data-workbench-chat-suggestion]").click()
-  await expect(page.locator("[data-workbench-chat-input]")).not.toHaveValue("")
+  await sharedChat()
 
   await page.getByRole("button", { name: "design mode" }).click()
   await expect(page).toHaveURL(new RegExp(`/${slug}/design(?:[/?#]|$)`))
   await expect(page.locator(`[data-workbench-mode="design"]`).first()).toBeVisible()
-  await expect(page.locator(`[data-workbench-thread="design"]`)).toBeVisible()
-  await expect(page.locator("[data-workbench-thread-input]")).toBeVisible()
+  await sharedChat()
 
   await page.getByRole("button", { name: "code mode" }).click()
   await expect(page).toHaveURL(new RegExp(`/${slug}/session(?:[/?#]|$)`))
@@ -65,6 +62,9 @@ test("workbench surfaces fail closed before a native bridge is available", async
   await page.goto(`${dirPath(directory)}/session`)
 
   await page.getByRole("button", { name: "work mode" }).click()
+  // Mode surfaces render in the Split/Editor layouts only; Chat shows the
+  // conversation alone, as in the maquette.
+  await page.getByRole("radio", { name: "Editor" }).click()
   await expect(page.locator('[data-workbench-surface="work"]')).toBeVisible()
   // V03 — the data attribute is now driven by the WorkbenchUiPhase
   // state machine, not the legacy phase signal. In the Vite harness
@@ -76,9 +76,10 @@ test("workbench surfaces fail closed before a native bridge is available", async
   await expect(page.locator('[data-workbench-connection="unsupported"]')).toBeVisible()
   await expect(page.locator("[data-workbench-retry]")).toHaveCount(0)
   await expect(page.getByText(/desktop application|application desktop/i).first()).toBeVisible()
-  await expect(page.locator("[data-workbench-operation]")).toHaveCount(11)
-  await page.locator('[data-workbench-operation="export"]').click()
-  await expect(page.locator("[data-workbench-export]")).toBeDisabled()
+  // Export lives in the Work header's overflow menu; with no artifact it is disabled.
+  await page.getByRole("button", { name: /more actions|plus d'actions/i }).click()
+  await expect(page.locator("[data-workbench-export]")).toHaveAttribute("aria-disabled", "true")
+  await page.keyboard.press("Escape")
 
   await page.getByRole("button", { name: "design mode" }).click()
   await expect(page.locator('[data-workbench-surface="design"]')).toBeVisible()

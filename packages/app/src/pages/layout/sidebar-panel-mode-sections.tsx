@@ -19,6 +19,7 @@ import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { useSDK } from "@/context/sdk"
+import { WORK_VIEW_GLYPH, WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 
 const SectionHeader = (props: { title: string; count: number; open: boolean }) => (
   <>
@@ -130,28 +131,56 @@ const ModeNavigationSection = (props: {
   )
 }
 
-const WorkSections = () => (
-  <>
-    <ModeNavigationSection
-      testId="work.views"
-      title="Vue"
-      rows={[
-        { label: "Aujourd’hui", icon: "status", active: true },
-        { label: "Mes tâches", icon: "check-small" },
-        { label: "Runs", icon: "task" },
-      ]}
-    />
-    <ModeNavigationSection
-      testId="work.agents"
-      title="Agents"
-      rows={[
-        { label: "Designer", icon: "flower" },
-        { label: "Builder", icon: "briefcase" },
-        { label: "Reviewer", icon: "magnifying-glass" },
-      ]}
-    />
-  </>
-)
+// Maquette "Work" + "Agents" sections. The six views are the Work card's
+// real views and drive layout.work (ADR-040). The Team backend exposes no
+// agent roster, so Agents shows an honest empty state instead of names.
+const WorkSections = () => {
+  const layout = useLayout()
+  const language = useLanguage()
+  const [viewsOpen, setViewsOpen] = createSignal(true)
+  const [agentsOpen, setAgentsOpen] = createSignal(true)
+
+  return (
+    <>
+      <Collapsible open={viewsOpen()} onOpenChange={setViewsOpen} class="shrink-0" data-mode-section="work.views">
+        <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
+          <SectionHeader title={language.t("sidebar.work.views")} count={WORK_VIEWS.length} open={viewsOpen()} />
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div class="flex flex-col gap-0.5 pl-1 pt-1">
+            <For each={WORK_VIEWS}>
+              {(view) => (
+                <button
+                  type="button"
+                  data-work-view={view}
+                  aria-pressed={layout.work.view() === view}
+                  onClick={() => layout.work.setView(view)}
+                  classList={{
+                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover": true,
+                    "bg-surface-raised-base text-text-strong": layout.work.view() === view,
+                  }}
+                >
+                  <span class="w-4 shrink-0 text-center text-icon-base" aria-hidden="true">
+                    {WORK_VIEW_GLYPH[view]}
+                  </span>
+                  <span class="min-w-0 flex-1 truncate">{language.t(WORK_VIEW_LABEL_KEY[view])}</span>
+                </button>
+              )}
+            </For>
+          </div>
+        </Collapsible.Content>
+      </Collapsible>
+      <Collapsible open={agentsOpen()} onOpenChange={setAgentsOpen} class="shrink-0" data-mode-section="work.agents">
+        <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
+          <SectionHeader title={language.t("sidebar.work.agents")} count={0} open={agentsOpen()} />
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <p class="px-3 py-1.5 text-12-regular text-text-weaker">{language.t("sidebar.work.noAgents")}</p>
+        </Collapsible.Content>
+      </Collapsible>
+    </>
+  )
+}
 
 const DesignSections = () => (
   <>

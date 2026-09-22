@@ -6,10 +6,12 @@ test("context panel dispatches the maquette sections for every workspace mode", 
   const source = await Bun.file(new URL("./sidebar-panel-mode-sections.tsx", import.meta.url)).text()
 
   expect(source).toContain('data-mode-section="code.scope"')
+  // Work's sections are real (ADR-040): the six views drive layout.work.
+  expect(source).toContain('data-mode-section="work.views"')
+  expect(source).toContain('data-mode-section="work.agents"')
+  expect(source).toContain("onClick={() => layout.work.setView(view)}")
 
   for (const section of [
-    "work.views",
-    "work.agents",
     "design.files",
     "design.assets",
     "automate.workflows",

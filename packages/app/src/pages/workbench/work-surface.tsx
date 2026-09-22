@@ -1,60 +1,40 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js"
-import { createQuery } from "@tanstack/solid-query"
+import { Show, createEffect, createMemo, onMount, type JSX } from "solid-js"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
+import { useLayout } from "@/context/layout"
 import { useTeam } from "@/context/team"
+import { useTeamDialog } from "@/context/team-dialog"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
-import { workbenchQueryKey } from "@/context/workbench/query-keys"
-import { base64Encode } from "@unifia/util/encode"
-import { useNavigate } from "@solidjs/router"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { WorkActivityPanel } from "@/pages/workbench/work-activity-panel"
+import { createWorkArtifacts, WorkArtifactMenu } from "@/pages/workbench/work-artifact-menu"
 import { WorkBoardPanel } from "@/pages/workbench/work-board-panel"
-import { WorkHero } from "@/pages/workbench/work-hero"
-import { WorkHealthChip } from "@/pages/workbench/work-health-chip"
+import {
+  WorkAgentsCard,
+  WorkApprovalsCard,
+  WorkCockpitHeader,
+  WorkNextSafeActionCard,
+  WorkPlanCard,
+  WorkProgressCard,
+  WorkProjectUpdateCard,
+} from "@/pages/workbench/work-cockpit"
 import { workHealth } from "@/pages/workbench/work-health"
-import { WorkNextActionPanel } from "@/pages/workbench/work-next-action-panel"
 import { WorkPlanPanel } from "@/pages/workbench/work-plan-panel"
-import { WorkProgressPanel } from "@/pages/workbench/work-progress-panel"
 import { WorkRunsPanel } from "@/pages/workbench/work-runs-panel"
 import { WorkTimelinePanel } from "@/pages/workbench/work-timeline-panel"
 import { pickActiveRun, taskProgress } from "@/pages/workbench/work-team"
-import type { WorkView } from "@/pages/workbench/work-view"
-import { WorkViewSwitcher } from "@/pages/workbench/work-view-switcher"
-import { createMobileNavigationModel, WORK_V1_FUNCTIONS, type WorkFunction } from "@unifia/workbench-shell"
 
-// A5-03/04/05: views ship incrementally as their real content lands — a tab
-// only appears once it opens onto something real, never onto a placeholder.
-const AVAILABLE_WORK_VIEWS: readonly WorkView[] = ["overview", "tasks", "board", "timeline", "activity", "runs"]
+const CHANGES_REQUESTED = "CHANGES_REQUESTED"
 
-const OPERATION_I18N_KEY: Record<WorkFunction, string> = {
-  "workspace-switcher": "workbench.operations.workspaceSwitcher",
-  "session-chat": "workbench.operations.sessionChat",
-  "files": "workbench.operations.files",
-  "search": "workbench.operations.search",
-  "artifacts": "workbench.operations.artifacts",
-  "documents": "workbench.operations.documents",
-  "trace": "workbench.operations.trace",
-  "approvals": "workbench.operations.approvals",
-  "activity-log": "workbench.operations.activityLog",
-  "capability-picker": "workbench.operations.capabilityPicker",
-  "export": "workbench.operations.export",
-}
+const basename = (path: string) => path.replaceAll("\\", "/").replace(/\/+$/, "").split("/").pop() || path
 
-const labelFor = (t: (key: string) => string, operation: WorkFunction) => t(OPERATION_I18N_KEY[operation])
-
-export function WorkSurface(): JSX.Element {
-  const mode = useMode()
-  const language = useLanguage()
-  const t = language.t
-  const workbench = useWorkspaceWorkbench()
-  const connection = workbench.connection
-  const navigate = useNavigate()
+// Everything the cockpit shows, derived from the Team projection of the
+// active run (the most relevant one, see pickActiveRun).
+function createWorkTeamModel() {
   const team = useTeam()
-  createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
   onMount(() => {
     void Promise.all([team.runs.refresh(), team.models.refresh()])
   })
@@ -65,172 +45,123 @@ export function WorkSurface(): JSX.Element {
       void team.details.select(run.runId).catch(() => undefined)
     }
   })
-  const planTasks = createMemo<TeamGraphTask[]>(() => [...team.details.tasks()])
-  const planProgress = createMemo(() => taskProgress(planTasks()))
-  const activeRunCount = createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length)
+  const tasks = createMemo<TeamGraphTask[]>(() => [...team.details.tasks()])
   // Issue #100: the v65 header chip, mapped from real run/task/gate facts
   // (work-health.ts). No run yet is not a problem state — it is "On track",
   // exactly as the mockup computes over an empty task list.
   const health = createMemo(() =>
     workHealth({
       runStatuses: team.runs.page().items.map((run) => run.status),
-      taskStatuses: planTasks().map((task) => task.status),
+      taskStatuses: tasks().map((task) => task.status),
       gateVerdicts: team.details.gates().map((gate) => gate.verdict),
     }),
   )
-  const gatesReadyCount = createMemo(
-    () => team.details.gates().filter((gate) => gate.verdict !== "CHANGES_REQUESTED").length,
-  )
-  const [activeView, setActiveView] = createSignal<WorkView>("overview")
-  const [activeOperation, setActiveOperation] = createSignal<WorkFunction>("documents")
-  const [exportState, setExportState] = createSignal<"idle" | "running" | "success" | "error">("idle")
-  const [exportMessage, setExportMessage] = createSignal("")
-  const documentQueryOptions = createMemo(() => {
-    const current = connection()
-    return { queryKey: workbenchQueryKey(current, "documents"), enabled: !!current, queryFn: () => current!.client.listDocuments(current!.workspaceId) }
-  })
-  const artifactQueryOptions = createMemo(() => {
-    const current = connection()
-    return { queryKey: workbenchQueryKey(current, "artifacts"), enabled: !!current, queryFn: () => current!.client.listArtifacts(current!.workspaceId) }
-  })
-  const fileQueryOptions = createMemo(() => {
-    const current = connection()
-    return { queryKey: workbenchQueryKey(current, "files", { prefix: "." }), enabled: !!current, queryFn: () => current!.client.listFiles(current!.workspaceId) }
-  })
-  const documents = createQuery(documentQueryOptions)
-  const artifacts = createQuery(artifactQueryOptions)
-  const files = createQuery(fileQueryOptions)
-  const navigation = createMemo(() =>
-    createMobileNavigationModel({ viewportWidth: window.innerWidth, documents: documents.data?.documents.length ?? 0, designPreviews: 0, active: activeOperation() }),
-  )
-
-  async function exportFirstArtifact(): Promise<void> {
-    const artifact = artifacts.data?.artifacts[0]
-    const current = connection()
-    if (!artifact || !current || exportState() === "running") return
-    setExportState("running")
-    setExportMessage("")
-    try {
-      workbench.beginOperation()
-      const result = await current.client.exportArtifact(current.workspaceId, artifact.artifactId)
-      if ("approvalId" in result && result.approvalId) {
-        setExportState("error")
-        setExportMessage(t("workbench.export.approvalRequired", { approvalId: result.approvalId }))
-      } else if ("exported" in result) {
-        setExportState("success")
-        setExportMessage(t("workbench.export.exported", { path: result.exported.relativePath }))
-      } else {
-        setExportState("error")
-        setExportMessage(t("workbench.export.noResult"))
-      }
-    } catch (error) {
-      setExportState("error")
-      setExportMessage(error instanceof Error ? error.message : t("workbench.export.failed"))
-    }
+  const countGates = (pending: boolean) =>
+    team.details.gates().filter((gate) => (gate.verdict === CHANGES_REQUESTED) === pending).length
+  return {
+    team,
+    tasks,
+    progress: createMemo(() => taskProgress(tasks())),
+    health,
+    activeRunCount: createMemo(() => team.runs.page().items.filter((run) => run.status === "running").length),
+    gatesReady: () => countGates(false),
+    gatesPending: () => countGates(true),
   }
+}
 
-  function openArtifactInCode(): void {
-    const artifact = artifacts.data?.artifacts[0]
-    if (!artifact || !mode.directory()) return
-    const session = mode.sessionId()
-    const target = `/${base64Encode(mode.directory())}/session${session ? `/${encodeURIComponent(session)}` : ""}?artifact=${encodeURIComponent(artifact.artifactId)}`
-    navigate(target)
+function WorkOverview(props: { model: ReturnType<typeof createWorkTeamModel>; onInspect: () => void }) {
+  const m = props.model
+  return (
+    <div data-v110="work-grid">
+      <WorkPlanCard tasks={m.tasks()} percent={m.progress().percent} />
+      <WorkAgentsCard />
+      <WorkProgressCard
+        percent={m.progress().percent}
+        health={m.health()}
+        taskCount={m.progress().total}
+        activeRunCount={m.activeRunCount()}
+        gatesReadyCount={m.gatesReady()}
+      />
+      <WorkNextSafeActionCard tasks={m.tasks()} onInspect={props.onInspect} />
+      <WorkApprovalsCard gates={m.team.details.gates()} onInspect={props.onInspect} />
+      <WorkProjectUpdateCard
+        health={m.health()}
+        percent={m.progress().percent}
+        completed={m.progress().completed}
+        total={m.progress().total}
+        pending={m.gatesPending()}
+      />
+    </div>
+  )
+}
+
+export function WorkSurface(): JSX.Element {
+  const mode = useMode()
+  const language = useLanguage()
+  const t = language.t
+  const layout = useLayout()
+  const teamDialog = useTeamDialog()
+  const workbench = useWorkspaceWorkbench()
+  createEffect(() => { void workbench.ensureConnected().catch(() => undefined) })
+  const model = createWorkTeamModel()
+  const artifacts = createWorkArtifacts()
+  const view = () => layout.work.view()
+
+  // "Inspect" lands on the run's trajectory, which the inspector's
+  // Execution tab already renders.
+  const inspectRun = () => {
+    layout.inspector.setTab("execution")
+    layout.inspector.open()
   }
 
   return (
     <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
       <section data-v110="surface-card" data-component="workbench-work-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
-        <div class="size-full overflow-auto p-4 md:p-5" data-workbench-surface="work" data-parity="work.surface">
-          <div class="mx-auto max-w-5xl space-y-6">
-        <header class="space-y-2">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.work.title")}</p>
-              <h1 class="text-24-medium">{t("workbench.work.heading")}</h1>
-            </div>
-            <div class="flex flex-wrap items-center justify-end gap-2">
-              <WorkHealthChip health={health()} />
-              <WorkHero activeRunCount={activeRunCount()} />
-            </div>
-          </div>
-          <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.work.description")}</p>
-          <ConnectionBanner dataAttr="workbench-connection" dataRetryAttr="workbench-retry" />
-        </header>
-        <div data-v110="work-view-shell" data-parity="work.shell">
-          <WorkViewSwitcher views={AVAILABLE_WORK_VIEWS} active={activeView()} onSelect={setActiveView} />
-          <div class="mt-4" data-v110="work-view-content" data-parity="work.content" data-work-view-content={activeView()}>
-            <Show when={activeView() === "overview"}>
-              <div class="grid gap-3 sm:grid-cols-2">
-                <WorkProgressPanel
-                  percent={planProgress().percent}
-                  taskCount={planProgress().total}
-                  runCount={team.runs.page().items.length}
-                  gatesReadyCount={gatesReadyCount()}
-                />
-                <WorkNextActionPanel tasks={planTasks()} />
+        <div data-v110="work-view" data-workbench-surface="work" data-parity="work.surface">
+          <WorkCockpitHeader
+            title={basename(mode.directory() ?? "") || t("workbench.work.title")}
+            subtitle={t("workbench.work.cockpit.subtitle", {
+              percent: model.progress().percent,
+              completed: model.progress().completed,
+              total: model.progress().total,
+            })}
+            health={model.health()}
+            onNewTask={teamDialog.open}
+            menu={<WorkArtifactMenu artifacts={artifacts} />}
+          />
+          <div data-v110="work-content" data-parity="work.content" data-work-view-content={view()}>
+            <Show when={workbench.uiPhase() !== "ready"}>
+              <div data-v110="work-connection">
+                <ConnectionBanner dataAttr="workbench-connection" dataRetryAttr="workbench-retry" />
               </div>
             </Show>
-            <Show when={activeView() === "tasks"}>
-              <WorkPlanPanel tasks={planTasks()} percent={planProgress().percent} canRead={team.capabilities().canRead} />
+            <Show when={artifacts.message()}>
+              <p data-v110="work-connection" data-workbench-export-result={artifacts.state()}>
+                {artifacts.message()}
+              </p>
             </Show>
-            <Show when={activeView() === "board"}>
-              <WorkBoardPanel tasks={planTasks()} />
+            <Show when={view() === "overview"}>
+              <WorkOverview model={model} onInspect={inspectRun} />
             </Show>
-            <Show when={activeView() === "timeline"}>
+            <Show when={view() === "tasks"}>
+              <WorkPlanPanel
+                tasks={model.tasks()}
+                percent={model.progress().percent}
+                canRead={model.team.capabilities().canRead}
+              />
+            </Show>
+            <Show when={view() === "board"}>
+              <WorkBoardPanel tasks={model.tasks()} />
+            </Show>
+            <Show when={view() === "timeline"}>
               <WorkTimelinePanel />
             </Show>
-            <Show when={activeView() === "activity"}>
+            <Show when={view() === "activity"}>
               <WorkActivityPanel />
             </Show>
-            <Show when={activeView() === "runs"}>
+            <Show when={view() === "runs"}>
               <WorkRunsPanel />
             </Show>
-          </div>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-workbench-navigation={navigation().layout}>
-          <For each={WORK_V1_FUNCTIONS}>
-            {(operation) => (
-              <button
-                type="button"
-                class="w-full rounded-lg border border-border-base bg-background-stronger p-4 text-left transition-colors hover:bg-background-strong"
-                classList={{ "border-border-focus": activeOperation() === operation }}
-                data-workbench-operation={operation}
-                aria-pressed={activeOperation() === operation}
-                onClick={() => setActiveOperation(operation)}
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <h2 class="text-14-medium">{labelFor(t, operation)}</h2>
-                  <Show when={activeOperation() === operation}>
-                    <span class="text-12-medium text-text-success">{t("workbench.operations.active")}</span>
-                  </Show>
-                </div>
-                <p class="mt-2 text-12-regular text-text-weak">
-                  {operation === "documents" ? t("workbench.operations.documentsCount", { count: navigation().workCount })
-                    : operation === "artifacts" ? t("workbench.operations.artifactsCount", { count: artifacts.data?.artifacts.length ?? 0 })
-                    : operation === "files" ? t("workbench.operations.filesCount", { count: files.data?.entries.length ?? 0 })
-                    : operation === "export" ? t("workbench.operations.exportDescription")
-                    : t("workbench.operations.scopedToWorkspace")}
-                </p>
-              </button>
-            )}
-          </For>
-        </div>
-        <div class="rounded-lg border border-border-base bg-background-stronger p-5" data-workbench-selected-operation={activeOperation()}>
-          <p class="text-12-medium uppercase tracking-wide text-text-weak">{t("workbench.operations.selectedLabel")}</p>
-          <h2 class="mt-2 text-18-medium">{labelFor(t, activeOperation())}</h2>
-          <p class="mt-2 text-14-regular text-text-weak">{t("workbench.operations.selectedDescription")}</p>
-          <Show when={activeOperation() === "export"}>
-            <button type="button" data-workbench-open-artifact class="mt-4 mr-2 rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!artifacts.data?.artifacts.length} onClick={openArtifactInCode}>
-              {t("workbench.export.openInCode")}
-            </button>
-            <button type="button" data-workbench-export class="mt-4 rounded border border-border-base px-3 py-2 text-12-medium disabled:opacity-50" disabled={!artifacts.data?.artifacts.length || exportState() === "running"} onClick={() => void exportFirstArtifact()}>
-              {exportState() === "running" ? t("workbench.export.exporting") : t("workbench.export.exportFirst")}
-            </button>
-            <Show when={exportMessage()}>
-              <p data-workbench-export-result={exportState()} class="mt-3 text-12-regular text-text-weak">{exportMessage()}</p>
-            </Show>
-          </Show>
-        </div>
           </div>
         </div>
       </section>

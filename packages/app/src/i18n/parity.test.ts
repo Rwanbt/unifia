@@ -67,6 +67,8 @@ const AUDITED_SCOPE_PREFIXES = [
 // cognates, units, punctuation, numeric/URL placeholders. Extending this
 // list is fine; adding a real untranslated sentence here is not.
 const TECHNICAL_ALLOWLIST = new Set([
+  // Product name of the Work autonomy mode (maquette "Auto Safe").
+  "workbench.work.cockpit.autoSafe",
   "provider.connect.opencodeZen.visit.link",
   "provider.custom.description.suffix",
   "provider.custom.models.id.label",
