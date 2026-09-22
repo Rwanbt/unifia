@@ -1088,6 +1088,19 @@ export default function Page() {
         </div>
 
         <Switch>
+          {/* workbench-mode.tsx had this exact branch before /:mode routed
+              here (2026-09-22). Without it, a denied/invalid mode (e.g.
+              Automate without workflow.run) silently falls through to the
+              mode resolver's own "code" fallback and an empty chat -- no
+              feedback that the requested mode never mounted. */}
+          <Match when={mode.routeKind() === "invalid"}>
+            <section class="size-full p-6" data-workbench-error="invalid-route">
+              <h1 class="text-18-medium">{language.t("workbench.errors.invalidMode")}</h1>
+              <p class="mt-2 text-14-regular text-text-weak">
+                {language.t("workbench.errors.invalidModeDescription")}
+              </p>
+            </section>
+          </Match>
           <Match when={mode.active() === "work"}>
             <WorkSurface />
           </Match>

@@ -8,7 +8,6 @@ import { useLanguage } from "@/context/language"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { useViewport } from "@/shell/v110-store"
-import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { decodeFile, parseWorkflowDefinition } from "./automate-decode"
 import { NODE_GAP_Y, NODE_HEIGHT, PADDING, type UserEdge } from "./automate-graph-layout"
@@ -250,11 +249,6 @@ export function AutomateSurface(): JSX.Element {
           <h1 class="text-24-medium">{t("workbench.automate.heading")}</h1>
           <p class="max-w-2xl text-14-regular text-text-weak">{t("workbench.automate.description")}</p>
         </header>
-        <WorkbenchChat
-          mode="automate"
-          prompt={t("workbench.automate.chatPrompt")}
-          description={t("workbench.automate.chatDescription")}
-        />
         <ConnectionBanner dataAttr="automate-connection" dataRetryAttr="automate-retry" />
         <section class="rounded-lg border border-border-base bg-background-stronger p-4" data-automate-node-library>
           <div class="flex flex-wrap items-baseline justify-between gap-3"><div><h2 class="text-14-medium">Node library</h2><p class="mt-1 text-12-regular text-text-weak">Families available in the connected workflow runtime.</p></div><input class="rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" value={nodeFilter()} onInput={(event) => setNodeFilter(event.currentTarget.value)} placeholder="Search nodes" aria-label="Search workflow nodes" /></div>
