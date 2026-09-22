@@ -22,7 +22,8 @@ const DEFAULT_INSPECTOR_WIDTH = 300
 // (Unifia-UI-UX-v110-PORT-READY-R1.html, measured live at 348px). The panel
 // stays fully resizable by the user; only the starting width changed.
 const DEFAULT_SESSION_WIDTH = 348
-const DEFAULT_TERMINAL_HEIGHT = 280
+// The v110 terminal card is 210px tall in the reference (#terminalShell).
+const DEFAULT_TERMINAL_HEIGHT = 210
 export type AvatarColorKey = (typeof AVATAR_COLOR_KEYS)[number]
 
 export function getAvatarColors(key?: string) {

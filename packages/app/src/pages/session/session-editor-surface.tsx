@@ -12,6 +12,8 @@ import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { FileTabContent } from "@/pages/session/file-tabs"
+import { TerminalPanel } from "@/pages/session/terminal-panel"
+import { usePlatform } from "@/context/platform"
 
 const filename = (path: string | undefined) => {
   if (!path) return "Untitled"
@@ -184,6 +186,7 @@ const EditorStatusbar = (props: { path: string | undefined }) => {
 export function SessionEditorSurface() {
   const file = useFile()
   const language = useLanguage()
+  const platform = usePlatform()
   const { tabs } = useSessionLayout()
 
   const active = () => tabs().active()
@@ -218,9 +221,14 @@ export function SessionEditorSurface() {
         <Show when={active()}>
           {(tab) => <EditorCodebar path={file.pathFromTab(tab())} />}
         </Show>
-        <div data-v110="editor-surface-content" class="min-h-0 flex-1 overflow-hidden">
+        <div data-v110="editor-surface-content" class="relative min-h-0 flex-1 overflow-hidden">
           <Show when={active()} fallback={<div class="flex size-full items-center justify-center text-12-regular text-text-weak">{language.t("common.noFileOpen")}</div>}>
             {(tab) => <FileTabContent tab={tab()} override />}
+          </Show>
+          {/* The maquette's terminal floats over the bottom of the code area,
+              inside this card; mobile keeps its own overlay (session.tsx). */}
+          <Show when={platform.platform !== "mobile"}>
+            <TerminalPanel />
           </Show>
         </div>
         <Show when={active()}>

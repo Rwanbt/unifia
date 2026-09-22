@@ -426,21 +426,29 @@ export function SessionHeader() {
                   </TooltipKeybind>
                 </div>
 
-                <TooltipKeybind
-                  title={language.t("command.terminal.toggle")}
-                  keybind={command.keybind("terminal.toggle")}
-                >
-                  <Button
-                    variant="ghost"
-                    class="group/terminal-toggle titlebar-icon w-8 h-[31px] p-0 box-border shrink-0"
-                    onClick={toggleTerminal}
-                    aria-label={language.t("command.terminal.toggle")}
-                    aria-expanded={view().terminal.opened()}
-                    aria-controls="terminal-panel"
+                {/* #topTerminalBtn: the terminal lives in the Code editor card,
+                    so the maquette hides this button in every other mode.
+                    The terminal.toggle keybind keeps working everywhere. */}
+                <Show when={mode.destination() === "code"}>
+                  <Tooltip
+                    placement="bottom"
+                    gutter={8}
+                    contentClass="v110-topbar-tooltip"
+                    value={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
                   >
-                    <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
-                  </Button>
-                </TooltipKeybind>
+                    <Button
+                      variant="ghost"
+                      data-v110="top-terminal"
+                      class="group/terminal-toggle titlebar-icon w-8 h-[31px] p-0 box-border shrink-0"
+                      onClick={toggleTerminal}
+                      aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
+                      aria-expanded={view().terminal.opened()}
+                      aria-controls="terminal-panel"
+                    >
+                      <Icon size="small" name={view().terminal.opened() ? "terminal-active" : "terminal"} />
+                    </Button>
+                  </Tooltip>
+                </Show>
                 <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
                   <StatusPopover />
                 </Tooltip>

@@ -1153,9 +1153,12 @@ export default function Page() {
 
         </div>
 
-        {/* Desktop: full-width bottom pane below the horizontal workspace.
-            Mobile: absolute overlay anchored to the relative workspace. */}
-        <TerminalPanel />
+        {/* Mobile: absolute overlay anchored to the relative workspace.
+            Desktop mounts it inside the Code editor card instead
+            (session-editor-surface.tsx), as the v110 maquette does. */}
+        <Show when={isMobileDevice()}>
+          <TerminalPanel />
+        </Show>
       </div>
 
       {/* FORK: Stretch Phase 6 — keyboard hints bar (tablet + hardware keyboard) */}

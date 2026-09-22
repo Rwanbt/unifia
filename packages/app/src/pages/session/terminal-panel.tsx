@@ -22,6 +22,7 @@ import { createSizing, focusTerminalById } from "@/pages/session/helpers"
 import { getTerminalHandoff, setTerminalHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { terminalProbe } from "@/testing/terminal"
+import { TerminalPanelHead, TerminalPanelTools } from "@/pages/session/terminal-panel-chrome"
 
 function focusTerminalTextarea(id: string) {
   const wrapper = document.getElementById(`terminal-wrapper-${id}`)
@@ -270,6 +271,7 @@ export function TerminalPanel() {
   const [store, setStore] = createStore({
     autoCreated: false,
     activeDraggable: undefined as string | undefined,
+    rename: { id: undefined as string | undefined, request: 0 },
     view: typeof window === "undefined" ? 1000 : (window.visualViewport?.height ?? window.innerHeight),
   })
 
@@ -396,6 +398,22 @@ export function TerminalPanel() {
   const all = terminal.all
   const ids = createMemo(() => all().map((pty) => pty.id))
 
+  const renameActive = () => {
+    const id = terminal.active()
+    if (!id) return
+    setStore("rename", { id, request: store.rename.request + 1 })
+  }
+
+  // Same rule as a tab's own close button: killing the last terminal also
+  // closes the panel.
+  const killActive = () => {
+    const id = terminal.active()
+    if (!id) return
+    const count = terminal.all().length
+    terminal.close(id)
+    if (count === 1) close()
+  }
+
   const handleTerminalDragStart = (event: unknown) => {
     const id = getDraggableId(event)
     if (!id) return
@@ -436,7 +454,7 @@ export function TerminalPanel() {
       inert={!opened()}
       class="relative w-full shrink-0 overflow-hidden bg-background-stronger"
       classList={{
-        "border-t border-border-weak-base": opened(),
+        "border-t border-border-weak-base": opened() && isMobile(),
         "transition-[height] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height] motion-reduce:transition-none":
           !size.active() && !isMobile(),
         // Mobile: full-height overlay over the session content, matching
@@ -501,17 +519,29 @@ export function TerminalPanel() {
             <DragDropSensors />
             <ConstrainDragYAxis />
             <div class="flex flex-col h-full">
+              <Show when={!isMobile()}>
+                <TerminalPanelHead onClear={clearActiveTerminal} onClose={close} />
+              </Show>
+              <div data-v110="terminal-body" class="flex flex-col flex-1 min-h-0">
               <Tabs
                 variant="alt"
                 value={terminal.active()}
                 onChange={(id) => terminal.open(id)}
                 class="!h-auto !flex-none"
               >
-                <Tabs.List class="h-10 border-b border-border-weaker-base">
+                <Tabs.List data-v110="terminal-sessionbar" class="h-10 border-b border-border-weaker-base">
                   <SortableProvider ids={ids()}>
-                    <For each={all()}>{(pty) => <SortableTerminalTab terminal={pty} onClose={close} />}</For>
+                    <For each={all()}>
+                      {(pty) => (
+                        <SortableTerminalTab
+                          terminal={pty}
+                          onClose={close}
+                          renameRequest={store.rename.id === pty.id ? store.rename.request : undefined}
+                        />
+                      )}
+                    </For>
                   </SortableProvider>
-                  <div class="h-full flex items-center justify-center">
+                  <div class="h-full flex items-center justify-center" classList={{ hidden: !isMobile() }}>
                     <Tooltip value={language.t("terminal.clear")} class="flex items-center">
                       <IconButton
                         icon="reset"
@@ -546,7 +576,10 @@ export function TerminalPanel() {
                   onPaste={pasteIntoActiveTerminal}
                 />
               </Show>
-              <div class="flex-1 min-h-0 relative">
+              <Show when={!isMobile()}>
+                <TerminalPanelTools onNew={terminal.new} onRename={renameActive} onKill={killActive} />
+              </Show>
+              <div data-v110="terminal-block" class="flex-1 min-h-0 relative">
                 {(() => {
                   const ops = terminal.bind()
                   return (
@@ -575,6 +608,7 @@ export function TerminalPanel() {
                     </For>
                   )
                 })()}
+              </div>
               </div>
             </div>
             <DragOverlay>

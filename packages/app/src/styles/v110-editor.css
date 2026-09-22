@@ -48,6 +48,11 @@
   --v110-card-muted: #9b9ba1;
   --v110-card-faint: #85858d;
   --v110-card-success: #8aca9a;
+  --v110-card-hover: #212125;
+  --v110-card-chip: #26262b;
+  --v110-card-sunken: #0b0b0c;
+  --v110-card-block: #0d0d0e;
+  --v110-card-float-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   --v110-card-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
   display: flex;
   min-width: 0;
@@ -72,6 +77,11 @@ html[data-color-scheme="light"] [data-v110="surface-card"] {
   --v110-card-text: #17171a;
   --v110-card-muted: #686870;
   --v110-card-faint: #74747c;
+  --v110-card-hover: #e5e5e8;
+  --v110-card-chip: #dbdbe0;
+  --v110-card-sunken: #f8f8f9;
+  --v110-card-block: #f8f8f9;
+  --v110-card-float-shadow: 0 5px 14px rgba(20, 20, 24, 0.06);
 }
 
 /* Code: tab strip (.tabs / .tab). Geometry is owned by the shared
@@ -271,4 +281,198 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
 
 [data-v110="code-editor"]:focus-within {
   border-color: var(--border-focus);
+}
+
+/* Code: terminal (#terminalShell). A floating card over the bottom of the
+ * code area, 8px from its edges; the editor keeps its full height below. */
+[data-component="session-editor-surface"] [data-v110="terminal-panel"] {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 5;
+  width: auto;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 14px;
+  background: var(--v110-card-sunken);
+  box-shadow: var(--v110-card-float-shadow);
+  line-height: normal;
+}
+
+[data-component="session-editor-surface"] [data-v110="terminal-panel"][aria-hidden="true"] {
+  border-width: 0;
+  box-shadow: none;
+}
+
+[data-v110="terminal-head"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: color-mix(in srgb, var(--v110-card-raised) 45%, transparent);
+}
+
+[data-v110="terminal-bottom-tabs"] {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: 100%;
+}
+
+[data-v110="terminal-bottom-tabs"] button,
+[data-v110="terminal-head-actions"] button,
+[data-v110="terminal-tools"] button {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 7px;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="terminal-bottom-tabs"] button {
+  gap: 4px;
+  padding: 0 7px;
+}
+
+[data-v110="terminal-bottom-tabs"] button[data-active="true"] {
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-v110="terminal-tab-count"] {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--v110-card-chip);
+  color: var(--v110-card-muted);
+  font-size: 8px;
+  line-height: 14px;
+  text-align: center;
+}
+
+[data-v110="terminal-head-actions"] {
+  display: flex;
+  gap: 2px;
+}
+
+[data-v110="terminal-head-actions"] button {
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+[data-v110="terminal-head-actions"] button:hover:not([aria-disabled="true"]),
+[data-v110="terminal-tools"] button:hover:not([aria-disabled="true"]) {
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-v110="terminal-panel"] [aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+[data-v110="terminal-body"] {
+  padding: 10px 12px 12px;
+}
+
+/* Session pills: the real terminal tabs (sortable, renamable) restyled. */
+[data-component="session-editor-surface"] [data-v110="terminal-sessionbar"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+  height: 34px;
+  padding: 0 0 5px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: transparent;
+}
+
+[data-component="session-editor-surface"] [data-v110="terminal-body"] > [data-component="tabs"] {
+  background: transparent;
+}
+
+/* The "alt" Tabs variant underlines the active tab and adds a close
+ * button; the reference pill has neither (Kill and the tab's context menu
+ * still close a session). */
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-wrapper"] {
+  height: 28px;
+  border-bottom: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) {
+  background: var(--v110-card-hover);
+  color: var(--v110-card-text);
+}
+
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger"] {
+  height: 28px;
+  padding: 0 8px;
+  color: inherit;
+  font-size: inherit;
+}
+
+[data-v110="terminal-sessionbar"] [data-slot="tabs-trigger-close-button"] {
+  display: none;
+}
+
+[data-v110="terminal-owner-dot"],
+[data-v110="terminal-owner"] {
+  display: none;
+}
+
+[data-v110="terminal-sessionbar"] [data-v110="terminal-tab-label"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-v110="terminal-sessionbar"] [data-v110="terminal-owner-dot"] {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--v110-card-success);
+}
+
+[data-v110="terminal-sessionbar"] [data-v110="terminal-owner"] {
+  display: inline;
+  color: var(--v110-card-faint);
+  font-size: 8px;
+}
+
+[data-v110="terminal-tools"] {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+[data-v110="terminal-tools"] button {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--v110-card-line);
+  background: var(--v110-card-raised);
+}
+
+[data-component="session-editor-surface"] [data-v110="terminal-block"] {
+  margin-top: 7px;
+  padding: 7px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 9px;
+  background: var(--v110-card-block);
+}
+
+[data-v110="terminal-block"] [data-v110="terminal"] {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
 }

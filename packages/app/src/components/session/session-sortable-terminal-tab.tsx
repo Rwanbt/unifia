@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js"
-import { Show, createEffect, onCleanup } from "solid-js"
+import { Show, createEffect, on, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSortable } from "@thisbeyond/solid-dnd"
 import { IconButton } from "@unifia/ui/icon-button"
@@ -11,7 +11,12 @@ import { useTerminal, type LocalPTY } from "@/context/terminal"
 import { useLanguage } from "@/context/language"
 import { focusTerminalById } from "@/pages/session/helpers"
 
-export function SortableTerminalTab(props: { terminal: LocalPTY; onClose?: () => void }): JSX.Element {
+export function SortableTerminalTab(props: {
+  terminal: LocalPTY
+  onClose?: () => void
+  // Bumped by an external "Rename" control to start editing this tab.
+  renameRequest?: number
+}): JSX.Element {
   const terminal = useTerminal()
   const language = useLanguage()
   const sortable = createSortable(props.terminal.id)
@@ -107,6 +112,16 @@ export function SortableTerminalTab(props: { terminal: LocalPTY; onClose?: () =>
     })
   })
 
+  createEffect(
+    on(
+      () => props.renameRequest,
+      (request) => {
+        if (request) edit()
+      },
+      { defer: true },
+    ),
+  )
+
   onCleanup(() => {
     if (blurFrame === undefined) return
     cancelAnimationFrame(blurFrame)
@@ -143,8 +158,10 @@ export function SortableTerminalTab(props: { terminal: LocalPTY; onClose?: () =>
             />
           }
         >
-          <span onDblClick={edit} classList={{ invisible: store.editing }}>
+          <span data-v110="terminal-tab-label" onDblClick={edit} classList={{ invisible: store.editing }}>
+            <i data-v110="terminal-owner-dot" aria-hidden="true" />
             {label()}
+            <small data-v110="terminal-owner">{language.t("terminal.owner.user")}</small>
           </span>
         </Tabs.Trigger>
         <Show when={store.editing}>

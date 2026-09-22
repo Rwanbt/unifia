@@ -351,6 +351,37 @@ html[data-ui-animations="off"] *::after {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+/* #topTerminalBtn: unlike its top-quick siblings, the reference gives the
+ * terminal toggle a raised fill and a bright hairline, shared by hover and
+ * by the open (aria-expanded) state; its glyph is full-strength at 17px. */
+[data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"]:hover:not(:disabled),
+[data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"][aria-expanded="true"] {
+  background: #2c2c2f;
+  border-color: rgba(244, 244, 245, 0.46);
+}
+
+[data-component="v110-topbar"] [data-v110="top-terminal"] [data-component="icon"],
+[data-component="v110-topbar"] [data-v110="top-terminal"] [data-slot="icon-svg"] {
+  width: 17px;
+  height: 17px;
+  color: #f2f2f3;
+}
+
+/* Topbar tooltips in the reference: compact 8px/600 label on a raised,
+ * near-opaque chip, 8px under the control. Portaled out of the topbar, so
+ * the host opts in with contentClass. */
+.v110-topbar-tooltip {
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(38, 38, 43, 0.96);
+  color: #f2f2f3;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: normal;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
 /* The search trigger is a ghost Button: the topbar ghost rules above target
  * the same element, so the search selector repeats their specificity and
  * wins by source order, hover included -- no important flag needed. */
