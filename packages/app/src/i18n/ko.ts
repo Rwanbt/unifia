@@ -605,6 +605,8 @@ export const dict = {
   "editor.codebar.symbols": "Symbols",
   "editor.codebar.split": "Split",
   "editor.codebar.commands": "Commands",
+  "editor.statusbar.agentIdle": "Agent · idle",
+  "editor.statusbar.agentWorking": "Agent · working",
   "app.name.desktop": "Unifia Desktop",
   "settings.section.desktop": "데스크톱",
   "settings.section.server": "서버",

@@ -756,6 +756,8 @@ export const dict = {
   "editor.codebar.symbols": "Symbols",
   "editor.codebar.split": "Split",
   "editor.codebar.commands": "Commands",
+  "editor.statusbar.agentIdle": "Agent · idle",
+  "editor.statusbar.agentWorking": "Agent · working",
   "sidebar.empty.title": "No projects open",
   "sidebar.empty.description": "Open a project to get started",
   "debugBar.ariaLabel": "Development performance diagnostics",

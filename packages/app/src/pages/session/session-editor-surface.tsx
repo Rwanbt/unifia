@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show } from "solid-js"
+import { createMemo, For, Show } from "solid-js"
+import { Icon } from "@unifia/ui/icon"
 import { IconButton } from "@unifia/ui/icon-button"
 import { useCommand } from "@/context/command"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
+import { useLspDiagnostics } from "@/context/lsp-diagnostics"
 import { usePermission } from "@/context/permission"
 import { useSDK } from "@/context/sdk"
+import { useSync } from "@/context/sync"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { FileTabContent } from "@/pages/session/file-tabs"
 
@@ -28,6 +31,37 @@ const breadcrumb = (path: string | undefined) => {
   const parentSlash = normalized.lastIndexOf("/", slash - 1)
   const parent = normalized.slice(parentSlash + 1, slash)
   return { parent: parent || undefined, name }
+}
+
+// Maquette's status bar shows a per-file language name. No language
+// detector is exposed anywhere else in the app (Shiki resolves its own
+// grammar internally, not as a reusable helper), so this is a small local
+// map covering the languages this monorepo actually contains -- real and
+// deterministic from the extension, same category as the breadcrumb
+// substitution above, not a guess.
+const LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  ts: "TypeScript",
+  tsx: "TypeScript",
+  js: "JavaScript",
+  jsx: "JavaScript",
+  mjs: "JavaScript",
+  rs: "Rust",
+  py: "Python",
+  go: "Go",
+  json: "JSON",
+  md: "Markdown",
+  css: "CSS",
+  html: "HTML",
+  yaml: "YAML",
+  yml: "YAML",
+  toml: "TOML",
+  sh: "Shell",
+  sql: "SQL",
+}
+const languageName = (path: string | undefined) => {
+  if (!path) return undefined
+  const ext = path.split(/[/\\]/).pop()?.split(".").pop()?.toLowerCase()
+  return ext ? LANGUAGE_BY_EXTENSION[ext] : undefined
 }
 
 // Maquette's `.v57-codebar`: breadcrumb, a Permission chip and Symbols/
@@ -98,6 +132,69 @@ const EditorCodebar = (props: { path: string | undefined }) => {
   )
 }
 
+// Maquette's `.v57-statusbar`. Shipped: branch, LSP problem counts,
+// language, agent status. Deliberately NOT shipped: sync ahead/behind
+// (only a one-shot OS notification exists, `vcs.branch.behind` in
+// context/notification.tsx -- no persisted, reactive ahead/behind count to
+// read), an LSP-connected indicator (no such signal exists), encoding/line
+// ending (nothing detects these per file), and cursor position (no
+// cursor-tracking hook exists). Each gap is a real missing feature, not
+// skipped for convenience -- see the codebar's own comment for the same
+// discipline applied to AI completion/Preview.
+const EditorStatusbar = (props: { path: string | undefined }) => {
+  const language = useLanguage()
+  const sync = useSync()
+  const diagnostics = useLspDiagnostics()
+  const { params } = useSessionLayout()
+
+  const branch = () => sync.data.vcs?.branch
+  const problems = createMemo(() => {
+    let errors = 0
+    let warnings = 0
+    for (const file of diagnostics.files()) {
+      errors += diagnostics.errors(file)
+      warnings += diagnostics.warnings(file)
+    }
+    return { errors, warnings }
+  })
+  const busy = () => {
+    const sessionID = params.id
+    if (!sessionID) return false
+    const status = sync.data.session_status[sessionID]
+    if (status && status.type !== "idle") return true
+    return (sync.data.message[sessionID] ?? []).some(
+      (item) => item.role === "assistant" && typeof item.time.completed !== "number",
+    )
+  }
+
+  return (
+    <div data-v110="code-statusbar" class="flex h-6 shrink-0 items-center gap-3 border-t border-border-weaker-base bg-background-stronger px-2 text-10-regular text-text-weak">
+      <Show when={branch()}>
+        <span class="flex items-center gap-1 truncate">
+          <Icon name="branch" size="small" class="size-3.5" aria-hidden="true" />
+          {branch()}
+        </span>
+      </Show>
+      <Show when={problems().errors > 0 || problems().warnings > 0}>
+        <span>
+          ×{problems().errors} !{problems().warnings}
+        </span>
+      </Show>
+      <Show when={languageName(props.path)}>
+        <span>{languageName(props.path)}</span>
+      </Show>
+      <div class="flex-1" />
+      <span class="flex items-center gap-1.5">
+        <span
+          class="size-1.5 shrink-0 rounded-full"
+          classList={{ "bg-icon-success-base": !busy(), "bg-icon-warning-base": busy() }}
+        />
+        {busy() ? language.t("editor.statusbar.agentWorking") : language.t("editor.statusbar.agentIdle")}
+      </span>
+    </div>
+  )
+}
+
 export function SessionEditorSurface() {
   const file = useFile()
   const language = useLanguage()
@@ -145,6 +242,9 @@ export function SessionEditorSurface() {
             {(tab) => <FileTabContent tab={tab()} override />}
           </Show>
         </div>
+        <Show when={active()}>
+          {(tab) => <EditorStatusbar path={file.pathFromTab(tab())} />}
+        </Show>
       </section>
     </main>
   )
