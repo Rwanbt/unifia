@@ -130,6 +130,10 @@ const icons = {
   scope: `<circle cx="12" cy="12" r="3" stroke="currentColor"/><path d="M4 12h5M15 12h5M12 4v5M12 15v5" stroke="currentColor"/><path d="m6.5 6.5 3.3 3.3M14.2 14.2l3.3 3.3M17.5 6.5l-3.3 3.3M9.8 14.2l-3.3 3.3" stroke="currentColor"/>`,
   // Maquette's `.v94-trajectory-btn` icon (session-chat-head), 24x24.
   trajectory: `<path d="M5 6h14M5 12h9M5 18h14" stroke="currentColor"/><circle cx="17" cy="12" r="2" stroke="currentColor"/>`,
+  // Editor codebar "Split" toggle. Maquette renders this as a bare "◫"
+  // glyph (no SVG to trace); authored fresh in the app's own 20x20 icon
+  // space to match its other outlined icons instead of a text character.
+  split: `<rect x="2.5" y="3.75" width="15" height="12.5" rx="1.25" stroke="currentColor"/><path d="M10 3.75v12.5" stroke="currentColor"/>`,
 }
 
 export interface IconProps extends ComponentProps<"svg"> {
