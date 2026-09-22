@@ -1789,6 +1789,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Invalid workspace mode",
   "workbench.errors.invalidModeDescription": "The requested workspace mode is not available.",
   "workbench.errors.bridgeUnavailable": "Workbench bridge is unavailable for this workspace",
+  "workbench.errors.webBridgeNeedsPassword": "The Workbench needs a password-protected server (UNIFIA_SERVER_PASSWORD).",
   "workbench.errors.eventStreamDisconnected": "Workbench event stream disconnected; retrying",
   "workbench.errors.sessionCreation": "Unable to create a workspace session",
   "workbench.connection.connected": "Connected to Workbench instance {{instanceId}}",

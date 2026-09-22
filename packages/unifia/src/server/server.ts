@@ -121,6 +121,20 @@ export namespace Server {
         if (skipCompress(c.req.path, c.req.method)) return next()
         return zipped(c, next)
       })
+      // ADR-041: web runtime's lease route. Outside /workbench/*, so the auth
+      // middleware above applies, and after cors() like every browser-facing
+      // route. The bridge only exists with UNIFIA_SERVER_PASSWORD set.
+      .post("/workbench-web/token", async (c) => {
+        if (!workbench) return c.json({ error: "Workbench web bridge unavailable" }, 404)
+        // A lease carries write capabilities; a read-only collaborative
+        // account must not obtain one (ADR-041, /cso finding 1). Basic auth
+        // is recorded as an admin by the middleware.
+        const caller = c.get("user" as never) as { role: string } | undefined
+        if (!caller || caller.role === "viewer") {
+          return c.json({ error: "Workbench leases require an admin or member account" }, 403)
+        }
+        return workbench.web(c.req.raw)
+      })
       .route("/collab", AuthRoutes())
       .route("/global", GlobalRoutes())
       .put(

@@ -38,9 +38,11 @@ describe("V03 — WorkbenchUiPhase (terminal + transient states)", () => {
   test("the provider reads platform.workbench once at init and pins the result", () => {
     // WHY: the audit caught a loop because the bridge absence was
     // re-evaluated on every `ensureConnected` call. V03 fixes it by
-    // reading `!platform.workbench` exactly once at init.
-    const unsupportedInit = provider.match(/const bridgeUnavailable = !platform\.workbench/)
-    expect(unsupportedInit).not.toBeNull()
+    // resolving the bridge exactly once at init. ADR-041 adds the web
+    // bridge as a fallback, still resolved once and pinned.
+    expect(provider).toMatch(/const bridge = resolveBridge\(platform\)\n\s+const bridgeUnavailable = !bridge/)
+    expect(provider.match(/resolveBridge\(/g)?.length).toBe(2) // definition + single call
+    expect(provider).toContain("if (platform.workbench) return platform.workbench")
   })
 
   test("ensureConnected short-circuits on the unsupported terminal state", () => {

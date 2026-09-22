@@ -1806,6 +1806,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Ungültiger Arbeitsbereich-Modus",
   "workbench.errors.invalidModeDescription": "Der angeforderte Arbeitsbereich-Modus ist nicht verfügbar.",
   "workbench.errors.bridgeUnavailable": "Die Workbench-Brücke ist für diesen Arbeitsbereich nicht verfügbar",
+  "workbench.errors.webBridgeNeedsPassword": "Die Workbench benötigt einen passwortgeschützten Server (UNIFIA_SERVER_PASSWORD).",
   "workbench.errors.eventStreamDisconnected": "Workbench-Ereignisstrom getrennt; erneuter Versuch läuft",
   "workbench.errors.sessionCreation": "Arbeitsbereich-Sitzung kann nicht erstellt werden",
   "workbench.connection.connected": "Verbunden mit Workbench-Instanz {{instanceId}}",

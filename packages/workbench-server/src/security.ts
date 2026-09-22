@@ -10,9 +10,19 @@ export const WORKBENCH_ALLOWED_ORIGINS = ["http://tauri.localhost", "https://tau
 
 export type SecurityDecision = { allowed: true; origin?: string } | { allowed: false; origin: string }
 
+// ADR-041: an entry ending in ":*" allows that exact scheme and host on any
+// numeric port (the loopback web runtime), nothing else -- no other host,
+// no path, no userinfo.
+function matchesOrigin(origin: string, allowed: string): boolean {
+  if (!allowed.endsWith(":*")) return origin === allowed
+  const prefix = allowed.slice(0, -1)
+  if (!origin.startsWith(prefix)) return false
+  return /^\d{1,5}$/.test(origin.slice(prefix.length))
+}
+
 export function checkRequestOrigin(origin: string | null, allowedOrigins: readonly string[] = WORKBENCH_ALLOWED_ORIGINS): SecurityDecision {
   if (origin === null) return { allowed: true }
-  return allowedOrigins.includes(origin) ? { allowed: true, origin } : { allowed: false, origin }
+  return allowedOrigins.some((allowed) => matchesOrigin(origin, allowed)) ? { allowed: true, origin } : { allowed: false, origin }
 }
 
 // FUNC-002: derived from WORKBENCH_REQUEST_HEADERS (@unifia/contracts) so

@@ -1785,6 +1785,7 @@ export const dict = {
   "workbench.errors.invalidMode": "無効なワークスペースモード",
   "workbench.errors.invalidModeDescription": "要求されたワークスペースモードは利用できません。",
   "workbench.errors.bridgeUnavailable": "このワークスペースでは Workbench ブリッジを利用できません",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench にはパスワードで保護されたサーバーが必要です (UNIFIA_SERVER_PASSWORD)。",
   "workbench.errors.eventStreamDisconnected": "Workbench のイベントストリームが切断されました。再試行しています",
   "workbench.errors.sessionCreation": "ワークスペースセッションを作成できません",
   "workbench.connection.connected": "Workbench インスタンス {{instanceId}} に接続済み",

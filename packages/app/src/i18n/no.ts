@@ -1786,6 +1786,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Ugyldig arbeidsområde-modus",
   "workbench.errors.invalidModeDescription": "Den forespurte arbeidsområde-modusen er ikke tilgjengelig.",
   "workbench.errors.bridgeUnavailable": "Workbench-broen er ikke tilgjengelig for dette arbeidsområdet",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench krever en passordbeskyttet server (UNIFIA_SERVER_PASSWORD).",
   "workbench.errors.eventStreamDisconnected": "Workbench-hendelsesstrømmen er frakoblet; prøver igjen",
   "workbench.errors.sessionCreation": "Kan ikke opprette en arbeidsområde-økt",
   "workbench.connection.connected": "Koblet til Workbench-instans {{instanceId}}",

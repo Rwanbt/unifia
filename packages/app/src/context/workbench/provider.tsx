@@ -5,7 +5,11 @@ import { SURFACE_LEASE_CAPABILITIES, WorkbenchEventDispatcher, createWorkbenchTa
 import { useQueryClient } from "@tanstack/solid-query"
 import { createMemo, createSignal, onCleanup, type ParentProps } from "solid-js"
 import { useLanguage } from "@/context/language"
-import { usePlatform } from "@/context/platform"
+import { usePlatform, type Platform } from "@/context/platform"
+import { useServer } from "@/context/server"
+import { useCollaborativeAuth } from "@/context/collaborative-auth"
+import { serverBasicAuthorization } from "@/utils/server"
+import { createWebWorkbenchBridge, WebWorkbenchBridgeUnavailableError } from "./web-bridge"
 import { decideEventRetry } from "./event-retry"
 import { createCoalescedInvalidate } from "./query-invalidation"
 
@@ -34,6 +38,22 @@ const EVENT_RECONNECT_DELAY_MS = 1_000
 // must not allow a second click while it runs.
 export type WorkbenchUiPhase = "unsupported" | "connecting" | "ready" | "failed" | "retrying"
 
+// The desktop injects its keychain-backed bridge; the web runtime gets the
+// server-authenticated one (ADR-041). Any other runtime has none.
+function resolveBridge(platform: Platform): Platform["workbench"] {
+  if (platform.workbench) return platform.workbench
+  if (platform.platform !== "web") return undefined
+  const server = useServer()
+  const collaborativeAuth = useCollaborativeAuth()
+  return createWebWorkbenchBridge(() => {
+    const http = server.current?.http
+    return {
+      url: http?.url ?? location.origin,
+      authorization: collaborativeAuth.authorization() ?? (http ? serverBasicAuthorization(http) : undefined),
+    }
+  })
+}
+
 const { use, provider: WorkbenchContextProvider } = createSimpleContext({
   name: "WorkspaceWorkbench",
   init: (props: { workspacePath: string; codeSessionId?: string }) => {
@@ -53,7 +73,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
     // clicked it, the loop restarted). The `unsupported` and
     // `bridgeError` accessors are functions so the UI-phase derivation
     // keeps a uniform call shape (`x()` instead of `x ?? x()`).
-    const bridgeUnavailable = !platform.workbench
+    const bridge = resolveBridge(platform)
+    const bridgeUnavailable = !bridge
     const unsupported = (): boolean => bridgeUnavailable
     // Text only, computed fresh on every read so it tracks the resolved
     // locale: a plain `const` here previously baked in whatever `t()`
@@ -140,7 +161,7 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
         updatePhase("initializing")
         if (signal.aborted) throw signal.reason
         updatePhase("opening")
-        const value = await platform.workbench!.connect({ workspacePath: props.workspacePath, capabilities: SURFACE_LEASE_CAPABILITIES })
+        const value = await bridge!.connect({ workspacePath: props.workspacePath, capabilities: SURFACE_LEASE_CAPABILITIES })
         acquire(value.revoke)
         if (signal.aborted || attemptGeneration !== providerGeneration) throw signal.reason ?? new Error("Workbench connection became stale")
         setIdentity(createWorkbenchTaskIdentity({ codeSessionId: props.codeSessionId, workbenchSessionId: crypto.randomUUID() }))
@@ -212,6 +233,8 @@ const { use, provider: WorkbenchContextProvider } = createSimpleContext({
       if (uiPhase() === "unsupported") return bridgeError()
       const reason = error()
       if (reason === undefined || reason === null) return undefined
+      // ADR-041: the sidecar only serves the web bridge with a password set.
+      if (reason instanceof WebWorkbenchBridgeUnavailableError) return new Error(t("workbench.errors.webBridgeNeedsPassword"))
       if (reason instanceof Error) return reason
       return new Error(String(reason))
     }

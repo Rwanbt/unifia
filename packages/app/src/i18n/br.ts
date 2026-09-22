@@ -1791,6 +1791,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Modo de espaço de trabalho inválido",
   "workbench.errors.invalidModeDescription": "O modo de espaço de trabalho solicitado não está disponível.",
   "workbench.errors.bridgeUnavailable": "A ponte do Workbench não está disponível para este espaço de trabalho",
+  "workbench.errors.webBridgeNeedsPassword": "O Workbench precisa de um servidor protegido por senha (UNIFIA_SERVER_PASSWORD).",
   "workbench.errors.eventStreamDisconnected": "Fluxo de eventos do Workbench desconectado; tentando novamente",
   "workbench.errors.sessionCreation": "Não foi possível criar uma sessão de espaço de trabalho",
   "workbench.connection.connected": "Conectado à instância {{instanceId}} do Workbench",

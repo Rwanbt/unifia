@@ -46,6 +46,8 @@ export type WorkbenchConfig = {
   artifactRoot: string
   /** Lifetime of a Phase 9.4 share link. Short by design — a present link expires rather than being revoked. */
   presentLinkTtlMs: number
+  /** Browser origins allowed to call the routes; defaults to the Tauri origins (see security.ts). */
+  allowedOrigins?: readonly string[]
 }
 
 export type WorkbenchHandle = {
@@ -268,6 +270,7 @@ export function createWorkbenchApp(config: WorkbenchConfig, surfaces: WorkbenchS
     // workspace list and read another's artifacts.
     artifacts: artifactStoreResolver(config.artifactRoot),
     presentLinks: new PresentLinkSigner(config.signingKey, config.presentLinkTtlMs),
+    allowedOrigins: config.allowedOrigins,
     ui: surfaces.ui,
     uiAllowedActions: surfaces.uiAllowedActions,
     designSkills: surfaces.designSkills,

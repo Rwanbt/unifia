@@ -15,6 +15,27 @@ describe("workbench origin policy", () => {
     expect(checkRequestOrigin("https://evil.example").allowed).toBe(false)
   })
 
+  it("a ':*' entry allows that scheme and host on a numeric port only (ADR-041)", () => {
+    const allowed = [...WORKBENCH_ALLOWED_ORIGINS, "http://127.0.0.1:*", "http://localhost:*"]
+    expect(checkRequestOrigin("http://127.0.0.1:4448", allowed).allowed).toBe(true)
+    expect(checkRequestOrigin("http://localhost:3000", allowed).allowed).toBe(true)
+    expect(checkRequestOrigin(WORKBENCH_ALLOWED_ORIGINS[0], allowed).allowed).toBe(true)
+    for (const hostile of [
+      "http://127.0.0.1.evil.example:80",
+      "http://127.0.0.1:80.evil.example",
+      "http://127.0.0.1:",
+      "http://127.0.0.1:abc",
+      "http://127.0.0.1:123456",
+      "https://127.0.0.1:4448",
+      "http://localhost.evil.example:3000",
+      "http://evil.example",
+    ]) {
+      expect(checkRequestOrigin(hostile, allowed).allowed, hostile).toBe(false)
+    }
+    // The default list stays Tauri-only.
+    expect(checkRequestOrigin("http://127.0.0.1:4448").allowed).toBe(false)
+  })
+
   it("does not emit a wildcard credential policy", () => {
     const response = addSecurityHeaders(new Response("ok"), WORKBENCH_ALLOWED_ORIGINS[0])
     expect(response.headers.get("access-control-allow-origin")).toBe(WORKBENCH_ALLOWED_ORIGINS[0])

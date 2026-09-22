@@ -1856,6 +1856,7 @@ export const dict = {
   "workbench.errors.invalidMode": "无效的工作区模式",
   "workbench.errors.invalidModeDescription": "请求的工作区模式不可用。",
   "workbench.errors.bridgeUnavailable": "此工作区不可用 Workbench 桥接",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench 需要受密码保护的服务器 (UNIFIA_SERVER_PASSWORD)。",
   "workbench.errors.eventStreamDisconnected": "Workbench 事件流已断开,正在重试",
   "workbench.errors.sessionCreation": "无法创建工作区会话",
   "workbench.connection.connected": "已连接到 Workbench 实例 {{instanceId}}",

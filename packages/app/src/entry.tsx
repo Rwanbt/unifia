@@ -141,7 +141,16 @@ const testOverride = (
 const merged: Platform = testOverride ? { ...platform, ...testOverride } : platform
 
 if (root instanceof HTMLElement) {
-  const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl() } }
+  // ADR-041: a Vite dev build may seed the local sidecar's credentials so a
+  // password-protected server (required by the web Workbench bridge) works
+  // without typing them. Production builds never read these variables.
+  const devCredentials = import.meta.env.DEV && import.meta.env.VITE_OPENCODE_SERVER_PASSWORD
+    ? {
+        username: import.meta.env.VITE_OPENCODE_SERVER_USERNAME as string | undefined,
+        password: import.meta.env.VITE_OPENCODE_SERVER_PASSWORD as string,
+      }
+    : {}
+  const server: ServerConnection.Http = { type: "http", http: { url: getCurrentUrl(), ...devCredentials } }
   render(
     () => (
       <PlatformProvider value={merged}>

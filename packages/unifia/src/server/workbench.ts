@@ -3,7 +3,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import path from "node:path"
 import { createWorkbenchApp, type WorkbenchApp } from "@unifia/workbench-server/bootstrap"
-import { SURFACE_GRANTED_CAPABILITIES } from "@unifia/workbench-server"
+import { SURFACE_GRANTED_CAPABILITIES, WORKBENCH_ALLOWED_ORIGINS } from "@unifia/workbench-server"
 import { P3_CAPABILITIES, readWorkbenchIpcBearerFromEnv, type P3Capability } from "@unifia/contracts"
 import { Global } from "../global/path"
 import { OpenCodeSessionBackend } from "../unifia/opencode-runtime-backend"
@@ -24,10 +24,15 @@ const PRESENT_LINK_TTL_MS = 10 * 60_000
 type WorkbenchBridge = {
   app: WorkbenchApp
   fetch(request: Request): Promise<Response>
+  /** Desktop keychain path; 404 when no IPC bearer was provided. */
   native(request: Request): Promise<Response>
+  /** ADR-041: caller already authenticated by the server middleware. */
+  web(request: Request): Promise<Response>
 }
 
 const NATIVE_PRINCIPAL = "unifia-native-workbench"
+// ADR-041: a distinct principal so the audit trail tells web leases apart.
+const WEB_PRINCIPAL = "unifia-web-workbench"
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
@@ -82,7 +87,10 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   // the mobile path exported the encryption key under both names
   // (server.rs:267, 340-341) can no longer satisfy this call.
   const ipcToken = readWorkbenchIpcBearerFromEnv(process.env as Record<string, string | undefined>)
-  if (!password || !ipcToken) return undefined
+  // ADR-041: the password is what makes the server middleware authenticate
+  // callers; without it the web route would mint leases for anyone, so the
+  // whole bridge stays off. The IPC bearer only gates the native route.
+  if (!password) return undefined
 
   const signingKey = createHash("sha256").update(password, "utf8").digest("hex")
   const app = createWorkbenchApp({
@@ -110,6 +118,9 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     allowlistedCapabilities: new Set(SURFACE_GRANTED_CAPABILITIES),
     artifactRoot: Global.Path.data,
     presentLinkTtlMs: PRESENT_LINK_TTL_MS,
+    // ADR-041: the Tauri origins plus the loopback web runtime, the same
+    // localhost/127.0.0.1-any-port rule as the sidecar's own CORS policy.
+    allowedOrigins: [...WORKBENCH_ALLOWED_ORIGINS, "http://localhost:*", "http://127.0.0.1:*"],
   }, {
     backend: new OpenCodeSessionBackend(),
     designSkills: async () => {
@@ -143,8 +154,9 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     },
   })
 
-  const native = async (request: Request): Promise<Response> => {
-    if (request.method !== "POST" || !sameSecret(ipcToken, request.headers.get("x-unifia-keychain-token"))) return json(401, { error: "native Workbench authorization required" })
+  // One implementation for both callers; only the gate and the principal differ.
+  const tokenAction = async (request: Request, principalId: string): Promise<Response> => {
+    if (request.method !== "POST") return json(405, { error: "Workbench token requests must be POST" })
     try {
       const input = readInput(await request.json())
       const capabilities = input.capabilities ?? ["workspace.read", "workspace.watch"]
@@ -158,18 +170,26 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
         await app.server.revokeNativeScopedToken(input.workspaceId)
         return json(200, { revoked: true })
       }
-      const requestData = { principalId: NATIVE_PRINCIPAL, workspaceId: input.workspaceId, capabilities }
+      const requestData = { principalId, workspaceId: input.workspaceId, capabilities }
       if (input.action === "rotate") return json(200, await app.server.rotateNativeScopedToken(requestData) as unknown as Record<string, unknown>)
       return json(200, await app.server.issueNativeScopedToken(requestData) as unknown as Record<string, unknown>)
     } catch (error) {
-      return json(400, { error: error instanceof Error ? error.message : "native Workbench request failed" })
+      return json(400, { error: error instanceof Error ? error.message : "Workbench token request failed" })
     }
   }
+
+  const native = async (request: Request): Promise<Response> => {
+    if (!ipcToken) return json(404, { error: "Workbench native bridge unavailable" })
+    if (request.method !== "POST" || !sameSecret(ipcToken, request.headers.get("x-unifia-keychain-token"))) return json(401, { error: "native Workbench authorization required" })
+    return tokenAction(request, NATIVE_PRINCIPAL)
+  }
+
+  const web = (request: Request): Promise<Response> => tokenAction(request, WEB_PRINCIPAL)
 
   const fetch = (request: Request): Promise<Response> => {
     const url = new URL(request.url)
     const pathName = url.pathname.replace(/^\/workbench/, "") || "/"
     return app.server.fetch(new Request(new URL(`${pathName}${url.search}`, url), request))
   }
-  return { app, fetch, native }
+  return { app, fetch, native, web }
 }

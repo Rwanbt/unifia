@@ -1785,6 +1785,7 @@ export const dict = {
   "workbench.errors.invalidMode": "잘못된 워크스페이스 모드",
   "workbench.errors.invalidModeDescription": "요청한 워크스페이스 모드를 사용할 수 없습니다.",
   "workbench.errors.bridgeUnavailable": "이 워크스페이스에서 Workbench 브리지를 사용할 수 없습니다",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench를 사용하려면 비밀번호로 보호된 서버가 필요합니다 (UNIFIA_SERVER_PASSWORD).",
   "workbench.errors.eventStreamDisconnected": "Workbench 이벤트 스트림이 끊어졌습니다. 재시도 중",
   "workbench.errors.sessionCreation": "워크스페이스 세션을 만들 수 없습니다",
   "workbench.connection.connected": "Workbench 인스턴스 {{instanceId}}에 연결됨",

@@ -1793,6 +1793,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Неверный режим рабочего пространства",
   "workbench.errors.invalidModeDescription": "Запрошенный режим рабочего пространства недоступен.",
   "workbench.errors.bridgeUnavailable": "Мост Workbench недоступен для этого рабочего пространства",
+  "workbench.errors.webBridgeNeedsPassword": "Для Workbench нужен сервер, защищённый паролем (UNIFIA_SERVER_PASSWORD).",
   "workbench.errors.eventStreamDisconnected": "Поток событий Workbench отключён; повторная попытка",
   "workbench.errors.sessionCreation": "Не удалось создать сессию рабочего пространства",
   "workbench.connection.connected": "Подключено к инстансу Workbench {{instanceId}}",
