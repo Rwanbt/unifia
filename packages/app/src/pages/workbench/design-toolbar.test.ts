@@ -6,11 +6,9 @@ import { resolve } from "node:path"
 
 const TOOLBAR = resolve(import.meta.dir, "./design-toolbar.tsx")
 const TABS_BAR = resolve(import.meta.dir, "../../components/workspace-tabs-bar.tsx")
-const SWITCHER = resolve(import.meta.dir, "./design-surface-switcher.tsx")
 
 const toolbar = readFileSync(TOOLBAR, "utf-8")
 const tabsBar = readFileSync(TABS_BAR, "utf-8")
-const switcher = readFileSync(SWITCHER, "utf-8")
 
 // V08 — touch + keyboard accessibility. The audit caught the
 // toolbar and the tabs at 24-36 px tall, well under the WCAG
@@ -82,13 +80,5 @@ describe("V08 — workspace-tabs-bar meets the 44x44 touch target", () => {
 
   test("motion-reduce:transition-none is applied to the tab row", () => {
     expect(tabsBar).toMatch(/motion-reduce:transition-none/)
-  })
-})
-
-describe("V08 — design-surface-switcher meets the 44x44 touch target", () => {
-  test("each tab uses min-h-11 (44 px) for the touch target", () => {
-    // The switcher was already 44 px from V06. V08 pins the
-    // contract so a future refactor cannot regress.
-    expect(switcher).toMatch(/min-h-11/)
   })
 })

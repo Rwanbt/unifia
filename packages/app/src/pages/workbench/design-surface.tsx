@@ -9,8 +9,6 @@ import { useSync } from "@/context/sync"
 import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { createWorkbenchSession } from "@/pages/workbench/workbench-session"
-import { WorkbenchThread } from "@/pages/workbench/workbench-thread"
-import { DesignSplit } from "@/pages/workbench/design-split"
 import { DesignWorkspace, seedDesignTabState } from "@/pages/workbench/design-workspace"
 import { DesignFilesTab } from "@/pages/workbench/design-files-tab"
 import { DesignArtifactTab } from "@/pages/workbench/design-artifact-tab"
@@ -19,10 +17,7 @@ import { createArtifactParser } from "@unifia/artifact-render"
 import { createArtifactStreamController } from "@/pages/workbench/use-artifact-stream"
 import { adaptRenderArtifactEvents } from "@/pages/workbench/artifact-event-adapter"
 import { extractMessageText } from "@/pages/workbench/workbench-thread-shared"
-import { toggleAttachedCommentId } from "@/pages/workbench/thread-comment-attach"
 import { tDesignApproval } from "@/i18n/design-approval"
-import { toggleActiveDesignSystemId } from "@/pages/workbench/context-chips"
-import { encodeBase64 } from "@/pages/workbench/design-files-preview"
 import {
   createDesignPreviewPanelState,
   createDesignSpecPanelState,
@@ -68,16 +63,11 @@ export function DesignSurface(): JSX.Element {
     const current = connection()
     return { queryKey: workbenchQueryKey(current, "design-systems"), enabled: !!current, queryFn: () => current!.client.listDesignSystems(current!.workspaceId) }
   })
-  const skillsQueryOptions = createMemo(() => {
-    const current = connection()
-    return { queryKey: workbenchQueryKey(current, "design-skills"), enabled: !!current, queryFn: () => current!.client.listDesignSkills(current!.workspaceId) }
-  })
   const githubQueryOptions = createMemo(() => {
     const current = connection()
     return { queryKey: workbenchQueryKey(current, "github-status"), enabled: !!current, queryFn: () => current!.client.githubStatus(current!.workspaceId) }
   })
   const manifest = createQuery(manifestQueryOptions)
-  const skills = createQuery(skillsQueryOptions)
   const github = createQuery(githubQueryOptions)
   const [source, setSource] = createSignal("")
   const [draftRevision, setDraftRevision] = createSignal<number | undefined>()
@@ -187,17 +177,6 @@ export function DesignSurface(): JSX.Element {
   // la cible en cours).
   const [commentState, setCommentState] = createSignal<CommentState>(EMPTY_COMMENT_STATE)
   const [commentTarget, setCommentTarget] = createSignal<{ elementId: string; artifactId: string; entryFile: string; rect?: CommentTargetRect }>()
-  // Phase 10.3 — "Commenter la conversation" ; deliberately NOT a field on
-  // `CommentState` (see `thread-comment-attach.ts`'s doc comment): this is
-  // an ephemeral "will ride along with my next message" selection, not a
-  // persisted property of the comment, so it lives in its own signal and
-  // is never written to `commentStore` below.
-  const [attachedCommentIds, setAttachedCommentIds] = createSignal<ReadonlySet<string>>(new Set())
-  // Phase 10.5 — which design system(s) the user has marked "active" for
-  // context chips. Local/ephemeral, same reasoning as attachedCommentIds
-  // above: not a property of the workspace manifest, just a per-session
-  // UI selection.
-  const [activeDesignSystemIds, setActiveDesignSystemIds] = createSignal<ReadonlySet<string>>(new Set())
   // Phase 8.1 — clicking a pin scrolls the sidebar to its comment; the
   // scroll target is a DOM id derived from the comment id (see CommentPanel).
   const [highlightedCommentId, setHighlightedCommentId] = createSignal<string>()
@@ -673,20 +652,6 @@ export function DesignSurface(): JSX.Element {
     stream.push({ type: "artifact:end", artifactId, reason: "complete" })
   }
 
-  /**
-   * Phase 10.4 — uploads one composer attachment via the same route
-   * Phase 7.3's file tab already uses (`createFiles`, refuses on EEXIST —
-   * `WorkbenchThread` generates a timestamp-prefixed path precisely so
-   * this never collides). Rejects (surfaced as the attachment's own
-   * "Échec" state) when there's no live connection.
-   */
-  async function uploadComposerAttachment(path: string, file: File): Promise<void> {
-    const current = connection()
-    if (!current) throw new Error("Aucune connexion au workspace")
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    await current.client.createFiles(current.workspaceId, [{ path, content: encodeBase64(bytes), encoding: "base64" }])
-  }
-
   const versionPanel = createMemo(() => createArtifactVersionPanelState(history.data?.history ?? []))
   const latestDiff = createMemo(() => {
     const versions = versionPanel().history
@@ -770,46 +735,37 @@ export function DesignSurface(): JSX.Element {
 
   return (
     <section class="size-full" data-workbench-surface="design">
-      <DesignSplit
-        chat={
-          <WorkbenchThread
-            mode="design"
-            prompt={t("workbench.design.chatPrompt")}
-            description={t("workbench.design.description")}
-            connection={{ dataAttr: "design-connection", dataRetryAttr: "design-retry" }}
-            comments={{
-              state: commentState(),
-              attachedIds: attachedCommentIds(),
-              onToggleAttach: (commentId) => setAttachedCommentIds((ids) => toggleAttachedCommentId(ids, commentId)),
-              onClearAttached: () => setAttachedCommentIds(new Set()),
-              resolveEntryFile: (artifactId) => stream.state().byId.get(artifactId)?.filename,
-            }}
-            files={{ upload: uploadComposerAttachment }}
-            contextChips={{
-              catalogs: manifest.data?.designSystems ?? [],
-              activeIds: activeDesignSystemIds(),
-              onToggleActive: (id) => setActiveDesignSystemIds((ids) => toggleActiveDesignSystemId(ids, id)),
-            }}
-            skills={{
-              skills: skills.data?.skills ?? [],
-              hasDesignSystem: (manifest.data?.designSystems.length ?? 0) > 0,
-            }}
-          />
-        }
-        workspace={
-          <div class="flex h-full min-h-0 flex-col">
-            <DesignWorkspace
-              state={tabState}
-              setState={setTabState}
-              renderContent={renderTabContent}
-              github={describeGithubConnection({ status: github.data, loading: github.isLoading, error: github.error })}
-              onOpenTerminal={() => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))}
-              onOpenBrowser={() => setTabState(openTab(tabState, { id: "browser", kind: "browser", title: "Navigateur", closable: true }))}
-              onOpenCanvas={() => setTabState(openTab(tabState, { id: "canvas", kind: "canvas", title: "Canvas", closable: true }))}
-            />
-          </div>
-        }
-      />
+      {/* WorkbenchThread + DesignSplit's own "assistant" column used to own
+          this mode's chat (2026-09-22 and earlier). Design now mounts under
+          SessionRoute like every other mode (session.tsx), which already
+          renders the one shared chat pane to its left -- DesignSplit's
+          assistant/atelier switch is redundant with that outer shell (and,
+          on mobile, actually conflicts with it: two different "which pane
+          is visible" mechanisms stacked on top of each other). Dropped the
+          split; this surface is now just its workspace content, full width,
+          matching Work/Automate's session.tsx-mounted shape.
+          Composer-embedded comment chips, design-system context chips, and
+          WorkbenchThread's own file upload are NOT ported to the shared
+          composer in this pass -- the core capabilities they wrapped stay:
+          comments still attach to refine prompts via the artifact panel's
+          own Send buttons (onSendCommentBatch/onSendCommentOne below,
+          unchanged), and the shared composer already has generic file
+          attachment (prompt-input.tsx's attachFile). Flagged as a follow-up
+          (mcp__ccd_session__spawn_task) rather than silently dropped or
+          rebuilt inline: making ContextItem (context/prompt.tsx) support a
+          second variant beyond "file" is a real, separate feature, not a
+          chat-unification detail. */}
+      <div class="flex h-full min-h-0 flex-col">
+        <DesignWorkspace
+          state={tabState}
+          setState={setTabState}
+          renderContent={renderTabContent}
+          github={describeGithubConnection({ status: github.data, loading: github.isLoading, error: github.error })}
+          onOpenTerminal={() => setTabState(openTab(tabState, { id: "terminal", kind: "terminal", title: "Terminal", closable: true }))}
+          onOpenBrowser={() => setTabState(openTab(tabState, { id: "browser", kind: "browser", title: "Navigateur", closable: true }))}
+          onOpenCanvas={() => setTabState(openTab(tabState, { id: "canvas", kind: "canvas", title: "Canvas", closable: true }))}
+        />
+      </div>
       {/* DA-UI-02 — the approval modal. Visible only when the machine
           is in `approval-required` or `resolving`; the modal owns its
           own Allow/Deny/Cancel buttons and reads the machine for the
