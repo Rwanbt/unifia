@@ -8,6 +8,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { which } from "../util/which"
 import { ProjectID } from "./schema"
+import { gitCeilingStop } from "./git-ceiling"
 import { Effect, Layer, Path, Scope, ServiceMap, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { NodePath } from "@effect/platform-node"
@@ -169,7 +170,9 @@ export namespace Project {
         type DiscoveryResult = { id: ProjectID; worktree: string; sandbox: string; vcs: Info["vcs"] }
 
         const data: DiscoveryResult = yield* Effect.gen(function* () {
-          const dotgitMatches = yield* fs.up({ targets: [".git"], start: directory }).pipe(Effect.orDie)
+          const dotgitMatches = yield* fs
+            .up({ targets: [".git"], start: directory, stop: gitCeilingStop(directory, process.env.GIT_CEILING_DIRECTORIES) })
+            .pipe(Effect.orDie)
           const dotgit = dotgitMatches[0]
 
           if (!dotgit) {
