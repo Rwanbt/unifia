@@ -107,8 +107,8 @@
 [data-v110="inspector-content"] {
   align-self: flex-start;
   box-sizing: border-box;
-  height: calc(100% - 24px);
-  margin: 12px;
+  height: calc(100% - 2 * var(--v110-gutter-outer));
+  margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner);
   min-height: 0;
   min-width: 0;
   flex: 0 0 auto;

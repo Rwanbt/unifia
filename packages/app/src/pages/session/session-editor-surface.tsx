@@ -89,45 +89,36 @@ const EditorCodebar = (props: { path: string | undefined }) => {
   const splitActive = () => view().workspace.current() === "split"
 
   return (
-    <div data-v110="code-codebar" class="flex h-8 shrink-0 items-center gap-1 border-b border-border-weaker-base bg-background-stronger px-2">
-      <div class="flex min-w-0 items-center gap-1 text-11-regular text-text-weak">
+    <div data-v110="code-codebar">
+      <div data-v110="code-breadcrumb">
         <Show when={crumb().parent}>
           <span class="truncate">{crumb().parent}</span>
-          <span class="shrink-0 text-text-weaker">›</span>
+          <span class="shrink-0">›</span>
         </Show>
-        <span class="truncate font-medium text-text-base">{crumb().name}</span>
+        <b class="truncate">{crumb().name}</b>
       </div>
       <div class="flex-1" />
-      <button
-        type="button"
-        class="shrink-0 rounded-full border border-border-weak-base px-2 py-0.5 text-9-medium text-text-weak hover:text-text-base"
-        onClick={toggleAuto}
-        aria-pressed={auto()}
-      >
+      <button type="button" data-v110="code-permission-chip" onClick={toggleAuto} aria-pressed={auto()}>
+        <i aria-hidden="true" />
         {auto() ? language.t("editor.codebar.permission.auto") : language.t("editor.codebar.permission.manual")}
       </button>
-      <IconButton
-        icon="magnifying-glass-menu"
-        variant="ghost"
-        size="small"
-        aria-label={language.t("editor.codebar.symbols")}
-        onClick={() => command.trigger("editor.symbols")}
-      />
-      <IconButton
-        icon="split"
-        variant={splitActive() ? "secondary" : "ghost"}
-        size="small"
-        aria-label={language.t("editor.codebar.split")}
+      <button type="button" data-v110="code-bar-button" onClick={() => command.trigger("editor.symbols")}>
+        <Icon name="magnifying-glass-menu" size="small" aria-hidden="true" />
+        {language.t("editor.codebar.symbols")}
+      </button>
+      <button
+        type="button"
+        data-v110="code-bar-button"
         aria-pressed={splitActive()}
         onClick={() => view().workspace.set(splitActive() ? "chat" : "split")}
-      />
-      <IconButton
-        icon="keyboard"
-        variant="ghost"
-        size="small"
-        aria-label={language.t("editor.codebar.commands")}
-        onClick={() => command.show()}
-      />
+      >
+        <Icon name="split" size="small" aria-hidden="true" />
+        {language.t("editor.codebar.split")}
+      </button>
+      <button type="button" data-v110="code-bar-button" onClick={() => command.show()}>
+        <Icon name="keyboard" size="small" aria-hidden="true" />
+        {language.t("editor.codebar.commands")}
+      </button>
     </div>
   )
 }
@@ -168,28 +159,23 @@ const EditorStatusbar = (props: { path: string | undefined }) => {
   }
 
   return (
-    <div data-v110="code-statusbar" class="flex h-6 shrink-0 items-center gap-3 border-t border-border-weaker-base bg-background-stronger px-2 text-10-regular text-text-weak">
+    <div data-v110="code-statusbar">
       <Show when={branch()}>
-        <span class="flex items-center gap-1 truncate">
-          <Icon name="branch" size="small" class="size-3.5" aria-hidden="true" />
-          {branch()}
+        <span data-v110="code-status-item" class="truncate">
+          ⑂ {branch()}
         </span>
       </Show>
       <Show when={problems().errors > 0 || problems().warnings > 0}>
-        <span>
+        <span data-v110="code-status-item">
           ×{problems().errors} !{problems().warnings}
         </span>
       </Show>
       <Show when={languageName(props.path)}>
-        <span>{languageName(props.path)}</span>
+        <span data-v110="code-status-item">{languageName(props.path)}</span>
       </Show>
       <div class="flex-1" />
-      <span class="flex items-center gap-1.5">
-        <span
-          class="size-1.5 shrink-0 rounded-full"
-          classList={{ "bg-icon-success-base": !busy(), "bg-icon-warning-base": busy() }}
-        />
-        {busy() ? language.t("editor.statusbar.agentWorking") : language.t("editor.statusbar.agentIdle")}
+      <span data-v110="code-status-item">
+        {busy() ? "✦ " + language.t("editor.statusbar.agentWorking") : "✦ " + language.t("editor.statusbar.agentIdle")}
       </span>
     </div>
   )
@@ -206,25 +192,20 @@ export function SessionEditorSurface() {
   return (
     <main data-v110="mode-main" data-component="session-editor-main" class="min-w-0 min-h-0 flex-1 flex">
       <section data-v110="surface-card" data-component="session-editor-surface" class="min-w-0 min-h-0 flex-1 flex flex-col">
-        <header data-v110="code-tabs" class="flex h-9 shrink-0 items-center overflow-x-auto border-b border-border-weaker-base bg-background-stronger px-1">
-          <Show when={tabs().all().length > 0} fallback={<span class="px-3 text-11-regular text-text-weak">{language.t("common.editor")}</span>}>
+        <header data-v110="code-tabs">
+          <Show when={tabs().all().length > 0} fallback={<span data-v110="code-tabs-empty">{language.t("common.editor")}</span>}>
             <For each={tabs().all()}>
               {(tab) => {
                 const path = () => file.pathFromTab(tab)
                 return (
-                  <div class="flex h-7 shrink-0 items-center border-r border-border-weaker-base" data-active={active() === tab ? "true" : "false"}>
-                    <button
-                      type="button"
-                      class="h-full max-w-44 truncate px-3 text-left text-11-regular text-text-weak data-[active=true]:bg-background-base data-[active=true]:text-text-base"
-                      onClick={() => tabs().setActive(tab)}
-                    >
+                  <div data-v110="code-tab" data-active={active() === tab ? "true" : "false"}>
+                    <button type="button" class="text-left" onClick={() => tabs().setActive(tab)}>
                       {filename(path())}
                     </button>
                     <IconButton
                       icon="close"
                       variant="ghost"
                       size="small"
-                      class="mr-1 size-5 text-text-weaker hover:text-text-base"
                       aria-label={language.t("common.close")}
                       onClick={() => close(tab)}
                     />
@@ -237,7 +218,7 @@ export function SessionEditorSurface() {
         <Show when={active()}>
           {(tab) => <EditorCodebar path={file.pathFromTab(tab())} />}
         </Show>
-        <div data-v110="editor-surface-content" class="min-h-0 flex-1 overflow-hidden bg-background-base">
+        <div data-v110="editor-surface-content" class="min-h-0 flex-1 overflow-hidden">
           <Show when={active()} fallback={<div class="flex size-full items-center justify-center text-12-regular text-text-weak">{language.t("common.noFileOpen")}</div>}>
             {(tab) => <FileTabContent tab={tab()} override />}
           </Show>

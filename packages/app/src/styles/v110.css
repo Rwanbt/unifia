@@ -38,6 +38,14 @@
   --v110-shell-line: rgba(255, 255, 255, 0.07);
   --v110-shell-line-strong: rgba(255, 255, 255, 0.12);
 
+  /* Shell gutters measured on the frozen maquette at 1440x900: the rail and
+   * the context panel float 20px below the topbar and 10px above the
+   * viewport bottom; chat, editor card and inspector share the same top but
+   * stop 20px above the bottom; every floating card sits 10px after the one
+   * before it and 20px from the viewport side. */
+  --v110-gutter-outer: 20px;
+  --v110-gutter-inner: 10px;
+
   /* Radius (maquette --radius-sm/md/lg/xl). */
   --v110-radius-sm: 10px;
   --v110-radius-md: 12px;
@@ -423,11 +431,11 @@ html[data-ui-animations="off"] *::after {
 }
 
 /* The reference rail is a floating surface, not a full-height blue/black
- * strip. Its 12px top inset matches the shell padding below the topbar. */
+ * strip, inset by the shell gutters. */
 [data-v110="rail"] {
-  margin-left: 12px;
-  margin-top: 12px;
-  margin-bottom: 12px;
+  margin-left: var(--v110-gutter-outer);
+  margin-top: var(--v110-gutter-outer);
+  margin-bottom: var(--v110-gutter-inner);
   height: auto;
   border: 1px solid var(--v110-shell-line-strong);
   border-radius: var(--v110-radius-xl);
@@ -451,9 +459,9 @@ html[data-ui-animations="off"] *::after {
 
 /* The context panel is a separate floating card in the reference shell. */
 [data-v110="context-panel"]:not([data-mobile]) {
-  margin-left: 12px;
-  margin-top: 12px;
-  margin-bottom: 12px;
+  margin-left: var(--v110-gutter-inner);
+  margin-top: var(--v110-gutter-outer);
+  margin-bottom: var(--v110-gutter-inner);
   height: auto;
   border: 1px solid var(--v110-shell-line-strong);
   border-radius: var(--v110-radius-xl);

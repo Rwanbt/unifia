@@ -4,7 +4,10 @@
   display: none;
 }
 
+/* The topbar already draws the only hairline under it in the reference; the
+ * workspace's own border-t doubled it and pushed every panel down 1px. */
 [data-v110="workspace"] {
+  border-top: 0;
   border-left: 0;
   border-left-width: 0;
   border-left-style: none;
@@ -45,6 +48,17 @@
   box-shadow: none;
 }
 
+/* Editor layout collapses the chat track to 0px, but the overflow above
+ * would still paint its header, copy button and composer over the editor.
+ * The reference removes the chat entirely in that layout; visibility waits
+ * for the width transition so the collapse still animates. */
+[data-v110="session-chat-surface"][data-collapsed] {
+  overflow: hidden;
+  visibility: hidden;
+  transition-property: width, visibility;
+  transition-delay: 0s, 240ms;
+}
+
 /* The reference docks copy-context over the lower-right conversation edge,
  * above the composer; keeping it out of the header preserves the header's
  * breadcrumb rhythm and leaves the conversation controls in one place. */
@@ -79,8 +93,8 @@
  * the topbar and the bottom edge even though the side panels had gutters. */
 @media (min-width: 56.25rem) {
   [data-v110="session-chat-surface"] {
-    height: calc(100% - 24px);
-    margin-block: 12px;
+    height: calc(100% - 2 * var(--v110-gutter-outer));
+    margin-block: var(--v110-gutter-outer);
   }
 }
 

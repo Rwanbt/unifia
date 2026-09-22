@@ -178,6 +178,22 @@ const unsafeCSS = `
 [data-diff] [data-line] span[style*="--syntax-info"], [data-file] [data-line] span[style*="--syntax-info"], [data-diff] [data-line] span[style*="--syntax-unknown"], [data-file] [data-line] span[style*="--syntax-unknown"] { color: var(--syntax-info) !important; }
 ${lineCommentStyles}
 
+/* Layout hooks for hosts that must match a fixed reference (the v110 editor
+ * card). Each fallback is the library's own value, so a host that sets no
+ * override renders exactly as before. File view only: diff indicators own
+ * their line padding. */
+[data-file] [data-column-number] {
+  padding-left: var(--diffs-number-padding-start-override, 2ch);
+  padding-right: var(--diffs-number-padding-end-override, 1ch);
+  font-size: var(--diffs-number-font-size-override, inherit);
+}
+[data-file] [data-line] {
+  padding-inline: var(--diffs-line-padding-inline-override, 1ch);
+}
+[data-file] [data-gutter] {
+  border-right: var(--diffs-gutter-border-override, 0 none);
+}
+
 `
 
 export function createDefaultOptions<T>(style: FileDiffOptions<T>["diffStyle"]) {

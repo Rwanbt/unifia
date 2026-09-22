@@ -21,27 +21,238 @@
 @media (min-width: 56.25rem) {
   [data-component="session-editor-main"],
   [data-component="workbench-mode-main"] {
-    height: calc(100% - 24px);
-    margin-block: 12px;
+    height: calc(100% - 2 * var(--v110-gutter-outer));
+    margin-block: var(--v110-gutter-outer);
   }
 
   [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="session-editor-main"],
   [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="workbench-mode-main"] {
-    margin-right: 12px;
+    margin-right: var(--v110-gutter-outer);
   }
 }
 
+/* Every mode's editor panel is the same card. Its palette is the frozen
+ * maquette's computed values at 1440x900 (dark, then light below) --
+ * measured, not the raw :root tokens, because the reference's later
+ * adaptive layer shifts a few of them (line .075 instead of .07, the editor
+ * well darker than --bg). Scoped here so the card never depends on the
+ * brand aliases that --surface/--line resolve to elsewhere in the app. */
 [data-v110="surface-card"] {
+  --v110-card-bg: #121214;
+  --v110-card-line: rgba(255, 255, 255, 0.075);
+  --v110-card-tab-active: #161618;
+  --v110-card-raised: #1b1b1e;
+  --v110-card-well: #101012;
+  --v110-card-gutter-line: rgba(255, 255, 255, 0.052);
+  --v110-card-text: #f2f2f3;
+  --v110-card-muted: #9b9ba1;
+  --v110-card-faint: #85858d;
+  --v110-card-success: #8aca9a;
+  --v110-card-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
   display: flex;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--v110-shell-line-strong);
+  background: var(--v110-card-bg);
+  color: var(--v110-card-text);
+  border: 1px solid var(--v110-card-line);
   border-radius: var(--v110-radius-xl);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  box-shadow: none;
+}
+
+html[data-color-scheme="light"] [data-v110="surface-card"] {
+  --v110-card-bg: #f8f8f9;
+  --v110-card-line: rgba(0, 0, 0, 0.067);
+  --v110-card-tab-active: #ffffff;
+  --v110-card-raised: #f0f0f1;
+  --v110-card-well: #fafafa;
+  --v110-card-gutter-line: rgba(0, 0, 0, 0.052);
+  --v110-card-text: #17171a;
+  --v110-card-muted: #686870;
+  --v110-card-faint: #74747c;
+}
+
+/* Code: tab strip (.tabs / .tab). Geometry is owned by the shared
+ * code-tabs rule in v110.css (also used by the inspector); the card only
+ * swaps in its own hairline colour. */
+[data-v110="surface-card"] [data-v110="code-tabs"] {
+  border-bottom-color: var(--v110-card-line);
+}
+
+[data-v110="code-tab"] {
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  height: 100%;
+  padding: 0 10px;
+  border-right: 1px solid var(--v110-card-line);
+  color: var(--v110-card-muted);
+  font-size: 11px;
+}
+
+[data-v110="code-tab"][data-active="true"] {
+  background: var(--v110-card-tab-active);
+  color: var(--v110-card-text);
+  box-shadow: inset 0 2px 0 0 var(--v110-card-text);
+}
+
+[data-v110="code-tab"] > button:first-child {
+  max-width: 176px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+[data-v110="code-tab"] [data-component="icon-button"] {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--v110-card-faint);
+}
+
+[data-v110="code-tabs-empty"] {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--v110-card-muted);
+  font-size: 11px;
+}
+
+/* Code: codebar (.v57-codebar), 32px, translucent over the card. */
+[data-v110="code-codebar"] {
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--v110-card-line);
+  background: color-mix(in srgb, var(--v110-card-tab-active) 46%, transparent);
+  color: var(--v110-card-muted);
+  font-size: 10px;
+}
+
+[data-v110="code-breadcrumb"] {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+[data-v110="code-breadcrumb"] b {
+  color: var(--v110-card-text);
+  font-weight: 650;
+}
+
+[data-v110="code-permission-chip"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--v110-card-line);
+  border-radius: 999px;
+  background: var(--v110-card-raised);
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="code-permission-chip"] i,
+[data-v110="code-statusbar"] i {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--v110-card-success);
+}
+
+[data-v110="code-permission-chip"][aria-pressed="false"] i {
+  background: var(--v110-card-faint);
+}
+
+[data-v110="code-bar-button"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="code-bar-button"]:hover,
+[data-v110="code-bar-button"][aria-pressed="true"] {
+  border-color: var(--v110-card-line);
+  background: var(--v110-card-raised);
+  color: var(--v110-card-text);
+}
+
+[data-v110="code-bar-button"] [data-component="icon"] {
+  width: 11px;
+  height: 11px;
+}
+
+/* Code: editor well (.code-area / .v57-editor-host). The reference text is
+ * 12px/20.4px mono with a 46px gutter, 15px above the first line and 18px
+ * before the code; @pierre/diffs exposes each through a variable. */
+[data-component="session-editor-surface"] [data-v110="editor-surface-content"] {
+  background: var(--v110-card-well);
+}
+
+/* html[data-color-scheme] outranks the light-theme code-editor rule in
+ * v110-theme.css, which paints the generic editor white. */
+html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="code-editor"] {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--v110-card-well);
+}
+
+[data-component="session-editor-surface"] diffs-container {
+  --diffs-font-family: var(--v110-card-mono);
+  --diffs-font-size: 12px;
+  --diffs-line-height: 20.4px;
+  --diffs-gap-block: 15px;
+  --diffs-min-number-column-width: 34px;
+  --diffs-number-padding-start-override: 2px;
+  --diffs-number-padding-end-override: 9px;
+  --diffs-number-font-size-override: 11px;
+  --diffs-line-padding-inline-override: 18px;
+  --diffs-gutter-border-override: 1px solid var(--v110-card-gutter-line);
+  /* The viewer's theme sets --diffs-bg inline from this token. */
+  --color-background-stronger: var(--v110-card-well);
+  --diffs-fg-number-override: var(--v110-card-faint);
+}
+
+/* Code: status bar (.v57-statusbar), 23px. */
+[data-v110="code-statusbar"] {
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 23px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-top: 1px solid var(--v110-card-line);
+  background: var(--v110-card-raised);
+  color: var(--v110-card-muted);
+  font-size: 9px;
+}
+
+[data-v110="code-status-item"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 6px;
 }
 
 [data-v110="code-tabs"],
