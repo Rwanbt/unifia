@@ -15,9 +15,11 @@ import {
   createEffect,
   createSignal,
   createComputed,
+  lazy,
   on,
   onMount,
   untrack,
+  type JSX,
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
@@ -48,6 +50,9 @@ import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanelSection } from "@/pages/session/session-side-panel-section"
 import { SessionEditorSurface } from "@/pages/session/session-editor-surface"
+import { useMode } from "@/context/mode"
+import { WorkSurface } from "@/pages/workbench/work-surface"
+import { MODE_LOADERS } from "@/pages/workbench-mode-loader"
 import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
@@ -75,6 +80,21 @@ const emptyUserMessages: UserMessage[] = []
 
 type ChangeMode = "git" | "branch" | "session" | "turn"
 
+// The chat pane above (composer, timeline, header) is identical across every
+// shell mode -- one shared conversation, per the maquette and an explicit
+// product decision (2026-09-22) reversing the earlier per-mode chats
+// (pages/workbench-chat.tsx's WorkbenchChat, which created a *separate*
+// session per mode). Only the main/right content swaps by mode. Design and
+// Automate stay lazy (F10, workbench-mode-loader.ts) so a Code or Work
+// session never pays for their chunks; Work is bundled eagerly already, so
+// WorkSurface imports straight.
+const DesignSurface = lazy(
+  () => MODE_LOADERS.design.load() as Promise<{ default: (props: Record<string, never>) => JSX.Element }>,
+)
+const AutomateSurface = lazy(
+  () => MODE_LOADERS.automate.load() as Promise<{ default: (props: Record<string, never>) => JSX.Element }>,
+)
+
 export default function Page() {
   const globalSync = useGlobalSync()
   const layout = useLayout()
@@ -97,6 +117,7 @@ export default function Page() {
   // has no write path back into the existing scroll machinery.
   const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>()
   const { params, sessionKey, tabs, view } = useSessionLayout()
+  const mode = useMode()
   // FORK: ADR-0005 dual-mode layout effect (Agent ⇄ IDE toggle).
   useViewMode()
 
@@ -175,14 +196,18 @@ export default function Page() {
   const sessionPanelWidth = createMemo(() => {
     // The editor view collapses only the chat surface. The Inspector remains
     // independently open and keeps its own fixed track when visible.
-    const workspaceView = view().workspace.current()
+    // Non-code modes have no chat/split/main toggle of their own (that
+    // concept is Code's file-tab workspace view) -- they always show chat
+    // narrow + the mode surface wide, i.e. the same geometry as Code's
+    // "split".
+    const workspaceView = mode.active() === "code" ? view().workspace.current() : "split"
     if (isDesktop() && workspaceView === "main") return "0px"
     if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`
     if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
     return `calc(100% - ${layout.inspector.width()}px)`
   })
-  const centered = createMemo(() => isDesktop() && view().workspace.current() === "chat")
+  const centered = createMemo(() => isDesktop() && mode.active() === "code" && view().workspace.current() === "chat")
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -1062,9 +1087,20 @@ export default function Page() {
 
         </div>
 
-        <Show when={view().workspace.current() !== "chat"}>
-          <SessionEditorSurface />
-        </Show>
+        <Switch>
+          <Match when={mode.active() === "work"}>
+            <WorkSurface />
+          </Match>
+          <Match when={mode.active() === "design"}>
+            <DesignSurface />
+          </Match>
+          <Match when={mode.active() === "automate"}>
+            <AutomateSurface />
+          </Match>
+          <Match when={view().workspace.current() !== "chat"}>
+            <SessionEditorSurface />
+          </Match>
+        </Switch>
 
         <SessionSidePanelSection
           canReview={canReview}

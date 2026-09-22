@@ -10,7 +10,6 @@ import { useWorkspaceWorkbench } from "@/context/workbench/provider"
 import { workbenchQueryKey } from "@/context/workbench/query-keys"
 import { base64Encode } from "@unifia/util/encode"
 import { useNavigate } from "@solidjs/router"
-import { WorkbenchChat } from "@/pages/workbench-chat"
 import { ConnectionBanner } from "@/pages/workbench/connection-banner"
 import { WorkActivityPanel } from "@/pages/workbench/work-activity-panel"
 import { WorkBoardPanel } from "@/pages/workbench/work-board-panel"
@@ -186,11 +185,6 @@ export function WorkSurface(): JSX.Element {
             </Show>
           </div>
         </div>
-        <WorkbenchChat
-          mode="work"
-          prompt={t("workbench.work.chatPrompt")}
-          description={t("workbench.work.chatDescription")}
-        />
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-workbench-navigation={navigation().layout}>
           <For each={WORK_V1_FUNCTIONS}>
             {(operation) => (

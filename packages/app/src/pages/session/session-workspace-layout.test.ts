@@ -82,11 +82,36 @@ describe("session workspace layout", () => {
   test("Split and Editor mount a real editor surface outside the Inspector", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const editor = await Bun.file(new URL("./session-editor-surface.tsx", import.meta.url)).text()
-    expect(source).toContain('<Show when={view().workspace.current() !== "chat"}>')
+    // SessionEditorSurface is Code mode's branch of a mode-aware Switch (2026-09-22:
+    // Work/Design/Automate mount their own surface here instead -- one shared chat
+    // pane, per-mode main content) rather than the sole content behind a bare Show.
+    expect(source).toContain('<Match when={view().workspace.current() !== "chat"}>')
     expect(source).toContain("<SessionEditorSurface />")
     expect(editor).toContain('data-v110="mode-main"')
     expect(editor).toContain('data-v110="surface-card"')
     expect(editor).toContain("<FileTabContent tab={tab()} override />")
+  })
+
+  test("Work/Design/Automate mount their own surface in the same main slot as the editor", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    expect(source).toContain('<Match when={mode.active() === "work"}>')
+    expect(source).toContain("<WorkSurface />")
+    expect(source).toContain('<Match when={mode.active() === "design"}>')
+    expect(source).toContain("<DesignSurface />")
+    expect(source).toContain('<Match when={mode.active() === "automate"}>')
+    expect(source).toContain("<AutomateSurface />")
+  })
+
+  test("the chat pane above is not gated behind mode -- one shared component and session for every mode", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const chatSurfaceIndex = source.indexOf('data-v110="session-chat-surface"')
+    const switchIndex = source.indexOf('<Match when={mode.active() === "work"}>')
+    expect(chatSurfaceIndex).toBeGreaterThan(-1)
+    expect(switchIndex).toBeGreaterThan(chatSurfaceIndex)
+    // The chat surface's own render has no `mode.active()` branch anywhere
+    // between its opening tag and the mode Switch -- it always renders.
+    const chatBlock = source.slice(chatSurfaceIndex, switchIndex)
+    expect(chatBlock).not.toContain("mode.active()")
   })
 
   test("every desktop inspector tab uses the same resize track", async () => {

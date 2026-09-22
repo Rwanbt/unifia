@@ -70,7 +70,6 @@ const SessionRoute = () => (
 )
 
 const SessionIndexRoute = () => <Navigate href="session" />
-const WorkbenchModeRoute = lazy(() => import("@/pages/workbench-mode"))
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()
@@ -452,7 +451,15 @@ export function AppInterface(props: {
       <Route path="/:dir" component={DirectoryLayout}>
         <Route path="/" component={SessionIndexRoute} />
         <Route path="/session/:id?" component={SessionRoute} />
-        <Route path="/:mode" component={WorkbenchModeRoute} />
+        {/* Work/Design/Automate now render through SessionRoute too, so the
+            chat pane (composer, timeline, header) is the exact same
+            component and the exact same session on every mode -- see the
+            comment above DesignSurface/AutomateSurface in session.tsx.
+            WorkbenchModeRoute (workbench-mode.tsx) is no longer reachable
+            here; kept only for its lazy-loader exports (MODE_LOADERS,
+            ensureModeLoaded) that session.tsx and the hover/focus preload
+            call sites still import. */}
+        <Route path="/:mode" component={SessionRoute} />
       </Route>
     </Dynamic>
   )
