@@ -3,6 +3,12 @@ type Keys = keyof typeof en
 export const dict = {
   "settings.fork.memory.loadError": "Ayarlar sunucudan yüklenemedi:",
   "settings.fork.memory.title": "Bellek",
+  "settings.fork.memory.statusMode": "Mod",
+  "settings.fork.memory.statusPath": "Yol",
+  "settings.fork.memory.statusInjection": "Ekleme",
+  "settings.fork.memory.statusActive": "Bellek açık",
+  "settings.fork.memory.statusInactive": "Bellek kapalı",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} not / {{ms}} ms",
   "settings.fork.memory.description": "Ajanın her turun başında okuduğu ve içine yazdığı bir Markdown not kasası. Proje için doğru olup kodda görünmeyen şeyleri tutar: kararlar ve alternatifin neden elendiği, kısıtlar, geçmiş başarısızlıklar.",
   "settings.fork.memory.enableTitle": "Belleği etkinleştir",
   "settings.fork.memory.enableDescription": "Ajana memory_search, memory_read ve memory_write araçlarını verir ve ilgili notları kendiliğinden çağırır.",

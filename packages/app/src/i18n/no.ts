@@ -3,6 +3,12 @@ type Keys = keyof typeof en
 export const dict = {
   "settings.fork.memory.loadError": "Innstillingene kunne ikke hentes fra serveren:",
   "settings.fork.memory.title": "Minne",
+  "settings.fork.memory.statusMode": "Modus",
+  "settings.fork.memory.statusPath": "Sti",
+  "settings.fork.memory.statusInjection": "Innsetting",
+  "settings.fork.memory.statusActive": "Minne på",
+  "settings.fork.memory.statusInactive": "Minne av",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} notater / {{ms}} ms",
   "settings.fork.memory.description": "Et hvelv av Markdown-notater som agenten leser ved starten av hver tur og skriver i. Det rommer det som er sant om prosjektet, men usynlig i koden: beslutninger og hvorfor alternativet ble forkastet, begrensninger, tidligere feilgrep.",
   "settings.fork.memory.enableTitle": "Slå på minne",
   "settings.fork.memory.enableDescription": "Gir agenten verktøyene memory_search, memory_read og memory_write, og henter relevante notater automatisk.",

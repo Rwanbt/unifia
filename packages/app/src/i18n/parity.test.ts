@@ -72,6 +72,11 @@ const TECHNICAL_ALLOWLIST = new Set([
   "settings.general.row.accent.preset.cyan",
   "settings.general.row.accent.preset.orange",
   "settings.general.row.accent.preset.neutral",
+  // Memory status grid: "Mode" and "Injection" are the same word in
+  // French, and the injection value is only numbers and units.
+  "settings.fork.memory.statusMode",
+  "settings.fork.memory.statusInjection",
+  "settings.fork.memory.statusInjectionValue",
   // Product name of the Work autonomy mode (maquette "Auto Safe").
   "workbench.work.cockpit.autoSafe",
   "provider.connect.opencodeZen.visit.link",

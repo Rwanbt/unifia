@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "Impossible de charger les réglages depuis le serveur :",
   "settings.fork.memory.title": "Mémoire",
+  "settings.fork.memory.statusMode": "Mode",
+  "settings.fork.memory.statusPath": "Chemin",
+  "settings.fork.memory.statusInjection": "Injection",
+  "settings.fork.memory.statusActive": "Mémoire active",
+  "settings.fork.memory.statusInactive": "Mémoire désactivée",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} notes / {{ms}} ms",
   "settings.fork.memory.description": "Un coffre de notes Markdown que l'agent consulte au début de chaque tour et dans lequel il écrit. Il contient ce qui est vrai du projet mais invisible dans le code : les décisions et pourquoi l'alternative a été écartée, les contraintes, les échecs passés.",
   "settings.fork.memory.enableTitle": "Activer la mémoire",
   "settings.fork.memory.enableDescription": "Donne à l'agent les outils memory_search, memory_read et memory_write, et rappelle automatiquement les notes pertinentes.",

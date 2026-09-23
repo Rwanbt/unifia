@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "Could not load the settings from the server:",
   "settings.fork.memory.title": "Memory",
+  "settings.fork.memory.statusMode": "Mode",
+  "settings.fork.memory.statusPath": "Path",
+  "settings.fork.memory.statusInjection": "Injection",
+  "settings.fork.memory.statusActive": "Memory on",
+  "settings.fork.memory.statusInactive": "Memory off",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} notes / {{ms}} ms",
   "settings.fork.memory.description": "A vault of Markdown notes the agent recalls at the start of each turn and records into. It holds what is true about the project but invisible in the code: decisions and why the alternative was rejected, constraints, past failures.",
   "settings.fork.memory.enableTitle": "Enable memory",
   "settings.fork.memory.enableDescription": "Gives the agent the memory_search, memory_read and memory_write tools, and recalls relevant notes automatically.",

@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "Indstillingerne kunne ikke hentes fra serveren:",
   "settings.fork.memory.title": "Hukommelse",
+  "settings.fork.memory.statusMode": "Tilstand",
+  "settings.fork.memory.statusPath": "Sti",
+  "settings.fork.memory.statusInjection": "Indsættelse",
+  "settings.fork.memory.statusActive": "Hukommelse aktiv",
+  "settings.fork.memory.statusInactive": "Hukommelse slået fra",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} noter / {{ms}} ms",
   "settings.fork.memory.description": "Et hvælv af Markdown-noter, som agenten læser i begyndelsen af hver tur og skriver i. Det rummer det, der er sandt om projektet, men usynligt i koden: beslutninger og hvorfor alternativet blev valgt fra, begrænsninger, tidligere fejlslag.",
   "settings.fork.memory.enableTitle": "Slå hukommelse til",
   "settings.fork.memory.enableDescription": "Giver agenten værktøjerne memory_search, memory_read og memory_write og henter relevante noter automatisk.",

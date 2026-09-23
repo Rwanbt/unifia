@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "تعذّر تحميل الإعدادات من الخادم:",
   "settings.fork.memory.title": "الذاكرة",
+  "settings.fork.memory.statusMode": "الوضع",
+  "settings.fork.memory.statusPath": "المسار",
+  "settings.fork.memory.statusInjection": "الحقن",
+  "settings.fork.memory.statusActive": "الذاكرة مفعّلة",
+  "settings.fork.memory.statusInactive": "الذاكرة معطّلة",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} ملاحظات / {{ms}} مللي ثانية",
   "settings.fork.memory.description": "خزانة من ملاحظات Markdown يقرأها الوكيل في بداية كل دور ويكتب فيها. تحفظ ما هو صحيح عن المشروع لكنه غير ظاهر في الشيفرة: القرارات وسبب استبعاد البديل، والقيود، والإخفاقات السابقة.",
   "settings.fork.memory.enableTitle": "تفعيل الذاكرة",
   "settings.fork.memory.enableDescription": "يمنح الوكيل أدوات memory_search وmemory_read وmemory_write، ويستحضر الملاحظات المناسبة تلقائيًا.",

@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "Nie udało się wczytać ustawień z serwera:",
   "settings.fork.memory.title": "Pamięć",
+  "settings.fork.memory.statusMode": "Tryb",
+  "settings.fork.memory.statusPath": "Ścieżka",
+  "settings.fork.memory.statusInjection": "Wstrzykiwanie",
+  "settings.fork.memory.statusActive": "Pamięć włączona",
+  "settings.fork.memory.statusInactive": "Pamięć wyłączona",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} notatek / {{ms}} ms",
   "settings.fork.memory.description": "Skarbiec notatek Markdown, który agent czyta na początku każdej tury i do którego zapisuje. Przechowuje to, co prawdziwe o projekcie, lecz niewidoczne w kodzie: decyzje i powód odrzucenia alternatywy, ograniczenia, dawne porażki.",
   "settings.fork.memory.enableTitle": "Włącz pamięć",
   "settings.fork.memory.enableDescription": "Daje agentowi narzędzia memory_search, memory_read i memory_write oraz automatycznie przywołuje istotne notatki.",

@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "サーバーから設定を読み込めませんでした:",
   "settings.fork.memory.title": "メモリ",
+  "settings.fork.memory.statusMode": "モード",
+  "settings.fork.memory.statusPath": "パス",
+  "settings.fork.memory.statusInjection": "注入",
+  "settings.fork.memory.statusActive": "メモリー有効",
+  "settings.fork.memory.statusInactive": "メモリー無効",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} 件のノート / {{ms}} ms",
   "settings.fork.memory.description": "エージェントが毎ターンの冒頭で参照し、書き込む Markdown ノートの保管庫です。コードには現れないがプロジェクトについて真であること — 決定とその代案を退けた理由、制約、過去の失敗 — を保持します。",
   "settings.fork.memory.enableTitle": "メモリを有効にする",
   "settings.fork.memory.enableDescription": "memory_search、memory_read、memory_write の各ツールをエージェントに与え、関連するノートを自動で呼び出します。",

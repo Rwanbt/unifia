@@ -5,6 +5,12 @@ type Keys = keyof typeof en
 export const dict = {
   "settings.fork.memory.loadError": "無法從伺服器載入設定：",
   "settings.fork.memory.title": "記憶",
+  "settings.fork.memory.statusMode": "模式",
+  "settings.fork.memory.statusPath": "路徑",
+  "settings.fork.memory.statusInjection": "注入",
+  "settings.fork.memory.statusActive": "記憶已開啟",
+  "settings.fork.memory.statusInactive": "記憶已關閉",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} 則筆記 / {{ms}} 毫秒",
   "settings.fork.memory.description": "一個 Markdown 筆記庫，代理在每輪開始時讀取，並在其中記錄。它保存關於專案為真、卻在程式碼中看不見的事：決定以及為何否決了備選方案、限制、過去的失敗。",
   "settings.fork.memory.enableTitle": "啟用記憶",
   "settings.fork.memory.enableDescription": "為代理提供 memory_search、memory_read 與 memory_write 工具，並自動召回相關筆記。",

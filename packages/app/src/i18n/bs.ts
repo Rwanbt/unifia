@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "Postavke nije bilo moguće učitati sa servera:",
   "settings.fork.memory.title": "Memorija",
+  "settings.fork.memory.statusMode": "Način",
+  "settings.fork.memory.statusPath": "Putanja",
+  "settings.fork.memory.statusInjection": "Ubacivanje",
+  "settings.fork.memory.statusActive": "Memorija uključena",
+  "settings.fork.memory.statusInactive": "Memorija isključena",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} bilješki / {{ms}} ms",
   "settings.fork.memory.description": "Trezor Markdown bilješki koji agent čita na početku svakog kruga i u koji zapisuje. Čuva ono što je tačno o projektu, a nevidljivo u kodu: odluke i zašto je alternativa odbačena, ograničenja, ranije neuspjehe.",
   "settings.fork.memory.enableTitle": "Uključi memoriju",
   "settings.fork.memory.enableDescription": "Daje agentu alate memory_search, memory_read i memory_write te automatski doziva relevantne bilješke.",

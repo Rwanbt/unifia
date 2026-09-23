@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "โหลดการตั้งค่าจากเซิร์ฟเวอร์ไม่สำเร็จ:",
   "settings.fork.memory.title": "ความจำ",
+  "settings.fork.memory.statusMode": "โหมด",
+  "settings.fork.memory.statusPath": "เส้นทาง",
+  "settings.fork.memory.statusInjection": "การแทรก",
+  "settings.fork.memory.statusActive": "เปิดหน่วยความจำ",
+  "settings.fork.memory.statusInactive": "ปิดหน่วยความจำ",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} บันทึก / {{ms}} มิลลิวินาที",
   "settings.fork.memory.description": "คลังบันทึก Markdown ที่เอเจนต์อ่านเมื่อเริ่มแต่ละรอบและใช้บันทึกข้อมูล เก็บสิ่งที่เป็นจริงเกี่ยวกับโครงการแต่มองไม่เห็นในโค้ด ได้แก่ การตัดสินใจและเหตุผลที่ตัดทางเลือกอื่นทิ้ง ข้อจำกัด และความล้มเหลวที่ผ่านมา",
   "settings.fork.memory.enableTitle": "เปิดใช้ความจำ",
   "settings.fork.memory.enableDescription": "มอบเครื่องมือ memory_search, memory_read และ memory_write ให้เอเจนต์ และเรียกคืนบันทึกที่เกี่ยวข้องโดยอัตโนมัติ",

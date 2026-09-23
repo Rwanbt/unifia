@@ -6,6 +6,12 @@ type Keys = keyof typeof en
 export const dict = {
   "settings.fork.memory.loadError": "서버에서 설정을 불러오지 못했습니다:",
   "settings.fork.memory.title": "기억",
+  "settings.fork.memory.statusMode": "모드",
+  "settings.fork.memory.statusPath": "경로",
+  "settings.fork.memory.statusInjection": "주입",
+  "settings.fork.memory.statusActive": "메모리 켜짐",
+  "settings.fork.memory.statusInactive": "메모리 꺼짐",
+  "settings.fork.memory.statusInjectionValue": "노트 {{notes}}개 / {{ms}} ms",
   "settings.fork.memory.description": "에이전트가 매 턴 시작에 참조하고 기록하는 마크다운 노트 보관함입니다. 코드에는 드러나지 않지만 프로젝트에 대해 참인 것 — 결정과 대안을 버린 이유, 제약, 과거의 실패 — 을 담습니다.",
   "settings.fork.memory.enableTitle": "기억 사용",
   "settings.fork.memory.enableDescription": "에이전트에게 memory_search, memory_read, memory_write 도구를 주고 관련 노트를 자동으로 불러옵니다.",

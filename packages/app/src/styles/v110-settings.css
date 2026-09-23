@@ -486,6 +486,76 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   color: var(--text);
 }
 
+/* .number-input: a short right-aligned numeric field. */
+[data-v110="settings-page"] [data-slot="settings-number"] {
+  width: 84px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  text-align: right;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-number"]:focus {
+  border-color: var(--accent);
+}
+
+/* .inline-code-lite: a path or identifier inside a note. */
+[data-v110="settings-page"] [data-slot="settings-code"] {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text);
+  font: 8px var(--font-family-mono, ui-monospace, monospace);
+  word-break: break-all;
+}
+
+/* Settings that only apply while a parent switch is on. */
+[data-v110="settings-page"] [data-slot="settings-group"][data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* .memory-settings-preview: a row of read-only status tiles. */
+[data-v110="settings-page"] [data-slot="settings-status-grid"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 1px;
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 74px;
+  padding: 12px 13px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] b {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;

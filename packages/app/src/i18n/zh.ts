@@ -5,6 +5,12 @@ type Keys = keyof typeof en
 export const dict = {
   "settings.fork.memory.loadError": "无法从服务器加载设置：",
   "settings.fork.memory.title": "记忆",
+  "settings.fork.memory.statusMode": "模式",
+  "settings.fork.memory.statusPath": "路径",
+  "settings.fork.memory.statusInjection": "注入",
+  "settings.fork.memory.statusActive": "记忆已开启",
+  "settings.fork.memory.statusInactive": "记忆已关闭",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} 条笔记 / {{ms}} 毫秒",
   "settings.fork.memory.description": "一个 Markdown 笔记库，代理在每轮开始时读取，并在其中记录。它保存关于项目为真、却在代码中看不见的东西：决定以及为何否掉了备选方案、约束、过去的失败。",
   "settings.fork.memory.enableTitle": "启用记忆",
   "settings.fork.memory.enableDescription": "为代理提供 memory_search、memory_read 和 memory_write 工具，并自动召回相关笔记。",

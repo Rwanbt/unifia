@@ -5,6 +5,12 @@ type Keys = keyof typeof en
 export const dict = {
   "settings.fork.memory.loadError": "Die Einstellungen konnten nicht vom Server geladen werden:",
   "settings.fork.memory.title": "Gedächtnis",
+  "settings.fork.memory.statusMode": "Modus",
+  "settings.fork.memory.statusPath": "Pfad",
+  "settings.fork.memory.statusInjection": "Einspeisung",
+  "settings.fork.memory.statusActive": "Gedächtnis aktiv",
+  "settings.fork.memory.statusInactive": "Gedächtnis aus",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} Notizen / {{ms}} ms",
   "settings.fork.memory.description": "Ein Tresor aus Markdown-Notizen, den der Agent zu Beginn jeder Runde abruft und in den er schreibt. Er enthält, was für das Projekt gilt, im Code aber unsichtbar bleibt: Entscheidungen und warum die Alternative verworfen wurde, Randbedingungen, frühere Fehlschläge.",
   "settings.fork.memory.enableTitle": "Gedächtnis aktivieren",
   "settings.fork.memory.enableDescription": "Gibt dem Agenten die Werkzeuge memory_search, memory_read und memory_write und ruft passende Notizen automatisch ab.",

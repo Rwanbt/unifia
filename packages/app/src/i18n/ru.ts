@@ -1,6 +1,12 @@
 export const dict = {
   "settings.fork.memory.loadError": "Не удалось загрузить настройки с сервера:",
   "settings.fork.memory.title": "Память",
+  "settings.fork.memory.statusMode": "Режим",
+  "settings.fork.memory.statusPath": "Путь",
+  "settings.fork.memory.statusInjection": "Внедрение",
+  "settings.fork.memory.statusActive": "Память включена",
+  "settings.fork.memory.statusInactive": "Память отключена",
+  "settings.fork.memory.statusInjectionValue": "{{notes}} заметок / {{ms}} мс",
   "settings.fork.memory.description": "Хранилище заметок Markdown, к которому агент обращается в начале каждого хода и куда записывает. В нём то, что верно для проекта, но не видно в коде: решения и почему отвергли альтернативу, ограничения, прошлые неудачи.",
   "settings.fork.memory.enableTitle": "Включить память",
   "settings.fork.memory.enableDescription": "Даёт агенту инструменты memory_search, memory_read и memory_write и автоматически подтягивает подходящие заметки.",
