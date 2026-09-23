@@ -1,153 +1,178 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createSignal, type JSX } from "solid-js"
+import { For, Show, createMemo, createSignal, type JSX } from "solid-js"
 import type { WorkspaceDestination } from "@/context/mode-directory"
-import { SettingsObservabilityTimeline } from "@/components/settings-observability-timeline"
+import { useLanguage } from "@/context/language"
+import { EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFilter } from "./execution-log"
 
 type InspectorRow = { label: string; value: string }
-type InspectorCard = {
-  title: string
-  rows?: readonly InspectorRow[]
-  description?: string
-  ranges?: readonly string[]
-}
+// Maquette .inspect-card variants: a titled card (h4, optional p, .kv rows,
+// actions, a version row), a settings key/value card (.inspect-key /
+// .inspect-value), and the Design empty head (.v51-inspector-head).
+type InspectorCard =
+  | {
+      kind?: "card"
+      title: string
+      description?: string
+      rows?: readonly InspectorRow[]
+      actions?: readonly string[]
+      version?: { title: string; author: string }
+    }
+  | { kind: "keyvalue"; label: string; value: string }
+  | { kind: "head"; title: string; description: string }
 
+const snapshotTime = () =>
+  new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date())
 
-const CODE_INSPECTOR_TABS = ["Overview", "Symbols", "Search", "Review", "Git", "Context", "History"] as const
-const EXECUTION_FILTERS = ["Tout", "Modèle", "Contexte", "Outils", "Sources", "Skills", "Mémoire", "Agents", "Règles", "Interaction", "Usage"] as const
+// The reference's Code and Memory inspectors both show the memory note the
+// session has attached (#inspectorPanel details pane, "Vision produit.md").
+const NOTE_CARDS = (): readonly InspectorCard[] => [
+  { title: "Vision produit.md", description: "10 — Projects/Unifia · Knowledge" },
+  {
+    title: "Properties",
+    rows: [
+      { label: "Type", value: "Knowledge" },
+      { label: "Scope", value: "Project" },
+      { label: "Status", value: "Verified" },
+      { label: "Confidence", value: "98%" },
+      { label: "Links", value: "5" },
+      { label: "Backlinks", value: "5" },
+    ],
+    actions: ["Verified ✓", "Remove context"],
+  },
+  {
+    title: "Provenance",
+    rows: [
+      { label: "Kind", value: "Project" },
+      { label: "Source", value: "Vision produit Unifia" },
+      { label: "Branch", value: "main" },
+      { label: "Reference", value: "product/vision" },
+      { label: "Verified by", value: "Erwan" },
+    ],
+  },
+  {
+    title: "AI Context",
+    description: "Cette note est explicitement attachée au contexte de la session.",
+    rows: [
+      { label: "Recall reason", value: "Pinned by user" },
+      { label: "Freshness", value: "Current" },
+    ],
+  },
+  { title: "Versions · 1", version: { title: `Initial snapshot · ${snapshotTime()}`, author: "Erwan" } },
+]
 
-const INSPECTOR_CARDS: Record<WorkspaceDestination, readonly InspectorCard[]> = {
-  code: [
-    { title: "Session", rows: [{ label: "Modèle", value: "MiniMax M3" }, { label: "Mode", value: "Build" }, { label: "Contexte", value: "3 fichiers" }] },
-  ],
-  work: [{ title: "Créer le nouveau design", rows: [{ label: "État", value: "En cours" }, { label: "Agent", value: "Designer" }, { label: "Progression", value: "64%" }] }],
-  design: [
-    { title: "Heading", rows: [{ label: "Size", value: "58 px" }, { label: "Weight", value: "650" }, { label: "Tracking", value: "-5%" }] },
-    { title: "Tokens", ranges: ["Type", "Contrast"] },
-  ],
-  automate: [{ title: "Aucune sélection", description: "Cliquez sur un node ou une connexion du Flow pour ouvrir ses propriétés ici." }],
-  browser: [
+const INSPECTOR_CARDS: Record<WorkspaceDestination, () => readonly InspectorCard[]> = {
+  code: NOTE_CARDS,
+  work: () => [{ title: "Créer le nouveau design", rows: [{ label: "État", value: "En cours" }, { label: "Agent", value: "Designer" }, { label: "Progression", value: "64%" }] }],
+  design: () => [{ kind: "head", title: "Aucune sélection", description: "Sélectionnez un élément sur le canvas ou dans Layers." }],
+  automate: () => [{ title: "Aucune sélection", description: "Cliquez sur un node ou une connexion du Flow pour ouvrir ses propriétés ici." }],
+  browser: () => [
     { title: "Browser control", rows: [{ label: "Controller", value: "Unifia AI" }, { label: "Network", value: "Online" }, { label: "Viewport", value: "Desktop" }, { label: "Actions", value: "Observable" }] },
     { title: "Permissions", rows: [{ label: "Navigate", value: "Allow" }, { label: "Click / type", value: "Allow" }, { label: "Downloads", value: "Ask" }, { label: "Sensitive actions", value: "Ask" }] },
   ],
-  memory: [
-    { title: "Vision produit.md", rows: [{ label: "Liens", value: "11" }, { label: "Backlinks", value: "3" }, { label: "Tags", value: "2" }] },
-    { title: "Memory context", description: "Les notes du vault peuvent être attachées aux conversations, agents, tâches et workflows comme contexte persistant." },
+  memory: NOTE_CARDS,
+  settings: () => [
+    { kind: "keyvalue", label: "Workspace", value: "Unifia Preferences" },
+    { kind: "keyvalue", label: "Vue active", value: "Réglages intégrés" },
+    { kind: "keyvalue", label: "Comportement", value: "Chat visible · Panneau principal interactif" },
   ],
-  settings: [{ title: "Unifia Preferences", rows: [{ label: "Vue active", value: "Réglages intégrés" }, { label: "Comportement", value: "Chat visible" }] }],
-  user: [{ title: "Contexte utilisateur", rows: [{ label: "Espace", value: "Personnel" }, { label: "Type", value: "Privé" }, { label: "Sessions", value: "4" }] }, { title: "Isolation", description: "Chat, Memory, providers, secrets et automatisations suivent l'espace actif." }],
-}
-
-const EXECUTION_COPY: Record<WorkspaceDestination, { title: string; description: string }> = {
-  code: { title: "Session · Refonte Prism EQ", description: "Trace des événements et observabilité de la session Code." },
-  work: { title: "Tâche · Créer le nouveau design", description: "Activité et progression de l’opération Work sélectionnée." },
-  design: { title: "Canvas · Landing / Desktop", description: "Événements associés au rendu et aux changements du canvas." },
-  automate: { title: "Flow · Issue triage v2", description: "Historique des runs et événements du workflow." },
-  browser: { title: "Browser · AI Activity", description: "Actions observables de navigation et de contrôle." },
-  memory: { title: "Note · Vision produit.md", description: "Activité de lecture, liens et provenance du vault." },
-  settings: { title: "Réglages · Observabilité", description: "Événements de configuration de l’espace actif." },
-  user: { title: "Compte · Organisations", description: "Événements de l’espace et de l’identité locale." },
+  user: () => [
+    { title: "Contexte utilisateur", rows: [{ label: "Espace", value: "Personnel" }, { label: "Type", value: "Privé" }, { label: "Sessions", value: "4" }] },
+    { title: "Isolation", description: "Chat, Memory, providers, secrets et automatisations suivent l'espace actif." },
+  ],
 }
 
 function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
+  const card = props.card
+  if (card.kind === "keyvalue")
+    return (
+      <section data-inspector-card data-variant="keyvalue">
+        <div data-inspector-key>{card.label}</div>
+        <div data-inspector-value>{card.value}</div>
+      </section>
+    )
+  if (card.kind === "head")
+    return (
+      <section data-inspector-head>
+        <b>{card.title}</b>
+        <small>{card.description}</small>
+      </section>
+    )
   return (
-    <section data-inspector-card class="mb-2.5 rounded-[11px] border border-border-base bg-background-stronger p-2.5">
-      <h4 class="mb-2 text-10-medium text-text-base">{props.card.title}</h4>
-      <Show when={props.card.description}>
-        <p class="text-10-regular leading-relaxed text-text-weak">{props.card.description}</p>
+    <section data-inspector-card>
+      <h4>{card.title}</h4>
+      <Show when={card.description}>
+        <p>{card.description}</p>
       </Show>
-      <Show when={props.card.rows}>
-        <div class="flex flex-col">
-          <For each={props.card.rows}>
-            {(row) => (
-              <div data-inspector-row class="flex items-center justify-between border-b border-border-base py-1.5 text-10-regular last:border-b-0">
-                <span class="text-text-weak">{row.label}</span>
-                <span class="text-text-base">{row.value}</span>
-              </div>
-            )}
-          </For>
+      <For each={card.rows ?? []}>
+        {(row) => (
+          <div data-inspector-row>
+            <span>{row.label}</span>
+            <span>{row.value}</span>
+          </div>
+        )}
+      </For>
+      <Show when={card.actions}>
+        <div data-inspector-actions>
+          <For each={card.actions}>{(label) => <button type="button">{label}</button>}</For>
         </div>
       </Show>
-      <Show when={props.card.ranges}>
-        <div class="flex flex-col gap-2">
-          <For each={props.card.ranges}>
-            {(label) => (
-              <label class="flex flex-col gap-1.5 text-9-regular text-text-weak">
-                {label}
-                <input type="range" value={label === "Type" ? "72" : "64"} aria-label={label} class="w-full accent-text-base" />
-              </label>
-            )}
-          </For>
-        </div>
+      <Show when={card.version}>
+        {(version) => (
+          <div data-inspector-version>
+            <b>{version().title}</b>
+            <span>{version().author}</span>
+          </div>
+        )}
       </Show>
     </section>
   )
 }
 
 export function ModeInspectorSurface(props: { mode: WorkspaceDestination }): JSX.Element {
-  const [activeCodeTab, setActiveCodeTab] = createSignal<(typeof CODE_INSPECTOR_TABS)[number]>("Overview")
   return (
-    <div data-mode-inspector={props.mode} data-inspector-state="default" class="h-full min-w-0 overflow-y-auto bg-background-base p-2.5">
-      <Show when={props.mode === "code"}>
-        <nav data-inspector-nav="code" aria-label="Code Inspector" class="mb-2 border-b border-border-base pb-2">
-          <div class="flex gap-0.5">
-            <For each={CODE_INSPECTOR_TABS}>
-              {(tab) => (
-                <button
-                  type="button"
-                  data-inspector-subtab={tab.toLowerCase()}
-                  aria-pressed={activeCodeTab() === tab}
-                  class="h-[26px] rounded-lg px-2 text-9-regular text-text-weak hover:bg-background-stronger hover:text-text-base"
-                  classList={{ "bg-background-stronger text-text-base": activeCodeTab() === tab }}
-                  onClick={() => setActiveCodeTab(tab)}
-                >
-                  {tab}
-                </button>
-              )}
-            </For>
-          </div>
-        </nav>
-      </Show>
-      <For each={INSPECTOR_CARDS[props.mode]}>{(card) => <InspectorCardView card={card} />}</For>
-      <Show when={props.mode === "code"}>
-        <p data-inspector-subtab-state class="text-9-regular text-text-weaker">{activeCodeTab()} · session workspace</p>
-      </Show>
+    <div data-mode-inspector={props.mode} data-inspector-state="default">
+      <For each={INSPECTOR_CARDS[props.mode]()}>{(card) => <InspectorCardView card={card} />}</For>
     </div>
   )
 }
 
-export function ModeExecutionSurface(props: { mode: WorkspaceDestination; sessionId?: string }): JSX.Element {
-  const copy = EXECUTION_COPY[props.mode]
-  const [activeFilter, setActiveFilter] = createSignal<(typeof EXECUTION_FILTERS)[number]>("Tout")
+// Maquette .v96-execution-shell: the filter grid over the session's event
+// rows (execution-log.ts maps the native observability spans onto them).
+export function ModeExecutionSurface(props: { mode: WorkspaceDestination; events: readonly ExecutionEvent[] | undefined }): JSX.Element {
+  const language = useLanguage()
+  const [filter, setFilter] = createSignal<ExecutionFilter>("all")
+  const statusLabel = (status: string) =>
+    status === "failed" || status === "aborted" ? language.t(`inspector.execution.status.${status}`) : language.t("inspector.execution.status.finished")
+  const rows = createMemo(() => executionRows(props.events ?? [], filter(), statusLabel))
   return (
-    <div data-mode-execution={props.mode} class="h-full min-w-0 overflow-y-auto bg-background-base p-2.5">
-      <section class="mb-2.5 rounded-[13px] border border-border-base bg-background-stronger p-2.5">
-        <h4 class="mb-1 text-10-medium text-text-base">{copy.title}</h4>
-        <p class="text-10-regular leading-relaxed text-text-weak">{copy.description}</p>
-      </section>
-      <div data-execution-filters class="mb-2 flex gap-1 overflow-x-auto">
+    <div data-mode-execution={props.mode}>
+      <div data-execution-filters>
         <For each={EXECUTION_FILTERS}>
-          {(filter) => (
-            <button
-              type="button"
-              data-execution-filter={filter.toLowerCase()}
-              aria-pressed={activeFilter() === filter}
-              class="min-h-[28px] rounded-lg border border-border-base bg-background-stronger px-2 text-left text-9-regular text-text-weak hover:bg-surface-raised-base-hover hover:text-text-base"
-              classList={{ "bg-surface-raised-base text-text-base": activeFilter() === filter }}
-              onClick={() => setActiveFilter(filter)}
-            >
-              {filter}
+          {(item) => (
+            <button type="button" data-execution-filter={item} aria-pressed={filter() === item} onClick={() => setFilter(item)}>
+              {language.t(`inspector.execution.filter.${item}`)}
             </button>
           )}
         </For>
       </div>
-      <p data-execution-filter-state class="mb-2 text-9-regular text-text-weaker">Filtre : {activeFilter()}</p>
-      <SettingsObservabilityTimeline
-        sessions={[{ id: props.sessionId ?? "", title: props.sessionId ?? "" }]}
-        sessionId={props.sessionId}
-        scope="project"
-        onSelectSession={() => {}}
-      />
+      <div data-execution-list>
+        <Show when={rows().length > 0} fallback={<div data-execution-empty>{language.t("inspector.execution.empty")}</div>}>
+          <For each={rows()}>
+            {(row) => (
+              <div data-execution-row data-status={row.status}>
+                <time>{row.time}</time>
+                <span data-execution-icon>{row.glyph}</span>
+                <div data-execution-copy>
+                  <b>{row.title}</b>
+                  <span>{row.summary}</span>
+                  <small>{row.meta}</small>
+                </div>
+              </div>
+            )}
+          </For>
+        </Show>
+      </div>
     </div>
   )
 }

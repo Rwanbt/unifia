@@ -34,6 +34,16 @@
   border: 0;
 }
 
+/* The resize handle straddles the card's left edge instead of taking 8px
+ * of the reference's 300px track. */
+[data-v110="inspector-content"] > [data-slot="inspector-resize"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}
+
 [data-v110="inspector-content"] > div {
   height: 100%;
   min-height: 0;
@@ -80,6 +90,7 @@
 
 [data-v110="inspector-title"] {
   min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   font-size: 16px;
   font-weight: 400;
@@ -98,11 +109,17 @@
   opacity: 0;
 }
 
+/* #inspectorPanel.v100-execution-head: title, centred context, count. */
+[data-v110="inspector-head"][data-tab="execution"] [data-v110="inspector-title"] {
+  flex: 0 0 auto;
+}
+
 [data-v110="inspector-head"] [data-slot="execution-context"] {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
   font-size: 9px;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
@@ -299,82 +316,255 @@
   color: var(--faint);
 }
 
+/* Inspector pane -- .v44-inspector-pane (10px) holding .inspect-card /
+ * .kv rows, the settings .inspect-key/.inspect-value cards and the Design
+ * .v51-inspector-head empty state. */
 [data-v110="inspector-content"] [data-mode-inspector] {
-  background: var(--bg-soft);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
   padding: 10px;
+  background: var(--bg-soft);
 }
 
 [data-v110="inspector-content"] [data-inspector-card] {
-  margin-bottom: 8px;
-  padding: 9px;
+  margin-bottom: 9px;
+  padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 13px;
   background: var(--surface-2);
 }
 
 [data-v110="inspector-content"] [data-inspector-card] h4 {
   margin: 0 0 8px;
   font-size: 10px;
-  line-height: 1.2;
-}
-
-[data-v110="inspector-content"] [data-inspector-row] {
-  min-height: 30px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-[data-v110="inspector-content"] [data-inspector-row]:last-child {
-  border-bottom: 0;
-}
-
-[data-v110="inspector-content"] [data-inspector-nav] {
-  display: flex;
-  overflow-x: auto;
-  margin: -2px 0 9px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
-}
-
-[data-v110="inspector-content"] [data-inspector-nav]::-webkit-scrollbar,
-[data-v110="inspector-content"] [data-execution-filters]::-webkit-scrollbar {
-  display: none;
-}
-
-[data-v110="inspector-content"] [data-inspector-subtab] {
-  flex: 0 0 auto;
-  height: 26px;
-  min-height: 26px;
-  padding: 0 7px;
-  border-radius: 8px;
-  font-size: 7.5px;
-  white-space: nowrap;
-}
-
-[data-v110="inspector-content"] [data-inspector-subtab][aria-pressed="true"],
-[data-v110="inspector-content"] [data-execution-filter][aria-pressed="true"] {
-  background: var(--surface-3);
+  font-weight: 700;
+  line-height: normal;
   color: var(--text);
 }
 
-[data-v110="inspector-content"] [data-execution-filters] {
+[data-v110="inspector-content"] [data-inspector-card] p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-inspector-row] {
   display: flex;
-  gap: 3px;
-  overflow-x: auto;
-  padding: 7px 7px 6px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
+  font-size: 9px;
+  line-height: normal;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-row]:last-of-type {
+  border-bottom: 0;
+}
+
+[data-v110="inspector-content"] [data-inspector-row] span:first-child {
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-inspector-actions] {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+[data-v110="inspector-content"] [data-inspector-actions] button {
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  font-size: 8px;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-version] {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 16px;
+}
+
+[data-v110="inspector-content"] [data-inspector-version] b {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-version] span {
+  font-size: 8px;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-inspector-card][data-variant="keyvalue"] :is([data-inspector-key], [data-inspector-value]) {
+  font-size: 16px;
+  line-height: normal;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-head] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 17px 10px 10px;
+  line-height: normal;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="inspector-content"] [data-inspector-head] b {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-head] small {
+  display: block;
+  overflow: hidden;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+/* Execution pane -- .v96-execution-shell: a 4-column filter grid over the
+ * event rows (time, glyph, copy). */
+[data-v110="inspector-content"] [data-mode-execution] {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-soft);
+}
+
+[data-v110="inspector-content"] [data-execution-filters] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
 }
 
 [data-v110="inspector-content"] [data-execution-filter] {
-  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
   height: 27px;
   min-height: 27px;
-  padding: 0 8px;
+  padding: 0 4px;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: 8px;
-  font-size: 8px;
+  background: transparent;
+  font-size: 7.5px;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-filter]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-execution-filter][aria-pressed="true"] {
+  background: var(--surface-3);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-execution-list] {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: auto;
+  padding: 5px 7px 10px;
+}
+
+[data-v110="inspector-content"] [data-execution-empty] {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-row] {
+  display: grid;
+  grid-template-columns: 42px 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  padding: 8px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+}
+
+[data-v110="inspector-content"] [data-execution-row]:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="inspector-content"] [data-execution-row] time {
+  padding-top: 2px;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+[data-v110="inspector-content"] [data-execution-icon] {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  font-size: 8px;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-row][data-status="success"] [data-execution-icon] {
+  color: var(--success, #8aca9a);
+}
+
+[data-v110="inspector-content"] [data-execution-row][data-status="warning"] [data-execution-icon] {
+  color: var(--warning, #d7ae74);
+}
+
+[data-v110="inspector-content"] [data-execution-row][data-status="error"] [data-execution-icon] {
+  color: var(--danger, #df848a);
+}
+
+[data-v110="inspector-content"] [data-execution-copy] {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-v110="inspector-content"] [data-execution-copy] b {
+  font-size: 9px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-execution-copy] span {
+  font-size: 8px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-copy] small {
+  font-size: 7px;
+  color: var(--faint);
 }
 
 [data-v110="inspector-content"].mobile-side-panel {

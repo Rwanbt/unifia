@@ -1,4 +1,4 @@
-import { Match, Show, Switch, createEffect, createMemo, type JSX } from "solid-js"
+import { Match, Show, Switch, createEffect, createMemo, createResource, type JSX } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Separator } from "@/primitives/separator"
 import { InspectorFrame } from "@/shell/v110-inspector-frame"
@@ -20,6 +20,11 @@ import { ModeExecutionSurface, ModeInspectorSurface } from "@/pages/session/mode
 import { displayName } from "@/pages/layout/helpers"
 import { destinationLabelKey } from "@/utils/destination-label"
 import { getFilename } from "@unifia/util/path"
+import { useSync } from "@/context/sync"
+import { unwrap } from "@/utils/sdk-unwrap"
+import { observableSessionId } from "@/components/settings-observability-session-id"
+import { sessionTitle } from "@/utils/session-title"
+import { executionRows, type ExecutionEvent } from "@/pages/session/execution-log"
 import { createOpenSessionFileTab, type Sizing } from "@/pages/session/helpers"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
@@ -45,6 +50,7 @@ export function SessionSidePanel(props: {
   const dialog = useDialog()
   const sdk = useSDK()
   const mode = useMode()
+  const sync = useSync()
   const { sessionKey, tabs } = useSessionLayout()
 
   const shell = useShell(useViewport())
@@ -58,6 +64,26 @@ export function SessionSidePanel(props: {
     const project = layout.projects.list().find((p) => p.worktree === directory || p.sandboxes?.includes(directory))
     return project ? displayName(project) : getFilename(directory)
   })
+  // The Execution tab lists the session's native observability spans; they
+  // are fetched each time the tab opens (execution-log.ts shapes them).
+  const [executionEvents] = createResource(
+    () => (layout.inspector.tab() === "execution" && inspectorVisible() ? observableSessionId(props.sessionId) : undefined),
+    (sessionId) =>
+      unwrap(sdk.client.observability.events.list({ sessionId, scope: "project", limit: 200 })) as Promise<ExecutionEvent[]>,
+  )
+  const executionCount = createMemo(() => executionRows(executionEvents() ?? [], "all", (status) => status).length)
+  // Maquette .v100-execution-context: "prism-eq · refonte-prism".
+  const slug = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-|-$/g, "")
+  const executionContext = createMemo(() => {
+    const title = (props.sessionId && sessionTitle(sync.session.get(props.sessionId)?.title)) || ""
+    return [slug(projectName()), slug(title)].filter(Boolean).join(" · ")
+  })
+
   const heading = createMemo(() => {
     const tab = layout.inspector.tab()
     if (tab === "execution") return language.t("inspector.tab.execution")
@@ -302,6 +328,14 @@ export function SessionSidePanel(props: {
           }}
           label={language.t("session.panel.reviewAndFiles")}
           heading={heading()}
+          headExtra={
+            <Show when={layout.inspector.tab() === "execution"}>
+              <span data-slot="execution-context">{executionContext()}</span>
+              <span data-slot="execution-count">
+                {language.t("inspector.execution.count", { count: executionCount() })}
+              </span>
+            </Show>
+          }
           title={(tab) =>
             tab === "explorer"
               ? language.t("inspector.tab.explorer")
@@ -372,7 +406,7 @@ export function SessionSidePanel(props: {
                 already wired into Settings > Observability's timeline —
                 reused here as-is rather than rebuilt. */}
             <Match when={layout.inspector.tab() === "execution"}>
-              <ModeExecutionSurface mode={destination()} sessionId={props.sessionId} />
+              <ModeExecutionSurface mode={destination()} events={executionEvents()} />
             </Match>
           </Switch>
         </InspectorFrame>
@@ -380,7 +414,7 @@ export function SessionSidePanel(props: {
 
       {/* All inspector tabs share this fixed-width track and resize handle. */}
       <Show when={inspectorVisible() && !isOverlay()}>
-        <div onPointerDown={() => props.size.start()}>
+        <div data-slot="inspector-resize" onPointerDown={() => props.size.start()}>
           <Separator
             axis="x"
             edge="start"
