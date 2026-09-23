@@ -73,6 +73,8 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 138px;
+  line-height: normal;
 }
 
 [data-v110="settings-commandbar"] [data-slot="settings-title"] > b {
@@ -95,18 +97,22 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   background: var(--success);
 }
 
-[data-v110="settings-commandbar"] [data-slot="settings-search"] {
-  width: min(390px, 40%);
-  height: 34px;
+[data-v110="settings-commandbar"] [data-slot="settings-search-wrap"] {
+  position: relative;
+  flex: 1;
+  max-width: 390px;
   margin-left: auto;
-  /* The close button sits over the bar's right edge. */
-  margin-right: 34px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"] {
+  width: 100%;
+  height: 34px;
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--text);
-  font-size: 11px;
+  font-size: 10px;
   outline: none;
 }
 
@@ -116,6 +122,82 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 
 [data-v110="settings-commandbar"] [data-slot="settings-search"]:focus {
   border-color: var(--line-strong);
+}
+
+/* Scope select and detail switch -- .v91-command-controls. */
+[data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-control-label"],
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] > span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-scope"] {
+  width: 126px;
+  min-height: 31px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-scope"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] {
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] > span {
+  padding: 0 6px 0 4px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] button {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] button[aria-pressed="true"] {
+  background: var(--surface-4);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-commandbar"] {
+    flex-wrap: wrap;
+  }
+
+  [data-v110="settings-commandbar"] [data-slot="settings-search-wrap"] {
+    order: 3;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  [data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+    margin-left: auto;
+  }
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] {
@@ -141,13 +223,14 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"] {
   padding: 7px 7px 6px;
+  line-height: normal;
   color: var(--muted);
   font-size: 9px;
   font-weight: 600;
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"]:not(:first-child) {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] {
@@ -159,16 +242,37 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   line-height: normal;
 }
 
+/* .settings-nav button: a 22px icon column, 6px before the label. */
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger"] {
-  gap: 8px;
+  gap: 6px;
   padding: 0 9px;
 }
 
-[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] [data-component="icon"] {
+[data-v110="settings-nav"] [data-slot="settings-nav-icon"] {
+  flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  margin-right: 4px;
-  color: var(--muted);
+  margin: 0 3px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-icon"][data-filled] {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: none;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-glyph"] {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
@@ -181,8 +285,8 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   color: var(--text);
 }
 
-[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-component="icon"] {
-  color: var(--accent);
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-slot="settings-nav-icon"]:not([data-filled]) {
+  stroke: var(--accent);
 }
 
 [data-v110="settings-version"] {
@@ -214,11 +318,358 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 }
 
 [data-v110="settings-frame"] [data-slot="tabs-content"] h3 {
-  padding: 0 4px;
+  margin: 25px 4px 10px;
+  padding: 0;
   color: var(--text);
   font-size: 11px;
   font-weight: 650;
   line-height: normal;
+}
+
+/* .settings-page-head: title (and muted subtitle) left, actions right. */
+[data-v110="settings-page"] [data-slot="settings-page-head"] {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 34px;
+  margin-bottom: 21px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-head"] > * {
+  min-width: 0;
+}
+
+/* .sticky-head: pinned while the page scrolls, over a fading surface. */
+[data-v110="settings-page"] [data-slot="settings-page-head"][data-sticky] {
+  position: sticky;
+  top: -28px;
+  z-index: 4;
+  padding-top: 28px;
+  background: linear-gradient(var(--surface) 75%, transparent);
+}
+
+[data-v110="settings-page"] [data-slot="settings-muted"] {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+[data-v110="settings-page"] [data-slot="settings-head-actions"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* .settings-action: every button in a page (primary follows the accent). */
+[data-v110="settings-page"] [data-component="button"] {
+  min-height: 30px;
+  height: auto;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  box-shadow: none;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-v110="settings-page"] [data-component="button"]:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--hover);
+}
+
+[data-v110="settings-page"] [data-component="button"][data-variant="primary"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-v110="settings-page"] [data-component="button"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* .ui-input: text fields in a row control. */
+[data-v110="settings-page"] [data-slot="setting-control"] [data-slot="input-wrapper"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-v110="settings-page"] [data-slot="setting-control"] [data-slot="input-input"] {
+  width: 210px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+}
+
+/* .value-text: a read-only value in a row control. */
+[data-v110="settings-page"] [data-slot="settings-value"] {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* .settings-search-row / .settings-search: a page's own filter field. */
+[data-v110="settings-page"] [data-slot="settings-search-row"] {
+  margin-bottom: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"] {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"]::placeholder {
+  color: var(--faint);
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="settings-empty"] {
+  padding: 36px 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* .shortcut-section / .shortcut-row: a ruled list of commands. */
+[data-v110="settings-page"] [data-slot="shortcut-section"] {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--text);
+  font-size: 9px;
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"]:hover {
+  background: color-mix(in srgb, var(--surface-3) 50%, transparent);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"] kbd {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font: 8px var(--font-family-mono, ui-monospace, monospace);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"][data-active] kbd {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* .number-input: a short right-aligned numeric field. */
+[data-v110="settings-page"] [data-slot="settings-number"] {
+  width: 84px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  text-align: right;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-number"]:focus {
+  border-color: var(--accent);
+}
+
+/* .inline-code-lite: a path or identifier inside a note. */
+[data-v110="settings-page"] [data-slot="settings-code"] {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text);
+  font: 8px var(--font-family-mono, ui-monospace, monospace);
+  word-break: break-all;
+}
+
+/* Settings that only apply while a parent switch is on. */
+[data-v110="settings-page"] [data-slot="settings-group"][data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* .memory-settings-preview: a row of read-only status tiles. */
+[data-v110="settings-page"] [data-slot="settings-status-grid"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 1px;
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 74px;
+  padding: 12px 13px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-grid"] b {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+/* .muted-badge: a small grey status chip beside a control. */
+[data-v110="settings-page"] [data-slot="settings-badge"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: var(--surface-4);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+/* .settings-note (.warning-note adds the amber box). */
+[data-v110="settings-page"] [data-slot="settings-note"] {
+  margin: 9px 4px 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+[data-v110="settings-page"] [data-slot="settings-note"][data-tone="warning"] {
+  margin: 9px 0;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: #5f4b00;
+  color: #f5df91;
+}
+
+[data-v110="settings-page"] [data-slot="settings-badge"][data-tone="success"] {
+  color: var(--success);
+}
+
+/* .stack-control: status chip above its action. */
+[data-v110="settings-page"] [data-slot="setting-control"][data-stack] {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* .v93-test-actions: a trailing action row inside a section. */
+[data-v110="settings-page"] [data-slot="settings-row-actions"] {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 9px 2px 10px;
+}
+
+/* Cards that stand alone between sections (GitHub, git credentials). */
+[data-v110="settings-page"] [data-slot="github-card"] {
+  margin-top: 25px;
+}
+
+[data-v110="settings-page"] [data-slot="git-auth-card"] {
+  margin-top: 10px;
+}
+
+/* .compute-moved-guide: a pointer to the page that now owns a setting. */
+[data-v110="settings-page"] [data-slot="settings-compute-link"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 20px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-icon"] {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-copy"] {
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-copy"] b {
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-compute-link-copy"] p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+/* .advanced-toggle: a quiet text disclosure under the sections. */
+[data-v110="settings-page"] [data-slot="settings-advanced-toggle"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 22px 0 6px;
+  padding: 5px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-advanced-toggle"][aria-expanded="false"] span {
+  display: inline-block;
+  transform: rotate(-90deg);
+}
+
+[data-v110="settings-page"] [data-slot="settings-advanced-toggle"]:hover {
+  color: var(--text);
 }
 
 [data-v110="settings-section"] {
@@ -229,9 +680,16 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 }
 
 [data-v110="setting-row"] {
+  justify-content: space-between;
+  min-height: 60px;
   gap: 18px;
   padding: 10px 2px;
   border-bottom: 1px solid var(--v110-settings-row-line);
+}
+
+[data-v110="setting-row"] [data-slot="setting-copy"] {
+  max-width: 68%;
+  gap: 3px;
 }
 
 [data-v110="setting-row"]:last-child {
@@ -532,10 +990,17 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
 
 [data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-value"] {
   font-size: 11px;
+  font-weight: 400;
+}
+
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
 }
 
 [data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] {
-  width: 12px;
+  width: 14px;
   background: transparent;
   color: var(--muted);
 }

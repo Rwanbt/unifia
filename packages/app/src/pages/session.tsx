@@ -1127,7 +1127,7 @@ export default function Page() {
 
         <Switch>
           <Match when={mode.destination() === "settings" && view().workspace.current() !== "chat"}>
-            <SettingsSurface onClose={() => mode.select("code")} />
+            <SettingsSurface />
           </Match>
           <Match when={mode.destination() === "user" && view().workspace.current() !== "chat"}>
             <UserSurface onClose={() => mode.select("code")} />

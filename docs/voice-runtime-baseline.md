@@ -8,6 +8,7 @@ Status: Wave A characterization, 2026-09-23. The baseline is measured, explorato
 - Branch: `voice`
 - Base commit: `6ff80084c6e733c2fed199e9450a8ad0fd4919de` (`new-ui`, pushed to `origin/new-ui`)
 - The implementation branch was created from the pushed `new-ui` commit. No voice implementation was present at that base.
+- Later base synchronization: `origin/new-ui` at `a29a80c2adef0c709ecdd90f28b0236cef4b3e45` was merged into `voice` at `59fb2e31174526cbff7cb41c0fe777f7d8806bb1`; the five additional local `new-ui` commits through `09d609621ce80bf224296c5981cd93aa9196893e` were merged during this continuation. The normal push of `new-ui` was attempted but GitHub was unreachable, so the remote branch was not updated by this session.
 
 ## Existing behavior and ownership
 

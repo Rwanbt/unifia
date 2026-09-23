@@ -10,17 +10,16 @@
 // findable by nobody. This panel is the surface that makes it real for
 // someone who never opens a config file.
 //
-// Everything here writes to the global config through the same API the other
-// panels use; there is no separate store to drift out of sync with the file.
+// Everything here writes through the settings scope: the global config for
+// "Moi", the open project's config for "Projet" (ADR-047).
 import { type Component, createResource, createSignal, Show } from "solid-js"
-import { Button } from "@unifia/ui/button"
 import { Switch as SwitchComponent } from "@unifia/ui/switch"
 import { TextField } from "@unifia/ui/text-field"
 import { showToast } from "@unifia/ui/toast"
 import { useSDK } from "@/context/sdk"
-import { unwrap } from "@/utils/sdk-unwrap"
-import { SettingsList } from "./settings-list"
+import { SettingsPage, SettingsSection } from "./settings-page"
 import { SettingsRow } from "./settings-row"
+import { useSettingsScope } from "./settings-scope"
 import { useLanguage } from "@/context/language"
 
 type MemorySettings = {
@@ -64,6 +63,7 @@ function defaultVaultPath(directory: string): string {
 export const SettingsMemory: Component = () => {
   const language = useLanguage()
   const sdk = useSDK()
+  const scope = useSettingsScope()
   const [busy, setBusy] = createSignal(false)
   // Held separately from the saved value so typing a path does not write on
   // every keystroke; committed on blur, like the other text settings.
@@ -74,9 +74,9 @@ export const SettingsMemory: Component = () => {
   // window with a crash screen instead of one unavailable settings panel.
   // The failure is shown in the panel and the controls stay on their
   // defaults, disabled — visibly not-loaded rather than silently wrong.
-  const [config, configActions] = createResource(async () => {
+  const [config, configActions] = createResource(scope.scope, async () => {
     try {
-      return { value: await unwrap(sdk.client.global.config.get()), error: undefined }
+      return { value: await scope.config.get(), error: undefined }
     } catch (error) {
       return { value: undefined, error: error instanceof Error ? error.message : String(error) }
     }
@@ -93,12 +93,8 @@ export const SettingsMemory: Component = () => {
   const update = async (patch: MemorySettings) => {
     setBusy(true)
     try {
-      const current = await unwrap(sdk.client.global.config.get())
-      await unwrap(
-        sdk.client.global.config.update({
-          config: { ...current, memory: { ...current.memory, ...patch } },
-        }),
-      )
+      const current = await scope.config.get()
+      await scope.config.update({ ...current, memory: { ...current.memory, ...patch } })
       await configActions.refetch()
       showToast({ variant: "success", title: language.t("settings.fork.memory.saveSuccess") })
     } catch (error) {
@@ -131,33 +127,34 @@ export const SettingsMemory: Component = () => {
     void update({ directory: next })
   }
 
-  const useDefault = () => {
-    setDraftDirectory(null)
-    if ((memory().directory ?? UNSET) === UNSET) return
-    void update({ directory: UNSET })
-  }
-
   const numeric = (value: string, fallback: number) => {
     const parsed = Number.parseInt(value, 10)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
   }
 
-  return (
-    <div class="flex flex-col gap-6">
-      <div>
-        <h3 class="pb-2 text-14-medium text-text-strong">{language.t("settings.fork.memory.title")}</h3>
-        <p class="text-12-regular text-text-weak">{language.t("settings.fork.memory.description")}</p>
-      </div>
+  const maxNotes = () => memory().max_notes ?? DEFAULT_MAX_NOTES
+  const deadline = () => memory().deadline_ms ?? DEFAULT_DEADLINE_MS
+  const locked = () => busy() || loadError() !== undefined
+  // The path sits in a code chip inside the sentence, wherever the locale
+  // puts it: split the translated sentence around a marker.
+  const PATH_MARKER = "\u0001"
+  const resolvedSentence = () =>
+    language.t("settings.fork.memory.directoryResolved", { path: PATH_MARKER }).split(PATH_MARKER)
 
+  return (
+    <SettingsPage
+      title={language.t("settings.fork.memory.title")}
+      subtitle={language.t("settings.fork.memory.description")}
+    >
       <Show when={loadError()}>
         {(message) => (
-          <div class="rounded-md border border-border-critical-base bg-surface-critical-weak px-3 py-2 text-12-regular text-text-strong">
+          <p data-slot="settings-note" data-tone="warning">
             {language.t("settings.fork.memory.loadError")} {message()}
-          </div>
+          </p>
         )}
       </Show>
 
-      <SettingsList>
+      <SettingsSection>
         <SettingsRow
           title={language.t("settings.fork.memory.enableTitle")}
           description={language.t("settings.fork.memory.enableDescription")}
@@ -165,106 +162,78 @@ export const SettingsMemory: Component = () => {
           <div data-action="settings-memory-enabled">
             <SwitchComponent
               checked={enabled()}
-              disabled={busy() || config.loading || loadError() !== undefined}
+              disabled={locked() || config.loading}
               onChange={(value) => void update({ enabled: value })}
             />
           </div>
         </SettingsRow>
-      </SettingsList>
+      </SettingsSection>
 
-      <section classList={{ "opacity-50 pointer-events-none": !enabled() }}>
-        <h3 class="pb-2 text-14-medium text-text-strong">{language.t("settings.fork.memory.vaultSection")}</h3>
-        <SettingsList>
+      <div data-slot="settings-group" data-disabled={enabled() ? undefined : ""}>
+        <SettingsSection title={language.t("settings.fork.memory.vaultSection")}>
           <SettingsRow
             title={language.t("settings.fork.memory.directoryTitle")}
             description={language.t("settings.fork.memory.directoryDescription")}
           >
-            <div class="flex w-full items-center gap-2 sm:w-96">
-              <TextField
-                size="small"
-                variant="normal"
-                class="min-w-0 flex-1"
-                placeholder={defaultPath()}
-                value={draftDirectory() ?? memory().directory ?? UNSET}
-                disabled={busy() || loadError() !== undefined}
-                onChange={setDraftDirectory}
-                onBlur={(event: InputBlur) => commitDirectory(event.currentTarget.value)}
-                onKeyDown={(event: KeyboardEvent) => {
-                  // `onKeyDown` is one of the props TextField splits off to
-                  // the Kobalte root, so `currentTarget` here is a wrapper
-                  // element and blurring it does nothing. The draft signal is
-                  // the value, and reading it needs no DOM at all.
-                  if (event.key === "Enter") commitDirectory(draftDirectory() ?? memory().directory ?? UNSET)
-                }}
-              />
-              <Button
-                size="small"
-                variant="secondary"
-                disabled={busy() || loadError() !== undefined || (memory().directory ?? UNSET) === UNSET}
-                onClick={useDefault}
-              >
-                {language.t("settings.fork.memory.directoryReset")}
-              </Button>
-            </div>
+            {/* Clearing the field is the reset: a blank directory means the default. */}
+            <TextField
+              placeholder={DEFAULT_SUBDIRECTORY}
+              value={draftDirectory() ?? memory().directory ?? UNSET}
+              disabled={locked()}
+              onChange={setDraftDirectory}
+              onBlur={(event: InputBlur) => commitDirectory(event.currentTarget.value)}
+              onKeyDown={(event: KeyboardEvent) => {
+                // `onKeyDown` is one of the props TextField splits off to
+                // the Kobalte root, so `currentTarget` here is a wrapper
+                // element and blurring it does nothing. The draft signal is
+                // the value, and reading it needs no DOM at all.
+                if (event.key === "Enter") commitDirectory(draftDirectory() ?? memory().directory ?? UNSET)
+              }}
+            />
           </SettingsRow>
-        </SettingsList>
-        <p class="pt-2 text-11-regular text-text-weak break-all">
-          {language.t("settings.fork.memory.directoryResolved", { path: resolvedPath() })}
+        </SettingsSection>
+        <p data-slot="settings-note">
+          {resolvedSentence()[0]}
+          <code data-slot="settings-code">{resolvedPath()}</code>
+          {resolvedSentence()[1]}
         </p>
-      </section>
 
-      <section classList={{ "opacity-50 pointer-events-none": !enabled() }}>
-        <h3 class="pb-2 text-14-medium text-text-strong">{language.t("settings.fork.memory.privacySection")}</h3>
-        <SettingsList>
+        <SettingsSection title={language.t("settings.fork.memory.privacySection")}>
           <SettingsRow
             title={language.t("settings.fork.memory.remoteRecallTitle")}
             description={language.t("settings.fork.memory.remoteRecallDescription")}
           >
             <SwitchComponent
               checked={memory().remote_recall === true}
-              disabled={busy() || config.loading || loadError() !== undefined}
+              disabled={locked() || config.loading}
               onChange={(value) => void update({ remote_recall: value })}
             />
           </SettingsRow>
-        </SettingsList>
-        <div
-          class="mt-2 rounded-md px-3 py-2 text-12-regular"
-          classList={{
-            // Warning styling belongs to the state that widens what may
-            // leave the machine. Painting the safe default in the same
-            // colour teaches the reader that the banner means nothing.
-            "bg-surface-warning-base text-text-strong": memory().remote_recall === true,
-            "bg-surface-inset text-text-weak": memory().remote_recall !== true,
-          }}
-        >
+        </SettingsSection>
+        {/* Warning styling belongs to the state that widens what may leave
+            the machine; the safe default is a plain note. */}
+        <p data-slot="settings-note" data-tone={memory().remote_recall === true ? "warning" : undefined}>
           <Show
             when={memory().remote_recall === true}
             fallback={language.t("settings.fork.memory.remoteRecallOffNotice")}
           >
             {language.t("settings.fork.memory.remoteRecallOnNotice")}
           </Show>
-        </div>
-      </section>
+        </p>
 
-      <section classList={{ "opacity-50 pointer-events-none": !enabled() }}>
-        <h3 class="pb-2 text-14-medium text-text-strong">{language.t("settings.fork.memory.recallSection")}</h3>
-        <SettingsList>
+        <SettingsSection title={language.t("settings.fork.memory.recallSection")}>
           <SettingsRow
             title={language.t("settings.fork.memory.maxNotesTitle")}
             description={language.t("settings.fork.memory.maxNotesDescription")}
           >
-            <TextField
-              size="small"
-              variant="normal"
+            <input
               type="number"
-              class="w-24"
-              placeholder={String(DEFAULT_MAX_NOTES)}
-              value={String(memory().max_notes ?? "")}
-              disabled={busy() || loadError() !== undefined}
-              onBlur={(event: InputBlur) => {
-                const raw = event.currentTarget.value.trim()
-                const next = raw === "" ? undefined : numeric(raw, DEFAULT_MAX_NOTES)
-                if (next !== memory().max_notes) void update({ max_notes: next })
+              data-slot="settings-number"
+              value={maxNotes()}
+              disabled={locked()}
+              onBlur={(event) => {
+                const next = numeric(event.currentTarget.value.trim(), DEFAULT_MAX_NOTES)
+                if (next !== maxNotes()) void update({ max_notes: next })
               }}
             />
           </SettingsRow>
@@ -272,23 +241,34 @@ export const SettingsMemory: Component = () => {
             title={language.t("settings.fork.memory.deadlineTitle")}
             description={language.t("settings.fork.memory.deadlineDescription")}
           >
-            <TextField
-              size="small"
-              variant="normal"
+            <input
               type="number"
-              class="w-24"
-              placeholder={String(DEFAULT_DEADLINE_MS)}
-              value={String(memory().deadline_ms ?? "")}
-              disabled={busy() || loadError() !== undefined}
-              onBlur={(event: InputBlur) => {
-                const raw = event.currentTarget.value.trim()
-                const next = raw === "" ? undefined : numeric(raw, DEFAULT_DEADLINE_MS)
-                if (next !== memory().deadline_ms) void update({ deadline_ms: next })
+              data-slot="settings-number"
+              value={deadline()}
+              disabled={locked()}
+              onBlur={(event) => {
+                const next = numeric(event.currentTarget.value.trim(), DEFAULT_DEADLINE_MS)
+                if (next !== deadline()) void update({ deadline_ms: next })
               }}
             />
           </SettingsRow>
-        </SettingsList>
-      </section>
-    </div>
+        </SettingsSection>
+      </div>
+
+      <div data-slot="settings-status-grid">
+        <div>
+          <span>{language.t("settings.fork.memory.statusMode")}</span>
+          <b>{language.t(enabled() ? "settings.fork.memory.statusActive" : "settings.fork.memory.statusInactive")}</b>
+        </div>
+        <div>
+          <span>{language.t("settings.fork.memory.statusPath")}</span>
+          <b>{resolvedPath()}</b>
+        </div>
+        <div>
+          <span>{language.t("settings.fork.memory.statusInjection")}</span>
+          <b>{language.t("settings.fork.memory.statusInjectionValue", { notes: maxNotes(), ms: deadline() })}</b>
+        </div>
+      </div>
+    </SettingsPage>
   )
 }

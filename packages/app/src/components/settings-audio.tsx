@@ -1,11 +1,12 @@
-import { type Component, createSignal, For, type JSX, Show } from "solid-js"
+import { type Component, createSignal, For, Show } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
 import { Button } from "@unifia/ui/button"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { showToast } from "@unifia/ui/toast"
-import { SettingsList } from "./settings-list"
+import { SettingsPage, SettingsSection } from "./settings-page"
+import { SettingsRow } from "./settings-row"
 import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
@@ -37,6 +38,8 @@ function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> 
 
 export const loadAudioSettings = loadVoiceSettings
 
+const SELECT = { variant: "secondary", size: "small", triggerVariant: "settings" } as const
+
 export const SettingsAudio: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
@@ -57,104 +60,121 @@ export const SettingsAudio: Component = () => {
   }
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
-      <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
-        <div class="flex flex-col gap-1 pt-6 pb-8">
-          <h2 class="text-16-medium text-text-strong">{language.t("settings.fork.audio.title")}</h2>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-8 w-full">
-        {/* Speech-to-Text Section */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.stt")}</h3>
-          <SettingsList>
-            <SettingsRow title={language.t("settings.fork.audio.enableStt")} description={language.t("settings.fork.audio.enableSttDescription")}>
-              <div data-action="settings-audio-stt-enabled">
-                <Switch checked={settings.sttEnabled} onChange={(v) => update("sttEnabled", v)} />
-              </div>
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.engine")} description={language.t("settings.fork.audio.engineDescription")}>
-              <span class="text-12-regular text-text-weak">{language.t("settings.fork.audio.parakeet")}</span>
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.language")} description={language.t("settings.fork.audio.languageDescription")}>
-              <Select
-                size="normal"
-                options={["auto", "en", "fr", "de", "es", "it"]}
-                current={settings.sttLanguage}
-                label={(x) => {
-                  const m: Record<string, Parameters<typeof language.t>[0]> = { auto: "settings.fork.audio.languageAuto", en: "settings.fork.audio.languageEnglish", fr: "settings.fork.audio.languageFrench", de: "settings.fork.audio.languageGerman", es: "settings.fork.audio.languageSpanish", it: "settings.fork.audio.languageItalian" }
-                  return m[x] ? language.t(m[x]) : x
-                }}
-                onSelect={(v) => { if (v) update("sttLanguage", v as AudioSettings["sttLanguage"]) }}
-              />
-            </SettingsRow>
-          </SettingsList>
-        </div>
-
-        {/* Text-to-Speech Section */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.tts")}</h3>
-          <SettingsList>
-            <SettingsRow title={language.t("settings.fork.audio.enableTts")} description={language.t("settings.fork.audio.enableTtsDescription")}>
-              <div data-action="settings-audio-tts-enabled">
-                <Switch checked={settings.ttsEnabled} onChange={(v) => update("ttsEnabled", v)} />
-              </div>
-            </SettingsRow>
-            <SettingsRow
-              title={language.t("settings.fork.audio.provider")}
-              description={language.t("settings.fork.audio.providerDescription")}
-            >
-              <div class="flex items-center gap-2">
-                <Select
-                  size="normal"
-                  options={["auto", "pocket"]}
-                  current={settings.ttsProvider || "auto"}
-                  label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : "Auto"}
-                  onSelect={(v) => { if (v) handleProviderChange(v as AudioSettings["ttsProvider"]) }}
-                />
-              </div>
-            </SettingsRow>
-            <SettingsRow
-              title={language.t("settings.fork.audio.voice")}
-              description={language.t("settings.fork.audio.pocketVoiceDescription")}
-            >
-              <Show when={settings.ttsProvider !== "piper"}>
-                <Select
-                  size="normal"
-                  options={TTS_VOICES.map((v) => v.id)}
-                  current={settings.voiceByLanguage.en ?? "alba"}
-                  label={(id) => TTS_VOICES.find((v) => v.id === id)?.label ?? id}
-                  onSelect={(v) => { if (v) update("voiceByLanguage", { ...settings.voiceByLanguage, en: v }) }}
-                />
-              </Show>
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.speed")} description={language.t("settings.fork.audio.speedDescription")}>
-              <Select
-                size="normal"
-                options={["0.75", "1.0", "1.25", "1.5", "2.0"]}
-                current={String(settings.ttsSpeed)}
-                label={(x) => `${x}x`}
-                onSelect={(v) => { if (v) update("ttsSpeed", parseFloat(v)) }}
-              />
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.autoPlay")} description={language.t("settings.fork.audio.autoPlayDescription")}>
-              <Switch checked={settings.ttsAutoPlay} onChange={(v) => update("ttsAutoPlay", v)} />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-2 px-1">
-            {language.t("settings.fork.audio.poweredPocket")}
+    <SettingsPage title={language.t("settings.fork.audio.title")}>
+      <SettingsSection title={language.t("settings.fork.audio.stt")}>
+        <SettingsRow
+          title={language.t("settings.fork.audio.enableStt")}
+          description={language.t("settings.fork.audio.enableSttDescription")}
+        >
+          <div data-action="settings-audio-stt-enabled">
+            <Switch checked={settings.sttEnabled} onChange={(value) => update("sttEnabled", value)} />
           </div>
-        </div>
-
-        <Show when={!isMobile() && settings.ttsProvider !== "piper"}>
-          <VoiceCloneSection
-            currentVoice={settings.voiceByLanguage.en ?? "alba"}
-            onSelectClone={(name) => update("voiceByLanguage", { ...settings.voiceByLanguage, en: name })}
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.engine")}
+          description={language.t("settings.fork.audio.engineDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["parakeet"]}
+            current="parakeet"
+            label={() => language.t("settings.fork.audio.parakeet")}
+            onSelect={() => undefined}
           />
-        </Show>
-      </div>
-    </div>
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.language")}
+          description={language.t("settings.fork.audio.languageDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "en", "fr", "de", "es", "it"]}
+            current={settings.sttLanguage}
+            label={(value) => {
+              const labels: Record<string, Parameters<typeof language.t>[0]> = {
+                auto: "settings.fork.audio.languageAuto",
+                en: "settings.fork.audio.languageEnglish",
+                fr: "settings.fork.audio.languageFrench",
+                de: "settings.fork.audio.languageGerman",
+                es: "settings.fork.audio.languageSpanish",
+                it: "settings.fork.audio.languageItalian",
+              }
+              return labels[value] ? language.t(labels[value]) : value
+            }}
+            onSelect={(value) => {
+              if (value) update("sttLanguage", value as AudioSettings["sttLanguage"])
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title={language.t("settings.fork.audio.tts")}>
+        <SettingsRow
+          title={language.t("settings.fork.audio.enableTts")}
+          description={language.t("settings.fork.audio.enableTtsDescription")}
+        >
+          <div data-action="settings-audio-tts-enabled">
+            <Switch checked={settings.ttsEnabled} onChange={(value) => update("ttsEnabled", value)} />
+          </div>
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.provider")}
+          description={language.t("settings.fork.audio.providerDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "pocket"]}
+            current={settings.ttsProvider}
+            label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : "Auto"}
+            onSelect={(value) => {
+              if (value) handleProviderChange(value as AudioSettings["ttsProvider"])
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.voice")}
+          description={language.t("settings.fork.audio.pocketVoiceDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={TTS_VOICES.map((voice) => voice.id)}
+            current={settings.voiceByLanguage.en ?? "alba"}
+            label={(id) => TTS_VOICES.find((voice) => voice.id === id)?.label ?? id}
+            onSelect={(value) => {
+              if (value) update("voiceByLanguage", { ...settings.voiceByLanguage, en: value })
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.speed")}
+          description={language.t("settings.fork.audio.speedDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["0.75", "1.0", "1.25", "1.5", "2.0"]}
+            current={String(settings.ttsSpeed)}
+            label={(value) => `${value}x`}
+            onSelect={(value) => {
+              if (value) update("ttsSpeed", parseFloat(value))
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.autoPlay")}
+          description={language.t("settings.fork.audio.autoPlayDescription")}
+        >
+          <Switch checked={settings.ttsAutoPlay} onChange={(value) => update("ttsAutoPlay", value)} />
+        </SettingsRow>
+        <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
+      </SettingsSection>
+
+      <Show when={!isMobile()}>
+        <VoiceCloneSection
+          currentVoice={settings.voiceByLanguage.en ?? "alba"}
+          onSelectClone={(name) => update("voiceByLanguage", { ...settings.voiceByLanguage, en: name })}
+        />
+      </Show>
+    </SettingsPage>
   )
 }
 
@@ -315,9 +335,8 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
   }
 
   return (
-    <div class="flex flex-col gap-1">
-      <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.voiceCloning")}</h3>
-      <SettingsList>
+    <>
+      <SettingsSection title={language.t("settings.fork.audio.voiceCloning")}>
         <div class="py-3">
           <div class="flex items-center justify-between gap-2 pb-3">
             <div class="flex flex-col gap-0.5">
@@ -402,11 +421,11 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
             </div>
           </Show>
         </div>
-      </SettingsList>
-      <div class="text-11-regular text-text-weak mt-1 px-1">
+      </SettingsSection>
+      <p data-slot="settings-note">
         {language.t("settings.fork.audio.cloningDescription")}
-      </div>
-    </div>
+      </p>
+    </>
   )
 }
 
@@ -423,22 +442,4 @@ function encodeWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
     v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true)
   }
   return buf
-}
-
-interface SettingsRowProps {
-  title: string
-  description: string
-  children: JSX.Element
-}
-
-const SettingsRow: Component<SettingsRowProps> = (props) => {
-  return (
-    <div class="flex flex-wrap items-center gap-4 py-3 border-b border-border-weak-base last:border-none sm:flex-nowrap">
-      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span class="text-14-medium text-text-strong">{props.title}</span>
-        <span class="text-12-regular text-text-weak">{props.description}</span>
-      </div>
-      <div class="flex w-full justify-end sm:w-auto sm:shrink-0">{props.children}</div>
-    </div>
-  )
 }

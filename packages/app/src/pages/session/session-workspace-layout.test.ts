@@ -174,7 +174,7 @@ describe("session workspace layout", () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const surface = await Bun.file(new URL("../settings/settings-surface.tsx", import.meta.url)).text()
     expect(source).toContain('mode.destination() === "settings" && view().workspace.current() !== "chat"')
-    expect(source).toContain("<SettingsSurface onClose={() => mode.select(\"code\")} />")
+    expect(source).toContain("<SettingsSurface />")
     expect(surface).toContain('data-v110="mode-main"')
     expect(surface).toContain('data-v110="surface-card"')
     expect(surface).toContain('data-parity="settings.surface"')

@@ -2,15 +2,12 @@ import { type Component, For, Show, createMemo, onCleanup, onMount } from "solid
 import { createStore } from "solid-js/store"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { Button } from "@unifia/ui/button"
-import { Icon } from "@unifia/ui/icon"
-import { IconButton } from "@unifia/ui/icon-button"
-import { TextField } from "@unifia/ui/text-field"
 import { showToast } from "@unifia/ui/toast"
 import fuzzysort from "fuzzysort"
 import { formatKeybind, parseKeybind, useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
-import { SettingsList } from "./settings-list"
+import { SettingsPage } from "./settings-page"
 
 const IS_MAC = typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform)
 const PALETTE_ID = "command.palette"
@@ -384,84 +381,67 @@ export const SettingsKeybinds: Component = () => {
   })
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
-      <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
-        <div class="flex flex-col gap-4 pt-6 pb-6 max-w-[720px]">
-          <div class="flex items-center justify-between gap-4">
-            <h2 class="text-16-medium text-text-strong">{language.t("settings.shortcuts.title")}</h2>
-            <Button size="small" variant="secondary" onClick={resetAll} disabled={!hasOverrides()}>
-              {language.t("settings.shortcuts.reset.button")}
-            </Button>
-          </div>
-
-          <div class="flex items-center gap-2 px-3 h-9 rounded-lg bg-surface-base">
-            <Icon name="magnifying-glass" class="text-icon-weak-base flex-shrink-0" />
-            <TextField
-              variant="ghost"
-              type="text"
-              value={store.filter}
-              onChange={(v) => setStore("filter", v)}
-              placeholder={language.t("settings.shortcuts.search.placeholder")}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              class="flex-1"
-            />
-            <Show when={store.filter}>
-              <IconButton icon="circle-x" variant="ghost" onClick={() => setStore("filter", "")} />
-            </Show>
-          </div>
-        </div>
+    <SettingsPage
+      sticky
+      title={language.t("settings.shortcuts.title")}
+      subtitle={language.t("settings.shortcuts.subtitle")}
+      actions={
+        <Button size="small" variant="secondary" onClick={resetAll} disabled={!hasOverrides()}>
+          {language.t("settings.shortcuts.reset.button")}
+        </Button>
+      }
+    >
+      <div data-slot="settings-search-row">
+        <input
+          type="search"
+          data-slot="settings-search-field"
+          value={store.filter}
+          onInput={(event) => setStore("filter", event.currentTarget.value)}
+          placeholder={language.t("settings.shortcuts.search.placeholder")}
+          aria-label={language.t("settings.shortcuts.search.placeholder")}
+          spellcheck={false}
+          autocomplete="off"
+        />
       </div>
 
-      <div class="flex flex-col gap-8 max-w-[720px]">
-        <For each={GROUPS}>
-          {(group) => (
-            <Show when={(filtered().get(group) ?? []).length > 0}>
-              <div class="flex flex-col gap-1">
-                <h3 class="text-14-medium text-text-strong pb-2">{language.t(groupKey[group])}</h3>
-                <SettingsList>
-                  <For each={filtered().get(group) ?? []}>
-                    {(id) => (
-                      <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
-                        <span class="text-14-regular text-text-strong">{title(id)}</span>
-                        <button
-                          type="button"
-                          data-keybind-id={id}
-                          classList={{
-                            "h-8 px-3 rounded-md text-12-regular": true,
-                            "bg-surface-base text-text-subtle hover:bg-surface-raised-base-hover active:bg-surface-raised-base-active":
-                              store.active !== id,
-                            "border border-border-weak-base bg-surface-inset-base text-text-weak": store.active === id,
-                          }}
-                          onClick={() => start(id)}
-                        >
-                          <Show
-                            when={store.active === id}
-                            fallback={command.keybind(id) || language.t("settings.shortcuts.unassigned")}
-                          >
-                            {language.t("settings.shortcuts.pressKeys")}
-                          </Show>
-                        </button>
-                      </div>
-                    )}
-                  </For>
-                </SettingsList>
-              </div>
-            </Show>
-          )}
-        </For>
+      {/* The reference's .shortcut-section: a ruled list, no card; the whole
+          row edits its shortcut. */}
+      <For each={GROUPS}>
+        {(group) => (
+          <Show when={(filtered().get(group) ?? []).length > 0}>
+            <h3>{language.t(groupKey[group])}</h3>
+            <section data-slot="shortcut-section">
+              <For each={filtered().get(group) ?? []}>
+                {(id) => (
+                  <button
+                    type="button"
+                    data-slot="shortcut-row"
+                    data-keybind-id={id}
+                    data-active={store.active === id ? "" : undefined}
+                    onClick={() => start(id)}
+                  >
+                    <span>{title(id)}</span>
+                    <kbd data-unassigned={!command.keybind(id) && store.active !== id ? "" : undefined}>
+                      <Show
+                        when={store.active === id}
+                        fallback={command.keybind(id) || language.t("settings.shortcuts.unassigned")}
+                      >
+                        {language.t("settings.shortcuts.pressKeys")}
+                      </Show>
+                    </kbd>
+                  </button>
+                )}
+              </For>
+            </section>
+          </Show>
+        )}
+      </For>
 
-        <Show when={store.filter && !hasResults()}>
-          <div class="flex flex-col items-center justify-center py-12 text-center">
-            <span class="text-14-regular text-text-weak">{language.t("settings.shortcuts.search.empty")}</span>
-            <Show when={store.filter}>
-              <span class="text-14-regular text-text-strong mt-1">"{store.filter}"</span>
-            </Show>
-          </div>
-        </Show>
-      </div>
-    </div>
+      <Show when={store.filter && !hasResults()}>
+        <p data-slot="settings-empty">
+          {language.t("settings.shortcuts.search.empty")} <b>"{store.filter}"</b>
+        </p>
+      </Show>
+    </SettingsPage>
   )
 }

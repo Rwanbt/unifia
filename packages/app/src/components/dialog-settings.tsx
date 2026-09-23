@@ -1,7 +1,6 @@
-import { type Component, Show, createMemo, createSignal } from "solid-js"
+import { type Component, type JSX, For, Show, createMemo, createSignal } from "solid-js"
 import { Dialog } from "@unifia/ui/dialog"
 import { Tabs } from "@unifia/ui/tabs"
-import { Icon } from "@unifia/ui/icon"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useViewport } from "@/shell/v110-store"
@@ -20,6 +19,8 @@ import { SettingsMemory } from "./settings-memory"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
 import { SettingsCommandBar } from "./settings-command-bar"
+import { SettingsScopeProvider } from "./settings-scope"
+import { SettingsNavIcon, type SettingsIconName } from "./settings-nav-icon"
 
 export const DialogSettings: Component = () => {
   const platform = usePlatform()
@@ -39,133 +40,114 @@ export const DialogSettings: Component = () => {
   )
 }
 
-// ADR-047: the maquette's five groups. Pages the maquette merges live under
-// its name: Remote access (and Android) is Compute, Se connecter is Security,
-// Plugins is MCP until its skills move to their own page. Tab ids keep their
-// old values so existing links still open the right page.
+// ADR-047: the maquette's five groups, in its order. Pages the maquette
+// merges live under its name: Remote access (and Android) is Compute, Se
+// connecter is Security, Plugins is MCP. Tab ids keep their old values so
+// existing links still open the right page.
+type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
+type SettingsGroup = { label: string; pages: SettingsPage[] }
+
+function settingsGroups(language: ReturnType<typeof useLanguage>, platform: ReturnType<typeof usePlatform>): SettingsGroup[] {
+  return [
+    {
+      label: language.t("settings.section.desktop"),
+      pages: [
+        { id: "general", icon: "general", label: language.t("settings.tab.general"), render: () => <SettingsGeneral /> },
+        { id: "audio", icon: "audio", label: language.t("settings.fork.audio.title"), render: () => <SettingsAudio /> },
+        { id: "shortcuts", icon: "shortcuts", label: language.t("settings.tab.shortcuts"), render: () => <SettingsKeybinds /> },
+        { id: "memory", icon: "memory", label: language.t("settings.fork.memory.title"), render: () => <SettingsMemory /> },
+      ],
+    },
+    {
+      label: language.t("settings.section.ai"),
+      pages: [
+        { id: "providers", icon: "providers", label: language.t("settings.providers.title"), render: () => <SettingsProviders /> },
+        { id: "models", icon: "models", label: language.t("settings.models.title"), render: () => <SettingsModels /> },
+        { id: "benchmark", icon: "benchmark", label: language.t("settings.fork.benchmark.title"), render: () => <SettingsBenchmark /> },
+      ],
+    },
+    {
+      label: language.t("settings.section.infrastructure"),
+      pages: [
+        {
+          id: "remote",
+          icon: "compute",
+          label: language.t("settings.tab.compute"),
+          render: () => (
+            <>
+              <SettingsRemoteAccess />
+              <Show when={platform.os === "android"}>
+                <SettingsAndroid />
+              </Show>
+            </>
+          ),
+        },
+        { id: "account", icon: "security", label: language.t("settings.tab.security"), render: () => <SettingsCollaborativeAuth /> },
+        { id: "configuration", icon: "configuration", label: language.t("settings.localConfig.title"), render: () => <SettingsConfiguration /> },
+        { id: "observability", icon: "observability", label: language.t("settings.fork.observability.title"), render: () => <SettingsObservability /> },
+      ],
+    },
+    {
+      label: language.t("settings.section.extensions"),
+      pages: [{ id: "plugins", icon: "mcp", label: language.t("settings.tab.mcp"), render: () => <SettingsPlugins /> }],
+    },
+  ]
+}
+
 export const SettingsPanel: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
   const [tab, setTab] = createSignal("general")
+  const groups = createMemo(() => settingsGroups(language, platform))
 
   return (
-    <div data-v110="settings-frame" class="h-full">
-      <SettingsCommandBar tab={tab()} />
-      <Tabs
-        orientation="vertical"
-        variant="settings"
-        value={tab()}
-        onChange={setTab}
-        class="settings-dialog min-h-0"
-        data-v110="settings-dialog"
-        data-parity="settings.dialog"
-      >
-        <Tabs.List>
-          <div class="flex flex-col justify-between h-full w-full">
-            <nav data-v110="settings-nav" class="flex flex-col w-full">
-              <Tabs.SectionTitle>{language.t("settings.section.desktop")}</Tabs.SectionTitle>
-              <Tabs.Trigger value="general">
-                <Icon name="sliders" />
-                {language.t("settings.tab.general")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="audio">
-                <Icon name="speaker" />
-                {language.t("settings.fork.audio.title")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="shortcuts">
-                <Icon name="keyboard" />
-                {language.t("settings.tab.shortcuts")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="memory">
-                <Icon name="brain" />
-                {language.t("settings.fork.memory.title")}
-              </Tabs.Trigger>
-
-              <Tabs.SectionTitle>{language.t("settings.section.ai")}</Tabs.SectionTitle>
-              <Tabs.Trigger value="providers">
-                <Icon name="providers" />
-                {language.t("settings.providers.title")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="models">
-                <Icon name="models" />
-                {language.t("settings.models.title")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="benchmark">
-                <Icon name="speedometer" />
-                {language.t("settings.fork.benchmark.title")}
-              </Tabs.Trigger>
-
-              <Tabs.SectionTitle>{language.t("settings.section.infrastructure")}</Tabs.SectionTitle>
-              <Tabs.Trigger value="remote">
-                <Icon name="server" />
-                {language.t("settings.tab.compute")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="account">
-                <Icon name="shield" />
-                {language.t("settings.tab.security")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="configuration">
-                <Icon name="console" />
-                {language.t("settings.localConfig.title")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="observability">
-                <Icon name="eye" />
-                {language.t("settings.fork.observability.title")}
-              </Tabs.Trigger>
-
-              <Tabs.SectionTitle>{language.t("settings.section.extensions")}</Tabs.SectionTitle>
-              <Tabs.Trigger value="plugins">
-                <Icon name="mcp" />
-                {language.t("settings.tab.mcp")}
-              </Tabs.Trigger>
-            </nav>
-            <div data-v110="settings-version" class="flex flex-col">
-              <span>{language.t("app.name.desktop")}</span>
-              <b>v{platform.version}</b>
+    <SettingsScopeProvider onOpenPage={setTab}>
+      <div data-v110="settings-frame" class="h-full">
+        <SettingsCommandBar tab={tab()} />
+        <Tabs
+          orientation="vertical"
+          variant="settings"
+          value={tab()}
+          onChange={setTab}
+          class="settings-dialog min-h-0"
+          data-v110="settings-dialog"
+          data-parity="settings.dialog"
+        >
+          <Tabs.List>
+            <div class="flex flex-col justify-between h-full w-full">
+              <nav data-v110="settings-nav" class="flex flex-col w-full">
+                <For each={groups()}>
+                  {(group) => (
+                    <>
+                      <Tabs.SectionTitle>{group.label}</Tabs.SectionTitle>
+                      <For each={group.pages}>
+                        {(page) => (
+                          <Tabs.Trigger value={page.id}>
+                            <SettingsNavIcon name={page.icon} />
+                            {page.label}
+                          </Tabs.Trigger>
+                        )}
+                      </For>
+                    </>
+                  )}
+                </For>
+              </nav>
+              <div data-v110="settings-version" class="flex flex-col">
+                <span>{language.t("app.name.desktop")}</span>
+                <b>v{platform.version}</b>
+              </div>
             </div>
-          </div>
-        </Tabs.List>
-        <Tabs.Content value="general" class="no-scrollbar">
-          <SettingsGeneral />
-        </Tabs.Content>
-        <Tabs.Content value="audio" class="no-scrollbar">
-          <SettingsAudio />
-        </Tabs.Content>
-        <Tabs.Content value="shortcuts" class="no-scrollbar">
-          <SettingsKeybinds />
-        </Tabs.Content>
-        <Tabs.Content value="memory" class="no-scrollbar">
-          <SettingsMemory />
-        </Tabs.Content>
-        <Tabs.Content value="providers" class="no-scrollbar">
-          <SettingsProviders />
-        </Tabs.Content>
-        <Tabs.Content value="models" class="no-scrollbar">
-          <SettingsModels />
-        </Tabs.Content>
-        <Tabs.Content value="benchmark" class="no-scrollbar">
-          <SettingsBenchmark />
-        </Tabs.Content>
-        <Tabs.Content value="remote" class="no-scrollbar">
-          <SettingsRemoteAccess />
-          <Show when={platform.os === "android"}>
-            <SettingsAndroid />
-          </Show>
-        </Tabs.Content>
-        <Tabs.Content value="account" class="no-scrollbar">
-          <SettingsCollaborativeAuth />
-        </Tabs.Content>
-        <Tabs.Content value="configuration" class="no-scrollbar">
-          <SettingsConfiguration />
-        </Tabs.Content>
-        <Tabs.Content value="observability" class="no-scrollbar">
-          <SettingsObservability />
-        </Tabs.Content>
-        <Tabs.Content value="plugins" class="no-scrollbar">
-          <SettingsPlugins />
-        </Tabs.Content>
-      </Tabs>
-    </div>
+          </Tabs.List>
+          <For each={groups().flatMap((group) => group.pages)}>
+            {(page) => (
+              <Tabs.Content value={page.id}>
+                {page.render()}
+              </Tabs.Content>
+            )}
+          </For>
+        </Tabs>
+      </div>
+    </SettingsScopeProvider>
   )
 }
 

@@ -57,7 +57,7 @@ type FlowState =
     }
   | { kind: "error"; message: string }
 
-export function SettingsGithubAuth() {
+export function SettingsGithubAuth(props: { onConfigure?: () => void }) {
   const language = useLanguage()
   const sdk = useSDK()
   const platform = usePlatform()
@@ -203,43 +203,48 @@ export function SettingsGithubAuth() {
         ? language.t("common.unknown")
         : language.t("settings.fork.githubAuth.statusUnavailable")
 
+  // The reference's GitHub card: one setting row (copy left, status and
+  // action stacked right), the device flow and connection details below it.
   return (
-    <div class="flex flex-col gap-3 py-4 border-t border-border-weak-base">
-      <div class="flex flex-col gap-0.5 px-4">
-        <span class="text-13-medium text-text-base">{language.t("settings.fork.githubAuth.title")}</span>
-        <span class="text-11-regular text-text-weaker">{language.t("settings.fork.githubAuth.description")}</span>
-      </div>
-
-      <Show when={status.latest && !status.latest.configured}>
-        <div class="px-4">
-          <span class="text-11-regular text-text-weaker">{language.t("settings.fork.githubAuth.notConfigured")}</span>
+    <div data-v110="settings-section" data-slot="github-card">
+      <div data-v110="setting-row" class="flex items-center">
+        <div data-slot="setting-copy" class="flex min-w-0 flex-1 flex-col">
+          <span data-slot="setting-name">{language.t("settings.fork.githubAuth.title")}</span>
+          <span data-slot="setting-desc">{language.t("settings.fork.githubAuth.description")}</span>
         </div>
-      </Show>
+        <div data-slot="setting-control" data-stack>
+          <Show when={status.latest && !status.latest.configured}>
+            <span data-slot="settings-badge">{language.t("settings.fork.githubAuth.notConfigured")}</span>
+            {/* Without an OAuth app the manual git credentials are the way in. */}
+            <Button size="small" onClick={() => props.onConfigure?.()}>
+              {language.t("settings.fork.githubAuth.configure")}
+            </Button>
+          </Show>
+          <Show when={status.latest?.configured && !status.latest?.connected && flow().kind === "idle"}>
+            <Button size="small" onClick={connect}>
+              {language.t("settings.fork.githubAuth.connectButton")}
+            </Button>
+          </Show>
+        </div>
+      </div>
 
       <Show when={status.latest?.configured}>
         <Switch>
-          {/* Disconnected, idle */}
-          <Match when={!status.latest?.connected && flow().kind === "idle"}>
-            <div class="px-4">
-              <Button size="small" onClick={connect}>
-                {language.t("settings.fork.githubAuth.connectButton")}
-              </Button>
-            </div>
-          </Match>
-
           {/* Device flow in progress */}
           <Match when={flow().kind === "waiting"}>
             {(() => {
               const f = flow() as Extract<FlowState, { kind: "waiting" }>
               return (
-                <div class="flex flex-col gap-2 px-4">
+                <div class="flex flex-col gap-2 pb-3">
                   <span class="text-12-medium text-text-base">
                     {language.t("settings.fork.githubAuth.authorizeTitle")}
                   </span>
                   <div class="flex items-center gap-2">
                     <span class="text-16-medium font-mono tracking-widest text-text-base">{f.userCode}</span>
                     <Button size="small" variant="ghost" onClick={() => copyCode(f.userCode)}>
-                      {copied() ? language.t("settings.fork.githubAuth.copied") : language.t("settings.fork.githubAuth.copyCode")}
+                      {copied()
+                        ? language.t("settings.fork.githubAuth.copied")
+                        : language.t("settings.fork.githubAuth.copyCode")}
                     </Button>
                   </div>
                   <div class="flex gap-2">
@@ -247,7 +252,10 @@ export function SettingsGithubAuth() {
                         system browser (Custom Tabs on Android via the Tauri
                         `opener` plugin) rather than navigating a raw <a target=
                         "_blank">, which some embedded WebViews resolve in-place. */}
-                    <Button size="small" onClick={() => platform.openLink(f.verificationUriComplete ?? f.verificationUri)}>
+                    <Button
+                      size="small"
+                      onClick={() => platform.openLink(f.verificationUriComplete ?? f.verificationUri)}
+                    >
                       {language.t("settings.fork.githubAuth.openGithub")}
                     </Button>
                     <Button size="small" variant="ghost" onClick={cancel}>
@@ -264,8 +272,10 @@ export function SettingsGithubAuth() {
 
           {/* Flow error */}
           <Match when={flow().kind === "error"}>
-            <div class="flex flex-col gap-2 px-4">
-              <span class="text-11-regular text-[#ef4444]">{(flow() as Extract<FlowState, { kind: "error" }>).message}</span>
+            <div class="flex flex-col gap-2 pb-3">
+              <span class="text-11-regular text-[#ef4444]">
+                {(flow() as Extract<FlowState, { kind: "error" }>).message}
+              </span>
               <div>
                 <Button size="small" onClick={connect}>
                   {language.t("settings.fork.githubAuth.connectButton")}
@@ -276,7 +286,7 @@ export function SettingsGithubAuth() {
 
           {/* Connected */}
           <Match when={status.latest?.connected && flow().kind === "idle"}>
-            <div class="flex flex-col gap-3 px-4">
+            <div class="flex flex-col gap-3 pb-3">
               <div class="flex items-center gap-2">
                 <Show when={status.latest?.identity?.avatarUrl}>
                   <img
@@ -378,9 +388,7 @@ export function SettingsGithubAuth() {
                       </span>
                     </div>
                     <Show when={report().failure}>
-                      {(failure) => (
-                        <span class="text-10-regular text-[#ef4444] mt-1">{failure().safeMessage}</span>
-                      )}
+                      {(failure) => <span class="text-10-regular text-[#ef4444] mt-1">{failure().safeMessage}</span>}
                     </Show>
                   </div>
                 )}
