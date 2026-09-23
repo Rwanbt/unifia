@@ -99,3 +99,34 @@ export function resolveTtsProviders(preference: TtsProviderPreference): readonly
 export function isSpeechLanguage(value: unknown): value is SpeechLanguage {
   return typeof value === "string" && speechLanguages.some((language) => language === value)
 }
+
+export interface LanguageRouteInput {
+  preference?: "auto" | SpeechLanguage
+  detectedLanguage?: SpeechLanguage
+  conversationLanguage?: SpeechLanguage
+  applicationLocale?: string
+  text?: string
+  previousAutomaticLanguage?: SpeechLanguage
+}
+
+function localeLanguage(locale: string | undefined): SpeechLanguage | undefined {
+  const primaryTag = locale?.trim().toLowerCase().split(/[-_]/, 1)[0]
+  return isSpeechLanguage(primaryTag) ? primaryTag : undefined
+}
+
+function isShortUtterance(text: string | undefined): boolean {
+  const words = text?.trim().split(/\s+/).filter(Boolean) ?? []
+  return words.length > 0 && words.length <= 2
+}
+
+/** Resolves the frozen language priority while stabilizing short auto-detected turns. */
+export function resolveSpeechLanguage(input: LanguageRouteInput): SpeechLanguage {
+  if (input.preference && input.preference !== "auto") return input.preference
+  if (input.detectedLanguage) {
+    if (isShortUtterance(input.text) && input.previousAutomaticLanguage) {
+      return input.previousAutomaticLanguage
+    }
+    return input.detectedLanguage
+  }
+  return input.conversationLanguage ?? localeLanguage(input.applicationLocale) ?? "en"
+}

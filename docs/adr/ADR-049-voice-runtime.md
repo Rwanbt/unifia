@@ -22,6 +22,6 @@ Settings migration and shared contracts become prerequisites for runtime replace
 
 ## Evidence and open gates
 
-- Baseline: [[../voice-runtime-baseline|voice runtime baseline]].
+- Baseline: [voice runtime baseline](../voice-runtime-baseline.md).
 - Architecture is derived from the user-provided `UNIFIA VOICE RUNTIME.md` plan and remains a draft pending implementation evidence.
 - Wave A performance baseline remains pending; no GO PROD claim is supported.

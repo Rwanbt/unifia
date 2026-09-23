@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createVoiceRegistry, resolveTtsProviders } from "../src/speech"
+import { createVoiceRegistry, resolveSpeechLanguage, resolveTtsProviders } from "../src/speech"
 
 const licensedVoice = {
   id: "fr-fr-default",
@@ -36,5 +36,28 @@ describe("speech contracts", () => {
     const registry = createVoiceRegistry([licensedVoice, piperVoice])
     expect(registry.get(licensedVoice.id, "fr")).toBeUndefined()
     expect(registry.get(licensedVoice.id, "fr", "piper")).toEqual(piperVoice)
+  })
+
+  test("language routing follows preference, detection, conversation, locale, then English", () => {
+    expect(resolveSpeechLanguage({ preference: "de", detectedLanguage: "fr" })).toBe("de")
+    expect(resolveSpeechLanguage({ preference: "auto", detectedLanguage: "es" })).toBe("es")
+    expect(resolveSpeechLanguage({ conversationLanguage: "it", applicationLocale: "fr-FR" })).toBe("it")
+    expect(resolveSpeechLanguage({ applicationLocale: "fr-FR" })).toBe("fr")
+    expect(resolveSpeechLanguage({ applicationLocale: "ja-JP" })).toBe("en")
+  })
+
+  test("short auto-detected utterances retain the previous language", () => {
+    expect(resolveSpeechLanguage({
+      preference: "auto",
+      detectedLanguage: "en",
+      previousAutomaticLanguage: "fr",
+      text: "npm build",
+    })).toBe("fr")
+    expect(resolveSpeechLanguage({
+      preference: "auto",
+      detectedLanguage: "en",
+      previousAutomaticLanguage: "fr",
+      text: "Bonjour tout le monde",
+    })).toBe("en")
   })
 })
