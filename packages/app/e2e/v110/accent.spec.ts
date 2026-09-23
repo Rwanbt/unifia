@@ -5,11 +5,28 @@ import { closeDialog, openSettings } from "../actions"
 
 // ADR-048: the picker in Settings > General > Appearance writes the chosen
 // colour onto <html style="--accent: ..."> and mirrors it to accent-color.
-// These tests cover the bridge end-to-end: pick a preset, observe the
-// inline style and the consumers that read var(--accent-base); reset and
-// observe the inline style removed.
+// The UI is a combobox (one entry per preset, plus a "Suivre le texte"
+// reset), and a separate native colour swatch handles custom values.
+// These tests cover the bridge end-to-end: pick a preset through the
+// combobox, observe the inline style and the consumers that read
+// var(--accent-base); reset through the combobox and observe the inline
+// style removed; persist across dialog close/reopen.
 
-test("accent picker writes --accent on <html> and retints consumers", async ({
+async function pickAccentInDialog(dialog: import("@playwright/test").Locator, label: string) {
+  const select = dialog.locator('[data-action="settings-accent-select"]')
+  await expect(select).toBeVisible()
+  await select.locator('[data-slot="select-select-trigger"]').click()
+  await expect(
+    dialog.locator('[data-slot="select-select-item"]').first(),
+  ).toBeVisible()
+  await dialog
+    .locator('[data-slot="select-select-item"]')
+    .filter({ hasText: label })
+    .first()
+    .click()
+}
+
+test("accent combobox writes --accent on <html> and retints consumers", async ({
   page,
   gotoSession,
 }) => {
@@ -17,10 +34,7 @@ test("accent picker writes --accent on <html> and retints consumers", async ({
 
   const dialog = await openSettings(page)
 
-  // The General tab is the default; the picker lives under Appearance.
-  const crimson = dialog.locator('[data-action="settings-accent-preset-crimson"]')
-  await expect(crimson).toBeVisible()
-  await crimson.click()
+  await pickAccentInDialog(dialog, "Crimson")
 
   // The createEffect in SettingsProvider writes the inline custom property
   // and the native accent-color mirror.
@@ -35,8 +49,8 @@ test("accent picker writes --accent on <html> and retints consumers", async ({
   expect(htmlAccent.native.toLowerCase()).toBe("rgb(220, 38, 38)")
 
   // A Switch in the ON state under [data-settings-pane] reads
-  // var(--accent-base, var(--border-focus)); since we tied --accent-base
-  // to var(--accent), the track must inherit the picked colour.
+  // var(--accent-base, var(--border-focus)); since --accent-base is now
+  // var(--accent), the track must inherit the picked colour.
   const trackColor = await page.evaluate(() => {
     const on = document.querySelector(
       '[data-settings-pane] [role="switch"][data-state="checked"]',
@@ -51,7 +65,7 @@ test("accent picker writes --accent on <html> and retints consumers", async ({
   await closeDialog(page, dialog)
 })
 
-test("accent reset removes the inline --accent from <html>", async ({
+test("accent reset (Suivre le texte) removes the inline --accent", async ({
   page,
   gotoSession,
 }) => {
@@ -59,16 +73,14 @@ test("accent reset removes the inline --accent from <html>", async ({
 
   const dialog = await openSettings(page)
 
-  const sky = dialog.locator('[data-action="settings-accent-preset-sky"]')
-  await sky.click()
+  await pickAccentInDialog(dialog, "Sky")
   await expect
     .poll(async () =>
       page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
     )
     .toBe("#0ea5e9")
 
-  const reset = dialog.locator('[data-action="settings-accent-reset"]')
-  await reset.click()
+  await pickAccentInDialog(dialog, "Suivre le texte")
 
   await expect
     .poll(async () =>
@@ -83,7 +95,7 @@ test("accent reset removes the inline --accent from <html>", async ({
   await closeDialog(page, dialog)
 })
 
-test("accent picker persists across dialog close and reopen", async ({
+test("accent combobox persists across dialog close and reopen", async ({
   page,
   gotoSession,
 }) => {
@@ -91,7 +103,7 @@ test("accent picker persists across dialog close and reopen", async ({
 
   const dialog = await openSettings(page)
 
-  await dialog.locator('[data-action="settings-accent-preset-emerald"]').click()
+  await pickAccentInDialog(dialog, "Emerald")
   await expect
     .poll(async () =>
       page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
@@ -110,4 +122,39 @@ test("accent picker persists across dialog close and reopen", async ({
   expect(stored.toLowerCase()).toBe("#10b981")
 
   await closeDialog(page, reopened)
+})
+
+test("accent custom swatch writes the picked hex on <html>", async ({
+  page,
+  gotoSession,
+}) => {
+  await gotoSession()
+
+  const dialog = await openSettings(page)
+
+  // Drive the hidden <input type="color"> directly so we can assert the
+  // exact value (the native picker is OS-controlled and not openable from
+  // headless Chromium).
+  const hex = "#7c3aed"
+  await page.evaluate((value) => {
+    const input = document.querySelector(
+      '[data-action="settings-accent-custom"] input[type="color"]',
+    ) as HTMLInputElement | null
+    if (!input) throw new Error("custom swatch input not found")
+    input.value = value
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+  }, hex)
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
+    )
+    .toBe(hex)
+
+  // Trigger label should surface "Personnalisé…" for a non-preset value.
+  await expect(
+    dialog.locator('[data-action="settings-accent-select"] [data-slot="select-select-trigger-value"]'),
+  ).toContainText("Personnalisé")
+
+  await closeDialog(page, dialog)
 })
