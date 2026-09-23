@@ -24,8 +24,8 @@ Existing characterization tests are in `packages/app/src/hooks/web-speech.test.t
 ## Baseline verification
 
 - Existing browser speech characterization and audio settings migration tests: 8 passed, 18 assertions (`web-speech.test.ts` plus `audio-settings.test.ts`).
-- Audio settings migration tests: 3 passed, 10 assertions.
-- Speech contract, registry, and language-router tests: 6 passed, 16 assertions.
+- Audio settings migration tests: 4 passed, 12 assertions.
+- Speech contract, registry, and language-router tests: 6 passed, 17 assertions.
 - Contracts TypeScript check: passed (`bun run typecheck` in `packages/contracts`).
 - Whole app typecheck: blocked by the cross-worktree dependency mount loading `@unifia/contracts` from both worktrees, causing duplicate nominal `OpaqueCursor` symbols in an unrelated existing `workbench/provider.tsx` reference. The changed settings module passes an isolated strict TypeScript check.
 - `git diff --check`: passed.
@@ -38,3 +38,7 @@ At inspection time, no Unifia/OpenCode app, local LLM server, or speech server p
 ## Gate A status
 
 Characterization inventory and existing behavior contract are recorded. Gate A remains **pending** until the live baseline above is measured. No Kokoro runtime or command has been removed in this wave.
+
+## Wave B status
+
+Shared contracts, safe provider resolution, language routing, and a pure v2 settings migration boundary are implemented and tested. The existing settings screen still consumes its legacy shape; finish its migration and close Gate B before starting destructive Kokoro removal.

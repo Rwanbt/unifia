@@ -60,7 +60,7 @@ export function createVoiceRegistry(manifests: readonly VoiceManifest[]): VoiceR
     if (!manifest.id.trim() || !manifest.displayName.trim() || !manifest.version.trim()) {
       throw new Error("Voice manifests require an id, display name, and version")
     }
-    if (!manifest.license.trim() || !manifest.licenseSource.trim()) {
+    if (!manifest.source.trim() || !manifest.license.trim() || !manifest.licenseSource.trim()) {
       throw new Error(`Voice ${manifest.id} is missing verified license metadata`)
     }
     const key = `${manifest.provider}:${manifest.language}:${manifest.id}`

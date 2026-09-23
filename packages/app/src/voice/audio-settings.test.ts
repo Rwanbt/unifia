@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { DEFAULT_AUDIO_SETTINGS, migrateAudioSettings, serializeAudioSettings } from "./audio-settings"
+import {
+  AUDIO_SETTINGS_STORAGE_KEY,
+  DEFAULT_AUDIO_SETTINGS,
+  loadAudioSettings,
+  migrateAudioSettings,
+  serializeAudioSettings,
+} from "./audio-settings"
 
 describe("migrateAudioSettings", () => {
   test("upgrades legacy settings and removes Kokoro-only selections", () => {
@@ -44,5 +50,12 @@ describe("migrateAudioSettings", () => {
     expect(JSON.parse(serializeAudioSettings({ ...DEFAULT_AUDIO_SETTINGS, ttsProvider: "auto" }))).toEqual(
       DEFAULT_AUDIO_SETTINGS,
     )
+  })
+
+  test("loads through the migration boundary and defaults safely on malformed storage", () => {
+    expect(loadAudioSettings({ getItem: (key) => key === AUDIO_SETTINGS_STORAGE_KEY
+      ? JSON.stringify({ ttsProvider: "kokoro", sttLanguage: "fr" })
+      : null })).toEqual({ ...DEFAULT_AUDIO_SETTINGS, sttLanguage: "fr" })
+    expect(loadAudioSettings({ getItem: () => "{" })).toEqual(DEFAULT_AUDIO_SETTINGS)
   })
 })

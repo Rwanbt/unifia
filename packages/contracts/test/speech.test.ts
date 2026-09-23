@@ -28,6 +28,7 @@ describe("speech contracts", () => {
 
   test("voice registry rejects missing license metadata and duplicate IDs", () => {
     expect(() => createVoiceRegistry([{ ...licensedVoice, licenseSource: "" }])).toThrow("license metadata")
+    expect(() => createVoiceRegistry([{ ...licensedVoice, source: "" }])).toThrow("license metadata")
     expect(() => createVoiceRegistry([licensedVoice, licensedVoice])).toThrow("Duplicate voice")
   })
 
