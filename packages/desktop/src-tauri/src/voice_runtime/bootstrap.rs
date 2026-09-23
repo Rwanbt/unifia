@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::process::Command;
 
 const UV_VERSION: &str = "0.12.18";
@@ -16,11 +16,20 @@ pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<(PathBuf, PathBuf
     tokio::fs::create_dir_all(&speech_dir)
         .await
         .map_err(|error| error.to_string())?;
+    emit_progress(app, "runtime", "Preparing the managed speech runtime");
     let source = packaged_project(app)?;
+    emit_progress(app, "runtime", "Installing the bundled speech worker");
     copy_runtime_project(&source, &project).await?;
-    let uv = ensure_uv(&speech_dir).await?;
+    let uv = ensure_uv(&speech_dir, app).await?;
+    emit_progress(app, "python", "Installing managed Python 3.12");
     run_uv(&uv, ["python", "install", PYTHON_VERSION], app, &project).await?;
+    emit_progress(
+        app,
+        "dependencies",
+        "Installing the locked CPU speech packages",
+    );
     run_uv(&uv, ["sync", "--locked", "--project"], app, &project).await?;
+    emit_progress(app, "runtime", "Managed speech runtime is ready");
     Ok((uv, project))
 }
 
@@ -140,12 +149,13 @@ pub(super) fn apply_runtime_environment(
     Ok(())
 }
 
-async fn ensure_uv(speech_dir: &Path) -> Result<PathBuf, String> {
+async fn ensure_uv(speech_dir: &Path, app: &AppHandle) -> Result<PathBuf, String> {
     let name = if cfg!(windows) { "uv.exe" } else { "uv" };
     let destination = speech_dir.join("runtime").join(name);
     if tokio::fs::try_exists(&destination).await.unwrap_or(false) {
         return Ok(destination);
     }
+    emit_progress(app, "runtime", "Downloading the verified runtime installer");
     let (asset, expected_hash, archive) = uv_asset()?;
     let url = format!("https://github.com/astral-sh/uv/releases/download/{UV_VERSION}/{asset}");
     let bytes = reqwest::Client::builder()
@@ -212,6 +222,15 @@ async fn ensure_uv(speech_dir: &Path) -> Result<PathBuf, String> {
     }
     let _ = tokio::fs::remove_dir_all(&temporary).await;
     Ok(destination)
+}
+
+pub(super) fn emit_progress(app: &AppHandle, phase: &str, message: &str) {
+    if let Err(error) = app.emit(
+        "voice-runtime-progress",
+        serde_json::json!({"phase":phase,"message":message}),
+    ) {
+        tracing::warn!("Could not publish speech runtime progress: {error}");
+    }
 }
 
 async fn find_named_file(root: &Path, name: &str) -> Result<PathBuf, String> {
