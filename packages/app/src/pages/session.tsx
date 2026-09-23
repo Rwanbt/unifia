@@ -59,6 +59,7 @@ import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { useViewportCenteredColumn } from "@/pages/session/use-viewport-centered-column"
 import { createCommentActions } from "@/pages/session/session-comment-actions"
 import { createKeyboardHandler } from "@/pages/session/session-keyboard"
 import { createVcsHelpers, type VcsMode } from "@/pages/session/session-vcs"
@@ -211,6 +212,8 @@ export default function Page() {
     return `calc(100% - ${layout.inspector.width()}px)`
   })
   const centered = createMemo(() => isDesktop() && mode.active() === "code" && view().workspace.current() === "chat")
+  const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
+  useViewportCenteredColumn(chatSurface, centered)
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -972,6 +975,7 @@ export default function Page() {
         >
         {/* Session panel */}
         <div
+          ref={setChatSurface}
           data-v110="session-chat-surface"
           data-collapsed={sessionPanelWidth() === "0px" ? "" : undefined}
           classList={{

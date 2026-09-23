@@ -481,12 +481,19 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
  * minus 610px, between 560px and 1080px, and never wider than its parent. */
 [data-v110="session-chat-surface"] {
   --v110-chat-column: min(100%, 1080px, max(560px, 100cqw - 610px));
+  /* Centred on the window rather than the surface (see
+   * use-viewport-centered-column.ts), and narrowed so it never leaves it. */
+  --v110-chat-width: min(
+    var(--v110-chat-column),
+    100% - 2 * max(var(--v110-chat-shift, 0px), -1 * var(--v110-chat-shift, 0px))
+  );
 }
 
 .v110-chat-column {
   width: 100%;
-  max-width: var(--v110-chat-column);
+  max-width: var(--v110-chat-width);
   margin-inline: auto;
+  translate: var(--v110-chat-shift, 0px) 0;
 }
 
 [data-v110="composer-dock"] > .v110-chat-column {
@@ -496,7 +503,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 /* Copy-context sits on the composer's top-right corner, so it follows the
  * column instead of the surface edge; the 9px is the composer's own inset. */
 [data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
-  right: calc((100% - var(--v110-chat-column)) / 2 + 9px);
+  right: calc((100% - var(--v110-chat-width)) / 2 - var(--v110-chat-shift, 0px) + 9px);
 }
 
 /* The bottom padding is room for the last message's floating shelf: each
