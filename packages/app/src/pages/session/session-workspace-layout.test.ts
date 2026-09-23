@@ -40,10 +40,12 @@ describe("session workspace layout", () => {
   test("desktop inspector uses the same floating-card chrome as the side panels", async () => {
     const css = await Bun.file(new URL("../../styles/v110-inspector.css", import.meta.url)).text()
     const cardBlock = css.slice(css.indexOf('[data-v110="inspector-content"] {'))
+    // Maquette #inspectorPanel: 20px under the topbar and from the right
+    // edge, 10px above the bottom -- the same card box as the context panel.
     expect(cardBlock).toContain(
-      "margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner)",
+      "margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner) var(--v110-gutter-inner)",
     )
-    expect(cardBlock).toContain("height: calc(100% - 2 * var(--v110-gutter-outer))")
+    expect(cardBlock).toContain("height: calc(100% - var(--v110-gutter-outer) - var(--v110-gutter-inner))")
     expect(cardBlock).toContain("border-radius: var(--v110-radius-xl)")
     expect(cardBlock).toContain("box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18)")
     expect(css).toContain('[data-v110="inspector-content"][aria-hidden="true"]')

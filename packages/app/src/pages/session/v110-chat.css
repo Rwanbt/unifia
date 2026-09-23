@@ -11,57 +11,79 @@
 }
 
 @media (min-width: 56.25rem) {
+  /* The reference's "stable prompt index": a tight packet just left of the
+   * thread scrollbar, ticks right-aligned. The reference paints them grey
+   * with a fixed gold active tick; here every tick follows the accent
+   * picker (ADR-048). */
   .prompt-index {
     position: absolute;
     top: 50%;
-    right: 8px;
-    transform: translateY(-50%);
+    right: 11px;
+    width: 44px;
+    transform: translateY(-50%) translateX(4px);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 4px;
+    align-items: flex-end;
+    gap: 2px;
     z-index: 5;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transition: opacity 160ms ease-out;
+    transition:
+      opacity 0.14s ease,
+      transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0.14s;
   }
 
   .prompt-index.visible {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
   }
 }
 
 .prompt-index-tick {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 14px;
-  background: none;
-  border: none;
+  position: relative;
+  flex: 0 0 7px;
+  width: 44px;
+  height: 7px;
+  margin: 0;
   padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
+  overflow: visible;
 }
 
 .prompt-index-tick-line {
-  width: 10px;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 9px;
   height: 2px;
-  border-radius: 1px;
-  background: var(--border-weaker-base);
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  pointer-events: none;
   transition:
-    width 140ms ease-out,
-    background 140ms ease-out;
+    width 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .prompt-index-tick:hover .prompt-index-tick-line,
 .prompt-index-tick:focus-visible .prompt-index-tick-line {
-  width: 16px;
-  background: var(--text-weak);
+  width: 18px;
+  background: var(--accent);
 }
 
 .prompt-index-tick.active .prompt-index-tick-line {
-  width: 16px;
-  background: var(--icon-interactive-base);
+  width: 30px;
+  height: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--accent) 48%, transparent);
 }

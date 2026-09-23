@@ -22,71 +22,8 @@ import { useLayout } from "@/context/layout"
 import { useSDK } from "@/context/sdk"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionTabs } from "@/pages/session/helpers"
+import { flattenDocumentSymbols, type LspDocumentSymbol, type SymbolEntry } from "@/utils/lsp-symbols"
 
-// LSP SymbolKind numeric constants (LSP spec § SymbolKind).
-// We only list the kinds we render — unknown kinds fall back to a generic
-// dot icon. Numbers come straight from the spec; keep them in sync.
-const SYMBOL_KIND_LABEL: Record<number, string> = {
-  1: "File",
-  2: "Module",
-  3: "Namespace",
-  4: "Package",
-  5: "Class",
-  6: "Method",
-  7: "Property",
-  8: "Field",
-  9: "Constructor",
-  10: "Enum",
-  11: "Interface",
-  12: "Function",
-  13: "Variable",
-  14: "Constant",
-  15: "String",
-  16: "Number",
-  17: "Boolean",
-  18: "Array",
-  19: "Object",
-  20: "Key",
-  21: "Null",
-  22: "EnumMember",
-  23: "Struct",
-  24: "Event",
-  25: "Operator",
-  26: "TypeParameter",
-}
-
-type SymbolEntry = {
-  id: string
-  name: string
-  kind: number
-  kindLabel: string
-  line: number
-  detail?: string
-}
-
-type LspDocumentSymbol = {
-  name: string
-  kind: number
-  range: { start: { line: number; character: number }; end: { line: number; character: number } }
-  selectionRange: { start: { line: number; character: number }; end: { line: number; character: number } }
-  detail?: string
-  children?: LspDocumentSymbol[]
-}
-
-const flatten = (items: LspDocumentSymbol[], out: SymbolEntry[] = []) => {
-  for (const item of items) {
-    out.push({
-      id: `${item.name}-${item.selectionRange.start.line}-${item.selectionRange.start.character}`,
-      name: item.name,
-      kind: item.kind,
-      kindLabel: SYMBOL_KIND_LABEL[item.kind] ?? `Kind ${item.kind}`,
-      line: item.selectionRange.start.line,
-      detail: item.detail,
-    })
-    if (item.children?.length) flatten(item.children, out)
-  }
-  return out
-}
 
 // FileProvider and the directory-scoped SDKProvider are session-route-scoped
 // while dialogs render through <DialogOutlet /> at RouterRoot. Openers on the
@@ -116,7 +53,7 @@ export function DialogSelectSymbol(props: { sdk?: ReturnType<typeof useSDK>; fil
     if (!p) return [] as SymbolEntry[]
     const res = await sdk.client.lsp.documentSymbol({ file: p })
     const data = (res.data ?? []) as LspDocumentSymbol[]
-    return flatten(data)
+    return flattenDocumentSymbols(data)
   })
 
   const items = (query: string) => {

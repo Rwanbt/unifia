@@ -11,16 +11,50 @@
  * never references. parity:artifacts/tokens-audit.json flagged them inert;
  * they are removed. */
 
+/* Card -- maquette #inspectorPanel: 300px wide, 20px from the topbar and
+ * the window's right edge, 10px above the bottom, like the context panel.
+ * The palette is the :root one (v110.css), the maquette's final values. */
+[data-v110="inspector-content"] {
+  align-self: flex-start;
+  box-sizing: border-box;
+  height: calc(100% - var(--v110-gutter-outer) - var(--v110-gutter-inner));
+  margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner) var(--v110-gutter-inner);
+  min-height: 0;
+  min-width: 0;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--v110-radius-xl);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+[data-v110="inspector-content"][aria-hidden="true"] {
+  margin: 0;
+  border: 0;
+}
+
+/* The resize handle straddles the card's left edge instead of taking 8px
+ * of the reference's 300px track. */
+[data-v110="inspector-content"] > [data-slot="inspector-resize"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}
+
+[data-v110="inspector-content"] > div {
+  height: 100%;
+  min-height: 0;
+  border-left: 0;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
 [data-v110="inspector-frame"] {
-  --bg: #0e0e10;
-  --bg-soft: #121214;
-  --surface: #161618;
-  --surface-2: #1b1b1e;
-  --surface-3: #2a2a2f;
-  --hover: #2a2a2f;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-strong: rgba(255, 255, 255, 0.12);
-  background: var(--surface);
+  background: var(--bg-soft);
+  color: var(--text);
   border: 0;
   border-radius: inherit;
   display: flex;
@@ -28,6 +62,7 @@
   min-height: 0;
   overflow: hidden;
   width: var(--v110-inspector, 300px);
+  font-size: 16px;
   transition:
     width var(--v110-soft) var(--v110-easing),
     transform var(--v110-soft) var(--v110-easing),
@@ -38,32 +73,133 @@
   outline: none;
 }
 
+/* .inspector-head: 46px, the title at 16px, and for Execution the session
+ * context and event count beside it (.v100-execution-head). The collapse
+ * button exists in the reference but renders 0x0; the topbar toggles. */
+[data-v110="inspector-head"] {
+  height: 46px;
+  flex: 0 0 46px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+[data-v110="inspector-title"] {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+[data-v110="inspector-head"] [data-action="inspector-toggle"] {
+  width: 0;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  opacity: 0;
+}
+
+/* #inspectorPanel.v100-execution-head: title, centred context, count. */
+[data-v110="inspector-head"][data-tab="execution"] [data-v110="inspector-title"] {
+  flex: 0 0 auto;
+}
+
+[data-v110="inspector-head"] [data-slot="execution-context"] {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 9px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-v110="inspector-head"] [data-slot="execution-count"] {
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 8px;
+  color: var(--muted);
+}
+
+/* .v44-inspector-tabs: three segments, the active one filled with an inset
+ * ring (not an underline). */
 [data-v110="inspector-tabs"] {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
+  align-items: stretch;
   gap: 3px;
   height: 37px;
   flex: 0 0 37px;
+  box-sizing: border-box;
   padding: 4px 6px;
   border-bottom: 1px solid var(--line);
   background: var(--bg-soft);
 }
 
-[data-v110="inspector-head"] {
-  height: 46px;
-  flex: 0 0 46px;
-  box-sizing: border-box;
-  background: var(--bg-soft);
-}
-
-[data-v110="inspector-head"] [data-action="inspector-toggle"] {
-  background: transparent;
+[data-v110="inspector-tabs"] [role="tab"] {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 1px 6px;
   border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="inspector-head"] [data-action="inspector-toggle"]:hover {
+[data-v110="inspector-tabs"] [role="tab"] svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="inspector-tabs"] [role="tab"] span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="inspector-tabs"] [role="tab"]:hover {
   background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="inspector-tabs"] [role="tab"][aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 [data-v110="inspector-frame"] > [role="tabpanel"] {
@@ -77,137 +213,351 @@
   display: none;
 }
 
-[data-v110="inspector-tabs"] [role="tab"] {
+/* Explorer pane -- .v43-inspector-section, .v43-file-project, .v43-file-row. */
+[data-v110="inspector-explorer"] {
+  flex: 1 1 auto;
   min-width: 0;
-  height: 29px;
-  padding: 0 7px;
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background-color var(--v110-fast) var(--v110-ease),
-    color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="inspector-tabs"] [role="tab"]:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-[data-v110="inspector-tabs"] [role="tab"][aria-selected="true"] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: inset 0 -2px var(--accent);
-}
-
-[data-v110="inspector-content"] {
-  align-self: flex-start;
-  box-sizing: border-box;
-  height: calc(100% - 2 * var(--v110-gutter-outer));
-  margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner);
-  min-height: 0;
-  min-width: 0;
-  flex: 0 0 auto;
   overflow: auto;
-  background: var(--surface);
-  border: 1px solid var(--v110-shell-line-strong);
-  border-radius: var(--v110-radius-xl);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-}
-
-[data-v110="inspector-content"][aria-hidden="true"] {
-  margin: 0;
-  border: 0;
-}
-
-[data-v110="inspector-content"] > div {
-  height: 100%;
-  min-height: 0;
-  border-left: 0;
-  border-radius: inherit;
-  overflow: hidden;
-}
-
-[data-v110="inspector-content"] [data-mode-inspector] {
-  background: var(--bg-soft);
   padding: 10px;
 }
 
+[data-v110="inspector-explorer"] .v43-inspector-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 11px;
+  margin: 5px 7px 8px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* The new-file menu is an app addition, shown on hover only. */
+[data-v110="inspector-explorer"] [data-slot="explorer-add"] {
+  opacity: 0;
+  transition: opacity var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="inspector-explorer"]:hover [data-slot="explorer-add"],
+[data-v110="inspector-explorer"] [data-slot="explorer-add"][data-expanded] {
+  opacity: 1;
+}
+
+[data-v110="inspector-explorer"] .v43-file-project {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 7px;
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="inspector-explorer"] [data-component="file-tree"] {
+  gap: 1px;
+}
+
+/* A folder row sits in the ui Collapsible's filetree trigger, which pins
+ * 24px (collapsible.css); the reference row is 29px. */
+[data-v110="inspector-explorer"] [data-scope="filetree"] > [data-slot="collapsible-trigger"] {
+  width: 100%;
+  height: auto;
+}
+
+[data-v110="inspector-explorer"] [data-scope="filetree"] > [data-slot="collapsible-content"] {
+  padding-top: 1px;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-node"] {
+  height: 29px;
+  min-height: 29px;
+  gap: 7px;
+  padding: 0 7px 0 calc(18px + var(--filetree-level, 0) * 12px) !important;
+  border-radius: 8px;
+  font-size: 8.5px;
+  color: var(--muted);
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-node"]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-node"][data-selected] {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-name"] {
+  font-size: 8.5px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-name"]:not([style]) {
+  color: inherit;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-spacer"] {
+  display: none;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-glyph"],
+[data-v110="inspector-explorer"] [data-slot="filetree-node"] .filetree-iconpair,
+[data-v110="inspector-explorer"] [data-slot="filetree-node"] > .filetree-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--faint);
+}
+
+/* Inspector pane -- .v44-inspector-pane (10px) holding .inspect-card /
+ * .kv rows and the Design .v51-inspector-head empty state. */
+[data-v110="inspector-content"] [data-mode-inspector] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  background: var(--bg-soft);
+}
+
 [data-v110="inspector-content"] [data-inspector-card] {
-  margin-bottom: 8px;
-  padding: 9px;
+  margin-bottom: 9px;
+  padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 13px;
   background: var(--surface-2);
 }
 
 [data-v110="inspector-content"] [data-inspector-card] h4 {
   margin: 0 0 8px;
   font-size: 10px;
-  line-height: 1.2;
-}
-
-[data-v110="inspector-content"] [data-inspector-row] {
-  min-height: 30px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-[data-v110="inspector-content"] [data-inspector-row]:last-child {
-  border-bottom: 0;
-}
-
-[data-v110="inspector-content"] [data-inspector-nav] {
-  display: flex;
-  overflow-x: auto;
-  margin: -2px 0 9px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
-}
-
-[data-v110="inspector-content"] [data-inspector-nav]::-webkit-scrollbar,
-[data-v110="inspector-content"] [data-execution-filters]::-webkit-scrollbar {
-  display: none;
-}
-
-[data-v110="inspector-content"] [data-inspector-subtab] {
-  flex: 0 0 auto;
-  height: 26px;
-  min-height: 26px;
-  padding: 0 7px;
-  border-radius: 8px;
-  font-size: 7.5px;
-  white-space: nowrap;
-}
-
-[data-v110="inspector-content"] [data-inspector-subtab][aria-pressed="true"],
-[data-v110="inspector-content"] [data-execution-filter][aria-pressed="true"] {
-  background: var(--surface-3);
+  font-weight: 700;
+  line-height: normal;
   color: var(--text);
 }
 
-[data-v110="inspector-content"] [data-execution-filters] {
+[data-v110="inspector-content"] [data-inspector-card] p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-inspector-row] {
   display: flex;
-  gap: 3px;
-  overflow-x: auto;
-  padding: 7px 7px 6px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
+  font-size: 9px;
+  line-height: normal;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-row]:last-of-type {
+  border-bottom: 0;
+}
+
+[data-v110="inspector-content"] [data-inspector-row] span:first-child {
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-inspector-actions] {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+[data-v110="inspector-content"] [data-inspector-actions] button {
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  font-size: 8px;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-version] {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 16px;
+}
+
+[data-v110="inspector-content"] [data-inspector-version] b {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-version] span {
+  font-size: 8px;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-inspector-head] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 17px 10px 10px;
+  line-height: normal;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="inspector-content"] [data-inspector-head] b {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-inspector-head] small {
+  display: block;
+  overflow: hidden;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+/* Execution pane -- .v96-execution-shell: a 4-column filter grid over the
+ * event rows (time, glyph, copy). */
+[data-v110="inspector-content"] [data-mode-execution] {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-soft);
+}
+
+[data-v110="inspector-content"] [data-execution-filters] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
 }
 
 [data-v110="inspector-content"] [data-execution-filter] {
-  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
   height: 27px;
   min-height: 27px;
-  padding: 0 8px;
+  padding: 0 4px;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: 8px;
-  font-size: 8px;
+  background: transparent;
+  font-size: 7.5px;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-filter]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-execution-filter][aria-pressed="true"] {
+  background: var(--surface-3);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-execution-list] {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: auto;
+  padding: 5px 7px 10px;
+}
+
+[data-v110="inspector-content"] [data-execution-empty] {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-row] {
+  display: grid;
+  grid-template-columns: 42px 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  padding: 8px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+}
+
+[data-v110="inspector-content"] [data-execution-row]:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="inspector-content"] [data-execution-row] time {
+  padding-top: 2px;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+[data-v110="inspector-content"] [data-execution-icon] {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  font-size: 8px;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-row][data-status="success"] [data-execution-icon] {
+  color: var(--success, #8aca9a);
+}
+
+[data-v110="inspector-content"] [data-execution-row][data-status="warning"] [data-execution-icon] {
+  color: var(--warning, #d7ae74);
+}
+
+[data-v110="inspector-content"] [data-execution-row][data-status="error"] [data-execution-icon] {
+  color: var(--danger, #df848a);
+}
+
+[data-v110="inspector-content"] [data-execution-copy] {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-v110="inspector-content"] [data-execution-copy] b {
+  font-size: 9px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+[data-v110="inspector-content"] [data-execution-copy] span {
+  font-size: 8px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+[data-v110="inspector-content"] [data-execution-copy] small {
+  font-size: 7px;
+  color: var(--faint);
 }
 
 [data-v110="inspector-content"].mobile-side-panel {
@@ -216,4 +566,379 @@
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+/* Code inspector (ADR-049) -- the reference's #inspectBody .v57-* rules at
+ * their final (enlarged) sizes: .v57-inspector-nav, -card, -row, -actions,
+ * .v57-task-grid, .v57-inspector-toolbar, .v57-context-meter, .v58-*. */
+[data-v110="inspector-content"] [data-code-inspector] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-nav] {
+  display: flex;
+  gap: 2px;
+  margin: -2px 0 9px;
+  padding-bottom: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+[data-code-inspector] [data-code-nav]::-webkit-scrollbar {
+  display: none;
+}
+
+[data-code-inspector] [data-code-nav] button {
+  flex: 0 0 auto;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 9px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-nav] button:hover,
+[data-code-inspector] [data-code-nav] button[aria-pressed="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-card] {
+  margin-bottom: 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+[data-code-inspector] [data-code-card] h4 {
+  margin: 0 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: normal;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-card] p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-row] {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 10px;
+  text-align: left;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-row]:last-child {
+  border-bottom: 0;
+}
+
+[data-code-inspector] button[data-code-row]:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-row] [data-code-label] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-code-inspector] [data-code-row] b {
+  font-weight: 550;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-row] small {
+  font-size: 9px;
+  color: var(--faint);
+}
+
+[data-code-inspector] [data-code-row][data-current] {
+  font-weight: 650;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+[data-code-inspector] > [data-code-actions] {
+  margin: 0 0 8px;
+}
+
+[data-code-inspector] [data-code-actions] button,
+[data-code-inspector] [data-code-row] [data-row-action],
+[data-code-inspector] [data-code-toolbar] button {
+  height: 30px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-row] [data-row-action] {
+  height: 24px;
+  min-height: 24px;
+  border: 0;
+  background: transparent;
+}
+
+[data-code-inspector] [data-code-actions] button:hover:not(:disabled),
+[data-code-inspector] [data-code-row] [data-row-action]:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-actions] button[data-primary] {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* Greyed controls: no backend behind them yet (ADR-047). */
+[data-code-inspector] [data-soon],
+[data-code-inspector] button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-code-inspector] [data-code-empty] {
+  margin: 0;
+  padding: 6px 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+[data-code-inspector] [data-code-tasks] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+[data-code-inspector] [data-code-tasks] button {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  text-align: center;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-tasks] b {
+  display: block;
+  font-size: 10px;
+}
+
+[data-code-inspector] [data-code-tasks] small {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-toolbar] {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+[data-code-inspector] [data-code-toolbar] input {
+  min-width: 0;
+  flex: 1 1 0%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  font-size: 9px;
+  color: var(--text);
+  outline: 0;
+}
+
+[data-code-inspector] [data-code-toolbar] button {
+  width: 30px;
+  padding: 0;
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+[data-code-inspector] [data-code-toolbar] button[aria-pressed="true"] {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-results] {
+  margin-top: 8px;
+}
+
+[data-code-inspector] [data-code-hit] {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 7px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  font-size: 10px;
+  text-align: left;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-hit]:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-hit] b {
+  font-weight: 550;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-hit] span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-code-inspector] [data-code-meter] {
+  height: 6px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-4);
+}
+
+[data-code-inspector] [data-code-meter] i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+[data-code-inspector] [data-code-remove] {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-remove]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* Git tool (components/source-control.tsx). */
+[data-code-inspector] [data-source-status] {
+  margin: 0 0 8px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-source-status][data-tone="error"] {
+  color: var(--danger, #df848a);
+}
+
+[data-code-inspector] [data-source-status][data-tone="success"] {
+  color: var(--success, #8aca9a);
+}
+
+[data-code-inspector] [data-git-status] {
+  font: 700 9px var(--font-family-mono, ui-monospace, monospace);
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-git-status="A"] {
+  color: var(--success, #8aca9a);
+}
+
+[data-code-inspector] [data-git-status="D"] {
+  color: var(--danger, #df848a);
+}
+
+[data-code-inspector] [data-file-link] {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-file-link]:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+[data-code-inspector] [data-file-link] b {
+  font-weight: 550;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-commit-message] {
+  width: 100%;
+  min-height: 62px;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-size: 10px;
+  color: var(--text);
+  resize: vertical;
+  outline: 0;
+}
+
+/* Review tool: the session review panel (h-full, contain: strict) needs a
+ * definite height, so the pane becomes a column it fills. */
+[data-v110="inspector-content"] [data-code-inspector="review"] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+[data-code-inspector] [data-code-review] {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 -10px -10px;
 }

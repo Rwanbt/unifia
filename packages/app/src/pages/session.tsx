@@ -210,7 +210,8 @@ export default function Page() {
     if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`
     if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
-    return `calc(100% - ${layout.inspector.width()}px)`
+    // The inspector card also takes its outer and inner gutters.
+    return `calc(100% - ${layout.inspector.width()}px - var(--v110-gutter-outer) - var(--v110-gutter-inner))`
   })
   const centered = createMemo(() => isDesktop() && mode.active() === "code" && view().workspace.current() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
@@ -1177,6 +1178,10 @@ export default function Page() {
           reviewSnap={ui.reviewSnap}
           size={size}
           sessionId={params.id}
+          revert={(messageID) => {
+            if (params.id) void actions.revert({ sessionID: params.id, messageID })
+          }}
+          reverting={reverting}
         />
 
         </div>

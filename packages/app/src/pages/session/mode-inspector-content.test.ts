@@ -2,12 +2,14 @@
 
 import { expect, test } from "bun:test"
 
-test("Code Inspector stays focused on session metadata", async () => {
+test("Memory inspects the attached note; Code gets the seven-tool code inspector (ADR-049)", async () => {
   const source = await Bun.file(new URL("./mode-inspector-content.tsx", import.meta.url)).text()
+  const sidePanel = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
+  const codeInspector = await Bun.file(new URL("./code-inspector/code-inspector.tsx", import.meta.url)).text()
 
-  expect(source).toContain('title: "Session"')
-  expect(source).not.toContain('title: "Sliders du thème"')
-  expect(source).not.toContain('"Density", "Radius", "Contrast"')
+  expect(source).toContain("memory: NOTE_CARDS")
+  expect(sidePanel).toContain('layout.inspector.tab() === "inspector" && destination() === "code"')
+  expect(codeInspector).toContain('["overview", "symbols", "search", "review", "git", "context", "history"]')
 })
 
 test("inspector content follows the active workspace destination", async () => {
@@ -18,14 +20,15 @@ test("inspector content follows the active workspace destination", async () => {
     expect(source).toContain(`${destination}:`)
   }
 
-  for (const marker of ["data-mode-explorer", "data-mode-inspector", "data-mode-execution"]) {
+  for (const marker of ["data-mode-inspector", "data-mode-execution"]) {
     expect(source).toContain(marker)
   }
 
-  expect(sidePanel).toContain('destination() === "code"')
-  expect(sidePanel).toContain('destination() !== "code"')
+  // Explorer is the live project tree in every mode, like the reference.
+  expect(sidePanel).toContain('<Match when={layout.inspector.tab() === "explorer"}>')
+  expect(sidePanel).not.toContain("ModeExplorerSurface")
   expect(sidePanel).toContain("<ModeInspectorSurface mode={destination()} />")
-  expect(sidePanel).toContain("<ModeExecutionSurface mode={destination()} sessionId={props.sessionId} />")
+  expect(sidePanel).toContain("<ModeExecutionSurface mode={destination()} events={executionEvents()} />")
 })
 
 test("InspectorFrame mirrors the reference head, three tabs, and one content stage", async () => {
@@ -51,24 +54,16 @@ test("inspector cards expose the maquette card and row contracts", async () => {
   expect(source).toContain("data-inspector-row")
   expect(source).toContain('data-inspector-state="default"')
   expect(css).toContain('[data-v110="inspector-content"] [data-inspector-card]')
-  expect(css).toContain("border-radius: 11px")
+  expect(css).toContain("border-radius: 13px")
 })
 
-test("Code Inspector exposes the reference sub-navigation and Execution exposes all filters", async () => {
+test("Execution lists the session's events under the reference's filter grid", async () => {
   const source = await Bun.file(new URL("./mode-inspector-content.tsx", import.meta.url)).text()
-
-  for (const label of ["Overview", "Symbols", "Search", "Review", "Git", "Context", "History"]) {
-    expect(source).toContain(`"${label}"`)
-  }
-
-  expect(source.match(/const EXECUTION_FILTERS =/g)?.length).toBe(1)
-  expect(source).toContain('"Tout", "Modèle", "Contexte", "Outils", "Sources", "Skills", "Mémoire", "Agents", "Règles", "Interaction", "Usage"')
-  expect(source).toContain('data-inspector-nav="code"')
-  expect(source).toContain("data-execution-filters")
-  expect(source).toContain("data-execution-filter={filter.toLowerCase()}")
   const css = await Bun.file(new URL("../../styles/v110-inspector.css", import.meta.url)).text()
-  expect(css).toContain("overflow-x: auto")
-  expect(css).toContain("[data-v110=\"inspector-content\"] [data-execution-filter]")
-  expect(css).toContain("flex: 0 0 auto")
-  expect(css).not.toContain("grid-template-columns: repeat(2")
+
+  expect(source).toContain("<For each={EXECUTION_FILTERS}>")
+  expect(source).toContain("data-execution-filter={item}")
+  expect(source).toContain("data-execution-row")
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))")
+  expect(css).toContain("grid-template-columns: 42px 20px minmax(0, 1fr)")
 })

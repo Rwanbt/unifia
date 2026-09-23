@@ -104,7 +104,8 @@
   transition: transform 0.17s cubic-bezier(0.2, 0.75, 0.25, 1), color 0.17s;
 }
 
-[data-v110="context-panel"] :is(.v68-section.open > .v68-section-head, .v68-project.open > .v68-project-row .v68-project-toggle, .v68-nested.open > .v68-nested-head) .v68-chevron {
+/* Kobalte flags every open trigger with [data-expanded]. */
+[data-v110="context-panel"] :is(.v68-section-head, .v68-project-toggle, .v68-nested-head)[data-expanded] .v68-chevron {
   transform: rotate(90deg);
   color: var(--muted);
 }
@@ -151,7 +152,7 @@
   border-radius: 11px;
 }
 
-[data-v110="context-panel"] .v68-project.active > .v68-project-row {
+[data-v110="context-panel"] .v68-project.active .v68-project-row {
   background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
   box-shadow: inset 2px 0 var(--accent);
 }

@@ -1,4 +1,4 @@
-import { Match, Show, Switch, createEffect, createMemo, type JSX } from "solid-js"
+import { Match, Show, Switch, createEffect, createMemo, createResource, createSignal, type JSX } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Separator } from "@/primitives/separator"
 import { InspectorFrame } from "@/shell/v110-inspector-frame"
@@ -16,8 +16,17 @@ import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { useSDK } from "@/context/sdk"
-import { ModeExecutionSurface, ModeExplorerSurface, ModeInspectorSurface } from "@/pages/session/mode-inspector-content"
-import { createOpenSessionFileTab, type Sizing } from "@/pages/session/helpers"
+import { ModeExecutionSurface, ModeInspectorSurface } from "@/pages/session/mode-inspector-content"
+import { displayName } from "@/pages/layout/helpers"
+import { destinationLabelKey } from "@/utils/destination-label"
+import { getFilename } from "@unifia/util/path"
+import { useSync } from "@/context/sync"
+import { unwrap } from "@/utils/sdk-unwrap"
+import { observableSessionId } from "@/components/settings-observability-session-id"
+import { sessionTitle } from "@/utils/session-title"
+import { executionRows, type ExecutionEvent } from "@/pages/session/execution-log"
+import { createOpenSessionFileTab, createSessionTabs, type Sizing } from "@/pages/session/helpers"
+import { CodeInspector, codeToolTitleKey, type CodeTool } from "@/pages/session/code-inspector/code-inspector"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { useShell, useViewport } from "@/shell/v110-store"
@@ -35,6 +44,8 @@ export function SessionSidePanel(props: {
   reviewSnap: boolean
   size: Sizing
   sessionId?: string
+  revert: (messageID: string) => void
+  reverting: () => boolean
 }) {
   const layout = useLayout()
   const file = useFile()
@@ -42,12 +53,51 @@ export function SessionSidePanel(props: {
   const dialog = useDialog()
   const sdk = useSDK()
   const mode = useMode()
+  const sync = useSync()
   const { sessionKey, tabs } = useSessionLayout()
 
   const shell = useShell(useViewport())
   const isOverlay = createMemo(() => shell.kind() === "overlay")
   const inspectorVisible = createMemo(() => layout.inspector.opened() || layout.hover.inspector.active())
   const destination = createMemo(() => mode.destination())
+  // Maquette #inspectTitle: "{project} · Explorer", "{mode} · Inspector",
+  // and the bare tab name for Execution.
+  const projectName = createMemo(() => {
+    const directory = mode.directory() ?? sdk.directory
+    const project = layout.projects.list().find((p) => p.worktree === directory || p.sandboxes?.includes(directory))
+    return project ? displayName(project) : getFilename(directory)
+  })
+  // The Execution tab lists the session's native observability spans; they
+  // are fetched each time the tab opens (execution-log.ts shapes them).
+  const [executionEvents] = createResource(
+    () => (layout.inspector.tab() === "execution" && inspectorVisible() ? observableSessionId(props.sessionId) : undefined),
+    (sessionId) =>
+      unwrap(sdk.client.observability.events.list({ sessionId, scope: "project", limit: 200 })) as Promise<ExecutionEvent[]>,
+  )
+  const executionCount = createMemo(() => executionRows(executionEvents() ?? [], "all", (status) => status).length)
+  // Maquette .v100-execution-context: "prism-eq · refonte-prism".
+  const slug = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-|-$/g, "")
+  const executionContext = createMemo(() => {
+    const title = (props.sessionId && sessionTitle(sync.session.get(props.sessionId)?.title)) || ""
+    return [slug(projectName()), slug(title)].filter(Boolean).join(" · ")
+  })
+
+  // Declared before `heading`: a memo runs on creation and reads it (ADR-049).
+  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
+  const heading = createMemo(() => {
+    const tab = layout.inspector.tab()
+    if (tab === "execution") return language.t("inspector.tab.execution")
+    if (tab === "inspector") {
+      const title = destination() === "code" ? codeToolTitleKey(codeTool()) : "inspector.tab.inspector"
+      return `${language.t(destinationLabelKey(destination(), mode.active()))} · ${language.t(title)}`
+    }
+    return `${projectName()} · ${language.t("inspector.tab.explorer")}`
+  })
 
   // The maquette keeps every inspector tab inside the fixed --inspector track.
   // Only the content inside that track scrolls; the review content does not
@@ -133,6 +183,18 @@ export function SessionSidePanel(props: {
     openReviewPanel,
     setActive: tabs().setActive,
   })
+
+  // Code inspector (ADR-049): the file the editor shows, and a jump to a file
+  // line from its outline and search results.
+  const tabState = createSessionTabs({ tabs, pathFromTab: file.pathFromTab, normalizeTab })
+  const activeFile = createMemo(() => {
+    const tab = tabState.activeFileTab()
+    return tab ? file.pathFromTab(tab) : undefined
+  })
+  const openLocation = (path: string, line?: number) => {
+    openTab(file.tab(path))
+    if (line) file.setSelectedLines(path, { start: line, end: line })
+  }
 
   const handleNewFile = (parentDir: string) => {
     void import("@/components/dialog-file-create").then((x) => {
@@ -284,6 +346,15 @@ export function SessionSidePanel(props: {
             layout.inspector.toggle()
           }}
           label={language.t("session.panel.reviewAndFiles")}
+          heading={heading()}
+          headExtra={
+            <Show when={layout.inspector.tab() === "execution"}>
+              <span data-slot="execution-context">{executionContext()}</span>
+              <span data-slot="execution-count">
+                {language.t("inspector.execution.count", { count: executionCount() })}
+              </span>
+            </Show>
+          }
           title={(tab) =>
             tab === "explorer"
               ? language.t("inspector.tab.explorer")
@@ -293,13 +364,14 @@ export function SessionSidePanel(props: {
           }
         >
           <Switch>
-            {/* Explorer matches the reference: Workspace plus the live project tree. */}
-            <Match when={layout.inspector.tab() === "explorer" && destination() === "code"}>
-              <div data-mode-explorer="code" class="h-full flex flex-col overflow-hidden group/filetree bg-background-stronger px-3 py-2">
-                <div class="flex items-center justify-between px-1 pb-2">
-                  <span class="text-11-medium text-text-weaker uppercase tracking-wide">Workspace</span>
+            {/* Explorer matches the reference in every mode: the Workspace
+                label, the project row and the live project tree. */}
+            <Match when={layout.inspector.tab() === "explorer"}>
+              <div data-v110="inspector-explorer" class="group/filetree">
+                <div class="v43-inspector-section">
+                  <span>{language.t("inspector.explorer.workspace")}</span>
                   <DropdownMenu gutter={4} placement="bottom-end">
-                    <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" />
+                    <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" data-slot="explorer-add" />
                     <DropdownMenu.Portal>
                       <DropdownMenu.Content>
                         <DropdownMenu.Item onSelect={() => handleNewFile("")}>
@@ -312,12 +384,15 @@ export function SessionSidePanel(props: {
                     </DropdownMenu.Portal>
                   </DropdownMenu>
                 </div>
+                <div class="v43-file-project">
+                  <span aria-hidden="true">⌄</span>
+                  <span class="truncate">{projectName()}</span>
+                </div>
                 <Switch>
                   <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
                   <Match when={true}>
                     <FileTree
                       path=""
-                      class="pt-1"
                       modified={diffFiles()}
                       kinds={kinds()}
                       onFileClick={(node) => openTab(file.tab(node.path))}
@@ -335,13 +410,24 @@ export function SessionSidePanel(props: {
               </div>
             </Match>
 
-            <Match when={layout.inspector.tab() === "explorer" && destination() !== "code"}>
-              <ModeExplorerSurface mode={destination()} />
-            </Match>
-
             {/* Inspector is a property surface, not the code editor. The
                 editor owns file tabs and split panes in its own workspace;
                 this panel stays on the maquette's card-based inspection view. */}
+            <Match when={layout.inspector.tab() === "inspector" && destination() === "code"}>
+              <CodeInspector
+                tool={codeTool()}
+                onTool={setCodeTool}
+                sessionId={props.sessionId}
+                changedFiles={props.diffs().length}
+                activeFile={activeFile()}
+                review={props.reviewPanel}
+                open={openLocation}
+                restore={(messageID) => {
+                  if (props.sessionId) props.revert(messageID)
+                }}
+                reverting={props.reverting()}
+              />
+            </Match>
             <Match when={layout.inspector.tab() === "inspector"}>
               <ModeInspectorSurface mode={destination()} />
             </Match>
@@ -354,7 +440,7 @@ export function SessionSidePanel(props: {
                 already wired into Settings > Observability's timeline —
                 reused here as-is rather than rebuilt. */}
             <Match when={layout.inspector.tab() === "execution"}>
-              <ModeExecutionSurface mode={destination()} sessionId={props.sessionId} />
+              <ModeExecutionSurface mode={destination()} events={executionEvents()} />
             </Match>
           </Switch>
         </InspectorFrame>
@@ -362,7 +448,7 @@ export function SessionSidePanel(props: {
 
       {/* All inspector tabs share this fixed-width track and resize handle. */}
       <Show when={inspectorVisible() && !isOverlay()}>
-        <div onPointerDown={() => props.size.start()}>
+        <div data-slot="inspector-resize" onPointerDown={() => props.size.start()}>
           <Separator
             axis="x"
             edge="start"

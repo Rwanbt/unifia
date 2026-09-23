@@ -12,7 +12,7 @@
 // Not mounted yet: A3 branches mode content onto it. Mounting now would
 // render a second inspector next to the session panel (P1-2).
 
-import { For, type JSX } from "solid-js"
+import { For, Show, type JSX } from "solid-js"
 
 export const TABS = ["explorer", "inspector", "execution"] as const
 export type Tab = (typeof TABS)[number]
@@ -29,8 +29,32 @@ type Props = {
   open: boolean
   onToggle: () => void
   label: string
+  /** The tab button's own label. */
   title: (tab: Tab) => string
+  /** The head's title: "Prism EQ · Explorer", "Work · Inspector", "Exécution". */
+  heading: string
+  /** Extra head content after the title (the Execution context and count). */
+  headExtra?: JSX.Element
   children: JSX.Element
+}
+
+// The maquette's tab glyphs (.v44-inspector-tab svg, 24x24 strokes).
+const TAB_ICON: Record<Tab, () => JSX.Element> = {
+  explorer: () => <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
+  inspector: () => (
+    <>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+      <circle cx="8" cy="6" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="10" cy="18" r="1" />
+    </>
+  ),
+  execution: () => (
+    <>
+      <path d="M5 6h14M5 12h8M5 18h14" />
+      <circle cx="17" cy="12" r="2" />
+    </>
+  ),
 }
 
 export function InspectorFrame(props: Props): JSX.Element {
@@ -44,14 +68,14 @@ export function InspectorFrame(props: Props): JSX.Element {
       aria-label={props.label}
       style={{ width: "var(--v110-inspector, 300px)" }}
     >
-      <div data-v110="inspector-head" class="flex h-[46px] shrink-0 items-center justify-between border-b border-border-base px-3">
-        <span data-v110="inspector-title" class="min-w-0 truncate text-11-medium text-text-base">{props.title(current())}</span>
+      <div data-v110="inspector-head" data-tab={current()}>
+        <span data-v110="inspector-title">{props.heading}</span>
+        <Show when={props.headExtra}>{props.headExtra}</Show>
         <button
           type="button"
           aria-expanded={props.open}
           aria-controls="v110-inspector-panel"
           data-action="inspector-toggle"
-          class="grid size-6 shrink-0 place-items-center rounded-md text-text-weak hover:bg-background-stronger hover:text-text-base"
           onClick={props.onToggle}
         >
           {props.open ? "\u2013" : "+"}
@@ -67,7 +91,10 @@ export function InspectorFrame(props: Props): JSX.Element {
               data-v110-tab={tab}
               onClick={() => props.onTab(tab)}
             >
-              {props.title(tab)}
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                {TAB_ICON[tab]()}
+              </svg>
+              <span>{props.title(tab)}</span>
             </button>
           )}
         </For>
