@@ -22,8 +22,10 @@ type InspectorCard =
 const snapshotTime = () =>
   new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date())
 
-// The reference's Code and Memory inspectors both show the memory note the
-// session has attached (#inspectorPanel details pane, "Vision produit.md").
+// The reference's Memory inspector shows the note the session has attached
+// (#inspectorPanel details pane, "Vision produit.md"). Code shows the same in
+// the reference's default state; the app routes Code to its code inspector
+// instead (code-inspector/, ADR-049), so the entry only fills the record.
 const NOTE_CARDS = (): readonly InspectorCard[] => [
   { title: "Vision produit.md", description: "10 — Projects/Unifia · Knowledge" },
   {

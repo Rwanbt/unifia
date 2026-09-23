@@ -28,6 +28,9 @@ export interface SessionSidePanelSectionProps {
   reviewSnap: boolean
   size: Sizing
   sessionId: string | undefined
+  /** Rewinds the session to just before a user turn (Code inspector History). */
+  revert: (messageID: string) => void
+  reverting: () => boolean
 }
 
 export function SessionSidePanelSection(props: SessionSidePanelSectionProps) {
@@ -45,6 +48,8 @@ export function SessionSidePanelSection(props: SessionSidePanelSectionProps) {
       reviewSnap={props.reviewSnap}
       size={props.size}
       sessionId={props.sessionId}
+      revert={props.revert}
+      reverting={props.reverting}
     />
   )
 }

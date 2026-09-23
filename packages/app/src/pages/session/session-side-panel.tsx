@@ -1,4 +1,4 @@
-import { Match, Show, Switch, createEffect, createMemo, createResource, type JSX } from "solid-js"
+import { Match, Show, Switch, createEffect, createMemo, createResource, createSignal, type JSX } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Separator } from "@/primitives/separator"
 import { InspectorFrame } from "@/shell/v110-inspector-frame"
@@ -25,7 +25,8 @@ import { unwrap } from "@/utils/sdk-unwrap"
 import { observableSessionId } from "@/components/settings-observability-session-id"
 import { sessionTitle } from "@/utils/session-title"
 import { executionRows, type ExecutionEvent } from "@/pages/session/execution-log"
-import { createOpenSessionFileTab, type Sizing } from "@/pages/session/helpers"
+import { createOpenSessionFileTab, createSessionTabs, type Sizing } from "@/pages/session/helpers"
+import { CodeInspector, codeToolTitleKey, type CodeTool } from "@/pages/session/code-inspector/code-inspector"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { useShell, useViewport } from "@/shell/v110-store"
@@ -43,6 +44,8 @@ export function SessionSidePanel(props: {
   reviewSnap: boolean
   size: Sizing
   sessionId?: string
+  revert: (messageID: string) => void
+  reverting: () => boolean
 }) {
   const layout = useLayout()
   const file = useFile()
@@ -87,8 +90,10 @@ export function SessionSidePanel(props: {
   const heading = createMemo(() => {
     const tab = layout.inspector.tab()
     if (tab === "execution") return language.t("inspector.tab.execution")
-    if (tab === "inspector")
-      return `${language.t(destinationLabelKey(destination(), mode.active()))} · ${language.t("inspector.tab.inspector")}`
+    if (tab === "inspector") {
+      const title = destination() === "code" ? codeToolTitleKey(codeTool()) : "inspector.tab.inspector"
+      return `${language.t(destinationLabelKey(destination(), mode.active()))} · ${language.t(title)}`
+    }
     return `${projectName()} · ${language.t("inspector.tab.explorer")}`
   })
 
@@ -176,6 +181,19 @@ export function SessionSidePanel(props: {
     openReviewPanel,
     setActive: tabs().setActive,
   })
+
+  // Code inspector (ADR-049): its tool, the file the editor shows, and a
+  // jump to a file line from its outline and search results.
+  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
+  const tabState = createSessionTabs({ tabs, pathFromTab: file.pathFromTab, normalizeTab })
+  const activeFile = createMemo(() => {
+    const tab = tabState.activeFileTab()
+    return tab ? file.pathFromTab(tab) : undefined
+  })
+  const openLocation = (path: string, line?: number) => {
+    openTab(file.tab(path))
+    if (line) file.setSelectedLines(path, { start: line, end: line })
+  }
 
   const handleNewFile = (parentDir: string) => {
     void import("@/components/dialog-file-create").then((x) => {
@@ -394,6 +412,21 @@ export function SessionSidePanel(props: {
             {/* Inspector is a property surface, not the code editor. The
                 editor owns file tabs and split panes in its own workspace;
                 this panel stays on the maquette's card-based inspection view. */}
+            <Match when={layout.inspector.tab() === "inspector" && destination() === "code"}>
+              <CodeInspector
+                tool={codeTool()}
+                onTool={setCodeTool}
+                sessionId={props.sessionId}
+                changedFiles={props.diffs().length}
+                activeFile={activeFile()}
+                review={props.reviewPanel}
+                open={openLocation}
+                restore={(messageID) => {
+                  if (props.sessionId) props.revert(messageID)
+                }}
+                reverting={props.reverting()}
+              />
+            </Match>
             <Match when={layout.inspector.tab() === "inspector"}>
               <ModeInspectorSurface mode={destination()} />
             </Match>

@@ -1178,6 +1178,10 @@ export default function Page() {
           reviewSnap={ui.reviewSnap}
           size={size}
           sessionId={params.id}
+          revert={(messageID) => {
+            if (params.id) void actions.revert({ sessionID: params.id, messageID })
+          }}
+          reverting={reverting}
         />
 
         </div>

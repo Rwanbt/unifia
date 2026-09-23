@@ -567,3 +567,378 @@
   border-radius: 0;
   box-shadow: none;
 }
+
+/* Code inspector (ADR-049) -- the reference's #inspectBody .v57-* rules at
+ * their final (enlarged) sizes: .v57-inspector-nav, -card, -row, -actions,
+ * .v57-task-grid, .v57-inspector-toolbar, .v57-context-meter, .v58-*. */
+[data-v110="inspector-content"] [data-code-inspector] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-nav] {
+  display: flex;
+  gap: 2px;
+  margin: -2px 0 9px;
+  padding-bottom: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+[data-code-inspector] [data-code-nav]::-webkit-scrollbar {
+  display: none;
+}
+
+[data-code-inspector] [data-code-nav] button {
+  flex: 0 0 auto;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 9px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-nav] button:hover,
+[data-code-inspector] [data-code-nav] button[aria-pressed="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-card] {
+  margin-bottom: 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+[data-code-inspector] [data-code-card] h4 {
+  margin: 0 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: normal;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-card] p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-row] {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 10px;
+  text-align: left;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-row]:last-child {
+  border-bottom: 0;
+}
+
+[data-code-inspector] button[data-code-row]:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-row] [data-code-label] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-code-inspector] [data-code-row] b {
+  font-weight: 550;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-row] small {
+  font-size: 9px;
+  color: var(--faint);
+}
+
+[data-code-inspector] [data-code-row][data-current] {
+  font-weight: 650;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+[data-code-inspector] > [data-code-actions] {
+  margin: 0 0 8px;
+}
+
+[data-code-inspector] [data-code-actions] button,
+[data-code-inspector] [data-code-row] [data-row-action],
+[data-code-inspector] [data-code-toolbar] button {
+  height: 30px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-row] [data-row-action] {
+  height: 24px;
+  min-height: 24px;
+  border: 0;
+  background: transparent;
+}
+
+[data-code-inspector] [data-code-actions] button:hover:not(:disabled),
+[data-code-inspector] [data-code-row] [data-row-action]:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-actions] button[data-primary] {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* Greyed controls: no backend behind them yet (ADR-047). */
+[data-code-inspector] [data-soon],
+[data-code-inspector] button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-code-inspector] [data-code-empty] {
+  margin: 0;
+  padding: 6px 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+[data-code-inspector] [data-code-tasks] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+[data-code-inspector] [data-code-tasks] button {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  text-align: center;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-tasks] b {
+  display: block;
+  font-size: 10px;
+}
+
+[data-code-inspector] [data-code-tasks] small {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-toolbar] {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+[data-code-inspector] [data-code-toolbar] input {
+  min-width: 0;
+  flex: 1 1 0%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  font-size: 9px;
+  color: var(--text);
+  outline: 0;
+}
+
+[data-code-inspector] [data-code-toolbar] button {
+  width: 30px;
+  padding: 0;
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+[data-code-inspector] [data-code-toolbar] button[aria-pressed="true"] {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-results] {
+  margin-top: 8px;
+}
+
+[data-code-inspector] [data-code-hit] {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 7px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  font-size: 10px;
+  text-align: left;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-hit]:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-hit] b {
+  font-weight: 550;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-code-hit] span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-code-inspector] [data-code-meter] {
+  height: 6px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-4);
+}
+
+[data-code-inspector] [data-code-meter] i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+[data-code-inspector] [data-code-remove] {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-code-remove]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* Git tool (components/source-control.tsx). */
+[data-code-inspector] [data-source-status] {
+  margin: 0 0 8px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-source-status][data-tone="error"] {
+  color: var(--danger, #df848a);
+}
+
+[data-code-inspector] [data-source-status][data-tone="success"] {
+  color: var(--success, #8aca9a);
+}
+
+[data-code-inspector] [data-git-status] {
+  font: 700 9px var(--font-family-mono, ui-monospace, monospace);
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-git-status="A"] {
+  color: var(--success, #8aca9a);
+}
+
+[data-code-inspector] [data-git-status="D"] {
+  color: var(--danger, #df848a);
+}
+
+[data-code-inspector] [data-file-link] {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-code-inspector] [data-file-link]:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+[data-code-inspector] [data-file-link] b {
+  font-weight: 550;
+  color: var(--text);
+}
+
+[data-code-inspector] [data-commit-message] {
+  width: 100%;
+  min-height: 62px;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-size: 10px;
+  color: var(--text);
+  resize: vertical;
+  outline: 0;
+}
+
+/* Review tool: the session review panel (h-full, contain: strict) needs a
+ * definite height, so the pane becomes a column it fills. */
+[data-v110="inspector-content"] [data-code-inspector="review"] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+[data-code-inspector] [data-code-review] {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 -10px -10px;
+}
