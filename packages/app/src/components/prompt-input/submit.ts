@@ -433,7 +433,9 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     }
     const agent = currentAgent.name
     const context = prompt.context.items().slice()
-    const tools = { websearch: input.webSearch?.() ?? false }
+    // The web button gates every network tool the model could use (ADR-044).
+    const web = input.webSearch?.() ?? false
+    const tools = { websearch: web, webfetch: web }
     const draft: FollowupDraft = {
       sessionID: session.id,
       sessionDirectory,
@@ -443,9 +445,9 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       model,
       variant,
       tools,
+      permissionMode: input.permissionMode?.(),
     }
 
-      permissionMode: input.permissionMode?.(),
     const clearInput = () => {
       prompt.reset()
       input.setMode("normal")

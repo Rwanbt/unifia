@@ -22,6 +22,7 @@ import z from "zod"
 import { Plugin } from "../plugin"
 import { ProviderID, type ModelID } from "../provider/schema"
 import { WebSearchTool } from "./websearch"
+import { SearXNG } from "./searxng"
 import { CodeSearchTool } from "./codesearch"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
@@ -165,8 +166,12 @@ export namespace ToolRegistry {
       const memoryRead = yield* build(MemoryReadTool)
       const memoryWrite = yield* build(MemoryWriteTool)
 
+      const searxngReachable = SearXNG.createProbe()
+
       const all = Effect.fn("ToolRegistry.all")(function* (custom: Tool.Info[]) {
         const cfg = yield* config.get()
+        const searxng = SearXNG.url(cfg)
+        const webSearch = searxng !== undefined && (yield* Effect.promise(() => searxngReachable(searxng)))
         // UNIFIA_CLIENT is what every shell actually exports (Tauri, Electron
         // and the mobile Rust runtime) and what acp.ts sets for itself.
         // OPENCODE_CLIENT is set by nobody except mobile-entry.ts, so it read
@@ -191,7 +196,8 @@ export namespace ToolRegistry {
           team,
           fetch,
           todo,
-          search,
+          // Only with a configured SearXNG instance that answers (ADR-044).
+          ...(webSearch ? [search] : []),
           code,
           skill,
           patch,
@@ -283,7 +289,10 @@ export namespace ToolRegistry {
             return true
           }
 
-          if (tool.id === "codesearch" || tool.id === "websearch" || tool.id === "webfetch") {
+          // codesearch still calls Exa. websearch goes to the user's SearXNG and
+          // webfetch reads the page it is given; both follow the composer's
+          // web button through the session permissions (ADR-044).
+          if (tool.id === "codesearch") {
             const exaAllowed = model.providerID === ProviderID.opencode || Flag.UNIFIA_ENABLE_EXA
             if (!exaAllowed) return false
           }

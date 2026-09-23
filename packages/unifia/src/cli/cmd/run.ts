@@ -163,7 +163,7 @@ function codesearch(info: ToolProps<typeof CodeSearchTool>) {
 function websearch(info: ToolProps<typeof WebSearchTool>) {
   inline({
     icon: "◈",
-    title: `Exa Web Search "${info.input.query}"`,
+    title: `Web Search "${info.input.query}"`,
   })
 }
 

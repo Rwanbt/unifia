@@ -1944,6 +1944,15 @@ export type Config = {
      */
     deadline_ms?: number
   }
+  /**
+   * Web search. Queries go to your own SearXNG instance, never to a hosted search API.
+   */
+  websearch?: {
+    /**
+     * Base URL of a self-hosted SearXNG instance with the json format enabled (e.g. http://127.0.0.1:8888). Without it the websearch tool is not offered. UNIFIA_SEARXNG_URL overrides it. See ADR-044.
+     */
+    searxng_url?: string
+  }
   experimental?: {
     disable_paste_summary?: boolean
     /**
@@ -2485,6 +2494,7 @@ export type GlobalSession = {
     archived?: number
   }
   permission?: PermissionRuleset
+  permissionMode?: PermissionMode
   revert?: {
     messageID: string
     partID?: string
@@ -2494,7 +2504,6 @@ export type GlobalSession = {
   project: ProjectSummary | null
 }
 
-  permissionMode?: PermissionMode
 export type McpResource = {
   name: string
   uri: string
@@ -4650,6 +4659,7 @@ export type SessionPromptData = {
     format?: OutputFormat
     system?: string
     variant?: string
+    permissionMode?: PermissionMode
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
@@ -4659,7 +4669,6 @@ export type SessionPromptData = {
     directory?: string
     workspace?: string
   }
-    permissionMode?: PermissionMode
   url: "/session/{sessionID}/message"
 }
 
@@ -4851,6 +4860,7 @@ export type SessionPromptAsyncData = {
     format?: OutputFormat
     system?: string
     variant?: string
+    permissionMode?: PermissionMode
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
@@ -4860,7 +4870,6 @@ export type SessionPromptAsyncData = {
     directory?: string
     workspace?: string
   }
-    permissionMode?: PermissionMode
   url: "/session/{sessionID}/prompt_async"
 }
 

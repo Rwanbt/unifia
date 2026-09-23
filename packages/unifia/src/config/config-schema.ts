@@ -725,6 +725,18 @@ export const Info = z
       .describe(
         "Persistent memory: a vault of Markdown notes the agent recalls and records across sessions.",
       ),
+    websearch: z
+      .object({
+        searxng_url: z
+          .string()
+          .url()
+          .optional()
+          .describe(
+            "Base URL of a self-hosted SearXNG instance with the json format enabled (e.g. http://127.0.0.1:8888). Without it the websearch tool is not offered. UNIFIA_SEARXNG_URL overrides it. See ADR-044.",
+          ),
+      })
+      .optional()
+      .describe("Web search. Queries go to your own SearXNG instance, never to a hosted search API."),
     experimental: z
       .object({
         disable_paste_summary: z.boolean().optional(),
