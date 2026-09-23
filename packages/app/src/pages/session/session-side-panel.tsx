@@ -87,6 +87,8 @@ export function SessionSidePanel(props: {
     return [slug(projectName()), slug(title)].filter(Boolean).join(" · ")
   })
 
+  // Declared before `heading`: a memo runs on creation and reads it (ADR-049).
+  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
   const heading = createMemo(() => {
     const tab = layout.inspector.tab()
     if (tab === "execution") return language.t("inspector.tab.execution")
@@ -182,9 +184,8 @@ export function SessionSidePanel(props: {
     setActive: tabs().setActive,
   })
 
-  // Code inspector (ADR-049): its tool, the file the editor shows, and a
-  // jump to a file line from its outline and search results.
-  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
+  // Code inspector (ADR-049): the file the editor shows, and a jump to a file
+  // line from its outline and search results.
   const tabState = createSessionTabs({ tabs, pathFromTab: file.pathFromTab, normalizeTab })
   const activeFile = createMemo(() => {
     const tab = tabState.activeFileTab()
