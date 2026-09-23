@@ -367,6 +367,14 @@ export const SettingsGeneral: Component = () => {
       }
     }
 
+    // The accent dot follows the maquette (.accent-combo-dot): a 12px
+    // circle whose background reads the live value. The reset option uses
+    // var(--text) so it shows the corporate text colour when nothing else
+    // is picked. Custom hexes surface their own colour.
+    const dotStyle = (value: string) => ({
+      "background-color": value === "" ? "var(--text)" : value,
+    })
+
     return (
       <div
         class="flex flex-row items-center gap-2 flex-wrap"
@@ -387,6 +395,27 @@ export const SettingsGeneral: Component = () => {
           size="small"
           triggerVariant="settings"
           triggerStyle={{ "min-width": "180px" }}
+          triggerPrefix={
+            <span
+              aria-hidden="true"
+              data-slot="settings-accent-trigger-dot"
+              class="inline-block w-3 h-3 rounded-full border border-line-strong shrink-0"
+              style={dotStyle(current())}
+            />
+          }
+          // Custom row renderer: every option (preset and reset) carries
+          // its own dot, mirroring the trigger. The reset entry's dot is
+          // the "follow text" sentinel, exactly like the trigger.
+          children={(option) => (
+            <span class="inline-flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                class="inline-block w-2.5 h-2.5 rounded-full border border-line-strong shrink-0"
+                style={dotStyle(option?.value ?? "")}
+              />
+              <span>{option?.label ?? ""}</span>
+            </span>
+          )}
         />
         <label
           data-action="settings-accent-custom"
