@@ -5,7 +5,7 @@ import { AppProviders } from "@/app"
 import { type Platform, PlatformProvider } from "@/context/platform"
 import { dict as en } from "@/i18n/en"
 import { dict as zh } from "@/i18n/zh"
-import { handleNotificationClick } from "@/utils/notification-click"
+import { handleNotificationClick, notificationIcon } from "@/utils/notification-click"
 import pkg from "../package.json"
 import { ServerConnection } from "./context/server"
 
@@ -67,7 +67,7 @@ const notify: Platform["notify"] = async (title, description, href) => {
 
   const notification = new Notification(title, {
     body: description ?? "",
-    icon: "https://opencode.ai/favicon-96x96-v3.png",
+    icon: notificationIcon(),
   })
 
   notification.onclick = () => {

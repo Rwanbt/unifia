@@ -16,6 +16,7 @@ import { getAvatarColors, type LocalProject, useLayout } from "@/context/layout"
 import { useNotification } from "@/context/notification"
 import { usePermission } from "@/context/permission"
 import { messageAgentColor } from "@/utils/agent"
+import { UNIFIA_ICON_PATH } from "@/utils/brand-icon"
 import { sessionTitle } from "@/utils/session-title"
 import { sessionPermissionRequest } from "../session/composer/session-request-tree"
 import { hasProjectPermissions } from "./helpers"
@@ -45,7 +46,7 @@ export const ProjectIcon = (props: { project: LocalProject; class?: string; noti
         <Avatar
           fallback={name()}
           src={
-            props.project.id === UNIFIA_PROJECT_ID ? "https://opencode.ai/favicon.svg" : props.project.icon?.override
+            props.project.id === UNIFIA_PROJECT_ID ? UNIFIA_ICON_PATH : props.project.icon?.override
           }
           {...getAvatarColors(props.project.icon?.color)}
           class="size-full rounded"

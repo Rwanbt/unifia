@@ -1,3 +1,7 @@
+import { unifiaIconUrl } from "./brand-icon"
+
+export const notificationIcon = () => unifiaIconUrl()
+
 let nav: ((href: string) => void) | undefined
 
 export const setNavigate = (fn: (href: string) => void) => {

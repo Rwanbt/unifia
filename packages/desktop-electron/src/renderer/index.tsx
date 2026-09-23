@@ -7,6 +7,7 @@ import {
   handleNotificationClick,
   loadLocaleDict,
   normalizeLocale,
+  notificationIcon,
   type Locale,
   type Platform,
   PlatformProvider,
@@ -178,7 +179,7 @@ const createPlatform = (): Platform => {
 
       const notification = new Notification(title, {
         body: description ?? "",
-        icon: "https://opencode.ai/favicon-96x96-v3.png",
+        icon: notificationIcon(),
       })
       notification.onclick = () => {
         void window.api.showWindow()
