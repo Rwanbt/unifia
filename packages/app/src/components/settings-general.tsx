@@ -312,11 +312,10 @@ export const SettingsGeneral: Component = () => {
     </div>
   )
 
-  // ADR-048: user-selectable accent colour. Six curated presets that match
-  // the maquette's range of hues, plus a native colour picker for custom
-  // values, plus an explicit reset back to the maquette seed (`var(--text)`).
-  // The bridge in `useSettings()` writes the value on `<html>` whenever the
-  // store changes, so this component only persists the choice.
+  // ADR-048: user-selectable accent colour. The maquette renders this as a
+  // .accent-combobox (v38+) with a coloured dot + label inside the trigger;
+  // a separate <input type="color"> sits next to it for custom values, and
+  // a "Suivre le texte" option in the dropdown clears the picker.
   const ACCENT_PRESETS: ReadonlyArray<{ id: string; value: string }> = [
     { id: "indigo", value: "#424BD5" },
     { id: "crimson", value: "#DC2626" },
@@ -325,7 +324,10 @@ export const SettingsGeneral: Component = () => {
     { id: "violet", value: "#8B5CF6" },
     { id: "sky", value: "#0EA5E9" },
   ]
-  const isAccentPreset = (v: string) => ACCENT_PRESETS.some((p) => p.value.toLowerCase() === v.toLowerCase())
+  const isAccentPreset = (v: string) =>
+    ACCENT_PRESETS.some((p) => p.value.toLowerCase() === v.toLowerCase())
+
+  type AccentOption = { id: string; value: string; label: string }
 
   const AccentPicker: Component = () => {
     const language = useLanguage()
@@ -336,40 +338,74 @@ export const SettingsGeneral: Component = () => {
       return v !== "" && !isAccentPreset(v)
     }
 
+    const options = (): AccentOption[] => [
+      ...ACCENT_PRESETS.map((preset) => ({
+        id: preset.id,
+        value: preset.value,
+        label: language.t(`settings.general.row.accent.preset.${preset.id}`),
+      })),
+      {
+        id: "reset",
+        value: "",
+        label: language.t("settings.general.row.accent.reset"),
+      },
+    ]
+
+    // The Select trigger must show "Personnalisé…" when the stored value
+    // is a custom hex (neither a preset nor the sentinel).
+    const selectedOption = (): AccentOption => {
+      const v = current()
+      if (v === "") return options()[options().length - 1]
+      const hit = options().find(
+        (o) => o.value.toLowerCase() === v.toLowerCase(),
+      )
+      if (hit) return hit
+      return {
+        id: "custom",
+        value: v,
+        label: language.t("settings.general.row.accent.custom"),
+      }
+    }
+
     return (
       <div
-        class="flex flex-row items-center gap-1.5 flex-wrap"
+        class="flex flex-row items-center gap-2 flex-wrap"
         data-v110="settings-accent-picker"
       >
-        <For each={ACCENT_PRESETS}>
-          {(preset) => (
-            <button
-              type="button"
-              data-action={`settings-accent-preset-${preset.id}`}
-              aria-label={language.t(`settings.general.row.accent.preset.${preset.id}`)}
-              title={language.t(`settings.general.row.accent.preset.${preset.id}`)}
-              class="w-7 h-7 rounded-full border border-line-strong hover:border-text-strong transition-colors cursor-pointer"
-              classList={{
-                "ring-2 ring-offset-2 ring-offset-background-base ring-text-strong":
-                  current().toLowerCase() === preset.value.toLowerCase(),
-              }}
-              style={{ "background-color": preset.value }}
-              onClick={() => settings.appearance.setAccent(preset.value)}
-            />
-          )}
-        </For>
+        <Select
+          data-action="settings-accent-select"
+          options={options()}
+          current={selectedOption()}
+          value={(o) => o.id}
+          label={(o) => o.label}
+          onSelect={(option) => {
+            if (!option) return
+            if (option.id === "custom") return // custom handled by the swatch
+            settings.appearance.setAccent(option.value)
+          }}
+          variant="secondary"
+          size="small"
+          triggerVariant="settings"
+          triggerStyle={{ "min-width": "180px" }}
+        />
         <label
           data-action="settings-accent-custom"
           title={language.t("settings.general.row.accent.custom")}
-          class="relative w-7 h-7 rounded-full border border-dashed border-line-strong hover:border-text-strong transition-colors cursor-pointer flex items-center justify-center bg-background-base"
+          class="relative w-7 h-7 rounded-full border border-line-strong hover:border-text-strong transition-colors cursor-pointer flex items-center justify-center"
           classList={{
             "ring-2 ring-offset-2 ring-offset-background-base ring-text-strong":
               isCustom(),
-            "border-solid border-line-strong": isCustom(),
+            "border-dashed": !isCustom(),
           }}
-          style={isCustom() ? { "background-color": current() } : {}}
+          style={{
+            "background-color": isCustom() ? current() : "var(--background-base)",
+          }}
         >
-          <span class="text-12-medium text-text-secondary" aria-hidden="true">
+          <span
+            class="text-12-medium text-text-secondary"
+            aria-hidden="true"
+            classList={{ hidden: isCustom() }}
+          >
             +
           </span>
           <input
@@ -380,15 +416,6 @@ export const SettingsGeneral: Component = () => {
             aria-label={language.t("settings.general.row.accent.custom")}
           />
         </label>
-        <button
-          type="button"
-          data-action="settings-accent-reset"
-          aria-label={language.t("settings.general.row.accent.reset")}
-          class="ml-1 h-7 px-2.5 text-11-regular text-text-secondary hover:text-text-strong border border-line hover:border-line-strong rounded-full transition-colors cursor-pointer"
-          onClick={() => settings.appearance.setAccent("")}
-        >
-          {language.t("settings.general.row.accent.reset")}
-        </button>
       </div>
     )
   }
