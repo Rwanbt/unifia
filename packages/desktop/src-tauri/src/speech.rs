@@ -4,9 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 #[cfg(feature = "onnx")]
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
-#[cfg(feature = "onnx")]
-use tauri::Emitter;
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(feature = "onnx")]
 use crate::parakeet::ParakeetEngine;
@@ -37,11 +35,22 @@ fn data_dir(app: &AppHandle) -> PathBuf {
 
 #[cfg(feature = "onnx")]
 fn model_dir(app: &AppHandle) -> PathBuf {
-    data_dir(app).join("speech").join("parakeet-tdt-0.6b-v3-int8")
+    data_dir(app)
+        .join("speech")
+        .join("parakeet-tdt-0.6b-v3-int8")
 }
 
 fn speech_dir(app: &AppHandle) -> PathBuf {
     data_dir(app).join("speech")
+}
+
+fn publish_tts_progress(app: &AppHandle, phase: &str, message: &str) {
+    if let Err(error) = app.emit(
+        "voice-runtime-progress",
+        serde_json::json!({"phase":phase,"message":message}),
+    ) {
+        tracing::warn!("Could not publish speech progress: {error}");
+    }
 }
 
 // ─── State ─────────────────────────────────────────────────────────────
@@ -82,7 +91,11 @@ pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
     let zip_path = speech_dir(&app).join("parakeet-model.zip");
 
     let client = reqwest::Client::new();
-    let resp = client.get(STT_MODEL_URL).send().await.map_err(|e| format!("Download: {}", e))?;
+    let resp = client
+        .get(STT_MODEL_URL)
+        .send()
+        .await
+        .map_err(|e| format!("Download: {}", e))?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }
@@ -92,16 +105,24 @@ pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
     use futures::StreamExt;
     use tokio::io::AsyncWriteExt;
 
-    let mut file = tokio::fs::File::create(&zip_path).await.map_err(|e| format!("Create: {}", e))?;
+    let mut file = tokio::fs::File::create(&zip_path)
+        .await
+        .map_err(|e| format!("Create: {}", e))?;
     let mut last_emit = std::time::Instant::now();
     let mut stream = resp.bytes_stream();
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| format!("Stream: {}", e))?;
-        file.write_all(&chunk).await.map_err(|e| format!("Write: {}", e))?;
+        file.write_all(&chunk)
+            .await
+            .map_err(|e| format!("Write: {}", e))?;
         downloaded += chunk.len() as u64;
         if last_emit.elapsed().as_millis() > 300 {
-            let progress = if total > 0 { downloaded as f64 / total as f64 } else { 0.0 };
+            let progress = if total > 0 {
+                downloaded as f64 / total as f64
+            } else {
+                0.0
+            };
             let _ = app.emit("stt-download-progress", progress);
             last_emit = std::time::Instant::now();
         }
@@ -115,7 +136,9 @@ pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         let file = fs::File::open(&zip_clone).map_err(|e| format!("Open: {}", e))?;
         let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Zip: {}", e))?;
-        archive.extract(&dir_clone).map_err(|e| format!("Extract: {}", e))?;
+        archive
+            .extract(&dir_clone)
+            .map_err(|e| format!("Extract: {}", e))?;
         Ok::<(), String>(())
     })
     .await
@@ -187,7 +210,11 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
         .map_err(|e| format!("Task: {}", e))?
         .map_err(|e| format!("WAV: {}", e))?;
 
-    tracing::info!("[STT] {} samples ({:.1}s)", samples.len(), samples.len() as f64 / 16000.0);
+    tracing::info!(
+        "[STT] {} samples ({:.1}s)",
+        samples.len(),
+        samples.len() as f64 / 16000.0
+    );
 
     let app_clone = app.clone();
     let text = tokio::task::spawn_blocking(move || {
@@ -223,8 +250,16 @@ pub async fn stt_loaded(app: AppHandle) -> bool {
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_start(app: AppHandle) -> Result<u16, String> {
-    app.state::<SpeechState>().voice_runtime.start(&app).await?;
-    Ok(24_000)
+    match app.state::<SpeechState>().voice_runtime.start(&app).await {
+        Ok(()) => {
+            publish_tts_progress(&app, "ready", "Speech is ready");
+            Ok(24_000)
+        }
+        Err(error) => {
+            publish_tts_progress(&app, "error", "Speech runtime startup failed");
+            Err(error)
+        }
+    }
 }
 
 /// Synthesize speech through the managed worker and return its WAV artifact.
@@ -244,7 +279,13 @@ pub async fn tts_speak(
         // We don't resolve voice names as filesystem paths here, but still
         // refuse path separators and control
         // chars as defence in depth.
-        if v.len() > 128 || v.contains('/') || v.contains('\\') || v.contains('\0') || v.contains('\n') || v.contains('\r') {
+        if v.len() > 128
+            || v.contains('/')
+            || v.contains('\\')
+            || v.contains('\0')
+            || v.contains('\n')
+            || v.contains('\r')
+        {
             return Err("invalid voice name".into());
         }
     }
@@ -255,12 +296,27 @@ pub async fn tts_speak(
     }
     let start = std::time::Instant::now();
     let out_dir = speech_dir(&app).join("tts_chunks");
-    fs::create_dir_all(&out_dir).map_err(|error| format!("Create TTS output directory: {error}"))?;
+    fs::create_dir_all(&out_dir)
+        .map_err(|error| format!("Create TTS output directory: {error}"))?;
     let out_path = out_dir.join(next_chunk_filename());
-    let clone_path = speech_dir(&app).join("voices").join(format!("{voice_name}.wav"));
+    let clone_path = speech_dir(&app)
+        .join("voices")
+        .join(format!("{voice_name}.wav"));
     let voice_sample = clone_path.is_file().then_some(clone_path.as_path());
-    app.state::<SpeechState>().voice_runtime.synthesize(&app, &text, &language, &voice_name, voice_sample, &out_path).await?;
-    tracing::info!("[TTS] Synthesized audio with voice {voice_name} in {:?}", start.elapsed());
+    if let Err(error) = app
+        .state::<SpeechState>()
+        .voice_runtime
+        .synthesize(&app, &text, &language, &voice_name, voice_sample, &out_path)
+        .await
+    {
+        publish_tts_progress(&app, "error", "Speech synthesis failed");
+        return Err(error);
+    }
+    publish_tts_progress(&app, "ready", "Speech is ready");
+    tracing::info!(
+        "[TTS] Synthesized audio with voice {voice_name} in {:?}",
+        start.elapsed()
+    );
 
     Ok(out_path.to_string_lossy().to_string())
 }
@@ -283,7 +339,11 @@ pub async fn tts_stop(app: AppHandle) -> Result<(), String> {
 /// Save a voice clone WAV file for Pocket TTS
 #[tauri::command]
 #[specta::specta]
-pub async fn tts_save_voice_clone(app: AppHandle, audio_base64: String, name: String) -> Result<String, String> {
+pub async fn tts_save_voice_clone(
+    app: AppHandle,
+    audio_base64: String,
+    name: String,
+) -> Result<String, String> {
     // Refuse path traversal (`../../../etc/passwd`) and control chars in the
     // clone name — the name is concatenated into a filename below.
     let safe_name = crate::validate::validate_voice_clone_name(&name)?.to_string();
@@ -298,7 +358,11 @@ pub async fn tts_save_voice_clone(app: AppHandle, audio_base64: String, name: St
     let wav_path = dir.join(format!("{}.wav", safe_name));
     fs::write(&wav_path, &audio_bytes).map_err(|e| format!("Write: {}", e))?;
 
-    tracing::info!("[TTS] Saved voice clone '{}' ({} bytes)", safe_name, audio_bytes.len());
+    tracing::info!(
+        "[TTS] Saved voice clone '{}' ({} bytes)",
+        safe_name,
+        audio_bytes.len()
+    );
     Ok(wav_path.to_string_lossy().to_string())
 }
 
@@ -312,9 +376,10 @@ pub async fn tts_list_voice_clones(app: AppHandle) -> Vec<String> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().map(|e| e == "wav").unwrap_or(false)
-                && let Some(stem) = path.file_stem() {
-                    clones.push(stem.to_string_lossy().to_string());
-                }
+                && let Some(stem) = path.file_stem()
+            {
+                clones.push(stem.to_string_lossy().to_string());
+            }
         }
     }
     clones
@@ -327,9 +392,67 @@ pub async fn tts_delete_voice_clone(app: AppHandle, name: String) -> Result<(), 
     // Refuse path traversal — a deep-link / XSS could otherwise unlink
     // arbitrary files under the user's speech data directory.
     let safe_name = crate::validate::validate_voice_clone_name(&name)?.to_string();
-    let path = speech_dir(&app).join("voices").join(format!("{}.wav", safe_name));
-    fs::remove_file(&path).map_err(|e| format!("Delete: {}", e))?;
+    let voices_dir = speech_dir(&app).join("voices");
+    let path = voices_dir.join(format!("{safe_name}.wav"));
+    let state_cache = voices_dir.join(".pocket-state-cache").join(&safe_name);
+    validate_voice_cache_deletion(&voices_dir, &state_cache)?;
+    app.state::<SpeechState>()
+        .voice_runtime
+        .invalidate_voice_clone(&safe_name)
+        .await?;
+    match fs::remove_file(&path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(format!("Delete voice sample: {error}")),
+    }
+    match fs::symlink_metadata(&state_cache) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            fs::remove_file(&state_cache)
+                .map_err(|error| format!("Delete voice state link: {error}"))?;
+        }
+        Ok(metadata) if metadata.is_dir() => {
+            fs::remove_dir_all(&state_cache)
+                .map_err(|error| format!("Delete voice state cache: {error}"))?;
+        }
+        Ok(_) => return Err("Voice state cache path is not a directory".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(format!("Inspect voice state cache: {error}")),
+    }
     Ok(())
+}
+
+fn validate_voice_cache_deletion(
+    voices_dir: &std::path::Path,
+    state_cache: &std::path::Path,
+) -> Result<(), String> {
+    let Ok(voices_root) = fs::canonicalize(voices_dir) else {
+        return Ok(());
+    };
+    let cache_root = voices_dir.join(".pocket-state-cache");
+    if let Ok(metadata) = fs::symlink_metadata(&cache_root) {
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("Voice state cache root is not a managed directory".into());
+        }
+        let resolved_cache_root = fs::canonicalize(&cache_root)
+            .map_err(|error| format!("Resolve voice state cache root: {error}"))?;
+        if !resolved_cache_root.starts_with(&voices_root) {
+            return Err("Voice state cache root escapes managed voices".into());
+        }
+    }
+    match fs::symlink_metadata(state_cache) {
+        Ok(metadata) if metadata.file_type().is_symlink() => Ok(()),
+        Ok(metadata) if metadata.is_dir() => {
+            let resolved_state_cache = fs::canonicalize(state_cache)
+                .map_err(|error| format!("Resolve voice state cache: {error}"))?;
+            if !resolved_state_cache.starts_with(&voices_root) {
+                return Err("Voice state cache escapes managed voices".into());
+            }
+            Ok(())
+        }
+        Ok(_) => Err("Voice state cache path is not a directory".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("Inspect voice state cache: {error}")),
+    }
 }
 
 #[tauri::command]
@@ -344,11 +467,12 @@ pub async fn tts_available() -> bool {
 pub async fn tts_cleanup_chunks(app: AppHandle) -> Result<(), String> {
     let dir = speech_dir(&app).join("tts_chunks");
     if dir.exists()
-        && let Ok(entries) = fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                let _ = fs::remove_file(entry.path());
-            }
+        && let Ok(entries) = fs::read_dir(&dir)
+    {
+        for entry in entries.flatten() {
+            let _ = fs::remove_file(entry.path());
         }
+    }
     Ok(())
 }
 
@@ -365,7 +489,10 @@ fn wav_to_samples(wav_bytes: &[u8]) -> Result<Vec<f32>, String> {
         .map(|s| s as f32 / 32768.0)
         .collect();
     if spec.channels > 1 {
-        samples = samples.chunks(spec.channels as usize).map(|c| c.iter().sum::<f32>() / c.len() as f32).collect();
+        samples = samples
+            .chunks(spec.channels as usize)
+            .map(|c| c.iter().sum::<f32>() / c.len() as f32)
+            .collect();
     }
     if spec.sample_rate != 16000 {
         samples = resample(&samples, spec.sample_rate as usize, 16000);
@@ -399,11 +526,23 @@ fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
     while i + 3 < len {
         let a = b64val(clean[i])?;
         let b = b64val(clean[i + 1])?;
-        let c = if clean[i + 2] != b'=' { b64val(clean[i + 2])? } else { 0 };
-        let d = if clean[i + 3] != b'=' { b64val(clean[i + 3])? } else { 0 };
+        let c = if clean[i + 2] != b'=' {
+            b64val(clean[i + 2])?
+        } else {
+            0
+        };
+        let d = if clean[i + 3] != b'=' {
+            b64val(clean[i + 3])?
+        } else {
+            0
+        };
         out.push((a << 2) | (b >> 4));
-        if clean[i + 2] != b'=' { out.push((b << 4) | (c >> 2)); }
-        if clean[i + 3] != b'=' { out.push((c << 6) | d); }
+        if clean[i + 2] != b'=' {
+            out.push((b << 4) | (c >> 2));
+        }
+        if clean[i + 3] != b'=' {
+            out.push((c << 6) | d);
+        }
         i += 4;
     }
     Ok(out)
@@ -419,4 +558,3 @@ fn b64val(c: u8) -> Result<u8, String> {
         _ => Err(format!("Invalid b64: {}", c as char)),
     }
 }
-

@@ -7,14 +7,36 @@
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { resolveSpeechLanguage, type SpeechLanguage } from "../../../contracts/src/speech"
+import { listen, type UnlistenFn } from "@tauri-apps/api/event"
+import { showToast, toaster } from "@unifia/ui/toast"
 
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
+let runtimeProgressUnlisten: UnlistenFn | undefined
+let runtimeProgressToastId: string | number | undefined
 
 export function initSpeechListeners() {
   window.addEventListener("stt-start", handleSttStart)
   window.addEventListener("stt-stop", handleSttStop)
   window.addEventListener("tts-toggle", ((e: Event) => { handleTtsToggle(e as CustomEvent) }) as EventListener)
+  void listen<{ phase: string; message: string }>("voice-runtime-progress", (event) => {
+    if (event.payload.phase === "ready" && runtimeProgressToastId === undefined) return
+    if (typeof runtimeProgressToastId === "number") toaster.dismiss(runtimeProgressToastId)
+    const { phase, message } = event.payload
+    const toastId = showToast({
+      title: "Pocket TTS",
+      description: message,
+      variant: phase === "error" ? "error" : phase === "ready" ? "success" : "loading",
+      persistent: phase !== "ready",
+      duration: phase === "ready" ? 3000 : undefined,
+    })
+    runtimeProgressToastId = typeof toastId === "number" ? toastId : undefined
+    if (phase === "ready") runtimeProgressToastId = undefined
+  }).then((unlisten) => {
+    runtimeProgressUnlisten = unlisten
+  }).catch((error) => {
+    console.warn("[TTS] Runtime progress listener could not start:", error)
+  })
   console.log("[Speech] All listeners initialized (stt-start, stt-stop, tts-toggle)")
   // Pre-load Parakeet model so it's warm when user presses mic
   preloadModels()
@@ -48,6 +70,10 @@ async function preloadModels() {
 export function cleanupSpeechListeners() {
   window.removeEventListener("stt-start", handleSttStart)
   window.removeEventListener("stt-stop", handleSttStop)
+  runtimeProgressUnlisten?.()
+  runtimeProgressUnlisten = undefined
+  if (typeof runtimeProgressToastId === "number") toaster.dismiss(runtimeProgressToastId)
+  runtimeProgressToastId = undefined
   // Note: can't remove exact reference since we wrapped it, but cleanup on app close is fine
 }
 
