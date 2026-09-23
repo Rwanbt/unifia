@@ -608,6 +608,7 @@ export const dict = {
   "inspector.tab.explorer": "Проводник",
   "inspector.tab.inspector": "Инспектор",
   "inspector.tab.execution": "Выполнение",
+  "inspector.explorer.workspace": "Рабочая область",
   "sidebar.workspaces.enable": "Включить рабочие пространства",
   "sidebar.workspaces.disable": "Отключить рабочие пространства",
   "sidebar.gettingStarted.title": "Начало работы",

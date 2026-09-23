@@ -511,9 +511,9 @@ html[data-ui-animations="off"] *::after {
   margin-top: var(--v110-gutter-outer);
   margin-bottom: var(--v110-gutter-inner);
   height: auto;
-  border: 1px solid var(--v110-shell-line-strong);
+  border: 1px solid var(--line);
   border-radius: var(--v110-radius-xl);
-  background: var(--v110-rail-bg);
+  background: var(--bg-soft);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 

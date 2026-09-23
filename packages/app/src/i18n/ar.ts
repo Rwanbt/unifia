@@ -599,6 +599,7 @@ export const dict = {
   "inspector.tab.explorer": "المستكشف",
   "inspector.tab.inspector": "المفتش",
   "inspector.tab.execution": "التنفيذ",
+  "inspector.explorer.workspace": "مساحة العمل",
   "sidebar.workspaces.enable": "تمكين مساحات العمل",
   "sidebar.workspaces.disable": "تعطيل مساحات العمل",
   "sidebar.gettingStarted.title": "البدء",

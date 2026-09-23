@@ -657,6 +657,7 @@ export const dict = {
   "inspector.tab.explorer": "資源管理器",
   "inspector.tab.inspector": "檢查器",
   "inspector.tab.execution": "執行",
+  "inspector.explorer.workspace": "工作區",
   "sidebar.workspaces.enable": "啟用工作區",
   "sidebar.workspaces.disable": "停用工作區",
   "sidebar.gettingStarted.title": "開始使用",

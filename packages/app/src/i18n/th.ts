@@ -661,6 +661,7 @@ export const dict = {
   "inspector.tab.explorer": "เอ็กซ์พลอเรอร์",
   "inspector.tab.inspector": "อินสเปกเตอร์",
   "inspector.tab.execution": "การดำเนินการ",
+  "inspector.explorer.workspace": "พื้นที่ทำงาน",
   "sidebar.workspaces.enable": "เปิดใช้งานพื้นที่ทำงาน",
   "sidebar.workspaces.disable": "ปิดใช้งานพื้นที่ทำงาน",
   "sidebar.gettingStarted.title": "เริ่มต้นใช้งาน",

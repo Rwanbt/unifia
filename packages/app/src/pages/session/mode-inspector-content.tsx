@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 
 import { For, Show, createSignal, type JSX } from "solid-js"
-import { Icon } from "@unifia/ui/icon"
 import type { WorkspaceDestination } from "@/context/mode-directory"
 import { SettingsObservabilityTimeline } from "@/components/settings-observability-timeline"
 
@@ -13,7 +12,6 @@ type InspectorCard = {
   ranges?: readonly string[]
 }
 
-type ExplorerRow = { label: string; icon: "briefcase" | "brain" | "browser" | "file-tree" | "folder" | "link" | "scope" | "task" | "workflow" }
 
 const CODE_INSPECTOR_TABS = ["Overview", "Symbols", "Search", "Review", "Git", "Context", "History"] as const
 const EXECUTION_FILTERS = ["Tout", "Modèle", "Contexte", "Outils", "Sources", "Skills", "Mémoire", "Agents", "Règles", "Interaction", "Usage"] as const
@@ -38,17 +36,6 @@ const INSPECTOR_CARDS: Record<WorkspaceDestination, readonly InspectorCard[]> = 
   ],
   settings: [{ title: "Unifia Preferences", rows: [{ label: "Vue active", value: "Réglages intégrés" }, { label: "Comportement", value: "Chat visible" }] }],
   user: [{ title: "Contexte utilisateur", rows: [{ label: "Espace", value: "Personnel" }, { label: "Type", value: "Privé" }, { label: "Sessions", value: "4" }] }, { title: "Isolation", description: "Chat, Memory, providers, secrets et automatisations suivent l'espace actif." }],
-}
-
-const EXPLORER_ROWS: Record<WorkspaceDestination, readonly ExplorerRow[]> = {
-  code: [{ label: "Tout l’espace de travail", icon: "scope" }, { label: "src", icon: "folder" }, { label: "Fichiers ouverts", icon: "file-tree" }],
-  work: [{ label: "Aujourd’hui", icon: "task" }, { label: "Mes tâches", icon: "task" }, { label: "Agents", icon: "briefcase" }],
-  design: [{ label: "Landing page", icon: "file-tree" }, { label: "Components", icon: "file-tree" }, { label: "Design system", icon: "folder" }],
-  automate: [{ label: "Issue triage v2", icon: "workflow" }, { label: "Release notes", icon: "workflow" }, { label: "Nightly tests", icon: "workflow" }],
-  browser: [{ label: "Page courante", icon: "browser" }, { label: "Historique", icon: "link" }, { label: "Downloads", icon: "folder" }],
-  memory: [{ label: "Notes", icon: "brain" }, { label: "Graph", icon: "link" }, { label: "Search", icon: "scope" }],
-  settings: [{ label: "Général", icon: "scope" }, { label: "Modèles", icon: "folder" }, { label: "Observabilité", icon: "task" }],
-  user: [{ label: "Personnel", icon: "scope" }, { label: "Organisations", icon: "briefcase" }, { label: "Sécurité & identité", icon: "link" }],
 }
 
 const EXECUTION_COPY: Record<WorkspaceDestination, { title: string; description: string }> = {
@@ -125,31 +112,6 @@ export function ModeInspectorSurface(props: { mode: WorkspaceDestination }): JSX
       <Show when={props.mode === "code"}>
         <p data-inspector-subtab-state class="text-9-regular text-text-weaker">{activeCodeTab()} · session workspace</p>
       </Show>
-    </div>
-  )
-}
-
-export function ModeExplorerSurface(props: { mode: WorkspaceDestination; onSelect?: (row: ExplorerRow) => void }): JSX.Element {
-  return (
-    <div data-mode-explorer={props.mode} class="h-full overflow-y-auto bg-background-stronger px-3 py-2">
-      <div class="mb-2 px-1 text-11-medium uppercase tracking-wide text-text-weaker">{props.mode === "browser" ? "Session" : props.mode === "memory" ? "Vault" : "Workspace"}</div>
-      <div class="flex flex-col gap-0.5">
-        <For each={EXPLORER_ROWS[props.mode]}>
-          {(row, index) => (
-            <button
-              type="button"
-              classList={{
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover": true,
-                "bg-surface-raised-base text-text-strong": index() === 0,
-              }}
-              onClick={() => props.onSelect?.(row)}
-            >
-              <Icon name={row.icon} size="small" class="shrink-0 text-icon-base" />
-              <span class="truncate">{row.label}</span>
-            </button>
-          )}
-        </For>
-      </div>
     </div>
   )
 }

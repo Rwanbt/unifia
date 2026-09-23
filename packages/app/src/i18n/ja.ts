@@ -603,6 +603,7 @@ export const dict = {
   "inspector.tab.explorer": "エクスプローラー",
   "inspector.tab.inspector": "インスペクター",
   "inspector.tab.execution": "実行",
+  "inspector.explorer.workspace": "ワークスペース",
   "sidebar.workspaces.enable": "ワークスペースを有効化",
   "sidebar.workspaces.disable": "ワークスペースを無効化",
   "sidebar.gettingStarted.title": "はじめに",

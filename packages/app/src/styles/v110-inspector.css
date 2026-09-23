@@ -11,110 +11,20 @@
  * never references. parity:artifacts/tokens-audit.json flagged them inert;
  * they are removed. */
 
-[data-v110="inspector-frame"] {
-  --bg: #0e0e10;
-  --bg-soft: #121214;
-  --surface: #161618;
-  --surface-2: #1b1b1e;
-  --surface-3: #2a2a2f;
-  --hover: #2a2a2f;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-strong: rgba(255, 255, 255, 0.12);
-  background: var(--surface);
-  border: 0;
-  border-radius: inherit;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-  width: var(--v110-inspector, 300px);
-  transition:
-    width var(--v110-soft) var(--v110-easing),
-    transform var(--v110-soft) var(--v110-easing),
-    opacity var(--v110-soft) var(--v110-easing);
-}
-
-[data-v110="inspector-frame"]:focus-within {
-  outline: none;
-}
-
-[data-v110="inspector-tabs"] {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
-  gap: 3px;
-  height: 37px;
-  flex: 0 0 37px;
-  padding: 4px 6px;
-  border-bottom: 1px solid var(--line);
-  background: var(--bg-soft);
-}
-
-[data-v110="inspector-head"] {
-  height: 46px;
-  flex: 0 0 46px;
-  box-sizing: border-box;
-  background: var(--bg-soft);
-}
-
-[data-v110="inspector-head"] [data-action="inspector-toggle"] {
-  background: transparent;
-  border: 0;
-}
-
-[data-v110="inspector-head"] [data-action="inspector-toggle"]:hover {
-  background: var(--hover);
-}
-
-[data-v110="inspector-frame"] > [role="tabpanel"] {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-[data-v110="inspector-frame"] > [role="tabpanel"][hidden] {
-  display: none;
-}
-
-[data-v110="inspector-tabs"] [role="tab"] {
-  min-width: 0;
-  height: 29px;
-  padding: 0 7px;
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background-color var(--v110-fast) var(--v110-ease),
-    color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="inspector-tabs"] [role="tab"]:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-[data-v110="inspector-tabs"] [role="tab"][aria-selected="true"] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: inset 0 -2px var(--accent);
-}
-
+/* Card -- maquette #inspectorPanel: 300px wide, 20px from the topbar and
+ * the window's right edge, 10px above the bottom, like the context panel.
+ * The palette is the :root one (v110.css), the maquette's final values. */
 [data-v110="inspector-content"] {
   align-self: flex-start;
   box-sizing: border-box;
-  height: calc(100% - 2 * var(--v110-gutter-outer));
-  margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner);
+  height: calc(100% - var(--v110-gutter-outer) - var(--v110-gutter-inner));
+  margin: var(--v110-gutter-outer) var(--v110-gutter-outer) var(--v110-gutter-inner) var(--v110-gutter-inner);
   min-height: 0;
   min-width: 0;
   flex: 0 0 auto;
-  overflow: auto;
-  background: var(--surface);
-  border: 1px solid var(--v110-shell-line-strong);
+  overflow: hidden;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
   border-radius: var(--v110-radius-xl);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
@@ -130,6 +40,263 @@
   border-left: 0;
   border-radius: inherit;
   overflow: hidden;
+}
+
+[data-v110="inspector-frame"] {
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 0;
+  border-radius: inherit;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: var(--v110-inspector, 300px);
+  font-size: 16px;
+  transition:
+    width var(--v110-soft) var(--v110-easing),
+    transform var(--v110-soft) var(--v110-easing),
+    opacity var(--v110-soft) var(--v110-easing);
+}
+
+[data-v110="inspector-frame"]:focus-within {
+  outline: none;
+}
+
+/* .inspector-head: 46px, the title at 16px, and for Execution the session
+ * context and event count beside it (.v100-execution-head). The collapse
+ * button exists in the reference but renders 0x0; the topbar toggles. */
+[data-v110="inspector-head"] {
+  height: 46px;
+  flex: 0 0 46px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+[data-v110="inspector-title"] {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+[data-v110="inspector-head"] [data-action="inspector-toggle"] {
+  width: 0;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  opacity: 0;
+}
+
+[data-v110="inspector-head"] [data-slot="execution-context"] {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+[data-v110="inspector-head"] [data-slot="execution-count"] {
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 8px;
+  color: var(--muted);
+}
+
+/* .v44-inspector-tabs: three segments, the active one filled with an inset
+ * ring (not an underline). */
+[data-v110="inspector-tabs"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 3px;
+  height: 37px;
+  flex: 0 0 37px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+[data-v110="inspector-tabs"] [role="tab"] {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background-color var(--v110-fast) var(--v110-ease),
+    color var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="inspector-tabs"] [role="tab"] svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="inspector-tabs"] [role="tab"] span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="inspector-tabs"] [role="tab"]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="inspector-tabs"] [role="tab"][aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+[data-v110="inspector-frame"] > [role="tabpanel"] {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-v110="inspector-frame"] > [role="tabpanel"][hidden] {
+  display: none;
+}
+
+/* Explorer pane -- .v43-inspector-section, .v43-file-project, .v43-file-row. */
+[data-v110="inspector-explorer"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+[data-v110="inspector-explorer"] .v43-inspector-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 11px;
+  margin: 5px 7px 8px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* The new-file menu is an app addition, shown on hover only. */
+[data-v110="inspector-explorer"] [data-slot="explorer-add"] {
+  opacity: 0;
+  transition: opacity var(--v110-fast) var(--v110-ease);
+}
+
+[data-v110="inspector-explorer"]:hover [data-slot="explorer-add"],
+[data-v110="inspector-explorer"] [data-slot="explorer-add"][data-expanded] {
+  opacity: 1;
+}
+
+[data-v110="inspector-explorer"] .v43-file-project {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 7px;
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="inspector-explorer"] [data-component="file-tree"] {
+  gap: 1px;
+}
+
+/* A folder row sits in the ui Collapsible's filetree trigger, which pins
+ * 24px (collapsible.css); the reference row is 29px. */
+[data-v110="inspector-explorer"] [data-scope="filetree"] > [data-slot="collapsible-trigger"] {
+  width: 100%;
+  height: auto;
+}
+
+[data-v110="inspector-explorer"] [data-scope="filetree"] > [data-slot="collapsible-content"] {
+  padding-top: 1px;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-node"] {
+  height: 29px;
+  min-height: 29px;
+  gap: 7px;
+  padding: 0 7px 0 calc(18px + var(--filetree-level, 0) * 12px) !important;
+  border-radius: 8px;
+  font-size: 8.5px;
+  color: var(--muted);
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-node"]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-node"][data-selected] {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-name"] {
+  font-size: 8.5px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-name"]:not([style]) {
+  color: inherit;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-spacer"] {
+  display: none;
+}
+
+[data-v110="inspector-explorer"] [data-slot="filetree-glyph"],
+[data-v110="inspector-explorer"] [data-slot="filetree-node"] .filetree-iconpair,
+[data-v110="inspector-explorer"] [data-slot="filetree-node"] > .filetree-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--faint);
 }
 
 [data-v110="inspector-content"] [data-mode-inspector] {

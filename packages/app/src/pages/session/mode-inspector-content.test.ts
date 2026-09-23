@@ -18,12 +18,13 @@ test("inspector content follows the active workspace destination", async () => {
     expect(source).toContain(`${destination}:`)
   }
 
-  for (const marker of ["data-mode-explorer", "data-mode-inspector", "data-mode-execution"]) {
+  for (const marker of ["data-mode-inspector", "data-mode-execution"]) {
     expect(source).toContain(marker)
   }
 
-  expect(sidePanel).toContain('destination() === "code"')
-  expect(sidePanel).toContain('destination() !== "code"')
+  // Explorer is the live project tree in every mode, like the reference.
+  expect(sidePanel).toContain('<Match when={layout.inspector.tab() === "explorer"}>')
+  expect(sidePanel).not.toContain("ModeExplorerSurface")
   expect(sidePanel).toContain("<ModeInspectorSurface mode={destination()} />")
   expect(sidePanel).toContain("<ModeExecutionSurface mode={destination()} sessionId={props.sessionId} />")
 })

@@ -604,6 +604,7 @@ export const dict = {
   "inspector.tab.explorer": "Eksplorator",
   "inspector.tab.inspector": "Inspektor",
   "inspector.tab.execution": "Wykonanie",
+  "inspector.explorer.workspace": "Obszar roboczy",
   "sidebar.workspaces.enable": "Włącz przestrzenie robocze",
   "sidebar.workspaces.disable": "Wyłącz przestrzenie robocze",
   "sidebar.gettingStarted.title": "Pierwsze kroki",

@@ -157,7 +157,10 @@ const FileTreeNode = (
         [local.class ?? ""]: !!local.class,
         [local.nodeClass ?? ""]: !!local.nodeClass,
       }}
-      style={`padding-left: ${Math.max(0, 8 + local.level * 12 - (local.node.type === "file" ? 24 : 4))}px`}
+      data-slot="filetree-node"
+      data-node-type={local.node.type}
+      data-selected={local.node.path === local.active ? "" : undefined}
+      style={`padding-left: ${Math.max(0, 8 + local.level * 12 - (local.node.type === "file" ? 24 : 4))}px; --filetree-level: ${local.level}`}
       draggable={local.draggable}
       onDragStart={(event: DragEvent) => {
         if (!local.draggable) return
@@ -170,6 +173,7 @@ const FileTreeNode = (
     >
       {local.children}
       <span
+        data-slot="filetree-name"
         classList={{
           "flex-1 min-w-0 text-12-medium whitespace-nowrap truncate": true,
           "text-text-weaker": local.node.ignored,
@@ -460,7 +464,7 @@ export default function FileTree(props: {
                         kinds={kinds()}
                         marks={marks()}
                       >
-                        <div class="size-4 flex items-center justify-center text-icon-weak">
+                        <div data-slot="filetree-glyph" class="size-4 flex items-center justify-center text-icon-weak">
                           <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" />
                         </div>
                       </FileTreeNode>,
@@ -522,7 +526,7 @@ export default function FileTree(props: {
                     onDblClick={() => props.onFileDblClick?.(node)}
                     onKeyDown={handleNodeKeyDown}
                   >
-                    <div class="w-4 shrink-0" />
+                    <div data-slot="filetree-spacer" class="w-4 shrink-0" />
                     <Switch>
                       <Match when={node.ignored}>
                         <FileIcon

@@ -663,6 +663,7 @@ export const dict = {
   "inspector.tab.explorer": "Stifinder",
   "inspector.tab.inspector": "Inspektør",
   "inspector.tab.execution": "Udførelse",
+  "inspector.explorer.workspace": "Arbejdsområde",
   "sidebar.workspaces.enable": "Aktiver arbejdsområder",
   "sidebar.workspaces.disable": "Deaktiver arbejdsområder",
   "sidebar.gettingStarted.title": "Kom i gang",

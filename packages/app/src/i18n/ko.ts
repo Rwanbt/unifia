@@ -605,6 +605,7 @@ export const dict = {
   "inspector.tab.explorer": "탐색기",
   "inspector.tab.inspector": "인스펙터",
   "inspector.tab.execution": "실행",
+  "inspector.explorer.workspace": "작업 공간",
   "sidebar.workspaces.enable": "작업 공간 활성화",
   "sidebar.workspaces.disable": "작업 공간 비활성화",
   "sidebar.gettingStarted.title": "시작하기",

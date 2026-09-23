@@ -16,7 +16,10 @@ import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { useSDK } from "@/context/sdk"
-import { ModeExecutionSurface, ModeExplorerSurface, ModeInspectorSurface } from "@/pages/session/mode-inspector-content"
+import { ModeExecutionSurface, ModeInspectorSurface } from "@/pages/session/mode-inspector-content"
+import { displayName } from "@/pages/layout/helpers"
+import { destinationLabelKey } from "@/utils/destination-label"
+import { getFilename } from "@unifia/util/path"
 import { createOpenSessionFileTab, type Sizing } from "@/pages/session/helpers"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
@@ -48,6 +51,20 @@ export function SessionSidePanel(props: {
   const isOverlay = createMemo(() => shell.kind() === "overlay")
   const inspectorVisible = createMemo(() => layout.inspector.opened() || layout.hover.inspector.active())
   const destination = createMemo(() => mode.destination())
+  // Maquette #inspectTitle: "{project} · Explorer", "{mode} · Inspector",
+  // and the bare tab name for Execution.
+  const projectName = createMemo(() => {
+    const directory = mode.directory() ?? sdk.directory
+    const project = layout.projects.list().find((p) => p.worktree === directory || p.sandboxes?.includes(directory))
+    return project ? displayName(project) : getFilename(directory)
+  })
+  const heading = createMemo(() => {
+    const tab = layout.inspector.tab()
+    if (tab === "execution") return language.t("inspector.tab.execution")
+    if (tab === "inspector")
+      return `${language.t(destinationLabelKey(destination(), mode.active()))} · ${language.t("inspector.tab.inspector")}`
+    return `${projectName()} · ${language.t("inspector.tab.explorer")}`
+  })
 
   // The maquette keeps every inspector tab inside the fixed --inspector track.
   // Only the content inside that track scrolls; the review content does not
@@ -284,6 +301,7 @@ export function SessionSidePanel(props: {
             layout.inspector.toggle()
           }}
           label={language.t("session.panel.reviewAndFiles")}
+          heading={heading()}
           title={(tab) =>
             tab === "explorer"
               ? language.t("inspector.tab.explorer")
@@ -293,13 +311,14 @@ export function SessionSidePanel(props: {
           }
         >
           <Switch>
-            {/* Explorer matches the reference: Workspace plus the live project tree. */}
-            <Match when={layout.inspector.tab() === "explorer" && destination() === "code"}>
-              <div data-mode-explorer="code" class="h-full flex flex-col overflow-hidden group/filetree bg-background-stronger px-3 py-2">
-                <div class="flex items-center justify-between px-1 pb-2">
-                  <span class="text-11-medium text-text-weaker uppercase tracking-wide">Workspace</span>
+            {/* Explorer matches the reference in every mode: the Workspace
+                label, the project row and the live project tree. */}
+            <Match when={layout.inspector.tab() === "explorer"}>
+              <div data-v110="inspector-explorer" class="group/filetree">
+                <div class="v43-inspector-section">
+                  <span>{language.t("inspector.explorer.workspace")}</span>
                   <DropdownMenu gutter={4} placement="bottom-end">
-                    <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" />
+                    <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" data-slot="explorer-add" />
                     <DropdownMenu.Portal>
                       <DropdownMenu.Content>
                         <DropdownMenu.Item onSelect={() => handleNewFile("")}>
@@ -312,12 +331,15 @@ export function SessionSidePanel(props: {
                     </DropdownMenu.Portal>
                   </DropdownMenu>
                 </div>
+                <div class="v43-file-project">
+                  <span aria-hidden="true">⌄</span>
+                  <span class="truncate">{projectName()}</span>
+                </div>
                 <Switch>
                   <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
                   <Match when={true}>
                     <FileTree
                       path=""
-                      class="pt-1"
                       modified={diffFiles()}
                       kinds={kinds()}
                       onFileClick={(node) => openTab(file.tab(node.path))}
@@ -333,10 +355,6 @@ export function SessionSidePanel(props: {
                   </Match>
                 </Switch>
               </div>
-            </Match>
-
-            <Match when={layout.inspector.tab() === "explorer" && destination() !== "code"}>
-              <ModeExplorerSurface mode={destination()} />
             </Match>
 
             {/* Inspector is a property surface, not the code editor. The

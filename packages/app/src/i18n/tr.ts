@@ -608,6 +608,7 @@ export const dict = {
   "inspector.tab.explorer": "Gezgin",
   "inspector.tab.inspector": "Denetçi",
   "inspector.tab.execution": "Yürütme",
+  "inspector.explorer.workspace": "Çalışma alanı",
   "sidebar.workspaces.enable": "Çalışma alanlarını etkinleştir",
   "sidebar.workspaces.disable": "Çalışma alanlarını devre dışı bırak",
   "sidebar.gettingStarted.title": "Başlarken",

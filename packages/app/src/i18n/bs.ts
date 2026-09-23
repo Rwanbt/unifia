@@ -667,6 +667,7 @@ export const dict = {
   "inspector.tab.explorer": "Explorer",
   "inspector.tab.inspector": "Inspektor",
   "inspector.tab.execution": "Izvršenje",
+  "inspector.explorer.workspace": "Radni prostor",
   "sidebar.workspaces.enable": "Omogući radne prostore",
   "sidebar.workspaces.disable": "Onemogući radne prostore",
   "sidebar.gettingStarted.title": "Početak",
