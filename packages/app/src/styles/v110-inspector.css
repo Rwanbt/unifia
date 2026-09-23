@@ -317,8 +317,7 @@
 }
 
 /* Inspector pane -- .v44-inspector-pane (10px) holding .inspect-card /
- * .kv rows, the settings .inspect-key/.inspect-value cards and the Design
- * .v51-inspector-head empty state. */
+ * .kv rows and the Design .v51-inspector-head empty state. */
 [data-v110="inspector-content"] [data-mode-inspector] {
   flex: 1 1 auto;
   min-width: 0;
@@ -401,12 +400,6 @@
 [data-v110="inspector-content"] [data-inspector-version] span {
   font-size: 8px;
   color: var(--muted);
-}
-
-[data-v110="inspector-content"] [data-inspector-card][data-variant="keyvalue"] :is([data-inspector-key], [data-inspector-value]) {
-  font-size: 16px;
-  line-height: normal;
-  color: var(--text);
 }
 
 [data-v110="inspector-content"] [data-inspector-head] {

@@ -7,8 +7,7 @@ import { EXECUTION_FILTERS, executionRows, type ExecutionEvent, type ExecutionFi
 
 type InspectorRow = { label: string; value: string }
 // Maquette .inspect-card variants: a titled card (h4, optional p, .kv rows,
-// actions, a version row), a settings key/value card (.inspect-key /
-// .inspect-value), and the Design empty head (.v51-inspector-head).
+// actions, a version row) and the Design empty head (.v51-inspector-head).
 type InspectorCard =
   | {
       kind?: "card"
@@ -18,7 +17,6 @@ type InspectorCard =
       actions?: readonly string[]
       version?: { title: string; author: string }
     }
-  | { kind: "keyvalue"; label: string; value: string }
   | { kind: "head"; title: string; description: string }
 
 const snapshotTime = () =>
@@ -71,10 +69,17 @@ const INSPECTOR_CARDS: Record<WorkspaceDestination, () => readonly InspectorCard
     { title: "Permissions", rows: [{ label: "Navigate", value: "Allow" }, { label: "Click / type", value: "Allow" }, { label: "Downloads", value: "Ask" }, { label: "Sensitive actions", value: "Ask" }] },
   ],
   memory: NOTE_CARDS,
+  // The reference draws these as 16px key/value blocks; they take the same
+  // card and .kv rows as every other mode instead (owner's call, 2026-09-23).
   settings: () => [
-    { kind: "keyvalue", label: "Workspace", value: "Unifia Preferences" },
-    { kind: "keyvalue", label: "Vue active", value: "Réglages intégrés" },
-    { kind: "keyvalue", label: "Comportement", value: "Chat visible · Panneau principal interactif" },
+    {
+      title: "Unifia Preferences",
+      rows: [
+        { label: "Vue active", value: "Réglages intégrés" },
+        { label: "Comportement", value: "Chat visible" },
+        { label: "Panneau principal", value: "Interactif" },
+      ],
+    },
   ],
   user: () => [
     { title: "Contexte utilisateur", rows: [{ label: "Espace", value: "Personnel" }, { label: "Type", value: "Privé" }, { label: "Sessions", value: "4" }] },
@@ -84,13 +89,6 @@ const INSPECTOR_CARDS: Record<WorkspaceDestination, () => readonly InspectorCard
 
 function InspectorCardView(props: { card: InspectorCard }): JSX.Element {
   const card = props.card
-  if (card.kind === "keyvalue")
-    return (
-      <section data-inspector-card data-variant="keyvalue">
-        <div data-inspector-key>{card.label}</div>
-        <div data-inspector-value>{card.value}</div>
-      </section>
-    )
   if (card.kind === "head")
     return (
       <section data-inspector-head>
