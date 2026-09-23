@@ -27,6 +27,9 @@
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.13);
   --success: #8aca9a;
+  /* Re-derived here: at :root these mix with the app's surface, not ours. */
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  --accent-hover: color-mix(in srgb, var(--accent) 11%, var(--surface-3));
   --v110-settings-nav-active: #2c2c2f;
   --v110-settings-section-bg: rgba(27, 27, 30, 0.56);
   --v110-settings-section-line: rgba(255, 255, 255, 0.056);
@@ -461,11 +464,11 @@ html[data-ui-animations="off"] [data-v110="chat-observability"] * {
   }
 }
 
-/* Settings switches -- maquette .ui-toggle: a 31x18 pill, filled when on.
+/* Settings switches -- maquette .ui-toggle: a 31x18 pill, filled with the
+ * accent when on (ADR-048).
  * The ui Switch keeps the square OpenCode shape elsewhere. */
 [data-v110="settings-dialog"] [data-component="switch"] {
   --v110-toggle-off: #26262b;
-  --v110-toggle-on: #f2f2f3;
   --v110-toggle-line: rgba(255, 255, 255, 0.13);
   --v110-toggle-knob: #9b9ba1;
   --v110-toggle-knob-on: #0e0e10;
@@ -473,7 +476,6 @@ html[data-ui-animations="off"] [data-v110="chat-observability"] * {
 
 html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="switch"] {
   --v110-toggle-off: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
-  --v110-toggle-on: #17171a;
   --v110-toggle-line: rgba(0, 0, 0, 0.12);
   --v110-toggle-knob: #686870;
   --v110-toggle-knob-on: #ffffff;
@@ -499,8 +501,8 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
 }
 
 [data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-control"] {
-  border-color: var(--v110-toggle-on);
-  background: var(--v110-toggle-on);
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 [data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-thumb"] {
@@ -536,4 +538,147 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
   width: 12px;
   background: transparent;
   color: var(--muted);
+}
+
+/* Accent combobox -- maquette .accent-combobox (ADR-048). */
+[data-v110="accent-combobox"] {
+  position: relative;
+  width: 196px;
+  max-width: 100%;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-trigger"] {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-trigger"]:hover,
+[data-v110="accent-combobox"] [data-slot="accent-trigger"][aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-dot"] {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--combo-accent, var(--text));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-chevron"] {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  transition: transform 0.14s ease;
+}
+
+[data-v110="accent-combobox"][data-open] [data-slot="accent-chevron"] {
+  transform: rotate(180deg);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-menu"] {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 60;
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+[data-v110="accent-combobox"] :is([data-slot="accent-option"], [data-slot="accent-custom"]) {
+  display: grid;
+  grid-template-columns: 16px 1fr 14px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-v110="accent-combobox"] :is([data-slot="accent-option"], [data-slot="accent-custom"]):hover,
+[data-v110="accent-combobox"] [data-slot="accent-option"][aria-selected="true"] {
+  background: var(--surface-3);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-option"][aria-selected="true"] {
+  color: var(--accent);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-option"] [data-slot="accent-dot"] {
+  width: 11px;
+  height: 11px;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-check"] {
+  color: var(--accent);
+  font-size: 11px;
+  text-align: center;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-custom-row"] {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-color"] {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+[data-v110="accent-combobox"] [data-slot="accent-color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+
+@media (max-width: 760px) {
+  [data-v110="accent-combobox"] {
+    width: 100%;
+  }
+
+  [data-v110="accent-combobox"] [data-slot="accent-trigger"] {
+    height: 38px;
+    font-size: 11px;
+  }
+
+  [data-v110="accent-combobox"] :is([data-slot="accent-option"], [data-slot="accent-custom"]) {
+    min-height: 38px;
+    font-size: 11px;
+  }
 }

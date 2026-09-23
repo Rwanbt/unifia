@@ -26,6 +26,7 @@ import { Link } from "./link"
 import { SettingsList } from "./settings-list"
 import { SettingsRow } from "./settings-row"
 import { SettingsChatObservability } from "./settings-chat-observability"
+import { SettingsAccentPicker } from "./settings-accent-picker"
 import { SettingsGithubAuth } from "./settings-github-auth"
 import { SettingsGitAuth } from "./settings-git-auth"
 import { SettingsDiskQuota } from "./settings-disk-quota"
@@ -312,143 +313,6 @@ export const SettingsGeneral: Component = () => {
     </div>
   )
 
-  // ADR-048: user-selectable accent colour. The maquette renders this as a
-  // .accent-combobox (v38+) with a coloured dot + label inside the trigger;
-  // a separate <input type="color"> sits next to it for custom values, and
-  // a "Suivre le texte" option in the dropdown clears the picker.
-  const ACCENT_PRESETS: ReadonlyArray<{ id: string; value: string }> = [
-    { id: "indigo", value: "#424BD5" },
-    { id: "crimson", value: "#DC2626" },
-    { id: "emerald", value: "#10B981" },
-    { id: "amber", value: "#F59E0B" },
-    { id: "violet", value: "#8B5CF6" },
-    { id: "sky", value: "#0EA5E9" },
-  ]
-  const isAccentPreset = (v: string) =>
-    ACCENT_PRESETS.some((p) => p.value.toLowerCase() === v.toLowerCase())
-
-  type AccentOption = { id: string; value: string; label: string }
-
-  const AccentPicker: Component = () => {
-    const language = useLanguage()
-    const settings = useSettings()
-    const current = () => settings.appearance.accent()
-    const isCustom = () => {
-      const v = current()
-      return v !== "" && !isAccentPreset(v)
-    }
-
-    const options = (): AccentOption[] => [
-      ...ACCENT_PRESETS.map((preset) => ({
-        id: preset.id,
-        value: preset.value,
-        label: language.t(`settings.general.row.accent.preset.${preset.id}`),
-      })),
-      {
-        id: "reset",
-        value: "",
-        label: language.t("settings.general.row.accent.reset"),
-      },
-    ]
-
-    // The Select trigger must show "Personnalisé…" when the stored value
-    // is a custom hex (neither a preset nor the sentinel).
-    const selectedOption = (): AccentOption => {
-      const v = current()
-      if (v === "") return options()[options().length - 1]
-      const hit = options().find(
-        (o) => o.value.toLowerCase() === v.toLowerCase(),
-      )
-      if (hit) return hit
-      return {
-        id: "custom",
-        value: v,
-        label: language.t("settings.general.row.accent.custom"),
-      }
-    }
-
-    // The accent dot follows the maquette (.accent-combo-dot): a 12px
-    // circle whose background reads the live value. The reset option uses
-    // var(--text) so it shows the corporate text colour when nothing else
-    // is picked. Custom hexes surface their own colour.
-    const dotStyle = (value: string) => ({
-      "background-color": value === "" ? "var(--text)" : value,
-    })
-
-    return (
-      <div
-        class="flex flex-row items-center gap-2 flex-wrap"
-        data-v110="settings-accent-picker"
-      >
-        <Select
-          data-action="settings-accent-select"
-          options={options()}
-          current={selectedOption()}
-          value={(o) => o.id}
-          label={(o) => o.label}
-          onSelect={(option) => {
-            if (!option) return
-            if (option.id === "custom") return // custom handled by the swatch
-            settings.appearance.setAccent(option.value)
-          }}
-          variant="secondary"
-          size="small"
-          triggerVariant="settings"
-          triggerStyle={{ "min-width": "180px" }}
-          triggerPrefix={
-            <span
-              aria-hidden="true"
-              data-slot="settings-accent-trigger-dot"
-              class="inline-block w-3 h-3 rounded-full border border-line-strong shrink-0"
-              style={dotStyle(current())}
-            />
-          }
-          // Custom row renderer: every option (preset and reset) carries
-          // its own dot, mirroring the trigger. The reset entry's dot is
-          // the "follow text" sentinel, exactly like the trigger.
-          children={(option) => (
-            <span class="inline-flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                class="inline-block w-2.5 h-2.5 rounded-full border border-line-strong shrink-0"
-                style={dotStyle(option?.value ?? "")}
-              />
-              <span>{option?.label ?? ""}</span>
-            </span>
-          )}
-        />
-        <label
-          data-action="settings-accent-custom"
-          title={language.t("settings.general.row.accent.custom")}
-          class="relative w-7 h-7 rounded-full border border-line-strong hover:border-text-strong transition-colors cursor-pointer flex items-center justify-center"
-          classList={{
-            "ring-2 ring-offset-2 ring-offset-background-base ring-text-strong":
-              isCustom(),
-            "border-dashed": !isCustom(),
-          }}
-          style={{
-            "background-color": isCustom() ? current() : "var(--background-base)",
-          }}
-        >
-          <span
-            class="text-12-medium text-text-secondary"
-            aria-hidden="true"
-            classList={{ hidden: isCustom() }}
-          >
-            +
-          </span>
-          <input
-            type="color"
-            class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-            value={current() || ACCENT_PRESETS[0].value}
-            onInput={(event) => settings.appearance.setAccent(event.currentTarget.value)}
-            aria-label={language.t("settings.general.row.accent.custom")}
-          />
-        </label>
-      </div>
-    )
-  }
-
   const AppearanceSection = () => (
     <div class="flex flex-col gap-1">
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.appearance")}</h3>
@@ -475,6 +339,13 @@ export const SettingsGeneral: Component = () => {
             triggerVariant="settings"
             triggerStyle={{ "min-width": "220px" }}
           />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.accent.title")}
+          description={language.t("settings.general.row.accent.description")}
+        >
+          <SettingsAccentPicker />
         </SettingsRow>
 
         <SettingsRow
@@ -517,13 +388,6 @@ export const SettingsGeneral: Component = () => {
             size="small"
             triggerVariant="settings"
           />
-        </SettingsRow>
-
-        <SettingsRow
-          title={language.t("settings.general.row.accent.title")}
-          description={language.t("settings.general.row.accent.description")}
-        >
-          <AccentPicker />
         </SettingsRow>
 
         <SettingsRow

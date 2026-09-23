@@ -359,12 +359,9 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
           setStore("appearance", "sans", value.trim() ? value : "")
         },
         accent: withFallback(() => store.appearance?.accent, defaultSettings.appearance.accent),
+        /** "" is Neutral: the :root seed (var(--text)) applies again. */
         setAccent(value: string) {
-          // Normalize: a custom picker may emit "#abcdef" or "#abcdef00";
-          // we keep the canonical #rrggbb form so the CSS reads identically
-          // to the picker swatch. Empty / "inherit" sentinel clears.
-          const trimmed = value.trim().toLowerCase()
-          setStore("appearance", "accent", trimmed === "inherit" ? "" : trimmed)
+          setStore("appearance", "accent", value.trim().toLowerCase())
         },
       },
       keybinds: {

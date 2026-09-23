@@ -39,10 +39,13 @@ exposes fontSize, mono, sans.
   is `"inherit"` (empty string, sentinel) so a fresh install keeps the
   maquette's `--accent: var(--text)` fallback and an upgrade does not change
   rendering.
-- Six presets are offered: Indigo (`#424BD5`), Crimson (`#DC2626`), Emerald
-  (`#10B981`), Amber (`#F59E0B`), Violet (`#8B5CF6`), Sky (`#0EA5E9`), plus a
-  custom hex picker (`<input type="color">`) and a "Suivre le texte" reset
-  back to `var(--text)`.
+- The presets are the maquette's own (`presetMap`): Neutral (`var(--text)`,
+  stored as the empty string), Blue `#5B8CFF`, Violet `#8B7CFF`, Cyan
+  `#37B9D5`, Green `#48B881`, Orange `#D99045`, Rose `#D66FA3`, Red
+  `#D96868`, in the maquette's `.accent-combobox`; its last row,
+  "Personnalisée…", holds a native colour input for any other value.
+  (Revised 2026-09-23: the first implementation offered six invented presets
+  and a separate swatch.)
 - The bridge is a `createEffect` inside `SettingsProvider` that calls
   `document.documentElement.style.setProperty("--accent", value)` whenever the
   stored accent changes. When the value is the sentinel, the effect calls
@@ -71,11 +74,11 @@ exposes fontSize, mono, sans.
 
 ## Validation
 
-- e2e: open Settings > Général, select "Crimson", assert that
-  - the primary `Save` button background resolves to `rgb(220, 38, 38)` (or
+- e2e: open Settings > Général, select Red, assert that
+  - the primary `Save` button background resolves to `rgb(217, 104, 104)` (or
     the closest computed match),
   - a `Switch` in the ON state shows the same colour on its track,
-  - `<html>` carries `style="--accent: #dc2626;"`,
-  - changing back to "Suivre le texte" removes that inline style.
+  - `<html>` carries `style="--accent: #d96868;"`,
+  - choosing Neutral removes that inline style.
 - Visual: capture General > Apparence with each preset at 1440px and at
   375px, diff against the maquette baseline (golden parity suite).

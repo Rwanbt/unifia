@@ -10,7 +10,8 @@
  * gracefully while we phase these in.
  *
  * Scope: severity (text-danger/warning/success), interactive state
- * (accent-base, border-focus), and elevation (shadow-overlay). All
+ * (border-focus), and elevation (shadow-overlay). The accent lives in
+ * v110.css as --accent and its derivatives (ADR-048). All
  * values are RGB triplets — the design system CSS layer picks the
  * actual named color from the theme.
  *
@@ -29,9 +30,6 @@ export const SEMANTIC_TOKENS = {
   bgSuccess: "rgba(80, 170, 100, 0.12)",
   bgInfo: "rgba(80, 140, 200, 0.12)",
 
-  // Interactive accent — focus ring, accent button background.
-  accentBase: "rgb(120, 140, 220)",
-  accentStrong: "rgb(140, 160, 240)",
   borderFocus: "rgb(140, 160, 240)",
 
   // Elevation — overlays, toasts, dialogs.
@@ -51,8 +49,6 @@ export const SEMANTIC_CSS_VARS: Readonly<Record<SemanticToken, string>> = {
   bgWarning: "--bg-warning",
   bgSuccess: "--bg-success",
   bgInfo: "--bg-info",
-  accentBase: "--accent-base",
-  accentStrong: "--accent-strong",
   borderFocus: "--border-focus",
   shadowOverlay: "--shadow-overlay",
   shadowFloating: "--shadow-floating",
