@@ -320,6 +320,7 @@ export function SessionHeader() {
                   <div
                     role="radiogroup"
                     aria-label={language.t("session.header.viewSwitch.label")}
+                    data-v110="layout-switch"
                     class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
                   >
                     <For each={options}>
@@ -336,7 +337,7 @@ export function SessionHeader() {
                           // every button here.
                           class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
                           classList={{
-                            "bg-surface-raised-base text-text-strong": workspaceView() === option.id,
+                            "text-text-strong": workspaceView() === option.id,
                             "text-text-weak hover:text-text-strong": workspaceView() !== option.id,
                           }}
                           onClick={() => setView(option.id)}

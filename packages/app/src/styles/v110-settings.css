@@ -425,13 +425,13 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 }
 
 [data-v110="chat-observability"] [data-slot="observability-switch"][aria-checked="true"] {
-  border-color: var(--text);
-  background: var(--text);
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 [data-v110="chat-observability"] [data-slot="observability-switch"][aria-checked="true"]::after {
   left: 13px;
-  background: var(--bg);
+  background: var(--accent-ink);
 }
 
 [data-v110="chat-observability"] [data-slot="observability-switch"]:disabled {

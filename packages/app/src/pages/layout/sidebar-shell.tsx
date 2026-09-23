@@ -154,7 +154,7 @@ export const SidebarContent = (props: {
                       // text) -- a tab-style active indicator, not part of
                       // the button's own fill.
                       classList={{
-                        "!bg-surface-raised-base-active [&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full before:bg-text-strong":
+                        "[&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full":
                           props.activeDestination() === mode,
                         "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeDestination() !== mode,
                       }}
@@ -166,6 +166,7 @@ export const SidebarContent = (props: {
                       // Accessibilité et contrat de test sont deux
                       // responsabilités distinctes, on garde les deux.
                       data-mode={mode}
+                      data-v110="rail-mode"
                       onClick={() => props.onMode(mode)}
                       onMouseEnter={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
                       onFocus={() => { if (mode !== "code") void ensureModeLoaded(mode) }}
@@ -186,9 +187,10 @@ export const SidebarContent = (props: {
                       size="large"
                       classList={{
                         "!w-[42px] !h-[42px] !rounded-[12px]": true,
-                        "!bg-surface-raised-base-active [&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full before:bg-text-strong relative": props.activeDestination() === pill.target,
+                        "[&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full relative": props.activeDestination() === pill.target,
                         "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeDestination() !== pill.target,
                       }}
+                      data-v110="rail-mode"
                       onClick={() => props.onMode(pill.target)}
                       aria-label={language.t(pill.labelKey)}
                       aria-pressed={props.activeDestination() === pill.target}
@@ -275,11 +277,12 @@ export const SidebarContent = (props: {
               size="large"
               classList={{
                 "!w-[42px] !h-[42px] !rounded-[12px]": true,
-                "!bg-surface-raised-base-active [&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full before:bg-text-strong relative": props.activeDestination() === "settings",
+                "[&_[data-slot=icon-svg]]:!text-text-strong before:content-[''] before:absolute before:-left-[7px] before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-[24px] before:rounded-full relative": props.activeDestination() === "settings",
                 "[&_[data-slot=icon-svg]]:!text-text-weak": props.activeDestination() !== "settings",
               }}
               onClick={props.onOpenSettings}
               aria-label={props.settingsLabel()}
+              data-v110="rail-mode"
               aria-pressed={props.activeDestination() === "settings"}
             />
           </TooltipKeybind>

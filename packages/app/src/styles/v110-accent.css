@@ -1,0 +1,71 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Everything the user accent tints (ADR-048), measured against the maquette
+ * with a pure red accent. Two families cover almost every case:
+ * - active states: --accent-soft fill (8 % over surface-2) and an
+ *   --accent-line edge (38 % over line-strong);
+ * - filled actions: solid --accent with --accent-ink text. */
+
+/* ADR-048: every <Switch /> from @unifia/ui/switch renders as
+ * [data-component="switch"] with the [data-checked] flag when on. The
+ * base styling (packages/ui/src/components/switch.css:94-98) paints the
+ * track with --icon-strong-base, which is the corporate icon colour and
+ * not affected by the picker. Override the track here so the user accent
+ * reaches every Switch in the app: Settings panels (Audio, Configuration,
+ * General, Memory, Models, Observability exporters), dialogs (Manage
+ * models, Select MCP), and any other consumer added later. */
+[data-component="switch"][data-checked] [data-slot="switch-control"] {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
+/* ADR-048: the primary button reads --button-primary-base plus the
+ * --icon-strong-{hover,focus,active,disabled} siblings. Override each
+ * token locally inside the primary button selector so the user accent
+ * reaches every primary action (Save, Connect, Create, Confirm, Submit,
+ * Create project, ...) without leaking the change into other consumers
+ * of --icon-strong-* (Switch OFF, hover surfaces, etc.). The disabled
+ * state falls back to --accent-soft so the disabled button still reads
+ * as "accent-tinted" but visibly inactive. */
+[data-component="button"][data-variant="primary"] {
+  --button-primary-base: var(--accent);
+  --icon-strong-hover: color-mix(in srgb, var(--accent) 88%, var(--text));
+  --icon-strong-focus: color-mix(in srgb, var(--accent) 88%, var(--text));
+  --icon-strong-active: color-mix(in srgb, var(--accent) 78%, var(--text));
+  --icon-strong-disabled: var(--accent-soft);
+}
+
+/* Active states -- maquette .rail-btn.active, #layoutSwitch button.active.
+ * The edge is an inset ring so the 42px rail buttons keep their size. */
+[data-v110="rail-mode"][aria-pressed="true"],
+[data-v110="layout-switch"] [role="radio"][aria-checked="true"],
+[data-v110="segment"][aria-pressed="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--text);
+}
+
+/* The rail's 3px marker beside the active mode (.rail-btn.active:before). */
+[data-v110="rail-mode"][aria-pressed="true"]::before {
+  background: var(--accent);
+}
+
+/* Context navigation -- .v68-project-row (6 % tint, 2px accent edge) and
+ * .v68-nav.active .v68-nav-icon (the current row's glyph). */
+[data-v68-project][data-active] [data-slot="project-row"] {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+[data-v110="nav-item"]:is([aria-current="true"], [aria-pressed="true"]) > :first-child,
+[data-session-id] a[aria-current="page"] [data-slot="session-icon"],
+[data-session-id] a[aria-current="page"] [data-slot="session-icon"] [data-component="icon"] {
+  color: var(--accent);
+}
+
+/* The topbar's context-panel toggle keeps its fill; only its ring follows
+ * the accent (#showContextBtn.active). */
+[data-component="v110-topbar"] [data-v110="context-toggle"][aria-expanded="true"] {
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}

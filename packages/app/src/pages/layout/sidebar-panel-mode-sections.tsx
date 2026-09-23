@@ -65,8 +65,12 @@ const CodeScopeSection = () => {
       </Collapsible.Trigger>
       <Collapsible.Content>
         <div class="flex flex-col gap-0.5 pl-1 pt-1">
+          {/* The code scope is always the whole workspace today, so this row
+              is the current one (maquette .v68-nav.active). */}
           <button
             type="button"
+            data-v110="nav-item"
+            aria-current="true"
             class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover"
             onClick={() => openExplorer()}
           >
@@ -115,6 +119,8 @@ const ModeNavigationSection = (props: {
             {(row) => (
               <button
                 type="button"
+                data-v110="nav-item"
+                aria-current={row.active === true ? "true" : undefined}
                 classList={{
                   "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover": true,
                   "bg-surface-raised-base text-text-strong": row.active === true,
@@ -153,6 +159,7 @@ const WorkSections = () => {
                 <button
                   type="button"
                   data-work-view={view}
+                  data-v110="nav-item"
                   aria-pressed={layout.work.view() === view}
                   onClick={() => layout.work.setView(view)}
                   classList={{

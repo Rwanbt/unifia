@@ -11,9 +11,19 @@
 @import "@/styles/v110-editor.css";
 @import "@/styles/v110-browser.css";
 @import "@/styles/v110-settings.css";
+@import "@/styles/v110-accent.css";
 @import "@/shell/v110-shell.css";
 @import "@/pages/session/v110-chat.css";
 @import "@/pages/session/v110-inspector.css";
+
+/* ADR-048: Memory and Automate were written against accent-base/accent-weak
+ * colour utilities that the ui theme never defined, so every one of them
+ * painted nothing. They now resolve to the user accent. */
+@theme {
+  --color-accent-base: var(--accent);
+  --color-accent-weak: var(--accent-soft);
+  --color-text-on-accent: var(--accent-ink);
+}
 
 @layer components {
   [data-component="getting-started"] {

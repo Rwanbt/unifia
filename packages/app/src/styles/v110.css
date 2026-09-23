@@ -367,12 +367,17 @@ html[data-ui-animations="off"] *::after {
 }
 
 /* #topTerminalBtn: unlike its top-quick siblings, the reference gives the
- * terminal toggle a raised fill and a bright hairline, shared by hover and
- * by the open (aria-expanded) state; its glyph is full-strength at 17px. */
-[data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"]:hover:not(:disabled),
-[data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"][aria-expanded="true"] {
+ * terminal toggle a raised fill and a bright hairline on hover and when open;
+ * its glyph is full-strength at 17px. Open is .top-quick.active, so it follows
+ * the accent (ADR-048); these literals are that state's neutral values. */
+[data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"]:hover:not(:disabled) {
   background: #2c2c2f;
   border-color: rgba(244, 244, 245, 0.46);
+}
+
+[data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"][aria-expanded="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
 }
 
 [data-component="v110-topbar"] [data-v110="top-terminal"] [data-component="icon"],
@@ -407,10 +412,6 @@ html[data-ui-animations="off"] *::after {
   border-color: rgba(255, 255, 255, 0.07);
 }
 
-[data-component="v110-topbar"] [role="radiogroup"] [role="radio"][aria-checked="true"] {
-  background: var(--v110-topbar-active);
-  color: #f2f2f3;
-}
 
 [data-component="v110-topbar"] [data-component="logo"] {
   filter: grayscale(1) brightness(0) invert(1);
@@ -452,7 +453,8 @@ html[data-ui-animations="off"] *::after {
 
 [data-v110="mobile-nav"] button[aria-pressed="true"],
 [data-v110="mobile-nav"] button[data-active="true"] {
-  background: var(--background-base);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
   color: var(--text-strong);
 }
 
@@ -647,7 +649,8 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-component="file-tree"] [data-tree-row][aria-selected="true"] {
-  background: var(--background-stronger);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
   color: var(--text-strong);
 }
 
@@ -744,7 +747,8 @@ html[data-ui-animations="off"] *::after {
 }
 
 [role="dialog"] [role="tab"][aria-selected="true"] {
-  background: var(--background-base);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
   color: var(--text-strong);
 }
 
@@ -992,7 +996,8 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-component="workbench-thread-list"] [data-thread-row][aria-selected="true"] {
-  background: var(--background-base);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
   color: var(--text-strong);
 }
 
@@ -1026,35 +1031,6 @@ html[data-ui-animations="off"] *::after {
 
 [data-component="skill-picker"] [data-skill-card]:hover {
   border-color: var(--border-focus);
-}
-
-/* ADR-048: every <Switch /> from @unifia/ui/switch renders as
- * [data-component="switch"] with the [data-checked] flag when on. The
- * base styling (packages/ui/src/components/switch.css:94-98) paints the
- * track with --icon-strong-base, which is the corporate icon colour and
- * not affected by the picker. Override the track here so the user accent
- * reaches every Switch in the app: Settings panels (Audio, Configuration,
- * General, Memory, Models, Observability exporters), dialogs (Manage
- * models, Select MCP), and any other consumer added later. */
-[data-component="switch"][data-checked] [data-slot="switch-control"] {
-  border-color: var(--accent);
-  background-color: var(--accent);
-}
-
-/* ADR-048: the primary button reads --button-primary-base plus the
- * --icon-strong-{hover,focus,active,disabled} siblings. Override each
- * token locally inside the primary button selector so the user accent
- * reaches every primary action (Save, Connect, Create, Confirm, Submit,
- * Create project, ...) without leaking the change into other consumers
- * of --icon-strong-* (Switch OFF, hover surfaces, etc.). The disabled
- * state falls back to --accent-soft so the disabled button still reads
- * as "accent-tinted" but visibly inactive. */
-[data-component="button"][data-variant="primary"] {
-  --button-primary-base: var(--accent);
-  --icon-strong-hover: color-mix(in srgb, var(--accent) 88%, var(--text));
-  --icon-strong-focus: color-mix(in srgb, var(--accent) 88%, var(--text));
-  --icon-strong-active: color-mix(in srgb, var(--accent) 78%, var(--text));
-  --icon-strong-disabled: var(--accent-soft);
 }
 
 [data-component="skill-picker"] [data-skill-card][aria-selected="true"] {
@@ -1122,10 +1098,17 @@ html[data-ui-animations="off"] *::after {
   --surface-3: var(--surface-elevated);
   --bg: var(--background-base, var(--surface-canvas));
   --line: var(--border-base);
+  /* The theme's strong border (0.266) is twice the reference's; the accent
+   * edges (--accent-line*) mix with this, so it takes the maquette value. */
+  --line-strong: rgba(255, 255, 255, 0.13);
   --text: var(--text-primary);
   --muted: var(--text-secondary);
   --faint: var(--text-tertiary);
   --shadow: 0 18px 42px rgba(0, 0, 0, 0.20);
+}
+
+html[data-color-scheme="light"] {
+  --line-strong: rgba(0, 0, 0, 0.12);
 }
 
 

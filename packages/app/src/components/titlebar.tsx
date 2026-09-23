@@ -237,6 +237,7 @@ export function Titlebar() {
                 layout.hover.sidebar.cancel()
                 layout.sidebar.toggle()
               }}
+              data-v110="context-toggle"
               aria-label={language.t("command.sidebar.toggle")}
               aria-expanded={layout.sidebar.opened()}
             >

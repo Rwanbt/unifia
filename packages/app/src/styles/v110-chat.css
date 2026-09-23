@@ -230,7 +230,6 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   position: relative;
   container-type: inline-size;
   --v110-prompt-actions-reserve: 164px;
-  filter: grayscale(1);
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: var(--surface);
@@ -395,17 +394,20 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   color: var(--text);
 }
 
-[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] {
-  background: var(--text);
-  border-color: transparent;
-  color: var(--bg);
-}
-
+/* Send -- maquette .mode-chat .send: the accent, filled, with its glow. */
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"],
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"]:hover,
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"]:focus-visible {
-  background: var(--text);
-  border-color: transparent;
-  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 5px 14px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+[data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] [data-slot="icon-svg"] {
+  color: var(--accent-ink);
 }
 
 [data-v110="prompt-composer"] > [data-dock-surface="tray"] [data-action^="prompt-"] {
@@ -775,4 +777,22 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 [data-v110="chat-timeline"] [data-slot="context-tool-group-summary"] * {
   color: var(--muted);
   font-size: 8px;
+}
+
+/* Inline code in replies. The maquette's chat has none; the theme's
+ * "string" syntax colour made it read as highlighting, so it takes the
+ * accent like the reference's other emphasis. Code blocks keep syntax
+ * colours: those carry meaning. */
+[data-v110="chat-timeline"] [data-component="markdown"] :not(pre) > code {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+/* The composer's controls are monochrome in the reference. A grayscale filter
+ * on the whole composer did that but also drained the accent from the send
+ * button, so only the provider's brand logo is desaturated now. */
+[data-v110="prompt-composer"] [data-component="provider-icon"] {
+  filter: grayscale(1);
 }

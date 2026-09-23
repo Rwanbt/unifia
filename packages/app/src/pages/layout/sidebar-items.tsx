@@ -121,6 +121,7 @@ const SessionRow = (props: {
       }}
     >
       <div
+        data-slot="session-icon"
         class="shrink-0 size-6 flex items-center justify-center"
         style={{ color: props.tint() ?? "var(--icon-interactive-base)" }}
       >

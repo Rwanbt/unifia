@@ -57,10 +57,11 @@
   cursor: not-allowed;
 }
 
+/* .small-btn.primary: filled with the accent (ADR-048). */
 [data-design-browser] > form button[type="submit"] {
-  background: var(--text);
-  color: var(--bg);
-  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
   font-weight: 650;
 }
 

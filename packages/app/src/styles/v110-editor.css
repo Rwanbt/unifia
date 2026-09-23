@@ -107,7 +107,8 @@ html[data-color-scheme="light"] [data-v110="surface-card"] {
 [data-v110="code-tab"][data-active="true"] {
   background: var(--v110-card-tab-active);
   color: var(--v110-card-text);
-  box-shadow: inset 0 2px 0 0 var(--v110-card-text);
+  /* .tab.active: the top line carries the accent (ADR-048). */
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 
 [data-v110="code-tab"] > button:first-child {

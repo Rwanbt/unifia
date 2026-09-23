@@ -56,7 +56,8 @@
 [data-v110="mobile-nav"] [aria-pressed="true"],
 [data-v110="mobile-nav"] [aria-selected="true"] {
   color: var(--text);
-  background: var(--surface-2);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 
 @media (prefers-reduced-motion: reduce) {

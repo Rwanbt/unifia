@@ -84,9 +84,9 @@ export function ProjectDisclosure(props: {
   const { InlineEditor } = ctx.workspaceSidebarCtx
 
   return (
-    <div class="v68-project" data-v68-project={slug()}>
+    <div class="v68-project" data-v68-project={slug()} data-active={props.active() ? "" : undefined}>
       <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0">
-        <div class="group/project flex items-center gap-2 py-1.5 pl-1 pr-0">
+        <div data-slot="project-row" class="group/project flex items-center gap-2 py-1.5 pl-1 pr-0">
           <Collapsible.Trigger class="flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-left hover:bg-surface-raised-base-hover">
             <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-base" />
             <div class="flex size-6 shrink-0 items-center justify-center rounded-md bg-surface-raised-base text-10-medium text-text-weak">
