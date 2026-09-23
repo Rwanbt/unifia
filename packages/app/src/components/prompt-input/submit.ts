@@ -1,4 +1,4 @@
-import type { Message, Session } from "../../types/sdk-shim"
+import type { Message, PermissionMode, Session } from "../../types/sdk-shim"
 import { showToast } from "@unifia/ui/toast"
 import { base64Encode } from "@unifia/util/encode"
 import { Binary } from "@unifia/util/binary"
@@ -36,6 +36,7 @@ export type FollowupDraft = {
   model: { providerID: string; modelID: string }
   variant?: string
   tools?: { [key: string]: boolean }
+  permissionMode?: PermissionMode
 }
 
 type FollowupSendInput = {
@@ -160,6 +161,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
       parts: requestParts,
       variant: input.draft.variant,
       tools: input.draft.tools,
+      permissionMode: input.draft.permissionMode,
     })
     if (result.error) throw result.error
     return true
@@ -185,6 +187,8 @@ type PromptSubmitInput = {
   setMode: (mode: "normal" | "shell") => void
   setPopover: (popover: "at" | "slash" | null) => void
   webSearch?: Accessor<boolean>
+  // The composer's accept mode; the server turns it into ask rules (ADR-043).
+  permissionMode?: Accessor<PermissionMode>
   newSessionWorktree?: Accessor<string | undefined>
   onNewSessionWorktreeReset?: () => void
   shouldQueue?: Accessor<boolean>
@@ -441,6 +445,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       tools,
     }
 
+      permissionMode: input.permissionMode?.(),
     const clearInput = () => {
       prompt.reset()
       input.setMode("normal")

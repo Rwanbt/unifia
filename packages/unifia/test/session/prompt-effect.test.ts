@@ -1,6 +1,7 @@
 import { NodeFileSystem } from "@effect/platform-node"
 import { expect, spyOn } from "bun:test"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
+import { existsSync } from "node:fs"
 import path from "path"
 import z from "zod"
 import { Agent as AgentSvc } from "../../src/agent/agent"
@@ -1272,6 +1273,81 @@ it.live(
           }),
         { git: true, config: cfg },
       ),
+    ),
+  30_000,
+)
+
+// ADR-043 — the build agent allows everything, so only the composer's mode
+// can make it ask before writing.
+const pendingRequests = (permission: Permission.Interface) =>
+  Effect.gen(function* () {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const pending = yield* permission.list()
+      if (pending.length > 0) return pending
+      yield* Effect.sleep(25)
+    }
+    return []
+  })
+
+it.live(
+  "ask mode asks before a write the build agent allows, and a reject leaves the file untouched",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir, llm }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const permission = yield* Permission.Service
+        const session = yield* sessions.create({ title: "Ask mode" })
+        yield* prompt.prompt({
+          sessionID: session.id,
+          agent: "build",
+          noReply: true,
+          permissionMode: "ask",
+          parts: [{ type: "text", text: "write the file" }],
+        })
+        expect((yield* sessions.get(session.id)).permissionMode).toBe("ask")
+
+        const target = path.join(dir, "ask-mode.txt")
+        yield* llm.tool("write", { filePath: target, content: "written" })
+        yield* llm.text("done")
+        const loop = yield* prompt.loop({ sessionID: session.id }).pipe(Effect.forkChild)
+
+        const pending = yield* pendingRequests(permission)
+        expect(pending.map((request) => request.permission)).toEqual(["edit"])
+        yield* permission.reply({ requestID: pending[0].id, reply: "reject" })
+        yield* Fiber.await(loop)
+        expect(existsSync(target)).toBe(false)
+      }),
+      { git: true, config: providerCfg },
+    ),
+  30_000,
+)
+
+it.live(
+  "without a mode the build agent still writes without asking",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ dir, llm }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const permission = yield* Permission.Service
+        const session = yield* sessions.create({ title: "No mode" })
+        yield* prompt.prompt({
+          sessionID: session.id,
+          agent: "build",
+          noReply: true,
+          parts: [{ type: "text", text: "write the file" }],
+        })
+
+        const target = path.join(dir, "no-mode.txt")
+        yield* llm.tool("write", { filePath: target, content: "written" })
+        yield* llm.text("done")
+        yield* prompt.loop({ sessionID: session.id })
+
+        expect(yield* permission.list()).toEqual([])
+        expect(existsSync(target)).toBe(true)
+      }),
+      { git: true, config: providerCfg },
     ),
   30_000,
 )

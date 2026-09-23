@@ -930,6 +930,8 @@ export type PermissionRule = {
 
 export type PermissionRuleset = Array<PermissionRule>
 
+export type PermissionMode = "ask" | "auto-edit" | "full-auto"
+
 export type Session = {
   id: string
   slug: string
@@ -956,6 +958,7 @@ export type Session = {
     archived?: number
   }
   permission?: PermissionRuleset
+  permissionMode?: PermissionMode
   revert?: {
     messageID: string
     partID?: string
@@ -1415,6 +1418,7 @@ export type SyncEventSessionUpdated = {
         archived: number | null
       }
       permission: PermissionRuleset | null
+      permissionMode: PermissionMode | null
       revert: {
         messageID: string
         partID?: string
@@ -2490,6 +2494,7 @@ export type GlobalSession = {
   project: ProjectSummary | null
 }
 
+  permissionMode?: PermissionMode
 export type McpResource = {
   name: string
   uri: string
@@ -4654,6 +4659,7 @@ export type SessionPromptData = {
     directory?: string
     workspace?: string
   }
+    permissionMode?: PermissionMode
   url: "/session/{sessionID}/message"
 }
 
@@ -4854,6 +4860,7 @@ export type SessionPromptAsyncData = {
     directory?: string
     workspace?: string
   }
+    permissionMode?: PermissionMode
   url: "/session/{sessionID}/prompt_async"
 }
 

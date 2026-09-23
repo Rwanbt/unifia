@@ -995,6 +995,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     getEditorRef: () => editorRef,
     getMode: () => store.mode,
     setMode: (v) => setStore("mode", v),
+    permissionMode: () => {
+      const mode = permission.getAcceptMode(params.id, sdk.directory)
+      return mode === true ? "full-auto" : mode === "auto-edit" ? "auto-edit" : "ask"
+    },
     getPopover: () => store.popover,
     getHistoryIndex: () => store.historyIndex,
     pick,

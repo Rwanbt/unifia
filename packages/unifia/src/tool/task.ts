@@ -184,10 +184,13 @@ export const TaskTool = Tool.define("task", async (ctx) => {
 
       const messageID = MessageID.ascending()
       const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
+      // A sub-agent must not escape the parent's Ask mode (ADR-043).
+      const parent = await Session.get(ctx.sessionID)
 
       const promptInput = {
         messageID,
         sessionID: session.id,
+        permissionMode: parent.permissionMode,
         model: {
           modelID: model.modelID,
           providerID: model.providerID,

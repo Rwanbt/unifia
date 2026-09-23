@@ -83,6 +83,7 @@ export namespace Session {
       share,
       revert,
       permission: row.permission ?? undefined,
+      permissionMode: row.permission_mode ?? undefined,
       time: {
         created: row.time_created,
         updated: row.time_updated,
@@ -110,6 +111,7 @@ export namespace Session {
       summary_diffs: info.summary?.diffs,
       revert: info.revert ?? null,
       permission: info.permission,
+      permission_mode: info.permissionMode,
       time_created: info.time.created,
       time_updated: info.time.updated,
       time_compacting: info.time.compacting,
@@ -158,6 +160,7 @@ export namespace Session {
         archived: z.number().optional(),
       }),
       permission: Permission.Ruleset.optional(),
+      permissionMode: Permission.Mode.optional(),
       revert: z
         .object({
           messageID: MessageID.zod,
@@ -351,6 +354,7 @@ export namespace Session {
     readonly setTitle: (input: { sessionID: SessionID; title: string }) => Effect.Effect<void>
     readonly setArchived: (input: { sessionID: SessionID; time?: number }) => Effect.Effect<void>
     readonly setPermission: (input: { sessionID: SessionID; permission: Permission.Ruleset }) => Effect.Effect<void>
+    readonly setPermissionMode: (input: { sessionID: SessionID; mode: Permission.Mode }) => Effect.Effect<void>
     readonly setRevert: (input: {
       sessionID: SessionID
       revert: Info["revert"]
@@ -603,6 +607,13 @@ export namespace Session {
         yield* patch(input.sessionID, { permission: input.permission, time: { updated: Date.now() } })
       })
 
+      const setPermissionMode = Effect.fn("Session.setPermissionMode")(function* (input: {
+        sessionID: SessionID
+        mode: Permission.Mode
+      }) {
+        yield* patch(input.sessionID, { permissionMode: input.mode })
+      })
+
       const setRevert = Effect.fn("Session.setRevert")(function* (input: {
         sessionID: SessionID
         revert: Info["revert"]
@@ -701,6 +712,7 @@ export namespace Session {
         setTitle,
         setArchived,
         setPermission,
+        setPermissionMode,
         setRevert,
         clearRevert,
         setSummary,

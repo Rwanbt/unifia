@@ -640,7 +640,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 ...req,
                 sessionID: input.session.id,
                 tool: { messageID: input.processor.message.id, callID: options.toolCallId },
-                ruleset: Permission.merge(input.agent.permission, input.session.permission ?? []),
+                ruleset: Permission.tighten(
+                  Permission.merge(input.agent.permission, input.session.permission ?? []),
+                  Permission.restrictedBy(input.session.permissionMode),
+                ),
               }),
             ),
         })
@@ -874,7 +877,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                   permission.ask({
                     ...req,
                     sessionID,
-                    ruleset: Permission.merge(taskAgent.permission, session.permission ?? []),
+                    ruleset: Permission.tighten(
+                      Permission.merge(taskAgent.permission, session.permission ?? []),
+                      Permission.restrictedBy(session.permissionMode),
+                    ),
                   }),
                 )
               },
@@ -1558,6 +1564,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             session.permission = permissions
             yield* sessions.setPermission({ sessionID: session.id, permission: permissions })
           }
+          if (input.permissionMode && input.permissionMode !== session.permissionMode) {
+            session.permissionMode = input.permissionMode
+            yield* sessions.setPermissionMode({ sessionID: session.id, mode: input.permissionMode })
+          }
 
           if (input.noReply === true) return message
           return yield* loop({ sessionID: input.sessionID })
@@ -2068,6 +2078,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     format: MessageV2.Format.optional(),
     system: z.string().optional(),
     variant: z.string().optional(),
+    permissionMode: Permission.Mode.optional().describe(
+      "The composer's accept mode; stored on the session, it turns allow rules into ask (ADR-043)",
+    ),
     parts: z.array(
       z.discriminatedUnion("type", [
         MessageV2.TextPart.omit({
