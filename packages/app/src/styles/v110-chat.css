@@ -499,9 +499,21 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   right: calc((100% - var(--v110-chat-column)) / 2 + 9px);
 }
 
+/* The bottom padding is room for the last message's floating shelf: each
+ * turn is content-visibility: auto, which clips paint to the turn's box. */
+[data-v110="chat-timeline"] {
+  padding-top: 6px;
+}
+
 [data-v110="chat-timeline"] [data-slot="session-turn-message-container"] {
   gap: 24px;
-  padding: 6px 23px 0 2px;
+  padding: 0 23px 28px 2px;
+}
+
+/* Same clipping one level down: the reply's shelf sits under the whole
+ * assistant row, outside any single assistant message's box. */
+[data-v110="chat-timeline"] [data-component="assistant-message"] {
+  content-visibility: visible;
 }
 
 /* Messages -- #globalChatPanel .msg-user / .user-bubble / .ai-row. */
