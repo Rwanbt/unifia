@@ -61,6 +61,10 @@ export const SidebarContent = (props: {
   return (
     <div
       class="flex h-full w-full min-w-0 overflow-x-clip overflow-y-visible"
+      // The nav keeps the panel's full width while the panel is collapsed,
+      // on top of the workspace: only the rail may take pointer events then,
+      // or the empty strip swallows every click on the chat's left side.
+      classList={{ "pointer-events-auto": expanded(), "pointer-events-none": !expanded() }}
       // The reference opens only from the titlebar trigger. Once the preview
       // exists, the shell hit-area bridges the gap to the floating panel;
       // entering this area while closed must remain a no-op.
@@ -75,7 +79,7 @@ export const SidebarContent = (props: {
         data-visible={railVisible()}
         data-parity={props.mobile ? undefined : "shell.rail"}
         classList={{
-          "shrink-0 bg-background-base flex flex-col items-center overflow-hidden": true,
+          "shrink-0 bg-background-base flex flex-col items-center overflow-hidden pointer-events-auto": true,
           "transition-[width,opacity] duration-200": props.opened() || props.railOpened(),
         }}
         style={{

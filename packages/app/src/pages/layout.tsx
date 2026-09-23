@@ -1007,6 +1007,10 @@ export default function Layout(props: ParentProps) {
                 "hidden shell:block": true,
                 "absolute inset-y-0 left-0": true,
                 "z-30": true,
+                // Hits are owned by the rail and, when expanded, the panel:
+                // see sidebar-shell.tsx. The nav box itself spans the panel
+                // width even when the panel is collapsed.
+                "pointer-events-none": true,
               }}
               style={{
                 width: `${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px`,
