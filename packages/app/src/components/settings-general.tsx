@@ -1,4 +1,4 @@
-import { type Component, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
+import { type Component, For, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@unifia/ui/button"
 import { Collapsible } from "@unifia/ui/collapsible"
@@ -312,6 +312,87 @@ export const SettingsGeneral: Component = () => {
     </div>
   )
 
+  // ADR-048: user-selectable accent colour. Six curated presets that match
+  // the maquette's range of hues, plus a native colour picker for custom
+  // values, plus an explicit reset back to the maquette seed (`var(--text)`).
+  // The bridge in `useSettings()` writes the value on `<html>` whenever the
+  // store changes, so this component only persists the choice.
+  const ACCENT_PRESETS: ReadonlyArray<{ id: string; value: string }> = [
+    { id: "indigo", value: "#424BD5" },
+    { id: "crimson", value: "#DC2626" },
+    { id: "emerald", value: "#10B981" },
+    { id: "amber", value: "#F59E0B" },
+    { id: "violet", value: "#8B5CF6" },
+    { id: "sky", value: "#0EA5E9" },
+  ]
+  const isAccentPreset = (v: string) => ACCENT_PRESETS.some((p) => p.value.toLowerCase() === v.toLowerCase())
+
+  const AccentPicker: Component = () => {
+    const language = useLanguage()
+    const settings = useSettings()
+    const current = () => settings.appearance.accent()
+    const isCustom = () => {
+      const v = current()
+      return v !== "" && !isAccentPreset(v)
+    }
+
+    return (
+      <div
+        class="flex flex-row items-center gap-1.5 flex-wrap"
+        data-v110="settings-accent-picker"
+      >
+        <For each={ACCENT_PRESETS}>
+          {(preset) => (
+            <button
+              type="button"
+              data-action={`settings-accent-preset-${preset.id}`}
+              aria-label={language.t(`settings.general.row.accent.preset.${preset.id}`)}
+              title={language.t(`settings.general.row.accent.preset.${preset.id}`)}
+              class="w-7 h-7 rounded-full border border-line-strong hover:border-text-strong transition-colors cursor-pointer"
+              classList={{
+                "ring-2 ring-offset-2 ring-offset-background-base ring-text-strong":
+                  current().toLowerCase() === preset.value.toLowerCase(),
+              }}
+              style={{ "background-color": preset.value }}
+              onClick={() => settings.appearance.setAccent(preset.value)}
+            />
+          )}
+        </For>
+        <label
+          data-action="settings-accent-custom"
+          title={language.t("settings.general.row.accent.custom")}
+          class="relative w-7 h-7 rounded-full border border-dashed border-line-strong hover:border-text-strong transition-colors cursor-pointer flex items-center justify-center bg-background-base"
+          classList={{
+            "ring-2 ring-offset-2 ring-offset-background-base ring-text-strong":
+              isCustom(),
+            "border-solid border-line-strong": isCustom(),
+          }}
+          style={isCustom() ? { "background-color": current() } : {}}
+        >
+          <span class="text-12-medium text-text-secondary" aria-hidden="true">
+            +
+          </span>
+          <input
+            type="color"
+            class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+            value={current() || ACCENT_PRESETS[0].value}
+            onInput={(event) => settings.appearance.setAccent(event.currentTarget.value)}
+            aria-label={language.t("settings.general.row.accent.custom")}
+          />
+        </label>
+        <button
+          type="button"
+          data-action="settings-accent-reset"
+          aria-label={language.t("settings.general.row.accent.reset")}
+          class="ml-1 h-7 px-2.5 text-11-regular text-text-secondary hover:text-text-strong border border-line hover:border-line-strong rounded-full transition-colors cursor-pointer"
+          onClick={() => settings.appearance.setAccent("")}
+        >
+          {language.t("settings.general.row.accent.reset")}
+        </button>
+      </div>
+    )
+  }
+
   const AppearanceSection = () => (
     <div class="flex flex-col gap-1">
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.appearance")}</h3>
@@ -380,6 +461,13 @@ export const SettingsGeneral: Component = () => {
             size="small"
             triggerVariant="settings"
           />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.accent.title")}
+          description={language.t("settings.general.row.accent.description")}
+        >
+          <AccentPicker />
         </SettingsRow>
 
         <SettingsRow
