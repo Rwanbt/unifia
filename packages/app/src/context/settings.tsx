@@ -59,6 +59,13 @@ export interface Settings {
     fontSize: number
     mono: string
     sans: string
+    /**
+     * ADR-048: user-selectable accent color. The empty string is the sentinel
+     * that means "follow the maquette seed" — when set, a `createEffect` in
+     * the provider writes `--accent` on `<html>` (and removes it for the
+     * sentinel so the v110-chat.css / v110.css fallbacks take over).
+     */
+    accent: string
   }
   keybinds: Record<string, string>
   permissions: {
@@ -135,6 +142,7 @@ const defaultSettings: Settings = {
     fontSize: 14,
     mono: "",
     sans: "",
+    accent: "",
   },
   keybinds: {},
   permissions: {
@@ -207,6 +215,24 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       const root = document.documentElement
       root.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.mono))
       root.style.setProperty("--font-family-sans", sansFontFamily(store.appearance?.sans))
+    })
+
+    // ADR-048: bridge the persisted accent onto the runtime CSS custom
+    // property. Sentinel ("") falls back to the maquette seed in v110.css /
+    // v110-chat.css; any non-empty value overrides `--accent` on `<html>` so
+    // every var(--accent) consumer in the app follows the picker.
+    createEffect(() => {
+      if (typeof document === "undefined") return
+      const value = store.appearance?.accent ?? ""
+      if (value) {
+        document.documentElement.style.setProperty("--accent", value)
+        // Native form controls (range, progress, checkbox) read this; mirror
+        // so the picker also retints browser widgets inside the app.
+        document.documentElement.style.accentColor = value
+      } else {
+        document.documentElement.style.removeProperty("--accent")
+        document.documentElement.style.removeProperty("accent-color")
+      }
     })
 
     createEffect(() => {
@@ -331,6 +357,14 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         uiFont: withFallback(() => store.appearance?.sans, defaultSettings.appearance.sans),
         setUIFont(value: string) {
           setStore("appearance", "sans", value.trim() ? value : "")
+        },
+        accent: withFallback(() => store.appearance?.accent, defaultSettings.appearance.accent),
+        setAccent(value: string) {
+          // Normalize: a custom picker may emit "#abcdef" or "#abcdef00";
+          // we keep the canonical #rrggbb form so the CSS reads identically
+          // to the picker swatch. Empty / "inherit" sentinel clears.
+          const trimmed = value.trim().toLowerCase()
+          setStore("appearance", "accent", trimmed === "inherit" ? "" : trimmed)
         },
       },
       keybinds: {
