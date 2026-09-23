@@ -730,6 +730,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             speech::tts_speak,
             speech::tts_cancel,
             speech::tts_stop,
+            speech::tts_voice_cloning_supported,
             speech::tts_save_voice_clone,
             speech::tts_list_voice_clones,
             speech::tts_delete_voice_clone,

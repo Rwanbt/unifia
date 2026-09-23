@@ -176,6 +176,24 @@ impl VoiceRuntime {
         Ok(())
     }
 
+    pub async fn voice_cloning_supported(&self, app: &AppHandle) -> Result<bool, String> {
+        self.start(app).await?;
+        let worker = self.current_worker().await?;
+        let _operation = worker.operation.lock().await;
+        let health = request_worker(
+            &worker,
+            serde_json::json!({
+                "id":uuid::Uuid::new_v4().to_string(),
+                "action":"health"
+            }),
+        )
+        .await?;
+        health
+            .get("voiceCloningSupported")
+            .and_then(serde_json::Value::as_bool)
+            .ok_or_else(|| "Pocket voice cloning capability is unavailable".to_string())
+    }
+
     pub async fn synthesize(
         &self,
         app: &AppHandle,

@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import threading
 import queue
 import time
@@ -10,8 +11,14 @@ from voice_host.worker import ActiveRequest, LANGUAGES, PocketWorker, main
 
 
 class PendingModel:
+    has_voice_cloning = False
+
     def generate_audio_stream(self, _voice_state, _text):
         yield None
+
+
+class CloneCapableModel(PendingModel):
+    has_voice_cloning = True
 
 
 class WaitingModel:
@@ -70,7 +77,7 @@ class PocketWorkerContractTests(unittest.TestCase):
     def test_health_reports_process_liveness_without_runtime_or_model_readiness(self):
         worker = PocketWorker()
 
-        with patch("voice_host.worker.process_memory_usage", return_value=(4096, 8192)), patch("voice_host.worker.emit") as emit:
+        with patch("voice_host.worker.process_memory_usage", return_value=(4096, 8192, 16384)), patch("voice_host.worker.emit") as emit:
             worker.handle({"id": "health-1", "action": "health"})
 
         self.assertEqual(
@@ -80,13 +87,16 @@ class PocketWorkerContractTests(unittest.TestCase):
                 "type": "health",
                 "provider": "pocket",
                 "alive": True,
+                "processId": os.getpid(),
                 "runtimeReady": False,
                 "runtimeError": None,
                 "modelLoaded": False,
+                "voiceCloningSupported": None,
                 "language": None,
                 "voiceReady": False,
                 "workingSetBytes": 4096,
                 "peakWorkingSetBytes": 8192,
+                "privateBytes": 16384,
             },
         )
 
@@ -97,21 +107,29 @@ class PocketWorkerContractTests(unittest.TestCase):
         worker.language = "fr"
         worker.voice_state = object()
 
-        with patch("voice_host.worker.process_memory_usage", return_value=(4096, 8192)):
+        with patch("voice_host.worker.process_memory_usage", return_value=(4096, 8192, 16384)):
             health = worker.health()
         self.assertEqual(
             health,
             {
                 "alive": True,
+                "processId": os.getpid(),
                 "runtimeReady": True,
                 "runtimeError": None,
                 "modelLoaded": True,
+                "voiceCloningSupported": False,
                 "language": "fr",
                 "voiceReady": True,
                 "workingSetBytes": 4096,
                 "peakWorkingSetBytes": 8192,
+                "privateBytes": 16384,
             },
         )
+
+    def test_health_reports_clone_capability_from_loaded_checkpoint(self):
+        worker = PocketWorker()
+        worker.model = CloneCapableModel()
+        self.assertTrue(worker.health()["voiceCloningSupported"])
 
     def test_prepare_fails_closed_until_runtime_imports_are_ready(self):
         with self.assertRaisesRegex(RuntimeError, "Pocket runtime is not ready"):
@@ -233,7 +251,7 @@ class PocketWorkerContractTests(unittest.TestCase):
             patch("sys.stdin", input_stream),
             patch("sys.stdout", output_stream),
             patch("voice_host.worker.PocketWorker.initialize_runtime"),
-            patch("voice_host.worker.process_memory_usage", return_value=(4096, 8192)),
+            patch("voice_host.worker.process_memory_usage", return_value=(4096, 8192, 16384)),
         ):
             main()
 

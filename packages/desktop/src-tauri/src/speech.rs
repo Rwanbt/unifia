@@ -336,6 +336,16 @@ pub async fn tts_stop(app: AppHandle) -> Result<(), String> {
     app.state::<SpeechState>().voice_runtime.stop().await
 }
 
+/// Report voice-cloning support from the checkpoint loaded by Pocket.
+#[tauri::command]
+#[specta::specta]
+pub async fn tts_voice_cloning_supported(app: AppHandle) -> Result<bool, String> {
+    app.state::<SpeechState>()
+        .voice_runtime
+        .voice_cloning_supported(&app)
+        .await
+}
+
 /// Save a voice clone WAV file for Pocket TTS
 #[tauri::command]
 #[specta::specta]
@@ -344,6 +354,14 @@ pub async fn tts_save_voice_clone(
     audio_base64: String,
     name: String,
 ) -> Result<String, String> {
+    if !app
+        .state::<SpeechState>()
+        .voice_runtime
+        .voice_cloning_supported(&app)
+        .await?
+    {
+        return Err("The loaded Pocket checkpoint does not support voice cloning".into());
+    }
     // Refuse path traversal (`../../../etc/passwd`) and control chars in the
     // clone name — the name is concatenated into a filename below.
     let safe_name = crate::validate::validate_voice_clone_name(&name)?.to_string();

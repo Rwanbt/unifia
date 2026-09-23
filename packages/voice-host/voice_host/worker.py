@@ -51,10 +51,11 @@ class MemoryCounters(ctypes.Structure):
         ("quotaNonPagedPoolUsage", ctypes.c_size_t),
         ("pagefileUsage", ctypes.c_size_t),
         ("peakPagefileUsage", ctypes.c_size_t),
+        ("privateUsage", ctypes.c_size_t),
     ]
 
 
-def process_memory_usage() -> tuple[int | None, int | None]:
+def process_memory_usage() -> tuple[int | None, int | None, int | None]:
     if os.name == "nt":
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
         psapi = ctypes.WinDLL("psapi", use_last_error=True)
@@ -68,13 +69,13 @@ def process_memory_usage() -> tuple[int | None, int | None]:
         counters = MemoryCounters()
         counters.cb = ctypes.sizeof(counters)
         if psapi.GetProcessMemoryInfo(kernel.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
-            return counters.workingSetSize, counters.peakWorkingSetSize
-        return None, None
+            return counters.workingSetSize, counters.peakWorkingSetSize, counters.privateUsage
+        return None, None, None
     statm = Path("/proc/self/statm")
     if statm.is_file():
         resident_pages = int(statm.read_text(encoding="ascii").split()[1])
-        return resident_pages * os.sysconf("SC_PAGE_SIZE"), None
-    return None, None
+        return resident_pages * os.sysconf("SC_PAGE_SIZE"), None, None
+    return None, None, None
 
 
 @dataclass
@@ -208,16 +209,23 @@ class PocketWorker:
                 self.requests.pop(request_id, None)
 
     def health(self) -> dict[str, Any]:
-        working_set_bytes, peak_working_set_bytes = process_memory_usage()
+        working_set_bytes, peak_working_set_bytes, private_bytes = process_memory_usage()
         return {
             "alive": True,
+            "processId": os.getpid(),
             "runtimeReady": self.runtime_ready,
             "runtimeError": self.runtime_error,
             "modelLoaded": self.model is not None,
+            "voiceCloningSupported": (
+                bool(getattr(self.model, "has_voice_cloning", False))
+                if self.model is not None
+                else None
+            ),
             "language": self.language,
             "voiceReady": self.voice_state is not None,
             "workingSetBytes": working_set_bytes,
             "peakWorkingSetBytes": peak_working_set_bytes,
+            "privateBytes": private_bytes,
         }
 
     def handle(self, request: dict[str, Any]) -> None:

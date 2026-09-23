@@ -70,7 +70,7 @@ Kokoro engine modules, Tauri command registrations, download/synthesis commands,
 Verification: mobile Rust `cargo check --lib` passed; app audio settings migration tests passed (5 tests / 16 assertions); media provider adapter tests passed (6 / 12); `git diff --check` passed. App and desktop typechecks reach only the known cross-worktree duplicate `OpaqueCursor` error under the shared `node_modules` junction. Desktop Rust binding export is blocked because `ort-sys` emits an empty native search path in this host environment; `CARGO_NET_OFFLINE=false` retry did not resolve it. The six stale generated Kokoro wrappers were removed mechanically from `packages/desktop/src/bindings.ts`; the Specta exporter could not be run here.
 
 **Gate C: PASS for active Kokoro removal, with desktop exporter verification limited by the missing ONNX Runtime link path.** No runtime model files outside the repository were deleted. This is not a production qualification; Voice Host/Pocket managed runtime and remote TTS are still pending.
-# Wave D qualification — managed Pocket worker (2026-09-23)
+# Wave D qualification — managed Pocket worker (2026-09-23, historical snapshot)
 
 **Wave D: PARTIAL. Global status: NO-GO.** This implementation and qualification do not authorize Piper, merge, or production claims. In-memory PCM to the UI remains out of Gate D as stated in the continuation directive.
 
@@ -101,4 +101,39 @@ Verification: mobile Rust `cargo check --lib` passed; app audio settings migrati
 | IPC and security bounds | PASS | Bounded line/request/text/queue handling and negative cases covered in the 23-test suite. |
 | Python dependency vulnerability audit | PASS (pinned environment) | Online `uv audit --locked --project packages/voice-host` reported no known vulnerabilities or adverse project statuses in 48 packages. uv noted that the audit command is experimental and normalized an invalid upstream version specifier during audit; no project lockfile change was made. |
 
-Desktop packaging remains blocked and the voice-worktree typecheck remains partial under the shared dependency mount, despite the full workspace typecheck passing before the successful branch push. Dependency audit passed for the pinned Python environment. A process-level VRAM measurement, real clone-capable checkpoint qualification, Tauri supervisor crash injection, and a package build with compatible Tauri Rust/JS versions are still needed before Gate D can pass. Do not begin Wave E until these gates are resolved.
+At this snapshot desktop packaging remained blocked and the voice-worktree typecheck was partial under the shared dependency mount. The following closure attempt supersedes those status rows where it has newer evidence.
+
+## Final Gate D closure attempt — 2026-09-24
+
+**Wave D: NO-GO. Wave E remains frozen.** This update records the additional evidence and fixes on `voice`; it does not qualify production behavior, clone-capable weights, or Tauri-owned crash recovery.
+
+### New evidence
+
+- Ten isolated real-model language cycles completed in one Pocket worker (PID 10192): 120 prepare/synthesis actions, all synthesis requests completed with PCM, five languages per cycle, no stale model/voice state, and a stable worker PID. External Windows process samples were collected at each cycle endpoint and matched the worker metrics. Evidence: ignored artifact `.build-temp/final-gate-d/memory-soak-isolated-final.json` and its `.worker.log`.
+- The cycle-end working sets were 2081.7, 3692.3, 1288.8, 2857.0, 4428.2, 1572.6, 3262.3, 948.8, 2393.4 and 3969.2 MiB. The worker's cumulative peak working set was 6333.7 MiB (about 6.19 GiB); endpoint private bytes ranged from 1.66 to 5.34 GiB. The low cycle-8 endpoint and later rise show release and reuse, not a flat-memory ceiling. This is a ten-cycle soak result, not a universal memory bound.
+- `scripts/voice/qualify-pocket-soak.py` now records an external Windows process cross-check at each endpoint. An earlier cross-check run stopped at cycle 8 and is not counted as qualifying evidence; the isolated completed run is the accepted result.
+- Clone actions are now gated by the capability reported by the loaded Pocket checkpoint. The UI disables upload, recording, clone selection and testing unless capability is true, explains unsupported/unknown states, and leaves saved samples available for deletion. The Tauri save command independently rejects unsupported checkpoints. Added worker health coverage for supported and unsupported checkpoints. No clone-capable weights were available, so successful real clone creation remains unqualified.
+- Tauri dependencies were aligned sufficiently for the Windows desktop package to build and install. `cargo check --manifest-path packages/desktop/src-tauri/Cargo.toml --locked` passed. The current-source installer was rebuilt, installed into `.build-temp/install-gate-d` (installer exit 0), and launched with all profile paths redirected to `.build-temp/profile-gate-d`; its `Unifia Dev` window stayed up for 12 seconds and accepted a clean close (exit 0). The installed EXE matched the newly built EXE at 47,668,224 bytes. Installer SHA-256: `1C258F7D48DCB0F7F49A68C7F79063A3376099EC7337BB54505FDBD62596C9FE`. The installer remains unsigned outside GitHub Actions.
+- Current checks: `bun turbo typecheck --concurrency=1` passed (47/47 tasks); `bun run --cwd packages/app test:unit` passed (1643 tests, 0 failures, 41,539 expectations); the managed voice-host Python suite passed (24 tests); desktop Rust `cargo check --locked` passed; `git diff --check` passed.
+
+### Current Gate D status
+
+| Gate D area | Status | Evidence / remaining limit |
+|---|---|---|
+| Cold managed install, first inference and five languages | PASS | Prior cold-cache proof remains valid; 10-cycle run also completed all five languages. |
+| Ten-cycle RAM soak | PASS (bounded) | 120 actions, same PID, external endpoint cross-check, non-monotonic memory release. This does not establish a fixed maximum for other systems. |
+| Worker cancellation and reuse | PASS | Prior real-model cancellation evidence remains valid. |
+| Worker health/capability semantics | PASS | Unit-tested false/unknown and true checkpoint reports. |
+| Clone UI/backend safety | PASS for fail-closed behavior | Controls gate on loaded capability; backend save rejects unsupported checkpoints. Real clone success remains unqualified without authorized clone-capable weights. |
+| Tauri-owned worker crash and second restart | BLOCKED | No live crash injection through the packaged Tauri supervisor, including the required second crash/restart. Worker-level cancellation/reuse is not equivalent. |
+| Packaged install and startup/sidecar boot | PASS | NSIS build/install and isolated packaged launch/clean exit succeeded. The installer is unsigned because the build ran outside GitHub Actions. |
+| Packaged TTS synthesis | BLOCKED | The installed package was not driven through the native UI; `/browse` did not initialize, so no packaged `tts_speak` output was measured. Startup proof is not synthesis proof. |
+| Workspace typecheck, app tests, voice host and desktop Rust | PASS | Exact current commands and counts listed above. |
+| Mobile Rust check | BLOCKED / environment | A retry previously hit a Rust compiler internal error while compiling `uuid 1.23.0`; it is not a project diagnostic and was not represented as a pass. |
+| Rust formatting | PARTIAL | Workspace `cargo fmt --check` reports extensive pre-existing formatting differences in untouched desktop files. No workspace-wide reformat was applied. |
+
+### Safety disclosure
+
+One earlier packaged-app launch was not fully isolated from the real user profile. It created/updated `C:\Users\barat\.local\share\unifia\unifia-voice.db` and touched `workbench-audit.jsonl`; the processes were stopped and no cleanup or rollback was performed, to preserve possible user data. All subsequent packaged launch work used isolated profile directories. The isolated packaged startup does not qualify synthesis or crash recovery.
+
+Do not begin Wave E. Gate D can close only after Tauri-owned worker crash and second-restart qualification plus packaged synthesis are evidenced. Clone-capable weights remain an external dependency if Gate D requires positive clone qualification; this branch only proves fail-closed handling for the loaded no-cloning checkpoint.

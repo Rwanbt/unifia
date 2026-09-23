@@ -1,4 +1,4 @@
-import { type Component, createSignal, For, Show } from "solid-js"
+import { type Component, createEffect, createSignal, For, Show } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
 import { Button } from "@unifia/ui/button"
@@ -170,6 +170,7 @@ export const SettingsAudio: Component = () => {
 
       <Show when={!isMobile()}>
         <VoiceCloneSection
+          enabled={settings.ttsEnabled && settings.ttsProvider === "pocket"}
           currentVoice={settings.voiceByLanguage.en ?? "alba"}
           onSelectClone={(name) => update("voiceByLanguage", { ...settings.voiceByLanguage, en: name })}
         />
@@ -178,14 +179,50 @@ export const SettingsAudio: Component = () => {
   )
 }
 
-function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: string) => void }) {
+function VoiceCloneSection(props: {
+  enabled: boolean
+  currentVoice: string
+  onSelectClone: (name: string) => void
+}) {
   const language = useLanguage()
   const [clones, setClones] = createSignal<string[]>([])
   const [uploading, setUploading] = createSignal(false)
   const [recording, setRecording] = createSignal(false)
   const [testing, setTesting] = createSignal<string | null>(null)
+  const [cloningSupported, setCloningSupported] = createSignal<boolean | null>(null)
+  const [checkingCapability, setCheckingCapability] = createSignal(false)
+  const [capabilityCheckFailed, setCapabilityCheckFailed] = createSignal(false)
   let mediaRecorder: MediaRecorder | null = null
   let audioChunks: Blob[] = []
+  let capabilityRequestId = 0
+
+  const canClone = () => props.enabled && cloningSupported() === true
+  const checkCapability = async (requestId: number) => {
+    setCheckingCapability(true)
+    setCapabilityCheckFailed(false)
+    try {
+      const supported = await invokeTauri("tts_voice_cloning_supported")
+      if (requestId === capabilityRequestId) setCloningSupported(supported)
+    } catch {
+      if (requestId === capabilityRequestId) {
+        setCloningSupported(null)
+        setCapabilityCheckFailed(true)
+      }
+    } finally {
+      if (requestId === capabilityRequestId) setCheckingCapability(false)
+    }
+  }
+
+  createEffect(() => {
+    const requestId = ++capabilityRequestId
+    if (props.enabled) {
+      void checkCapability(requestId)
+    } else {
+      setCloningSupported(null)
+      setCheckingCapability(false)
+      setCapabilityCheckFailed(false)
+    }
+  })
 
   const loadClones = async () => {
     try {
@@ -203,7 +240,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
   // accepting the WAV but returning empty/garbled audio for a voice the
   // user thought was selected — this button surfaces it immediately.
   const handleTest = async (voiceName: string) => {
-    if (testing()) return
+    if (!canClone() || testing()) return
     setTesting(voiceName)
     try {
       const wavPath: string = await invokeTauri("tts_speak", {
@@ -233,6 +270,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
   }
 
   const handleUpload = async () => {
+    if (!canClone()) return
     const input = document.createElement("input")
     input.type = "file"
     input.accept = "audio/wav,audio/wave,.wav"
@@ -280,6 +318,8 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       }
       return
     }
+
+    if (!canClone()) return
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -350,7 +390,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
                 size="small"
                 variant="secondary"
                 onClick={handleUpload}
-                disabled={uploading() || recording()}
+                disabled={!canClone() || checkingCapability() || uploading() || recording()}
               >
                 {uploading() ? language.t("settings.fork.audio.processing") : language.t("settings.fork.audio.uploadWav")}
               </Button>
@@ -361,7 +401,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
                   class="size-8"
                   aria-label={recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.recordVoice")}
                   onClick={handleRecord}
-                  disabled={uploading()}
+                  disabled={(!canClone() && !recording()) || checkingCapability() || uploading()}
                 />
               </Tooltip>
             </div>
@@ -392,6 +432,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
                       class="text-13-regular text-text-strong hover:text-text-strong truncate text-left"
                       classList={{ "text-syntax-property!": props.currentVoice === name }}
                       onClick={() => props.onSelectClone(name)}
+                      disabled={!canClone() || checkingCapability()}
                     >
                       {name}
                       <Show when={props.currentVoice === name}>
@@ -402,7 +443,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
                       <button
                         type="button"
                         class="text-12-regular text-text-weak hover:text-text-strong disabled:opacity-50"
-                        disabled={testing() !== null}
+                        disabled={!canClone() || checkingCapability() || testing() !== null}
                         onClick={() => handleTest(name)}
                       >
                         {testing() === name ? language.t("settings.fork.audio.voiceTesting") : language.t("settings.fork.audio.voiceTest")}
@@ -422,9 +463,22 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
           </Show>
         </div>
       </SettingsSection>
-      <p data-slot="settings-note">
-        {language.t("settings.fork.audio.cloningDescription")}
-      </p>
+      <Show when={props.enabled && checkingCapability()}>
+        <p data-slot="settings-note">{language.t("settings.fork.audio.cloneCapabilityChecking")}</p>
+      </Show>
+      <Show when={props.enabled && cloningSupported() === false}>
+        <p data-slot="settings-note" role="status">
+          {language.t("settings.fork.audio.cloneCapabilityUnsupported")}
+        </p>
+      </Show>
+      <Show when={props.enabled && capabilityCheckFailed()}>
+        <p data-slot="settings-note" role="status">
+          {language.t("settings.fork.audio.cloneCapabilityError")}
+        </p>
+      </Show>
+      <Show when={canClone()}>
+        <p data-slot="settings-note">{language.t("settings.fork.audio.cloningDescription")}</p>
+      </Show>
     </>
   )
 }

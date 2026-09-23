@@ -22,10 +22,10 @@ default = ["onnx"]
 onnx = ["dep:ort", "dep:ndarray"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
-tauri = { version = "2.9.5", features = ["macos-private-api", "protocol-asset"] }
+tauri = { version = "2.10.3", features = ["macos-private-api", "protocol-asset"] }
 # Devtools intentionally NOT in default features. Tauri enables the webview
 # devtools automatically in debug builds; omitting the `devtools` feature
 # here means release builds do NOT ship the devtools surface, which would
@@ -33,7 +33,7 @@ tauri = { version = "2.9.5", features = ["macos-private-api", "protocol-asset"] 
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2.4.6"
 tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-store = "2"
@@ -99,5 +99,3 @@ objc2-web-kit = "0.3"
 specta = { git = "https://github.com/specta-rs/specta", rev = "591a5f3ddc78348abf4cbb541d599d65306d92b9" }
 specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "591a5f3ddc78348abf4cbb541d599d65306d92b9" }
 tauri-specta = { git = "https://github.com/specta-rs/tauri-specta", rev = "6720b2848eff9a3e40af54c48d65f6d56b640c0b" }
-# TODO: https://github.com/tauri-apps/tauri/pull/14812
-tauri  = { git = "https://github.com/tauri-apps/tauri", rev = "4d5d78daf636feaac20c5bc48a6071491c4291ee" }
