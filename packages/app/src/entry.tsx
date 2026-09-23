@@ -6,6 +6,7 @@ import { type Platform, PlatformProvider } from "@/context/platform"
 import { dict as en } from "@/i18n/en"
 import { dict as zh } from "@/i18n/zh"
 import { handleNotificationClick, notificationIcon } from "@/utils/notification-click"
+import { installWebSpeech } from "@/hooks/web-speech"
 import pkg from "../package.json"
 import { ServerConnection } from "./context/server"
 
@@ -141,6 +142,8 @@ const testOverride = (
 const merged: Platform = testOverride ? { ...platform, ...testOverride } : platform
 
 if (root instanceof HTMLElement) {
+  // The desktop and mobile shells install their own speech engines.
+  installWebSpeech()
   // ADR-041: a Vite dev build may seed the local sidecar's credentials so a
   // password-protected server (required by the web Workbench bridge) works
   // without typing them. Production builds never read these variables.

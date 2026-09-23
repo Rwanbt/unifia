@@ -26,6 +26,8 @@ import { Select } from "@unifia/ui/select"
 import { useDialog } from "@unifia/ui/context/dialog"
 import { ModelSelectorPopover } from "@/components/dialog-select-model"
 import { useProviders } from "@/hooks/use-providers"
+import type { SpeechEndDetail } from "@/hooks/web-speech"
+import { showToast } from "@unifia/ui/toast"
 import { useCommand } from "@/context/command"
 import { Persist, persisted } from "@/utils/persist"
 import { usePermission } from "@/context/permission"
@@ -530,6 +532,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const webSearch = () => webSearchPrefs.webSearch
   const setWebSearch = (value: boolean) => setWebSearchPrefs("webSearch", value)
   const [recording, setRecording] = createSignal(false)
+  // The speech engine ends dictation on its own (silence, error, missing
+  // browser support): leave the recording state and say why (web-speech.ts).
+  const onSpeechEnded = (event: Event) => {
+    const detail = (event as CustomEvent<SpeechEndDetail>).detail
+    if (detail.kind === "stt") setRecording(false)
+    if (detail.reason === "done") return
+    showToast({ title: language.t(`speech.${detail.reason}`) })
+  }
+  window.addEventListener("speech-ended", onSpeechEnded)
+  onCleanup(() => window.removeEventListener("speech-ended", onSpeechEnded))
   const isImeComposing = (event: KeyboardEvent) => event.isComposing || composing() || event.keyCode === 229
 
   const handleBlur = () => {
@@ -983,6 +995,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     setMode: (mode) => setStore("mode", mode),
     setPopover: (popover) => setStore("popover", popover),
     webSearch,
+    permissionMode: () => {
+      const mode = permission.getAcceptMode(params.id, sdk.directory)
+      return mode === true ? "full-auto" : mode === "auto-edit" ? "auto-edit" : "ask"
+    },
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     shouldQueue: props.shouldQueue,
@@ -995,10 +1011,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     getEditorRef: () => editorRef,
     getMode: () => store.mode,
     setMode: (v) => setStore("mode", v),
-    permissionMode: () => {
-      const mode = permission.getAcceptMode(params.id, sdk.directory)
-      return mode === true ? "full-auto" : mode === "auto-edit" ? "auto-edit" : "ask"
-    },
     getPopover: () => store.popover,
     getHistoryIndex: () => store.historyIndex,
     pick,
