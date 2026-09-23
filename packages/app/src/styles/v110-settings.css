@@ -12,111 +12,257 @@
  * @unifia/ui/tabs + Tailwind). parity:artifacts/tokens-audit.json flagged
  * them inert; they are removed. */
 
-[data-v110="settings-dialog"] {
-  height: 100%;
-  width: 100%;
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--v110-radius-lg);
-  background: var(--surface);
-}
-
-[data-v110="settings-dialog"]:focus-within {
-  outline: none;
-}
-
-[data-v110="settings-dialog"] [role="tablist"] {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: color-mix(in srgb, var(--surface) 90%, var(--surface-2));
-  border-right: 1px solid var(--line);
-  padding: 18px 12px 14px;
-  overflow: auto;
-}
-
-[data-v110="settings-dialog"] [role="tab"] {
-  width: 100%;
-  min-height: 36px;
-  padding: 0 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-  color: var(--muted);
-  border-radius: var(--v110-radius-sm);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font-size: 11px;
-  transition:
-    background-color var(--v110-fast) var(--v110-ease),
-    color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="settings-dialog"] [role="tab"]:hover {
-  background: var(--surface-3);
-  color: var(--text);
-}
-
-[data-v110="settings-dialog"] [role="tab"][aria-selected="true"] {
-  background: var(--surface-3);
-  color: var(--text);
-}
-
-[data-v110="settings-dialog"] [role="tabpanel"] {
-  position: relative;
-  min-width: 0;
-  overflow: auto;
-  background: var(--surface);
-  padding: 28px 34px 60px;
-  scrollbar-color: var(--line-strong) transparent;
-}
-
-@media (max-width: 900px) {
-  [data-v110="settings-dialog"] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  [data-v110="settings-dialog"] [role="tablist"] {
-    flex-direction: row;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    padding: 8px;
-  }
-  [data-v110="settings-dialog"] [role="tabpanel"] {
-    padding: 16px;
-  }
-}
-/* Chat observability (ADR-046) -- maquette .v94-obs-settings. The block
- * carries the reference palette itself, like the chat surface does. */
-[data-v110="chat-observability"] {
-  --text: #f2f2f3;
-  --muted: #9b9ba1;
-  --faint: #85858d;
+/* Frame -- maquette #settingsIntegrated (ADR-047), measured at 1440x900.
+ * The palette is the reference's, carried by the frame like the chat's. */
+[data-v110="settings-frame"] {
   --bg: #0e0e10;
+  --bg-soft: #121214;
+  --surface: #161618;
   --surface-2: #1b1b1e;
   --surface-3: #212125;
   --surface-4: #26262b;
+  --text: #f2f2f3;
+  --muted: #9b9ba1;
+  --faint: #85858d;
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.13);
-  margin-top: 2px;
-  padding: 10px 2px 2px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  --success: #8aca9a;
+  --v110-settings-nav-active: #2c2c2f;
+  --v110-settings-section-bg: rgba(27, 27, 30, 0.56);
+  --v110-settings-section-line: rgba(255, 255, 255, 0.056);
+  --v110-settings-row-line: rgba(255, 255, 255, 0.058);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
 }
 
-html[data-color-scheme="light"] [data-v110="chat-observability"] {
-  --text: #17171a;
-  --muted: #686870;
-  --faint: #74747c;
+html[data-color-scheme="light"] [data-v110="settings-frame"] {
   --bg: #ffffff;
+  --bg-soft: #f8f8f9;
+  --surface: #ffffff;
   --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
   --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
   --surface-4: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --text: #17171a;
+  --muted: #686870;
+  --faint: #74747c;
   --line: rgba(0, 0, 0, 0.065);
   --line-strong: rgba(0, 0, 0, 0.12);
+  --v110-settings-nav-active: color-mix(in srgb, #8d8d95 12%, #e8e8ea);
+  --v110-settings-section-bg: rgba(0, 0, 0, 0.018);
+  --v110-settings-section-line: rgba(0, 0, 0, 0.06);
+  --v110-settings-row-line: rgba(0, 0, 0, 0.055);
+}
+
+[data-v110="settings-commandbar"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-title"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-title"] > b {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-save-state"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-save-state"] i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"] {
+  width: min(390px, 40%);
+  height: 34px;
+  margin-left: auto;
+  /* The close button sits over the bar's right edge. */
+  margin-right: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"]::placeholder {
+  color: var(--faint);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"]:focus {
+  border-color: var(--line-strong);
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-list"] {
+  width: 220px;
+  min-width: 220px;
+  padding: 18px 12px 14px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-soft);
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+[data-v110="settings-nav"] {
+  gap: 2px;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"] {
+  padding: 7px 7px 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"]:not(:first-child) {
+  margin-top: 10px;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] {
+  height: 36px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger"] {
+  gap: 8px;
+  padding: 0 9px;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] [data-component="icon"] {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  color: var(--muted);
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-component="icon"] {
+  color: var(--accent);
+}
+
+[data-v110="settings-version"] {
+  gap: 4px;
+  padding: 10px 7px 2px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-version"] b {
+  font-weight: 500;
+}
+
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-content"] {
+  position: relative;
+  min-width: 0;
+  overflow: auto;
+  padding: 28px 34px 60px;
+  background: var(--surface);
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Pages -- .settings-page-head h2, h3, .settings-section, .setting-row. */
+[data-v110="settings-frame"] [data-slot="tabs-content"] h2 {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: normal;
+}
+
+[data-v110="settings-frame"] [data-slot="tabs-content"] h3 {
+  padding: 0 4px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: normal;
+}
+
+[data-v110="settings-section"] {
+  padding: 0 14px;
+  border: 1px solid var(--v110-settings-section-line);
+  border-radius: 11px;
+  background: var(--v110-settings-section-bg);
+}
+
+[data-v110="setting-row"] {
+  gap: 18px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--v110-settings-row-line);
+}
+
+[data-v110="setting-row"]:last-child {
+  border-bottom: 0;
+}
+
+[data-v110="setting-row"] [data-slot="setting-name"] {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 16.2px;
+}
+
+[data-v110="setting-row"] [data-slot="setting-desc"] {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 14.2px;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-content"] {
+    padding: 16px;
+  }
+}
+
+/* Chat observability (ADR-046) -- maquette .v94-obs-settings. */
+[data-v110="chat-observability"] {
+  margin-top: 2px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
 }
 
 [data-v110="chat-observability"] [data-slot="observability-head"] {
