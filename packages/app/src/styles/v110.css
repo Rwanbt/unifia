@@ -1028,6 +1028,19 @@ html[data-ui-animations="off"] *::after {
   border-color: var(--border-focus);
 }
 
+/* ADR-048: every <Switch /> from @unifia/ui/switch renders as
+ * [data-component="switch"] with the [data-checked] flag when on. The
+ * base styling (packages/ui/src/components/switch.css:94-98) paints the
+ * track with --icon-strong-base, which is the corporate icon colour and
+ * not affected by the picker. Override the track here so the user accent
+ * reaches every Switch in the app: Settings panels (Audio, Configuration,
+ * General, Memory, Models, Observability exporters), dialogs (Manage
+ * models, Select MCP), and any other consumer added later. */
+[data-component="switch"][data-checked] [data-slot="switch-control"] {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
 [data-component="skill-picker"] [data-skill-card][aria-selected="true"] {
   border-color: var(--accent-line-strong);
   background: var(--background-base);
