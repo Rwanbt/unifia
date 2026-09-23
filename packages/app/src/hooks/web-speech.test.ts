@@ -64,7 +64,10 @@ describe("dictation", () => {
     document.body.innerHTML = `<div data-component="prompt-input" contenteditable="true"></div>`
     const inserted: string[] = []
     const exec = document.execCommand
-    document.execCommand = ((_command: string, _ui: boolean, value: string) => (inserted.push(value), true)) as never
+    document.execCommand = ((_command: string, _ui: boolean, value: string) => {
+      inserted.push(value)
+      return true
+    }) as never
     cleanups.push(() => (document.execCommand = exec))
     const seen = ended()
     install()
