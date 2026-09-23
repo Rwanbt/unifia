@@ -82,6 +82,7 @@ import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
 
+const MAIN_PANE_DESTINATIONS: ReadonlySet<string> = new Set(["settings", "user", "browser", "memory"])
 const emptyUserMessages: UserMessage[] = []
 
 type ChangeMode = "git" | "branch" | "session" | "turn"
@@ -214,6 +215,20 @@ export default function Page() {
   const centered = createMemo(() => isDesktop() && mode.active() === "code" && view().workspace.current() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   useViewportCenteredColumn(chatSurface, centered)
+
+  // Settings, account, browser and memory render in the main pane, which the
+  // Chat layout hides entirely; opening one from Chat used to change only the
+  // breadcrumb. Like the reference's demo, show it beside the chat instead.
+  // Only a destination change reacts, so picking Chat afterwards still works.
+  createEffect(
+    on(
+      () => mode.destination(),
+      (destination) => {
+        if (!MAIN_PANE_DESTINATIONS.has(destination)) return
+        if (view().workspace.current() === "chat") view().workspace.set("split")
+      },
+    ),
+  )
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab

@@ -11,18 +11,21 @@
  * inert class hooks (a60-*, ai-text, browser-tab, graph-node, insp-tab)
  * that parity:artifacts/tokens-audit.json flagged as dead. */
 
-:root {
-  --faint: #4a4a52;
-}
-
 html[data-color-scheme="light"] {
-  --faint: #74747c;
   /* Maquette light --surface:#ffffff (Unifia-UI-UX-v110-PORT-READY-R1.html
-   * line 60), mirroring the dark --surface:#161618 override in v110.css. */
+   * line 60), mirroring the dark --surface:#161618 override in v110.css.
+   * The rest is the same final palette as the chat and settings frames. */
+  --bg-soft: #f8f8f9;
   --surface: #ffffff;
-  /* Same final palette as the chat and settings frames. */
   --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
   --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
+  --surface-4: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --hover: #e8e8ec;
+  --text: #17171a;
+  --muted: #686870;
+  --faint: #74747c;
+  --line: rgba(0, 0, 0, 0.065);
+  --line-strong: rgba(0, 0, 0, 0.12);
 }
 
 html[data-color-scheme="light"] [data-v110="home"] {

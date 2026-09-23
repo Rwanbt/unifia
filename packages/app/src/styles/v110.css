@@ -1099,19 +1099,22 @@ html[data-ui-animations="off"] *::after {
   --surface-2: #1b1b1e;
   --surface-3: #212125;
   --bg: var(--background-base, var(--surface-canvas));
-  --line: var(--border-base);
-  /* The theme's strong border (0.266) is twice the reference's; the accent
-   * edges (--accent-line*) mix with this, so it takes the maquette value. */
+  /* The rest of the palette is the maquette's final computed one (measured
+   * on #contextPanel and #inspectorPanel): the brand's text and border
+   * tokens are warm/lavender and twice as contrasted, which every v110
+   * surface (panels, lines, secondary text) inherited. */
+  --bg-soft: #121214;
+  --surface-4: #26262b;
+  --hover: color-mix(in srgb, #8d8d95 9%, #212125);
+  --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.13);
-  --text: var(--text-primary);
-  --muted: var(--text-secondary);
-  --faint: var(--text-tertiary);
+  --text: #f2f2f3;
+  --muted: #9b9ba1;
+  --faint: #85858d;
   --shadow: 0 18px 42px rgba(0, 0, 0, 0.20);
 }
 
-html[data-color-scheme="light"] {
-  --line-strong: rgba(0, 0, 0, 0.12);
-}
+
 
 
 /* A4 Code chrome — terminal card + head + resize handle + diff card.

@@ -207,6 +207,14 @@ export async function closeDialog(page: Page, dialog: Locator) {
 
   if (closedSecond) return
 
+  // Settings shown in the workspace have no overlay; they close with their button.
+  const surface = page.locator('[data-component="workbench-settings-surface"]')
+  if (await surface.count()) {
+    await surface.getByRole("button", { name: /close|fermer/i }).first().click()
+    await expect(dialog).toHaveCount(0)
+    return
+  }
+
   await page.locator('[data-component="dialog-overlay"]').click({ position: { x: 5, y: 5 } })
   await expect(dialog).toHaveCount(0)
 }
@@ -306,21 +314,23 @@ export async function openSettings(page: Page) {
   await assertHealthy(page, "openSettings")
   await defocus(page)
 
-  const dialog = page.getByRole("dialog")
+  // With a project open, settings render in the workspace (beside the chat);
+  // without one they open as a dialog. Both hold the same settings frame.
+  const frame = page.locator('[data-v110="settings-frame"]').first()
   await page.keyboard.press(`${modKey}+Comma`).catch(() => undefined)
 
-  const opened = await dialog
+  const opened = await frame
     .waitFor({ state: "visible", timeout: 3000 })
     .then(() => true)
     .catch(() => false)
 
-  if (opened) return dialog
+  if (opened) return frame
 
   await assertHealthy(page, "openSettings")
 
   await page.getByRole("button", { name: "Settings" }).first().click()
-  await expect(dialog).toBeVisible()
-  return dialog
+  await expect(frame).toBeVisible()
+  return frame
 }
 
 /**

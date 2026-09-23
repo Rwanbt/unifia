@@ -11,14 +11,14 @@ import { useParams } from "@solidjs/router"
 import { getFilename } from "@unifia/util/path"
 import { Button } from "@unifia/ui/button"
 import { Collapsible } from "@unifia/ui/collapsible"
-import { Icon } from "@unifia/ui/icon"
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import type { LocalProject } from "@/context/layout"
 import { useLayout } from "@/context/layout"
 import { useLanguage } from "@/context/language"
 import { useMode } from "@/context/mode"
 import { useProviders } from "@/hooks/use-providers"
-import { ModeSections } from "./sidebar-panel-mode-sections"
+import { destinationLabelKey } from "@/utils/destination-label"
+import { ModeSections, SectionHead } from "./sidebar-panel-mode-sections"
 import { ProjectDisclosure } from "./sidebar-panel-project"
 import type { WorkspaceSidebarContext } from "./sidebar-workspace"
 
@@ -94,7 +94,7 @@ export function SidebarPanel(props: SidebarPanelProps) {
     if (!item) return ""
     return item.name || getFilename(item.worktree)
   })
-  const modeLabel = createMemo(() => language.t(`workbench.modes.${mode.active()}`))
+  const modeLabel = createMemo(() => language.t(destinationLabelKey(mode.destination(), mode.active())))
   const [projectsOpen, setProjectsOpen] = createSignal(true)
 
   return (
@@ -102,7 +102,7 @@ export function SidebarPanel(props: SidebarPanelProps) {
       data-v110="context-panel"
       data-mobile={props.mobile ? "true" : undefined}
       classList={{
-        "flex flex-col min-h-0 min-w-0 box-border rounded-tl-[12px] px-3": true,
+        "flex flex-col min-h-0 min-w-0 box-border rounded-tl-[12px]": true,
         "border border-b-0 border-border-weak-base": !merged(),
         "border-l border-t border-border-weaker-base": merged(),
         "bg-background-base": merged() || hover(),
@@ -114,16 +114,18 @@ export function SidebarPanel(props: SidebarPanelProps) {
         width: props.mobile ? undefined : `${panel()}px`,
       }}
     >
-      <div data-v110="context-head" class="shrink-0 px-2 pt-2 pb-1">
-        <div class="text-12-medium text-text-strong">{language.t("sidebar.header.navigation")}</div>
-        <Show when={currentProjectName()}>
-          <div class="text-11-regular text-text-weak truncate">
-            {language.t("sidebar.header.subtitle", { project: currentProjectName(), mode: modeLabel() })}
-          </div>
-        </Show>
+      <div data-v110="context-head" class="context-head">
+        <div class="min-w-0">
+          <div class="context-title">{language.t("sidebar.header.navigation")}</div>
+          <Show when={currentProjectName()}>
+            <div class="context-sub truncate">
+              {language.t("sidebar.header.subtitle", { project: currentProjectName(), mode: modeLabel() })}
+            </div>
+          </Show>
+        </div>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+      <div class="context-scroll">
         <Show
           when={projects().length > 0}
           fallback={
@@ -148,14 +150,18 @@ export function SidebarPanel(props: SidebarPanelProps) {
               one collapsible "Projects" section shared by every mode, listing
               every open project (layout.projects.list()) rather than just
               the one the current route happens to be in. */}
-          <Collapsible open={projectsOpen()} onOpenChange={setProjectsOpen} class="shrink-0">
-            <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
-              <Icon name={projectsOpen() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-base" />
-              <span class="text-11-medium text-text-weaker uppercase tracking-wide">{language.t("sidebar.projects.title")}</span>
-              <span class="ml-auto shrink-0 text-10-regular text-text-weaker">{projects().length}</span>
+          <div class="v68-context-root">
+          <Collapsible
+            open={projectsOpen()}
+            onOpenChange={setProjectsOpen}
+            class="v68-section"
+            classList={{ open: projectsOpen() }}
+          >
+            <Collapsible.Trigger class="v68-section-head">
+              <SectionHead title={language.t("sidebar.projects.title")} count={projects().length} />
             </Collapsible.Trigger>
-            <Collapsible.Content>
-              <div class="flex flex-col pl-1 pt-1">
+            <Collapsible.Content class="v68-disclosure-body">
+              <div class="flex flex-col">
                 <For each={projects()}>
                   {(item) => (
                     <ProjectDisclosure
@@ -172,6 +178,7 @@ export function SidebarPanel(props: SidebarPanelProps) {
           </Collapsible>
 
           <ModeSections />
+          </div>
         </Show>
       </div>
 

@@ -1,0 +1,441 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Context panel (left navigation) -- maquette #contextPanel, the .context /
+ * .context-head / .v68-* rules as the reference computes them at 1440x900.
+ * The markup (pages/layout/sidebar-panel*.tsx, sidebar-workspace.tsx,
+ * sidebar-items.tsx) carries the maquette's class names so each rule below
+ * maps one-to-one onto its source. */
+
+[data-v110="context-panel"] {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 16px;
+}
+
+[data-v110="context-panel"] .context-head {
+  height: 46px;
+  flex: 0 0 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="context-panel"] .context-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: normal;
+}
+
+[data-v110="context-panel"] .context-sub {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: normal;
+  color: var(--muted);
+}
+
+/* The reference keeps 10px free on the right for its overlay scrollbar. */
+[data-v110="context-panel"] .context-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 18px 8px 8px;
+  scrollbar-width: none;
+}
+
+[data-v110="context-panel"] .v68-context-root {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+
+[data-v110="context-panel"] .v68-section {
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  transition: background 0.17s, border-color 0.17s;
+}
+
+[data-v110="context-panel"] .v68-section.open {
+  background: color-mix(in srgb, var(--surface-2) 28%, transparent);
+  border-color: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+[data-v110="context-panel"] :is(.v68-section-head, .v68-project-select, .v68-project-toggle, .v68-nested-head, .v68-nav) {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-v110="context-panel"] .v68-section-head {
+  width: 100%;
+  height: 35px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 11px;
+  text-align: left;
+}
+
+[data-v110="context-panel"] .v68-section-head:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-chevron {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--faint);
+  transition: transform 0.17s cubic-bezier(0.2, 0.75, 0.25, 1), color 0.17s;
+}
+
+[data-v110="context-panel"] :is(.v68-section.open > .v68-section-head, .v68-project.open > .v68-project-row .v68-project-toggle, .v68-nested.open > .v68-nested-head) .v68-chevron {
+  transform: rotate(90deg);
+  color: var(--muted);
+}
+
+[data-v110="context-panel"] .v68-section-title {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+[data-v110="context-panel"] .v68-count {
+  font-size: 8px;
+  font-weight: 650;
+  white-space: nowrap;
+  color: var(--faint);
+}
+
+[data-v110="context-panel"] .v68-section > .v68-disclosure-body {
+  padding: 0 4px;
+}
+
+[data-v110="context-panel"] .v68-section.open > .v68-disclosure-body {
+  padding-bottom: 5px;
+}
+
+[data-v110="context-panel"] .v68-project {
+  min-width: 0;
+  margin: 1px 0;
+  border-radius: 11px;
+}
+
+[data-v110="context-panel"] .v68-project-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 11px;
+}
+
+[data-v110="context-panel"] .v68-project.active > .v68-project-row {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+[data-v110="context-panel"] .v68-project-select {
+  min-width: 0;
+  min-height: 43px;
+  display: grid;
+  grid-template-columns: 29px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px 4px 7px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+[data-v110="context-panel"] :is(.v68-project-select, .v68-project-toggle):hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-project-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-project-copy {
+  min-width: 0;
+}
+
+[data-v110="context-panel"] .v68-project-copy b,
+[data-v110="context-panel"] .v68-project-copy b * {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-project-copy small {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 8px;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+}
+
+[data-v110="context-panel"] .v68-active-pill {
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-4);
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-project-toggle {
+  width: 28px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+
+/* The project menu is an app addition: it floats over the pill on hover so
+ * the row keeps the reference's two columns. */
+[data-v110="context-panel"] .v68-project-menu {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  translate: 0 -50%;
+  opacity: 0;
+  transition: opacity 0.13s;
+}
+
+[data-v110="context-panel"] .v68-project-row:is(:hover, :focus-within) .v68-project-menu,
+[data-v110="context-panel"] .v68-project-menu:has([data-expanded]) {
+  opacity: 1;
+}
+
+[data-v110="context-panel"] .v68-project-body {
+  margin-left: 35px;
+  padding-left: 7px;
+  border-left: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+}
+
+[data-v110="context-panel"] .v68-nested {
+  min-width: 0;
+}
+
+[data-v110="context-panel"] .v68-nested-head {
+  width: 100%;
+  height: 30px;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 5px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 8px;
+  color: var(--faint);
+}
+
+[data-v110="context-panel"] .v68-nested-head:hover {
+  background: var(--hover);
+  color: var(--muted);
+}
+
+[data-v110="context-panel"] .v68-nested > .v68-disclosure-body {
+  padding: 1px 0 3px;
+}
+
+[data-v110="context-panel"] .v68-nav {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 7px;
+  border-radius: 9px;
+  text-align: left;
+  font-size: 9px;
+  line-height: normal;
+  color: var(--muted);
+  transition: background 0.13s, color 0.13s, transform 0.13s;
+}
+
+[data-v110="context-panel"] .v68-nav:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-nav.active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="context-panel"] .v68-nav.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 2px;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
+[data-v110="context-panel"] .v68-nav-icon {
+  width: 16px;
+  flex: 0 0 16px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  color: var(--faint);
+}
+
+[data-v110="context-panel"] .v68-nav.active .v68-nav-icon {
+  color: var(--accent);
+}
+
+[data-v110="context-panel"] .v68-nav-copy {
+  min-width: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="context-panel"] .v68-nav-meta {
+  font-size: 8px;
+  white-space: nowrap;
+  color: var(--faint);
+}
+
+[data-v110="context-panel"] .v68-nav .badge {
+  height: 24px;
+  min-width: 42px;
+  display: inline-grid;
+  place-items: center;
+  margin-left: auto;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+[data-v110="context-panel"] .v68-nav .dot {
+  width: 7px;
+  height: 7px;
+  margin: 0 4.5px;
+  border-radius: 50%;
+  flex: 0 0 7px;
+}
+
+[data-v110="context-panel"] .v68-session-row {
+  padding-left: 4px;
+}
+
+[data-v110="context-panel"] .v68-session-new {
+  color: var(--faint);
+}
+
+[data-v110="context-panel"] .v68-empty {
+  padding: 8px;
+  font-size: 8px;
+  line-height: 1.45;
+  color: var(--faint);
+}
+
+/* A session row hides its archive action until hovered, like the rows of
+ * the reference that carry no trailing control. */
+[data-v110="context-panel"] .v68-session-row [data-slot="session-archive"] {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+[data-v110="context-panel"] .v68-session-row [data-slot="session-archive"][data-mobile],
+[data-v110="context-panel"] .v68-session-row:is(:hover, :focus-within) [data-slot="session-archive"] {
+  width: 20px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-v110="context-panel"] .v68-session-row:is(:hover, :focus-within) .v68-nav-meta {
+  display: none;
+}
+
+html[data-ui-animations="off"] [data-v110="context-panel"] :is(.v68-section, .v68-chevron, .v68-nav) {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="context-panel"] :is(.v68-section, .v68-chevron, .v68-nav) {
+    transition: none !important;
+  }
+}
+
+@media (pointer: coarse) {
+  [data-v110="context-panel"] .v68-section-head {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  [data-v110="context-panel"] .v68-project-select {
+    min-height: 48px;
+  }
+
+  [data-v110="context-panel"] .v68-project-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  [data-v110="context-panel"] .v68-nested-head {
+    height: 40px;
+    min-height: 40px;
+  }
+
+  [data-v110="context-panel"] .v68-nav {
+    min-height: 44px;
+    font-size: 11px;
+  }
+}

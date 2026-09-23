@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@solidjs/router"
-import { createEffect, createMemo, For, Show, type Accessor, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, For, Show, type Accessor, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSortable } from "@thisbeyond/solid-dnd"
 import { createMediaQuery } from "@solid-primitives/media"
@@ -13,7 +13,7 @@ import { IconButton } from "@unifia/ui/icon-button"
 import { Spinner } from "@unifia/ui/spinner"
 import { Tooltip } from "@unifia/ui/tooltip"
 import type { Session } from "../../types/sdk-shim"
-import type { LocalProject } from "@/context/layout"
+import { useLayout, type LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
 import { NewSessionItem, SessionItem, SessionSkeleton } from "./sidebar-items"
@@ -249,7 +249,7 @@ const WorkspaceSessionList = (props: {
   loadMore: () => Promise<void>
   language: ReturnType<typeof useLanguage>
 }): JSX.Element => (
-  <nav class="flex flex-col gap-1">
+  <nav class="flex flex-col">
     <Show when={props.showNew()}>
       <NewSessionItem
         slug={props.slug()}
@@ -284,19 +284,19 @@ const WorkspaceSessionList = (props: {
       )}
     </For>
     <Show when={props.hasMore()}>
-      <div class="relative w-full py-1">
-        <Button
-          variant="ghost"
-          class="flex w-full text-left justify-start text-14-regular text-text-weak pl-9 pr-10"
-          size="large"
-          onClick={(e: MouseEvent) => {
-            props.loadMore()
-            ;(e.currentTarget as HTMLButtonElement).blur()
-          }}
-        >
-          {props.language.t("common.loadMore")}
-        </Button>
-      </div>
+      <button
+        type="button"
+        class="v68-nav v68-session-new"
+        onClick={(e: MouseEvent) => {
+          props.loadMore()
+          ;(e.currentTarget as HTMLButtonElement).blur()
+        }}
+      >
+        <span class="v68-nav-icon" aria-hidden="true">
+          ⌄
+        </span>
+        <span class="v68-nav-copy">{props.language.t("common.loadMore")}</span>
+      </button>
     </Show>
   </nav>
 )
@@ -464,6 +464,8 @@ export const LocalWorkspace = (props: {
 }): JSX.Element => {
   const globalSync = useGlobalSync()
   const language = useLanguage()
+  const layout = useLayout()
+  const navigate = useNavigate()
   const workspace = createMemo(() => {
     const [store, setStore] = globalSync.child(props.project.worktree)
     return { store, setStore }
@@ -480,24 +482,51 @@ export const LocalWorkspace = (props: {
     await globalSync.project.loadSessions(props.project.worktree)
   }
 
+  // Maquette `.v68-nested`: a "Sessions" disclosure whose last row starts a
+  // new session in this project.
+  const [open, setOpen] = createSignal(true)
+  const newSession = () => {
+    props.ctx.setHoverSession(undefined)
+    navigate(`/${slug()}/session`)
+    if (!layout.sidebar.opened()) props.ctx.clearHoverProjectSoon()
+  }
+
   return (
     <div
       ref={(el) => props.ctx.setScrollContainerRef(el, props.mobile)}
-      class="size-full flex flex-col py-2 overflow-y-auto no-scrollbar [overflow-anchor:none]"
+      class="v68-nested [overflow-anchor:none]"
+      classList={{ open: open() }}
     >
-      <WorkspaceSessionList
-        slug={slug}
-        mobile={props.mobile}
-        popover={props.popover}
-        ctx={props.ctx}
-        showNew={() => false}
-        loading={loading}
-        sessions={sessions}
-        children={children}
-        hasMore={hasMore}
-        loadMore={loadMore}
-        language={language}
-      />
+      <Collapsible open={open()} onOpenChange={setOpen}>
+        <Collapsible.Trigger class="v68-nested-head">
+          <span class="v68-chevron" aria-hidden="true">
+            ›
+          </span>
+          <span>{language.t("sidebar.nav.sessions")}</span>
+          <span class="v68-count">{count()}</span>
+        </Collapsible.Trigger>
+        <Collapsible.Content class="v68-disclosure-body">
+          <WorkspaceSessionList
+            slug={slug}
+            mobile={props.mobile}
+            popover={props.popover}
+            ctx={props.ctx}
+            showNew={() => false}
+            loading={loading}
+            sessions={sessions}
+            children={children}
+            hasMore={hasMore}
+            loadMore={loadMore}
+            language={language}
+          />
+          <button type="button" class="v68-nav v68-session-new" data-action="project-new-session" onClick={newSession}>
+            <span class="v68-nav-icon" aria-hidden="true">
+              ＋
+            </span>
+            <span class="v68-nav-copy">{language.t("command.session.new")}</span>
+          </button>
+        </Collapsible.Content>
+      </Collapsible>
     </div>
   )
 }

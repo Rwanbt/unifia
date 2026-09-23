@@ -50,19 +50,8 @@
   background: var(--accent);
 }
 
-/* Context navigation -- .v68-project-row (6 % tint, 2px accent edge) and
- * .v68-nav.active .v68-nav-icon (the current row's glyph). */
-[data-v68-project][data-active] [data-slot="project-row"] {
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
-  box-shadow: inset 2px 0 var(--accent);
-}
-
-[data-v110="nav-item"]:is([aria-current="true"], [aria-pressed="true"]) > :first-child,
-[data-session-id] a[aria-current="page"] [data-slot="session-icon"],
-[data-session-id] a[aria-current="page"] [data-slot="session-icon"] [data-component="icon"] {
-  color: var(--accent);
-}
+/* Context navigation (.v68-project.active, .v68-nav.active) lives with the
+ * rest of the panel in v110-context.css. */
 
 /* The topbar's context-panel toggle keeps its fill; only its ring follows
  * the accent (#showContextBtn.active). */

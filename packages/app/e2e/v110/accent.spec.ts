@@ -3,158 +3,82 @@
 import { test, expect } from "../fixtures"
 import { closeDialog, openSettings } from "../actions"
 
-// ADR-048: the picker in Settings > General > Appearance writes the chosen
-// colour onto <html style="--accent: ..."> and mirrors it to accent-color.
-// The UI is a combobox (one entry per preset, plus a "Suivre le texte"
-// reset), and a separate native colour swatch handles custom values.
-// These tests cover the bridge end-to-end: pick a preset through the
-// combobox, observe the inline style and the consumers that read
-// var(--accent-base); reset through the combobox and observe the inline
-// style removed; persist across dialog close/reopen.
+// ADR-048: the accent combobox in Settings > General > Appearance writes the
+// chosen colour onto <html style="--accent: ..."> and mirrors it to
+// accent-color. Presets are addressed by their stable data-accent id, not by
+// their translated label.
 
-async function pickAccentInDialog(dialog: import("@playwright/test").Locator, label: string) {
-  const select = dialog.locator('[data-action="settings-accent-select"]')
-  await expect(select).toBeVisible()
-  await select.locator('[data-slot="select-select-trigger"]').click()
-  await expect(
-    dialog.locator('[data-slot="select-select-item"]').first(),
-  ).toBeVisible()
-  await dialog
-    .locator('[data-slot="select-select-item"]')
-    .filter({ hasText: label })
-    .first()
-    .click()
+type Dialog = import("@playwright/test").Locator
+
+async function pickAccent(dialog: Dialog, id: string) {
+  await dialog.locator('[data-action="settings-accent-select"]').click()
+  await dialog.locator(`[data-slot="accent-option"][data-accent="${id}"]`).click()
 }
 
-test("accent combobox writes --accent on <html> and retints consumers", async ({
-  page,
-  gotoSession,
-}) => {
-  await gotoSession()
+const inlineAccent = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => document.documentElement.style.getPropertyValue("--accent"))
 
+test("a preset writes --accent on <html> and retints a Switch that is on", async ({ page, gotoSession }) => {
+  await gotoSession()
   const dialog = await openSettings(page)
 
-  await pickAccentInDialog(dialog, "Crimson")
+  await pickAccent(dialog, "red")
+  await expect.poll(() => inlineAccent(page)).toBe("#d96868")
+  expect(await page.evaluate(() => document.documentElement.style.accentColor)).toBe("rgb(217, 104, 104)")
 
-  // The createEffect in SettingsProvider writes the inline custom property
-  // and the native accent-color mirror.
-  const htmlAccent = await page.evaluate(() => {
-    const root = document.documentElement
-    return {
-      custom: root.style.getPropertyValue("--accent"),
-      native: root.style.accentColor,
-    }
-  })
-  expect(htmlAccent.custom.toLowerCase()).toBe("#dc2626")
-  expect(htmlAccent.native.toLowerCase()).toBe("rgb(220, 38, 38)")
-
-  // A Switch in the ON state under [data-settings-pane] reads
-  // var(--accent-base, var(--border-focus)); since --accent-base is now
-  // var(--accent), the track must inherit the picked colour.
-  const trackColor = await page.evaluate(() => {
-    const on = document.querySelector(
-      '[data-settings-pane] [role="switch"][data-state="checked"]',
-    ) as HTMLElement | null
-    if (!on) return null
-    return getComputedStyle(on).backgroundColor
-  })
-  expect(trackColor).not.toBeNull()
-  // Allow slight tolerance for color-mix rounding in the strong token.
-  expect(["rgb(220, 38, 38)", "rgb(232, 89, 89)"]).toContain(trackColor)
+  // The track animates its colour, so wait for the transition to settle.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const on = document.querySelector('[data-component="switch"][data-checked] [data-slot="switch-control"]')
+        return on ? getComputedStyle(on).backgroundColor : null
+      }),
+    )
+    .toBe("rgb(217, 104, 104)")
 
   await closeDialog(page, dialog)
 })
 
-test("accent reset (Suivre le texte) removes the inline --accent", async ({
-  page,
-  gotoSession,
-}) => {
+test("Neutral removes the inline --accent", async ({ page, gotoSession }) => {
   await gotoSession()
-
   const dialog = await openSettings(page)
 
-  await pickAccentInDialog(dialog, "Sky")
-  await expect
-    .poll(async () =>
-      page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
-    )
-    .toBe("#0ea5e9")
-
-  await pickAccentInDialog(dialog, "Suivre le texte")
-
-  await expect
-    .poll(async () =>
-      page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
-    )
-    .toBe("")
-  const accentColor = await page.evaluate(
-    () => document.documentElement.style.accentColor,
-  )
-  expect(accentColor).toBe("")
+  await pickAccent(dialog, "cyan")
+  await expect.poll(() => inlineAccent(page)).toBe("#37b9d5")
+  await pickAccent(dialog, "neutral")
+  await expect.poll(() => inlineAccent(page)).toBe("")
+  expect(await page.evaluate(() => document.documentElement.style.accentColor)).toBe("")
 
   await closeDialog(page, dialog)
 })
 
-test("accent combobox persists across dialog close and reopen", async ({
-  page,
-  gotoSession,
-}) => {
+test("the chosen accent survives closing and reopening settings", async ({ page, gotoSession }) => {
   await gotoSession()
-
   const dialog = await openSettings(page)
-
-  await pickAccentInDialog(dialog, "Emerald")
-  await expect
-    .poll(async () =>
-      page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
-    )
-    .toBe("#10b981")
-
+  await pickAccent(dialog, "green")
+  await expect.poll(() => inlineAccent(page)).toBe("#48b881")
   await closeDialog(page, dialog)
 
-  // The dialog must reopen with the same accent still applied: the
-  // createEffect in SettingsProvider re-runs on store load from
-  // localStorage (settings.v3) and re-writes <html>.
   const reopened = await openSettings(page)
-  const stored = await page.evaluate(() =>
-    document.documentElement.style.getPropertyValue("--accent"),
-  )
-  expect(stored.toLowerCase()).toBe("#10b981")
-
+  expect(await inlineAccent(page)).toBe("#48b881")
+  await expect(reopened.locator('[data-slot="accent-option"][data-accent="green"]')).toHaveCount(0)
+  await reopened.locator('[data-action="settings-accent-select"]').click()
+  await expect(reopened.locator('[data-slot="accent-option"][data-accent="green"]')).toHaveAttribute("aria-selected", "true")
   await closeDialog(page, reopened)
 })
 
-test("accent custom swatch writes the picked hex on <html>", async ({
-  page,
-  gotoSession,
-}) => {
+test("the custom colour row writes the picked hex", async ({ page, gotoSession }) => {
   await gotoSession()
-
   const dialog = await openSettings(page)
+  await dialog.locator('[data-action="settings-accent-select"]').click()
 
-  // Drive the hidden <input type="color"> directly so we can assert the
-  // exact value (the native picker is OS-controlled and not openable from
-  // headless Chromium).
+  // The native picker is OS-controlled, so drive the input directly.
   const hex = "#7c3aed"
-  await page.evaluate((value) => {
-    const input = document.querySelector(
-      '[data-action="settings-accent-custom"] input[type="color"]',
-    ) as HTMLInputElement | null
-    if (!input) throw new Error("custom swatch input not found")
-    input.value = value
+  await dialog.locator('[data-slot="accent-color"]').evaluate((input, value) => {
+    ;(input as HTMLInputElement).value = value
     input.dispatchEvent(new Event("input", { bubbles: true }))
   }, hex)
 
-  await expect
-    .poll(async () =>
-      page.evaluate(() => document.documentElement.style.getPropertyValue("--accent")),
-    )
-    .toBe(hex)
-
-  // Trigger label should surface "Personnalisé…" for a non-preset value.
-  await expect(
-    dialog.locator('[data-action="settings-accent-select"] [data-slot="select-select-trigger-value"]'),
-  ).toContainText("Personnalisé")
-
+  await expect.poll(() => inlineAccent(page)).toBe(hex)
   await closeDialog(page, dialog)
 })

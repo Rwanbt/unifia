@@ -6,27 +6,79 @@
  *
  * Maquette's `.v68-context-root[data-mode]` appends different sections per
  * shell mode (extracted live via `window.UnifiaDemo.enter(mode)` + a DOM
- * dump: Code -> "Code Scope"; Work -> "Work"+"Agents"; Design ->
- * "Fichiers"+"Assets"; Automate -> "Workflows"+"Runs"; Browser ->
- * "Project Links"+"Library"; Memory -> "Navigation"+"Raccourcis".
- * Code keeps its live SDK-backed scope; the other sections mirror the
- * maquette's mode-specific navigation structure.
+ * dump): Code -> "Code Scope"; Work -> "Work" + "Agents"; Design -> "Pages"
+ * + "Design System"; Automate -> "Workflows" + "Runs"; Memory -> "Memory";
+ * Browser -> "Project Links" + "Library"; Settings -> none. Code and Work
+ * are backed by real data; the others mirror the maquette's rows.
  */
-import { createResource, createSignal, For, Match, Switch } from "solid-js"
+import { createResource, createSignal, For, Match, Show, Switch, type JSX } from "solid-js"
 import { Collapsible } from "@unifia/ui/collapsible"
-import { Icon } from "@unifia/ui/icon"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { useSDK } from "@/context/sdk"
 import { WORK_VIEW_GLYPH, WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 
-const SectionHeader = (props: { title: string; count: number; open: boolean }) => (
+/** The `.v68-section-head` content: chevron, uppercase title, count. */
+export const SectionHead = (props: { title: string; count: number }) => (
   <>
-    <Icon name={props.open ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-base" />
-    <span class="text-11-medium text-text-weaker uppercase tracking-wide">{props.title}</span>
-    <span class="ml-auto shrink-0 text-10-regular text-text-weaker">{props.count}</span>
+    <span class="v68-chevron" aria-hidden="true">
+      ›
+    </span>
+    <span class="v68-section-title">{props.title}</span>
+    <span class="v68-count">{props.count}</span>
   </>
+)
+
+/** One `.v68-section` disclosure, open by default like the reference. */
+const Section = (props: { id: string; title: string; count: number; children: JSX.Element }) => {
+  const [open, setOpen] = createSignal(true)
+  return (
+    <Collapsible
+      open={open()}
+      onOpenChange={setOpen}
+      class="v68-section"
+      classList={{ open: open() }}
+      data-mode-section={props.id}
+    >
+      <Collapsible.Trigger class="v68-section-head">
+        <SectionHead title={props.title} count={props.count} />
+      </Collapsible.Trigger>
+      <Collapsible.Content class="v68-disclosure-body">{props.children}</Collapsible.Content>
+    </Collapsible>
+  )
+}
+
+/** A `.v68-nav` row: glyph, label, then an optional meta text or count badge. */
+const NavRow = (props: {
+  glyph: string
+  label: string
+  active?: boolean
+  meta?: string
+  badge?: string
+  onClick?: () => void
+  attrs?: Record<string, string>
+}) => (
+  <button
+    type="button"
+    class="v68-nav"
+    classList={{ active: props.active === true }}
+    data-v110="nav-item"
+    aria-current={props.active === true ? "true" : undefined}
+    onClick={() => props.onClick?.()}
+    {...props.attrs}
+  >
+    <span class="v68-nav-icon" aria-hidden="true">
+      {props.glyph}
+    </span>
+    <span class="v68-nav-copy">{props.label}</span>
+    <Show when={props.meta}>
+      <span class="v68-nav-meta">{props.meta}</span>
+    </Show>
+    <Show when={props.badge !== undefined}>
+      <span class="badge">{props.badge}</span>
+    </Show>
+  </button>
 )
 
 // Maquette's "Code Scope" lists fixed demo areas of one fictional plugin
@@ -41,13 +93,11 @@ const CodeScopeSection = () => {
   const language = useLanguage()
   const layout = useLayout()
   const sdk = useSDK()
-  const [open, setOpen] = createSignal(true)
 
   const [folders] = createResource(
     () => sdk.directory,
     () => sdk.client.file.list({ path: "" }).then((x) => (x.data ?? []).filter((node) => node.type === "directory")),
   )
-  const count = () => (folders()?.length ?? 0) + 1
 
   // A specific folder isn't revealed/expanded in the Explorer tree from
   // here (that needs useFile(), unavailable at this session-independent
@@ -59,81 +109,12 @@ const CodeScopeSection = () => {
   }
 
   return (
-    <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0" data-mode-section="code.scope">
-      <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
-        <SectionHeader title={language.t("sidebar.codeScope.title")} count={count()} open={open()} />
-      </Collapsible.Trigger>
-      <Collapsible.Content>
-        <div class="flex flex-col gap-0.5 pl-1 pt-1">
-          {/* The code scope is always the whole workspace today, so this row
-              is the current one (maquette .v68-nav.active). */}
-          <button
-            type="button"
-            data-v110="nav-item"
-            aria-current="true"
-            class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover"
-            onClick={() => openExplorer()}
-          >
-            <Icon name="scope" size="small" class="shrink-0 text-icon-base" />
-            <span class="truncate">{language.t("sidebar.codeScope.entireWorkspace")}</span>
-          </button>
-          <For each={folders() ?? []}>
-            {(node) => (
-              <button
-                type="button"
-                class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover"
-                onClick={openExplorer}
-              >
-                <Icon name="folder" size="small" class="shrink-0 text-icon-base" />
-                <span class="truncate">{node.name}</span>
-              </button>
-            )}
-          </For>
-        </div>
-      </Collapsible.Content>
-    </Collapsible>
-  )
-}
-
-type ModeSectionRow = {
-  label: string
-  icon: "briefcase" | "check-small" | "file-tree" | "flower" | "folder" | "link" | "magnifying-glass" | "open-file" | "photo" | "scope" | "status" | "task" | "workflow"
-  active?: boolean
-}
-
-const ModeNavigationSection = (props: {
-  testId: string
-  title: string
-  rows: readonly ModeSectionRow[]
-}) => {
-  const [open, setOpen] = createSignal(true)
-
-  return (
-    <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0" data-mode-section={props.testId}>
-      <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
-        <SectionHeader title={props.title} count={props.rows.length} open={open()} />
-      </Collapsible.Trigger>
-      <Collapsible.Content>
-        <div class="flex flex-col gap-0.5 pl-1 pt-1">
-          <For each={props.rows}>
-            {(row) => (
-              <button
-                type="button"
-                data-v110="nav-item"
-                aria-current={row.active === true ? "true" : undefined}
-                classList={{
-                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover": true,
-                  "bg-surface-raised-base text-text-strong": row.active === true,
-                }}
-              >
-                <Icon name={row.icon} size="small" class="shrink-0 text-icon-base" />
-                <span class="min-w-0 flex-1 truncate">{row.label}</span>
-              </button>
-            )}
-          </For>
-        </div>
-      </Collapsible.Content>
-    </Collapsible>
+    <Section id="code.scope" title={language.t("sidebar.codeScope.title")} count={(folders()?.length ?? 0) + 1}>
+      {/* The code scope is always the whole workspace today, so this row is
+          the current one (maquette .v68-nav.active). */}
+      <NavRow glyph="◎" label={language.t("sidebar.codeScope.entireWorkspace")} active onClick={openExplorer} />
+      <For each={folders() ?? []}>{(node) => <NavRow glyph="▦" label={node.name} onClick={openExplorer} />}</For>
+    </Section>
   )
 }
 
@@ -143,70 +124,68 @@ const ModeNavigationSection = (props: {
 const WorkSections = () => {
   const layout = useLayout()
   const language = useLanguage()
-  const [viewsOpen, setViewsOpen] = createSignal(true)
-  const [agentsOpen, setAgentsOpen] = createSignal(true)
 
   return (
     <>
-      <Collapsible open={viewsOpen()} onOpenChange={setViewsOpen} class="shrink-0" data-mode-section="work.views">
-        <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
-          <SectionHeader title={language.t("sidebar.work.views")} count={WORK_VIEWS.length} open={viewsOpen()} />
-        </Collapsible.Trigger>
-        <Collapsible.Content>
-          <div class="flex flex-col gap-0.5 pl-1 pt-1">
-            <For each={WORK_VIEWS}>
-              {(view) => (
-                <button
-                  type="button"
-                  data-work-view={view}
-                  data-v110="nav-item"
-                  aria-pressed={layout.work.view() === view}
-                  onClick={() => layout.work.setView(view)}
-                  classList={{
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-13-regular text-text-base hover:bg-surface-raised-base-hover": true,
-                    "bg-surface-raised-base text-text-strong": layout.work.view() === view,
-                  }}
-                >
-                  <span class="w-4 shrink-0 text-center text-icon-base" aria-hidden="true">
-                    {WORK_VIEW_GLYPH[view]}
-                  </span>
-                  <span class="min-w-0 flex-1 truncate">{language.t(WORK_VIEW_LABEL_KEY[view])}</span>
-                </button>
-              )}
-            </For>
-          </div>
-        </Collapsible.Content>
-      </Collapsible>
-      <Collapsible open={agentsOpen()} onOpenChange={setAgentsOpen} class="shrink-0" data-mode-section="work.agents">
-        <Collapsible.Trigger class="flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-surface-raised-base-hover">
-          <SectionHeader title={language.t("sidebar.work.agents")} count={0} open={agentsOpen()} />
-        </Collapsible.Trigger>
-        <Collapsible.Content>
-          <p class="px-3 py-1.5 text-12-regular text-text-weaker">{language.t("sidebar.work.noAgents")}</p>
-        </Collapsible.Content>
-      </Collapsible>
+      <Section id="work.views" title={language.t("sidebar.work.views")} count={WORK_VIEWS.length}>
+        <For each={WORK_VIEWS}>
+          {(view) => (
+            <NavRow
+              glyph={WORK_VIEW_GLYPH[view]}
+              label={language.t(WORK_VIEW_LABEL_KEY[view])}
+              active={layout.work.view() === view}
+              attrs={{ "data-work-view": view }}
+              onClick={() => layout.work.setView(view)}
+            />
+          )}
+        </For>
+      </Section>
+      <Section id="work.agents" title={language.t("sidebar.work.agents")} count={0}>
+        <p class="v68-empty">{language.t("sidebar.work.noAgents")}</p>
+      </Section>
     </>
+  )
+}
+
+type Row = { glyph: string; key?: string; label?: string; active?: boolean; badge?: string }
+
+// The maquette's own rows for the modes whose navigation has no backend yet.
+const StaticSection = (props: { id: string; titleKey: string; rows: readonly Row[] }) => {
+  const language = useLanguage()
+  return (
+    <Section id={props.id} title={language.t(props.titleKey)} count={props.rows.length}>
+      <For each={props.rows}>
+        {(row) => (
+          <NavRow
+            glyph={row.glyph}
+            label={row.key ? language.t(row.key) : (row.label ?? "")}
+            active={row.active}
+            badge={row.badge}
+          />
+        )}
+      </For>
+    </Section>
   )
 }
 
 const DesignSections = () => (
   <>
-    <ModeNavigationSection
-      testId="design.files"
-      title="Fichiers"
+    <StaticSection
+      id="design.pages"
+      titleKey="sidebar.nav.pages"
       rows={[
-        { label: "Landing page", icon: "file-tree", active: true },
-        { label: "Components", icon: "file-tree" },
-        { label: "Design system", icon: "folder" },
+        { glyph: "▧", label: "Landing", active: true },
+        { glyph: "▧", label: "Settings" },
+        { glyph: "▧", label: "Components" },
       ]}
     />
-    <ModeNavigationSection
-      testId="design.assets"
-      title="Assets"
+    <StaticSection
+      id="design.system"
+      titleKey="sidebar.nav.designSystem"
       rows={[
-        { label: "Images", icon: "photo" },
-        { label: "Icons", icon: "scope" },
-        { label: "Fonts", icon: "file-tree" },
+        { glyph: "●", key: "sidebar.nav.tokens" },
+        { glyph: "◇", key: "sidebar.nav.components" },
+        { glyph: "▣", key: "sidebar.nav.assets" },
       ]}
     />
   </>
@@ -214,67 +193,57 @@ const DesignSections = () => (
 
 const AutomateSections = () => (
   <>
-    <ModeNavigationSection
-      testId="automate.workflows"
-      title="Workflows"
+    <StaticSection
+      id="automate.workflows"
+      titleKey="sidebar.nav.workflows"
       rows={[
-        { label: "Issue triage v2", icon: "workflow", active: true },
-        { label: "Release notes", icon: "workflow" },
-        { label: "Nightly tests", icon: "workflow" },
+        { glyph: "⛓", label: "Issue triage", active: true, badge: "open" },
+        { glyph: "⛓", label: "Release notes" },
+        { glyph: "⛓", label: "Nightly tests" },
       ]}
     />
-    <ModeNavigationSection
-      testId="automate.runs"
-      title="Runs"
+    <StaticSection
+      id="automate.runs"
+      titleKey="sidebar.nav.runs"
       rows={[
-        { label: "Historique", icon: "task" },
-        { label: "Échecs", icon: "magnifying-glass" },
-      ]}
-    />
-  </>
-)
-
-const BrowserSections = () => (
-  <>
-    <ModeNavigationSection
-      testId="browser.links"
-      title="Project Links"
-      rows={[
-        { label: "README.md", icon: "file-tree", active: true },
-        { label: "Documentation", icon: "folder" },
-        { label: "Issues", icon: "link" },
-      ]}
-    />
-    <ModeNavigationSection
-      testId="browser.library"
-      title="Library"
-      rows={[
-        { label: "Recent pages", icon: "open-file" },
-        { label: "Saved links", icon: "link" },
+        { glyph: "▶", key: "sidebar.nav.history", badge: "0" },
+        { glyph: "⚠", key: "sidebar.nav.failures", badge: "0" },
       ]}
     />
   </>
 )
 
 const MemorySections = () => (
+  <StaticSection
+    id="memory.memory"
+    titleKey="sidebar.nav.memory"
+    rows={[
+      { glyph: "◈", key: "sidebar.nav.notes", active: true },
+      { glyph: "◎", key: "sidebar.nav.graph" },
+      { glyph: "⌕", key: "sidebar.nav.search" },
+      { glyph: "↗", key: "sidebar.nav.backlinks" },
+    ]}
+  />
+)
+
+const BrowserSections = () => (
   <>
-    <ModeNavigationSection
-      testId="memory.navigation"
-      title="Navigation"
+    <StaticSection
+      id="browser.links"
+      titleKey="sidebar.nav.projectLinks"
       rows={[
-        { label: "Notes", icon: "file-tree", active: true },
-        { label: "Graph", icon: "link" },
-        { label: "Search", icon: "magnifying-glass" },
-        { label: "Tags", icon: "scope" },
+        { glyph: "⌂", key: "sidebar.nav.localPreview" },
+        { glyph: "⑂", key: "sidebar.nav.repository" },
+        { glyph: "◇", key: "sidebar.nav.documentation" },
       ]}
     />
-    <ModeNavigationSection
-      testId="memory.shortcuts"
-      title="Raccourcis"
+    <StaticSection
+      id="browser.library"
+      titleKey="sidebar.nav.library"
       rows={[
-        { label: "Favorites", icon: "link" },
-        { label: "Recent", icon: "open-file" },
-        { label: "Backlinks", icon: "link" },
+        { glyph: "◷", key: "sidebar.nav.history", badge: "0" },
+        { glyph: "☆", key: "sidebar.nav.bookmarks", badge: "3" },
+        { glyph: "⇩", key: "sidebar.nav.downloads", badge: "1" },
       ]}
     />
   </>

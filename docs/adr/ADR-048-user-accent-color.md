@@ -70,7 +70,7 @@ exposes fontSize, mono, sans.
 - The picker is web + Tauri; desktop and web render identically because the
   bridge is a runtime effect, not a build-time constant.
 - A persisted store from before this ADR is migrated as if the user had
-  selected "Suivre le texte" (the sentinel).
+  selected Neutral (the sentinel).
 
 ## Validation
 

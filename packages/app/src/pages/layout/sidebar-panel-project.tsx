@@ -17,13 +17,10 @@ import { getFilename } from "@unifia/util/path"
 import { Button } from "@unifia/ui/button"
 import { Collapsible } from "@unifia/ui/collapsible"
 import { DropdownMenu } from "@unifia/ui/dropdown-menu"
-import { Icon } from "@unifia/ui/icon"
 import { IconButton } from "@unifia/ui/icon-button"
-import { Tooltip } from "@unifia/ui/tooltip"
 import { closestCenter, DragDropProvider, DragDropSensors, DragOverlay, SortableProvider } from "@thisbeyond/solid-dnd"
 import type { LocalProject } from "@/context/layout"
 import { useLayout } from "@/context/layout"
-import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
 import { useNotification } from "@/context/notification"
 import { ConstrainDragXAxis } from "@/utils/solid-dnd"
@@ -49,7 +46,6 @@ export function ProjectDisclosure(props: {
   const layout = useLayout()
   const language = useLanguage()
   const notification = useNotification()
-  const globalSync = useGlobalSync()
   const ctx = props.ctx
 
   const project = createMemo(() => props.project)
@@ -80,46 +76,45 @@ export function ProjectDisclosure(props: {
     return layout.sidebar.workspaces(item.worktree)()
   })
   const canToggle = createMemo(() => project().vcs === "git" || layout.sidebar.workspaces(worktree())())
-  const homedir = createMemo(() => globalSync.data.path.home)
   const { InlineEditor } = ctx.workspaceSidebarCtx
 
   return (
-    <div class="v68-project" data-v68-project={slug()} data-active={props.active() ? "" : undefined}>
-      <Collapsible open={open()} onOpenChange={setOpen} class="shrink-0">
-        <div data-slot="project-row" class="group/project flex items-center gap-2 py-1.5 pl-1 pr-0">
-          <Collapsible.Trigger class="flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-left hover:bg-surface-raised-base-hover">
-            <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-base" />
-            <div class="flex size-6 shrink-0 items-center justify-center rounded-md bg-surface-raised-base text-10-medium text-text-weak">
-              {initials(projectName())}
-            </div>
-            <div class="flex min-w-0 flex-1 flex-col">
-              <InlineEditor
-                id={`project:${projectId()}`}
-                value={projectName}
-                onSave={(next) => ctx.renameProject(project(), next)}
-                class="text-13-medium text-text-strong truncate"
-                displayClass="text-13-medium text-text-strong truncate"
-                stopPropagation
-              />
-              <Tooltip
-                placement="bottom"
-                gutter={2}
-                value={worktree()}
-                class="shrink-0"
-                contentStyle={{ "max-width": "640px", transform: "translate3d(52px, 0, 0)" }}
-              >
-                <span class="text-11-regular text-text-weak truncate select-text">
-                  {worktree().replace(homedir(), "~")}
-                </span>
-              </Tooltip>
-            </div>
-          </Collapsible.Trigger>
-          <Show when={props.active()}>
-            <span class="shrink-0 rounded-full bg-surface-raised-base-active px-2 py-0.5 text-9-medium text-text-strong">
-              {language.t("sidebar.project.active")}
+    <div
+      class="v68-project"
+      classList={{ active: props.active(), open: open() }}
+      data-v68-project={slug()}
+      data-active={props.active() ? "" : undefined}
+    >
+      <Collapsible open={open()} onOpenChange={setOpen}>
+        <div data-slot="project-row" class="v68-project-row group/project">
+          <button
+            type="button"
+            class="v68-project-select"
+            aria-current={props.active() ? "true" : undefined}
+            onClick={() => setOpen(!open())}
+          >
+            <span class="v68-project-icon">{initials(projectName())}</span>
+            <span class="v68-project-copy">
+              <b>
+                <InlineEditor
+                  id={`project:${projectId()}`}
+                  value={projectName}
+                  onSave={(next) => ctx.renameProject(project(), next)}
+                  class="truncate"
+                  displayClass="truncate"
+                  stopPropagation
+                />
+              </b>
+              <small title={worktree()} class="select-text">
+                {worktree()}
+              </small>
             </span>
-          </Show>
+            <Show when={props.active()}>
+              <span class="v68-active-pill">{language.t("sidebar.project.active")}</span>
+            </Show>
+          </button>
 
+          <div class="v68-project-menu">
           <DropdownMenu modal={!ctx.sidebarHovering()}>
             <DropdownMenu.Trigger
               as={IconButton}
@@ -127,7 +122,7 @@ export function ProjectDisclosure(props: {
               variant="ghost"
               data-action="project-menu"
               data-project={slug()}
-              class="shrink-0 size-6 rounded-md opacity-0 transition-opacity group-hover/project:opacity-100 group-focus-within/project:opacity-100 data-[expanded]:opacity-100"
+              class="shrink-0 size-6 rounded-md"
               aria-label={language.t("common.moreOptions")}
             />
             <DropdownMenu.Portal>
@@ -160,35 +155,29 @@ export function ProjectDisclosure(props: {
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu>
+          </div>
+
+          <Collapsible.Trigger class="v68-project-toggle" aria-label={projectName()}>
+            <span class="v68-chevron" aria-hidden="true">
+              ›
+            </span>
+          </Collapsible.Trigger>
         </div>
 
-        <Collapsible.Content>
+        <Collapsible.Content class="v68-disclosure-body">
+          <div class="v68-project-body">
           <Show
             when={workspacesEnabled()}
             fallback={
-              <>
-                <div class="shrink-0 py-2 pl-7">
-                  <Button
-                    size="normal"
-                    icon="new-session"
-                    class="w-full"
-                    onClick={() => ctx.navigateWithSidebarReset(`/${slug()}/session`)}
-                  >
-                    {language.t("command.session.new")}
-                  </Button>
-                </div>
-                <div class="min-h-0 pl-7">
-                  <LocalWorkspace ctx={ctx.workspaceSidebarCtx} project={project()} sortNow={ctx.sortNow} mobile={props.mobile} popover={props.popover()} />
-                </div>
-              </>
+              <LocalWorkspace ctx={ctx.workspaceSidebarCtx} project={project()} sortNow={ctx.sortNow} mobile={props.mobile} popover={props.popover()} />
             }
           >
-            <div class="shrink-0 py-2 pl-7">
+            <div class="shrink-0 py-2">
               <Button size="normal" icon="plus-small" class="w-full" onClick={() => ctx.createWorkspace(project())}>
                 {language.t("workspace.new")}
               </Button>
             </div>
-            <div class="relative min-h-0 pl-7">
+            <div class="relative min-h-0">
               <DragDropProvider onDragStart={ctx.onWorkspaceDragStart} onDragEnd={ctx.onWorkspaceDragEnd} onDragOver={ctx.onWorkspaceDragOver} collisionDetector={closestCenter}>
                 <DragDropSensors />
                 <ConstrainDragXAxis />
@@ -217,6 +206,7 @@ export function ProjectDisclosure(props: {
               </DragDropProvider>
             </div>
           </Show>
+          </div>
         </Collapsible.Content>
       </Collapsible>
     </div>

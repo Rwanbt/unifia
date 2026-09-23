@@ -8,6 +8,7 @@ import { useLanguage } from "@/context/language"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
 import { getFilename } from "@unifia/util/path"
 import { displayName } from "@/pages/layout/helpers"
+import { destinationLabelKey } from "@/utils/destination-label"
 
 // Ports .crumbs (Unifia-UI-UX-v110-PORT-READY-R1.html:15232,
 // "<strong>Prism EQ</strong><span>/</span><span id=crumb>Code</span>").
@@ -33,17 +34,7 @@ export function TopbarBreadcrumb() {
     return current ? displayName(current) : getFilename(directory)
   })
 
-  const modeLabel = createMemo(() =>
-    mode.destination() === "settings"
-      ? language.t("sidebar.settings")
-      : mode.destination() === "user"
-        ? language.t("sidebar.account")
-        : mode.destination() === "browser"
-          ? language.t("sidebar.rail.browser")
-          : mode.destination() === "memory"
-            ? language.t("sidebar.rail.memory")
-        : language.t(`workbench.modes.name.${mode.active()}`),
-  )
+  const modeLabel = createMemo(() => language.t(destinationLabelKey(mode.destination(), mode.active())))
 
   return (
     <Show when={mode.routeKind() !== "home" && projectLabel()}>
