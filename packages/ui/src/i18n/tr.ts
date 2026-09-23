@@ -135,6 +135,7 @@ export const dict = {
   "ui.message.forkMessage": "Yeni oturuma dallandır",
   "ui.message.revertMessage": "Bu noktaya sıfırla",
   "ui.message.copyResponse": "Yanıtı kopyala",
+  "ui.message.readAloud": "Sesli oku",
   "ui.message.copied": "Kopyalandı",
   "ui.message.interrupted": "Kesildi",
   "ui.message.queued": "Sırada",

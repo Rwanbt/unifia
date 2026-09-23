@@ -128,6 +128,7 @@ export const dict = {
   "ui.message.forkMessage": "Ответвить в новую сессию",
   "ui.message.revertMessage": "Сбросить до этого момента",
   "ui.message.copyResponse": "Копировать ответ",
+  "ui.message.readAloud": "Прочитать вслух",
   "ui.message.copied": "Скопировано!",
   "ui.message.interrupted": "Прервано",
   "ui.message.queued": "В очереди",

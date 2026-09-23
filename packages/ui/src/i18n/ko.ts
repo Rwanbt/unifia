@@ -129,6 +129,7 @@ export const dict = {
   "ui.message.forkMessage": "새 세션으로 분기",
   "ui.message.revertMessage": "이 시점으로 초기화",
   "ui.message.copyResponse": "응답 복사",
+  "ui.message.readAloud": "소리 내어 읽기",
   "ui.message.copied": "복사됨!",
   "ui.message.interrupted": "중단됨",
   "ui.message.queued": "대기 중",

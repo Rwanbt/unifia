@@ -133,6 +133,7 @@ export const dict = {
   "ui.message.forkMessage": "Forkaj u novu sesiju",
   "ui.message.revertMessage": "Resetuj na ovu tačku",
   "ui.message.copyResponse": "Kopiraj odgovor",
+  "ui.message.readAloud": "Pročitaj naglas",
   "ui.message.copied": "Kopirano!",
   "ui.message.interrupted": "Prekinuto",
   "ui.message.queued": "U redu",

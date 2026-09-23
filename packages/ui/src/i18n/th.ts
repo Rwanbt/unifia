@@ -130,6 +130,7 @@ export const dict = {
   "ui.message.forkMessage": "แตกแขนงไปยังเซสชันใหม่",
   "ui.message.revertMessage": "รีเซ็ตไปยังจุดนี้",
   "ui.message.copyResponse": "คัดลอกคำตอบ",
+  "ui.message.readAloud": "อ่านออกเสียง",
   "ui.message.copied": "คัดลอกแล้ว!",
   "ui.message.interrupted": "ถูกขัดจังหวะ",
   "ui.message.queued": "อยู่ในคิว",

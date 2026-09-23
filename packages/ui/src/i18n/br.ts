@@ -129,6 +129,7 @@ export const dict = {
   "ui.message.forkMessage": "Bifurcar para nova sessão",
   "ui.message.revertMessage": "Redefinir para este ponto",
   "ui.message.copyResponse": "Copiar resposta",
+  "ui.message.readAloud": "Ler em voz alta",
   "ui.message.copied": "Copiado!",
   "ui.message.interrupted": "Interrompido",
   "ui.message.queued": "Na fila",

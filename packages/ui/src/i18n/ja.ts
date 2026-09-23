@@ -128,6 +128,7 @@ export const dict = {
   "ui.message.forkMessage": "新しいセッションにフォーク",
   "ui.message.revertMessage": "この時点までリセット",
   "ui.message.copyResponse": "応答をコピー",
+  "ui.message.readAloud": "読み上げ",
   "ui.message.copied": "コピーしました！",
   "ui.message.interrupted": "中断",
   "ui.message.queued": "待機中",
