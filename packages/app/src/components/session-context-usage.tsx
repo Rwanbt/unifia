@@ -1,5 +1,6 @@
 import { Match, Show, Switch, createMemo } from "solid-js"
 import { Tooltip, type TooltipProps } from "@unifia/ui/tooltip"
+import { contextLevel } from "./session-context-level"
 import { ProgressCircle } from "@unifia/ui/progress-circle"
 import { Button } from "@unifia/ui/button"
 
@@ -111,6 +112,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
               class="size-6"
               data-action="prompt-context"
               data-v110="context-meter"
+              data-level={contextLevel(context()?.usage ?? 0)}
               onClick={openContext}
               aria-label={language.t("context.usage.view")}
             >
