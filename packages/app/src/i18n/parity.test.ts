@@ -67,6 +67,9 @@ const AUDITED_SCOPE_PREFIXES = [
 // cognates, units, punctuation, numeric/URL placeholders. Extending this
 // list is fine; adding a real untranslated sentence here is not.
 const TECHNICAL_ALLOWLIST = new Set([
+  // Colour names that are cognates in several locales (Indigo, Violet).
+  "settings.general.row.accent.preset.indigo",
+  "settings.general.row.accent.preset.violet",
   // Product name of the Work autonomy mode (maquette "Auto Safe").
   "workbench.work.cockpit.autoSafe",
   "provider.connect.opencodeZen.visit.link",
