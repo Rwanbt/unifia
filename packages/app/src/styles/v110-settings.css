@@ -412,6 +412,12 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   font-size: 11px;
 }
 
+/* .value-text: a read-only value in a row control. */
+[data-v110="settings-page"] [data-slot="settings-value"] {
+  color: var(--muted);
+  font-size: 10px;
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;
@@ -849,8 +855,14 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
   font-weight: 400;
 }
 
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
 [data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] {
-  width: 12px;
+  width: 14px;
   background: transparent;
   color: var(--muted);
 }

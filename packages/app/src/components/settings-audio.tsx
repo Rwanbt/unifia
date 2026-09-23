@@ -1,11 +1,12 @@
-import { type Component, createSignal, For, type JSX, onMount, Show } from "solid-js"
+import { type Component, createSignal, For, onMount, Show } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
 import { Button } from "@unifia/ui/button"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { showToast } from "@unifia/ui/toast"
-import { SettingsList } from "./settings-list"
+import { SettingsPage, SettingsSection } from "./settings-page"
+import { SettingsRow } from "./settings-row"
 import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
@@ -63,6 +64,9 @@ export function loadAudioSettings(): AudioSettings {
 function saveSettings(s: AudioSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
 }
+
+// Every select on this page takes the reference's settings trigger.
+const SELECT = { variant: "secondary", size: "small", triggerVariant: "settings" } as const
 
 export const SettingsAudio: Component = () => {
   const language = useLanguage()
@@ -137,139 +141,169 @@ export const SettingsAudio: Component = () => {
   }
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
-      <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
-        <div class="flex flex-col gap-1 pt-6 pb-8">
-          <h2 class="text-16-medium text-text-strong">{language.t("settings.fork.audio.title")}</h2>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-8 w-full">
-        {/* Speech-to-Text Section */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.stt")}</h3>
-          <SettingsList>
-            <SettingsRow title={language.t("settings.fork.audio.enableStt")} description={language.t("settings.fork.audio.enableSttDescription")}>
-              <div data-action="settings-audio-stt-enabled">
-                <Switch checked={settings.sttEnabled} onChange={(v) => update("sttEnabled", v)} />
-              </div>
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.engine")} description={language.t("settings.fork.audio.engineDescription")}>
-              <span class="text-12-regular text-text-weak">{language.t("settings.fork.audio.parakeet")}</span>
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.language")} description={language.t("settings.fork.audio.languageDescription")}>
-              <Select
-                size="normal"
-                options={["auto", "en", "fr", "de", "es", "it"]}
-                current={settings.sttLanguage}
-                label={(x) => {
-                  const m: Record<string, Parameters<typeof language.t>[0]> = { auto: "settings.fork.audio.languageAuto", en: "settings.fork.audio.languageEnglish", fr: "settings.fork.audio.languageFrench", de: "settings.fork.audio.languageGerman", es: "settings.fork.audio.languageSpanish", it: "settings.fork.audio.languageItalian" }
-                  return m[x] ? language.t(m[x]) : x
-                }}
-                onSelect={(v) => { if (v) update("sttLanguage", v) }}
-              />
-            </SettingsRow>
-          </SettingsList>
-        </div>
-
-        {/* Text-to-Speech Section */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.tts")}</h3>
-          <SettingsList>
-            <SettingsRow title={language.t("settings.fork.audio.enableTts")} description={language.t("settings.fork.audio.enableTtsDescription")}>
-              <div data-action="settings-audio-tts-enabled">
-                <Switch checked={settings.ttsEnabled} onChange={(v) => update("ttsEnabled", v)} />
-              </div>
-            </SettingsRow>
-            <SettingsRow
-              title={language.t("settings.fork.audio.provider")}
-              description={isMobile()
-                ? language.t("settings.fork.audio.kokoroProviderDescription")
-                : language.t("settings.fork.audio.providerDescription")}
-            >
-              <div class="flex items-center gap-2">
-                <Show
-                  when={!isMobile()}
-                  fallback={<span class="text-12-regular text-text-weak">{language.t("settings.fork.audio.kokoro")}</span>}
-                >
-                  <Select
-                    size="normal"
-                    options={["pocket", "kokoro"]}
-                    current={settings.ttsProvider || "pocket"}
-                    label={(id) => id === "kokoro" ? language.t("settings.fork.audio.kokoroOption") : language.t("settings.fork.audio.pocketOption")}
-                    onSelect={(v) => { if (v) handleProviderChange(v as "pocket" | "kokoro") }}
-                  />
-                </Show>
-                <Show when={settings.ttsProvider === "kokoro" && !kokoroAvailable()}>
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    onClick={handleDownloadKokoro}
-                    disabled={kokoroDownloading()}
-                  >
-                    {kokoroDownloading() ? language.t("settings.fork.audio.downloading", { progress: Math.round(downloadProgress() * 100) }) : language.t("settings.fork.audio.downloadModel")}
-                  </Button>
-                </Show>
-              </div>
-            </SettingsRow>
-            <SettingsRow
-              title={language.t("settings.fork.audio.voice")}
-              description={settings.ttsProvider === "kokoro"
-                ? language.t("settings.fork.audio.kokoroVoiceDescription", { count: kokoroVoices().length })
-                : language.t("settings.fork.audio.pocketVoiceDescription")
+    <SettingsPage title={language.t("settings.fork.audio.title")}>
+      {/* Speech-to-Text Section */}
+      <SettingsSection title={language.t("settings.fork.audio.stt")}>
+        <SettingsRow
+          title={language.t("settings.fork.audio.enableStt")}
+          description={language.t("settings.fork.audio.enableSttDescription")}
+        >
+          <div data-action="settings-audio-stt-enabled">
+            <Switch checked={settings.sttEnabled} onChange={(v) => update("sttEnabled", v)} />
+          </div>
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.engine")}
+          description={language.t("settings.fork.audio.engineDescription")}
+        >
+          {/* Parakeet is the only engine; the reference still shows it as a select. */}
+          <Select
+            {...SELECT}
+            options={["parakeet"]}
+            current="parakeet"
+            label={() => language.t("settings.fork.audio.parakeet")}
+            onSelect={() => undefined}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.language")}
+          description={language.t("settings.fork.audio.languageDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["auto", "en", "fr", "de", "es", "it"]}
+            current={settings.sttLanguage}
+            label={(x) => {
+              const m: Record<string, Parameters<typeof language.t>[0]> = {
+                auto: "settings.fork.audio.languageAuto",
+                en: "settings.fork.audio.languageEnglish",
+                fr: "settings.fork.audio.languageFrench",
+                de: "settings.fork.audio.languageGerman",
+                es: "settings.fork.audio.languageSpanish",
+                it: "settings.fork.audio.languageItalian",
               }
+              return m[x] ? language.t(m[x]) : x
+            }}
+            onSelect={(v) => {
+              if (v) update("sttLanguage", v)
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+
+      {/* Text-to-Speech Section */}
+      <SettingsSection title={language.t("settings.fork.audio.tts")}>
+        <SettingsRow
+          title={language.t("settings.fork.audio.enableTts")}
+          description={language.t("settings.fork.audio.enableTtsDescription")}
+        >
+          <div data-action="settings-audio-tts-enabled">
+            <Switch checked={settings.ttsEnabled} onChange={(v) => update("ttsEnabled", v)} />
+          </div>
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.provider")}
+          description={
+            isMobile()
+              ? language.t("settings.fork.audio.kokoroProviderDescription")
+              : language.t("settings.fork.audio.providerDescription")
+          }
+        >
+          <div class="flex items-center gap-2">
+            <Show
+              when={!isMobile()}
+              fallback={<span data-slot="settings-value">{language.t("settings.fork.audio.kokoro")}</span>}
             >
-              <Show when={settings.ttsProvider === "kokoro"} fallback={
-                <Select
-                  size="normal"
-                  options={TTS_VOICES.map((v) => v.id)}
-                  current={settings.ttsVoice}
-                  label={(id) => TTS_VOICES.find((v) => v.id === id)?.label ?? id}
-                  onSelect={(v) => { if (v) update("ttsVoice", v) }}
-                />
-              }>
-                <Select
-                  size="normal"
-                  options={kokoroVoices().length > 0 ? kokoroVoices() : ["af_heart"]}
-                  current={settings.ttsVoice}
-                  label={(id) => id}
-                  onSelect={(v) => { if (v) update("ttsVoice", v) }}
-                />
-              </Show>
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.speed")} description={language.t("settings.fork.audio.speedDescription")}>
               <Select
-                size="normal"
-                options={["0.75", "1.0", "1.25", "1.5", "2.0"]}
-                current={String(settings.ttsSpeed)}
-                label={(x) => `${x}x`}
-                onSelect={(v) => { if (v) update("ttsSpeed", parseFloat(v)) }}
+                {...SELECT}
+                options={["pocket", "kokoro"]}
+                current={settings.ttsProvider || "pocket"}
+                label={(id) =>
+                  id === "kokoro"
+                    ? language.t("settings.fork.audio.kokoroOption")
+                    : language.t("settings.fork.audio.pocketOption")
+                }
+                onSelect={(v) => {
+                  if (v) handleProviderChange(v as "pocket" | "kokoro")
+                }}
               />
-            </SettingsRow>
-            <SettingsRow title={language.t("settings.fork.audio.autoPlay")} description={language.t("settings.fork.audio.autoPlayDescription")}>
-              <Switch checked={settings.ttsAutoPlay} onChange={(v) => update("ttsAutoPlay", v)} />
-            </SettingsRow>
-          </SettingsList>
-          <div class="text-11-regular text-text-weak mt-2 px-1">
-            <Show when={settings.ttsProvider === "kokoro"} fallback={
-              language.t("settings.fork.audio.poweredPocket")
-            }>
-              {language.t("settings.fork.audio.poweredKokoro")}
+            </Show>
+            <Show when={settings.ttsProvider === "kokoro" && !kokoroAvailable()}>
+              <Button size="small" variant="secondary" onClick={handleDownloadKokoro} disabled={kokoroDownloading()}>
+                {kokoroDownloading()
+                  ? language.t("settings.fork.audio.downloading", { progress: Math.round(downloadProgress() * 100) })
+                  : language.t("settings.fork.audio.downloadModel")}
+              </Button>
             </Show>
           </div>
-        </div>
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.voice")}
+          description={
+            settings.ttsProvider === "kokoro"
+              ? language.t("settings.fork.audio.kokoroVoiceDescription", { count: kokoroVoices().length })
+              : language.t("settings.fork.audio.pocketVoiceDescription")
+          }
+        >
+          <Show
+            when={settings.ttsProvider === "kokoro"}
+            fallback={
+              <Select
+                {...SELECT}
+                options={TTS_VOICES.map((v) => v.id)}
+                current={settings.ttsVoice}
+                label={(id) => TTS_VOICES.find((v) => v.id === id)?.label ?? id}
+                onSelect={(v) => {
+                  if (v) update("ttsVoice", v)
+                }}
+              />
+            }
+          >
+            <Select
+              {...SELECT}
+              options={kokoroVoices().length > 0 ? kokoroVoices() : ["af_heart"]}
+              current={settings.ttsVoice}
+              label={(id) => id}
+              onSelect={(v) => {
+                if (v) update("ttsVoice", v)
+              }}
+            />
+          </Show>
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.speed")}
+          description={language.t("settings.fork.audio.speedDescription")}
+        >
+          <Select
+            {...SELECT}
+            options={["0.75", "1.0", "1.25", "1.5", "2.0"]}
+            current={String(settings.ttsSpeed)}
+            label={(x) => `${x}x`}
+            onSelect={(v) => {
+              if (v) update("ttsSpeed", parseFloat(v))
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.audio.autoPlay")}
+          description={language.t("settings.fork.audio.autoPlayDescription")}
+        >
+          <Switch checked={settings.ttsAutoPlay} onChange={(v) => update("ttsAutoPlay", v)} />
+        </SettingsRow>
+      </SettingsSection>
+      <p data-slot="settings-note">
+        <Show when={settings.ttsProvider === "kokoro"} fallback={language.t("settings.fork.audio.poweredPocket")}>
+          {language.t("settings.fork.audio.poweredKokoro")}
+        </Show>
+      </p>
 
-        {/* Voice Cloning Section — Pocket TTS desktop only.
+      {/* Voice Cloning Section — Pocket TTS desktop only.
             Kokoro does not support speaker cloning (fixed [1,256] style
             embeddings, no voice encoder) and mobile has no Pocket TTS. */}
-        <Show when={!isMobile() && settings.ttsProvider !== "kokoro"}>
-          <VoiceCloneSection
-            currentVoice={settings.ttsVoice}
-            onSelectClone={(name) => update("ttsVoice", name)}
-          />
-        </Show>
-      </div>
-    </div>
+      <Show when={!isMobile() && settings.ttsProvider !== "kokoro"}>
+        <VoiceCloneSection currentVoice={settings.ttsVoice} onSelectClone={(name) => update("ttsVoice", name)} />
+      </Show>
+    </SettingsPage>
   )
 }
 
@@ -311,9 +345,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       // we intentionally keep it inline to avoid a circular dep into the
       // speech hook from a settings component.
       const tauri = (globalThis as any).__TAURI__
-      const url =
-        tauri?.core?.convertFileSrc?.(wavPath) ??
-        (wavPath.startsWith("http") ? wavPath : `file://${wavPath}`)
+      const url = tauri?.core?.convertFileSrc?.(wavPath) ?? (wavPath.startsWith("http") ? wavPath : `file://${wavPath}`)
       await new Audio(url).play()
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -382,9 +414,7 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
       })
       audioChunks = []
       mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm",
+        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm",
       })
 
       mediaRecorder.ondataavailable = (e) => {
@@ -430,130 +460,131 @@ function VoiceCloneSection(props: { currentVoice: string; onSelectClone: (name: 
   }
 
   return (
-    <div class="flex flex-col gap-1">
-      <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.audio.voiceCloning")}</h3>
-      <SettingsList>
-        <div class="py-3">
-          <div class="flex items-center justify-between gap-2 pb-3">
-            <div class="flex flex-col gap-0.5">
-              <span class="text-14-medium text-text-strong">{language.t("settings.fork.audio.cloneVoice")}</span>
-              <span class="text-12-regular text-text-weak">
-                {recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.cloneDescription")}
-              </span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <Button
-                size="small"
-                variant="secondary"
-                onClick={handleUpload}
-                disabled={uploading() || recording()}
-              >
-                {uploading() ? language.t("settings.fork.audio.processing") : language.t("settings.fork.audio.uploadWav")}
-              </Button>
-              <Tooltip placement="top" value={recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.recordVoice")}>
-                <IconButton
-                  icon="microphone"
-                  variant={recording() ? "primary" : "ghost"}
-                  class="size-8"
-                  aria-label={recording() ? language.t("settings.fork.audio.stopRecording") : language.t("settings.fork.audio.recordVoice")}
-                  onClick={handleRecord}
-                  disabled={uploading()}
-                />
-              </Tooltip>
-            </div>
+    <>
+      <SettingsSection title={language.t("settings.fork.audio.voiceCloning")}>
+        <SettingsRow
+          title={language.t("settings.fork.audio.cloneVoice")}
+          description={
+            recording()
+              ? language.t("settings.fork.audio.stopRecording")
+              : language.t("settings.fork.audio.cloneDescription")
+          }
+        >
+          <div class="flex items-center gap-1.5">
+            <Button size="small" variant="secondary" onClick={handleUpload} disabled={uploading() || recording()}>
+              {uploading() ? language.t("settings.fork.audio.processing") : language.t("settings.fork.audio.uploadWav")}
+            </Button>
+            <Tooltip
+              placement="top"
+              value={
+                recording()
+                  ? language.t("settings.fork.audio.stopRecording")
+                  : language.t("settings.fork.audio.recordVoice")
+              }
+            >
+              <IconButton
+                icon="microphone"
+                variant={recording() ? "primary" : "ghost"}
+                class="size-8"
+                aria-label={
+                  recording()
+                    ? language.t("settings.fork.audio.stopRecording")
+                    : language.t("settings.fork.audio.recordVoice")
+                }
+                onClick={handleRecord}
+                disabled={uploading()}
+              />
+            </Tooltip>
           </div>
-          <Show when={recording()}>
-            <div class="flex items-center gap-1 pb-2">
-              <div class="flex items-end gap-0.5 h-4">
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
-                <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
-              </div>
-              <span class="text-12-regular text-text-critical-base ml-1">{language.t("settings.fork.audio.recording")}</span>
+        </SettingsRow>
+        <Show when={recording()}>
+          <div class="flex items-center gap-1 pb-2">
+            <div class="flex items-end gap-0.5 h-4">
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar2" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar5" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar3" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar1" />
+              <div class="w-0.5 bg-icon-critical-base rounded-full animate-stt-bar4" />
             </div>
-          </Show>
-          <Show when={clones().length > 0}>
-            <div class="flex flex-col gap-1 border-t border-border-weak-base pt-2">
-              <span class="text-12-medium text-text-weak pb-1">{language.t("settings.fork.audio.customVoices")}</span>
-              <For each={clones()}>
-                {(name) => (
-                  <div class="flex items-center justify-between gap-2 py-1.5">
+            <span class="text-12-regular text-text-critical-base ml-1">
+              {language.t("settings.fork.audio.recording")}
+            </span>
+          </div>
+        </Show>
+        <Show when={clones().length > 0}>
+          <div class="flex flex-col gap-1 border-t border-border-weak-base pt-2">
+            <span class="text-12-medium text-text-weak pb-1">{language.t("settings.fork.audio.customVoices")}</span>
+            <For each={clones()}>
+              {(name) => (
+                <div class="flex items-center justify-between gap-2 py-1.5">
+                  <button
+                    type="button"
+                    class="text-13-regular text-text-strong hover:text-text-strong truncate text-left"
+                    classList={{ "text-syntax-property!": props.currentVoice === name }}
+                    onClick={() => props.onSelectClone(name)}
+                  >
+                    {name}
+                    <Show when={props.currentVoice === name}>
+                      <span class="text-11-regular text-text-weak ml-2">
+                        {language.t("settings.fork.audio.active")}
+                      </span>
+                    </Show>
+                  </button>
+                  <div class="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      class="text-13-regular text-text-strong hover:text-text-strong truncate text-left"
-                      classList={{ "text-syntax-property!": props.currentVoice === name }}
-                      onClick={() => props.onSelectClone(name)}
+                      class="text-12-regular text-text-weak hover:text-text-strong disabled:opacity-50"
+                      disabled={testing() !== null}
+                      onClick={() => handleTest(name)}
                     >
-                      {name}
-                      <Show when={props.currentVoice === name}>
-                        <span class="text-11-regular text-text-weak ml-2">{language.t("settings.fork.audio.active")}</span>
-                      </Show>
+                      {testing() === name
+                        ? language.t("settings.fork.audio.voiceTesting")
+                        : language.t("settings.fork.audio.voiceTest")}
                     </button>
-                    <div class="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        class="text-12-regular text-text-weak hover:text-text-strong disabled:opacity-50"
-                        disabled={testing() !== null}
-                        onClick={() => handleTest(name)}
-                      >
-                        {testing() === name ? language.t("settings.fork.audio.voiceTesting") : language.t("settings.fork.audio.voiceTest")}
-                      </button>
-                      <button
-                        type="button"
-                        class="text-12-regular text-text-critical-base hover:underline"
-                        onClick={() => handleDelete(name)}
-                      >
-                        {language.t("settings.fork.audio.voiceDelete")}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      class="text-12-regular text-text-critical-base hover:underline"
+                      onClick={() => handleDelete(name)}
+                    >
+                      {language.t("settings.fork.audio.voiceDelete")}
+                    </button>
                   </div>
-                )}
-              </For>
-            </div>
-          </Show>
-        </div>
-      </SettingsList>
-      <div class="text-11-regular text-text-weak mt-1 px-1">
-        {language.t("settings.fork.audio.cloningDescription")}
-      </div>
-    </div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+      </SettingsSection>
+      <p data-slot="settings-note">{language.t("settings.fork.audio.cloningDescription")}</p>
+    </>
   )
 }
 
 function encodeWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
   const buf = new ArrayBuffer(44 + samples.length * 2)
   const v = new DataView(buf)
-  const w = (o: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)) }
-  w(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); w(8, "WAVE"); w(12, "fmt ")
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
-  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true)
-  v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, samples.length * 2, true)
+  const w = (o: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i))
+  }
+  w(0, "RIFF")
+  v.setUint32(4, 36 + samples.length * 2, true)
+  w(8, "WAVE")
+  w(12, "fmt ")
+  v.setUint32(16, 16, true)
+  v.setUint16(20, 1, true)
+  v.setUint16(22, 1, true)
+  v.setUint32(24, sampleRate, true)
+  v.setUint32(28, sampleRate * 2, true)
+  v.setUint16(32, 2, true)
+  v.setUint16(34, 16, true)
+  w(36, "data")
+  v.setUint32(40, samples.length * 2, true)
   for (let i = 0; i < samples.length; i++) {
     const s = Math.max(-1, Math.min(1, samples[i]))
     v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true)
   }
   return buf
-}
-
-interface SettingsRowProps {
-  title: string
-  description: string
-  children: JSX.Element
-}
-
-const SettingsRow: Component<SettingsRowProps> = (props) => {
-  return (
-    <div class="flex flex-wrap items-center gap-4 py-3 border-b border-border-weak-base last:border-none sm:flex-nowrap">
-      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span class="text-14-medium text-text-strong">{props.title}</span>
-        <span class="text-12-regular text-text-weak">{props.description}</span>
-      </div>
-      <div class="flex w-full justify-end sm:w-auto sm:shrink-0">{props.children}</div>
-    </div>
-  )
 }
