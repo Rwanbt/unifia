@@ -1,6 +1,7 @@
 import { isSpeechLanguage, type SpeechLanguage, type TtsProviderPreference } from "@unifia/contracts/speech"
 
-export const AUDIO_SETTINGS_STORAGE_KEY = "unifia-audio-settings"
+export const AUDIO_SETTINGS_STORAGE_KEY = "unifia-audio-settings.v2"
+export const LEGACY_AUDIO_SETTINGS_STORAGE_KEY = "unifia-audio-settings"
 export const AUDIO_SETTINGS_VERSION = 2
 
 export type SttLanguagePreference = "auto" | SpeechLanguage
@@ -85,7 +86,9 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
 
 export function loadAudioSettings(storage?: Pick<Storage, "getItem">): AudioSettingsV2 {
   try {
-    const raw = (storage ?? globalThis.localStorage).getItem(AUDIO_SETTINGS_STORAGE_KEY)
+    const settingsStorage = storage ?? globalThis.localStorage
+    const raw = settingsStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY)
+      ?? settingsStorage.getItem(LEGACY_AUDIO_SETTINGS_STORAGE_KEY)
     return raw ? migrateAudioSettings(JSON.parse(raw)) : migrateAudioSettings(undefined)
   } catch {
     return migrateAudioSettings(undefined)
@@ -94,4 +97,13 @@ export function loadAudioSettings(storage?: Pick<Storage, "getItem">): AudioSett
 
 export function serializeAudioSettings(settings: AudioSettingsV2): string {
   return JSON.stringify(migrateAudioSettings(settings))
+}
+
+export function saveAudioSettings(settings: AudioSettingsV2, storage?: Pick<Storage, "setItem">): boolean {
+  try {
+    ;(storage ?? globalThis.localStorage).setItem(AUDIO_SETTINGS_STORAGE_KEY, serializeAudioSettings(settings))
+    return true
+  } catch {
+    return false
+  }
 }

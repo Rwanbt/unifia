@@ -1,6 +1,6 @@
 # Voice runtime baseline
 
-Status: Wave A characterization, 2026-09-23. This is a repository baseline, not production qualification.
+Status: Wave A characterization, 2026-09-23. The baseline is measured, exploratory, and not production qualification.
 
 ## Repository and branch
 
@@ -23,8 +23,8 @@ Existing characterization tests are in `packages/app/src/hooks/web-speech.test.t
 
 ## Baseline verification
 
-- Existing browser speech characterization and audio settings migration tests: 9 passed, 20 assertions (`web-speech.test.ts` plus `audio-settings.test.ts`).
-- Audio settings migration tests: 4 passed, 12 assertions.
+- Existing browser speech characterization and audio settings migration tests: 10 passed, 24 assertions (`web-speech.test.ts` plus `audio-settings.test.ts`).
+- Audio settings migration tests: 5 passed, 16 assertions.
 - Speech contract, registry, and language-router tests: 6 passed, 17 assertions.
 - Contracts TypeScript check: passed (`bun run typecheck` in `packages/contracts`).
 - Whole app typecheck: blocked by the cross-worktree dependency mount loading `@unifia/contracts` from both worktrees, causing duplicate nominal `OpaqueCursor` symbols in an unrelated existing `workbench/provider.tsx` reference. The changed settings module passes an isolated strict TypeScript check.
@@ -32,7 +32,7 @@ Existing characterization tests are in `packages/app/src/hooks/web-speech.test.t
 
 ## Performance baseline
 
-Current Pocket CLI solo sample on Windows (`pocket-tts 1.1.1`, Python 3.13, `torch 2.7.1+cu118`), invoked with `--device cpu`:
+Current Pocket CLI solo samples on Windows (`pocket-tts 1.1.1`, Python 3.13, `torch 2.7.1+cu118`), invoked with `--device cpu`:
 
 | Language | Generated audio | Generation time | Relative speed | Whole CLI invocation |
 |---|---:|---:|---:|---:|
@@ -44,12 +44,20 @@ Current Pocket CLI solo sample on Windows (`pocket-tts 1.1.1`, Python 3.13, `tor
 
 The logs reported average generation steps of 19–20 ms and prompt processing of 41–97 ms. The model files were resolved as tokenizer revision `d4fdd22ae8c8e1cb3634e150ebeff1dab2d16df3` and TTS checkpoint revision `427e3d61b276ed69fdd03de0d185fa8a8d97fc5b` (`b6369a24`). Each language is a single short sample; startup/import time is included only in the whole-invocation column. TTFA, process CPU/RAM, VRAM, repeated-run variance, and LLM tokens/s were not measured. Although the CLI was forced to CPU, its installed PyTorch wheel is CUDA-enabled (`+cu118`); this does not qualify the target CPU-only managed runtime.
 
-At inspection time, no Unifia/OpenCode app, local LLM server, or speech server process was running. Therefore the required concurrency comparison—Pocket/Piper/STT and Live conversation while the selected local LLM is generating—remains open. The Voice Host, managed Pocket runtime, and physical Android run are also absent. No unit-test or solo CLI result is substituted for those measurements.
+#### Local LLM baseline and Pocket coexistence
+
+The local Bonsai 2 27B PTQ1_0 model was loaded with the existing `safe` profile values: `ngl=99`, context 8,192, Q4 KV cache, and projector disabled. I started a temporary local `llama-server.exe` process for this measurement only; no app, user server configuration, or profile was changed. The server returned HTTP 200 for each completion. GPU memory rose from 637 MiB at idle to 6,450–6,563 MiB after model load/inference on the RTX 4070 Laptop GPU. Per-process VRAM attribution was unavailable from NVML on this host.
+
+Three solo 256-token completions measured 26.67–28.88 generated tokens/s. Prompt processing varied widely (13.06–103.55 tokens/s), so the solo observations do not establish a stable prompt-throughput average. A successful simultaneous run produced 256 LLM tokens at 28.90 tokens/s and a French Pocket sample of 5.36 seconds of audio in 3.936 seconds (`1.36×` real time); total invocation times were 11.48 seconds for the LLM request and 11.32 seconds for Pocket. In that run, prompt processing was 14.54 tokens/s. This single pair is too small and variable to claim that Pocket has no LLM impact. GPU total memory was 6,198 MiB after the run; peak per-process VRAM and complete system RAM were not measured.
+
+One later Pocket retry stalled after logging tokenizer loading, with no network connection and no further CPU progress for more than 150 seconds; only the two benchmark processes started for that retry were terminated. Repeated `nvidia-smi` polling also intermittently failed during load, so it was removed from the successful timing run. These observations are retained as instability evidence, not averaged into the successful sample.
+
+TTFA, Parakeet-under-load, Piper, Live conversation, interruption latency, process CPU/RAM, full-system RAM, and repeated variance remain unmeasured. The Voice Host, managed CPU-only Pocket runtime, and physical Android path do not exist yet. The temporary LLM process was stopped after measurement and port 8080 was verified free.
 
 ## Gate A status
 
-Characterization inventory, existing behavior contract, and a solo Pocket language baseline are recorded. Gate A remains **pending** until LLM coexistence, memory/CPU, and live-path baseline measurements can be taken. No Kokoro runtime or command has been removed in this wave.
+Repository inventory, existing web behavior tests, architecture ADR draft, Pocket solo language samples, and one real Pocket+GPU-LLM coexistence run are recorded. **Gate A: PASS** for baseline characterization. The limitations above remain follow-up performance gates; this is not a production qualification. No Kokoro runtime or command has been removed in this wave.
 
 ## Wave B status
 
-Shared contracts, safe provider resolution, language routing, and a pure v2 settings migration boundary are implemented and tested. The existing settings screen still consumes its legacy shape; finish its migration and close Gate B before starting destructive Kokoro removal.
+Shared contracts, safe provider resolution, language routing, VoiceRegistry, and a versioned v2 storage/migration boundary are implemented and tested. **Gate B: PASS** for the contract and migration boundary. The existing screen remains on its legacy shape until Wave C removes its Kokoro-specific choices and switches it to v2.
