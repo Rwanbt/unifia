@@ -54,6 +54,7 @@ import { useMode } from "@/context/mode"
 import { WorkSurface } from "@/pages/workbench/work-surface"
 import { MODE_LOADERS } from "@/pages/workbench-mode-loader"
 import { SessionArtifactViewerSection } from "@/pages/session/session-artifact-viewer-section"
+import { SessionParentBack, SessionTitleMenu } from "@/pages/session/session-title-menu"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
@@ -986,23 +987,28 @@ export default function Page() {
             data-v110="mode-chat-head"
             class="h-11 shrink-0 flex items-center gap-2 px-1"
           >
+            <Show when={params.id ? sync.session.get(params.id)?.parentID : undefined}>
+              {(parentID) => <SessionParentBack parentID={parentID()} />}
+            </Show>
             <b class="text-12-medium text-text-strong shrink-0">{language.t("session.chat.conversation")}</b>
             <Tooltip value={language.t("session.chat.scope.tooltip")}>
-              <span class="flex min-w-0 items-center gap-1 text-11-regular text-text-weak truncate">
+              <span data-v110="chat-scope" class="flex min-w-0 items-center truncate">
                 <Icon name="scope" size="small" class="shrink-0" />
                 <span class="truncate">{chatScopeLabel()}</span>
               </span>
             </Tooltip>
-            <IconButton
-              icon="trajectory"
-              variant="ghost"
-              size="small"
-              aria-label={language.t("session.chat.trajectory")}
+            <button
+              type="button"
+              data-v110="trajectory-btn"
               onClick={() => {
                 layout.inspector.setTab("execution")
                 layout.inspector.open()
               }}
-            />
+            >
+              <Icon name="trajectory" size="small" />
+              <span>{language.t("session.chat.trajectory")}</span>
+            </button>
+            <Show when={params.id}>{(id) => <SessionTitleMenu sessionID={id()} />}</Show>
             <div class="flex-1" />
           </div>
           <div class="relative flex-1 min-h-0 overflow-hidden">

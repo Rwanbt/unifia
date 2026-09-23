@@ -45,6 +45,9 @@ export const dropdownMenuContentSelector = '[data-component="dropdown-menu-conte
 
 export const inlineInputSelector = '[data-component="inline-input"]'
 
+// The session ⋯ menu lives in the chat head, right of Exécution (ADR-042).
+export const sessionMenuTriggerSelector = '[data-v110="mode-chat-head"] [data-v110="session-menu"]'
+
 export const sessionItemSelector = (sessionID: string) => `${sidebarNavSelector} [data-session-id="${sessionID}"]`
 
 export const workspaceItemSelector = (slug: string) =>

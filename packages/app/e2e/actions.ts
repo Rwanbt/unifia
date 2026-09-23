@@ -13,6 +13,7 @@ import { terminalAttr, type E2EWindow } from "../src/testing/terminal"
 import { createSdk, modKey, resolveDirectory, serverUrl } from "./utils"
 import {
   dropdownMenuContentSelector,
+  sessionMenuTriggerSelector,
   projectSwitchSelector,
   projectMenuTriggerSelector,
   projectCloseMenuSelector,
@@ -552,10 +553,6 @@ export async function hoverSessionItem(page: Page, sessionID: string) {
 export async function openSessionMoreMenu(page: Page, sessionID: string) {
   await expect(page).toHaveURL(new RegExp(`/session/${sessionID}(?:[/?#]|$)`))
 
-  const scroller = page.locator(".scroll-view__viewport").first()
-  await expect(scroller).toBeVisible()
-  await expect(scroller.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: DEFAULT_TIMEOUT })
-
   const menu = page
     .locator(dropdownMenuContentSelector)
     .filter({ has: page.getByRole("menuitem", { name: /rename/i }) })
@@ -570,8 +567,8 @@ export async function openSessionMoreMenu(page: Page, sessionID: string) {
 
   if (opened) return menu
 
-  const menuTrigger = scroller.getByRole("button", { name: /more options/i }).first()
-  await expect(menuTrigger).toBeVisible()
+  const menuTrigger = page.locator(sessionMenuTriggerSelector).first()
+  await expect(menuTrigger).toBeVisible({ timeout: DEFAULT_TIMEOUT })
   await menuTrigger.click()
 
   await expect(menu).toBeVisible()
@@ -610,11 +607,7 @@ export async function confirmDialog(page: Page, buttonName: string | RegExp) {
 }
 
 export async function openSharePopover(page: Page) {
-  const scroller = page.locator(".scroll-view__viewport").first()
-  await expect(scroller).toBeVisible()
-  await expect(scroller.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: DEFAULT_TIMEOUT })
-
-  const menuTrigger = scroller.getByRole("button", { name: /more options/i }).first()
+  const menuTrigger = page.locator(sessionMenuTriggerSelector).first()
   await expect(menuTrigger).toBeVisible({ timeout: DEFAULT_TIMEOUT })
 
   const popoverBody = page
@@ -634,7 +627,7 @@ export async function openSharePopover(page: Page) {
     await expect(menu).toHaveCount(0)
     await expect(popoverBody).toBeVisible({ timeout: DEFAULT_TIMEOUT })
   }
-  return { rightSection: scroller, popoverBody }
+  return { popoverBody }
 }
 
 export async function clickListItem(

@@ -7,7 +7,7 @@ import {
   openSharePopover,
   withSession,
 } from "../actions"
-import { sessionItemSelector, inlineInputSelector } from "../selectors"
+import { sessionItemSelector } from "../selectors"
 
 const shareDisabled = process.env.UNIFIA_DISABLE_SHARE === "true" || process.env.UNIFIA_DISABLE_SHARE === "1"
 
@@ -41,14 +41,14 @@ test("session can be renamed via header menu", async ({ page, project }) => {
     project.trackSession(session.id)
     await seedMessage(project.sdk, session.id)
     await project.gotoSession(session.id)
-    await expect(page.getByRole("heading", { level: 1 }).first()).toHaveText(originalTitle)
 
     const menu = await openSessionMoreMenu(page, session.id)
     await clickMenuItem(menu, /rename/i)
 
-    const input = page.locator(".scroll-view__viewport").locator(inlineInputSelector).first()
+    // Rename is a dialog since the title bar left the thread (ADR-042).
+    const input = page.getByRole("dialog").getByRole("textbox").first()
     await expect(input).toBeVisible()
-    await expect(input).toBeFocused()
+    await expect(input).toHaveValue(originalTitle)
     await input.fill(renamedTitle)
     await expect(input).toHaveValue(renamedTitle)
     await input.press("Enter")
@@ -63,7 +63,7 @@ test("session can be renamed via header menu", async ({ page, project }) => {
       )
       .toBe(renamedTitle)
 
-    await expect(page.getByRole("heading", { level: 1 }).first()).toHaveText(renamedTitle)
+    await expect(page.getByRole("dialog")).toHaveCount(0)
   })
 })
 

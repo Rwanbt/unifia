@@ -38,6 +38,110 @@
   outline: none;
 }
 
+/* The maquette's final computed palette inside #globalChatPanel, scoped to
+ * the chat so the app-wide brand tokens (which differ by a few levels) do not
+ * shift it. Same approach as the editor card's --v110-card-* palette. */
+[data-v110="session-chat-surface"] {
+  --bg-soft: #121214;
+  --surface: #161618;
+  --surface-2: #1b1b1e;
+  --surface-3: #212125;
+  --surface-4: #26262b;
+  --text: #f2f2f3;
+  --muted: #9b9ba1;
+  --faint: #85858d;
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  --accent: var(--text);
+  --success: #8aca9a;
+}
+
+html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
+  --bg-soft: #f8f8f9;
+  --surface: #ffffff;
+  --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
+  --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
+  --surface-4: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --text: #17171a;
+  --muted: #686870;
+  --faint: #74747c;
+  --line: rgba(0, 0, 0, 0.065);
+  --line-strong: rgba(0, 0, 0, 0.12);
+}
+
+[data-v110="mode-chat-head"] {
+  box-sizing: border-box;
+  height: 42px;
+  gap: 7px;
+  padding: 10px 12px 4px;
+}
+
+[data-v110="mode-chat-head"] > b {
+  font-size: 11px;
+  line-height: normal;
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-v110="chat-scope"] {
+  gap: 5px;
+  font-size: 9px;
+  line-height: normal;
+  color: var(--muted);
+}
+
+[data-v110="chat-scope"] [data-component="icon"],
+[data-v110="chat-scope"] svg {
+  width: 12px;
+  height: 12px;
+  color: var(--accent);
+}
+
+[data-v110="trajectory-btn"],
+[data-v110="mode-chat-head"] [data-v110="session-menu"] {
+  box-sizing: border-box;
+  display: inline-grid;
+  grid-auto-flow: column;
+  place-items: center;
+  gap: 6px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-v110="mode-chat-head"] [data-v110="session-menu"] {
+  width: 28px;
+  padding: 0;
+}
+
+[data-v110="trajectory-btn"]:hover,
+[data-v110="trajectory-btn"]:focus-visible,
+[data-v110="mode-chat-head"] [data-v110="session-menu"]:hover,
+[data-v110="mode-chat-head"] [data-v110="session-menu"][aria-expanded="true"] {
+  background: var(--surface-3);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+[data-v110="trajectory-btn"] [data-component="icon"],
+[data-v110="trajectory-btn"] svg,
+[data-v110="mode-chat-head"] [data-v110="session-menu"] [data-component="icon"],
+[data-v110="mode-chat-head"] [data-v110="session-menu"] svg {
+  width: 14px;
+  height: 14px;
+}
+
+[data-v110="trajectory-btn"] > span {
+  line-height: normal;
+}
+
 [data-v110="session-chat-surface"] {
   min-width: 0;
   min-height: 0;
