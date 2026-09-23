@@ -23,7 +23,7 @@ Existing characterization tests are in `packages/app/src/hooks/web-speech.test.t
 
 ## Baseline verification
 
-- Existing browser speech characterization and audio settings migration tests: 8 passed, 18 assertions (`web-speech.test.ts` plus `audio-settings.test.ts`).
+- Existing browser speech characterization and audio settings migration tests: 9 passed, 20 assertions (`web-speech.test.ts` plus `audio-settings.test.ts`).
 - Audio settings migration tests: 4 passed, 12 assertions.
 - Speech contract, registry, and language-router tests: 6 passed, 17 assertions.
 - Contracts TypeScript check: passed (`bun run typecheck` in `packages/contracts`).
