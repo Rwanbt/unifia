@@ -23,7 +23,6 @@ mod validate;
 // proxy uses only tokio (cross-platform) — include for tests on host machines
 #[cfg(any(target_os = "android", test))]
 mod proxy;
-mod kokoro;
 mod parakeet;
 mod speech;
 
@@ -405,19 +404,6 @@ pub fn run() {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
-            speech::tts_start,
-            speech::tts_speak,
-            speech::tts_stop,
-            speech::tts_save_voice_clone,
-            speech::tts_list_voice_clones,
-            speech::tts_delete_voice_clone,
-            speech::tts_available,
-            speech::kokoro_available,
-            speech::kokoro_download_model,
-            speech::kokoro_load,
-            speech::kokoro_loaded,
-            speech::kokoro_voices,
-            speech::kokoro_synthesize,
         ]);
     }
 

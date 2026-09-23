@@ -4,7 +4,7 @@
  * P31 — Media provider adapter.
  *
  * The media runtime does not hard-code any provider. Each provider
- * (Kokoro TTS, Parakeet STT, an image generator, etc.) is described
+ * (Pocket TTS, Parakeet STT, an image generator, etc.) is described
  * by an object that implements `MediaProvider`. The runtime asks
  * the adapter to call the provider for a job, the provider returns
  * a `MediaArtifact`, and the runtime wraps that into a regular

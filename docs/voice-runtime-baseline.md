@@ -14,9 +14,9 @@ Status: Wave A characterization, 2026-09-23. The baseline is measured, explorato
 | Concern | Current owner | Observed behavior |
 |---|---|---|
 | Web dictation and browser read aloud | `packages/app/src/hooks/web-speech.ts` | `stt-start` records final recognition text and inserts it into the prompt editor; it does not submit the prompt. `tts-toggle` uses browser speech synthesis. |
-| Desktop dictation and TTS | `packages/desktop/src/hooks/use-speech.ts`, `packages/desktop/src-tauri/src/speech.rs` | Parakeet STT and direct Pocket/Kokoro commands; local WAV playback is used by existing paths. |
-| Mobile dictation and TTS | `packages/mobile/src/hooks/use-speech.ts`, `packages/mobile/src-tauri/src/speech.rs` | Parakeet STT and direct Kokoro ONNX synthesis/playback. |
-| Audio settings | `packages/app/src/components/settings-audio.tsx` | Unversioned local storage; includes `sttEngine`, `ttsVoice`, and `pocket|kokoro` provider values. Mobile forces Kokoro. |
+| Desktop dictation and TTS | `packages/desktop/src/hooks/use-speech.ts`, `packages/desktop/src-tauri/src/speech.rs` | Parakeet STT and Pocket TTS; playback uses WAV files. |
+| Mobile dictation and TTS | `packages/mobile/src/hooks/use-speech.ts`, `packages/mobile/src-tauri/src/speech.rs` | Parakeet STT remains local; TTS reports Voice Host unavailable until host playback is wired. |
+| Audio settings | `packages/app/src/components/settings-audio.tsx` | Versioned v2 settings with automatic/Pocket provider choice. Legacy storage migrates through the shared boundary. |
 | Shared contracts | None before this change | Wave B introduces provider-neutral speech types in `@unifia/contracts/speech`. |
 
 Existing characterization tests are in `packages/app/src/hooks/web-speech.test.ts`. They cover cleaned spoken text, unsupported/denied browser dictation, final-transcript insertion without submission, and read-aloud pause/resume/cancel behavior.
@@ -56,8 +56,16 @@ TTFA, Parakeet-under-load, Piper, Live conversation, interruption latency, proce
 
 ## Gate A status
 
-Repository inventory, existing web behavior tests, architecture ADR draft, Pocket solo language samples, and one real Pocket+GPU-LLM coexistence run are recorded. **Gate A: PASS** for baseline characterization. The limitations above remain follow-up performance gates; this is not a production qualification. No Kokoro runtime or command has been removed in this wave.
+Repository inventory, existing web behavior tests, architecture ADR draft, Pocket solo language samples, and one real Pocket+GPU-LLM coexistence run are recorded. **Gate A: PASS** for baseline characterization. The limitations above remain follow-up performance gates; this is not a production qualification.
 
 ## Wave B status
 
-Shared contracts, safe provider resolution, language routing, VoiceRegistry, and a versioned v2 storage/migration boundary are implemented and tested. **Gate B: PASS** for the contract and migration boundary. The existing screen remains on its legacy shape until Wave C removes its Kokoro-specific choices and switches it to v2.
+Shared contracts, safe provider resolution, language routing, VoiceRegistry, and a versioned v2 storage/migration boundary are implemented and tested. **Gate B: PASS** for the contract and migration boundary.
+
+## Wave C status
+
+Kokoro engine modules, Tauri command registrations, download/synthesis commands, mobile Kokoro playback, settings controls, localization entries, shared G2P/tokenizer crate, and its locked dependencies have been removed. The audio settings screen and desktop hook now use the v2 migration/storage boundary. Mobile dictation stays on local Parakeet; TTS displays a Voice Host unavailable message when no host path exists. Repository search finds Kokoro only in migration tests that must protect existing user settings.
+
+Verification: mobile Rust `cargo check --lib` passed; app audio settings migration tests passed (5 tests / 16 assertions); media provider adapter tests passed (6 / 12); `git diff --check` passed. App and desktop typechecks reach only the known cross-worktree duplicate `OpaqueCursor` error under the shared `node_modules` junction. Desktop Rust binding export is blocked because `ort-sys` emits an empty native search path in this host environment; `CARGO_NET_OFFLINE=false` retry did not resolve it. The six stale generated Kokoro wrappers were removed mechanically from `packages/desktop/src/bindings.ts`; the Specta exporter could not be run here.
+
+**Gate C: PASS for active Kokoro removal, with desktop exporter verification limited by the missing ONNX Runtime link path.** No runtime model files outside the repository were deleted. This is not a production qualification; Voice Host/Pocket managed runtime and remote TTS are still pending.

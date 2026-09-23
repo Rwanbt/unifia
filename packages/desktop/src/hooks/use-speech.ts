@@ -5,6 +5,7 @@
  */
 
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
+import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
@@ -31,16 +32,9 @@ async function preloadModels() {
   }
   // Pre-start TTS based on selected provider
   const settings = getAudioSettings()
-  const provider = settings.ttsProvider || "pocket"
+  const provider = settings.ttsProvider || "auto"
   try {
-    if (provider === "kokoro") {
-      const available = await invokeTauri("kokoro_available")
-      if (available) {
-        console.log("[TTS] Pre-loading Kokoro model...")
-        await invokeTauri("kokoro_load")
-        console.log("[TTS] Kokoro ready")
-      }
-    } else {
+    if (provider !== "piper") {
       console.log("[TTS] Starting Pocket TTS server...")
       await invokeTauri("tts_start")
       console.log("[TTS] Pocket TTS ready")
@@ -113,7 +107,7 @@ function handleSttStop() {
   }
 }
 
-// ─── TTS (Pocket TTS / Kokoro) — Chunked streaming ───────────────────
+// ─── TTS (Pocket TTS) — Chunked playback ────────────────────────────
 
 type TtsState = "idle" | "loading" | "playing" | "paused"
 let ttsState: TtsState = "idle"
@@ -126,10 +120,7 @@ let ttsAborted = false              // signal to stop chunked playback
 let playedPaths: string[] = []      // paths to clean up after playback
 
 function getAudioSettings() {
-  try {
-    const raw = localStorage.getItem("unifia-audio-settings")
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
+  return loadAudioSettings()
 }
 
 /**
@@ -306,10 +297,7 @@ function splitIntoChunks(text: string): string[] {
   return [firstTiny, ...mergedBody]
 }
 
-function synthesizeChunk(text: string, provider: string, voice: string, speed: number): Promise<string> {
-  if (provider === "kokoro") {
-    return invokeTauri("kokoro_synthesize", { text, voice, speed })
-  }
+function synthesizeChunk(text: string, voice: string): Promise<string> {
   // Pocket TTS is ~27ms/char on CPU. Keep chunks small (1 sentence) to
   // minimize time-to-first-audio; the full request is buffered server-side.
   return invokeTauri("tts_speak", { text, voice })
@@ -333,7 +321,7 @@ function stopPlayback() {
   }
 }
 
-async function playNextChunk(provider: string, voice: string, speed: number) {
+async function playNextChunk(voice: string, speed: number) {
   if (ttsAborted) return
 
   // Get the next WAV path — either pre-fetched or synthesize now
@@ -358,7 +346,7 @@ async function playNextChunk(provider: string, voice: string, speed: number) {
   // pre-launched in parallel with C0 from handleTtsToggle).
   if (chunkQueue.length > 0 && !prefetchPromise && !prefetchedPath) {
     const nextText = chunkQueue.shift()!
-    prefetchPromise = synthesizeChunk(nextText, provider, voice, speed)
+    prefetchPromise = synthesizeChunk(nextText, voice)
     prefetchPromise.then(path => {
       prefetchedPath = path
       prefetchPromise = null
@@ -371,14 +359,14 @@ async function playNextChunk(provider: string, voice: string, speed: number) {
   // Play current chunk
   const audioUrl = convertFileSrc(wavPath)
   const audio = new Audio(audioUrl)
-  if (provider !== "kokoro") audio.playbackRate = speed
+  audio.playbackRate = speed
   currentAudio = audio
 
   audio.onended = () => {
     currentAudio = null
     if (ttsAborted) { stopPlayback(); return }
     if (chunkQueue.length > 0 || prefetchedPath || prefetchPromise) {
-      playNextChunk(provider, voice, speed)
+      playNextChunk(voice, speed)
     } else {
       stopPlayback()
     }
@@ -425,9 +413,8 @@ async function handleTtsToggle(e: CustomEvent) {
   if (!text) return
 
   const settings = getAudioSettings()
-  const provider = settings.ttsProvider || "pocket"
-  const defaultVoice = provider === "kokoro" ? "af_heart" : "alba"
-  const voice = settings.ttsVoice || defaultVoice
+  const provider = settings.ttsProvider
+  const voice = settings.voiceByLanguage.en || "alba"
   const speed = settings.ttsSpeed || 1.0
 
   ttsAborted = false
@@ -449,13 +436,13 @@ async function handleTtsToggle(e: CustomEvent) {
   chunkQueue = chunks
 
   try {
-    const synth1Promise = synthesizeChunk(firstText, provider, voice, speed)
+    const synth1Promise = synthesizeChunk(firstText, voice)
 
     // Launch C1 synth in PARALLEL with C0 (the server handles concurrent requests).
     // This eliminates the gap between C0 playback end and C1 ready.
     let synth2Promise: Promise<string> | null = null
     if (secondText) {
-      synth2Promise = synthesizeChunk(secondText, provider, voice, speed)
+      synth2Promise = synthesizeChunk(secondText, voice)
       // Attach a no-op catch immediately so a failure doesn't become an unhandled
       // rejection if synth1 throws before we wire up the real handlers below.
       synth2Promise.catch(() => {})
@@ -483,7 +470,7 @@ async function handleTtsToggle(e: CustomEvent) {
       })
     }
 
-    await playNextChunk(provider, voice, speed)
+    await playNextChunk(voice, speed)
     console.log(`[TTS] Time-to-first-audio: ${Math.round(performance.now() - t0)}ms`)
   } catch (e) {
     console.error("[TTS] Failed:", e)

@@ -5,17 +5,10 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(feature = "onnx")]
-use crate::kokoro::KokoroEngine;
-#[cfg(feature = "onnx")]
 use crate::parakeet::ParakeetEngine;
 
 #[cfg(feature = "onnx")]
 const STT_MODEL_URL: &str = "https://github.com/Kieirra/murmure-model/releases/download/1.0.0/parakeet-tdt-0.6b-v3-int8.zip";
-#[cfg(feature = "onnx")]
-// FIX: Previous URLs pointed to Kieirra/murmure-model which 404'd — use upstream kokoro-onnx releases
-const KOKORO_MODEL_URL: &str = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx";
-#[cfg(feature = "onnx")]
-const KOKORO_VOICES_URL: &str = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin";
 const TTS_PORT: u16 = 14100;
 
 /// Monotonic counter for chunk WAV filenames. Using only Date.now()-style
@@ -46,11 +39,6 @@ fn model_dir(app: &AppHandle) -> PathBuf {
 
 fn speech_dir(app: &AppHandle) -> PathBuf {
     data_dir(app).join("speech")
-}
-
-#[cfg(feature = "onnx")]
-fn kokoro_dir(app: &AppHandle) -> PathBuf {
-    data_dir(app).join("speech").join("kokoro")
 }
 
 fn find_pocket_tts() -> Option<PathBuf> {
@@ -131,10 +119,6 @@ pub struct SpeechState {
     tts_child: Mutex<Option<tokio::process::Child>>,
     tts_ready: Mutex<bool>,
     tts_client: reqwest::Client,
-    #[cfg(feature = "onnx")]
-    kokoro_engine: Mutex<KokoroEngine>,
-    #[cfg(feature = "onnx")]
-    kokoro_loaded: Mutex<bool>,
 }
 
 impl SpeechState {
@@ -154,10 +138,6 @@ impl SpeechState {
                 .tcp_nodelay(true)
                 .build()
                 .expect("Failed to create HTTP client"),
-            #[cfg(feature = "onnx")]
-            kokoro_engine: Mutex::new(KokoroEngine::new()),
-            #[cfg(feature = "onnx")]
-            kokoro_loaded: Mutex::new(false),
         }
     }
 }
@@ -662,215 +642,6 @@ pub async fn tts_cleanup_chunks(app: AppHandle) -> Result<(), String> {
             }
         }
     Ok(())
-}
-
-// ─── Kokoro TTS (ONNX, built-in) ─────────────────────────────────────
-
-#[cfg(feature = "onnx")]
-#[tauri::command]
-#[specta::specta]
-pub async fn kokoro_available(app: AppHandle) -> bool {
-    let dir = kokoro_dir(&app);
-    dir.join("kokoro-v1.0.onnx").exists() && dir.join("voices-v1.0.bin").exists()
-}
-
-#[cfg(feature = "onnx")]
-#[tauri::command]
-#[specta::specta]
-pub async fn kokoro_download_model(app: AppHandle) -> Result<(), String> {
-    let dir = kokoro_dir(&app);
-    let _ = fs::create_dir_all(&dir);
-
-    let model_path = dir.join("kokoro-v1.0.onnx");
-    let voices_path = dir.join("voices-v1.0.bin");
-
-    if model_path.exists() && voices_path.exists() {
-        return Ok(());
-    }
-
-    let client = reqwest::Client::new();
-
-    // Download model
-    if !model_path.exists() {
-        tracing::info!("[Kokoro] Downloading model...");
-        let resp = client.get(KOKORO_MODEL_URL).send().await.map_err(|e| format!("Download model: {}", e))?;
-        if !resp.status().is_success() {
-            return Err(format!("HTTP {}", resp.status()));
-        }
-        let total = resp.content_length().unwrap_or(0);
-        let mut downloaded: u64 = 0;
-        use futures::StreamExt;
-        use tokio::io::AsyncWriteExt;
-        let mut file = tokio::fs::File::create(&model_path).await.map_err(|e| format!("Create: {}", e))?;
-        let mut last_emit = std::time::Instant::now();
-        let mut stream = resp.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| format!("Stream: {}", e))?;
-            file.write_all(&chunk).await.map_err(|e| format!("Write: {}", e))?;
-            downloaded += chunk.len() as u64;
-            if last_emit.elapsed().as_millis() > 300 {
-                let progress = if total > 0 { downloaded as f64 / total as f64 * 0.9 } else { 0.0 };
-                let _ = app.emit("kokoro-download-progress", progress);
-                last_emit = std::time::Instant::now();
-            }
-        }
-        file.flush().await.map_err(|e| format!("Flush: {}", e))?;
-        tracing::info!("[Kokoro] Model downloaded");
-    }
-
-    // Download voices
-    if !voices_path.exists() {
-        tracing::info!("[Kokoro] Downloading voices...");
-        let resp = client.get(KOKORO_VOICES_URL).send().await.map_err(|e| format!("Download voices: {}", e))?;
-        if !resp.status().is_success() {
-            return Err(format!("HTTP {}", resp.status()));
-        }
-        let bytes = resp.bytes().await.map_err(|e| format!("Read: {}", e))?;
-        fs::write(&voices_path, &bytes).map_err(|e| format!("Write: {}", e))?;
-        tracing::info!("[Kokoro] Voices downloaded");
-    }
-
-    let _ = app.emit("kokoro-download-progress", 1.0_f64);
-    Ok(())
-}
-
-#[cfg(feature = "onnx")]
-#[tauri::command]
-#[specta::specta]
-pub async fn kokoro_load(app: AppHandle) -> Result<(), String> {
-    {
-        let state = app.state::<SpeechState>();
-        if *state.kokoro_loaded.lock_safe() {
-            return Ok(());
-        }
-    }
-
-    let dir = kokoro_dir(&app);
-    let model_path = dir.join("kokoro-v1.0.onnx");
-    let voices_path = dir.join("voices-v1.0.bin");
-
-    if !model_path.exists() || !voices_path.exists() {
-        return Err("Kokoro model not downloaded".to_string());
-    }
-
-    tracing::info!("[Kokoro] Loading model...");
-    let start = std::time::Instant::now();
-    let result = tokio::task::spawn_blocking(move || {
-        let mut engine = KokoroEngine::new();
-        engine.load(&model_path, &voices_path)?;
-        Ok::<KokoroEngine, String>(engine)
-    })
-    .await
-    .map_err(|e| format!("Task: {}", e))?;
-
-    let engine = result?;
-    {
-        let state = app.state::<SpeechState>();
-        *state.kokoro_engine.lock_safe() = engine;
-        *state.kokoro_loaded.lock_safe() = true;
-    }
-    tracing::info!("[Kokoro] Model loaded in {:?}", start.elapsed());
-    Ok(())
-}
-
-#[cfg(feature = "onnx")]
-#[tauri::command]
-#[specta::specta]
-pub async fn kokoro_loaded(app: AppHandle) -> bool {
-    let state = app.state::<SpeechState>();
-    *state.kokoro_loaded.lock_safe()
-}
-
-#[cfg(feature = "onnx")]
-#[tauri::command]
-#[specta::specta]
-pub async fn kokoro_voices(app: AppHandle) -> Vec<String> {
-    let state = app.state::<SpeechState>();
-    let engine = state.kokoro_engine.lock_safe();
-    let mut names = engine.voice_names();
-    names.sort();
-    names
-}
-
-/// Synthesize text with Kokoro ONNX engine, returns file path to WAV
-#[cfg(feature = "onnx")]
-#[tauri::command]
-#[specta::specta]
-pub async fn kokoro_synthesize(app: AppHandle, text: String, voice: String, speed: f32) -> Result<String, String> {
-    // Bound all user-controlled inputs (defence in depth against XSS).
-    crate::validate::validate_bounded_text(&text, 1024 * 1024, "kokoro text")?;
-    if voice.len() > 128 || voice.contains('/') || voice.contains('\\') || voice.contains('\0') {
-        return Err("invalid voice name".into());
-    }
-    if !speed.is_finite() || !(0.1..=4.0).contains(&speed) {
-        return Err("speed out of range".into());
-    }
-    // Ensure loaded
-    {
-        let state = app.state::<SpeechState>();
-        let loaded = *state.kokoro_loaded.lock_safe();
-        if !loaded {
-            kokoro_load(app.clone()).await?;
-        }
-    }
-
-    tracing::info!("[Kokoro] Synthesizing {} chars with voice {}", text.len(), voice);
-    let start = std::time::Instant::now();
-
-    let app_clone = app.clone();
-    let voice_clone = voice.clone();
-    let samples = tokio::task::spawn_blocking(move || {
-        // Wrap in catch_unwind to convert any ORT/native panic into a logged error
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            tracing::info!("[Kokoro] spawn_blocking: acquiring lock");
-            let state = app_clone.state::<SpeechState>();
-            let mut engine = state.kokoro_engine.lock().map_err(|e| format!("Lock: {}", e))?;
-            tracing::info!("[Kokoro] spawn_blocking: running synthesize");
-            engine.synthesize(&text, &voice_clone, speed)
-        }))
-        .unwrap_or_else(|panic_val| {
-            let msg = panic_val
-                .downcast_ref::<String>()
-                .map(|s| s.as_str())
-                .or_else(|| panic_val.downcast_ref::<&str>().copied())
-                .unwrap_or("unknown panic payload");
-            tracing::error!("[Kokoro] PANIC in synthesis: {}", msg);
-            Err(format!("Panic: {}", msg))
-        })
-    })
-    .await
-    .map_err(|e| {
-        tracing::error!("[Kokoro] spawn_blocking JoinError: {}", e);
-        format!("Task: {}", e)
-    })?
-    .map_err(|e| {
-        tracing::error!("[Kokoro] Synthesis failed: {}", e);
-        format!("Synthesis: {}", e)
-    })?;
-
-    tracing::info!("[Kokoro] Synthesized {} samples in {:?}", samples.len(), start.elapsed());
-
-    // Encode to WAV and write to unique temp file
-    let out_dir = speech_dir(&app).join("tts_chunks");
-    let _ = fs::create_dir_all(&out_dir);
-    let out_path = out_dir.join(next_chunk_filename());
-
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate: 24000,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(&out_path, spec)
-        .map_err(|e| format!("WAV writer: {}", e))?;
-    for &s in &samples {
-        let clamped = s.clamp(-1.0, 1.0);
-        let i16_val = if clamped < 0.0 { (clamped * 32768.0) as i16 } else { (clamped * 32767.0) as i16 };
-        writer.write_sample(i16_val).map_err(|e| format!("WAV write: {}", e))?;
-    }
-    writer.finalize().map_err(|e| format!("WAV finalize: {}", e))?;
-
-    Ok(out_path.to_string_lossy().to_string())
 }
 
 // ─── WAV helpers ───────────────────────────────────────────────────────

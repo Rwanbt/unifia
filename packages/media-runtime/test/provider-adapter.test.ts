@@ -25,18 +25,18 @@ const stubProvider = (id: string, kind: "image" | "video" | "audio"): MediaProvi
 describe("createMediaProviderRegistry", () => {
   test("register, get, and unregister", () => {
     const registry = createMediaProviderRegistry()
-    const p = stubProvider("kokoro-tts", "audio")
+    const p = stubProvider("test-tts", "audio")
     registry.register(p)
-    expect(registry.get("kokoro-tts")).toBe(p)
+    expect(registry.get("test-tts")).toBe(p)
     expect(registry.list()).toEqual([p])
-    registry.unregister("kokoro-tts")
-    expect(registry.get("kokoro-tts")).toBeUndefined()
+    registry.unregister("test-tts")
+    expect(registry.get("test-tts")).toBeUndefined()
   })
 
   test("registering the same id twice throws", () => {
     const registry = createMediaProviderRegistry()
-    registry.register(stubProvider("kokoro-tts", "audio"))
-    expect(() => registry.register(stubProvider("kokoro-tts", "audio"))).toThrow(/already registered/)
+    registry.register(stubProvider("test-tts", "audio"))
+    expect(() => registry.register(stubProvider("test-tts", "audio"))).toThrow(/already registered/)
   })
 
   test("requireProvider refuses an unknown id", () => {
@@ -50,11 +50,11 @@ describe("providersForKind", () => {
     const registry = createMediaProviderRegistry()
     registry.register(stubProvider("zeta-image", "image"))
     registry.register(stubProvider("alpha-image", "image"))
-    registry.register(stubProvider("kokoro-tts", "audio"))
+    registry.register(stubProvider("test-tts", "audio"))
     const images = providersForKind(registry, "image")
     expect(images.map((p) => p.id)).toEqual(["alpha-image", "zeta-image"])
     const audios = providersForKind(registry, "audio")
-    expect(audios.map((p) => p.id)).toEqual(["kokoro-tts"])
+    expect(audios.map((p) => p.id)).toEqual(["test-tts"])
   })
 
   test("returns an empty list when no provider supports the kind", () => {
@@ -65,11 +65,11 @@ describe("providersForKind", () => {
 
 describe("stubProvider", () => {
   test("generates an empty artifact with the requested kind", async () => {
-    const p = stubProvider("kokoro-tts", "audio")
+    const p = stubProvider("test-tts", "audio")
     const artifact = await p.generate({ jobId: "j-1", kind: "audio", prompt: "hello" })
     expect(artifact.kind).toBe("audio")
     expect(artifact.bytes.byteLength).toBe(0)
-    expect(artifact.provenance.sourceTool).toBe("kokoro-tts")
+    expect(artifact.provenance.sourceTool).toBe("test-tts")
     expect(artifact.provenance.capabilityPack).toBe("media-runtime")
   })
 })

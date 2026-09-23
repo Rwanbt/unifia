@@ -17,7 +17,7 @@ else
   node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$SCRIPT_DIR/../src-tauri/assets/runtime"
 fi
 
-# Ensure ONNX Runtime shared library is available for Kokoro TTS.
+# Ensure ONNX Runtime shared library is available for Parakeet STT.
 # Version MUST match the one the Rust `ort` crate was built against. The
 # pinned crate version 2.0.0-rc.10 targets ORT 1.19.x — bundling 1.22.0
 # causes `dlopen failed: cannot locate symbol OrtGetApiBase` at launch

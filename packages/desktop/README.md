@@ -74,7 +74,6 @@ Kyutai Pocket TTS with voice cloning.
 - **100M params**: CPU-only, ~6x real-time
 - **HTTP server**: `pocket-tts serve` on port 14100
 
-Fallback Kokoro TTS ONNX engine also integrated (54 voices, 9 languages, CMUDict G2P).
 
 ### Web Search
 
@@ -172,9 +171,7 @@ packages/desktop/
 │       ├── llm.rs                     # LLM server: download, spawn, speculative decoding, VRAM
 │       ├── speech.rs                  # STT (Parakeet) + TTS (Pocket TTS) commands
 │       ├── parakeet/engine.rs         # ONNX STT: preprocess → encode → TDT decode
-│       └── kokoro/engine.rs           # ONNX TTS: G2P → tokenize → synthesize
 └── assets/
-    └── cmudict.dict                   # 135K English pronunciation dictionary for Kokoro
 ```
 
 ### Service Ports
@@ -192,7 +189,6 @@ packages/desktop/
 | LLM runtime | `%APPDATA%/.../llama-runtime/` |
 | STT model | `%APPDATA%/.../speech/parakeet-tdt-0.6b-v3-int8/` |
 | TTS voices | `%APPDATA%/.../speech/voices/` |
-| Kokoro model | `~/.cache/kokoros/kokoro-v1.0.onnx` |
 
 ## Troubleshooting
 

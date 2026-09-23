@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn accepts_gguf_and_onnx() {
         assert!(validate_filename("model-Q4.gguf").is_ok());
-        assert!(validate_filename("kokoro.onnx").is_ok());
+        assert!(validate_filename("voice-model.onnx").is_ok());
     }
 
     #[test]

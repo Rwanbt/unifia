@@ -6,8 +6,6 @@ mod identity_generated;
 mod llm;
 mod util;
 mod validate;
-// pub for examples/test_kokoro.rs — revert to `mod` if examples are removed
-pub mod kokoro;
 mod parakeet;
 mod speech;
 #[cfg(target_os = "linux")]
@@ -740,12 +738,6 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
-            speech::kokoro_available,
-            speech::kokoro_download_model,
-            speech::kokoro_load,
-            speech::kokoro_loaded,
-            speech::kokoro_voices,
-            speech::kokoro_synthesize,
             auth_storage::auth_storage_get,
             auth_storage::auth_storage_set,
             auth_storage::auth_storage_delete,

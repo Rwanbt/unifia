@@ -54,23 +54,8 @@ Native mobile app for Android (and future iOS), powered by Tauri 2.0. Supports b
   the auto-generated `RustWebChromeClient` once `RECORD_AUDIO` +
   `MODIFY_AUDIO_SETTINGS` are declared in the manifest.
 
-### Text-to-Speech (TTS) — Kokoro ONNX
-- **Kokoro v1.0 (Apache-2.0)** is the only on-device TTS engine on
-  Android (Pocket TTS needs a Python sidecar, not viable on mobile).
-  54+ pre-defined voices, 9 languages, ONNX CPUExecutionProvider.
-- Six Tauri commands exposed from `speech.rs`: `kokoro_available`,
-  `kokoro_download_model`, `kokoro_load`, `kokoro_loaded`,
-  `kokoro_voices`, `kokoro_synthesize`. The stubbed `tts_speak` /
-  `tts_available` now delegate to these.
-- ~336 MB download on first use (model + voices bundle from
-  `thewh1teagle/kokoro-onnx` v1.0 release).
-- Chunked streaming playback with parallel C0/C1 synth (same algorithm
-  as the desktop hook) for a fast time-to-first-audio.
-- `Mutex` access through the `lock_safe` helper (B.A5) — a poisoned
-  lock is recovered with a warning instead of panicking the TTS stack.
-- **No voice cloning on mobile**: Kokoro's fixed `[1,256]` style
-  embeddings cannot encode arbitrary speakers, and the VoiceClone
-  section of Settings is hidden on mobile via `usePlatform()`.
+### Text-to-Speech (TTS)
+Mobile TTS is provided by the Unifia Voice Host. Without a connected host, synthesis is unavailable; the microphone dictation path remains local through Parakeet.
 
 ### External Storage Access
 - Symlinks from server HOME to `/sdcard/` directories (Documents, Downloads, projects, etc.)
@@ -163,7 +148,6 @@ packages/mobile/
 │   │   ├── llm.rs             # LLM command handler (IPC bridge)
 │   │   ├── speech.rs          # STT (Parakeet) + TTS stubs + voice clone storage
 │   │   ├── parakeet/engine.rs # ONNX STT inference (preprocess → encode → decode)
-│   │   └── kokoro/engine.rs   # ONNX TTS engine (G2P + tokenizer + synthesis)
 │   └── gen/android/
 │       └── app/src/main/
 │           ├── java/.../LlamaEngine.kt  # Kotlin JNI bridge for llama.cpp

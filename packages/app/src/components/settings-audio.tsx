@@ -1,4 +1,4 @@
-import { type Component, createSignal, For, type JSX, onMount, Show } from "solid-js"
+import { type Component, createSignal, For, type JSX, Show } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
 import { Button } from "@unifia/ui/button"
@@ -9,28 +9,13 @@ import { SettingsList } from "./settings-list"
 import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
+import {
+  loadAudioSettings as loadVoiceSettings,
+  saveAudioSettings,
+  type AudioSettingsV2,
+} from "@/voice/audio-settings"
 
-export type AudioSettings = {
-  sttEnabled: boolean
-  sttEngine: string
-  sttLanguage: string
-  ttsEnabled: boolean
-  ttsProvider: "pocket" | "kokoro"
-  ttsVoice: string
-  ttsAutoPlay: boolean
-  ttsSpeed: number
-}
-
-const DEFAULT_AUDIO: AudioSettings = {
-  sttEnabled: true,
-  sttEngine: "parakeet",
-  sttLanguage: "auto",
-  ttsEnabled: true,
-  ttsProvider: "pocket",
-  ttsVoice: "alba",
-  ttsAutoPlay: false,
-  ttsSpeed: 1.0,
-}
+export type AudioSettings = AudioSettingsV2
 
 // Pocket TTS voices (Les Misérables + custom)
 const TTS_VOICES: { id: string; label: string }[] = [
@@ -50,89 +35,24 @@ function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> 
   return tauri.core.invoke(cmd, args)
 }
 
-const STORAGE_KEY = "unifia-audio-settings"
-
-export function loadAudioSettings(): AudioSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...DEFAULT_AUDIO, ...JSON.parse(raw) }
-  } catch {}
-  return { ...DEFAULT_AUDIO }
-}
-
-function saveSettings(s: AudioSettings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
-}
+export const loadAudioSettings = loadVoiceSettings
 
 export const SettingsAudio: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
-  // Mobile has no Pocket TTS (no Python sidecar), so the only TTS engine is
-  // Kokoro. Voice cloning (Pocket-only feature) is also hidden. We still
-  // show the Provider row on desktop so the user can switch engines.
   const isMobile = () => platform.platform === "mobile"
 
   const [settings, setSettings] = createStore<AudioSettings>(loadAudioSettings())
-  const [kokoroVoices, setKokoroVoices] = createSignal<string[]>([])
-  const [kokoroAvailable, setKokoroAvailable] = createSignal(false)
-  const [kokoroDownloading, setKokoroDownloading] = createSignal(false)
-  const [downloadProgress, _setDownloadProgress] = createSignal(0)
-
-  // On mobile, force provider to kokoro (Pocket is not available).
-  onMount(() => {
-    if (isMobile() && settings.ttsProvider !== "kokoro") {
-      update("ttsProvider", "kokoro")
-      update("ttsVoice", "af_heart")
-    }
-  })
-
-  // Check Kokoro availability on mount
-  ;(async () => {
-    try {
-      const avail = await invokeTauri("kokoro_available")
-      setKokoroAvailable(avail)
-      if (avail) {
-        const loaded = await invokeTauri("kokoro_loaded")
-        if (loaded) {
-          const voices: string[] = await invokeTauri("kokoro_voices")
-          setKokoroVoices(voices)
-        }
-      }
-    } catch {}
-  })()
-
-  const handleDownloadKokoro = async () => {
-    setKokoroDownloading(true)
-    try {
-      await invokeTauri("kokoro_download_model")
-      setKokoroAvailable(true)
-      await invokeTauri("kokoro_load")
-      const voices: string[] = await invokeTauri("kokoro_voices")
-      setKokoroVoices(voices)
-    } catch (e) {
-      console.error("Kokoro download failed:", e)
-    }
-    setKokoroDownloading(false)
-  }
 
   const update = <K extends keyof AudioSettings>(key: K, value: AudioSettings[K]) => {
     setSettings(key, value as any)
-    saveSettings({ ...settings })
+    saveAudioSettings({ ...settings, [key]: value })
   }
 
-  const handleProviderChange = async (provider: "pocket" | "kokoro") => {
+  const handleProviderChange = (provider: AudioSettings["ttsProvider"]) => {
     update("ttsProvider", provider)
-    if (provider === "kokoro") {
-      update("ttsVoice", "af_heart")
-      if (kokoroAvailable() && kokoroVoices().length === 0) {
-        try {
-          await invokeTauri("kokoro_load")
-          const voices: string[] = await invokeTauri("kokoro_voices")
-          setKokoroVoices(voices)
-        } catch {}
-      }
-    } else {
-      update("ttsVoice", "alba")
+    if (provider === "pocket" && !settings.voiceByLanguage.en) {
+      update("voiceByLanguage", { ...settings.voiceByLanguage, en: "alba" })
     }
   }
 
@@ -166,7 +86,7 @@ export const SettingsAudio: Component = () => {
                   const m: Record<string, Parameters<typeof language.t>[0]> = { auto: "settings.fork.audio.languageAuto", en: "settings.fork.audio.languageEnglish", fr: "settings.fork.audio.languageFrench", de: "settings.fork.audio.languageGerman", es: "settings.fork.audio.languageSpanish", it: "settings.fork.audio.languageItalian" }
                   return m[x] ? language.t(m[x]) : x
                 }}
-                onSelect={(v) => { if (v) update("sttLanguage", v) }}
+                onSelect={(v) => { if (v) update("sttLanguage", v as AudioSettings["sttLanguage"]) }}
               />
             </SettingsRow>
           </SettingsList>
@@ -183,57 +103,29 @@ export const SettingsAudio: Component = () => {
             </SettingsRow>
             <SettingsRow
               title={language.t("settings.fork.audio.provider")}
-              description={isMobile()
-                ? language.t("settings.fork.audio.kokoroProviderDescription")
-                : language.t("settings.fork.audio.providerDescription")}
+              description={language.t("settings.fork.audio.providerDescription")}
             >
               <div class="flex items-center gap-2">
-                <Show
-                  when={!isMobile()}
-                  fallback={<span class="text-12-regular text-text-weak">{language.t("settings.fork.audio.kokoro")}</span>}
-                >
-                  <Select
-                    size="normal"
-                    options={["pocket", "kokoro"]}
-                    current={settings.ttsProvider || "pocket"}
-                    label={(id) => id === "kokoro" ? language.t("settings.fork.audio.kokoroOption") : language.t("settings.fork.audio.pocketOption")}
-                    onSelect={(v) => { if (v) handleProviderChange(v as "pocket" | "kokoro") }}
-                  />
-                </Show>
-                <Show when={settings.ttsProvider === "kokoro" && !kokoroAvailable()}>
-                  <Button
-                    size="small"
-                    variant="secondary"
-                    onClick={handleDownloadKokoro}
-                    disabled={kokoroDownloading()}
-                  >
-                    {kokoroDownloading() ? language.t("settings.fork.audio.downloading", { progress: Math.round(downloadProgress() * 100) }) : language.t("settings.fork.audio.downloadModel")}
-                  </Button>
-                </Show>
+                <Select
+                  size="normal"
+                  options={["auto", "pocket"]}
+                  current={settings.ttsProvider || "auto"}
+                  label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : "Auto"}
+                  onSelect={(v) => { if (v) handleProviderChange(v as AudioSettings["ttsProvider"]) }}
+                />
               </div>
             </SettingsRow>
             <SettingsRow
               title={language.t("settings.fork.audio.voice")}
-              description={settings.ttsProvider === "kokoro"
-                ? language.t("settings.fork.audio.kokoroVoiceDescription", { count: kokoroVoices().length })
-                : language.t("settings.fork.audio.pocketVoiceDescription")
-              }
+              description={language.t("settings.fork.audio.pocketVoiceDescription")}
             >
-              <Show when={settings.ttsProvider === "kokoro"} fallback={
+              <Show when={settings.ttsProvider !== "piper"}>
                 <Select
                   size="normal"
                   options={TTS_VOICES.map((v) => v.id)}
-                  current={settings.ttsVoice}
+                  current={settings.voiceByLanguage.en ?? "alba"}
                   label={(id) => TTS_VOICES.find((v) => v.id === id)?.label ?? id}
-                  onSelect={(v) => { if (v) update("ttsVoice", v) }}
-                />
-              }>
-                <Select
-                  size="normal"
-                  options={kokoroVoices().length > 0 ? kokoroVoices() : ["af_heart"]}
-                  current={settings.ttsVoice}
-                  label={(id) => id}
-                  onSelect={(v) => { if (v) update("ttsVoice", v) }}
+                  onSelect={(v) => { if (v) update("voiceByLanguage", { ...settings.voiceByLanguage, en: v }) }}
                 />
               </Show>
             </SettingsRow>
@@ -251,21 +143,14 @@ export const SettingsAudio: Component = () => {
             </SettingsRow>
           </SettingsList>
           <div class="text-11-regular text-text-weak mt-2 px-1">
-            <Show when={settings.ttsProvider === "kokoro"} fallback={
-              language.t("settings.fork.audio.poweredPocket")
-            }>
-              {language.t("settings.fork.audio.poweredKokoro")}
-            </Show>
+            {language.t("settings.fork.audio.poweredPocket")}
           </div>
         </div>
 
-        {/* Voice Cloning Section — Pocket TTS desktop only.
-            Kokoro does not support speaker cloning (fixed [1,256] style
-            embeddings, no voice encoder) and mobile has no Pocket TTS. */}
-        <Show when={!isMobile() && settings.ttsProvider !== "kokoro"}>
+        <Show when={!isMobile() && settings.ttsProvider !== "piper"}>
           <VoiceCloneSection
-            currentVoice={settings.ttsVoice}
-            onSelectClone={(name) => update("ttsVoice", name)}
+            currentVoice={settings.voiceByLanguage.en ?? "alba"}
+            onSelectClone={(name) => update("voiceByLanguage", { ...settings.voiceByLanguage, en: name })}
           />
         </Show>
       </div>

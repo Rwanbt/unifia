@@ -127,8 +127,6 @@ const TECHNICAL_ALLOWLIST = new Set([
   "settings.fork.observability.maxEventsPlaceholder",
   "settings.fork.observability.sessions",
   "settings.fork.observability.sessionsCount",
-  "settings.fork.audio.kokoro",
-  "settings.fork.audio.kokoroOption",
   "settings.fork.audio.pocketOption",
   "settings.fork.plugins.local",
   "settings.fork.plugins.url",
