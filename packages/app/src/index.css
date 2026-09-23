@@ -10,6 +10,7 @@
 @import "@/styles/v110-mobile.css";
 @import "@/styles/v110-editor.css";
 @import "@/styles/v110-browser.css";
+@import "@/styles/v110-settings.css";
 @import "@/shell/v110-shell.css";
 @import "@/pages/session/v110-chat.css";
 @import "@/pages/session/v110-inspector.css";
