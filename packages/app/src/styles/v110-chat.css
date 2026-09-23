@@ -160,7 +160,10 @@
   box-shadow: none;
 }
 
-[data-v110="composer-dock"] [data-dock-surface="tray"] {
+/* Child combinator on purpose: the todo, revert and follow-up docks are
+   DockTrays too, beside the composer inside composer-dock, and must keep
+   their own flow layout. */
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] {
   position: absolute;
   left: 8px;
   right: calc(var(--v110-prompt-actions-reserve) + 8px);
@@ -174,18 +177,18 @@
   overflow: visible;
 }
 
-[data-v110="composer-dock"] [data-dock-surface="tray"] > div {
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] > div {
   min-height: 24px;
   padding: 0;
 }
 
-[data-v110="composer-dock"] [data-dock-surface="tray"] > div > div {
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div {
   min-width: 0;
   flex-wrap: nowrap;
   overflow: hidden;
 }
 
-[data-v110="composer-dock"] [data-dock-surface="tray"] > div > div > div {
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div > div {
   min-width: 0;
 }
 
@@ -283,7 +286,7 @@
   color: var(--bg);
 }
 
-[data-v110="composer-dock"] [data-dock-surface="tray"] [data-action^="prompt-"] {
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] [data-action^="prompt-"] {
   height: 28px;
   min-height: 28px;
   border: 1px solid var(--line);
@@ -294,7 +297,7 @@
   color: var(--muted);
 }
 
-[data-v110="composer-dock"] [data-dock-surface="tray"] [data-action^="prompt-"]:hover {
+[data-v110="prompt-composer"] > [data-dock-surface="tray"] [data-action^="prompt-"]:hover {
   border-color: var(--line-strong);
   background: var(--surface-3);
   color: var(--text);
@@ -320,17 +323,17 @@
     padding-right: 38px;
   }
 
-  [data-v110="composer-dock"] [data-dock-surface="tray"] {
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] {
     left: 8px;
     right: 8px;
     bottom: 46px;
   }
 
-  [data-v110="composer-dock"] [data-dock-surface="tray"] > div > div {
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div {
     gap: 4px;
   }
 
-  [data-v110="composer-dock"] [data-dock-surface="tray"] [data-action^="prompt-"] {
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] [data-action^="prompt-"] {
     max-width: 34vw;
     padding-inline: 5px;
     font-size: 8px;

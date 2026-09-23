@@ -96,6 +96,35 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
     expect(css).not.toContain('[data-v110="composer-dock"] textarea')
   })
 
+  // The todo, revert and follow-up docks are DockTrays too, siblings of the
+  // prompt composer inside composer-dock. The rules that pin the prompt's own
+  // control tray must not reach them: a todo list pinned at left:8px bottom:14px
+  // of the chat surface landed on top of the composer.
+  test("prompt tray rules only reach the prompt's own tray, not the session docks", () => {
+    const style = document.createElement("style")
+    style.textContent = readFileSync(V110_CHAT_CSS, "utf8")
+    document.head.appendChild(style)
+    const dock = document.createElement("div")
+    dock.innerHTML = `
+      <div data-v110="composer-dock">
+        <div><div data-dock-surface="tray" data-component="session-todo-dock"></div></div>
+        <div data-v110="prompt-composer">
+          <div data-dock-surface="shell"></div>
+          <div data-dock-surface="tray" data-probe="prompt-tray"></div>
+        </div>
+      </div>`
+    document.body.appendChild(dock)
+    try {
+      const todo = dock.querySelector('[data-component="session-todo-dock"]')!
+      const promptTray = dock.querySelector('[data-probe="prompt-tray"]')!
+      expect(getComputedStyle(promptTray).position).toBe("absolute")
+      expect(getComputedStyle(todo).position).not.toBe("absolute")
+    } finally {
+      dock.remove()
+      style.remove()
+    }
+  })
+
   test("prompt controls stay left-anchored and compact controls remain actionable", () => {
     const css = readFileSync(V110_CHAT_CSS, "utf8")
     const prompt = readFileSync(PROMPT_INPUT, "utf8")
