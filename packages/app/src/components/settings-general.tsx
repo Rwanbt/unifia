@@ -1,4 +1,4 @@
-import { type Component, For, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
+import { type Component, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@unifia/ui/button"
 import { Collapsible } from "@unifia/ui/collapsible"
