@@ -935,6 +935,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "エラー",
   "settings.general.sounds.errors.description": "エラーが発生した場合に音を再生します",
   "settings.shortcuts.title": "キーボードショートカット",
+  "settings.shortcuts.subtitle": "ショートカットをクリックして変更します。",
   "settings.shortcuts.reset.button": "デフォルトにリセット",
   "settings.shortcuts.reset.toast.title": "ショートカットをリセットしました",
   "settings.shortcuts.reset.toast.description": "キーボードショートカットがデフォルトにリセットされました。",

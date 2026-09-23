@@ -942,6 +942,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Ошибки",
   "settings.general.sounds.errors.description": "Воспроизводить звук когда происходит ошибка",
   "settings.shortcuts.title": "Горячие клавиши",
+  "settings.shortcuts.subtitle": "Нажмите на сочетание клавиш, чтобы изменить его.",
   "settings.shortcuts.reset.button": "Сбросить к умолчаниям",
   "settings.shortcuts.reset.toast.title": "Горячие клавиши сброшены",
   "settings.shortcuts.reset.toast.description": "Горячие клавиши были сброшены к значениям по умолчанию.",

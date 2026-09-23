@@ -942,6 +942,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Errores",
   "settings.general.sounds.errors.description": "Reproducir sonido cuando ocurra un error",
   "settings.shortcuts.title": "Atajos de teclado",
+  "settings.shortcuts.subtitle": "Haz clic en un atajo para modificarlo.",
   "settings.shortcuts.reset.button": "Restablecer a valores predeterminados",
   "settings.shortcuts.reset.toast.title": "Atajos restablecidos",
   "settings.shortcuts.reset.toast.description":

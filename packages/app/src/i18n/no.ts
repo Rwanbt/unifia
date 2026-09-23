@@ -936,6 +936,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Feil",
   "settings.general.sounds.errors.description": "Spill av lyd når det oppstår en feil",
   "settings.shortcuts.title": "Tastatursnarveier",
+  "settings.shortcuts.subtitle": "Klikk på en snarvei for å endre den.",
   "settings.shortcuts.reset.button": "Tilbakestill til standard",
   "settings.shortcuts.reset.toast.title": "Snarveier tilbakestilt",
   "settings.shortcuts.reset.toast.description": "Tastatursnarveier er tilbakestilt til standard.",

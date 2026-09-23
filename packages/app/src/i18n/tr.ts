@@ -942,6 +942,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Hatalar",
   "settings.general.sounds.errors.description": "Hata oluştuğunda ses çal",
   "settings.shortcuts.title": "Klavye kısayolları",
+  "settings.shortcuts.subtitle": "Değiştirmek için bir kısayola tıklayın.",
   "settings.shortcuts.reset.button": "Varsayılanlara sıfırla",
   "settings.shortcuts.reset.toast.title": "Kısayollar sıfırlandı",
   "settings.shortcuts.reset.toast.description": "Klavye kısayolları varsayılanlara sıfırlandı.",

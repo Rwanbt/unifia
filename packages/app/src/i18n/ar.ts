@@ -929,6 +929,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "أخطاء",
   "settings.general.sounds.errors.description": "تشغيل صوت عند حدوث خطأ",
   "settings.shortcuts.title": "اختصارات لوحة المفاتيح",
+  "settings.shortcuts.subtitle": "انقر على اختصار لتعديله.",
   "settings.shortcuts.reset.button": "إعادة التعيين إلى الافتراضيات",
   "settings.shortcuts.reset.toast.title": "تم إعادة تعيين الاختصارات",
   "settings.shortcuts.reset.toast.description": "تم إعادة تعيين اختصارات لوحة المفاتيح إلى الافتراضيات.",

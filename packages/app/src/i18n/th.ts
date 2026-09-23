@@ -999,6 +999,7 @@ export const dict = {
   "settings.general.sounds.errors.description": "เล่นเสียงเมื่อเกิดข้อผิดพลาด",
 
   "settings.shortcuts.title": "ทางลัดแป้นพิมพ์",
+  "settings.shortcuts.subtitle": "คลิกที่ปุ่มลัดเพื่อแก้ไข",
   "settings.shortcuts.reset.button": "รีเซ็ตเป็นค่าเริ่มต้น",
   "settings.shortcuts.reset.toast.title": "รีเซ็ตทางลัดแล้ว",
   "settings.shortcuts.reset.toast.description": "รีเซ็ตทางลัดแป้นพิมพ์เป็นค่าเริ่มต้นแล้ว",

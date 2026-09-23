@@ -1008,6 +1008,7 @@ export const dict = {
   "settings.general.sounds.errors.description": "Pusti zvuk kada dođe do greške",
 
   "settings.shortcuts.title": "Prečice na tastaturi",
+  "settings.shortcuts.subtitle": "Kliknite na prečicu da je promijenite.",
   "settings.shortcuts.reset.button": "Vrati na podrazumijevano",
   "settings.shortcuts.reset.toast.title": "Prečice resetovane",
   "settings.shortcuts.reset.toast.description": "Prečice na tastaturi su vraćene na podrazumijevane.",

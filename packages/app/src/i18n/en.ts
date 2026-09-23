@@ -1154,6 +1154,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Errors",
   "settings.general.sounds.errors.description": "Play sound when an error occurs",
   "settings.shortcuts.title": "Keyboard shortcuts",
+  "settings.shortcuts.subtitle": "Click a shortcut to change it.",
   "settings.shortcuts.reset.button": "Reset to defaults",
   "settings.shortcuts.reset.toast.title": "Shortcuts reset",
   "settings.shortcuts.reset.toast.description": "Keyboard shortcuts have been reset to defaults.",

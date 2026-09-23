@@ -993,6 +993,7 @@ export const dict = {
   "settings.general.sounds.errors.description": "發生錯誤時播放聲音",
 
   "settings.shortcuts.title": "鍵盤快速鍵",
+  "settings.shortcuts.subtitle": "點擊快捷鍵即可修改。",
   "settings.shortcuts.reset.button": "重設為預設值",
   "settings.shortcuts.reset.toast.title": "快速鍵已重設",
   "settings.shortcuts.reset.toast.description": "鍵盤快速鍵已重設為預設設定。",

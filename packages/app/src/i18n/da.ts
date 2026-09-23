@@ -1002,6 +1002,7 @@ export const dict = {
   "settings.general.sounds.errors.description": "Afspil lyd når der opstår en fejl",
 
   "settings.shortcuts.title": "Tastaturgenveje",
+  "settings.shortcuts.subtitle": "Klik på en genvej for at ændre den.",
   "settings.shortcuts.reset.button": "Nulstil til standard",
   "settings.shortcuts.reset.toast.title": "Genveje nulstillet",
   "settings.shortcuts.reset.toast.description": "Tastaturgenveje er blevet nulstillet til standard.",

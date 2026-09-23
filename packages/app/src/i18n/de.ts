@@ -950,6 +950,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Fehler",
   "settings.general.sounds.errors.description": "Ton abspielen, wenn ein Fehler auftritt",
   "settings.shortcuts.title": "Tastenkombinationen",
+  "settings.shortcuts.subtitle": "Klicke auf ein Tastenkürzel, um es zu ändern.",
   "settings.shortcuts.reset.button": "Auf Standard zurücksetzen",
   "settings.shortcuts.reset.toast.title": "Tastenkombinationen zurückgesetzt",
   "settings.shortcuts.reset.toast.description": "Die Tastenkombinationen wurden auf die Standardwerte zurückgesetzt.",

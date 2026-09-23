@@ -346,7 +346,6 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   top: -28px;
   z-index: 4;
   padding-top: 28px;
-  margin-top: -28px;
   background: linear-gradient(var(--surface) 75%, transparent);
 }
 
@@ -416,6 +415,75 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 [data-v110="settings-page"] [data-slot="settings-value"] {
   color: var(--muted);
   font-size: 10px;
+}
+
+/* .settings-search-row / .settings-search: a page's own filter field. */
+[data-v110="settings-page"] [data-slot="settings-search-row"] {
+  margin-bottom: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"] {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"]::placeholder {
+  color: var(--faint);
+}
+
+[data-v110="settings-page"] [data-slot="settings-search-field"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="settings-empty"] {
+  padding: 36px 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* .shortcut-section / .shortcut-row: a ruled list of commands. */
+[data-v110="settings-page"] [data-slot="shortcut-section"] {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--text);
+  font-size: 9px;
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"]:hover {
+  background: color-mix(in srgb, var(--surface-3) 50%, transparent);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"] kbd {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font: 8px var(--font-family-mono, ui-monospace, monospace);
+}
+
+[data-v110="settings-page"] [data-slot="shortcut-row"][data-active] kbd {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 /* .muted-badge: a small grey status chip beside a control. */

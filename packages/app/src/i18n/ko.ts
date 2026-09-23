@@ -935,6 +935,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "오류",
   "settings.general.sounds.errors.description": "오류가 발생했을 때 소리 재생",
   "settings.shortcuts.title": "키보드 단축키",
+  "settings.shortcuts.subtitle": "단축키를 클릭하여 변경하세요.",
   "settings.shortcuts.reset.button": "기본값으로 초기화",
   "settings.shortcuts.reset.toast.title": "단축키 초기화됨",
   "settings.shortcuts.reset.toast.description": "키보드 단축키가 기본값으로 초기화되었습니다.",

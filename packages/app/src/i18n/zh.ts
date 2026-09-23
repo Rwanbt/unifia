@@ -996,6 +996,7 @@ export const dict = {
   "settings.general.sounds.errors.description": "发生错误时播放声音",
 
   "settings.shortcuts.title": "键盘快捷键",
+  "settings.shortcuts.subtitle": "点击快捷键即可修改。",
   "settings.shortcuts.reset.button": "重置为默认值",
   "settings.shortcuts.reset.toast.title": "快捷键已重置",
   "settings.shortcuts.reset.toast.description": "键盘快捷键已重置为默认设置。",

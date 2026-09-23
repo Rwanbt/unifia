@@ -937,6 +937,7 @@ export const dict = {
   "settings.general.sounds.errors.title": "Błędy",
   "settings.general.sounds.errors.description": "Odtwórz dźwięk, gdy wystąpi błąd",
   "settings.shortcuts.title": "Skróty klawiszowe",
+  "settings.shortcuts.subtitle": "Kliknij skrót, aby go zmienić.",
   "settings.shortcuts.reset.button": "Przywróć domyślne",
   "settings.shortcuts.reset.toast.title": "Zresetowano skróty",
   "settings.shortcuts.reset.toast.description": "Skróty klawiszowe zostały przywrócone do ustawień domyślnych.",
