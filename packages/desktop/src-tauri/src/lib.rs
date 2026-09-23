@@ -8,6 +8,7 @@ mod util;
 mod validate;
 mod parakeet;
 mod speech;
+mod voice_runtime;
 #[cfg(target_os = "linux")]
 pub mod linux_display;
 #[cfg(target_os = "linux")]
@@ -727,6 +728,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             llm::run_inference_benchmark,
             speech::tts_start,
             speech::tts_speak,
+            speech::tts_cancel,
             speech::tts_stop,
             speech::tts_save_voice_clone,
             speech::tts_list_voice_clones,

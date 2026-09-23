@@ -1,11 +1,12 @@
 /**
  * Speech hooks for desktop.
  * STT: record mic → WAV → Parakeet ONNX → text in editor
- * TTS: Pocket TTS HTTP server → WAV file → audio playback
+ * TTS: managed Pocket worker → WAV file → audio playback
  */
 
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
+import { resolveSpeechLanguage, type SpeechLanguage } from "../../../contracts/src/speech"
 
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
@@ -35,9 +36,9 @@ async function preloadModels() {
   const provider = settings.ttsProvider || "auto"
   try {
     if (provider !== "piper") {
-      console.log("[TTS] Starting Pocket TTS server...")
+      console.log("[TTS] Starting managed Pocket worker...")
       await invokeTauri("tts_start")
-      console.log("[TTS] Pocket TTS ready")
+      console.log("[TTS] Pocket worker ready")
     }
   } catch (e) {
     console.warn("[TTS] Pre-start failed:", e)
@@ -297,10 +298,10 @@ function splitIntoChunks(text: string): string[] {
   return [firstTiny, ...mergedBody]
 }
 
-function synthesizeChunk(text: string, voice: string): Promise<string> {
+function synthesizeChunk(text: string, voice: string, language: SpeechLanguage): Promise<string> {
   // Pocket TTS is ~27ms/char on CPU. Keep chunks small (1 sentence) to
   // minimize time-to-first-audio; the full request is buffered server-side.
-  return invokeTauri("tts_speak", { text, voice })
+  return invokeTauri("tts_speak", { text, voice, language })
 }
 
 function stopPlayback() {
@@ -321,7 +322,7 @@ function stopPlayback() {
   }
 }
 
-async function playNextChunk(voice: string, speed: number) {
+async function playNextChunk(voice: string, language: SpeechLanguage, speed: number) {
   if (ttsAborted) return
 
   // Get the next WAV path — either pre-fetched or synthesize now
@@ -346,7 +347,7 @@ async function playNextChunk(voice: string, speed: number) {
   // pre-launched in parallel with C0 from handleTtsToggle).
   if (chunkQueue.length > 0 && !prefetchPromise && !prefetchedPath) {
     const nextText = chunkQueue.shift()!
-    prefetchPromise = synthesizeChunk(nextText, voice)
+    prefetchPromise = synthesizeChunk(nextText, voice, language)
     prefetchPromise.then(path => {
       prefetchedPath = path
       prefetchPromise = null
@@ -366,7 +367,7 @@ async function playNextChunk(voice: string, speed: number) {
     currentAudio = null
     if (ttsAborted) { stopPlayback(); return }
     if (chunkQueue.length > 0 || prefetchedPath || prefetchPromise) {
-      playNextChunk(voice, speed)
+      playNextChunk(voice, language, speed)
     } else {
       stopPlayback()
     }
@@ -389,6 +390,7 @@ async function handleTtsToggle(e: CustomEvent) {
   // Double-click: full stop + reset
   if (isDoubleClick) {
     stopPlayback()
+    void invokeTauri("tts_cancel").catch((error) => console.warn("[TTS] Cancellation failed:", error))
     return
   }
 
@@ -414,7 +416,11 @@ async function handleTtsToggle(e: CustomEvent) {
 
   const settings = getAudioSettings()
   const provider = settings.ttsProvider
-  const voice = settings.voiceByLanguage.en || "alba"
+  const language = resolveSpeechLanguage({
+    preference: settings.sttLanguage,
+    applicationLocale: document.documentElement.lang,
+  })
+  const voice = settings.voiceByLanguage[language] ?? (language === "en" ? "alba" : "")
   const speed = settings.ttsSpeed || 1.0
 
   ttsAborted = false
@@ -436,13 +442,13 @@ async function handleTtsToggle(e: CustomEvent) {
   chunkQueue = chunks
 
   try {
-    const synth1Promise = synthesizeChunk(firstText, voice)
+    const synth1Promise = synthesizeChunk(firstText, voice, language)
 
     // Launch C1 synth in PARALLEL with C0 (the server handles concurrent requests).
     // This eliminates the gap between C0 playback end and C1 ready.
     let synth2Promise: Promise<string> | null = null
     if (secondText) {
-      synth2Promise = synthesizeChunk(secondText, voice)
+      synth2Promise = synthesizeChunk(secondText, voice, language)
       // Attach a no-op catch immediately so a failure doesn't become an unhandled
       // rejection if synth1 throws before we wire up the real handlers below.
       synth2Promise.catch(() => {})
@@ -470,7 +476,7 @@ async function handleTtsToggle(e: CustomEvent) {
       })
     }
 
-    await playNextChunk(voice, speed)
+    await playNextChunk(voice, language, speed)
     console.log(`[TTS] Time-to-first-audio: ${Math.round(performance.now() - t0)}ms`)
   } catch (e) {
     console.error("[TTS] Failed:", e)

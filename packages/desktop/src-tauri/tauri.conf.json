@@ -40,7 +40,12 @@
     "active": true,
     "targets": ["deb", "rpm", "dmg", "nsis", "app"],
     "externalBin": ["sidecars/unifia-cli"],
-    "resources": { "../../../templates/design": "templates/design" },
+    "resources": {
+      "../../../templates/design": "templates/design",
+      "../../voice-host/pyproject.toml": "voice-host/pyproject.toml",
+      "../../voice-host/uv.lock": "voice-host/uv.lock",
+      "../../voice-host/voice_host": "voice-host/voice_host"
+    },
     "linux": {
       "rpm": {
         "compression": {

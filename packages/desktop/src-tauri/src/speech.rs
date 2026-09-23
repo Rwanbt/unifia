@@ -1,15 +1,18 @@
+#[cfg(feature = "onnx")]
 use crate::util::MutexSafe;
 use std::fs;
 use std::path::PathBuf;
+#[cfg(feature = "onnx")]
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
+#[cfg(feature = "onnx")]
+use tauri::Emitter;
 
 #[cfg(feature = "onnx")]
 use crate::parakeet::ParakeetEngine;
 
 #[cfg(feature = "onnx")]
 const STT_MODEL_URL: &str = "https://github.com/Kieirra/murmure-model/releases/download/1.0.0/parakeet-tdt-0.6b-v3-int8.zip";
-const TTS_PORT: u16 = 14100;
 
 /// Monotonic counter for chunk WAV filenames. Using only Date.now()-style
 /// timestamps causes collisions when parallel tts_speak calls land in the
@@ -41,74 +44,6 @@ fn speech_dir(app: &AppHandle) -> PathBuf {
     data_dir(app).join("speech")
 }
 
-fn find_pocket_tts() -> Option<PathBuf> {
-    let exe_name = if cfg!(windows) { "pocket-tts.exe" } else { "pocket-tts" };
-
-    // Windows: check Python Scripts dirs
-    #[cfg(windows)]
-    if let Some(home) = dirs::home_dir() {
-        let base = home.join("AppData").join("Local").join("Programs").join("Python");
-        if let Ok(entries) = fs::read_dir(&base) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_dir() {
-                    let exe = p.join("Scripts").join(exe_name);
-                    if exe.exists() { return Some(exe); }
-                }
-            }
-        }
-    }
-
-    // Unix: check common locations
-    #[cfg(not(windows))]
-    if let Some(home) = dirs::home_dir() {
-        for dir in &[
-            home.join(".local").join("bin"),
-            PathBuf::from("/usr/local/bin"),
-            PathBuf::from("/usr/bin"),
-        ] {
-            let p = dir.join(exe_name);
-            if p.exists() { return Some(p); }
-        }
-    }
-
-    // Fallback: which/where
-    let which = if cfg!(windows) { "where" } else { "which" };
-    if let Ok(output) = std::process::Command::new(which).arg("pocket-tts").output()
-        && output.status.success()
-            && let Some(line) = String::from_utf8_lossy(&output.stdout).lines().next() {
-                let p = PathBuf::from(line.trim());
-                if p.exists() { return Some(p); }
-            }
-    None
-}
-
-fn find_python_dir() -> Option<String> {
-    let python = if cfg!(windows) { "python.exe" } else { "python3" };
-    let which = if cfg!(windows) { "where" } else { "which" };
-
-    #[cfg(windows)]
-    if let Some(home) = dirs::home_dir() {
-        let base = home.join("AppData").join("Local").join("Programs").join("Python");
-        if let Ok(entries) = fs::read_dir(&base) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_dir() && p.join(python).exists() {
-                    return Some(p.to_string_lossy().to_string());
-                }
-            }
-        }
-    }
-
-    if let Ok(output) = std::process::Command::new(which).arg(python).output()
-        && output.status.success()
-            && let Some(line) = String::from_utf8_lossy(&output.stdout).lines().next()
-                && let Some(parent) = std::path::Path::new(line.trim()).parent() {
-                    return Some(parent.to_string_lossy().to_string());
-                }
-    None
-}
-
 // ─── State ─────────────────────────────────────────────────────────────
 
 pub struct SpeechState {
@@ -116,9 +51,7 @@ pub struct SpeechState {
     stt_engine: Mutex<ParakeetEngine>,
     #[cfg(feature = "onnx")]
     stt_loaded: Mutex<bool>,
-    tts_child: Mutex<Option<tokio::process::Child>>,
-    tts_ready: Mutex<bool>,
-    tts_client: reqwest::Client,
+    voice_runtime: crate::voice_runtime::VoiceRuntime,
 }
 
 impl SpeechState {
@@ -128,16 +61,7 @@ impl SpeechState {
             stt_engine: Mutex::new(ParakeetEngine::new()),
             #[cfg(feature = "onnx")]
             stt_loaded: Mutex::new(false),
-            tts_child: Mutex::new(None),
-            tts_ready: Mutex::new(false),
-            tts_client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(60))
-                // Allow up to 4 idle connections per host so reqwest can run
-                // multiple parallel POSTs to the same TTS server without queuing.
-                .pool_max_idle_per_host(4)
-                .tcp_nodelay(true)
-                .build()
-                .expect("Failed to create HTTP client"),
+            voice_runtime: crate::voice_runtime::VoiceRuntime::new(),
         }
     }
 }
@@ -295,281 +219,65 @@ pub async fn stt_loaded(app: AppHandle) -> bool {
 
 // ─── TTS (Pocket TTS) ─────────────────────────────────────────────────
 
-/// Start Pocket TTS server (keeps model in memory for fast synthesis)
+/// Starts the isolated, managed Pocket worker and verifies its health.
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_start(app: AppHandle) -> Result<u16, String> {
-    // Fast path: already running and confirmed healthy
-    {
-        let state = app.state::<SpeechState>();
-        if *state.tts_ready.lock_safe() && state.tts_child.lock_safe().is_some() {
-            return Ok(TTS_PORT);
-        }
-    }
-
-    // Kill any existing child that may be in a bad state
-    {
-        let state = app.state::<SpeechState>();
-        if let Some(mut c) = state.tts_child.lock_safe().take() {
-            let _ = c.start_kill();
-        }
-        *state.tts_ready.lock_safe() = false;
-    }
-
-    let pocket_tts = find_pocket_tts().ok_or("pocket-tts not found. Run: pip install pocket-tts")?;
-    tracing::info!("[TTS] Starting Pocket TTS server on port {}", TTS_PORT);
-
-    let mut cmd = tokio::process::Command::new(&pocket_tts);
-    cmd.arg("serve")
-        .arg("--port")
-        .arg(TTS_PORT.to_string())
-        .arg("--host")
-        .arg("127.0.0.1")
-        .kill_on_drop(true);
-
-    if let Some(py_dir) = find_python_dir() {
-        let path = std::env::var("PATH").unwrap_or_default();
-        let sep = if cfg!(windows) { ";" } else { ":" };
-        cmd.env("PATH", format!("{}{}{}", py_dir, sep, path));
-    }
-
-    #[cfg(windows)]
-    {
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-    }
-
-    let child = cmd.spawn().map_err(|e| format!("Spawn: {}", e))?;
-
-    {
-        let state = app.state::<SpeechState>();
-        *state.tts_child.lock_safe() = Some(child);
-    }
-
-    // Clone client so we don't hold the State across await points
-    let client = {
-        let state = app.state::<SpeechState>();
-        state.tts_client.clone()
-    };
-
-    // Wait for server ready — detect early crash so we don't block 60s
-    let start = std::time::Instant::now();
-    loop {
-        // Check if the process already exited (import error, wrong Python, etc.)
-        {
-            let state = app.state::<SpeechState>();
-            let exited = state
-                .tts_child
-                .lock_safe()
-                .as_mut()
-                .and_then(|c| c.try_wait().ok().flatten());
-            if let Some(exit) = exited {
-                return Err(format!(
-                    "Pocket TTS crashed at startup (exit code {:?}). \
-                     Check installation: pip install pocket-tts\n\
-                     If already installed, verify Python version compatibility \
-                     (requires Python 3.10+).",
-                    exit.code()
-                ));
-            }
-        }
-        if start.elapsed().as_secs() > 60 {
-            let state = app.state::<SpeechState>();
-            if let Some(mut c) = state.tts_child.lock_safe().take() {
-                let _ = c.start_kill();
-            }
-            return Err(
-                "TTS server failed to start after 60s. \
-                 Run `pocket-tts serve` manually to see the error."
-                    .to_string(),
-            );
-        }
-        if let Ok(resp) = client
-            .get(format!("http://127.0.0.1:{}/health", TTS_PORT))
-            .timeout(std::time::Duration::from_secs(1))
-            .send()
-            .await
-            && resp.status().is_success() {
-                {
-                    let state = app.state::<SpeechState>();
-                    *state.tts_ready.lock_safe() = true;
-                }
-                tracing::info!("[TTS] Pocket TTS ready after {:?}", start.elapsed());
-
-                // Warmup: force model load with a tiny synthesis
-                let warmup = reqwest::multipart::Form::new()
-                    .text("text", ".")
-                    .text("voice_url", "alba");
-                let _ = client
-                    .post(format!("http://127.0.0.1:{}/tts", TTS_PORT))
-                    .multipart(warmup)
-                    .send()
-                    .await;
-                tracing::info!("[TTS] Warmup done in {:?}", start.elapsed());
-
-                return Ok(TTS_PORT);
-            }
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    }
+    app.state::<SpeechState>().voice_runtime.start(&app).await?;
+    Ok(24_000)
 }
 
-/// Predefined Pocket TTS voices (Les Misérables set shipped with the sidecar).
-/// Anything outside this list that isn't also a saved voice clone WAV would
-/// be rejected by Pocket TTS with HTTP 400 — but we'd have already used up
-/// the user's "click TTS → hear silence" feedback budget. Keep the list in
-/// sync with `TTS_VOICES` in `settings-audio.tsx`.
-const POCKET_PRESET_VOICES: &[&str] = &[
-    "alba", "fantine", "cosette", "eponine", "azelma", "marius", "javert", "jean",
-];
-
-/// Build multipart form for Pocket TTS (text + voice_url or voice_wav clone).
-/// Returns (form, used_clone) — used_clone=true means voice_wav was attached,
-/// which lets the caller surface a clean error if the server rejects it
-/// (Kyutai voice-cloning weights are gated behind a HuggingFace license).
-fn build_tts_form(app: &AppHandle, text: &str, voice_name: &str) -> Result<(reqwest::multipart::Form, bool), String> {
-    let clone_path = speech_dir(app).join("voices").join(format!("{}.wav", voice_name));
-    if clone_path.exists() {
-        let wav_bytes = fs::read(&clone_path).map_err(|e| format!("Read clone: {}", e))?;
-        let part = reqwest::multipart::Part::bytes(wav_bytes)
-            .file_name(format!("{}.wav", voice_name))
-            .mime_str("audio/wav")
-            .map_err(|e| e.to_string())?;
-        Ok((reqwest::multipart::Form::new()
-            .text("text", text.to_string())
-            .part("voice_wav", part), true))
-    } else if POCKET_PRESET_VOICES.contains(&voice_name) {
-        Ok((reqwest::multipart::Form::new()
-            .text("text", text.to_string())
-            .text("voice_url", voice_name.to_string()), false))
-    } else {
-        // Unknown voice name and no clone WAV — common after: user deleted a
-        // clone but localStorage still points at it, or a stale settings
-        // migration. Fall back to the default preset rather than hand
-        // Pocket TTS a name it will reject.
-        tracing::warn!(
-            "[TTS] Voice '{}' has no clone WAV and is not a preset; falling back to 'alba'",
-            voice_name
-        );
-        Ok((reqwest::multipart::Form::new()
-            .text("text", text.to_string())
-            .text("voice_url", "alba".to_string()), false))
-    }
-}
-
-/// Synthesize text via Pocket TTS HTTP API.
-/// Buffers the full response and writes a single complete WAV file.
-/// Sentence-level chunking in the frontend handles latency for long texts.
+/// Synthesize speech through the managed worker and return its WAV artifact.
 #[tauri::command]
 #[specta::specta]
-pub async fn tts_speak(app: AppHandle, text: String, voice: Option<String>) -> Result<String, String> {
+pub async fn tts_speak(
+    app: AppHandle,
+    text: String,
+    voice: Option<String>,
+    language: Option<String>,
+) -> Result<String, String> {
     // Defence in depth: the renderer should chunk long texts itself, but an
     // XSS could still feed an unbounded string. 1 MiB of UTF-8 is well above
     // any realistic spoken sentence.
     crate::validate::validate_bounded_text(&text, 1024 * 1024, "tts text")?;
     if let Some(ref v) = voice {
-        // The voice name is baked into the multipart form body. We don't
-        // resolve it as a filesystem path here (Pocket TTS maps it server
-        // side), but we still refuse shell / path separators + control
+        // We don't resolve voice names as filesystem paths here, but still
+        // refuse path separators and control
         // chars as defence in depth.
         if v.len() > 128 || v.contains('/') || v.contains('\\') || v.contains('\0') || v.contains('\n') || v.contains('\r') {
             return Err("invalid voice name".into());
         }
     }
-    // Ensure server is running
-    {
-        let ready = {
-            let state = app.state::<SpeechState>();
-            *state.tts_ready.lock_safe()
-        };
-        if !ready {
-            tts_start(app.clone()).await?;
-        }
-    }
-
     let voice_name = voice.unwrap_or_else(|| "alba".to_string());
-
-    tracing::info!("[TTS] Synthesizing {} chars with voice {}", text.len(), voice_name);
+    let language = language.unwrap_or_else(|| "en".to_string());
+    if !matches!(language.as_str(), "en" | "fr" | "es" | "it" | "de") {
+        return Err("unsupported speech language".into());
+    }
     let start = std::time::Instant::now();
-
-    let (form, used_clone) = build_tts_form(&app, &text, &voice_name)?;
-
-    // Clone client so we don't hold the State across await
-    let client = {
-        let state = app.state::<SpeechState>();
-        state.tts_client.clone()
-    };
-
-    let resp = client
-        .post(format!("http://127.0.0.1:{}/tts", TTS_PORT))
-        .multipart(form)
-        .send()
-        .await;
-
-    let resp = match resp {
-        Ok(r) if r.status().is_success() => r,
-        Ok(r) => {
-            let status = r.status();
-            let body = r.text().await.unwrap_or_default();
-            let snippet: String = body.chars().take(500).collect();
-            tracing::error!("[TTS] HTTP {} voice='{}' body: {}", status, voice_name, snippet);
-            // Voice cloning weights are gated behind a HuggingFace license.
-            // The server hides the real stack trace behind a generic 500, so
-            // translate it into actionable guidance when the caller sent a clone.
-            if used_clone && status.as_u16() == 500 {
-                return Err(format!(
-                    "Voice cloning unavailable — accept terms at \
-                     https://huggingface.co/kyutai/pocket-tts then run \
-                     `huggingface-cli login`, or use a preset voice (alba, marius, \
-                     javert, jean, fantine, cosette, eponine, azelma)."
-                ));
-            }
-            // For any other 500 the server is probably genuinely sick.
-            let state = app.state::<SpeechState>();
-            *state.tts_ready.lock_safe() = false;
-            return Err(format!("TTS HTTP {}: {}", status, snippet));
-        }
-        Err(e) => {
-            tracing::warn!("[TTS] Request failed, retrying: {}", e);
-            {
-                let state = app.state::<SpeechState>();
-                *state.tts_ready.lock_safe() = false;
-            }
-            tts_start(app.clone()).await?;
-            let (retry_form, _) = build_tts_form(&app, &text, &voice_name)?;
-            client
-                .post(format!("http://127.0.0.1:{}/tts", TTS_PORT))
-                .multipart(retry_form)
-                .send()
-                .await
-                .map_err(|e| format!("TTS retry failed: {}", e))?
-        }
-    };
-
-    // Buffer full response and write a single complete WAV file.
-    // With voice_url fix, Pocket TTS does ~300 chars in ~300ms — no need
-    // for intra-request streaming. Sentence-level chunking in the frontend
-    // handles latency for long texts.
     let out_dir = speech_dir(&app).join("tts_chunks");
-    let _ = fs::create_dir_all(&out_dir);
+    fs::create_dir_all(&out_dir).map_err(|error| format!("Create TTS output directory: {error}"))?;
     let out_path = out_dir.join(next_chunk_filename());
-
-    let wav_bytes = resp.bytes().await.map_err(|e| format!("Read response: {}", e))?;
-    fs::write(&out_path, &wav_bytes).map_err(|e| format!("Write WAV: {}", e))?;
-    tracing::info!("[TTS] Synthesized {} bytes in {:?}", wav_bytes.len(), start.elapsed());
+    let clone_path = speech_dir(&app).join("voices").join(format!("{voice_name}.wav"));
+    let voice_sample = clone_path.is_file().then_some(clone_path.as_path());
+    app.state::<SpeechState>().voice_runtime.synthesize(&app, &text, &language, &voice_name, voice_sample, &out_path).await?;
+    tracing::info!("[TTS] Synthesized audio with voice {voice_name} in {:?}", start.elapsed());
 
     Ok(out_path.to_string_lossy().to_string())
 }
 
-/// Stop TTS server
+/// Cancel the active TTS request while keeping the managed worker available.
+#[tauri::command]
+#[specta::specta]
+pub async fn tts_cancel(app: AppHandle) -> Result<(), String> {
+    app.state::<SpeechState>().voice_runtime.cancel().await
+}
+
+/// Stop the managed TTS worker
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_stop(app: AppHandle) -> Result<(), String> {
-    let state = app.state::<SpeechState>();
-    tracing::info!("[TTS] Stopping Pocket TTS");
-    *state.tts_ready.lock_safe() = false;
-    if let Some(mut child) = state.tts_child.lock_safe().take() {
-        let _ = child.start_kill();
-    }
-    Ok(())
+    tracing::info!("[TTS] Stopping Pocket worker");
+    app.state::<SpeechState>().voice_runtime.stop().await
 }
 
 /// Save a voice clone WAV file for Pocket TTS
@@ -627,7 +335,7 @@ pub async fn tts_delete_voice_clone(app: AppHandle, name: String) -> Result<(), 
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_available() -> bool {
-    find_pocket_tts().is_some()
+    crate::voice_runtime::VoiceRuntime::is_supported()
 }
 
 /// Delete all temp WAV chunk files

@@ -1,0 +1,20 @@
+[project]
+name = "unifia-voice-host"
+version = "0.1.0"
+description = "CPU-first Pocket TTS worker for Unifia"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pocket-tts==3.1.0",
+  "torch==2.14.0",
+]
+
+[tool.uv]
+python-preference = "only-managed"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
