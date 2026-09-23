@@ -8,7 +8,7 @@
    correct text, but none of its rules take effect. Without `display: flex`
    here, .cm-editor falls back to block layout, which cascades into the
    .cm-scroller/.cm-content stacking bug described below. */
-.cm-opencode .cm-editor {
+.cm-unifia .cm-editor {
   height: 100%;
   outline: none;
   display: flex;
@@ -29,7 +29,7 @@
    <style> elements from taking effect at all, even though the element still
    ends up in the DOM with the right text). A rule in this static,
    build-time-linked stylesheet is not subject to that restriction. */
-.cm-opencode .cm-content {
+.cm-unifia .cm-content {
   outline: none;
   /* Small horizontal breathing room so text doesn't sit flush against the
      screen edge. CodeMirror's own .cm-line padding is set via
@@ -61,7 +61,7 @@
    `.cm-content` (text) render side by side instead of stacked, and it must
    scroll (`overflow: auto`) so content taller than the visible pane is
    reachable instead of silently clipped by an ancestor further up. */
-.cm-opencode .cm-scroller {
+.cm-unifia .cm-scroller {
   padding-top: 0.5rem;
   display: flex;
   align-items: flex-start;
@@ -75,7 +75,7 @@
 
 /* Same dropped-baseTheme issue: gutters must not shrink and must span the
    full editor height, or the flex row above collapses them. */
-.cm-opencode .cm-gutters {
+.cm-unifia .cm-gutters {
   flex-shrink: 0;
   display: flex;
   height: 100%;
@@ -87,7 +87,7 @@
   user-select: none;
 }
 
-.cm-opencode .cm-lineNumbers .cm-gutterElement {
+.cm-unifia .cm-lineNumbers .cm-gutterElement {
   /* Matches @pierre/diffs' [data-column-number] (padding-left: 2ch) and
      --diffs-min-number-column-width: 4ch (view mode). */
   padding: 0 1ch 0 2ch;
@@ -95,7 +95,7 @@
   text-align: right;
 }
 
-.cm-opencode .cm-gutter {
+.cm-unifia .cm-gutter {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -111,52 +111,52 @@
  * rules in this statically linked stylesheet avoids CodeMirror's runtime
  * StyleModule, which is blocked by the mobile CSP.
  */
-.cm-opencode .tok-comment,
-.cm-opencode .tok-meta {
+.cm-unifia .tok-comment,
+.cm-unifia .tok-meta {
   color: var(--syntax-comment, currentColor);
 }
 
-.cm-opencode .tok-string {
+.cm-unifia .tok-string {
   color: var(--syntax-string, currentColor);
 }
 
-.cm-opencode .tok-string2 {
+.cm-unifia .tok-string2 {
   color: var(--syntax-regexp, currentColor);
 }
 
-.cm-opencode .tok-url,
-.cm-opencode .tok-link {
+.cm-unifia .tok-url,
+.cm-unifia .tok-link {
   color: var(--syntax-info, currentColor);
 }
 
-.cm-opencode .tok-keyword {
+.cm-unifia .tok-keyword {
   color: var(--syntax-keyword, currentColor);
 }
 
-.cm-opencode .tok-atom,
-.cm-opencode .tok-bool,
-.cm-opencode .tok-literal,
-.cm-opencode .tok-number {
+.cm-unifia .tok-atom,
+.cm-unifia .tok-bool,
+.cm-unifia .tok-literal,
+.cm-unifia .tok-number {
   color: var(--syntax-constant, currentColor);
 }
 
-.cm-opencode .tok-variableName,
-.cm-opencode .tok-variableName2 {
+.cm-unifia .tok-variableName,
+.cm-unifia .tok-variableName2 {
   color: var(--syntax-variable, currentColor);
 }
 
-.cm-opencode .tok-propertyName,
-.cm-opencode .tok-labelName {
+.cm-unifia .tok-propertyName,
+.cm-unifia .tok-labelName {
   color: var(--syntax-property, currentColor);
 }
 
-.cm-opencode .tok-typeName,
-.cm-opencode .tok-namespace,
-.cm-opencode .tok-className {
+.cm-unifia .tok-typeName,
+.cm-unifia .tok-namespace,
+.cm-unifia .tok-className {
   color: var(--syntax-type, currentColor);
 }
 
-.cm-opencode .tok-macroName {
+.cm-unifia .tok-macroName {
   color: var(--syntax-primitive, currentColor);
 }
 
@@ -167,58 +167,58 @@
  * the cascade tie so functions match the read-only viewer's entity.name.function
  * color instead of the plain variable/property color.
  */
-.cm-opencode .tok-function {
+.cm-unifia .tok-function {
   color: var(--syntax-primitive, currentColor);
 }
 
-.cm-opencode .tok-operator {
+.cm-unifia .tok-operator {
   color: var(--syntax-operator, currentColor);
 }
 
-.cm-opencode .tok-punctuation {
+.cm-unifia .tok-punctuation {
   color: var(--syntax-punctuation, currentColor);
 }
 
-.cm-opencode .tok-invalid {
+.cm-unifia .tok-invalid {
   color: var(--syntax-critical, currentColor);
 }
 
-.cm-opencode .tok-heading {
+.cm-unifia .tok-heading {
   color: var(--syntax-type, currentColor);
   font-weight: 600;
 }
 
-.cm-opencode .tok-emphasis {
+.cm-unifia .tok-emphasis {
   font-style: italic;
 }
 
-.cm-opencode .tok-strong {
+.cm-unifia .tok-strong {
   font-weight: 600;
 }
 
-.cm-opencode .tok-inserted {
+.cm-unifia .tok-inserted {
   color: var(--syntax-diff-add, currentColor);
 }
 
-.cm-opencode .tok-deleted {
+.cm-unifia .tok-deleted {
   color: var(--syntax-diff-delete, currentColor);
 }
 /* v110 diagnostic markers: geometry only — the severity background comes
    from the app theme rule [data-component="diagnostic-marker"][data-severity],
    so a marker is neutral unless the theme colours it. */
-.cm-opencode .cm-v110-diagnostic {
+.cm-unifia .cm-v110-diagnostic {
   width: 10px;
   height: 10px;
   margin: 2px auto 0;
   border-radius: 999px;
 }
 
-.cm-opencode .cm-v110-diagnostic[data-severity="info"] {
+.cm-unifia .cm-v110-diagnostic[data-severity="info"] {
   background: var(--text-weak, rgba(127, 127, 127, 0.45));
   opacity: 0.55;
 }
 /* Git blame annotations (#96): inline end-of-line label + hover card. */
-.cm-opencode .cm-blame-inline {
+.cm-unifia .cm-blame-inline {
   margin-left: 1.5ch;
   color: var(--text-weak, rgba(127, 127, 127, 0.65));
   font-size: 0.85em;
@@ -226,7 +226,7 @@
   white-space: nowrap;
 }
 
-.cm-opencode .cm-blame-tooltip {
+.cm-unifia .cm-blame-tooltip {
   max-width: 46ch;
   padding: 6px 8px;
   border: 1px solid var(--border-base, rgba(127, 127, 127, 0.35));
@@ -236,11 +236,11 @@
   font-size: 11px;
 }
 
-.cm-opencode .cm-blame-tooltip-head {
+.cm-unifia .cm-blame-tooltip-head {
   color: var(--text-weak, rgba(127, 127, 127, 0.85));
 }
 
-.cm-opencode .cm-blame-tooltip pre {
+.cm-unifia .cm-blame-tooltip pre {
   margin: 4px 0 0;
   white-space: pre-wrap;
 }

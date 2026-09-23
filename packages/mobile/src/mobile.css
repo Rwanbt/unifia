@@ -888,7 +888,7 @@ a,
 /* ─── 33. CODE EDITOR (CodeMirror) — mobile ─────────────────────────────── */
 
 /* Text selection inside the CM editor must work on touch (contenteditable). */
-.cm-opencode [contenteditable] {
+.cm-unifia [contenteditable] {
   -webkit-user-select: text;
   user-select: text;
   touch-action: manipulation;
