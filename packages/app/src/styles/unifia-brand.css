@@ -55,10 +55,13 @@
    * actually-served compiled CSS, not assumed. Both pairs are kept so nothing
    * that already reads --font-sans/--font-mono directly changes behavior.
    */
-  --font-family-sans: "Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif;
-  --font-family-mono: "Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace;
-  --font-sans: "Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif;
-  --font-mono: "Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace;
+  /* The maquette v110 stacks verbatim (its --mono token and body font), so
+   * the app resolves to the same installed font as the maquette on every
+   * machine. */
+  --font-family-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
 }
 
 /* Light scheme. The brand tokens above are dark-only, so without this block

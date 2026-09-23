@@ -68,8 +68,8 @@ export const sansDefault = "System Sans"
 // A previous mismatch (this file held the generic system-font stack while
 // the stylesheet held the brand stack) meant the CSS side was silently dead
 // and the whole app rendered in the browser's default UI font.
-const monoFallback = '"Roboto Mono", "Cascadia Mono", "SFMono-Regular", monospace'
-const sansFallback = '"Manrope", "Inter", "Noto Sans", "Segoe UI", sans-serif'
+const monoFallback = 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace'
+const sansFallback = 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 
 const monoBase = monoFallback
 const sansBase = sansFallback
