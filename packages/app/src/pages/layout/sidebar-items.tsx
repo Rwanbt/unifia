@@ -8,7 +8,7 @@ import { Spinner } from "@unifia/ui/spinner"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { base64Encode } from "@unifia/util/encode"
 import { getFilename } from "@unifia/util/path"
-import { A, useNavigate, useParams } from "@solidjs/router"
+import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { type Accessor, createMemo, For, type JSX, Match, onCleanup, Show, Switch } from "solid-js"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -251,7 +251,9 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
   const hoverReady = createMemo(() => hoverMessages() !== undefined)
   const hoverAllowed = createMemo(() => !props.mobile && props.sidebarExpanded())
   const hoverEnabled = createMemo(() => (props.popover ?? true) && hoverAllowed())
-  const isActive = createMemo(() => props.session.id === params.id)
+  // Mode routes (/work, /memory, ...) carry the session as ?session=.
+  const [search] = useSearchParams()
+  const isActive = createMemo(() => props.session.id === (params.id ?? search.session))
 
   const warm = (span: number, priority: "high" | "low") => {
     const nav = props.navList?.()
