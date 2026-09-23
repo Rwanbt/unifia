@@ -37,3 +37,10 @@ Notes
 - If a job uses Docker Buildx, the container needs access to the host
   Docker daemon (or `docker-in-docker` with privileged mode).
 
+
+Local services
+
+- `docker-compose.searxng.yml`: a loopback-only SearXNG for the `websearch`
+  tool (ADR-044). Usage and the Unifia setting are in the file's header; the
+  secret key lives in `searxng/.env` (git-ignored). Unifia keeps working when
+  the container is stopped: web search is simply not offered.
