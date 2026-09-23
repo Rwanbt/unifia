@@ -52,7 +52,11 @@
   --faint: #85858d;
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.13);
-  --accent: var(--text);
+  /* --accent is intentionally NOT redefined here. The maquette used to set
+   * `--accent: var(--text)` so the chat kept the corporate default; with
+   * ADR-048 we want the user's picker to retint the chat as well, so this
+   * scope inherits --accent from :root (where the picker writes it). The
+   * other palette tokens stay scoped to keep the chat visually distinct. */
   --success: #8aca9a;
 }
 

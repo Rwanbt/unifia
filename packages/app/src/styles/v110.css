@@ -78,10 +78,12 @@
   --bg-warning: rgba(220, 170, 60, 0.12);
   --bg-success: rgba(80, 170, 100, 0.12);
   --bg-info: rgba(80, 140, 200, 0.12);
-  /* ADR-048: derive the global accent tokens from --accent so the picker
-   * retints every var(--accent-base)/var(--accent-strong) consumer.
-   * --accent-base mirrors the user choice; --accent-strong mixes 25% white
-   * to keep the "stronger" lift the maquette seeded at lines 81-82. */
+  /* ADR-048: seed --accent at :root so every var(--accent) consumer in the
+   * app (the picker writes it inline on <html> when the user picks a
+   * preset; the sentinel clears it back to this seed). --accent-base and
+   * --accent-strong then resolve against this same source, and scopes that
+   * previously hard-coded `--accent: var(--text)` simply inherit. */
+  --accent: var(--text);
   --accent-base: var(--accent);
   --accent-strong: color-mix(in srgb, var(--accent) 75%, white);
   --shadow-overlay: rgba(0, 0, 0, 0.32);
