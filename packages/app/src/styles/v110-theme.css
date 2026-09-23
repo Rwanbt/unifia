@@ -20,6 +20,9 @@ html[data-color-scheme="light"] {
   /* Maquette light --surface:#ffffff (Unifia-UI-UX-v110-PORT-READY-R1.html
    * line 60), mirroring the dark --surface:#161618 override in v110.css. */
   --surface: #ffffff;
+  /* Same final palette as the chat and settings frames. */
+  --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
+  --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
 }
 
 html[data-color-scheme="light"] [data-v110="home"] {

@@ -1090,12 +1090,14 @@ html[data-ui-animations="off"] *::after {
  * visibly off (confirmed live: e.g. code-tabs' active background) --
  * on explicit user decision, --surface now holds the maquette's exact
  * values directly rather than the brand alias. --surface-2/--surface-3
- * still map onto the brand's card/elevated tokens; only the base --surface
- * tier changed. */
+ * followed: the brand's card/elevated tokens are blue-tinted (#1D202F,
+ * #2C2E3E), and every active fill (--accent-soft, --accent-hover) mixes
+ * over them, so a neutral accent read blue. They take the maquette's
+ * neutral greys (lines 31-32). */
 :root {
   --surface: #161618;
-  --surface-2: var(--surface-card);
-  --surface-3: var(--surface-elevated);
+  --surface-2: #1b1b1e;
+  --surface-3: #212125;
   --bg: var(--background-base, var(--surface-canvas));
   --line: var(--border-base);
   /* The theme's strong border (0.266) is twice the reference's; the accent
