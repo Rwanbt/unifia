@@ -149,11 +149,12 @@ const WorkSections = () => {
 
 type Row = { glyph: string; key?: string; label?: string; active?: boolean; badge?: string }
 
-// The maquette's own rows for the modes whose navigation has no backend yet.
-const StaticSection = (props: { id: string; titleKey: string; rows: readonly Row[] }) => {
+// The maquette's own rows for the modes whose navigation has no backend yet;
+// `count` is the section's own tally when it is not its row count (Runs).
+const StaticSection = (props: { id: string; titleKey: string; rows: readonly Row[]; count?: number }) => {
   const language = useLanguage()
   return (
-    <Section id={props.id} title={language.t(props.titleKey)} count={props.rows.length}>
+    <Section id={props.id} title={language.t(props.titleKey)} count={props.count ?? props.rows.length}>
       <For each={props.rows}>
         {(row) => (
           <NavRow
@@ -205,6 +206,7 @@ const AutomateSections = () => (
     <StaticSection
       id="automate.runs"
       titleKey="sidebar.nav.runs"
+      count={0}
       rows={[
         { glyph: "▶", key: "sidebar.nav.history", badge: "0" },
         { glyph: "⚠", key: "sidebar.nav.failures", badge: "0" },
