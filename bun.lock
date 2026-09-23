@@ -50,6 +50,7 @@
         "@thisbeyond/solid-dnd": "0.7.5",
         "@types/qrcode": "1.5.6",
         "@unifia/artifact-render": "workspace:*",
+        "@unifia/contracts": "workspace:*",
         "@unifia/sdk": "workspace:*",
         "@unifia/sdk-shared": "workspace:*",
         "@unifia/ui": "workspace:*",

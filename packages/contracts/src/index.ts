@@ -18,6 +18,7 @@ export * from "./capability.js"
 export * from "./artifact.js"
 export * from "./sandbox.js"
 export * from "./remote.js"
+export * from "./speech.js"
 
 export * from './p3.js'
 

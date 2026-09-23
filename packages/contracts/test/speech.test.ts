@@ -1,0 +1,40 @@
+import { describe, expect, test } from "bun:test"
+import { createVoiceRegistry, resolveTtsProviders } from "../src/speech"
+
+const licensedVoice = {
+  id: "fr-fr-default",
+  provider: "pocket" as const,
+  language: "fr" as const,
+  displayName: "French default",
+  version: "1.0.0",
+  source: "https://example.invalid/voice",
+  license: "CC-BY-4.0",
+  licenseSource: "https://example.invalid/license",
+  redistributable: false,
+}
+
+describe("speech contracts", () => {
+  test("auto fallback order is stable and explicit providers stay explicit", () => {
+    expect(resolveTtsProviders("auto")).toEqual(["pocket", "piper"])
+    expect(resolveTtsProviders("piper")).toEqual(["piper"])
+  })
+
+  test("voice registry filters by language and provider", () => {
+    const registry = createVoiceRegistry([licensedVoice])
+    expect(registry.list("fr")).toEqual([licensedVoice])
+    expect(registry.get("fr-fr-default", "fr", "pocket")).toEqual(licensedVoice)
+    expect(registry.get("fr-fr-default", "en")).toBeUndefined()
+  })
+
+  test("voice registry rejects missing license metadata and duplicate IDs", () => {
+    expect(() => createVoiceRegistry([{ ...licensedVoice, licenseSource: "" }])).toThrow("license metadata")
+    expect(() => createVoiceRegistry([licensedVoice, licensedVoice])).toThrow("Duplicate voice")
+  })
+
+  test("ambiguous cross-provider IDs require an explicit provider", () => {
+    const piperVoice = { ...licensedVoice, provider: "piper" as const }
+    const registry = createVoiceRegistry([licensedVoice, piperVoice])
+    expect(registry.get(licensedVoice.id, "fr")).toBeUndefined()
+    expect(registry.get(licensedVoice.id, "fr", "piper")).toEqual(piperVoice)
+  })
+})
