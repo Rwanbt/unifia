@@ -335,7 +335,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
               class="flex flex-col items-start justify-start pb-16 transition-[margin]"
               classList={{
                 "w-full": true,
-                "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
+                "v110-chat-column": props.centered,
                 "mt-0.5": props.centered,
                 "mt-0": !props.centered,
               }}
@@ -376,7 +376,6 @@ export function MessageTimeline(props: MessageTimelineProps) {
                       data-message-id={messageID}
                       classList={{
                         "min-w-0 w-full max-w-full": true,
-                        "md:max-w-200 2xl:max-w-[1000px]": props.centered,
                       }}
                       style={{
                         "content-visibility": active() ? undefined : "auto",

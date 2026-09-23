@@ -132,7 +132,7 @@ export function SessionComposerRegion(props: {
       <div
         classList={{
           "w-full px-3 pointer-events-auto": true,
-          "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
+          "v110-chat-column": props.centered,
         }}
       >
         <Show when={props.state.questionRequest()} keyed>

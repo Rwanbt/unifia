@@ -54,6 +54,8 @@ import { ToolStatusTitle } from "./tool-status-title"
 import { animate } from "motion"
 import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
+import { MessageTiming, PinChapterAction, ReadAloudAction } from "./message-actions"
+import { ToolStatusPill } from "./tool-status-pill"
 
 function ShellSubmessage(props: { text: string; animate?: boolean }) {
   let widthRef: HTMLSpanElement | undefined
@@ -1020,6 +1022,7 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
 
   return (
     <div data-component="user-message">
+      <div data-slot="user-message-name">{i18n.t("ui.message.you")}</div>
       <Show when={attachments().length > 0}>
         <div data-slot="user-message-attachments">
           <For each={attachments()}>
@@ -1055,64 +1058,13 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
         </div>
       </Show>
       <Show when={text()}>
-        
+
           <div data-slot="user-message-body">
             <div data-slot="user-message-text">
               <HighlightedText text={text()} references={inlineFiles()} agents={agents()} />
             </div>
           </div>
           <div data-slot="user-message-copy-wrapper">
-            <Show when={metaHead() || metaTail()}>
-              <span data-slot="user-message-meta-wrap">
-                <Show when={metaHead()}>
-                  <span data-slot="user-message-meta" class="text-12-regular text-text-weak cursor-default">
-                    {metaHead()}
-                  </span>
-                </Show>
-                <Show when={metaHead() && metaTail()}>
-                  <span data-slot="user-message-meta-sep" class="text-12-regular text-text-weak cursor-default">
-                    {"\u00A0\u00B7\u00A0"}
-                  </span>
-                </Show>
-                <Show when={metaTail()}>
-                  <span data-slot="user-message-meta-tail" class="text-12-regular text-text-weak cursor-default">
-                    {metaTail()}
-                  </span>
-                </Show>
-              </span>
-            </Show>
-            <Show when={props.actions?.revert}>
-              <Tooltip value={i18n.t("ui.message.revertMessage")} placement="top" gutter={4}>
-                <IconButton
-                  icon="reset"
-                  size="normal"
-                  variant="ghost"
-                  disabled={!!busy()}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    revert()
-                  }}
-                  aria-label={i18n.t("ui.message.revertMessage")}
-                />
-              </Tooltip>
-            </Show>
-            <Show when={props.actions?.fork}>
-              <Tooltip value={i18n.t("command.session.fork")} placement="top" gutter={4}>
-                <IconButton
-                  icon="fork"
-                  size="normal"
-                  variant="ghost"
-                  disabled={!!forking()}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    fork()
-                  }}
-                  aria-label={i18n.t("command.session.fork")}
-                />
-              </Tooltip>
-            </Show>
             <Tooltip
               value={copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copyMessage")}
               placement="top"
@@ -1130,6 +1082,41 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
                 aria-label={copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copyMessage")}
               />
             </Tooltip>
+            <Show when={props.actions?.fork}>
+              <Tooltip value={i18n.t("command.session.fork")} placement="top" gutter={4}>
+                <IconButton
+                  icon="fork"
+                  size="normal"
+                  variant="ghost"
+                  disabled={!!forking()}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    fork()
+                  }}
+                  aria-label={i18n.t("command.session.fork")}
+                />
+              </Tooltip>
+            </Show>
+            <PinChapterAction />
+            <ReadAloudAction text={text()} />
+            <MessageTiming value={metaTail()} title={metaHead()} />
+            <Show when={props.actions?.revert}>
+              <Tooltip value={i18n.t("ui.message.revertMessage")} placement="top" gutter={4}>
+                <IconButton
+                  icon="reset"
+                  size="normal"
+                  variant="ghost"
+                  disabled={!!busy()}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    revert()
+                  }}
+                  aria-label={i18n.t("ui.message.revertMessage")}
+                />
+              </Tooltip>
+            </Show>
           </div>
         
       </Show>
@@ -1382,6 +1369,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
               hideDetails={props.hideDetails}
               defaultOpen={props.defaultOpen}
             />
+            <ToolStatusPill status={part().state.status} />
           </Match>
         </Switch>
       </div>
@@ -1458,6 +1446,10 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     return items.filter((x) => !!x).join(" \u00B7 ")
   })
 
+  const timing = createMemo(() =>
+    [duration(), interrupted() ? i18n.t("ui.message.interrupted") : ""].filter((x) => !!x).join(" \u00B7 "),
+  )
+
   const streaming = createMemo(
     () => props.message.role === "assistant" && typeof (props.message as AssistantMessage).time.completed !== "number",
   )
@@ -1509,23 +1501,9 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
               />
             </Tooltip>
             <Show when={props.message.role === "assistant"}>
-              <Tooltip value={i18n.t("ui.message.readAloud")} placement="top" gutter={4}>
-                <IconButton
-                  icon="speaker"
-                  size="normal"
-                  variant="ghost"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: text() } }))
-                  }}
-                  aria-label={i18n.t("ui.message.readAloud")}
-                />
-              </Tooltip>
-            </Show>
-            <Show when={meta()}>
-              <span data-slot="text-part-meta" class="text-12-regular text-text-weak cursor-default">
-                {meta()}
-              </span>
+              <PinChapterAction />
+              <ReadAloudAction text={text()} />
+              <MessageTiming value={timing()} title={meta()} />
             </Show>
           </div>
         </Show>

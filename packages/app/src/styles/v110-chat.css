@@ -475,3 +475,267 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
     display: none;
   }
 }
+
+/* Chat column (ADR-045). The reference sizes the focused chat as twice a
+ * clamped half-width; at every desktop width that equals the surface width
+ * minus 610px, between 560px and 1080px, and never wider than its parent. */
+[data-v110="session-chat-surface"] {
+  --v110-chat-column: min(100%, 1080px, max(560px, 100cqw - 610px));
+}
+
+.v110-chat-column {
+  width: 100%;
+  max-width: var(--v110-chat-column);
+  margin-inline: auto;
+}
+
+[data-v110="composer-dock"] > .v110-chat-column {
+  padding-inline: 10px;
+}
+
+/* Copy-context sits on the composer's top-right corner, so it follows the
+ * column instead of the surface edge; the 9px is the composer's own inset. */
+[data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
+  right: calc((100% - var(--v110-chat-column)) / 2 + 9px);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-message-container"] {
+  gap: 24px;
+  padding: 6px 23px 0 2px;
+}
+
+/* Messages -- #globalChatPanel .msg-user / .user-bubble / .ai-row. */
+[data-v110="chat-timeline"] [data-slot="user-message-name"] {
+  max-width: min(85%, 680px);
+  color: var(--muted);
+}
+
+[data-v110="chat-timeline"] [data-slot="user-message-body"] {
+  max-width: min(85%, 680px);
+}
+
+[data-v110="chat-timeline"] [data-slot="user-message-text"] {
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 14px 14px 4px 14px;
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface-2));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--accent) 8%, transparent),
+    0 5px 16px rgba(0, 0, 0, 0.045);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-avatar"] {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-column"] {
+  gap: 0;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-name"] {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.01em;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] {
+  gap: 8px;
+}
+
+[data-v110="chat-timeline"] [data-component="text-part"] {
+  margin-top: 0;
+}
+
+[data-v110="chat-timeline"] [data-component="text-part"] [data-component="markdown"] {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+/* Hover shelf -- .message-actions. */
+[data-v110="chat-timeline"] [data-slot="user-message-copy-wrapper"],
+[data-v110="chat-timeline"] [data-slot="text-part-copy-wrapper"] {
+  border-color: color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-soft) 91%, transparent);
+  color: var(--faint);
+}
+
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-component="icon-button"] {
+  color: var(--muted);
+}
+
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-component="icon-button"]:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="chat-timeline"] [data-slot="message-timing"] {
+  color: var(--faint);
+}
+
+/* Steps -- .v94-observable-stack. A run of consecutive tool rows reads as one
+ * stack: a hairline above and below the run, lighter hairlines between rows. */
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] > :is([data-component="tool-part-wrapper"], .tool-collapsible) {
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  > :is([data-component="tool-part-wrapper"], .tool-collapsible):not(
+    :is([data-component="tool-part-wrapper"], .tool-collapsible) + *
+  ) {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  > :is([data-component="tool-part-wrapper"], .tool-collapsible)
+  + :is([data-component="tool-part-wrapper"], .tool-collapsible) {
+  margin-top: -8px;
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  > :is([data-component="tool-part-wrapper"], .tool-collapsible):not(
+    :has(+ :is([data-component="tool-part-wrapper"], .tool-collapsible))
+  ) {
+  border-bottom-color: var(--line);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] .tool-collapsible {
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] [data-component="tool-trigger"] {
+  min-height: 31px;
+  padding-inline: 3px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] [data-component="tool-trigger"] :is(span, div):not([data-slot^="animated-number"]) {
+  font-size: 9px;
+  line-height: normal;
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  :is([data-slot="basic-tool-tool-title"], [data-slot="message-part-title-text"]) {
+  color: var(--text);
+  font-weight: 650;
+}
+
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]
+  :is(
+    [data-slot="basic-tool-tool-subtitle"],
+    [data-slot="basic-tool-tool-arg"],
+    [data-slot="message-part-title-filename"],
+    [data-slot="message-part-directory"]
+  ) {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="chat-timeline"] [data-slot="basic-tool-icon"] {
+  color: var(--muted);
+}
+
+[data-v110="chat-timeline"] [data-slot="tool-status-pill"] {
+  border-color: var(--line);
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 7px;
+}
+
+[data-v110="chat-timeline"] [data-slot="tool-status-pill"][data-status="completed"] {
+  color: var(--success);
+}
+
+/* A failed step stays a row of the stack; its icon and "failed" label carry
+ * the error, the card chrome would break the stack's rhythm. */
+[data-v110="chat-timeline"] [data-component="tool-part-wrapper"] > [data-component="card"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-v110="chat-timeline"] [data-component="tool-part-wrapper"] > [data-component="card"]::before {
+  display: none;
+}
+
+/* Changed files -- the reference's "Modifications" row. */
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs-header"] {
+  align-items: center;
+  min-height: 31px;
+  padding: 0 3px;
+  font-size: 9px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs-label"] {
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-slot="session-turn-diffs-toggle"],
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-component="diff-changes"] * {
+  font-size: 8px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-slot="accordion-trigger"] {
+  height: 26px;
+  padding: 0 3px 0 27px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-diffs"] [data-slot="session-turn-diff-path"] {
+  font-size: 8px;
+  font-weight: 600;
+}
+
+/* When the reply ends on a step, the changed-files row continues that stack
+ * instead of opening a second one under it. */
+[data-v110="chat-timeline"]
+  [data-slot="session-turn-assistant-content"]:has(> :is([data-component="tool-part-wrapper"], .tool-collapsible):last-child)
+  + [data-slot="session-turn-diffs"] {
+  margin-top: -1px;
+}
+
+/* The exploration group ("Explored · 4 reads") is a step row too. */
+[data-v110="chat-timeline"] [data-component="context-tool-group-trigger"] {
+  min-height: 31px;
+  padding-inline: 3px;
+}
+
+[data-v110="chat-timeline"] [data-component="context-tool-group-trigger"] :is(span, div):not([data-slot^="animated-number"]) {
+  font-size: 9px;
+  line-height: normal;
+}
+
+[data-v110="chat-timeline"] [data-slot="context-tool-group-label"] {
+  color: var(--text);
+  font-weight: 650;
+}
+
+[data-v110="chat-timeline"] [data-slot="context-tool-group-summary"],
+[data-v110="chat-timeline"] [data-slot="context-tool-group-summary"] * {
+  color: var(--muted);
+  font-size: 8px;
+}

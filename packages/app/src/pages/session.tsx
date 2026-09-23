@@ -986,6 +986,7 @@ export default function Page() {
           <div
             data-v110="mode-chat-head"
             class="h-11 shrink-0 flex items-center gap-2 px-1"
+            classList={{ "v110-chat-column": centered() }}
           >
             <Show when={params.id ? sync.session.get(params.id)?.parentID : undefined}>
               {(parentID) => <SessionParentBack parentID={parentID()} />}
