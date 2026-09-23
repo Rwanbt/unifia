@@ -256,7 +256,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   font-size: 10px;
   line-height: 1.45;
   caret-color: var(--border-focus);
-  accent-color: var(--border-focus);
+  accent-color: var(--accent);
   transition:
     border-color var(--v110-fast) var(--v110-ease),
     box-shadow var(--v110-fast) var(--v110-ease);

@@ -78,14 +78,23 @@
   --bg-warning: rgba(220, 170, 60, 0.12);
   --bg-success: rgba(80, 170, 100, 0.12);
   --bg-info: rgba(80, 140, 200, 0.12);
-  /* ADR-048: seed --accent at :root so every var(--accent) consumer in the
-   * app (the picker writes it inline on <html> when the user picks a
-   * preset; the sentinel clears it back to this seed). --accent-base and
-   * --accent-strong then resolve against this same source, and scopes that
-   * previously hard-coded `--accent: var(--text)` simply inherit. */
+  /* ADR-048: every var(--accent*) consumer in the maquette derives from
+   * one source. The picker writes --accent inline on <html> when the user
+   * picks a preset; the sentinel clears it back to this seed. The derived
+   * tokens below are declared exactly as the maquette (Unifia-UI-UX-v110-
+   * PORT-READY-R1.html lines 8330-8336) so every consumer that already
+   * reads them works out of the box. */
   --accent: var(--text);
-  --accent-base: var(--accent);
-  --accent-strong: color-mix(in srgb, var(--accent) 75%, white);
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  --accent-soft-strong: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  --accent-hover: color-mix(in srgb, var(--accent) 11%, var(--surface-3));
+  --accent-line: color-mix(in srgb, var(--accent) 38%, var(--line-strong));
+  --accent-line-strong: color-mix(in srgb, var(--accent) 66%, var(--line-strong));
+  --accent-glow: color-mix(in srgb, var(--accent) 18%, transparent);
+  /* --accent-ink is the text colour laid ON TOP of an accent-coloured
+   * surface (primary buttons, selected model pin). The maquette reads
+   * var(--bg) so the text inverts with the colour scheme. */
+  --accent-ink: var(--bg);
   --shadow-overlay: rgba(0, 0, 0, 0.32);
   --shadow-floating: rgba(0, 0, 0, 0.18);
 }
@@ -763,7 +772,7 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-settings-pane] [role="switch"][data-state="checked"] {
-  background: var(--accent-base, var(--border-focus));
+  background: var(--accent);
 }
 
 /* Auth screens (sign-in, sign-up, OAuth callback). */
@@ -1020,7 +1029,7 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-component="skill-picker"] [data-skill-card][aria-selected="true"] {
-  border-color: var(--accent-strong);
+  border-color: var(--accent-line-strong);
   background: var(--background-base);
 }
 
