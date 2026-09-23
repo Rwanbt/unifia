@@ -90,3 +90,274 @@
     padding: 16px;
   }
 }
+/* Chat observability (ADR-046) -- maquette .v94-obs-settings. The block
+ * carries the reference palette itself, like the chat surface does. */
+[data-v110="chat-observability"] {
+  --text: #f2f2f3;
+  --muted: #9b9ba1;
+  --faint: #85858d;
+  --bg: #0e0e10;
+  --surface-2: #1b1b1e;
+  --surface-3: #212125;
+  --surface-4: #26262b;
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  margin-top: 2px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+}
+
+html[data-color-scheme="light"] [data-v110="chat-observability"] {
+  --text: #17171a;
+  --muted: #686870;
+  --faint: #74747c;
+  --bg: #ffffff;
+  --surface-2: color-mix(in srgb, #8d8d95 4%, #f4f4f5);
+  --surface-3: color-mix(in srgb, #8d8d95 7%, #ececee);
+  --surface-4: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --line: rgba(0, 0, 0, 0.065);
+  --line-strong: rgba(0, 0, 0, 0.12);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-head"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-copy"] b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 10px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-copy"] span {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] button {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-presets"] button[aria-pressed="true"] {
+  background: var(--surface-4);
+  color: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-disclosure"] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 29px;
+  margin-top: 6px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: left;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-disclosure"]:hover {
+  background: color-mix(in srgb, var(--surface-3) 68%, transparent);
+  color: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-disclosure"] [data-component="icon"] {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.17s ease;
+}
+
+[data-v110="chat-observability"][data-open] [data-slot="observability-disclosure"] [data-component="icon"] {
+  transform: rotate(90deg);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-grid"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  padding: 4px 3px 6px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item"] {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  color: var(--muted);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-icon"] {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] {
+  min-width: 0;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] :is(b, small) {
+  display: block;
+  line-height: 1.25;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] b {
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item-copy"] small {
+  margin-top: 1px;
+  color: var(--faint);
+  font-size: 7px;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-item"]:not([data-wired]) :is(b, small, [data-slot="observability-item-icon"]) {
+  opacity: 0.55;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"] {
+  position: relative;
+  width: 27px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-4);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: left 0.15s ease, background 0.15s ease;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"][aria-checked="true"] {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"][aria-checked="true"]::after {
+  left: 13px;
+  background: var(--bg);
+}
+
+[data-v110="chat-observability"] [data-slot="observability-switch"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+[data-v110="chat-observability"] [data-slot="observability-note"] {
+  padding: 7px 4px 1px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+html[data-ui-animations="off"] [data-v110="chat-observability"] * {
+  transition: none;
+}
+
+@media (max-width: 760px) {
+  [data-v110="chat-observability"] [data-slot="observability-head"] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-v110="chat-observability"] [data-slot="observability-presets"] {
+    justify-self: start;
+  }
+
+  [data-v110="chat-observability"] [data-slot="observability-grid"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Settings switches -- maquette .ui-toggle: a 31x18 pill, filled when on.
+ * The ui Switch keeps the square OpenCode shape elsewhere. */
+[data-v110="settings-dialog"] [data-component="switch"] {
+  --v110-toggle-off: #26262b;
+  --v110-toggle-on: #f2f2f3;
+  --v110-toggle-line: rgba(255, 255, 255, 0.13);
+  --v110-toggle-knob: #9b9ba1;
+  --v110-toggle-knob-on: #0e0e10;
+}
+
+html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="switch"] {
+  --v110-toggle-off: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
+  --v110-toggle-on: #17171a;
+  --v110-toggle-line: rgba(0, 0, 0, 0.12);
+  --v110-toggle-knob: #686870;
+  --v110-toggle-knob-on: #ffffff;
+}
+
+[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-control"] {
+  width: 31px;
+  height: 18px;
+  padding: 0 2px;
+  border: 1px solid var(--v110-toggle-line);
+  border-radius: 999px;
+  background: var(--v110-toggle-off);
+}
+
+[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-thumb"] {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--v110-toggle-knob);
+  box-shadow: none;
+  transform: translateX(0);
+}
+
+[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-control"] {
+  border-color: var(--v110-toggle-on);
+  background: var(--v110-toggle-on);
+}
+
+[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-thumb"] {
+  background: var(--v110-toggle-knob-on);
+  transform: translateX(13px);
+}

@@ -25,6 +25,7 @@ import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { Link } from "./link"
 import { SettingsList } from "./settings-list"
 import { SettingsRow } from "./settings-row"
+import { SettingsChatObservability } from "./settings-chat-observability"
 import { SettingsGithubAuth } from "./settings-github-auth"
 import { SettingsGitAuth } from "./settings-git-auth"
 import { SettingsDiskQuota } from "./settings-disk-quota"
@@ -283,18 +284,6 @@ export const SettingsGeneral: Component = () => {
         </SettingsRow>
 
         <SettingsRow
-          title={language.t("settings.general.row.reasoningSummaries.title")}
-          description={language.t("settings.general.row.reasoningSummaries.description")}
-        >
-          <div data-action="settings-feed-reasoning-summaries">
-            <Switch
-              checked={settings.general.showReasoningSummaries()}
-              onChange={(checked) => settings.general.setShowReasoningSummaries(checked)}
-            />
-          </div>
-        </SettingsRow>
-
-        <SettingsRow
           title={language.t("settings.general.row.shellToolPartsExpanded.title")}
           description={language.t("settings.general.row.shellToolPartsExpanded.description")}
         >
@@ -318,17 +307,7 @@ export const SettingsGeneral: Component = () => {
           </div>
         </SettingsRow>
 
-        <SettingsRow
-          title={language.t("settings.general.row.uiAnimations.title")}
-          description={language.t("settings.general.row.uiAnimations.description")}
-        >
-          <div data-action="settings-general-ui-animations">
-            <Switch
-              checked={settings.general.uiAnimations()}
-              onChange={(checked) => settings.general.setUiAnimations(checked)}
-            />
-          </div>
-        </SettingsRow>
+        <SettingsChatObservability />
       </SettingsList>
     </div>
   )
@@ -359,6 +338,18 @@ export const SettingsGeneral: Component = () => {
             triggerVariant="settings"
             triggerStyle={{ "min-width": "220px" }}
           />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.uiAnimations.title")}
+          description={language.t("settings.general.row.uiAnimations.description")}
+        >
+          <div data-action="settings-general-ui-animations">
+            <Switch
+              checked={settings.general.uiAnimations()}
+              onChange={(checked) => settings.general.setUiAnimations(checked)}
+            />
+          </div>
         </SettingsRow>
 
         <SettingsRow

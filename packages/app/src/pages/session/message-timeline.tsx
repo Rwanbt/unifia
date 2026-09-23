@@ -430,6 +430,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
                         active={active()}
                         status={active() ? sessionStatus() : undefined}
                         showReasoningSummaries={settings.general.showReasoningSummaries()}
+                        observability={settings.general.observabilityDomain}
                         shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
                         editToolDefaultOpen={settings.general.editToolPartsExpanded()}
                         classes={{

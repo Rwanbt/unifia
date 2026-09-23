@@ -2,6 +2,11 @@ import { createStore, reconcile } from "solid-js/store"
 import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@unifia/ui/context"
 import { persisted } from "@/utils/persist"
+import {
+  OBSERVABILITY_PRESETS,
+  type ObservabilityDomain,
+  type ObservabilityPreset,
+} from "@unifia/ui/chat-observability"
 
 export interface NotificationSettings {
   agent: boolean
@@ -39,6 +44,11 @@ export interface Settings {
      * applied to <html data-ui-animations="on|off">.
      */
     uiAnimations: boolean
+    /** ADR-046: what the chat shows. Reasoning lives in showReasoningSummaries. */
+    observability: {
+      preset: ObservabilityPreset
+      domains: Partial<Record<ObservabilityDomain, boolean>>
+    }
     // FORK: ADR-0005 dual-mode Agent ⇄ IDE
     viewMode: "agent" | "ide"
   }
@@ -115,6 +125,7 @@ const defaultSettings: Settings = {
     shellToolPartsExpanded: false,
     editToolPartsExpanded: false,
     uiAnimations: true,
+    observability: { preset: "balanced", domains: {} },
     viewMode: "agent" as "agent" | "ide",
   },
   updates: {
@@ -207,6 +218,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       )
     })
 
+    // Stores saved before ADR-046 have no observability object to write into.
+    const writeObservabilityDomain = (domain: ObservabilityDomain, value: boolean) => {
+      if (domain === "reasoning") return setStore("general", "showReasoningSummaries", value)
+      if (!store.general?.observability) setStore("general", "observability", { preset: "balanced", domains: {} })
+      setStore("general", "observability", "domains", domain, value)
+    }
+
     createEffect(() => {
       if (store.general?.followup !== "queue") return
       setStore("general", "followup", "steer")
@@ -267,6 +285,25 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setUiAnimations(value: boolean) {
           setStore("general", "uiAnimations", value)
+        },
+        observabilityPreset: withFallback(
+          () => store.general?.observability?.preset,
+          defaultSettings.general.observability.preset,
+        ),
+        observabilityDomain(domain: ObservabilityDomain) {
+          if (domain === "reasoning") return store.general?.showReasoningSummaries ?? defaultSettings.general.showReasoningSummaries
+          return store.general?.observability?.domains?.[domain] ?? OBSERVABILITY_PRESETS.balanced[domain]
+        },
+        setObservabilityDomain(domain: ObservabilityDomain, value: boolean) {
+          writeObservabilityDomain(domain, value)
+          setStore("general", "observability", "preset", "custom")
+        },
+        setObservabilityPreset(preset: ObservabilityPreset) {
+          if (preset !== "custom") {
+            const values = OBSERVABILITY_PRESETS[preset]
+            for (const domain of Object.keys(values) as ObservabilityDomain[]) writeObservabilityDomain(domain, values[domain])
+          }
+          setStore("general", "observability", "preset", preset)
         },
         viewMode: withFallback(
           () => store.general?.viewMode,

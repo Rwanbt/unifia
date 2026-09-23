@@ -8,6 +8,7 @@
     "./*": "./src/components/*.tsx",
     "./code-mirror-lsp": "./src/components/code-mirror-lsp.ts",
     "./code-mirror-blame": "./src/components/code-mirror-blame.ts",
+    "./chat-observability": "./src/components/chat-observability.ts",
     "./i18n/*": "./src/i18n/*.ts",
     "./pierre": "./src/pierre/index.ts",
     "./pierre/*": "./src/pierre/*.ts",

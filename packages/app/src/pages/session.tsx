@@ -1002,17 +1002,19 @@ export default function Page() {
                 <span class="truncate">{chatScopeLabel()}</span>
               </span>
             </Tooltip>
-            <button
-              type="button"
-              data-v110="trajectory-btn"
-              onClick={() => {
-                layout.inspector.setTab("execution")
-                layout.inspector.open()
-              }}
-            >
-              <Icon name="trajectory" size="small" />
-              <span>{language.t("session.chat.trajectory")}</span>
-            </button>
+            <Show when={settings.general.observabilityDomain("trajectory")}>
+              <button
+                type="button"
+                data-v110="trajectory-btn"
+                onClick={() => {
+                  layout.inspector.setTab("execution")
+                  layout.inspector.open()
+                }}
+              >
+                <Icon name="trajectory" size="small" />
+                <span>{language.t("session.chat.trajectory")}</span>
+              </button>
+            </Show>
             <Show when={params.id}>{(id) => <SessionTitleMenu sessionID={id()} />}</Show>
             <div class="flex-1" />
           </div>

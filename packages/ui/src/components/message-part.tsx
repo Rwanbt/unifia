@@ -56,6 +56,7 @@ import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
 import { MessageTiming, PinChapterAction, ReadAloudAction } from "./message-actions"
 import { ToolStatusPill } from "./tool-status-pill"
+import { partDomain, type ObservabilityFilter } from "./chat-observability"
 
 function ShellSubmessage(props: { text: string; animate?: boolean }) {
   let widthRef: HTMLSpanElement | undefined
@@ -507,7 +508,9 @@ function index<T extends { id: string }>(items: readonly T[]) {
   return new Map(items.map((item) => [item.id, item] as const))
 }
 
-function renderable(part: PartType, showReasoningSummaries = true) {
+function renderable(part: PartType, showReasoningSummaries = true, observability?: ObservabilityFilter) {
+  const domain = partDomain(part)
+  if (domain && observability && !observability(domain)) return false
   if (part.type === "tool") {
     if (HIDDEN_TOOLS.has(part.tool)) return false
     if (part.tool === "question") return part.state.status !== "pending" && part.state.status !== "running"
@@ -534,6 +537,7 @@ export function AssistantParts(props: {
   turnDurationMs?: number
   working?: boolean
   showReasoningSummaries?: boolean
+  observability?: ObservabilityFilter
   shellToolDefaultOpen?: boolean
   editToolDefaultOpen?: boolean
 }) {
@@ -553,7 +557,7 @@ export function AssistantParts(props: {
       groupParts(
         props.messages.flatMap((message) =>
           list(data.store.part?.[message.id], emptyParts)
-            .filter((part) => renderable(part, props.showReasoningSummaries ?? true))
+            .filter((part) => renderable(part, props.showReasoningSummaries ?? true, props.observability))
             .map((part) => ({
               messageID: message.id,
               part,

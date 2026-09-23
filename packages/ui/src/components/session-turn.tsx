@@ -8,6 +8,7 @@ import { getDirectory, getFilename } from "@unifia/util/path"
 import { createEffect, createMemo, createSignal, For, on, type ParentProps, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Dynamic } from "solid-js/web"
+import { partDomain, type ObservabilityFilter } from "./chat-observability"
 import { AssistantParts, Message, MessageDivider, PART_MAPPING, type UserActions } from "./message-part"
 import { Card } from "./card"
 import { Accordion } from "./accordion"
@@ -86,7 +87,9 @@ function list<T>(value: T[] | undefined | null, fallback: T[]) {
 
 const hidden = new Set(["todowrite"])
 
-function partState(part: PartType, showReasoningSummaries: boolean) {
+function partState(part: PartType, showReasoningSummaries: boolean, observability?: ObservabilityFilter) {
+  const domain = partDomain(part)
+  if (domain && observability && !observability(domain)) return
   if (part.type === "tool") {
     if (hidden.has(part.tool)) return
     if (part.tool === "question" && (part.state.status === "pending" || part.state.status === "running")) return
@@ -157,6 +160,7 @@ export function SessionTurn(
     messages?: MessageType[]
     actions?: UserActions
     showReasoningSummaries?: boolean
+    observability?: ObservabilityFilter
     shellToolDefaultOpen?: boolean
     editToolDefaultOpen?: boolean
     active?: boolean
@@ -366,7 +370,7 @@ export function SessionTurn(
     const show = showReasoningSummaries()
     for (const message of assistantMessages()) {
       for (const part of list(data.store.part?.[message.id], emptyParts)) {
-        if (partState(part, show) === "visible") {
+        if (partState(part, show, props.observability) === "visible") {
           visible++
         }
         if (part.type === "reasoning" && part.text) {
@@ -411,7 +415,7 @@ export function SessionTurn(
               <div data-slot="session-turn-message-content" aria-live="off">
                 <Message message={message()!} parts={parts()} actions={props.actions} />
               </div>
-              <Show when={divider()}>
+              <Show when={divider() && (props.observability?.("compaction") ?? true)}>
                 <div data-slot="session-turn-compaction">
                   <MessageDivider label={divider()} />
                 </div>
@@ -433,6 +437,7 @@ export function SessionTurn(
                           turnDurationMs={turnDurationMs()}
                           working={working()}
                           showReasoningSummaries={showReasoningSummaries()}
+                          observability={props.observability}
                           shellToolDefaultOpen={props.shellToolDefaultOpen}
                           editToolDefaultOpen={props.editToolDefaultOpen}
                         />
@@ -453,7 +458,7 @@ export function SessionTurn(
                       </div>
                     </Show>
                     <SessionRetry status={status()} show={active()} />
-                    <Show when={edited() > 0 && !working()}>
+                    <Show when={edited() > 0 && !working() && (props.observability?.("git") ?? true)}>
                       <div
                         data-slot="session-turn-diffs"
                         data-component="session-turn-diffs-group"
