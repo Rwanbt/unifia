@@ -101,7 +101,7 @@ export const SettingsPanel: Component = () => {
   const groups = createMemo(() => settingsGroups(language, platform))
 
   return (
-    <SettingsScopeProvider>
+    <SettingsScopeProvider onOpenPage={setTab}>
       <div data-v110="settings-frame" class="h-full">
         <SettingsCommandBar tab={tab()} />
         <Tabs

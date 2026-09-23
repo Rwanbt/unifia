@@ -17,6 +17,8 @@ type SettingsScopeValue = {
   setScope: (scope: SettingsScope) => void
   detail: Accessor<SettingsDetail>
   setDetail: (detail: SettingsDetail) => void
+  /** Opens another settings page, for cross-links such as "Ouvrir Compute". */
+  openPage: (id: string) => void
   config: {
     get: () => Promise<Config>
     update: (config: Config) => Promise<void>
@@ -31,7 +33,7 @@ const unwrap = async <T,>(request: Promise<{ data?: T; error?: unknown }>): Prom
   return result.data as T
 }
 
-export function SettingsScopeProvider(props: ParentProps) {
+export function SettingsScopeProvider(props: ParentProps<{ onOpenPage: (id: string) => void }>) {
   const sdk = useSDK()
   const [scope, setScope] = createSignal<SettingsScope>("personal")
   const [detail, setDetail] = createSignal<SettingsDetail>("guided")
@@ -45,7 +47,7 @@ export function SettingsScopeProvider(props: ParentProps) {
   }
 
   return (
-    <SettingsScopeContext.Provider value={{ scope, setScope, detail, setDetail, config }}>
+    <SettingsScopeContext.Provider value={{ scope, setScope, detail, setDetail, openPage: props.onOpenPage, config }}>
       {props.children}
     </SettingsScopeContext.Provider>
   )
