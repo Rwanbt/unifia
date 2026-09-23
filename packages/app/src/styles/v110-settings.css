@@ -73,6 +73,8 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 138px;
+  line-height: normal;
 }
 
 [data-v110="settings-commandbar"] [data-slot="settings-title"] > b {
@@ -95,18 +97,22 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   background: var(--success);
 }
 
-[data-v110="settings-commandbar"] [data-slot="settings-search"] {
-  width: min(390px, 40%);
-  height: 34px;
+[data-v110="settings-commandbar"] [data-slot="settings-search-wrap"] {
+  position: relative;
+  flex: 1;
+  max-width: 390px;
   margin-left: auto;
-  /* The close button sits over the bar's right edge. */
-  margin-right: 34px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-search"] {
+  width: 100%;
+  height: 34px;
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--text);
-  font-size: 11px;
+  font-size: 10px;
   outline: none;
 }
 
@@ -116,6 +122,82 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 
 [data-v110="settings-commandbar"] [data-slot="settings-search"]:focus {
   border-color: var(--line-strong);
+}
+
+/* Scope select and detail switch -- .v91-command-controls. */
+[data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-control-label"],
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] > span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-scope"] {
+  width: 126px;
+  min-height: 31px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-scope"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] {
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] > span {
+  padding: 0 6px 0 4px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] button {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-commandbar"] [data-slot="settings-detail"] button[aria-pressed="true"] {
+  background: var(--surface-4);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-commandbar"] {
+    flex-wrap: wrap;
+  }
+
+  [data-v110="settings-commandbar"] [data-slot="settings-search-wrap"] {
+    order: 3;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  [data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+    margin-left: auto;
+  }
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] {
@@ -141,13 +223,14 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"] {
   padding: 7px 7px 6px;
+  line-height: normal;
   color: var(--muted);
   font-size: 9px;
   font-weight: 600;
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-section-title"]:not(:first-child) {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] {
@@ -159,16 +242,37 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   line-height: normal;
 }
 
+/* .settings-nav button: a 22px icon column, 6px before the label. */
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger"] {
-  gap: 8px;
+  gap: 6px;
   padding: 0 9px;
 }
 
-[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"] [data-component="icon"] {
+[data-v110="settings-nav"] [data-slot="settings-nav-icon"] {
+  flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  margin-right: 4px;
-  color: var(--muted);
+  margin: 0 3px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-icon"][data-filled] {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: none;
+}
+
+[data-v110="settings-nav"] [data-slot="settings-nav-glyph"] {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 [data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
@@ -181,8 +285,8 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   color: var(--text);
 }
 
-[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-component="icon"] {
-  color: var(--accent);
+[data-v110="settings-frame"] [data-v110="settings-dialog"][data-variant="settings"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]) [data-slot="settings-nav-icon"]:not([data-filled]) {
+  stroke: var(--accent);
 }
 
 [data-v110="settings-version"] {

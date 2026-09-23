@@ -207,10 +207,11 @@ export async function closeDialog(page: Page, dialog: Locator) {
 
   if (closedSecond) return
 
-  // Settings shown in the workspace have no overlay; they close with their button.
+  // Settings shown in the workspace have no overlay and, as in the reference,
+  // no close button: the rail leaves them for the Code destination.
   const surface = page.locator('[data-component="workbench-settings-surface"]')
   if (await surface.count()) {
-    await surface.getByRole("button", { name: /close|fermer/i }).first().click()
+    await page.locator('[data-v110="rail-mode"][data-mode="code"]').first().click()
     await expect(dialog).toHaveCount(0)
     return
   }
