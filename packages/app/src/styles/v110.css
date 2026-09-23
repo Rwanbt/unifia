@@ -1041,6 +1041,22 @@ html[data-ui-animations="off"] *::after {
   background-color: var(--accent);
 }
 
+/* ADR-048: the primary button reads --button-primary-base plus the
+ * --icon-strong-{hover,focus,active,disabled} siblings. Override each
+ * token locally inside the primary button selector so the user accent
+ * reaches every primary action (Save, Connect, Create, Confirm, Submit,
+ * Create project, ...) without leaking the change into other consumers
+ * of --icon-strong-* (Switch OFF, hover surfaces, etc.). The disabled
+ * state falls back to --accent-soft so the disabled button still reads
+ * as "accent-tinted" but visibly inactive. */
+[data-component="button"][data-variant="primary"] {
+  --button-primary-base: var(--accent);
+  --icon-strong-hover: color-mix(in srgb, var(--accent) 88%, var(--text));
+  --icon-strong-focus: color-mix(in srgb, var(--accent) 88%, var(--text));
+  --icon-strong-active: color-mix(in srgb, var(--accent) 78%, var(--text));
+  --icon-strong-disabled: var(--accent-soft);
+}
+
 [data-component="skill-picker"] [data-skill-card][aria-selected="true"] {
   border-color: var(--accent-line-strong);
   background: var(--background-base);
