@@ -507,3 +507,33 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
   background: var(--v110-toggle-knob-on);
   transform: translateX(13px);
 }
+
+/* Settings selects -- maquette .modern-select-trigger: a 36px box sized to
+ * its value, not the ui kit's borderless 160px trigger. */
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger"] {
+  min-width: 0;
+  height: 36px;
+  gap: 8px;
+  padding: 0 10px 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  justify-content: space-between;
+}
+
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger"]:hover:not(:disabled),
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger"][data-expanded] {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-value"] {
+  font-size: 11px;
+}
+
+[data-v110="settings-frame"] [data-component="select"][data-trigger-style="settings"] [data-slot="select-select-trigger-icon"] {
+  width: 12px;
+  background: transparent;
+  color: var(--muted);
+}
