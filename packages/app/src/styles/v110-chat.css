@@ -370,6 +370,16 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   height: 22px;
 }
 
+/* ADR-048: when the context meter reports a healthy level (data-level='ok'
+ * per the maquette line 8546), the icon retints with the user accent
+ * instead of the muted text colour. The data-level attribute is not yet
+ * emitted by session-context-usage.tsx; the selector is in place for when
+ * it is, so the picker starts retinting the moment the component starts
+ * emitting it. Until then the existing muted colour still wins. */
+[data-v110="context-meter"][data-level="ok"] {
+  color: var(--accent);
+}
+
 [data-v110="prompt-send-stack"] [data-action="prompt-submit"] {
   margin-left: 0;
 }
