@@ -32,12 +32,23 @@ Existing characterization tests are in `packages/app/src/hooks/web-speech.test.t
 
 ## Performance baseline
 
-No reproducible voice-runtime latency or CPU/RAM/VRAM baseline is available yet. The required comparison is Pocket/Piper/STT and Live conversation while the selected local LLM is generating, with TTFA, interruption latency, CPU, RAM, VRAM, and LLM tokens/s recorded. The Voice Host and managed Pocket runtime do not exist at this baseline, and no physical Android run is represented here. These measurements remain explicit gates; unit-test duration is not substituted for runtime performance.
-At inspection time, no Unifia/OpenCode app, local LLM server, or speech server process was running. An existing live service could not be sampled without violating the repository's no-restart instruction.
+Current Pocket CLI solo sample on Windows (`pocket-tts 1.1.1`, Python 3.13, `torch 2.7.1+cu118`), invoked with `--device cpu`:
+
+| Language | Generated audio | Generation time | Relative speed | Whole CLI invocation |
+|---|---:|---:|---:|---:|
+| en | 2.88 s | 3.369 s | 0.85× real time | 10.02 s |
+| fr | 5.60 s | 4.294 s | 1.30× real time | 10.88 s |
+| es | 4.08 s | 3.551 s | 1.15× real time | 9.92 s |
+| it | 4.48 s | 3.640 s | 1.23× real time | 10.01 s |
+| de | 4.80 s | 3.728 s | 1.29× real time | 10.26 s |
+
+The logs reported average generation steps of 19–20 ms and prompt processing of 41–97 ms. The model files were resolved as tokenizer revision `d4fdd22ae8c8e1cb3634e150ebeff1dab2d16df3` and TTS checkpoint revision `427e3d61b276ed69fdd03de0d185fa8a8d97fc5b` (`b6369a24`). Each language is a single short sample; startup/import time is included only in the whole-invocation column. TTFA, process CPU/RAM, VRAM, repeated-run variance, and LLM tokens/s were not measured. Although the CLI was forced to CPU, its installed PyTorch wheel is CUDA-enabled (`+cu118`); this does not qualify the target CPU-only managed runtime.
+
+At inspection time, no Unifia/OpenCode app, local LLM server, or speech server process was running. Therefore the required concurrency comparison—Pocket/Piper/STT and Live conversation while the selected local LLM is generating—remains open. The Voice Host, managed Pocket runtime, and physical Android run are also absent. No unit-test or solo CLI result is substituted for those measurements.
 
 ## Gate A status
 
-Characterization inventory and existing behavior contract are recorded. Gate A remains **pending** until the live baseline above is measured. No Kokoro runtime or command has been removed in this wave.
+Characterization inventory, existing behavior contract, and a solo Pocket language baseline are recorded. Gate A remains **pending** until LLM coexistence, memory/CPU, and live-path baseline measurements can be taken. No Kokoro runtime or command has been removed in this wave.
 
 ## Wave B status
 
