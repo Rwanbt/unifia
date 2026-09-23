@@ -248,23 +248,6 @@ export const SourceControl: Component<{
       </Show>
 
       <section data-code-card>
-        <h4>{language.t("sourceControl.cardTitle", { branch: currentBranch() || "—" })}</h4>
-        <Show when={state.files.length > 0} fallback={<p data-code-empty>{language.t("sourceControl.noChanges")}</p>}>
-          <For each={sortedFiles()}>
-            {(file) => (
-              <FileRow
-                file={file}
-                action={file.staged ? "unstage" : "stage"}
-                onAction={() => void (file.staged ? unstageFile(file.path) : stageFile(file.path))}
-                onOpen={() => props.onOpenFile?.(file.path)}
-                busy={!!state.busy}
-              />
-            )}
-          </For>
-        </Show>
-      </section>
-
-      <section data-code-card>
         <h4>{language.t("sourceControl.commit")}</h4>
         <textarea
           data-commit-message
@@ -297,6 +280,23 @@ export const SourceControl: Component<{
             {language.t("sourceControl.refresh")}
           </button>
         </div>
+      </section>
+
+      <section data-code-card>
+        <h4>{language.t("sourceControl.cardTitle", { branch: currentBranch() || "—" })}</h4>
+        <Show when={state.files.length > 0} fallback={<p data-code-empty>{language.t("sourceControl.noChanges")}</p>}>
+          <For each={sortedFiles()}>
+            {(file) => (
+              <FileRow
+                file={file}
+                action={file.staged ? "unstage" : "stage"}
+                onAction={() => void (file.staged ? unstageFile(file.path) : stageFile(file.path))}
+                onOpen={() => props.onOpenFile?.(file.path)}
+                busy={!!state.busy}
+              />
+            )}
+          </For>
+        </Show>
       </section>
 
       <section data-code-card>
