@@ -564,6 +564,34 @@ html[data-ui-animations="off"] *::after {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
+/* Chat layout on wide desktops (ADR-053): the reference's chat-focus shell
+ * floats the side cards 12px from the edges instead of 10px, so the rail,
+ * the context panel and the inspector each move in by 2px. */
+@media (min-width: 1200px) {
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"]) {
+    --v110-inspector-margins: 34px;
+    --v110-nav-extra: 4px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"]) [data-v110="rail"] {
+    margin-left: 22px;
+    margin-top: 22px;
+    margin-bottom: 12px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"])
+    [data-v110="context-panel"]:not([data-mobile]) {
+    margin-left: 12px;
+    margin-top: 22px;
+    margin-bottom: 12px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"]) [data-v110="inspector-content"] {
+    height: calc(100% - 34px);
+    margin: 22px 22px 12px 12px;
+  }
+}
+
 /* Compact desktops, 900-1199px (ADR-053) -- the reference's
  * @media (max-width:1199px) shell: a 58px rail 10px from the edges, and the
  * context panel as a 300px floating card 8px from the top and bottom that

@@ -1023,7 +1023,8 @@ export default function Layout(props: ParentProps) {
                 "pointer-events-none": true,
               }}
               style={{
-                width: `${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px`,
+                // --v110-nav-extra: the Chat layout's wider side-card insets.
+                width: `calc(${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px + var(--v110-nav-extra, 0px))`,
               }}
               ref={(el) => {
                 setState("nav", el)

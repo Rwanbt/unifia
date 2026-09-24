@@ -226,7 +226,9 @@ export default function Page() {
     // The inspector card also takes its outer and inner gutters.
     return `calc(100% - ${layout.inspector.width()}px - var(--v110-inspector-margins))`
   })
-  const centered = createMemo(() => isDesktop() && mode.active() === "code" && workspaceView() === "chat")
+  // The chat is one pane shared by every mode, so every mode focuses it the
+  // same way in the Chat layout (ADR-053).
+  const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
   // Below 1200px the reference centres the focused chat on the workspace,
