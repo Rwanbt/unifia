@@ -44,6 +44,19 @@
 [data-v110="inspector-content"][aria-hidden="true"] {
   margin: 0;
   border: 0;
+  opacity: 0;
+  transform: translateX(14px);
+}
+
+/* The reference's #inspectorPanel opens and closes the same way: its track
+ * grows or shrinks with the main card's shared edge while it fades and
+ * slides 14px. Off while the user drags the edge. */
+[data-v110="inspector-content"]:not(.mobile-side-panel):not([data-resizing]) {
+  transition:
+    width var(--v110-shell) var(--v110-shell-ease),
+    margin var(--v110-shell) var(--v110-shell-ease),
+    transform var(--v110-shell) var(--v110-shell-ease),
+    opacity var(--v110-fade) ease;
 }
 
 /* The resize handle straddles the card's left edge instead of taking 8px

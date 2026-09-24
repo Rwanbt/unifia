@@ -1,4 +1,14 @@
-import { Match, Show, Switch, createEffect, createMemo, createResource, createSignal, type JSX } from "solid-js"
+import {
+  Match,
+  Show,
+  Suspense,
+  Switch,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  type JSX,
+} from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Separator } from "@/primitives/separator"
 import { InspectorFrame } from "@/shell/v110-inspector-frame"
@@ -70,94 +80,21 @@ export function SessionSidePanel(props: {
   // The Execution tab lists the session's native observability spans; they
   // are fetched each time the tab opens (execution-log.ts shapes them).
   const [executionEvents] = createResource(
-    () => (layout.inspector.tab() === "execution" && inspectorVisible() ? observableSessionId(props.sessionId) : undefined),
+    () =>
+      layout.inspector.tab() === "execution" && inspectorVisible() ? observableSessionId(props.sessionId) : undefined,
     (sessionId) =>
-      unwrap(sdk.client.observability.events.list({ sessionId, scope: "project", limit: 200 })) as Promise<ExecutionEvent[]>,
+      unwrap(sdk.client.observability.events.list({ sessionId, scope: "project", limit: 200 })) as Promise<
+        ExecutionEvent[]
+      >,
   )
-  const executionCount = createMemo(() => executionRows(executionEvents() ?? [], "all", (status) => status).length)
-  // Maquette .v100-execution-context: "prism-eq · refonte-prism".
-  const slug = (value: string) =>
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, "-")
-      .replace(/^-|-$/g, "")
-  const executionContext = createMemo(() => {
-    const title = (props.sessionId && sessionTitle(sync.session.get(props.sessionId)?.title)) || ""
-    return [slug(projectName()), slug(title)].filter(Boolean).join(" · ")
+  // Read in the frame header, outside the tabs' Suspense: touching the
+  // resource before its first value would suspend the whole session, so it
+  // counts only once events have arrived.
+  const executionCount = createMemo(() => {
+    const state = executionEvents.state
+    const events = state === "ready" || state === "refreshing" ? (executionEvents.latest ?? []) : []
+    return executionRows(events, "all", (status) => status).length
   })
-
-  // Declared before `heading`: a memo runs on creation and reads it (ADR-049).
-  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
-  const heading = createMemo(() => {
-    const tab = layout.inspector.tab()
-    if (tab === "execution") return language.t("inspector.tab.execution")
-    if (tab === "inspector") {
-      const title = destination() === "code" ? codeToolTitleKey(codeTool()) : "inspector.tab.inspector"
-      return `${language.t(destinationLabelKey(destination(), mode.active()))} · ${language.t(title)}`
-    }
-    return `${projectName()} · ${language.t("inspector.tab.explorer")}`
-  })
-
-  // The maquette keeps every inspector tab inside the fixed --inspector track.
-  // Only the content inside that track scrolls; the review content does not
-  // expand the shell column to the chat width.
-  const panelWidth = createMemo(() => {
-    if (!inspectorVisible()) return "0px"
-    return `${layout.inspector.width()}px`
-  })
-
-  // RESPONSIVE-MATRIX.md desktop-compact invariant: opening the left panel
-  // closes the Inspector and inversely (single-utility side, per the A1
-  // viewport contract's exclusive()). One inspector pane now (v110
-  // InspectorFrame), so this collapses to one pair of effects on the
-  // shared opened() flag instead of two panes' worth.
-  createEffect(() => {
-    if (!shell.single()) return
-    if (!layout.sidebar.opened()) return
-    if (layout.inspector.opened()) layout.inspector.close()
-  })
-  createEffect(() => {
-    if (!shell.single()) return
-    if (!layout.inspector.opened()) return
-    if (layout.sidebar.opened()) layout.sidebar.close()
-  })
-
-  const diffFiles = createMemo(() => props.diffs().map((d) => d.file))
-  const kinds = createMemo(() => {
-    const merge = (a: "add" | "del" | "mix" | undefined, b: "add" | "del" | "mix") => {
-      if (!a) return b
-      if (a === b) return a
-      return "mix" as const
-    }
-
-    const normalize = (p: string) => p.replaceAll("\\\\", "/").replace(/\/+$/, "")
-
-    const out = new Map<string, "add" | "del" | "mix">()
-    for (const diff of props.diffs()) {
-      const file = normalize(diff.file)
-      const kind = diff.status === "added" ? "add" : diff.status === "deleted" ? "del" : "mix"
-
-      out.set(file, kind)
-
-      const parts = file.split("/")
-      for (const [idx] of parts.slice(0, -1).entries()) {
-        const dir = parts.slice(0, idx + 1).join("/")
-        if (!dir) continue
-        out.set(dir, merge(out.get(dir), kind))
-      }
-    }
-    return out
-  })
-
-  const empty = (msg: string) => (
-    <div class="h-full flex flex-col">
-      <div class="h-6 shrink-0" aria-hidden />
-      <div class="flex-1 pb-64 flex items-center justify-center text-center">
-        <div class="text-12-regular text-text-weak">{msg}</div>
-      </div>
-    </div>
-  )
 
   const nofiles = createMemo(() => {
     const state = file.tree.state("")
@@ -302,12 +239,11 @@ export function SessionSidePanel(props: {
       onPointerLeave={layout.hover.inspector.leavePanel}
       aria-hidden={!inspectorVisible()}
       inert={!inspectorVisible()}
+      data-resizing={props.size.active() || props.reviewSnap ? "" : undefined}
       class="relative min-w-0 flex shrink-0 overflow-hidden bg-background-base"
       classList={{
         // Desktop: side panel with horizontal width transition
         "h-full": !isOverlay(),
-        "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-          !isOverlay() && !props.size.active() && !props.reviewSnap && layout.inspector.opened(),
         // Overlay viewports use a full-height inspector over session content.
         "mobile-side-panel w-full": isOverlay(),
         "pointer-events-none": !inspectorVisible(),
@@ -363,86 +299,97 @@ export function SessionSidePanel(props: {
                 : language.t("inspector.tab.inspector")
           }
         >
-          <Switch>
-            {/* Explorer matches the reference in every mode: the Workspace
+          {/* WHY: the tabs read resources (and lazy chunks). Without a local
+              boundary the first open suspends the app-level Suspense and the
+              whole session vanishes for a few frames. */}
+          <Suspense>
+            <Switch>
+              {/* Explorer matches the reference in every mode: the Workspace
                 label, the project row and the live project tree. */}
-            <Match when={layout.inspector.tab() === "explorer"}>
-              <div data-v110="inspector-explorer" class="group/filetree">
-                <div class="v43-inspector-section">
-                  <span>{language.t("inspector.explorer.workspace")}</span>
-                  <DropdownMenu gutter={4} placement="bottom-end">
-                    <DropdownMenu.Trigger as={IconButton} icon="plus-small" variant="ghost" size="small" data-slot="explorer-add" />
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content>
-                        <DropdownMenu.Item onSelect={() => handleNewFile("")}>
-                          <DropdownMenu.ItemLabel>{language.t("fileOps.newFile")}</DropdownMenu.ItemLabel>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onSelect={() => handleNewFolder("")}>
-                          <DropdownMenu.ItemLabel>{language.t("fileOps.newFolder")}</DropdownMenu.ItemLabel>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu>
+              <Match when={layout.inspector.tab() === "explorer"}>
+                <div data-v110="inspector-explorer" class="group/filetree">
+                  <div class="v43-inspector-section">
+                    <span>{language.t("inspector.explorer.workspace")}</span>
+                    <DropdownMenu gutter={4} placement="bottom-end">
+                      <DropdownMenu.Trigger
+                        as={IconButton}
+                        icon="plus-small"
+                        variant="ghost"
+                        size="small"
+                        data-slot="explorer-add"
+                      />
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content>
+                          <DropdownMenu.Item onSelect={() => handleNewFile("")}>
+                            <DropdownMenu.ItemLabel>{language.t("fileOps.newFile")}</DropdownMenu.ItemLabel>
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item onSelect={() => handleNewFolder("")}>
+                            <DropdownMenu.ItemLabel>{language.t("fileOps.newFolder")}</DropdownMenu.ItemLabel>
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu>
+                  </div>
+                  <div class="v43-file-project">
+                    <span aria-hidden="true">⌄</span>
+                    <span class="truncate">{projectName()}</span>
+                  </div>
+                  <Switch>
+                    <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
+                    <Match when={true}>
+                      <FileTree
+                        path=""
+                        modified={diffFiles()}
+                        kinds={kinds()}
+                        onFileClick={(node) => openTab(file.tab(node.path))}
+                        onFileDblClick={handleFileDblClick}
+                        onNewFile={handleNewFile}
+                        onNewFolder={handleNewFolder}
+                        onRename={handleRename}
+                        onDelete={handleDelete}
+                        onMove={handleMove}
+                        onCopyPath={handleCopyPath}
+                        onCopyRelativePath={handleCopyPath}
+                      />
+                    </Match>
+                  </Switch>
                 </div>
-                <div class="v43-file-project">
-                  <span aria-hidden="true">⌄</span>
-                  <span class="truncate">{projectName()}</span>
-                </div>
-                <Switch>
-                  <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
-                  <Match when={true}>
-                    <FileTree
-                      path=""
-                      modified={diffFiles()}
-                      kinds={kinds()}
-                      onFileClick={(node) => openTab(file.tab(node.path))}
-                      onFileDblClick={handleFileDblClick}
-                      onNewFile={handleNewFile}
-                      onNewFolder={handleNewFolder}
-                      onRename={handleRename}
-                      onDelete={handleDelete}
-                      onMove={handleMove}
-                      onCopyPath={handleCopyPath}
-                      onCopyRelativePath={handleCopyPath}
-                    />
-                  </Match>
-                </Switch>
-              </div>
-            </Match>
+              </Match>
 
-            {/* Inspector is a property surface, not the code editor. The
+              {/* Inspector is a property surface, not the code editor. The
                 editor owns file tabs and split panes in its own workspace;
                 this panel stays on the maquette's card-based inspection view. */}
-            <Match when={layout.inspector.tab() === "inspector" && destination() === "code"}>
-              <CodeInspector
-                tool={codeTool()}
-                onTool={setCodeTool}
-                sessionId={props.sessionId}
-                changedFiles={props.diffs().length}
-                activeFile={activeFile()}
-                review={props.reviewPanel}
-                open={openLocation}
-                restore={(messageID) => {
-                  if (props.sessionId) props.revert(messageID)
-                }}
-                reverting={props.reverting()}
-              />
-            </Match>
-            <Match when={layout.inspector.tab() === "inspector"}>
-              <ModeInspectorSurface mode={destination()} />
-            </Match>
+              <Match when={layout.inspector.tab() === "inspector" && destination() === "code"}>
+                <CodeInspector
+                  tool={codeTool()}
+                  onTool={setCodeTool}
+                  sessionId={props.sessionId}
+                  changedFiles={props.diffs().length}
+                  activeFile={activeFile()}
+                  review={props.reviewPanel}
+                  open={openLocation}
+                  restore={(messageID) => {
+                    if (props.sessionId) props.revert(messageID)
+                  }}
+                  reverting={props.reverting()}
+                />
+              </Match>
+              <Match when={layout.inspector.tab() === "inspector"}>
+                <ModeInspectorSurface mode={destination()} />
+              </Match>
 
-            {/* Execution: v110 names this tab "Trajectory/Observability"
+              {/* Execution: v110 names this tab "Trajectory/Observability"
                 (OWNERSHIP.md, RESPONSIVE-MATRIX.md — "onglet Execution de
                 l'inspector natif" IS the trajectory/observability tab, not
                 a task runner). The real backend already exists and is
                 session-scoped (sdk.client.observability.events/trace),
                 already wired into Settings > Observability's timeline —
                 reused here as-is rather than rebuilt. */}
-            <Match when={layout.inspector.tab() === "execution"}>
-              <ModeExecutionSurface mode={destination()} events={executionEvents()} />
-            </Match>
-          </Switch>
+              <Match when={layout.inspector.tab() === "execution"}>
+                <ModeExecutionSurface mode={destination()} events={executionEvents()} />
+              </Match>
+            </Switch>
+          </Suspense>
         </InspectorFrame>
       </div>
 

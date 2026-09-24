@@ -66,6 +66,12 @@
   --v110-layout: 650ms;
   --v110-split: 680ms;
   --v110-ease: cubic-bezier(0.16, 0.84, 0.2, 1);
+  /* Shell motion measured frame by frame on the reference (ADR-053): panel
+   * tracks and the chat/main shared edge move over ~620ms on this curve,
+   * cards fade over 340ms. */
+  --v110-shell: 620ms;
+  --v110-shell-ease: cubic-bezier(0.18, 0.84, 0.22, 1);
+  --v110-fade: 340ms;
 
   /* Semantic colour tokens — Phase 38 (ADR-038 visual parity scope).
    * Source-of-truth: tokens/semantic.ts. Values here must mirror the
@@ -181,6 +187,8 @@
     --v110-fast: 0ms;
     --v110-layout: 0ms;
     --v110-split: 0ms;
+    --v110-shell: 0ms;
+    --v110-fade: 0ms;
   }
 }
 
@@ -188,6 +196,8 @@ html[data-ui-animations="off"] {
   --v110-fast: 0ms;
   --v110-layout: 0ms;
   --v110-split: 0ms;
+  --v110-shell: 0ms;
+  --v110-fade: 0ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -550,6 +560,24 @@ html[data-ui-animations="off"] *::after {
 
 [data-v110="rail"] [aria-pressed="true"] [data-slot="icon-svg"] {
   color: #17171a;
+}
+
+/* The context panel fades in with a 13px slide from the rail, as the
+ * reference's #contextPanel does; closed, it stays mounted but invisible. */
+[data-v110="context-track"] {
+  transition: opacity var(--v110-fade) ease;
+}
+
+[data-v110="context-track"][data-expanded="false"] {
+  opacity: 0;
+}
+
+[data-v110="context-track"] > [data-v110="context-panel"]:not([data-mobile]) {
+  transition: transform var(--v110-shell) var(--v110-shell-ease);
+}
+
+[data-v110="context-track"][data-expanded="false"] > [data-v110="context-panel"]:not([data-mobile]) {
+  transform: translateX(-13px);
 }
 
 /* The context panel is a separate floating card in the reference shell. */

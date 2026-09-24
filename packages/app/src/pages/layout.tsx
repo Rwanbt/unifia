@@ -1122,7 +1122,7 @@ export default function Layout(props: ParentProps) {
                 "absolute inset-0": true,
                 "shell:inset-y-0 shell:right-0 shell:left-[var(--main-left)]": true,
                 "z-20": true,
-                "transition-[left] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[left] motion-reduce:transition-none":
+                "transition-[left] duration-[var(--v110-shell)] ease-[var(--v110-shell-ease)] will-change-[left] motion-reduce:transition-none":
                   !state.sizing,
               }}
               style={{

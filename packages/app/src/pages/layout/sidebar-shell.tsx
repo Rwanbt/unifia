@@ -309,9 +309,13 @@ export const SidebarContent = (props: {
         ref={(el) => {
           panel = el
         }}
+        // Stays laid out when closed so it can fade and slide out like the
+        // reference's panel (v110.css [data-v110="context-track"]).
+        data-v110="context-track"
+        data-expanded={expanded() ? "true" : "false"}
         classList={{
-          "flex-1 flex h-full min-h-0 min-w-0 overflow-hidden": expanded(),
-          "w-0 opacity-0 pointer-events-none overflow-hidden": !expanded(),
+          "flex-1 flex h-full min-h-0 min-w-0": true,
+          "pointer-events-none": !expanded(),
         }}
         aria-hidden={!expanded()}
         onPointerEnter={props.onSidebarPanelEnter}
