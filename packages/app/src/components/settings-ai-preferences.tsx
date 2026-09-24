@@ -32,7 +32,7 @@ export function SettingsAiPreferences() {
       value: `${model.provider.id}/${model.id}`,
       label: `${model.name} · ${model.provider.name}`,
     }))
-  const current = () => options().find((option) => option.value === config()?.model)
+  const current = () => options().find((option) => option.value === config.latest?.model)
 
   const selectModel = async (option: ModelOption | undefined) => {
     if (!option) return

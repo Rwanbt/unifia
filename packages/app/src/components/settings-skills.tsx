@@ -53,26 +53,35 @@ export const SettingsSkills: Component = () => {
   const [config, configActions] = createResource(settings.scope, () => settings.config.get())
 
   const rules = () => {
-    const permission = config()?.permission
+    const permission = config.latest?.permission
     const skill = typeof permission === "object" ? permission.skill : undefined
     return typeof skill === "object" && !Array.isArray(skill) ? skill : {}
   }
-  const enabled = (name: string) => rules()[name] !== "deny"
+  const [pending, setPending] = createSignal<Record<string, boolean>>({})
+  const enabled = (name: string) => pending()[name] ?? rules()[name] !== "deny"
 
+  // WHY "allow" rather than deleting the key: the config update merges into
+  // the file (mergeDeep / patchJsonc), so a removed key is never removed and
+  // the skill would stay denied.
   const setEnabled = async (name: string, on: boolean) => {
-    const latest = await settings.config.get()
-    const permission: Permission = typeof latest.permission === "object" ? latest.permission : {}
-    const current = typeof permission.skill === "object" && !Array.isArray(permission.skill) ? permission.skill : {}
-    const next = { ...current }
-    if (on) delete next[name]
-    else next[name] = "deny"
-    await settings.config.update({ ...latest, permission: { ...permission, skill: next } })
-    await configActions.refetch()
+    setPending((state) => ({ ...state, [name]: on }))
+    try {
+      const latest = await settings.config.get()
+      const permission: Permission = typeof latest.permission === "object" ? latest.permission : {}
+      const current = typeof permission.skill === "object" && !Array.isArray(permission.skill) ? permission.skill : {}
+      const skill = { ...current, [name]: on ? "allow" : "deny" } as const
+      await settings.config.update({ ...latest, permission: { ...permission, skill } })
+      await configActions.refetch()
+    } catch (error) {
+      showToast({ variant: "error", title: language.t("common.requestFailed"), description: String(error) })
+    } finally {
+      setPending(({ [name]: _, ...rest }) => rest)
+    }
   }
 
   const visible = createMemo(() => {
     const term = query().trim().toLowerCase()
-    return (skills() ?? []).filter((skill) => `${skill.name} ${skill.description}`.toLowerCase().includes(term))
+    return (skills.latest ?? []).filter((skill) => `${skill.name} ${skill.description}`.toLowerCase().includes(term))
   })
 
   async function handleInstall() {
@@ -228,7 +237,7 @@ ${language.t("settings.fork.plugins.skillExampleInstructions")}`}</pre>
       </div>
 
       <Show
-        when={!skills.loading}
+        when={skills.latest !== undefined}
         fallback={<p data-slot="settings-empty">{language.t("settings.fork.plugins.loading")}</p>}
       >
         <Show
@@ -260,7 +269,7 @@ ${language.t("settings.fork.plugins.skillExampleInstructions")}`}</pre>
                     </Show>
                     <Switch
                       checked={enabled(skill.name)}
-                      disabled={config.loading}
+                      disabled={config.latest === undefined || pending()[skill.name] !== undefined}
                       onChange={(on) => void setEnabled(skill.name, on)}
                       hideLabel
                     >

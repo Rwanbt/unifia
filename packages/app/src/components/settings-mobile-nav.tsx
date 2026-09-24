@@ -1,4 +1,4 @@
-import { type Component, For, Show, createSignal } from "solid-js"
+import { type Component, For, Show, Suspense, createSignal } from "solid-js"
 import { Dialog as KobalteDialog } from "@kobalte/core/dialog"
 import { Icon } from "@unifia/ui/icon"
 import { IconButton } from "@unifia/ui/icon-button"
@@ -169,7 +169,7 @@ export const SettingsMobileNav: Component = () => {
         >
           {(category) => (
             <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-content">
-              {renderContent(category().value)}
+              <Suspense>{renderContent(category().value)}</Suspense>
             </div>
           )}
         </Show>

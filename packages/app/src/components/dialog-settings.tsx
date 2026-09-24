@@ -1,4 +1,4 @@
-import { type Component, type JSX, For, Show, createMemo, createSignal } from "solid-js"
+import { type Component, type JSX, For, Show, Suspense, createMemo, createSignal } from "solid-js"
 import { Dialog } from "@unifia/ui/dialog"
 import { Tabs } from "@unifia/ui/tabs"
 import { useLanguage } from "@/context/language"
@@ -196,7 +196,13 @@ export const SettingsPanel: Component = () => {
             </div>
           </Tabs.List>
           <For each={groups().flatMap((group) => group.pages)}>
-            {(page) => <Tabs.Content value={page.id}>{page.render()}</Tabs.Content>}
+            {(page) => (
+              // WHY: a page's resources would otherwise suspend the app-level
+              // Suspense (app.tsx) and blank the whole session while they load.
+              <Tabs.Content value={page.id}>
+                <Suspense>{page.render()}</Suspense>
+              </Tabs.Content>
+            )}
           </For>
         </Tabs>
       </div>

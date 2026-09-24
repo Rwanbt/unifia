@@ -31,7 +31,7 @@ export function SettingsSecurity() {
   const settings = useSettingsScope()
 
   const [config, configActions] = createResource(settings.scope, () => settings.config.get())
-  const raw = () => config()?.permission
+  const raw = () => config.latest?.permission
   // A single action string applies to every tool; editing per-rule from
   // here would silently change the others, so the controls stay read-only.
   const global = () => (typeof raw() === "string" ? (raw() as Action) : undefined)

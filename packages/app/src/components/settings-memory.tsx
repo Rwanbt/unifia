@@ -81,8 +81,8 @@ export const SettingsMemory: Component = () => {
       return { value: undefined, error: error instanceof Error ? error.message : String(error) }
     }
   })
-  const loadError = () => config()?.error
-  const memory = (): MemorySettings => config()?.value?.memory ?? {}
+  const loadError = () => config.latest?.error
+  const memory = (): MemorySettings => config.latest?.value?.memory ?? {}
   const enabled = () => memory().enabled !== false
   const defaultPath = () => defaultVaultPath(sdk.directory)
   const resolvedPath = () => {

@@ -137,9 +137,9 @@ export const SettingsObservabilityExporters: Component<{ events: EventItem[] }> 
         </p>
       </div>
 
-      <Show when={config()?.exporters.length} fallback={<div class="rounded-lg bg-surface-base px-3 py-3 text-12-regular text-text-weak">{language.t("settings.fork.observability.noExporter")}</div>}>
+      <Show when={config.latest?.exporters.length} fallback={<div class="rounded-lg bg-surface-base px-3 py-3 text-12-regular text-text-weak">{language.t("settings.fork.observability.noExporter")}</div>}>
         <div class="flex flex-col gap-2">
-          <For each={config()?.exporters ?? []}>
+          <For each={config.latest?.exporters ?? []}>
             {(exporter) => (
               <div class="flex items-center justify-between rounded-lg bg-surface-base px-3 py-3">
                 <div class="text-12-regular">
@@ -156,7 +156,7 @@ export const SettingsObservabilityExporters: Component<{ events: EventItem[] }> 
 
       <SettingsList>
         <SettingsRow title={language.t("settings.fork.observability.backfill")} description={language.t("settings.fork.observability.backfillDescription")}>
-          <SwitchComponent checked={config()?.backfillOnStart ?? false} disabled={busy()} onChange={(v) => void setBackfill(v)} />
+          <SwitchComponent checked={config.latest?.backfillOnStart ?? false} disabled={busy()} onChange={(v) => void setBackfill(v)} />
         </SettingsRow>
       </SettingsList>
 
