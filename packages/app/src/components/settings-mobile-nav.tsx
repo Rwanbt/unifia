@@ -12,7 +12,7 @@ import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
 import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
-import { SettingsPlugins } from "./settings-plugins"
+import { SettingsSkills } from "./settings-skills"
 import { SettingsMcp } from "./settings-mcp"
 import { SettingsAndroid } from "./settings-android"
 import { SettingsObservability } from "./settings-observability"
@@ -97,7 +97,7 @@ export const SettingsMobileNav: Component = () => {
       case "plugins":
         return <SettingsMcp />
       case "skills":
-        return <SettingsPlugins />
+        return <SettingsSkills />
       case "memory":
         return <SettingsMemory />
       case "observability":

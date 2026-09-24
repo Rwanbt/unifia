@@ -1745,6 +1745,97 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   }
 }
 
+/* .v49-skill-grid / .v49-skill-card */
+[data-v110="settings-page"] [data-slot="skill-grid"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-card"] {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="skill-icon"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-copy"] {
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="skill-copy"] b {
+  display: block;
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="skill-copy"] span {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+[data-v110="settings-page"] [data-slot="skill-actions"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-actions"] > button {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="skill-actions"] > button:hover:not(:disabled) {
+  color: var(--danger, #df848a);
+}
+
+[data-v110="settings-page"] [data-slot="settings-pre"] {
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: 9px/1.5 var(--font-family-mono, ui-monospace, monospace);
+  white-space: pre;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-action"][aria-pressed="true"]:not([data-primary]) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="skill-grid"] {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;
