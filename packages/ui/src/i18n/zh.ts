@@ -138,6 +138,8 @@ export const dict = {
   "ui.message.readAloud": "朗读",
   "ui.message.you": "你",
   "ui.message.pinChapter": "固定为章节",
+  "ui.message.unpinChapter": "Remove chapter",
+  "ui.message.chapter": "Chapter",
   "ui.message.comingSoon": "即将推出",
   "ui.sessionTurn.diffs.changed.one": "已更改 {{count}} 个文件",
   "ui.sessionTurn.diffs.changed.other": "已更改 {{count}} 个文件",

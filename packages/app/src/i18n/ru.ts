@@ -511,6 +511,7 @@ export const dict = {
   "session.messages.loading": "Загрузка сообщений...",
   "session.messages.jumpToLatest": "Перейти к последнему",
   "session.promptIndex.label": "Переход между запросами",
+  "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "Добавить {{selection}} в контекст",
   "session.todo.title": "Задачи",
   "session.todo.collapse": "Свернуть",

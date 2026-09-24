@@ -18,6 +18,7 @@
 
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { Tooltip } from "@unifia/ui/tooltip"
+import { useChapters } from "@unifia/ui/context/chapters"
 import type { UserMessage, TextPart } from "@/types/sdk-shim"
 import { useSync } from "@/context/sync"
 import { useLanguage } from "@/context/language"
@@ -31,15 +32,26 @@ function firstPhrase(text: string): string {
 export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: () => HTMLElement | undefined }) {
   const sync = useSync()
   const language = useLanguage()
+  const chapters = useChapters()
   const [active, setActive] = createSignal(-1)
   const [visible, setVisible] = createSignal(false)
   let hideTimer: ReturnType<typeof setTimeout> | undefined
+
+  // A turn is a chapter when its prompt or one of its replies is pinned.
+  const isChapter = (message: UserMessage) => {
+    if (!chapters) return false
+    if (chapters.pinned(message.id)) return true
+    const replies = sync.data.message[message.sessionID] ?? []
+    return replies.some(
+      (reply) => reply.role === "assistant" && reply.parentID === message.id && chapters.pinned(reply.id),
+    )
+  }
 
   const ticks = createMemo(() =>
     props.messages().map((message) => {
       const parts = sync.data.part[message.id] ?? []
       const textPart = parts.find((p): p is TextPart => p.type === "text" && !p.synthetic)
-      return { id: message.id, preview: firstPhrase(textPart?.text ?? "") }
+      return { id: message.id, preview: firstPhrase(textPart?.text ?? ""), chapter: isChapter(message) }
     }),
   )
 
@@ -109,11 +121,16 @@ export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: ()
       >
         <For each={ticks()}>
           {(tick, i) => (
-            <Tooltip value={tick.preview} placement="left" gutter={8}>
+            <Tooltip
+              value={tick.chapter ? language.t("session.promptIndex.chapter", { title: tick.preview }) : tick.preview}
+              placement="left"
+              gutter={8}
+            >
               <button
                 type="button"
                 class="prompt-index-tick"
                 classList={{ active: i() === active() }}
+                data-chapter={tick.chapter ? "" : undefined}
                 aria-label={tick.preview}
                 onClick={() => goTo(i())}
               >

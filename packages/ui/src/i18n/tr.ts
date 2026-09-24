@@ -140,6 +140,8 @@ export const dict = {
   "ui.message.readAloud": "Sesli oku",
   "ui.message.you": "Sen",
   "ui.message.pinChapter": "Bölüm olarak sabitle",
+  "ui.message.unpinChapter": "Remove chapter",
+  "ui.message.chapter": "Chapter",
   "ui.message.comingSoon": "Yakında",
   "ui.sessionTurn.diffs.changed.one": "{{count}} dosya değişti",
   "ui.sessionTurn.diffs.changed.other": "{{count}} dosya değişti",

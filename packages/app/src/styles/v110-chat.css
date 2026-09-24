@@ -748,6 +748,55 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   color: var(--faint);
 }
 
+/* Chapters (ADR-052) -- .msg.is-chapter / .chapter-label: a subtle accent
+ * bar beside the pinned message and a "Chapitre" tag above it. */
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-slot="message-action-pin"][data-active] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+[data-v110="chat-timeline"] [data-slot="chapter-label"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  margin-bottom: 5px;
+  padding: 0 6px;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant"] > [data-slot="chapter-label"] {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-bottom: 0;
+}
+
+[data-v110="chat-timeline"] :is([data-component="user-message"], [data-slot="session-turn-assistant"])[data-chapter]::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+[data-v110="chat-timeline"] [data-component="user-message"][data-chapter]::before {
+  right: -6px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant"][data-chapter]::before {
+  left: 27px;
+}
+
 /* Steps -- .v94-observable-stack. A run of consecutive tool rows reads as one
  * stack: a hairline above and below the run, lighter hairlines between rows. */
 [data-v110="chat-timeline"] [data-slot="session-turn-assistant-content"] > :is([data-component="tool-part-wrapper"], .tool-collapsible) {

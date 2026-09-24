@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
 import { Show, type JSX } from "solid-js"
+import { useParams } from "@solidjs/router"
+import { ChaptersProvider } from "@unifia/ui/context/chapters"
 import { MessageTimeline, type MessageTimelineProps } from "@/pages/session/message-timeline"
 import { PromptIndex } from "@/pages/session/prompt-index"
+import { createSessionChapters } from "@/pages/session/session-chapters"
 
 /**
  * P1-5 Vague 3 (ADR-037). Lifts the MessageTimeline JSX block out of
@@ -26,8 +29,14 @@ export interface SessionTimelineSectionProps
 }
 
 export function SessionTimelineSection(props: SessionTimelineSectionProps): JSX.Element {
+  const params = useParams()
+  const chapters = createSessionChapters(
+    () => params.dir,
+    () => params.id,
+  )
   return (
-    <Show when={props.messagesReady()}>
+    <ChaptersProvider value={chapters}>
+      <Show when={props.messagesReady()}>
       <MessageTimeline
         mobileChanges={props.mobileChanges}
         mobileFallback={props.mobileFallback}
@@ -52,7 +61,8 @@ export function SessionTimelineSection(props: SessionTimelineSectionProps): JSX.
         anchor={props.anchor}
       />
       <PromptIndex messages={props.visibleUserMessages} scrollEl={props.scrollEl} />
-    </Show>
+      </Show>
+    </ChaptersProvider>
   )
 }
 

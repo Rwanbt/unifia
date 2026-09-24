@@ -133,6 +133,8 @@ export const dict = {
   "ui.message.readAloud": "Czytaj na głos",
   "ui.message.you": "Ty",
   "ui.message.pinChapter": "Przypnij jako rozdział",
+  "ui.message.unpinChapter": "Remove chapter",
+  "ui.message.chapter": "Chapter",
   "ui.message.comingSoon": "Wkrótce",
   "ui.sessionTurn.diffs.changed.one": "{{count}} zmieniony plik",
   "ui.sessionTurn.diffs.changed.other": "Zmienione pliki: {{count}}",

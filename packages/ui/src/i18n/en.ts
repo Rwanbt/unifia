@@ -151,6 +151,8 @@ export const dict: Record<string, string> = {
   "ui.message.readAloud": "Read aloud",
   "ui.message.you": "You",
   "ui.message.pinChapter": "Pin as chapter",
+  "ui.message.unpinChapter": "Remove chapter",
+  "ui.message.chapter": "Chapter",
   "ui.message.comingSoon": "Coming soon",
   "ui.tool.status.completed": "Done",
   "ui.tool.status.running": "Running",

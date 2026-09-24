@@ -133,6 +133,8 @@ export const dict = {
   "ui.message.readAloud": "読み上げ",
   "ui.message.you": "あなた",
   "ui.message.pinChapter": "チャプターとして固定",
+  "ui.message.unpinChapter": "Remove chapter",
+  "ui.message.chapter": "Chapter",
   "ui.message.comingSoon": "近日公開",
   "ui.sessionTurn.diffs.changed.one": "{{count}} 件のファイルを変更",
   "ui.sessionTurn.diffs.changed.other": "{{count}} 件のファイルを変更",

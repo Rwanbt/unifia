@@ -506,6 +506,7 @@ export const dict = {
   "session.messages.loading": "メッセージを読み込み中...",
   "session.messages.jumpToLatest": "最新へジャンプ",
   "session.promptIndex.label": "プロンプト間を移動",
+  "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "{{selection}}をコンテキストに追加",
   "session.todo.title": "ToDo",
   "session.todo.collapse": "折りたたむ",

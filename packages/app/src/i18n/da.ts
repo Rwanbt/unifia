@@ -559,6 +559,7 @@ export const dict = {
 
   "session.messages.jumpToLatest": "Gå til seneste",
   "session.promptIndex.label": "Naviger mellem prompts",
+  "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "Tilføj {{selection}} til kontekst",
   "session.todo.title": "Opgaver",
   "session.todo.collapse": "Skjul",

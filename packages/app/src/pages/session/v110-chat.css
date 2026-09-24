@@ -87,3 +87,22 @@
   background: var(--accent);
   box-shadow: 0 0 9px color-mix(in srgb, var(--accent) 48%, transparent);
 }
+
+/* A chapter (ADR-052): full accent and a dot, so pinned turns stand out
+ * while scanning the index. */
+.prompt-index-tick[data-chapter] .prompt-index-tick-line {
+  background: var(--accent);
+}
+
+.prompt-index-tick[data-chapter]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 36px;
+  width: 4px;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow, transparent);
+}

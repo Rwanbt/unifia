@@ -2,6 +2,7 @@
 
 import { Show } from "solid-js"
 import { useI18n } from "../context/i18n"
+import { useChapters } from "../context/chapters"
 import { Icon } from "./icon"
 import { IconButton } from "./icon-button"
 import { Tooltip } from "./tooltip"
@@ -9,23 +10,42 @@ import { Tooltip } from "./tooltip"
 // The shared entries of a message's hover shelf (ADR-045). Copy, fork and
 // revert stay with the message components that own their state.
 
-// WHY disabled: chapters need a persisted marker on the message and a
-// navigator to jump between them; neither exists yet, and a button that only
-// toggled a local style would lose the pin on reload.
-export function PinChapterAction() {
+/** Pins the message as a chapter (ADR-052); disabled when the host keeps no chapters. */
+export function PinChapterAction(props: { messageID: string }) {
   const i18n = useI18n()
+  const chapters = useChapters()
+  const pinned = () => chapters?.pinned(props.messageID) ?? false
+  const label = () =>
+    !chapters
+      ? i18n.t("ui.message.comingSoon")
+      : pinned()
+        ? i18n.t("ui.message.unpinChapter")
+        : i18n.t("ui.message.pinChapter")
   return (
-    <Tooltip value={i18n.t("ui.message.comingSoon")} placement="top" gutter={4}>
+    <Tooltip value={label()} placement="top" gutter={4}>
       <IconButton
         icon="pin"
         size="normal"
         variant="ghost"
-        disabled
+        disabled={!chapters}
         data-slot="message-action-pin"
+        data-active={pinned() ? "" : undefined}
+        aria-pressed={chapters ? pinned() : undefined}
         aria-label={i18n.t("ui.message.pinChapter")}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(event) => {
+          event.stopPropagation()
+          chapters?.toggle(props.messageID)
+        }}
       />
     </Tooltip>
   )
+}
+
+/** The reference's "Chapitre" tag above a pinned message. */
+export function ChapterLabel() {
+  const i18n = useI18n()
+  return <span data-slot="chapter-label">{i18n.t("ui.message.chapter")}</span>
 }
 
 export function ReadAloudAction(props: { text: string }) {

@@ -137,6 +137,8 @@ export const dict: Record<Keys, string> = {
   "ui.message.readAloud": "Les høyt",
   "ui.message.you": "Deg",
   "ui.message.pinChapter": "Fest som kapittel",
+  "ui.message.unpinChapter": "Remove chapter",
+  "ui.message.chapter": "Chapter",
   "ui.message.comingSoon": "Kommer snart",
   "ui.sessionTurn.diffs.changed.one": "{{count}} endret fil",
   "ui.sessionTurn.diffs.changed.other": "{{count}} endrede filer",
