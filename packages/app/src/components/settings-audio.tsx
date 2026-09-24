@@ -1,4 +1,4 @@
-import { type Component, createEffect, createSignal, For, Show } from "solid-js"
+import { type Component, createEffect, createSignal, For, onCleanup, Show } from "solid-js"
 import { Switch } from "@unifia/ui/switch"
 import { Select } from "@unifia/ui/select"
 import { Button } from "@unifia/ui/button"
@@ -15,6 +15,7 @@ import {
   saveAudioSettings,
   type AudioSettingsV2,
 } from "@/voice/audio-settings"
+import { requestAudioCapture, type AudioCaptureLease } from "@/voice/audio-capture-coordinator"
 
 export type AudioSettings = AudioSettingsV2
 
@@ -198,6 +199,10 @@ function VoiceCloneSection(props: {
   const [capabilityCheckFailed, setCapabilityCheckFailed] = createSignal(false)
   let mediaRecorder: MediaRecorder | null = null
   let audioChunks: Blob[] = []
+  let captureLease: AudioCaptureLease | undefined
+  let captureStream: MediaStream | undefined
+  let discardCapture = false
+  let mounted = true
   let capabilityRequestId = 0
 
   const canClone = () => props.enabled && cloningSupported() === true
@@ -234,6 +239,24 @@ function VoiceCloneSection(props: {
       setClones(list)
     } catch {}
   }
+
+  const stopVoiceCloneCapture = () => {
+    discardCapture = true
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop()
+    } else {
+      captureStream?.getTracks().forEach((track) => track.stop())
+      captureStream = undefined
+      captureLease?.release()
+      captureLease = undefined
+      if (mounted) setRecording(false)
+    }
+  }
+
+  onCleanup(() => {
+    mounted = false
+    stopVoiceCloneCapture()
+  })
 
   // Load on mount
   loadClones()
@@ -316,12 +339,27 @@ function VoiceCloneSection(props: {
 
     if (!canClone()) return
 
+    let stream: MediaStream | undefined
+    let lease: AudioCaptureLease | undefined
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      lease = requestAudioCapture(window, "voice-clone", stopVoiceCloneCapture)
+      if (!lease) {
+        showToast({ title: language.t("speech.error") })
+        return
+      }
+      captureLease = lease
+      const acquiredStream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: { ideal: 24000 }, channelCount: 1 },
       })
+      stream = acquiredStream
+      if (!lease.isCurrent()) {
+        acquiredStream.getTracks().forEach((track) => track.stop())
+        return
+      }
+      captureStream = acquiredStream
       audioChunks = []
-      mediaRecorder = new MediaRecorder(stream, {
+      discardCapture = false
+      mediaRecorder = new MediaRecorder(acquiredStream, {
         mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
           ? "audio/webm;codecs=opus"
           : "audio/webm",
@@ -332,8 +370,16 @@ function VoiceCloneSection(props: {
       }
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop())
-        setRecording(false)
+        acquiredStream.getTracks().forEach((t) => t.stop())
+        captureStream = undefined
+        if (captureLease?.id === lease?.id) captureLease = undefined
+        lease?.release()
+        if (mounted) setRecording(false)
+        if (discardCapture) {
+          discardCapture = false
+          audioChunks = []
+          return
+        }
         if (audioChunks.length === 0) return
 
         setUploading(true)
@@ -366,6 +412,12 @@ function VoiceCloneSection(props: {
       setRecording(true)
     } catch (e) {
       console.error("Mic access failed:", e)
+      stream?.getTracks().forEach((track) => track.stop())
+      lease?.release()
+      if (captureLease?.id === lease?.id) captureLease = undefined
+      if (captureStream === stream) captureStream = undefined
+      const name = (e as { name?: string } | null)?.name
+      showToast({ title: language.t(name === "NotAllowedError" || name === "PermissionDeniedError" ? "speech.denied" : "speech.error") })
     }
   }
 

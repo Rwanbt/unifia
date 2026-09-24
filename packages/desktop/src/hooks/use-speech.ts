@@ -5,6 +5,7 @@
  */
 
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
+import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../../../app/src/voice/audio-playback-coordinator"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { resolveSpeechLanguage, type SpeechLanguage } from "../../../contracts/src/speech"
@@ -13,6 +14,11 @@ import { showToast, toaster } from "@unifia/ui/toast"
 
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
+let captureLease: AudioCaptureLease | undefined
+let captureStream: MediaStream | undefined
+let captureStartedAt = 0
+let discardDictationCapture = false
+let captureCoordinatorCleanup: (() => void) | undefined
 let runtimeProgressUnlisten: UnlistenFn | undefined
 let runtimeProgressToastId: string | number | undefined
 let playbackCoordinator: AudioPlaybackCoordinator | undefined
@@ -40,6 +46,7 @@ const livePlaybackEnded = (event?: Event) => {
 }
 
 export function initSpeechListeners() {
+  captureCoordinatorCleanup ??= installAudioCaptureCoordinator(window)
   playbackCoordinator ??= new AudioPlaybackCoordinator()
   window.addEventListener("stt-start", handleSttStart)
   window.addEventListener("stt-stop", handleSttStop)
@@ -105,6 +112,9 @@ export function cleanupSpeechListeners() {
   stopPlayback(true)
   livePlaybackEnded()
   playbackCoordinator = undefined
+  stopDictationCapture()
+  captureCoordinatorCleanup?.()
+  captureCoordinatorCleanup = undefined
   runtimeProgressUnlisten?.()
   runtimeProgressUnlisten = undefined
   if (typeof runtimeProgressToastId === "number") toaster.dismiss(runtimeProgressToastId)
@@ -115,12 +125,26 @@ export function cleanupSpeechListeners() {
 // ─── STT ───────────────────────────────────────────────────────────────
 
 async function handleSttStart() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") return
+  let stream: MediaStream | undefined
+  let lease: AudioCaptureLease | undefined
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const acquiredLease = requestAudioCapture(window, "dictation", stopDictationCapture)
+    if (!acquiredLease) {
+      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "error" } }))
+      return
+    }
+    lease = acquiredLease
+    captureLease = acquiredLease
+    const acquiredStream = await acquireCurrentAudioStream(acquiredLease, () => navigator.mediaDevices.getUserMedia({
       audio: { sampleRate: { ideal: 16000 }, channelCount: 1 },
-    })
+    }))
+    if (!acquiredStream) return
+    stream = acquiredStream
+    captureStream = acquiredStream
     audioChunks = []
-    mediaRecorder = new MediaRecorder(stream, {
+    discardDictationCapture = false
+    mediaRecorder = new MediaRecorder(acquiredStream, {
       mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm",
@@ -131,13 +155,27 @@ async function handleSttStart() {
     }
 
     mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop())
-      if (audioChunks.length === 0) return
+      acquiredStream.getTracks().forEach((t) => t.stop())
+      captureStream = undefined
+      if (captureLease?.id === acquiredLease.id) captureLease = undefined
+      acquiredLease.release()
+      if (discardDictationCapture) {
+        discardDictationCapture = false
+        audioChunks = []
+        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
+        return
+      }
+      if (audioChunks.length === 0) {
+        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "done" } }))
+        return
+      }
 
       const blob = new Blob(audioChunks, { type: mediaRecorder!.mimeType })
       console.log("[STT] Recorded", blob.size, "bytes")
 
       try {
+        const recordingMs = Math.round(performance.now() - captureStartedAt)
+        const conversionStartedAt = performance.now()
         // Download model on first use if needed
         const available = await invokeTauri("stt_available")
         if (!available) {
@@ -146,19 +184,38 @@ async function handleSttStart() {
         }
 
         const wavBase64 = await blobToWavBase64(blob)
+        const conversionAndModelMs = Math.round(performance.now() - conversionStartedAt)
+        const inferenceStartedAt = performance.now()
         console.log("[STT] Transcribing with Parakeet...")
         const text: string = await invokeTauri("stt_transcribe", { audioBase64: wavBase64 })
-        console.log("[STT] Result:", text)
+        console.info("[STT] Capture pipeline metrics", {
+          recordingMs,
+          webmBytes: blob.size,
+          wavBase64Characters: wavBase64.length,
+          conversionAndModelMs,
+          inferenceMs: Math.round(performance.now() - inferenceStartedAt),
+        })
         if (text.trim()) insertTextInEditor(text.trim())
       } catch (e) {
         console.error("[STT] Failed:", e)
+        window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "stt", reason: "error" } }))
       }
     }
 
     mediaRecorder.start(250)
+    captureStartedAt = performance.now()
     console.log("[STT] Recording started")
   } catch (e) {
     console.error("[STT] Mic access failed:", e)
+    if (lease && !lease.isCurrent()) return
+    stream?.getTracks().forEach((track) => track.stop())
+    lease?.release()
+    if (captureLease?.id === lease?.id) captureLease = undefined
+    if (captureStream === stream) captureStream = undefined
+    const name = (e as { name?: string } | null)?.name
+    window.dispatchEvent(new CustomEvent("speech-ended", {
+      detail: { kind: "stt", reason: name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error" },
+    }))
   }
 }
 
@@ -166,6 +223,22 @@ function handleSttStop() {
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop()
     console.log("[STT] Recording stopped, processing...")
+    return
+  }
+  cancelAudioCaptureRequest(captureLease, captureStream)
+  captureLease = undefined
+  captureStream = undefined
+  audioChunks = []
+}
+
+function stopDictationCapture() {
+  discardDictationCapture = true
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop()
+  } else {
+    cancelAudioCaptureRequest(captureLease, captureStream)
+    captureStream = undefined
+    captureLease = undefined
   }
 }
 

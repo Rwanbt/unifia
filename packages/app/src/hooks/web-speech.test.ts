@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test"
 import { AUDIO_SETTINGS_STORAGE_KEY, DEFAULT_AUDIO_SETTINGS, serializeAudioSettings } from "../voice/audio-settings"
+import { requestAudioCapture } from "../voice/audio-capture-coordinator"
 import { installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
 
 type Scope = Record<string, unknown>
@@ -62,11 +63,18 @@ describe("dictation", () => {
       }
     }
     document.documentElement.lang = "fr"
-    document.body.innerHTML = `<div data-component="prompt-input" contenteditable="true"></div>`
+    document.body.innerHTML = `<form><div data-component="prompt-input" contenteditable="true">draft</div></form>`
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    let submitCount = 0
+    document.querySelector("form")!.addEventListener("submit", (event) => {
+      event.preventDefault()
+      submitCount++
+    })
     const inserted: string[] = []
     const exec = document.execCommand
     document.execCommand = ((_command: string, _ui: boolean, value: string) => {
       inserted.push(value)
+      editor.textContent += value
       return true
     }) as never
     cleanups.push(() => (document.execCommand = exec))
@@ -87,6 +95,8 @@ describe("dictation", () => {
     window.dispatchEvent(new CustomEvent("stt-stop"))
 
     expect(inserted).toEqual(["bonjour le monde"])
+    expect(editor.textContent).toBe("draftbonjour le monde")
+    expect(submitCount).toBe(0)
     expect(seen).toEqual([{ kind: "stt", reason: "done" }])
   })
 
@@ -108,6 +118,33 @@ describe("dictation", () => {
     instance.onerror({ error: "not-allowed" })
     instance.onend()
     expect(seen).toEqual([{ kind: "stt", reason: "denied" }])
+  })
+
+  test("Live preempts dictation and releases its microphone lease", () => {
+    const instances: Array<{ onend: (() => void) | null; start(): void; stop(): void }> = []
+    scope.SpeechRecognition = class {
+      lang = ""
+      continuous = false
+      interimResults = false
+      onresult: any = null
+      onerror: any = null
+      onend: (() => void) | null = null
+      constructor() { instances.push(this) }
+      start() {}
+      stop() { this.onend?.() }
+    }
+    const seen = ended()
+    install()
+    window.dispatchEvent(new CustomEvent("stt-start"))
+
+    const live = requestAudioCapture(window, "live", () => instances[0]?.stop())!
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    expect(instances).toHaveLength(1)
+    expect(seen).toContainEqual({ kind: "stt", reason: "error" })
+
+    live.release()
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    expect(instances).toHaveLength(2)
   })
 })
 

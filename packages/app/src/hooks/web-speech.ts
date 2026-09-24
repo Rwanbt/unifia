@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../voice/audio-playback-coordinator"
+import { installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../voice/audio-capture-coordinator"
 import { loadAudioSettings } from "../voice/audio-settings"
 
 // Voice input and read-aloud for the web runtime, through the browser's own
@@ -56,19 +57,33 @@ function insertInComposer(doc: Document, text: string) {
 }
 
 export function installWebSpeech(win: Window = window) {
+  const cleanupCaptureCoordinator = installAudioCaptureCoordinator(win)
   const emit = (detail: SpeechEndDetail) => win.dispatchEvent(new CustomEvent("speech-ended", { detail }))
   const lang = () => win.document.documentElement.lang || win.navigator.language || "en-US"
 
   let recognition: Recognition | undefined
+  let captureLease: AudioCaptureLease | undefined
   let transcript = ""
   let failure: SpeechEndReason | undefined
   const playbackCoordinator = new AudioPlaybackCoordinator()
   let activePlaybackLease: AudioPlaybackLease | undefined
 
   const startDictation = () => {
+    if (recognition) return
     const Constructor = recognitionConstructor(win)
     if (!Constructor) return emit({ kind: "stt", reason: "unsupported" })
-    recognition?.stop()
+    let lease: AudioCaptureLease | undefined
+    try {
+      lease = requestAudioCapture(win, "dictation", () => recognition?.stop())
+    } catch (error) {
+      console.warn("[STT] Microphone ownership request failed:", error)
+      emit({ kind: "stt", reason: "error" })
+      return
+    }
+    if (!lease) {
+      emit({ kind: "stt", reason: "error" })
+      return
+    }
     transcript = ""
     failure = undefined
     const current = new Constructor()
@@ -88,11 +103,22 @@ export function installWebSpeech(win: Window = window) {
     current.onend = () => {
       if (recognition !== current) return
       recognition = undefined
+      if (captureLease?.id === lease?.id) captureLease = undefined
+      lease?.release()
       if (transcript.trim()) insertInComposer(win.document, transcript.trim())
       emit({ kind: "stt", reason: failure ?? "done" })
     }
     recognition = current
-    current.start()
+    captureLease = lease
+    try {
+      current.start()
+    } catch (error) {
+      recognition = undefined
+      captureLease = undefined
+      lease.release()
+      const name = (error as { name?: string } | null)?.name
+      emit({ kind: "stt", reason: name === "NotAllowedError" || name === "PermissionDeniedError" ? "denied" : "error" })
+    }
   }
 
   const stopDictation = () => recognition?.stop()
@@ -175,6 +201,9 @@ export function installWebSpeech(win: Window = window) {
     win.removeEventListener("tts-live-ended", livePlaybackEnded)
     playbackCoordinator.stop()
     recognition?.stop()
+    captureLease?.release()
+    captureLease = undefined
+    cleanupCaptureCoordinator()
     win.speechSynthesis?.cancel()
   }
 }
