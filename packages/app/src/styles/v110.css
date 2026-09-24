@@ -481,6 +481,14 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
   }
 }
 
+/* Phones held in landscape: the reference trims the topbar to 44px so the
+ * content keeps its height (Unifia-UI-UX-v110-PORT-READY-R1.html:13896). */
+@media (max-height: 520px) and (max-width: 980px) and (orientation: landscape) {
+  :root {
+    --v110-topbar: 44px;
+  }
+}
+
 /* Phone topbar -- the reference keeps only the context toggle, a wide
  * Chat/Editor switch and the inspector toggle; the brand, the theme toggle
  * and the session icons would otherwise spill over the switch. */
