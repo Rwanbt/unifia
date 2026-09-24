@@ -10,6 +10,7 @@ import {
   Show,
   Match,
   Switch,
+  Suspense,
   createMemo,
   createEffect,
   createSignal,
@@ -1139,6 +1140,12 @@ export default function Page() {
 
         </div>
 
+        {/* WHY a boundary of its own: the lazy Design/Automate chunks and the
+            surfaces' queries suspend while they load. Without it the router's
+            Suspense caught them and blanked the whole page -- chat included --
+            until the slowest query settled (a whole-repo file listing never
+            did on a large workspace). */}
+        <Suspense>
         <Switch>
           <Match when={mode.destination() === "settings" && workspaceView() !== "chat"}>
             <SettingsSurface />
@@ -1178,6 +1185,7 @@ export default function Page() {
             <SessionEditorSurface />
           </Match>
         </Switch>
+        </Suspense>
 
         <SessionSidePanelSection
           canReview={canReview}
