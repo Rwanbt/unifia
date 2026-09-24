@@ -17,6 +17,7 @@ import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
+import { SettingsScopeProvider } from "./settings-scope"
 
 type CategoryId =
   | "general"
@@ -93,58 +94,66 @@ export const SettingsMobileNav: Component = () => {
     }
   }
 
+  // Pages read the settings scope and cross-link each other through it, as
+  // on desktop (dialog-settings.tsx).
+  const openPage = (id: string) => {
+    if (categories().some((category) => category.value === id)) setSelected(id as CategoryId)
+  }
+
   return (
-    <div class="flex flex-col h-full w-full" data-slot="settings-mobile-nav">
-      <div class="flex items-center gap-2 px-2 py-2 border-b border-border-weak-base shrink-0">
+    <SettingsScopeProvider onOpenPage={openPage}>
+      <div class="flex flex-col h-full w-full" data-slot="settings-mobile-nav">
+        <div class="flex items-center gap-2 px-2 py-2 border-b border-border-weak-base shrink-0">
+          <Show
+            when={selectedCategory()}
+            fallback={<span class="flex-1 text-14-medium text-text-strong px-2">{language.t("sidebar.settings")}</span>}
+          >
+            {(category) => (
+              <>
+                <IconButton
+                  icon="arrow-left"
+                  variant="ghost"
+                  onClick={() => setSelected(null)}
+                  aria-label={language.t("common.goBack")}
+                />
+                <span class="flex-1 text-14-medium text-text-strong">{category().label}</span>
+              </>
+            )}
+          </Show>
+          <KobalteDialog.CloseButton
+            as={IconButton}
+            icon="close"
+            variant="ghost"
+            aria-label={language.t("ui.common.close")}
+          />
+        </div>
         <Show
           when={selectedCategory()}
-          fallback={<span class="flex-1 text-14-medium text-text-strong px-2">{language.t("sidebar.settings")}</span>}
+          fallback={
+            <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-list">
+              <For each={categories()}>
+                {(category) => (
+                  <button
+                    type="button"
+                    class="flex items-center gap-3 w-full text-left px-4 py-3 border-b border-border-weak-base last:border-none hover:bg-surface-base-hover transition-colors"
+                    onClick={() => setSelected(category.value)}
+                  >
+                    <Icon name={category.icon} class="text-icon-base shrink-0" />
+                    <span class="flex-1 text-14-medium text-text-base">{category.label}</span>
+                    <Icon name="chevron-right" size="small" class="text-text-weak shrink-0" />
+                  </button>
+                )}
+              </For>
+            </div>
+          }
         >
           {(category) => (
-            <>
-              <IconButton
-                icon="arrow-left"
-                variant="ghost"
-                onClick={() => setSelected(null)}
-                aria-label={language.t("common.goBack")}
-              />
-              <span class="flex-1 text-14-medium text-text-strong">{category().label}</span>
-            </>
+            <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-content">
+              {renderContent(category().value)}
+            </div>
           )}
         </Show>
-        <KobalteDialog.CloseButton
-          as={IconButton}
-          icon="close"
-          variant="ghost"
-          aria-label={language.t("ui.common.close")}
-        />
       </div>
-      <Show
-        when={selectedCategory()}
-        fallback={
-          <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-list">
-            <For each={categories()}>
-              {(category) => (
-                <button
-                  type="button"
-                  class="flex items-center gap-3 w-full text-left px-4 py-3 border-b border-border-weak-base last:border-none hover:bg-surface-base-hover transition-colors"
-                  onClick={() => setSelected(category.value)}
-                >
-                  <Icon name={category.icon} class="text-icon-base shrink-0" />
-                  <span class="flex-1 text-14-medium text-text-base">{category.label}</span>
-                  <Icon name="chevron-right" size="small" class="text-text-weak shrink-0" />
-                </button>
-              )}
-            </For>
-          </div>
-        }
-      >
-        {(category) => (
-          <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-content">
-            {renderContent(category().value)}
-          </div>
-        )}
-      </Show>
-    </div>
+    </SettingsScopeProvider>
   )
 }
