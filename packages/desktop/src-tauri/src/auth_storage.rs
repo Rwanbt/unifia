@@ -363,6 +363,17 @@ async fn serve_connection(
         reader.read_exact(&mut body).await?;
     }
 
+    if path == "/tts/synthesize" || path == "/tts/cancel" {
+        let response = crate::voice_tts_endpoint::handle(&app, &method, &path, &body).await;
+        return write_binary_response(
+            &mut write_half,
+            response.status,
+            response.content_type,
+            &response.body,
+        )
+        .await;
+    }
+
     // Path: /kc/:service or /kc/:service/:key
     let trimmed = path.trim_start_matches('/');
     let mut segments = trimmed.splitn(3, '/');
@@ -450,6 +461,31 @@ async fn write_response<W: AsyncWriteExt + Unpin>(
     }
     w.shutdown().await?;
     Ok(())
+}
+
+async fn write_binary_response<W: AsyncWriteExt + Unpin>(
+    w: &mut W,
+    status: u16,
+    content_type: &str,
+    body: &[u8],
+) -> io::Result<()> {
+    let reason = match status {
+        200 => "OK",
+        204 => "No Content",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        405 => "Method Not Allowed",
+        413 => "Payload Too Large",
+        500 => "Internal Server Error",
+        _ => "Error",
+    };
+    let head = format!(
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    w.write_all(head.as_bytes()).await?;
+    w.write_all(body).await?;
+    w.shutdown().await
 }
 
 fn urldecode(s: &str) -> String {

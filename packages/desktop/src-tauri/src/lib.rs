@@ -23,6 +23,7 @@ mod validate;
 mod voice_live;
 mod voice_qualification;
 mod voice_runtime;
+mod voice_tts_endpoint;
 mod window_customizer;
 mod windows;
 
@@ -733,6 +734,7 @@ pub fn run() {
             handle.manage(child_processes);
             handle.manage(llm::LlmServerState::new());
             handle.manage(speech::SpeechState::new());
+            handle.manage(voice_tts_endpoint::ManualTtsState::default());
             handle.manage(voice_live::VoiceLiveState::default());
 
             builder.mount_events(&handle);
