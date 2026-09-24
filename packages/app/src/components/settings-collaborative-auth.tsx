@@ -27,7 +27,7 @@ export const SettingsCollaborativeAuth: Component = () => {
   }
 
   return (
-    <div class="flex flex-col gap-4 p-5">
+    <div data-v110="settings-section" data-slot="collaborative-auth" class="flex flex-col gap-4">
       <Show
         when={auth.current()}
         fallback={
@@ -41,7 +41,10 @@ export const SettingsCollaborativeAuth: Component = () => {
         {(session) => (
           <>
             <SettingsList>
-              <SettingsRow title={session().user.displayName ?? session().user.username} description={session().user.email ?? session().serverUrl}>
+              <SettingsRow
+                title={session().user.displayName ?? session().user.username}
+                description={session().user.email ?? session().serverUrl}
+              >
                 <span class="rounded bg-surface-raised-base px-2 py-1 text-12-medium text-text-weak">
                   {session().user.role}
                 </span>

@@ -18,10 +18,9 @@ import { closeDialog, openSettings } from "../actions"
 
 type Probe = { readonly tab: string; readonly probe: RegExp }
 
-// Desktop-only tabs (Remote access) render nothing when the platform does
-// not expose the capability (web e2e build), so they are not asserted here.
-// Their parity is tracked in the audit; the pane is gated on
-// `platform.getRemoteAccess` in the product.
+// Tab names follow ADR-047 (Sign In is Security, Plugins is MCP). Compute
+// renders on the web build too: only its "Access to this instance" block is
+// gated on `platform.getRemoteAccess`.
 const TABS: readonly Probe[] = [
   { tab: "General", probe: /^Language$/ },
   { tab: "Audio", probe: /Speech to Text \(STT\)/ },
@@ -29,11 +28,13 @@ const TABS: readonly Probe[] = [
   { tab: "Providers", probe: /^Providers$/ },
   { tab: "Models", probe: /^Models$/ },
   { tab: "Configuration", probe: /Accelerator/ },
-  { tab: "Sign In", probe: /Sign In/ },
+  { tab: "Security", probe: /Sign In/ },
+  { tab: "Compute", probe: /^Computes$/ },
   { tab: "Benchmark", probe: /^Run$/ },
   { tab: "Observability", probe: /Data scope/ },
   { tab: "Memory", probe: /Vault/ },
-  { tab: "Plugins", probe: /MCP Servers/ },
+  { tab: "MCP", probe: /^Suggested integrations$/ },
+  { tab: "Skills", probe: /Skills/ },
 ]
 
 test("every capability-backed settings tab renders its pane with real controls", async ({ page, gotoSession }) => {

@@ -1,5 +1,4 @@
 import { type Component, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
-import { createStore } from "solid-js/store"
 import { Button } from "@unifia/ui/button"
 import { Icon } from "@unifia/ui/icon"
 import { Select } from "@unifia/ui/select"
@@ -7,8 +6,6 @@ import { Switch } from "@unifia/ui/switch"
 import { TextField } from "@unifia/ui/text-field"
 import { Tooltip } from "@unifia/ui/tooltip"
 import { useTheme, type ColorScheme } from "@unifia/ui/theme/context"
-import { showToast } from "@unifia/ui/toast"
-import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import {
@@ -30,92 +27,6 @@ import { SettingsAccentPicker } from "./settings-accent-picker"
 import { SettingsGithubAuth } from "./settings-github-auth"
 import { SettingsGitAuth } from "./settings-git-auth"
 import { SettingsDiskQuota } from "./settings-disk-quota"
-
-// FORK: ADR-0005 Phase 6 — Export / Import global configuration.
-const ConfigExportImport: Component = () => {
-  const language = useLanguage()
-  const globalSDK = useGlobalSDK()
-  const [exporting, setExporting] = createSignal(false)
-  const [importing, setImporting] = createSignal(false)
-  let fileInputRef!: HTMLInputElement
-
-  const exportConfig = async () => {
-    setExporting(true)
-    try {
-      const result = await globalSDK.client.config.get()
-      if (!result.data) throw new Error(language.t("settings.fork.config.noDataReceived"))
-      const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = "unifia-config.json"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      showToast({
-        variant: "error",
-        title: language.t("settings.fork.config.exportFailed"),
-        description: err instanceof Error ? err.message : String(err),
-      })
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  const importConfig = async (file: File) => {
-    setImporting(true)
-    try {
-      const text = await file.text()
-      const data = JSON.parse(text)
-      const result = await globalSDK.client.config.update(data)
-      if (result.error) throw new Error(JSON.stringify(result.error))
-      showToast({ variant: "success", title: language.t("settings.fork.config.imported") })
-      setTimeout(() => window.location.reload(), 1500)
-    } catch (err) {
-      showToast({
-        variant: "error",
-        title: language.t("settings.fork.config.importFailed"),
-        description: err instanceof Error ? err.message : String(err),
-      })
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  return (
-    <SettingsSection title={language.t("settings.fork.config.title")}>
-      <SettingsRow
-        title={language.t("settings.fork.config.exportTitle")}
-        description={language.t("settings.fork.config.exportDescription")}
-      >
-        <Button size="small" variant="secondary" disabled={exporting()} onClick={exportConfig}>
-          {exporting() ? language.t("settings.fork.config.exporting") : language.t("settings.fork.config.export")}
-        </Button>
-      </SettingsRow>
-      <SettingsRow
-        title={language.t("settings.fork.config.importTitle")}
-        description={language.t("settings.fork.config.importDescription")}
-      >
-        <input
-          ref={fileInputRef!}
-          type="file"
-          accept=".json,application/json"
-          class="hidden"
-          onChange={(e) => {
-            const file = e.currentTarget.files?.[0]
-            if (file) void importConfig(file)
-            e.currentTarget.value = ""
-          }}
-        />
-        <Button size="small" variant="secondary" disabled={importing()} onClick={() => fileInputRef?.click()}>
-          {importing() ? language.t("settings.fork.config.importing") : language.t("settings.fork.config.import")}
-        </Button>
-      </SettingsRow>
-    </SettingsSection>
-  )
-}
 
 let demoSoundState = {
   cleanup: undefined as (() => void) | undefined,
@@ -165,65 +76,7 @@ export const SettingsGeneral: Component = () => {
     void theme.loadThemes()
   })
 
-  const [store, setStore] = createStore({
-    checking: false,
-  })
-
   const linux = createMemo(() => platform.platform === "desktop" && platform.os === "linux")
-
-  const check = () => {
-    if (!platform.checkUpdate) return
-    setStore("checking", true)
-
-    void platform
-      .checkUpdate()
-      .then((result) => {
-        if (!result.updateAvailable) {
-          showToast({
-            variant: "success",
-            icon: "circle-check",
-            title: language.t("settings.updates.toast.latest.title"),
-            description: language.t("settings.updates.toast.latest.description", { version: platform.version ?? "" }),
-          })
-          return
-        }
-
-        const actions =
-          platform.update && platform.restart
-            ? [
-                {
-                  label: language.t("toast.update.action.installRestart"),
-                  onClick: async () => {
-                    await platform.update!()
-                    await platform.restart!()
-                  },
-                },
-                {
-                  label: language.t("toast.update.action.notYet"),
-                  onClick: "dismiss" as const,
-                },
-              ]
-            : [
-                {
-                  label: language.t("toast.update.action.notYet"),
-                  onClick: "dismiss" as const,
-                },
-              ]
-
-        showToast({
-          persistent: true,
-          icon: "download",
-          title: language.t("toast.update.title"),
-          description: language.t("toast.update.description", { version: result.version ?? "" }),
-          actions,
-        })
-      })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
-        showToast({ title: language.t("common.requestFailed"), description: message })
-      })
-      .finally(() => setStore("checking", false))
-  }
 
   const themeOptions = createMemo<ThemeOption[]>(() => theme.ids().map((id) => ({ id, name: theme.name(id) })))
 
@@ -554,46 +407,6 @@ export const SettingsGeneral: Component = () => {
     </SettingsSection>
   )
 
-  const UpdatesSection = () => (
-    <SettingsSection title={language.t("settings.general.section.updates")}>
-      <SettingsRow
-        title={language.t("settings.updates.row.startup.title")}
-        description={language.t("settings.updates.row.startup.description")}
-      >
-        <div data-action="settings-updates-startup">
-          <Switch
-            checked={settings.updates.startup()}
-            disabled={!platform.checkUpdate}
-            onChange={(checked) => settings.updates.setStartup(checked)}
-          />
-        </div>
-      </SettingsRow>
-
-      <SettingsRow
-        title={language.t("settings.general.row.releaseNotes.title")}
-        description={language.t("settings.general.row.releaseNotes.description")}
-      >
-        <div data-action="settings-release-notes">
-          <Switch
-            checked={settings.general.releaseNotes()}
-            onChange={(checked) => settings.general.setReleaseNotes(checked)}
-          />
-        </div>
-      </SettingsRow>
-
-      <SettingsRow
-        title={language.t("settings.updates.row.check.title")}
-        description={language.t("settings.updates.row.check.description")}
-      >
-        <Button size="small" variant="secondary" disabled={store.checking || !platform.checkUpdate} onClick={check}>
-          {store.checking
-            ? language.t("settings.updates.action.checking")
-            : language.t("settings.updates.action.checkNow")}
-        </Button>
-      </SettingsRow>
-    </SettingsSection>
-  )
-
   // Open by default, as the reference ships it.
   const [advanced, setAdvanced] = createSignal(true)
   const openAdvanced = () => {
@@ -629,8 +442,6 @@ export const SettingsGeneral: Component = () => {
       <Show when={advanced()}>
         <div ref={advancedRef} data-slot="settings-advanced">
           <SettingsComputeLink />
-          <ConfigExportImport />
-          <UpdatesSection />
           {/* FORK: Stretch — disk quota warning (hidden on Windows where statfs is unavailable) */}
           <SettingsDiskQuota />
           <h3>{language.t("settings.general.section.gitCredentials")}</h3>

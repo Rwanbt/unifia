@@ -31,7 +31,8 @@ test("hiding a model removes it from the model picker", async ({ page, gotoSessi
   const settings = await openSettings(page)
 
   await settings.getByRole("tab", { name: "Models" }).click()
-  const search = settings.getByPlaceholder("Search models")
+  // The page's own filter (the command bar search is data-slot="settings-search").
+  const search = settings.locator('[data-slot="settings-search-field"]')
   await expect(search).toBeVisible()
   await search.fill(name)
 

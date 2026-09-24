@@ -1,4 +1,4 @@
-import { type Component, For, Show, createSignal } from "solid-js"
+import { type Component, For, Show, Suspense, createSignal } from "solid-js"
 import { Dialog as KobalteDialog } from "@kobalte/core/dialog"
 import { Icon } from "@unifia/ui/icon"
 import { IconButton } from "@unifia/ui/icon-button"
@@ -10,13 +10,19 @@ import { SettingsConfiguration } from "./settings-configuration"
 import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
+import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
-import { SettingsPlugins } from "./settings-plugins"
+import { SettingsSkills } from "./settings-skills"
+import { SettingsHooks } from "./settings-hooks"
+import { SettingsSystem } from "./settings-system"
+import { SettingsMcp } from "./settings-mcp"
 import { SettingsAndroid } from "./settings-android"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsRemoteAccess } from "./settings-remote-access"
-import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
+import { SettingsSecurity } from "./settings-security"
+import { SettingsNetwork } from "./settings-network"
+import { SettingsScopeProvider } from "./settings-scope"
 
 type CategoryId =
   | "general"
@@ -24,13 +30,18 @@ type CategoryId =
   | "shortcuts"
   | "providers"
   | "models"
+  | "routing"
   | "configuration"
   | "remote"
   | "account"
   | "benchmark"
   | "plugins"
+  | "skills"
+  | "hooks"
+  | "system"
   | "memory"
   | "observability"
+  | "network"
   | "android"
 
 // Drill-down list -> detail navigation for narrow viewports, replacing the
@@ -48,12 +59,17 @@ export const SettingsMobileNav: Component = () => {
     { value: "shortcuts" as const, icon: "keyboard" as const, label: language.t("settings.tab.shortcuts") },
     { value: "providers" as const, icon: "providers" as const, label: language.t("settings.providers.title") },
     { value: "models" as const, icon: "models" as const, label: language.t("settings.models.title") },
+    { value: "routing" as const, icon: "sliders" as const, label: language.t("settings.aiPreferences.title") },
     { value: "configuration" as const, icon: "console" as const, label: language.t("settings.localConfig.title") },
     { value: "remote" as const, icon: "globe" as const, label: language.t("settings.desktop.section.remote") },
     { value: "account" as const, icon: "shield" as const, label: language.t("auth.signIn") },
     { value: "benchmark" as const, icon: "speedometer" as const, label: language.t("settings.fork.benchmark.title") },
     { value: "memory" as const, icon: "brain" as const, label: language.t("settings.fork.memory.title") },
-    { value: "plugins" as const, icon: "mcp" as const, label: language.t("settings.fork.plugins.title") },
+    { value: "plugins" as const, icon: "mcp" as const, label: language.t("settings.tab.mcp") },
+    { value: "skills" as const, icon: "brain" as const, label: language.t("settings.fork.plugins.tabSkills") },
+    { value: "hooks" as const, icon: "branch" as const, label: language.t("settings.hooks.title") },
+    { value: "system" as const, icon: "settings-gear" as const, label: language.t("settings.system.title") },
+    { value: "network" as const, icon: "globe" as const, label: language.t("settings.network.title") },
     { value: "observability" as const, icon: "eye" as const, label: language.t("settings.fork.observability.title") },
     ...(platform.os === "android"
       ? [{ value: "android" as const, icon: "settings-gear" as const, label: "Android" }]
@@ -74,77 +90,95 @@ export const SettingsMobileNav: Component = () => {
         return <SettingsProviders />
       case "models":
         return <SettingsModels />
+      case "routing":
+        return <SettingsAiPreferences />
       case "configuration":
         return <SettingsConfiguration />
       case "remote":
         return <SettingsRemoteAccess />
       case "account":
-        return <SettingsCollaborativeAuth />
+        return <SettingsSecurity />
       case "benchmark":
         return <SettingsBenchmark />
       case "plugins":
-        return <SettingsPlugins />
+        return <SettingsMcp />
+      case "skills":
+        return <SettingsSkills />
+      case "hooks":
+        return <SettingsHooks />
+      case "system":
+        return <SettingsSystem />
       case "memory":
         return <SettingsMemory />
       case "observability":
         return <SettingsObservability />
+      case "network":
+        return <SettingsNetwork />
       case "android":
         return <SettingsAndroid />
     }
   }
 
+  // Pages read the settings scope and cross-link each other through it, as
+  // on desktop (dialog-settings.tsx).
+  const openPage = (id: string) => {
+    if (categories().some((category) => category.value === id)) setSelected(id as CategoryId)
+  }
+
   return (
-    <div class="flex flex-col h-full w-full" data-slot="settings-mobile-nav">
-      <div class="flex items-center gap-2 px-2 py-2 border-b border-border-weak-base shrink-0">
+    <SettingsScopeProvider onOpenPage={openPage}>
+      <div class="flex flex-col h-full w-full" data-slot="settings-mobile-nav">
+        <div class="flex items-center gap-2 px-2 py-2 border-b border-border-weak-base shrink-0">
+          <Show
+            when={selectedCategory()}
+            fallback={<span class="flex-1 text-14-medium text-text-strong px-2">{language.t("sidebar.settings")}</span>}
+          >
+            {(category) => (
+              <>
+                <IconButton
+                  icon="arrow-left"
+                  variant="ghost"
+                  onClick={() => setSelected(null)}
+                  aria-label={language.t("common.goBack")}
+                />
+                <span class="flex-1 text-14-medium text-text-strong">{category().label}</span>
+              </>
+            )}
+          </Show>
+          <KobalteDialog.CloseButton
+            as={IconButton}
+            icon="close"
+            variant="ghost"
+            aria-label={language.t("ui.common.close")}
+          />
+        </div>
         <Show
           when={selectedCategory()}
-          fallback={<span class="flex-1 text-14-medium text-text-strong px-2">{language.t("sidebar.settings")}</span>}
+          fallback={
+            <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-list">
+              <For each={categories()}>
+                {(category) => (
+                  <button
+                    type="button"
+                    class="flex items-center gap-3 w-full text-left px-4 py-3 border-b border-border-weak-base last:border-none hover:bg-surface-base-hover transition-colors"
+                    onClick={() => setSelected(category.value)}
+                  >
+                    <Icon name={category.icon} class="text-icon-base shrink-0" />
+                    <span class="flex-1 text-14-medium text-text-base">{category.label}</span>
+                    <Icon name="chevron-right" size="small" class="text-text-weak shrink-0" />
+                  </button>
+                )}
+              </For>
+            </div>
+          }
         >
           {(category) => (
-            <>
-              <IconButton
-                icon="arrow-left"
-                variant="ghost"
-                onClick={() => setSelected(null)}
-                aria-label={language.t("common.goBack")}
-              />
-              <span class="flex-1 text-14-medium text-text-strong">{category().label}</span>
-            </>
+            <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-content">
+              <Suspense>{renderContent(category().value)}</Suspense>
+            </div>
           )}
         </Show>
-        <KobalteDialog.CloseButton
-          as={IconButton}
-          icon="close"
-          variant="ghost"
-          aria-label={language.t("ui.common.close")}
-        />
       </div>
-      <Show
-        when={selectedCategory()}
-        fallback={
-          <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-list">
-            <For each={categories()}>
-              {(category) => (
-                <button
-                  type="button"
-                  class="flex items-center gap-3 w-full text-left px-4 py-3 border-b border-border-weak-base last:border-none hover:bg-surface-base-hover transition-colors"
-                  onClick={() => setSelected(category.value)}
-                >
-                  <Icon name={category.icon} class="text-icon-base shrink-0" />
-                  <span class="flex-1 text-14-medium text-text-base">{category.label}</span>
-                  <Icon name="chevron-right" size="small" class="text-text-weak shrink-0" />
-                </button>
-              )}
-            </For>
-          </div>
-        }
-      >
-        {(category) => (
-          <div class="flex-1 min-h-0 overflow-y-auto no-scrollbar" data-slot="settings-mobile-content">
-            {renderContent(category().value)}
-          </div>
-        )}
-      </Show>
-    </div>
+    </SettingsScopeProvider>
   )
 }

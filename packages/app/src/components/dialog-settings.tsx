@@ -1,4 +1,4 @@
-import { type Component, type JSX, For, Show, createMemo, createSignal } from "solid-js"
+import { type Component, type JSX, For, Show, Suspense, createMemo, createSignal } from "solid-js"
 import { Dialog } from "@unifia/ui/dialog"
 import { Tabs } from "@unifia/ui/tabs"
 import { useLanguage } from "@/context/language"
@@ -11,13 +11,17 @@ import { SettingsConfiguration } from "./settings-configuration"
 import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
+import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
-import { SettingsPlugins } from "./settings-plugins"
-import { SettingsAndroid } from "./settings-android"
+import { SettingsSkills } from "./settings-skills"
+import { SettingsHooks } from "./settings-hooks"
+import { SettingsSystem } from "./settings-system"
+import { SettingsMcp } from "./settings-mcp"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
-import { SettingsRemoteAccess } from "./settings-remote-access"
-import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
+import { SettingsCompute } from "./settings-compute"
+import { SettingsSecurity } from "./settings-security"
+import { SettingsNetwork } from "./settings-network"
 import { SettingsCommandBar } from "./settings-command-bar"
 import { SettingsScopeProvider } from "./settings-scope"
 import { SettingsNavIcon, type SettingsIconName } from "./settings-nav-icon"
@@ -47,23 +51,54 @@ export const DialogSettings: Component = () => {
 type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
 type SettingsGroup = { label: string; pages: SettingsPage[] }
 
-function settingsGroups(language: ReturnType<typeof useLanguage>, platform: ReturnType<typeof usePlatform>): SettingsGroup[] {
+function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup[] {
   return [
     {
       label: language.t("settings.section.desktop"),
       pages: [
-        { id: "general", icon: "general", label: language.t("settings.tab.general"), render: () => <SettingsGeneral /> },
+        {
+          id: "general",
+          icon: "general",
+          label: language.t("settings.tab.general"),
+          render: () => <SettingsGeneral />,
+        },
         { id: "audio", icon: "audio", label: language.t("settings.fork.audio.title"), render: () => <SettingsAudio /> },
-        { id: "shortcuts", icon: "shortcuts", label: language.t("settings.tab.shortcuts"), render: () => <SettingsKeybinds /> },
-        { id: "memory", icon: "memory", label: language.t("settings.fork.memory.title"), render: () => <SettingsMemory /> },
+        {
+          id: "shortcuts",
+          icon: "shortcuts",
+          label: language.t("settings.tab.shortcuts"),
+          render: () => <SettingsKeybinds />,
+        },
+        {
+          id: "memory",
+          icon: "memory",
+          label: language.t("settings.fork.memory.title"),
+          render: () => <SettingsMemory />,
+        },
       ],
     },
     {
       label: language.t("settings.section.ai"),
       pages: [
-        { id: "providers", icon: "providers", label: language.t("settings.providers.title"), render: () => <SettingsProviders /> },
+        {
+          id: "providers",
+          icon: "providers",
+          label: language.t("settings.providers.title"),
+          render: () => <SettingsProviders />,
+        },
         { id: "models", icon: "models", label: language.t("settings.models.title"), render: () => <SettingsModels /> },
-        { id: "benchmark", icon: "benchmark", label: language.t("settings.fork.benchmark.title"), render: () => <SettingsBenchmark /> },
+        {
+          id: "routing",
+          icon: "routing",
+          label: language.t("settings.aiPreferences.title"),
+          render: () => <SettingsAiPreferences />,
+        },
+        {
+          id: "benchmark",
+          icon: "benchmark",
+          label: language.t("settings.fork.benchmark.title"),
+          render: () => <SettingsBenchmark />,
+        },
       ],
     },
     {
@@ -73,23 +108,52 @@ function settingsGroups(language: ReturnType<typeof useLanguage>, platform: Retu
           id: "remote",
           icon: "compute",
           label: language.t("settings.tab.compute"),
-          render: () => (
-            <>
-              <SettingsRemoteAccess />
-              <Show when={platform.os === "android"}>
-                <SettingsAndroid />
-              </Show>
-            </>
-          ),
+          render: () => <SettingsCompute />,
         },
-        { id: "account", icon: "security", label: language.t("settings.tab.security"), render: () => <SettingsCollaborativeAuth /> },
-        { id: "configuration", icon: "configuration", label: language.t("settings.localConfig.title"), render: () => <SettingsConfiguration /> },
-        { id: "observability", icon: "observability", label: language.t("settings.fork.observability.title"), render: () => <SettingsObservability /> },
+        {
+          id: "account",
+          icon: "security",
+          label: language.t("settings.tab.security"),
+          render: () => <SettingsSecurity />,
+        },
+        {
+          id: "configuration",
+          icon: "configuration",
+          label: language.t("settings.localConfig.title"),
+          render: () => <SettingsConfiguration />,
+        },
+        {
+          id: "network",
+          icon: "network",
+          label: language.t("settings.network.title"),
+          render: () => <SettingsNetwork />,
+        },
+        {
+          id: "observability",
+          icon: "observability",
+          label: language.t("settings.fork.observability.title"),
+          render: () => <SettingsObservability />,
+        },
       ],
     },
     {
       label: language.t("settings.section.extensions"),
-      pages: [{ id: "plugins", icon: "mcp", label: language.t("settings.tab.mcp"), render: () => <SettingsPlugins /> }],
+      pages: [
+        { id: "plugins", icon: "mcp", label: language.t("settings.tab.mcp"), render: () => <SettingsMcp /> },
+        {
+          id: "skills",
+          icon: "skills",
+          label: language.t("settings.fork.plugins.tabSkills"),
+          render: () => <SettingsSkills />,
+        },
+        { id: "hooks", icon: "hooks", label: language.t("settings.hooks.title"), render: () => <SettingsHooks /> },
+      ],
+    },
+    {
+      label: language.t("settings.section.system"),
+      pages: [
+        { id: "system", icon: "system", label: language.t("settings.system.title"), render: () => <SettingsSystem /> },
+      ],
     },
   ]
 }
@@ -98,7 +162,7 @@ export const SettingsPanel: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
   const [tab, setTab] = createSignal("general")
-  const groups = createMemo(() => settingsGroups(language, platform))
+  const groups = createMemo(() => settingsGroups(language))
 
   return (
     <SettingsScopeProvider onOpenPage={setTab}>
@@ -140,8 +204,10 @@ export const SettingsPanel: Component = () => {
           </Tabs.List>
           <For each={groups().flatMap((group) => group.pages)}>
             {(page) => (
+              // WHY: a page's resources would otherwise suspend the app-level
+              // Suspense (app.tsx) and blank the whole session while they load.
               <Tabs.Content value={page.id}>
-                {page.render()}
+                <Suspense>{page.render()}</Suspense>
               </Tabs.Content>
             )}
           </For>
