@@ -1,27 +1,74 @@
-# ADR-049: Provider-neutral voice runtime
+<!-- SPDX-License-Identifier: MIT -->
+# ADR-049: Unifia voice runtime
 
-**Date**: 2026-09-23 | **Status**: Draft
+**Date**: 2026-09-23, decided 2026-09-24 | **Status**: DECIDED
 
 ## Context
 
-Voice behavior currently spans app browser events, duplicated desktop/mobile hooks, Tauri commands, and versionless local settings. Desktop and mobile select different TTS engines directly. Live conversation must reuse the existing Unifia session and agent authority, while preserving non-live dictation behavior and local-first privacy.
+Unifia needs two voice workflows in the existing prompt — non-live dictation
+and a continuous Live conversation — on desktop and mobile, local-first, with
+speech on the CPU so the GPU stays with the local LLM, and without creating a
+second agent runtime next to the Unifia session.
 
 ## Decision
 
-Introduce stable provider-neutral speech contracts and versioned audio settings before replacing runtime paths. Pocket is the primary TTS provider, Piper is the automatic fallback, and Parakeet remains the STT engine. LiveKit may own transport and turn-taking only; Unifia retains session, model, tool, and permission authority. The microphone dictation action continues to insert text without submitting it.
+1. **Kokoro is removed** from every runtime path; legacy settings migrate to
+   `ttsProvider=auto` (`unifia-audio-settings.v2`).
+2. **Pocket is the primary TTS** (managed Python 3.12 + uv, exact `uv.lock`,
+   CPU wheels, quantized, 2 threads by default, one language loaded).
+3. **Piper is the automatic fallback**, behind the same router, in its own
+   GPL-3.0-or-later process and environment.
+4. **Parakeet TDT 0.6B v3 int8 stays the STT** for dictation and Live (Live
+   reuses the model files dictation downloads).
+5. **The Voice Host is Python**: LiveKit Agents 1.8.3 and Pocket run in one
+   process (`python -m voice_host.live`); Piper stays out of process.
+6. **LiveKit is the transport**: self-hosted livekit-server 1.13.7 built from
+   its pinned Go module (reproducible, hash-checked, bundled as a sidecar),
+   loopback by default, one private LAN address only on explicit opt-in, no
+   TCP ICE, no TURN, never LiveKit Cloud.
+7. **Unifia is the only agent authority.** Voice turns go through
+   `POST /session/:id/prompt_async` and the event stream of the existing
+   session with the model/agent selected in the composer. LiveKit gets no
+   tools, permissions, memory or project state.
+8. **Mobile TTS is host-executed**: the phone joins the desktop Voice Host
+   over WebRTC; it runs no Pocket/Piper for Live. Without a Voice Host, Live
+   reports "Voice Host unavailable"; dictation keeps local Parakeet.
+9. **Room credentials come from the Unifia server** the client already
+   authenticates to (the pairing): short-lived single-room tokens, opaque
+   room/identity/binding ids, secret kept on the desktop.
+10. **CPU-first speech**: CUDA hidden in every speech process; thread budget by
+    CPU profile (`eco`/`balanced`/`fast`).
+
+Implementation, exposure rules, security, privacy and license details:
+[voice-live.md](../voice-live.md).
 
 ## Alternatives rejected
 
-- Keep provider-specific UI commands: this preserves the current split behavior and makes backend replacement leak into the app.
-- Let LiveKit own the assistant session or tools: this conflicts with the existing Unifia runtime authority.
-- Replace current voice paths before characterizing them: this risks regressing the non-live dictation contract.
+- Node LiveKit Agents: Pocket is Python-native; one Python process avoids a
+  localhost HTTP layer between agent and TTS.
+- LiveKit function tools or a LiveKit-side LLM: would duplicate Unifia's tools
+  and permission gate.
+- Downloading livekit-server release binaries at runtime: building the pinned
+  module keeps a verifiable, reproducible hash and ships the binary with the app.
+- LiveKit's default 3 s AEC warm-up: blocks early barge-in; 0.5 s is used.
+- On-device Pocket/Piper on Android for this delivery (frozen out of scope;
+  the `TtsBackend` contract allows it later).
 
 ## Consequences
 
-Settings migration and shared contracts become prerequisites for runtime replacement. Kokoro removal is deferred until the new settings and routing gate passes. Live performance and real-device behavior require separate measurements; unit tests alone cannot qualify production.
+- The desktop build needs Go (the build script selects the pinned toolchain).
+- `turn-detector-v1-mini` is covered by the LiveKit Model License: free use
+  only with LiveKit Agents; this needs explicit acceptance by the product owner.
+- The Voice Host holds Pocket in RAM while Live is used; it stops 5 minutes
+  after the last conversation, and the manual Pocket worker is released while
+  it runs.
 
-## Evidence and open gates
+## Evidence and open production gates
 
-- Baseline: [voice runtime baseline](../voice-runtime-baseline.md).
-- Architecture is derived from the user-provided `UNIFIA VOICE RUNTIME.md` plan and remains a draft pending implementation evidence.
-- Wave A performance baseline remains pending; no GO PROD claim is supported.
+Automated evidence (unit, server, Rust config, and a real-transport integration
+test with real LiveKit/VAD/turn detector) is listed in
+[voice-live.md](../voice-live.md#tests-and-measurements). GO PROD still
+requires evidence that cannot be produced in CI: desktop Live on the target
+Windows machine with real Parakeet and Pocket (EN/FR/ES/IT/DE), Android Live
+through the Voice Host, Pocket TTFA and interruption latency on target hardware,
+and the local-LLM coexistence benchmark (tokens/s and VRAM with Live active).

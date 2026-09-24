@@ -175,3 +175,24 @@ All WAVs passed RIFF/WAVE parsing, mono PCM16, 24 kHz, declared sample count/met
 - No Piper or LiveKit process or implementation was started in this Gate D tranche.
 
 **Verdict: Gate D closed PASS. Wave E Piper fallback is authorized in the frozen order.**
+
+## Waves H–M — Live conversation (2026-09-24)
+
+The Wave H loopback blocker is explained: livekit-server needs
+`rtc.enable_loopback_candidate: true`, otherwise pion drops loopback ICE
+candidates and a local client times out in `wait_pc_connection` — the exact
+symptom recorded on Windows. Removing the option reproduces it on Linux;
+adding it fixes it. The generated configuration always sets it.
+
+| Wave | Delivered | Evidence | Gate |
+|---|---|---|---|
+| H — LiveKit foundation | livekit-server 1.13.7 pinned build + supervisor, Python Voice Host (Silero VAD, turn detector v1-mini, Parakeet STT), server-issued short-lived tokens, reconnect | Rust config tests, server route tests, real-transport integration test (4/4 runs) | PASS in CI scope; target Windows run pending |
+| I — Agent bridge | `VoiceAgentBridge` over `prompt_async` + event stream, first turn creates and binds the session, idempotent turns | bridge tests with an HTTP/SSE double; integration test asserts one submission per turn and after reconnect | PASS in CI scope |
+| J — Streaming speech | `SpeechSegmenter`, `SpeechRenderer`, streaming `TtsRouter` (Pocket in process → Piper), barge-in cancellation, no WAV | Python tests; integration test (Pocket failure → Piper audio, barge-in stops playback in 512–557 ms from speech onset) | PASS in CI scope; real Pocket TTFA pending |
+| K — Live prompt UI | `prompt-live-toggle`, 9-state machine, mutual exclusion with dictation, status line, a11y, settings | app tests (state machine, controller, host client, dictation hook incl. mutation check), i18n parity | PASS in CI scope; visual check on devices pending |
+| L — Mobile client | canonical PromptInput on mobile, LiveKit client through the paired desktop server, LAN signaling CSP | controller/host-client tests | Real Android journey pending |
+| M — Hardening | security/privacy/license review, docs ([voice-live.md](voice-live.md)), ADR-049 DECIDED | this document | Production benchmarks and physical journeys pending |
+
+Global verdict for the campaign: **NO-GO for production** until the physical
+journeys (desktop Live, Android Live, five Pocket languages, local LLM
+coexistence) are executed on target hardware.
