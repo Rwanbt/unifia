@@ -1033,6 +1033,10 @@ export const dict = {
   "settings.shortcuts.group.prompt": "Upit",
 
   "settings.providers.title": "Provajderi",
+  "settings.providers.intro.title": "What is this page for?",
+  "settings.providers.intro.text": "Connect the AI services you need. Keys and technical options stay hidden until they are needed.",
+  "settings.providers.state.ready": "Ready",
+  "settings.providers.state.notConnected": "Not connected",
   "settings.providers.description": "Postavke provajdera će se ovdje moći podešavati.",
   "settings.providers.section.connected": "Povezani provajderi",
   "settings.providers.connected.empty": "Nema povezanih provajdera",

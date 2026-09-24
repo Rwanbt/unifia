@@ -1027,6 +1027,10 @@ export const dict = {
   "settings.shortcuts.group.prompt": "Prompt",
 
   "settings.providers.title": "Udbydere",
+  "settings.providers.intro.title": "What is this page for?",
+  "settings.providers.intro.text": "Connect the AI services you need. Keys and technical options stay hidden until they are needed.",
+  "settings.providers.state.ready": "Ready",
+  "settings.providers.state.notConnected": "Not connected",
   "settings.providers.description": "Udbyderindstillinger vil kunne konfigureres her.",
   "settings.providers.section.connected": "Forbundne udbydere",
   "settings.providers.connected.empty": "Ingen forbundne udbydere",

@@ -1,16 +1,15 @@
 import { Button } from "@unifia/ui/button"
 import { useDialog } from "@unifia/ui/context/dialog"
 import { ProviderIcon } from "@unifia/ui/provider-icon"
-import { Tag } from "@unifia/ui/tag"
 import { showToast } from "@unifia/ui/toast"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
-import { createMemo, type Component, For, Show } from "solid-js"
+import { createMemo, type Component, For, type JSX, type ParentProps, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { useGlobalSync } from "@/context/global-sync"
 // Dialog modules below are loaded on-demand (see dialog.show() callers) to keep
 // the main chunk lean — each of them pulls its own form/validation tree.
-import { SettingsList } from "./settings-list"
+import { SettingsPage } from "./settings-page"
 
 type ProviderSource = "env" | "api" | "config" | "custom"
 type ProviderItem = ReturnType<ReturnType<typeof useProviders>["connected"]>[number]
@@ -35,9 +34,7 @@ export const SettingsProviders: Component = () => {
   const providers = useProviders()
 
   const connected = createMemo(() => {
-    return providers
-      .connected()
-      .filter((p) => p.id !== "unifia" || Object.values(p.models).find((m) => m.cost?.input))
+    return providers.connected().filter((p) => p.id !== "unifia" || Object.values(p.models).find((m) => m.cost?.input))
   })
 
   const popular = createMemo(() => {
@@ -126,162 +123,157 @@ export const SettingsProviders: Component = () => {
       })
   }
 
-  return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
-      <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
-        <div class="flex flex-col gap-1 pt-6 pb-8 max-w-[720px]">
-          <h2 class="text-16-medium text-text-strong">{language.t("settings.providers.title")}</h2>
-        </div>
-      </div>
+  const openLocalModels = () => {
+    void import("./dialog-local-llm").then((x) => {
+      dialog.show(() => <x.DialogLocalLLM />)
+    })
+  }
+  const connectProvider = (id: string) => {
+    void import("./dialog-connect-provider").then((x) => {
+      dialog.show(() => <x.DialogConnectProvider provider={id} />)
+    })
+  }
 
-      <div class="flex flex-col gap-8 max-w-[720px]">
-        <div class="flex flex-col gap-1" data-component="connected-providers-section">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.providers.section.connected")}</h3>
-          <SettingsList>
-            <Show
-              when={connected().length > 0}
-              fallback={
-                <div class="py-4 text-14-regular text-text-weak">
-                  {language.t("settings.providers.connected.empty")}
-                </div>
+  // The reference's single .provider-list: connected providers first, then
+  // local AI, then everything that can still be connected.
+  return (
+    <SettingsPage
+      title={language.t("settings.providers.title")}
+      intro={{
+        icon: "☁",
+        title: language.t("settings.providers.intro.title"),
+        text: language.t("settings.providers.intro.text"),
+      }}
+    >
+      <h3>{language.t("settings.providers.section.connected")}</h3>
+      <section data-slot="provider-list" data-component="connected-providers-section">
+        <For each={connected()}>
+          {(item) => (
+            <ProviderCard
+              id={item.id}
+              name={item.name}
+              badges={
+                <>
+                  <span data-slot="settings-badge">{type(item)}</span>
+                  <span data-slot="settings-badge" data-tone="success">
+                    {language.t("settings.providers.state.ready")}
+                  </span>
+                </>
               }
             >
-              <For each={connected()}>
-                {(item) => (
-                  <div class="group flex flex-wrap items-center justify-between gap-4 min-h-16 py-3 border-b border-border-weak-base last:border-none">
-                    <div class="flex items-center gap-3 min-w-0">
-                      <ProviderIcon id={item.id} class="size-5 shrink-0 icon-strong-base" />
-                      <span class="text-14-medium text-text-strong truncate">{item.name}</span>
-                      <Tag>{type(item)}</Tag>
-                    </div>
-                    <Show
-                      when={canDisconnect(item)}
-                      fallback={
-                        <span class="text-14-regular text-text-base opacity-0 group-hover:opacity-100 transition-opacity duration-200 pr-3 cursor-default">
-                          {language.t("settings.providers.connected.environmentDescription")}
-                        </span>
-                      }
-                    >
-                      <Button size="large" variant="ghost" onClick={() => void disconnect(item.id, item.name)}>
-                        {language.t("common.disconnect")}
-                      </Button>
-                    </Show>
-                  </div>
-                )}
-              </For>
-            </Show>
-          </SettingsList>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.providers.section.popular")}</h3>
-          <SettingsList>
-            {/* Local AI — always shown first, opens model manager */}
-            <div class="flex flex-wrap items-center justify-between gap-4 min-h-16 py-3 border-b border-border-weak-base">
-              <div class="flex flex-col min-w-0">
-                <div class="flex items-center gap-x-3">
-                  <ProviderIcon id="local-llm" class="size-5 shrink-0 icon-strong-base" />
-                  <span class="text-14-medium text-text-strong">{language.t("settings.fork.providers.localAi")}</span>
-                  <Tag>{language.t("settings.fork.providers.onDevice")}</Tag>
-                </div>
-                <span class="text-12-regular text-text-weak pl-8">
-                  {language.t("dialog.provider.localLlm.note")}
-                </span>
-              </div>
-              <Button
-                size="large"
-                variant="secondary"
-                icon="download"
-                onClick={() => {
-                  void import("./dialog-local-llm").then((x) => {
-                    dialog.show(() => <x.DialogLocalLLM />)
-                  })
-                }}
+              <Show
+                when={canDisconnect(item)}
+                fallback={
+                  <span data-slot="settings-value">
+                    {language.t("settings.providers.connected.environmentDescription")}
+                  </span>
+                }
               >
-                {language.t("dialog.model.manage")}
-              </Button>
-            </div>
+                <Button size="small" data-tone="danger" onClick={() => void disconnect(item.id, item.name)}>
+                  {language.t("common.disconnect")}
+                </Button>
+              </Show>
+            </ProviderCard>
+          )}
+        </For>
 
-            <For each={popular().filter(p => p.id !== "local-llm")}>
-              {(item) => (
-                <div class="flex flex-wrap items-center justify-between gap-4 min-h-16 py-3 border-b border-border-weak-base last:border-none">
-                  <div class="flex flex-col min-w-0">
-                    <div class="flex items-center gap-x-3">
-                      <ProviderIcon id={item.id} class="size-5 shrink-0 icon-strong-base" />
-                      <span class="text-14-medium text-text-strong">{item.name}</span>
-                      <Show when={item.id === "unifia"}>
-                        <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-                      </Show>
-                      <Show when={item.id === "unifia-go"}>
-                        <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-                      </Show>
-                    </div>
-                    <Show when={note(item.id)}>
-                      {(key) => <span class="text-12-regular text-text-weak pl-8">{language.t(key())}</span>}
-                    </Show>
-                  </div>
-                  <Button
-                    size="large"
-                    variant="secondary"
-                    icon={item.id === "local-llm" ? "download" : "plus-small"}
-                    onClick={() => {
-                      if (item.id === "local-llm") {
-                        window.dispatchEvent(new CustomEvent("open-model-manager"))
-                      } else {
-                        void import("./dialog-connect-provider").then((x) => {
-                          dialog.show(() => <x.DialogConnectProvider provider={item.id} />)
-                        })
-                      }
-                    }}
-                  >
-                    {item.id === "local-llm" ? language.t("dialog.model.manage") : language.t("common.connect")}
-                  </Button>
-                </div>
-              )}
-            </For>
+        <ProviderCard
+          id="local-llm"
+          name={language.t("settings.fork.providers.localAi")}
+          description={language.t("dialog.provider.localLlm.note")}
+          badges={
+            <span data-slot="settings-badge" data-tone="success">
+              {language.t("settings.fork.providers.onDevice")}
+            </span>
+          }
+        >
+          <Button size="small" onClick={openLocalModels}>
+            {language.t("dialog.model.manage")}
+          </Button>
+        </ProviderCard>
 
-            <div
-              class="flex items-center justify-between gap-4 min-h-16 border-b border-border-weak-base last:border-none flex-wrap py-3"
-              data-component="custom-provider-section"
+        <For each={popular().filter((p) => p.id !== "local-llm")}>
+          {(item) => (
+            <ProviderCard
+              id={item.id}
+              name={item.name}
+              description={note(item.id) ? language.t(note(item.id)!) : undefined}
+              badges={
+                <>
+                  <Show when={item.id === "unifia" || item.id === "unifia-go"}>
+                    <span data-slot="settings-badge">{language.t("dialog.provider.tag.recommended")}</span>
+                  </Show>
+                  <span data-slot="settings-badge">{language.t("settings.providers.state.notConnected")}</span>
+                </>
+              }
             >
-              <div class="flex flex-col min-w-0">
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <ProviderIcon id="synthetic" class="size-5 shrink-0 icon-strong-base" />
-                  <span class="text-14-medium text-text-strong">{language.t("provider.custom.title")}</span>
-                  <Tag>{language.t("settings.providers.tag.custom")}</Tag>
-                </div>
-                <span class="text-12-regular text-text-weak pl-8">
-                  {language.t("settings.providers.custom.description")}
-                </span>
-              </div>
-              <Button
-                size="large"
-                variant="secondary"
-                icon="plus-small"
-                onClick={() => {
-                  void import("./dialog-custom-provider").then((x) => {
-                    dialog.show(() => <x.DialogCustomProvider back="close" />)
-                  })
-                }}
-              >
+              <Button size="small" onClick={() => connectProvider(item.id)}>
                 {language.t("common.connect")}
               </Button>
-            </div>
-          </SettingsList>
+            </ProviderCard>
+          )}
+        </For>
 
+        <ProviderCard
+          id="synthetic"
+          name={language.t("provider.custom.title")}
+          description={language.t("settings.providers.custom.description")}
+          component="custom-provider-section"
+          badges={
+            <>
+              <span data-slot="settings-badge">{language.t("settings.providers.tag.custom")}</span>
+              <span data-slot="settings-badge">{language.t("settings.providers.state.notConnected")}</span>
+            </>
+          }
+        >
           <Button
-            variant="ghost"
-            class="px-0 py-0 mt-5 text-14-medium text-text-interactive-base text-left justify-start hover:bg-transparent active:bg-transparent"
+            size="small"
             onClick={() => {
-              void import("./dialog-select-provider").then((x) => {
-                dialog.show(() => <x.DialogSelectProvider />)
+              void import("./dialog-custom-provider").then((x) => {
+                dialog.show(() => <x.DialogCustomProvider back="close" />)
               })
             }}
           >
-            {language.t("dialog.provider.viewAll")}
+            {language.t("common.connect")}
           </Button>
-        </div>
+        </ProviderCard>
+      </section>
+
+      <div data-slot="settings-center-action">
+        <Button
+          size="small"
+          onClick={() => {
+            void import("./dialog-select-provider").then((x) => {
+              dialog.show(() => <x.DialogSelectProvider />)
+            })
+          }}
+        >
+          {language.t("dialog.provider.viewAll")}
+        </Button>
       </div>
+    </SettingsPage>
+  )
+}
+
+/** One `.provider-card`: logo box, name with its badges, a description, an action. */
+function ProviderCard(
+  props: ParentProps<{ id: string; name: string; description?: string; badges?: JSX.Element; component?: string }>,
+) {
+  return (
+    <div data-slot="provider-card" data-component={props.component}>
+      <div data-slot="provider-logo">
+        <ProviderIcon id={props.id} class="icon-strong-base" />
+      </div>
+      <div class="min-w-0">
+        <div data-slot="provider-title">
+          <span>{props.name}</span>
+          {props.badges}
+        </div>
+        <Show when={props.description}>
+          <div data-slot="setting-desc">{props.description}</div>
+        </Show>
+      </div>
+      <div>{props.children}</div>
     </div>
   )
 }

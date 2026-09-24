@@ -1024,6 +1024,10 @@ export const dict = {
   "settings.shortcuts.group.prompt": "พร้อมท์",
 
   "settings.providers.title": "ผู้ให้บริการ",
+  "settings.providers.intro.title": "What is this page for?",
+  "settings.providers.intro.text": "Connect the AI services you need. Keys and technical options stay hidden until they are needed.",
+  "settings.providers.state.ready": "Ready",
+  "settings.providers.state.notConnected": "Not connected",
   "settings.providers.description": "การตั้งค่าผู้ให้บริการจะสามารถกำหนดค่าได้ที่นี่",
   "settings.providers.section.connected": "ผู้ให้บริการที่เชื่อมต่อ",
   "settings.providers.connected.empty": "ไม่มีผู้ให้บริการที่เชื่อมต่อ",

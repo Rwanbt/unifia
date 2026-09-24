@@ -556,6 +556,116 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   word-break: break-all;
 }
 
+/* .v91-page-intro: a plain-words card under the page title. */
+[data-v110="settings-page"] [data-slot="settings-page-intro"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -8px 0 18px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro"][data-dimmed] {
+  opacity: 0.82;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro-icon"] {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-3);
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro"] b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-page-intro"] span {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+/* .provider-list / .provider-card: logo, name with badges, one action. */
+[data-v110="settings-page"] [data-slot="provider-list"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"] {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 50%, transparent);
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"]:first-child {
+  border-radius: 10px 10px 0 0;
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"]:last-child {
+  border-bottom: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-logo"] {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-4);
+}
+
+[data-v110="settings-page"] [data-slot="provider-logo"] svg {
+  width: 15px;
+  height: 15px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-title"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+[data-v110="settings-page"] [data-slot="provider-title"] > span:first-child {
+  margin-right: 2px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-card"] [data-slot="setting-desc"] {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.42;
+}
+
+[data-v110="settings-page"] [data-component="button"][data-tone="danger"] {
+  color: rgb(232, 162, 162);
+}
+
+[data-v110="settings-page"] [data-slot="settings-center-action"] {
+  margin-top: 16px;
+  text-align: center;
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;

@@ -1018,6 +1018,10 @@ export const dict = {
   "settings.shortcuts.group.prompt": "提示",
 
   "settings.providers.title": "提供者",
+  "settings.providers.intro.title": "What is this page for?",
+  "settings.providers.intro.text": "Connect the AI services you need. Keys and technical options stay hidden until they are needed.",
+  "settings.providers.state.ready": "Ready",
+  "settings.providers.state.notConnected": "Not connected",
   "settings.providers.description": "提供者設定將在此處可設定。",
   "settings.providers.section.connected": "已連線的提供商",
   "settings.providers.connected.empty": "沒有已連線的提供商",
