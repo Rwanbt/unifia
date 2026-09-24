@@ -13,6 +13,7 @@ import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
 import type { WorkView } from "./work-view"
+import { RAIL_COMPACT, width as panelWidth } from "@/tokens/panels"
 
 const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] as const
 // v110 default shell width: 62px rail + 248px context panel at 1440px.
@@ -268,6 +269,12 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     }
 
     const target = Persist.global("layout", ["layout.v6"])
+    // The reference's panel defaults follow the viewport (tokens/panels
+    // width(): narrower from 1360px down). A panel the user resized keeps
+    // its own width.
+    const [viewportWidth, setViewportWidth] = createSignal(typeof window === "undefined" ? 1440 : window.innerWidth)
+    onMount(() => makeEventListener(window, "resize", () => setViewportWidth(window.innerWidth)))
+
     const [store, setStore, _, ready] = persisted(
       { ...target, migrate },
       createStore({
@@ -283,6 +290,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         sidebar: {
           opened: false,
           width: DEFAULT_SIDEBAR_WIDTH,
+          resized: false,
           workspaces: {} as Record<string, boolean>,
           workspacesDefault: false,
         },
@@ -296,6 +304,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         inspector: {
           opened: false,
           width: DEFAULT_INSPECTOR_WIDTH,
+          resized: false,
           tab: "explorer" as InspectorTab,
           explorerView: "changed" as "changed" | "all",
         },
@@ -787,9 +796,11 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         toggle() {
           setStore("sidebar", "opened", (x) => !x)
         },
-        width: createMemo(() => store.sidebar.width),
+        width: createMemo(() =>
+          store.sidebar.resized ? store.sidebar.width : RAIL_COMPACT + panelWidth("context", viewportWidth()),
+        ),
         resize(width: number) {
-          setStore("sidebar", "width", width)
+          setStore("sidebar", { width, resized: true })
         },
         workspaces(directory: string) {
           return () => store.sidebar.workspaces[directory] ?? store.sidebar.workspacesDefault ?? false
@@ -826,7 +837,11 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       // different tab, and file-open call sites always landing on "inspector").
       inspector: {
         opened: createMemo(() => store.inspector?.opened ?? false),
-        width: createMemo(() => store.inspector?.width ?? DEFAULT_INSPECTOR_WIDTH),
+        width: createMemo(() =>
+          store.inspector?.resized
+            ? (store.inspector.width ?? DEFAULT_INSPECTOR_WIDTH)
+            : panelWidth("inspector", viewportWidth()),
+        ),
         tab: createMemo(() => store.inspector?.tab ?? "explorer"),
         explorerView: createMemo(() => store.inspector?.explorerView ?? "changed"),
         setTab(tab: InspectorTab) {
@@ -871,14 +886,16 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
         resize(width: number) {
           if (!store.inspector) {
-            setStore("inspector", { opened: true, width, tab: "explorer", explorerView: "changed" })
+            setStore("inspector", { opened: true, width, resized: true, tab: "explorer", explorerView: "changed" })
             return
           }
-          setStore("inspector", "width", width)
+          setStore("inspector", { width, resized: true })
         },
       },
       session: {
-        width: createMemo(() => store.session?.width ?? DEFAULT_SESSION_WIDTH),
+        width: createMemo(() =>
+          store.session?.resized ? (store.session.width ?? DEFAULT_SESSION_WIDTH) : panelWidth("chat", viewportWidth()),
+        ),
         resized: createMemo(() => store.session?.resized ?? false),
         resize(width: number) {
           setStore("session", { width, resized: true })

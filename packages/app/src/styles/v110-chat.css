@@ -637,17 +637,24 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   }
 }
 
-/* Chat column (ADR-045). The reference sizes the focused chat as twice a
- * clamped half-width; at every desktop width that equals the surface width
- * minus 610px, between 560px and 1080px, and never wider than its parent. */
+/* Chat column (ADR-045, ADR-053). From 1200px the reference sizes the
+ * focused chat as 2 x clamp(280px, 50vw - rail - context - 42px, 540px), on
+ * the viewport -- the context and inspector then float beside it without
+ * moving or narrowing it. The context token is 248px, 220px up to 1360px. */
 [data-v110="session-chat-surface"] {
-  --v110-chat-column: min(100%, 1080px, max(560px, 100cqw - 610px));
+  --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 704px));
   /* Centred on the window rather than the surface (see
    * use-viewport-centered-column.ts), and narrowed so it never leaves it. */
   --v110-chat-width: min(
     var(--v110-chat-column),
     100% - 2 * max(var(--v110-chat-shift, 0px), -1 * var(--v110-chat-shift, 0px))
   );
+}
+
+@media (max-width: 1360px) {
+  [data-v110="session-chat-surface"] {
+    --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 648px));
+  }
 }
 
 /* Compact desktops (900-1199px) -- the reference's v87 focus column there is

@@ -25,6 +25,13 @@
     margin-block: var(--v110-gutter-outer);
   }
 
+  /* Split: the reference keeps a 10px gap between the chat and the main
+   * card (chat 348px at 92, main at 450 on a 1440 viewport). */
+  [data-v110="session-chat-surface"]:not([data-collapsed])
+    ~ :is([data-component="session-editor-main"], [data-component="workbench-mode-main"], [data-v110="mode-main"]) {
+    margin-left: var(--v110-gutter-inner);
+  }
+
   [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="session-editor-main"],
   [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="workbench-mode-main"] {
     margin-right: var(--v110-gutter-outer);

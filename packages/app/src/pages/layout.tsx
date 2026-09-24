@@ -57,6 +57,7 @@ import type {
   WorkspaceSidebarContext,
 } from "./layout/sidebar-workspace"
 import { SidebarPanel, type SidebarPanelContext } from "./layout/sidebar-panel"
+import { RAIL_COMPACT } from "@/tokens/panels"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { MobileNav } from "@/shell/v110-mobile-nav"
 import { useMode } from "@/context/mode"
@@ -752,7 +753,8 @@ export default function Layout(props: ParentProps) {
   })
 
   const side = createMemo(() => Math.max(layout.sidebar.width(), 244))
-  const panel = createMemo(() => Math.max(side() - 64, 0))
+  // The context panel is the sidebar track minus the rail (62px).
+  const panel = createMemo(() => Math.max(side() - RAIL_COMPACT, 0))
 
   const loadedSessionDirs = new Set<string>()
 
@@ -954,7 +956,10 @@ export default function Layout(props: ParentProps) {
     if (!railVisible && !sidebarVisible) return "0px"
     if (sidebarVisible) {
       const sidebarWidth = railVisible ? side() : panel()
-      return `calc(${sidebarWidth}px + 30px)`
+      // Outer gutter, the rail-to-panel gap and the panel-to-workspace gap
+      // (20 + 10 + 10: the reference's chat starts at 350px beside a 248px
+      // panel at 1440).
+      return `calc(${sidebarWidth}px + 40px)`
     }
     // Reserve the rail's 18px visual inset plus the 12px shell column gap.
     return "calc(var(--v110-rail, 62px) + 30px)"

@@ -18,8 +18,8 @@ describe("chatMaxWidth", () => {
 })
 
 describe("splitChatWidth", () => {
-  test("SplitChatWidth_NotResizedWide_UsesReferenceDefault", () => {
-    expect(splitChatWidth({ resized: false, width: 500, compact: false })).toBe("clamp(280px, 348px, min(50%, 1200px))")
+  test("SplitChatWidth_NotResizedWide_UsesLayoutDefault", () => {
+    expect(splitChatWidth({ resized: false, width: 330, compact: false })).toBe("clamp(280px, 330px, min(50%, 1200px))")
   })
 
   test("SplitChatWidth_NotResizedCompact_Uses36vw", () => {
