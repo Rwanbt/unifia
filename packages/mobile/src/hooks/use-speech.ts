@@ -7,6 +7,8 @@
  */
 
 import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"
+import { speakableText } from "../../../app/src/hooks/web-speech"
+import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/src/voice/audio-playback-coordinator"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { showToast } from "@unifia/ui/toast"
 
@@ -18,19 +20,51 @@ let captureStartedAt = 0
 let discardDictationCapture = false
 let finalizingDictation = false
 let captureCoordinatorCleanup: (() => void) | undefined
+let playbackCoordinator: AudioPlaybackCoordinator | undefined
+let activeManualPlayback: ManualPlayback | undefined
+let manualPlaybackLease: AudioPlaybackLease | undefined
+let lastManualToggleAt = 0
 
-export function initSpeechListeners() {
+type SpeechServer = { url: string; username?: string; password?: string }
+type ManualPlayback = {
+  requestId: string
+  controller: AbortController
+  serverUrl: string
+  headers: Record<string, string>
+  audio?: HTMLAudioElement
+  objectUrl?: string
+  synthesisPending: boolean
+  lease: AudioPlaybackLease
+}
+const MANUAL_TTS_DOUBLE_TAP_MS = 400
+let ttsToggleListener: EventListener | undefined
+let activeLivePlayback: { id: string; lease: AudioPlaybackLease } | undefined
+
+export function initSpeechListeners(server: SpeechServer) {
   captureCoordinatorCleanup ??= installAudioCaptureCoordinator(window)
+  playbackCoordinator ??= new AudioPlaybackCoordinator()
   window.addEventListener("stt-start", handleSttStart)
   window.addEventListener("stt-stop", handleSttStop)
-  window.addEventListener("tts-toggle", ((e: Event) => { handleTtsToggle(e as CustomEvent) }) as EventListener)
+  ttsToggleListener = ((e: Event) => { void handleTtsToggle(e as CustomEvent, server) }) as EventListener
+  window.addEventListener("tts-toggle", ttsToggleListener)
+  window.addEventListener("tts-live-start", handleLivePlaybackStarted)
+  window.addEventListener("tts-live-ended", handleLivePlaybackEnded)
   void preloadModels()
 }
 
 export function cleanupSpeechListeners() {
   window.removeEventListener("stt-start", handleSttStart)
   window.removeEventListener("stt-stop", handleSttStop)
+  if (ttsToggleListener) window.removeEventListener("tts-toggle", ttsToggleListener)
+  ttsToggleListener = undefined
+  window.removeEventListener("tts-live-start", handleLivePlaybackStarted)
+  window.removeEventListener("tts-live-ended", handleLivePlaybackEnded)
   stopDictationCapture()
+  playbackCoordinator?.stop()
+  playbackCoordinator = undefined
+  activeManualPlayback = undefined
+  manualPlaybackLease = undefined
+  activeLivePlayback = undefined
   captureCoordinatorCleanup?.()
   captureCoordinatorCleanup = undefined
 }
@@ -165,9 +199,130 @@ function stopDictationCapture() {
   }
 }
 
-async function handleTtsToggle(e: CustomEvent) {
-  if (!e.detail?.text) return
-  showToast({ title: "Voice Host unavailable", description: "Connect a Voice Host to use speech synthesis.", variant: "error" })
+async function handleTtsToggle(e: CustomEvent, server: SpeechServer) {
+  const text = speakableText(String(e.detail?.text ?? ""))
+  if (!text) return
+  const active = activeManualPlayback
+  const now = Date.now()
+  const doubleTap = now - lastManualToggleAt < MANUAL_TTS_DOUBLE_TAP_MS
+  lastManualToggleAt = now
+  if (active) {
+    if (doubleTap || active.synthesisPending) {
+      stopManualPlayback(active)
+      return
+    }
+    if (active.audio?.paused) void active.audio.play().catch(() => stopManualPlayback(active))
+    else active.audio?.pause()
+    return
+  }
+  await startManualPlayback(text, server)
+}
+
+async function startManualPlayback(text: string, server: SpeechServer) {
+  const requestId = `tts_${crypto.randomUUID().replaceAll("-", "")}`
+  let playback: ManualPlayback
+  const lease = playbackCoordinator?.acquire("manual", () => stopManualPlayback(playback))
+  if (!lease) return
+  playback = {
+    requestId,
+    controller: new AbortController(),
+    serverUrl: server.url,
+    headers: serverAuthorization(server),
+    synthesisPending: true,
+    lease,
+  }
+  activeManualPlayback = playback
+  manualPlaybackLease = lease
+  try {
+    const language = speechLanguage()
+    const response = await fetch(new URL("/voice/tts", server.url), {
+      method: "POST",
+      headers: { "content-type": "application/json", ...playback.headers },
+      body: JSON.stringify({ text, language, requestId }),
+      signal: playback.controller.signal,
+    })
+    if (!response.ok) throw new Error("Authenticated speech synthesis failed")
+    const audioBlob = await response.blob()
+    if (activeManualPlayback !== playback) return
+    playback.synthesisPending = false
+    playback.objectUrl = URL.createObjectURL(audioBlob)
+    const audio = new Audio(playback.objectUrl)
+    playback.audio = audio
+    audio.onended = () => finishManualPlayback(playback, "done")
+    audio.onerror = () => finishManualPlayback(playback, "error")
+    await audio.play()
+  } catch (error) {
+    if (activeManualPlayback !== playback) return
+    const aborted = error instanceof DOMException && error.name === "AbortError"
+    stopManualPlayback(playback, !aborted)
+    if (!aborted) {
+      console.error("[TTS] Mobile read-aloud failed:", error)
+      showToast({ title: "Speech unavailable", description: "The paired Unifia server could not synthesize this message.", variant: "error" })
+      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))
+    }
+  }
+}
+
+function stopManualPlayback(playback: ManualPlayback, cancelRemote = true) {
+  if (activeManualPlayback !== playback) return
+  playback.controller.abort()
+  playback.audio?.pause()
+  if (playback.audio) playback.audio.src = ""
+  if (playback.objectUrl) URL.revokeObjectURL(playback.objectUrl)
+  activeManualPlayback = undefined
+  if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
+  playbackCoordinator?.release(playback.lease)
+  if (cancelRemote && playback.synthesisPending) void cancelManualSynthesis(playback)
+  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "done" } }))
+}
+
+function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error") {
+  if (activeManualPlayback !== playback) return
+  playback.audio?.pause()
+  if (playback.objectUrl) URL.revokeObjectURL(playback.objectUrl)
+  activeManualPlayback = undefined
+  if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
+  playbackCoordinator?.release(playback.lease)
+  window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason } }))
+}
+
+async function cancelManualSynthesis(playback: ManualPlayback) {
+  try {
+    await fetch(new URL("/voice/tts/cancel", playback.serverUrl), {
+      method: "POST",
+      headers: { "content-type": "application/json", ...playback.headers },
+      body: JSON.stringify({ requestId: playback.requestId }),
+    })
+  } catch (error) {
+    console.warn("[TTS] Could not cancel remote synthesis:", error)
+  }
+}
+
+function serverAuthorization(server: SpeechServer): Record<string, string> {
+  if (!server.username || server.password === undefined) return {}
+  const bytes = new TextEncoder().encode(`${server.username}:${server.password}`)
+  let binary = ""
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return { authorization: `Basic ${btoa(binary)}` }
+}
+
+function speechLanguage(): "en" | "fr" | "es" | "it" | "de" {
+  const language = (document.documentElement.lang || navigator.language || "en").toLowerCase().slice(0, 2)
+  return ["en", "fr", "es", "it", "de"].includes(language) ? language as "en" | "fr" | "es" | "it" | "de" : "en"
+}
+
+function handleLivePlaybackStarted(event: Event) {
+  const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+  if (!detail?.id || typeof detail.stop !== "function") return
+  const lease = playbackCoordinator?.acquire("live", detail.stop)
+  if (lease) activeLivePlayback = { id: detail.id, lease }
+}
+
+function handleLivePlaybackEnded(event: Event) {
+  const id = (event as CustomEvent<{ id?: string }>).detail?.id
+  if (!activeLivePlayback || id !== activeLivePlayback.id) return
+  playbackCoordinator?.release(activeLivePlayback.lease)
+  activeLivePlayback = undefined
 }
 // ─── Helpers ───────────────────────────────────────────────────────────
 
