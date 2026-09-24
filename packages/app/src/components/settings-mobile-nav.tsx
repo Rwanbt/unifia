@@ -14,6 +14,7 @@ import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsSkills } from "./settings-skills"
 import { SettingsHooks } from "./settings-hooks"
+import { SettingsSystem } from "./settings-system"
 import { SettingsMcp } from "./settings-mcp"
 import { SettingsAndroid } from "./settings-android"
 import { SettingsObservability } from "./settings-observability"
@@ -37,6 +38,7 @@ type CategoryId =
   | "plugins"
   | "skills"
   | "hooks"
+  | "system"
   | "memory"
   | "observability"
   | "network"
@@ -66,6 +68,7 @@ export const SettingsMobileNav: Component = () => {
     { value: "plugins" as const, icon: "mcp" as const, label: language.t("settings.tab.mcp") },
     { value: "skills" as const, icon: "brain" as const, label: language.t("settings.fork.plugins.tabSkills") },
     { value: "hooks" as const, icon: "branch" as const, label: language.t("settings.hooks.title") },
+    { value: "system" as const, icon: "settings-gear" as const, label: language.t("settings.system.title") },
     { value: "network" as const, icon: "globe" as const, label: language.t("settings.network.title") },
     { value: "observability" as const, icon: "eye" as const, label: language.t("settings.fork.observability.title") },
     ...(platform.os === "android"
@@ -103,6 +106,8 @@ export const SettingsMobileNav: Component = () => {
         return <SettingsSkills />
       case "hooks":
         return <SettingsHooks />
+      case "system":
+        return <SettingsSystem />
       case "memory":
         return <SettingsMemory />
       case "observability":

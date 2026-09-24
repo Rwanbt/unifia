@@ -15,6 +15,7 @@ import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsSkills } from "./settings-skills"
 import { SettingsHooks } from "./settings-hooks"
+import { SettingsSystem } from "./settings-system"
 import { SettingsMcp } from "./settings-mcp"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
@@ -146,6 +147,12 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
           render: () => <SettingsSkills />,
         },
         { id: "hooks", icon: "hooks", label: language.t("settings.hooks.title"), render: () => <SettingsHooks /> },
+      ],
+    },
+    {
+      label: language.t("settings.section.system"),
+      pages: [
+        { id: "system", icon: "system", label: language.t("settings.system.title"), render: () => <SettingsSystem /> },
       ],
     },
   ]
