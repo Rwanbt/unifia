@@ -413,7 +413,7 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 
 /* .value-text: a read-only value in a row control. */
 [data-v110="settings-page"] [data-slot="settings-value"] {
-  color: var(--muted);
+  color: var(--text);
   font-size: 10px;
 }
 
@@ -777,6 +777,103 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   [data-v110="settings-page"] [data-slot="settings-profile-grid"] {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* .benchmark-run / .benchmark-progress / .benchmark-empty. */
+[data-v110="settings-page"] [data-slot="benchmark-run"] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 13px 0;
+}
+
+[data-v110="settings-page"] [data-slot="benchmark-progress"] {
+  flex: 1 1 0%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-4);
+}
+
+[data-v110="settings-page"] [data-slot="benchmark-progress"] i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* The run reports no percentage: while it runs the bar sweeps. */
+[data-v110="settings-page"] [data-slot="benchmark-progress"][data-running] i {
+  width: 35%;
+  animation: v110-benchmark-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes v110-benchmark-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+[data-v110="settings-page"] [data-slot="benchmark-empty"] {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* A compact results table inside a section card. */
+[data-v110="settings-page"] [data-slot="settings-table"] {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface-2) 56%, transparent);
+}
+
+[data-v110="settings-page"] :is([data-slot="settings-table-head"], [data-slot="settings-table-row"]) {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-head"] {
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-row"] {
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-v110="settings-page"] :is([data-slot="settings-table-head"], [data-slot="settings-table-row"]) > span:not(:first-child) {
+  text-align: right;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-row"] > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="settings-table-row"] small {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
 }
 
 /* .muted-badge: a small grey status chip beside a control. */

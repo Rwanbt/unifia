@@ -12,10 +12,12 @@
  * Future: when run_device_backend_benchmark lands in the Rust side, this
  * UI will iterate over CPU / OpenCL / Vulkan / Hexagon and show a table.
  */
-import { type Component, createSignal, createResource, createMemo, For, Show, } from "solid-js"
+import { type Component, createSignal, createResource, createMemo, For, Show } from "solid-js"
 import { Button } from "@unifia/ui/button"
 import { Select } from "@unifia/ui/select"
 import { useLanguage } from "@/context/language"
+import { SettingsPage, SettingsSection } from "./settings-page"
+import { SettingsRow } from "./settings-row"
 
 function invokeTauri(cmd: string, args?: Record<string, unknown>): Promise<any> {
   const tauri = (globalThis as any).__TAURI__
@@ -175,141 +177,133 @@ export const SettingsBenchmark: Component = () => {
   })
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
-      <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
-        <div class="flex flex-col gap-1 pt-6 pb-8">
-          <h2 class="text-16-medium text-text-strong">{language.t("settings.fork.benchmark.title")}</h2>
-          <span class="text-12-regular text-text-weak">{language.t("settings.fork.benchmark.description")}</span>
-        </div>
-      </div>
+    <SettingsPage
+      title={language.t("settings.fork.benchmark.title")}
+      subtitle={language.t("settings.fork.benchmark.description")}
+      intro={{
+        icon: "⌁",
+        title: language.t("settings.providers.intro.title"),
+        text: language.t("settings.benchmark.intro"),
+      }}
+    >
+      <SettingsSection title={language.t("settings.fork.benchmark.run")}>
+        <SettingsRow
+          title={language.t("settings.fork.benchmark.targetModel")}
+          description={language.t("settings.fork.benchmark.targetModelDescription")}
+        >
+          <Select
+            options={(models() ?? []).map((m) => m.filename)}
+            current={selectedModel()}
+            label={(x) => x.replace(/\.gguf$/i, "")}
+            onSelect={(v) => {
+              if (v) setSelectedModel(v)
+            }}
+            variant="secondary"
+            size="small"
+            triggerVariant="settings"
+          />
+        </SettingsRow>
+        <SettingsRow
+          title={language.t("settings.fork.benchmark.activeBackend")}
+          description={language.t("settings.fork.benchmark.activeBackendDescription")}
+        >
+          <span data-slot="settings-value">{backend() ?? language.t("settings.fork.benchmark.backendAuto")}</span>
+        </SettingsRow>
+      </SettingsSection>
 
-      <div class="flex flex-col gap-8 w-full">
-        {/* Run controls */}
-        <div class="flex flex-col gap-1">
-          <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.benchmark.run")}</h3>
-          <div class="bg-surface-base px-4 py-4 rounded-lg flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-4 flex-wrap">
-              <div class="flex flex-col gap-1 min-w-0 flex-1">
-                <span class="text-13-medium text-text-strong">{language.t("settings.fork.benchmark.targetModel")}</span>
-                <span class="text-11-regular text-text-weak">
-                  {language.t("settings.fork.benchmark.targetModelDescription")}
-                </span>
-              </div>
-              <Select
-                size="normal"
-                options={(models() ?? []).map((m) => m.filename)}
-                current={selectedModel()}
-                label={(x) => x.replace(/\.gguf$/i, "")}
-                onSelect={(v) => { if (v) setSelectedModel(v) }}
-              />
-            </div>
-            <div class="flex items-center justify-between gap-4 flex-wrap">
-              <div class="flex flex-col gap-1 min-w-0 flex-1">
-                <span class="text-13-medium text-text-strong">{language.t("settings.fork.benchmark.activeBackend")}</span>
-                <span class="text-11-regular text-text-weak">
-                  {language.t("settings.fork.benchmark.activeBackendDescription")}
-                </span>
-              </div>
-              <span class="text-13-medium text-text-strong px-3 py-1.5 bg-surface-inset rounded-md">
-                {backend() ?? language.t("settings.fork.benchmark.backendAuto")}
-              </span>
-            </div>
-            <div class="flex items-center gap-3 mt-2">
-              <Button
-                data-action="settings-benchmark-run"
-                onClick={runBenchmark}
-                disabled={running() || !selectedModel()}
-                variant="primary"
-              >
-                {running() ? language.t("settings.fork.benchmark.running") : history().length > 0 ? language.t("settings.fork.benchmark.rerun") : language.t("settings.fork.benchmark.run")}
-              </Button>
-              <Show when={history().length > 0}>
-                <Button data-action="settings-benchmark-clear" onClick={clearHistory} variant="ghost" disabled={running()}>
-                  {language.t("settings.fork.benchmark.clearHistory")}
-                </Button>
-              </Show>
-              <Show when={progressMessage()}>
-                <span class="text-12-regular text-text-weak">{progressMessage()}</span>
-              </Show>
-            </div>
-            <Show when={error()}>
-              <div class="text-12-regular text-icon-critical-base bg-surface-inset px-3 py-2 rounded-md">
-                {error()}
-              </div>
-            </Show>
-          </div>
-          <div class="text-11-regular text-text-weak mt-1 px-1">
-            {language.t("settings.fork.benchmark.workload")}
-          </div>
-        </div>
-
-        {/* Best per (model, backend) */}
-        <Show when={bestEntry().length > 0}>
-          <div class="flex flex-col gap-1">
-            <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.benchmark.bestResult")}</h3>
-            <div class="bg-surface-base rounded-lg overflow-hidden">
-              <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-2 bg-surface-inset text-11-medium text-text-weak">
-                <span>{language.t("settings.fork.benchmark.model")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.backend")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.prefill")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.decode")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.ram")}</span>
-              </div>
-              <For each={bestEntry()}>
-                {(r) => (
-                  <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-2 border-b border-border-weak-base last:border-none text-12-regular text-text-strong">
-                    <span class="truncate" title={r.modelFilename}>{r.modelFilename.replace(/\.gguf$/i, "")}</span>
-                    <span class="text-right text-text-weak">{r.backend}</span>
-                    <span class="text-right tabular-nums">{r.prefillTps.toFixed(1)}</span>
-                    <span class="text-right tabular-nums">{r.decodeTps.toFixed(2)}</span>
-                    <span class="text-right tabular-nums text-text-weak">
-                      {r.peakRamMib ? `${r.peakRamMib} MiB` : "—"}
-                    </span>
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-        </Show>
-
-        {/* Full history */}
+      {/* .benchmark-run: the action beside a progress bar that fills while it runs. */}
+      <div data-slot="benchmark-run">
+        <Button
+          data-action="settings-benchmark-run"
+          onClick={runBenchmark}
+          disabled={running() || !selectedModel()}
+          variant="primary"
+        >
+          {running()
+            ? language.t("settings.fork.benchmark.running")
+            : history().length > 0
+              ? language.t("settings.fork.benchmark.rerun")
+              : language.t("settings.fork.benchmark.run")}
+        </Button>
         <Show when={history().length > 0}>
-          <div class="flex flex-col gap-1">
-            <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.fork.benchmark.history")}</h3>
-            <div class="bg-surface-base rounded-lg overflow-hidden">
-              <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-2 bg-surface-inset text-11-medium text-text-weak">
-                <span>{language.t("settings.fork.benchmark.modelTime")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.backend")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.prefill")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.decode")}</span>
-                <span class="text-right">{language.t("settings.fork.benchmark.generated")}</span>
-              </div>
-              <For each={history()}>
-                {(r) => (
-                  <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-2 border-b border-border-weak-base last:border-none text-12-regular">
-                    <div class="flex flex-col min-w-0">
-                      <span class="truncate text-text-strong" title={r.modelFilename}>
-                        {r.modelFilename.replace(/\.gguf$/i, "")}
-                      </span>
-                      <span class="text-11-regular text-text-weak">{new Date(r.timestamp).toLocaleString()}</span>
-                    </div>
-                    <span class="text-right text-text-weak self-center">{r.backend}</span>
-                    <span class="text-right tabular-nums text-text-strong self-center">{r.prefillTps.toFixed(1)}</span>
-                    <span class="text-right tabular-nums text-text-strong self-center">{r.decodeTps.toFixed(2)}</span>
-                    <span class="text-right tabular-nums text-text-weak self-center">{r.generatedTokens} {language.t("settings.fork.benchmark.tokens")}</span>
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
+          <Button data-action="settings-benchmark-clear" onClick={clearHistory} disabled={running()}>
+            {language.t("settings.fork.benchmark.clearHistory")}
+          </Button>
         </Show>
-
-        <Show when={history().length === 0 && !running()}>
-          <div data-action="settings-benchmark-empty" class="text-12-regular text-text-weak px-1">
-            {language.t("settings.fork.benchmark.empty")}
-          </div>
-        </Show>
+        <div data-slot="benchmark-progress" data-running={running() ? "" : undefined}>
+          <i />
+        </div>
       </div>
-    </div>
+      <Show when={progressMessage()}>
+        <p data-slot="settings-note">{progressMessage()}</p>
+      </Show>
+      <Show when={error()}>
+        <p data-slot="settings-note" data-tone="warning">
+          {error()}
+        </p>
+      </Show>
+      <p data-slot="settings-note">{language.t("settings.fork.benchmark.workload")}</p>
+
+      {/* Best per (model, backend) */}
+      <Show when={bestEntry().length > 0}>
+        <h3>{language.t("settings.fork.benchmark.bestResult")}</h3>
+        <div data-slot="settings-table">
+          <div data-slot="settings-table-head">
+            <span>{language.t("settings.fork.benchmark.model")}</span>
+            <span>{language.t("settings.fork.benchmark.backend")}</span>
+            <span>{language.t("settings.fork.benchmark.prefill")}</span>
+            <span>{language.t("settings.fork.benchmark.decode")}</span>
+            <span>{language.t("settings.fork.benchmark.ram")}</span>
+          </div>
+          <For each={bestEntry()}>
+            {(r) => (
+              <div data-slot="settings-table-row">
+                <span title={r.modelFilename}>{r.modelFilename.replace(/\.gguf$/i, "")}</span>
+                <span>{r.backend}</span>
+                <span>{r.prefillTps.toFixed(1)}</span>
+                <span>{r.decodeTps.toFixed(2)}</span>
+                <span>{r.peakRamMib ? `${r.peakRamMib} MiB` : "—"}</span>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      {/* Full history */}
+      <Show when={history().length > 0}>
+        <h3>{language.t("settings.fork.benchmark.history")}</h3>
+        <div data-slot="settings-table">
+          <div data-slot="settings-table-head">
+            <span>{language.t("settings.fork.benchmark.modelTime")}</span>
+            <span>{language.t("settings.fork.benchmark.backend")}</span>
+            <span>{language.t("settings.fork.benchmark.prefill")}</span>
+            <span>{language.t("settings.fork.benchmark.decode")}</span>
+            <span>{language.t("settings.fork.benchmark.generated")}</span>
+          </div>
+          <For each={history()}>
+            {(r) => (
+              <div data-slot="settings-table-row">
+                <span title={r.modelFilename}>
+                  {r.modelFilename.replace(/\.gguf$/i, "")}
+                  <small>{new Date(r.timestamp).toLocaleString()}</small>
+                </span>
+                <span>{r.backend}</span>
+                <span>{r.prefillTps.toFixed(1)}</span>
+                <span>{r.decodeTps.toFixed(2)}</span>
+                <span>
+                  {r.generatedTokens} {language.t("settings.fork.benchmark.tokens")}
+                </span>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      <Show when={history().length === 0 && !running()}>
+        <div data-action="settings-benchmark-empty" data-slot="benchmark-empty">
+          {language.t("settings.fork.benchmark.empty")}
+        </div>
+      </Show>
+    </SettingsPage>
   )
 }

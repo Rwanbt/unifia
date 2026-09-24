@@ -1450,6 +1450,7 @@ export const dict = {
   "settings.fork.audio.tts": "文字轉語音 (TTS)",
   "settings.fork.audio.voiceCloning": "聲音複製",
   "settings.fork.benchmark.title": "效能測試",
+  "settings.benchmark.intro": "Simply measures how local models perform on this device.",
   "settings.fork.benchmark.description": "測量本機裝置上的推論速度",
   "settings.fork.benchmark.run": "執行",
   "settings.fork.benchmark.targetModel": "目標模型",

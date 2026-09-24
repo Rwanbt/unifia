@@ -1392,6 +1392,7 @@ export const dict = {
   "settings.fork.audio.tts": "Texto para Fala (TTS)",
   "settings.fork.audio.voiceCloning": "Clonagem de Voz",
   "settings.fork.benchmark.title": "Benchmark",
+  "settings.benchmark.intro": "Simply measures how local models perform on this device.",
   "settings.fork.benchmark.description": "Medir a velocidade de inferência neste dispositivo",
   "settings.fork.benchmark.run": "Executar",
   "settings.fork.benchmark.targetModel": "Modelo alvo",

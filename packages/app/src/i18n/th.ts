@@ -1458,6 +1458,7 @@ export const dict = {
   "settings.fork.audio.tts": "Text to Speech (TTS — แปลงข้อความเป็นเสียง)",
   "settings.fork.audio.voiceCloning": "การโคลนเสียง",
   "settings.fork.benchmark.title": "การทดสอบประสิทธิภาพ",
+  "settings.benchmark.intro": "Simply measures how local models perform on this device.",
   "settings.fork.benchmark.description": "วัดความเร็วในการอนุมานบนอุปกรณ์นี้",
   "settings.fork.benchmark.run": "เรียกใช้",
   "settings.fork.benchmark.targetModel": "โมเดลเป้าหมาย",

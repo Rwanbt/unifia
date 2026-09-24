@@ -1386,6 +1386,7 @@ export const dict = {
   "settings.fork.audio.tts": "音声合成 (TTS)",
   "settings.fork.audio.voiceCloning": "音声クローン",
   "settings.fork.benchmark.title": "ベンチマーク",
+  "settings.benchmark.intro": "Simply measures how local models perform on this device.",
   "settings.fork.benchmark.description": "このデバイスでの推論速度を計測",
   "settings.fork.benchmark.run": "実行",
   "settings.fork.benchmark.targetModel": "対象モデル",

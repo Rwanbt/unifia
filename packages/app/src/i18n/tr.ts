@@ -1392,6 +1392,7 @@ export const dict = {
   "settings.fork.audio.tts": "Metinden konuşmaya (TTS)",
   "settings.fork.audio.voiceCloning": "Ses klonlama",
   "settings.fork.benchmark.title": "Karşılaştırma testi",
+  "settings.benchmark.intro": "Simply measures how local models perform on this device.",
   "settings.fork.benchmark.description": "Bu cihazdaki çıkarım hızını ölçün",
   "settings.fork.benchmark.run": "Çalıştır",
   "settings.fork.benchmark.targetModel": "Hedef model",

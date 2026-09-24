@@ -1468,6 +1468,7 @@ export const dict = {
   "settings.fork.audio.tts": "Tekst u govor (TTS)",
   "settings.fork.audio.voiceCloning": "Kloniranje glasa",
   "settings.fork.benchmark.title": "Benchmark",
+  "settings.benchmark.intro": "Simply measures how local models perform on this device.",
   "settings.fork.benchmark.description": "Izmjeri brzinu inferencije na ovom uređaju",
   "settings.fork.benchmark.run": "Pokreni",
   "settings.fork.benchmark.targetModel": "Ciljni model",
