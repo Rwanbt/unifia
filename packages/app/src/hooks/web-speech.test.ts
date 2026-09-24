@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { afterEach, describe, expect, test } from "bun:test"
+import { AUDIO_SETTINGS_STORAGE_KEY, DEFAULT_AUDIO_SETTINGS, serializeAudioSettings } from "../voice/audio-settings"
 import { installWebSpeech, speakableText, type SpeechEndDetail } from "./web-speech"
 
 type Scope = Record<string, unknown>
@@ -152,5 +153,43 @@ describe("read aloud", () => {
     now += 100
     toggle()
     expect(calls).toEqual(["cancel", "speak:Salut bun", "pause", "resume", "cancel"])
+  })
+
+  test("autoplay follows its setting and cannot interrupt manual playback", () => {
+    const calls: string[] = []
+    const utterances: Array<{ onend: (() => void) | null }> = []
+    const synth = {
+      speaking: false,
+      paused: false,
+      speak: (utterance: { text: string }) => {
+        calls.push(`speak:${utterance.text}`)
+        synth.speaking = true
+      },
+      pause: () => { calls.push("pause"); synth.paused = true },
+      resume: () => { calls.push("resume"); synth.paused = false },
+      cancel: () => calls.push("cancel"),
+    }
+    Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true })
+    scope.SpeechSynthesisUtterance = class {
+      lang = ""
+      onend: (() => void) | null = null
+      onerror = null
+      constructor(public text: string) { utterances.push(this) }
+    }
+    const previous = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY)
+    localStorage.setItem(AUDIO_SETTINGS_STORAGE_KEY, serializeAudioSettings(DEFAULT_AUDIO_SETTINGS))
+    cleanups.push(() => previous === null
+      ? localStorage.removeItem(AUDIO_SETTINGS_STORAGE_KEY)
+      : localStorage.setItem(AUDIO_SETTINGS_STORAGE_KEY, previous))
+    install()
+
+    window.dispatchEvent(new CustomEvent("tts-autoplay", { detail: { text: "disabled" } }))
+    localStorage.setItem(AUDIO_SETTINGS_STORAGE_KEY, serializeAudioSettings({ ...DEFAULT_AUDIO_SETTINGS, ttsAutoPlay: true }))
+    window.dispatchEvent(new CustomEvent("tts-toggle", { detail: { text: "manual" } }))
+    window.dispatchEvent(new CustomEvent("tts-autoplay", { detail: { text: "automatic" } }))
+    utterances[0]?.onend?.()
+    window.dispatchEvent(new CustomEvent("tts-autoplay", { detail: { text: "automatic" } }))
+
+    expect(calls).toEqual(["cancel", "speak:manual", "cancel", "speak:automatic"])
   })
 })

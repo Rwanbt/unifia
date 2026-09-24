@@ -5,6 +5,7 @@
  */
 
 import { invokeTauri, convertFileSrc } from "../../../app/src/hooks/speech-tauri-adapter"
+import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../../../app/src/voice/audio-playback-coordinator"
 import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { resolveSpeechLanguage, type SpeechLanguage } from "../../../contracts/src/speech"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
@@ -14,17 +15,44 @@ let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
 let runtimeProgressUnlisten: UnlistenFn | undefined
 let runtimeProgressToastId: string | number | undefined
+let playbackCoordinator: AudioPlaybackCoordinator | undefined
+let activePlaybackLease: AudioPlaybackLease | undefined
+let livePlaybackLease: AudioPlaybackLease | undefined
+let livePlaybackId: string | undefined
+let playbackGeneration = 0
+let activePreviewId: string | undefined
+
+const ttsToggleListener = (event: Event) => { void handleTtsToggle(event as CustomEvent, "manual") }
+const ttsAutoplayListener = (event: Event) => { void handleTtsToggle(event as CustomEvent, "autoplay") }
+const livePlaybackStarted = (event: Event) => {
+  const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+  if (!detail?.id || typeof detail.stop !== "function") return
+  const { id, stop } = detail
+  livePlaybackLease = playbackCoordinator?.acquire("live", () => stop?.())
+  if (livePlaybackLease) livePlaybackId = id
+}
+const livePlaybackEnded = (event?: Event) => {
+  const id = (event as CustomEvent<{ id?: string }> | undefined)?.detail?.id
+  if (event && (!id || id !== livePlaybackId)) return
+  if (livePlaybackLease) playbackCoordinator?.release(livePlaybackLease)
+  livePlaybackLease = undefined
+  livePlaybackId = undefined
+}
 
 export function initSpeechListeners() {
+  playbackCoordinator ??= new AudioPlaybackCoordinator()
   window.addEventListener("stt-start", handleSttStart)
   window.addEventListener("stt-stop", handleSttStop)
-  window.addEventListener("tts-toggle", ((e: Event) => { handleTtsToggle(e as CustomEvent) }) as EventListener)
+  window.addEventListener("tts-toggle", ttsToggleListener)
+  window.addEventListener("tts-autoplay", ttsAutoplayListener)
+  window.addEventListener("tts-live-start", livePlaybackStarted)
+  window.addEventListener("tts-live-ended", livePlaybackEnded)
   void listen<{ phase: string; message: string }>("voice-runtime-progress", (event) => {
     if (event.payload.phase === "ready" && runtimeProgressToastId === undefined) return
     if (typeof runtimeProgressToastId === "number") toaster.dismiss(runtimeProgressToastId)
     const { phase, message } = event.payload
     const toastId = showToast({
-      title: "Pocket TTS",
+      title: "Speech",
       description: message,
       variant: phase === "error" ? "error" : phase === "ready" ? "success" : "loading",
       persistent: phase !== "ready",
@@ -37,7 +65,7 @@ export function initSpeechListeners() {
   }).catch((error) => {
     console.warn("[TTS] Runtime progress listener could not start:", error)
   })
-  console.log("[Speech] All listeners initialized (stt-start, stt-stop, tts-toggle)")
+  console.log("[Speech] All listeners initialized (stt-start, stt-stop, tts-toggle, tts-autoplay)")
   // Pre-load Parakeet model so it's warm when user presses mic
   preloadModels()
 }
@@ -70,6 +98,13 @@ async function preloadModels() {
 export function cleanupSpeechListeners() {
   window.removeEventListener("stt-start", handleSttStart)
   window.removeEventListener("stt-stop", handleSttStop)
+  window.removeEventListener("tts-toggle", ttsToggleListener)
+  window.removeEventListener("tts-autoplay", ttsAutoplayListener)
+  window.removeEventListener("tts-live-start", livePlaybackStarted)
+  window.removeEventListener("tts-live-ended", livePlaybackEnded)
+  stopPlayback(true)
+  livePlaybackEnded()
+  playbackCoordinator = undefined
   runtimeProgressUnlisten?.()
   runtimeProgressUnlisten = undefined
   if (typeof runtimeProgressToastId === "number") toaster.dismiss(runtimeProgressToastId)
@@ -324,13 +359,14 @@ function splitIntoChunks(text: string): string[] {
   return [firstTiny, ...mergedBody]
 }
 
-function synthesizeChunk(text: string, voice: string, language: SpeechLanguage): Promise<string> {
+function synthesizeChunk(text: string, voice: string, language: SpeechLanguage, provider: string): Promise<string> {
   // Pocket TTS is ~27ms/char on CPU. Keep chunks small (1 sentence) to
   // minimize time-to-first-audio; the full request is buffered server-side.
-  return invokeTauri("tts_speak", { text, voice, language })
+  return invokeTauri("tts_speak", { text, voice, language, provider })
 }
 
-function stopPlayback() {
+function stopPlayback(cancelSynthesis = false) {
+  playbackGeneration++
   ttsAborted = true
   if (currentAudio) {
     currentAudio.pause()
@@ -341,6 +377,16 @@ function stopPlayback() {
   prefetchedPath = null
   prefetchPromise = null
   ttsState = "idle"
+  const lease = activePlaybackLease
+  activePlaybackLease = undefined
+  if (lease) playbackCoordinator?.release(lease)
+  if (cancelSynthesis) {
+    void invokeTauri("tts_cancel").catch((error) => console.warn("[TTS] Cancellation failed:", error))
+  }
+  if (activePreviewId) {
+    window.dispatchEvent(new CustomEvent("tts-preview-ended", { detail: { id: activePreviewId } }))
+    activePreviewId = undefined
+  }
   // Cleanup temp files in background
   if (playedPaths.length > 0) {
     invokeTauri("tts_cleanup_chunks").catch(() => {})
@@ -348,8 +394,8 @@ function stopPlayback() {
   }
 }
 
-async function playNextChunk(voice: string, language: SpeechLanguage, speed: number) {
-  if (ttsAborted) return
+async function playNextChunk(voice: string, language: SpeechLanguage, speed: number, provider: string, generation: number) {
+  if (ttsAborted || generation !== playbackGeneration) return
 
   // Get the next WAV path — either pre-fetched or synthesize now
   let wavPath: string | null = null
@@ -361,8 +407,8 @@ async function playNextChunk(voice: string, language: SpeechLanguage, speed: num
     prefetchPromise = null
   }
 
-  if (!wavPath || ttsAborted) {
-    stopPlayback()
+  if (!wavPath || ttsAborted || generation !== playbackGeneration) {
+    if (generation === playbackGeneration) stopPlayback(true)
     return
   }
 
@@ -373,11 +419,13 @@ async function playNextChunk(voice: string, language: SpeechLanguage, speed: num
   // pre-launched in parallel with C0 from handleTtsToggle).
   if (chunkQueue.length > 0 && !prefetchPromise && !prefetchedPath) {
     const nextText = chunkQueue.shift()!
-    prefetchPromise = synthesizeChunk(nextText, voice, language)
+    prefetchPromise = synthesizeChunk(nextText, voice, language, provider)
     prefetchPromise.then(path => {
+      if (generation !== playbackGeneration) return
       prefetchedPath = path
       prefetchPromise = null
     }).catch(() => {
+      if (generation !== playbackGeneration) return
       prefetchedPath = null
       prefetchPromise = null
     })
@@ -391,74 +439,83 @@ async function playNextChunk(voice: string, language: SpeechLanguage, speed: num
 
   audio.onended = () => {
     currentAudio = null
-    if (ttsAborted) { stopPlayback(); return }
+    if (ttsAborted || generation !== playbackGeneration) return
     if (chunkQueue.length > 0 || prefetchedPath || prefetchPromise) {
-      playNextChunk(voice, language, speed)
+      void playNextChunk(voice, language, speed, provider, generation)
     } else {
       stopPlayback()
     }
   }
-  audio.onerror = () => { stopPlayback() }
+  audio.onerror = () => { if (generation === playbackGeneration) stopPlayback(true) }
 
   try {
     await audio.play()
+    if (generation !== playbackGeneration) return
     ttsState = "playing"
   } catch {
-    stopPlayback()
+    if (generation === playbackGeneration) stopPlayback(true)
   }
 }
 
-async function handleTtsToggle(e: CustomEvent) {
+async function handleTtsToggle(e: CustomEvent, requestedPriority: AudioPlaybackPriority) {
+  const detail = e.detail as { text?: string; voice?: string; provider?: string; replacePlayback?: boolean; requestId?: string } | undefined
+  const settings = getAudioSettings()
+  if (requestedPriority === "autoplay" && !settings.ttsAutoPlay) return
+  const alreadyOwnsPriority = activePlaybackLease?.priority === requestedPriority
   const now = Date.now()
-  const isDoubleClick = now - lastDblClick < 400
-  lastDblClick = now
+  const isDoubleClick = requestedPriority === "manual" && !detail?.replacePlayback && now - lastDblClick < 400
+  if (requestedPriority === "manual" && !detail?.replacePlayback) lastDblClick = now
 
   // Double-click: full stop + reset
   if (isDoubleClick) {
-    stopPlayback()
-    void invokeTauri("tts_cancel").catch((error) => console.warn("[TTS] Cancellation failed:", error))
+    stopPlayback(true)
     return
   }
 
   // If playing → pause
-  if (ttsState === "playing" && currentAudio) {
+  if (requestedPriority === "manual" && alreadyOwnsPriority && !detail?.replacePlayback && ttsState === "playing" && currentAudio) {
     currentAudio.pause()
     ttsState = "paused"
     return
   }
 
   // If paused → resume
-  if (ttsState === "paused" && currentAudio) {
+  if (requestedPriority === "manual" && alreadyOwnsPriority && !detail?.replacePlayback && ttsState === "paused" && currentAudio) {
     currentAudio.play()
     ttsState = "playing"
     return
   }
 
   // If loading, ignore
-  if (ttsState === "loading") return
+  if (ttsState === "loading" && alreadyOwnsPriority && !detail?.replacePlayback) return
 
-  const text = e.detail?.text
+  const text = detail?.text
   if (!text) return
 
-  const settings = getAudioSettings()
-  const provider = settings.ttsProvider
+  const priority = requestedPriority
+  const lease = playbackCoordinator?.acquire(priority, () => stopPlayback(true))
+  if (!lease) return
+  activePlaybackLease = lease
+  const generation = ++playbackGeneration
+  activePreviewId = detail?.requestId
+  ttsAborted = false
+  playedPaths = []
+  ttsState = "loading"
+  const provider = detail?.provider ?? settings.ttsProvider
   const language = resolveSpeechLanguage({
     preference: settings.sttLanguage,
     applicationLocale: document.documentElement.lang,
   })
-  const voice = settings.voiceByLanguage[language] ?? (language === "en" ? "alba" : "")
+  const voice = detail?.voice ?? settings.voiceByLanguage[language] ?? (language === "en" ? "alba" : "")
   const speed = settings.ttsSpeed || 1.0
 
-  ttsAborted = false
-  playedPaths = []
-  ttsState = "loading"
   const t0 = performance.now()
 
   // Split into sentence chunks. First chunk is ultra-short for fast TTFA.
   // For multi-chunk texts, C0 and C1 are launched in parallel so C1 is
   // ready when C0 audio finishes playing (zero gap between chunks).
   const chunks = splitIntoChunks(text)
-  if (chunks.length === 0) return
+  if (chunks.length === 0) { stopPlayback(); return }
 
   console.log(`[TTS] ${chunks.length} chunk(s) (${provider}), voice: ${voice}, ${text.length} chars`)
 
@@ -468,19 +525,20 @@ async function handleTtsToggle(e: CustomEvent) {
   chunkQueue = chunks
 
   try {
-    const synth1Promise = synthesizeChunk(firstText, voice, language)
+    const synth1Promise = synthesizeChunk(firstText, voice, language, provider)
 
     // Launch C1 synth in PARALLEL with C0 (the server handles concurrent requests).
     // This eliminates the gap between C0 playback end and C1 ready.
     let synth2Promise: Promise<string> | null = null
     if (secondText) {
-      synth2Promise = synthesizeChunk(secondText, voice, language)
+      synth2Promise = synthesizeChunk(secondText, voice, language, provider)
       // Attach a no-op catch immediately so a failure doesn't become an unhandled
       // rejection if synth1 throws before we wire up the real handlers below.
       synth2Promise.catch(() => {})
     }
 
     const firstPath = await synth1Promise
+    if (generation !== playbackGeneration) return
     console.log(`[TTS] First chunk in ${Math.round(performance.now() - t0)}ms (${firstText.length} chars)`)
     if (ttsAborted) return
     prefetchedPath = firstPath
@@ -490,11 +548,13 @@ async function handleTtsToggle(e: CustomEvent) {
       const s2 = synth2Promise
       prefetchPromise = s2
       s2.then(path => {
+        if (generation !== playbackGeneration) return
         if (prefetchPromise === s2) {
           prefetchedPath = path
           prefetchPromise = null
         }
       }).catch(() => {
+        if (generation !== playbackGeneration) return
         if (prefetchPromise === s2) {
           prefetchedPath = null
           prefetchPromise = null
@@ -502,11 +562,11 @@ async function handleTtsToggle(e: CustomEvent) {
       })
     }
 
-    await playNextChunk(voice, language, speed)
+    await playNextChunk(voice, language, speed, provider, generation)
     console.log(`[TTS] Time-to-first-audio: ${Math.round(performance.now() - t0)}ms`)
   } catch (e) {
     console.error("[TTS] Failed:", e)
-    stopPlayback()
+    if (generation === playbackGeneration) stopPlayback(true)
   }
 }
 

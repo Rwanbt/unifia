@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 
+import { AudioPlaybackCoordinator, type AudioPlaybackLease, type AudioPlaybackPriority } from "../voice/audio-playback-coordinator"
+import { loadAudioSettings } from "../voice/audio-settings"
+
 // Voice input and read-aloud for the web runtime, through the browser's own
 // speech APIs. The desktop and mobile shells answer the same window events
 // with their local engines (packages/desktop/src/hooks/use-speech.ts); this
@@ -59,6 +62,8 @@ export function installWebSpeech(win: Window = window) {
   let recognition: Recognition | undefined
   let transcript = ""
   let failure: SpeechEndReason | undefined
+  const playbackCoordinator = new AudioPlaybackCoordinator()
+  let activePlaybackLease: AudioPlaybackLease | undefined
 
   const startDictation = () => {
     const Constructor = recognitionConstructor(win)
@@ -93,35 +98,82 @@ export function installWebSpeech(win: Window = window) {
   const stopDictation = () => recognition?.stop()
 
   let lastToggle = 0
-  const toggleReadAloud = (event: Event) => {
+  const toggleReadAloud = (event: Event, priority: AudioPlaybackPriority) => {
     const synth = win.speechSynthesis
     if (!synth) return emit({ kind: "tts", reason: "unsupported" })
+    if (priority === "autoplay" && !loadAudioSettings({ getItem: (key) => win.localStorage.getItem(key) }).ttsAutoPlay) return
     const now = Date.now()
-    const doubleClick = now - lastToggle < DOUBLE_CLICK_MS
-    lastToggle = now
-    if (doubleClick) return synth.cancel()
-    if (synth.speaking && !synth.paused) return synth.pause()
-    if (synth.paused) return synth.resume()
+    const detail = (event as CustomEvent<{ text?: string }>).detail
+    const doubleClick = priority === "manual" && now - lastToggle < DOUBLE_CLICK_MS
+    if (priority === "manual") lastToggle = now
+    if (doubleClick) {
+      playbackCoordinator.stop()
+      activePlaybackLease = undefined
+      return
+    }
+    if (priority === "manual" && activePlaybackLease?.priority === "manual" && synth.speaking && !synth.paused) return synth.pause()
+    if (priority === "manual" && activePlaybackLease?.priority === "manual" && synth.paused) return synth.resume()
 
-    const text = speakableText(String((event as CustomEvent<{ text?: string }>).detail?.text ?? ""))
+    const text = speakableText(String(detail?.text ?? ""))
     if (!text) return
+    const hadTrackedPlayback = activePlaybackLease !== undefined
+    const lease = playbackCoordinator.acquire(priority, () => synth.cancel())
+    if (!lease) return
+    activePlaybackLease = lease
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = lang()
-    utterance.onend = () => emit({ kind: "tts", reason: "done" })
+    const release = () => {
+      playbackCoordinator.release(lease)
+      if (activePlaybackLease?.id === lease.id) activePlaybackLease = undefined
+    }
+    utterance.onend = () => {
+      release()
+      emit({ kind: "tts", reason: "done" })
+    }
     utterance.onerror = (error) => {
+      release()
       if (error.error !== "canceled" && error.error !== "interrupted") emit({ kind: "tts", reason: "error" })
     }
-    synth.cancel()
+    if (!hadTrackedPlayback) synth.cancel()
     synth.speak(utterance)
+  }
+
+  const toggleManualReadAloud = (event: Event) => toggleReadAloud(event, "manual")
+  const autoplayReadAloud = (event: Event) => toggleReadAloud(event, "autoplay")
+  let livePlaybackLease: AudioPlaybackLease | undefined
+  let livePlaybackId: string | undefined
+  const livePlaybackStarted = (event: Event) => {
+    const detail = (event as CustomEvent<{ id?: string; stop?: () => void }>).detail
+    if (!detail?.id || typeof detail.stop !== "function") return
+    const { id, stop } = detail
+    const lease = playbackCoordinator.acquire("live", stop)
+    if (lease) {
+      livePlaybackLease = lease
+      livePlaybackId = id
+    }
+  }
+  const livePlaybackEnded = (event?: Event) => {
+    const id = (event as CustomEvent<{ id?: string }> | undefined)?.detail?.id
+    if (event && (!id || id !== livePlaybackId)) return
+    if (livePlaybackLease) playbackCoordinator.release(livePlaybackLease)
+    livePlaybackLease = undefined
+    livePlaybackId = undefined
   }
 
   win.addEventListener("stt-start", startDictation)
   win.addEventListener("stt-stop", stopDictation)
-  win.addEventListener("tts-toggle", toggleReadAloud)
+  win.addEventListener("tts-toggle", toggleManualReadAloud)
+  win.addEventListener("tts-autoplay", autoplayReadAloud)
+  win.addEventListener("tts-live-start", livePlaybackStarted)
+  win.addEventListener("tts-live-ended", livePlaybackEnded)
   return () => {
     win.removeEventListener("stt-start", startDictation)
     win.removeEventListener("stt-stop", stopDictation)
-    win.removeEventListener("tts-toggle", toggleReadAloud)
+    win.removeEventListener("tts-toggle", toggleManualReadAloud)
+    win.removeEventListener("tts-autoplay", autoplayReadAloud)
+    win.removeEventListener("tts-live-start", livePlaybackStarted)
+    win.removeEventListener("tts-live-ended", livePlaybackEnded)
+    playbackCoordinator.stop()
     recognition?.stop()
     win.speechSynthesis?.cancel()
   }

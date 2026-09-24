@@ -1471,6 +1471,22 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     return isLastTextPart()
   })
   const [copied, setCopied] = createSignal(false)
+  let wasStreaming = streaming()
+  let finishedStreaming = false
+  let autoplayDispatched = false
+
+  createEffect(() => {
+    const isStreaming = streaming()
+    if (wasStreaming && !isStreaming) finishedStreaming = true
+    if (finishedStreaming && !isStreaming && interrupted()) autoplayDispatched = true
+    if (finishedStreaming && !isStreaming && !autoplayDispatched && props.message.role === "assistant" && showCopy() && !interrupted()) {
+      autoplayDispatched = true
+      window.dispatchEvent(new CustomEvent("tts-autoplay", {
+        detail: { text: text(), messageId: props.message.id, partId: part().id },
+      }))
+    }
+    wasStreaming = isStreaming
+  })
 
   const handleCopy = async () => {
     const content = text()

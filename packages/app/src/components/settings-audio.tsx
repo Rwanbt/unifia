@@ -246,32 +246,22 @@ function VoiceCloneSection(props: {
   const handleTest = async (voiceName: string) => {
     if (!canClone() || testing()) return
     setTesting(voiceName)
-    try {
-      const wavPath: string = await invokeTauri("tts_speak", {
+    const requestId = crypto.randomUUID()
+    const onPreviewEnded = (event: Event) => {
+      if ((event as CustomEvent<{ id: string }>).detail?.id !== requestId) return
+      window.removeEventListener("tts-preview-ended", onPreviewEnded)
+      setTesting(null)
+    }
+    window.addEventListener("tts-preview-ended", onPreviewEnded)
+    window.dispatchEvent(new CustomEvent("tts-toggle", {
+      detail: {
         text: "Voice test, one two three.",
         voice: voiceName,
         provider: "pocket",
-      })
-      // `convertFileSrc` from the shared speech adapter routes through the
-      // Tauri asset protocol so the file URL actually resolves inside the
-      // webview. Inlining the helper would duplicate the import path;
-      // we intentionally keep it inline to avoid a circular dep into the
-      // speech hook from a settings component.
-      const tauri = (globalThis as any).__TAURI__
-      const url =
-        tauri?.core?.convertFileSrc?.(wavPath) ??
-        (wavPath.startsWith("http") ? wavPath : `file://${wavPath}`)
-      await new Audio(url).play()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      showToast({
-        title: language.t("settings.fork.audio.voiceTestFailed"),
-        description: language.t("settings.fork.audio.voiceTestError", { voice: voiceName, error: msg }),
-        variant: "error",
-      })
-    } finally {
-      setTesting(null)
-    }
+        replacePlayback: true,
+        requestId,
+      },
+    }))
   }
 
   const handleUpload = async () => {
