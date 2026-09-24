@@ -1034,6 +1034,10 @@ export const dict = {
   "settings.providers.tag.other": "其他",
 
   "settings.models.title": "模型",
+  "settings.models.search.placeholder": "搜索…",
+  "settings.models.intro.text": "选择 Unifia 可以使用的模型。本地模型可在 本地 AI → 管理模型 中下载。",
+  "settings.models.count": "{{count}} 个模型",
+  "settings.models.favorite": "收藏 {{model}}",
   "settings.models.description": "模型设置将在此处可配置。",
 
   "settings.agents.title": "智能体",

@@ -442,6 +442,73 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   border-color: var(--accent);
 }
 
+[data-v110="settings-page"] [data-slot="settings-search-field"][data-compact] {
+  width: 180px;
+}
+
+/* .model-provider: a provider head over a ruled grid of models. */
+[data-v110="settings-page"] [data-slot="model-provider"] {
+  margin-bottom: 20px;
+}
+
+[data-v110="settings-page"] [data-slot="model-provider-head"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 10px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="model-provider-head"] > span:last-child {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="provider-logo"][data-small] {
+  width: 24px;
+  height: 24px;
+}
+
+[data-v110="settings-page"] [data-slot="model-grid"] {
+  border-top: 1px solid var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="model-row"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 40px;
+  align-items: center;
+  min-height: 38px;
+  padding-left: 7px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--text);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="model-row"] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="model-row"] [data-component="switch"] {
+  justify-self: center;
+}
+
+[data-v110="settings-page"] [data-slot="model-pin"] {
+  display: grid;
+  place-items: center;
+  height: 38px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+[data-v110="settings-page"] [data-slot="model-pin"]:hover,
+[data-v110="settings-page"] [data-slot="model-pin"][aria-pressed="true"] {
+  color: var(--text);
+}
+
 [data-v110="settings-page"] [data-slot="settings-empty"] {
   padding: 36px 0;
   color: var(--muted);
