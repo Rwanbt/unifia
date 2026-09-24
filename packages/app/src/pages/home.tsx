@@ -15,6 +15,7 @@
 
 import { For, Match, Show, Switch, createMemo, createSignal } from "solid-js"
 import { useNavigate } from "@solidjs/router"
+import { SHELL_MODES, type ShellMode } from "@unifia/workbench-shell/modes"
 import { Button } from "@unifia/ui/button"
 import { Icon } from "@unifia/ui/icon"
 import { Mark } from "@unifia/ui/logo"
@@ -30,7 +31,8 @@ import { useServer } from "@/context/server"
 import { tHome } from "@/i18n/home"
 import { DateTime } from "luxon"
 
-const MODE_PILLS = ["code", "work", "design", "automate", "browser", "memory"] as const
+// Derived from the canonical registry so the home pills cannot drift from it.
+const MODE_PILLS = [...SHELL_MODES, "browser", "memory"] as const
 type ModePill = (typeof MODE_PILLS)[number]
 
 const PILL_LABELS: Record<ModePill, string> = {
@@ -42,7 +44,7 @@ const PILL_LABELS: Record<ModePill, string> = {
   memory: "Memory",
 }
 
-const PILL_TARGET: Record<ModePill, "code" | "work" | "design" | "automate"> = {
+const PILL_TARGET: Record<ModePill, ShellMode> = {
   code: "code",
   work: "work",
   design: "design",
