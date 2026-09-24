@@ -512,6 +512,7 @@ export const dict = {
   "session.messages.loading": "Mesajlar yükleniyor...",
   "session.messages.jumpToLatest": "En sona atla",
   "session.promptIndex.label": "İstemler arasında gezin",
+  "session.promptIndex.goTo": "Go to prompt {{index}}",
   "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "{{selection}} bağlama ekle",
   "session.todo.title": "Görevler",

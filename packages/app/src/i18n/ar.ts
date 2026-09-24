@@ -505,6 +505,7 @@ export const dict = {
   "session.messages.loading": "جارٍ تحميل الرسائل...",
   "session.messages.jumpToLatest": "الانتقال إلى الأحدث",
   "session.promptIndex.label": "التنقل بين المطالبات",
+  "session.promptIndex.goTo": "Go to prompt {{index}}",
   "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "إضافة {{selection}} إلى السياق",
   "session.todo.title": "المهام",

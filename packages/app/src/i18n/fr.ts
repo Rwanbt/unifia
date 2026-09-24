@@ -527,6 +527,7 @@ export const dict = {
   "session.messages.loading": "Chargement des messages...",
   "session.messages.jumpToLatest": "Aller au dernier",
   "session.promptIndex.label": "Naviguer entre les prompts",
+  "session.promptIndex.goTo": "Aller au prompt {{index}}",
   "session.promptIndex.chapter": "Chapitre · {{title}}",
   "session.context.addToContext": "Ajouter {{selection}} au contexte",
   "session.todo.title": "Tâches",

@@ -510,6 +510,7 @@ export const dict = {
   "session.messages.loading": "Cargando mensajes...",
   "session.messages.jumpToLatest": "Ir al último",
   "session.promptIndex.label": "Navegar entre los prompts",
+  "session.promptIndex.goTo": "Go to prompt {{index}}",
   "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "Añadir {{selection}} al contexto",
   "session.todo.title": "Tareas",

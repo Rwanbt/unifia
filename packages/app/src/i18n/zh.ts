@@ -559,6 +559,7 @@ export const dict = {
   "session.messages.loading": "正在加载消息...",
   "session.messages.jumpToLatest": "跳转到最新",
   "session.promptIndex.label": "在提示之间导航",
+  "session.promptIndex.goTo": "Go to prompt {{index}}",
   "session.promptIndex.chapter": "Chapter · {{title}}",
   "session.context.addToContext": "将 {{selection}} 添加到上下文",
   "session.todo.title": "待办事项",

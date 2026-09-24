@@ -563,6 +563,7 @@ export const dict = {
   "session.messages.loading": "Učitavanje poruka...",
   "session.messages.jumpToLatest": "Idi na najnovije",
   "session.promptIndex.label": "Kretanje između upita",
+  "session.promptIndex.goTo": "Go to prompt {{index}}",
   "session.promptIndex.chapter": "Chapter · {{title}}",
 
   "session.context.addToContext": "Dodaj {{selection}} u kontekst",

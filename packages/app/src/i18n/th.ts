@@ -558,6 +558,7 @@ export const dict = {
   "session.messages.loading": "กำลังโหลดข้อความ...",
   "session.messages.jumpToLatest": "ไปที่ล่าสุด",
   "session.promptIndex.label": "นำทางระหว่างพรอมป์ต่าง ๆ",
+  "session.promptIndex.goTo": "Go to prompt {{index}}",
   "session.promptIndex.chapter": "Chapter · {{title}}",
 
   "session.context.addToContext": "เพิ่ม {{selection}} ไปยังบริบท",
