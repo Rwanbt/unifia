@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import { createVoiceRegistry, resolveSpeechLanguage, resolveTtsProviders } from "../src/speech"
 

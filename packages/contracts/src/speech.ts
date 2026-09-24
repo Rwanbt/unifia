@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /** Stable, provider-neutral speech contracts shared by the app and runtimes. */
 
 export const speechLanguages = ["en", "fr", "es", "it", "de"] as const
