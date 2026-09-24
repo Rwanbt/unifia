@@ -539,8 +539,8 @@ fn set_display_backend(_app: AppHandle, _backend: LinuxDisplayBackend) -> Result
 }
 
 #[cfg(target_os = "linux")]
-fn check_linux_app(app_name: &str) -> bool {
-    return true;
+fn check_linux_app(_app_name: &str) -> bool {
+    true
 }
 
 /// Read the current CPU thermal state from the OS.

@@ -14,7 +14,9 @@ pub struct TlsCerts {
     /// `--ignore-certificate-errors-spki-list=<b64>` flag — we pass this to
     /// WebView2 so the app's own WS upgrades (`wss://127.0.0.1:PORT/...`)
     /// can succeed against the self-signed loopback cert without blanket
-    /// cert-error ignore. Rotating the cert rotates this hash.
+    /// cert-error ignore. Rotating the cert rotates this hash. Only the
+    /// Windows WebView2 launch reads it.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub spki_hash_b64: String,
 }
 
