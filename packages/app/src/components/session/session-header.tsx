@@ -7,7 +7,8 @@ import { Keybind } from "@unifia/ui/keybind"
 import { Spinner } from "@unifia/ui/spinner"
 import { showToast } from "@unifia/ui/toast"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, For, onCleanup, onMount, Show } from "solid-js"
+import { createHoverIntent } from "@/shell/hover-intent"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
@@ -209,6 +210,39 @@ export function SessionHeader() {
     if (!id) return
     focusTerminalById(id)
   }
+
+  // #topTerminalBtn: hovering reveals the terminal for a peek, a click keeps
+  // it (the reference's 205ms rest, v87 terminal hover).
+  const terminalHover = createHoverIntent({
+    open: () => view().terminal.open(),
+    close: () => view().terminal.close(),
+    isOpen: () => view().terminal.opened(),
+    openDelay: 205,
+  })
+  const clickTerminal = () => {
+    if (terminalHover.peeking()) {
+      terminalHover.pin()
+      return
+    }
+    toggleTerminal()
+  }
+  // The terminal panel belongs to another component; delegation keeps the
+  // hover corridor from the button into it.
+  onMount(() => {
+    const inPanel = (event: Event) => event.target instanceof Element && event.target.closest("#terminal-panel")
+    const enter = (event: Event) => {
+      if (inPanel(event)) terminalHover.enterPanel()
+    }
+    const leave = (event: Event) => {
+      if (inPanel(event)) terminalHover.leavePanel()
+    }
+    document.addEventListener("pointerenter", enter, true)
+    document.addEventListener("pointerleave", leave, true)
+    onCleanup(() => {
+      document.removeEventListener("pointerenter", enter, true)
+      document.removeEventListener("pointerleave", leave, true)
+    })
+  })
 
   const [prefs, setPrefs] = persisted(Persist.global("open.app"), createStore({ app: "finder" as OpenApp }))
   const [menu, setMenu] = createStore({ open: false })
@@ -447,7 +481,9 @@ export function SessionHeader() {
                       variant="ghost"
                       data-v110="top-terminal"
                       class="group/terminal-toggle titlebar-icon w-8 h-[31px] p-0 box-border shrink-0"
-                      onClick={toggleTerminal}
+                      onClick={clickTerminal}
+                      onPointerEnter={terminalHover.enterTrigger}
+                      onPointerLeave={terminalHover.leaveTrigger}
                       aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
                       aria-expanded={view().terminal.opened()}
                       aria-controls="terminal-panel"
