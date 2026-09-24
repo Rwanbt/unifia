@@ -75,7 +75,10 @@ function fadeGhost(copy: HTMLElement | undefined, drop: number, duration: number
     easing: OUT_EASE,
     fill: "forwards",
   })
-  if (!animation) return copy.remove()
+  if (!animation) {
+    copy.remove()
+    return
+  }
   animation.finished.finally(() => copy.remove()).catch(() => copy.remove())
 }
 
@@ -138,7 +141,10 @@ function play(before: Snapshot): void {
  * frames for the new surface to be in the DOM.
  */
 export function withModeMotion(change: () => void): void {
-  if (!enabled()) return change()
+  if (!enabled()) {
+    change()
+    return
+  }
   const before = capture()
   change()
   requestAnimationFrame(() => requestAnimationFrame(() => play(before)))

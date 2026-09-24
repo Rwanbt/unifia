@@ -25,7 +25,6 @@ export interface SessionSidePanelSectionProps {
   reviewPanel: () => JSX.Element
   activeDiff: string | undefined
   focusReviewDiff: (path: string) => void
-  reviewSnap: boolean
   size: Sizing
   sessionId: string | undefined
   /** Rewinds the session to just before a user turn (Code inspector History). */
@@ -45,7 +44,6 @@ export function SessionSidePanelSection(props: SessionSidePanelSectionProps) {
       reviewPanel={props.reviewPanel}
       activeDiff={props.activeDiff}
       focusReviewDiff={props.focusReviewDiff}
-      reviewSnap={props.reviewSnap}
       size={props.size}
       sessionId={props.sessionId}
       revert={props.revert}

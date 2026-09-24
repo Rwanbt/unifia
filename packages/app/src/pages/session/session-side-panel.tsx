@@ -51,7 +51,6 @@ export function SessionSidePanel(props: {
   reviewPanel: () => JSX.Element
   activeDiff?: string
   focusReviewDiff: (path: string) => void
-  reviewSnap: boolean
   size: Sizing
   sessionId?: string
   revert: (messageID: string) => void
@@ -321,7 +320,7 @@ export function SessionSidePanel(props: {
       onPointerLeave={layout.hover.inspector.leavePanel}
       aria-hidden={!inspectorVisible()}
       inert={!inspectorVisible()}
-      data-resizing={props.size.active() || props.reviewSnap ? "" : undefined}
+      data-resizing={props.size.active() ? "" : undefined}
       class="relative min-w-0 flex shrink-0 overflow-hidden bg-background-base"
       classList={{
         // Desktop: side panel with horizontal width transition

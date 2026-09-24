@@ -7,7 +7,6 @@ import { getFilename } from "@unifia/util/path"
 import { getWorkerPool } from "@unifia/ui/pierre/worker"
 import { useMutation } from "@tanstack/solid-query"
 import {
-  onCleanup,
   Show,
   Match,
   Switch,
@@ -140,7 +139,6 @@ export default function Page() {
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
-    reviewSnap: false,
     scrollGesture: 0,
     scroll: {
       overflow: false,
@@ -404,7 +402,6 @@ export default function Page() {
     return key
   }, sessionKey())
 
-  let reviewFrame: number | undefined
   const { resetVcs, loadVcs } = createVcsHelpers({ sync, vcs, setVcs, sdk })
 
   const refreshVcs = () => {
@@ -414,19 +411,6 @@ export default function Page() {
     if (!untrack(wantsReview)) return
     void loadVcs(mode, true)
   }
-
-  createComputed((prev) => {
-    const open = desktopInspectorWide()
-    if (prev === undefined || prev === open) return open
-
-    if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
-    setUi("reviewSnap", true)
-    reviewFrame = requestAnimationFrame(() => {
-      reviewFrame = undefined
-      setUi("reviewSnap", false)
-    })
-    return open
-  }, desktopInspectorWide())
 
   const turnDiffs = createMemo(() => lastUserMessage()?.summary?.diffs ?? [])
   const changesOptions = createMemo<ChangeMode[]>(() => {
@@ -965,9 +949,6 @@ export default function Page() {
     else warmUnifiedWorkerPool()
   })
 
-  onCleanup(() => {
-    if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
-  })
 
   // Reference `.mode-chat-head`'s scope badge: project name plus the active
   // branch, read from the same sources session-new-view.tsx already uses so
@@ -1018,7 +999,7 @@ export default function Page() {
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
             "transition-[width,margin] duration-[620ms] ease-[cubic-bezier(0.18,0.84,0.22,1)] will-change-[width,margin] motion-reduce:transition-none":
-              !size.active() && !ui.reviewSnap,
+              !size.active(),
           }}
           style={{
             width: sessionPanelWidth(),
@@ -1208,7 +1189,6 @@ export default function Page() {
           reviewPanel={reviewPanel}
           activeDiff={tree.activeDiff}
           focusReviewDiff={focusReviewDiff}
-          reviewSnap={ui.reviewSnap}
           size={size}
           sessionId={params.id}
           revert={(messageID) => {

@@ -337,6 +337,7 @@ export function Titlebar() {
         <Tooltip placement="bottom" value={language.t("command.inspector.toggle")}>
           <Button
             variant="ghost"
+            data-v110="inspector-toggle"
             class="titlebar-icon rounded-md shrink-0 w-8 h-[31px] p-0 box-border"
             onPointerEnter={layout.hover.inspector.enterTrigger}
             onPointerLeave={layout.hover.inspector.leaveTrigger}
