@@ -1,4 +1,4 @@
-import { createEffect, createMemo, For, Show, type Accessor, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, type Accessor, type JSX } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
@@ -6,6 +6,8 @@ import type { WorkspaceDestination } from "@/context/mode-directory"
 import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 import { useLanguage } from "@/context/language"
 import { modeIcon, PILL_DESTINATIONS } from "@/shell/v110-destinations"
+import { AccountQuickMenu } from "@/shell/account-quick-menu"
+import { createHoverIntent } from "@/shell/hover-intent"
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -49,6 +51,26 @@ export const SidebarContent = (props: {
       return
     }
     el.setAttribute("inert", "")
+  })
+
+  // #userBtn: hovering the avatar opens the account quick menu (ADR-056).
+  let accountButton: HTMLButtonElement | undefined
+  const [quickOpen, setQuickOpen] = createSignal(false)
+  const accountHover = createHoverIntent({
+    open: () => setQuickOpen(true),
+    close: () => setQuickOpen(false),
+    isOpen: quickOpen,
+  })
+  const closeQuick = () => {
+    accountHover.reset()
+    setQuickOpen(false)
+  }
+  onMount(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && quickOpen()) closeQuick()
+    }
+    document.addEventListener("keydown", closeOnEscape)
+    onCleanup(() => document.removeEventListener("keydown", closeOnEscape))
   })
 
   return (
@@ -227,11 +249,33 @@ export const SidebarContent = (props: {
               sun/moon icons) and opens Settings, the nearest real destination
               -- honest about being an entry point, not a pretend account
               switcher. */}
+          <AccountQuickMenu
+            open={quickOpen()}
+            anchor={() => accountButton}
+            onAccount={() => {
+              closeQuick()
+              props.onOpenAccount()
+            }}
+            onSettings={() => {
+              closeQuick()
+              props.onOpenSettings()
+            }}
+            onPointerEnter={accountHover.enterPanel}
+            onPointerLeave={accountHover.leavePanel}
+          />
           <Tooltip placement={placement()} value={props.accountLabel()}>
             <button
+              ref={accountButton}
               type="button"
               class="size-8 shrink-0 rounded-full border border-border-strong-base bg-surface-raised-base grid place-items-center text-icon-weak hover:text-icon-strong hover:bg-surface-raised-base-active transition-colors"
-              onClick={props.onOpenAccount}
+              onPointerEnter={accountHover.enterTrigger}
+              onPointerLeave={accountHover.leaveTrigger}
+              aria-haspopup="menu"
+              aria-expanded={quickOpen()}
+              onClick={() => {
+                closeQuick()
+                props.onOpenAccount()
+              }}
               aria-label={props.accountLabel()}
               aria-pressed={props.activeDestination() === "user"}
               classList={{
