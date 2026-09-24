@@ -28,6 +28,10 @@ type Options = {
   isOpen: () => boolean
   openDelay?: number
   closeDelay?: number
+  /** Whether the pointer is really over the trigger or the panel (`:hover`),
+   * checked before closing: an element re-rendered under a still pointer can
+   * fire a spurious leave. */
+  hovered?: () => boolean
 }
 
 export function createHoverIntent(options: Options): HoverIntent {
@@ -46,7 +50,7 @@ export function createHoverIntent(options: Options): HoverIntent {
     clearTimeout(openTimer)
     clearTimeout(closeTimer)
     closeTimer = setTimeout(() => {
-      if (!peek || onTrigger || onPanel) return
+      if (!peek || onTrigger || onPanel || options.hovered?.()) return
       peek = false
       options.close()
     }, options.closeDelay ?? HOVER_CLOSE_DELAY)

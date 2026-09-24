@@ -212,12 +212,18 @@ export function SessionHeader() {
   }
 
   // #topTerminalBtn: hovering reveals the terminal for a peek, a click keeps
-  // it (the reference's 205ms rest, v87 terminal hover).
+  // it (the reference's 205ms rest, v87 terminal hover). The terminal sits at
+  // the bottom of the editor card, far below the button: the whole card
+  // counts as the panel, so the pointer can travel down to the terminal and
+  // use it without the peek closing on the way.
+  const TERMINAL_ZONE = '[data-component="session-editor-surface"], #terminal-panel'
   const terminalHover = createHoverIntent({
     open: () => view().terminal.open(),
     close: () => view().terminal.close(),
     isOpen: () => view().terminal.opened(),
     openDelay: 205,
+    hovered: () =>
+      !!document.querySelector('[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover'),
   })
   const clickTerminal = () => {
     if (terminalHover.peeking()) {
@@ -229,7 +235,7 @@ export function SessionHeader() {
   // The terminal panel belongs to another component; delegation keeps the
   // hover corridor from the button into it.
   onMount(() => {
-    const inPanel = (event: Event) => event.target instanceof Element && event.target.closest("#terminal-panel")
+    const inPanel = (event: Event) => event.target instanceof Element && event.target.matches(TERMINAL_ZONE)
     const enter = (event: Event) => {
       if (inPanel(event)) terminalHover.enterPanel()
     }
