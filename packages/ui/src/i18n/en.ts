@@ -153,6 +153,8 @@ export const dict: Record<string, string> = {
   "ui.message.pinChapter": "Pin as chapter",
   "ui.message.unpinChapter": "Remove chapter",
   "ui.message.chapter": "Chapter",
+  "ui.message.usage.title": "Usage",
+  "ui.message.usage.seconds": "{{count}} s",
   "ui.message.comingSoon": "Coming soon",
   "ui.tool.status.completed": "Done",
   "ui.tool.status.running": "Running",

@@ -140,6 +140,8 @@ export const dict = {
   "ui.message.pinChapter": "固定为章节",
   "ui.message.unpinChapter": "Remove chapter",
   "ui.message.chapter": "Chapter",
+  "ui.message.usage.title": "Usage",
+  "ui.message.usage.seconds": "{{count}} s",
   "ui.message.comingSoon": "即将推出",
   "ui.sessionTurn.diffs.changed.one": "已更改 {{count}} 个文件",
   "ui.sessionTurn.diffs.changed.other": "已更改 {{count}} 个文件",

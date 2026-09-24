@@ -140,6 +140,8 @@ export const dict = {
   "ui.message.pinChapter": "Prikači kao poglavlje",
   "ui.message.unpinChapter": "Remove chapter",
   "ui.message.chapter": "Chapter",
+  "ui.message.usage.title": "Usage",
+  "ui.message.usage.seconds": "{{count}} s",
   "ui.message.comingSoon": "Uskoro",
   "ui.sessionTurn.diffs.changed.one": "{{count}} izmijenjena datoteka",
   "ui.sessionTurn.diffs.changed.other": "{{count}} izmijenjenih datoteka",

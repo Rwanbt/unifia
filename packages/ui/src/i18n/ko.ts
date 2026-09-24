@@ -136,6 +136,8 @@ export const dict = {
   "ui.message.pinChapter": "챕터로 고정",
   "ui.message.unpinChapter": "Remove chapter",
   "ui.message.chapter": "Chapter",
+  "ui.message.usage.title": "Usage",
+  "ui.message.usage.seconds": "{{count}} s",
   "ui.message.comingSoon": "곧 제공 예정",
   "ui.sessionTurn.diffs.changed.one": "파일 {{count}}개 변경",
   "ui.sessionTurn.diffs.changed.other": "파일 {{count}}개 변경",

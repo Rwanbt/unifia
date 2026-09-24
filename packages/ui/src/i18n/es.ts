@@ -136,6 +136,8 @@ export const dict = {
   "ui.message.pinChapter": "Fijar como capítulo",
   "ui.message.unpinChapter": "Remove chapter",
   "ui.message.chapter": "Chapter",
+  "ui.message.usage.title": "Usage",
+  "ui.message.usage.seconds": "{{count}} s",
   "ui.message.comingSoon": "Próximamente",
   "ui.sessionTurn.diffs.changed.one": "{{count}} archivo modificado",
   "ui.sessionTurn.diffs.changed.other": "{{count}} archivos modificados",

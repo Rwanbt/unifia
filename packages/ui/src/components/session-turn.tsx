@@ -11,6 +11,7 @@ import { Dynamic } from "solid-js/web"
 import { partDomain, type ObservabilityFilter } from "./chat-observability"
 import { AssistantParts, Message, MessageDivider, PART_MAPPING, type UserActions } from "./message-part"
 import { ChapterLabel } from "./message-actions"
+import { TurnUsageStep } from "./turn-usage"
 import { useChapters } from "../context/chapters"
 import { Card } from "./card"
 import { Accordion } from "./accordion"
@@ -448,6 +449,9 @@ export function SessionTurn(
                           shellToolDefaultOpen={props.shellToolDefaultOpen}
                           editToolDefaultOpen={props.editToolDefaultOpen}
                         />
+                        <Show when={!working() && (props.observability?.("usage") ?? true)}>
+                          <TurnUsageStep messages={assistantMessages()} durationMs={turnDurationMs()} />
+                        </Show>
                       </div>
                     </Show>
                     <Show when={showThinking()}>
