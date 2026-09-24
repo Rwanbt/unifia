@@ -1571,6 +1571,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "Najbolji rezultat po modelu",
   "settings.fork.benchmark.history": "Historija pokretanja",
   "settings.fork.observability.title": "Nadzor",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "Osvježi",
   "settings.fork.observability.dataScope": "Obim podataka",
   "settings.fork.observability.capture": "Snimanje",

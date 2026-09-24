@@ -1495,6 +1495,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "Model başına en iyi sonuç",
   "settings.fork.benchmark.history": "Çalıştırma geçmişi",
   "settings.fork.observability.title": "Gözlemlenebilirlik",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "Yenile",
   "settings.fork.observability.dataScope": "Veri kapsamı",
   "settings.fork.observability.capture": "Yakalama",

@@ -1489,6 +1489,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "모델당 최고 결과",
   "settings.fork.benchmark.history": "실행 기록",
   "settings.fork.observability.title": "관측 가능성",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "새로 고침",
   "settings.fork.observability.dataScope": "데이터 범위",
   "settings.fork.observability.capture": "캡처",

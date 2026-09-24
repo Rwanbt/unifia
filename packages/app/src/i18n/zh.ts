@@ -1557,6 +1557,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "每个模型的最佳结果",
   "settings.fork.benchmark.history": "运行历史",
   "settings.fork.observability.title": "可观测性",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "刷新",
   "settings.fork.observability.dataScope": "数据范围",
   "settings.fork.observability.capture": "捕获",

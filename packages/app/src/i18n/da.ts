@@ -1565,6 +1565,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "Bedste resultat pr. model",
   "settings.fork.benchmark.history": "Kørselshistorik",
   "settings.fork.observability.title": "Observerbarhed",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "Opdater",
   "settings.fork.observability.dataScope": "Dataområde",
   "settings.fork.observability.capture": "Optagelse",

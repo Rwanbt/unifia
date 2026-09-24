@@ -1380,6 +1380,83 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   cursor: not-allowed;
 }
 
+/* .obs-tabs: a text-only strip of sub-pages. */
+[data-v110="settings-page"] [data-slot="settings-subtabs"] {
+  display: flex;
+  gap: 3px;
+  margin: 16px 0;
+  padding-bottom: 7px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-subtabs"] button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-subtabs"] button:hover {
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="settings-subtabs"] button[aria-selected="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--text);
+}
+
+/* .health-grid: ruled counters, label over value. */
+[data-v110="settings-page"] [data-slot="settings-health-grid"] {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line);
+}
+
+[data-v110="settings-page"] [data-slot="settings-health-grid"] > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 58px;
+  padding: 10px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-health-grid"] b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+[data-v110="settings-page"] [data-slot="settings-health-grid"] span {
+  color: var(--text);
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-note"][data-flush] {
+  margin-top: 0;
+}
+
+/* A destructive action row: scope, typed confirmation, red action. */
+[data-v110="settings-page"] [data-slot="settings-danger-row"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 2px;
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;
@@ -1396,7 +1473,7 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
 [data-v110="settings-page"] [data-slot="settings-note"] {
   margin: 9px 4px 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.45;
 }
 

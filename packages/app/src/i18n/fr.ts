@@ -1406,6 +1406,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "Meilleur résultat par modèle",
   "settings.fork.benchmark.history": "Historique des exécutions",
   "settings.fork.observability.title": "Observabilité",
+  "settings.observability.intro": "Comprendre ce qui s’exécute, combien cela coûte et diagnostiquer les problèmes sans exposer le contenu de tes conversations.",
   "settings.fork.observability.refresh": "Actualiser",
   "settings.fork.observability.dataScope": "Portée des données",
   "settings.fork.observability.capture": "Capture",

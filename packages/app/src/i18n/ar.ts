@@ -1483,6 +1483,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "أفضل نتيجة لكل نموذج",
   "settings.fork.benchmark.history": "سجل التشغيلات",
   "settings.fork.observability.title": "المراقبة",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "تحديث",
   "settings.fork.observability.dataScope": "نطاق البيانات",
   "settings.fork.observability.capture": "التقاط",

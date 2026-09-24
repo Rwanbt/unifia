@@ -1561,6 +1561,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "ผลลัพธ์ที่ดีที่สุดต่อโมเดล",
   "settings.fork.benchmark.history": "ประวัติการเรียกใช้",
   "settings.fork.observability.title": "การสังเกตการณ์ (Observability)",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "รีเฟรช",
   "settings.fork.observability.dataScope": "ขอบเขตข้อมูล",
   "settings.fork.observability.capture": "การจับภาพ",

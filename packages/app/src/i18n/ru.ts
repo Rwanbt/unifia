@@ -1498,6 +1498,7 @@ export const dict = {
   "settings.fork.benchmark.bestResult": "Лучший результат по моделям",
   "settings.fork.benchmark.history": "История запусков",
   "settings.fork.observability.title": "Наблюдаемость",
+  "settings.observability.intro": "Understand what runs, what it costs and diagnose problems without exposing the content of your conversations.",
   "settings.fork.observability.refresh": "Обновить",
   "settings.fork.observability.dataScope": "Объём данных",
   "settings.fork.observability.capture": "Захват",
