@@ -14,10 +14,9 @@ import { SettingsModels } from "./settings-models"
 import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsPlugins } from "./settings-plugins"
-import { SettingsAndroid } from "./settings-android"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
-import { SettingsRemoteAccess } from "./settings-remote-access"
+import { SettingsCompute } from "./settings-compute"
 import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
 import { SettingsCommandBar } from "./settings-command-bar"
 import { SettingsScopeProvider } from "./settings-scope"
@@ -108,14 +107,7 @@ function settingsGroups(
           id: "remote",
           icon: "compute",
           label: language.t("settings.tab.compute"),
-          render: () => (
-            <>
-              <SettingsRemoteAccess />
-              <Show when={platform.os === "android"}>
-                <SettingsAndroid />
-              </Show>
-            </>
-          ),
+          render: () => <SettingsCompute />,
         },
         {
           id: "account",

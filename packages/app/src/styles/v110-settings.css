@@ -326,6 +326,11 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   line-height: normal;
 }
 
+/* The reference's pages set text at line-height normal, not the app's 1.5. */
+[data-v110="settings-page"] {
+  line-height: normal;
+}
+
 /* .settings-page-head: title (and muted subtitle) left, actions right. */
 [data-v110="settings-page"] [data-slot="settings-page-head"] {
   display: flex;
@@ -874,6 +879,275 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   display: block;
   color: var(--muted);
   font-size: 8px;
+}
+
+/* Compute (compute32): hero, device grid, connect cards. */
+[data-v110="settings-page"] [data-slot="compute-icon"] {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="settings-page"] [data-slot="compute-hero"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+[data-v110="settings-page"] :is(
+    [data-slot="compute-card"],
+    [data-slot="compute-policy"],
+    [data-slot="compute-device"],
+    [data-slot="compute-add"]
+  ) {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="compute-card"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-auto-icon"] {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="compute-copy"] {
+  flex: 1;
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="compute-copy"] b {
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-copy"] p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy"] {
+  padding: 13px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy"][data-soon] > * {
+  opacity: 0.55;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy"] h4 {
+  margin: 0 0 9px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy-row"] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-policy-row"] span {
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="compute-section-head"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-section-head"] h3 {
+  margin: 0;
+}
+
+[data-v110="settings-page"] [data-slot="compute-section-head"] [data-component="button"] {
+  margin-left: auto;
+}
+
+[data-v110="settings-page"] [data-slot="compute-count"] {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] :is([data-slot="compute-grid"], [data-slot="compute-add-grid"]) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device"] {
+  min-width: 0;
+  padding: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-head"] {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-icon"] {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-copy"] {
+  flex: 1;
+  min-width: 0;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-copy"] b {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-copy"] span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-state"] {
+  color: var(--success);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="compute-state"][data-offline] {
+  color: var(--muted);
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] > div {
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--faint);
+}
+
+[data-v110="settings-page"] [data-slot="compute-meta"] b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] button {
+  height: 29px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+[data-v110="settings-page"] [data-slot="compute-device-actions"] button[data-primary] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] {
+  padding: 12px;
+  color: var(--text);
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] [data-slot="compute-icon"] {
+  margin-bottom: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] b {
+  display: block;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="compute-add"] p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+[data-v110="settings-page"] [data-slot="compute-note"] {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+[data-v110="settings-page"] [data-slot="compute-note"] b {
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] :is([data-slot="compute-hero"], [data-slot="compute-grid"], [data-slot="compute-add-grid"]) {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* .muted-badge: a small grey status chip beside a control. */

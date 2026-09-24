@@ -252,11 +252,7 @@ export const SettingsRemoteAccess: Component = () => {
 
   return (
     <Show when={platform.getRemoteAccess}>
-      <div class="flex flex-col gap-1">
-        <h3 class="text-14-medium text-text-strong pb-2">
-          {language.t("settings.desktop.section.remote")}
-        </h3>
-
+      <>
         <SettingsList>
           <SettingsRow
             title={language.t("settings.desktop.remote.mode.title")}
@@ -292,22 +288,12 @@ export const SettingsRemoteAccess: Component = () => {
                 <span class="text-12-regular text-text-weak font-mono select-all">
                   {info() ? (reveal() ? info()!.password : maskedPassword(info()!.password)) : "…"}
                 </span>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={() => setReveal(!reveal())}
-                  disabled={!info()}
-                >
+                <Button variant="secondary" size="small" onClick={() => setReveal(!reveal())} disabled={!info()}>
                   {reveal()
                     ? language.t("settings.desktop.remote.password.hide")
                     : language.t("settings.desktop.remote.password.reveal")}
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={onResetPassword}
-                  disabled={busy() || !info()}
-                >
+                <Button variant="secondary" size="small" onClick={onResetPassword} disabled={busy() || !info()}>
                   {language.t("settings.desktop.remote.password.reset")}
                 </Button>
                 <Button
@@ -327,7 +313,9 @@ export const SettingsRemoteAccess: Component = () => {
               <Show when={editingCredentials()}>
                 <div class="flex flex-col gap-1.5 rounded-md border border-border-weak-base bg-[var(--surface-panel)] p-2">
                   <div class="flex items-center gap-2">
-                    <span class="text-11-regular text-text-weak w-20 shrink-0">{language.t("settings.fork.remote.username")}</span>
+                    <span class="text-11-regular text-text-weak w-20 shrink-0">
+                      {language.t("settings.fork.remote.username")}
+                    </span>
                     <input
                       class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
                       value={editUsername()}
@@ -338,7 +326,9 @@ export const SettingsRemoteAccess: Component = () => {
                     />
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="text-11-regular text-text-weak w-20 shrink-0">{language.t("settings.fork.remote.password")}</span>
+                    <span class="text-11-regular text-text-weak w-20 shrink-0">
+                      {language.t("settings.fork.remote.password")}
+                    </span>
                     <input
                       class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
                       value={editPassword()}
@@ -379,13 +369,10 @@ export const SettingsRemoteAccess: Component = () => {
                   </span>
                 }
               >
-                <span class="text-12-regular font-mono text-text-strong select-all">
-                  {connectionUrl()}
-                </span>
+                <span class="text-12-regular font-mono text-text-strong select-all">{connectionUrl()}</span>
               </Show>
             </SettingsRow>
           </Show>
-
 
           {/* Internet (TLS) mode — certificate management */}
           <Show when={mode() === "internet"}>
@@ -402,12 +389,7 @@ export const SettingsRemoteAccess: Component = () => {
               title={language.t("settings.desktop.remote.tls.export.button")}
               description={language.t("settings.desktop.remote.tls.export.description")}
             >
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={onExportCert}
-                disabled={busy()}
-              >
+              <Button variant="secondary" size="small" onClick={onExportCert} disabled={busy()}>
                 {language.t("settings.desktop.remote.tls.export.button")}
               </Button>
             </SettingsRow>
@@ -416,12 +398,7 @@ export const SettingsRemoteAccess: Component = () => {
               title={language.t("settings.desktop.remote.tls.rotate.button")}
               description={language.t("settings.desktop.remote.tls.rotate.description")}
             >
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={onRotateCert}
-                disabled={busy()}
-              >
+              <Button variant="secondary" size="small" onClick={onRotateCert} disabled={busy()}>
                 {language.t("settings.desktop.remote.tls.rotate.button")}
               </Button>
             </SettingsRow>
@@ -430,21 +407,14 @@ export const SettingsRemoteAccess: Component = () => {
               title={language.t("settings.desktop.remote.tls.portForward.title")}
               description={language.t("settings.desktop.remote.tls.portForward.description")}
             >
-              <span class="text-12-regular font-mono text-text-strong select-all">
-                {info()?.port ?? "…"}
-              </span>
+              <span class="text-12-regular font-mono text-text-strong select-all">{info()?.port ?? "…"}</span>
             </SettingsRow>
 
             <SettingsRow
               title={language.t("settings.desktop.remote.tls.android.title")}
               description={language.t("settings.desktop.remote.tls.android.description")}
             >
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={onExportCert}
-                disabled={busy()}
-              >
+              <Button variant="secondary" size="small" onClick={onExportCert} disabled={busy()}>
                 {language.t("settings.desktop.remote.tls.export.button")}
               </Button>
             </SettingsRow>
@@ -474,43 +444,31 @@ export const SettingsRemoteAccess: Component = () => {
                   innerHTML={qrSvg()!}
                 />
                 <Show when={connectionUrl()}>
-                  <span class="text-10-regular text-text-weak font-mono truncate max-w-[176px]">
-                    {connectionUrl()}
-                  </span>
+                  <span class="text-10-regular text-text-weak font-mono truncate max-w-[176px]">{connectionUrl()}</span>
                 </Show>
               </div>
             </Show>
           </SettingsRow>
         </SettingsList>
 
-        <div class="flex flex-col gap-1 pt-2">
-          <Show when={dirty()}>
-            <span class="text-12-regular text-text-accent">
-              {language.t("settings.desktop.remote.restartRequired")}
-            </span>
-          </Show>
-          <Show when={mode() === "internet"}>
-            <span class="text-11-regular text-text-weak">
-              {language.t("settings.desktop.remote.warning.internet")}
-            </span>
-          </Show>
-          <Show when={mode() === "lan"}>
-            <span class="text-11-regular text-text-weak">
-              {language.t("settings.desktop.remote.warning")}
-            </span>
-          </Show>
-          <Show when={(mode() === "lan" || mode() === "internet") && navigator.platform.toLowerCase().includes("win")}>
-            <span class="text-11-regular text-text-weak">
-              {language.t("settings.desktop.remote.warning.firewall")}
-            </span>
-          </Show>
-          <Show when={(mode() === "lan" || mode() === "internet") && !info()?.lanIp}>
-            <span class="text-11-regular text-text-accent">
-              {language.t("settings.desktop.remote.connection.manualHint")}
-            </span>
-          </Show>
-        </div>
-      </div>
+        <Show when={dirty()}>
+          <p data-slot="settings-note" data-tone="warning">
+            {language.t("settings.desktop.remote.restartRequired")}
+          </p>
+        </Show>
+        <Show when={mode() === "internet"}>
+          <p data-slot="settings-note">{language.t("settings.desktop.remote.warning.internet")}</p>
+        </Show>
+        <Show when={mode() === "lan"}>
+          <p data-slot="settings-note">{language.t("settings.desktop.remote.warning")}</p>
+        </Show>
+        <Show when={(mode() === "lan" || mode() === "internet") && navigator.platform.toLowerCase().includes("win")}>
+          <p data-slot="settings-note">{language.t("settings.desktop.remote.warning.firewall")}</p>
+        </Show>
+        <Show when={(mode() === "lan" || mode() === "internet") && !info()?.lanIp}>
+          <p data-slot="settings-note">{language.t("settings.desktop.remote.connection.manualHint")}</p>
+        </Show>
+      </>
     </Show>
   )
 }
