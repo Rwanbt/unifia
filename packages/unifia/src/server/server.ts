@@ -19,6 +19,7 @@ import { InstanceRoutes } from "./instance"
 import { initProjectors } from "./projectors"
 import { initShadowDaemon } from "../collective/shadow-integration"
 import { createWorkbenchBridge } from "./workbench"
+import { VoiceLiveRoutes } from "./routes/voice-live"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -137,6 +138,7 @@ export namespace Server {
       })
       .route("/collab", AuthRoutes())
       .route("/global", GlobalRoutes())
+      .route("/voice/live", VoiceLiveRoutes())
       .put(
         "/auth/:providerID",
         describeRoute({
