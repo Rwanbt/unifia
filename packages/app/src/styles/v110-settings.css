@@ -13,8 +13,10 @@
  * them inert; they are removed. */
 
 /* Frame -- maquette #settingsIntegrated (ADR-047), measured at 1440x900.
- * The palette is the reference's, carried by the frame like the chat's. */
-[data-v110="settings-frame"] {
+ * The palette is the reference's, carried by the frame like the chat's.
+ * The account centre (ADR-051) shares it. */
+[data-v110="settings-frame"],
+[data-v110="account-frame"] {
   --bg: #0e0e10;
   --bg-soft: #121214;
   --surface: #161618;
@@ -41,7 +43,8 @@
   color: var(--text);
 }
 
-html[data-color-scheme="light"] [data-v110="settings-frame"] {
+html[data-color-scheme="light"] [data-v110="settings-frame"],
+html[data-color-scheme="light"] [data-v110="account-frame"] {
   --bg: #ffffff;
   --bg-soft: #f8f8f9;
   --surface: #ffffff;
@@ -2636,21 +2639,24 @@ html[data-ui-animations="off"] [data-v110="chat-observability"] * {
 /* Settings switches -- maquette .ui-toggle: a 31x18 pill, filled with the
  * accent when on (ADR-048).
  * The ui Switch keeps the square OpenCode shape elsewhere. */
-[data-v110="settings-dialog"] [data-component="switch"] {
+[data-v110="settings-dialog"] [data-component="switch"],
+[data-v110="account-frame"] [data-component="switch"] {
   --v110-toggle-off: #26262b;
   --v110-toggle-line: rgba(255, 255, 255, 0.13);
   --v110-toggle-knob: #9b9ba1;
   --v110-toggle-knob-on: #0e0e10;
 }
 
-html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="switch"] {
+html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="switch"],
+html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="switch"] {
   --v110-toggle-off: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
   --v110-toggle-line: rgba(0, 0, 0, 0.12);
   --v110-toggle-knob: #686870;
   --v110-toggle-knob-on: #ffffff;
 }
 
-[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-control"] {
+[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-control"],
+[data-v110="account-frame"] [data-component="switch"] [data-slot="switch-control"] {
   width: 31px;
   height: 18px;
   padding: 0 2px;
@@ -2659,7 +2665,8 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
   background: var(--v110-toggle-off);
 }
 
-[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-thumb"] {
+[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-thumb"],
+[data-v110="account-frame"] [data-component="switch"] [data-slot="switch-thumb"] {
   width: 12px;
   height: 12px;
   border: 0;
@@ -2669,12 +2676,14 @@ html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="s
   transform: translateX(0);
 }
 
-[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-control"] {
+[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-control"],
+[data-v110="account-frame"] [data-component="switch"][data-checked] [data-slot="switch-control"] {
   border-color: var(--accent);
   background: var(--accent);
 }
 
-[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-thumb"] {
+[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-thumb"],
+[data-v110="account-frame"] [data-component="switch"][data-checked] [data-slot="switch-thumb"] {
   background: var(--v110-toggle-knob-on);
   transform: translateX(13px);
 }

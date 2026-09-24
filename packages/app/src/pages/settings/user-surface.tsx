@@ -1,90 +1,117 @@
 /* SPDX-License-Identifier: MIT */
 
-import { For, Show, createSignal, type JSX } from "solid-js"
-import { IconButton } from "@unifia/ui/icon-button"
+// The account centre -- the reference's `user` destination (ADR-051): a
+// sidebar with the identity and four pages. The pages live in
+// components/account/ and read one shared useAccount().
+
+import { For, Match, Suspense, Switch, createSignal, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { AccountOrganisations } from "@/components/account/account-organisations"
+import { AccountOverview } from "@/components/account/account-overview"
+import { AccountPersonal } from "@/components/account/account-personal"
+import { AccountSecurity } from "@/components/account/account-security"
+import { useAccount } from "@/components/account/use-account"
 
-const pages = [
-  { id: "overview", label: "Vue d’ensemble", icon: "dashboard" },
-  { id: "personal", label: "Personnel", icon: "user" },
-  { id: "teams", label: "Organisations", icon: "users" },
-  { id: "security", label: "Sécurité", icon: "shield" },
-] as const
+type AccountPage = "overview" | "personal" | "teams" | "security"
 
-export function UserSurface(props: { onClose: () => void }) {
+// The reference's nav glyphs (#userContentV76 .user-nav).
+const ICONS: Record<AccountPage, JSX.Element> = {
+  overview: <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
+  personal: (
+    <>
+      <circle cx="12" cy="8" r="3" />
+      <path d="M5 20c.7-4 3.1-6 7-6s6.3 2 7 6" />
+    </>
+  ),
+  teams: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="17" cy="10" r="2.5" />
+      <path d="M3.5 20c.6-4 2.7-6 5.5-6 3.1 0 5.3 2 5.8 6M14 15c3.4-.4 5.5 1.2 6 5" />
+    </>
+  ),
+  security: <path d="M12 3 5 6v5c0 4.4 2.7 8 7 10 4.3-2 7-5.6 7-10V6zM9.5 12l1.7 1.7 3.5-3.7" />,
+}
+
+const PAGES: { id: AccountPage; label: string }[] = [
+  { id: "overview", label: "account.nav.overview" },
+  { id: "personal", label: "account.nav.personal" },
+  { id: "teams", label: "account.nav.teams" },
+  { id: "security", label: "account.nav.security" },
+]
+
+export function UserSurface() {
   const language = useLanguage()
-  const [page, setPage] = createSignal<(typeof pages)[number]["id"]>("overview")
+  const account = useAccount()
+  const [page, setPage] = createSignal<AccountPage>("overview")
+  const identity = () => account.identity()
 
   return (
     <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">
-      <section data-v110="surface-card" data-component="workbench-user-surface" class="relative min-w-0 min-h-0 flex-1 flex flex-col">
-        <div data-workbench-surface="user" data-parity="user.surface" class="flex size-full min-h-0 overflow-hidden bg-background-base">
-          <aside class="w-[220px] shrink-0 border-r border-border-weak-base p-3 flex flex-col gap-4">
-            <div class="flex items-center gap-2 px-2">
-              <div class="size-9 rounded-full bg-surface-raised-base-active grid place-items-center text-text-strong">U</div>
-              <div class="min-w-0 flex flex-col">
-                <strong class="text-13-medium truncate">User</strong>
-                <span class="text-11-regular text-text-weak truncate">Profil local anonyme</span>
+      <section
+        data-v110="surface-card"
+        data-component="workbench-user-surface"
+        class="relative min-w-0 min-h-0 flex-1 flex flex-col"
+      >
+        <div
+          data-v110="account-frame"
+          data-workbench-surface="user"
+          data-parity="user.surface"
+          class="w-full flex-1 min-h-0"
+        >
+          <aside data-slot="account-sidebar">
+            <div data-slot="account-profile">
+              <div data-slot="account-profile-avatar">{identity().initials}</div>
+              <div>
+                <b>{identity().name}</b>
+                <span>
+                  {identity().signedIn
+                    ? (identity().email ?? identity().role)
+                    : language.t("account.personal.localSummary")}
+                </span>
               </div>
             </div>
-            <nav aria-label="Centre de compte" class="flex flex-col gap-1">
-              <For each={pages}>
+            <nav data-slot="account-nav" aria-label={language.t("account.nav.label")}>
+              <For each={PAGES}>
                 {(item) => (
                   <button
                     type="button"
-                    class="min-h-9 rounded-lg px-3 flex items-center gap-2 text-left text-12-regular text-text-weak hover:bg-surface-raised-base-hover"
-                    classList={{ "bg-surface-raised-base-active text-text-strong": page() === item.id }}
                     aria-current={page() === item.id ? "page" : undefined}
                     onClick={() => setPage(item.id)}
                   >
-                    <span aria-hidden="true">{item.icon === "dashboard" ? "⌘" : item.icon === "user" ? "◯" : item.icon === "users" ? "♙" : "◇"}</span>
-                    <span>{item.label}</span>
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      {ICONS[item.id]}
+                    </svg>
+                    <span>{language.t(item.label)}</span>
                   </button>
                 )}
               </For>
             </nav>
-            <div class="mt-auto px-2 text-10-regular text-text-weak">Unifia Desktop · v1.3.15</div>
           </aside>
-          <main class="min-w-0 min-h-0 flex-1 overflow-auto p-6 relative">
-            <IconButton icon="close" variant="ghost" class="absolute right-3 top-3" aria-label={language.t("ui.common.close")} onClick={props.onClose} />
-            <Show when={page() === "overview"}>
-              <UserPage title="Compte & espaces" description="Ton identité locale reste souveraine. Les organisations appliquent leurs propres ressources et politiques sans mélanger les données personnelles.">
-                <div class="rounded-xl border border-border-weak-base bg-surface-raised-base p-4 flex items-center gap-3">
-                  <div class="size-10 rounded-xl bg-surface-raised-base-active grid place-items-center">U</div>
-                  <div class="flex flex-col gap-1"><span class="text-10-regular text-text-weak">ESPACE ACTIF · FRONTIÈRE DE DONNÉES</span><strong>Personnel</strong><span class="text-11-regular text-text-weak">Projets privés · Memory privée · providers personnels</span></div>
-                </div>
-                <h3 class="mt-6 text-13-medium">Vos espaces</h3>
-                <InfoRow title="Personnel" detail="Profil local anonyme · environnement privé" />
-              </UserPage>
-            </Show>
-            <Show when={page() === "personal"}>
-              <UserPage title="Personnel" description="Unifia fonctionne sans compte cloud obligatoire. Tu peux rester 100 % local ou synchroniser volontairement ton identité et tes préférences.">
-                <InfoRow title="Profil local anonyme" detail="Aucune donnée personnelle · aucune connexion distante" />
-                <InfoRow title="Préférences personnelles" detail="Restaurer la dernière session et synchroniser les préférences" />
-              </UserPage>
-            </Show>
-            <Show when={page() === "teams"}>
-              <UserPage title="Organisations & Teams" description="Les organisations définissent la frontière administrative, la sécurité et la gouvernance.">
-                <InfoRow title="Aucune organisation connectée" detail="Tu peux rejoindre une organisation depuis cette page." />
-              </UserPage>
-            </Show>
-            <Show when={page() === "security"}>
-              <UserPage title="Sécurité & appareils" description="Gère la protection de l’identité locale et les sessions actives.">
-                <InfoRow title="Validation renforcée" detail="Réauthentification pour les opérations sensibles" />
-                <InfoRow title="Authentification multifacteur" detail="Protection de l’identité synchronisée" />
-              </UserPage>
-            </Show>
-          </main>
+          <div data-slot="account-content">
+            <section data-slot="account-page">
+              {/* WHY: the org list is a resource; without a local boundary it
+                  would suspend the app-level Suspense and blank the session. */}
+              <Suspense>
+                <Switch>
+                  <Match when={page() === "overview"}>
+                    <AccountOverview account={account} onManageIdentity={() => setPage("personal")} />
+                  </Match>
+                  <Match when={page() === "personal"}>
+                    <AccountPersonal account={account} />
+                  </Match>
+                  <Match when={page() === "teams"}>
+                    <AccountOrganisations account={account} />
+                  </Match>
+                  <Match when={page() === "security"}>
+                    <AccountSecurity account={account} />
+                  </Match>
+                </Switch>
+              </Suspense>
+            </section>
+          </div>
         </div>
       </section>
     </main>
   )
-}
-
-function UserPage(props: { title: string; description: string; children: JSX.Element }) {
-  return <div class="mx-auto w-full max-w-[860px] pb-10 pt-2"><h2 class="text-18-medium text-text-strong">{props.title}</h2><p class="mt-1 text-12-regular text-text-weak">{props.description}</p><div class="mt-5 flex flex-col gap-3">{props.children}</div></div>
-}
-
-function InfoRow(props: { title: string; detail: string }) {
-  return <div class="rounded-xl border border-border-weak-base bg-surface-raised-base p-4 flex flex-col gap-1"><strong class="text-13-medium">{props.title}</strong><span class="text-11-regular text-text-weak">{props.detail}</span></div>
 }

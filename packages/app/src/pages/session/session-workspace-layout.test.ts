@@ -185,7 +185,8 @@ describe("session workspace layout", () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     const surface = await Bun.file(new URL("../settings/user-surface.tsx", import.meta.url)).text()
     expect(source).toContain('mode.destination() === "user" && view().workspace.current() !== "chat"')
-    expect(source).toContain("<UserSurface onClose={() => mode.select(\"code\")} />")
+    // Like Settings, the account centre has no close button: the rail leaves it.
+    expect(source).toContain("<UserSurface />")
     expect(surface).toContain('data-v110="mode-main"')
     expect(surface).toContain('data-v110="surface-card"')
     expect(surface).toContain('data-parity="user.surface"')
