@@ -167,11 +167,18 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   transition-delay: 0s, 240ms;
 }
 
-/* Below 900px the workspace stacks vertically, so a 0px width no longer
+/* Below 600px the workspace stacks vertically, so a 0px width no longer
  * hides the chat; the Editor layout takes the whole height there. */
-@media (max-width: 899px) {
+@media (max-width: 599px) {
   [data-v110="session-chat-surface"][data-collapsed] {
     display: none;
+  }
+
+  /* The inline width is the desktop track; on phones the chat is the
+   * stacked column's full width less the reference's 10px margins. */
+  [data-v110="session-chat-surface"] {
+    width: auto !important;
+    margin: 10px;
   }
 }
 
@@ -207,7 +214,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 /* Desktop surfaces share the same floating-card viewport as the rail and
  * inspector. The chat wrapper used to remain h-full, so it was flush with
  * the topbar and the bottom edge even though the side panels had gutters. */
-@media (min-width: 56.25rem) {
+@media (min-width: 37.5rem) {
   [data-v110="session-chat-surface"] {
     height: calc(100% - 2 * var(--v110-gutter-outer));
     margin-block: var(--v110-gutter-outer);
@@ -218,6 +225,13 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   border-top: 0;
   background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 26%, var(--bg-soft) 100%);
   padding: 10px;
+}
+
+/* Phones: the reference insets the composer 8px inside the chat. */
+@media (max-width: 599px) {
+  [data-v110="composer-dock"] > div {
+    padding-inline: 8px;
+  }
 }
 
 [data-v110="session-chat-surface"] > [data-component="session-composer-region"] > div {
@@ -674,7 +688,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 /* Chat layout on compact desktops: the chat stops 20px from the window edge
  * like the main card does; with the inspector open its own 12px gap applies. */
-@media (min-width: 900px) and (max-width: 1199px) {
+@media (min-width: 600px) and (max-width: 1199px) {
   [data-component="session-workspace-main"][data-inspector-open="false"]
     > [data-v110="session-chat-surface"][data-layout="chat"] {
     /* The inline width is 100%; the cap keeps the margin inside the row. */

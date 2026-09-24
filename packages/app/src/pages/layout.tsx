@@ -956,7 +956,8 @@ export default function Layout(props: ParentProps) {
     const railVisible = layout.rail.opened() || layout.hover.rail.active()
     const sidebarVisible = layout.sidebar.opened() || layout.hover.sidebar.active()
     if (!railVisible && !sidebarVisible) return "0px"
-    if (sidebarVisible) {
+    // Portrait tablets float the context panel over the workspace.
+    if (sidebarVisible && shellKind() !== "overlay") {
       const rail = railVisible ? "var(--v110-rail, 62px) + " : ""
       // Wide: outer gutter, rail-to-panel and panel-to-workspace gaps
       // (20 + 10 + 10: the reference's chat starts at 350px beside a 248px

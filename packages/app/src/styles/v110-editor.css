@@ -18,7 +18,14 @@
   flex: 1 1 auto;
 }
 
-@media (min-width: 56.25rem) {
+@media (max-width: 599px) {
+  [data-component="session-editor-main"],
+  [data-component="workbench-mode-main"] {
+    margin: 10px;
+  }
+}
+
+@media (min-width: 37.5rem) {
   [data-component="session-editor-main"],
   [data-component="workbench-mode-main"] {
     height: calc(100% - 2 * var(--v110-gutter-outer));

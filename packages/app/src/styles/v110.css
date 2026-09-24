@@ -155,6 +155,19 @@
   height: auto !important;
 }
 
+/* Portrait tablets (600-899px): the reference's inspector is the compact
+ * 320px floating card, 8px from the edges, over the workspace. */
+@media (min-width: 600px) {
+  .mobile-side-panel {
+    inset: 8px 8px 8px auto !important;
+    width: min(320px, calc(100vw - 72px)) !important;
+  }
+
+  .mobile-side-panel:not([aria-hidden="true"]) {
+    height: calc(100% - 16px) !important;
+  }
+}
+
 /* Default focus system. :where keeps specificity at zero so component
  * rules always win; this only covers bare controls. */
 :where(button, input, textarea, select, [tabindex]):focus-visible {
@@ -446,6 +459,14 @@ html[data-ui-animations="off"] *::after {
   background: var(--background-base);
 }
 
+/* Phones (ADR-053): the reference's topbar is 50px and every surface sits
+ * 10px inside the space between it and the bottom nav. */
+@media (max-width: 599px) {
+  :root {
+    --v110-topbar: 50px;
+  }
+}
+
 /* Phone topbar -- the reference keeps only the context toggle, a wide
  * Chat/Editor switch and the inspector toggle; the brand, the theme toggle
  * and the session icons would otherwise spill over the switch. */
@@ -547,7 +568,7 @@ html[data-ui-animations="off"] *::after {
  * @media (max-width:1199px) shell: a 58px rail 10px from the edges, and the
  * context panel as a 300px floating card 8px from the top and bottom that
  * overlaps the rail's edge by 2px, with the heavier overlay shadow. */
-@media (min-width: 900px) and (max-width: 1199px) {
+@media (min-width: 600px) and (max-width: 1199px) {
   :root {
     --v110-rail: 58px;
     --v110-inspector-margins: 20px;

@@ -22,7 +22,9 @@
    * classify() certifies them desktop — a second responsive authority
    * RESPONSIVE-MATRIX.md rules out. `xl` itself is untouched; other call
    * sites keep their own meaning. */
-  --breakpoint-shell: 56.25rem;
+  /* The desktop shell (rail, floating cards) from 600px; phones in
+   * portrait keep the mobile shell (ADR-053). */
+  --breakpoint-shell: 37.5rem;
   --breakpoint-xl: 80rem;
   --breakpoint-2xl: 96rem;
   --breakpoint-3xl: 112rem;
