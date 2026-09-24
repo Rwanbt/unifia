@@ -5,6 +5,7 @@ import { Suspense, createMemo, createSignal, lazy, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
+import { createHoverIntent } from "@/shell/hover-intent"
 
 const Body = lazy(() => import("./status-popover-body").then((x) => ({ default: x.StatusPopoverBody })))
 
@@ -13,6 +14,20 @@ export function StatusPopover() {
   const server = useServer()
   const sync = useSync()
   const [shown, setShown] = createSignal(false)
+  // #serverBtn: hovering peeks the compute popover, a click pins it.
+  const hover = createHoverIntent({ open: () => setShown(true), close: () => setShown(false), isOpen: shown })
+  let pressed = false
+  const openChange = (next: boolean) => {
+    const click = pressed
+    pressed = false
+    // The click that lands on a peeked popover pins it instead of closing it.
+    if (!next && click && hover.peeking()) {
+      hover.pin()
+      return
+    }
+    if (!next) hover.reset()
+    setShown(next)
+  }
   const ready = createMemo(() => server.healthy() === false || sync.data.mcp_ready)
   const healthy = createMemo(() => {
     const serverHealthy = server.healthy() === true
@@ -24,7 +39,7 @@ export function StatusPopover() {
   return (
     <Popover
       open={shown()}
-      onOpenChange={setShown}
+      onOpenChange={openChange}
       triggerAs={Button}
       triggerProps={{
         variant: "ghost",
@@ -32,6 +47,11 @@ export function StatusPopover() {
         class: "titlebar-icon w-8 h-[31px] p-0 box-border",
         "aria-label": language.t("status.popover.trigger"),
         style: { scale: 1 },
+        onPointerEnter: hover.enterTrigger,
+        onPointerLeave: hover.leaveTrigger,
+        onPointerDown: () => {
+          pressed = true
+        },
       }}
       trigger={
         <div class="relative size-4">
@@ -59,7 +79,9 @@ export function StatusPopover() {
             <div class="w-[360px] h-14 rounded-xl bg-background-strong shadow-[var(--shadow-lg-border-base)]" />
           }
         >
-          <Body shown={shown} />
+          <div onPointerEnter={hover.enterPanel} onPointerLeave={hover.leavePanel}>
+            <Body shown={shown} />
+          </div>
         </Suspense>
       </Show>
     </Popover>
