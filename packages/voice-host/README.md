@@ -10,6 +10,10 @@ app in a managed Python 3.12 environment (`uv sync --locked`).
 | `python -m voice_host.live serve` | Live conversation agent (LiveKit Agents): Silero VAD, turn detector v1-mini, Parakeet STT, VoiceAgentBridge to the Unifia session, Pocket streaming with Piper fallback. Prints `UNIFIA_LIVE_READY` once registered; exits when stdin closes. |
 | `python -m voice_host.live check` | Prints which models are available (JSON). |
 
+The worker's manual read-aloud command is currently desktop-only. Mobile Live
+audio streams through the paired desktop agent; mobile manual read-aloud has no
+authenticated Voice Host route yet and remains unavailable.
+
 Configuration comes from the supervisor's environment: `LIVEKIT_URL`,
 `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `UNIFIA_SERVER_URL`,
 `UNIFIA_SERVER_USERNAME`, `UNIFIA_SERVER_PASSWORD`, `UNIFIA_PARAKEET_DIR`,

@@ -17,5 +17,7 @@ they share provider routing, cancellation, and playback ownership. Piper remains
 the fallback behind `TtsRouter`; its process and model boundary are documented
 in [voice-piper.md](voice-piper.md).
 
-Mobile TTS is handled in Wave L. The desktop and web playback paths do not
-qualify mobile playback.
+Mobile Live assistant audio is streamed from the paired desktop Voice Host over
+LiveKit. Manual mobile read-aloud is still unavailable: the mobile hook reports
+"Voice Host unavailable" and no authenticated manual synthesis route exists.
+The desktop and web playback paths do not qualify mobile manual playback.

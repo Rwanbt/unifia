@@ -2,7 +2,8 @@
  * Mobile speech hooks.
  *
  * STT: mic → MediaRecorder (webm/opus) → WAV 16 kHz → Parakeet ONNX → text
- * TTS is provided by the Voice Host when a live session is available.
+ * Live assistant audio comes from the paired Voice Host over LiveKit. Manual
+ * read-aloud remains unavailable until an authenticated host route exists.
  */
 
 import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"

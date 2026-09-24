@@ -85,7 +85,11 @@ is stopped 5 minutes after the last Live conversation ends.
 to the desktop's Unifia server (the existing paired remote-server connection),
 `POST /voice/live/session` on that server returns a token and the Voice Host's
 LAN URL; the phone joins over WebRTC and hears Pocket (or Piper) generated on
-the desktop CPU. Dictation on the phone keeps using its local Parakeet.
+the desktop CPU. Dictation on the phone keeps using its local Parakeet. This
+Live audio path does not provide manual read-aloud: the mobile `tts-toggle`
+handler currently reports that the Voice Host is unavailable, and the server
+has no authenticated manual-synthesis route. This remains a Wave L production
+blocker.
 
 **No Voice Host.** On the phone's embedded server, or when the host is not
 running, the server answers `503 voice_host_unavailable` and the Live button
@@ -164,7 +168,7 @@ policies as typed prompts. LiveKit Cloud is never enabled.
 |---|---|---|
 | livekit-server 1.13.7 | Apache-2.0 | Official release binary downloaded at first use, SHA-256 pinned, not redistributed in the installer. |
 | livekit-agents 1.8.3, livekit, livekit-api, livekit-protocol | Apache-2.0 | Installed by uv from PyPI (locked). |
-| livekit-local-inference 0.2.7 (Silero VAD, turn detector v1-mini) | Apache-2.0 **and LiveKit Model License** | Installed by uv. The model license allows free use only together with LiveKit Agents and forbids using its outputs to train other models; Unifia uses it only inside LiveKit Agents. |
+| livekit-local-inference 0.2.7 (Silero VAD, turn detector v1-mini) | Apache-2.0 **and LiveKit Model License** | Installed by uv. Product decision: use v1-mini only through LiveKit Agents; never standalone or with another framework, and never use the model or its output to develop unrelated models. Unifia does not redistribute the downloaded model; retain the [upstream model license](https://github.com/livekit/agents/blob/main/MODEL_LICENSE) as the governing notice. |
 | onnx-asr 0.12.0 | MIT | uv |
 | onnxruntime 1.30.0 | MIT | uv |
 | av 18.1.0 (bundles FFmpeg) | BSD-3-Clause (+ FFmpeg LGPL libraries in the wheel) | uv, not redistributed by Unifia |

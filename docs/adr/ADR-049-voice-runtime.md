@@ -61,8 +61,10 @@ Implementation, exposure rules, security, privacy and license details:
 
 - First Live use needs network access to GitHub releases (one download, then
   offline); a pin update is required to move to a new LiveKit version.
-- `turn-detector-v1-mini` is covered by the LiveKit Model License: free use
-  only with LiveKit Agents; this needs explicit acceptance by the product owner.
+- `turn-detector-v1-mini` is covered by the LiveKit Model License. The product
+  decision is to use it only through LiveKit Agents, never standalone or with
+  another framework, and never to develop unrelated models from the model or
+  its outputs. See the [upstream license](https://github.com/livekit/agents/blob/main/MODEL_LICENSE).
 - The Voice Host holds Pocket in RAM while Live is used; it stops 5 minutes
   after the last conversation, and the manual Pocket worker is released while
   it runs.
@@ -74,5 +76,6 @@ test with real LiveKit/VAD/turn detector) is listed in
 [voice-live.md](../voice-live.md#tests-and-measurements). GO PROD still
 requires evidence that cannot be produced in CI: desktop Live on the target
 Windows machine with real Parakeet and Pocket (EN/FR/ES/IT/DE), Android Live
-through the Voice Host, Pocket TTFA and interruption latency on target hardware,
-and the local-LLM coexistence benchmark (tokens/s and VRAM with Live active).
+through the Voice Host, manual mobile read-aloud through an authenticated host
+route, Pocket TTFA and interruption latency on target hardware, and the
+local-LLM coexistence benchmark (tokens/s and VRAM with Live active).

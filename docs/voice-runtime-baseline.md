@@ -1,6 +1,6 @@
 # Voice runtime baseline
 
-Status: Wave A characterization, 2026-09-23. The baseline is measured, exploratory, and not production qualification.
+Status: Historical Wave A characterization, 2026-09-23. This snapshot is exploratory, not production qualification; implementation and gate evidence continued afterward. Current architecture is in [voice-live.md](voice-live.md), and production remains uncertified until the physical gates listed there and in ADR-049 pass.
 
 ## Repository and branch
 
@@ -16,7 +16,7 @@ Status: Wave A characterization, 2026-09-23. The baseline is measured, explorato
 |---|---|---|
 | Web dictation and browser read aloud | `packages/app/src/hooks/web-speech.ts` | `stt-start` records final recognition text and inserts it into the prompt editor; it does not submit the prompt. `tts-toggle` uses browser speech synthesis. |
 | Desktop dictation and TTS | `packages/desktop/src/hooks/use-speech.ts`, `packages/desktop/src-tauri/src/speech.rs` | Parakeet STT and Pocket TTS; playback uses WAV files. |
-| Mobile dictation and TTS | `packages/mobile/src/hooks/use-speech.ts`, `packages/mobile/src-tauri/src/speech.rs` | Parakeet STT remains local; TTS reports Voice Host unavailable until host playback is wired. |
+| Mobile dictation and TTS | `packages/mobile/src/hooks/use-speech.ts`, `packages/mobile/src-tauri/src/speech.rs` | Parakeet STT remains local. Live assistant audio uses the paired desktop Voice Host over LiveKit. Manual read-aloud still reports Voice Host unavailable; no authenticated manual-TTS host route exists yet. |
 | Audio settings | `packages/app/src/components/settings-audio.tsx` | Versioned v2 settings with automatic/Pocket provider choice. Legacy storage migrates through the shared boundary. |
 | Shared contracts | None before this change | Wave B introduces provider-neutral speech types in `@unifia/contracts/speech`. |
 
@@ -53,7 +53,7 @@ Three solo 256-token completions measured 26.67–28.88 generated tokens/s. Prom
 
 One later Pocket retry stalled after logging tokenizer loading, with no network connection and no further CPU progress for more than 150 seconds; only the two benchmark processes started for that retry were terminated. Repeated `nvidia-smi` polling also intermittently failed during load, so it was removed from the successful timing run. These observations are retained as instability evidence, not averaged into the successful sample.
 
-TTFA, Parakeet-under-load, Piper, Live conversation, interruption latency, process CPU/RAM, full-system RAM, and repeated variance remain unmeasured. The Voice Host, managed CPU-only Pocket runtime, and physical Android path do not exist yet. The temporary LLM process was stopped after measurement and port 8080 was verified free.
+At the time of this 2026-09-23 baseline, TTFA, Parakeet-under-load, Piper, Live conversation, interruption latency, process CPU/RAM, full-system RAM, and repeated variance were unmeasured. Later implementation and CI evidence is recorded in [voice-live.md](voice-live.md) and [ADR-049](adr/ADR-049-voice-runtime.md); none substitutes for the remaining physical qualification. The temporary LLM process was stopped after measurement and port 8080 was verified free.
 
 ## Gate A status
 
