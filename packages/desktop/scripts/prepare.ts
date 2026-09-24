@@ -2,8 +2,7 @@
 import { $ } from "bun"
 
 import { Script } from "@unifia/script"
-import { buildLiveKitServer } from "./livekit-server"
-import { copyBinaryToSidecarFolder, getCurrentSidecar, resolveSidecarBinaryPath, RUST_TARGET } from "./utils"
+import { copyBinaryToSidecarFolder, getCurrentSidecar, resolveSidecarBinaryPath } from "./utils"
 
 const pkg = await Bun.file("./package.json").json()
 pkg.version = Script.version
@@ -19,7 +18,3 @@ await $`mkdir -p ${dir}`
 await $`gh run download ${process.env.GITHUB_RUN_ID} -n ${artifact}`.cwd(dir)
 
 await copyBinaryToSidecarFolder(await resolveSidecarBinaryPath(dir, sidecarConfig.ocBinary))
-
-// Live voice SFU, built from the pinned Go module and checked against its
-// reproducible sha256 (packages/voice-host/livekit-server.json).
-await buildLiveKitServer(RUST_TARGET!)

@@ -16,11 +16,12 @@ Configuration comes from the supervisor's environment: `LIVEKIT_URL`,
 `UNIFIA_PIPER_PROJECT`, `UNIFIA_PIPER_ASSET_DIR`, `UNIFIA_TTS_PROVIDER`,
 `UNIFIA_VOICE_CPU_PROFILE`. CUDA is hidden in every speech process.
 
-`livekit-server.json` pins the LiveKit SFU (module checksum and the
-reproducible SHA-256 per target); the desktop build script uses it.
+The LiveKit SFU itself is provisioned by the desktop app
+(`packages/desktop/src-tauri/src/livekit_server.rs`: official 1.13.7 release,
+pinned SHA-256).
 
 Tests: `python -m unittest tests.test_live_text tests.test_live_runtime
-tests.test_worker tests.test_voice_state`; the real-transport test needs
+tests.test_live_stt tests.test_worker tests.test_voice_state`; the real-transport test needs
 `UNIFIA_LIVEKIT_SERVER_BIN` (see `docs/voice-live.md`).
 
 Architecture and decisions: `docs/voice-live.md`, `docs/adr/ADR-049-voice-runtime.md`.

@@ -244,13 +244,6 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
-      # Builds the pinned LiveKit SFU sidecar; GOTOOLCHAIN in the build script
-      # selects the exact toolchain recorded in voice-host/livekit-server.json.
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-          cache: false
-
       - name: Install deps
         run: bun install
 

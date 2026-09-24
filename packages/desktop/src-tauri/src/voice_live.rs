@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 //! Live Voice Host supervisor (desktop).
 //!
-//! Owns two processes: the pinned LiveKit SFU (`livekit-server`, bundled as a
-//! Tauri sidecar) and the Python Live agent (`python -m voice_host.live`) in
-//! the managed Voice Host environment. The agent talks to the local Unifia
-//! server with the sidecar credentials; LiveKit API keys stay on this machine
-//! and reach the Unifia server only through a user-private state file.
+//! Owns two processes: the pinned official LiveKit SFU (provisioned and
+//! checksum-verified by `livekit_server`) and the Python Live agent
+//! (`python -m voice_host.live`) in the managed Voice Host environment. The
+//! agent talks to the local Unifia server with the sidecar credentials. The
+//! LiveKit API key and secret are generated for each host start, never
+//! persisted beyond the running host, and reach the Unifia server only
+//! through a user-private state file that is removed when the host stops.
 
-pub(crate) mod config;
-
-use config::{LiveKitCredentials, RTC_UDP_PORT, SIGNAL_PORT, ServerConfig, VoiceHostMode};
-use sha2::{Digest, Sha256};
+use crate::livekit_server::{self, HostMode, LIVEKIT_HTTP_PORT, LIVEKIT_RTC_PORT};
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
@@ -18,31 +18,17 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
+use zeroize::Zeroize;
 
 const READY_MARKER: &str = "UNIFIA_LIVE_READY";
-const LIVEKIT_HEALTH_TIMEOUT: Duration = Duration::from_secs(20);
 const AGENT_READY_TIMEOUT: Duration = Duration::from_secs(240);
 const STOP_GRACE: Duration = Duration::from_secs(5);
 const MAX_RESTARTS: usize = 3;
 const RESTART_WINDOW: Duration = Duration::from_secs(300);
 
-const TARGET_TRIPLE: &str = if cfg!(all(windows, target_arch = "x86_64")) {
-    "x86_64-pc-windows-msvc"
-} else if cfg!(all(windows, target_arch = "aarch64")) {
-    "aarch64-pc-windows-msvc"
-} else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-    "x86_64-unknown-linux-gnu"
-} else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
-    "aarch64-unknown-linux-gnu"
-} else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-    "aarch64-apple-darwin"
-} else {
-    "x86_64-apple-darwin"
-};
-
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug)]
 pub(crate) struct LiveOptions {
-    pub mode: VoiceHostMode,
+    pub mode: HostMode,
     pub cpu_profile: String,
     pub tts_provider: String,
 }
@@ -51,15 +37,43 @@ pub(crate) struct LiveOptions {
 #[serde(rename_all = "camelCase")]
 pub struct VoiceLiveStatus {
     pub running: bool,
-    pub mode: Option<VoiceHostMode>,
+    pub mode: Option<HostMode>,
     pub url: Option<String>,
     pub lan_url: Option<String>,
     pub restarts: u32,
     pub error: Option<String>,
 }
 
+/// Per-start LiveKit key pair; wiped from memory when dropped.
+struct LiveKitCredentials {
+    api_key: String,
+    api_secret: String,
+}
+
+impl LiveKitCredentials {
+    fn generate() -> Self {
+        let key = uuid::Uuid::new_v4().simple().to_string();
+        Self {
+            api_key: format!("APIunifia{}", &key[..12]),
+            api_secret: format!(
+                "{}{}",
+                uuid::Uuid::new_v4().simple(),
+                uuid::Uuid::new_v4().simple()
+            ),
+        }
+    }
+}
+
+impl Drop for LiveKitCredentials {
+    fn drop(&mut self) {
+        self.api_key.zeroize();
+        self.api_secret.zeroize();
+    }
+}
+
 struct LiveHost {
     options: LiveOptions,
+    _credentials: LiveKitCredentials,
     livekit: Child,
     agent: Child,
     agent_stdin: Option<ChildStdin>,
@@ -82,7 +96,9 @@ pub struct VoiceLiveState {
 }
 
 pub(crate) fn live_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(crate::voice_runtime::app_data_dir(app)?.join("speech").join("live"))
+    Ok(crate::voice_runtime::app_data_dir(app)?
+        .join("speech")
+        .join("live"))
 }
 
 async fn write_private(path: &Path, contents: &str) -> Result<(), String> {
@@ -108,107 +124,9 @@ async fn write_private(path: &Path, contents: &str) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-async fn load_credentials(dir: &Path) -> Result<LiveKitCredentials, String> {
-    let path = dir.join("credentials.json");
-    if let Ok(raw) = tokio::fs::read_to_string(&path).await
-        && let Ok(credentials) = serde_json::from_str::<LiveKitCredentials>(&raw)
-        && credentials.is_valid()
-    {
-        return Ok(credentials);
-    }
-    let credentials = LiveKitCredentials::generate();
-    write_private(
-        &path,
-        &serde_json::to_string(&credentials).map_err(|error| error.to_string())?,
-    )
-    .await?;
-    Ok(credentials)
-}
-
-fn livekit_binary(app: &AppHandle) -> Result<PathBuf, String> {
-    if let Some(path) = std::env::var_os("UNIFIA_LIVEKIT_SERVER_BIN") {
-        return Ok(PathBuf::from(path));
-    }
-    let name = if cfg!(windows) { "livekit-server.exe" } else { "livekit-server" };
-    let binary = tauri::process::current_binary(&app.env())
-        .map_err(|error| error.to_string())?
-        .parent()
-        .ok_or("Unifia executable has no parent directory")?
-        .join(name);
-    if binary.is_file() {
-        Ok(binary)
-    } else {
-        Err("The LiveKit server is not installed with this build".into())
-    }
-}
-
-fn manifest_path(app: &AppHandle) -> Option<PathBuf> {
-    #[cfg(debug_assertions)]
-    {
-        let development = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../voice-host/livekit-server.json");
-        if development.is_file() {
-            return Some(development);
-        }
-    }
-    let bundled = app.path().resource_dir().ok()?.join("voice-host/livekit-server.json");
-    bundled.is_file().then_some(bundled)
-}
-
-/// Refuses a LiveKit binary whose hash differs from the reproducible pin.
-async fn verify_livekit(app: &AppHandle, binary: &Path) -> Result<(), String> {
-    let Some(manifest) = manifest_path(app) else {
-        return Err("LiveKit server manifest is missing from this build".into());
-    };
-    let manifest: serde_json::Value = serde_json::from_str(
-        &tokio::fs::read_to_string(&manifest)
-            .await
-            .map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
-    let Some(expected) = manifest["sha256"][TARGET_TRIPLE].as_str() else {
-        tracing::warn!(target = TARGET_TRIPLE, "no pinned LiveKit hash for this platform");
-        return Ok(());
-    };
-    let path = binary.to_path_buf();
-    let actual = tokio::task::spawn_blocking(move || -> Result<String, String> {
-        let bytes = std::fs::read(&path).map_err(|error| error.to_string())?;
-        Ok(format!("{:x}", Sha256::digest(&bytes)))
-    })
-    .await
-    .map_err(|error| error.to_string())??;
-    if actual != expected {
-        return Err("The bundled LiveKit server does not match its pinned hash; refusing to start it".into());
-    }
-    Ok(())
-}
-
-fn port_free(port: u16) -> bool {
-    std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
-        && std::net::UdpSocket::bind(("127.0.0.1", RTC_UDP_PORT)).is_ok()
-}
-
-async fn wait_for_livekit(child: &mut Child) -> Result<(), String> {
-    let deadline = Instant::now() + LIVEKIT_HEALTH_TIMEOUT;
-    let client = reqwest::Client::builder()
-        .no_proxy()
-        .timeout(Duration::from_secs(2))
-        .build()
-        .map_err(|error| error.to_string())?;
-    while Instant::now() < deadline {
-        if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
-            return Err(format!("LiveKit server exited during startup ({status})"));
-        }
-        if let Ok(response) = client
-            .get(format!("http://127.0.0.1:{SIGNAL_PORT}/"))
-            .send()
-            .await
-            && response.status().is_success()
-        {
-            return Ok(());
-        }
-        tokio::time::sleep(Duration::from_millis(200)).await;
-    }
-    Err("LiveKit server did not become healthy".into())
+fn port_free() -> bool {
+    std::net::TcpListener::bind(("127.0.0.1", LIVEKIT_HTTP_PORT)).is_ok()
+        && std::net::UdpSocket::bind(("127.0.0.1", LIVEKIT_RTC_PORT)).is_ok()
 }
 
 fn forward_lines<R>(reader: R, label: &'static str)
@@ -229,14 +147,26 @@ async fn sidecar_endpoint(app: &AppHandle) -> Result<(String, String, String), S
         .ok_or_else(|| "The local Unifia server is not ready".to_string())
 }
 
-async fn spawn_livekit(app: &AppHandle, dir: &Path, config: &ServerConfig<'_>) -> Result<Child, String> {
-    let binary = livekit_binary(app)?;
-    verify_livekit(app, &binary).await?;
-    if !port_free(SIGNAL_PORT) {
-        match unifia_supervisor::Supervisor::new(dir.join("leases")).reclaim_port(SIGNAL_PORT, &binary) {
+async fn spawn_livekit(
+    app: &AppHandle,
+    dir: &Path,
+    credentials: &LiveKitCredentials,
+    lan: Option<Ipv4Addr>,
+) -> Result<Child, String> {
+    crate::voice_runtime::bootstrap::emit_progress(
+        app,
+        "live",
+        "Preparing the verified LiveKit server",
+    );
+    let binary = livekit_server::resolve_path(app).await?;
+    livekit_server::verify(&binary).await?;
+    if !port_free() {
+        match unifia_supervisor::Supervisor::new(dir.join("leases"))
+            .reclaim_port(LIVEKIT_HTTP_PORT, &binary)
+        {
             unifia_supervisor::Verdict::Impostor { running_exe, .. } => {
                 return Err(format!(
-                    "Port {SIGNAL_PORT} is used by {}, which Unifia did not start",
+                    "Port {LIVEKIT_HTTP_PORT} is used by {}, which Unifia did not start",
                     running_exe.display()
                 ));
             }
@@ -244,14 +174,22 @@ async fn spawn_livekit(app: &AppHandle, dir: &Path, config: &ServerConfig<'_>) -
         }
     }
     let config_path = dir.join("livekit.yaml");
-    write_private(&config_path, &config.to_yaml()).await?;
+    livekit_server::write_config(
+        &config_path,
+        &credentials.api_key,
+        &credentials.api_secret,
+        lan,
+    )
+    .await?;
+    let log = livekit_server::open_log(&dir.join("livekit.log"))?;
+    let log_err = log.try_clone().map_err(|error| error.to_string())?;
     let mut command = Command::new(&binary);
     command
         .arg("--config")
         .arg(&config_path)
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::from(log))
+        .stderr(Stdio::from(log_err))
         .kill_on_drop(true);
     #[cfg(windows)]
     command.creation_flags(0x08000000);
@@ -263,13 +201,11 @@ async fn spawn_livekit(app: &AppHandle, dir: &Path, config: &ServerConfig<'_>) -
     {
         children.adopt(pid);
     }
-    if let Some(stdout) = child.stdout.take() {
-        forward_lines(stdout, "LiveKit");
-    }
-    if let Some(stderr) = child.stderr.take() {
-        forward_lines(stderr, "LiveKit");
-    }
-    wait_for_livekit(&mut child).await?;
+    let started = livekit_server::wait_for_server(&mut child).await;
+    // The key pair lives in memory only; the config file is not needed once
+    // the server has read it.
+    let _ = tokio::fs::remove_file(&config_path).await;
+    started?;
     Ok(child)
 }
 
@@ -283,7 +219,11 @@ async fn spawn_agent(
     crate::speech::stt_download_model(app.clone()).await?;
     let (server_url, username, password) = sidecar_endpoint(app).await?;
     let project = crate::voice_runtime::bootstrap::prepare_runtime(app).await?;
-    let python = project.join(".venv").join(if cfg!(windows) { "Scripts/python.exe" } else { "bin/python" });
+    let python = project.join(".venv").join(if cfg!(windows) {
+        "Scripts/python.exe"
+    } else {
+        "bin/python"
+    });
     let mut command = Command::new(python);
     command
         .current_dir(&project)
@@ -301,16 +241,20 @@ async fn spawn_agent(
         .env("UNIFIA_SERVER_URL", server_url)
         .env("UNIFIA_SERVER_USERNAME", username)
         .env("UNIFIA_SERVER_PASSWORD", password)
-        .env("UNIFIA_PARAKEET_DIR", speech.join("parakeet-tdt-0.6b-v3-int8"))
+        .env(
+            "UNIFIA_PARAKEET_DIR",
+            speech.join("parakeet-tdt-0.6b-v3-int8"),
+        )
         .env("UNIFIA_VOICE_CPU_PROFILE", &options.cpu_profile)
         .env("UNIFIA_TTS_PROVIDER", &options.tts_provider)
         .env("NO_PROXY", "127.0.0.1,localhost,::1")
         .env("no_proxy", "127.0.0.1,localhost,::1");
     match crate::voice_runtime::bootstrap::prepare_piper_runtime(app).await {
         Ok(piper) => {
-            command
-                .env("UNIFIA_PIPER_PROJECT", piper)
-                .env("UNIFIA_PIPER_ASSET_DIR", crate::piper_runtime::protocol::piper_asset_dir(app)?);
+            command.env("UNIFIA_PIPER_PROJECT", piper).env(
+                "UNIFIA_PIPER_ASSET_DIR",
+                crate::piper_runtime::protocol::piper_asset_dir(app)?,
+            );
         }
         Err(error) => tracing::warn!("Piper fallback unavailable for Live: {error}"),
     }
@@ -350,7 +294,12 @@ async fn spawn_agent(
     Ok((child, stdin))
 }
 
-async fn publish_state(dir: &Path, credentials: &LiveKitCredentials, url: &str, lan_url: Option<&str>) -> Result<(), String> {
+async fn publish_state(
+    dir: &Path,
+    credentials: &LiveKitCredentials,
+    url: &str,
+    lan_url: Option<&str>,
+) -> Result<(), String> {
     let mut state = serde_json::json!({
         "state": "ready",
         "url": url,
@@ -365,8 +314,12 @@ async fn publish_state(dir: &Path, credentials: &LiveKitCredentials, url: &str, 
 
 async fn stop_host(dir: &Path, mut host: LiveHost) {
     let _ = tokio::fs::remove_file(dir.join("livekit.json")).await;
+    let _ = tokio::fs::remove_file(dir.join("livekit.yaml")).await;
     drop(host.agent_stdin.take()); // EOF asks the agent to drain and exit
-    if tokio::time::timeout(STOP_GRACE, host.agent.wait()).await.is_err() {
+    if tokio::time::timeout(STOP_GRACE, host.agent.wait())
+        .await
+        .is_err()
+    {
         let _ = host.agent.kill().await;
     }
     let _ = host.livekit.kill().await;
@@ -379,22 +332,22 @@ async fn start_host(app: &AppHandle, options: LiveOptions) -> Result<LiveHost, S
         .await
         .map_err(|error| error.to_string())?;
     crate::voice_runtime::bootstrap::emit_progress(app, "live", "Starting the Live Voice Host");
-    let credentials = load_credentials(&dir).await?;
+    let credentials = LiveKitCredentials::generate();
     let lan = match options.mode {
-        VoiceHostMode::Local => None,
-        VoiceHostMode::Lan => Some(
-            config::detect_lan_ipv4().ok_or("No private network address is available for LAN access")?,
+        HostMode::Local => None,
+        HostMode::Lan => Some(
+            livekit_server::detect_private_lan_ip()
+                .ok_or("No private network address is available for LAN access")?,
         ),
     };
-    let server = ServerConfig { credentials: &credentials, lan };
     // Live is the playback authority; the manual Pocket worker would load a
     // second copy of the model into memory, so it is released first.
     if let Some(speech) = app.try_state::<crate::speech::SpeechState>() {
         let _ = speech.stop_tts_workers().await;
     }
-    let mut livekit = spawn_livekit(app, &dir, &server).await?;
-    let url = server.signal_url();
-    let lan_url = server.lan_url();
+    let mut livekit = spawn_livekit(app, &dir, &credentials, lan).await?;
+    let url = format!("ws://127.0.0.1:{LIVEKIT_HTTP_PORT}");
+    let lan_url = lan.map(|ip| format!("ws://{ip}:{LIVEKIT_HTTP_PORT}"));
     let (agent, agent_stdin) = match spawn_agent(app, &options, &credentials, &url).await {
         Ok(agent) => agent,
         Err(error) => {
@@ -404,7 +357,15 @@ async fn start_host(app: &AppHandle, options: LiveOptions) -> Result<LiveHost, S
     };
     publish_state(&dir, &credentials, &url, lan_url.as_deref()).await?;
     crate::voice_runtime::bootstrap::emit_progress(app, "ready", "Live Voice Host is ready");
-    Ok(LiveHost { options, livekit, agent, agent_stdin: Some(agent_stdin), url, lan_url })
+    Ok(LiveHost {
+        options,
+        _credentials: credentials,
+        livekit,
+        agent,
+        agent_stdin: Some(agent_stdin),
+        url,
+        lan_url,
+    })
 }
 
 impl VoiceLiveState {
@@ -420,12 +381,19 @@ impl VoiceLiveState {
                 restarts,
                 error: None,
             },
-            None => VoiceLiveStatus { restarts, error: inner.last_error.clone(), ..Default::default() },
+            None => VoiceLiveStatus {
+                restarts,
+                error: inner.last_error.clone(),
+                ..Default::default()
+            },
         }
     }
 
     fn ensure_supervisor(&self, app: &AppHandle) {
-        let mut slot = self.supervisor.lock().expect("voice live supervisor poisoned");
+        let mut slot = self
+            .supervisor
+            .lock()
+            .expect("voice live supervisor poisoned");
         if slot.as_ref().is_some_and(|task| !task.is_finished()) {
             return;
         }
@@ -435,7 +403,12 @@ impl VoiceLiveState {
     }
 
     pub(crate) async fn shutdown(&self, app: &AppHandle) {
-        if let Some(task) = self.supervisor.lock().expect("voice live supervisor poisoned").take() {
+        if let Some(task) = self
+            .supervisor
+            .lock()
+            .expect("voice live supervisor poisoned")
+            .take()
+        {
             task.abort();
         }
         let host = {
@@ -457,7 +430,9 @@ async fn supervise(app: AppHandle, inner: Arc<tokio::sync::Mutex<Inner>>) {
         if guard.stopping {
             return;
         }
-        let Some(host) = guard.host.as_mut() else { continue };
+        let Some(host) = guard.host.as_mut() else {
+            continue;
+        };
         let livekit_exited = matches!(host.livekit.try_wait(), Ok(Some(_)));
         let agent_exited = matches!(host.agent.try_wait(), Ok(Some(_)));
         if !livekit_exited && !agent_exited {
@@ -465,12 +440,18 @@ async fn supervise(app: AppHandle, inner: Arc<tokio::sync::Mutex<Inner>>) {
         }
         let host = guard.host.take().expect("host present");
         let options = host.options.clone();
-        tracing::warn!(livekit_exited, agent_exited, "Live Voice Host process exited; restarting");
+        tracing::warn!(
+            livekit_exited,
+            agent_exited,
+            "Live Voice Host process exited; restarting"
+        );
         if let Ok(dir) = live_dir(&app) {
             stop_host(&dir, host).await;
         }
         let now = Instant::now();
-        guard.restarts.retain(|at| now.duration_since(*at) < RESTART_WINDOW);
+        guard
+            .restarts
+            .retain(|at| now.duration_since(*at) < RESTART_WINDOW);
         if guard.restarts.len() >= MAX_RESTARTS {
             guard.last_error = Some("The Live Voice Host keeps stopping".into());
             let _ = app.emit("voice-live-status", "failed");
@@ -514,7 +495,7 @@ pub async fn voice_live_start(
 ) -> Result<VoiceLiveStatus, String> {
     let state = app.state::<VoiceLiveState>();
     let options = LiveOptions {
-        mode: VoiceHostMode::parse(&mode)?,
+        mode: HostMode::parse(&mode)?,
         cpu_profile: match cpu_profile.as_str() {
             "eco" | "balanced" | "fast" => cpu_profile,
             _ => "balanced".into(),
@@ -548,7 +529,11 @@ pub async fn voice_live_start(
             }
             Err(error) => {
                 inner.last_error = Some(error.clone());
-                crate::voice_runtime::bootstrap::emit_progress(&app, "error", "The Live Voice Host could not start");
+                crate::voice_runtime::bootstrap::emit_progress(
+                    &app,
+                    "error",
+                    "The Live Voice Host could not start",
+                );
                 return Err(error);
             }
         }

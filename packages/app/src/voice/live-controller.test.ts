@@ -37,7 +37,7 @@ function setup(options: { roomError?: unknown; grantErrors?: unknown[] } = {}) {
       const error = options.grantErrors?.shift()
       if (error) throw error
       grants++
-      return { url: "ws://127.0.0.1:17880", token: `t${grants}`, expiresAt: 0, room: "unifia-live-x", binding: "lvb_1", sessionID: request.sessionID ?? null }
+      return { url: "ws://127.0.0.1:7880", token: `t${grants}`, expiresAt: 0, room: "unifia-live-x", binding: "lvb_1", sessionID: request.sessionID ?? null }
     },
     async release(binding) {
       released.push(binding)

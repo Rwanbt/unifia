@@ -59,8 +59,7 @@ or GPT are all used exactly as for a typed prompt.
 | Settings | `packages/app/src/components/settings-audio-live.tsx` |
 | Room grants and bindings (server) | `packages/unifia/src/server/routes/voice-live.ts` |
 | Voice Host supervisor (desktop) | `packages/desktop/src-tauri/src/voice_live.rs` |
-| LiveKit config (exposure rules) | `packages/desktop/src-tauri/src/voice_live/config.rs` |
-| LiveKit build and pin | `packages/desktop/scripts/livekit-server.ts`, `packages/voice-host/livekit-server.json` |
+| LiveKit install, pin and config (exposure rules) | `packages/desktop/src-tauri/src/livekit_server.rs` |
 | Agent entrypoint | `packages/voice-host/voice_host/live/agent.py`, `__main__.py` |
 | Agent bridge | `packages/voice-host/voice_host/live/bridge.py` |
 | Segmenter / renderer / language | `segmenter.py`, `renderer.py`, `language.py` |
@@ -70,8 +69,13 @@ or GPT are all used exactly as for a typed prompt.
 ## Topology
 
 **Desktop.** Pressing Live calls `voice_live_start` (Tauri). The supervisor
-starts `livekit-server` (bundled sidecar, hash-checked) and the Python agent in
-the managed Voice Host environment, waits for `UNIFIA_LIVE_READY`, then writes
+starts `livekit-server` and the Python agent in
+the managed Voice Host environment. On first use the official LiveKit 1.13.7
+release archive is downloaded from GitHub into `<app data>/speech/livekit/`;
+the archive and the extracted executable are checked against SHA-256 pins in
+`livekit_server.rs` before every start. API key and secret are generated per
+start, zeroised on stop, and the generated `livekit.yaml` is deleted once the
+server is up. The supervisor waits for `UNIFIA_LIVE_READY`, then writes
 `<app data>/speech/live/livekit.json` (mode 0600). The Unifia server reads that
 file through `UNIFIA_VOICE_HOST_DIR` to issue room tokens. The manual Pocket
 worker is stopped while the Voice Host runs so Pocket is loaded once. The host
@@ -92,7 +96,7 @@ Settings > Audio." No cloud voice service is used as a substitute.
 
 | Mode | Signal | Media | Notes |
 |---|---|---|---|
-| Local (default) | `127.0.0.1:17880/tcp` | `127.0.0.1:17882/udp` | Verified listeners on Linux: nothing else is bound. |
+| Local (default) | `127.0.0.1:7880/tcp` (+ `[::1]` when IPv6 loopback exists) | `127.0.0.1:7882/udp` | Verified listeners on Linux: nothing else is bound. |
 | LAN (opt-in) | `127.0.0.1` + one private IPv4 | same UDP port on those addresses | Address = interface of the default route, only if RFC1918. |
 
 TCP ICE (`tcp_port: 0`) and TURN are disabled: TCP ICE binds every interface.
@@ -100,6 +104,13 @@ TCP ICE (`tcp_port: 0`) and TURN are disabled: TCP ICE binds every interface.
 candidates otherwise and a local client never forms an ICE pair
 (`wait_pc_connection timed out`, the failure recorded during Wave H on
 Windows; reproduced on Linux by removing the option and fixed by adding it).
+Without `rtc.stun_servers` LiveKit hands clients public Google/Twilio STUN
+servers; the config therefore sets a dead loopback STUN endpoint
+(`127.0.0.1:9`), so srflx gathering fails silently and nothing leaves the
+host. Pointing it at LiveKit's own UDP port instead makes ICE time out (the
+mux does not answer as a STUN server) — verified with the integration test.
+`::1` is bound only when IPv6 loopback is available: livekit-server exits at
+startup on a bind address of a missing family.
 Internet exposure is never automatic.
 
 ## Turn handling
@@ -151,7 +162,7 @@ policies as typed prompts. LiveKit Cloud is never enabled.
 
 | Component | License | Distribution |
 |---|---|---|
-| livekit-server 1.13.7 | Apache-2.0 | Built from the pinned Go module and bundled as a sidecar. |
+| livekit-server 1.13.7 | Apache-2.0 | Official release binary downloaded at first use, SHA-256 pinned, not redistributed in the installer. |
 | livekit-agents 1.8.3, livekit, livekit-api, livekit-protocol | Apache-2.0 | Installed by uv from PyPI (locked). |
 | livekit-local-inference 0.2.7 (Silero VAD, turn detector v1-mini) | Apache-2.0 **and LiveKit Model License** | Installed by uv. The model license allows free use only together with LiveKit Agents and forbids using its outputs to train other models; Unifia uses it only inside LiveKit Agents. |
 | onnx-asr 0.12.0 | MIT | uv |
@@ -165,10 +176,10 @@ policies as typed prompts. LiveKit Cloud is never enabled.
 
 | Symptom | Check |
 |---|---|
-| "Voice Host unavailable" on desktop | Logs `[LiveKit]` / `[Live agent]`; port 17880 in use by another program; managed runtime install failed (see Speech toasts). |
+| "Voice Host unavailable" on desktop | Logs `[LiveKit]` / `[Live agent]`; port 7880 or 7882 in use by another program; LiveKit download or hash check failed (`<app data>/speech/live/livekit.log`); managed runtime install failed (see Speech toasts). |
 | "Voice Host unavailable" on the phone | The phone must be connected to the desktop's Unifia server, and Live LAN access enabled on the desktop (Settings > Audio > Voice Host access). |
 | Connects but never listens | Agent did not join within 20 s: Parakeet missing (`stt_unavailable`) or agent crash (supervisor restarts it up to 3 times per 5 min). |
-| `wait_pc_connection timed out` | The LiveKit config lacks `enable_loopback_candidate: true`, or a firewall/GPO blocks UDP 17882. |
+| `wait_pc_connection timed out` | The LiveKit config lacks `enable_loopback_candidate: true`, `stun_servers` points at LiveKit's own UDP port, or a firewall/GPO blocks UDP 7882. |
 | No barge-in | Headphones vs speakers: echo is cancelled by the platform AEC; interruptions need 0.3 s of speech. |
 
 ## Tests and measurements

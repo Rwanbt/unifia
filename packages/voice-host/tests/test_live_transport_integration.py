@@ -51,28 +51,37 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
+def ipv6_loopback() -> bool:
+    try:
+        with socket.socket(socket.AF_INET6) as sock:
+            sock.bind(("::1", 0))
+        return True
+    except OSError:
+        return False
+
+
 def livekit_config(port: int, udp: int) -> str:
-    # Same exposure rules as voice_live/config.rs (loopback, no TCP ICE, no TURN).
+    # Same shape as livekit_server::config_with_lan_ip (desktop): loopback
+    # binds, no TCP ICE, loopback candidates enabled, and a dead loopback STUN
+    # server so LiveKit never hands clients its public STUN defaults (pointing it
+    # at the UDP mux itself makes ICE time out).
+    v6 = ipv6_loopback()
+    binds = "  - 127.0.0.1\n" + ("  - ::1\n" if v6 else "")
+    ranges = "      - 127.0.0.0/8\n" + ("      - ::1/128\n" if v6 else "")
     return f"""port: {port}
 bind_addresses:
-  - 127.0.0.1
-rtc:
-  udp_port: {udp}
+{binds}rtc:
   tcp_port: 0
+  udp_port: {udp}
+  node_ip: 127.0.0.1
   use_external_ip: false
   enable_loopback_candidate: true
-  node_ip: 127.0.0.1
+  stun_servers:
+    - 127.0.0.1:9
   ips:
     includes:
-      - 127.0.0.1/32
-keys:
-  {API_KEY}: {API_SECRET}
-room:
-  auto_create: true
-  empty_timeout: 120
-  max_participants: 2
-turn:
-  enabled: false
+{ranges}keys:
+  "{API_KEY}": "{API_SECRET}"
 logging:
   level: warn
 """

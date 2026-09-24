@@ -18,8 +18,13 @@ use tokio::{
 };
 
 const LIVEKIT_VERSION: &str = "1.13.7";
-const LIVEKIT_HTTP_PORT: u16 = 7880;
-const LIVEKIT_RTC_PORT: u16 = 7882;
+pub(crate) const LIVEKIT_HTTP_PORT: u16 = 7880;
+pub(crate) const LIVEKIT_RTC_PORT: u16 = 7882;
+/// Without `stun_servers` LiveKit hands clients its public Google/Twilio STUN
+/// defaults. Pointing at LiveKit's own UDP mux breaks ICE (the mux does not
+/// answer STUN binding requests as a server), so clients get a loopback port
+/// where nothing listens: srflx gathering fails silently and nothing leaves the host.
+const NULL_STUN_SERVER: &str = "127.0.0.1:9";
 const PRIVATE_ROUTE_PROBES: [Ipv4Addr; 3] = [
     Ipv4Addr::new(192, 168, 1, 1),
     Ipv4Addr::new(10, 0, 0, 1),
@@ -263,9 +268,9 @@ pub(crate) async fn write_config(
     path: &Path,
     api_key: &str,
     api_secret: &str,
-    host_mode: HostMode,
+    lan_ip: Option<Ipv4Addr>,
 ) -> Result<(), String> {
-    let content = config_contents(api_key, api_secret, host_mode)?;
+    let content = config_with_lan_ip(api_key, api_secret, lan_ip, ipv6_loopback_available());
     tokio::fs::write(path, content)
         .await
         .map_err(|error| format!("Write ephemeral LiveKit config: {error}"))?;
@@ -282,8 +287,9 @@ pub(crate) async fn write_config(
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum HostMode {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum HostMode {
     Local,
     Lan,
 }
@@ -298,37 +304,42 @@ impl HostMode {
     }
 }
 
-fn config_contents(api_key: &str, api_secret: &str, host_mode: HostMode) -> Result<String, String> {
-    let lan_ip = match host_mode {
-        HostMode::Local => None,
-        HostMode::Lan => Some(detect_private_lan_ip().ok_or_else(|| {
-            "LAN Voice mode requires an active private IPv4 interface".to_string()
-        })?),
+fn config_with_lan_ip(
+    api_key: &str,
+    api_secret: &str,
+    lan_ip: Option<Ipv4Addr>,
+    ipv6_loopback: bool,
+) -> String {
+    // livekit-server exits at startup when a bind address belongs to an
+    // unavailable family, so `::1` is only listed where IPv6 loopback works.
+    let loopback = if ipv6_loopback {
+        "  - 127.0.0.1\n  - ::1\n"
+    } else {
+        "  - 127.0.0.1\n"
     };
-    Ok(config_with_lan_ip(api_key, api_secret, lan_ip))
-}
-
-fn config_with_lan_ip(api_key: &str, api_secret: &str, lan_ip: Option<Ipv4Addr>) -> String {
-    let (bind_addresses, node_ip, stun_servers, candidate_ranges) = match lan_ip {
+    let loopback_ranges = if ipv6_loopback {
+        "      - 127.0.0.0/8\n      - ::1/128\n"
+    } else {
+        "      - 127.0.0.0/8\n"
+    };
+    let (bind_addresses, node_ip, candidate_ranges) = match lan_ip {
         Some(address) => (
-            format!("  - 127.0.0.1\n  - ::1\n  - {address}\n"),
+            format!("{loopback}  - {address}\n"),
             address.to_string(),
-            format!("    - 127.0.0.1:{LIVEKIT_RTC_PORT}\n    - {address}:{LIVEKIT_RTC_PORT}\n"),
             format!("      - {address}/32\n"),
         ),
-        None => (
-            "  - 127.0.0.1\n  - ::1\n".into(),
-            "127.0.0.1".into(),
-            format!("    - 127.0.0.1:{LIVEKIT_RTC_PORT}\n"),
-            String::new(),
-        ),
+        None => (loopback.to_string(), "127.0.0.1".into(), String::new()),
     };
     format!(
-        "port: {LIVEKIT_HTTP_PORT}\nbind_addresses:\n{bind_addresses}rtc:\n  tcp_port: 0\n  udp_port: {LIVEKIT_RTC_PORT}\n  node_ip: {node_ip}\n  use_external_ip: false\n  enable_loopback_candidate: true\n  stun_servers:\n{stun_servers}  ips:\n    includes:\n      - 127.0.0.0/8\n      - ::1/128\n{candidate_ranges}keys:\n  \"{api_key}\": \"{api_secret}\"\nlogging:\n  level: warn\n"
+        "port: {LIVEKIT_HTTP_PORT}\nbind_addresses:\n{bind_addresses}rtc:\n  tcp_port: 0\n  udp_port: {LIVEKIT_RTC_PORT}\n  node_ip: {node_ip}\n  use_external_ip: false\n  enable_loopback_candidate: true\n  stun_servers:\n    - {NULL_STUN_SERVER}\n  ips:\n    includes:\n{loopback_ranges}{candidate_ranges}keys:\n  \"{api_key}\": \"{api_secret}\"\nlogging:\n  level: warn\n"
     )
 }
 
-fn detect_private_lan_ip() -> Option<Ipv4Addr> {
+fn ipv6_loopback_available() -> bool {
+    std::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, 0)).is_ok()
+}
+
+pub(crate) fn detect_private_lan_ip() -> Option<Ipv4Addr> {
     for destination in PRIVATE_ROUTE_PROBES {
         let Ok(socket) = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)) else {
             continue;
@@ -392,12 +403,12 @@ mod tests {
 
     #[test]
     fn runtime_config_scopes_rtc_to_loopback() {
-        let config = config_with_lan_ip("test-key", "test-secret", None);
+        let config = config_with_lan_ip("test-key", "test-secret", None, true);
 
         assert!(config.contains("  - 127.0.0.1\n  - ::1\n"));
         assert!(config.contains("  tcp_port: 0\n"));
         assert!(config.contains("  enable_loopback_candidate: true\n"));
-        assert!(config.contains("  stun_servers:\n    - 127.0.0.1:7882\n"));
+        assert!(config.contains("  stun_servers:\n    - 127.0.0.1:9\n  ips:"));
         assert!(config.contains("    includes:\n      - 127.0.0.0/8\n      - ::1/128\n"));
         assert!(!config.contains("0.0.0.0"));
         assert!(!config.contains("node_ip: 0.0.0.0"));
@@ -406,13 +417,24 @@ mod tests {
     #[test]
     fn lan_config_binds_only_the_selected_private_address() {
         let address = Ipv4Addr::new(192, 168, 1, 42);
-        let config = config_with_lan_ip("test-key", "test-secret", Some(address));
+        let config = config_with_lan_ip("test-key", "test-secret", Some(address), true);
 
         assert!(config.contains("  - 127.0.0.1\n  - ::1\n  - 192.168.1.42\n"));
         assert!(config.contains("  node_ip: 192.168.1.42\n"));
         assert!(config.contains("      - 192.168.1.42/32\n"));
+        assert!(config.contains("  stun_servers:\n    - 127.0.0.1:9\n  ips:"));
+        assert!(!config.contains(":7882\n"));
         assert!(!config.contains("0.0.0.0"));
         assert!(!config.contains("8.8.8.8"));
+    }
+
+    #[test]
+    fn hosts_without_ipv6_loopback_bind_ipv4_only() {
+        let config = config_with_lan_ip("test-key", "test-secret", None, false);
+
+        assert!(config.contains("bind_addresses:\n  - 127.0.0.1\nrtc:\n"));
+        assert!(config.contains("    includes:\n      - 127.0.0.0/8\nkeys:\n"));
+        assert!(!config.contains("::1"));
     }
 
     #[test]

@@ -6278,7 +6278,6 @@ dependencies = [
  "process-wrap",
  "rcgen",
  "reqwest 0.12.24",
- "ring",
  "semver",
  "serde",
  "serde_json",

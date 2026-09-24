@@ -43,20 +43,46 @@ def load_parakeet(model_dir: Path, threads: int) -> Any:
     )
 
 
-def frames_to_mono16k(frames: list[rtc.AudioFrame]) -> np.ndarray:
-    """Merge LiveKit frames into one float32 mono 16 kHz waveform."""
+SUPPORTED_RATES = frozenset({8_000, 11_025, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000})
+
+
+def frames_to_mono(frames: list[rtc.AudioFrame]) -> tuple[np.ndarray, int]:
+    """Merge LiveKit PCM16 frames into one bounded float32 mono waveform.
+
+    Frames must share one sample rate and match their declared dimensions;
+    the waveform keeps its rate when onnx-asr can resample it (higher
+    quality than a local interpolation) and is interpolated to 16 kHz
+    otherwise.
+    """
     if not frames:
-        return np.zeros(0, dtype=np.float32)
-    merged = rtc.combine_audio_frames(frames)
-    samples = np.frombuffer(merged.data, dtype=np.int16).astype(np.float32) / 32768.0
-    if merged.num_channels > 1:
-        samples = samples.reshape(-1, merged.num_channels).mean(axis=1)
-    if merged.sample_rate != TARGET_RATE:
-        duration = samples.shape[0] / merged.sample_rate
-        target_len = int(round(duration * TARGET_RATE))
-        positions = np.linspace(0, samples.shape[0] - 1, num=max(target_len, 1))
-        samples = np.interp(positions, np.arange(samples.shape[0]), samples).astype(np.float32)
-    return samples[: MAX_UTTERANCE_SECONDS * TARGET_RATE]
+        return np.zeros(0, dtype=np.float32), TARGET_RATE
+    rate = frames[0].sample_rate
+    if rate <= 0:
+        raise ValueError("Audio frame sample rate must be positive")
+    chunks: list[np.ndarray] = []
+    total = 0
+    for frame in frames:
+        if frame.sample_rate != rate or frame.num_channels < 1:
+            raise ValueError("Audio frames must share one sample rate and have channels")
+        samples = np.frombuffer(frame.data, dtype="<i2")
+        if samples.size != frame.samples_per_channel * frame.num_channels:
+            raise ValueError("Audio frame data does not match its sample dimensions")
+        if frame.samples_per_channel == 0:
+            continue
+        mono = samples.reshape(-1, frame.num_channels).astype(np.float32).mean(axis=1) / 32768.0
+        chunks.append(mono.astype(np.float32))
+        total += frame.samples_per_channel
+        if total >= rate * MAX_UTTERANCE_SECONDS:
+            break
+    if not chunks:
+        return np.zeros(0, dtype=np.float32), rate
+    waveform = np.concatenate(chunks)[: rate * MAX_UTTERANCE_SECONDS]
+    if rate not in SUPPORTED_RATES:
+        target_len = max(int(round(waveform.shape[0] * TARGET_RATE / rate)), 1)
+        positions = np.linspace(0, waveform.shape[0] - 1, num=target_len)
+        waveform = np.interp(positions, np.arange(waveform.shape[0]), waveform).astype(np.float32)
+        rate = TARGET_RATE
+    return waveform, rate
 
 
 class ParakeetSTT(stt.STT):
@@ -75,9 +101,9 @@ class ParakeetSTT(stt.STT):
     def provider(self) -> str:
         return "unifia"
 
-    def _transcribe(self, waveform: np.ndarray) -> str:
+    def _transcribe(self, waveform: np.ndarray, rate: int) -> str:
         with self._lock:
-            result = self._recognizer.recognize(waveform, sample_rate=TARGET_RATE)
+            result = self._recognizer.recognize(waveform, sample_rate=rate)
         return str(getattr(result, "text", result) or "").strip()
 
     async def _recognize_impl(
@@ -88,14 +114,14 @@ class ParakeetSTT(stt.STT):
         conn_options: APIConnectOptions,
     ) -> stt.SpeechEvent:
         frames = buffer if isinstance(buffer, list) else [buffer]
-        waveform = frames_to_mono16k(frames)
+        waveform, rate = frames_to_mono(frames)
         started = time.perf_counter()
-        text = await asyncio.to_thread(self._transcribe, waveform) if waveform.size else ""
+        text = await asyncio.to_thread(self._transcribe, waveform, rate) if waveform.size else ""
         self.last_latency_ms = int((time.perf_counter() - started) * 1000)
         resolved = self._router.resolve(detect_language(text), text)
         log.info(
             "stt utterance audio_ms=%d stt_ms=%d language=%s chars=%d",
-            int(waveform.size * 1000 / TARGET_RATE), self.last_latency_ms, resolved, len(text),
+            int(waveform.size * 1000 / rate), self.last_latency_ms, resolved, len(text),
         )
         return stt.SpeechEvent(
             type=stt.SpeechEventType.FINAL_TRANSCRIPT,

@@ -14,7 +14,7 @@ function recorder(status: number, body: unknown) {
 
 describe("Live host client", () => {
   test("requests a grant from the current server with its own credentials", async () => {
-    const { calls, fetchImpl } = recorder(200, { url: "ws://127.0.0.1:17880", token: "t", expiresAt: 1, room: "r", binding: "lvb_x", sessionID: null })
+    const { calls, fetchImpl } = recorder(200, { url: "ws://127.0.0.1:7880", token: "t", expiresAt: 1, room: "r", binding: "lvb_x", sessionID: null })
     const client = createLiveHostClient({ platform: "mobile", server: () => ({ url: "http://192.168.1.20:4096/", authorization: "Basic abc" }), fetch: fetchImpl })
     const grant = await client.requestGrant({ directory: "/w" })
     expect(grant.binding).toBe("lvb_x")

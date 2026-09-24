@@ -312,12 +312,6 @@ jobs:
           workspaces: packages/desktop/src-tauri
           shared-key: ${{ matrix.settings.target }}
 
-      # prepare.ts builds the pinned LiveKit SFU sidecar with Go.
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-          cache: false
-
       - name: Prepare
         run: |
           cd packages/desktop

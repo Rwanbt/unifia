@@ -182,11 +182,13 @@ The Wave H loopback blocker is explained: livekit-server needs
 `rtc.enable_loopback_candidate: true`, otherwise pion drops loopback ICE
 candidates and a local client times out in `wait_pc_connection` — the exact
 symptom recorded on Windows. Removing the option reproduces it on Linux;
-adding it fixes it. The generated configuration always sets it.
+adding it fixes it. The generated configuration always sets it, together
+with a dead loopback STUN endpoint (no public STUN is handed to clients;
+pointing STUN at LiveKit's own UDP port was found to break ICE).
 
 | Wave | Delivered | Evidence | Gate |
 |---|---|---|---|
-| H — LiveKit foundation | livekit-server 1.13.7 pinned build + supervisor, Python Voice Host (Silero VAD, turn detector v1-mini, Parakeet STT), server-issued short-lived tokens, reconnect | Rust config tests, server route tests, real-transport integration test (4/4 runs) | PASS in CI scope; target Windows run pending |
+| H — LiveKit foundation | livekit-server 1.13.7 official release (SHA-256 pinned download) + supervisor, Python Voice Host (Silero VAD, turn detector v1-mini, Parakeet STT), server-issued short-lived tokens, reconnect | Rust config tests, server route tests, real-transport integration test (4/4 runs) | PASS in CI scope; target Windows run pending |
 | I — Agent bridge | `VoiceAgentBridge` over `prompt_async` + event stream, first turn creates and binds the session, idempotent turns | bridge tests with an HTTP/SSE double; integration test asserts one submission per turn and after reconnect | PASS in CI scope |
 | J — Streaming speech | `SpeechSegmenter`, `SpeechRenderer`, streaming `TtsRouter` (Pocket in process → Piper), barge-in cancellation, no WAV | Python tests; integration test (Pocket failure → Piper audio, barge-in stops playback in 512–557 ms from speech onset) | PASS in CI scope; real Pocket TTFA pending |
 | K — Live prompt UI | `prompt-live-toggle`, 9-state machine, mutual exclusion with dictation, status line, a11y, settings | app tests (state machine, controller, host client, dictation hook incl. mutation check), i18n parity | PASS in CI scope; visual check on devices pending |

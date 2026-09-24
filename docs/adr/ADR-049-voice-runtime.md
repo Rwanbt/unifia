@@ -23,9 +23,10 @@ second agent runtime next to the Unifia session.
 5. **The Voice Host is Python**: LiveKit Agents 1.8.3 and Pocket run in one
    process (`python -m voice_host.live`); Piper stays out of process.
 6. **LiveKit is the transport**: self-hosted livekit-server 1.13.7 built from
-   its pinned Go module (reproducible, hash-checked, bundled as a sidecar),
+   the official release, downloaded at first use and SHA-256 pinned (archive
+   and executable), with per-start ephemeral credentials,
    loopback by default, one private LAN address only on explicit opt-in, no
-   TCP ICE, no TURN, never LiveKit Cloud.
+   TCP ICE, no TURN, no public STUN, never LiveKit Cloud.
 7. **Unifia is the only agent authority.** Voice turns go through
    `POST /session/:id/prompt_async` and the event stream of the existing
    session with the model/agent selected in the composer. LiveKit gets no
@@ -48,15 +49,18 @@ Implementation, exposure rules, security, privacy and license details:
   localhost HTTP layer between agent and TTS.
 - LiveKit function tools or a LiveKit-side LLM: would duplicate Unifia's tools
   and permission gate.
-- Downloading livekit-server release binaries at runtime: building the pinned
-  module keeps a verifiable, reproducible hash and ships the binary with the app.
+- Building livekit-server from its Go module and bundling it as a sidecar:
+  adds a Go toolchain to every desktop build and installer size for a feature
+  used on demand; the official release with pinned hashes gives the same
+  integrity guarantee.
 - LiveKit's default 3 s AEC warm-up: blocks early barge-in; 0.5 s is used.
 - On-device Pocket/Piper on Android for this delivery (frozen out of scope;
   the `TtsBackend` contract allows it later).
 
 ## Consequences
 
-- The desktop build needs Go (the build script selects the pinned toolchain).
+- First Live use needs network access to GitHub releases (one download, then
+  offline); a pin update is required to move to a new LiveKit version.
 - `turn-detector-v1-mini` is covered by the LiveKit Model License: free use
   only with LiveKit Agents; this needs explicit acceptance by the product owner.
 - The Voice Host holds Pocket in RAM while Live is used; it stops 5 minutes

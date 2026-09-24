@@ -75,7 +75,6 @@ process-wrap = { version = "9.0.3", features = ["tokio1"] }
 rcgen = { version = "0.13", features = ["pem"] }
 sha2 = "0.10"
 base64 = "0.21"
-ring = "0.17.14"
 flate2 = "1"
 tar = "0.4"
 url = "2"

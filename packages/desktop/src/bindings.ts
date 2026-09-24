@@ -86,6 +86,8 @@ export type BenchmarkResult = {
 		device_label: string | null,
 	};
 
+export type HostMode = "local" | "lan";
+
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" };
 
 export type LinuxDisplayBackend = "wayland" | "auto";
@@ -169,11 +171,9 @@ export type VramInfo = {
 		gpu_name: string,
 	};
 
-export type VoiceHostMode = "local" | "lan";
-
 export type VoiceLiveStatus = {
 		running: boolean,
-		mode: VoiceHostMode | null,
+		mode: HostMode | null,
 		url: string | null,
 		lanUrl: string | null,
 		restarts: number,
