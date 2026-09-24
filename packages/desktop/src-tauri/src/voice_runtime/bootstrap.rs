@@ -14,7 +14,7 @@ pub(crate) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map_err(|error| error.to_string())
 }
 
-pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) async fn prepare_runtime(app: &AppHandle) -> Result<PathBuf, String> {
     prepare_managed_project(app, "voice-host").await
 }
 

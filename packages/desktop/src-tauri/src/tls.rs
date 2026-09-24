@@ -109,11 +109,8 @@ fn generate_cert(
     std::fs::create_dir_all(dir).map_err(|e| format!("Failed to create TLS directory: {e}"))?;
 
     // Subject Alt Names: localhost + 127.0.0.1 (IP strings are auto-detected by rcgen)
-    let mut params = CertificateParams::new(vec![
-        "localhost".to_string(),
-        "127.0.0.1".to_string(),
-    ])
-    .map_err(|e| format!("Failed to create certificate params: {e}"))?;
+    let mut params = CertificateParams::new(vec!["localhost".to_string(), "127.0.0.1".to_string()])
+        .map_err(|e| format!("Failed to create certificate params: {e}"))?;
 
     // 10-year validity
     params.not_after = rcgen::date_time_ymd(2035, 1, 1);
@@ -131,7 +128,13 @@ fn generate_cert(
         let hash = Sha256::digest(der);
         hash.iter()
             .enumerate()
-            .map(|(i, b)| if i == 0 { format!("{b:02X}") } else { format!(":{b:02X}") })
+            .map(|(i, b)| {
+                if i == 0 {
+                    format!("{b:02X}")
+                } else {
+                    format!(":{b:02X}")
+                }
+            })
             .collect::<String>()
     };
 
@@ -145,8 +148,7 @@ fn generate_cert(
         B64.encode(hash)
     };
 
-    std::fs::write(cert_path, cert.pem())
-        .map_err(|e| format!("Failed to write cert.pem: {e}"))?;
+    std::fs::write(cert_path, cert.pem()).map_err(|e| format!("Failed to write cert.pem: {e}"))?;
     std::fs::write(key_path, key_pair.serialize_pem())
         .map_err(|e| format!("Failed to write key.pem: {e}"))?;
     std::fs::write(fp_path, &fingerprint)
@@ -195,8 +197,14 @@ mod tests {
 
         assert!(dir.join("cert.pem").exists(), "cert.pem must exist");
         assert!(dir.join("key.pem").exists(), "key.pem must exist");
-        assert!(dir.join("fingerprint.txt").exists(), "fingerprint.txt must exist");
-        assert!(dir.join("spki_hash.txt").exists(), "spki_hash.txt must exist");
+        assert!(
+            dir.join("fingerprint.txt").exists(),
+            "fingerprint.txt must exist"
+        );
+        assert!(
+            dir.join("spki_hash.txt").exists(),
+            "spki_hash.txt must exist"
+        );
     }
 
     // ── Test 2 ──────────────────────────────────────────────────────────────
@@ -218,9 +226,17 @@ mod tests {
         );
 
         let parts: Vec<&str> = fp.split(':').collect();
-        assert_eq!(parts.len(), 32, "fingerprint must have 32 colon-separated groups");
+        assert_eq!(
+            parts.len(),
+            32,
+            "fingerprint must have 32 colon-separated groups"
+        );
         for part in &parts {
-            assert_eq!(part.len(), 2, "each group must be exactly 2 chars, got {part:?}");
+            assert_eq!(
+                part.len(),
+                2,
+                "each group must be exactly 2 chars, got {part:?}"
+            );
         }
     }
 
@@ -277,8 +293,7 @@ mod tests {
         let dir = unique_temp_dir("tls_cert_header");
         call_generate_cert(&dir).expect("generate_cert should succeed");
 
-        let pem = std::fs::read_to_string(dir.join("cert.pem"))
-            .expect("cert.pem must be readable");
+        let pem = std::fs::read_to_string(dir.join("cert.pem")).expect("cert.pem must be readable");
 
         assert!(
             pem.starts_with("-----BEGIN CERTIFICATE-----"),
@@ -292,8 +307,7 @@ mod tests {
         let dir = unique_temp_dir("tls_key_header");
         call_generate_cert(&dir).expect("generate_cert should succeed");
 
-        let pem = std::fs::read_to_string(dir.join("key.pem"))
-            .expect("key.pem must be readable");
+        let pem = std::fs::read_to_string(dir.join("key.pem")).expect("key.pem must be readable");
 
         assert!(
             pem.starts_with("-----BEGIN"),

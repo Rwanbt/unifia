@@ -109,6 +109,27 @@ export const SettingsAudio: Component = () => {
         </SettingsRow>
       </SettingsSection>
 
+      <Show when={!isMobile()}>
+        <SettingsSection title={language.t("settings.fork.audio.voiceNetwork")}>
+          <SettingsRow
+            title={language.t("settings.fork.audio.voiceNetwork")}
+            description={language.t("settings.fork.audio.voiceNetworkDescription")}
+          >
+            <Select
+              {...SELECT}
+              options={["local", "lan"]}
+              current={settings.voiceHostMode}
+              label={(mode) => language.t(mode === "lan"
+                ? "settings.fork.audio.voiceNetworkLan"
+                : "settings.fork.audio.voiceNetworkLocal")}
+              onSelect={(mode) => {
+                if (mode === "local" || mode === "lan") update("voiceHostMode", mode)
+              }}
+            />
+          </SettingsRow>
+        </SettingsSection>
+      </Show>
+
       <SettingsSection title={language.t("settings.fork.audio.tts")}>
         <SettingsRow
           title={language.t("settings.fork.audio.enableTts")}

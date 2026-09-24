@@ -472,12 +472,17 @@ pub fn spawn_command(
     // picker was simply always empty in an installed build, with no error to
     // notice. Same class as the audit-log path, fixed the same way: hand the
     // sidecar an absolute path instead of letting it guess from cwd.
-    match app.path().resolve("templates/design", BaseDirectory::Resource) {
+    match app
+        .path()
+        .resolve("templates/design", BaseDirectory::Resource)
+    {
         Ok(templates) => envs.push((
             "UNIFIA_DESIGN_TEMPLATES_DIR".to_string(),
             templates.to_string_lossy().to_string(),
         )),
-        Err(error) => tracing::warn!(%error, "design skill templates are not bundled; the skill picker will be empty"),
+        Err(error) => {
+            tracing::warn!(%error, "design skill templates are not bundled; the skill picker will be empty")
+        }
     }
     envs.extend(
         extra_env
@@ -687,10 +692,18 @@ pub fn serve(
     // Pass TLS cert/key paths to the sidecar when Internet mode is active.
     if tls_enabled {
         if let Ok(certs) = crate::tls::ensure_cert(app) {
-            envs.push(("OPENCODE_TLS_CERT_PATH", certs.cert_path.to_string_lossy().into_owned()));
-            envs.push(("OPENCODE_TLS_KEY_PATH", certs.key_path.to_string_lossy().into_owned()));
+            envs.push((
+                "OPENCODE_TLS_CERT_PATH",
+                certs.cert_path.to_string_lossy().into_owned(),
+            ));
+            envs.push((
+                "OPENCODE_TLS_KEY_PATH",
+                certs.key_path.to_string_lossy().into_owned(),
+            ));
         } else {
-            tracing::warn!("TLS enabled but failed to load/generate certificate; falling back to plain HTTP");
+            tracing::warn!(
+                "TLS enabled but failed to load/generate certificate; falling back to plain HTTP"
+            );
         }
     }
 

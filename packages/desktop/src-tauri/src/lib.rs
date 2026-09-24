@@ -7,6 +7,9 @@ mod identity_generated;
 pub mod linux_display;
 #[cfg(target_os = "linux")]
 pub mod linux_windowing;
+mod livekit_auth;
+mod livekit_runtime;
+mod livekit_server;
 mod llm;
 mod logging;
 mod markdown;
@@ -725,6 +728,7 @@ pub fn run() {
             handle.manage(child_processes);
             handle.manage(llm::LlmServerState::new());
             handle.manage(speech::SpeechState::new());
+            handle.manage(livekit_runtime::LiveKitHostState::default());
 
             builder.mount_events(&handle);
             // Start the localhost keychain endpoint before the sidecar is spawned.
@@ -840,6 +844,8 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
+            livekit_runtime::live_voice_start,
+            livekit_runtime::live_voice_stop,
             auth_storage::auth_storage_get,
             auth_storage::auth_storage_set,
             auth_storage::auth_storage_delete,

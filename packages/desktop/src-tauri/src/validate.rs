@@ -30,7 +30,10 @@ pub fn validate_url(url: &str) -> Result<&str, String> {
         return Err("only https URLs allowed".into());
     }
     let host = parsed.host_str().ok_or("missing host")?;
-    if !ALLOWED_HOSTS.iter().any(|h| host == *h || host.ends_with(&format!(".{h}"))) {
+    if !ALLOWED_HOSTS
+        .iter()
+        .any(|h| host == *h || host.ends_with(&format!(".{h}")))
+    {
         return Err(format!("host not in allowlist: {host}"));
     }
     Ok(url)
@@ -40,9 +43,9 @@ pub fn validate_url(url: &str) -> Result<&str, String> {
 /// double-click across Windows / macOS / Linux shells, so an XSS issuing
 /// invoke("open_path") would otherwise be RCE.
 const FORBIDDEN_OPEN_EXT: &[&str] = &[
-    "exe", "bat", "cmd", "com", "ps1", "psm1", "vbs", "vbe", "js", "jse",
-    "msi", "msp", "reg", "scr", "lnk", "inf", "hta", "wsf", "cpl", "jar",
-    "sh", "bash", "zsh", "command", "app", "dylib", "so", "dll",
+    "exe", "bat", "cmd", "com", "ps1", "psm1", "vbs", "vbe", "js", "jse", "msi", "msp", "reg",
+    "scr", "lnk", "inf", "hta", "wsf", "cpl", "jar", "sh", "bash", "zsh", "command", "app",
+    "dylib", "so", "dll",
 ];
 
 /// Validate a target for the `open_path` Tauri command.
@@ -112,7 +115,10 @@ pub fn validate_voice_clone_name(name: &str) -> Result<&str, String> {
     if !(first.is_ascii_alphanumeric() || first == '_') {
         return Err("voice clone name must start with a letter, digit, or underscore".into());
     }
-    if !name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ' ')) {
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ' '))
+    {
         return Err("voice clone name has invalid characters".into());
     }
     Ok(name)
@@ -135,16 +141,13 @@ pub fn validate_open_app_name(name: &str) -> Result<&str, String> {
     if name.is_empty() || name.len() > 64 {
         return Err("app_name length out of range".into());
     }
-    if name.contains('/')
-        || name.contains('\\')
-        || name.contains("..")
-        || name.contains('\0')
-    {
+    if name.contains('/') || name.contains('\\') || name.contains("..") || name.contains('\0') {
         return Err("app_name contains forbidden characters".into());
     }
-    if !name.chars().all(|c| {
-        c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ' ')
-    }) {
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ' '))
+    {
         return Err("app_name has invalid characters".into());
     }
     Ok(name)
