@@ -11,6 +11,7 @@ import { SettingsConfiguration } from "./settings-configuration"
 import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
+import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsPlugins } from "./settings-plugins"
 import { SettingsAndroid } from "./settings-android"
@@ -47,23 +48,57 @@ export const DialogSettings: Component = () => {
 type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
 type SettingsGroup = { label: string; pages: SettingsPage[] }
 
-function settingsGroups(language: ReturnType<typeof useLanguage>, platform: ReturnType<typeof usePlatform>): SettingsGroup[] {
+function settingsGroups(
+  language: ReturnType<typeof useLanguage>,
+  platform: ReturnType<typeof usePlatform>,
+): SettingsGroup[] {
   return [
     {
       label: language.t("settings.section.desktop"),
       pages: [
-        { id: "general", icon: "general", label: language.t("settings.tab.general"), render: () => <SettingsGeneral /> },
+        {
+          id: "general",
+          icon: "general",
+          label: language.t("settings.tab.general"),
+          render: () => <SettingsGeneral />,
+        },
         { id: "audio", icon: "audio", label: language.t("settings.fork.audio.title"), render: () => <SettingsAudio /> },
-        { id: "shortcuts", icon: "shortcuts", label: language.t("settings.tab.shortcuts"), render: () => <SettingsKeybinds /> },
-        { id: "memory", icon: "memory", label: language.t("settings.fork.memory.title"), render: () => <SettingsMemory /> },
+        {
+          id: "shortcuts",
+          icon: "shortcuts",
+          label: language.t("settings.tab.shortcuts"),
+          render: () => <SettingsKeybinds />,
+        },
+        {
+          id: "memory",
+          icon: "memory",
+          label: language.t("settings.fork.memory.title"),
+          render: () => <SettingsMemory />,
+        },
       ],
     },
     {
       label: language.t("settings.section.ai"),
       pages: [
-        { id: "providers", icon: "providers", label: language.t("settings.providers.title"), render: () => <SettingsProviders /> },
+        {
+          id: "providers",
+          icon: "providers",
+          label: language.t("settings.providers.title"),
+          render: () => <SettingsProviders />,
+        },
         { id: "models", icon: "models", label: language.t("settings.models.title"), render: () => <SettingsModels /> },
-        { id: "benchmark", icon: "benchmark", label: language.t("settings.fork.benchmark.title"), render: () => <SettingsBenchmark /> },
+        {
+          id: "routing",
+          icon: "routing",
+          label: language.t("settings.aiPreferences.title"),
+          render: () => <SettingsAiPreferences />,
+        },
+        {
+          id: "benchmark",
+          icon: "benchmark",
+          label: language.t("settings.fork.benchmark.title"),
+          render: () => <SettingsBenchmark />,
+        },
       ],
     },
     {
@@ -82,9 +117,24 @@ function settingsGroups(language: ReturnType<typeof useLanguage>, platform: Retu
             </>
           ),
         },
-        { id: "account", icon: "security", label: language.t("settings.tab.security"), render: () => <SettingsCollaborativeAuth /> },
-        { id: "configuration", icon: "configuration", label: language.t("settings.localConfig.title"), render: () => <SettingsConfiguration /> },
-        { id: "observability", icon: "observability", label: language.t("settings.fork.observability.title"), render: () => <SettingsObservability /> },
+        {
+          id: "account",
+          icon: "security",
+          label: language.t("settings.tab.security"),
+          render: () => <SettingsCollaborativeAuth />,
+        },
+        {
+          id: "configuration",
+          icon: "configuration",
+          label: language.t("settings.localConfig.title"),
+          render: () => <SettingsConfiguration />,
+        },
+        {
+          id: "observability",
+          icon: "observability",
+          label: language.t("settings.fork.observability.title"),
+          render: () => <SettingsObservability />,
+        },
       ],
     },
     {
@@ -139,11 +189,7 @@ export const SettingsPanel: Component = () => {
             </div>
           </Tabs.List>
           <For each={groups().flatMap((group) => group.pages)}>
-            {(page) => (
-              <Tabs.Content value={page.id}>
-                {page.render()}
-              </Tabs.Content>
-            )}
+            {(page) => <Tabs.Content value={page.id}>{page.render()}</Tabs.Content>}
           </For>
         </Tabs>
       </div>

@@ -733,6 +733,52 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   text-align: center;
 }
 
+/* .v91-profile-grid: priority presets as cards (the active one tinted). */
+[data-v110="settings-page"] [data-slot="settings-profile-grid"] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"] {
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"][aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line-strong));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-2));
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"] b {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-profile-card"] span {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="settings-profile-grid"] {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;

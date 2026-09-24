@@ -10,6 +10,7 @@ import { SettingsConfiguration } from "./settings-configuration"
 import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
+import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsPlugins } from "./settings-plugins"
 import { SettingsAndroid } from "./settings-android"
@@ -25,6 +26,7 @@ type CategoryId =
   | "shortcuts"
   | "providers"
   | "models"
+  | "routing"
   | "configuration"
   | "remote"
   | "account"
@@ -49,6 +51,7 @@ export const SettingsMobileNav: Component = () => {
     { value: "shortcuts" as const, icon: "keyboard" as const, label: language.t("settings.tab.shortcuts") },
     { value: "providers" as const, icon: "providers" as const, label: language.t("settings.providers.title") },
     { value: "models" as const, icon: "models" as const, label: language.t("settings.models.title") },
+    { value: "routing" as const, icon: "sliders" as const, label: language.t("settings.aiPreferences.title") },
     { value: "configuration" as const, icon: "console" as const, label: language.t("settings.localConfig.title") },
     { value: "remote" as const, icon: "globe" as const, label: language.t("settings.desktop.section.remote") },
     { value: "account" as const, icon: "shield" as const, label: language.t("auth.signIn") },
@@ -75,6 +78,8 @@ export const SettingsMobileNav: Component = () => {
         return <SettingsProviders />
       case "models":
         return <SettingsModels />
+      case "routing":
+        return <SettingsAiPreferences />
       case "configuration":
         return <SettingsConfiguration />
       case "remote":
