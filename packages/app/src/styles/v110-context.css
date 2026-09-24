@@ -154,7 +154,21 @@
 
 [data-v110="context-panel"] .v68-project.active .v68-project-row {
   background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
-  box-shadow: inset 2px 0 var(--accent);
+}
+
+/* The selected session's short side bar (.v68-nav.active::before) rather
+ * than the reference's inset stroke, which bent along the row's radius. */
+[data-v110="context-panel"] .v68-project.active .v68-project-row::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 2px;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--accent);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 [data-v110="context-panel"] .v68-project-select {
