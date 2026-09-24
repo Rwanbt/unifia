@@ -18,6 +18,7 @@ let captureLease: AudioCaptureLease | undefined
 let captureStream: MediaStream | undefined
 let captureStartedAt = 0
 let discardDictationCapture = false
+let finalizingDictation = false
 let captureCoordinatorCleanup: (() => void) | undefined
 let runtimeProgressUnlisten: UnlistenFn | undefined
 let runtimeProgressToastId: string | number | undefined
@@ -155,6 +156,7 @@ async function handleSttStart() {
     }
 
     mediaRecorder.onstop = async () => {
+      finalizingDictation = false
       acquiredStream.getTracks().forEach((t) => t.stop())
       captureStream = undefined
       if (captureLease?.id === acquiredLease.id) captureLease = undefined
@@ -221,6 +223,7 @@ async function handleSttStart() {
 
 function handleSttStop() {
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    finalizingDictation = true
     mediaRecorder.stop()
     console.log("[STT] Recording stopped, processing...")
     return
@@ -232,6 +235,9 @@ function handleSttStop() {
 }
 
 function stopDictationCapture() {
+  // An explicit stop is already transcribing: Live taking the microphone must
+  // not discard it — the dictated text still lands in the prompt.
+  if (finalizingDictation) return
   discardDictationCapture = true
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop()
