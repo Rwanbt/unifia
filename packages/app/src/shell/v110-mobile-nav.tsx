@@ -1,88 +1,134 @@
 /* SPDX-License-Identifier: MIT */
 
-// A2-03 v110 mobile nav (Wave 0.5). Props-driven, no runtime import.
-// WHY props: the rail already gates automate (mode.modes) and owns the
-// 4-mode registry; a second rail reading stores directly would fork the
-// registry (GAP-02) and the grant gate (GAP-03). This bar renders what it
-// is given: modes plus settings, nothing else, never 10 buttons.
-// Phone-portrait only (RESPONSIVE-MATRIX): hidden by default, shown by
-// v110-shell.css under 600px portrait. Touch targets use the A1 touch
-// var (44px). Safe areas use env() so the iOS notch never covers a tab.
+// A2-03 v110 phone bottom bar. Props-driven: the rail owns the mode
+// registry and the grant gate (mode.modes), so this bar renders the modes
+// it is given plus the shared Browser/Memory destinations, never a second
+// registry. "More" opens the reference's quick-action strip (#mobileSheet):
+// theme, compute, account, review and settings.
+// Phone only (ADR-053): hidden by default, shown by v110-shell.css. Safe
+// areas use env() so the iOS notch never covers a tab.
 
-import { For, type Accessor, type JSX } from "solid-js"
+import { createSignal, For, onCleanup, onMount, type Accessor, type JSX } from "solid-js"
 import { Icon } from "@unifia/ui/icon"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
 import type { WorkspaceDestination } from "@/context/mode-directory"
+import { modeIcon, PILL_DESTINATIONS } from "@/shell/v110-destinations"
+
+export type MobileAction = "theme" | "compute" | "account" | "review" | "settings"
+
+// The reference's glyphs for its quick actions (#mobileSheet).
+const ACTIONS = [
+  { id: "theme", glyph: "◐", labelKey: "mobile.sheet.theme" },
+  { id: "compute", glyph: "▣", labelKey: "mobile.sheet.compute" },
+  { id: "account", glyph: "◉", labelKey: "sidebar.account" },
+  { id: "review", glyph: "◎", labelKey: "mobile.sheet.review" },
+  { id: "settings", glyph: "⚙", labelKey: "sidebar.settings" },
+] as const satisfies readonly { id: MobileAction; glyph: string; labelKey: string }[]
+
+type MobileLabel =
+  | `mobile.nav.${ShellMode | "more"}`
+  | "mobile.sheet.label"
+  | (typeof ACTIONS)[number]["labelKey"]
+  | (typeof PILL_DESTINATIONS)[number]["labelKey"]
+  | "workbench.modes.railLabel"
 
 type Props = {
   modes: Accessor<readonly ShellMode[]>
   active: Accessor<WorkspaceDestination>
-  onMode: (mode: ShellMode) => void
-  onSettings: () => void
-  onAccount: () => void
-  navLabel: string
-  modeLabel: (mode: ShellMode) => string
-  settingsLabel: string
-  accountLabel: string
+  onDestination: (destination: WorkspaceDestination) => void
+  onAction: (action: MobileAction) => void
+  label: (key: MobileLabel) => string
 }
 
 export function MobileNav(props: Props): JSX.Element {
-  return (
-    <nav
-      data-v110="mobile-nav"
-      data-component="v110-mobile-nav"
-      aria-label={props.navLabel}
-      style={{
-        "padding-bottom": "env(safe-area-inset-bottom)",
-        "padding-left": "env(safe-area-inset-left)",
-        "padding-right": "env(safe-area-inset-right)",
-      }}
+  const [open, setOpen] = createSignal(false)
+  let nav: HTMLElement | undefined
+  let sheet: HTMLElement | undefined
+
+  onMount(() => {
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (open() && !nav?.contains(target) && !sheet?.contains(target)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("pointerdown", closeOutside, true)
+    document.addEventListener("keydown", closeOnEscape)
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", closeOutside, true)
+      document.removeEventListener("keydown", closeOnEscape)
+    })
+  })
+
+  const go = (destination: WorkspaceDestination) => {
+    setOpen(false)
+    props.onDestination(destination)
+  }
+
+  // data-mode marks the four shell modes only, as on the rail: Browser and
+  // Memory are destinations, not registered modes.
+  const tab = (destination: WorkspaceDestination, icon: Parameters<typeof Icon>[0]["name"], label: string, mode?: ShellMode) => (
+    <button
+      type="button"
+      data-mode={mode}
+      data-destination={destination}
+      data-v110-tab={destination}
+      aria-label={label}
+      aria-pressed={props.active() === destination}
+      onClick={() => go(destination)}
     >
-      <For each={props.modes()}>
-        {(mode) => (
-          <button
-            type="button"
-            data-mode={mode}
-            data-v110-tab={mode}
-            aria-label={props.modeLabel(mode)}
-            aria-pressed={props.active() === mode}
-            style={{
-              width: "var(--v110-target-touch, 44px)",
-              height: "var(--v110-target-touch, 44px)",
-            }}
-            onClick={() => props.onMode(mode)}
-          >
-            <Icon size="medium" name={mode === "code" ? "code" : mode === "work" ? "folder" : mode === "design" ? "edit" : "checklist"} />
-          </button>
-        )}
-      </For>
-      <button
-        type="button"
-        data-action="mobile-settings"
-        aria-label={props.settingsLabel}
-        aria-pressed={props.active() === "settings"}
-        data-mode="settings"
-        style={{
-          width: "var(--v110-target-touch, 44px)",
-          height: "var(--v110-target-touch, 44px)",
-        }}
-        onClick={props.onSettings}
+      <Icon name={icon} />
+      <span data-slot="mobile-nav-label">{label}</span>
+    </button>
+  )
+
+  return (
+    <>
+      <section
+        ref={sheet}
+        data-v110="mobile-sheet"
+        data-open={open()}
+        aria-label={props.label("mobile.sheet.label")}
+        aria-hidden={!open()}
+        inert={!open()}
       >
-        <Icon size="medium" name="settings-gear" />
-      </button>
-      <button
-        type="button"
-        data-action="mobile-account"
-        aria-label={props.accountLabel}
-        aria-pressed={props.active() === "user"}
-        style={{
-          width: "var(--v110-target-touch, 44px)",
-          height: "var(--v110-target-touch, 44px)",
-        }}
-        onClick={props.onAccount}
+        <For each={ACTIONS}>
+          {(action) => (
+            <button
+              type="button"
+              data-mobile-action={action.id}
+              onClick={() => {
+                setOpen(false)
+                props.onAction(action.id)
+              }}
+            >
+              <span aria-hidden="true">{action.glyph}</span>
+              <b>{props.label(action.labelKey)}</b>
+            </button>
+          )}
+        </For>
+      </section>
+      <nav
+        ref={nav}
+        data-v110="mobile-nav"
+        data-component="v110-mobile-nav"
+        aria-label={props.label("workbench.modes.railLabel")}
       >
-        <Icon size="medium" name="scope" />
-      </button>
-    </nav>
+        <For each={props.modes()}>{(mode) => tab(mode, modeIcon(mode), props.label(`mobile.nav.${mode}`), mode)}</For>
+        <For each={PILL_DESTINATIONS}>{(pill) => tab(pill.target, pill.icon, props.label(pill.labelKey))}</For>
+        <button
+          type="button"
+          data-action="mobile-more"
+          aria-label={props.label("mobile.sheet.label")}
+          aria-expanded={open()}
+          aria-pressed={open()}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <Icon name="more" />
+          <span data-slot="mobile-nav-label">{props.label("mobile.nav.more")}</span>
+        </button>
+      </nav>
+    </>
   )
 }

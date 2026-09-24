@@ -501,20 +501,6 @@ html[data-ui-animations="off"] *::after {
   }
 }
 
-/* Mobile bottom nav (≤599px portrait, shell authority exclusive). */
-[data-v110="mobile-nav"] button {
-  min-height: var(--v110-target-touch);
-  border-radius: var(--v110-radius-sm);
-  transition: background-color var(--v110-fast) var(--v110-ease);
-}
-
-[data-v110="mobile-nav"] button[aria-pressed="true"],
-[data-v110="mobile-nav"] button[data-active="true"] {
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent-line);
-  color: var(--text-strong);
-}
-
 /* Sidebar nav (desktop) — hover-peek authority. */
 [data-component="sidebar-nav-desktop"] {
   background: transparent;

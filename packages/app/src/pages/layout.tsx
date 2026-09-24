@@ -1099,13 +1099,15 @@ export default function Layout(props: ParentProps) {
             <MobileNav
               modes={mode.modes}
               active={mode.destination}
-              onMode={mode.select}
-              onSettings={openSettings}
-              onAccount={openAccount}
-              navLabel={language.t("workbench.modes.railLabel")}
-              modeLabel={(m) => language.t(`workbench.modes.${m}`)}
-              settingsLabel={language.t("sidebar.settings")}
-              accountLabel={language.t("sidebar.account")}
+              onDestination={mode.selectDestination}
+              onAction={(action) => {
+                if (action === "theme") theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
+                if (action === "compute") openServer()
+                if (action === "account") openAccount()
+                if (action === "review") command.trigger("review.toggle")
+                if (action === "settings") openSettings()
+              }}
+              label={language.t}
             />
 
             <div

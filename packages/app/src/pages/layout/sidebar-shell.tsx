@@ -5,14 +5,7 @@ import type { ShellMode } from "@unifia/workbench-shell/modes"
 import type { WorkspaceDestination } from "@/context/mode-directory"
 import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 import { useLanguage } from "@/context/language"
-
-// Browser and Memory are workspace destinations, not SHELL_MODES. They still
-// use the same route/selection contract as the four shell modes; keeping them
-// outside SHELL_MODES preserves the shared registry invariant.
-const RAIL_PILLS = [
-  { id: "browser", icon: "browser", target: "browser" as const, labelKey: "sidebar.rail.browser" },
-  { id: "memory", icon: "brain", target: "memory" as const, labelKey: "sidebar.rail.memory" },
-] as const
+import { modeIcon, PILL_DESTINATIONS } from "@/shell/v110-destinations"
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -103,21 +96,7 @@ export const SidebarContent = (props: {
                 {(mode) => (
                   <Tooltip placement={placement()} value={props.modeLabel(mode)}>
                     <IconButton
-                      // Ports the maquette's actual per-mode rail-btn glyphs
-                      // (Unifia-UI-UX-v110-PORT-READY-R1.html:15327-15336) --
-                      // was "code"/"folder"/"edit"/"checklist", the shared
-                      // icon set's generic stand-ins, visually unrelated to
-                      // the maquette's own brackets/briefcase/flower/workflow
-                      // shapes for these four modes.
-                      icon={
-                        mode === "code"
-                          ? "brackets"
-                          : mode === "work"
-                            ? "briefcase"
-                            : mode === "design"
-                              ? "flower"
-                              : "workflow"
-                      }
+                      icon={modeIcon(mode)}
                       variant="ghost"
                       size="large"
                       // .rail-btn is 42x42 with a 12px radius
@@ -177,7 +156,7 @@ export const SidebarContent = (props: {
               </For>
               {/* Browser and Memory are real workspace destinations in the
                   reference rail, not aliases for Design/Code. */}
-              <For each={RAIL_PILLS}>
+              <For each={PILL_DESTINATIONS}>
                 {(pill) => (
                   <Tooltip placement={placement()} value={language.t(pill.labelKey)}>
                     <IconButton
