@@ -1047,14 +1047,14 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   filter: grayscale(1);
 }
 
-/* Split chat resize handle -- maquette .mode-chat > .panel-resizer[data-resize="chat"]:
- * a 14px hit area straddling the chat's right edge, a 2px line on hover,
- * focus or drag. */
+/* Split chat resize handle: a 14px hit area centred on the editor card's
+ * left edge (the chat's edge plus the split gap, v110-editor.css), with no
+ * drawn line -- only the cursor, like the context and inspector handles. */
 [data-v110="session-chat-surface"] > [data-v110="resize-chat-wrapper"] {
   position: absolute;
   top: 0;
   bottom: 0;
-  right: -7px;
+  right: calc(-1 * var(--v110-gutter-inner) - 7px);
   z-index: 55;
   width: 14px;
   touch-action: none;
@@ -1064,22 +1064,4 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   position: relative;
   width: 100%;
   height: 100%;
-}
-
-[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"]::after {
-  content: "";
-  position: absolute;
-  top: 16px;
-  bottom: 16px;
-  left: 6px;
-  width: 2px;
-  border-radius: 999px;
-  background: transparent;
-  transition: background-color 0.14s ease;
-}
-
-[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"]:hover::after,
-[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"]:focus-visible::after,
-[data-v110="resize-chat-wrapper"]:active > [data-v110="resize-chat"]::after {
-  background: var(--line-strong);
 }
