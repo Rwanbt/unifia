@@ -47,10 +47,7 @@ export const DialogSettings: Component = () => {
 type SettingsPage = { id: string; icon: SettingsIconName; label: string; render: () => JSX.Element }
 type SettingsGroup = { label: string; pages: SettingsPage[] }
 
-function settingsGroups(
-  language: ReturnType<typeof useLanguage>,
-  platform: ReturnType<typeof usePlatform>,
-): SettingsGroup[] {
+function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup[] {
   return [
     {
       label: language.t("settings.section.desktop"),
@@ -140,7 +137,7 @@ export const SettingsPanel: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
   const [tab, setTab] = createSignal("general")
-  const groups = createMemo(() => settingsGroups(language, platform))
+  const groups = createMemo(() => settingsGroups(language))
 
   return (
     <SettingsScopeProvider onOpenPage={setTab}>

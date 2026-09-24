@@ -252,223 +252,221 @@ export const SettingsRemoteAccess: Component = () => {
 
   return (
     <Show when={platform.getRemoteAccess}>
-      <>
-        <SettingsList>
-          <SettingsRow
-            title={language.t("settings.desktop.remote.mode.title")}
-            description={language.t("settings.desktop.remote.mode.description")}
-          >
-            <Select
-              data-action="settings-remote-mode"
-              options={modeOptions()}
-              current={modeOptions().find((o) => o.value === mode())}
-              value={(o) => o.value}
-              label={(o) => o.label}
-              onSelect={(option) => {
-                if (!option) return
-                onModeSelect(option.value)
-              }}
-              variant="secondary"
-              size="small"
-              triggerVariant="settings"
-            />
-          </SettingsRow>
+      <SettingsList>
+        <SettingsRow
+          title={language.t("settings.desktop.remote.mode.title")}
+          description={language.t("settings.desktop.remote.mode.description")}
+        >
+          <Select
+            data-action="settings-remote-mode"
+            options={modeOptions()}
+            current={modeOptions().find((o) => o.value === mode())}
+            value={(o) => o.value}
+            label={(o) => o.label}
+            onSelect={(option) => {
+              if (!option) return
+              onModeSelect(option.value)
+            }}
+            variant="secondary"
+            size="small"
+            triggerVariant="settings"
+          />
+        </SettingsRow>
 
-          <SettingsRow
-            title={language.t("settings.desktop.remote.password.title")}
-            description={language.t("settings.desktop.remote.password.description")}
-          >
-            <div class="flex flex-col gap-2">
-              {/* Current credentials display */}
-              <div class="flex items-center gap-2">
-                <span class="text-12-regular text-text-weak font-mono">
-                  {info() ? info()!.username : "…"}
-                  {" / "}
-                </span>
-                <span class="text-12-regular text-text-weak font-mono select-all">
-                  {info() ? (reveal() ? info()!.password : maskedPassword(info()!.password)) : "…"}
-                </span>
-                <Button variant="secondary" size="small" onClick={() => setReveal(!reveal())} disabled={!info()}>
-                  {reveal()
-                    ? language.t("settings.desktop.remote.password.hide")
-                    : language.t("settings.desktop.remote.password.reveal")}
-                </Button>
-                <Button variant="secondary" size="small" onClick={onResetPassword} disabled={busy() || !info()}>
-                  {language.t("settings.desktop.remote.password.reset")}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={() => {
-                    setEditUsername(info()?.username ?? "")
-                    setEditPassword("")
-                    setEditingCredentials(!editingCredentials())
-                  }}
-                  disabled={!info()}
-                >
-                  {language.t("common.edit")}
-                </Button>
-              </div>
-              {/* Inline editor */}
-              <Show when={editingCredentials()}>
-                <div class="flex flex-col gap-1.5 rounded-md border border-border-weak-base bg-[var(--surface-panel)] p-2">
-                  <div class="flex items-center gap-2">
-                    <span class="text-11-regular text-text-weak w-20 shrink-0">
-                      {language.t("settings.fork.remote.username")}
-                    </span>
-                    <input
-                      class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
-                      value={editUsername()}
-                      onInput={(e) => setEditUsername(e.currentTarget.value)}
-                      placeholder={info()?.username ?? "unifia"}
-                      autocomplete="off"
-                      spellcheck={false}
-                    />
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-11-regular text-text-weak w-20 shrink-0">
-                      {language.t("settings.fork.remote.password")}
-                    </span>
-                    <input
-                      class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
-                      value={editPassword()}
-                      onInput={(e) => setEditPassword(e.currentTarget.value)}
-                      placeholder={language.t("settings.fork.remote.newPassword")}
-                      type="password"
-                      autocomplete="new-password"
-                    />
-                  </div>
-                  <div class="flex gap-2 justify-end">
-                    <Button variant="secondary" size="small" onClick={() => setEditingCredentials(false)}>
-                      {language.t("common.cancel")}
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="small"
-                      onClick={onSaveCredentials}
-                      disabled={busy() || (!editUsername().trim() && !editPassword().trim())}
-                    >
-                      {language.t("common.save")}
-                    </Button>
-                  </div>
-                </div>
-              </Show>
-            </div>
-          </SettingsRow>
-
-          <Show when={info()?.enabled}>
-            <SettingsRow
-              title={language.t("settings.desktop.remote.connection.title")}
-              description={language.t("settings.desktop.remote.connection.description")}
-            >
-              <Show
-                when={connectionUrl()}
-                fallback={
-                  <span class="text-12-regular text-text-weak">
-                    {language.t("settings.desktop.remote.connection.noLan")}
-                  </span>
-                }
-              >
-                <span class="text-12-regular font-mono text-text-strong select-all">{connectionUrl()}</span>
-              </Show>
-            </SettingsRow>
-          </Show>
-
-          {/* Internet (TLS) mode — certificate management */}
-          <Show when={mode() === "internet"}>
-            <SettingsRow
-              title={language.t("settings.desktop.remote.tls.fingerprint.title")}
-              description={language.t("settings.desktop.remote.tls.fingerprint.description")}
-            >
-              <span class="text-10-regular font-mono text-text-weak select-all break-all max-w-[220px]">
-                {info()?.tlsFingerprint ?? "…"}
+        <SettingsRow
+          title={language.t("settings.desktop.remote.password.title")}
+          description={language.t("settings.desktop.remote.password.description")}
+        >
+          <div class="flex flex-col gap-2">
+            {/* Current credentials display */}
+            <div class="flex items-center gap-2">
+              <span class="text-12-regular text-text-weak font-mono">
+                {info() ? info()!.username : "…"}
+                {" / "}
               </span>
-            </SettingsRow>
-
-            <SettingsRow
-              title={language.t("settings.desktop.remote.tls.export.button")}
-              description={language.t("settings.desktop.remote.tls.export.description")}
-            >
-              <Button variant="secondary" size="small" onClick={onExportCert} disabled={busy()}>
-                {language.t("settings.desktop.remote.tls.export.button")}
+              <span class="text-12-regular text-text-weak font-mono select-all">
+                {info() ? (reveal() ? info()!.password : maskedPassword(info()!.password)) : "…"}
+              </span>
+              <Button variant="secondary" size="small" onClick={() => setReveal(!reveal())} disabled={!info()}>
+                {reveal()
+                  ? language.t("settings.desktop.remote.password.hide")
+                  : language.t("settings.desktop.remote.password.reveal")}
               </Button>
-            </SettingsRow>
-
-            <SettingsRow
-              title={language.t("settings.desktop.remote.tls.rotate.button")}
-              description={language.t("settings.desktop.remote.tls.rotate.description")}
-            >
-              <Button variant="secondary" size="small" onClick={onRotateCert} disabled={busy()}>
-                {language.t("settings.desktop.remote.tls.rotate.button")}
+              <Button variant="secondary" size="small" onClick={onResetPassword} disabled={busy() || !info()}>
+                {language.t("settings.desktop.remote.password.reset")}
               </Button>
-            </SettingsRow>
-
-            <SettingsRow
-              title={language.t("settings.desktop.remote.tls.portForward.title")}
-              description={language.t("settings.desktop.remote.tls.portForward.description")}
-            >
-              <span class="text-12-regular font-mono text-text-strong select-all">{info()?.port ?? "…"}</span>
-            </SettingsRow>
-
-            <SettingsRow
-              title={language.t("settings.desktop.remote.tls.android.title")}
-              description={language.t("settings.desktop.remote.tls.android.description")}
-            >
-              <Button variant="secondary" size="small" onClick={onExportCert} disabled={busy()}>
-                {language.t("settings.desktop.remote.tls.export.button")}
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => {
+                  setEditUsername(info()?.username ?? "")
+                  setEditPassword("")
+                  setEditingCredentials(!editingCredentials())
+                }}
+                disabled={!info()}
+              >
+                {language.t("common.edit")}
               </Button>
-            </SettingsRow>
-          </Show>
+            </div>
+            {/* Inline editor */}
+            <Show when={editingCredentials()}>
+              <div class="flex flex-col gap-1.5 rounded-md border border-border-weak-base bg-[var(--surface-panel)] p-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-11-regular text-text-weak w-20 shrink-0">
+                    {language.t("settings.fork.remote.username")}
+                  </span>
+                  <input
+                    class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
+                    value={editUsername()}
+                    onInput={(e) => setEditUsername(e.currentTarget.value)}
+                    placeholder={info()?.username ?? "unifia"}
+                    autocomplete="off"
+                    spellcheck={false}
+                  />
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-11-regular text-text-weak w-20 shrink-0">
+                    {language.t("settings.fork.remote.password")}
+                  </span>
+                  <input
+                    class="flex-1 text-12-regular bg-transparent border border-border-weak-base rounded px-2 py-1 text-text-strong font-mono outline-none focus:border-border-base"
+                    value={editPassword()}
+                    onInput={(e) => setEditPassword(e.currentTarget.value)}
+                    placeholder={language.t("settings.fork.remote.newPassword")}
+                    type="password"
+                    autocomplete="new-password"
+                  />
+                </div>
+                <div class="flex gap-2 justify-end">
+                  <Button variant="secondary" size="small" onClick={() => setEditingCredentials(false)}>
+                    {language.t("common.cancel")}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="small"
+                    onClick={onSaveCredentials}
+                    disabled={busy() || (!editUsername().trim() && !editPassword().trim())}
+                  >
+                    {language.t("common.save")}
+                  </Button>
+                </div>
+              </div>
+            </Show>
+          </div>
+        </SettingsRow>
 
+        <Show when={info()?.enabled}>
           <SettingsRow
-            title={language.t("settings.desktop.remote.pair.title")}
-            description={
-              info()?.enabled
-                ? language.t("settings.desktop.remote.pair.descriptionLan")
-                : language.t("settings.desktop.remote.pair.descriptionLocal")
-            }
+            title={language.t("settings.desktop.remote.connection.title")}
+            description={language.t("settings.desktop.remote.connection.description")}
           >
             <Show
-              when={qrSvg()}
+              when={connectionUrl()}
               fallback={
                 <span class="text-12-regular text-text-weak">
-                  {language.t("settings.desktop.remote.pair.unavailable")}
+                  {language.t("settings.desktop.remote.connection.noLan")}
                 </span>
               }
             >
-              <div class="flex flex-col items-center gap-1">
-                <div
-                  class={`rounded-lg border-2 bg-background-elevated p-2 flex items-center justify-center [&_svg]:block ${qrBorderClass()}`}
-                  style={{ width: "176px", height: "176px" }}
-                  // qrcode returns a self-contained <svg> string, safe to inject.
-                  innerHTML={qrSvg()!}
-                />
-                <Show when={connectionUrl()}>
-                  <span class="text-10-regular text-text-weak font-mono truncate max-w-[176px]">{connectionUrl()}</span>
-                </Show>
-              </div>
+              <span class="text-12-regular font-mono text-text-strong select-all">{connectionUrl()}</span>
             </Show>
           </SettingsRow>
-        </SettingsList>
+        </Show>
 
-        <Show when={dirty()}>
-          <p data-slot="settings-note" data-tone="warning">
-            {language.t("settings.desktop.remote.restartRequired")}
-          </p>
-        </Show>
+        {/* Internet (TLS) mode — certificate management */}
         <Show when={mode() === "internet"}>
-          <p data-slot="settings-note">{language.t("settings.desktop.remote.warning.internet")}</p>
+          <SettingsRow
+            title={language.t("settings.desktop.remote.tls.fingerprint.title")}
+            description={language.t("settings.desktop.remote.tls.fingerprint.description")}
+          >
+            <span class="text-10-regular font-mono text-text-weak select-all break-all max-w-[220px]">
+              {info()?.tlsFingerprint ?? "…"}
+            </span>
+          </SettingsRow>
+
+          <SettingsRow
+            title={language.t("settings.desktop.remote.tls.export.button")}
+            description={language.t("settings.desktop.remote.tls.export.description")}
+          >
+            <Button variant="secondary" size="small" onClick={onExportCert} disabled={busy()}>
+              {language.t("settings.desktop.remote.tls.export.button")}
+            </Button>
+          </SettingsRow>
+
+          <SettingsRow
+            title={language.t("settings.desktop.remote.tls.rotate.button")}
+            description={language.t("settings.desktop.remote.tls.rotate.description")}
+          >
+            <Button variant="secondary" size="small" onClick={onRotateCert} disabled={busy()}>
+              {language.t("settings.desktop.remote.tls.rotate.button")}
+            </Button>
+          </SettingsRow>
+
+          <SettingsRow
+            title={language.t("settings.desktop.remote.tls.portForward.title")}
+            description={language.t("settings.desktop.remote.tls.portForward.description")}
+          >
+            <span class="text-12-regular font-mono text-text-strong select-all">{info()?.port ?? "…"}</span>
+          </SettingsRow>
+
+          <SettingsRow
+            title={language.t("settings.desktop.remote.tls.android.title")}
+            description={language.t("settings.desktop.remote.tls.android.description")}
+          >
+            <Button variant="secondary" size="small" onClick={onExportCert} disabled={busy()}>
+              {language.t("settings.desktop.remote.tls.export.button")}
+            </Button>
+          </SettingsRow>
         </Show>
-        <Show when={mode() === "lan"}>
-          <p data-slot="settings-note">{language.t("settings.desktop.remote.warning")}</p>
-        </Show>
-        <Show when={(mode() === "lan" || mode() === "internet") && navigator.platform.toLowerCase().includes("win")}>
-          <p data-slot="settings-note">{language.t("settings.desktop.remote.warning.firewall")}</p>
-        </Show>
-        <Show when={(mode() === "lan" || mode() === "internet") && !info()?.lanIp}>
-          <p data-slot="settings-note">{language.t("settings.desktop.remote.connection.manualHint")}</p>
-        </Show>
-      </>
+
+        <SettingsRow
+          title={language.t("settings.desktop.remote.pair.title")}
+          description={
+            info()?.enabled
+              ? language.t("settings.desktop.remote.pair.descriptionLan")
+              : language.t("settings.desktop.remote.pair.descriptionLocal")
+          }
+        >
+          <Show
+            when={qrSvg()}
+            fallback={
+              <span class="text-12-regular text-text-weak">
+                {language.t("settings.desktop.remote.pair.unavailable")}
+              </span>
+            }
+          >
+            <div class="flex flex-col items-center gap-1">
+              <div
+                class={`rounded-lg border-2 bg-background-elevated p-2 flex items-center justify-center [&_svg]:block ${qrBorderClass()}`}
+                style={{ width: "176px", height: "176px" }}
+                // qrcode returns a self-contained <svg> string, safe to inject.
+                innerHTML={qrSvg()!}
+              />
+              <Show when={connectionUrl()}>
+                <span class="text-10-regular text-text-weak font-mono truncate max-w-[176px]">{connectionUrl()}</span>
+              </Show>
+            </div>
+          </Show>
+        </SettingsRow>
+      </SettingsList>
+
+      <Show when={dirty()}>
+        <p data-slot="settings-note" data-tone="warning">
+          {language.t("settings.desktop.remote.restartRequired")}
+        </p>
+      </Show>
+      <Show when={mode() === "internet"}>
+        <p data-slot="settings-note">{language.t("settings.desktop.remote.warning.internet")}</p>
+      </Show>
+      <Show when={mode() === "lan"}>
+        <p data-slot="settings-note">{language.t("settings.desktop.remote.warning")}</p>
+      </Show>
+      <Show when={(mode() === "lan" || mode() === "internet") && navigator.platform.toLowerCase().includes("win")}>
+        <p data-slot="settings-note">{language.t("settings.desktop.remote.warning.firewall")}</p>
+      </Show>
+      <Show when={(mode() === "lan" || mode() === "internet") && !info()?.lanIp}>
+        <p data-slot="settings-note">{language.t("settings.desktop.remote.connection.manualHint")}</p>
+      </Show>
     </Show>
   )
 }
