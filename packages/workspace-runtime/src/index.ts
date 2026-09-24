@@ -42,6 +42,9 @@ const DEFAULT_MAX_WRITE_BYTES = 4 * 1024 * 1024
 // page without throwing", so the ceiling itself must clear that bar.
 const DEFAULT_MAX_ENTRIES = 50_000
 const DEFAULT_PAGE_SIZE = 500
+// How long a listing's cursor pages are served from the walk made for its
+// first page (see #listSnapshots).
+const LIST_SNAPSHOT_TTL_MS = 60_000
 const DEFAULT_MAX_DEPTH = 32
 const DEFAULT_EXCLUDED_NAMES: ReadonlySet<string> = new Set(["node_modules", ".git", "dist", "build"])
 
@@ -124,6 +127,13 @@ export class WorkspaceRuntime implements WorkspacePort {
   readonly #maxDepth: number
   readonly #excludedNames: ReadonlySet<string>
   readonly #queues = new Map<WorkspaceId, DurableQueue<FileEvent>>()
+  /**
+   * WHY: every page used to re-walk the whole tree and slice it, so listing
+   * a large workspace page by page cost pages x walk -- minutes on a
+   * monorepo, which held the Design surface blank. The first page walks once;
+   * its cursor pages read that walk, which also keeps the pages consistent.
+   */
+  readonly #listSnapshots = new Map<string, { entries: WorkspaceEntry[]; skipped: number; at: number }>()
 
   constructor(options: WorkspaceRuntimeOptions = {}) {
     this.#now = options.now ?? Date.now
@@ -286,9 +296,16 @@ export class WorkspaceRuntime implements WorkspacePort {
       if (!decoded || decoded.workspaceId !== workspaceId || decoded.prefix !== prefix) throw new Error("workspace listing cursor is invalid for this workspace or prefix")
       offset = decoded.offset
     }
-    const directory = await this.#resolveDirectory(session.workspace.path, prefix)
-    if (!directory) return { entries: [], skipped: 0 }
-    const { entries: all, skipped } = await this.#walkEntries(session.workspace.path, directory, undefined)
+    const key = `${sessionId} ${prefix}`
+    const snapshot = cursor === undefined ? undefined : this.#listSnapshots.get(key)
+    let listing = snapshot && this.#now() - snapshot.at < LIST_SNAPSHOT_TTL_MS ? snapshot : undefined
+    if (!listing) {
+      const directory = await this.#resolveDirectory(session.workspace.path, prefix)
+      if (!directory) return { entries: [], skipped: 0 }
+      listing = { ...(await this.#walkEntries(session.workspace.path, directory, undefined)), at: this.#now() }
+      this.#listSnapshots.set(key, listing)
+    }
+    const { entries: all, skipped } = listing
     const page = all.slice(offset, offset + this.#pageSize)
     const nextCursor = offset + this.#pageSize < all.length ? encodeListCursor({ workspaceId, prefix, offset: offset + this.#pageSize }) : undefined
     return { entries: page, nextCursor, skipped }
@@ -381,6 +398,7 @@ export class WorkspaceRuntime implements WorkspacePort {
     for (const watcher of session.watchers) watcher()
     session.watchers.clear()
     this.#sessions.delete(sessionId)
+    for (const key of this.#listSnapshots.keys()) if (key.startsWith(`${sessionId}\0`)) this.#listSnapshots.delete(key)
   }
 
   #queue(workspace: Workspace): DurableQueue<FileEvent> {
