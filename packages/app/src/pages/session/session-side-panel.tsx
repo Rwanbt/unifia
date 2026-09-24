@@ -88,13 +88,95 @@ export function SessionSidePanel(props: {
       >,
   )
   // Read in the frame header, outside the tabs' Suspense: touching the
-  // resource before its first value would suspend the whole session, so it
-  // counts only once events have arrived.
+  // resource before its first value would suspend the whole session.
   const executionCount = createMemo(() => {
     const state = executionEvents.state
     const events = state === "ready" || state === "refreshing" ? (executionEvents.latest ?? []) : []
     return executionRows(events, "all", (status) => status).length
   })
+  // Maquette .v100-execution-context: "prism-eq · refonte-prism".
+  const slug = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-|-$/g, "")
+  const executionContext = createMemo(() => {
+    const title = (props.sessionId && sessionTitle(sync.session.get(props.sessionId)?.title)) || ""
+    return [slug(projectName()), slug(title)].filter(Boolean).join(" · ")
+  })
+
+  // Declared before `heading`: a memo runs on creation and reads it (ADR-049).
+  const [codeTool, setCodeTool] = createSignal<CodeTool>("overview")
+  const heading = createMemo(() => {
+    const tab = layout.inspector.tab()
+    if (tab === "execution") return language.t("inspector.tab.execution")
+    if (tab === "inspector") {
+      const title = destination() === "code" ? codeToolTitleKey(codeTool()) : "inspector.tab.inspector"
+      return `${language.t(destinationLabelKey(destination(), mode.active()))} · ${language.t(title)}`
+    }
+    return `${projectName()} · ${language.t("inspector.tab.explorer")}`
+  })
+
+  // The maquette keeps every inspector tab inside the fixed --inspector track.
+  // Only the content inside that track scrolls; the review content does not
+  // expand the shell column to the chat width.
+  const panelWidth = createMemo(() => {
+    if (!inspectorVisible()) return "0px"
+    return `${layout.inspector.width()}px`
+  })
+
+  // RESPONSIVE-MATRIX.md desktop-compact invariant: opening the left panel
+  // closes the Inspector and inversely (single-utility side, per the A1
+  // viewport contract's exclusive()). One inspector pane now (v110
+  // InspectorFrame), so this collapses to one pair of effects on the
+  // shared opened() flag instead of two panes' worth.
+  createEffect(() => {
+    if (!shell.single()) return
+    if (!layout.sidebar.opened()) return
+    if (layout.inspector.opened()) layout.inspector.close()
+  })
+  createEffect(() => {
+    if (!shell.single()) return
+    if (!layout.inspector.opened()) return
+    if (layout.sidebar.opened()) layout.sidebar.close()
+  })
+
+  const diffFiles = createMemo(() => props.diffs().map((d) => d.file))
+  const kinds = createMemo(() => {
+    const merge = (a: "add" | "del" | "mix" | undefined, b: "add" | "del" | "mix") => {
+      if (!a) return b
+      if (a === b) return a
+      return "mix" as const
+    }
+
+    const normalize = (p: string) => p.replaceAll("\\\\", "/").replace(/\/+$/, "")
+
+    const out = new Map<string, "add" | "del" | "mix">()
+    for (const diff of props.diffs()) {
+      const file = normalize(diff.file)
+      const kind = diff.status === "added" ? "add" : diff.status === "deleted" ? "del" : "mix"
+
+      out.set(file, kind)
+
+      const parts = file.split("/")
+      for (const [idx] of parts.slice(0, -1).entries()) {
+        const dir = parts.slice(0, idx + 1).join("/")
+        if (!dir) continue
+        out.set(dir, merge(out.get(dir), kind))
+      }
+    }
+    return out
+  })
+
+  const empty = (msg: string) => (
+    <div class="h-full flex flex-col">
+      <div class="h-6 shrink-0" aria-hidden />
+      <div class="flex-1 pb-64 flex items-center justify-center text-center">
+        <div class="text-12-regular text-text-weak">{msg}</div>
+      </div>
+    </div>
+  )
 
   const nofiles = createMemo(() => {
     const state = file.tree.state("")
@@ -299,9 +381,8 @@ export function SessionSidePanel(props: {
                 : language.t("inspector.tab.inspector")
           }
         >
-          {/* WHY: the tabs read resources (and lazy chunks). Without a local
-              boundary the first open suspends the app-level Suspense and the
-              whole session vanishes for a few frames. */}
+          {/* WHY: the tabs read resources; without a local boundary the
+              first open suspends the app-level Suspense and blanks the session. */}
           <Suspense>
             <Switch>
               {/* Explorer matches the reference in every mode: the Workspace
