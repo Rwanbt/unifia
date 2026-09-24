@@ -1,4 +1,4 @@
-import { type Component, createEffect, createResource, createSignal, For, onCleanup, Show } from "solid-js"
+import { type Component, createEffect, createResource, createSignal, onCleanup, Show } from "solid-js"
 import { Button } from "@unifia/ui/button"
 import { Select } from "@unifia/ui/select"
 import { Switch as SwitchComponent } from "@unifia/ui/switch"
@@ -13,20 +13,11 @@ import { SettingsObservabilityPrivacy } from "./settings-observability-privacy"
 import { SettingsObservabilityTimeline } from "./settings-observability-timeline"
 import { SettingsObservabilityCost } from "./settings-observability-cost"
 import { SettingsObservabilityExporters } from "./settings-observability-exporters"
+import { SettingsObservabilityCompare, type CohortMetrics } from "./settings-observability-compare"
+import { ObservabilityEventTable, traceCount } from "./settings-observability-events"
 
 const confirmText = "DELETE"
 
-type CohortMetrics = {
-  modelProvider: string | null
-  modelId: string | null
-  skillHmac: string | null
-  latencyP50Ms: number
-  latencyP95Ms: number
-  costPerTurnNanoUsd: number
-  failureRatePct: number
-  totalEvents: number
-  traceCount: number
-}
 type CompareResult = { cohorts: CohortMetrics[]; referenceIndex?: number; timeWindowMs?: number }
 
 export const SettingsObservability: Component = () => {
@@ -60,17 +51,19 @@ export const SettingsObservability: Component = () => {
   )
   const [comparison, comparisonActions] = createResource(activeSubtab, (tab) =>
     tab === "comparisons"
-      ? unwrap(sdk.client.observability.compare({ timeWindowMs: 7 * 24 * 60 * 60 * 1000, scope: dashboardScope() }))
+      ? (unwrap(
+          sdk.client.observability.compare({ timeWindowMs: 7 * 24 * 60 * 60 * 1000, scope: dashboardScope() }),
+        ) as Promise<CompareResult>)
       : Promise.resolve(null),
-  ) as unknown as [() => CompareResult | null, { refetch: () => Promise<void> }]
+  )
   const [refreshKey, setRefreshKey] = createSignal(0)
 
   createEffect(() => {
-    const first = sessions()?.[0]
+    const first = sessions.latest?.[0]
     if (!sessionId() && first) setSessionId(first.id)
   })
 
-  const selected = () => sessions()?.find((item) => item.id === sessionId())
+  const selected = () => sessions.latest?.find((item) => item.id === sessionId())
   const refresh = () => {
     setRefreshKey((value) => value + 1)
     void Promise.all([
@@ -155,10 +148,6 @@ export const SettingsObservability: Component = () => {
     }
   }
 
-  const formatPct = (pct: number | undefined) => (pct === undefined ? "—" : `${pct.toFixed(1)}%`)
-  const formatCost = (nano: number | undefined) => (nano === undefined ? "—" : `$${(nano / 1_000_000_000).toFixed(4)}`)
-  const diffSign = (val: number | undefined) => (val === undefined ? "" : val > 0 ? "+" : "")
-
   return (
     <SettingsPage
       title={language.t("settings.fork.observability.title")}
@@ -242,7 +231,7 @@ export const SettingsObservability: Component = () => {
                 >
                   <div data-action="settings-observability-enabled">
                     <SwitchComponent
-                      checked={settings()?.enabled ?? false}
+                      checked={settings.latest?.enabled ?? false}
                       disabled={busy()}
                       onChange={(enabled) => void update({ enabled })}
                     />
@@ -257,7 +246,7 @@ export const SettingsObservability: Component = () => {
                     variant="secondary"
                     triggerVariant="settings"
                     options={["local_metadata", "local_redacted"] as const}
-                    current={settings()?.captureMode ?? "local_metadata"}
+                    current={settings.latest?.captureMode ?? "local_metadata"}
                     label={(item) =>
                       item === "local_metadata"
                         ? language.t("settings.fork.observability.metadataOnly")
@@ -269,9 +258,9 @@ export const SettingsObservability: Component = () => {
               </SettingsList>
               <p data-slot="settings-note" data-tone="warning">
                 {language.t("settings.fork.observability.sqliteNotice")}{" "}
-                {exportersConfig()?.exporters.length
+                {exportersConfig.latest?.exporters.length
                   ? language.t("settings.fork.observability.exportersConfigured", {
-                      count: exportersConfig()!.exporters.length,
+                      count: exportersConfig.latest!.exporters.length,
                     })
                   : language.t("settings.fork.observability.noExporter")}
               </p>
@@ -288,7 +277,7 @@ export const SettingsObservability: Component = () => {
                     data-slot="settings-number"
                     min={1}
                     placeholder={language.t("settings.fork.observability.retentionPlaceholder")}
-                    value={settings()?.retentionDays ?? ""}
+                    value={settings.latest?.retentionDays ?? ""}
                     onChange={(event) => {
                       const v = event.currentTarget.value
                       void update({ retentionDays: v ? parseInt(v, 10) : undefined })
@@ -304,7 +293,7 @@ export const SettingsObservability: Component = () => {
                     data-slot="settings-number"
                     min={1}
                     placeholder={language.t("settings.fork.observability.maxEventsPlaceholder")}
-                    value={settings()?.maxEvents ?? ""}
+                    value={settings.latest?.maxEvents ?? ""}
                     onChange={(event) => {
                       const v = event.currentTarget.value
                       void update({ maxEvents: v ? parseInt(v, 10) : 100000 })
@@ -321,66 +310,66 @@ export const SettingsObservability: Component = () => {
               <div data-slot="settings-health-grid">
                 <Metric
                   label={language.t("settings.fork.observability.metricQueue")}
-                  value={String(health()?.queueSize ?? 0)}
+                  value={String(health.latest?.queueSize ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricQueueBytes")}
-                  value={`${((health()?.queueBytes ?? 0) / 1024).toFixed(1)} KiB`}
+                  value={`${((health.latest?.queueBytes ?? 0) / 1024).toFixed(1)} KiB`}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricAccepted")}
-                  value={String(health()?.eventsAccepted ?? 0)}
+                  value={String(health.latest?.eventsAccepted ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricInserted")}
-                  value={String(health()?.eventsInserted ?? 0)}
+                  value={String(health.latest?.eventsInserted ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricPersisted")}
-                  value={String(health()?.eventsPersisted ?? 0)}
+                  value={String(health.latest?.eventsPersisted ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricRejectedContext")}
-                  value={String(health()?.eventsRejectedInvalidContext ?? 0)}
+                  value={String(health.latest?.eventsRejectedInvalidContext ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricRejectedEvent")}
-                  value={String(health()?.eventsRejectedInvalidEvent ?? 0)}
+                  value={String(health.latest?.eventsRejectedInvalidEvent ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricDroppedQueue")}
-                  value={String(health()?.eventsDroppedQueueFull ?? 0)}
+                  value={String(health.latest?.eventsDroppedQueueFull ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricDroppedCircuit")}
-                  value={String(health()?.eventsDroppedCircuitOpen ?? 0)}
+                  value={String(health.latest?.eventsDroppedCircuitOpen ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricDbFailures")}
-                  value={String(health()?.eventsFailedDb ?? 0)}
+                  value={String(health.latest?.eventsFailedDb ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricDbBusy")}
-                  value={String(health()?.eventsFailedBusy ?? 0)}
+                  value={String(health.latest?.eventsFailedBusy ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricDbFull")}
-                  value={String(health()?.eventsFailedFull ?? 0)}
+                  value={String(health.latest?.eventsFailedFull ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricDbCorrupt")}
-                  value={String(health()?.eventsFailedCorrupt ?? 0)}
+                  value={String(health.latest?.eventsFailedCorrupt ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricSanitizerFailed")}
-                  value={String(health()?.sanitizerFailed ?? 0)}
+                  value={String(health.latest?.sanitizerFailed ?? 0)}
                 />
                 <Metric
                   label={language.t("settings.fork.observability.metricLastError")}
-                  value={health()?.lastErrorKind ?? "—"}
+                  value={health.latest?.lastErrorKind ?? "—"}
                 />
               </div>
-              <Show when={health()?.circuitOpen}>
+              <Show when={health.latest?.circuitOpen}>
                 <p data-slot="settings-note" data-tone="warning">
                   {language.t("settings.fork.observability.circuitOpen")}
                 </p>
@@ -429,252 +418,52 @@ export const SettingsObservability: Component = () => {
 
         <Show when={activeSubtab() === "traces"}>
           <div class="no-scrollbar">
-            <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between" }}>
+            <div data-slot="obs-panel-head">
+              <span data-slot="obs-session-count">
+                {language.t("settings.observability.tracesCount", {
+                  sessions: sessions.latest?.length ?? 0,
+                  traces: traceCount(events.latest ?? []),
+                })}
+              </span>
               <Select
                 size="small"
                 variant="secondary"
                 triggerVariant="settings"
-                options={sessions() ?? []}
+                options={sessions.latest ?? []}
                 current={selected()}
                 value={(item) => item.id}
                 label={(item) => item.title || item.id}
                 onSelect={(item) => item && setSessionId(item.id)}
               />
-              <span class="text-11-regular" style={{ color: "var(--text-weaker)" }}>
-                {language.t("settings.fork.observability.sessionsCount", { count: sessions()?.length ?? 0 })}
-              </span>
             </div>
-            <Show when={events()}>
-              {(value) => (
-                <div data-slot="settings-table">
-                  <div class="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 bg-surface-inset px-4 py-2 text-11-medium text-text-weak">
-                    <span>{language.t("settings.fork.observability.type")}</span>
-                    <span>{language.t("settings.fork.observability.status")}</span>
-                    <span class="text-right">{language.t("settings.fork.observability.time")}</span>
-                    <span class="text-right">{language.t("settings.fork.observability.durationCost")}</span>
-                  </div>
-                  <For
-                    each={value()}
-                    fallback={
-                      <div class="px-4 py-4 text-12-regular text-text-weak">
-                        {language.t("settings.fork.observability.noSessionEvents")}
-                      </div>
-                    }
-                  >
-                    {(event) => (
-                      <div class="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 border-b border-border-weak-base px-4 py-2 text-12-regular last:border-none">
-                        <span class="truncate text-text-strong">{event.type}</span>
-                        <span class="flex items-center gap-1">
-                          {event.status}
-                          <Show when={event.derivedStatus === "orphaned"}>
-                            <span class="rounded bg-surface-warning-base px-1.5 py-0.5 text-11-regular text-text-strong">
-                              {language.t("settings.fork.observability.orphaned")}
-                            </span>
-                          </Show>
-                        </span>
-                        <span class="text-right text-text-weak">{new Date(event.tsMs).toLocaleTimeString()}</span>
-                        <span class="text-right text-text-weak">
-                          {event.durationMs === undefined ? "—" : `${(event.durationMs / 1000).toFixed(1)}s`} ·{" "}
-                          {event.costNanoUsd === undefined ? "—" : `$${(event.costNanoUsd / 1_000_000_000).toFixed(4)}`}
-                        </span>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              )}
-            </Show>
+            <ObservabilityEventTable events={events.latest ?? []} />
           </div>
         </Show>
 
         <Show when={activeSubtab() === "comparisons"}>
           <div class="no-scrollbar">
-            <div class="flex items-center justify-between gap-4 mb-4">
-              <div>
-                <h3 class="text-14-medium text-text-strong">{language.t("settings.fork.observability.compare")}</h3>
-                <p class="text-12-regular text-text-weak">
-                  {language.t("settings.fork.observability.compareDescription")}
-                </p>
-              </div>
-            </div>
-            <div class="comparison-notice text-12-regular text-text-weak mb-4">
-              {language.t("settings.fork.observability.cohortNotice")}
-            </div>
-            {(() => {
-              const data = comparison()
-              if (!data || !data.cohorts.length)
-                return (
-                  <div class="text-12-regular text-text-weak p-8 text-center">
-                    {language.t("settings.fork.observability.noCohortData")}
-                  </div>
-                )
-              const cohorts = data.cohorts
-              const refIdx = data.referenceIndex ?? 0
-              const reference = cohorts[refIdx]
-              return (
-                <div
-                  class="comparison-grid"
-                  style={{
-                    display: "grid",
-                    "grid-template-columns": "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "12px",
-                  }}
-                >
-                  {cohorts.map((cohort: CohortMetrics, idx: number) => {
-                    const isRef = idx === refIdx
-                    const diff = isRef
-                      ? null
-                      : {
-                          p50:
-                            reference.latencyP50Ms && cohort.latencyP50Ms
-                              ? ((cohort.latencyP50Ms - reference.latencyP50Ms) / reference.latencyP50Ms) * 100
-                              : null,
-                          p95:
-                            reference.latencyP95Ms && cohort.latencyP95Ms
-                              ? ((cohort.latencyP95Ms - reference.latencyP95Ms) / reference.latencyP95Ms) * 100
-                              : null,
-                          cost:
-                            reference.costPerTurnNanoUsd && cohort.costPerTurnNanoUsd
-                              ? ((cohort.costPerTurnNanoUsd - reference.costPerTurnNanoUsd) /
-                                  reference.costPerTurnNanoUsd) *
-                                100
-                              : null,
-                          failure:
-                            reference.failureRatePct && cohort.failureRatePct
-                              ? cohort.failureRatePct - reference.failureRatePct
-                              : null,
-                        }
-                    return (
-                      <section
-                        class="comparison-card"
-                        data-variant={isRef ? "baseline" : "candidate"}
-                        style={{
-                          border: isRef ? "2px solid var(--icon-success-base)" : "1px solid var(--border-weak-base)",
-                          "border-radius": "8px",
-                          padding: "12px",
-                          background: isRef ? "var(--surface-success-weak)" : "var(--surface-base)",
-                        }}
-                      >
-                        <div class="comparison-card-heading">
-                          <span class="text-12-medium">
-                            {isRef
-                              ? language.t("settings.fork.observability.reference")
-                              : language.t("settings.fork.observability.unknown")}
-                          </span>
-                          <span class="text-11-regular text-text-weak">
-                            {isRef
-                              ? language.t("settings.fork.observability.baseline")
-                              : language.t("settings.fork.observability.sameCohort")}
-                          </span>
-                        </div>
-                        <div class="comparison-config text-13-medium" style={{ margin: "8px 0" }}>
-                          {cohort.modelProvider ?? language.t("settings.fork.observability.unknown")} /{" "}
-                          {cohort.modelId ?? language.t("settings.fork.observability.unknown")}
-                        </div>
-                        <dl class="comparison-metrics text-12-regular" style={{ display: "grid", gap: "4px" }}>
-                          <div style={{ display: "flex", "justify-content": "space-between" }}>
-                            <dt>{language.t("settings.fork.observability.latencyP50")}</dt>
-                            <dd style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-                              {cohort.latencyP50Ms ? `${cohort.latencyP50Ms} ms` : "—"}
-                              {diff?.p50 !== null && (
-                                <small
-                                  style={{
-                                    color:
-                                      diff?.p50 !== undefined && diff.p50 < 0
-                                        ? "var(--icon-success-base)"
-                                        : "var(--icon-critical-base)",
-                                  }}
-                                >
-                                  {diffSign(diff?.p50)}
-                                  {diff?.p50?.toFixed(1)}%
-                                </small>
-                              )}
-                            </dd>
-                          </div>
-                          <div style={{ display: "flex", "justify-content": "space-between" }}>
-                            <dt>{language.t("settings.fork.observability.latencyP95")}</dt>
-                            <dd style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-                              {cohort.latencyP95Ms ? `${cohort.latencyP95Ms} ms` : "—"}
-                              {diff?.p95 !== null && (
-                                <small
-                                  style={{
-                                    color:
-                                      diff?.p95 !== undefined && diff.p95 < 0
-                                        ? "var(--icon-success-base)"
-                                        : "var(--icon-critical-base)",
-                                  }}
-                                >
-                                  {diffSign(diff?.p95)}
-                                  {diff?.p95?.toFixed(1)}%
-                                </small>
-                              )}
-                            </dd>
-                          </div>
-                          <div style={{ display: "flex", "justify-content": "space-between" }}>
-                            <dt>{language.t("settings.fork.observability.costTurn")}</dt>
-                            <dd style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-                              {formatCost(cohort.costPerTurnNanoUsd)}
-                              {diff?.cost !== null && (
-                                <small
-                                  style={{
-                                    color:
-                                      diff?.cost !== undefined && diff.cost > 0
-                                        ? "var(--icon-critical-base)"
-                                        : "var(--icon-success-base)",
-                                  }}
-                                >
-                                  {diffSign(diff?.cost)}
-                                  {diff?.cost?.toFixed(1)}%
-                                </small>
-                              )}
-                            </dd>
-                          </div>
-                          <div style={{ display: "flex", "justify-content": "space-between" }}>
-                            <dt>{language.t("settings.fork.observability.failureRateLabel")}</dt>
-                            <dd style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-                              {formatPct(cohort.failureRatePct)}
-                              {diff?.failure !== null && (
-                                <small
-                                  style={{
-                                    color:
-                                      diff?.failure !== undefined && diff.failure > 0
-                                        ? "var(--icon-critical-base)"
-                                        : "var(--icon-success-base)",
-                                  }}
-                                >
-                                  {diffSign(diff?.failure)}
-                                  {diff?.failure?.toFixed(1)} pt
-                                </small>
-                              )}
-                            </dd>
-                          </div>
-                        </dl>
-                      </section>
-                    )
-                  })}
-                </div>
-              )
-            })()}
+            <SettingsObservabilityCompare cohorts={comparison.latest?.cohorts ?? []} />
           </div>
         </Show>
 
         <Show when={activeSubtab() === "events"}>
           <div class="no-scrollbar">
-            <div class="flex items-center justify-between gap-4 pb-2">
-              <h3 class="text-14-medium text-text-strong">{language.t("settings.fork.observability.sessionEvents")}</h3>
+            <div data-slot="obs-panel-head">
+              <h3>{language.t("settings.fork.observability.sessionEvents")}</h3>
               <Select
                 size="small"
                 variant="secondary"
                 triggerVariant="settings"
-                options={sessions() ?? []}
+                options={sessions.latest ?? []}
                 current={selected()}
                 value={(item) => item.id}
                 label={(item) => item.title || item.id}
                 onSelect={(item) => item && setSessionId(item.id)}
               />
             </div>
-            <Show when={summary()}>
+            <Show when={summary.latest}>
               {(value) => (
-                <p class="mb-2 text-12-regular text-text-weak">
+                <p data-slot="settings-note" data-flush>
                   {language.t("settings.fork.observability.eventsSummary", {
                     count: value().totalEvents,
                     cost: (value().totalCostNanoUsd / 1_000_000_000).toFixed(4),
@@ -682,41 +471,7 @@ export const SettingsObservability: Component = () => {
                 </p>
               )}
             </Show>
-            <div data-slot="settings-table">
-              <div class="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 bg-surface-inset px-4 py-2 text-11-medium text-text-weak">
-                <span>{language.t("settings.fork.observability.type")}</span>
-                <span>{language.t("settings.fork.observability.status")}</span>
-                <span class="text-right">{language.t("settings.fork.observability.time")}</span>
-                <span class="text-right">{language.t("settings.fork.observability.durationCost")}</span>
-              </div>
-              <For
-                each={events() ?? []}
-                fallback={
-                  <div class="px-4 py-4 text-12-regular text-text-weak">
-                    {language.t("settings.fork.observability.noSessionEvents")}
-                  </div>
-                }
-              >
-                {(event) => (
-                  <div class="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 border-b border-border-weak-base px-4 py-2 text-12-regular last:border-none">
-                    <span class="truncate text-text-strong">{event.type}</span>
-                    <span class="flex items-center gap-1">
-                      {event.status}
-                      <Show when={event.derivedStatus === "orphaned"}>
-                        <span class="rounded bg-surface-warning-base px-1.5 py-0.5 text-11-regular text-text-strong">
-                          {language.t("settings.fork.observability.orphaned")}
-                        </span>
-                      </Show>
-                    </span>
-                    <span class="text-right text-text-weak">{new Date(event.tsMs).toLocaleTimeString()}</span>
-                    <span class="text-right text-text-weak">
-                      {event.durationMs === undefined ? "—" : `${(event.durationMs / 1000).toFixed(1)}s`} ·{" "}
-                      {event.costNanoUsd === undefined ? "—" : `$${(event.costNanoUsd / 1_000_000_000).toFixed(4)}`}
-                    </span>
-                  </div>
-                )}
-              </For>
-            </div>
+            <ObservabilityEventTable events={events.latest ?? []} />
           </div>
         </Show>
 
@@ -724,7 +479,7 @@ export const SettingsObservability: Component = () => {
           <div class="no-scrollbar">
             <SettingsObservabilityTimeline
               refreshKey={refreshKey()}
-              sessions={sessions() ?? []}
+              sessions={sessions.latest ?? []}
               sessionId={sessionId()}
               scope={dashboardScope()}
               onSelectSession={setSessionId}
@@ -741,11 +496,13 @@ export const SettingsObservability: Component = () => {
         <Show when={activeSubtab() === "privacy"}>
           <div class="no-scrollbar">
             <SettingsObservabilityPrivacy
-              sessions={privacySessions() ?? []}
+              sessions={privacySessions.latest ?? []}
               sessionId={
-                privacySessions()?.some((item) => item.id === sessionId()) ? sessionId() : privacySessions()?.[0]?.id
+                privacySessions.latest?.some((item) => item.id === sessionId())
+                  ? sessionId()
+                  : privacySessions.latest?.[0]?.id
               }
-              projectId={privacySessions()?.find((item) => item.id === sessionId())?.projectID}
+              projectId={privacySessions.latest?.find((item) => item.id === sessionId())?.projectID}
               onSelectSession={setSessionId}
             />
           </div>
@@ -753,7 +510,7 @@ export const SettingsObservability: Component = () => {
 
         <Show when={activeSubtab() === "exporters"}>
           <div class="no-scrollbar">
-            <SettingsObservabilityExporters events={events() ?? []} />
+            <SettingsObservabilityExporters events={events.latest ?? []} />
           </div>
         </Show>
       </div>

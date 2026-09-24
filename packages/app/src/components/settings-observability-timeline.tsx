@@ -1,6 +1,7 @@
-// Phase 3 Timeline + TraceDetail (plan §16). Timeline groups a session's
-// events by traceId into rows with a relative-width bar; clicking a row
-// fetches and expands the full span sequence for that trace (TraceDetail),
+// Phase 3 Timeline + TraceDetail (plan §16), drawn as the reference's
+// .timeline-chart (ADR-050): a Session row spanning the window, then one row
+// per recent timed event placed on the same scale; clicking a row fetches
+// and expands the full span sequence for its trace (TraceDetail),
 // including opt-in content when present (settings-observability-privacy.tsx
 // is where that content capture is actually turned on).
 import { type Component, createMemo, createResource, createSignal, For, Show } from "solid-js"
@@ -10,6 +11,7 @@ import { useSDK } from "@/context/sdk"
 import { unwrap } from "@/utils/sdk-unwrap"
 import { useLanguage } from "@/context/language"
 import { observableSessionId } from "./settings-observability-session-id"
+import { eventKind, formatDuration } from "./settings-observability-format"
 
 type SessionItem = { id: string; title?: string }
 type EventDto = {
@@ -27,7 +29,15 @@ type EventDto = {
   hasSensitiveContent: boolean
 }
 
-function groupByTrace(events: EventDto[]) {
+const MAX_SPANS = 12
+const TICKS = 5
+
+type Span = { event: EventDto; startMs: number; endMs: number; kind: "llm" | "tool" | "error" | "session" }
+
+type Trace = { traceId: string; items: EventDto[]; startMs: number }
+
+/** The session's events grouped into traces (one agent turn each), newest first. */
+function groupByTrace(events: EventDto[]): Trace[] {
   const traces = new Map<string, EventDto[]>()
   for (const event of events) {
     const bucket = traces.get(event.traceId)
@@ -35,14 +45,25 @@ function groupByTrace(events: EventDto[]) {
     else traces.set(event.traceId, [event])
   }
   return [...traces.entries()]
-    .map(([traceId, items]) => {
-      const startMs = Math.min(...items.map((e) => e.tsMs))
-      const endMs = Math.max(...items.map((e) => e.tsMs + (e.durationMs ?? 0)))
-      const hasSensitiveContent = items.some((e) => e.hasSensitiveContent)
-      const hasOrphan = items.some((e) => e.derivedStatus === "orphaned")
-      return { traceId, items, startMs, endMs, hasSensitiveContent, hasOrphan }
-    })
+    .map(([traceId, items]) => ({ traceId, items, startMs: Math.min(...items.map((event) => event.tsMs)) }))
     .sort((a, b) => b.startMs - a.startMs)
+}
+
+/** A trace's timed events, oldest first: one timeline row each. */
+function traceSpans(events: EventDto[]): Span[] {
+  return events
+    .filter((event) => event.durationMs !== undefined)
+    .sort((a, b) => a.tsMs - b.tsMs)
+    .slice(-MAX_SPANS)
+    .map((event) => {
+      const kind = eventKind(event.type, event.status)
+      return {
+        event,
+        startMs: event.tsMs,
+        endMs: event.tsMs + (event.durationMs ?? 0),
+        kind: kind === "agent" ? "session" : kind,
+      }
+    })
 }
 
 export const SettingsObservabilityTimeline: Component<{
@@ -51,31 +72,48 @@ export const SettingsObservabilityTimeline: Component<{
   refreshKey?: number
   onSelectSession: (id: string) => void
   scope: "project" | "all"
- }> = (props) => {
+}> = (props) => {
   const language = useLanguage()
   const sdk = useSDK()
   const selected = () => props.sessions.find((s) => s.id === props.sessionId)
   const [expandedTraceId, setExpandedTraceId] = createSignal<string>()
+  const [pickedTraceId, setPickedTraceId] = createSignal<string>()
 
   const [events] = createResource(
     () => {
       const sessionId = observableSessionId(props.sessionId)
       return sessionId ? { sessionId, refreshKey: props.refreshKey, scope: props.scope } : undefined
     },
-    (source) => unwrap(sdk.client.observability.events.list({ sessionId: source.sessionId, scope: props.scope, limit: 200 })) as Promise<EventDto[]>,
+    (source) =>
+      unwrap(
+        sdk.client.observability.events.list({ sessionId: source.sessionId, scope: props.scope, limit: 200 }),
+      ) as Promise<EventDto[]>,
   )
 
-  const traces = createMemo(() => groupByTrace(events() ?? []))
-  const windowMs = createMemo(() => {
-    const list = traces()
-    if (!list.length) return 1
-    const min = Math.min(...list.map((t) => t.startMs))
-    const max = Math.max(...list.map((t) => t.endMs))
-    return Math.max(1, max - min)
-  })
-  const windowStart = createMemo(() => (traces().length ? Math.min(...traces().map((t) => t.startMs)) : 0))
+  const traces = createMemo(() => groupByTrace(events.latest ?? []))
+  const shownTrace = () => traces().find((trace) => trace.traceId === pickedTraceId()) ?? traces()[0]
+  const traceLabel = (trace: Trace) =>
+    `${new Date(trace.startMs).toLocaleString()} · ${language.t("settings.fork.observability.eventCount", { count: trace.items.length })}`
+  const spans = createMemo(() => traceSpans(shownTrace()?.items ?? []))
+  const windowStart = () => Math.min(...spans().map((span) => span.startMs))
+  const windowMs = () => Math.max(1, Math.max(...spans().map((span) => span.endMs)) - windowStart())
+  const offset = (ms: number) => `${((ms - windowStart()) / windowMs()) * 100}%`
+  const width = (ms: number) => `${Math.max(0.6, (ms / windowMs()) * 100)}%`
+  const kindLabel = (kind: Span["kind"]) =>
+    kind === "llm"
+      ? language.t("settings.observability.kind.llm")
+      : kind === "session"
+        ? language.t("settings.observability.kind.session")
+        : language.t("settings.observability.kind.tool")
 
-  const [trace, traceActions] = createResource(expandedTraceId, (traceId) => unwrap(sdk.client.observability.trace.get({ traceId, scope: props.scope })) as Promise<{ traceId: string; events: EventDto[] }>)
+  const [trace, traceActions] = createResource(
+    expandedTraceId,
+    (traceId) =>
+      unwrap(sdk.client.observability.trace.get({ traceId, scope: props.scope })) as Promise<{
+        traceId: string
+        events: EventDto[]
+      }>,
+  )
 
   const toggle = (traceId: string) => {
     if (expandedTraceId() === traceId) {
@@ -87,52 +125,106 @@ export const SettingsObservabilityTimeline: Component<{
   }
 
   return (
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center justify-between gap-4">
-        <h3 class="text-14-medium text-text-strong">{language.t("settings.fork.observability.timeline")}</h3>
-        <Select size="small" variant="secondary" options={props.sessions} current={selected()} value={(item) => item.id} label={(item) => item.title || item.id} onSelect={(item) => item && props.onSelectSession(item.id)} />
+    <>
+      <div data-slot="obs-panel-head">
+        <h3>{language.t("settings.fork.observability.timeline")}</h3>
+        <Select
+          size="small"
+          variant="secondary"
+          triggerVariant="settings"
+          options={props.sessions}
+          current={selected()}
+          value={(item) => item.id}
+          label={(item) => item.title || item.id}
+          onSelect={(item) => item && props.onSelectSession(item.id)}
+        />
       </div>
+      <Show when={traces().length > 1}>
+        <div data-slot="obs-panel-head">
+          <span data-slot="obs-session-count">
+            {language.t("settings.observability.traceOf", { count: traces().length })}
+          </span>
+          <Select
+            size="small"
+            variant="secondary"
+            triggerVariant="settings"
+            options={traces()}
+            current={shownTrace()}
+            value={(trace) => trace.traceId}
+            label={traceLabel}
+            onSelect={(trace) => trace && setPickedTraceId(trace.traceId)}
+          />
+        </div>
+      </Show>
 
-      <div class="flex flex-col gap-1">
-        <For each={traces()} fallback={<div class="px-2 py-4 text-12-regular text-text-weak">{language.t("settings.fork.observability.noTraces")}</div>}>
-          {(entry) => {
-            const offsetPct = () => ((entry.startMs - windowStart()) / windowMs()) * 100
-            const widthPct = () => Math.max(0.5, ((entry.endMs - entry.startMs) / windowMs()) * 100)
-            return (
+      <Show
+        when={spans().length > 0}
+        fallback={<p data-slot="obs-table-empty">{language.t("settings.fork.observability.noTraces")}</p>}
+      >
+        <div data-slot="timeline-chart">
+          <div data-slot="timeline-scale">
+            <For each={Array.from({ length: TICKS }, (_, index) => (windowMs() * index) / (TICKS - 1))}>
+              {(tick) => <span>{formatDuration(tick)}</span>}
+            </For>
+          </div>
+          <div data-slot="timeline-row">
+            <b>{language.t("settings.observability.kind.session")}</b>
+            <div data-slot="timeline-track">
+              <i data-kind="session" style={{ left: "0%", width: "100%" }} />
+            </div>
+            <span>{formatDuration(windowMs())}</span>
+          </div>
+          <For each={spans()}>
+            {(span) => (
               <button
                 type="button"
-                class="flex flex-col gap-1 rounded-md px-2 py-2 text-left hover:bg-surface-base-hover"
-                classList={{ "bg-surface-base-active": expandedTraceId() === entry.traceId }}
-                onClick={() => toggle(entry.traceId)}
+                data-slot="timeline-row"
+                aria-pressed={expandedTraceId() === span.event.traceId}
+                title={span.event.type}
+                onClick={() => toggle(span.event.traceId)}
               >
-                <div class="flex items-center justify-between gap-2 text-11-regular text-text-weak">
-                  <span class="truncate font-mono">{entry.traceId.slice(0, 12)}…</span>
-                  <span class="flex items-center gap-1">
-                    <Show when={entry.hasSensitiveContent}>
-                      <Icon name="warning" />
-                    </Show>
-                    <Show when={entry.hasOrphan}>
-                      <span class="rounded bg-surface-warning-base px-1.5 py-0.5 text-11-regular text-text-strong">{language.t("settings.fork.observability.orphaned")}</span>
-                    </Show>
-                    {language.t("settings.fork.observability.eventCount", { count: entry.items.length })}
-                  </span>
-                </div>
-                <div class="relative h-4 w-full rounded bg-surface-inset">
-                  <div
-                    class="absolute h-4 rounded bg-icon-info-base"
-                    style={{ left: `${offsetPct()}%`, width: `${widthPct()}%` }}
+                <b>
+                  {kindLabel(span.kind)} · {new Date(span.startMs).toLocaleTimeString()}
+                  <Show when={span.event.hasSensitiveContent}>
+                    <Icon name="warning" size="small" />
+                  </Show>
+                </b>
+                <div data-slot="timeline-track">
+                  <i
+                    data-kind={span.kind}
+                    style={{ left: offset(span.startMs), width: width(span.endMs - span.startMs) }}
                   />
                 </div>
+                <span>{formatDuration(span.endMs - span.startMs)}</span>
               </button>
-            )
-          }}
-        </For>
-      </div>
+            )}
+          </For>
+        </div>
+        <div data-slot="timeline-legend">
+          <span>
+            <i data-slot="legend-dot" data-kind="llm" />
+            {language.t("settings.observability.kind.llm")}
+          </span>
+          <span>
+            <i data-slot="legend-dot" data-kind="tool" />
+            {language.t("settings.observability.kind.tools")}
+          </span>
+          <span>
+            <i data-slot="legend-dot" data-kind="session" />
+            {language.t("settings.observability.kind.session")}
+          </span>
+        </div>
+      </Show>
 
       <Show when={expandedTraceId()}>
         <div class="rounded-lg border border-border-weak-base p-4">
           <h4 class="pb-2 text-13-medium text-text-strong">{language.t("settings.fork.observability.traceDetail")}</h4>
-          <Show when={trace()} fallback={<div class="text-12-regular text-text-weak">{language.t("settings.fork.observability.loading")}</div>}>
+          <Show
+            when={!trace.loading && trace.latest}
+            fallback={
+              <div class="text-12-regular text-text-weak">{language.t("settings.fork.observability.loading")}</div>
+            }
+          >
             {(value) => (
               <div class="flex flex-col gap-2">
                 <For each={value().events}>
@@ -147,9 +239,13 @@ export const SettingsObservabilityTimeline: Component<{
                           <div class="mt-2 flex flex-col gap-1">
                             <div class="flex items-center gap-1 text-11-medium text-icon-critical-base">
                               <Icon name="warning" />
-                              {event.localFull ? language.t("settings.fork.observability.fullContentCaptured") : language.t("settings.fork.observability.redactedContentCaptured")}
+                              {event.localFull
+                                ? language.t("settings.fork.observability.fullContentCaptured")
+                                : language.t("settings.fork.observability.redactedContentCaptured")}
                             </div>
-                            <pre class="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-surface-inset p-2 text-11-regular text-text-strong">{content()}</pre>
+                            <pre class="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-surface-inset p-2 text-11-regular text-text-strong">
+                              {content()}
+                            </pre>
                           </div>
                         )}
                       </Show>
@@ -161,6 +257,6 @@ export const SettingsObservabilityTimeline: Component<{
           </Show>
         </div>
       </Show>
-    </div>
+    </>
   )
 }
