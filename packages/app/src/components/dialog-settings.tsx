@@ -18,6 +18,7 @@ import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsCompute } from "./settings-compute"
 import { SettingsSecurity } from "./settings-security"
+import { SettingsNetwork } from "./settings-network"
 import { SettingsCommandBar } from "./settings-command-bar"
 import { SettingsScopeProvider } from "./settings-scope"
 import { SettingsNavIcon, type SettingsIconName } from "./settings-nav-icon"
@@ -117,6 +118,12 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
           icon: "configuration",
           label: language.t("settings.localConfig.title"),
           render: () => <SettingsConfiguration />,
+        },
+        {
+          id: "network",
+          icon: "network",
+          label: language.t("settings.network.title"),
+          render: () => <SettingsNetwork />,
         },
         {
           id: "observability",

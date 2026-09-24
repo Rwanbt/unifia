@@ -1354,6 +1354,32 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   }
 }
 
+/* .ui-input.wide-input: a free text field in a row control. */
+[data-v110="settings-page"] [data-slot="settings-text-field"] {
+  width: 210px;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="settings-text-field"][data-wide] {
+  width: 280px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-text-field"]:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="settings-text-field"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;

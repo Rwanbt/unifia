@@ -18,6 +18,7 @@ import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsSecurity } from "./settings-security"
+import { SettingsNetwork } from "./settings-network"
 import { SettingsScopeProvider } from "./settings-scope"
 
 type CategoryId =
@@ -34,6 +35,7 @@ type CategoryId =
   | "plugins"
   | "memory"
   | "observability"
+  | "network"
   | "android"
 
 // Drill-down list -> detail navigation for narrow viewports, replacing the
@@ -58,6 +60,7 @@ export const SettingsMobileNav: Component = () => {
     { value: "benchmark" as const, icon: "speedometer" as const, label: language.t("settings.fork.benchmark.title") },
     { value: "memory" as const, icon: "brain" as const, label: language.t("settings.fork.memory.title") },
     { value: "plugins" as const, icon: "mcp" as const, label: language.t("settings.fork.plugins.title") },
+    { value: "network" as const, icon: "globe" as const, label: language.t("settings.network.title") },
     { value: "observability" as const, icon: "eye" as const, label: language.t("settings.fork.observability.title") },
     ...(platform.os === "android"
       ? [{ value: "android" as const, icon: "settings-gear" as const, label: "Android" }]
@@ -94,6 +97,8 @@ export const SettingsMobileNav: Component = () => {
         return <SettingsMemory />
       case "observability":
         return <SettingsObservability />
+      case "network":
+        return <SettingsNetwork />
       case "android":
         return <SettingsAndroid />
     }
