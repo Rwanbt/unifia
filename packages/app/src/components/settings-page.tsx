@@ -17,13 +17,19 @@ export function SettingsPage(
     subtitle?: JSX.Element
     actions?: JSX.Element
     sticky?: boolean
+    /** The reference's catalog pages (MCP, Skills, Hooks) use a larger head. */
+    large?: boolean
     intro?: SettingsIntro
   }>,
 ) {
   const settings = useSettingsScope()
   return (
     <div data-v110="settings-page">
-      <div data-slot="settings-page-head" data-sticky={props.sticky ? "" : undefined}>
+      <div
+        data-slot="settings-page-head"
+        data-sticky={props.sticky ? "" : undefined}
+        data-large={props.large ? "" : undefined}
+      >
         <div>
           <h2>{props.title}</h2>
           <Show when={props.subtitle}>

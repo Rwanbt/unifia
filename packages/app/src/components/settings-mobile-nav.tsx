@@ -13,6 +13,7 @@ import { SettingsModels } from "./settings-models"
 import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsPlugins } from "./settings-plugins"
+import { SettingsMcp } from "./settings-mcp"
 import { SettingsAndroid } from "./settings-android"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
@@ -33,6 +34,7 @@ type CategoryId =
   | "account"
   | "benchmark"
   | "plugins"
+  | "skills"
   | "memory"
   | "observability"
   | "network"
@@ -59,7 +61,8 @@ export const SettingsMobileNav: Component = () => {
     { value: "account" as const, icon: "shield" as const, label: language.t("auth.signIn") },
     { value: "benchmark" as const, icon: "speedometer" as const, label: language.t("settings.fork.benchmark.title") },
     { value: "memory" as const, icon: "brain" as const, label: language.t("settings.fork.memory.title") },
-    { value: "plugins" as const, icon: "mcp" as const, label: language.t("settings.fork.plugins.title") },
+    { value: "plugins" as const, icon: "mcp" as const, label: language.t("settings.tab.mcp") },
+    { value: "skills" as const, icon: "brain" as const, label: language.t("settings.fork.plugins.tabSkills") },
     { value: "network" as const, icon: "globe" as const, label: language.t("settings.network.title") },
     { value: "observability" as const, icon: "eye" as const, label: language.t("settings.fork.observability.title") },
     ...(platform.os === "android"
@@ -92,6 +95,8 @@ export const SettingsMobileNav: Component = () => {
       case "benchmark":
         return <SettingsBenchmark />
       case "plugins":
+        return <SettingsMcp />
+      case "skills":
         return <SettingsPlugins />
       case "memory":
         return <SettingsMemory />

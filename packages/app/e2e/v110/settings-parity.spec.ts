@@ -33,7 +33,8 @@ const TABS: readonly Probe[] = [
   { tab: "Benchmark", probe: /^Run$/ },
   { tab: "Observability", probe: /Data scope/ },
   { tab: "Memory", probe: /Vault/ },
-  { tab: "MCP", probe: /MCP Servers/ },
+  { tab: "MCP", probe: /^Suggested integrations$/ },
+  { tab: "Skills", probe: /Skills/ },
 ]
 
 test("every capability-backed settings tab renders its pane with real controls", async ({ page, gotoSession }) => {

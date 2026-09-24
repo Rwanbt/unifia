@@ -14,6 +14,7 @@ import { SettingsModels } from "./settings-models"
 import { SettingsAiPreferences } from "./settings-ai-preferences"
 import { SettingsBenchmark } from "./settings-benchmark"
 import { SettingsPlugins } from "./settings-plugins"
+import { SettingsMcp } from "./settings-mcp"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsCompute } from "./settings-compute"
@@ -135,7 +136,15 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
     },
     {
       label: language.t("settings.section.extensions"),
-      pages: [{ id: "plugins", icon: "mcp", label: language.t("settings.tab.mcp"), render: () => <SettingsPlugins /> }],
+      pages: [
+        { id: "plugins", icon: "mcp", label: language.t("settings.tab.mcp"), render: () => <SettingsMcp /> },
+        {
+          id: "skills",
+          icon: "skills",
+          label: language.t("settings.fork.plugins.tabSkills"),
+          render: () => <SettingsPlugins />,
+        },
+      ],
     },
   ]
 }

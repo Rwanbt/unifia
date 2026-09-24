@@ -113,16 +113,14 @@ test("plugins tab adds and removes a real MCP server", async ({ page, backend, g
   const name = `e2e-mcp-${Date.now()}`
 
   const dialog = await openSettings(page)
-  await dialog.getByRole("tab", { name: "Plugins", exact: true }).click()
-  // The MCP sub-tab is the default; click it so a future default change
-  // fails here instead of silently testing a different pane.
-  await dialog.getByRole("tab", { name: "MCP Servers", exact: true }).click()
+  // ADR-047: MCP is its own settings page (Plugins split into MCP and Skills).
+  await dialog.getByRole("tab", { name: "MCP", exact: true }).click()
 
   await dialog.locator('[data-action="settings-mcp-add-toggle"]').click()
   await dialog.locator('[data-action="settings-mcp-type-remote"]').click()
-  await dialog.locator('[data-action="settings-mcp-name"] input').fill(name)
+  await dialog.locator('[data-action="settings-mcp-name"]').fill(name)
   // Port 1 is closed by construction: the add must not need a live server.
-  await dialog.locator('[data-action="settings-mcp-url"] input').fill("http://127.0.0.1:1/mcp")
+  await dialog.locator('[data-action="settings-mcp-url"]').fill("http://127.0.0.1:1/mcp")
   await dialog.locator('[data-action="settings-mcp-submit"]').click()
 
   const row = dialog.locator(`[data-mcp-server="${name}"]`)
