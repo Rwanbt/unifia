@@ -111,12 +111,17 @@ describe("session workspace layout", () => {
     expect(header).toContain('name="task-add"')
   })
 
-  test("topbar chrome uses the canonical neutral maquette palette", async () => {
+  test("topbar and rail chrome follow the v110 palette, which follows the theme", async () => {
     const styles = await Bun.file(new URL("../../styles/v110.css", import.meta.url)).text()
-    expect(styles).toContain("--v110-topbar-bg: color-mix(in srgb, #121214 94%, transparent)")
-    expect(styles).toContain("--v110-topbar-hover: #2a2a2f")
-    expect(styles).toContain("--v110-topbar-active: #1b1b1e")
-    expect(styles).toContain("border-bottom: 1px solid rgba(255, 255, 255, 0.07)")
+    const theme = await Bun.file(new URL("../../styles/v110-theme.css", import.meta.url)).text()
+    expect(styles).toContain("--v110-topbar-bg: color-mix(in srgb, var(--bg-soft) 94%, transparent)")
+    expect(styles).toContain("--v110-topbar-hover: var(--hover)")
+    expect(styles).toContain("--v110-topbar-active: var(--surface-2)")
+    expect(styles).toContain("--v110-rail-bg: var(--surface)")
+    expect(styles).toContain("border-bottom: 1px solid var(--v110-shell-line)")
+    // oc-2 keeps the reference's greys; every other theme derives them.
+    expect(theme).toContain('html[data-theme]:not([data-theme="oc-2"])')
+    expect(theme).toContain("--surface: color-mix(in srgb, var(--text-strong) 3.5%, var(--background-base))")
   })
 
   test("Split and Editor mount a real editor surface outside the Inspector", async () => {

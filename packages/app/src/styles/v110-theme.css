@@ -26,6 +26,8 @@ html[data-color-scheme="light"] {
   --faint: #74747c;
   --line: rgba(0, 0, 0, 0.065);
   --line-strong: rgba(0, 0, 0, 0.12);
+  /* The reference's light #rail is --bg-soft, not a white card. */
+  --v110-rail-bg: var(--bg-soft);
 }
 
 html[data-color-scheme="light"] [data-v110="home"] {
@@ -43,15 +45,7 @@ html[data-color-scheme="light"] [data-v110="code-editor"] {
   background: var(--surface);
 }
 
-html[data-color-scheme="light"] [data-v110="chat-timeline"] {
-  background: var(--surface);
-}
-
 html[data-color-scheme="light"] [data-v110="composer-dock"] textarea {
-  background: var(--surface);
-}
-
-html[data-color-scheme="light"] [data-v110="composer-dock"] {
   background: var(--surface);
 }
 
@@ -69,4 +63,59 @@ html[data-color-scheme="light"] [data-v110="inspector-frame"] {
 
 html[data-color-scheme="light"] [data-v110="work-view-content"] {
   background: var(--surface);
+}
+
+/* Any theme other than the default: the v110 palette is derived from the
+ * theme's own tokens, so the chosen theme reaches every v110 surface. oc-2
+ * keeps the reference's measured greys above. Dark surfaces step up from
+ * the background towards the text, as the reference's greys do (#0e0e10 to
+ * #2a2a2f against #f2f2f3); light cards are whiter than the background.
+ * The chat, settings and editor scopes redeclare the palette for oc-2, so
+ * they are remapped here too. */
+html[data-theme]:not([data-theme="oc-2"]),
+html[data-theme]:not([data-theme="oc-2"]) :is([data-v110="session-chat-surface"], [data-v110="settings-frame"], [data-v110="account-frame"]) {
+  --bg: var(--background-base);
+  --bg-soft: color-mix(in srgb, var(--text-strong) 2%, var(--background-base));
+  --surface: color-mix(in srgb, var(--text-strong) 3.5%, var(--background-base));
+  --surface-2: color-mix(in srgb, var(--text-strong) 5.5%, var(--background-base));
+  --surface-3: color-mix(in srgb, var(--text-strong) 8%, var(--background-base));
+  --surface-4: color-mix(in srgb, var(--text-strong) 10.5%, var(--background-base));
+  --hover: color-mix(in srgb, var(--text-strong) 12%, var(--background-base));
+  --text: var(--text-strong);
+  --muted: var(--text-weak);
+  --faint: var(--text-weaker);
+  --line: color-mix(in srgb, var(--text-strong) 7.5%, transparent);
+  --line-strong: color-mix(in srgb, var(--text-strong) 13%, transparent);
+  --v110-settings-nav-active: var(--surface-4);
+  --v110-settings-section-bg: color-mix(in srgb, var(--surface-2) 56%, transparent);
+  --v110-settings-section-line: var(--line);
+  --v110-settings-row-line: var(--line);
+}
+
+html[data-theme]:not([data-theme="oc-2"])[data-color-scheme="light"],
+html[data-theme]:not([data-theme="oc-2"])[data-color-scheme="light"] :is([data-v110="session-chat-surface"], [data-v110="settings-frame"], [data-v110="account-frame"]) {
+  --bg-soft: var(--background-base);
+  --surface: color-mix(in srgb, #ffffff 70%, var(--background-base));
+  --surface-2: color-mix(in srgb, var(--text-strong) 4%, var(--background-base));
+  --surface-3: color-mix(in srgb, var(--text-strong) 7%, var(--background-base));
+  --surface-4: color-mix(in srgb, var(--text-strong) 10%, var(--background-base));
+  --hover: color-mix(in srgb, var(--text-strong) 8%, var(--background-base));
+  --line: color-mix(in srgb, var(--text-strong) 6.5%, transparent);
+  --line-strong: color-mix(in srgb, var(--text-strong) 12%, transparent);
+}
+
+html[data-theme]:not([data-theme="oc-2"]) [data-v110="surface-card"] {
+  --v110-card-bg: var(--bg-soft);
+  --v110-card-line: var(--line);
+  --v110-card-tab-active: var(--surface);
+  --v110-card-raised: var(--surface-2);
+  --v110-card-well: color-mix(in srgb, var(--bg) 60%, var(--bg-soft));
+  --v110-card-gutter-line: color-mix(in srgb, var(--text) 5.2%, transparent);
+  --v110-card-text: var(--text);
+  --v110-card-muted: var(--muted);
+  --v110-card-faint: var(--faint);
+  --v110-card-hover: var(--surface-3);
+  --v110-card-chip: var(--surface-4);
+  --v110-card-sunken: var(--bg);
+  --v110-card-block: var(--bg);
 }

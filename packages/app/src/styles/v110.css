@@ -27,16 +27,16 @@
   --v110-shell-gap: 10px;
   --v110-shell-pad: 10px;
 
-  /* Neutral shell chrome from the frozen v110 surface, not brand-mode blue. */
-  /* Exact v110 topbar palette: --bg-soft 94% over --bg, transparent
-   * controls, --hover for pointer feedback, --surface-2 when selected. */
-  --v110-topbar-bg: color-mix(in srgb, #121214 94%, transparent);
-  --v110-topbar-surface: #161618;
-  --v110-topbar-hover: #2a2a2f;
-  --v110-topbar-active: #1b1b1e;
-  --v110-rail-bg: #161618;
-  --v110-shell-line: rgba(255, 255, 255, 0.07);
-  --v110-shell-line-strong: rgba(255, 255, 255, 0.12);
+  /* Shell chrome on the v110 palette (below), so it follows the colour
+   * scheme and the theme: --bg-soft 94% over --bg, transparent controls,
+   * --hover for pointer feedback, --surface-2 when selected. */
+  --v110-topbar-bg: color-mix(in srgb, var(--bg-soft) 94%, transparent);
+  --v110-topbar-surface: var(--surface);
+  --v110-topbar-hover: var(--hover);
+  --v110-topbar-active: var(--surface-2);
+  --v110-rail-bg: var(--surface);
+  --v110-shell-line: var(--line);
+  --v110-shell-line-strong: var(--line-strong);
 
   /* Shell gutters measured on the frozen maquette at 1440x900: the rail and
    * the context panel float 20px below the topbar and 10px above the
@@ -366,9 +366,9 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-component="v110-topbar"] {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--v110-shell-line);
   background: var(--v110-topbar-bg);
-  color: #f2f2f3;
+  color: var(--text);
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
@@ -381,14 +381,14 @@ html[data-ui-animations="off"] *::after {
 [data-component="v110-topbar"] [data-component="button"][data-variant="ghost"]:hover:not(:disabled),
 [data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"]:hover:not(:disabled) {
   background: var(--v110-topbar-hover);
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: var(--v110-shell-line);
 }
 
 [data-component="v110-topbar"] [data-component="button"][data-variant="ghost"][aria-expanded="true"],
 [data-component="v110-topbar"] [data-component="button"][data-variant="ghost"][aria-checked="true"],
 [data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"][aria-expanded="true"] {
   background: var(--v110-topbar-active);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--v110-shell-line-strong);
 }
 
 /* #topTerminalBtn: unlike its top-quick siblings, the reference gives the
@@ -396,8 +396,8 @@ html[data-ui-animations="off"] *::after {
  * its glyph is full-strength at 17px. Open is .top-quick.active, so it follows
  * the accent (ADR-048); these literals are that state's neutral values. */
 [data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"]:hover:not(:disabled) {
-  background: #2c2c2f;
-  border-color: rgba(244, 244, 245, 0.46);
+  background: color-mix(in srgb, var(--text) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--text) 46%, transparent);
 }
 
 [data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"][aria-expanded="true"] {
@@ -409,7 +409,7 @@ html[data-ui-animations="off"] *::after {
 [data-component="v110-topbar"] [data-v110="top-terminal"] [data-slot="icon-svg"] {
   width: 17px;
   height: 17px;
-  color: #f2f2f3;
+  color: var(--text);
 }
 
 /* Topbar tooltips in the reference: compact 8px/600 label on a raised,
@@ -417,10 +417,10 @@ html[data-ui-animations="off"] *::after {
  * the host opts in with contentClass. */
 .v110-topbar-tooltip {
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: rgba(38, 38, 43, 0.96);
-  color: #f2f2f3;
+  background: color-mix(in srgb, var(--surface-4) 96%, transparent);
+  color: var(--text);
   font-size: 8px;
   font-weight: 600;
   line-height: normal;
@@ -434,12 +434,16 @@ html[data-ui-animations="off"] *::after {
 [data-component="v110-topbar"] [data-component="button"][data-v110="session-search"]:hover:not(:disabled),
 [data-component="v110-topbar"] [role="radiogroup"] {
   background: var(--v110-topbar-surface);
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: var(--line);
 }
 
 
 [data-component="v110-topbar"] [data-component="logo"] {
   filter: grayscale(1) brightness(0) invert(1);
+}
+
+html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="logo"] {
+  filter: grayscale(1) brightness(0);
 }
 
 [data-component="v110-topbar"]:focus-within {
@@ -550,11 +554,11 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-v110="rail"] [data-slot="icon-svg"] {
-  color: #9b9ba1;
+  color: var(--muted);
 }
 
 [data-v110="rail"] [aria-pressed="true"] [data-slot="icon-svg"] {
-  color: #17171a;
+  color: var(--text);
 }
 
 /* The context panel fades in with a 13px slide from the rail, as the
