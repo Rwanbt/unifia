@@ -1836,6 +1836,42 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   }
 }
 
+/* .v49-hook-list / .v49-hook-row */
+[data-v110="settings-page"] [data-slot="hook-list"] {
+  display: grid;
+  gap: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="hook-list"][data-soon] {
+  opacity: 0.55;
+}
+
+[data-v110="settings-page"] [data-slot="hook-row"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+[data-v110="settings-page"] [data-slot="hook-event"] {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+[data-v110="settings-page"] [data-slot="mcp-action"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;
