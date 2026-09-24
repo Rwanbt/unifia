@@ -546,11 +546,20 @@ html[data-ui-animations="off"] *::after {
   border-radius: var(--v110-radius-xl);
   background: var(--v110-rail-bg);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  transition:
+    opacity var(--v110-fade) ease,
+    width var(--v110-fade) var(--v110-shell-ease),
+    min-width var(--v110-fade) var(--v110-shell-ease),
+    margin var(--v110-shell) var(--v110-shell-ease);
 }
 
+/* Hidden, the reference's rail column keeps a 10px gutter (8px plus the
+ * transparent border); the 20 -> 8px margin is the reference's 12px slide
+ * out while it fades. */
 [data-v110="rail"][data-visible="false"] {
-  margin: 0;
-  border: 0;
+  margin-left: 8px;
+  margin-right: 0;
+  border-color: transparent;
   box-shadow: none;
 }
 
@@ -605,6 +614,11 @@ html[data-ui-animations="off"] *::after {
     margin-left: 22px;
     margin-top: 22px;
     margin-bottom: 12px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"])
+    [data-v110="rail"][data-visible="false"] {
+    margin-left: 8px;
   }
 
   [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"])

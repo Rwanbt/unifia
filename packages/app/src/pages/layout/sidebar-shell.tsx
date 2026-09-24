@@ -80,7 +80,6 @@ export const SidebarContent = (props: {
         data-parity={props.mobile ? undefined : "shell.rail"}
         classList={{
           "shrink-0 bg-background-base flex flex-col items-center overflow-hidden pointer-events-auto": true,
-          "transition-[width,opacity] duration-200": props.opened() || props.railOpened(),
         }}
         style={{
           width: railVisible() ? "var(--v110-rail, 62px)" : "0px",

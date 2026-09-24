@@ -34,6 +34,12 @@ One shell geometry for every mode, measured on the reference:
 A panel's width is the viewport default until the user drags it; the layout
 store records `resized` per panel.
 
+A hidden rail keeps the reference's 20px gutter: the workspace starts at
+20px, or 10px after the context panel on wide shells (12px on compact
+ones). The rail closes and opens with the reference's motion: a 340ms fade
+and width change, and a 12px slide on the shell curve. `tokens/panels`
+`workspaceLeft` owns the offset.
+
 ## Consequences
 
 - Panel widths stored before this change are treated as not resized, so the
