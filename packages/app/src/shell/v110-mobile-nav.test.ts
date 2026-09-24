@@ -30,7 +30,7 @@ describe("a2 mobile nav", () => {
   test("phone-portrait only: hidden by default, no important", () => {
     expect(css.includes('[data-v110="mobile-nav"]')).toBe(true)
     expect(css.indexOf("display: none") !== -1 && css.indexOf("display: none") < css.indexOf("display: flex")).toBe(true)
-    expect(css.includes("max-width: 599px")).toBe(true)
+    expect(css.includes("(max-width: 700px) and (orientation: portrait)")).toBe(true)
     expect(css.includes("!important")).toBe(false)
   })
   test("compact landscape overlays start after the compact rail", () => {

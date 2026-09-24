@@ -12,7 +12,7 @@ import {
   LANDSCAPE_W,
   layouts,
   side,
-  TABLET,
+  PHONE_PORTRAIT,
   WIDE,
 } from "@/tokens/viewport"
 
@@ -20,7 +20,7 @@ describe("v110 viewport contract", () => {
   test("thresholds match the manifest breakpoints", () => {
     expect(WIDE).toBe(1200)
     expect(COMPACT).toBe(900)
-    expect(TABLET).toBe(600)
+    expect(PHONE_PORTRAIT).toBe(700)
     expect(LANDSCAPE_H).toBe(560)
     expect(LANDSCAPE_W).toBe(980)
   })
@@ -39,7 +39,9 @@ describe("v110 viewport contract", () => {
 
   test("tablet, phone and landscape buckets", () => {
     expect(classify(768, 1024)).toBe("tablet-portrait")
-    expect(classify(600, 900)).toBe("tablet-portrait")
+    expect(classify(701, 900)).toBe("tablet-portrait")
+    expect(classify(700, 1000)).toBe("phone-portrait")
+    expect(classify(600, 900)).toBe("phone-portrait")
     expect(classify(390, 844)).toBe("phone-portrait")
     expect(classify(599, 900)).toBe("phone-portrait")
     expect(classify(844, 390)).toBe("compact-landscape")

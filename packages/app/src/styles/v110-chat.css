@@ -167,9 +167,9 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   transition-delay: 0s, 0s, 620ms;
 }
 
-/* Below 600px the workspace stacks vertically, so a 0px width no longer
+/* On phones (ADR-053) the workspace stacks vertically, so a 0px width no longer
  * hides the chat; the Editor layout takes the whole height there. */
-@media (max-width: 599px) {
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
   [data-v110="session-chat-surface"][data-collapsed] {
     display: none;
   }
@@ -228,7 +228,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 }
 
 /* Phones: the reference insets the composer 8px inside the chat. */
-@media (max-width: 599px) {
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
   [data-v110="composer-dock"] > div {
     padding-inline: 8px;
   }
@@ -567,7 +567,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   color: var(--text);
 }
 
-@media (max-width: 599px) {
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
   /* Maquette: on phones copy-context moves into the conversation head's
    * right end, clear of the context meter above Send. */
   [data-v110="chat-copy-context"] {
@@ -683,7 +683,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 /* Chat layout on compact desktops: the chat stops 20px from the window edge
  * like the main card does; with the inspector open its own 12px gap applies. */
-@media (min-width: 600px) and (max-width: 1199px) {
+@media (min-width: 701px) and (max-width: 1199px), (min-width: 600px) and (max-width: 1199px) and (orientation: landscape) {
   [data-component="session-workspace-main"][data-inspector-open="false"]
     > [data-v110="session-chat-surface"][data-layout="chat"] {
     /* The inline width is 100%; the cap keeps the margin inside the row. */

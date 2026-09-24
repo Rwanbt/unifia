@@ -33,7 +33,7 @@
  * card 8px from the top, right and bottom edges and 12px from the main card,
  * with the overlay shadow. --v110-inspector-margins is the horizontal sum the
  * chat's width calc (session.tsx) subtracts. */
-@media (min-width: 600px) and (max-width: 1199px) {
+@media (min-width: 701px) and (max-width: 1199px), (min-width: 600px) and (max-width: 1199px) and (orientation: landscape) {
   [data-v110="inspector-content"] {
     height: calc(100% - 16px);
     margin: 8px 8px 8px 12px;
@@ -595,7 +595,7 @@
 
 /* Portrait tablets keep the card chrome (ADR-053); only phones get the
  * edge-to-edge sheet above. */
-@media (min-width: 600px) {
+@media (min-width: 701px), (min-width: 600px) and (orientation: landscape) {
   [data-v110="inspector-content"].mobile-side-panel:not([aria-hidden="true"]) {
     border: 1px solid var(--line);
     border-radius: var(--v110-radius-xl);

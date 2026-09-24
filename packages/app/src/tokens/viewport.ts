@@ -7,7 +7,9 @@
 
 export const WIDE = 1200
 export const COMPACT = 900
-export const TABLET = 600
+// Portrait phones run up to 700px: the reference's v99.2 layer treats
+// 600-700px portrait as a phone, not a half-tablet (ADR-053).
+export const PHONE_PORTRAIT = 700
 export const LANDSCAPE_H = 560
 export const LANDSCAPE_W = 980
 
@@ -24,7 +26,7 @@ export function classify(width: number, height: number): Viewport {
   // landscape unnamed. Portrait under 900 stays tablet (overlay, chat/main);
   // landscape under 900 joins desktop-compact (single utility, split kept).
   if (width > height) return "desktop-compact"
-  if (width >= TABLET) return "tablet-portrait"
+  if (width > PHONE_PORTRAIT) return "tablet-portrait"
   return "phone-portrait"
 }
 

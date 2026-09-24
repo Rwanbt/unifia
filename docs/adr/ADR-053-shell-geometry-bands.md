@@ -28,8 +28,13 @@ One shell geometry for every mode, measured on the reference:
 - **900-1199 px**: rail 58 px at 10 px; context (300 px) and inspector
   (320 px) are floating cards 8 px from the edges that push the workspace,
   and only one of them is open at a time.
-- **< 900 px portrait**: the same rail and floating cards; Split is not
+- **701-899 px portrait**: the same rail and floating cards; Split is not
   offered (`fitLayout`).
+- **Phone: < 600 px, or <= 700 px portrait** (the reference's v99.2
+  "600-700px portrait is a real compact-content breakpoint" layer): no rail,
+  the 50px three-icon topbar and the bottom mode bar. One condition drives
+  the Tailwind `shell:` variant, `tokens/viewport` `classify` and every
+  phone/tablet media query.
 
 A panel's width is the viewport default until the user drags it; the layout
 store records `resized` per panel.
