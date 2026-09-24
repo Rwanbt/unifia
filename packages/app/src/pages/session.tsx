@@ -993,7 +993,7 @@ export default function Page() {
   }
 
   return (
-    <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
+    <div data-v110="session-clip" class="relative bg-background-base size-full overflow-clip flex flex-col">
       <SessionHeader />
       <Show when={artifactDocument() || artifactError()}>
         <SessionArtifactViewerSection

@@ -1000,7 +1000,7 @@ export default function Layout(props: ParentProps) {
       <TopbarBreadcrumb />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
-          <div class="size-full relative overflow-x-clip overflow-y-visible">
+          <div data-v110="shell-clip" class="size-full relative overflow-x-clip overflow-y-visible">
             <nav
               aria-label={language.t("sidebar.nav.projectsAndSessions")}
               data-component="sidebar-nav-desktop"
@@ -1129,7 +1129,7 @@ export default function Layout(props: ParentProps) {
                 data-v110="workspace"
                 data-workbench-mode={mode.destination()}
                 classList={{
-                  "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
+                  "size-full overflow-clip flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
                 }}
               >
                 <Show when={!autoselecting.loading} fallback={<div class="size-full" />}>

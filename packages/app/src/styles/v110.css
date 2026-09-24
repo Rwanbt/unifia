@@ -551,6 +551,33 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
     margin var(--v110-shell) var(--v110-shell-ease);
 }
 
+/* The shell's clipping boxes keep a margin so the floating cards' shadows
+ * (rail, context, composer, inspector: up to 0 18px 42px) fade out instead
+ * of ending on a hard edge next to a neighbouring card. overflow: clip and
+ * paint containment both honour overflow-clip-margin; overflow: hidden does
+ * not, which is why these boxes clip rather than hide. */
+[data-v110="sidebar-clip"],
+[data-v110="shell-clip"],
+[data-v110="workspace"],
+[data-v110="session-clip"] {
+  overflow-clip-margin: 64px;
+}
+
+/* Chrome honours the margin only when both axes clip; these columns only
+ * need to clip sideways, and 64px of vertical room is more than any shadow. */
+[data-v110="sidebar-clip"],
+[data-v110="shell-clip"] {
+  overflow: clip;
+}
+
+/* The workspace spans the context panel's column too, so its own fill hid
+ * the panel's shadow along the panel edge. The shell frame behind already
+ * paints the same --background-base. */
+[data-v110="workspace"],
+[data-v110="session-clip"] {
+  background: transparent;
+}
+
 /* Hidden, the reference's rail column keeps a 10px gutter (8px plus the
  * transparent border); the 20 -> 8px margin is the reference's 12px slide
  * out while it fades. */

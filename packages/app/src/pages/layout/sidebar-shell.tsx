@@ -53,6 +53,7 @@ export const SidebarContent = (props: {
 
   return (
     <div
+      data-v110="sidebar-clip"
       class="flex h-full w-full min-w-0 overflow-x-clip overflow-y-visible"
       // The nav keeps the panel's full width while the panel is collapsed,
       // on top of the workspace: only the rail may take pointer events then,
