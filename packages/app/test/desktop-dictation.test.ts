@@ -1,129 +1,242 @@
 /* SPDX-License-Identifier: MIT */
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, describe, expect, mock, test } from "bun:test"
 
-// Native boundaries of the desktop speech hook, replaced with deterministic
-// doubles: Tauri IPC, the Tauri event bus, the microphone and the decoder.
-mock.module("@tauri-apps/api/event", () => ({ listen: async () => () => {} }))
+const invokedCommands: string[] = []
+let transcription = "bonjour depuis le microphone"
 
-class FakeRecorder {
-  static isTypeSupported = () => true
-  state: "inactive" | "recording" = "inactive"
-  mimeType = "audio/webm;codecs=opus"
-  ondataavailable: ((event: { data: Blob }) => void) | null = null
-  onstop: (() => void | Promise<void>) | null = null
-  constructor(readonly stream: MediaStream) {
-    recorders.push(this)
+mock.module("../src/hooks/speech-tauri-adapter", () => ({
+  invokeTauri: async (command: string) => {
+    invokedCommands.push(command)
+    if (command === "stt_available") return true
+    if (command === "stt_transcribe") return transcription
+    return undefined
+  },
+  convertFileSrc: (path: string) => path,
+}))
+mock.module("../src/voice/audio-settings", () => ({
+  loadAudioSettings: () => ({ ttsProvider: "piper" }),
+}))
+mock.module("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }))
+mock.module("@unifia/ui/toast", () => ({
+  showToast: () => undefined,
+  toaster: { dismiss: () => undefined },
+}))
+
+const { cleanupSpeechListeners, initSpeechListeners } = await import("../../desktop/src/hooks/use-speech")
+const { requestAudioCapture } = await import("../src/voice/audio-capture-coordinator")
+
+type RecorderLike = {
+  mimeType: string
+  ondataavailable: ((event: { data: Blob }) => void) | null
+  onstop: (() => void) | null
+  state: "inactive" | "recording"
+  start(): void
+  stop(): void
+}
+
+let recorder: RecorderLike | undefined
+const saved = {
+  mediaRecorder: globalThis.MediaRecorder,
+  audioContext: globalThis.AudioContext,
+  mediaDevices: Object.getOwnPropertyDescriptor(navigator, "mediaDevices"),
+  execCommand: document.execCommand,
+  consoleError: console.error,
+}
+const speechEndedCleanups: Array<() => void> = []
+
+class FakeMediaRecorder implements RecorderLike {
+  static isTypeSupported() {
+    return true
   }
+  mimeType = "audio/webm;codecs=opus"
+  ondataavailable: RecorderLike["ondataavailable"] = null
+  onstop: RecorderLike["onstop"] = null
+  state: RecorderLike["state"] = "inactive"
+
+  constructor(_stream: MediaStream) {
+    recorder = this
+  }
+
   start() {
     this.state = "recording"
   }
+
   stop() {
+    this.ondataavailable?.({ data: new Blob(["recorded audio"], { type: this.mimeType }) })
     this.state = "inactive"
-    this.ondataavailable?.({ data: new Blob([new Uint8Array(64)], { type: this.mimeType }) })
-    // Browsers fire `stop` asynchronously, after the caller returns.
-    queueMicrotask(() => void this.onstop?.())
+    this.onstop?.()
   }
 }
 
 class FakeAudioContext {
-  async decodeAudioData() {
-    return { sampleRate: 16000, getChannelData: () => new Float32Array(1600) }
+  decodeAudioData() {
+    return Promise.resolve({
+      sampleRate: 16000,
+      getChannelData: () => new Float32Array([0.1, -0.1]),
+    } as unknown as AudioBuffer)
   }
-  async close() {}
+  close() {
+    return Promise.resolve()
+  }
 }
 
-let recorders: FakeRecorder[] = []
-let transcriptions = 0
-const settle = () => new Promise((resolve) => setTimeout(resolve, 20))
-
-function fakeStream() {
-  const track = { stopped: false, stop() { this.stopped = true } }
-  return { stream: { getTracks: () => [track] } as unknown as MediaStream, track }
+function setMicrophone(getUserMedia: () => Promise<MediaStream>) {
+  Object.defineProperty(navigator, "mediaDevices", {
+    configurable: true,
+    value: { getUserMedia },
+  })
 }
+
+function makeStream(onTrackStop: () => void = () => undefined) {
+  return {
+    getTracks: () => [{ stop: onTrackStop }],
+  } as unknown as MediaStream
+}
+
+async function settleAsyncWork() {
+  for (let step = 0; step < 12; step++) await Promise.resolve()
+}
+
+function collectSpeechEnded() {
+  const events: unknown[] = []
+  const listener = (event: Event) => events.push((event as CustomEvent).detail)
+  window.addEventListener("speech-ended", listener)
+  speechEndedCleanups.push(() => window.removeEventListener("speech-ended", listener))
+  return events
+}
+
+afterEach(() => {
+  while (speechEndedCleanups.length) speechEndedCleanups.pop()?.()
+  cleanupSpeechListeners()
+  recorder = undefined
+  invokedCommands.length = 0
+  document.body.innerHTML = ""
+  globalThis.MediaRecorder = saved.mediaRecorder
+  globalThis.AudioContext = saved.audioContext
+  document.execCommand = saved.execCommand
+  console.error = saved.consoleError
+  if (saved.mediaDevices) {
+    Object.defineProperty(navigator, "mediaDevices", saved.mediaDevices)
+  } else {
+    Reflect.deleteProperty(navigator, "mediaDevices")
+  }
+})
 
 describe("desktop dictation hook", () => {
-  let speech: typeof import("../../desktop/src/hooks/use-speech")
-  let coordinator: typeof import("../src/voice/audio-capture-coordinator")
-  let submitted = 0
-  let editor: HTMLDivElement
-  let form: HTMLFormElement
-
-  beforeEach(async () => {
-    recorders = []
-    transcriptions = 0
-    submitted = 0
-    ;(globalThis as any).MediaRecorder = FakeRecorder
-    ;(globalThis as any).AudioContext = FakeAudioContext
-    ;(globalThis as any).__TAURI__ = {
-      core: {
-        invoke: async (command: string) => {
-          if (command === "stt_available") return true
-          if (command === "stt_transcribe") {
-            transcriptions++
-            return "Corrige l'erreur dans le module d'authentification"
-          }
-          if (["stt_load_model", "tts_start", "tts_cancel", "tts_cleanup_chunks"].includes(command)) return 0
-          throw new Error(`unexpected command ${command}`)
-        },
-      },
-    }
-    Object.defineProperty(navigator, "mediaDevices", {
-      configurable: true,
-      value: { getUserMedia: async () => fakeStream().stream },
-    })
-    form = document.createElement("form")
-    form.addEventListener("submit", (event) => {
+  test("transcribes into the existing draft without submitting it", async () => {
+    invokedCommands.length = 0
+    globalThis.MediaRecorder = FakeMediaRecorder as unknown as typeof MediaRecorder
+    globalThis.AudioContext = FakeAudioContext as unknown as typeof AudioContext
+    const stream = makeStream()
+    setMicrophone(async () => stream)
+    document.body.innerHTML = `<form><div data-component="prompt-input" contenteditable="true">draft avant dictée</div></form>`
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    let submitCount = 0
+    document.querySelector("form")!.addEventListener("submit", (event) => {
       event.preventDefault()
-      submitted++
+      submitCount++
     })
-    editor = document.createElement("div")
-    editor.setAttribute("data-component", "prompt-input")
-    editor.setAttribute("contenteditable", "true")
-    form.appendChild(editor)
-    document.body.appendChild(form)
-    ;(document as any).execCommand = (command: string, _ui: boolean, text: string) => {
-      if (command === "insertText") editor.textContent = (editor.textContent ?? "") + text
+    document.execCommand = ((command: string, _showUi: boolean, value: string) => {
+      if (command === "insertText") editor.textContent += value
       return true
-    }
-    speech = await import("../../desktop/src/hooks/use-speech")
-    coordinator = await import("../src/voice/audio-capture-coordinator")
-    speech.initSpeechListeners()
-    await settle()
-  })
+    }) as typeof document.execCommand
+    const ended = collectSpeechEnded()
+    initSpeechListeners()
 
-  afterEach(() => {
-    speech.cleanupSpeechListeners()
-    form.remove()
-  })
-
-  test("stop inserts the transcript into the prompt and never submits", async () => {
     window.dispatchEvent(new CustomEvent("stt-start"))
-    await settle()
-    expect(recorders[0].state).toBe("recording")
+    await settleAsyncWork()
+    expect(recorder?.state).toBe("recording")
     window.dispatchEvent(new CustomEvent("stt-stop"))
-    await settle()
-    expect(editor.textContent).toBe("Corrige l'erreur dans le module d'authentification")
-    expect(submitted).toBe(0)
+    await settleAsyncWork()
+
+    expect(invokedCommands).toContain("stt_transcribe")
+    expect(editor.textContent).toBe("draft avant dictéebonjour depuis le microphone")
+    expect(submitCount).toBe(0)
+    expect(ended).toHaveLength(0)
   })
+
+  test("reports a denied microphone permission and does not start recording", async () => {
+    globalThis.MediaRecorder = FakeMediaRecorder as unknown as typeof MediaRecorder
+    setMicrophone(async () => {
+      throw Object.assign(new Error("permission denied"), { name: "NotAllowedError" })
+    })
+    const ended = collectSpeechEnded()
+    const errors: unknown[][] = []
+    console.error = (...values: unknown[]) => errors.push(values)
+    initSpeechListeners()
+
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    await settleAsyncWork()
+
+    expect(ended).toEqual([{ kind: "stt", reason: "denied" }])
+    expect(recorder).toBeUndefined()
+    expect(invokedCommands).not.toContain("stt_transcribe")
+    expect(errors).toHaveLength(1)
+  })
+
+  test("stopping during permission acquisition closes the late microphone stream", async () => {
+    globalThis.MediaRecorder = FakeMediaRecorder as unknown as typeof MediaRecorder
+    let resolveStream!: (stream: MediaStream) => void
+    const pendingStream = new Promise<MediaStream>((resolve) => {
+      resolveStream = resolve
+    })
+    setMicrophone(() => pendingStream)
+    let trackStopped = false
+    initSpeechListeners()
+
+    window.dispatchEvent(new CustomEvent("stt-start"))
+    window.dispatchEvent(new CustomEvent("stt-stop"))
+    resolveStream(makeStream(() => { trackStopped = true }))
+    await settleAsyncWork()
+
+    expect(trackStopped).toBe(true)
+    expect(recorder).toBeUndefined()
+  })
+
+  // Browsers fire a recorder's `stop` event after stop() returns; Live can
+  // take the microphone in between.
+  class AsyncStopRecorder extends FakeMediaRecorder {
+    override stop() {
+      this.ondataavailable?.({ data: new Blob(["recorded audio"], { type: this.mimeType }) })
+      this.state = "inactive"
+      queueMicrotask(() => this.onstop?.())
+    }
+  }
+
+  function dictationEditor() {
+    globalThis.MediaRecorder = AsyncStopRecorder as unknown as typeof MediaRecorder
+    globalThis.AudioContext = FakeAudioContext as unknown as typeof AudioContext
+    setMicrophone(async () => makeStream())
+    document.body.innerHTML = `<form><div data-component="prompt-input" contenteditable="true"></div></form>`
+    const editor = document.querySelector<HTMLElement>("[data-component='prompt-input']")!
+    document.execCommand = ((command: string, _showUi: boolean, value: string) => {
+      if (command === "insertText") editor.textContent += value
+      return true
+    }) as typeof document.execCommand
+    initSpeechListeners()
+    return editor
+  }
 
   test("Live taking the microphone right after stop keeps the dictated text", async () => {
+    const editor = dictationEditor()
     window.dispatchEvent(new CustomEvent("stt-start"))
-    await settle()
+    await settleAsyncWork()
     window.dispatchEvent(new CustomEvent("stt-stop"))
-    const lease = coordinator.requestAudioCapture(window, "live", () => {})
+    const lease = requestAudioCapture(window, "live", () => undefined)
     expect(lease).toBeDefined()
-    await settle()
-    expect(transcriptions).toBe(1)
-    expect(editor.textContent).toBe("Corrige l'erreur dans le module d'authentification")
+    await settleAsyncWork()
+    expect(invokedCommands).toContain("stt_transcribe")
+    expect(editor.textContent).toBe("bonjour depuis le microphone")
     lease?.release()
   })
 
   test("Live preempting an unfinished recording discards it", async () => {
+    const editor = dictationEditor()
     window.dispatchEvent(new CustomEvent("stt-start"))
-    await settle()
-    const lease = coordinator.requestAudioCapture(window, "live", () => {})
-    await settle()
-    expect(transcriptions).toBe(0)
+    await settleAsyncWork()
+    const lease = requestAudioCapture(window, "live", () => undefined)
+    await settleAsyncWork()
+    expect(invokedCommands).not.toContain("stt_transcribe")
     expect(editor.textContent).toBe("")
     lease?.release()
   })

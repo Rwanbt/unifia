@@ -50,7 +50,8 @@ use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use unifia_keyring_shim::{
-    keyring_delete as shim_keyring_delete, keyring_get as shim_keyring_get, keyring_set as shim_keyring_set, KeyringBackend, RealKeyringBackend,
+    KeyringBackend, RealKeyringBackend, keyring_delete as shim_keyring_delete,
+    keyring_get as shim_keyring_get, keyring_set as shim_keyring_set,
 };
 
 /// The keyring backend the Tauri commands talk to.
@@ -257,8 +258,7 @@ impl RateLimiter {
         let mut start = self.window_start.lock().unwrap();
         if start.elapsed().as_secs() >= 60 {
             *start = std::time::Instant::now();
-            self.count
-                .store(0, std::sync::atomic::Ordering::Relaxed);
+            self.count.store(0, std::sync::atomic::Ordering::Relaxed);
         }
         let c = self
             .count
@@ -279,8 +279,8 @@ pub async fn start_keychain_endpoint(app: AppHandle) -> Result<&'static Keychain
     let local = listener
         .local_addr()
         .map_err(|e| format!("local_addr: {e}"))?;
-    let token = uuid::Uuid::new_v4().simple().to_string()
-        + &uuid::Uuid::new_v4().simple().to_string(); // 256 bits total
+    let token =
+        uuid::Uuid::new_v4().simple().to_string() + &uuid::Uuid::new_v4().simple().to_string(); // 256 bits total
     let url = format!("http://127.0.0.1:{}", local.port());
     let endpoint = KeychainEndpoint {
         url: url.clone(),
@@ -413,7 +413,11 @@ async fn serve_connection(
     }
 }
 
-async fn write_simple<W: AsyncWriteExt + Unpin>(w: &mut W, status: u16, msg: &str) -> io::Result<()> {
+async fn write_simple<W: AsyncWriteExt + Unpin>(
+    w: &mut W,
+    status: u16,
+    msg: &str,
+) -> io::Result<()> {
     write_response(w, status, msg).await
 }
 

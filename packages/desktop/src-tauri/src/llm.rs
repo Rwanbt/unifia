@@ -9,7 +9,6 @@ use tokio::io::AsyncWriteExt;
 
 const LLM_PORT: u16 = 14097;
 
-
 // Latest llama.cpp with Hadamard rotation for KV cache (PR #21038)
 const LLAMA_RELEASE_TAG: &str = "b8731";
 
@@ -76,15 +75,25 @@ fn llama_asset_name() -> String {
     // on Vulkan backend (llama.cpp issue #21516, still open). CUDA build has
     // partial fix for the same issue (PR #21506, issue #21321 closed).
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    { format!("llama-{tag}-bin-win-cuda-12.4-x64.zip") }
+    {
+        format!("llama-{tag}-bin-win-cuda-12.4-x64.zip")
+    }
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    { format!("llama-{tag}-bin-ubuntu-x64.tar.gz") }
+    {
+        format!("llama-{tag}-bin-ubuntu-x64.tar.gz")
+    }
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    { format!("llama-{tag}-bin-ubuntu-arm64.tar.gz") }
+    {
+        format!("llama-{tag}-bin-ubuntu-arm64.tar.gz")
+    }
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    { format!("llama-{tag}-bin-macos-arm64.tar.gz") }
+    {
+        format!("llama-{tag}-bin-macos-arm64.tar.gz")
+    }
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    { format!("llama-{tag}-bin-macos-x64.tar.gz") }
+    {
+        format!("llama-{tag}-bin-macos-x64.tar.gz")
+    }
 }
 
 /// Backend identifier stored in runtime_dir/backend.txt.
@@ -92,13 +101,21 @@ fn llama_asset_name() -> String {
 /// to avoid mixing DLLs from different backends.
 fn backend_marker() -> &'static str {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    { "cuda-12.4" }
+    {
+        "cuda-12.4"
+    }
     #[cfg(not(all(target_os = "windows", target_arch = "x86_64")))]
-    { "default" }
+    {
+        "default"
+    }
 }
 
 fn llama_server_exe() -> &'static str {
-    if cfg!(windows) { "llama-server.exe" } else { "llama-server" }
+    if cfg!(windows) {
+        "llama-server.exe"
+    } else {
+        "llama-server"
+    }
 }
 
 fn data_dir(app: &AppHandle) -> PathBuf {
@@ -189,22 +206,23 @@ async fn download_file(
         downloaded += chunk.len() as u64;
 
         if let Some(fname) = event_filename
-            && last_emit.elapsed().as_millis() > 200 {
-                let _ = app.emit(
-                    "model-download-progress",
-                    ModelDownloadProgress {
-                        filename: fname.to_string(),
-                        downloaded,
-                        total,
-                        progress: if total > 0 {
-                            downloaded as f64 / total as f64
-                        } else {
-                            0.0
-                        },
+            && last_emit.elapsed().as_millis() > 200
+        {
+            let _ = app.emit(
+                "model-download-progress",
+                ModelDownloadProgress {
+                    filename: fname.to_string(),
+                    downloaded,
+                    total,
+                    progress: if total > 0 {
+                        downloaded as f64 / total as f64
+                    } else {
+                        0.0
                     },
-                );
-                last_emit = std::time::Instant::now();
-            }
+                },
+            );
+            last_emit = std::time::Instant::now();
+        }
     }
 
     file.flush().await.map_err(|e| format!("Flush: {}", e))?;
@@ -237,7 +255,9 @@ async fn extract_zip_to_dir(zip_path: &Path, target_dir: &Path) -> Result<(), St
         let file = fs::File::open(&zip_path).map_err(|e| format!("Open zip: {}", e))?;
         let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Read zip: {}", e))?;
         for i in 0..archive.len() {
-            let mut entry = archive.by_index(i).map_err(|e| format!("Zip entry: {}", e))?;
+            let mut entry = archive
+                .by_index(i)
+                .map_err(|e| format!("Zip entry: {}", e))?;
             if entry.is_dir() {
                 continue;
             }
@@ -250,10 +270,9 @@ async fn extract_zip_to_dir(zip_path: &Path, target_dir: &Path) -> Result<(), St
                 continue;
             }
             let out_path = target_dir.join(&fname);
-            let mut out = fs::File::create(&out_path)
-                .map_err(|e| format!("Create {}: {}", fname, e))?;
-            std::io::copy(&mut entry, &mut out)
-                .map_err(|e| format!("Extract {}: {}", fname, e))?;
+            let mut out =
+                fs::File::create(&out_path).map_err(|e| format!("Create {}: {}", fname, e))?;
+            std::io::copy(&mut entry, &mut out).map_err(|e| format!("Extract {}: {}", fname, e))?;
         }
         Ok::<(), String>(())
     })
@@ -278,17 +297,22 @@ async fn ensure_llama_runtime(app: &AppHandle) -> Result<PathBuf, String> {
         }
         tracing::info!(
             "[LLM] Backend changed ({} → {}), clearing runtime dir...",
-            current.trim(), expected_backend
+            current.trim(),
+            expected_backend
         );
         let _ = fs::remove_dir_all(&rt_dir);
     }
 
-    tracing::info!("[LLM] Downloading llama.cpp runtime ({})...", expected_backend);
+    tracing::info!(
+        "[LLM] Downloading llama.cpp runtime ({})...",
+        expected_backend
+    );
     let _ = fs::create_dir_all(&rt_dir);
 
     let zip_url = format!(
         "https://github.com/ggml-org/llama.cpp/releases/download/{}/{}",
-        LLAMA_RELEASE_TAG, llama_asset_name()
+        LLAMA_RELEASE_TAG,
+        llama_asset_name()
     );
     let zip_path = rt_dir.join("llama-runtime.zip");
 
@@ -311,12 +335,18 @@ async fn ensure_llama_runtime(app: &AppHandle) -> Result<PathBuf, String> {
         match download_file(app, &cudart_url, &cudart_path, None).await {
             Ok(_) => {
                 if let Err(e) = extract_zip_to_dir(&cudart_path, &rt_dir).await {
-                    tracing::warn!("[LLM] cudart extraction failed (driver-bundled cudart may be used): {}", e);
+                    tracing::warn!(
+                        "[LLM] cudart extraction failed (driver-bundled cudart may be used): {}",
+                        e
+                    );
                 }
                 let _ = fs::remove_file(&cudart_path);
             }
             Err(e) => {
-                tracing::warn!("[LLM] cudart download failed (driver-bundled cudart may be used): {}", e);
+                tracing::warn!(
+                    "[LLM] cudart download failed (driver-bundled cudart may be used): {}",
+                    e
+                );
             }
         }
     }
@@ -350,12 +380,13 @@ pub async fn list_models(app: AppHandle) -> Vec<ModelInfo> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().map(|e| e == "gguf").unwrap_or(false)
-                && let Ok(meta) = fs::metadata(&path) {
-                    models.push(ModelInfo {
-                        filename: path.file_name().unwrap().to_string_lossy().to_string(),
-                        size: meta.len() as f64,
-                    });
-                }
+                && let Ok(meta) = fs::metadata(&path)
+            {
+                models.push(ModelInfo {
+                    filename: path.file_name().unwrap().to_string_lossy().to_string(),
+                    size: meta.len() as f64,
+                });
+            }
         }
     }
     models
@@ -363,18 +394,18 @@ pub async fn list_models(app: AppHandle) -> Vec<ModelInfo> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn download_model(
-    app: AppHandle,
-    url: String,
-    filename: String,
-) -> Result<(), String> {
+pub async fn download_model(app: AppHandle, url: String, filename: String) -> Result<(), String> {
     let safe_name = crate::validate::validate_filename(&filename)?.to_string();
     let safe_url = crate::validate::validate_url(&url)?.to_string();
     let dir = models_dir(&app);
     let _ = fs::create_dir_all(&dir);
     let target = dir.join(&safe_name);
 
-    tracing::info!("[LLM] Downloading model {} -> {}", safe_url, target.display());
+    tracing::info!(
+        "[LLM] Downloading model {} -> {}",
+        safe_url,
+        target.display()
+    );
     download_file(&app, &safe_url, &target, Some(&safe_name)).await?;
     tracing::info!("[LLM] Model download complete: {}", safe_name);
     Ok(())
@@ -457,7 +488,10 @@ pub async fn set_llm_config(args: SetLlmConfigArgs) -> Result<(), String> {
             std::env::set_var("OPENCODE_UBATCH_SIZE", nb.to_string());
         }
         if let Some(cr) = args.cache_reuse {
-            std::env::set_var("OPENCODE_LLAMA_CACHE_REUSE", if cr { "true" } else { "false" });
+            std::env::set_var(
+                "OPENCODE_LLAMA_CACHE_REUSE",
+                if cr { "true" } else { "false" },
+            );
         }
         if let Some(tk) = args.top_k {
             std::env::set_var("OPENCODE_LLM_TOP_K", tk.to_string());
@@ -530,7 +564,7 @@ fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
         }
         f.read_exact(&mut b4).ok()?;
         let version = u32::from_le_bytes(b4);
-        if version < 2 || version > 3 {
+        if !(2..=3).contains(&version) {
             return None;
         }
         f.read_exact(&mut b8).ok()?; // tensor_count (unused)
@@ -551,10 +585,10 @@ fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
         }
         fn scalar_size(t: u32) -> Option<i64> {
             Some(match t {
-                0 | 1 | 7 => 1,    // u8 / i8 / bool
-                2 | 3 => 2,        // u16 / i16
-                4 | 5 | 6 => 4,    // u32 / i32 / f32
-                10 | 11 | 12 => 8, // u64 / i64 / f64
+                0 | 1 | 7 => 1, // u8 / i8 / bool
+                2 | 3 => 2,     // u16 / i16
+                4..=6 => 4,     // u32 / i32 / f32
+                10..=12 => 8,   // u64 / i64 / f64
                 _ => return None,
             })
         }
@@ -593,7 +627,10 @@ fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
                             f.read_exact(&mut v4).ok()?;
                             block_count = Some(u32::from_le_bytes(v4));
                             if architecture.is_some() {
-                                return Some(GgufMeta { architecture, block_count });
+                                return Some(GgufMeta {
+                                    architecture,
+                                    block_count,
+                                });
                             }
                             continue;
                         }
@@ -602,7 +639,10 @@ fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
                             f.read_exact(&mut v4).ok()?;
                             block_count = Some(i32::from_le_bytes(v4).max(0) as u32);
                             if architecture.is_some() {
-                                return Some(GgufMeta { architecture, block_count });
+                                return Some(GgufMeta {
+                                    architecture,
+                                    block_count,
+                                });
                             }
                             continue;
                         }
@@ -611,7 +651,10 @@ fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
                             f.read_exact(&mut v8).ok()?;
                             block_count = Some(u64::from_le_bytes(v8).min(u32::MAX as u64) as u32);
                             if architecture.is_some() {
-                                return Some(GgufMeta { architecture, block_count });
+                                return Some(GgufMeta {
+                                    architecture,
+                                    block_count,
+                                });
                             }
                             continue;
                         }
@@ -622,18 +665,31 @@ fn read_gguf_meta(path: &std::path::Path) -> GgufMeta {
                 f.seek(SeekFrom::Current(sz)).ok()?;
             }
             if architecture.is_some() && block_count.is_some() {
-                return Some(GgufMeta { architecture, block_count });
+                return Some(GgufMeta {
+                    architecture,
+                    block_count,
+                });
             }
         }
-        Some(GgufMeta { architecture, block_count })
+        Some(GgufMeta {
+            architecture,
+            block_count,
+        })
     }
 
-    inner(path).unwrap_or(GgufMeta { architecture: None, block_count: None })
+    inner(path).unwrap_or(GgufMeta {
+        architecture: None,
+        block_count: None,
+    })
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Option<String>) -> Result<(), String> {
+pub async fn load_llm_model(
+    app: AppHandle,
+    filename: String,
+    draft_model: Option<String>,
+) -> Result<(), String> {
     let safe_name = crate::validate::validate_filename(&filename)?.to_string();
     let safe_draft = match draft_model.as_deref() {
         Some(d) => Some(crate::validate::validate_filename(d)?.to_string()),
@@ -656,7 +712,9 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
     // doesn't need to know about this — image content blocks just start
     // working as soon as the user drops a mmproj next to the model.
     let mut mmproj_path: Option<PathBuf> = {
-        let dir = model_path.parent().unwrap_or_else(|| std::path::Path::new(""));
+        let dir = model_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new(""));
         let mut candidates: Vec<PathBuf> = std::fs::read_dir(dir)
             .ok()
             .into_iter()
@@ -671,11 +729,20 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
             .collect();
         // Stable sort to give F16 priority, then BF16, then F32.
         candidates.sort_by_key(|p| {
-            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
-            if name.contains("f16") && !name.contains("bf16") { 0 }
-            else if name.contains("bf16") { 1 }
-            else if name.contains("f32") { 2 }
-            else { 3 }
+            let name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if name.contains("f16") && !name.contains("bf16") {
+                0
+            } else if name.contains("bf16") {
+                1
+            } else if name.contains("f32") {
+                2
+            } else {
+                3
+            }
         });
         candidates.into_iter().next()
     };
@@ -694,7 +761,10 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
     if mmproj_path.is_some() {
         match gguf_meta.architecture.as_deref() {
             Some(arch) if MULTIMODAL_ARCHITECTURES.contains(&arch) => {
-                tracing::info!("[LLM] Base model architecture '{}' is multimodal — keeping mmproj", arch);
+                tracing::info!(
+                    "[LLM] Base model architecture '{}' is multimodal — keeping mmproj",
+                    arch
+                );
             }
             Some(arch) => {
                 tracing::warn!(
@@ -704,7 +774,9 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
                 mmproj_path = None;
             }
             None => {
-                tracing::warn!("[LLM] Could not read model architecture — keeping mmproj (may waste VRAM if text-only)");
+                tracing::warn!(
+                    "[LLM] Could not read model architecture — keeping mmproj (may waste VRAM if text-only)"
+                );
             }
         }
     }
@@ -730,35 +802,42 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
         .timeout(std::time::Duration::from_secs(2))
         .send()
         .await
-        && resp.status().is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            if body.contains(&safe_name) {
-                // Same model — check whether the slot is idle or stuck processing
-                let slot_idle = match client
-                    .get(format!("http://127.0.0.1:{}/slots", LLM_PORT))
-                    .timeout(std::time::Duration::from_secs(2))
-                    .send()
-                    .await
-                {
-                    Ok(r) => match r.text().await {
-                        Ok(t) => !t.contains("\"is_processing\":true"),
-                        Err(_) => false,
-                    },
+        && resp.status().is_success()
+    {
+        let body = resp.text().await.unwrap_or_default();
+        if body.contains(&safe_name) {
+            // Same model — check whether the slot is idle or stuck processing
+            let slot_idle = match client
+                .get(format!("http://127.0.0.1:{}/slots", LLM_PORT))
+                .timeout(std::time::Duration::from_secs(2))
+                .send()
+                .await
+            {
+                Ok(r) => match r.text().await {
+                    Ok(t) => !t.contains("\"is_processing\":true"),
                     Err(_) => false,
-                };
+                },
+                Err(_) => false,
+            };
 
-                if slot_idle {
-                    tracing::info!("[LLM] Reusing existing llama-server (idle slot) with {}", safe_name);
-                    let state = app.state::<LlmServerState>();
-                    *state.active_model.lock_safe() = Some(safe_name.clone());
-                    return Ok(());
-                }
-                tracing::warn!("[LLM] Orphaned llama-server is stuck (slot processing) — killing it");
-            } else {
-                tracing::warn!("[LLM] Killing orphaned llama-server (wrong model) on port {}", LLM_PORT);
+            if slot_idle {
+                tracing::info!(
+                    "[LLM] Reusing existing llama-server (idle slot) with {}",
+                    safe_name
+                );
+                let state = app.state::<LlmServerState>();
+                *state.active_model.lock_safe() = Some(safe_name.clone());
+                return Ok(());
             }
-            need_kill = true;
+            tracing::warn!("[LLM] Orphaned llama-server is stuck (slot processing) — killing it");
+        } else {
+            tracing::warn!(
+                "[LLM] Killing orphaned llama-server (wrong model) on port {}",
+                LLM_PORT
+            );
         }
+        need_kill = true;
+    }
     // Ensure llama-server runtime is available
     let server_exe = ensure_llama_runtime(&app).await?;
 
@@ -772,9 +851,14 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
         // copy the user runs themselves was fair game — and the second killed
         // whoever held the port, ours or not. Comparing the full executable path
         // is what tells our copy apart, since the name cannot.
-        match unifia_supervisor::Supervisor::new(llm_lease_dir()).reclaim_port(LLM_PORT, &server_exe) {
+        match unifia_supervisor::Supervisor::new(llm_lease_dir())
+            .reclaim_port(LLM_PORT, &server_exe)
+        {
             unifia_supervisor::Verdict::Owned => {
-                tracing::info!("[LLM] Reclaimed port {} from our own llama-server", LLM_PORT)
+                tracing::info!(
+                    "[LLM] Reclaimed port {} from our own llama-server",
+                    LLM_PORT
+                )
             }
             unifia_supervisor::Verdict::Gone => {
                 tracing::info!("[LLM] Port {} was already free", LLM_PORT)
@@ -807,7 +891,8 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
         .ok()
         .or_else(|| adaptive.as_ref().and_then(|c| c.kv_cache_type.clone()))
         .unwrap_or_else(|| "q4_0".to_string());
-    let offload_mode = std::env::var("OPENCODE_OFFLOAD_MODE").unwrap_or_else(|_| "auto".to_string());
+    let offload_mode =
+        std::env::var("OPENCODE_OFFLOAD_MODE").unwrap_or_else(|_| "auto".to_string());
     let mmap_mode = std::env::var("OPENCODE_MMAP_MODE").unwrap_or_else(|_| "auto".to_string());
     // Flash attention toggle (default on — best perf/memory).
     let flash_attn = std::env::var("OPENCODE_FLASH_ATTN")
@@ -888,7 +973,13 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
 
     tracing::info!(
         "[LLM] Config: kv={}, offload={}, mmap={}, ngl={}, threads={}, batch={:?}, ubatch={:?}",
-        kv_cache_type, offload_mode, mmap_mode, n_gpu_layers, n_threads, batch_size, ubatch_size
+        kv_cache_type,
+        offload_mode,
+        mmap_mode,
+        n_gpu_layers,
+        n_threads,
+        batch_size,
+        ubatch_size
     );
 
     let mut cmd = tokio::process::Command::new(&server_exe);
@@ -954,7 +1045,9 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
 
     // Memory mapping control
     match mmap_mode.as_str() {
-        "off" => { cmd.arg("--no-mmap"); }
+        "off" => {
+            cmd.arg("--no-mmap");
+        }
         "on" => { /* mmap is default, nothing to add */ }
         _ => { /* auto: let llama.cpp decide */ }
     }
@@ -1005,9 +1098,16 @@ pub async fn load_llm_model(app: AppHandle, filename: String, draft_model: Optio
                     .arg("0.75")
                     .arg("--gpu-layers-draft")
                     .arg("99");
-                tracing::info!("[LLM] Speculative decoding enabled with {} (need {} MiB VRAM)", draft, required_mib);
+                tracing::info!(
+                    "[LLM] Speculative decoding enabled with {} (need {} MiB VRAM)",
+                    draft,
+                    required_mib
+                );
             } else {
-                tracing::info!("[LLM] Speculative decoding skipped (need {} MiB free VRAM)", required_mib);
+                tracing::info!(
+                    "[LLM] Speculative decoding skipped (need {} MiB free VRAM)",
+                    required_mib
+                );
             }
         }
     }
@@ -1178,35 +1278,33 @@ fn check_vram_free(min_mib: u64) -> bool {
     if let Ok(out) = std::process::Command::new("nvidia-smi")
         .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
         .output()
+        && out.status.success()
     {
-        if out.status.success() {
-            let free: u64 = String::from_utf8_lossy(&out.stdout)
-                .trim()
-                .lines()
-                .next()
-                .unwrap_or("0")
-                .parse()
-                .unwrap_or(0);
-            return free >= min_mib;
-        }
+        let free: u64 = String::from_utf8_lossy(&out.stdout)
+            .trim()
+            .lines()
+            .next()
+            .unwrap_or("0")
+            .parse()
+            .unwrap_or(0);
+        return free >= min_mib;
     }
 
     // AMD — ROCm toolchain
     if let Ok(out) = std::process::Command::new("rocm-smi")
         .args(["--showmeminfo", "vram", "--csv"])
         .output()
+        && out.status.success()
     {
-        if out.status.success() {
-            // Output: GPU_ID,VRAM_Total_Memory(B),VRAM_Used_Memory(B)
-            // Take the first data line; parse Used and Total from bytes → MiB.
-            for line in String::from_utf8_lossy(&out.stdout).lines().skip(1) {
-                let cols: Vec<&str> = line.split(',').collect();
-                if cols.len() >= 3 {
-                    let total: u64 = cols[1].trim().parse().unwrap_or(0) / (1024 * 1024);
-                    let used: u64  = cols[2].trim().parse().unwrap_or(0) / (1024 * 1024);
-                    if total > 0 {
-                        return total.saturating_sub(used) >= min_mib;
-                    }
+        // Output: GPU_ID,VRAM_Total_Memory(B),VRAM_Used_Memory(B)
+        // Take the first data line; parse Used and Total from bytes → MiB.
+        for line in String::from_utf8_lossy(&out.stdout).lines().skip(1) {
+            let cols: Vec<&str> = line.split(',').collect();
+            if cols.len() >= 3 {
+                let total: u64 = cols[1].trim().parse().unwrap_or(0) / (1024 * 1024);
+                let used: u64 = cols[2].trim().parse().unwrap_or(0) / (1024 * 1024);
+                if total > 0 {
+                    return total.saturating_sub(used) >= min_mib;
                 }
             }
         }
@@ -1220,10 +1318,13 @@ fn check_vram_free(min_mib: u64) -> bool {
             for entry in entries.flatten() {
                 let dev = entry.path().join("device");
                 let total_path = dev.join("mem_info_vram_total");
-                let used_path  = dev.join("mem_info_vram_used");
-                if let (Ok(t), Ok(u)) = (fs::read_to_string(&total_path), fs::read_to_string(&used_path)) {
+                let used_path = dev.join("mem_info_vram_used");
+                if let (Ok(t), Ok(u)) = (
+                    fs::read_to_string(&total_path),
+                    fs::read_to_string(&used_path),
+                ) {
                     let total: u64 = t.trim().parse().unwrap_or(0) / (1024 * 1024);
-                    let used: u64  = u.trim().parse().unwrap_or(0) / (1024 * 1024);
+                    let used: u64 = u.trim().parse().unwrap_or(0) / (1024 * 1024);
                     if total > 0 {
                         return total.saturating_sub(used) >= min_mib;
                     }
@@ -1236,19 +1337,18 @@ fn check_vram_free(min_mib: u64) -> bool {
     if let Ok(out) = std::process::Command::new("xpu-smi")
         .args(["discovery", "--dump", "1"])
         .output()
+        && out.status.success()
     {
-        if out.status.success() {
-            // xpu-smi dump 1 = "Tile ID, GPU Utilization (%), GPU Power (W), GPU Frequency (MHz),
-            //                   GPU Core Temperature (Celsius Degree), GPU Memory Temperature (…),
-            //                   GPU Memory Utilization (%), GPU Memory Used (MiB), GPU Memory Size (MiB)"
-            for line in String::from_utf8_lossy(&out.stdout).lines().skip(1) {
-                let cols: Vec<&str> = line.split(',').collect();
-                if cols.len() >= 9 {
-                    let used: u64  = cols[7].trim().parse().unwrap_or(0);
-                    let total: u64 = cols[8].trim().parse().unwrap_or(0);
-                    if total > 0 {
-                        return total.saturating_sub(used) >= min_mib;
-                    }
+        // xpu-smi dump 1 = "Tile ID, GPU Utilization (%), GPU Power (W), GPU Frequency (MHz),
+        //                   GPU Core Temperature (Celsius Degree), GPU Memory Temperature (…),
+        //                   GPU Memory Utilization (%), GPU Memory Used (MiB), GPU Memory Size (MiB)"
+        for line in String::from_utf8_lossy(&out.stdout).lines().skip(1) {
+            let cols: Vec<&str> = line.split(',').collect();
+            if cols.len() >= 9 {
+                let used: u64 = cols[7].trim().parse().unwrap_or(0);
+                let total: u64 = cols[8].trim().parse().unwrap_or(0);
+                if total > 0 {
+                    return total.saturating_sub(used) >= min_mib;
                 }
             }
         }
@@ -1369,10 +1469,18 @@ pub async fn run_inference_benchmark(
     let prefill_ms = t.prompt_ms.unwrap_or(0.0);
     let decode_ms = t.predicted_ms.unwrap_or(0.0);
     let prefill_tps = t.prompt_per_second.unwrap_or_else(|| {
-        if prefill_ms > 0.0 { prompt_tokens as f64 * 1000.0 / prefill_ms } else { 0.0 }
+        if prefill_ms > 0.0 {
+            prompt_tokens as f64 * 1000.0 / prefill_ms
+        } else {
+            0.0
+        }
     });
     let decode_tps = t.predicted_per_second.unwrap_or_else(|| {
-        if decode_ms > 0.0 { generated_tokens as f64 * 1000.0 / decode_ms } else { 0.0 }
+        if decode_ms > 0.0 {
+            generated_tokens as f64 * 1000.0 / decode_ms
+        } else {
+            0.0
+        }
     });
 
     // Peak RAM and device label are best-effort (nvidia-smi for desktop
@@ -1400,22 +1508,25 @@ pub async fn run_inference_benchmark(
 pub async fn get_vram_info() -> Result<VramInfo, String> {
     // Try nvidia-smi
     if let Ok(output) = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=memory.total,memory.used,memory.free,name", "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=memory.total,memory.used,memory.free,name",
+            "--format=csv,noheader,nounits",
+        ])
         .output()
-        && output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if let Some(line) = stdout.lines().next() {
-                let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
-                if parts.len() >= 4 {
-                    return Ok(VramInfo {
-                        total_mib: parts[0].parse().unwrap_or(0.0),
-                        used_mib: parts[1].parse().unwrap_or(0.0),
-                        free_mib: parts[2].parse().unwrap_or(0.0),
-                        gpu_name: parts[3].to_string(),
-                    });
-                }
+        && output.status.success()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = stdout.lines().next() {
+            let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+            if parts.len() >= 4 {
+                return Ok(VramInfo {
+                    total_mib: parts[0].parse().unwrap_or(0.0),
+                    used_mib: parts[1].parse().unwrap_or(0.0),
+                    free_mib: parts[2].parse().unwrap_or(0.0),
+                    gpu_name: parts[3].to_string(),
+                });
             }
         }
+    }
     Err("GPU not detected (nvidia-smi not available)".to_string())
 }
-

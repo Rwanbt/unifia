@@ -2,10 +2,10 @@ use crate::{
     constants::{UPDATER_ENABLED, window_state_flags},
     server::get_wsl_config,
 };
-use std::sync::Mutex;
-use std::{ops::Deref, time::Duration};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::Mutex;
+use std::{ops::Deref, time::Duration};
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_window_state::AppHandleExt;
 use tokio::sync::mpsc;
@@ -130,8 +130,12 @@ fn design_browser_label(address: &str) -> String {
 ///
 /// Returns the window label so the caller can drive and later close this exact
 /// WebView — the Design tab owns its window's lifetime.
-pub fn open_design_browser<R: Runtime>(app: &AppHandle<R>, address: &str) -> Result<String, String> {
-    let parsed = url::Url::parse(address).map_err(|error| format!("invalid browser URL: {error}"))?;
+pub fn open_design_browser<R: Runtime>(
+    app: &AppHandle<R>,
+    address: &str,
+) -> Result<String, String> {
+    let parsed =
+        url::Url::parse(address).map_err(|error| format!("invalid browser URL: {error}"))?;
     if parsed.scheme() != "http" && parsed.scheme() != "https" {
         return Err("browser tabs only accept http(s) URLs".into());
     }
@@ -164,7 +168,11 @@ fn evict_design_browsers<R: Runtime>(app: &AppHandle<R>, labels: Vec<String>) {
 /// WHY `eval` rather than a Tauri navigation API: `WebviewWindow::navigate`
 /// replaces the URL outright, which loses the entry the user wants to go back
 /// to. Back/forward only exist inside the page's own history object.
-pub fn navigate_design_browser<R: Runtime>(app: &AppHandle<R>, label: &str, action: &str) -> Result<(), String> {
+pub fn navigate_design_browser<R: Runtime>(
+    app: &AppHandle<R>,
+    label: &str,
+    action: &str,
+) -> Result<(), String> {
     let script = match action {
         "back" => "history.back()",
         "forward" => "history.forward()",
@@ -174,7 +182,9 @@ pub fn navigate_design_browser<R: Runtime>(app: &AppHandle<R>, label: &str, acti
     let window = app
         .get_webview_window(label)
         .ok_or_else(|| format!("no open browser WebView for {label}"))?;
-    window.eval(script).map_err(|error| format!("browser navigation failed: {error}"))
+    window
+        .eval(script)
+        .map_err(|error| format!("browser navigation failed: {error}"))
 }
 
 /// Closes a Design browser WebView and drops it from the keep-alive list.
@@ -183,7 +193,9 @@ pub fn navigate_design_browser<R: Runtime>(app: &AppHandle<R>, label: &str, acti
 pub fn close_design_browser<R: Runtime>(app: &AppHandle<R>, label: &str) -> Result<(), String> {
     forget_design_browser(label);
     if let Some(window) = app.get_webview_window(label) {
-        window.close().map_err(|error| format!("failed to close browser WebView: {error}"))?;
+        window
+            .close()
+            .map_err(|error| format!("failed to close browser WebView: {error}"))?;
     }
     Ok(())
 }
@@ -270,7 +282,10 @@ fn base_window_config<'a, R: Runtime, M: Manager<R>>(
         let remote = crate::server::load_remote_config(_app);
         let spki_arg = if remote.tls_enabled {
             match crate::tls::ensure_cert(_app) {
-                Ok(certs) => format!(" --ignore-certificate-errors-spki-list={}", certs.spki_hash_b64),
+                Ok(certs) => format!(
+                    " --ignore-certificate-errors-spki-list={}",
+                    certs.spki_hash_b64
+                ),
                 Err(err) => {
                     tracing::warn!(%err, "Failed to load TLS cert for WebView2 SPKI pinning; WS upgrades to wss://127.0.0.1 will fail");
                     String::new()

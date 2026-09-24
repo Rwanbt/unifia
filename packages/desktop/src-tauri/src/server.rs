@@ -118,10 +118,11 @@ fn save_remote_config(app: &AppHandle, config: &RemoteConfig) -> Result<(), Stri
 /// We probe multiple targets so a mismatched network environment doesn't
 /// silently leave `lan_ip = None`:
 ///   1. `8.8.8.8`      — default-route probe (works when the host has any
-///                       internet gateway, even if offline/unreachable).
+///      internet gateway, even if offline/unreachable).
 ///   2. `192.168.1.1`  — typical home/SOHO RFC1918 Class C gateway.
 ///   3. `10.0.0.1`     — corp/vpn Class A.
 ///   4. `172.16.0.1`   — Class B.
+///
 /// The first probe that yields a non-loopback, non-link-local address wins.
 fn detect_lan_ip() -> Option<IpAddr> {
     const PROBES: &[(u8, u8, u8, u8)] = &[
@@ -137,7 +138,9 @@ fn detect_lan_ip() -> Option<IpAddr> {
         if sock.connect((Ipv4Addr::new(*a, *b, *c, *d), 80)).is_err() {
             continue;
         }
-        let Ok(local) = sock.local_addr() else { continue };
+        let Ok(local) = sock.local_addr() else {
+            continue;
+        };
         let addr = local.ip();
         if addr.is_unspecified() || addr.is_loopback() {
             continue;
@@ -242,8 +245,8 @@ pub fn set_internet_mode(app: AppHandle, enabled: bool) -> Result<RemoteConnecti
 pub fn export_tls_cert(app: AppHandle) -> Result<String, String> {
     let pem = crate::tls::get_cert_pem(&app)?;
 
-    let downloads = dirs::download_dir()
-        .ok_or_else(|| "Could not locate Downloads folder".to_string())?;
+    let downloads =
+        dirs::download_dir().ok_or_else(|| "Could not locate Downloads folder".to_string())?;
     let dest = downloads.join("unifia-cert.pem");
 
     std::fs::write(&dest, pem).map_err(|e| format!("Failed to export certificate: {e}"))?;
@@ -395,97 +398,6 @@ pub fn set_wsl_config(app: AppHandle, config: WslConfig) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::net::{IpAddr, Ipv4Addr};
-
-    // ── Test 1 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn remote_config_default_has_valid_uuid_password() {
-        let config = RemoteConfig::default();
-        let parsed = uuid::Uuid::parse_str(&config.password);
-        assert!(
-            parsed.is_ok(),
-            "password must be a valid UUID v4, got {:?} — error: {:?}",
-            config.password,
-            parsed.err()
-        );
-    }
-
-    // ── Test 2 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn remote_config_default_username_is_opencode() {
-        let config = RemoteConfig::default();
-        assert_eq!(
-            config.username, "opencode",
-            "default username must be 'opencode'"
-        );
-    }
-
-    // ── Test 3 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn remote_config_default_not_enabled() {
-        let config = RemoteConfig::default();
-        assert!(!config.enabled, "remote access must be disabled by default");
-    }
-
-    // ── Test 4 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn remote_config_default_tls_disabled() {
-        let config = RemoteConfig::default();
-        assert!(
-            !config.tls_enabled,
-            "TLS must be disabled by default"
-        );
-    }
-
-    // ── Test 5 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn two_defaults_have_different_passwords() {
-        let config_a = RemoteConfig::default();
-        let config_b = RemoteConfig::default();
-        assert_ne!(
-            config_a.password, config_b.password,
-            "each RemoteConfig::default() must generate a unique password"
-        );
-    }
-
-    // ── Test 6 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn detect_lan_ip_does_not_panic() {
-        // Result may be Some or None — both are acceptable; must not panic.
-        let _result = detect_lan_ip();
-    }
-
-    // ── Test 7 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn detect_lan_ip_if_some_is_not_loopback() {
-        let ip = detect_lan_ip()
-            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)));
-
-        // When detect_lan_ip returns None we fall back to a routable public IP
-        // (1.2.3.4) which is not loopback — so this assertion always holds.
-        // When it returns Some(ip), the real IP must not be loopback either.
-        assert!(
-            !ip.is_loopback(),
-            "detect_lan_ip must not return a loopback address, got {ip}"
-        );
-    }
-
-    // ── Test 8 ──────────────────────────────────────────────────────────────
-    #[test]
-    fn detect_lan_ip_if_some_is_not_unspecified() {
-        let ip = detect_lan_ip()
-            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)));
-
-        assert!(
-            !ip.is_unspecified(),
-            "detect_lan_ip must not return an unspecified (0.0.0.0) address, got {ip}"
-        );
-    }
-}
-
 pub fn spawn_local_server(
     app: AppHandle,
     hostname: String,
@@ -583,4 +495,90 @@ async fn check_health(url: &str, username: Option<&str>, password: Option<&str>)
         .await
         .map(|r| r.status().is_success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    // ── Test 1 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn remote_config_default_has_valid_uuid_password() {
+        let config = RemoteConfig::default();
+        let parsed = uuid::Uuid::parse_str(&config.password);
+        assert!(
+            parsed.is_ok(),
+            "password must be a valid UUID v4, got {:?} — error: {:?}",
+            config.password,
+            parsed.err()
+        );
+    }
+
+    // ── Test 2 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn remote_config_default_username_is_opencode() {
+        let config = RemoteConfig::default();
+        assert_eq!(
+            config.username, "opencode",
+            "default username must be 'opencode'"
+        );
+    }
+
+    // ── Test 3 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn remote_config_default_not_enabled() {
+        let config = RemoteConfig::default();
+        assert!(!config.enabled, "remote access must be disabled by default");
+    }
+
+    // ── Test 4 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn remote_config_default_tls_disabled() {
+        let config = RemoteConfig::default();
+        assert!(!config.tls_enabled, "TLS must be disabled by default");
+    }
+
+    // ── Test 5 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn two_defaults_have_different_passwords() {
+        let config_a = RemoteConfig::default();
+        let config_b = RemoteConfig::default();
+        assert_ne!(
+            config_a.password, config_b.password,
+            "each RemoteConfig::default() must generate a unique password"
+        );
+    }
+
+    // ── Test 6 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn detect_lan_ip_does_not_panic() {
+        // Result may be Some or None — both are acceptable; must not panic.
+        let _result = detect_lan_ip();
+    }
+
+    // ── Test 7 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn detect_lan_ip_if_some_is_not_loopback() {
+        let ip = detect_lan_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)));
+
+        // When detect_lan_ip returns None we fall back to a routable public IP
+        // (1.2.3.4) which is not loopback — so this assertion always holds.
+        // When it returns Some(ip), the real IP must not be loopback either.
+        assert!(
+            !ip.is_loopback(),
+            "detect_lan_ip must not return a loopback address, got {ip}"
+        );
+    }
+
+    // ── Test 8 ──────────────────────────────────────────────────────────────
+    #[test]
+    fn detect_lan_ip_if_some_is_not_unspecified() {
+        let ip = detect_lan_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)));
+
+        assert!(
+            !ip.is_unspecified(),
+            "detect_lan_ip must not return an unspecified (0.0.0.0) address, got {ip}"
+        );
+    }
 }
