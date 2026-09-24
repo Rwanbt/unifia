@@ -17,7 +17,7 @@ import { SettingsAndroid } from "./settings-android"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsRemoteAccess } from "./settings-remote-access"
-import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
+import { SettingsSecurity } from "./settings-security"
 import { SettingsScopeProvider } from "./settings-scope"
 
 type CategoryId =
@@ -85,7 +85,7 @@ export const SettingsMobileNav: Component = () => {
       case "remote":
         return <SettingsRemoteAccess />
       case "account":
-        return <SettingsCollaborativeAuth />
+        return <SettingsSecurity />
       case "benchmark":
         return <SettingsBenchmark />
       case "plugins":

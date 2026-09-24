@@ -1150,6 +1150,102 @@ html[data-color-scheme="light"] [data-v110="settings-frame"] {
   }
 }
 
+/* .v91-status-grid: three status cards under the page title. */
+[data-v110="settings-page"] [data-slot="settings-status-cards"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 18px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] b {
+  font-size: 12px;
+}
+
+[data-v110="settings-page"] [data-slot="settings-status-cards"] small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] {
+  padding: 14px;
+}
+
+/* The shared sign-in form (auth/login-form.tsx), in the settings' controls. */
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form {
+  max-width: 320px;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form h2 {
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form label > span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form input {
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form input:focus {
+  border-color: var(--accent);
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form button[type="submit"] {
+  align-self: flex-start;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-v110="settings-page"] [data-slot="collaborative-auth"] form button[type="button"] {
+  align-self: flex-start;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+@media (max-width: 900px) {
+  [data-v110="settings-page"] [data-slot="settings-status-cards"] {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* .muted-badge: a small grey status chip beside a control. */
 [data-v110="settings-page"] [data-slot="settings-badge"] {
   display: inline-flex;

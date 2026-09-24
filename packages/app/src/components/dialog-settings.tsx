@@ -17,7 +17,7 @@ import { SettingsPlugins } from "./settings-plugins"
 import { SettingsObservability } from "./settings-observability"
 import { SettingsMemory } from "./settings-memory"
 import { SettingsCompute } from "./settings-compute"
-import { SettingsCollaborativeAuth } from "./settings-collaborative-auth"
+import { SettingsSecurity } from "./settings-security"
 import { SettingsCommandBar } from "./settings-command-bar"
 import { SettingsScopeProvider } from "./settings-scope"
 import { SettingsNavIcon, type SettingsIconName } from "./settings-nav-icon"
@@ -110,7 +110,7 @@ function settingsGroups(language: ReturnType<typeof useLanguage>): SettingsGroup
           id: "account",
           icon: "security",
           label: language.t("settings.tab.security"),
-          render: () => <SettingsCollaborativeAuth />,
+          render: () => <SettingsSecurity />,
         },
         {
           id: "configuration",
