@@ -2337,7 +2337,7 @@ export const dict = {
   "workbench.errors.invalidMode": "وضع مساحة العمل غير صالح",
   "workbench.errors.invalidModeDescription": "وضع مساحة العمل المطلوب غير متاح.",
   "workbench.errors.bridgeUnavailable": "جسر Workbench غير متاح لمساحة العمل هذه",
-  "workbench.errors.webBridgeNeedsPassword": "يتطلب Workbench خادمًا محميًا بكلمة مرور (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "يتطلب Workbench خادمًا محميًا بكلمة مرور: اضبط UNIFIA_SERVER_PASSWORD على الخادم الخلفي و VITE_OPENCODE_SERVER_PASSWORD في التطبيق، ثم أعد تشغيل الاثنين وأعد التحميل. إعادة الاتصال وحدها لا تكفي.",
   "workbench.errors.eventStreamDisconnected": "انقطع تدفق أحداث Workbench؛ جارٍ إعادة المحاولة",
   "workbench.errors.sessionCreation": "تعذّر إنشاء جلسة مساحة العمل",
   "workbench.connection.connected": "متصل بنسخة Workbench {{instanceId}}",

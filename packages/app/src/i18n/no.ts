@@ -2344,7 +2344,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Ugyldig arbeidsområde-modus",
   "workbench.errors.invalidModeDescription": "Den forespurte arbeidsområde-modusen er ikke tilgjengelig.",
   "workbench.errors.bridgeUnavailable": "Workbench-broen er ikke tilgjengelig for dette arbeidsområdet",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench krever en passordbeskyttet server (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench krever en passordbeskyttet server: sett UNIFIA_SERVER_PASSWORD på backenden og VITE_OPENCODE_SERVER_PASSWORD i appen, start deretter begge på nytt og last inn på nytt. Å koble til på nytt alene er ikke nok.",
   "workbench.errors.eventStreamDisconnected": "Workbench-hendelsesstrømmen er frakoblet; prøver igjen",
   "workbench.errors.sessionCreation": "Kan ikke opprette en arbeidsområde-økt",
   "workbench.connection.connected": "Koblet til Workbench-instans {{instanceId}}",

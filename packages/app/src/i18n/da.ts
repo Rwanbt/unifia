@@ -2419,7 +2419,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Ugyldig arbejdsområde-tilstand",
   "workbench.errors.invalidModeDescription": "Den anmodede arbejdsområde-tilstand er ikke tilgængelig.",
   "workbench.errors.bridgeUnavailable": "Workbench-broen er ikke tilgængelig for dette arbejdsområde",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench kræver en adgangskodebeskyttet server (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench kræver en adgangskodebeskyttet server: angiv UNIFIA_SERVER_PASSWORD på backenden og VITE_OPENCODE_SERVER_PASSWORD i appen, genstart derefter begge og genindlæs. Kun at genoprette forbindelse er ikke nok.",
   "workbench.errors.eventStreamDisconnected": "Workbench-hændelsesstrømmen afbrudt; prøver igen",
   "workbench.errors.sessionCreation": "Kan ikke oprette en arbejdsområde-session",
   "workbench.connection.connected": "Forbundet til Workbench-instansen {{instanceId}}",

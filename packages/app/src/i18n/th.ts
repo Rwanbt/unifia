@@ -2415,7 +2415,7 @@ export const dict = {
   "workbench.errors.invalidMode": "โหมดพื้นที่ทำงานไม่ถูกต้อง",
   "workbench.errors.invalidModeDescription": "โหมดพื้นที่ทำงานที่ร้องขอไม่พร้อมใช้งาน",
   "workbench.errors.bridgeUnavailable": "สะพาน Workbench ไม่พร้อมใช้งานสำหรับพื้นที่ทำงานนี้",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench ต้องใช้เซิร์ฟเวอร์ที่ป้องกันด้วยรหัสผ่าน (UNIFIA_SERVER_PASSWORD)",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench ต้องใช้เซิร์ฟเวอร์ที่ป้องกันด้วยรหัสผ่าน: ตั้ง UNIFIA_SERVER_PASSWORD บน backend และ VITE_OPENCODE_SERVER_PASSWORD ในแอป แล้วเริ่มทั้งสองใหม่และโหลดหน้าใหม่ การเชื่อมต่อใหม่อย่างเดียวไม่พอ",
   "workbench.errors.eventStreamDisconnected": "สตรีมเหตุการณ์ Workbench ถูกตัดการเชื่อมต่อ กำลังลองใหม่",
   "workbench.errors.sessionCreation": "ไม่สามารถสร้างเซสชันของพื้นที่ทำงานได้",
   "workbench.connection.connected": "เชื่อมต่อกับอินสแตนซ์ Workbench {{instanceId}} แล้ว",

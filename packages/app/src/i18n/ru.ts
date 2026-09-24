@@ -2351,7 +2351,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Неверный режим рабочего пространства",
   "workbench.errors.invalidModeDescription": "Запрошенный режим рабочего пространства недоступен.",
   "workbench.errors.bridgeUnavailable": "Мост Workbench недоступен для этого рабочего пространства",
-  "workbench.errors.webBridgeNeedsPassword": "Для Workbench нужен сервер, защищённый паролем (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "Для Workbench нужен сервер, защищённый паролем: задайте UNIFIA_SERVER_PASSWORD на бэкенде и VITE_OPENCODE_SERVER_PASSWORD в приложении, затем перезапустите оба и обновите страницу. Только переподключение недостаточно.",
   "workbench.errors.eventStreamDisconnected": "Поток событий Workbench отключён; повторная попытка",
   "workbench.errors.sessionCreation": "Не удалось создать сессию рабочего пространства",
   "workbench.connection.connected": "Подключено к инстансу Workbench {{instanceId}}",

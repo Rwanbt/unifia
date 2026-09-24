@@ -2343,7 +2343,7 @@ export const dict = {
   "workbench.errors.invalidMode": "無効なワークスペースモード",
   "workbench.errors.invalidModeDescription": "要求されたワークスペースモードは利用できません。",
   "workbench.errors.bridgeUnavailable": "このワークスペースでは Workbench ブリッジを利用できません",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench にはパスワードで保護されたサーバーが必要です (UNIFIA_SERVER_PASSWORD)。",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench にはパスワードで保護されたサーバーが必要です。バックエンドに UNIFIA_SERVER_PASSWORD、アプリに VITE_OPENCODE_SERVER_PASSWORD を設定し、両方を再起動して再読み込みしてください。再接続だけでは不十分です。",
   "workbench.errors.eventStreamDisconnected": "Workbench のイベントストリームが切断されました。再試行しています",
   "workbench.errors.sessionCreation": "ワークスペースセッションを作成できません",
   "workbench.connection.connected": "Workbench インスタンス {{instanceId}} に接続済み",

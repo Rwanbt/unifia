@@ -2410,7 +2410,7 @@ export const dict = {
   "workbench.errors.invalidMode": "無效的工作區模式",
   "workbench.errors.invalidModeDescription": "所要求的工作區模式無法使用。",
   "workbench.errors.bridgeUnavailable": "此工作區無法使用 Workbench 橋接",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench 需要受密碼保護的伺服器 (UNIFIA_SERVER_PASSWORD)。",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench 需要受密碼保護的伺服器：在後端設定 UNIFIA_SERVER_PASSWORD，在應用程式中設定 VITE_OPENCODE_SERVER_PASSWORD，然後重啟兩者並重新整理。僅重新連線不夠。",
   "workbench.errors.eventStreamDisconnected": "Workbench 事件流已中斷,正在重試",
   "workbench.errors.sessionCreation": "無法建立工作區工作階段",
   "workbench.connection.connected": "已連線至 Workbench 執行個體 {{instanceId}}",

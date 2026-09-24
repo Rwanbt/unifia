@@ -2348,7 +2348,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Geçersiz çalışma alanı modu",
   "workbench.errors.invalidModeDescription": "İstenen çalışma alanı modu kullanılamıyor.",
   "workbench.errors.bridgeUnavailable": "Workbench köprüsü bu çalışma alanı için kullanılamıyor",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench, parola korumalı bir sunucu gerektirir (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench parola korumalı bir sunucu ister: backend'e UNIFIA_SERVER_PASSWORD, uygulamaya VITE_OPENCODE_SERVER_PASSWORD tanımlayın, ardından ikisini de yeniden başlatıp sayfayı yenileyin. Yeniden bağlanmak tek başına yeterli değil.",
   "workbench.errors.eventStreamDisconnected": "Workbench olay akışı kesildi; yeniden deneniyor",
   "workbench.errors.sessionCreation": "Çalışma alanı oturumu oluşturulamıyor",
   "workbench.connection.connected": "Workbench örneğine bağlandı: {{instanceId}}",

@@ -2347,7 +2347,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Nieprawidłowy tryb obszaru roboczego",
   "workbench.errors.invalidModeDescription": "Żądany tryb obszaru roboczego jest niedostępny.",
   "workbench.errors.bridgeUnavailable": "Most Workbench jest niedostępny dla tego obszaru roboczego",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench wymaga serwera chronionego hasłem (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench wymaga serwera chronionego hasłem: ustaw UNIFIA_SERVER_PASSWORD na backendzie i VITE_OPENCODE_SERVER_PASSWORD w aplikacji, następnie uruchom oba ponownie i odśwież. Samo ponowne połączenie nie wystarczy.",
   "workbench.errors.eventStreamDisconnected": "Strumień zdarzeń Workbench rozłączony; ponawianie",
   "workbench.errors.sessionCreation": "Nie można utworzyć sesji obszaru roboczego",
   "workbench.connection.connected": "Połączono z instancją Workbench {{instanceId}}",

@@ -2425,7 +2425,7 @@ export const dict = {
   "workbench.errors.invalidMode": "Neispravan način radnog prostora",
   "workbench.errors.invalidModeDescription": "Traženi način radnog prostora nije dostupan.",
   "workbench.errors.bridgeUnavailable": "Workbench most nije dostupan za ovaj radni prostor",
-  "workbench.errors.webBridgeNeedsPassword": "Workbench zahtijeva server zaštićen lozinkom (UNIFIA_SERVER_PASSWORD).",
+  "workbench.errors.webBridgeNeedsPassword": "Workbench zahtijeva server zaštićen lozinkom: postavite UNIFIA_SERVER_PASSWORD na backendu i VITE_OPENCODE_SERVER_PASSWORD u aplikaciji, zatim ponovo pokrenite oba i osvježite. Samo ponovno povezivanje nije dovoljno.",
   "workbench.errors.eventStreamDisconnected": "Workbench tok događaja prekinut; pokušavam ponovo",
   "workbench.errors.sessionCreation": "Nije moguće kreirati sesiju radnog prostora",
   "workbench.connection.connected": "Povezano s Workbench instancom {{instanceId}}",
