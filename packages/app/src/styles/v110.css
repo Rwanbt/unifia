@@ -444,6 +444,30 @@ html[data-ui-animations="off"] *::after {
   background: var(--background-base);
 }
 
+/* Phone topbar -- the reference keeps only the context toggle, a wide
+ * Chat/Editor switch and the inspector toggle; the brand, the theme toggle
+ * and the session icons would otherwise spill over the switch. */
+@media (max-width: 599px) {
+  [data-component="v110-topbar"] [data-component="logo"],
+  [data-component="v110-topbar"] [data-v110="theme-toggle"],
+  [data-component="v110-topbar"] [data-v110="topbar-right-slot"] {
+    display: none;
+  }
+
+  [data-component="v110-topbar"] [data-v110="layout-switch"] {
+    min-width: 230px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  [data-component="v110-topbar"] [data-v110="layout-switch"] > [role="radio"] {
+    flex: 1 1 0;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+}
+
 /* Mobile bottom nav (≤599px portrait, shell authority exclusive). */
 [data-v110="mobile-nav"] button {
   min-height: var(--v110-target-touch);

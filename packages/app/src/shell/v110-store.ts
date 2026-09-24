@@ -16,7 +16,7 @@
 // Inspector: shell owns frame (A2-02), modes own content; FileTree stays
 // the single instance inside the inspector (session-side-panel).
 import { createMemo, createSignal, onCleanup, onMount, type Accessor } from "solid-js"
-import { classify, cohabit, exclusive, layouts, side, type Layout, type Viewport } from "@/tokens/viewport"
+import { classify, cohabit, exclusive, fitLayout, layouts, side, type Layout, type Viewport } from "@/tokens/viewport"
 import { visible, type Panel } from "@/tokens/panels"
 export type { Layout, Viewport }
 type Size = { width: number; height: number }
@@ -48,5 +48,6 @@ export function useShell(id: Accessor<Viewport>) {
   const modes = createMemo(() => layouts(id()))
   const wide = createMemo(() => cohabit(id()))
   const single = createMemo(() => exclusive(id()))
-  return { kind, modes, wide, single }
+  const fit = (layout: Layout) => fitLayout(layout, id())
+  return { kind, modes, wide, single, fit }
 }

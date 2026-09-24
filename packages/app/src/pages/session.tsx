@@ -60,6 +60,8 @@ import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
 import { useViewportCenteredColumn } from "@/pages/session/use-viewport-centered-column"
+import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
+import { splitChatWidth } from "@/pages/session/chat-width"
 import { createCommentActions } from "@/pages/session/session-comment-actions"
 import { createKeyboardHandler } from "@/pages/session/session-keyboard"
 import { createVcsHelpers, type VcsMode } from "@/pages/session/session-vcs"
@@ -200,21 +202,32 @@ export default function Page() {
   // Every inspector tab owns the same fixed-width track. The active tab only
   // changes the content; it must never change the workspace geometry.
   const desktopInspectorWide = createMemo(() => desktopInspectorOpen())
+  // The layout shown: a stored Split on a portrait tablet or phone, which
+  // does not offer it, shows the main surface (fitLayout).
+  const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
   const sessionPanelWidth = createMemo(() => {
     // The editor view collapses only the chat surface. The Inspector remains
     // independently open and keeps its own fixed track when visible.
     // Every session mode uses the same Chat/Split/Editor switch. The active
     // mode changes the main surface content, never the workspace geometry.
-    const workspaceView = view().workspace.current()
-    if (isDesktop() && workspaceView === "main") return "0px"
-    if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`
+    const current = workspaceView()
+    // The mobile app has no layout switch, so a stored Editor must not hide
+    // its only chat.
+    if (current === "main" && !isMobileDevice()) return "0px"
+    if (isDesktop() && current === "split")
+      return splitChatWidth({
+        resized: layout.session.resized(),
+        width: layout.session.width(),
+        compact: shell.kind() === "single",
+      })
     if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
     // The inspector card also takes its outer and inner gutters.
     return `calc(100% - ${layout.inspector.width()}px - var(--v110-gutter-outer) - var(--v110-gutter-inner))`
   })
-  const centered = createMemo(() => isDesktop() && mode.active() === "code" && view().workspace.current() === "chat")
+  const centered = createMemo(() => isDesktop() && mode.active() === "code" && workspaceView() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
+  const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
   useViewportCenteredColumn(chatSurface, centered)
 
   // Settings, account, browser and memory render in the main pane, which the
@@ -985,6 +998,7 @@ export default function Page() {
       </Show>
       <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
         <div
+          ref={setWorkspaceMain}
           data-component="session-workspace-main"
           data-inspector-open={desktopInspectorOpen()}
           class="flex-1 min-h-0 flex flex-col shell:flex-row"
@@ -1003,6 +1017,18 @@ export default function Page() {
             width: sessionPanelWidth(),
           }}
         >
+          <Show when={isDesktop() && workspaceView() === "split"}>
+            <DesktopChatSeparator
+              chat={chatSurface()}
+              workspace={workspaceMain()}
+              label={language.t("session.chat.resize")}
+              onStart={() => size.start()}
+              onResize={(width) => {
+                size.touch()
+                layout.session.resize(width)
+              }}
+            />
+          </Show>
           <div
             data-v110="mode-chat-head"
             class="h-11 shrink-0 flex items-center gap-2 px-1"
@@ -1126,16 +1152,16 @@ export default function Page() {
         </div>
 
         <Switch>
-          <Match when={mode.destination() === "settings" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "settings" && workspaceView() !== "chat"}>
             <SettingsSurface />
           </Match>
-          <Match when={mode.destination() === "user" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "user" && workspaceView() !== "chat"}>
             <UserSurface />
           </Match>
-          <Match when={mode.destination() === "browser" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "browser" && workspaceView() !== "chat"}>
             <BrowserSurface />
           </Match>
-          <Match when={mode.destination() === "memory" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "memory" && workspaceView() !== "chat"}>
             <MemorySurface />
           </Match>
           {/* workbench-mode.tsx had this exact branch before /:mode routed
@@ -1151,16 +1177,16 @@ export default function Page() {
               </p>
             </section>
           </Match>
-          <Match when={mode.active() === "work" && view().workspace.current() !== "chat"}>
+          <Match when={mode.active() === "work" && workspaceView() !== "chat"}>
             <WorkSurface />
           </Match>
-          <Match when={mode.active() === "design" && view().workspace.current() !== "chat"}>
+          <Match when={mode.active() === "design" && workspaceView() !== "chat"}>
             <DesignSurface />
           </Match>
-          <Match when={mode.active() === "automate" && view().workspace.current() !== "chat"}>
+          <Match when={mode.active() === "automate" && workspaceView() !== "chat"}>
             <AutomateSurface />
           </Match>
-          <Match when={view().workspace.current() !== "chat"}>
+          <Match when={workspaceView() !== "chat"}>
             <SessionEditorSurface />
           </Match>
         </Switch>

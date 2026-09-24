@@ -19,6 +19,7 @@ import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
+import { useShell, useViewport } from "@/shell/v110-store"
 import { focusTerminalById } from "@/pages/session/helpers"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { messageAgentColor } from "@/utils/agent"
@@ -140,6 +141,7 @@ export function SessionHeader() {
   const terminal = useTerminal()
   const titlebarSlots = useTitlebarSlots()
   const { params, view } = useSessionLayout()
+  const shell = useShell(useViewport())
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
   // Ports #searchBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15233, "Rechercher,
@@ -307,15 +309,18 @@ export function SessionHeader() {
           <Portal mount={mount()}>
             <Show when={platform.platform !== "mobile"}>
               {(() => {
-                const workspaceView = createMemo(() => view().workspace.current())
+                const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
                 const setView = (next: "chat" | "split" | "main") => {
                   view().workspace.set(next)
                 }
-                const options = [
-                  { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
-                  { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
-                  { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
-                ]
+                // Only the layouts this viewport offers (Chat and Editor on
+                // portrait tablets and phones, as in the reference).
+                const options = () =>
+                  [
+                    { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                    { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                    { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                  ].filter((option) => shell.modes().includes(option.id))
                 return (
                   <div
                     role="radiogroup"
@@ -323,7 +328,7 @@ export function SessionHeader() {
                     data-v110="layout-switch"
                     class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
                   >
-                    <For each={options}>
+                    <For each={options()}>
                       {(option) => (
                         <button
                           type="button"

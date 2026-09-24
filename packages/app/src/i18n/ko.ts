@@ -528,6 +528,7 @@ export const dict = {
   "session.chat.conversation": "Conversation",
   "session.chat.scope.tooltip": "One conversation is shared across every mode and tool",
   "session.chat.trajectory": "Execution",
+  "session.chat.resize": "Resize the chat",
   "session.chat.copyContext": "Copy the full conversation context",
   "toast.session.contextCopied": "Context copied",
   "session.new.title": "무엇이든 만들기",

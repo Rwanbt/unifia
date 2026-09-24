@@ -1,7 +1,20 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { CASES, classify, cohabit, COMPACT, exclusive, LANDSCAPE_H, LANDSCAPE_W, layouts, side, TABLET, WIDE } from "@/tokens/viewport"
+import {
+  CASES,
+  classify,
+  cohabit,
+  COMPACT,
+  exclusive,
+  fitLayout,
+  LANDSCAPE_H,
+  LANDSCAPE_W,
+  layouts,
+  side,
+  TABLET,
+  WIDE,
+} from "@/tokens/viewport"
 
 describe("v110 viewport contract", () => {
   test("thresholds match the manifest breakpoints", () => {
@@ -54,5 +67,12 @@ describe("v110 viewport contract", () => {
     expect(cohabit("desktop-compact")).toBe(false)
     expect(exclusive("desktop-compact")).toBe(true)
     expect(exclusive("desktop-wide")).toBe(false)
+  })
+
+  test("FitLayout_SplitOnPortraitTablet_ShowsMain", () => {
+    expect(fitLayout("split", "tablet-portrait")).toBe("main")
+    expect(fitLayout("split", "phone-portrait")).toBe("main")
+    expect(fitLayout("split", "desktop-compact")).toBe("split")
+    expect(fitLayout("chat", "phone-portrait")).toBe("chat")
   })
 })

@@ -39,6 +39,12 @@ export function layouts(id: Viewport): Layout[] {
   return ["chat", "split", "main"]
 }
 
+/** The layout actually shown: one this viewport does not offer (Split on
+ * portrait tablets and phones) shows the main surface, as the reference does. */
+export function fitLayout(layout: Layout, id: Viewport): Layout {
+  return layouts(id).includes(layout) ? layout : "main"
+}
+
 export function cohabit(id: Viewport): boolean {
   return id === "desktop-wide"
 }

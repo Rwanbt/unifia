@@ -301,6 +301,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
         session: {
           width: DEFAULT_SESSION_WIDTH,
+          // Until the user drags the chat edge, the split width follows the
+          // reference's viewport default instead of this stored value.
+          resized: false,
         },
         // FORK: Stretch Phase 6 — editor focus mode (tablet mode)
         // When enabled, the session chat panel is hidden to maximize editor space.
@@ -876,12 +879,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       },
       session: {
         width: createMemo(() => store.session?.width ?? DEFAULT_SESSION_WIDTH),
+        resized: createMemo(() => store.session?.resized ?? false),
         resize(width: number) {
-          if (!store.session) {
-            setStore("session", { width })
-            return
-          }
-          setStore("session", "width", width)
+          setStore("session", { width, resized: true })
         },
       },
       // FORK: Stretch Phase 6 — editor focus mode (hides session chat panel)

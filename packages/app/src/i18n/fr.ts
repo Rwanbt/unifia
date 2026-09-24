@@ -546,6 +546,7 @@ export const dict = {
   "session.chat.conversation": "Conversation",
   "session.chat.scope.tooltip": "Une seule conversation partage tous les modes et outils",
   "session.chat.trajectory": "Exécution",
+  "session.chat.resize": "Redimensionner le chat",
   "session.chat.copyContext": "Copier tout le contexte de la discussion",
   "toast.session.contextCopied": "Contexte copié",
   "session.new.title": "Créez ce que vous voulez",
