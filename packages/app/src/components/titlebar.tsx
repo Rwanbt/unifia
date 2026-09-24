@@ -274,7 +274,7 @@ export function Titlebar() {
         data-tauri-drag-region
         onMouseDown={drag}
       >
-        <div ref={slots.registerRight} class="flex items-center gap-1 shrink-0 justify-end" />
+        <div ref={slots.registerRight} data-v110="topbar-right-slot" class="flex items-center gap-1 shrink-0 justify-end" />
         {/* The icon set has no sun/moon glyph, so the theme toggle draws its
             own. #themeBtn (Unifia-UI-UX-v110-PORT-READY-R1.html, lines
             4871-4880) is never in the .app.show-home hide-list (lines
@@ -291,6 +291,7 @@ export function Titlebar() {
             themeBtn (rgb(242,242,243)) -- matched explicitly instead of
             relying on a raw element's own default. */}
         <button
+          data-v110="theme-toggle"
           type="button"
           class="titlebar-icon rounded-md shrink-0 text-text-strong grid place-items-center w-8 h-[31px]"
           onClick={toggleScheme}
@@ -336,6 +337,7 @@ export function Titlebar() {
         <Tooltip placement="bottom" value={language.t("command.inspector.toggle")}>
           <Button
             variant="ghost"
+            data-v110="inspector-toggle"
             class="titlebar-icon rounded-md shrink-0 w-8 h-[31px] p-0 box-border"
             onPointerEnter={layout.hover.inspector.enterTrigger}
             onPointerLeave={layout.hover.inspector.leaveTrigger}

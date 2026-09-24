@@ -7,7 +7,8 @@ import { Keybind } from "@unifia/ui/keybind"
 import { Spinner } from "@unifia/ui/spinner"
 import { showToast } from "@unifia/ui/toast"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, For, onCleanup, onMount, Show } from "solid-js"
+import { createHoverIntent } from "@/shell/hover-intent"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
@@ -19,6 +20,7 @@ import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
+import { useShell, useViewport } from "@/shell/v110-store"
 import { focusTerminalById } from "@/pages/session/helpers"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { messageAgentColor } from "@/utils/agent"
@@ -140,6 +142,7 @@ export function SessionHeader() {
   const terminal = useTerminal()
   const titlebarSlots = useTitlebarSlots()
   const { params, view } = useSessionLayout()
+  const shell = useShell(useViewport())
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
   // Ports #searchBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15233, "Rechercher,
@@ -207,6 +210,45 @@ export function SessionHeader() {
     if (!id) return
     focusTerminalById(id)
   }
+
+  // #topTerminalBtn: hovering reveals the terminal for a peek, a click keeps
+  // it (the reference's 205ms rest, v87 terminal hover). The terminal sits at
+  // the bottom of the editor card, far below the button: the whole card
+  // counts as the panel, so the pointer can travel down to the terminal and
+  // use it without the peek closing on the way.
+  const TERMINAL_ZONE = '[data-component="session-editor-surface"], #terminal-panel'
+  const terminalHover = createHoverIntent({
+    open: () => view().terminal.open(),
+    close: () => view().terminal.close(),
+    isOpen: () => view().terminal.opened(),
+    openDelay: 205,
+    hovered: () =>
+      !!document.querySelector('[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover'),
+  })
+  const clickTerminal = () => {
+    if (terminalHover.peeking()) {
+      terminalHover.pin()
+      return
+    }
+    toggleTerminal()
+  }
+  // The terminal panel belongs to another component; delegation keeps the
+  // hover corridor from the button into it.
+  onMount(() => {
+    const inPanel = (event: Event) => event.target instanceof Element && event.target.matches(TERMINAL_ZONE)
+    const enter = (event: Event) => {
+      if (inPanel(event)) terminalHover.enterPanel()
+    }
+    const leave = (event: Event) => {
+      if (inPanel(event)) terminalHover.leavePanel()
+    }
+    document.addEventListener("pointerenter", enter, true)
+    document.addEventListener("pointerleave", leave, true)
+    onCleanup(() => {
+      document.removeEventListener("pointerenter", enter, true)
+      document.removeEventListener("pointerleave", leave, true)
+    })
+  })
 
   const [prefs, setPrefs] = persisted(Persist.global("open.app"), createStore({ app: "finder" as OpenApp }))
   const [menu, setMenu] = createStore({ open: false })
@@ -307,23 +349,27 @@ export function SessionHeader() {
           <Portal mount={mount()}>
             <Show when={platform.platform !== "mobile"}>
               {(() => {
-                const workspaceView = createMemo(() => view().workspace.current())
+                const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
                 const setView = (next: "chat" | "split" | "main") => {
                   view().workspace.set(next)
                 }
-                const options = [
-                  { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
-                  { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
-                  { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
-                ]
+                // Only the layouts this viewport offers (Chat and Editor on
+                // portrait tablets and phones, as in the reference).
+                const options = () =>
+                  [
+                    { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                    { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                    { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                  ].filter((option) => shell.modes().includes(option.id))
                 return (
                   <div
                     role="radiogroup"
                     aria-label={language.t("session.header.viewSwitch.label")}
                     data-v110="layout-switch"
-                    class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
+                    // #layoutSwitch: 2px padding, no gap, 11px radius.
+                    class="flex items-center rounded-[11px] border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
                   >
-                    <For each={options}>
+                    <For each={options()}>
                       {(option) => (
                         <button
                           type="button"
@@ -335,10 +381,10 @@ export function SessionHeader() {
                           // text-12-medium is actually 13px (--font-size-
                           // small), noticeably larger, which was widening
                           // every button here.
-                          class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
+                          class="rounded-[9px] px-[9px] h-[22px] text-[9px] font-normal transition-colors"
                           classList={{
-                            "text-text-strong": workspaceView() === option.id,
-                            "text-text-weak hover:text-text-strong": workspaceView() !== option.id,
+                            "text-[var(--text)]": workspaceView() === option.id,
+                            "text-[var(--muted)] hover:text-[var(--text)]": workspaceView() !== option.id,
                           }}
                           onClick={() => setView(option.id)}
                         >
@@ -441,7 +487,9 @@ export function SessionHeader() {
                       variant="ghost"
                       data-v110="top-terminal"
                       class="group/terminal-toggle titlebar-icon w-8 h-[31px] p-0 box-border shrink-0"
-                      onClick={toggleTerminal}
+                      onClick={clickTerminal}
+                      onPointerEnter={terminalHover.enterTrigger}
+                      onPointerLeave={terminalHover.leaveTrigger}
                       aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
                       aria-expanded={view().terminal.opened()}
                       aria-controls="terminal-panel"

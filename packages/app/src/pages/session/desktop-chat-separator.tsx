@@ -1,55 +1,40 @@
 /* SPDX-License-Identifier: MIT */
 
-import { Show, type Accessor } from "solid-js"
+import { createMemo } from "solid-js"
+import { createElementSize } from "@solid-primitives/resize-observer"
 import { Separator } from "../../primitives/separator"
+import { CHAT_MIN_WIDTH, chatMaxWidth } from "./chat-width"
 
 /**
- * Vague 4 P1-5 (ADR-037) — desktop chat separator extracted from
- * `session.tsx`. Renders the resizable horizontal Separator between the
- * session panel and the chat panel when desktop-inspector is wide.
- *
- * Pure visual sub-component; takes only the accessors + handlers it
- * needs. The host (session.tsx) still owns `size`, `layout`, and
- * `language` closures and passes the accessors in.
+ * The split chat's right-edge handle -- the reference's
+ * `.mode-chat > .panel-resizer[data-resize="chat"]`: a 14px hit area with a
+ * 2px line on hover, keyboard-operable through the shared Separator. The
+ * host mounts it only in the desktop split layout.
  */
 export interface DesktopChatSeparatorProps {
-  desktopInspectorWide: Accessor<boolean>
-  size: {
-    start: () => void
-    touch: () => void
-  }
-  layout: {
-    session: {
-      width: Accessor<number>
-      resize: (width: number) => void
-    }
-  }
-  language: { t: (key: string) => string }
+  chat: HTMLElement | undefined
+  workspace: HTMLElement | undefined
+  label: string
+  onStart: () => void
+  onResize: (width: number) => void
 }
 
-// Matches the maquette's own --v110-chat-min / --v110-chat-max exactly
-// (v110.css:18-19, PLAN-PIXEL-PERFECT-PORT-2026-09-17-R2.md:60 -- these
-// tokens were declared with zero consumers before this fix).
-const CHAT_MIN_WIDTH = 280
-const CHAT_MAX_WIDTH = 620
-
 export function DesktopChatSeparator(props: DesktopChatSeparatorProps) {
+  const chat = createElementSize(() => props.chat)
+  const workspace = createElementSize(() => props.workspace)
+  const max = createMemo(() => chatMaxWidth(workspace.width ?? 0))
+
   return (
-    <Show when={props.desktopInspectorWide()}>
-      <div onPointerDown={() => props.size.start()}>
-        <Separator
-          axis="x"
-          label={props.language.t("design.split.handle")}
-          data-v110="resize-chat"
-          size={props.layout.session.width()}
-          min={CHAT_MIN_WIDTH}
-          max={CHAT_MAX_WIDTH}
-          onResize={(width: number) => {
-            props.size.touch()
-            props.layout.session.resize(width)
-          }}
-        />
-      </div>
-    </Show>
+    <div data-v110="resize-chat-wrapper" onPointerDown={() => props.onStart()}>
+      <Separator
+        axis="x"
+        label={props.label}
+        data-v110="resize-chat"
+        size={chat.width ?? CHAT_MIN_WIDTH}
+        min={CHAT_MIN_WIDTH}
+        max={max()}
+        onResize={props.onResize}
+      />
+    </div>
   )
 }

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 import { describe, expect, test } from "bun:test"
-import { CHAT, CHAT_NARROW, clamp, CONTEXT, CONTEXT_NARROW, INSPECTOR, INSPECTOR_NARROW, NARROW, narrow, RAIL, RAIL_COMPACT, TOPBAR, visible, width } from "@/tokens/panels"
+import { CHAT, CHAT_NARROW, clamp, CONTEXT, CONTEXT_NARROW, INSPECTOR, INSPECTOR_NARROW, NARROW, narrow, RAIL, RAIL_COMPACT, TOPBAR, visible, width, workspaceLeft } from "@/tokens/panels"
 
 describe("v110 panel contract", () => {
   test("widths match the maquette geometry", () => {
@@ -23,6 +23,8 @@ describe("v110 panel contract", () => {
     expect(width("inspector", 1280)).toBe(INSPECTOR_NARROW)
     expect(width("chat", 1440)).toBe(CHAT)
     expect(width("chat", 1280)).toBe(CHAT_NARROW)
+    expect(width("context", 1100)).toBe(300)
+    expect(width("inspector", 1100)).toBe(320)
   })
 
   test("clamp keeps sizes inside bounds and maps NaN to min", () => {
@@ -40,5 +42,27 @@ describe("v110 panel contract", () => {
     expect(visible([], "desktop-compact")).toEqual([])
     expect(visible(["context", "inspector"], "tablet-portrait")).toEqual(["context", "inspector"])
     expect(visible(["context"], "phone-portrait")).toEqual(["context"])
+  })
+})
+
+describe("workspaceLeft", () => {
+  test("WorkspaceLeft_WideWithRail_AddsGuttersAroundRailAndPanel", () => {
+    expect(workspaceLeft({ rail: true, context: true, panel: 248, side: "grid" })).toBe("calc(var(--v110-rail, 62px) + 288px)")
+    expect(workspaceLeft({ rail: true, context: false, panel: 248, side: "grid" })).toBe("calc(var(--v110-rail, 62px) + 30px)")
+  })
+
+  test("WorkspaceLeft_HiddenRail_KeepsTheReferenceGutter", () => {
+    expect(workspaceLeft({ rail: false, context: false, panel: 248, side: "grid" })).toBe("20px")
+    expect(workspaceLeft({ rail: false, context: true, panel: 248, side: "grid" })).toBe("278px")
+    expect(workspaceLeft({ rail: false, context: true, panel: 300, side: "single" })).toBe("320px")
+  })
+
+  test("WorkspaceLeft_CompactCard_Leaves22pxBesideTheRail", () => {
+    expect(workspaceLeft({ rail: true, context: true, panel: 300, side: "single" })).toBe("calc(var(--v110-rail, 62px) + 330px)")
+  })
+
+  test("WorkspaceLeft_Overlay_IgnoresTheFloatingPanel", () => {
+    expect(workspaceLeft({ rail: true, context: true, panel: 300, side: "overlay" })).toBe("calc(var(--v110-rail, 62px) + 30px)")
+    expect(workspaceLeft({ rail: false, context: true, panel: 300, side: "overlay" })).toBe("20px")
   })
 })

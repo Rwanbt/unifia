@@ -27,16 +27,16 @@
   --v110-shell-gap: 10px;
   --v110-shell-pad: 10px;
 
-  /* Neutral shell chrome from the frozen v110 surface, not brand-mode blue. */
-  /* Exact v110 topbar palette: --bg-soft 94% over --bg, transparent
-   * controls, --hover for pointer feedback, --surface-2 when selected. */
-  --v110-topbar-bg: color-mix(in srgb, #121214 94%, transparent);
-  --v110-topbar-surface: #161618;
-  --v110-topbar-hover: #2a2a2f;
-  --v110-topbar-active: #1b1b1e;
-  --v110-rail-bg: #161618;
-  --v110-shell-line: rgba(255, 255, 255, 0.07);
-  --v110-shell-line-strong: rgba(255, 255, 255, 0.12);
+  /* Shell chrome on the v110 palette (below), so it follows the colour
+   * scheme and the theme: --bg-soft 94% over --bg, transparent controls,
+   * --hover for pointer feedback, --surface-2 when selected. */
+  --v110-topbar-bg: color-mix(in srgb, var(--bg-soft) 94%, transparent);
+  --v110-topbar-surface: var(--surface);
+  --v110-topbar-hover: var(--hover);
+  --v110-topbar-active: var(--surface-2);
+  --v110-rail-bg: var(--surface);
+  --v110-shell-line: var(--line);
+  --v110-shell-line-strong: var(--line-strong);
 
   /* Shell gutters measured on the frozen maquette at 1440x900: the rail and
    * the context panel float 20px below the topbar and 10px above the
@@ -45,6 +45,8 @@
    * before it and 20px from the viewport side. */
   --v110-gutter-outer: 20px;
   --v110-gutter-inner: 10px;
+  /* Horizontal margins around the inspector card (outer + inner). */
+  --v110-inspector-margins: 30px;
 
   /* Radius (maquette --radius-sm/md/lg/xl). */
   --v110-radius-sm: 10px;
@@ -64,6 +66,12 @@
   --v110-layout: 650ms;
   --v110-split: 680ms;
   --v110-ease: cubic-bezier(0.16, 0.84, 0.2, 1);
+  /* Shell motion measured frame by frame on the reference (ADR-053): panel
+   * tracks and the chat/main shared edge move over ~620ms on this curve,
+   * cards fade over 340ms. */
+  --v110-shell: 620ms;
+  --v110-shell-ease: cubic-bezier(0.18, 0.84, 0.22, 1);
+  --v110-fade: 340ms;
 
   /* Semantic colour tokens — Phase 38 (ADR-038 visual parity scope).
    * Source-of-truth: tokens/semantic.ts. Values here must mirror the
@@ -153,6 +161,19 @@
   height: auto !important;
 }
 
+/* Portrait tablets (701-899px): the reference's inspector is the compact
+ * 320px floating card, 8px from the edges, over the workspace. */
+@media (min-width: 701px), (min-width: 600px) and (orientation: landscape) {
+  .mobile-side-panel {
+    inset: 8px 8px 8px auto !important;
+    width: min(320px, calc(100vw - 72px)) !important;
+  }
+
+  .mobile-side-panel:not([aria-hidden="true"]) {
+    height: calc(100% - 16px) !important;
+  }
+}
+
 /* Default focus system. :where keeps specificity at zero so component
  * rules always win; this only covers bare controls. */
 :where(button, input, textarea, select, [tabindex]):focus-visible {
@@ -166,6 +187,8 @@
     --v110-fast: 0ms;
     --v110-layout: 0ms;
     --v110-split: 0ms;
+    --v110-shell: 0ms;
+    --v110-fade: 0ms;
   }
 }
 
@@ -173,6 +196,8 @@ html[data-ui-animations="off"] {
   --v110-fast: 0ms;
   --v110-layout: 0ms;
   --v110-split: 0ms;
+  --v110-shell: 0ms;
+  --v110-fade: 0ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -290,7 +315,7 @@ html[data-ui-animations="off"] *::after {
 }
 
 /* Mobile: layers panel + vector canvas stack vertically. */
-@media (max-width: 599px) and (orientation: portrait) {
+@media (max-width: 700px) and (orientation: portrait) {
   [data-v110="design-layers-panel"] {
     border-radius: 0;
     border-left: none;
@@ -341,9 +366,9 @@ html[data-ui-animations="off"] *::after {
 }
 
 [data-component="v110-topbar"] {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--v110-shell-line);
   background: var(--v110-topbar-bg);
-  color: #f2f2f3;
+  color: var(--text);
   transition: border-color var(--v110-fast) var(--v110-ease);
 }
 
@@ -356,14 +381,14 @@ html[data-ui-animations="off"] *::after {
 [data-component="v110-topbar"] [data-component="button"][data-variant="ghost"]:hover:not(:disabled),
 [data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"]:hover:not(:disabled) {
   background: var(--v110-topbar-hover);
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: var(--v110-shell-line);
 }
 
 [data-component="v110-topbar"] [data-component="button"][data-variant="ghost"][aria-expanded="true"],
 [data-component="v110-topbar"] [data-component="button"][data-variant="ghost"][aria-checked="true"],
 [data-component="v110-topbar"] [data-component="icon-button"][data-variant="ghost"][aria-expanded="true"] {
   background: var(--v110-topbar-active);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--v110-shell-line-strong);
 }
 
 /* #topTerminalBtn: unlike its top-quick siblings, the reference gives the
@@ -371,8 +396,8 @@ html[data-ui-animations="off"] *::after {
  * its glyph is full-strength at 17px. Open is .top-quick.active, so it follows
  * the accent (ADR-048); these literals are that state's neutral values. */
 [data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"]:hover:not(:disabled) {
-  background: #2c2c2f;
-  border-color: rgba(244, 244, 245, 0.46);
+  background: color-mix(in srgb, var(--text) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--text) 46%, transparent);
 }
 
 [data-component="v110-topbar"] [data-component="button"][data-v110="top-terminal"][aria-expanded="true"] {
@@ -384,7 +409,7 @@ html[data-ui-animations="off"] *::after {
 [data-component="v110-topbar"] [data-v110="top-terminal"] [data-slot="icon-svg"] {
   width: 17px;
   height: 17px;
-  color: #f2f2f3;
+  color: var(--text);
 }
 
 /* Topbar tooltips in the reference: compact 8px/600 label on a raised,
@@ -392,10 +417,10 @@ html[data-ui-animations="off"] *::after {
  * the host opts in with contentClass. */
 .v110-topbar-tooltip {
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: rgba(38, 38, 43, 0.96);
-  color: #f2f2f3;
+  background: color-mix(in srgb, var(--surface-4) 96%, transparent);
+  color: var(--text);
   font-size: 8px;
   font-weight: 600;
   line-height: normal;
@@ -409,12 +434,16 @@ html[data-ui-animations="off"] *::after {
 [data-component="v110-topbar"] [data-component="button"][data-v110="session-search"]:hover:not(:disabled),
 [data-component="v110-topbar"] [role="radiogroup"] {
   background: var(--v110-topbar-surface);
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: var(--line);
 }
 
 
 [data-component="v110-topbar"] [data-component="logo"] {
   filter: grayscale(1) brightness(0) invert(1);
+}
+
+html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="logo"] {
+  filter: grayscale(1) brightness(0);
 }
 
 [data-component="v110-topbar"]:focus-within {
@@ -444,18 +473,44 @@ html[data-ui-animations="off"] *::after {
   background: var(--background-base);
 }
 
-/* Mobile bottom nav (≤599px portrait, shell authority exclusive). */
-[data-v110="mobile-nav"] button {
-  min-height: var(--v110-target-touch);
-  border-radius: var(--v110-radius-sm);
-  transition: background-color var(--v110-fast) var(--v110-ease);
+/* Phones (ADR-053): the reference's topbar is 50px and every surface sits
+ * 10px inside the space between it and the bottom nav. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  :root {
+    --v110-topbar: 50px;
+  }
 }
 
-[data-v110="mobile-nav"] button[aria-pressed="true"],
-[data-v110="mobile-nav"] button[data-active="true"] {
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent-line);
-  color: var(--text-strong);
+/* Phones held in landscape: the reference trims the topbar to 44px so the
+ * content keeps its height (Unifia-UI-UX-v110-PORT-READY-R1.html:13896). */
+@media (max-height: 520px) and (max-width: 980px) and (orientation: landscape) {
+  :root {
+    --v110-topbar: 44px;
+  }
+}
+
+/* Phone topbar -- the reference keeps only the context toggle, a wide
+ * Chat/Editor switch and the inspector toggle; the brand, the theme toggle
+ * and the session icons would otherwise spill over the switch. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-component="v110-topbar"] [data-component="logo"],
+  [data-component="v110-topbar"] [data-v110="theme-toggle"],
+  [data-component="v110-topbar"] [data-v110="topbar-right-slot"] {
+    display: none;
+  }
+
+  [data-component="v110-topbar"] [data-v110="layout-switch"] {
+    min-width: 230px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  [data-component="v110-topbar"] [data-v110="layout-switch"] > [role="radio"] {
+    flex: 1 1 0;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
 }
 
 /* Sidebar nav (desktop) — hover-peek authority. */
@@ -489,20 +544,74 @@ html[data-ui-animations="off"] *::after {
   border-radius: var(--v110-radius-xl);
   background: var(--v110-rail-bg);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  transition:
+    opacity var(--v110-fade) ease,
+    width var(--v110-fade) var(--v110-shell-ease),
+    min-width var(--v110-fade) var(--v110-shell-ease),
+    margin var(--v110-shell) var(--v110-shell-ease);
 }
 
+/* The shell's clipping boxes keep a margin so the floating cards' shadows
+ * (rail, context, composer, inspector: up to 0 18px 42px) fade out instead
+ * of ending on a hard edge next to a neighbouring card. overflow: clip and
+ * paint containment both honour overflow-clip-margin; overflow: hidden does
+ * not, which is why these boxes clip rather than hide. */
+[data-v110="sidebar-clip"],
+[data-v110="shell-clip"],
+[data-v110="workspace"],
+[data-v110="session-clip"] {
+  overflow-clip-margin: 64px;
+}
+
+/* Chrome honours the margin only when both axes clip; these columns only
+ * need to clip sideways, and 64px of vertical room is more than any shadow. */
+[data-v110="sidebar-clip"],
+[data-v110="shell-clip"] {
+  overflow: clip;
+}
+
+/* The workspace spans the context panel's column too, so its own fill hid
+ * the panel's shadow along the panel edge. The shell frame behind already
+ * paints the same --background-base. */
+[data-v110="workspace"],
+[data-v110="session-clip"] {
+  background: transparent;
+}
+
+/* Hidden, the reference's rail column keeps a 10px gutter (8px plus the
+ * transparent border); the 20 -> 8px margin is the reference's 12px slide
+ * out while it fades. */
 [data-v110="rail"][data-visible="false"] {
-  margin: 0;
-  border: 0;
+  margin-left: 8px;
+  margin-right: 0;
+  border-color: transparent;
   box-shadow: none;
 }
 
 [data-v110="rail"] [data-slot="icon-svg"] {
-  color: #9b9ba1;
+  color: var(--muted);
 }
 
 [data-v110="rail"] [aria-pressed="true"] [data-slot="icon-svg"] {
-  color: #17171a;
+  color: var(--text);
+}
+
+/* The context panel fades in with a 13px slide from the rail, as the
+ * reference's #contextPanel does; closed, it stays mounted but invisible. */
+[data-v110="context-track"] {
+  transition: opacity var(--v110-fade) ease;
+}
+
+[data-v110="context-track"][data-expanded="false"] {
+  opacity: 0;
+}
+
+[data-v110="context-track"] > [data-v110="context-panel"]:not([data-mobile]) {
+  transition: transform var(--v110-shell) var(--v110-shell-ease);
+}
+
+[data-v110="context-track"][data-expanded="false"] > [data-v110="context-panel"]:not([data-mobile]) {
+  transform: translateX(-13px);
 }
 
 /* The context panel is a separate floating card in the reference shell. */
@@ -515,6 +624,64 @@ html[data-ui-animations="off"] *::after {
   border-radius: var(--v110-radius-xl);
   background: var(--bg-soft);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+/* Chat layout on wide desktops (ADR-053): the reference's chat-focus shell
+ * floats the side cards 12px from the edges instead of 10px, so the rail,
+ * the context panel and the inspector each move in by 2px. */
+@media (min-width: 1200px) {
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"]) {
+    --v110-inspector-margins: 34px;
+    --v110-nav-extra: 4px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"]) [data-v110="rail"] {
+    margin-left: 22px;
+    margin-top: 22px;
+    margin-bottom: 12px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"])
+    [data-v110="rail"][data-visible="false"] {
+    margin-left: 8px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"])
+    [data-v110="context-panel"]:not([data-mobile]) {
+    margin-left: 12px;
+    margin-top: 22px;
+    margin-bottom: 12px;
+  }
+
+  [data-v110="shell-frame"]:has([data-v110="session-chat-surface"][data-layout="chat"]) [data-v110="inspector-content"] {
+    height: calc(100% - 34px);
+    margin: 22px 22px 12px 12px;
+  }
+}
+
+/* Compact desktops, 900-1199px (ADR-053) -- the reference's
+ * @media (max-width:1199px) shell: a 58px rail 10px from the edges, and the
+ * context panel as a 300px floating card 8px from the top and bottom that
+ * overlaps the rail's edge by 2px, with the heavier overlay shadow. */
+@media (min-width: 701px) and (max-width: 1199px), (min-width: 600px) and (max-width: 1199px) and (orientation: landscape) {
+  :root {
+    --v110-rail: 58px;
+    --v110-inspector-margins: 20px;
+  }
+
+  [data-v110="rail"] {
+    margin-left: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border-radius: 14px;
+  }
+
+  [data-v110="context-panel"]:not([data-mobile]) {
+    margin-left: -2px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  }
 }
 
 /* Composer (chat input region) — bottom anchor of every shell mode. */

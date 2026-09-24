@@ -21,6 +21,7 @@ import { destinationLabelKey } from "@/utils/destination-label"
 import { ModeSections, SectionHead } from "./sidebar-panel-mode-sections"
 import { ProjectDisclosure } from "./sidebar-panel-project"
 import type { WorkspaceSidebarContext } from "./sidebar-workspace"
+import { RAIL_COMPACT } from "@/tokens/panels"
 
 export type SidebarPanelContext = {
   /** Whether the sidebar is in hover-expanded (non-persistent-open) mode. */
@@ -85,7 +86,7 @@ export function SidebarPanel(props: SidebarPanelProps) {
   const popover = createMemo(() => !!props.mobile || props.merged === false || layout.sidebar.opened())
   const projects = createMemo(() => layout.projects.list())
   const empty = createMemo(() => !params.dir && projects().length === 0)
-  const panel = createMemo(() => Math.max(Math.max(layout.sidebar.width(), 244) - 64, 0))
+  const panel = createMemo(() => Math.max(Math.max(layout.sidebar.width(), 244) - RAIL_COMPACT, 0))
   // Maquette's `.context-head`: a fixed "Navigation" title plus a
   // "{project} · {mode}" subtitle naming the current project and shell mode,
   // not just the project name the panel used to show alone.

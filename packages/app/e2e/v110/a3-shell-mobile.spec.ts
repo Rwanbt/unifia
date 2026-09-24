@@ -71,13 +71,13 @@ test("shell chrome collapses to the mobile drawer and bottom nav across the matr
     expect(tabletComposer.width).toBeGreaterThan(768 - 40)
     expect((await overflow(page)).dx, "tablet x-overflow").toBeLessThanOrEqual(6)
 
-    // Phone portrait: bottom nav carries the four modes, the rail stays a
-    // closed drawer until the topbar menu button opens it.
+    // Phone portrait: bottom nav carries the modes plus Browser and Memory,
+    // the rail stays a closed drawer until the topbar menu button opens it.
     await page.setViewportSize({ width: 390, height: 844 })
     await page.waitForTimeout(300)
     const nav = page.locator(MOBILE_NAV)
     await expect(nav).toBeVisible()
-    await expect(nav.locator("[data-v110-tab]")).toHaveCount(modeCount)
+    await expect(nav.locator("[data-v110-tab]")).toHaveCount(modeCount + 2)
     await expect
       .poll(async () => (await drawer.boundingBox())?.x ?? 0, { message: "phone: rail drawer must be off-canvas" })
       .toBeLessThan(0)

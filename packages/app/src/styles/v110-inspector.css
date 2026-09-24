@@ -29,9 +29,34 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
+/* Compact desktops (ADR-053): the reference's inspector is a 320px floating
+ * card 8px from the top, right and bottom edges and 12px from the main card,
+ * with the overlay shadow. --v110-inspector-margins is the horizontal sum the
+ * chat's width calc (session.tsx) subtracts. */
+@media (min-width: 701px) and (max-width: 1199px), (min-width: 600px) and (max-width: 1199px) and (orientation: landscape) {
+  [data-v110="inspector-content"] {
+    height: calc(100% - 16px);
+    margin: 8px 8px 8px 12px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  }
+}
+
 [data-v110="inspector-content"][aria-hidden="true"] {
   margin: 0;
   border: 0;
+  opacity: 0;
+  transform: translateX(14px);
+}
+
+/* The reference's #inspectorPanel opens and closes the same way: its track
+ * grows or shrinks with the main card's shared edge while it fades and
+ * slides 14px. Off while the user drags the edge. */
+[data-v110="inspector-content"]:not(.mobile-side-panel):not([data-resizing]) {
+  transition:
+    width var(--v110-shell) var(--v110-shell-ease),
+    margin var(--v110-shell) var(--v110-shell-ease),
+    transform var(--v110-shell) var(--v110-shell-ease),
+    opacity var(--v110-fade) ease;
 }
 
 /* The resize handle straddles the card's left edge instead of taking 8px
@@ -566,6 +591,16 @@
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+/* Portrait tablets keep the card chrome (ADR-053); only phones get the
+ * edge-to-edge sheet above. */
+@media (min-width: 701px), (min-width: 600px) and (orientation: landscape) {
+  [data-v110="inspector-content"].mobile-side-panel:not([aria-hidden="true"]) {
+    border: 1px solid var(--line);
+    border-radius: var(--v110-radius-xl);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  }
 }
 
 /* Code inspector (ADR-049) -- the reference's #inspectBody .v57-* rules at

@@ -78,8 +78,8 @@ export function CodeSearch(props: { open: (path: string, line: number) => void }
       <div data-code-results>
         <Show when={query()}>
           <Show when={!hits.loading} fallback={<Empty>{language.t("common.loading")}</Empty>}>
-            <Show when={(hits() ?? []).length > 0} fallback={<Empty>{language.t("inspector.code.search.none")}</Empty>}>
-              <For each={hits()}>
+            <Show when={(hits.state === "ready" ? hits() : []).length > 0} fallback={<Empty>{language.t("inspector.code.search.none")}</Empty>}>
+              <For each={(hits.state === "ready" ? hits() : [])}>
                 {(hit) => (
                   <button type="button" data-code-hit onClick={() => props.open(hit.path, hit.line)}>
                     <b>

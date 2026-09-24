@@ -29,8 +29,10 @@ conversation. The full trace stays recorded; only the timeline is filtered.
 - Reasoning keeps its existing setting (`showReasoningSummaries`), exposed as
   the "reasoning" domain, so nothing else reading it changes.
 - Domains with no source in Unifia yet (artifacts, past approvals, browser,
-  processes, routing, policies, hooks, usage) are listed with a disabled
-  switch and "Coming soon", rather than a switch that changes nothing.
+  processes, routing, policies, hooks) are listed with a disabled switch and
+  "Coming soon", rather than a switch that changes nothing.
+- Usage (2026-09-24): a finished turn ends its step stack with a "Usage" row
+  -- duration, tokens processed and cost, summed over the turn's replies.
 - Default preset: Balanced, as in the maquette.
 
 ## Consequences

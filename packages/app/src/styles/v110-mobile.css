@@ -11,6 +11,9 @@
  * @unifia/ui/toast). parity:artifacts/tokens-audit.json flagged them
  * inert; they are removed. */
 
+/* The reference's phone bottom bar (#mobileNav), measured at 390x844: a
+ * 58px translucent bar, one 48px tab per destination plus "More", each a
+ * 17px glyph over an 8px label. Shown by v110-shell.css. */
 [data-v110="mobile-nav"] {
   position: fixed;
   z-index: 110;
@@ -18,19 +21,20 @@
   right: 0;
   bottom: 0;
   height: calc(58px + env(safe-area-inset-bottom));
-  padding: 4px 8px env(safe-area-inset-bottom);
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  padding: 4px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   align-items: center;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  background: color-mix(in srgb, var(--bg-soft) 94%, transparent);
   border-top: 1px solid var(--line);
   backdrop-filter: blur(18px);
 }
 
-[data-v110="mobile-nav"] [role="tab"],
-[data-v110="mobile-nav"] button {
+[data-v110="mobile-nav"] button,
+[data-v110="mobile-sheet"] button {
   min-width: 0;
   height: 48px;
+  padding: 0 2px;
+  border: 0;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -38,30 +42,100 @@
   justify-content: center;
   gap: 2px;
   color: var(--muted);
-  font-size: 9px;
   background: transparent;
-  border: 0;
+  font-size: 9px;
   cursor: pointer;
   transition:
     background-color var(--v110-fast) var(--v110-ease),
     color var(--v110-fast) var(--v110-ease);
 }
 
-[data-v110="mobile-nav"] [role="tab"]:hover,
-[data-v110="mobile-nav"] button:hover {
+[data-v110="mobile-nav"] button[aria-pressed="true"] {
+  color: var(--text);
   background: var(--surface-2);
+}
+
+[data-v110="mobile-nav"] [data-action="mobile-more"] {
+  width: 48px;
+}
+
+/* The reference's .svgicon: the tab's colour and a 1.9px stroke that does
+ * not scale with the 17px glyph. */
+[data-v110="mobile-nav"] [data-component="icon"] {
+  width: 17px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: inherit;
+}
+
+[data-v110="mobile-nav"] [data-slot="icon-svg"] {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-v110="mobile-nav"] [data-slot="icon-svg"] * {
+  vector-effect: non-scaling-stroke;
+}
+
+[data-v110="mobile-nav"] [data-slot="mobile-nav-label"] {
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 8px;
+  white-space: nowrap;
+}
+
+/* "More" opens the reference's quick-action strip (#mobileSheet) just
+ * above the bar: five 48px actions, a 15px glyph over a 7px label. */
+[data-v110="mobile-sheet"] {
+  display: none;
+  position: fixed;
+  z-index: 120;
+  left: 0;
+  right: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  padding: 4px 7px;
+  gap: 2px;
+  background: color-mix(in srgb, var(--bg-soft) 94%, transparent);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(18px);
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+[data-v110="mobile-sheet"][data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-v110="mobile-sheet"] button {
+  flex: 1 1 0;
+}
+
+[data-v110="mobile-sheet"] button > span {
+  font-size: 15px;
+  line-height: 21px;
   color: var(--text);
 }
 
-[data-v110="mobile-nav"] [aria-pressed="true"],
-[data-v110="mobile-nav"] [aria-selected="true"] {
-  color: var(--text);
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent-line);
+[data-v110="mobile-sheet"] button > b {
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-v110="mobile-nav"] {
+  [data-v110="mobile-nav"],
+  [data-v110="mobile-sheet"] {
     backdrop-filter: none;
+    transition: none;
   }
 }

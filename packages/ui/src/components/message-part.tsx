@@ -54,7 +54,8 @@ import { ToolStatusTitle } from "./tool-status-title"
 import { animate } from "motion"
 import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
-import { MessageTiming, PinChapterAction, ReadAloudAction } from "./message-actions"
+import { ChapterLabel, MessageTiming, PinChapterAction, ReadAloudAction } from "./message-actions"
+import { useChapters } from "../context/chapters"
 import { ToolStatusPill } from "./tool-status-pill"
 import { partDomain, type ObservabilityFilter } from "./chat-observability"
 
@@ -936,6 +937,8 @@ function ContextToolGroup(props: { parts: ToolPart[]; busy?: boolean }) {
 
 export function UserMessageDisplay(props: { message: UserMessage; parts: PartType[]; actions?: UserActions }) {
   const data = useData()
+  const chapters = useChapters()
+  const chapter = () => chapters?.pinned(props.message.id) ?? false
   const dialog = useDialog()
   const i18n = useI18n()
   const [state, setState] = createStore({
@@ -1025,7 +1028,10 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
   }
 
   return (
-    <div data-component="user-message">
+    <div data-component="user-message" data-chapter={chapter() ? "" : undefined}>
+      <Show when={chapter()}>
+        <ChapterLabel />
+      </Show>
       <div data-slot="user-message-name">{i18n.t("ui.message.you")}</div>
       <Show when={attachments().length > 0}>
         <div data-slot="user-message-attachments">
@@ -1102,7 +1108,7 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
                 />
               </Tooltip>
             </Show>
-            <PinChapterAction />
+            <PinChapterAction messageID={props.message.id} />
             <ReadAloudAction text={text()} />
             <MessageTiming value={metaTail()} title={metaHead()} />
             <Show when={props.actions?.revert}>
@@ -1521,7 +1527,7 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
               />
             </Tooltip>
             <Show when={props.message.role === "assistant"}>
-              <PinChapterAction />
+              <PinChapterAction messageID={props.message.id} />
               <ReadAloudAction text={text()} />
               <MessageTiming value={timing()} title={meta()} />
             </Show>

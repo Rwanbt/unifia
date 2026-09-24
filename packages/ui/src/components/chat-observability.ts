@@ -54,6 +54,7 @@ export const WIRED_DOMAINS: ReadonlySet<ObservabilityDomain> = new Set([
   "git",
   "errors",
   "compaction",
+  "usage",
   "trajectory",
 ])
 

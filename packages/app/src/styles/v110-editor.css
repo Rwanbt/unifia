@@ -18,11 +18,25 @@
   flex: 1 1 auto;
 }
 
-@media (min-width: 56.25rem) {
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-component="session-editor-main"],
+  [data-component="workbench-mode-main"] {
+    margin: 10px;
+  }
+}
+
+@media (min-width: 37.5rem) {
   [data-component="session-editor-main"],
   [data-component="workbench-mode-main"] {
     height: calc(100% - 2 * var(--v110-gutter-outer));
     margin-block: var(--v110-gutter-outer);
+  }
+
+  /* Split: the reference keeps a 10px gap between the chat and the main
+   * card (chat 348px at 92, main at 450 on a 1440 viewport). */
+  [data-v110="session-chat-surface"]:not([data-collapsed])
+    ~ :is([data-component="session-editor-main"], [data-component="workbench-mode-main"], [data-v110="mode-main"]) {
+    margin-left: var(--v110-gutter-inner);
   }
 
   [data-component="session-workspace-main"][data-inspector-open="false"] [data-component="session-editor-main"],

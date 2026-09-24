@@ -5,6 +5,7 @@ export interface LoginFormProps {
   onLogin: (tokens: { accessToken: string; refreshToken: string; user: { id: string; username: string; role: "admin" | "member" | "viewer" } }) => void
   serverUrl: string
   fetch?: typeof fetch
+  initialMode?: "login" | "register"
 }
 
 /**
@@ -13,7 +14,7 @@ export interface LoginFormProps {
  */
 export function LoginForm(props: LoginFormProps) {
   const language = useLanguage()
-  const [mode, setMode] = createSignal<"login" | "register">("login")
+  const [mode, setMode] = createSignal<"login" | "register">(props.initialMode ?? "login")
   const [username, setUsername] = createSignal("")
   const [password, setPassword] = createSignal("")
   const [email, setEmail] = createSignal("")

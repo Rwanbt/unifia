@@ -6,29 +6,24 @@
  * landscape h<=560 and w<=980). No important anywhere.
  */
 
-/* Bottom nav: phone-portrait only, hidden by default. */
-[data-v110="mobile-nav"] {
+/* Bottom bar and its quick actions: phones only, hidden by default. Their
+ * geometry lives in styles/v110-mobile.css. */
+[data-v110="mobile-nav"],
+[data-v110="mobile-sheet"] {
   display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 40;
-  min-height: 56px;
-  align-items: center;
-  justify-content: space-around;
-  background: var(--background-base);
-  border-top: 1px solid var(--border-weaker-base);
 }
 
-@media (max-width: 599px) and (orientation: portrait) {
+@media (max-width: 700px) and (orientation: portrait) {
   [data-v110="mobile-nav"] {
+    display: grid;
+  }
+  [data-v110="mobile-sheet"] {
     display: flex;
   }
   /* The bar overlays content: reserve its height plus the notch so no
    * control is cut and the composer stays reachable. */
   [data-v110="workspace"] {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
   }
 }
 

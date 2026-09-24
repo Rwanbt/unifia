@@ -10,6 +10,9 @@ import { createStore } from "solid-js/store"
 import { Dynamic } from "solid-js/web"
 import { partDomain, type ObservabilityFilter } from "./chat-observability"
 import { AssistantParts, Message, MessageDivider, PART_MAPPING, type UserActions } from "./message-part"
+import { ChapterLabel } from "./message-actions"
+import { TurnUsageStep } from "./turn-usage"
+import { useChapters } from "../context/chapters"
 import { Card } from "./card"
 import { Accordion } from "./accordion"
 import { StickyAccordionHeader } from "./sticky-accordion-header"
@@ -295,6 +298,8 @@ export function SessionTurn(
   )
 
   const interrupted = createMemo(() => assistantMessages().some((m) => m.error?.name === "MessageAbortedError"))
+  const chapters = useChapters()
+  const chapter = () => !!chapters && assistantMessages().some((m) => chapters.pinned(m.id))
   const divider = createMemo(() => {
     if (compaction()) return i18n.t("ui.messagePart.compaction")
     if (interrupted()) return i18n.t("ui.message.interrupted")
@@ -421,7 +426,10 @@ export function SessionTurn(
                 </div>
               </Show>
               <Show when={assistantMessages().length > 0 || showThinking() || active()}>
-                <div data-slot="session-turn-assistant">
+                <div data-slot="session-turn-assistant" data-chapter={chapter() ? "" : undefined}>
+                  <Show when={chapter()}>
+                    <ChapterLabel />
+                  </Show>
                   <div data-slot="session-turn-assistant-avatar" aria-hidden="true">
                     ✦
                   </div>
@@ -441,6 +449,9 @@ export function SessionTurn(
                           shellToolDefaultOpen={props.shellToolDefaultOpen}
                           editToolDefaultOpen={props.editToolDefaultOpen}
                         />
+                        <Show when={!working() && (props.observability?.("usage") ?? true)}>
+                          <TurnUsageStep messages={assistantMessages()} durationMs={turnDurationMs()} />
+                        </Show>
                       </div>
                     </Show>
                     <Show when={showThinking()}>

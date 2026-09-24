@@ -10,11 +10,10 @@
   display: none;
 }
 
-@media (min-width: 56.25rem) {
-  /* The reference's "stable prompt index": a tight packet just left of the
-   * thread scrollbar, ticks right-aligned. The reference paints them grey
-   * with a fixed gold active tick; here every tick follows the accent
-   * picker (ADR-048). */
+@media (min-width: 37.5rem) {
+  /* The reference's "stable prompt index" (#globalChatPanel .v45-prompt-index):
+   * a tight packet 11px left of the conversation's right edge, ticks
+   * right-aligned. */
   .prompt-index {
     position: absolute;
     top: 50%;
@@ -25,7 +24,7 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
-    z-index: 5;
+    z-index: 180;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -35,7 +34,15 @@
       visibility 0.14s;
   }
 
-  .prompt-index.visible {
+  /* The focused Chat column is narrower than the surface: follow its edge,
+   * like copy-context does. */
+  [data-v110="session-chat-surface"]:has(.v110-chat-column) .prompt-index {
+    right: calc((100% - var(--v110-chat-width)) / 2 + 11px);
+  }
+
+  .prompt-index.visible,
+  .prompt-index:hover,
+  .prompt-index:focus-within {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
@@ -66,7 +73,7 @@
   height: 2px;
   transform: translateY(-50%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--muted) 76%, transparent);
   pointer-events: none;
   transition:
     width 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -78,12 +85,72 @@
 .prompt-index-tick:hover .prompt-index-tick-line,
 .prompt-index-tick:focus-visible .prompt-index-tick-line {
   width: 18px;
-  background: var(--accent);
+  background: var(--text);
 }
 
-.prompt-index-tick.active .prompt-index-tick-line {
+/* The reference paints the active tick a fixed gold; here it follows the
+ * user's accent (ADR-048). */
+.prompt-index-tick.active .prompt-index-tick-line,
+.prompt-index-tick.active:hover .prompt-index-tick-line,
+.prompt-index-tick.active:focus-visible .prompt-index-tick-line {
   width: 30px;
   height: 3px;
   background: var(--accent);
   box-shadow: 0 0 9px color-mix(in srgb, var(--accent) 48%, transparent);
+}
+
+/* #globalChatPanel .v45-prompt-tip: the prompt's first phrase, left of the
+ * tick. */
+.prompt-index-tip {
+  position: absolute;
+  right: 48px;
+  top: 50%;
+  min-width: 190px;
+  max-width: 310px;
+  padding: 7px 9px;
+  transform: translateY(-50%) translateX(4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(14px);
+  color: var(--text);
+  font-size: 9px;
+  line-height: 1.35;
+  font-weight: 500;
+  text-align: left;
+  white-space: normal;
+  transition:
+    opacity 0.12s ease,
+    transform 0.14s ease,
+    visibility 0.12s;
+}
+
+.prompt-index-tick:hover .prompt-index-tip,
+.prompt-index-tick:focus-visible .prompt-index-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* A chapter (ADR-052): full accent and a dot, so pinned turns stand out
+ * while scanning the index. */
+.prompt-index-tick[data-chapter] .prompt-index-tick-line {
+  background: var(--accent);
+}
+
+.prompt-index-tick[data-chapter]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 36px;
+  width: 4px;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow, transparent);
 }

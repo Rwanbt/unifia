@@ -13,6 +13,7 @@ import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
 import type { WorkView } from "./work-view"
+import { RAIL_COMPACT, WIDE_MIN, width as panelWidth } from "@/tokens/panels"
 
 const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] as const
 // v110 default shell width: 62px rail + 248px context panel at 1440px.
@@ -268,6 +269,15 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     }
 
     const target = Persist.global("layout", ["layout.v6"])
+    // The reference's panel defaults follow the viewport (tokens/panels
+    // width(): narrower from 1360px down). A panel the user resized keeps
+    // its own width.
+    const [viewportWidth, setViewportWidth] = createSignal(typeof window === "undefined" ? 1440 : window.innerWidth)
+    onMount(() => makeEventListener(window, "resize", () => setViewportWidth(window.innerWidth)))
+    // Below 1200px the context and inspector are floating cards and only one
+    // is open at a time (RESPONSIVE-MATRIX: mutually exclusive).
+    const exclusive = () => viewportWidth() < WIDE_MIN
+
     const [store, setStore, _, ready] = persisted(
       { ...target, migrate },
       createStore({
@@ -283,6 +293,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         sidebar: {
           opened: false,
           width: DEFAULT_SIDEBAR_WIDTH,
+          resized: false,
           workspaces: {} as Record<string, boolean>,
           workspacesDefault: false,
         },
@@ -296,11 +307,15 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         inspector: {
           opened: false,
           width: DEFAULT_INSPECTOR_WIDTH,
+          resized: false,
           tab: "explorer" as InspectorTab,
           explorerView: "changed" as "changed" | "all",
         },
         session: {
           width: DEFAULT_SESSION_WIDTH,
+          // Until the user drags the chat edge, the split width follows the
+          // reference's viewport default instead of this stored value.
+          resized: false,
         },
         // FORK: Stretch Phase 6 — editor focus mode (tablet mode)
         // When enabled, the session chat panel is hidden to maximize editor space.
@@ -776,17 +791,25 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       sidebar: {
         opened: createMemo(() => store.sidebar.opened),
         open() {
-          setStore("sidebar", "opened", true)
+          batch(() => {
+            if (exclusive() && store.inspector?.opened) setStore("inspector", "opened", false)
+            setStore("sidebar", "opened", true)
+          })
         },
         close() {
           setStore("sidebar", "opened", false)
         },
         toggle() {
-          setStore("sidebar", "opened", (x) => !x)
+          batch(() => {
+            if (!store.sidebar.opened && exclusive() && store.inspector?.opened) setStore("inspector", "opened", false)
+            setStore("sidebar", "opened", (x) => !x)
+          })
         },
-        width: createMemo(() => store.sidebar.width),
+        width: createMemo(() =>
+          store.sidebar.resized ? store.sidebar.width : RAIL_COMPACT + panelWidth("context", viewportWidth()),
+        ),
         resize(width: number) {
-          setStore("sidebar", "width", width)
+          setStore("sidebar", { width, resized: true })
         },
         workspaces(directory: string) {
           return () => store.sidebar.workspaces[directory] ?? store.sidebar.workspacesDefault ?? false
@@ -823,7 +846,11 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       // different tab, and file-open call sites always landing on "inspector").
       inspector: {
         opened: createMemo(() => store.inspector?.opened ?? false),
-        width: createMemo(() => store.inspector?.width ?? DEFAULT_INSPECTOR_WIDTH),
+        width: createMemo(() =>
+          store.inspector?.resized
+            ? (store.inspector.width ?? DEFAULT_INSPECTOR_WIDTH)
+            : panelWidth("inspector", viewportWidth()),
+        ),
         tab: createMemo(() => store.inspector?.tab ?? "explorer"),
         explorerView: createMemo(() => store.inspector?.explorerView ?? "changed"),
         setTab(tab: InspectorTab) {
@@ -846,6 +873,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("inspector", "explorerView", view)
         },
         open() {
+          if (exclusive()) setStore("sidebar", "opened", false)
           if (!store.inspector) {
             setStore("inspector", { opened: true, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return
@@ -860,6 +888,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("inspector", "opened", false)
         },
         toggle() {
+          if (exclusive() && !store.inspector?.opened) setStore("sidebar", "opened", false)
           if (!store.inspector) {
             setStore("inspector", { opened: true, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return
@@ -868,20 +897,19 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         },
         resize(width: number) {
           if (!store.inspector) {
-            setStore("inspector", { opened: true, width, tab: "explorer", explorerView: "changed" })
+            setStore("inspector", { opened: true, width, resized: true, tab: "explorer", explorerView: "changed" })
             return
           }
-          setStore("inspector", "width", width)
+          setStore("inspector", { width, resized: true })
         },
       },
       session: {
-        width: createMemo(() => store.session?.width ?? DEFAULT_SESSION_WIDTH),
+        width: createMemo(() =>
+          store.session?.resized ? (store.session.width ?? DEFAULT_SESSION_WIDTH) : panelWidth("chat", viewportWidth()),
+        ),
+        resized: createMemo(() => store.session?.resized ?? false),
         resize(width: number) {
-          if (!store.session) {
-            setStore("session", { width })
-            return
-          }
-          setStore("session", "width", width)
+          setStore("session", { width, resized: true })
         },
       },
       // FORK: Stretch Phase 6 — editor focus mode (hides session chat panel)

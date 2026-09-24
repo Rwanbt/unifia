@@ -22,8 +22,8 @@ export const WAVE05: Case[] = [
   { name: "edge-compact-900", width: 900, height: 700, id: "desktop-compact" },
   { name: "edge-gap-899x1000", width: 899, height: 1000, id: "tablet-portrait" },
   { name: "edge-gap-899x600", width: 899, height: 600, id: "desktop-compact" },
-  { name: "edge-tablet-600", width: 600, height: 800, id: "tablet-portrait" },
-  { name: "edge-phone-599", width: 599, height: 800, id: "phone-portrait" },
+  { name: "edge-tablet-701", width: 701, height: 900, id: "tablet-portrait" },
+  { name: "edge-phone-700", width: 700, height: 900, id: "phone-portrait" },
   { name: "edge-land-981x390", width: 981, height: 390, id: "desktop-compact" },
   { name: "edge-land-844x561", width: 844, height: 561, id: "desktop-compact" },
 ]

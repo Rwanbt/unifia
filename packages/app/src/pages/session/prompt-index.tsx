@@ -1,26 +1,26 @@
 /* SPDX-License-Identifier: MIT */
 
 // A3-01 prompt index (v110 "prompt graduation ticks", INTERACTIONS.md
-// §Chat). Ported from the maquette's v45 iteration (the last of four:
-// v39/v43/v44/v45) behind Unifia-v110-module-043 -- same contract (one
-// tick per visible user prompt, hover/focus reveal, click scrolls the
-// target to ~28% of the viewport, active tick tracks the last prompt
-// whose top has crossed the vertical center), reimplemented on Solid
-// reactivity instead of a MutationObserver rebuilding DOM nodes by
-// hand: `props.messages` is already the reactive, already-filtered
-// (revert-aware) source the demo's observer existed only to fake.
-//
-// Simplification versus the maquette, noted rather than silently
-// dropped: reveal triggers on hovering/focusing the index itself and
-// on scrolling the thread, not on cursor proximity to the scrollbar
-// edge specifically. The behavioral contract (hidden by default,
-// appears during interaction, click still navigates) is preserved.
+// §Chat), ported from the maquette's v45 script (module 043): one tick per
+// visible user prompt in a packet 11px left of the conversation column's
+// right edge. It appears while the pointer is within 64px of that edge, while
+// the thread scrolls, or while the index itself is hovered or focused; each
+// tick carries its own tip; a click scrolls the prompt to 28% of the thread.
+// `props.messages` is already the reactive, revert-aware list the demo's
+// MutationObserver existed to fake.
 
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js"
-import { Tooltip } from "@unifia/ui/tooltip"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
+import { useChapters } from "@unifia/ui/context/chapters"
 import type { UserMessage, TextPart } from "@/types/sdk-shim"
 import { useSync } from "@/context/sync"
 import { useLanguage } from "@/context/language"
+
+// Distance from the column's right edge that reveals the index (reference).
+const EDGE_REVEAL = 64
+
+function animationsOn() {
+  return document.documentElement.dataset.uiAnimations !== "off"
+}
 
 function firstPhrase(text: string): string {
   const clean = text.replace(/\s+/g, " ").trim()
@@ -31,15 +31,27 @@ function firstPhrase(text: string): string {
 export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: () => HTMLElement | undefined }) {
   const sync = useSync()
   const language = useLanguage()
+  const chapters = useChapters()
   const [active, setActive] = createSignal(-1)
   const [visible, setVisible] = createSignal(false)
+  const [nav, setNav] = createSignal<HTMLElement>()
   let hideTimer: ReturnType<typeof setTimeout> | undefined
+
+  // A turn is a chapter when its prompt or one of its replies is pinned.
+  const isChapter = (message: UserMessage) => {
+    if (!chapters) return false
+    if (chapters.pinned(message.id)) return true
+    const replies = sync.data.message[message.sessionID] ?? []
+    return replies.some(
+      (reply) => reply.role === "assistant" && reply.parentID === message.id && chapters.pinned(reply.id),
+    )
+  }
 
   const ticks = createMemo(() =>
     props.messages().map((message) => {
       const parts = sync.data.part[message.id] ?? []
       const textPart = parts.find((p): p is TextPart => p.type === "text" && !p.synthetic)
-      return { id: message.id, preview: firstPhrase(textPart?.text ?? "") }
+      return { id: message.id, preview: firstPhrase(textPart?.text ?? ""), chapter: isChapter(message) }
     }),
   )
 
@@ -61,12 +73,16 @@ export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: ()
     clearTimeout(hideTimer)
     setVisible(true)
   }
+  // Never hides under a pointer or focus still on the index.
   const hideLater = (ms = 300) => {
     clearTimeout(hideTimer)
-    hideTimer = setTimeout(() => setVisible(false), ms)
+    hideTimer = setTimeout(() => {
+      if (!nav()?.matches(":hover, :focus-within")) setVisible(false)
+    }, ms)
   }
+  onCleanup(() => clearTimeout(hideTimer))
 
-  onMount(() => {
+  createEffect(() => {
     const root = props.scrollEl()
     if (!root) return
     const onScroll = () => {
@@ -77,6 +93,32 @@ export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: ()
     root.addEventListener("scroll", onScroll, { passive: true })
     updateActive()
     onCleanup(() => root.removeEventListener("scroll", onScroll))
+  })
+
+  // The reference reveals the index when a mouse comes within 64px of the
+  // conversation column's right edge (its scrollbar side).
+  createEffect(() => {
+    const host = nav()?.parentElement
+    if (!host) return
+    const column = () => host.querySelector<HTMLElement>('[data-v110="chat-timeline"]') ?? props.scrollEl() ?? host
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return
+      const r = column().getBoundingClientRect()
+      const near =
+        event.clientX >= r.right - EDGE_REVEAL &&
+        event.clientX <= r.right + 2 &&
+        event.clientY >= r.top &&
+        event.clientY <= r.bottom
+      if (near) show()
+      else hideLater(160)
+    }
+    const onLeave = () => hideLater(160)
+    host.addEventListener("pointermove", onMove, { passive: true })
+    host.addEventListener("pointerleave", onLeave, { passive: true })
+    onCleanup(() => {
+      host.removeEventListener("pointermove", onMove)
+      host.removeEventListener("pointerleave", onLeave)
+    })
   })
 
   const goTo = (index: number) => {
@@ -92,12 +134,14 @@ export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: ()
       Math.min(root.scrollHeight - root.clientHeight, root.scrollTop + (elTop - rootTop) - root.clientHeight * 0.28),
     )
     setActive(index)
-    root.scrollTo({ top: target, behavior: "smooth" })
+    show()
+    root.scrollTo({ top: target, behavior: animationsOn() ? "smooth" : "auto" })
   }
 
   return (
     <Show when={ticks().length > 1}>
       <nav
+        ref={setNav}
         data-v110="prompt-index"
         data-component="prompt-index"
         aria-label={language.t("session.promptIndex.label")}
@@ -109,17 +153,19 @@ export function PromptIndex(props: { messages: () => UserMessage[]; scrollEl: ()
       >
         <For each={ticks()}>
           {(tick, i) => (
-            <Tooltip value={tick.preview} placement="left" gutter={8}>
-              <button
-                type="button"
-                class="prompt-index-tick"
-                classList={{ active: i() === active() }}
-                aria-label={tick.preview}
-                onClick={() => goTo(i())}
-              >
-                <span class="prompt-index-tick-line" />
-              </button>
-            </Tooltip>
+            <button
+              type="button"
+              class="prompt-index-tick"
+              classList={{ active: i() === active() }}
+              data-chapter={tick.chapter ? "" : undefined}
+              aria-label={language.t("session.promptIndex.goTo", { index: i() + 1 })}
+              onClick={() => goTo(i())}
+            >
+              <span class="prompt-index-tick-line" />
+              <span class="prompt-index-tip" aria-hidden="true">
+                {tick.chapter ? language.t("session.promptIndex.chapter", { title: tick.preview }) : tick.preview}
+              </span>
+            </button>
           )}
         </For>
       </nav>

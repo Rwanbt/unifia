@@ -57,8 +57,11 @@ import type {
   WorkspaceSidebarContext,
 } from "./layout/sidebar-workspace"
 import { SidebarPanel, type SidebarPanelContext } from "./layout/sidebar-panel"
+import { useShell, useViewport } from "@/shell/v110-store"
+import { RAIL_COMPACT, workspaceLeft } from "@/tokens/panels"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { MobileNav } from "@/shell/v110-mobile-nav"
+import { withModeMotion } from "@/shell/mode-motion"
 import { useMode } from "@/context/mode"
 import { DialogDeleteWorkspace, DialogResetWorkspace } from "./layout/dialog-workspace"
 import { createSidebarPanelContext, createWorkspaceSidebarContext } from "./layout/layout-contexts"
@@ -564,7 +567,7 @@ export default function Layout(props: ParentProps) {
 
   function openSettings() {
     if (params.dir) {
-      mode.selectDestination("settings")
+      withModeMotion(() => mode.selectDestination("settings"))
       return
     }
     const run = ++dialogRef.run
@@ -576,7 +579,7 @@ export default function Layout(props: ParentProps) {
 
   function openAccount() {
     if (params.dir) {
-      mode.selectDestination("user")
+      withModeMotion(() => mode.selectDestination("user"))
       return
     }
     openSettings()
@@ -752,7 +755,8 @@ export default function Layout(props: ParentProps) {
   })
 
   const side = createMemo(() => Math.max(layout.sidebar.width(), 244))
-  const panel = createMemo(() => Math.max(side() - 64, 0))
+  // The context panel is the sidebar track minus the rail (62px).
+  const panel = createMemo(() => Math.max(side() - RAIL_COMPACT, 0))
 
   const loadedSessionDirs = new Set<string>()
 
@@ -947,17 +951,15 @@ export default function Layout(props: ParentProps) {
   })
 
   const mode = useMode()
+  const shellKind = useShell(useViewport()).kind
   const mainLeft = createMemo(() => {
     if (mode.routeKind() === "home") return "0px"
-    const railVisible = layout.rail.opened() || layout.hover.rail.active()
-    const sidebarVisible = layout.sidebar.opened() || layout.hover.sidebar.active()
-    if (!railVisible && !sidebarVisible) return "0px"
-    if (sidebarVisible) {
-      const sidebarWidth = railVisible ? side() : panel()
-      return `calc(${sidebarWidth}px + 30px)`
-    }
-    // Reserve the rail's 18px visual inset plus the 12px shell column gap.
-    return "calc(var(--v110-rail, 62px) + 30px)"
+    return workspaceLeft({
+      rail: layout.rail.opened() || layout.hover.rail.active(),
+      context: layout.sidebar.opened() || layout.hover.sidebar.active(),
+      panel: panel(),
+      side: shellKind(),
+    })
   })
   const sidebarContent = (mobile?: boolean) => (
     <SidebarContent
@@ -986,7 +988,7 @@ export default function Layout(props: ParentProps) {
       }
       modes={mode.modes}
       activeDestination={mode.destination}
-      onMode={mode.selectDestination}
+      onMode={(target) => withModeMotion(() => mode.selectDestination(target))}
       modesLabel={language.t("workbench.modes.railLabel")}
       modeLabel={(m) => language.t(`workbench.modes.${m}`)}
     />
@@ -999,7 +1001,7 @@ export default function Layout(props: ParentProps) {
       <TopbarBreadcrumb />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
-          <div class="size-full relative overflow-x-clip overflow-y-visible">
+          <div data-v110="shell-clip" class="size-full relative overflow-x-clip overflow-y-visible">
             <nav
               aria-label={language.t("sidebar.nav.projectsAndSessions")}
               data-component="sidebar-nav-desktop"
@@ -1013,7 +1015,8 @@ export default function Layout(props: ParentProps) {
                 "pointer-events-none": true,
               }}
               style={{
-                width: `${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px`,
+                // --v110-nav-extra: the Chat layout's wider side-card insets.
+                width: `calc(${side() + (layout.sidebar.opened() || layout.hover.sidebar.active() ? 30 : 0)}px + var(--v110-nav-extra, 0px))`,
               }}
               ref={(el) => {
                 setState("nav", el)
@@ -1097,13 +1100,15 @@ export default function Layout(props: ParentProps) {
             <MobileNav
               modes={mode.modes}
               active={mode.destination}
-              onMode={mode.select}
-              onSettings={openSettings}
-              onAccount={openAccount}
-              navLabel={language.t("workbench.modes.railLabel")}
-              modeLabel={(m) => language.t(`workbench.modes.${m}`)}
-              settingsLabel={language.t("sidebar.settings")}
-              accountLabel={language.t("sidebar.account")}
+              onDestination={(target) => withModeMotion(() => mode.selectDestination(target))}
+              onAction={(action) => {
+                if (action === "theme") theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
+                if (action === "compute") openServer()
+                if (action === "account") openAccount()
+                if (action === "review") command.trigger("review.toggle")
+                if (action === "settings") openSettings()
+              }}
+              label={language.t}
             />
 
             <div
@@ -1111,7 +1116,7 @@ export default function Layout(props: ParentProps) {
                 "absolute inset-0": true,
                 "shell:inset-y-0 shell:right-0 shell:left-[var(--main-left)]": true,
                 "z-20": true,
-                "transition-[left] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[left] motion-reduce:transition-none":
+                "transition-[left] duration-[var(--v110-shell)] ease-[var(--v110-shell-ease)] will-change-[left] motion-reduce:transition-none":
                   !state.sizing,
               }}
               style={{
@@ -1125,7 +1130,7 @@ export default function Layout(props: ParentProps) {
                 data-v110="workspace"
                 data-workbench-mode={mode.destination()}
                 classList={{
-                  "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
+                  "size-full overflow-clip flex flex-col items-start contain-strict border-t border-border-weak-base bg-background-base": true,
                 }}
               >
                 <Show when={!autoselecting.loading} fallback={<div class="size-full" />}>

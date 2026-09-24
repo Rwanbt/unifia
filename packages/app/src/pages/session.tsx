@@ -7,7 +7,6 @@ import { getFilename } from "@unifia/util/path"
 import { getWorkerPool } from "@unifia/ui/pierre/worker"
 import { useMutation } from "@tanstack/solid-query"
 import {
-  onCleanup,
   Show,
   Match,
   Switch,
@@ -59,7 +58,8 @@ import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
-import { useViewportCenteredColumn } from "@/pages/session/use-viewport-centered-column"
+import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
+import { splitChatWidth } from "@/pages/session/chat-width"
 import { createCommentActions } from "@/pages/session/session-comment-actions"
 import { createKeyboardHandler } from "@/pages/session/session-keyboard"
 import { createVcsHelpers, type VcsMode } from "@/pages/session/session-vcs"
@@ -139,7 +139,6 @@ export default function Page() {
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
-    reviewSnap: false,
     scrollGesture: 0,
     scroll: {
       overflow: false,
@@ -200,22 +199,39 @@ export default function Page() {
   // Every inspector tab owns the same fixed-width track. The active tab only
   // changes the content; it must never change the workspace geometry.
   const desktopInspectorWide = createMemo(() => desktopInspectorOpen())
+  // The layout shown: a stored Split on a portrait tablet or phone, which
+  // does not offer it, shows the main surface (fitLayout).
+  const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
   const sessionPanelWidth = createMemo(() => {
     // The editor view collapses only the chat surface. The Inspector remains
     // independently open and keeps its own fixed track when visible.
     // Every session mode uses the same Chat/Split/Editor switch. The active
     // mode changes the main surface content, never the workspace geometry.
-    const workspaceView = view().workspace.current()
-    if (isDesktop() && workspaceView === "main") return "0px"
-    if (isDesktop() && workspaceView === "split") return `${layout.session.width()}px`
+    const current = workspaceView()
+    // The mobile app has no layout switch, so a stored Editor must not hide
+    // its only chat.
+    if (current === "main" && !isMobileDevice()) return "0px"
+    // Wide Chat layout: the surface is the focused column itself, centred on
+    // the window by v110-chat.css, so switching layouts animates one box's
+    // left edge and width like the reference (ADR-053).
+    if (current === "chat" && shell.kind() === "grid") return "var(--v110-chat-column)"
+    if (isDesktop() && current === "split")
+      return splitChatWidth({
+        resized: layout.session.resized(),
+        width: layout.session.width(),
+        compact: shell.kind() === "single",
+        sidePanelOpen: layout.sidebar.opened() || desktopInspectorOpen(),
+      })
     if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
     // The inspector card also takes its outer and inner gutters.
-    return `calc(100% - ${layout.inspector.width()}px - var(--v110-gutter-outer) - var(--v110-gutter-inner))`
+    return `calc(100% - ${layout.inspector.width()}px - var(--v110-inspector-margins))`
   })
-  const centered = createMemo(() => isDesktop() && mode.active() === "code" && view().workspace.current() === "chat")
+  // The chat is one pane shared by every mode, so every mode focuses it the
+  // same way in the Chat layout (ADR-053).
+  const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
-  useViewportCenteredColumn(chatSurface, centered)
+  const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
 
   // Settings, account, browser and memory render in the main pane, which the
   // Chat layout hides entirely; opening one from Chat used to change only the
@@ -386,7 +402,6 @@ export default function Page() {
     return key
   }, sessionKey())
 
-  let reviewFrame: number | undefined
   const { resetVcs, loadVcs } = createVcsHelpers({ sync, vcs, setVcs, sdk })
 
   const refreshVcs = () => {
@@ -396,19 +411,6 @@ export default function Page() {
     if (!untrack(wantsReview)) return
     void loadVcs(mode, true)
   }
-
-  createComputed((prev) => {
-    const open = desktopInspectorWide()
-    if (prev === undefined || prev === open) return open
-
-    if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
-    setUi("reviewSnap", true)
-    reviewFrame = requestAnimationFrame(() => {
-      reviewFrame = undefined
-      setUi("reviewSnap", false)
-    })
-    return open
-  }, desktopInspectorWide())
 
   const turnDiffs = createMemo(() => lastUserMessage()?.summary?.diffs ?? [])
   const changesOptions = createMemo<ChangeMode[]>(() => {
@@ -947,9 +949,6 @@ export default function Page() {
     else warmUnifiedWorkerPool()
   })
 
-  onCleanup(() => {
-    if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
-  })
 
   // Reference `.mode-chat-head`'s scope badge: project name plus the active
   // branch, read from the same sources session-new-view.tsx already uses so
@@ -975,7 +974,7 @@ export default function Page() {
   }
 
   return (
-    <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
+    <div data-v110="session-clip" class="relative bg-background-base size-full overflow-clip flex flex-col">
       <SessionHeader />
       <Show when={artifactDocument() || artifactError()}>
         <SessionArtifactViewerSection
@@ -985,6 +984,7 @@ export default function Page() {
       </Show>
       <div data-component="session-workspace" class="relative flex-1 min-h-0 flex flex-col">
         <div
+          ref={setWorkspaceMain}
           data-component="session-workspace-main"
           data-inspector-open={desktopInspectorOpen()}
           class="flex-1 min-h-0 flex flex-col shell:flex-row"
@@ -994,15 +994,29 @@ export default function Page() {
           ref={setChatSurface}
           data-v110="session-chat-surface"
           data-collapsed={sessionPanelWidth() === "0px" ? "" : undefined}
+          data-layout={workspaceView()}
+          data-side-open={layout.sidebar.opened() || desktopInspectorOpen() ? "" : undefined}
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
-            "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-              !size.active() && !ui.reviewSnap,
+            "transition-[width,margin] duration-[620ms] ease-[cubic-bezier(0.18,0.84,0.22,1)] will-change-[width,margin] motion-reduce:transition-none":
+              !size.active(),
           }}
           style={{
             width: sessionPanelWidth(),
           }}
         >
+          <Show when={isDesktop() && workspaceView() === "split"}>
+            <DesktopChatSeparator
+              chat={chatSurface()}
+              workspace={workspaceMain()}
+              label={language.t("session.chat.resize")}
+              onStart={() => size.start()}
+              onResize={(width) => {
+                size.touch()
+                layout.session.resize(width)
+              }}
+            />
+          </Show>
           <div
             data-v110="mode-chat-head"
             class="h-11 shrink-0 flex items-center gap-2 px-1"
@@ -1126,16 +1140,16 @@ export default function Page() {
         </div>
 
         <Switch>
-          <Match when={mode.destination() === "settings" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "settings" && workspaceView() !== "chat"}>
             <SettingsSurface />
           </Match>
-          <Match when={mode.destination() === "user" && view().workspace.current() !== "chat"}>
-            <UserSurface onClose={() => mode.select("code")} />
+          <Match when={mode.destination() === "user" && workspaceView() !== "chat"}>
+            <UserSurface />
           </Match>
-          <Match when={mode.destination() === "browser" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "browser" && workspaceView() !== "chat"}>
             <BrowserSurface />
           </Match>
-          <Match when={mode.destination() === "memory" && view().workspace.current() !== "chat"}>
+          <Match when={mode.destination() === "memory" && workspaceView() !== "chat"}>
             <MemorySurface />
           </Match>
           {/* workbench-mode.tsx had this exact branch before /:mode routed
@@ -1151,16 +1165,16 @@ export default function Page() {
               </p>
             </section>
           </Match>
-          <Match when={mode.active() === "work" && view().workspace.current() !== "chat"}>
+          <Match when={mode.active() === "work" && workspaceView() !== "chat"}>
             <WorkSurface />
           </Match>
-          <Match when={mode.active() === "design" && view().workspace.current() !== "chat"}>
+          <Match when={mode.active() === "design" && workspaceView() !== "chat"}>
             <DesignSurface />
           </Match>
-          <Match when={mode.active() === "automate" && view().workspace.current() !== "chat"}>
+          <Match when={mode.active() === "automate" && workspaceView() !== "chat"}>
             <AutomateSurface />
           </Match>
-          <Match when={view().workspace.current() !== "chat"}>
+          <Match when={workspaceView() !== "chat"}>
             <SessionEditorSurface />
           </Match>
         </Switch>
@@ -1175,7 +1189,6 @@ export default function Page() {
           reviewPanel={reviewPanel}
           activeDiff={tree.activeDiff}
           focusReviewDiff={focusReviewDiff}
-          reviewSnap={ui.reviewSnap}
           size={size}
           sessionId={params.id}
           revert={(messageID) => {

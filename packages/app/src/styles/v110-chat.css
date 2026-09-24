@@ -163,8 +163,23 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 [data-v110="session-chat-surface"][data-collapsed] {
   overflow: hidden;
   visibility: hidden;
-  transition-property: width, visibility;
-  transition-delay: 0s, 240ms;
+  transition-property: width, margin, visibility;
+  transition-delay: 0s, 0s, 620ms;
+}
+
+/* On phones (ADR-053) the workspace stacks vertically, so a 0px width no longer
+ * hides the chat; the Editor layout takes the whole height there. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="session-chat-surface"][data-collapsed] {
+    display: none;
+  }
+
+  /* The inline width is the desktop track; on phones the chat is the
+   * stacked column's full width less the reference's 10px margins. */
+  [data-v110="session-chat-surface"] {
+    width: auto !important;
+    margin: 10px;
+  }
 }
 
 /* The reference docks copy-context over the lower-right conversation edge,
@@ -199,7 +214,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 /* Desktop surfaces share the same floating-card viewport as the rail and
  * inspector. The chat wrapper used to remain h-full, so it was flush with
  * the topbar and the bottom edge even though the side panels had gutters. */
-@media (min-width: 56.25rem) {
+@media (min-width: 37.5rem) {
   [data-v110="session-chat-surface"] {
     height: calc(100% - 2 * var(--v110-gutter-outer));
     margin-block: var(--v110-gutter-outer);
@@ -208,8 +223,15 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 [data-v110="session-chat-surface"] > [data-component="session-composer-region"] {
   border-top: 0;
-  background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 26%, var(--bg-soft) 100%);
+  background: linear-gradient(180deg, transparent 0%, var(--v110-dock-fade) 26%, var(--v110-dock-fade) 100%);
   padding: 10px;
+}
+
+/* Phones: the reference insets the composer 8px inside the chat. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="composer-dock"] > div {
+    padding-inline: 8px;
+  }
 }
 
 [data-v110="session-chat-surface"] > [data-component="session-composer-region"] > div {
@@ -217,11 +239,19 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   max-width: min(100%, 50vw);
 }
 
+/* The timeline fades out under the composer into whatever is behind the
+ * chat: the reference's chat card is --bg-soft, the app's chat surface is
+ * transparent over the workspace, so the fade ends on the workspace colour
+ * (--bg) -- a --bg-soft fade drew a visible rectangle behind the composer. */
+[data-v110="session-chat-surface"] {
+  --v110-dock-fade: var(--bg);
+}
+
 [data-v110="composer-dock"] {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 26%, var(--bg-soft) 100%);
+  background: linear-gradient(180deg, transparent 0%, var(--v110-dock-fade) 26%, var(--v110-dock-fade) 100%);
   border-top: 0;
   padding-bottom: 12px;
 }
@@ -243,6 +273,9 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   background: transparent;
   box-shadow: none;
   padding: 0;
+  /* The base dock clips to its rounded box; here the composer draws the box,
+   * and the context meter's card must rise above it. */
+  overflow: visible;
 }
 
 [data-v110="composer-dock"] [data-component="prompt-input"] {
@@ -359,14 +392,31 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   overflow: visible;
 }
 
-[data-v110="prompt-send-stack"] [data-v110="context-meter"] > div {
-  display: grid;
-  place-items: center;
-}
-
 [data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
   width: 22px;
   height: 22px;
+  transform: rotate(-90deg);
+}
+
+/* The ring -- maquette .context-meter .meter-track/.meter-value. The value
+ * stroke is currentColor so the level colours below (and the user's accent,
+ * ADR-048) reach it. */
+[data-v110="context-meter"] [data-slot="meter-track"] {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 15%, var(--line-strong));
+  stroke-width: 2.3;
+}
+
+[data-v110="context-meter"] [data-slot="meter-value"] {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.3;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--usage, 0));
+  transition:
+    stroke-dashoffset 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Context meter level -- maquette .context-meter[data-level]: accent while
@@ -381,6 +431,104 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"][data-level="danger"] {
   color: var(--text-danger);
+}
+
+/* The metrics card -- maquette .context-meter-tooltip, shown on hover, on
+ * keyboard focus, or after a first tap on touch screens (data-open). */
+[data-v110="context-meter"] [data-slot="context-meter-tip"] {
+  position: absolute;
+  right: -4px;
+  bottom: calc(100% + 8px);
+  z-index: 100;
+  display: block;
+  width: 236px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+  color: var(--text);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: 0.14s ease;
+}
+
+[data-v110="context-meter"]:hover [data-slot="context-meter-tip"],
+[data-v110="context-meter"]:focus-visible [data-slot="context-meter-tip"],
+[data-v110="context-meter"][data-open] [data-slot="context-meter-tip"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+[data-v110="context-meter"] [data-slot="context-meter-tip"]::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: inherit;
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  transform: rotate(45deg);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-title"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* The dot takes the meter's level colour (currentColor of the button). */
+[data-v110="context-meter"] [data-slot="meter-tip-dot"] {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-title"] > span:last-child {
+  color: var(--text);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] > span:first-child {
+  color: var(--muted);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-foot"] {
+  display: block;
+  margin-top: 7px;
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--faint);
 }
 
 [data-v110="prompt-send-stack"] [data-action="prompt-submit"] {
@@ -427,10 +575,13 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   color: var(--text);
 }
 
-@media (max-width: 599px) {
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  /* Maquette: on phones copy-context moves into the conversation head's
+   * right end, clear of the context meter above Send. */
   [data-v110="chat-copy-context"] {
-    right: 8px;
-    bottom: 104px;
+    top: 5px;
+    right: 12px;
+    bottom: auto;
     width: 34px;
     height: 34px;
     min-width: 34px;
@@ -474,6 +625,18 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
     width: 24px;
     height: 24px;
   }
+
+  /* Maquette: on phones the card docks to the viewport's right edge. */
+  [data-v110="context-meter"] [data-slot="context-meter-tip"] {
+    position: fixed;
+    right: 10px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    width: min(250px, calc(100vw - 20px));
+  }
+
+  [data-v110="context-meter"] [data-slot="context-meter-tip"]::after {
+    display: none;
+  }
 }
 
 @container (max-width: 620px) {
@@ -496,24 +659,62 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   }
 }
 
-/* Chat column (ADR-045). The reference sizes the focused chat as twice a
- * clamped half-width; at every desktop width that equals the surface width
- * minus 610px, between 560px and 1080px, and never wider than its parent. */
+/* Chat column (ADR-045, ADR-053). From 1200px the reference sizes the
+ * focused chat as 2 x clamp(280px, 50vw - rail - context - 42px, 540px), on
+ * the viewport -- the context and inspector then float beside it without
+ * moving or narrowing it. The context token is 248px, 220px up to 1360px. */
 [data-v110="session-chat-surface"] {
-  --v110-chat-column: min(100%, 1080px, max(560px, 100cqw - 610px));
-  /* Centred on the window rather than the surface (see
-   * use-viewport-centered-column.ts), and narrowed so it never leaves it. */
-  --v110-chat-width: min(
-    var(--v110-chat-column),
-    100% - 2 * max(var(--v110-chat-shift, 0px), -1 * var(--v110-chat-shift, 0px))
-  );
+  --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 704px));
+  --v110-chat-width: var(--v110-chat-column);
+}
+
+@media (max-width: 1360px) {
+  [data-v110="session-chat-surface"] {
+    --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 648px));
+  }
+}
+
+/* Compact desktops (900-1199px) -- the reference's v87 focus column there is
+ * twice min(390px, max(260px, 50% - 18px)): up to 780px, never tighter than
+ * the surface allows. */
+@media (max-width: 1199px) {
+  [data-v110="session-chat-surface"] {
+    --v110-chat-column: min(100%, 780px, max(520px, 100cqw - 36px));
+  }
+
+  /* A side card open: the chat fills what is left (reference: left/right
+   * 10px of the workspace), no longer a centred column. */
+  [data-v110="session-chat-surface"][data-side-open] {
+    --v110-chat-column: 100%;
+  }
+}
+
+/* Chat layout on compact desktops: the chat stops 20px from the window edge
+ * like the main card does; with the inspector open its own 12px gap applies. */
+@media (min-width: 701px) and (max-width: 1199px), (min-width: 600px) and (max-width: 1199px) and (orientation: landscape) {
+  [data-component="session-workspace-main"][data-inspector-open="false"]
+    > [data-v110="session-chat-surface"][data-layout="chat"] {
+    /* The inline width is 100%; the cap keeps the margin inside the row. */
+    max-width: calc(100% - var(--v110-gutter-outer));
+    margin-right: var(--v110-gutter-outer);
+  }
+}
+
+/* Wide Chat layout (ADR-053): the surface is the column, centred on the
+ * window -- --main-left is the workspace's own offset (layout.tsx). Its left
+ * edge and width animate together when the layout changes, the reference's
+ * shared-edge motion; margin-right keeps an open inspector at the edge. */
+@media (min-width: 1200px) {
+  [data-v110="session-chat-surface"][data-layout="chat"] {
+    margin-left: calc(50vw - var(--v110-chat-column) / 2 - var(--main-left, 0px));
+    margin-right: auto;
+  }
 }
 
 .v110-chat-column {
   width: 100%;
   max-width: var(--v110-chat-width);
   margin-inline: auto;
-  translate: var(--v110-chat-shift, 0px) 0;
 }
 
 [data-v110="composer-dock"] > .v110-chat-column {
@@ -523,7 +724,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 /* Copy-context sits on the composer's top-right corner, so it follows the
  * column instead of the surface edge; the 9px is the composer's own inset. */
 [data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
-  right: calc((100% - var(--v110-chat-width)) / 2 - var(--v110-chat-shift, 0px) + 9px);
+  right: calc((100% - var(--v110-chat-width)) / 2 + 9px);
 }
 
 /* The bottom padding is room for the last message's floating shelf: each
@@ -616,6 +817,55 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 [data-v110="chat-timeline"] [data-slot="message-timing"] {
   color: var(--faint);
+}
+
+/* Chapters (ADR-052) -- .msg.is-chapter / .chapter-label: a subtle accent
+ * bar beside the pinned message and a "Chapitre" tag above it. */
+[data-v110="chat-timeline"] [data-slot$="-copy-wrapper"] [data-slot="message-action-pin"][data-active] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+[data-v110="chat-timeline"] [data-slot="chapter-label"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  margin-bottom: 5px;
+  padding: 0 6px;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant"] > [data-slot="chapter-label"] {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-bottom: 0;
+}
+
+[data-v110="chat-timeline"] :is([data-component="user-message"], [data-slot="session-turn-assistant"])[data-chapter]::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+[data-v110="chat-timeline"] [data-component="user-message"][data-chapter]::before {
+  right: -6px;
+}
+
+[data-v110="chat-timeline"] [data-slot="session-turn-assistant"][data-chapter]::before {
+  left: 27px;
 }
 
 /* Steps -- .v94-observable-stack. A run of consecutive tool rows reads as one
@@ -795,4 +1045,41 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
  * button, so only the provider's brand logo is desaturated now. */
 [data-v110="prompt-composer"] [data-component="provider-icon"] {
   filter: grayscale(1);
+}
+
+/* Split chat resize handle -- maquette .mode-chat > .panel-resizer[data-resize="chat"]:
+ * a 14px hit area straddling the chat's right edge, a 2px line on hover,
+ * focus or drag. */
+[data-v110="session-chat-surface"] > [data-v110="resize-chat-wrapper"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -7px;
+  z-index: 55;
+  width: 14px;
+  touch-action: none;
+}
+
+[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"] {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"]::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 6px;
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.14s ease;
+}
+
+[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"]:hover::after,
+[data-v110="resize-chat-wrapper"] > [data-v110="resize-chat"]:focus-visible::after,
+[data-v110="resize-chat-wrapper"]:active > [data-v110="resize-chat"]::after {
+  background: var(--line-strong);
 }

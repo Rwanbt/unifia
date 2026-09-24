@@ -28,7 +28,10 @@ test("inspector content follows the active workspace destination", async () => {
   expect(sidePanel).toContain('<Match when={layout.inspector.tab() === "explorer"}>')
   expect(sidePanel).not.toContain("ModeExplorerSurface")
   expect(sidePanel).toContain("<ModeInspectorSurface mode={destination()} />")
-  expect(sidePanel).toContain("<ModeExecutionSurface mode={destination()} events={executionEvents()} />")
+  expect(sidePanel).toContain("<ModeExecutionSurface")
+  // A pending resource read would suspend inside a mode switch's route
+  // transition and block the navigation.
+  expect(sidePanel).toContain('events={executionEvents.state === "ready" ? executionEvents() : undefined}')
 })
 
 test("InspectorFrame mirrors the reference head, three tabs, and one content stage", async () => {

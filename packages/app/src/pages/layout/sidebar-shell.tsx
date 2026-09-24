@@ -1,18 +1,13 @@
-import { createEffect, createMemo, For, Show, type Accessor, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, type Accessor, type JSX } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { Tooltip, TooltipKeybind } from "@unifia/ui/tooltip"
 import type { ShellMode } from "@unifia/workbench-shell/modes"
 import type { WorkspaceDestination } from "@/context/mode-directory"
 import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 import { useLanguage } from "@/context/language"
-
-// Browser and Memory are workspace destinations, not SHELL_MODES. They still
-// use the same route/selection contract as the four shell modes; keeping them
-// outside SHELL_MODES preserves the shared registry invariant.
-const RAIL_PILLS = [
-  { id: "browser", icon: "browser", target: "browser" as const, labelKey: "sidebar.rail.browser" },
-  { id: "memory", icon: "brain", target: "memory" as const, labelKey: "sidebar.rail.memory" },
-] as const
+import { modeIcon, PILL_DESTINATIONS } from "@/shell/v110-destinations"
+import { AccountQuickMenu } from "@/shell/account-quick-menu"
+import { createHoverIntent } from "@/shell/hover-intent"
 
 export const SidebarContent = (props: {
   mobile?: boolean
@@ -58,8 +53,29 @@ export const SidebarContent = (props: {
     el.setAttribute("inert", "")
   })
 
+  // #userBtn: hovering the avatar opens the account quick menu (ADR-056).
+  let accountButton: HTMLButtonElement | undefined
+  const [quickOpen, setQuickOpen] = createSignal(false)
+  const accountHover = createHoverIntent({
+    open: () => setQuickOpen(true),
+    close: () => setQuickOpen(false),
+    isOpen: quickOpen,
+  })
+  const closeQuick = () => {
+    accountHover.reset()
+    setQuickOpen(false)
+  }
+  onMount(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && quickOpen()) closeQuick()
+    }
+    document.addEventListener("keydown", closeOnEscape)
+    onCleanup(() => document.removeEventListener("keydown", closeOnEscape))
+  })
+
   return (
     <div
+      data-v110="sidebar-clip"
       class="flex h-full w-full min-w-0 overflow-x-clip overflow-y-visible"
       // The nav keeps the panel's full width while the panel is collapsed,
       // on top of the workspace: only the rail may take pointer events then,
@@ -80,7 +96,6 @@ export const SidebarContent = (props: {
         data-parity={props.mobile ? undefined : "shell.rail"}
         classList={{
           "shrink-0 bg-background-base flex flex-col items-center overflow-hidden pointer-events-auto": true,
-          "transition-[width,opacity] duration-200": props.opened() || props.railOpened(),
         }}
         style={{
           width: railVisible() ? "var(--v110-rail, 62px)" : "0px",
@@ -104,21 +119,7 @@ export const SidebarContent = (props: {
                 {(mode) => (
                   <Tooltip placement={placement()} value={props.modeLabel(mode)}>
                     <IconButton
-                      // Ports the maquette's actual per-mode rail-btn glyphs
-                      // (Unifia-UI-UX-v110-PORT-READY-R1.html:15327-15336) --
-                      // was "code"/"folder"/"edit"/"checklist", the shared
-                      // icon set's generic stand-ins, visually unrelated to
-                      // the maquette's own brackets/briefcase/flower/workflow
-                      // shapes for these four modes.
-                      icon={
-                        mode === "code"
-                          ? "brackets"
-                          : mode === "work"
-                            ? "briefcase"
-                            : mode === "design"
-                              ? "flower"
-                              : "workflow"
-                      }
+                      icon={modeIcon(mode)}
                       variant="ghost"
                       size="large"
                       // .rail-btn is 42x42 with a 12px radius
@@ -178,7 +179,7 @@ export const SidebarContent = (props: {
               </For>
               {/* Browser and Memory are real workspace destinations in the
                   reference rail, not aliases for Design/Code. */}
-              <For each={RAIL_PILLS}>
+              <For each={PILL_DESTINATIONS}>
                 {(pill) => (
                   <Tooltip placement={placement()} value={language.t(pill.labelKey)}>
                     <IconButton
@@ -248,11 +249,33 @@ export const SidebarContent = (props: {
               sun/moon icons) and opens Settings, the nearest real destination
               -- honest about being an entry point, not a pretend account
               switcher. */}
+          <AccountQuickMenu
+            open={quickOpen()}
+            anchor={() => accountButton}
+            onAccount={() => {
+              closeQuick()
+              props.onOpenAccount()
+            }}
+            onSettings={() => {
+              closeQuick()
+              props.onOpenSettings()
+            }}
+            onPointerEnter={accountHover.enterPanel}
+            onPointerLeave={accountHover.leavePanel}
+          />
           <Tooltip placement={placement()} value={props.accountLabel()}>
             <button
+              ref={accountButton}
               type="button"
               class="size-8 shrink-0 rounded-full border border-border-strong-base bg-surface-raised-base grid place-items-center text-icon-weak hover:text-icon-strong hover:bg-surface-raised-base-active transition-colors"
-              onClick={props.onOpenAccount}
+              onPointerEnter={accountHover.enterTrigger}
+              onPointerLeave={accountHover.leaveTrigger}
+              aria-haspopup="menu"
+              aria-expanded={quickOpen()}
+              onClick={() => {
+                closeQuick()
+                props.onOpenAccount()
+              }}
               aria-label={props.accountLabel()}
               aria-pressed={props.activeDestination() === "user"}
               classList={{
@@ -309,9 +332,13 @@ export const SidebarContent = (props: {
         ref={(el) => {
           panel = el
         }}
+        // Stays laid out when closed so it can fade and slide out like the
+        // reference's panel (v110.css [data-v110="context-track"]).
+        data-v110="context-track"
+        data-expanded={expanded() ? "true" : "false"}
         classList={{
-          "flex-1 flex h-full min-h-0 min-w-0 overflow-hidden": expanded(),
-          "w-0 opacity-0 pointer-events-none overflow-hidden": !expanded(),
+          "flex-1 flex h-full min-h-0 min-w-0": true,
+          "pointer-events-none": !expanded(),
         }}
         aria-hidden={!expanded()}
         onPointerEnter={props.onSidebarPanelEnter}
