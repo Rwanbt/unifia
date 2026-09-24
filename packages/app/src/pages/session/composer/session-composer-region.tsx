@@ -131,7 +131,7 @@ export function SessionComposerRegion(props: {
     >
       <div
         classList={{
-          "w-full px-3 pointer-events-auto": true,
+          "w-full px-2.5 pointer-events-auto": true,
           "v110-chat-column": props.centered,
         }}
       >
