@@ -450,16 +450,18 @@ export function AppInterface(props: {
       <Route path="/" component={HomeRoute} />
       <Route path="/:dir" component={DirectoryLayout}>
         <Route path="/" component={SessionIndexRoute} />
-        <Route path="/session/:id?" component={SessionRoute} />
-        {/* Work/Design/Automate now render through SessionRoute too, so the
-            chat pane (composer, timeline, header) is the exact same
-            component and the exact same session on every mode -- see the
-            comment above DesignSurface/AutomateSurface in session.tsx.
+        {/* Every mode renders through SessionRoute, so the chat pane
+            (composer, timeline, header) is the exact same component and the
+            exact same session on every mode -- see the comment above
+            DesignSurface/AutomateSurface in session.tsx. ONE route matches
+            both Code (/session/:id) and the other modes (/work, ...): two
+            routes with the same component remount the whole page -- the
+            inspector included -- whenever the user enters or leaves Code.
             WorkbenchModeRoute (workbench-mode.tsx) is no longer reachable
             here; kept only for its lazy-loader exports (MODE_LOADERS,
             ensureModeLoaded) that session.tsx and the hover/focus preload
             call sites still import. */}
-        <Route path="/:mode" component={SessionRoute} />
+        <Route path="/:mode/:id?" component={SessionRoute} />
       </Route>
     </Dynamic>
   )
