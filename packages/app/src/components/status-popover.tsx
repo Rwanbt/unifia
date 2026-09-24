@@ -28,7 +28,8 @@ export function StatusPopover() {
       triggerAs={Button}
       triggerProps={{
         variant: "ghost",
-        class: "titlebar-icon w-8 h-6 p-0 box-border",
+        "data-v110": "top-server",
+        class: "titlebar-icon w-8 h-[31px] p-0 box-border",
         "aria-label": language.t("status.popover.trigger"),
         style: { scale: 1 },
       }}

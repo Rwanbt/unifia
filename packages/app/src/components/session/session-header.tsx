@@ -326,7 +326,8 @@ export function SessionHeader() {
                     role="radiogroup"
                     aria-label={language.t("session.header.viewSwitch.label")}
                     data-v110="layout-switch"
-                    class="flex items-center gap-0.5 rounded-lg border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
+                    // #layoutSwitch: 2px padding, no gap, 11px radius.
+                    class="flex items-center rounded-[11px] border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
                   >
                     <For each={options()}>
                       {(option) => (
@@ -340,10 +341,10 @@ export function SessionHeader() {
                           // text-12-medium is actually 13px (--font-size-
                           // small), noticeably larger, which was widening
                           // every button here.
-                          class="rounded-md px-[9px] h-[22px] text-[9px] font-medium transition-colors"
+                          class="rounded-[9px] px-[9px] h-[22px] text-[9px] font-normal transition-colors"
                           classList={{
-                            "text-text-strong": workspaceView() === option.id,
-                            "text-text-weak hover:text-text-strong": workspaceView() !== option.id,
+                            "text-[var(--text)]": workspaceView() === option.id,
+                            "text-[var(--muted)] hover:text-[var(--text)]": workspaceView() !== option.id,
                           }}
                           onClick={() => setView(option.id)}
                         >
