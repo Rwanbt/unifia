@@ -710,10 +710,12 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-slot="account-
 }
 
 [data-v110="account-quick-menu"] [data-slot="account-quick-profile"] {
-  display: flex;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   padding: 8px 8px 10px;
+  border-bottom: 1px solid var(--line);
 }
 
 [data-v110="account-quick-menu"] [data-slot="account-quick-avatar"] {
@@ -729,7 +731,7 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-slot="account-
   font-weight: 800;
 }
 
-[data-v110="account-quick-menu"] [data-slot="account-quick-profile"] > span:last-child {
+[data-v110="account-quick-menu"] [data-slot="account-quick-profile"] > span:nth-child(2) {
   display: grid;
   min-width: 0;
   gap: 2px;
@@ -786,4 +788,151 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-slot="account-
 [data-v110="account-quick-menu"] [data-slot="account-quick-action"] > b {
   font-size: 9px;
   font-weight: 650;
+}
+
+/* The profile's state chip (.user-quick-sync-v76). */
+[data-v110="account-quick-menu"] [data-slot="account-quick-chip"] {
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.2;
+}
+
+/* Sign-in prompt shown to the anonymous local profile (.user-quick-identity-v80). */
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] {
+  padding: 7px 4px 2px;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] > button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] > button:hover,
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] > button:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] > button > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  font-size: 12px;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] b {
+  display: block;
+  font-size: 9px;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-identity"] i {
+  color: var(--muted);
+  font-style: normal;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-label"] {
+  padding: 9px 8px 5px;
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* Spaces (.user-quick-scope-v76). */
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"] {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"]:hover,
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"]:focus-visible {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"][data-active] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"] > span {
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"] > b {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-scope"] > i {
+  color: var(--success, #8aca9a);
+  font-size: 8px;
+  font-style: normal;
+}
+
+/* Join / create, side by side (.user-quick-createjoin-v77); dimmed until
+ * an identity exists (.auth-locked-v81). */
+[data-v110="account-quick-menu"] [data-slot="account-quick-createjoin"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-createjoin"] > [data-slot="account-quick-action"] {
+  min-width: 0;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-createjoin"] > [data-slot="account-quick-action"] > span {
+  width: 20px;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-createjoin"][data-locked] {
+  opacity: 0.72;
+}
+
+[data-v110="account-quick-menu"] [data-slot="account-quick-action"][data-tone="danger"] {
+  color: var(--danger, #df848a);
 }

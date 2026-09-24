@@ -69,7 +69,9 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
       selectDestination(mode)
     }
 
-    function selectDestination(target: WorkspaceDestination): void {
+    /** `state` rides on the history entry (useLocation().state), e.g. which
+     * account page to show. */
+    function selectDestination(target: WorkspaceDestination, state?: unknown): void {
       if (route().kind === "home") {
         if (target === "code" || target === "work" || target === "design" || target === "automate") setPendingMode(target)
         return
@@ -79,7 +81,7 @@ const { use: useMode, provider: ModeContextProvider } = createSimpleContext({
       if (target === "code" || target === "work" || target === "design" || target === "automate") {
         setPreferences("lastModeByWorkspace", directory(), target)
       }
-      navigate(path)
+      navigate(path, state === undefined ? undefined : { state })
     }
 
     /**
