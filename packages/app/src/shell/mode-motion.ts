@@ -10,10 +10,15 @@
 type Frames = Keyframe[]
 type Timing = KeyframeAnimationOptions
 
+const WORKSPACE = '[data-v110="workspace"]'
 const MAIN = '[data-v110="workspace"] [data-v110="surface-card"]'
 const CONTEXT = '[data-v110="context-panel"] .context-scroll'
 const INSPECTOR = '[data-v110="inspector-content"]'
 const TEXTS = ['[data-v110="crumbs"]', '[data-v110="context-panel"] .context-sub']
+
+// About a third of a second: past it the new surface is still loading and
+// the swap is shown without the slide rather than late.
+const MAX_WAIT_FRAMES = 20
 
 const OUT_EASE = "cubic-bezier(.4,0,.2,1)"
 const IN_EASE = "cubic-bezier(.16,.84,.2,1)"
@@ -45,13 +50,36 @@ function animate(element: Element | undefined, frames: Frames, timing: Timing) {
   }
 }
 
-// A fixed copy of `element` where it stands now, above the new content.
-function ghost(element: HTMLElement | undefined): HTMLElement | undefined {
+// What an element looks like now, to be shown as a "ghost" once the real
+// one has changed. The ghost is put back inside the same container (the
+// app's CSS styles many elements through their ancestors); when that
+// container is itself replaced, inside `fallback`, with the inherited
+// typography copied so the text does not reflow.
+type Shot = { copy: HTMLElement; rect: DOMRect; text: string; host: Element | null; fallback: Element | null }
+
+const INHERITED = ["fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "color"] as const
+
+function shoot(element: HTMLElement | undefined, fallback: string): Shot | undefined {
   if (!element) return undefined
-  const rect = element.getBoundingClientRect()
   const copy = element.cloneNode(true) as HTMLElement
   copy.removeAttribute("id")
   for (const child of copy.querySelectorAll("[id]")) child.removeAttribute("id")
+  const style = getComputedStyle(element)
+  for (const key of INHERITED) copy.style[key] = style[key]
+  return {
+    copy,
+    rect: element.getBoundingClientRect(),
+    text: element.textContent ?? "",
+    host: element.parentElement,
+    fallback: document.querySelector(fallback),
+  }
+}
+
+function fadeGhost(shot: Shot | undefined, drop: number, duration: number) {
+  if (!shot) return
+  const { copy, rect } = shot
+  const host = shot.host?.isConnected ? shot.host : shot.fallback?.isConnected ? shot.fallback : undefined
+  if (!host) return
   copy.setAttribute("aria-hidden", "true")
   copy.setAttribute("inert", "")
   Object.assign(copy.style, {
@@ -64,12 +92,12 @@ function ghost(element: HTMLElement | undefined): HTMLElement | undefined {
     pointerEvents: "none",
     zIndex: "40",
   })
-  document.body.appendChild(copy)
-  return copy
-}
-
-function fadeGhost(copy: HTMLElement | undefined, drop: number, duration: number) {
-  if (!copy) return
+  host.appendChild(copy)
+  // A transformed or contained ancestor becomes the fixed box's containing
+  // block; measure where it landed and correct by the difference.
+  const landed = copy.getBoundingClientRect()
+  copy.style.left = `${2 * rect.left - landed.left}px`
+  copy.style.top = `${2 * rect.top - landed.top}px`
   const animation = animate(copy, [{ transform: "translateY(0)", opacity: 1 }, { transform: `translateY(${drop}px)`, opacity: 0 }], {
     duration,
     easing: OUT_EASE,
@@ -82,52 +110,66 @@ function fadeGhost(copy: HTMLElement | undefined, drop: number, duration: number
   animation.finished.finally(() => copy.remove()).catch(() => copy.remove())
 }
 
+function slideIn(element: Element | undefined, offset: number, opacity: number, duration: number, easing: string) {
+  animate(element, [{ transform: `translateX(${offset}px)`, opacity }, { transform: "translateX(0)", opacity: 1 }], { duration, easing })
+}
+
 type Snapshot = {
-  main?: HTMLElement
-  context?: HTMLElement
-  contextHtml?: string
-  inspectorHtml?: string
-  texts: (string | undefined)[]
+  mainNode?: HTMLElement
+  main?: Shot
+  // The context body section by section: a section that reads the same in
+  // the new mode (the projects list) stays still, as in the reference.
+  sections: (Shot | undefined)[]
+  inspector?: string
+  texts: (Shot | undefined)[]
+}
+
+function sections(): HTMLElement[] {
+  // The body wraps its sections in single-child roots; the sections are
+  // the first level with siblings.
+  let body: Element | undefined = visible(CONTEXT)
+  while (body && body.children.length === 1) body = body.children[0]
+  return body ? ([...body.children] as HTMLElement[]) : []
 }
 
 function capture(): Snapshot {
-  const context = visible(CONTEXT)
+  const main = visible(MAIN)
   return {
-    main: ghost(visible(MAIN)),
-    context: ghost(context),
-    contextHtml: context?.innerHTML,
-    inspectorHtml: visible(INSPECTOR)?.innerHTML,
-    texts: TEXTS.map((selector) => visible(selector)?.textContent ?? undefined),
+    mainNode: main,
+    main: shoot(main, WORKSPACE),
+    sections: sections().map((section) => shoot(section, CONTEXT)),
+    inspector: visible(INSPECTOR)?.textContent ?? undefined,
+    texts: TEXTS.map((selector) => shoot(visible(selector), "body")),
   }
 }
 
 function play(before: Snapshot): void {
-  fadeGhost(before.main, 34, 390)
-  animate(visible(MAIN), [{ transform: "translateX(34px)", opacity: 0.08 }, { transform: "translateX(0)", opacity: 1 }], {
-    duration: 440,
-    easing: IN_EASE,
-  })
-
-  const context = visible(CONTEXT)
-  if (context && context.innerHTML !== before.contextHtml) {
-    fadeGhost(before.context, 24, 350)
-    animate(context, [{ transform: "translateX(22px)", opacity: 0.08 }, { transform: "translateX(0)", opacity: 1 }], {
-      duration: 410,
-      easing: IN_EASE,
-    })
-  } else before.context?.remove()
-
-  const inspector = visible(INSPECTOR)
-  if (inspector && inspector.innerHTML !== before.inspectorHtml) {
-    animate(inspector, [{ transform: "translateX(18px)", opacity: 0.12 }, { transform: "translateX(0)", opacity: 1 }], {
-      duration: 360,
-      easing: TEXT_EASE,
-    })
+  const main = visible(MAIN)
+  if (main && main.textContent !== before.main?.text) {
+    fadeGhost(before.main, 34, 390)
+    slideIn(main, 34, 0.08, 440, IN_EASE)
   }
+
+  const now = sections()
+  now.forEach((section, index) => {
+    const old = before.sections[index]
+    if (old && section.textContent === old.text) return
+    fadeGhost(old, 24, 350)
+    slideIn(section, 22, 0.08, 410, IN_EASE)
+  })
+  // Sections the new mode no longer shows fall away too.
+  for (const old of before.sections.slice(now.length)) fadeGhost(old, 24, 350)
+
+  // The inspector is re-rendered on every mode change; only a real change
+  // of what it shows moves it.
+  const inspector = visible(INSPECTOR)
+  if (inspector && inspector.textContent !== before.inspector) slideIn(inspector, 18, 0.12, 360, TEXT_EASE)
 
   TEXTS.forEach((selector, index) => {
     const element = visible(selector)
-    if (!element || element.textContent === before.texts[index]) return
+    const old = before.texts[index]
+    if (!element || element.textContent === old?.text) return
+    fadeGhost(old, 11, 300)
     animate(element, [{ transform: "translateX(10px)", opacity: 0 }, { transform: "translateX(0)", opacity: 1 }], {
       duration: 360,
       easing: TEXT_EASE,
@@ -137,8 +179,8 @@ function play(before: Snapshot): void {
 
 /**
  * Runs `change` (a mode switch) with the reference's transition around it.
- * The new route renders asynchronously, so the incoming half waits two
- * frames for the new surface to be in the DOM.
+ * The new route renders asynchronously (a lazy surface can take several
+ * frames), so the incoming half waits for the main card to be replaced.
  */
 export function withModeMotion(change: () => void): void {
   if (!enabled()) {
@@ -147,5 +189,11 @@ export function withModeMotion(change: () => void): void {
   }
   const before = capture()
   change()
-  requestAnimationFrame(() => requestAnimationFrame(() => play(before)))
+  let frames = 0
+  const wait = () => {
+    const current = document.querySelector(MAIN)
+    if ((current && current !== before.mainNode) || ++frames >= MAX_WAIT_FRAMES) return play(before)
+    requestAnimationFrame(wait)
+  }
+  requestAnimationFrame(wait)
 }

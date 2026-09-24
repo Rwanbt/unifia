@@ -567,7 +567,7 @@ export default function Layout(props: ParentProps) {
 
   function openSettings() {
     if (params.dir) {
-      mode.selectDestination("settings")
+      withModeMotion(() => mode.selectDestination("settings"))
       return
     }
     const run = ++dialogRef.run
@@ -579,7 +579,7 @@ export default function Layout(props: ParentProps) {
 
   function openAccount() {
     if (params.dir) {
-      mode.selectDestination("user")
+      withModeMotion(() => mode.selectDestination("user"))
       return
     }
     openSettings()
