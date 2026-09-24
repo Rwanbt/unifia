@@ -57,6 +57,7 @@ import type {
   WorkspaceSidebarContext,
 } from "./layout/sidebar-workspace"
 import { SidebarPanel, type SidebarPanelContext } from "./layout/sidebar-panel"
+import { useShell, useViewport } from "@/shell/v110-store"
 import { RAIL_COMPACT } from "@/tokens/panels"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { MobileNav } from "@/shell/v110-mobile-nav"
@@ -949,17 +950,20 @@ export default function Layout(props: ParentProps) {
   })
 
   const mode = useMode()
+  const shellKind = useShell(useViewport()).kind
   const mainLeft = createMemo(() => {
     if (mode.routeKind() === "home") return "0px"
     const railVisible = layout.rail.opened() || layout.hover.rail.active()
     const sidebarVisible = layout.sidebar.opened() || layout.hover.sidebar.active()
     if (!railVisible && !sidebarVisible) return "0px"
     if (sidebarVisible) {
-      const sidebarWidth = railVisible ? side() : panel()
-      // Outer gutter, the rail-to-panel gap and the panel-to-workspace gap
+      const rail = railVisible ? "var(--v110-rail, 62px) + " : ""
+      // Wide: outer gutter, rail-to-panel and panel-to-workspace gaps
       // (20 + 10 + 10: the reference's chat starts at 350px beside a 248px
-      // panel at 1440).
-      return `calc(${sidebarWidth}px + 40px)`
+      // panel at 1440). Below 1200px the panel is a floating card that
+      // overlaps the rail by 2px and leaves 22px (ADR-053): 10 - 2 + 22.
+      const gaps = shellKind() === "grid" ? 40 : 30
+      return `calc(${rail}${panel()}px + ${gaps}px)`
     }
     // Reserve the rail's 18px visual inset plus the 12px shell column gap.
     return "calc(var(--v110-rail, 62px) + 30px)"

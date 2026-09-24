@@ -29,6 +29,18 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
+/* Compact desktops (ADR-053): the reference's inspector is a 320px floating
+ * card 8px from the top, right and bottom edges and 12px from the main card,
+ * with the overlay shadow. --v110-inspector-margins is the horizontal sum the
+ * chat's width calc (session.tsx) subtracts. */
+@media (min-width: 900px) and (max-width: 1199px) {
+  [data-v110="inspector-content"] {
+    height: calc(100% - 16px);
+    margin: 8px 8px 8px 12px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  }
+}
+
 [data-v110="inspector-content"][aria-hidden="true"] {
   margin: 0;
   border: 0;

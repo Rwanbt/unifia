@@ -29,4 +29,10 @@ describe("splitChatWidth", () => {
   test("SplitChatWidth_Resized_UsesStoredWidth", () => {
     expect(splitChatWidth({ resized: true, width: 512.4, compact: true })).toBe("clamp(280px, 512px, min(50%, 1200px))")
   })
+
+  test("SplitChatWidth_CompactWithSidePanel_UsesReferenceSideWidth", () => {
+    expect(splitChatWidth({ resized: true, width: 500, compact: true, sidePanelOpen: true })).toBe(
+      "clamp(240px, 28vw, 290px)",
+    )
+  })
 })

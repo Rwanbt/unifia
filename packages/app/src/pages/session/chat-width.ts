@@ -9,6 +9,7 @@
 export const CHAT_MIN_WIDTH = 280
 export const CHAT_ABS_MAX_WIDTH = 1200
 const COMPACT_CHAT_VW = 36
+const COMPACT_SIDE_CHAT = "clamp(240px, 28vw, 290px)"
 
 /** The widest the chat may be beside a workspace `workspaceWidth` wide. */
 export function chatMaxWidth(workspaceWidth: number): number {
@@ -16,7 +17,15 @@ export function chatMaxWidth(workspaceWidth: number): number {
 }
 
 /** The split chat's CSS width; `50%` resolves against the workspace. */
-export function splitChatWidth(input: { resized: boolean; width: number; compact: boolean }): string {
+export function splitChatWidth(input: {
+  resized: boolean
+  width: number
+  compact: boolean
+  sidePanelOpen?: boolean
+}): string {
+  // Compact desktops with the context or inspector open: the reference fixes
+  // the chat at clamp(240px, 28vw, 290px) whatever the user's width.
+  if (input.compact && input.sidePanelOpen) return COMPACT_SIDE_CHAT
   const desired = input.compact && !input.resized ? `${COMPACT_CHAT_VW}vw` : `${Math.round(input.width)}px`
   return `clamp(${CHAT_MIN_WIDTH}px, ${desired}, min(50%, ${CHAT_ABS_MAX_WIDTH}px))`
 }

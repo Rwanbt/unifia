@@ -19,6 +19,10 @@ export const NARROW = 1360
 export const CONTEXT_NARROW = 220
 export const CHAT_NARROW = 330
 export const INSPECTOR_NARROW = 280
+// Below 1200px the context and inspector become floating cards (ADR-053).
+export const WIDE_MIN = 1200
+export const CONTEXT_FLOATING = 300
+export const INSPECTOR_FLOATING = 320
 
 export type Panel = "context" | "inspector"
 // Graph is a Memory sub-view, never a global layout (COMPONENT-MAP §1).
@@ -34,8 +38,9 @@ export function narrow(width: number): boolean {
 }
 
 export function width(panel: Panel | "chat", viewport: number): number {
-  if (panel === "context") return narrow(viewport) ? CONTEXT_NARROW : CONTEXT
-  if (panel === "inspector") return narrow(viewport) ? INSPECTOR_NARROW : INSPECTOR
+  const floating = viewport < WIDE_MIN
+  if (panel === "context") return floating ? CONTEXT_FLOATING : narrow(viewport) ? CONTEXT_NARROW : CONTEXT
+  if (panel === "inspector") return floating ? INSPECTOR_FLOATING : narrow(viewport) ? INSPECTOR_NARROW : INSPECTOR
   return narrow(viewport) ? CHAT_NARROW : CHAT
 }
 

@@ -219,16 +219,19 @@ export default function Page() {
         resized: layout.session.resized(),
         width: layout.session.width(),
         compact: shell.kind() === "single",
+        sidePanelOpen: layout.sidebar.opened() || desktopInspectorOpen(),
       })
     if (!desktopInspectorOpen()) return "100%"
     if (isMobileDevice()) return "50%"
     // The inspector card also takes its outer and inner gutters.
-    return `calc(100% - ${layout.inspector.width()}px - var(--v110-gutter-outer) - var(--v110-gutter-inner))`
+    return `calc(100% - ${layout.inspector.width()}px - var(--v110-inspector-margins))`
   })
   const centered = createMemo(() => isDesktop() && mode.active() === "code" && workspaceView() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
-  useViewportCenteredColumn(chatSurface, centered)
+  // Below 1200px the reference centres the focused chat on the workspace,
+  // not the window.
+  useViewportCenteredColumn(chatSurface, () => centered() && shell.kind() === "grid")
 
   // Settings, account, browser and memory render in the main pane, which the
   // Chat layout hides entirely; opening one from Chat used to change only the
@@ -1008,6 +1011,8 @@ export default function Page() {
           ref={setChatSurface}
           data-v110="session-chat-surface"
           data-collapsed={sessionPanelWidth() === "0px" ? "" : undefined}
+          data-layout={workspaceView()}
+          data-side-open={layout.sidebar.opened() || desktopInspectorOpen() ? "" : undefined}
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
             "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":

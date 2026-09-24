@@ -13,7 +13,7 @@ import { same } from "@/utils/same"
 import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
 import type { WorkView } from "./work-view"
-import { RAIL_COMPACT, width as panelWidth } from "@/tokens/panels"
+import { RAIL_COMPACT, WIDE_MIN, width as panelWidth } from "@/tokens/panels"
 
 const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] as const
 // v110 default shell width: 62px rail + 248px context panel at 1440px.
@@ -274,6 +274,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     // its own width.
     const [viewportWidth, setViewportWidth] = createSignal(typeof window === "undefined" ? 1440 : window.innerWidth)
     onMount(() => makeEventListener(window, "resize", () => setViewportWidth(window.innerWidth)))
+    // Below 1200px the context and inspector are floating cards and only one
+    // is open at a time (RESPONSIVE-MATRIX: mutually exclusive).
+    const exclusive = () => viewportWidth() < WIDE_MIN
 
     const [store, setStore, _, ready] = persisted(
       { ...target, migrate },
@@ -788,13 +791,19 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       sidebar: {
         opened: createMemo(() => store.sidebar.opened),
         open() {
-          setStore("sidebar", "opened", true)
+          batch(() => {
+            if (exclusive() && store.inspector?.opened) setStore("inspector", "opened", false)
+            setStore("sidebar", "opened", true)
+          })
         },
         close() {
           setStore("sidebar", "opened", false)
         },
         toggle() {
-          setStore("sidebar", "opened", (x) => !x)
+          batch(() => {
+            if (!store.sidebar.opened && exclusive() && store.inspector?.opened) setStore("inspector", "opened", false)
+            setStore("sidebar", "opened", (x) => !x)
+          })
         },
         width: createMemo(() =>
           store.sidebar.resized ? store.sidebar.width : RAIL_COMPACT + panelWidth("context", viewportWidth()),
@@ -864,6 +873,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("inspector", "explorerView", view)
         },
         open() {
+          if (exclusive()) setStore("sidebar", "opened", false)
           if (!store.inspector) {
             setStore("inspector", { opened: true, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return
@@ -878,6 +888,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           setStore("inspector", "opened", false)
         },
         toggle() {
+          if (exclusive() && !store.inspector?.opened) setStore("sidebar", "opened", false)
           if (!store.inspector) {
             setStore("inspector", { opened: true, width: DEFAULT_INSPECTOR_WIDTH, tab: "explorer", explorerView: "changed" })
             return

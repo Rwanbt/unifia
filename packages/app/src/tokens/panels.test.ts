@@ -23,6 +23,8 @@ describe("v110 panel contract", () => {
     expect(width("inspector", 1280)).toBe(INSPECTOR_NARROW)
     expect(width("chat", 1440)).toBe(CHAT)
     expect(width("chat", 1280)).toBe(CHAT_NARROW)
+    expect(width("context", 1100)).toBe(300)
+    expect(width("inspector", 1100)).toBe(320)
   })
 
   test("clamp keeps sizes inside bounds and maps NaN to min", () => {

@@ -664,6 +664,23 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   [data-v110="session-chat-surface"] {
     --v110-chat-column: min(100%, 780px, max(520px, 100cqw - 36px));
   }
+
+  /* A side card open: the chat fills what is left (reference: left/right
+   * 10px of the workspace), no longer a centred column. */
+  [data-v110="session-chat-surface"][data-side-open] {
+    --v110-chat-column: 100%;
+  }
+}
+
+/* Chat layout on compact desktops: the chat stops 20px from the window edge
+ * like the main card does; with the inspector open its own 12px gap applies. */
+@media (min-width: 900px) and (max-width: 1199px) {
+  [data-component="session-workspace-main"][data-inspector-open="false"]
+    > [data-v110="session-chat-surface"][data-layout="chat"] {
+    /* The inline width is 100%; the cap keeps the margin inside the row. */
+    max-width: calc(100% - var(--v110-gutter-outer));
+    margin-right: var(--v110-gutter-outer);
+  }
 }
 
 .v110-chat-column {
