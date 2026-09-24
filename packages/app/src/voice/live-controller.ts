@@ -1,0 +1,292 @@
+/* SPDX-License-Identifier: MIT */
+import type { LiveRoomGrant, LiveVoiceError, LiveVoiceState } from "@unifia/contracts/speech"
+import type { AudioCaptureLease } from "./audio-capture-coordinator"
+import type { AudioSettingsV2 } from "./audio-settings"
+import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
+import { deriveLiveState, INITIAL_LIVE_SNAPSHOT, reduceLive, type AgentPhase, type LiveEvent, type LiveSnapshot } from "./live-state"
+
+export type DisconnectReason = "client" | "lost" | "server"
+
+export interface LiveRoomHandlers {
+  onReconnecting(): void
+  onReconnected(): void
+  onDisconnected(reason: DisconnectReason): void
+  onAgentJoined(): void
+  onAgentLeft(): void
+  onAgentAttributes(attributes: Readonly<Record<string, string>>): void
+  onUserSpeaking(speaking: boolean): void
+}
+
+export interface LiveRoomOptions {
+  inputDeviceId?: string
+  outputDeviceId?: string
+}
+
+/** Transport seam: implemented with livekit-client, faked in tests. */
+export interface LiveRoom {
+  connect(grant: LiveRoomGrant, handlers: LiveRoomHandlers, options: LiveRoomOptions): Promise<void>
+  setMicrophone(enabled: boolean): Promise<void>
+  disconnect(): Promise<void>
+}
+
+export interface LiveContext {
+  directory: string
+  sessionID?: string
+  agent?: string
+  model?: { providerID: string; modelID: string }
+  variant?: string
+  locale?: string
+}
+
+export interface LivePlayback {
+  start(id: string, stop: () => void): void
+  end(id: string): void
+}
+
+export interface LiveControllerDeps {
+  host: LiveHostClient
+  createRoom: () => LiveRoom
+  settings: () => AudioSettingsV2
+  captureMicrophone: (stop: () => void) => AudioCaptureLease | undefined
+  playback: LivePlayback
+  onSession?: (sessionID: string) => void
+  log?: (message: string, data?: Record<string, unknown>) => void
+  sleep?: (ms: number) => Promise<void>
+  now?: () => number
+  agentJoinTimeoutMs?: number
+}
+
+const AGENT_PHASES = new Set<AgentPhase>(["initializing", "idle", "listening", "thinking", "speaking"])
+const AGENT_ERRORS = new Set<LiveVoiceError>(["stt_unavailable", "tts_unavailable", "agent_unavailable", "binding_invalid"])
+const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000]
+
+export function errorFromUnknown(error: unknown): LiveVoiceError {
+  if (error instanceof LiveHostError) return error.code
+  const name = (error as { name?: string } | null)?.name
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") return "microphone_denied"
+  if (name === "NotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") return "microphone_unavailable"
+  return "unknown"
+}
+
+/**
+ * Owns one Live conversation: Voice Host preparation, room grant, LiveKit
+ * connection, microphone lease, playback lease and reconnection. It holds
+ * the binding across reconnects so the room, device identity and Unifia
+ * session survive a network drop; turn de-duplication lives in the agent.
+ */
+export class LiveVoiceController {
+  private snapshot: LiveSnapshot = INITIAL_LIVE_SNAPSHOT
+  private listeners = new Set<(state: LiveVoiceState, snapshot: LiveSnapshot) => void>()
+  private room: LiveRoom | undefined
+  private lease: AudioCaptureLease | undefined
+  private grant: LiveRoomGrant | undefined
+  private context: LiveContext | undefined
+  private generation = 0
+  private playbackId: string | undefined
+  private agentTimer: ReturnType<typeof setTimeout> | undefined
+
+  constructor(private readonly deps: LiveControllerDeps) {}
+
+  get state(): LiveVoiceState {
+    return deriveLiveState(this.snapshot)
+  }
+
+  get details(): LiveSnapshot {
+    return this.snapshot
+  }
+
+  get binding(): string | undefined {
+    return this.grant?.binding
+  }
+
+  subscribe(listener: (state: LiveVoiceState, snapshot: LiveSnapshot) => void): () => void {
+    this.listeners.add(listener)
+    listener(this.state, this.snapshot)
+    return () => this.listeners.delete(listener)
+  }
+
+  private dispatch(event: LiveEvent, generation = this.generation) {
+    if (generation !== this.generation) return
+    const next = reduceLive(this.snapshot, event)
+    if (next === this.snapshot) return
+    this.snapshot = next
+    for (const listener of this.listeners) listener(this.state, this.snapshot)
+  }
+
+  private log(message: string, data?: Record<string, unknown>) {
+    this.deps.log?.(message, data)
+  }
+
+  async start(context: LiveContext): Promise<void> {
+    if (this.snapshot.connection !== "idle" && this.snapshot.connection !== "error") return
+    const generation = ++this.generation
+    this.context = context
+    const stale = this.grant?.binding
+    this.grant = undefined
+    if (stale) void this.deps.host.release(stale)
+    this.dispatch({ type: "start" }, generation)
+    const startedAt = (this.deps.now ?? Date.now)()
+    try {
+      const lease = this.deps.captureMicrophone(() => void this.stop())
+      if (!lease) throw new LiveHostError("microphone_unavailable")
+      this.lease = lease
+      const settings = this.deps.settings()
+      await this.deps.host.prepare(settings)
+      if (generation !== this.generation) return
+      this.grant = await this.deps.host.requestGrant(this.grantRequest(settings))
+      if (generation !== this.generation) return
+      await this.connect(generation)
+      this.log("voice.connect.ms", { value: (this.deps.now ?? Date.now)() - startedAt })
+    } catch (error) {
+      if (generation !== this.generation) return
+      this.fail(errorFromUnknown(error), error)
+    }
+  }
+
+  private grantRequest(settings: AudioSettingsV2): LiveGrantRequest {
+    const context = this.context!
+    if (this.grant) {
+      return { binding: this.grant.binding, agent: context.agent, model: context.model, variant: context.variant }
+    }
+    return {
+      directory: context.directory,
+      sessionID: context.sessionID,
+      agent: context.agent,
+      model: context.model,
+      variant: context.variant,
+      language: settings.sttLanguage,
+      locale: context.locale,
+      voices: settings.voiceByLanguage,
+      speed: settings.ttsSpeed,
+    }
+  }
+
+  private async connect(generation: number) {
+    const room = this.deps.createRoom()
+    this.room = room
+    const settings = this.deps.settings()
+    await room.connect(this.grant!, this.handlers(generation), {
+      inputDeviceId: settings.liveInputDeviceId,
+      outputDeviceId: settings.liveOutputDeviceId,
+    })
+    if (generation !== this.generation) {
+      await room.disconnect()
+      return
+    }
+    await room.setMicrophone(true)
+    this.dispatch({ type: "connected" }, generation)
+    if (!this.playbackId) {
+      this.playbackId = `live-${generation}`
+      this.deps.playback.start(this.playbackId, () => void this.stop())
+    }
+    this.armAgentTimer(generation)
+  }
+
+  private armAgentTimer(generation: number) {
+    clearTimeout(this.agentTimer)
+    if (this.snapshot.agent !== "initializing") return
+    this.agentTimer = setTimeout(() => {
+      if (generation === this.generation && this.snapshot.agent === "initializing") this.fail("voice_host_unavailable")
+    }, this.deps.agentJoinTimeoutMs ?? 20_000)
+  }
+
+  private handlers(generation: number): LiveRoomHandlers {
+    return {
+      onReconnecting: () => this.dispatch({ type: "reconnecting" }, generation),
+      onReconnected: () => this.dispatch({ type: "reconnected" }, generation),
+      onDisconnected: (reason) => {
+        if (generation !== this.generation || reason === "client") return
+        void this.reconnect(generation)
+      },
+      onAgentJoined: () => clearTimeout(this.agentTimer),
+      onAgentLeft: () => {
+        if (generation === this.generation && this.snapshot.connection === "connected") this.fail("agent_unavailable")
+      },
+      onAgentAttributes: (attributes) => this.applyAgentAttributes(attributes, generation),
+      onUserSpeaking: (speaking) => this.dispatch({ type: "user-speaking", speaking }, generation),
+    }
+  }
+
+  private applyAgentAttributes(attributes: Readonly<Record<string, string>>, generation: number) {
+    const phase = attributes["lk.agent.state"] as AgentPhase | undefined
+    if (phase && AGENT_PHASES.has(phase)) {
+      if (phase !== "initializing") clearTimeout(this.agentTimer)
+      this.dispatch({ type: "agent-state", agent: phase }, generation)
+    }
+    const task = attributes["unifia.task"]
+    if (task === "idle" || task === "thinking" || task === "working") this.dispatch({ type: "agent-task", task }, generation)
+    if ("unifia.attention" in attributes) {
+      const attention = attributes["unifia.attention"]
+      this.dispatch({ type: "attention", attention: attention === "permission" || attention === "question" ? attention : undefined }, generation)
+    }
+    const error = attributes["unifia.error"] as LiveVoiceError | undefined
+    if (error && AGENT_ERRORS.has(error)) this.fail(error)
+    const session = attributes["unifia.session"]
+    if (session?.startsWith("ses_") && this.grant && this.grant.sessionID !== session) {
+      this.grant = { ...this.grant, sessionID: session }
+      this.deps.onSession?.(session)
+    }
+  }
+
+  /** Full reconnect after LiveKit gave up resuming: same binding, fresh token. */
+  private async reconnect(generation: number) {
+    this.dispatch({ type: "reconnecting" }, generation)
+    const sleep = this.deps.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)))
+    await this.room?.disconnect().catch(() => undefined)
+    for (const delay of RECONNECT_DELAYS_MS) {
+      await sleep(delay)
+      if (generation !== this.generation) return
+      try {
+        this.grant = await this.deps.host.requestGrant(this.grantRequest(this.deps.settings()))
+        await this.connect(generation)
+        this.dispatch({ type: "reconnected" }, generation)
+        return
+      } catch (error) {
+        const code = errorFromUnknown(error)
+        if (code === "binding_invalid" || code === "microphone_denied") {
+          this.fail(code, error)
+          return
+        }
+        this.log("voice.reconnect.retry", { code })
+      }
+    }
+    this.fail("connection_lost")
+  }
+
+  private fail(error: LiveVoiceError, cause?: unknown) {
+    this.log("voice.live.error", { error, cause: cause instanceof Error ? cause.message : undefined })
+    this.teardown()
+    this.dispatch({ type: "error", error })
+  }
+
+  private teardown() {
+    clearTimeout(this.agentTimer)
+    const room = this.room
+    this.room = undefined
+    void room?.disconnect().catch(() => undefined)
+    this.lease?.release()
+    this.lease = undefined
+    if (this.playbackId) this.deps.playback.end(this.playbackId)
+    this.playbackId = undefined
+  }
+
+  async stop(): Promise<void> {
+    if (this.snapshot.connection === "idle") return
+    this.generation++
+    const binding = this.grant?.binding
+    this.grant = undefined
+    this.teardown()
+    this.snapshot = INITIAL_LIVE_SNAPSHOT
+    for (const listener of this.listeners) listener(this.state, this.snapshot)
+    if (binding) await this.deps.host.release(binding)
+  }
+
+  /** Clears an error so the button returns to idle. */
+  reset() {
+    if (this.snapshot.connection !== "error") return
+    this.generation++
+    this.grant = undefined
+    this.snapshot = INITIAL_LIVE_SNAPSHOT
+    for (const listener of this.listeners) listener(this.state, this.snapshot)
+  }
+}

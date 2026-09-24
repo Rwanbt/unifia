@@ -17,6 +17,9 @@ export interface AudioSettingsV2 {
   ttsAutoPlay: boolean
   voiceByLanguage: Partial<Record<SpeechLanguage, string>>
   liveEnabled: boolean
+  /** Live microphone/speaker; undefined means the system default device. */
+  liveInputDeviceId?: string
+  liveOutputDeviceId?: string
   voiceHostMode: "local" | "lan"
   cpuProfile: CpuProfile
 }
@@ -30,7 +33,7 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettingsV2 = {
   ttsSpeed: 1,
   ttsAutoPlay: false,
   voiceByLanguage: {},
-  liveEnabled: false,
+  liveEnabled: true,
   voiceHostMode: "local",
   cpuProfile: "balanced",
 }
@@ -42,6 +45,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function normalizeSpeed(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_AUDIO_SETTINGS.ttsSpeed
   return Math.min(2, Math.max(0.5, value))
+}
+
+function normalizeDeviceId(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() && value.length <= 512 ? value : undefined
 }
 
 function normalizeVoices(value: unknown): Partial<Record<SpeechLanguage, string>> {
@@ -79,6 +86,8 @@ export function migrateAudioSettings(value: unknown): AudioSettingsV2 {
     ttsAutoPlay: typeof value.ttsAutoPlay === "boolean" ? value.ttsAutoPlay : DEFAULT_AUDIO_SETTINGS.ttsAutoPlay,
     voiceByLanguage: normalizeVoices(value.voiceByLanguage),
     liveEnabled: typeof value.liveEnabled === "boolean" ? value.liveEnabled : DEFAULT_AUDIO_SETTINGS.liveEnabled,
+    liveInputDeviceId: normalizeDeviceId(value.liveInputDeviceId),
+    liveOutputDeviceId: normalizeDeviceId(value.liveOutputDeviceId),
     voiceHostMode: value.voiceHostMode === "lan" ? "lan" : "local",
     cpuProfile,
   }

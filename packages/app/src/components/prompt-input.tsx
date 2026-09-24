@@ -26,8 +26,6 @@ import { Select } from "@unifia/ui/select"
 import { useDialog } from "@unifia/ui/context/dialog"
 import { ModelSelectorPopover } from "@/components/dialog-select-model"
 import { useProviders } from "@/hooks/use-providers"
-import type { SpeechEndDetail } from "@/hooks/web-speech"
-import { showToast } from "@unifia/ui/toast"
 import { useCommand } from "@/context/command"
 import { Persist, persisted } from "@/utils/persist"
 import { usePermission } from "@/context/permission"
@@ -69,6 +67,8 @@ import { EXAMPLES } from "./prompt-input/examples"
 import { promptPlaceholder } from "./prompt-input/placeholder"
 import { ImagePreview } from "@unifia/ui/image-preview"
 import { SessionContextUsage } from "@/components/session-context-usage"
+import { createDictation, VoiceControls } from "./prompt-input/voice-controls"
+import { createLiveBinding } from "./prompt-input/live-binding"
 
 interface PromptInputProps {
   class?: string
@@ -531,17 +531,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   )
   const webSearch = () => webSearchPrefs.webSearch
   const setWebSearch = (value: boolean) => setWebSearchPrefs("webSearch", value)
-  const [recording, setRecording] = createSignal(false)
-  // The speech engine ends dictation on its own (silence, error, missing
-  // browser support): leave the recording state and say why (web-speech.ts).
-  const onSpeechEnded = (event: Event) => {
-    const detail = (event as CustomEvent<SpeechEndDetail>).detail
-    if (detail.kind === "stt") setRecording(false)
-    if (detail.reason === "done") return
-    showToast({ title: language.t(`speech.${detail.reason}`) })
-  }
-  window.addEventListener("speech-ended", onSpeechEnded)
-  onCleanup(() => window.removeEventListener("speech-ended", onSpeechEnded))
+  const dictation = createDictation(language)
+  const recording = dictation.recording
+  const live = createLiveBinding({ platform, sdk, params, local, language })
   const isImeComposing = (event: KeyboardEvent) => event.isComposing || composing() || event.keyCode === 229
 
   const handleBlur = () => {
@@ -1244,32 +1236,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   }}
                 />
               </Tooltip>
-              <Tooltip
-                placement="top"
-                value={recording() ? language.t("prompt.stopRecording") : language.t("prompt.voiceInput")}
-              >
-                <IconButton
-                  data-action="prompt-stt-toggle"
-                  icon="microphone"
-                  variant={recording() ? "primary" : "ghost"}
-                  class="size-8"
-                  style={buttons()}
-                  aria-label={recording() ? language.t("prompt.stopRecording") : language.t("prompt.voiceInput")}
-                  onClick={(e: MouseEvent) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    if (recording()) {
-                      // Stop recording - dispatch event for STT handler
-                      window.dispatchEvent(new CustomEvent("stt-stop"))
-                      setRecording(false)
-                    } else {
-                      // Start recording
-                      window.dispatchEvent(new CustomEvent("stt-start"))
-                      setRecording(true)
-                    }
-                  }}
-                />
-              </Tooltip>
+              <VoiceControls
+                dictation={dictation}
+                liveAvailable={live.available}
+                liveContext={live.context}
+                language={language}
+                style={buttons()}
+              />
               <div data-v110="prompt-send-stack">
                 <SessionContextUsage webSearch={webSearch()} />
                 <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>

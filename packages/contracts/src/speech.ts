@@ -130,3 +130,61 @@ export function resolveSpeechLanguage(input: LanguageRouteInput): SpeechLanguage
   }
   return input.conversationLanguage ?? localeLanguage(input.applicationLocale) ?? "en"
 }
+
+/** Live conversation UI state; never collapsed to a boolean. */
+export const liveVoiceStates = [
+  "idle",
+  "connecting",
+  "listening",
+  "processing",
+  "thinking",
+  "speaking",
+  "working",
+  "reconnecting",
+  "error",
+] as const
+export type LiveVoiceState = (typeof liveVoiceStates)[number]
+
+/** Stable error codes shared by the Voice Host, the server and the UI. */
+export type LiveVoiceError =
+  | "microphone_denied"
+  | "microphone_unavailable"
+  | "voice_host_unavailable"
+  | "voice_host_lan_disabled"
+  | "stt_unavailable"
+  | "tts_unavailable"
+  | "agent_unavailable"
+  | "binding_invalid"
+  | "connection_lost"
+  | "rate_limited"
+  | "unknown"
+
+/** One finalized user utterance handed to the Unifia session. */
+export interface VoiceTurn {
+  id: string
+  sessionId: string
+  deviceId: string
+  transcript: string
+  language: SpeechLanguage
+  startedAt: number
+  endedAt: number
+}
+
+export type VoiceAgentEvent =
+  | { type: "text-delta"; text: string }
+  | { type: "tool-start"; name: string }
+  | { type: "tool-end"; name: string }
+  | { type: "permission-required"; id: string }
+  | { type: "working"; text?: string }
+  | { type: "done" }
+  | { type: "error"; message: string }
+
+/** Response of ``POST /voice/live/session`` on the Unifia server. */
+export interface LiveRoomGrant {
+  url: string
+  token: string
+  expiresAt: number
+  room: string
+  binding: string
+  sessionID: string | null
+}

@@ -7,6 +7,7 @@ import { Tooltip } from "@unifia/ui/tooltip"
 import { showToast } from "@unifia/ui/toast"
 import { SettingsPage, SettingsSection } from "./settings-page"
 import { SettingsRow } from "./settings-row"
+import { SettingsAudioLive } from "./settings-audio-live"
 import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
@@ -172,6 +173,8 @@ export const SettingsAudio: Component = () => {
           <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
         </Show>
       </SettingsSection>
+
+      <SettingsAudioLive settings={settings} update={update} hostsVoice={platform.platform === "desktop"} />
 
       <Show when={!isMobile()}>
         <VoiceCloneSection

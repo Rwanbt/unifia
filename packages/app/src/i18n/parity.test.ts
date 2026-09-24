@@ -133,6 +133,9 @@ const TECHNICAL_ALLOWLIST = new Set([
   "settings.fork.observability.sessions",
   "settings.fork.observability.sessionsCount",
   "settings.fork.audio.pocketOption",
+  // 2026-09-24: Live speech CPU profile. "Eco" is the same word in Spanish
+  // and Italian-influenced UIs and is used as-is by Spanish locales.
+  "settings.fork.audio.liveCpuEco",
   "settings.fork.plugins.local",
   "settings.fork.plugins.url",
   "settings.fork.plugins.title",
