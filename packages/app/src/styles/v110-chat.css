@@ -243,6 +243,9 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   background: transparent;
   box-shadow: none;
   padding: 0;
+  /* The base dock clips to its rounded box; here the composer draws the box,
+   * and the context meter's card must rise above it. */
+  overflow: visible;
 }
 
 [data-v110="composer-dock"] [data-component="prompt-input"] {
@@ -359,14 +362,31 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   overflow: visible;
 }
 
-[data-v110="prompt-send-stack"] [data-v110="context-meter"] > div {
-  display: grid;
-  place-items: center;
-}
-
 [data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
   width: 22px;
   height: 22px;
+  transform: rotate(-90deg);
+}
+
+/* The ring -- maquette .context-meter .meter-track/.meter-value. The value
+ * stroke is currentColor so the level colours below (and the user's accent,
+ * ADR-048) reach it. */
+[data-v110="context-meter"] [data-slot="meter-track"] {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 15%, var(--line-strong));
+  stroke-width: 2.3;
+}
+
+[data-v110="context-meter"] [data-slot="meter-value"] {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.3;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--usage, 0));
+  transition:
+    stroke-dashoffset 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Context meter level -- maquette .context-meter[data-level]: accent while
@@ -381,6 +401,104 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 
 [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-v110="context-meter"][data-level="danger"] {
   color: var(--text-danger);
+}
+
+/* The metrics card -- maquette .context-meter-tooltip, shown on hover, on
+ * keyboard focus, or after a first tap on touch screens (data-open). */
+[data-v110="context-meter"] [data-slot="context-meter-tip"] {
+  position: absolute;
+  right: -4px;
+  bottom: calc(100% + 8px);
+  z-index: 100;
+  display: block;
+  width: 236px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+  color: var(--text);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: 0.14s ease;
+}
+
+[data-v110="context-meter"]:hover [data-slot="context-meter-tip"],
+[data-v110="context-meter"]:focus-visible [data-slot="context-meter-tip"],
+[data-v110="context-meter"][data-open] [data-slot="context-meter-tip"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+[data-v110="context-meter"] [data-slot="context-meter-tip"]::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: inherit;
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  transform: rotate(45deg);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-title"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* The dot takes the meter's level colour (currentColor of the button). */
+[data-v110="context-meter"] [data-slot="meter-tip-dot"] {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-title"] > span:last-child {
+  color: var(--text);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] > span:first-child {
+  color: var(--muted);
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-row"] > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-v110="context-meter"] [data-slot="meter-tip-foot"] {
+  display: block;
+  margin-top: 7px;
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--faint);
 }
 
 [data-v110="prompt-send-stack"] [data-action="prompt-submit"] {
@@ -473,6 +591,18 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   [data-v110="prompt-send-stack"] [data-v110="context-meter"] svg {
     width: 24px;
     height: 24px;
+  }
+
+  /* Maquette: on phones the card docks to the viewport's right edge. */
+  [data-v110="context-meter"] [data-slot="context-meter-tip"] {
+    position: fixed;
+    right: 10px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    width: min(250px, calc(100vw - 20px));
+  }
+
+  [data-v110="context-meter"] [data-slot="context-meter-tip"]::after {
+    display: none;
   }
 }
 

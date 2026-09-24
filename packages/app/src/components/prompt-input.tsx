@@ -1269,7 +1269,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 />
               </Tooltip>
               <div data-v110="prompt-send-stack">
-                <SessionContextUsage placement="top" />
+                <SessionContextUsage webSearch={webSearch()} />
                 <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
                   <IconButton
                     data-action="prompt-submit"
