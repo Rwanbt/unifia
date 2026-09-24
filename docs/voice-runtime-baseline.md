@@ -137,3 +137,41 @@ At this snapshot desktop packaging remained blocked and the voice-worktree typec
 One earlier packaged-app launch was not fully isolated from the real user profile. It created/updated `C:\Users\barat\.local\share\unifia\unifia-voice.db` and touched `workbench-audit.jsonl`; the processes were stopped and no cleanup or rollback was performed, to preserve possible user data. All subsequent packaged launch work used isolated profile directories. The isolated packaged startup does not qualify synthesis or crash recovery.
 
 Do not begin Wave E. Gate D can close only after Tauri-owned worker crash and second-restart qualification plus packaged synthesis are evidenced. Clone-capable weights remain an external dependency if Gate D requires positive clone qualification; this branch only proves fail-closed handling for the loaded no-cloning checkpoint.
+
+## Final Gate D certification — 2026-09-24
+
+**Wave D: PASS. Wave E (Piper fallback) is authorized.** This is the canonical closure result and supersedes the earlier historical `Final Gate D closure attempt` status. The qualification was executed by the installed NSIS application through `SpeechState`, the shared `synthesize_to_file()` path used by `tts_speak`, `VoiceRuntime`, the managed Python 3.12 environment, Pocket, and the production WAV writer. No frontend IPC or UI control can invoke worker crash injection.
+
+### Source and package identity
+
+- Branch: `voice`; source base HEAD before the closure changes: `71df00e367a9066b10973f34e45f85a9c484aa3c` (equal to `origin/voice` before this tranche).
+- `origin/new-ui` and its merge base with the source base were both `09d609621ce80bf224296c5981cd93aa9196893e`; the branch remains based on the latest pushed `new-ui` commit.
+- Installed executable: `.build-temp/install-gate-d-20260924-r5/Unifia.exe`, 47,876,096 bytes; SHA-256 `8C480FD7DED37EBE59DDB3DCB39F520C8ACA83BF0FCFA555ED67BCCFB7E34CDC`.
+- NSIS installer SHA-256: `DE9757113D9840A9F3891ECB1CFBD18E31572C7618FB37609B72144BA527EC3E`. Local installer is unsigned outside GitHub Actions.
+- Result: `.build-temp/profile-gate-d/qualification-report-20260924-033352-371.json`, SHA-256 `C74E03A10D7CC8FFF26AB276944E1FC4401E0973E2F72588B1992E8B778C14F0`.
+- The release build was installed and launched from the r5 directory above with its app data, cache, logs, home, and OS profile paths redirected under `.build-temp/profile-gate-d`.
+
+### Packaged recovery and synthesis evidence
+
+The exact sequence passed: synthesis → internal crash → automatic recovery and synthesis → internal crash → automatic recovery and synthesis. Both crash injections killed the exact managed Python worker and awaited confirmed process exit. Normal synthesis then exercised production failure detection, stale-worker clearing, backoff, runtime startup, health, prepare/warmup, and the single retry.
+
+| Generation | Worker PID | Crash confirmed | Synthesis | PCM | WAV bytes / duration | First audio | Generation / finalize | Failure detect / restart / retry |
+|---|---:|---|---|---:|---:|---:|---:|---:|
+| A | 14264 | Yes | #1 PASS | 24 kHz, 49,920 samples | 99,884 / 2,080 ms | 169 ms | 632 / 0 ms | — |
+| B | 14120 | Yes | #2 PASS | 24 kHz, 51,840 samples | 103,724 / 2,160 ms | 146 ms | 963 / 0 ms | 0 / 8,607 / 965 ms |
+| C | 17224 | No further crash | #3 PASS | 24 kHz, 53,760 samples | 107,564 / 2,240 ms | 56 ms | 483 / 1 ms | 0 / 6,986 / 485 ms |
+
+All WAVs passed RIFF/WAVE parsing, mono PCM16, 24 kHz, declared sample count/metrics agreement, non-empty duration and non-zero sample checks. The installed app reported exit 0; no Python worker orphan remained; the protected real-profile `unifia-voice.db` and `workbench-audit.jsonl` hashes were unchanged. Exactly two automatic restarts were recorded.
+
+### Regression checks and bounded limitations
+
+- `bun turbo typecheck --concurrency=1`: PASS, 47/47 tasks (replayed before the final Rust-only process-launch adjustment); the final NSIS build's `bun run build` also passed TypeScript typecheck and Vite build.
+- `bun run --cwd packages/app test:unit`: PASS, 1,643 tests, 0 failures, 41,539 expectations (replayed before the final Rust-only adjustment).
+- Managed voice-host tests: PASS, 24 tests (replayed before the final Rust-only adjustment).
+- Desktop `cargo check --manifest-path packages/desktop/src-tauri/Cargo.toml --locked`: PASS after the final Rust changes.
+- Changed voice Rust files passed `rustfmt --edition 2024 --check`; `git diff --check` passed. Existing formatting differences in untouched desktop files were not reformatted.
+- Focused Rust qualification unit tests could not execute: test-profile compilation failed under this host's resource limits (`failed to spawn work thread`, Win32 error 1450; another attempt ended with Rust allocation failure/status `0xc0000409`). The packaged end-to-end qualification above did execute the crash transitions and WAV validation. This is an environment limitation, not a Rust test assertion failure.
+- Clone-capable checkpoint weights and per-process NVML attribution remain unavailable; clone fail-closed behavior remains qualified. The installer is unsigned in this local build. These do not block Gate D under the closure criteria.
+- No Piper or LiveKit process or implementation was started in this Gate D tranche.
+
+**Verdict: Gate D closed PASS. Wave E Piper fallback is authorized in the frozen order.**

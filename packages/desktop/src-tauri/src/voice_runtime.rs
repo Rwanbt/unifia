@@ -7,7 +7,7 @@ use bootstrap::{apply_runtime_environment, emit_progress, prepare_runtime};
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
@@ -65,12 +65,16 @@ impl VoiceRuntime {
         }
 
         emit_progress(app, "runtime", "Starting the managed speech runtime");
-        let (uv, project) = prepare_runtime(app).await?;
-        let mut command = Command::new(uv);
+        let project = prepare_runtime(app).await?;
+        let python = project.join(".venv").join(if cfg!(windows) {
+            "Scripts/python.exe"
+        } else {
+            "bin/python"
+        });
+        let mut command = Command::new(python);
         command
-            .args(["run", "--locked", "--directory"])
-            .arg(&project)
-            .args(["python", "-m", "voice_host.worker"])
+            .current_dir(&project)
+            .args(["-m", "voice_host.worker"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -202,9 +206,14 @@ impl VoiceRuntime {
         voice: &str,
         voice_sample: Option<&Path>,
         output: &Path,
-    ) -> Result<(), String> {
-        self.start(app).await?;
-        let worker = self.current_worker().await?;
+    ) -> Result<SynthesisMetrics, String> {
+        let worker = match self.current_worker().await {
+            Ok(worker) => worker,
+            Err(_) => {
+                self.start(app).await?;
+                self.current_worker().await?
+            }
+        };
         let request = SynthesisRequest {
             text,
             language,
@@ -213,24 +222,69 @@ impl VoiceRuntime {
             output,
         };
         match self.synthesize_with_worker(&worker, app, &request).await {
-            Ok(()) => Ok(()),
+            Ok(metrics) => Ok(metrics),
             Err(first_error) => {
-                if !Self::worker_exited(&worker).await? {
+                let detection_started = std::time::Instant::now();
+                let exited = Self::worker_exited(&worker).await?;
+                let failure_detection_ms = detection_started.elapsed().as_millis() as u64;
+                if !exited {
                     return Err(first_error);
                 }
                 self.clear_if_current(&worker).await;
+                let restart_started = std::time::Instant::now();
                 tokio::time::sleep(WORKER_RESTART_BACKOFF).await;
                 self.start(app).await.map_err(|restart_error| {
                     format!("Voice Host exited ({first_error}); restart failed: {restart_error}")
                 })?;
+                let restart_ms = restart_started.elapsed().as_millis() as u64;
                 let recovered_worker = self.current_worker().await?;
-                self.synthesize_with_worker(&recovered_worker, app, &request)
+                let retry_started = std::time::Instant::now();
+                let mut metrics = self
+                    .synthesize_with_worker(&recovered_worker, app, &request)
                     .await
                     .map_err(|retry_error| {
                         format!("Voice Host restarted but synthesis retry failed: {retry_error}")
-                    })
+                    })?;
+                metrics.failure_detection_ms = Some(failure_detection_ms);
+                metrics.restart_ms = Some(restart_ms);
+                metrics.retry_ms = Some(retry_started.elapsed().as_millis() as u64);
+                Ok(metrics)
             }
         }
+    }
+
+    pub(crate) async fn qualification_worker_pid(&self) -> Result<u32, String> {
+        let worker = self.current_worker().await?;
+        worker
+            .child
+            .lock()
+            .await
+            .id()
+            .ok_or_else(|| "Managed Voice Host PID is unavailable".into())
+    }
+
+    pub(crate) async fn qualification_kill_worker(&self) -> Result<u32, String> {
+        let worker = self.current_worker().await?;
+        let _operation = worker.operation.lock().await;
+        let mut child = worker.child.lock().await;
+        if child
+            .try_wait()
+            .map_err(|error| format!("Check qualification worker: {error}"))?
+            .is_some()
+        {
+            return Err("Qualification worker already exited".into());
+        }
+        let pid = child
+            .id()
+            .ok_or_else(|| "Managed Voice Host PID is unavailable".to_string())?;
+        child
+            .start_kill()
+            .map_err(|error| format!("Terminate qualification worker: {error}"))?;
+        child
+            .wait()
+            .await
+            .map_err(|error| format!("Confirm qualification worker exit: {error}"))?;
+        Ok(pid)
     }
 
     async fn synthesize_with_worker(
@@ -238,23 +292,40 @@ impl VoiceRuntime {
         worker: &Arc<VoiceWorkerProcess>,
         app: &AppHandle,
         request: &SynthesisRequest<'_>,
-    ) -> Result<(), String> {
+    ) -> Result<SynthesisMetrics, String> {
         let _operation = worker.operation.lock().await;
         let prepared = request_worker(worker, serde_json::json!({
             "id":"prepare", "action":"prepare", "language":request.language, "voice":request.voice,
             "voiceSample":request.voice_sample,
-            "voiceRoot":app.path().app_data_dir().map_err(|error| error.to_string())?.join("speech/voices")
+            "voiceRoot":bootstrap::app_data_dir(app)?.join("speech/voices")
         })).await?;
         require_response(&prepared, "prepared")?;
 
         let request_id = uuid::Uuid::new_v4().to_string();
+        let started_at = std::time::Instant::now();
         let result = synthesize_audio(worker, &request_id, request.text).await;
         *worker.active_request.lock().await = None;
-        let (sample_rate, audio) = result?;
+        let (sample_rate, audio, first_audio_ms) = result?;
+        let generation_ms = started_at.elapsed().as_millis() as u64;
         if sample_rate == 0 || audio.is_empty() {
             return Err("Pocket produced no audio".into());
         }
-        write_wav(request.output, sample_rate, &audio)
+        if audio.iter().any(|sample| !sample.is_finite()) {
+            return Err("Pocket produced non-finite audio samples".into());
+        }
+        let wav_started = std::time::Instant::now();
+        write_wav(request.output, sample_rate, &audio)?;
+        Ok(SynthesisMetrics {
+            sample_rate,
+            samples: audio.len(),
+            duration_ms: started_at.elapsed().as_millis() as u64,
+            first_audio_ms,
+            generation_ms,
+            wav_finalize_ms: wav_started.elapsed().as_millis() as u64,
+            failure_detection_ms: None,
+            restart_ms: None,
+            retry_ms: None,
+        })
     }
 
     async fn current_worker(&self) -> Result<Arc<VoiceWorkerProcess>, String> {
@@ -358,6 +429,23 @@ impl VoiceRuntime {
     }
 }
 
+pub(crate) fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    bootstrap::app_data_dir(app)
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub(crate) struct SynthesisMetrics {
+    pub sample_rate: u32,
+    pub samples: usize,
+    pub duration_ms: u64,
+    pub first_audio_ms: u64,
+    pub generation_ms: u64,
+    pub wav_finalize_ms: u64,
+    pub failure_detection_ms: Option<u64>,
+    pub restart_ms: Option<u64>,
+    pub retry_ms: Option<u64>,
+}
+
 fn worker_progress(line: &str) -> Option<(&'static str, &'static str)> {
     if line.contains("Pocket runtime import failed") {
         Some(("error", "The speech runtime could not be initialized"))
@@ -396,7 +484,8 @@ async fn synthesize_audio(
     worker: &VoiceWorkerProcess,
     request_id: &str,
     text: &str,
-) -> Result<(u32, Vec<f32>), String> {
+) -> Result<(u32, Vec<f32>, u64), String> {
+    let started_at = std::time::Instant::now();
     let mut stdin = worker.stdin.lock().await;
     let request = serde_json::json!({"id":request_id, "action":"synthesize", "text":text});
     stdin
@@ -417,6 +506,7 @@ async fn synthesize_audio(
 
     let mut sample_rate = 0;
     let mut audio = Vec::new();
+    let mut first_audio_ms = None;
     loop {
         let response = read_response(worker).await?;
         if response.get("id").and_then(serde_json::Value::as_str) != Some(request_id) {
@@ -424,6 +514,7 @@ async fn synthesize_audio(
         }
         match response.get("type").and_then(serde_json::Value::as_str) {
             Some("audio") => {
+                first_audio_ms.get_or_insert_with(|| started_at.elapsed().as_millis() as u64);
                 sample_rate = response
                     .get("sampleRate")
                     .and_then(serde_json::Value::as_u64)
@@ -444,7 +535,13 @@ async fn synthesize_audio(
                         .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])),
                 );
             }
-            Some("complete") => return Ok((sample_rate, audio)),
+            Some("complete") => {
+                return Ok((
+                    sample_rate,
+                    audio,
+                    first_audio_ms.unwrap_or_else(|| started_at.elapsed().as_millis() as u64),
+                ));
+            }
             Some("error") => {
                 return Err(response
                     .get("message")

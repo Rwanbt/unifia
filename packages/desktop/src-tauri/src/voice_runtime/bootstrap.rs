@@ -6,12 +6,16 @@ use tokio::process::Command;
 
 const UV_VERSION: &str = "0.12.18";
 const PYTHON_VERSION: &str = "3.12";
-pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
-    let speech_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("speech");
+
+pub(super) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    if let Some(qualification_data_dir) = std::env::var_os("UNIFIA_VOICE_QUALIFICATION_DATA_DIR") {
+        return Ok(PathBuf::from(qualification_data_dir));
+    }
+    app.path().app_data_dir().map_err(|error| error.to_string())
+}
+
+pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<PathBuf, String> {
+    let speech_dir = app_data_dir(app)?.join("speech");
     let project = speech_dir.join("voice-host");
     tokio::fs::create_dir_all(&speech_dir)
         .await
@@ -30,7 +34,7 @@ pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<(PathBuf, PathBuf
     );
     run_uv(&uv, ["sync", "--locked", "--project"], app, &project).await?;
     emit_progress(app, "runtime", "Managed speech runtime is ready");
-    Ok((uv, project))
+    Ok(project)
 }
 
 fn packaged_project(app: &AppHandle) -> Result<PathBuf, String> {
@@ -126,11 +130,7 @@ pub(super) fn apply_runtime_environment(
     app: &AppHandle,
     project: &Path,
 ) -> Result<(), String> {
-    let speech_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("speech");
+    let speech_dir = app_data_dir(app)?.join("speech");
     command
         .env("UV_PYTHON_INSTALL_DIR", speech_dir.join("runtime/python"))
         .env("UV_PYTHON_PREFERENCE", "only-managed")

@@ -9,6 +9,7 @@ mod validate;
 mod parakeet;
 mod speech;
 mod voice_runtime;
+mod voice_qualification;
 #[cfg(target_os = "linux")]
 pub mod linux_display;
 #[cfg(target_os = "linux")]
@@ -574,6 +575,8 @@ fn wsl_path(path: String, mode: Option<WslPathMode>) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let qualification = voice_qualification::requested_report_path();
+    let is_qualification = qualification.is_some();
     let builder = make_specta_builder();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -586,36 +589,56 @@ pub fn run() {
     // processes belonging to the user or to another Unifia install. Leases make
     // the blast radius exactly the set of processes we can prove we started.
     let child_processes = child_processes::ChildProcesses::default();
-    child_processes.recover_orphans();
+    if !is_qualification {
+        child_processes.recover_orphans();
+    }
 
-    let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let mut app_builder = tauri::Builder::default();
+    if !is_qualification {
+        app_builder = app_builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Focus existing window when another instance is launched
             if let Some(window) = app.get_webview_window(MainWindow::LABEL) {
                 let _ = window.set_focus();
                 let _ = window.unminimize();
             }
-        }))
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_os::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::new()
-                .with_state_flags(window_state_flags())
-                .with_denylist(&[LoadingWindow::LABEL])
-                .build(),
-        )
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(crate::window_customizer::PinchZoomDisablePlugin)
+        }));
+        app_builder = app_builder
+            .plugin(tauri_plugin_deep_link::init())
+            .plugin(tauri_plugin_os::init())
+            .plugin(
+                tauri_plugin_window_state::Builder::new()
+                    .with_state_flags(window_state_flags())
+                    .with_denylist(&[LoadingWindow::LABEL])
+                    .build(),
+            )
+            .plugin(tauri_plugin_store::Builder::new().build())
+            .plugin(tauri_plugin_dialog::init())
+            .plugin(tauri_plugin_shell::init())
+            .plugin(tauri_plugin_process::init())
+            .plugin(tauri_plugin_opener::init())
+            .plugin(tauri_plugin_clipboard_manager::init())
+            .plugin(tauri_plugin_http::init())
+            .plugin(tauri_plugin_notification::init())
+            .plugin(crate::window_customizer::PinchZoomDisablePlugin);
+    }
+    app_builder = app_builder
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let handle = app.handle().clone();
+
+            if let Some(qualification) = qualification {
+                match qualification {
+                    Ok(result_path) => {
+                        handle.manage(speech::SpeechState::new());
+                        tauri::async_runtime::spawn(voice_qualification::run(handle, result_path));
+                    }
+                    Err(error) => {
+                        eprintln!("Invalid internal voice qualification arguments: {error}");
+                        handle.exit(2);
+                    }
+                }
+                return Ok(());
+            }
 
             let log_dir = app
                 .path()
@@ -648,11 +671,11 @@ pub fn run() {
             Ok(())
         });
 
-    if UPDATER_ENABLED {
-        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    if !is_qualification && UPDATER_ENABLED {
+        app_builder = app_builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
-    builder
+    app_builder
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app, event| {

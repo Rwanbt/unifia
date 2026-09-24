@@ -28,9 +28,7 @@ fn next_chunk_filename() -> String {
 }
 
 fn data_dir(app: &AppHandle) -> PathBuf {
-    app.path()
-        .app_data_dir()
-        .expect("failed to resolve app data dir")
+    crate::voice_runtime::app_data_dir(app).expect("failed to resolve app data dir")
 }
 
 #[cfg(feature = "onnx")]
@@ -72,6 +70,10 @@ impl SpeechState {
             stt_loaded: Mutex::new(false),
             voice_runtime: crate::voice_runtime::VoiceRuntime::new(),
         }
+    }
+
+    pub(crate) fn voice_runtime(&self) -> &crate::voice_runtime::VoiceRuntime {
+        &self.voice_runtime
     }
 }
 
@@ -271,10 +273,20 @@ pub async fn tts_speak(
     voice: Option<String>,
     language: Option<String>,
 ) -> Result<String, String> {
+    let (out_path, _) = synthesize_to_file(&app, &text, voice, language).await?;
+    Ok(out_path.to_string_lossy().to_string())
+}
+
+pub(crate) async fn synthesize_to_file(
+    app: &AppHandle,
+    text: &str,
+    voice: Option<String>,
+    language: Option<String>,
+) -> Result<(PathBuf, crate::voice_runtime::SynthesisMetrics), String> {
     // Defence in depth: the renderer should chunk long texts itself, but an
     // XSS could still feed an unbounded string. 1 MiB of UTF-8 is well above
     // any realistic spoken sentence.
-    crate::validate::validate_bounded_text(&text, 1024 * 1024, "tts text")?;
+    crate::validate::validate_bounded_text(text, 1024 * 1024, "tts text")?;
     if let Some(ref v) = voice {
         // We don't resolve voice names as filesystem paths here, but still
         // refuse path separators and control
@@ -303,22 +315,25 @@ pub async fn tts_speak(
         .join("voices")
         .join(format!("{voice_name}.wav"));
     let voice_sample = clone_path.is_file().then_some(clone_path.as_path());
-    if let Err(error) = app
+    let metrics = match app
         .state::<SpeechState>()
         .voice_runtime
-        .synthesize(&app, &text, &language, &voice_name, voice_sample, &out_path)
+        .synthesize(app, text, &language, &voice_name, voice_sample, &out_path)
         .await
     {
-        publish_tts_progress(&app, "error", "Speech synthesis failed");
-        return Err(error);
-    }
-    publish_tts_progress(&app, "ready", "Speech is ready");
+        Ok(metrics) => metrics,
+        Err(error) => {
+            publish_tts_progress(app, "error", "Speech synthesis failed");
+            return Err(error);
+        }
+    };
+    publish_tts_progress(app, "ready", "Speech is ready");
     tracing::info!(
         "[TTS] Synthesized audio with voice {voice_name} in {:?}",
         start.elapsed()
     );
 
-    Ok(out_path.to_string_lossy().to_string())
+    Ok((out_path, metrics))
 }
 
 /// Cancel the active TTS request while keeping the managed worker available.
