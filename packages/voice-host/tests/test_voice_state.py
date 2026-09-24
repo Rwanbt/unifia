@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
-import pocket_tts.models.model_state
+import pocket_tts.models.model_state  # noqa: F401 -- the real module that the tests patch
 
 from voice_host.voice_state import prepare_voice_state, validate_voice_sample
 

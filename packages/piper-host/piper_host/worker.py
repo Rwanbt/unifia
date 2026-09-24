@@ -18,7 +18,7 @@ os.environ.setdefault("OMP_NUM_THREADS", "2")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
 
 from .assets import DownloadCancelled, download_asset, verify_asset
-from .catalog import VOICES, resolve_voice
+from .catalog import resolve_voice
 
 MAX_IPC_LINE_BYTES = 1024 * 1024
 MAX_TEXT_BYTES = 64 * 1024
