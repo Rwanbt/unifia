@@ -163,8 +163,8 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 [data-v110="session-chat-surface"][data-collapsed] {
   overflow: hidden;
   visibility: hidden;
-  transition-property: width, visibility;
-  transition-delay: 0s, 240ms;
+  transition-property: width, margin, visibility;
+  transition-delay: 0s, 0s, 620ms;
 }
 
 /* Below 600px the workspace stacks vertically, so a 0px width no longer
@@ -657,12 +657,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
  * moving or narrowing it. The context token is 248px, 220px up to 1360px. */
 [data-v110="session-chat-surface"] {
   --v110-chat-column: min(100%, 1080px, max(560px, 100vw - 704px));
-  /* Centred on the window rather than the surface (see
-   * use-viewport-centered-column.ts), and narrowed so it never leaves it. */
-  --v110-chat-width: min(
-    var(--v110-chat-column),
-    100% - 2 * max(var(--v110-chat-shift, 0px), -1 * var(--v110-chat-shift, 0px))
-  );
+  --v110-chat-width: var(--v110-chat-column);
 }
 
 @media (max-width: 1360px) {
@@ -697,11 +692,21 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   }
 }
 
+/* Wide Chat layout (ADR-053): the surface is the column, centred on the
+ * window -- --main-left is the workspace's own offset (layout.tsx). Its left
+ * edge and width animate together when the layout changes, the reference's
+ * shared-edge motion; margin-right keeps an open inspector at the edge. */
+@media (min-width: 1200px) {
+  [data-v110="session-chat-surface"][data-layout="chat"] {
+    margin-left: calc(50vw - var(--v110-chat-column) / 2 - var(--main-left, 0px));
+    margin-right: auto;
+  }
+}
+
 .v110-chat-column {
   width: 100%;
   max-width: var(--v110-chat-width);
   margin-inline: auto;
-  translate: var(--v110-chat-shift, 0px) 0;
 }
 
 [data-v110="composer-dock"] > .v110-chat-column {
@@ -711,7 +716,7 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
 /* Copy-context sits on the composer's top-right corner, so it follows the
  * column instead of the surface edge; the 9px is the composer's own inset. */
 [data-v110="session-chat-surface"]:has(.v110-chat-column) > [data-v110="chat-copy-context"] {
-  right: calc((100% - var(--v110-chat-width)) / 2 - var(--v110-chat-shift, 0px) + 9px);
+  right: calc((100% - var(--v110-chat-width)) / 2 + 9px);
 }
 
 /* The bottom padding is room for the last message's floating shelf: each

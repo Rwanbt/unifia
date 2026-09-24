@@ -37,7 +37,7 @@
   /* The focused Chat column is narrower than the surface: follow its edge,
    * like copy-context does. */
   [data-v110="session-chat-surface"]:has(.v110-chat-column) .prompt-index {
-    right: calc((100% - var(--v110-chat-width)) / 2 - var(--v110-chat-shift, 0px) + 11px);
+    right: calc((100% - var(--v110-chat-width)) / 2 + 11px);
   }
 
   .prompt-index.visible,

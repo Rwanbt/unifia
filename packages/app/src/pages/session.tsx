@@ -59,7 +59,6 @@ import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { KeyboardHintsBar } from "@/components/keyboard-hints-bar"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
-import { useViewportCenteredColumn } from "@/pages/session/use-viewport-centered-column"
 import { DesktopChatSeparator } from "@/pages/session/desktop-chat-separator"
 import { splitChatWidth } from "@/pages/session/chat-width"
 import { createCommentActions } from "@/pages/session/session-comment-actions"
@@ -214,6 +213,10 @@ export default function Page() {
     // The mobile app has no layout switch, so a stored Editor must not hide
     // its only chat.
     if (current === "main" && !isMobileDevice()) return "0px"
+    // Wide Chat layout: the surface is the focused column itself, centred on
+    // the window by v110-chat.css, so switching layouts animates one box's
+    // left edge and width like the reference (ADR-053).
+    if (current === "chat" && shell.kind() === "grid") return "var(--v110-chat-column)"
     if (isDesktop() && current === "split")
       return splitChatWidth({
         resized: layout.session.resized(),
@@ -231,9 +234,6 @@ export default function Page() {
   const centered = createMemo(() => isDesktop() && workspaceView() === "chat")
   const [chatSurface, setChatSurface] = createSignal<HTMLDivElement>()
   const [workspaceMain, setWorkspaceMain] = createSignal<HTMLDivElement>()
-  // Below 1200px the reference centres the focused chat on the workspace,
-  // not the window.
-  useViewportCenteredColumn(chatSurface, () => centered() && shell.kind() === "grid")
 
   // Settings, account, browser and memory render in the main pane, which the
   // Chat layout hides entirely; opening one from Chat used to change only the
@@ -1017,7 +1017,7 @@ export default function Page() {
           data-side-open={layout.sidebar.opened() || desktopInspectorOpen() ? "" : undefined}
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 shell:flex-none": true,
-            "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+            "transition-[width,margin] duration-[620ms] ease-[cubic-bezier(0.18,0.84,0.22,1)] will-change-[width,margin] motion-reduce:transition-none":
               !size.active() && !ui.reviewSnap,
           }}
           style={{
