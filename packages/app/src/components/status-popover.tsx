@@ -68,7 +68,7 @@ export function StatusPopover() {
           />
         </div>
       }
-      class="[&_[data-slot=popover-body]]:p-0 w-[360px] max-w-[calc(100vw-40px)] bg-transparent border-0 shadow-none rounded-xl"
+      class="[&_[data-slot=popover-body]]:p-0 w-[350px] max-w-[calc(100vw-40px)] bg-transparent border-0 shadow-none rounded-xl"
       gutter={4}
       placement="bottom-end"
       shift={-168}
@@ -76,7 +76,7 @@ export function StatusPopover() {
       <Show when={shown()}>
         <Suspense
           fallback={
-            <div class="w-[360px] h-14 rounded-xl bg-background-strong shadow-[var(--shadow-lg-border-base)]" />
+            <div class="w-[350px] h-16 rounded-[14px] border border-border-strong-base bg-background-strong shadow-[var(--shadow-lg-border-base)]" />
           }
         >
           <div onPointerEnter={hover.enterPanel} onPointerLeave={hover.leavePanel}>
