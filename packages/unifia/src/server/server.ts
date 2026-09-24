@@ -20,6 +20,7 @@ import { initProjectors } from "./projectors"
 import { initShadowDaemon } from "../collective/shadow-integration"
 import { createWorkbenchBridge } from "./workbench"
 import { VoiceLiveRoutes } from "./routes/voice-live"
+import { VoiceTtsRoutes } from "./routes/voice-tts"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -139,6 +140,7 @@ export namespace Server {
       .route("/collab", AuthRoutes())
       .route("/global", GlobalRoutes())
       .route("/voice/live", VoiceLiveRoutes())
+      .route("/voice/tts", VoiceTtsRoutes())
       .put(
         "/auth/:providerID",
         describeRoute({
