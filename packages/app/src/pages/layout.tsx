@@ -61,6 +61,7 @@ import { useShell, useViewport } from "@/shell/v110-store"
 import { RAIL_COMPACT, workspaceLeft } from "@/tokens/panels"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { MobileNav } from "@/shell/v110-mobile-nav"
+import { withModeMotion } from "@/shell/mode-motion"
 import { useMode } from "@/context/mode"
 import { DialogDeleteWorkspace, DialogResetWorkspace } from "./layout/dialog-workspace"
 import { createSidebarPanelContext, createWorkspaceSidebarContext } from "./layout/layout-contexts"
@@ -987,7 +988,7 @@ export default function Layout(props: ParentProps) {
       }
       modes={mode.modes}
       activeDestination={mode.destination}
-      onMode={mode.selectDestination}
+      onMode={(target) => withModeMotion(() => mode.selectDestination(target))}
       modesLabel={language.t("workbench.modes.railLabel")}
       modeLabel={(m) => language.t(`workbench.modes.${m}`)}
     />
@@ -1099,7 +1100,7 @@ export default function Layout(props: ParentProps) {
             <MobileNav
               modes={mode.modes}
               active={mode.destination}
-              onDestination={mode.selectDestination}
+              onDestination={(target) => withModeMotion(() => mode.selectDestination(target))}
               onAction={(action) => {
                 if (action === "theme") theme.setColorScheme(theme.mode() === "light" ? "dark" : "light")
                 if (action === "compute") openServer()
