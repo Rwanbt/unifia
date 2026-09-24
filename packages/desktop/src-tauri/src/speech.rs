@@ -9,9 +9,6 @@ use tauri::{AppHandle, Emitter, Manager};
 #[cfg(feature = "onnx")]
 use crate::parakeet::ParakeetEngine;
 
-#[cfg(feature = "onnx")]
-const STT_MODEL_URL: &str = "https://github.com/Kieirra/murmure-model/releases/download/1.0.0/parakeet-tdt-0.6b-v3-int8.zip";
-
 /// Monotonic counter for chunk WAV filenames. Using only Date.now()-style
 /// timestamps causes collisions when parallel tts_speak calls land in the
 /// same millisecond — the second write overwrites the first and the
@@ -58,6 +55,8 @@ pub struct SpeechState {
     stt_engine: Mutex<ParakeetEngine>,
     #[cfg(feature = "onnx")]
     stt_loaded: Mutex<bool>,
+    #[cfg(feature = "onnx")]
+    model_download: tokio::sync::Mutex<()>,
     tts_router: crate::tts_router::TtsRouter,
 }
 
@@ -76,6 +75,8 @@ impl SpeechState {
             stt_engine: Mutex::new(ParakeetEngine::new()),
             #[cfg(feature = "onnx")]
             stt_loaded: Mutex::new(false),
+            #[cfg(feature = "onnx")]
+            model_download: tokio::sync::Mutex::new(()),
             tts_router,
         }
     }
@@ -107,72 +108,14 @@ impl SpeechState {
 #[tauri::command]
 #[specta::specta]
 pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<SpeechState>();
+    let _download_guard = state.model_download.lock().await;
     let dir = model_dir(&app);
-    if dir.join("encoder-model.int8.onnx").exists() {
+    if crate::parakeet::model_is_complete(&dir) {
         return Ok(());
     }
 
-    tracing::info!("[STT] Downloading Parakeet model...");
-    let _ = fs::create_dir_all(speech_dir(&app));
-    let zip_path = speech_dir(&app).join("parakeet-model.zip");
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(STT_MODEL_URL)
-        .send()
-        .await
-        .map_err(|e| format!("Download: {}", e))?;
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()));
-    }
-
-    let total = resp.content_length().unwrap_or(0);
-    let mut downloaded: u64 = 0;
-    use futures::StreamExt;
-    use tokio::io::AsyncWriteExt;
-
-    let mut file = tokio::fs::File::create(&zip_path)
-        .await
-        .map_err(|e| format!("Create: {}", e))?;
-    let mut last_emit = std::time::Instant::now();
-    let mut stream = resp.bytes_stream();
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| format!("Stream: {}", e))?;
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("Write: {}", e))?;
-        downloaded += chunk.len() as u64;
-        if last_emit.elapsed().as_millis() > 300 {
-            let progress = if total > 0 {
-                downloaded as f64 / total as f64
-            } else {
-                0.0
-            };
-            let _ = app.emit("stt-download-progress", progress);
-            last_emit = std::time::Instant::now();
-        }
-    }
-    file.flush().await.map_err(|e| format!("Flush: {}", e))?;
-    drop(file);
-
-    tracing::info!("[STT] Extracting model...");
-    let zip_clone = zip_path.clone();
-    let dir_clone = speech_dir(&app);
-    tokio::task::spawn_blocking(move || {
-        let file = fs::File::open(&zip_clone).map_err(|e| format!("Open: {}", e))?;
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Zip: {}", e))?;
-        archive
-            .extract(&dir_clone)
-            .map_err(|e| format!("Extract: {}", e))?;
-        Ok::<(), String>(())
-    })
-    .await
-    .map_err(|e| format!("Task: {}", e))?
-    .map_err(|e: String| e)?;
-
-    let _ = fs::remove_file(&zip_path);
-    Ok(())
+    crate::parakeet::download_model(&app, &dir).await
 }
 
 #[cfg(feature = "onnx")]
@@ -187,7 +130,7 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     }
 
     let dir = model_dir(&app);
-    if !dir.join("encoder-model.int8.onnx").exists() {
+    if !crate::parakeet::model_is_complete(&dir) {
         return Err("Model not downloaded".to_string());
     }
 
@@ -259,7 +202,7 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
 #[tauri::command]
 #[specta::specta]
 pub async fn stt_available(app: AppHandle) -> bool {
-    model_dir(&app).join("encoder-model.int8.onnx").exists()
+    crate::parakeet::model_is_complete(&model_dir(&app))
 }
 
 #[cfg(feature = "onnx")]
