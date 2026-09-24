@@ -1,5 +1,5 @@
-mod audio;
-mod bootstrap;
+pub(crate) mod audio;
+pub(crate) mod bootstrap;
 
 use audio::write_wav;
 use base64::Engine;

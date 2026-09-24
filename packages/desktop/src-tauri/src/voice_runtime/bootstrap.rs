@@ -7,7 +7,7 @@ use tokio::process::Command;
 const UV_VERSION: &str = "0.12.18";
 const PYTHON_VERSION: &str = "3.12";
 
-pub(super) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     if let Some(qualification_data_dir) = std::env::var_os("UNIFIA_VOICE_QUALIFICATION_DATA_DIR") {
         return Ok(PathBuf::from(qualification_data_dir));
     }
@@ -15,13 +15,21 @@ pub(super) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<PathBuf, String> {
+    prepare_managed_project(app, "voice-host").await
+}
+
+pub(crate) async fn prepare_piper_runtime(app: &AppHandle) -> Result<PathBuf, String> {
+    prepare_managed_project(app, "piper-host").await
+}
+
+async fn prepare_managed_project(app: &AppHandle, package: &str) -> Result<PathBuf, String> {
     let speech_dir = app_data_dir(app)?.join("speech");
-    let project = speech_dir.join("voice-host");
+    let project = speech_dir.join(package);
     tokio::fs::create_dir_all(&speech_dir)
         .await
         .map_err(|error| error.to_string())?;
     emit_progress(app, "runtime", "Preparing the managed speech runtime");
-    let source = packaged_project(app)?;
+    let source = packaged_project(app, package)?;
     emit_progress(app, "runtime", "Installing the bundled speech worker");
     copy_runtime_project(&source, &project).await?;
     let uv = ensure_uv(&speech_dir, app).await?;
@@ -37,10 +45,11 @@ pub(super) async fn prepare_runtime(app: &AppHandle) -> Result<PathBuf, String> 
     Ok(project)
 }
 
-fn packaged_project(app: &AppHandle) -> Result<PathBuf, String> {
+fn packaged_project(app: &AppHandle, package: &str) -> Result<PathBuf, String> {
     #[cfg(debug_assertions)]
     {
-        let development = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../voice-host");
+        let development =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../../{package}"));
         if development.join("uv.lock").exists() {
             return Ok(development);
         }
@@ -49,7 +58,7 @@ fn packaged_project(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .resource_dir()
         .map_err(|error| error.to_string())?;
-    let bundled = resources.join("voice-host");
+    let bundled = resources.join(package);
     if bundled.join("uv.lock").exists() {
         return Ok(bundled);
     }
@@ -125,7 +134,7 @@ async fn run_uv<const N: usize>(
     Ok(())
 }
 
-pub(super) fn apply_runtime_environment(
+pub(crate) fn apply_runtime_environment(
     command: &mut Command,
     app: &AppHandle,
     project: &Path,
@@ -149,7 +158,7 @@ pub(super) fn apply_runtime_environment(
     Ok(())
 }
 
-async fn ensure_uv(speech_dir: &Path, app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) async fn ensure_uv(speech_dir: &Path, app: &AppHandle) -> Result<PathBuf, String> {
     let name = if cfg!(windows) { "uv.exe" } else { "uv" };
     let destination = speech_dir.join("runtime").join(name);
     if tokio::fs::try_exists(&destination).await.unwrap_or(false) {
@@ -224,7 +233,7 @@ async fn ensure_uv(speech_dir: &Path, app: &AppHandle) -> Result<PathBuf, String
     Ok(destination)
 }
 
-pub(super) fn emit_progress(app: &AppHandle, phase: &str, message: &str) {
+pub(crate) fn emit_progress(app: &AppHandle, phase: &str, message: &str) {
     if let Err(error) = app.emit(
         "voice-runtime-progress",
         serde_json::json!({"phase":phase,"message":message}),

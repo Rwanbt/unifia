@@ -1,14 +1,16 @@
 use crate::speech::{self, SpeechState};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Listener, Manager};
 
 const QUALIFICATION_TEXTS: [&str; 3] = [
     "Unifia voice qualification one.",
     "Unifia voice qualification two.",
     "Unifia voice qualification three.",
 ];
+const CANCELLATION_QUALIFICATION_REPETITIONS: usize = 8_000;
 
 #[derive(Default, Serialize)]
 struct QualificationReport {
@@ -17,9 +19,11 @@ struct QualificationReport {
     packaged: bool,
     provider: &'static str,
     language: &'static str,
+    fallback_reason: Option<String>,
     startup_ms: Option<u64>,
     workers: Vec<WorkerRecord>,
     syntheses: Vec<SynthesisRecord>,
+    cancellations: u8,
     restarts: u8,
     phase: String,
     error_category: Option<&'static str>,
@@ -52,12 +56,19 @@ struct SynthesisRecord {
     request_started_at_unix_ms: u128,
 }
 
-pub fn requested_report_path() -> Option<Result<PathBuf, String>> {
+pub struct QualificationRequest {
+    pub result_path: PathBuf,
+    pub force_pocket_unavailable: bool,
+}
+
+pub fn requested_report_path() -> Option<Result<QualificationRequest, String>> {
     let mut arguments = std::env::args_os().skip(1);
     let argument = arguments.next()?;
-    if argument != "--internal-voice-qualification" {
-        return None;
-    }
+    let force_pocket_unavailable = match argument.to_string_lossy().as_ref() {
+        "--internal-voice-qualification" => false,
+        "--internal-voice-fallback-qualification" => true,
+        _ => return None,
+    };
     let Some(path) = arguments.next() else {
         return Some(Err("Qualification result path is required".into()));
     };
@@ -66,20 +77,32 @@ pub fn requested_report_path() -> Option<Result<PathBuf, String>> {
             "Unexpected argument after qualification result path".into()
         ));
     }
-    Some(Ok(PathBuf::from(path)))
+    Some(Ok(QualificationRequest {
+        result_path: PathBuf::from(path),
+        force_pocket_unavailable,
+    }))
 }
 
-pub async fn run(app: AppHandle, result_path: PathBuf) {
+pub async fn run(app: AppHandle, result_path: PathBuf, force_pocket_unavailable: bool) {
     let mut report = QualificationReport {
         schema_version: 1,
         status: "fail",
         packaged: true,
-        provider: "pocket",
+        provider: if force_pocket_unavailable {
+            "piper"
+        } else {
+            "pocket"
+        },
         language: "en",
+        fallback_reason: None,
         started_at_unix_ms: unix_ms(),
         ..QualificationReport::default()
     };
-    let run_result = run_journey(&app, &result_path, &mut report).await;
+    let run_result = if force_pocket_unavailable {
+        run_fallback_journey(&app, &result_path, &mut report).await
+    } else {
+        run_journey(&app, &result_path, &mut report).await
+    };
     if let Err(error) = run_result {
         report.error_category = Some("qualification_failed");
         report.error = Some(error);
@@ -87,7 +110,7 @@ pub async fn run(app: AppHandle, result_path: PathBuf) {
         report.status = "pass";
         report.phase = "complete".into();
     }
-    if let Err(error) = app.state::<SpeechState>().voice_runtime().stop().await {
+    if let Err(error) = app.state::<SpeechState>().stop_tts_workers().await {
         report.status = "fail";
         report.error_category = Some("cleanup_failed");
         report.error = Some(error);
@@ -173,6 +196,173 @@ async fn run_journey(
     Ok(())
 }
 
+async fn run_fallback_journey(
+    app: &AppHandle,
+    result_path: &Path,
+    report: &mut QualificationReport,
+) -> Result<(), String> {
+    if cfg!(debug_assertions) {
+        return Err("Internal packaged Voice qualification requires a release build".into());
+    }
+    report.phase = "isolation".into();
+    verify_isolation(result_path)?;
+
+    let (event_sender, event_receiver) = mpsc::sync_channel(1);
+    let event_id = app.listen("voice-provider-fallback", move |event| {
+        let _ = event_sender.try_send(event.payload().to_string());
+    });
+    report.phase = "pocket_to_piper_fallback".into();
+    let request_started_at_unix_ms = unix_ms();
+    let synthesis = speech::synthesize_with_provider_to_file(
+        app,
+        "Unifia automatic Piper fallback qualification.",
+        Some("alba".into()),
+        Some("en".into()),
+        Some("auto"),
+    )
+    .await;
+    app.unlisten(event_id);
+    let (path, metrics) = synthesis?;
+
+    let event_payload = capture_fallback_event(event_receiver).await?;
+    report.fallback_reason = Some(validate_fallback_event(&event_payload)?);
+    record_synthesis(
+        &mut report.syntheses,
+        1,
+        request_started_at_unix_ms,
+        &path,
+        &metrics,
+    )?;
+    run_piper_supervision_journey(app, report).await
+}
+
+async fn capture_fallback_event(receiver: mpsc::Receiver<String>) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || receiver.recv_timeout(std::time::Duration::from_secs(5)))
+        .await
+        .map_err(|error| format!("Join fallback event capture: {error}"))?
+        .map_err(|error| format!("Capture Pocket-to-Piper fallback event: {error}"))
+}
+
+fn validate_fallback_event(payload: &str) -> Result<String, String> {
+    let event: serde_json::Value =
+        serde_json::from_str(payload).map_err(|error| format!("Parse fallback event: {error}"))?;
+    let reason = event
+        .get("reason")
+        .and_then(serde_json::Value::as_str)
+        .ok_or("Fallback event did not include the Pocket failure reason")?;
+    if event.get("from").and_then(serde_json::Value::as_str) != Some("pocket")
+        || event.get("to").and_then(serde_json::Value::as_str) != Some("piper")
+        || !reason.contains("deliberately unavailable")
+    {
+        return Err(format!("Unexpected fallback event payload: {payload}"));
+    }
+    Ok(reason.to_string())
+}
+
+async fn run_piper_supervision_journey(
+    app: &AppHandle,
+    report: &mut QualificationReport,
+) -> Result<(), String> {
+    run_piper_crash_recovery(app, report).await?;
+    run_piper_cancellation(app, report).await
+}
+
+async fn run_piper_crash_recovery(
+    app: &AppHandle,
+    report: &mut QualificationReport,
+) -> Result<(), String> {
+    let state = app.state::<SpeechState>();
+    let first_pid = state.qualification_piper_worker_pid().await?;
+    report.workers.push(WorkerRecord {
+        generation: 1,
+        pid: first_pid,
+        unexpected_exit_confirmed: false,
+    });
+    report.phase = "piper_worker_crash".into();
+    let request_started_at_unix_ms = unix_ms();
+    let synthesis = speech::synthesize_with_provider_to_file(
+        app,
+        "Unifia Piper restart qualification.",
+        Some("alba".into()),
+        Some("en".into()),
+        Some("piper"),
+    );
+    let crash = state.qualification_kill_piper_when_busy();
+    let (synthesis, killed_pid) = tokio::join!(synthesis, crash);
+    if killed_pid? != first_pid {
+        return Err("Piper crash targeted a different worker PID".into());
+    }
+    let (path, metrics) = synthesis?;
+    if metrics.failure_detection_ms.is_none()
+        || metrics.restart_ms.is_none()
+        || metrics.retry_ms.is_none()
+    {
+        return Err("Piper recovery omitted crash, restart, or retry timing".into());
+    }
+    record_synthesis(
+        &mut report.syntheses,
+        2,
+        request_started_at_unix_ms,
+        &path,
+        &metrics,
+    )?;
+    report.workers[0].unexpected_exit_confirmed = true;
+    let second_pid = state.qualification_piper_worker_pid().await?;
+    require_new_worker(first_pid, second_pid)?;
+    report.workers.push(WorkerRecord {
+        generation: 2,
+        pid: second_pid,
+        unexpected_exit_confirmed: false,
+    });
+    report.restarts = report.restarts.saturating_add(1);
+    Ok(())
+}
+
+async fn run_piper_cancellation(
+    app: &AppHandle,
+    report: &mut QualificationReport,
+) -> Result<(), String> {
+    let state = app.state::<SpeechState>();
+    report.phase = "piper_cancellation".into();
+    let long_text = "cancel ".repeat(CANCELLATION_QUALIFICATION_REPETITIONS);
+    let synthesis = speech::synthesize_with_provider_to_file(
+        app,
+        &long_text,
+        Some("alba".into()),
+        Some("en".into()),
+        Some("piper"),
+    );
+    let cancellation = state.qualification_cancel_piper_when_busy();
+    let (synthesis, cancellation) = tokio::join!(synthesis, cancellation);
+    cancellation?;
+    let error = synthesis
+        .err()
+        .ok_or("Piper synthesis completed instead of honoring cancellation")?;
+    if !error.to_lowercase().contains("cancel") {
+        return Err(format!(
+            "Piper cancellation returned an unexpected error: {error}"
+        ));
+    }
+    report.cancellations = report.cancellations.saturating_add(1);
+
+    let request_started_at_unix_ms = unix_ms();
+    let (path, metrics) = speech::synthesize_with_provider_to_file(
+        app,
+        "Unifia Piper remained healthy after cancellation.",
+        Some("alba".into()),
+        Some("en".into()),
+        Some("piper"),
+    )
+    .await?;
+    record_synthesis(
+        &mut report.syntheses,
+        3,
+        request_started_at_unix_ms,
+        &path,
+        &metrics,
+    )
+}
+
 async fn synthesize_and_validate(
     app: &AppHandle,
     index: u8,
@@ -182,7 +372,17 @@ async fn synthesize_and_validate(
     let text = QUALIFICATION_TEXTS[usize::from(index - 1)];
     let (path, metrics) =
         speech::synthesize_to_file(app, text, Some("alba".into()), Some("en".into())).await?;
-    let (wav_bytes, wav_duration_ms) = validate_wav(&path, index, &metrics)?;
+    record_synthesis(records, index, request_started_at_unix_ms, &path, &metrics)
+}
+
+fn record_synthesis(
+    records: &mut Vec<SynthesisRecord>,
+    index: u8,
+    request_started_at_unix_ms: u128,
+    path: &Path,
+    metrics: &crate::voice_runtime::SynthesisMetrics,
+) -> Result<(), String> {
+    let (wav_bytes, wav_duration_ms) = validate_wav(path, index, metrics)?;
     records.push(SynthesisRecord {
         index,
         sample_rate: metrics.sample_rate,
@@ -221,7 +421,7 @@ fn validate_wav(
         .len();
     let duration_ms = (u64::from(samples) * 1000) / u64::from(spec.sample_rate.max(1));
     if spec.channels != 1
-        || spec.sample_rate != 24_000
+        || spec.sample_rate != crate::voice_runtime::audio::SPEECH_SAMPLE_RATE
         || spec.bits_per_sample != 16
         || spec.sample_format != hound::SampleFormat::Int
         || samples == 0
@@ -283,6 +483,18 @@ fn require_new_worker(previous: u32, current: u32) -> Result<(), String> {
     }
 }
 
+fn write_report(path: &Path, report: &QualificationReport) -> Result<(), String> {
+    let serialized = serde_json::to_vec_pretty(report).map_err(|error| error.to_string())?;
+    std::fs::write(path, serialized).map_err(|error| format!("Write qualification report: {error}"))
+}
+
+fn unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,7 +531,7 @@ mod tests {
         ));
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: 24_000,
+            sample_rate: crate::voice_runtime::audio::SPEECH_SAMPLE_RATE,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -329,7 +541,7 @@ mod tests {
         }
         writer.finalize().expect("finalize fixture WAV");
         let metrics = crate::voice_runtime::SynthesisMetrics {
-            sample_rate: 24_000,
+            sample_rate: crate::voice_runtime::audio::SPEECH_SAMPLE_RATE,
             samples: 2400,
             duration_ms: 100,
             first_audio_ms: 20,
@@ -344,16 +556,4 @@ mod tests {
         assert_eq!(result.1, 100);
         std::fs::remove_file(path).expect("remove fixture WAV");
     }
-}
-
-fn write_report(path: &Path, report: &QualificationReport) -> Result<(), String> {
-    let serialized = serde_json::to_vec_pretty(report).map_err(|error| error.to_string())?;
-    std::fs::write(path, serialized).map_err(|error| format!("Write qualification report: {error}"))
-}
-
-fn unix_ms() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
 }

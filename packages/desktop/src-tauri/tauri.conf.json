@@ -44,7 +44,10 @@
       "../../../templates/design": "templates/design",
       "../../voice-host/pyproject.toml": "voice-host/pyproject.toml",
       "../../voice-host/uv.lock": "voice-host/uv.lock",
-      "../../voice-host/voice_host": "voice-host/voice_host"
+      "../../voice-host/voice_host": "voice-host/voice_host",
+      "../../piper-host/pyproject.toml": "piper-host/pyproject.toml",
+      "../../piper-host/uv.lock": "piper-host/uv.lock",
+      "../../piper-host/piper_host": "piper-host/piper_host"
     },
     "linux": {
       "rpm": {

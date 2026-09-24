@@ -123,14 +123,15 @@ export const SettingsAudio: Component = () => {
         >
           <Select
             {...SELECT}
-            options={["auto", "pocket"]}
+            options={["auto", "pocket", "piper"]}
             current={settings.ttsProvider}
-            label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : "Auto"}
+            label={(id) => id === "pocket" ? language.t("settings.fork.audio.pocketOption") : id === "piper" ? "Piper" : "Auto"}
             onSelect={(value) => {
               if (value) handleProviderChange(value as AudioSettings["ttsProvider"])
             }}
           />
         </SettingsRow>
+        <Show when={settings.ttsProvider !== "piper"}>
         <SettingsRow
           title={language.t("settings.fork.audio.voice")}
           description={language.t("settings.fork.audio.pocketVoiceDescription")}
@@ -145,6 +146,7 @@ export const SettingsAudio: Component = () => {
             }}
           />
         </SettingsRow>
+        </Show>
         <SettingsRow
           title={language.t("settings.fork.audio.speed")}
           description={language.t("settings.fork.audio.speedDescription")}
@@ -165,7 +167,9 @@ export const SettingsAudio: Component = () => {
         >
           <Switch checked={settings.ttsAutoPlay} onChange={(value) => update("ttsAutoPlay", value)} />
         </SettingsRow>
-        <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
+        <Show when={settings.ttsProvider !== "piper"}>
+          <p data-slot="settings-note">{language.t("settings.fork.audio.poweredPocket")}</p>
+        </Show>
       </SettingsSection>
 
       <Show when={!isMobile()}>
@@ -246,6 +250,7 @@ function VoiceCloneSection(props: {
       const wavPath: string = await invokeTauri("tts_speak", {
         text: "Voice test, one two three.",
         voice: voiceName,
+        provider: "pocket",
       })
       // `convertFileSrc` from the shared speech adapter routes through the
       // Tauri asset protocol so the file URL actually resolves inside the

@@ -58,22 +58,46 @@ pub struct SpeechState {
     stt_engine: Mutex<ParakeetEngine>,
     #[cfg(feature = "onnx")]
     stt_loaded: Mutex<bool>,
-    voice_runtime: crate::voice_runtime::VoiceRuntime,
+    tts_router: crate::tts_router::TtsRouter,
 }
 
 impl SpeechState {
     pub fn new() -> Self {
+        Self::with_tts_router(crate::tts_router::TtsRouter::new())
+    }
+
+    pub(crate) fn new_for_fallback_qualification() -> Self {
+        Self::with_tts_router(crate::tts_router::TtsRouter::new_for_fallback_qualification())
+    }
+
+    fn with_tts_router(tts_router: crate::tts_router::TtsRouter) -> Self {
         Self {
             #[cfg(feature = "onnx")]
             stt_engine: Mutex::new(ParakeetEngine::new()),
             #[cfg(feature = "onnx")]
             stt_loaded: Mutex::new(false),
-            voice_runtime: crate::voice_runtime::VoiceRuntime::new(),
+            tts_router,
         }
     }
 
     pub(crate) fn voice_runtime(&self) -> &crate::voice_runtime::VoiceRuntime {
-        &self.voice_runtime
+        self.tts_router.pocket_runtime()
+    }
+
+    pub(crate) async fn qualification_piper_worker_pid(&self) -> Result<u32, String> {
+        self.tts_router.qualification_piper_worker_pid().await
+    }
+
+    pub(crate) async fn qualification_kill_piper_when_busy(&self) -> Result<u32, String> {
+        self.tts_router.qualification_kill_piper_when_busy().await
+    }
+
+    pub(crate) async fn qualification_cancel_piper_when_busy(&self) -> Result<(), String> {
+        self.tts_router.qualification_cancel_piper_when_busy().await
+    }
+
+    pub(crate) async fn stop_tts_workers(&self) -> Result<(), String> {
+        self.tts_router.stop().await
     }
 }
 
@@ -252,10 +276,15 @@ pub async fn stt_loaded(app: AppHandle) -> bool {
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_start(app: AppHandle) -> Result<u16, String> {
-    match app.state::<SpeechState>().voice_runtime.start(&app).await {
+    match app
+        .state::<SpeechState>()
+        .tts_router
+        .start_pocket(&app)
+        .await
+    {
         Ok(()) => {
             publish_tts_progress(&app, "ready", "Speech is ready");
-            Ok(24_000)
+            Ok(crate::voice_runtime::audio::SPEECH_SAMPLE_RATE as u16)
         }
         Err(error) => {
             publish_tts_progress(&app, "error", "Speech runtime startup failed");
@@ -272,8 +301,10 @@ pub async fn tts_speak(
     text: String,
     voice: Option<String>,
     language: Option<String>,
+    provider: Option<String>,
 ) -> Result<String, String> {
-    let (out_path, _) = synthesize_to_file(&app, &text, voice, language).await?;
+    let (out_path, _) =
+        synthesize_with_provider_to_file(&app, &text, voice, language, provider.as_deref()).await?;
     Ok(out_path.to_string_lossy().to_string())
 }
 
@@ -282,6 +313,16 @@ pub(crate) async fn synthesize_to_file(
     text: &str,
     voice: Option<String>,
     language: Option<String>,
+) -> Result<(PathBuf, crate::voice_runtime::SynthesisMetrics), String> {
+    synthesize_with_provider_to_file(app, text, voice, language, None).await
+}
+
+pub(crate) async fn synthesize_with_provider_to_file(
+    app: &AppHandle,
+    text: &str,
+    voice: Option<String>,
+    language: Option<String>,
+    provider: Option<&str>,
 ) -> Result<(PathBuf, crate::voice_runtime::SynthesisMetrics), String> {
     // Defence in depth: the renderer should chunk long texts itself, but an
     // XSS could still feed an unbounded string. 1 MiB of UTF-8 is well above
@@ -307,18 +348,28 @@ pub(crate) async fn synthesize_to_file(
         return Err("unsupported speech language".into());
     }
     let start = std::time::Instant::now();
-    let out_dir = speech_dir(&app).join("tts_chunks");
+    let out_dir = speech_dir(app).join("tts_chunks");
     fs::create_dir_all(&out_dir)
         .map_err(|error| format!("Create TTS output directory: {error}"))?;
     let out_path = out_dir.join(next_chunk_filename());
-    let clone_path = speech_dir(&app)
+    let clone_path = speech_dir(app)
         .join("voices")
         .join(format!("{voice_name}.wav"));
-    let voice_sample = clone_path.is_file().then_some(clone_path.as_path());
+    let voice_sample =
+        (provider != Some("piper") && clone_path.is_file()).then_some(clone_path.as_path());
     let metrics = match app
         .state::<SpeechState>()
-        .voice_runtime
-        .synthesize(app, text, &language, &voice_name, voice_sample, &out_path)
+        .tts_router
+        .synthesize(crate::tts_router::SynthesisRequest {
+            app,
+            text,
+            language: &language,
+            voice: &voice_name,
+            voice_sample,
+            provider,
+            speed: 1.0,
+            output: &out_path,
+        })
         .await
     {
         Ok(metrics) => metrics,
@@ -340,15 +391,15 @@ pub(crate) async fn synthesize_to_file(
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_cancel(app: AppHandle) -> Result<(), String> {
-    app.state::<SpeechState>().voice_runtime.cancel().await
+    app.state::<SpeechState>().tts_router.cancel().await
 }
 
 /// Stop the managed TTS worker
 #[tauri::command]
 #[specta::specta]
 pub async fn tts_stop(app: AppHandle) -> Result<(), String> {
-    tracing::info!("[TTS] Stopping Pocket worker");
-    app.state::<SpeechState>().voice_runtime.stop().await
+    tracing::info!("[TTS] Stopping speech workers");
+    app.state::<SpeechState>().tts_router.stop().await
 }
 
 /// Report voice-cloning support from the checkpoint loaded by Pocket.
@@ -356,7 +407,7 @@ pub async fn tts_stop(app: AppHandle) -> Result<(), String> {
 #[specta::specta]
 pub async fn tts_voice_cloning_supported(app: AppHandle) -> Result<bool, String> {
     app.state::<SpeechState>()
-        .voice_runtime
+        .voice_runtime()
         .voice_cloning_supported(&app)
         .await
 }
@@ -371,7 +422,7 @@ pub async fn tts_save_voice_clone(
 ) -> Result<String, String> {
     if !app
         .state::<SpeechState>()
-        .voice_runtime
+        .voice_runtime()
         .voice_cloning_supported(&app)
         .await?
     {
@@ -430,7 +481,7 @@ pub async fn tts_delete_voice_clone(app: AppHandle, name: String) -> Result<(), 
     let state_cache = voices_dir.join(".pocket-state-cache").join(&safe_name);
     validate_voice_cache_deletion(&voices_dir, &state_cache)?;
     app.state::<SpeechState>()
-        .voice_runtime
+        .voice_runtime()
         .invalidate_voice_clone(&safe_name)
         .await?;
     match fs::remove_file(&path) {
@@ -527,25 +578,10 @@ fn wav_to_samples(wav_bytes: &[u8]) -> Result<Vec<f32>, String> {
             .map(|c| c.iter().sum::<f32>() / c.len() as f32)
             .collect();
     }
-    if spec.sample_rate != 16000 {
-        samples = resample(&samples, spec.sample_rate as usize, 16000);
+    if spec.sample_rate != 16_000 {
+        samples = crate::voice_runtime::audio::resample(&samples, spec.sample_rate, 16_000);
     }
     Ok(samples)
-}
-
-#[cfg(feature = "onnx")]
-fn resample(samples: &[f32], from: usize, to: usize) -> Vec<f32> {
-    let ratio = from as f64 / to as f64;
-    let len = (samples.len() as f64 / ratio) as usize;
-    (0..len)
-        .map(|i| {
-            let idx = i as f64 * ratio;
-            let lo = idx as usize;
-            let hi = (lo + 1).min(samples.len() - 1);
-            let f = (idx - lo as f64) as f32;
-            samples[lo] * (1.0 - f) + samples[hi] * f
-        })
-        .collect()
 }
 
 // ─── Base64 ────────────────────────────────────────────────────────────

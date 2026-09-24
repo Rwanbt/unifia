@@ -1,10 +1,13 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Executable
+    [string]$Executable,
+    [switch]$PiperFallback,
+    [switch]$AllowLockedProtectedFiles
 )
 
 $ErrorActionPreference = 'Stop'
-$qualificationRoot = Join-Path (Split-Path -Parent $PSScriptRoot) '..\.build-temp\profile-gate-d'
+$gateName = if ($PiperFallback) { 'profile-gate-e' } else { 'profile-gate-d' }
+$qualificationRoot = Join-Path (Split-Path -Parent $PSScriptRoot) "..\.build-temp\$gateName"
 $qualificationRoot = [System.IO.Path]::GetFullPath($qualificationRoot)
 $runId = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
 $reportPath = Join-Path $qualificationRoot "qualification-report-$runId.json"
@@ -36,9 +39,19 @@ $protectedFiles = @(
     'C:\Users\barat\.local\share\unifia\workbench-audit.jsonl'
 )
 $protectedBefore = @{}
+$protectedUnverified = [System.Collections.Generic.List[string]]::new()
 foreach ($path in $protectedFiles) {
     if (Test-Path -LiteralPath $path) {
-        $protectedBefore[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+        try {
+            $protectedBefore[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+        } catch {
+            if ($AllowLockedProtectedFiles -and $_.Exception.Message -match 'being used by another process') {
+                $protectedBefore[$path] = $null
+                $protectedUnverified.Add($path)
+            } else {
+                throw
+            }
+        }
     } else {
         $protectedBefore[$path] = $null
     }
@@ -46,7 +59,7 @@ foreach ($path in $protectedFiles) {
 
 $baselineWorkerPids = @(
     Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'voice_host\.worker' } |
+        Where-Object { $_.CommandLine -match '(voice_host|piper_host)\.worker' } |
         ForEach-Object { [uint32]$_.ProcessId }
 )
 $env:UNIFIA_VOICE_QUALIFICATION_ROOT = $qualificationRoot
@@ -65,8 +78,13 @@ $env:XDG_DATA_HOME = Join-Path $qualificationRoot 'XDG\data'
 $env:XDG_STATE_HOME = Join-Path $qualificationRoot 'State'
 
 $quotedReportPath = '"' + $reportPath + '"'
+$qualificationArgument = if ($PiperFallback) {
+    '--internal-voice-fallback-qualification'
+} else {
+    '--internal-voice-qualification'
+}
 $application = Start-Process -FilePath $executablePath `
-    -ArgumentList @('--internal-voice-qualification', $quotedReportPath) `
+    -ArgumentList @($qualificationArgument, $quotedReportPath) `
     -WorkingDirectory (Split-Path -Parent $executablePath) `
     -RedirectStandardOutput $stdoutPath `
     -RedirectStandardError $stderrPath `
@@ -79,7 +97,7 @@ if (Test-Path -LiteralPath $reportPath) {
 $orphanPids = @()
 $orphanPids += @(
     Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'voice_host\.worker' -and $baselineWorkerPids -notcontains [uint32]$_.ProcessId } |
+        Where-Object { $_.CommandLine -match '(voice_host|piper_host)\.worker' -and $baselineWorkerPids -notcontains [uint32]$_.ProcessId } |
         ForEach-Object { [uint32]$_.ProcessId }
 )
 if ($report -and $report.workers) {
@@ -90,6 +108,7 @@ if ($report -and $report.workers) {
 }
 $profileChanges = @()
 foreach ($path in $protectedFiles) {
+    if ($protectedUnverified.Contains($path)) { continue }
     $after = if (Test-Path -LiteralPath $path) {
         (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
     } else {
@@ -103,7 +122,8 @@ $verification = [ordered]@{
     applicationExitCode = $application.ExitCode
     isolatedRoot = $qualificationRoot
     orphanWorkerPids = @($orphanPids | Select-Object -Unique)
-    protectedProfileFilesUnchanged = ($profileChanges.Count -eq 0)
+    protectedProfileFilesUnchanged = ($profileChanges.Count -eq 0 -and $protectedUnverified.Count -eq 0)
+    protectedProfileFilesUnverified = @($protectedUnverified)
     protectedProfileChanges = $profileChanges
 }
 ($verification | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath (Join-Path $qualificationRoot 'external-verification.json') -Encoding utf8
@@ -113,7 +133,7 @@ if ($null -eq $report) {
     $stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
     throw "Packaged application did not write its qualification report (exit $($application.ExitCode)). stdout=$stdout stderr=$stderr"
 }
-if ($application.ExitCode -ne 0 -or $report.status -ne 'pass' -or $orphanPids.Count -gt 0 -or $profileChanges.Count -gt 0) {
+if ($application.ExitCode -ne 0 -or $report.status -ne 'pass' -or $orphanPids.Count -gt 0 -or $profileChanges.Count -gt 0 -or ($protectedUnverified.Count -gt 0 -and -not $AllowLockedProtectedFiles)) {
     $report.status = 'fail'
     $report | Add-Member -NotePropertyName externalVerification -NotePropertyValue $verification -Force
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
