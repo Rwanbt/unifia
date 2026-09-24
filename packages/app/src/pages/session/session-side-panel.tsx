@@ -466,7 +466,12 @@ export function SessionSidePanel(props: {
                 already wired into Settings > Observability's timeline —
                 reused here as-is rather than rebuilt. */}
               <Match when={layout.inspector.tab() === "execution"}>
-                <ModeExecutionSurface mode={destination()} events={executionEvents()} />
+                {/* Read only once ready: a pending read suspends and would hold a mode
+                    switch's route transition until the fetch settles. */}
+                <ModeExecutionSurface
+                  mode={destination()}
+                  events={executionEvents.state === "ready" ? executionEvents() : undefined}
+                />
               </Match>
             </Switch>
           </Suspense>

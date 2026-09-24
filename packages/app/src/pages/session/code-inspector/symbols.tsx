@@ -35,10 +35,10 @@ export function CodeSymbols(props: { file: string | undefined; open: (path: stri
         <>
           <Card title={language.t("inspector.code.symbols.outline", { file: getFilename(file()) })}>
             <Show
-              when={(symbols() ?? []).length > 0}
+              when={(symbols.state === "ready" ? symbols() : []).length > 0}
               fallback={<Empty>{language.t(symbols.loading ? "common.loading" : "inspector.code.symbols.none")}</Empty>}
             >
-              <For each={symbols()}>
+              <For each={(symbols.state === "ready" ? symbols() : [])}>
                 {(entry) => (
                   <Row
                     glyph={glyph(entry)}

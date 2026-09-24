@@ -23,6 +23,9 @@ export function CodeOverview(props: { changedFiles: number }): JSX.Element {
   const sdk = useSDK()
   const language = useLanguage()
   const diagnostics = useLspDiagnostics()
+  // Read only once ready: reading a pending resource suspends, and inside a
+  // route transition that held the whole mode switch until the fetch settled
+  // (never, with the server down).
   const [servers] = createResource(
     () => sdk.directory,
     () => sdk.client.lsp.status().then((result) => (result.data ?? []) as LspServer[]),
@@ -33,10 +36,10 @@ export function CodeOverview(props: { changedFiles: number }): JSX.Element {
     <>
       <Card title={language.t("inspector.code.overview.workspace")}>
         <Show
-          when={(servers() ?? []).length > 0}
+          when={(servers.state === "ready" ? servers() : []).length > 0}
           fallback={<Row glyph="◎" label={language.t("inspector.code.overview.noServer")} />}
         >
-          <For each={servers()}>
+          <For each={(servers.state === "ready" ? servers() : [])}>
             {(server) => (
               <Row
                 glyph="◎"

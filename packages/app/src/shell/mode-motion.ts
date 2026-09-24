@@ -13,12 +13,15 @@ type Timing = KeyframeAnimationOptions
 const WORKSPACE = '[data-v110="workspace"]'
 const MAIN = '[data-v110="workspace"] [data-v110="surface-card"]'
 const CONTEXT = '[data-v110="context-panel"] .context-scroll'
-const INSPECTOR = '[data-v110="inspector-content"]'
+// The active tab's body only: the frame, its title bar and tabs stay put,
+// as the reference moves only its active pane.
+const INSPECTOR = "#v110-inspector-panel"
+const INSPECTOR_TITLE = '[data-v110="inspector-title"]'
 const TEXTS = ['[data-v110="crumbs"]', '[data-v110="context-panel"] .context-sub']
 
-// About a third of a second: past it the new surface is still loading and
-// the swap is shown without the slide rather than late.
-const MAX_WAIT_FRAMES = 20
+// About two thirds of a second (a lazy main card measured ~330ms): past
+// it a part that has not changed yet is shown without the slide.
+const MAX_WAIT_FRAMES = 40
 
 const OUT_EASE = "cubic-bezier(.4,0,.2,1)"
 const IN_EASE = "cubic-bezier(.16,.84,.2,1)"
@@ -121,6 +124,7 @@ type Snapshot = {
   // the new mode (the projects list) stays still, as in the reference.
   sections: (Shot | undefined)[]
   inspector?: string
+  inspectorTitle?: string
   texts: (Shot | undefined)[]
 }
 
@@ -139,48 +143,71 @@ function capture(): Snapshot {
     main: shoot(main, WORKSPACE),
     sections: sections().map((section) => shoot(section, CONTEXT)),
     inspector: visible(INSPECTOR)?.textContent ?? undefined,
+    inspectorTitle: visible(INSPECTOR_TITLE)?.textContent ?? undefined,
     texts: TEXTS.map((selector) => shoot(visible(selector), "body")),
   }
 }
 
-function play(before: Snapshot): void {
-  const main = visible(MAIN)
-  if (main && main.textContent !== before.main?.text) {
-    fadeGhost(before.main, 34, 390)
-    slideIn(main, 34, 0.08, 440, IN_EASE)
+// Each part moves on the first frame it shows its new content: waiting for
+// the slowest (a lazily loaded main card) showed the others' new content
+// unanimated for a third of a second before they slid in.
+type Part = () => boolean
+
+function parts(before: Snapshot): Part[] {
+  const mainPart: Part = () => {
+    const main = visible(MAIN)
+    if (!main || main === before.mainNode) return false
+    if (main.textContent !== before.main?.text) {
+      fadeGhost(before.main, 34, 390)
+      slideIn(main, 34, 0.08, 440, IN_EASE)
+    }
+    return true
   }
-
-  const now = sections()
-  now.forEach((section, index) => {
-    const old = before.sections[index]
-    if (old && section.textContent === old.text) return
-    fadeGhost(old, 24, 350)
-    slideIn(section, 22, 0.08, 410, IN_EASE)
-  })
-  // Sections the new mode no longer shows fall away too.
-  for (const old of before.sections.slice(now.length)) fadeGhost(old, 24, 350)
-
-  // The inspector is re-rendered on every mode change; only a real change
-  // of what it shows moves it.
-  const inspector = visible(INSPECTOR)
-  if (inspector && inspector.textContent !== before.inspector) slideIn(inspector, 18, 0.12, 360, TEXT_EASE)
-
-  TEXTS.forEach((selector, index) => {
+  const contextPart: Part = () => {
+    const now = sections()
+    const changed = now.some((section, index) => section.textContent !== before.sections[index]?.text)
+    if (!changed && now.length === before.sections.length) return false
+    now.forEach((section, index) => {
+      const old = before.sections[index]
+      if (old && section.textContent === old.text) return
+      fadeGhost(old, 24, 350)
+      slideIn(section, 22, 0.08, 410, IN_EASE)
+    })
+    // Sections the new mode no longer shows fall away too.
+    for (const old of before.sections.slice(now.length)) fadeGhost(old, 24, 350)
+    return true
+  }
+  // The inspector's tab body only moves when what it shows changes.
+  const inspectorPart: Part = () => {
+    const inspector = visible(INSPECTOR)
+    if (!inspector || inspector.textContent === before.inspector) return false
+    slideIn(inspector, 18, 0.12, 360, TEXT_EASE)
+    return true
+  }
+  const titlePart: Part = () => {
+    const title = visible(INSPECTOR_TITLE)
+    if (!title || title.textContent === before.inspectorTitle) return false
+    slideIn(title, 7, 0.1, 250, "ease-out")
+    return true
+  }
+  const textParts = TEXTS.map((selector, index): Part => () => {
     const element = visible(selector)
     const old = before.texts[index]
-    if (!element || element.textContent === old?.text) return
+    if (!element || element.textContent === old?.text) return false
     fadeGhost(old, 11, 300)
     animate(element, [{ transform: "translateX(10px)", opacity: 0 }, { transform: "translateX(0)", opacity: 1 }], {
       duration: 360,
       easing: TEXT_EASE,
     })
+    return true
   })
+  return [mainPart, contextPart, inspectorPart, titlePart, ...textParts]
 }
 
 /**
  * Runs `change` (a mode switch) with the reference's transition around it.
  * The new route renders asynchronously (a lazy surface can take several
- * frames), so the incoming half waits for the main card to be replaced.
+ * frames), so each part is watched frame by frame until it changes.
  */
 export function withModeMotion(change: () => void): void {
   if (!enabled()) {
@@ -189,11 +216,12 @@ export function withModeMotion(change: () => void): void {
   }
   const before = capture()
   change()
+  let pending = parts(before)
   let frames = 0
-  const wait = () => {
-    const current = document.querySelector(MAIN)
-    if ((current && current !== before.mainNode) || ++frames >= MAX_WAIT_FRAMES) return play(before)
-    requestAnimationFrame(wait)
+  const tick = () => {
+    pending = pending.filter((part) => !part())
+    if (pending.length === 0 || ++frames >= MAX_WAIT_FRAMES) return
+    requestAnimationFrame(tick)
   }
-  requestAnimationFrame(wait)
+  requestAnimationFrame(tick)
 }
