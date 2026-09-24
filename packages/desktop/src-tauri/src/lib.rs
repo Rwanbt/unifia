@@ -19,6 +19,7 @@ mod tls;
 mod tts_router;
 mod util;
 mod validate;
+mod voice_live;
 mod voice_qualification;
 mod voice_runtime;
 mod window_customizer;
@@ -80,6 +81,12 @@ struct ServerState {
 
 /// Resolves with sidecar credentials as soon as the sidecar is spawned (before health check).
 struct SidecarReady(futures::future::Shared<oneshot::Receiver<ServerReadyData>>);
+
+/// URL, username and password of the local Unifia server, once it is spawned.
+pub(crate) async fn sidecar_credentials(app: &AppHandle) -> Option<(String, String, String)> {
+    let ready = app.try_state::<SidecarReady>()?.0.clone().await.ok()?;
+    Some((ready.url, ready.username?, ready.password?))
+}
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -725,6 +732,7 @@ pub fn run() {
             handle.manage(child_processes);
             handle.manage(llm::LlmServerState::new());
             handle.manage(speech::SpeechState::new());
+            handle.manage(voice_live::VoiceLiveState::default());
 
             builder.mount_events(&handle);
             // Start the localhost keychain endpoint before the sidecar is spawned.
@@ -763,6 +771,12 @@ pub fn run() {
                     && let Some(ref mut child) = *guard
                 {
                     let _ = child.start_kill();
+                }
+
+                // The Unifia server must stop issuing Live tokens for a host
+                // that is going away; stop_all() below ends its processes.
+                if let Ok(dir) = voice_live::live_dir(app) {
+                    let _ = std::fs::remove_file(dir.join("livekit.json"));
                 }
 
                 // FIX: kill_sidecar() sends a message to an async channel, but
@@ -840,6 +854,9 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
+            voice_live::voice_live_start,
+            voice_live::voice_live_stop,
+            voice_live::voice_live_status,
             auth_storage::auth_storage_get,
             auth_storage::auth_storage_set,
             auth_storage::auth_storage_delete,

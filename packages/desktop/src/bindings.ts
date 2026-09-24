@@ -59,6 +59,9 @@ export const commands = {
 	sttTranscribe: (audioBase64: string) => __TAURI_INVOKE<string>("stt_transcribe", { audioBase64 }),
 	sttAvailable: () => __TAURI_INVOKE<boolean>("stt_available"),
 	sttLoaded: () => __TAURI_INVOKE<boolean>("stt_loaded"),
+	voiceLiveStart: (mode: string, cpuProfile: string, ttsProvider: string) => __TAURI_INVOKE<VoiceLiveStatus>("voice_live_start", { mode, cpuProfile, ttsProvider }),
+	voiceLiveStop: () => __TAURI_INVOKE<null>("voice_live_stop"),
+	voiceLiveStatus: () => __TAURI_INVOKE<VoiceLiveStatus>("voice_live_status"),
 	authStorageGet: (service: string, key: string) => __TAURI_INVOKE<string | null>("auth_storage_get", { service, key }),
 	authStorageSet: (service: string, key: string, value: string) => __TAURI_INVOKE<null>("auth_storage_set", { service, key, value }),
 	authStorageDelete: (service: string, key: string) => __TAURI_INVOKE<null>("auth_storage_delete", { service, key }),
@@ -164,6 +167,17 @@ export type VramInfo = {
 		used_mib: number,
 		free_mib: number,
 		gpu_name: string,
+	};
+
+export type VoiceHostMode = "local" | "lan";
+
+export type VoiceLiveStatus = {
+		running: boolean,
+		mode: VoiceHostMode | null,
+		url: string | null,
+		lanUrl: string | null,
+		restarts: number,
+		error: string | null,
 	};
 
 export type WorkbenchLease = {

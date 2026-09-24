@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
-mod protocol;
+pub(crate) mod protocol;
 use protocol::{
     ActivePiperRequest, PiperRequestPhase, PiperWorkerProcess, piper_asset_dir, request_worker,
     require_response, send_request, synthesize_audio, validate_cpu_providers, validate_health,

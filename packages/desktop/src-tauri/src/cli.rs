@@ -479,6 +479,14 @@ pub fn spawn_command(
         )),
         Err(error) => tracing::warn!(%error, "design skill templates are not bundled; the skill picker will be empty"),
     }
+    // Live voice: where the desktop Voice Host publishes its LiveKit state, so
+    // the server can issue room tokens without ever holding the secret in env.
+    if let Ok(dir) = crate::voice_live::live_dir(app) {
+        envs.push((
+            "UNIFIA_VOICE_HOST_DIR".to_string(),
+            dir.to_string_lossy().to_string(),
+        ));
+    }
     envs.extend(
         extra_env
             .iter()

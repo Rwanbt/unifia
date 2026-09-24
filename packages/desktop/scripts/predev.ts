@@ -1,5 +1,6 @@
 import { $ } from "bun"
 
+import { buildLiveKitServer } from "./livekit-server"
 import { copyBinaryToSidecarFolder, getCurrentSidecar, resolveSidecarBinaryPath } from "./utils"
 
 const RUST_TARGET = Bun.env.TAURI_ENV_TARGET_TRIPLE
@@ -21,3 +22,6 @@ if (shouldRebuild) {
 } else {
   console.log(`Reusing existing sidecar ${sidecarPath} (set UNIFIA_REBUILD_SIDECAR=1 to rebuild)`)
 }
+
+// Live voice SFU (externalBin). Reused when the pinned binary is already there.
+await buildLiveKitServer(RUST_TARGET!)

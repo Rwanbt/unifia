@@ -34,7 +34,7 @@ pub(super) struct PiperAudio {
     pub(super) cpu_seconds: f64,
 }
 
-pub(super) fn piper_asset_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn piper_asset_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(crate::voice_runtime::app_data_dir(app)?.join("speech/piper/voices"))
 }
 
