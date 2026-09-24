@@ -6,7 +6,7 @@
 // utilities in the popover rows).
 
 import type { JSX } from "solid-js"
-import { ServerConnection } from "@/context/server"
+import type { ServerConnection } from "@/context/server"
 
 export type ComputeKind = "local" | "wsl" | "remote" | "ssh"
 

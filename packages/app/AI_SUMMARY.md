@@ -1,6 +1,6 @@
 # AI_SUMMARY — app
 
-> **Auto-generated 2026-09-24 23:50** — do not edit manually.
+> **Auto-generated 2026-09-25 01:52** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
