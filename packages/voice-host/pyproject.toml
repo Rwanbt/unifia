@@ -1,11 +1,14 @@
 [project]
 name = "unifia-voice-host"
 version = "0.1.0"
-description = "CPU-first Pocket TTS worker for Unifia"
+description = "CPU-first speech runtime for Unifia: Pocket TTS worker and Live voice agent"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "pocket-tts==3.1.0",
   "torch==2.14.0",
+  "livekit-agents==1.8.3",
+  "onnx-asr==0.12.0",
+  "onnxruntime==1.30.0",
 ]
 
 [tool.uv]

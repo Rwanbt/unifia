@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from ctypes import wintypes
 
 from .voice_state import prepare_voice_state, validate_voice_sample
@@ -176,37 +176,48 @@ class PocketWorker:
                 self.requests[request_id] = active
             cancel = active.cancel
         try:
-            with self.model_lock:
-                if self.model is None or self.voice_state is None:
-                    raise RuntimeError("Pocket worker has not been prepared")
-                started_cpu_seconds = time.process_time()
-                for chunk in self.model.generate_audio_stream(self.voice_state, str(request["text"])):
-                    if cancel.is_set():
-                        emit({
-                            "id": request_id,
-                            "type": "cancelled",
-                            "cpuSeconds": round(time.process_time() - started_cpu_seconds, 3),
-                        })
-                        return
-                    pcm = chunk.detach().cpu().numpy().astype("<f4", copy=False).tobytes()
-                    emit({
-                        "id": request_id,
-                        "type": "audio",
-                        "sampleRate": self.model.sample_rate,
-                        "channels": 1,
-                        "encoding": "f32le",
-                        "audio": base64.b64encode(pcm).decode("ascii"),
-                    })
+            started_cpu_seconds = time.process_time()
+            for sample_rate, pcm in self.stream_pcm(str(request["text"]), cancel):
                 emit({
                     "id": request_id,
-                    "type": "complete",
+                    "type": "audio",
+                    "sampleRate": sample_rate,
+                    "channels": 1,
+                    "encoding": "f32le",
+                    "audio": base64.b64encode(pcm).decode("ascii"),
+                })
+            if cancel.is_set():
+                emit({
+                    "id": request_id,
+                    "type": "cancelled",
                     "cpuSeconds": round(time.process_time() - started_cpu_seconds, 3),
                 })
+                return
+            emit({
+                "id": request_id,
+                "type": "complete",
+                "cpuSeconds": round(time.process_time() - started_cpu_seconds, 3),
+            })
         except Exception as error:  # Protocol boundary: report the failure to the supervisor.
             emit({"id": request_id, "type": "error", "message": str(error)})
         finally:
             with self.requests_lock:
                 self.requests.pop(request_id, None)
+
+    def stream_pcm(self, text: str, cancel: threading.Event) -> Iterator[tuple[int, bytes]]:
+        """Yield little-endian float32 PCM chunks as Pocket generates them.
+
+        Holds the model lock for the whole generation: one active synthesis per
+        model. Stops before the next chunk once ``cancel`` is set; no chunk is
+        produced after cancellation is observed.
+        """
+        with self.model_lock:
+            if self.model is None or self.voice_state is None:
+                raise RuntimeError("Pocket worker has not been prepared")
+            for chunk in self.model.generate_audio_stream(self.voice_state, text):
+                if cancel.is_set():
+                    return
+                yield self.model.sample_rate, chunk.detach().cpu().numpy().astype("<f4", copy=False).tobytes()
 
     def health(self) -> dict[str, Any]:
         working_set_bytes, peak_working_set_bytes, private_bytes = process_memory_usage()
