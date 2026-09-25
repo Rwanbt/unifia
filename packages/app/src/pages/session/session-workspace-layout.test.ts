@@ -164,7 +164,9 @@ describe("session workspace layout", () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
     expect(source).toContain("const workspaceView = createMemo(() => shell.fit(view().workspace.current()))")
     expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
-    expect(source).toContain('if (current === "main" && !isMobileDevice()) return "0px"')
+    expect(source).toContain(
+      'if (current === "main" && (!isMobileDevice() || MAIN_PANE_DESTINATIONS.has(mode.destination()))) return "0px"',
+    )
     expect(source).toContain('if (isDesktop() && current === "split")')
   })
 
