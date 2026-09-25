@@ -66,3 +66,21 @@ After this plan is written, ADR-058 and `docs/voice-live.md` have been updated.
 Next trace the Android prompt/event and playback APIs before adding the local transport.
 Do not embed LiveKit server/WebRTC in the same-device path. Validate all
 third-party artifacts, hashes, licenses, and language support before bundling.
+
+## Implementation progress
+
+- Added a local transport branch to the shared Live controller. It bypasses the
+  host grant and LiveKit room, while retaining the existing session/provider
+  API, shared Live state, microphone lease and stop lifecycle.
+- Added Android WebView capture with bounded endpointing, local Parakeet
+  invocation, offline-installed Android system voice selection, and response
+  interruption when speech resumes. Raw captured audio is passed only to the
+  on-device Tauri command.
+- Added session creation/reuse for voice-only chats and focused controller,
+  session bridge, and endpointing tests.
+- This is an implementation slice, not a qualified production path. The current
+  VAD uses an RMS energy gate pending the Silero/native-runtime decision. The
+  current TTS adapter requires an installed offline Android voice; Pocket TTS
+  Android and licensed Piper fallback remain open. Android hardware execution,
+  memory/thermal measurements, model language coverage, and a no-network local
+  LLM conversation have not yet been verified.

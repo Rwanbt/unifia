@@ -10,6 +10,8 @@ import { useServer } from "@/context/server"
 import { serverBasicAuthorization } from "@/utils/server"
 import type { LiveContext } from "@/voice/live-controller"
 import { createLiveHostClient } from "@/voice/live-host"
+import { createAndroidLocalVoiceTransport } from "@/voice/android-local-voice"
+import { createLocalVoiceSession } from "@/voice/local-session"
 import { bindLiveRuntime } from "@/voice/live-store"
 import { loadAudioSettings } from "@/voice/audio-settings"
 
@@ -36,21 +38,39 @@ export function createLiveBinding(input: {
     }
   ).__TAURI__
   const directory = () => input.sdk.directory
+  const localSession = createLocalVoiceSession({
+    client: input.sdk.client.session,
+    directory: directory(),
+    sessionID: input.params.id,
+    onSession: (sessionID) => {
+      if (input.params.id !== sessionID) navigate(`/${base64Encode(directory())}/session/${sessionID}`)
+    },
+  })
   // Live needs a microphone and a server; settings can turn the button off.
   const available = typeof navigator !== "undefined" && !!navigator.mediaDevices && loadAudioSettings().liveEnabled
+  const isMobile = input.platform.platform === "mobile"
   const context = (): LiveContext => {
     const model = input.local.model.current()
     return {
+      transport: isMobile ? "local" : "host",
       directory: directory(),
       sessionID: input.params.id,
       agent: input.local.agent.current()?.name,
       model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
       variant: input.local.model.variant.current(),
       locale: input.language.locale(),
+      submitTurn: (transcript) => localSession.submit(transcript, {
+        agent: input.local.agent.current()?.name,
+        model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
+        variant: input.local.model.variant.current(),
+      }),
     }
   }
 
   bindLiveRuntime({
+    localVoice: isMobile && tauri?.core?.invoke
+      ? createAndroidLocalVoiceTransport(tauri.core.invoke)
+      : undefined,
     host: createLiveHostClient({
       platform: input.platform.platform,
       server: () => {
