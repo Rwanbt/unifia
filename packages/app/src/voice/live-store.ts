@@ -3,7 +3,7 @@ import type { LiveVoiceState } from "@unifia/contracts/speech"
 import { createSignal } from "solid-js"
 import { requestAudioCapture } from "./audio-capture-coordinator"
 import { loadAudioSettings } from "./audio-settings"
-import { type LiveContext, LiveVoiceController } from "./live-controller"
+import { type LiveContext, type LocalVoiceTransport, LiveVoiceController } from "./live-controller"
 import type { LiveHostClient } from "./live-host"
 import { INITIAL_LIVE_SNAPSHOT, isLiveActive, type LiveSnapshot } from "./live-state"
 import { createLiveKitRoom } from "./livekit-room"
@@ -18,6 +18,7 @@ import { createLiveKitRoom } from "./livekit-room"
  */
 export interface LiveRuntime {
   host: LiveHostClient
+  localVoice?: LocalVoiceTransport
   onSession: (sessionID: string) => void
   /** The session, agent and model a new conversation starts with. */
   context: () => LiveContext
@@ -68,6 +69,7 @@ export function liveController(): LiveVoiceController {
       requestGrant: (request) => current().host.requestGrant(request),
       release: (binding) => current().host.release(binding),
     },
+    localVoice: current().localVoice,
     createRoom: createLiveKitRoom,
     settings: () => loadAudioSettings(),
     captureMicrophone: (stop) => requestAudioCapture(window, "live", stop),

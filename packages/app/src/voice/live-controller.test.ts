@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { LiveRoomGrant } from "@unifia/contracts/speech"
 import { AudioCaptureCoordinator } from "./audio-capture-coordinator"
 import { DEFAULT_AUDIO_SETTINGS } from "./audio-settings"
-import { LiveVoiceController, type LiveRoom, type LiveRoomHandlers } from "./live-controller"
+import { LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
 
 class FakeRoom implements LiveRoom {
@@ -23,7 +23,7 @@ class FakeRoom implements LiveRoom {
   }
 }
 
-function setup(options: { roomError?: unknown; grantErrors?: unknown[] } = {}) {
+function setup(options: { roomError?: unknown; grantErrors?: unknown[]; localVoice?: LocalVoiceTransport } = {}) {
   const requests: LiveGrantRequest[] = []
   const released: string[] = []
   const prepared: string[] = []
@@ -49,6 +49,7 @@ function setup(options: { roomError?: unknown; grantErrors?: unknown[] } = {}) {
   const sessions: string[] = []
   const controller = new LiveVoiceController({
     host,
+    localVoice: options.localVoice,
     createRoom: () => {
       const room = new FakeRoom(options.roomError)
       rooms.push(room)
@@ -80,6 +81,30 @@ describe("LiveVoiceController", () => {
     rooms[0].handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
     expect(controller.state).toBe("listening")
     expect(states.filter((state, index) => state !== states[index - 1])).toEqual(["idle", "connecting", "listening"])
+  })
+
+  test("runs a local Android turn through the existing Unifia session without a host grant", async () => {
+    let localHandlers: Parameters<LocalVoiceTransport["start"]>[0] | undefined
+    const localCalls: string[] = []
+    const localVoice: LocalVoiceTransport = {
+      async start(handlers) { localHandlers = handlers; localCalls.push("start") },
+      async transcribe(audio) { localCalls.push(`transcribe:${audio}`); return "bonjour" },
+      async speak(text) { localCalls.push(`speak:${text}`) },
+      stop() { localCalls.push("stop") },
+      stopSpeaking() { localCalls.push("stop-speaking") },
+    }
+    const { controller, requests, prepared, rooms } = setup({ localVoice })
+    const prompts: string[] = []
+    await controller.start({ ...context, transport: "local", submitTurn: async (text) => { prompts.push(text); return "Bonjour !" } })
+    expect(controller.state).toBe("listening")
+    expect(requests).toEqual([])
+    expect(prepared).toEqual([])
+    expect(rooms).toEqual([])
+    localHandlers!.onUtterance("wav-data")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(prompts).toEqual(["bonjour"])
+    expect(localCalls).toContain("speak:Bonjour !")
+    expect(controller.state).toBe("listening")
   })
 
   test("follows agent state and task attributes through a long task", async () => {

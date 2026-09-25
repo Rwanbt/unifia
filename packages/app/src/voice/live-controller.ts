@@ -30,12 +30,25 @@ export interface LiveRoom {
 }
 
 export interface LiveContext {
+  transport?: "host" | "local"
   directory: string
   sessionID?: string
   agent?: string
   model?: { providerID: string; modelID: string }
   variant?: string
   locale?: string
+  submitTurn?: (transcript: string) => Promise<string>
+}
+
+export interface LocalVoiceTransport {
+  start(handlers: {
+    onSpeaking(speaking: boolean): void
+    onUtterance(audio: string): void
+  }): Promise<void>
+  transcribe(audio: string): Promise<string>
+  speak(text: string): Promise<void>
+  stop(): void
+  stopSpeaking(): void
 }
 
 export interface LivePlayback {
@@ -45,6 +58,7 @@ export interface LivePlayback {
 
 export interface LiveControllerDeps {
   host: LiveHostClient
+  localVoice?: LocalVoiceTransport
   createRoom: () => LiveRoom
   settings: () => AudioSettingsV2
   captureMicrophone: (stop: () => void) => AudioCaptureLease | undefined
@@ -84,6 +98,7 @@ export class LiveVoiceController {
   private generation = 0
   private playbackId: string | undefined
   private agentTimer: ReturnType<typeof setTimeout> | undefined
+  private localTurnQueue: Promise<void> = Promise.resolve()
 
   constructor(private readonly deps: LiveControllerDeps) {}
 
@@ -130,6 +145,26 @@ export class LiveVoiceController {
       const lease = this.deps.captureMicrophone(() => void this.stop())
       if (!lease) throw new LiveHostError("microphone_unavailable")
       this.lease = lease
+      if (context.transport === "local") {
+        if (!this.deps.localVoice) throw new LiveHostError("voice_host_unavailable", "Local Android voice is unavailable")
+        if (!context.submitTurn) throw new LiveHostError("agent_unavailable", "Local Android voice has no Unifia session transport")
+        await this.deps.localVoice.start({
+          onSpeaking: (speaking) => {
+            if (speaking) this.deps.localVoice?.stopSpeaking()
+            this.dispatch({ type: "user-speaking", speaking }, generation)
+          },
+          onUtterance: (audio) => this.queueLocalTurn(audio, generation),
+        })
+        if (generation !== this.generation) return
+        this.dispatch({ type: "connected" }, generation)
+        this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+        if (!this.playbackId) {
+          this.playbackId = `live-${generation}`
+          this.deps.playback.start(this.playbackId, () => void this.stop())
+        }
+        this.log("voice.local.ready.ms", { value: (this.deps.now ?? Date.now)() - startedAt })
+        return
+      }
       const settings = this.deps.settings()
       await this.deps.host.prepare(settings)
       if (generation !== this.generation) return
@@ -141,6 +176,31 @@ export class LiveVoiceController {
       if (generation !== this.generation) return
       this.fail(errorFromUnknown(error), error)
     }
+  }
+
+  private queueLocalTurn(audio: string, generation: number) {
+    this.localTurnQueue = this.localTurnQueue.then(async () => {
+      if (generation !== this.generation || !this.context?.submitTurn || !this.deps.localVoice) return
+      try {
+        const transcript = (await this.deps.localVoice.transcribe(audio)).trim()
+        if (!transcript || generation !== this.generation) return
+        this.dispatch({ type: "user-speaking", speaking: false }, generation)
+        this.dispatch({ type: "agent-state", agent: "thinking" }, generation)
+        const response = (await this.context.submitTurn(transcript)).trim()
+        if (generation !== this.generation) return
+        if (!response) {
+          this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+          return
+        }
+        this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
+        await this.deps.localVoice.speak(response)
+        if (generation === this.generation) this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+      } catch (error) {
+        if (generation === this.generation) this.fail(errorFromUnknown(error), error)
+      }
+    }).catch((error) => {
+      if (generation === this.generation) this.fail(errorFromUnknown(error), error)
+    })
   }
 
   private grantRequest(settings: AudioSettingsV2): LiveGrantRequest {
@@ -264,6 +324,8 @@ export class LiveVoiceController {
     const room = this.room
     this.room = undefined
     void room?.disconnect().catch(() => undefined)
+    this.deps.localVoice?.stop()
+    this.deps.localVoice?.stopSpeaking()
     this.lease?.release()
     this.lease = undefined
     if (this.playbackId) this.deps.playback.end(this.playbackId)
