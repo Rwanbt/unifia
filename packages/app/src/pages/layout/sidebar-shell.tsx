@@ -7,6 +7,7 @@ import { ensureModeLoaded } from "@/pages/workbench-mode-loader"
 import { useLanguage } from "@/context/language"
 import { modeIcon, PILL_DESTINATIONS } from "@/shell/v110-destinations"
 import { AccountQuickMenu } from "@/shell/account-quick-menu"
+import type { AccountPage } from "@/pages/settings/user-surface"
 import { createHoverIntent } from "@/shell/hover-intent"
 
 export const SidebarContent = (props: {
@@ -26,7 +27,7 @@ export const SidebarContent = (props: {
   settingsLabel: Accessor<string>
   settingsKeybind: Accessor<string | undefined>
   onOpenSettings: () => void
-  onOpenAccount: () => void
+  onOpenAccount: (page?: AccountPage) => void
   accountLabel: Accessor<string>
   helpLabel: Accessor<string>
   onOpenHelp: () => void
@@ -241,24 +242,15 @@ export const SidebarContent = (props: {
               32x32 -- trusted the live measurement over the static rule,
               since #userBtn evidently carries more specific sizing this
               class-only read missed the first time.
-              The maquette's avatar shows a demo initial and opens an account/
-              session manager -- neither exists anywhere in this app (no user
-              identity, no accounts, grepped the whole tree). Rather than
-              fabricate one, this draws a generic person glyph (the shared
-              icon set has none, same reason titlebar.tsx hand-draws its own
-              sun/moon icons) and opens Settings, the nearest real destination
-              -- honest about being an entry point, not a pretend account
-              switcher. */}
+              A click opens the account centre (ADR-051); a hover opens the
+              reference's quick menu beside it (ADR-056). The glyph is drawn
+              here because the shared icon set has no person icon. */}
           <AccountQuickMenu
             open={quickOpen()}
             anchor={() => accountButton}
-            onAccount={() => {
+            onAccount={(page) => {
               closeQuick()
-              props.onOpenAccount()
-            }}
-            onSettings={() => {
-              closeQuick()
-              props.onOpenSettings()
+              props.onOpenAccount(page)
             }}
             onPointerEnter={accountHover.enterPanel}
             onPointerLeave={accountHover.leavePanel}

@@ -27,6 +27,9 @@
   --color-accent-base: var(--accent);
   --color-accent-weak: var(--accent-soft);
   --color-text-on-accent: var(--accent-ink);
+  /* maquette .runtime-choice-v32:hover/[active] and the compute tab's active
+   * row; v110-theme.css defines --surface-3 for both colour schemes. */
+  --color-surface-3: var(--surface-3);
 }
 
 @layer components {

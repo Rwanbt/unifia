@@ -4,7 +4,8 @@
 // sidebar with the identity and four pages. The pages live in
 // components/account/ and read one shared useAccount().
 
-import { For, Match, Suspense, Switch, createSignal, type JSX } from "solid-js"
+import { For, Match, Suspense, Switch, createEffect, createSignal, on, type JSX } from "solid-js"
+import { useLocation } from "@solidjs/router"
 import { useLanguage } from "@/context/language"
 import { AccountOrganisations } from "@/components/account/account-organisations"
 import { AccountOverview } from "@/components/account/account-overview"
@@ -12,7 +13,17 @@ import { AccountPersonal } from "@/components/account/account-personal"
 import { AccountSecurity } from "@/components/account/account-security"
 import { useAccount } from "@/components/account/use-account"
 
-type AccountPage = "overview" | "personal" | "teams" | "security"
+export type AccountPage = "overview" | "personal" | "teams" | "security"
+
+/** The history state that opens the account centre on a given page (the
+ * account quick menu's entries). */
+export type AccountPageState = { accountPage: AccountPage }
+
+function requestedPage(state: unknown): AccountPage | undefined {
+  if (!state || typeof state !== "object" || !("accountPage" in state)) return undefined
+  const page = (state as AccountPageState).accountPage
+  return PAGES.some((item) => item.id === page) ? page : undefined
+}
 
 // The reference's nav glyphs (#userContentV76 .user-nav).
 const ICONS: Record<AccountPage, JSX.Element> = {
@@ -43,8 +54,20 @@ const PAGES: { id: AccountPage; label: string }[] = [
 export function UserSurface() {
   const language = useLanguage()
   const account = useAccount()
-  const [page, setPage] = createSignal<AccountPage>("overview")
+  const location = useLocation()
+  const [page, setPage] = createSignal<AccountPage>(requestedPage(location.state) ?? "overview")
   const identity = () => account.identity()
+  // Already on the account centre, a quick-menu entry only changes the page.
+  createEffect(
+    on(
+      () => location.state,
+      (state) => {
+        const next = requestedPage(state)
+        if (next) setPage(next)
+      },
+      { defer: true },
+    ),
+  )
 
   return (
     <main data-v110="mode-main" data-component="workbench-mode-main" class="min-w-0 min-h-0 flex-1 flex">

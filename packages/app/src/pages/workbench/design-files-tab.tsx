@@ -315,8 +315,13 @@ export function DesignFilesTab(): JSX.Element {
     }
   })
   const files = createQuery(filesQueryOptions)
+  // WHY isSuccess before .data: reading a pending query's data suspends the
+  // nearest Suspense. The listing walks the whole workspace and can take tens
+  // of seconds on a large repository; the tab shows its own loading row
+  // meanwhile instead of holding the Design surface blank.
+  const listing = () => (files.isSuccess ? files.data : undefined) ?? { entries: [], skipped: 0 }
 
-  const panel = createMemo(() => createDesignFilesPanelState(files.data ?? { entries: [], skipped: 0 }, selectedPath()))
+  const panel = createMemo(() => createDesignFilesPanelState(listing(), selectedPath()))
   const rows = createMemo(() => {
     const query = search().trim().toLowerCase()
     const all = renderDesignFileRows(panel())
@@ -326,7 +331,7 @@ export function DesignFilesTab(): JSX.Element {
   // Search flattens on purpose — a match three folders deep must surface
   // without the user having to expand every ancestor first. The tree view
   // is only for the unfiltered browse case.
-  const tree = createMemo(() => buildFileTree((files.data ?? { entries: [], skipped: 0 }).entries))
+  const tree = createMemo(() => buildFileTree(listing().entries))
 
   const contentQueryOptions = createMemo(() => {
     const current = connection()

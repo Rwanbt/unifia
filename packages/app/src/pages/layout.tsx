@@ -16,6 +16,7 @@ import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
 import { decode64 } from "@/utils/base64"
 import { Separator } from "@/primitives/separator"
+import type { AccountPage, AccountPageState } from "@/pages/settings/user-surface"
 import type { Session } from "../types/sdk-shim"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
@@ -577,9 +578,10 @@ export default function Layout(props: ParentProps) {
     })
   }
 
-  function openAccount() {
+  function openAccount(page?: AccountPage) {
     if (params.dir) {
-      withModeMotion(() => mode.selectDestination("user"))
+      const state: AccountPageState | undefined = page ? { accountPage: page } : undefined
+      withModeMotion(() => mode.selectDestination("user", state))
       return
     }
     openSettings()

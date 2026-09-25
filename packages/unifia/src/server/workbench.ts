@@ -93,6 +93,9 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
   if (!password) return undefined
 
   const signingKey = createHash("sha256").update(password, "utf8").digest("hex")
+  // Filled by the "open" token action below: the runtime backend needs each
+  // workspace's directory to run inside its project instance.
+  const workspaceDirectories = new Map<string, string>()
   const app = createWorkbenchApp({
     signingKey,
     issuer: "unifia-local",
@@ -122,7 +125,7 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
     // localhost/127.0.0.1-any-port rule as the sidecar's own CORS policy.
     allowedOrigins: [...WORKBENCH_ALLOWED_ORIGINS, "http://localhost:*", "http://127.0.0.1:*"],
   }, {
-    backend: new OpenCodeSessionBackend(),
+    backend: new OpenCodeSessionBackend((workspaceId) => workspaceDirectories.get(workspaceId)),
     designSkills: async () => {
       const root = process.env.UNIFIA_DESIGN_TEMPLATES_DIR ?? path.join(process.cwd(), "templates", "design")
       const discovered = await discoverTemplates(root)
@@ -163,6 +166,7 @@ export function createWorkbenchBridge(): WorkbenchBridge | undefined {
       if (input.action === "open") {
         if (!input.workspacePath) return json(400, { error: "workspacePath is required" })
         const workspace = await app.workspace.register({ name: path.basename(input.workspacePath), path: input.workspacePath })
+        workspaceDirectories.set(workspace.id, input.workspacePath)
         return json(200, { workspaceId: workspace.id, instanceId: app.server.instanceId })
       }
       if (!input.workspaceId) return json(400, { error: "workspaceId is required" })

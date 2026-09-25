@@ -25,6 +25,10 @@ const TREE_INDENT_PX = 18
 const MAX_MEMORY_PAGES = 20
 // Margin kept around the graph content by the fit gesture, in graph units.
 const MEMORY_GRAPH_PAD = 6
+// Maquette resizer clamp: vault/links columns never collapse below 16% or
+// grow past 38% of the grid width.
+const RESIZE_MIN_PCT = 16
+const RESIZE_MAX_PCT = 38
 
 type MemoryFiles = { readonly entries: readonly MemoryFileEntry[]; readonly skipped: number }
 
@@ -41,11 +45,21 @@ async function collectMemoryFiles(current: WorkbenchConnection): Promise<MemoryF
 }
 
 function MemoryPreview(props: { note: MemoryNoteDocument }): JSX.Element {
-  return <><h1 class="mt-2 text-20-medium">{props.note.title}</h1><Show when={props.note.tags.length > 0}><div class="mt-3 flex flex-wrap gap-1"><For each={props.note.tags}>{(tag) => <span class="rounded bg-background-base px-2 py-1 text-11-regular">#{tag}</span>}</For></div></Show><Markdown text={props.note.body} class="mt-5 text-13-regular leading-6 text-text-base" /></>
+  return (
+    <div data-memory-preview>
+      <h1>{props.note.title}</h1>
+      <Show when={props.note.tags.length > 0}>
+        <div data-memory-tags>
+          <For each={props.note.tags}>{(tag) => <span data-memory-tag>#{tag}</span>}</For>
+        </div>
+      </Show>
+      <Markdown text={props.note.body} />
+    </div>
+  )
 }
 
 function MemoryEditor(props: { value: string; onInput: (value: string) => void }): JSX.Element {
-  return <textarea class="h-full min-h-72 w-full resize-none rounded border border-border-base bg-background-base p-3 font-mono text-12-regular leading-5" value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} aria-label="Edit memory note" />
+  return <textarea data-memory-editor value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} aria-label="Edit memory note" />
 }
 
 export function MemoryPanel(): JSX.Element {
@@ -68,10 +82,15 @@ export function MemoryPanel(): JSX.Element {
   const [moving, setMoving] = createSignal(false)
   const [renaming, setRenaming] = createSignal<string>()
   const [renameDraft, setRenameDraft] = createSignal("")
+  const [hideVault, setHideVault] = createSignal(false)
+  const [hideLinks, setHideLinks] = createSignal(false)
+  const [vaultPct, setVaultPct] = createSignal(24)
+  const [linksPct, setLinksPct] = createSignal(28)
   let expandTimer: ReturnType<typeof setTimeout> | undefined
   let vaultScroll: HTMLDivElement | undefined
   let autosaveTimer: ReturnType<typeof setTimeout> | undefined
   let draftPath: string | undefined
+  let gridView: HTMLDivElement | undefined
   /**
    * Phase 9 (Memory mobile single-pane): the canonical viewport authority
    * decides the layout. On the overlay families the triptych collapses to
@@ -627,58 +646,195 @@ export function MemoryPanel(): JSX.Element {
     }
   }
 
+  // Maquette resize script: pointer drag writes the column % custom property
+  // on the grid; vault grows to the right, links grows to the left.
+  function resize(event: PointerEvent, edge: "vault" | "links"): void {
+    if (narrow()) return
+    event.preventDefault()
+    const grid = gridView
+    if (!grid) return
+    const width = grid.clientWidth || 1
+    const start = event.clientX
+    const startValue = edge === "vault" ? vaultPct() : linksPct()
+    const direction = edge === "vault" ? 1 : -1
+    const move = (moveEvent: PointerEvent) => {
+      const delta = ((moveEvent.clientX - start) / width) * 100 * direction
+      const next = Math.max(RESIZE_MIN_PCT, Math.min(RESIZE_MAX_PCT, startValue + delta))
+      if (edge === "vault") setVaultPct(next)
+      else setLinksPct(next)
+    }
+    const stop = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", stop)
+      window.removeEventListener("pointercancel", stop)
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", stop)
+    window.addEventListener("pointercancel", stop)
+  }
+
   return (
-    <section class="flex size-full min-w-0 flex-col gap-2 bg-background-base p-3" data-v110="memory-panel" data-parity="memory.panel">
+    <section data-v110="memory-panel" data-parity="memory.panel">
       <ConnectionBanner dataAttr="memory-connection" dataRetryAttr="memory-retry" />
       <div
-        class={narrow()
-          ? "grid min-h-0 flex-1 grid-cols-1 gap-3"
-          : "grid min-h-0 flex-1 grid-cols-[minmax(180px,0.8fr)_minmax(0,1.7fr)_minmax(180px,0.8fr)] gap-3"}
+        ref={(element) => { gridView = element }}
+        data-v110="memory-grid"
         data-memory-layout={narrow() ? "single" : "triptych"}
+        data-hide-vault={hideVault() && !narrow() ? "" : undefined}
+        data-hide-links={hideLinks() && !narrow() ? "" : undefined}
+        style={{ "--memory-vault-width": `${vaultPct()}%`, "--memory-links-width": `${linksPct()}%` }}
       >
-        <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "vault" }} data-memory-vault onDragEnd={endDrag}>
-          <div class="border-b border-border-base p-3"><div class="flex items-center gap-1"><h2 class="text-14-medium">{t("workbench.memory.vault.title")}</h2><div class="ml-auto flex items-center gap-1"><button type="button" class="rounded p-1 text-text-weak hover:bg-background-base hover:text-text-strong" data-memory-new-note title={t("workbench.memory.actions.newNote")} aria-label={t("workbench.memory.actions.newNote")} onClick={() => void createNote(MEMORY_ROOT)}><Icon name="plus" size="small" /></button><button type="button" class="rounded p-1 text-text-weak hover:bg-background-base hover:text-text-strong" data-memory-new-folder title={t("workbench.memory.actions.newFolder")} aria-label={t("workbench.memory.actions.newFolder")} onClick={() => void createFolder(MEMORY_ROOT)}><Icon name="folder-add-left" size="small" /></button></div></div><input class="mt-2 w-full rounded border border-border-base bg-background-base px-2 py-1 text-12-regular" value={query()} onInput={(event) => setQuery(event.currentTarget.value)} aria-label={t("workbench.memory.vault.searchLabel")} placeholder={t("workbench.memory.vault.searchPlaceholder")} /></div>
-          <div ref={(element) => { vaultScroll = element }} class="h-[calc(100%-76px)] overflow-y-auto p-2">
-            <Show when={files.error}><p class="text-12-regular text-text-danger">{t("workbench.memory.vault.loadError")}</p></Show>
+        <aside classList={{ hidden: narrow() && mobilePane() !== "vault" }} data-memory-vault onDragEnd={endDrag}>
+          <div data-memory-head>
+            <div data-memory-head-row>
+              <h2>{t("workbench.memory.vault.title")}</h2>
+              <div data-memory-spacer />
+              <button type="button" data-memory-new-note title={t("workbench.memory.actions.newNote")} aria-label={t("workbench.memory.actions.newNote")} onClick={() => void createNote(MEMORY_ROOT)}><Icon name="plus" size="small" /></button>
+              <button type="button" data-memory-new-folder title={t("workbench.memory.actions.newFolder")} aria-label={t("workbench.memory.actions.newFolder")} onClick={() => void createFolder(MEMORY_ROOT)}><Icon name="folder-add-left" size="small" /></button>
+              <Show when={!narrow()}><button type="button" data-memory-hide-vault title="Hide vault" aria-label="Hide vault" onClick={() => setHideVault(true)}>◂</button></Show>
+            </div>
+            <div data-memory-search-wrap>
+              <div data-memory-search>
+                <span aria-hidden="true">⌕</span>
+                <input value={query()} onInput={(event) => setQuery(event.currentTarget.value)} aria-label={t("workbench.memory.vault.searchLabel")} placeholder={t("workbench.memory.vault.searchPlaceholder")} />
+              </div>
+            </div>
+          </div>
+          <div ref={(element) => { vaultScroll = element }} data-memory-tree>
+            <Show when={files.error}><p>{t("workbench.memory.vault.loadError")}</p></Show>
             <For each={visibleRows()}>{(item) => <Switch>
               <Match when={item.kind === "folder"}>
-                <button type="button" class="mb-1 flex w-full items-center gap-1 rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base ring-1 ring-accent-base": dropFolder() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX}px` }} data-memory-folder={item.path} aria-expanded={!collapsed().has(item.path)} aria-label={t(collapsed().has(item.path) ? "workbench.memory.tree.expand" : "workbench.memory.tree.collapse", { name: item.name })} onContextMenu={(event) => openMenu(event, "folder", item.path, item.name)} onClick={() => toggleFolder(item.path)} onDragOver={(event) => overFolder(event, item.path)} onDragLeave={() => { if (dropFolder() === item.path) setDropFolder(undefined) }} onDrop={(event) => void dropOnFolder(event, item.path)}>
-                  <span class="w-3 shrink-0 text-text-weak" aria-hidden="true">{collapsed().has(item.path) ? "▸" : "⌄"}</span>
-                  <span class="min-w-0 flex-1 truncate">{item.name}</span>
-                  <Show when={item.count > 0}><span class="text-11-regular text-text-weak">{item.count}</span></Show>
+                <button type="button" data-memory-folder={item.path} data-drop={dropFolder() === item.path ? "" : undefined} style={{ "padding-left": `${item.depth * TREE_INDENT_PX}px` }} aria-expanded={!collapsed().has(item.path)} aria-label={t(collapsed().has(item.path) ? "workbench.memory.tree.expand" : "workbench.memory.tree.collapse", { name: item.name })} onContextMenu={(event) => openMenu(event, "folder", item.path, item.name)} onClick={() => toggleFolder(item.path)} onDragOver={(event) => overFolder(event, item.path)} onDragLeave={() => { if (dropFolder() === item.path) setDropFolder(undefined) }} onDrop={(event) => void dropOnFolder(event, item.path)}>
+                  <span aria-hidden="true">{collapsed().has(item.path) ? "▸" : "⌄"}</span>
+                  <span>{item.name}</span>
+                  <Show when={item.count > 0}><span data-memory-count>{item.count}</span></Show>
                 </button>
               </Match>
               <Match when={item.kind === "note"}>
-                <Show when={renaming() === item.path} fallback={<button type="button" class="mb-1 block w-full rounded px-2 py-2 text-left text-12-regular hover:bg-background-base" classList={{ "bg-background-base text-text-strong": selectedPath() === item.path, "opacity-50": dragPath() === item.path }} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" data-memory-note={item.path} title={item.path} onDragStart={(event) => startDrag(event, item.path)} onContextMenu={(event) => openMenu(event, "note", item.path, item.name)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setMobilePane("note") }}><span class="mr-1 text-text-weak" aria-hidden="true">◈</span>{item.name}</button>}>
-                  <input class="mb-1 w-full rounded border border-border-base bg-background-base px-2 py-1.5 text-12-regular" style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} value={renameDraft()} aria-label={t("workbench.memory.actions.rename")} ref={(element) => element.focus()} onInput={(event) => setRenameDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void commitRename(); if (event.key === "Escape") setRenaming(undefined) }} onBlur={() => { if (renaming() === item.path) void commitRename() }} />
+                <Show when={renaming() === item.path} fallback={<button type="button" data-memory-note={item.path} data-active={selectedPath() === item.path ? "" : undefined} data-drag={dragPath() === item.path ? "" : undefined} style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} draggable="true" title={item.path} onDragStart={(event) => startDrag(event, item.path)} onContextMenu={(event) => openMenu(event, "note", item.path, item.name)} onClick={() => { if (saveState() === "unsaved") void persistNote("auto"); setSelectedPath(item.path); setMobilePane("note") }}><span aria-hidden="true">◈</span>{item.name}</button>}>
+                  <input data-memory-rename style={{ "padding-left": `${item.depth * TREE_INDENT_PX + 12}px` }} value={renameDraft()} aria-label={t("workbench.memory.actions.rename")} ref={(element) => element.focus()} onInput={(event) => setRenameDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void commitRename(); if (event.key === "Escape") setRenaming(undefined) }} onBlur={() => { if (renaming() === item.path) void commitRename() }} />
                 </Show>
               </Match>
             </Switch>}</For>
-            <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p class="p-2 text-12-regular text-text-weak">{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
+            <Show when={!!connection() && !files.isLoading && !files.error && visibleRows().length === 0 && !query().trim()}><p>{t("workbench.memory.vault.empty", { root: MEMORY_ROOT })}</p></Show>
           </div>
         </aside>
-        <article class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "note" }} data-memory-note-pane>
-          <header class="flex items-center gap-2 border-b border-border-base px-3 py-2"><Show when={narrow()}><button type="button" class="rounded px-2 py-1 text-11-medium" data-memory-back-to-vault onClick={() => setMobilePane("vault")}>← Vault</button></Show><span class="text-12-medium">Memory</span><span class="ml-auto text-11-regular text-text-weak" data-memory-save-state={saveState()}>{t(`workbench.memory.status.${saveState()}`)}</span><Show when={narrow()}><button type="button" class="rounded px-2 py-1 text-11-medium" data-memory-open-links onClick={() => setMobilePane("links")}>Links</button></Show><button type="button" class="rounded px-2 py-1 text-11-medium" data-v110="segment" aria-pressed={view() === "preview"} classList={{ "bg-background-base": view() === "preview" }} onClick={() => setView("preview")}>Preview</button><button type="button" class="rounded px-2 py-1 text-11-medium" data-v110="segment" aria-pressed={view() === "source"} classList={{ "bg-background-base": view() === "source" }} onClick={() => setView("source")}>Edit</button><button type="button" class="rounded px-2 py-1 text-11-medium" data-v110="segment" aria-pressed={view() === "split"} classList={{ "bg-background-base": view() === "split", hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button><button type="button" class="rounded bg-accent-base px-2 py-1 text-11-medium text-text-on-accent disabled:opacity-50" disabled={saving() || saveState() !== "unsaved"} onClick={() => void persistNote("manual")}>{saving() ? "Saving…" : "Save"}</button></header>
-          <div class="h-[calc(100%-43px)] overflow-y-auto p-5">
-            <Show when={noteFile.isLoading}><p class="text-12-regular text-text-weak">Loading note…</p></Show>
-            <Show when={noteFile.error}><p class="text-12-regular text-text-danger">Unable to read this note.</p></Show>
-            <Show when={note()}>{(current) => <><p class="text-11-regular text-text-weak">{current().path}</p><Show when={view() === "source"} fallback={<Show when={view() === "split"} fallback={<MemoryPreview note={current()} />}><div class="mt-3 grid min-h-[calc(100%-28px)] grid-cols-2 gap-3"><MemoryEditor value={draft()} onInput={onDraftChange} /><div class="min-w-0 overflow-y-auto rounded border border-border-base bg-background-base p-3"><MemoryPreview note={parseMemoryNote(current().path, draft())} /></div></div></Show>}><div class="mt-3 h-[calc(100%-28px)]"><MemoryEditor value={draft()} onInput={onDraftChange} /></div></Show></>}</Show>
-            <Show when={!note() && !noteFile.isLoading && !noteFile.error}><p class="text-12-regular text-text-weak">Choose a note from the vault.</p></Show>
+        <div data-memory-resizer="vault" title="Redimensionner" onPointerDown={(event) => resize(event, "vault")} />
+        <article classList={{ hidden: narrow() && mobilePane() !== "note" }} data-memory-note-pane>
+          <header data-memory-toolbar>
+            <Show when={hideVault() && !narrow()}><button type="button" data-memory-show-vault title="Show vault" aria-label="Show vault" onClick={() => setHideVault(false)}>▸</button></Show>
+            <Show when={narrow()}><button type="button" data-memory-back-to-vault onClick={() => setMobilePane("vault")}>← Vault</button></Show>
+            <span data-memory-status data-memory-save-state={saveState()}><i />{t(`workbench.memory.status.${saveState()}`)}</span>
+            <div data-memory-spacer />
+            <div data-memory-mode-switch>
+              <button type="button" data-v110="segment" aria-pressed={view() === "preview"} onClick={() => setView("preview")}>Preview</button>
+              <button type="button" data-v110="segment" aria-pressed={view() === "source"} onClick={() => setView("source")}>Edit</button>
+              <button type="button" data-v110="segment" aria-pressed={view() === "split"} classList={{ hidden: viewport() === "phone-portrait" }} onClick={() => setView("split")}>Split</button>
+            </div>
+            <button type="button" data-memory-save class="bg-accent-base text-text-on-accent" disabled={saving() || saveState() !== "unsaved"} onClick={() => void persistNote("manual")}>{saving() ? "Saving…" : "Save"}</button>
+            <Show when={hideLinks() && !narrow()}><button type="button" data-memory-show-links title="Show links" aria-label="Show links" onClick={() => setHideLinks(false)}>◂</button></Show>
+            <Show when={narrow()}><button type="button" data-memory-open-links onClick={() => setMobilePane("links")}>Links</button></Show>
+          </header>
+          <div data-memory-body>
+            <Show when={noteFile.isLoading}><p>Loading note…</p></Show>
+            <Show when={noteFile.error}><p data-error>Unable to read this note.</p></Show>
+            <Show when={note()}>{(current) => (
+              <div data-v110="memory-doc">
+                <p data-memory-path>{current().path}</p>
+                <Show when={view() === "source"} fallback={
+                  <Show when={view() === "split"} fallback={<MemoryPreview note={current()} />}>
+                    <div data-memory-split>
+                      <MemoryEditor value={draft()} onInput={onDraftChange} />
+                      <div data-memory-preview-pane><MemoryPreview note={parseMemoryNote(current().path, draft())} /></div>
+                    </div>
+                  </Show>
+                }>
+                  <MemoryEditor value={draft()} onInput={onDraftChange} />
+                </Show>
+              </div>
+            )}</Show>
+            <Show when={!note() && !noteFile.isLoading && !noteFile.error}><p data-memory-empty>Choose a note from the vault.</p></Show>
           </div>
         </article>
-        <aside class="min-h-0 overflow-hidden rounded-lg border border-border-base bg-background-stronger" classList={{ hidden: narrow() && mobilePane() !== "links" }} data-memory-links>
-          <header class="border-b border-border-base p-3"><Show when={narrow()}><button type="button" class="mb-2 rounded px-2 py-1 text-11-medium" data-memory-back-to-note onClick={() => setMobilePane("note")}>← Note</button></Show><h2 class="text-14-medium">Links &amp; context</h2><div class="mt-2 flex gap-1"><button type="button" class="rounded px-2 py-1 text-11-medium" data-v110="segment" aria-pressed={contextView() === "links"} classList={{ "bg-background-base": contextView() === "links" }} onClick={() => setContextView("links")}>Links</button><button type="button" class="rounded px-2 py-1 text-11-medium" data-v110="segment" aria-pressed={contextView() === "graph"} classList={{ "bg-background-base": contextView() === "graph" }} onClick={() => setContextView("graph")}>Local graph</button></div></header>
-          <div class="overflow-y-auto p-3"><Show when={contextView() === "links"} fallback={<Show when={graph().nodes.length > 0} fallback={<p class="text-12-regular text-text-weak">Choose a note to inspect its graph.</p>}><div class="flex flex-wrap items-center gap-1" data-memory-graph-controls><button type="button" class="rounded bg-background-base px-2 py-1 text-11-medium" data-memory-graph-depth onClick={() => setGraphDepth(graphDepth() >= 3 ? 1 : graphDepth() + 1)}>{t("workbench.memory.graph.depth", { depth: graphDepth() })}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphTags() }} data-memory-graph-tags aria-pressed={graphTags()} onClick={() => setGraphTags(!graphTags())}>{t("workbench.memory.graph.tags")}</button><button type="button" class="rounded px-2 py-1 text-11-medium" classList={{ "bg-background-base": graphOrphans() }} data-memory-graph-orphans aria-pressed={graphOrphans()} onClick={() => setGraphOrphans(!graphOrphans())}>{t("workbench.memory.graph.orphans")}</button></div><svg ref={graphSvg} class="mt-2 h-56 w-full cursor-grab touch-none" classList={{ "cursor-grabbing": graphPanning() }} viewBox="0 0 100 100" role="img" aria-label="Local memory graph" data-memory-graph-viewport onWheel={onGraphWheel} onPointerDown={onGraphPointerDown} onPointerMove={onGraphPointerMove} onPointerUp={endGraphPan} onPointerCancel={endGraphPan} onDblClick={() => fitGraph()}><g ref={graphWorld} data-memory-graph-world transform={`translate(${graphView().x} ${graphView().y}) scale(${graphView().zoom})`}><g ref={graphContent}><For each={graph().edges}>{(edge) => { const from = () => edge.kind === "tag" ? graph().tags.find((tag) => `tag:${tag.tag}` === edge.from) : graph().nodes.find((node) => node.path === edge.from); const to = () => graph().nodes.find((node) => node.path === edge.to); return <Show when={from() && to()}><line x1={from()!.x} y1={from()!.y} x2={to()!.x} y2={to()!.y} stroke="currentColor" opacity={edge.kind === "tag" ? "0.2" : "0.35"} stroke-dasharray={edge.kind === "tag" ? "2 2" : undefined} /></Show> }}</For><For each={graph().tags}>{(tag) => <g data-memory-graph-tag={tag.tag}><circle cx={tag.x} cy={tag.y} r="4" class="fill-background-strong" stroke="currentColor" /><text x={tag.x} y={tag.y + 8} text-anchor="middle" class="fill-text-base text-[4px]">#{tag.tag.slice(0, 12)}</text></g>}</For><For each={graph().nodes}>{(node) => <g class="cursor-pointer" role="button" tabindex="0" data-memory-graph-node={node.path} onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}><circle cx={node.x} cy={node.y} r={node.path === selectedPath() ? 8 : 6} class={node.path === selectedPath() ? "fill-accent-base" : "fill-background-strong"} stroke="currentColor" /><text x={node.x} y={node.y + 13} text-anchor="middle" class="fill-text-base text-[5px]">{node.title.slice(0, 16)}</text></g>}</For></g></g></svg><p class="mt-1 text-11-regular text-text-weak" data-memory-graph-summary>{t("workbench.memory.graph.summary", { notes: graph().nodes.length, links: graph().edges.filter((edge) => edge.kind === "note").length })}</p></Show>}><Show when={note() && linked().length > 0} fallback={<p class="text-12-regular text-text-weak">No resolved links for this note.</p>}><For each={linked()}>{(item) => <button type="button" class="mb-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show><Show when={backlinks().length}><h3 class="mt-4 text-12-medium">Backlinks</h3><For each={backlinks()}>{(item) => <button type="button" class="mt-2 block w-full rounded border border-border-base p-2 text-left text-12-regular hover:bg-background-base" title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>{item.title}</button>}</For></Show></Show></div>
+        <div data-memory-resizer="links" title="Redimensionner les liens" onPointerDown={(event) => resize(event, "links")} />
+        <aside classList={{ hidden: narrow() && mobilePane() !== "links" }} data-memory-links>
+          <div data-memory-head>
+            <div data-memory-head-row>
+              <Show when={narrow()}><button type="button" data-memory-back-to-note onClick={() => setMobilePane("note")}>← Note</button></Show>
+              <b>Links &amp; context</b>
+              <div data-memory-spacer />
+              <Show when={!narrow()}><button type="button" data-memory-hide-links title="Hide links" aria-label="Hide links" onClick={() => setHideLinks(true)}>▸</button></Show>
+            </div>
+            <div data-memory-tabs>
+              <button type="button" aria-pressed={contextView() === "links"} data-active={contextView() === "links" ? "" : undefined} onClick={() => setContextView("links")}>Links</button>
+              <button type="button" aria-pressed={contextView() === "graph"} data-active={contextView() === "graph" ? "" : undefined} onClick={() => setContextView("graph")}>Local graph</button>
+            </div>
+          </div>
+          <div data-memory-side-scroll>
+            <Show when={contextView() === "links"} fallback={
+              <Show when={graph().nodes.length > 0} fallback={<p>Choose a note to inspect its graph.</p>}>
+                <div data-memory-graph-controls>
+                  <button type="button" data-memory-graph-depth onClick={() => setGraphDepth(graphDepth() >= 3 ? 1 : graphDepth() + 1)}>{t("workbench.memory.graph.depth", { depth: graphDepth() })}</button>
+                  <button type="button" data-memory-graph-tags aria-pressed={graphTags()} onClick={() => setGraphTags(!graphTags())}>{t("workbench.memory.graph.tags")}</button>
+                  <button type="button" data-memory-graph-orphans aria-pressed={graphOrphans()} onClick={() => setGraphOrphans(!graphOrphans())}>{t("workbench.memory.graph.orphans")}</button>
+                </div>
+                <svg ref={graphSvg} data-memory-graph-viewport data-panning={graphPanning() ? "" : undefined} viewBox="0 0 100 100" role="img" aria-label="Local memory graph" onWheel={onGraphWheel} onPointerDown={onGraphPointerDown} onPointerMove={onGraphPointerMove} onPointerUp={endGraphPan} onPointerCancel={endGraphPan} onDblClick={() => fitGraph()}>
+                  <g ref={graphWorld} data-memory-graph-world transform={`translate(${graphView().x} ${graphView().y}) scale(${graphView().zoom})`}>
+                    <g ref={graphContent}>
+                      <For each={graph().edges}>{(edge) => {
+                        const from = () => edge.kind === "tag" ? graph().tags.find((tag) => `tag:${tag.tag}` === edge.from) : graph().nodes.find((node) => node.path === edge.from)
+                        const to = () => graph().nodes.find((node) => node.path === edge.to)
+                        return <Show when={from() && to()}>
+                          <line x1={from()!.x} y1={from()!.y} x2={to()!.x} y2={to()!.y} stroke="currentColor" opacity={edge.kind === "tag" ? "0.2" : "0.35"} stroke-dasharray={edge.kind === "tag" ? "2 2" : undefined} />
+                        </Show>
+                      }}</For>
+                      <For each={graph().tags}>{(tag) => (
+                        <g data-memory-graph-tag={tag.tag}>
+                          <circle cx={tag.x} cy={tag.y} r="4" />
+                          <text x={tag.x} y={tag.y + 8} text-anchor="middle">#{tag.tag.slice(0, 12)}</text>
+                        </g>
+                      )}</For>
+                      <For each={graph().nodes}>{(node) => (
+                        <g role="button" tabindex="0" data-memory-graph-node={node.path} onClick={() => { setSelectedPath(node.path); setMobilePane("note") }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedPath(node.path) }}>
+                          <circle cx={node.x} cy={node.y} r={node.path === selectedPath() ? 8 : 6} data-active={node.path === selectedPath() ? "" : undefined} />
+                          <text x={node.x} y={node.y + 13} text-anchor="middle">{node.title.slice(0, 16)}</text>
+                        </g>
+                      )}</For>
+                    </g>
+                  </g>
+                </svg>
+                <p data-memory-graph-summary>{t("workbench.memory.graph.summary", { notes: graph().nodes.length, links: graph().edges.filter((edge) => edge.kind === "note").length })}</p>
+              </Show>
+            }>
+              <Show when={note() && linked().length > 0} fallback={<p>No resolved links for this note.</p>}>
+                <For each={linked()}>{(item) => (
+                  <button type="button" data-memory-link-card title={`${item.title}\n${linkedExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>
+                    <b>{item.title}</b>
+                    <p>{linkedExcerpt().get(item.path) ?? ""}</p>
+                  </button>
+                )}</For>
+              </Show>
+              <Show when={backlinks().length}>
+                <h3>Backlinks</h3>
+                <For each={backlinks()}>{(item) => (
+                  <button type="button" data-memory-link-card title={`${item.title}\n${backlinksExcerpt().get(item.path) ?? ""}`} onClick={() => { setSelectedPath(item.path); setMobilePane("note") }}>
+                    <b>{item.title}</b>
+                    <p>{backlinksExcerpt().get(item.path) ?? ""}</p>
+                  </button>
+                )}</For>
+              </Show>
+            </Show>
+          </div>
         </aside>
       </div>
       <Show when={menu()}>{(current) => <>
         <div class="fixed inset-0 z-40" data-memory-menu-backdrop onClick={closeMenu} onContextMenu={(event) => { event.preventDefault(); closeMenu() }} />
-        <div class="fixed z-50 min-w-44 rounded-lg border border-border-base bg-background-stronger p-1 shadow-lg" style={{ left: `${current().x}px`, top: `${current().y}px` }} data-memory-menu role="menu">
+        <div class="fixed z-50" data-memory-menu style={{ left: `${current().x}px`, top: `${current().y}px` }} role="menu">
           <Show when={!moving()} fallback={<>
-            <button type="button" class="block w-full truncate rounded px-2 py-1.5 text-left text-12-regular hover:bg-background-base" data-memory-menu-item="move-root" onClick={() => void moveNoteTo(current().target, MEMORY_ROOT)}>{t("workbench.memory.vault.title")}</button>
-            <For each={folders()}>{(folder) => <button type="button" class="block w-full truncate rounded px-2 py-1.5 text-left text-12-regular hover:bg-background-base" data-memory-menu-item="move-folder" onClick={() => void moveNoteTo(current().target, folder.path)}>{folder.name}</button>}</For>
+            <button type="button" data-memory-menu-item="move-root" onClick={() => void moveNoteTo(current().target, MEMORY_ROOT)}>{t("workbench.memory.vault.title")}</button>
+            <For each={folders()}>{(folder) => <button type="button" data-memory-menu-item="move-folder" onClick={() => void moveNoteTo(current().target, folder.path)}>{folder.name}</button>}</For>
           </>}>
-            <For each={memoryMenuActions(current().kind)}>{(action) => <button type="button" class="block w-full rounded px-2 py-1.5 text-left text-12-regular hover:bg-background-base" classList={{ "text-text-danger": action === "delete" }} data-memory-menu-item={action} onClick={() => runAction(action)}>{t(`workbench.memory.actions.${action}`)}</button>}</For>
+            <For each={memoryMenuActions(current().kind)}>{(action) => <button type="button" data-memory-menu-item={action} data-danger={action === "delete" ? "" : undefined} onClick={() => runAction(action)}>{t(`workbench.memory.actions.${action}`)}</button>}</For>
           </Show>
         </div>
       </>}</Show>

@@ -79,6 +79,28 @@ test("pagination walks the full tree exactly once, in a stable order, across pag
   }
 })
 
+test("cursor pages read the first page's walk: a file added between pages neither shifts nor duplicates them", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "unifia-listing-contract-"))
+  try {
+    const runtime = new WorkspaceRuntime({ now: () => 1_000, pageSize: 3 })
+    const workspace = await runtime.register({ name: "snapshot", path: root })
+    const handle = await runtime.open(workspace.id)
+    for (let i = 0; i < 6; i += 1) await writeFile(path.join(root, `file-${i}.txt`), String(i))
+
+    const first = await runtime.list(handle.token, ".")
+    // Sorts before every other entry: a fresh walk would push file-2 onto page two.
+    await writeFile(path.join(root, "aaa.txt"), "late")
+    const second = await runtime.list(handle.token, ".", first.nextCursor)
+
+    expect(first.entries.map((entry) => entry.path)).toEqual(["file-0.txt", "file-1.txt", "file-2.txt"])
+    expect(second.entries.map((entry) => entry.path)).toEqual(["file-3.txt", "file-4.txt", "file-5.txt"])
+    // A new first page walks again and sees the new file.
+    expect((await runtime.list(handle.token, ".")).entries[0]?.path).toBe("aaa.txt")
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test("a cursor is refused against a different workspace or a different prefix", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "unifia-listing-contract-"))
   try {
