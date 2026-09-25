@@ -82,6 +82,12 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
         await tts.prepare(language)
         if (stopped) return
+        const available = await invoke("stt_available")
+        if (stopped) return
+        if (available !== true) await invoke("stt_download_model")
+        if (stopped) return
+        await invoke("stt_load_model")
+        if (stopped) return
         stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
         if (stopped) {
           stream.getTracks().forEach((track) => track.stop())
@@ -99,11 +105,6 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         source.connect(processor)
         processor.connect(mute)
         mute.connect(audioContext.destination)
-        const available = await invoke("stt_available")
-        if (stopped) return
-        if (available !== true) await invoke("stt_download_model")
-        if (stopped) return
-        await invoke("stt_load_model")
       } catch (error) {
         this.stop()
         throw error
