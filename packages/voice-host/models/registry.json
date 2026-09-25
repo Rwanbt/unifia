@@ -1,0 +1,139 @@
+{
+  "$schema": "https://unifia.local/schemas/voice-model-registry-1.json",
+  "_comment": "Recorded 2026-09-26. SHAs computed from .build-temp/ artifacts present at HEAD 792d2a8564. Re-record on every refresh. See docs/adr/ADR-066-voice-model-artifact-registry.md.",
+  "models": [
+    {
+      "provider": "snakers4",
+      "model_id": "silero-vad-v6.2.2-onnx",
+      "version": "6.2.2",
+      "upstream_revision": "github.com/snakers4/silero-vad@v6.2.2",
+      "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+      "size_bytes": 2327524,
+      "licence": "MIT",
+      "languages": ["*"],
+      "architecture": "silero-vad-onnx",
+      "quantization": "fp32",
+      "redistributable": true,
+      "source": "https://github.com/snakers4/silero-vad/raw/v6.2.2/src/silero_vad/data/silero_vad.onnx",
+      "minimum_runtime": "livekit-agents>=1.8.0 OR silero-vad>=5.1",
+      "compatibility": {
+        "engine": "LiveKitVAD OR SileroOnnx",
+        "sample_rate_hz": 16000,
+        "frame_samples": 512,
+        "notes": "Per ADR-061. The reference is also downloaded into .build-temp/ alongside this registry."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-en_US-ljspeech-medium",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+      "size_bytes": 63531379,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["en-US"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 22050,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066. The Piper runtime is GPL-3.0 and must remain isolated; never embedded in the MIT mobile application."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-fr_FR-mls-medium",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "0ed223f78466917f2bae05ee90096ce69ab1fdeb251f55590d0e7422d234e162",
+      "size_bytes": 76733750,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["fr-FR"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/mls/medium/fr_FR-mls-medium.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 22050,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-de_DE-mls-medium",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "69cd1d2aa5a35839a518966fcc4924b5f93e5f8c948ed0752b1a616ad53f65bf",
+      "size_bytes": 76961079,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["de-DE"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/mls/medium/de_DE-mls-medium.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 22050,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-es_ES-carlfm-x_low",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "d69677323a907cd4963f42b29c20a98b5d6bfa7f3e64df339915e4650c00d125",
+      "size_bytes": 28130791,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["es-ES"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 16000,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    },
+    {
+      "provider": "rhasspy",
+      "model_id": "piper-voice-it_IT-riccardo-x_low",
+      "version": "UNVERIFIED — last update time recorded, upstream revision pending",
+      "upstream_revision": "github.com/rhasspy/piper-voices@main (specific commit UNVERIFIED)",
+      "sha256": "1368de15f123275a7ef951c9e5e30be0f58a032daa14a0da44037443c1d1d21b",
+      "size_bytes": 28130791,
+      "licence": "GPL-3.0 (Piper runtime) + per-voice (see source)",
+      "languages": ["it-IT"],
+      "architecture": "piper-onnx",
+      "quantization": "fp16",
+      "redistributable": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx",
+      "minimum_runtime": "piper-tts>=1.2.0 (subprocess isolated)",
+      "compatibility": {
+        "engine": "piper-host subprocess",
+        "sample_rate_hz": 16000,
+        "notes": "Isolated subprocess per ADR-062 / ADR-066."
+      }
+    }
+  ],
+  "missing_for_adoption": [
+    {
+      "model_id": "parakeet-tdt-0.6b-v3-int8",
+      "reason": "ONNX export SHA-256 not yet recorded against the .build-temp cache; the model is referenced by ADR-058 §1.4 and ADR-068 as the canonical STT but not yet in this registry.",
+      "next_action": "Compute SHA-256 against the .build-temp/ artifact when present; record source/upstream_revision/licence; add an entry."
+    },
+    {
+      "model_id": "pocket-tts-v1-* (one entry per language)",
+      "reason": "Per ADR-059, Pocket TTS is the primary TTS. The Kyutai Python reference is `pocket-tts==3.1.0` and the multilingual weights are downloaded on first use; their SHAs are not yet recorded here.",
+      "next_action": "After the PocketTTS.cpp qualification (ADR-059), record per-language SHAs and the engines/ort_version compatibility block."
+    }
+  ]
+}
