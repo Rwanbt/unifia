@@ -233,160 +233,148 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   line-height: 1.4 !important;
 }
 
-/* ─── 10. PROMPT TRAY / BOTTOM BAR — single line, compact ───────────────── */
+/* ─── 10. COMPOSER CONTROLS — maquette v110 phone layout ─────────────────── */
 
-/* Keep the DockTray scrollable so controls retain stable touch targets. */
+/* Tablets (wider than the phone query below) keep the app's stacked layout:
+ * selectors, then the actions strip. Its height follows the 44px targets of
+ * section 4, or the two rows overlap. */
 [data-dock-surface="tray"] > div {
   flex-wrap: nowrap !important;
   align-items: center !important;
-  justify-content: flex-start !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 6px !important;
-}
-[data-dock-surface="tray"] > div::-webkit-scrollbar {
-  display: none;
 }
 
-/* Keep nested tray rows from compressing their controls into overlapping labels. */
-[data-dock-surface="tray"] > div > div {
-  flex-wrap: nowrap !important;
-  align-items: center !important;
-}
+/* Phones follow Unifia-UI-UX-v110 (".mode-chat .prompt-footer" at
+ * max-width 839px and short landscape): ONE row of seven equal cells, 36px
+ * tall with an 11px radius, 6px apart -- attach, agent, model, permission,
+ * web search, dictation, send. Selectors show only their icon. The row sits
+ * in the editor's reserved bottom band (its 56px inline padding, which must
+ * not be overridden on Android), like on desktop. Live is the topbar orb,
+ * not a composer button. Cells are sized from the composer's own width
+ * (it is an inline-size container), so the tray (left cells) and the actions
+ * dock (right cells) line up as one grid although they are two elements. */
+@media (max-width: 839px), (max-height: 520px) and (max-width: 899px) and (orientation: landscape) {
+  [data-v110="prompt-composer"] {
+    --pc-gap: 6px;
+    --pc-cells: 7;
+    --pc-cell: calc((100cqw - (var(--pc-cells) - 1) * var(--pc-gap)) / var(--pc-cells));
+    border-radius: 16px !important;
+    padding: 9px 9px 8px !important;
+  }
+  /* A variant selector or the thinking toggle adds a cell; no dictation
+   * button (disabled in settings) removes one. */
+  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]),
+  [data-v110="prompt-composer"]:has([data-action="prompt-thinking-toggle"]) {
+    --pc-cells: 8;
+  }
+  [data-v110="prompt-composer"]:has([data-component="prompt-variant-control"]):has([data-action="prompt-thinking-toggle"]) {
+    --pc-cells: 9;
+  }
+  [data-v110="prompt-composer"]:not(:has([data-action="prompt-stt-toggle"])) {
+    --pc-cells: 6;
+  }
 
-/* Selector groups scroll as a row instead of shrinking below their labels. */
-[data-v110="prompt-footer-controls"] {
-  justify-content: flex-start !important;
-  overflow-x: auto !important;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-}
-[data-v110="prompt-footer-controls"]::-webkit-scrollbar {
-  display: none;
-}
-[data-v110="prompt-footer-controls"] > [data-v110="prompt-attach-slot"] {
-  flex: 0 0 44px !important;
-  width: 44px !important;
-  /* The slot clips to its box: at the app's 28px it cut the 44px button down
-   * to a square-cornered band. */
-  height: 44px !important;
-}
-[data-v110="prompt-footer-controls"] > div.flex-1,
-[data-v110="prompt-footer-controls"] > div.flex-1 > div.flex-1,
-[data-v110="prompt-footer-controls"] > div.flex-1 > div.flex-1 > div.flex-1 {
-  flex: 0 0 auto !important;
-  width: max-content !important;
-  min-width: 0 !important;
-}
+  /* Left cells: the tray, on the composer's content edge and last row. */
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] {
+    left: 9px !important;
+    right: auto !important;
+    bottom: 8px !important;
+  }
+  [data-dock-surface="tray"] > div,
+  [data-v110="prompt-footer-controls"],
+  [data-v110="prompt-footer-controls"] div.flex-1 {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    gap: var(--pc-gap) !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  [data-v110="prompt-attach-slot"],
+  [data-component="prompt-agent-control"],
+  [data-component="prompt-model-control"],
+  [data-component="prompt-debate-model-control"],
+  [data-component="prompt-team-model-control"],
+  [data-component="prompt-mode-control"],
+  [data-component="prompt-variant-control"] {
+    flex: 0 0 var(--pc-cell) !important;
+    width: var(--pc-cell) !important;
+    height: 36px !important;
+    min-width: 0 !important;
+  }
+  /* Wrappers between a control and its trigger (tooltip trigger, Select)
+   * otherwise size to their content and push the trigger past its cell. */
+  :is(
+      [data-component="prompt-agent-control"],
+      [data-component="prompt-model-control"],
+      [data-component="prompt-mode-control"],
+      [data-component="prompt-variant-control"],
+      [data-v110="prompt-attach-slot"]
+    )
+    :is([data-component="tooltip-trigger"], [data-component="select"], div) {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
 
-[data-component="prompt-agent-control"] button,
-[data-component="prompt-model-control"] button,
-[data-component="prompt-variant-control"] button,
-[data-component="prompt-debate-model-control"] button,
-[data-action="prompt-agent"],
-[data-action="prompt-model"],
-[data-action="prompt-model-variant"],
-[data-action="prompt-permissions"] {
-  min-height: 44px !important;
-  height: 44px !important;
-  font-size: 13px !important;
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-  white-space: nowrap !important;
-}
+  /* Right cells: the actions dock, flush with the composer's content edge. */
+  [data-v110="prompt-actions-dock"] {
+    right: 0 !important;
+    bottom: 0 !important;
+    gap: var(--pc-gap) !important;
+  }
+  [data-v110="prompt-actions"] {
+    gap: var(--pc-gap) !important;
+  }
+  /* The Live button's tooltip wrapper too: left in the row it still took a
+   * gap and shifted the right cells off the grid. */
+  [data-v110="prompt-actions"] :is([data-component="tooltip-trigger"]:has(> [data-action="prompt-live-toggle"]), [data-action="prompt-live-toggle"]),
+  [data-slot="prompt-live-status"] {
+    display: none !important;
+  }
 
-/* Each selector has a readable bound and truncates its own value. */
-[data-component="prompt-agent-control"],
-[data-component="prompt-model-control"],
-[data-component="prompt-mode-control"],
-[data-component="prompt-variant-control"],
-[data-component="prompt-debate-model-control"] {
-  flex: 0 0 auto !important;
-  min-width: 0 !important;
-}
-/* Icon + agent name + chevron: below ~100px a short name like "Chat" ellipsizes. */
-[data-component="prompt-agent-control"] { width: 104px !important; }
-[data-component="prompt-model-control"] { width: 124px !important; }
-[data-component="prompt-mode-control"] { width: 96px !important; }
-[data-component="prompt-variant-control"] { width: 104px !important; }
-[data-component="prompt-debate-model-control"] { width: 124px !important; }
+  /* Every cell's button: 36px, 11px radius, icon only. */
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] :is([data-v110="prompt-control"], [data-action="prompt-attach"], [data-v110="prompt-actions"] [data-action^="prompt-"]:not([data-action="prompt-submit"], [data-action="prompt-context"])) {
+    width: var(--pc-cell) !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 11px !important;
+    justify-content: center !important;
+  }
+  [data-v110="prompt-control"] :is([data-slot="select-select-trigger-value"], span.truncate, [data-slot="select-select-trigger-icon"]) {
+    display: none !important;
+  }
+  [data-v110="prompt-control"] [data-component="provider-icon"] {
+    opacity: 1 !important;
+  }
 
-/* Wrappers between a control and its trigger (tooltip trigger, the agent's
- * Select) are flex items sized to their content, so the trigger's 100%
- * overflowed the bound above and painted over the next selector. */
-:is(
-    [data-component="prompt-agent-control"],
-    [data-component="prompt-model-control"],
-    [data-component="prompt-mode-control"],
-    [data-component="prompt-variant-control"],
-    [data-component="prompt-debate-model-control"]
-  )
-  :is([data-component="tooltip-trigger"], [data-component="select"]) {
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-}
-
-[data-v110="prompt-control"] {
-  width: 100% !important;
-  min-width: 44px !important;
-  max-width: 100% !important;
-  min-height: 44px !important;
-  height: 44px !important;
-  justify-content: flex-start !important;
-  gap: 6px !important;
-  padding-inline: 8px !important;
-}
-[data-v110="prompt-control"] [data-slot="select-select-trigger-value"],
-[data-v110="prompt-control"] > span.truncate,
-[data-v110="prompt-control"] span.truncate {
-  display: block !important;
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-[data-v110="prompt-control"] [data-slot="select-select-trigger-icon"] {
-  display: inline-flex !important;
-  flex: 0 0 auto !important;
-}
-
-/* Debate adds a fifth selector; two compact columns prevent overlap on phones. */
-.prompt-controls-debate {
-  flex-wrap: wrap !important;
-  align-items: center !important;
-}
-.prompt-controls-debate > [data-component="prompt-agent-control"],
-.prompt-controls-debate > [data-component="prompt-model-control"],
-.prompt-controls-debate > [data-component="prompt-mode-control"],
-.prompt-controls-debate > [data-component="prompt-debate-model-control"],
-.prompt-controls-debate > [data-component="prompt-variant-control"] {
-  flex: 1 1 calc(50% - 4px) !important;
-  max-width: calc(50% - 4px) !important;
-}
-
-/* Remove max-width constraints that cause unequal sizing */
-[data-component="prompt-model-control"] .max-w-\[320px\],
-[data-component="prompt-agent-control"] .max-w-\[160px\],
-[data-component="prompt-variant-control"] .max-w-\[160px\],
-[data-component="prompt-debate-model-control"] button,
-[data-component="prompt-mode-control"] .max-w-\[120px\] {
-  max-width: none !important;
-  width: 100% !important;
-}
-
-/* Do not let selector labels paint over adjacent touch targets. */
-[data-component="prompt-agent-control"] .truncate,
-[data-component="prompt-model-control"] .truncate,
-[data-component="prompt-mode-control"] .truncate,
-[data-component="prompt-variant-control"] .truncate {
-  min-width: 0 !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
+  /* Send: its own cell, the 36px button at the cell's end, the context meter
+   * riding its left edge (maquette .mode-chat .prompt-send-stack). */
+  [data-v110="prompt-send-stack"] {
+    width: var(--pc-cell) !important;
+    justify-content: flex-end !important;
+  }
+  [data-v110="composer-dock"] [data-v110="prompt-composer"] [data-action="prompt-submit"] {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border-radius: 11px !important;
+  }
+  [data-v110="composer-dock"] [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
+    left: -12px !important;
+    right: auto !important;
+    bottom: 6px !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+  }
 }
 
 /* ─── 10b. TERMINAL — reclaim space when closed ─────────────────────────── */
@@ -599,11 +587,6 @@ a:active,
     display: none !important;
   }
 
-  [data-component="prompt-agent-control"] { width: 96px !important; }
-  [data-component="prompt-model-control"] { width: 108px !important; }
-  [data-component="prompt-mode-control"] { width: 88px !important; }
-  [data-component="prompt-variant-control"] { width: 92px !important; }
-  [data-component="prompt-debate-model-control"] { width: 108px !important; }
 
   [data-component="prompt-model-control"],
   [data-component="prompt-agent-control"],

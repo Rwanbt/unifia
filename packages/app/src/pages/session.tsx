@@ -210,8 +210,11 @@ export default function Page() {
     // mode changes the main surface content, never the workspace geometry.
     const current = workspaceView()
     // The mobile app has no layout switch, so a stored Editor must not hide
-    // its only chat.
-    if (current === "main" && !isMobileDevice()) return "0px"
+    // its only chat. A main-pane destination (settings, account, browser,
+    // memory) owns the phone's screen instead: stacked under the chat it
+    // squeezed the chat to 0px and the composer painted over it. The bottom
+    // nav's Code tab brings the chat back.
+    if (current === "main" && (!isMobileDevice() || MAIN_PANE_DESTINATIONS.has(mode.destination()))) return "0px"
     // Wide Chat layout: the surface is the focused column itself, centred on
     // the window by v110-chat.css, so switching layouts animates one box's
     // left edge and width like the reference (ADR-053).
