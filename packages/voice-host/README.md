@@ -28,4 +28,4 @@ Tests: `python -m unittest tests.test_live_text tests.test_live_runtime
 tests.test_live_stt tests.test_worker tests.test_voice_state`; the real-transport test needs
 `UNIFIA_LIVEKIT_SERVER_BIN` (see `docs/voice-live.md`).
 
-Architecture and decisions: `docs/voice-live.md`, `docs/adr/ADR-049-voice-runtime.md`.
+Architecture and decisions: `docs/voice-live.md`, `docs/adr/ADR-058-voice-runtime.md`.

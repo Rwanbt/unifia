@@ -1,6 +1,6 @@
 # Voice runtime baseline
 
-Status: Historical Wave A characterization, 2026-09-23. This snapshot is exploratory, not production qualification; implementation and gate evidence continued afterward. Current architecture is in [voice-live.md](voice-live.md), and production remains uncertified until the physical gates listed there and in ADR-049 pass.
+Status: Historical Wave A characterization, 2026-09-23. This snapshot is exploratory, not production qualification; implementation and gate evidence continued afterward. Current architecture is in [voice-live.md](voice-live.md), and production remains uncertified until the physical gates listed there and in ADR-058 pass.
 
 ## Repository and branch
 
@@ -53,7 +53,7 @@ Three solo 256-token completions measured 26.67–28.88 generated tokens/s. Prom
 
 One later Pocket retry stalled after logging tokenizer loading, with no network connection and no further CPU progress for more than 150 seconds; only the two benchmark processes started for that retry were terminated. Repeated `nvidia-smi` polling also intermittently failed during load, so it was removed from the successful timing run. These observations are retained as instability evidence, not averaged into the successful sample.
 
-At the time of this 2026-09-23 baseline, TTFA, Parakeet-under-load, Piper, Live conversation, interruption latency, process CPU/RAM, full-system RAM, and repeated variance were unmeasured. Later implementation and CI evidence is recorded in [voice-live.md](voice-live.md) and [ADR-049](adr/ADR-049-voice-runtime.md); none substitutes for the remaining physical qualification. The temporary LLM process was stopped after measurement and port 8080 was verified free.
+At the time of this 2026-09-23 baseline, TTFA, Parakeet-under-load, Piper, Live conversation, interruption latency, process CPU/RAM, full-system RAM, and repeated variance were unmeasured. Later implementation and CI evidence is recorded in [voice-live.md](voice-live.md) and [ADR-058](adr/ADR-058-voice-runtime.md); none substitutes for the remaining physical qualification. The temporary LLM process was stopped after measurement and port 8080 was verified free.
 
 ## Gate A status
 
@@ -193,7 +193,7 @@ pointing STUN at LiveKit's own UDP port was found to break ICE).
 | J — Streaming speech | `SpeechSegmenter`, `SpeechRenderer`, streaming `TtsRouter` (Pocket in process → Piper), barge-in cancellation, no WAV | Python tests; integration test (Pocket failure → Piper audio, barge-in stops playback in 512–557 ms from speech onset) | PASS in CI scope; real Pocket TTFA pending |
 | K — Live prompt UI | `prompt-live-toggle`, 9-state machine, mutual exclusion with dictation, status line, a11y, settings | app tests (state machine, controller, host client, dictation hook incl. mutation check), i18n parity | PASS in CI scope; visual check on devices pending |
 | L — Mobile client | canonical PromptInput on mobile, LiveKit client through the paired desktop server, LAN signaling CSP | controller/host-client tests | Real Android journey pending |
-| M — Hardening | security/privacy/license review, docs ([voice-live.md](voice-live.md)), ADR-049 DECIDED | this document | Production benchmarks and physical journeys pending |
+| M — Hardening | security/privacy/license review, docs ([voice-live.md](voice-live.md)), ADR-058 DECIDED | this document | Production benchmarks and physical journeys pending |
 
 Global verdict for the campaign: **NO-GO for production** until the physical
 journeys (desktop Live, Android Live, five Pocket languages, local LLM

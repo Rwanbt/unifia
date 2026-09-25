@@ -5,7 +5,7 @@
 
 - Status: accepted
 - Date: 2026-09-25
-- Related: ADR-049 (voice runtime), ADR-048 (accent colour), ADR-056 (hover panels)
+- Related: ADR-058 (voice runtime), ADR-048 (accent colour), ADR-056 (hover panels)
 
 ## Context
 
@@ -13,7 +13,7 @@ The Jarvis topbar prototype V5 (`Unifia-UI-UX-v110-JARVIS-TOPBAR-PROTOTYPE-V5.ht
 adds an animated orb right after the Chat / Split / Editor switch: a click turns
 the ambient voice presence on or off, hovering it while on opens a context peek.
 The prototype drives it with demo states, a fixed cyan/violet/green/amber palette
-and fake progress percentages. Live conversation already exists (ADR-049) and is
+and fake progress percentages. Live conversation already exists (ADR-058) and is
 started from the composer's Live button, whose runtime was bound only there.
 
 ## Decision

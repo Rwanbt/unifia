@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Live voice conversation
 
-Normative decisions: [ADR-049](adr/ADR-049-voice-runtime.md). Earlier waves
+Normative decisions: [ADR-058](adr/ADR-058-voice-runtime.md). Earlier waves
 (contracts, Kokoro removal, Pocket runtime, Piper fallback, playback and
 capture ownership) are in [voice-runtime-baseline.md](voice-runtime-baseline.md),
 [voice-piper.md](voice-piper.md), [voice-playback.md](voice-playback.md) and
@@ -218,4 +218,4 @@ real-transport test:
 Not measured here (no model downloads, no GPU, no physical device): Pocket
 TTFA on the target desktop, Parakeet latency on live turns, local LLM
 throughput with Live active, VRAM, Android. See the final report in
-ADR-049 for the production gates that remain open.
+ADR-058 for the production gates that remain open.

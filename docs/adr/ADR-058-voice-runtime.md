@@ -1,5 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
-# ADR-049: Unifia voice runtime
+# ADR-058: Unifia voice runtime
+
+> Renumbered from ADR-049 on 2026-09-25: new-ui already uses ADR-049 for the
+> Code inspector tools. Commits before that date cite this decision as ADR-049.
 
 **Date**: 2026-09-23, decided 2026-09-24 | **Status**: DECIDED
 
