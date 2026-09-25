@@ -1,14 +1,15 @@
 /**
  * Mobile speech hooks.
  *
- * STT: mic → MediaRecorder (webm/opus) → WAV 16 kHz → Parakeet ONNX → text
- * Live assistant audio comes from the paired Voice Host over LiveKit. Manual
- * read-aloud remains unavailable until an authenticated host route exists.
+ * STT and Android Live use on-device Parakeet. Mobile read-aloud uses an
+ * installed Android voice that reports local execution.
  */
 
 import { invokeTauri } from "../../../app/src/hooks/speech-tauri-adapter"
 import { speakableText } from "../../../app/src/hooks/web-speech"
 import { AudioPlaybackCoordinator, type AudioPlaybackLease } from "../../../app/src/voice/audio-playback-coordinator"
+import { AndroidOfflineTts } from "../../../app/src/voice/android-offline-tts"
+import { loadAudioSettings } from "../../../app/src/voice/audio-settings"
 import { acquireCurrentAudioStream, cancelAudioCaptureRequest, installAudioCaptureCoordinator, requestAudioCapture, type AudioCaptureLease } from "../../../app/src/voice/audio-capture-coordinator"
 import { showToast } from "@unifia/ui/toast"
 
@@ -25,27 +26,21 @@ let activeManualPlayback: ManualPlayback | undefined
 let manualPlaybackLease: AudioPlaybackLease | undefined
 let lastManualToggleAt = 0
 
-type SpeechServer = { url: string; username?: string; password?: string }
 type ManualPlayback = {
-  requestId: string
-  controller: AbortController
-  serverUrl: string
-  headers: Record<string, string>
-  audio?: HTMLAudioElement
-  objectUrl?: string
   synthesisPending: boolean
   lease: AudioPlaybackLease
+  nativeTts?: AndroidOfflineTts
 }
 const MANUAL_TTS_DOUBLE_TAP_MS = 400
 let ttsToggleListener: EventListener | undefined
 let activeLivePlayback: { id: string; lease: AudioPlaybackLease } | undefined
 
-export function initSpeechListeners(server: SpeechServer) {
+export function initSpeechListeners() {
   captureCoordinatorCleanup ??= installAudioCaptureCoordinator(window)
   playbackCoordinator ??= new AudioPlaybackCoordinator()
   window.addEventListener("stt-start", handleSttStart)
   window.addEventListener("stt-stop", handleSttStop)
-  ttsToggleListener = ((e: Event) => { void handleTtsToggle(e as CustomEvent, server) }) as EventListener
+  ttsToggleListener = ((e: Event) => { void handleTtsToggle(e as CustomEvent) }) as EventListener
   window.addEventListener("tts-toggle", ttsToggleListener)
   window.addEventListener("tts-live-start", handleLivePlaybackStarted)
   window.addEventListener("tts-live-ended", handleLivePlaybackEnded)
@@ -199,7 +194,7 @@ function stopDictationCapture() {
   }
 }
 
-async function handleTtsToggle(e: CustomEvent, server: SpeechServer) {
+async function handleTtsToggle(e: CustomEvent) {
   const text = speakableText(String(e.detail?.text ?? ""))
   if (!text) return
   const active = activeManualPlayback
@@ -211,99 +206,61 @@ async function handleTtsToggle(e: CustomEvent, server: SpeechServer) {
       stopManualPlayback(active)
       return
     }
-    if (active.audio?.paused) void active.audio.play().catch(() => stopManualPlayback(active))
-    else active.audio?.pause()
+    if (active.nativeTts) {
+      if (speechSynthesis.paused) active.nativeTts.resume()
+      else active.nativeTts.pause()
+      return
+    }
     return
   }
-  await startManualPlayback(text, server)
+  await startManualPlayback(text)
 }
 
-async function startManualPlayback(text: string, server: SpeechServer) {
-  const requestId = `tts_${crypto.randomUUID().replaceAll("-", "")}`
+async function startManualPlayback(text: string) {
   let playback: ManualPlayback
   const lease = playbackCoordinator?.acquire("manual", () => stopManualPlayback(playback))
   if (!lease) return
   playback = {
-    requestId,
-    controller: new AbortController(),
-    serverUrl: server.url,
-    headers: serverAuthorization(server),
     synthesisPending: true,
     lease,
   }
   activeManualPlayback = playback
   manualPlaybackLease = lease
+  playback.nativeTts = new AndroidOfflineTts()
   try {
     const language = speechLanguage()
-    const response = await fetch(new URL("/voice/tts", server.url), {
-      method: "POST",
-      headers: { "content-type": "application/json", ...playback.headers },
-      body: JSON.stringify({ text, language, requestId }),
-      signal: playback.controller.signal,
-    })
-    if (!response.ok) throw new Error("Authenticated speech synthesis failed")
-    const audioBlob = await response.blob()
+    await playback.nativeTts.prepare(language)
     if (activeManualPlayback !== playback) return
     playback.synthesisPending = false
-    playback.objectUrl = URL.createObjectURL(audioBlob)
-    const audio = new Audio(playback.objectUrl)
-    playback.audio = audio
-    audio.onended = () => finishManualPlayback(playback, "done")
-    audio.onerror = () => finishManualPlayback(playback, "error")
-    await audio.play()
+    await playback.nativeTts.speak(text, language, loadAudioSettings().ttsSpeed)
+    if (activeManualPlayback === playback) finishManualPlayback(playback, "done")
+    return
   } catch (error) {
     if (activeManualPlayback !== playback) return
-    const aborted = error instanceof DOMException && error.name === "AbortError"
-    stopManualPlayback(playback, !aborted)
-    if (!aborted) {
-      console.error("[TTS] Mobile read-aloud failed:", error)
-      showToast({ title: "Speech unavailable", description: "The paired Unifia server could not synthesize this message.", variant: "error" })
-      window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))
-    }
+    stopManualPlayback(playback)
+    console.error("[TTS] On-device mobile read-aloud failed:", error)
+    showToast({ title: "Offline speech unavailable", description: "Install an offline Android voice for this language and try again.", variant: "error" })
+    window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "error" } }))
+    return
   }
 }
 
-function stopManualPlayback(playback: ManualPlayback, cancelRemote = true) {
+function stopManualPlayback(playback: ManualPlayback) {
   if (activeManualPlayback !== playback) return
-  playback.controller.abort()
-  playback.audio?.pause()
-  if (playback.audio) playback.audio.src = ""
-  if (playback.objectUrl) URL.revokeObjectURL(playback.objectUrl)
+  playback.nativeTts?.stop()
   activeManualPlayback = undefined
   if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
   playbackCoordinator?.release(playback.lease)
-  if (cancelRemote && playback.synthesisPending) void cancelManualSynthesis(playback)
   window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason: "done" } }))
 }
 
 function finishManualPlayback(playback: ManualPlayback, reason: "done" | "error") {
   if (activeManualPlayback !== playback) return
-  playback.audio?.pause()
-  if (playback.objectUrl) URL.revokeObjectURL(playback.objectUrl)
+  playback.nativeTts?.stop()
   activeManualPlayback = undefined
   if (manualPlaybackLease?.id === playback.lease.id) manualPlaybackLease = undefined
   playbackCoordinator?.release(playback.lease)
   window.dispatchEvent(new CustomEvent("speech-ended", { detail: { kind: "tts", reason } }))
-}
-
-async function cancelManualSynthesis(playback: ManualPlayback) {
-  try {
-    await fetch(new URL("/voice/tts/cancel", playback.serverUrl), {
-      method: "POST",
-      headers: { "content-type": "application/json", ...playback.headers },
-      body: JSON.stringify({ requestId: playback.requestId }),
-    })
-  } catch (error) {
-    console.warn("[TTS] Could not cancel remote synthesis:", error)
-  }
-}
-
-function serverAuthorization(server: SpeechServer): Record<string, string> {
-  if (!server.username || server.password === undefined) return {}
-  const bytes = new TextEncoder().encode(`${server.username}:${server.password}`)
-  let binary = ""
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return { authorization: `Basic ${btoa(binary)}` }
 }
 
 function speechLanguage(): "en" | "fr" | "es" | "it" | "de" {

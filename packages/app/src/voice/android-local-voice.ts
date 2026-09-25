@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 import { TurnEndpointing } from "./turn-endpointing"
 import type { LocalVoiceTransport } from "./live-controller"
+import { AndroidOfflineTts } from "./android-offline-tts"
+import { loadAudioSettings } from "./audio-settings"
 
-type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<any>
+type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 
 const SAMPLE_RATE = 16_000
 const FRAME_MS = 20
@@ -20,8 +22,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   let frameSamples = 0
   let endpointing: TurnEndpointing | undefined
   let handlers: { onSpeaking(speaking: boolean): void; onUtterance(audio: string): void } | undefined
-  let speechUtterance: SpeechSynthesisUtterance | undefined
-  let selectedVoice: SpeechSynthesisVoice | undefined
+  const tts = new AndroidOfflineTts()
   let stopped = true
   let backgroundRms = 0.006
 
@@ -71,19 +72,25 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
     async start(nextHandlers) {
       if (stopped === false) return
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new Error("Android microphone capture is unavailable")
-        if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
-          throw new Error("Android local text-to-speech is unavailable")
-        }
-        const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
-        selectedVoice = (await availableVoices()).find((voice) => voice.localService && voice.lang.toLowerCase().startsWith(language))
-        if (!selectedVoice) throw new Error(`No installed offline TTS voice is available for ${language}`)
       stopped = false
       handlers = nextHandlers
       endpointing = new TurnEndpointing()
+      frames = []
+      frameSamples = 0
+      backgroundRms = 0.006
       try {
+        const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
+        await tts.prepare(language)
+        if (stopped) return
         stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
+        if (stopped) {
+          stream.getTracks().forEach((track) => track.stop())
+          stream = undefined
+          return
+        }
         audioContext = new AudioContext()
         await audioContext.resume()
+        if (stopped) return
         source = audioContext.createMediaStreamSource(stream)
         processor = audioContext.createScriptProcessor(4096, 1, 1)
         mute = audioContext.createGain()
@@ -93,7 +100,9 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         processor.connect(mute)
         mute.connect(audioContext.destination)
         const available = await invoke("stt_available")
-        if (!available) await invoke("stt_download_model")
+        if (stopped) return
+        if (available !== true) await invoke("stt_download_model")
+        if (stopped) return
         await invoke("stt_load_model")
       } catch (error) {
         this.stop()
@@ -101,10 +110,13 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       }
     },
     async transcribe(audioBase64) {
-      return invoke("stt_transcribe", { audioBase64 })
+      const result = await invoke("stt_transcribe", { audioBase64 })
+      if (typeof result !== "string") throw new Error("Local Parakeet returned an invalid transcript")
+      return result
     },
     speak(text) {
-      return speakWithInstalledVoice(text)
+      const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
+      return tts.speak(text, language, loadAudioSettings().ttsSpeed)
     },
     stop() {
       if (stopped) return
@@ -124,60 +136,10 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       audioContext = undefined
     },
     stopSpeaking() {
-      if (speechUtterance) speechSynthesis.cancel()
-      speechUtterance = undefined
+      tts.stop()
     },
   }
 
-  function speakWithInstalledVoice(text: string): Promise<void> {
-    if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
-      return Promise.reject(new Error("Android local text-to-speech is unavailable"))
-    }
-    return (async () => {
-      const utterance = new SpeechSynthesisUtterance(text)
-      const language = selectedVoice?.lang ?? document.documentElement.lang ?? navigator.language ?? "en"
-      utterance.lang = language
-      return new Promise<void>((resolve, reject) => {
-        if (!selectedVoice) {
-          reject(new Error("Offline TTS voice was not initialized"))
-          return
-        }
-        utterance.voice = selectedVoice
-        speechUtterance = utterance
-        utterance.onend = () => {
-          if (speechUtterance === utterance) speechUtterance = undefined
-          resolve()
-        }
-        utterance.onerror = (event) => {
-          if (speechUtterance !== utterance || event.error === "canceled" || event.error === "interrupted") resolve()
-          else {
-            speechUtterance = undefined
-            reject(new Error(`Local TTS failed: ${event.error}`))
-          }
-        }
-        speechSynthesis.speak(utterance)
-      })
-    })()
-  }
-}
-
-function availableVoices(): Promise<SpeechSynthesisVoice[]> {
-  const current = speechSynthesis.getVoices()
-  if (current.length) return Promise.resolve(current)
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      speechSynthesis.removeEventListener("voiceschanged", update)
-      resolve(speechSynthesis.getVoices())
-    }, 1_500)
-    const update = () => {
-      const voices = speechSynthesis.getVoices()
-      if (voices.length === 0) return
-      clearTimeout(timeout)
-      speechSynthesis.removeEventListener("voiceschanged", update)
-      resolve(voices)
-    }
-    speechSynthesis.addEventListener("voiceschanged", update)
-  })
 }
 
 async function samplesToWavBase64(frames: Float32Array[], sourceRate: number): Promise<string> {

@@ -559,7 +559,7 @@ function FullApp(props: {
   // copy button dispatches `tts-toggle`. See packages/app/src/components/
   // prompt-input.tsx for the UI side.
   onMount(() => {
-    initSpeechListeners(props.serverInfo)
+    initSpeechListeners()
     onCleanup(cleanupSpeechListeners)
   })
 

@@ -74,8 +74,9 @@ third-party artifacts, hashes, licenses, and language support before bundling.
   API, shared Live state, microphone lease and stop lifecycle.
 - Added Android WebView capture with bounded endpointing, local Parakeet
   invocation, offline-installed Android system voice selection, and response
-  interruption when speech resumes. Raw captured audio is passed only to the
-  on-device Tauri command.
+  interruption when speech resumes. Manual mobile read-aloud now uses the same
+  offline-only TTS adapter, including pause, resume, cancellation and speed.
+  Raw captured audio is passed only to the on-device Tauri command.
 - Added session creation/reuse for voice-only chats and focused controller,
   session bridge, and endpointing tests.
 - This is an implementation slice, not a qualified production path. The current
