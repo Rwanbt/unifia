@@ -46,9 +46,12 @@ export function createLiveBinding(input: {
       if (input.params.id !== sessionID) navigate(`/${base64Encode(directory())}/session/${sessionID}`)
     },
   })
-  // Live needs a microphone and a server; settings can turn the button off.
-  const available = typeof navigator !== "undefined" && !!navigator.mediaDevices && loadAudioSettings().liveEnabled
   const isMobile = input.platform.platform === "mobile"
+  // Android uses the local audio adapter; other platforms retain host LiveKit.
+  const available = typeof navigator !== "undefined"
+    && !!navigator.mediaDevices
+    && loadAudioSettings().liveEnabled
+    && (!isMobile || typeof tauri?.core?.invoke === "function")
   const context = (): LiveContext => {
     const model = input.local.model.current()
     return {
@@ -59,11 +62,11 @@ export function createLiveBinding(input: {
       model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
       variant: input.local.model.variant.current(),
       locale: input.language.locale(),
-      submitTurn: (transcript) => localSession.submit(transcript, {
+      submitTurn: (transcript, signal) => localSession.submit(transcript, {
         agent: input.local.agent.current()?.name,
         model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
         variant: input.local.model.variant.current(),
-      }),
+      }, signal),
     }
   }
 

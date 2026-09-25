@@ -107,6 +107,35 @@ describe("LiveVoiceController", () => {
     expect(controller.state).toBe("listening")
   })
 
+  test("aborts an in-flight local provider turn when the user interrupts", async () => {
+    let localHandlers: Parameters<LocalVoiceTransport["start"]>[0] | undefined
+    let promptSignal: AbortSignal | undefined
+    const spoken: string[] = []
+    const localVoice: LocalVoiceTransport = {
+      async start(handlers) { localHandlers = handlers },
+      async transcribe() { return "wait" },
+      async speak(text) { spoken.push(text) },
+      stop() {},
+      stopSpeaking() {},
+    }
+    const { controller } = setup({ localVoice })
+    await controller.start({
+      ...context,
+      transport: "local",
+      submitTurn: (_text, signal) => new Promise<string>((_resolve, reject) => {
+        promptSignal = signal
+        signal?.addEventListener("abort", () => reject(new DOMException("cancelled", "AbortError")), { once: true })
+      }),
+    })
+    localHandlers!.onUtterance("first")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    localHandlers!.onSpeaking(true)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(promptSignal?.aborted).toBe(true)
+    expect(spoken).toEqual([])
+    expect(controller.state).toBe("listening")
+  })
+
   test("follows agent state and task attributes through a long task", async () => {
     const { controller, rooms } = setup()
     await controller.start(context)

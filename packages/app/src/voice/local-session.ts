@@ -11,6 +11,7 @@ export interface LocalVoiceSessionClient {
     agent?: string
     model?: { providerID: string; modelID: string }
     variant?: string
+    signal?: AbortSignal
     parts: Array<{ type: "text"; text: string }>
   }): Promise<{
     data?: { parts: Array<{ type: string; text?: string }> }
@@ -60,7 +61,7 @@ export function createLocalVoiceSession(input: {
     get sessionID() {
       return sessionID
     },
-    async submit(text: string, options: Omit<LocalVoiceTurnOptions, "directory">): Promise<string> {
+    async submit(text: string, options: Omit<LocalVoiceTurnOptions, "directory">, signal?: AbortSignal): Promise<string> {
       const transcript = text.trim()
       if (!transcript) return ""
       const currentSessionID = await ensureSession()
@@ -70,6 +71,7 @@ export function createLocalVoiceSession(input: {
         agent: options.agent,
         model: options.model,
         variant: options.variant ?? undefined,
+        signal,
         parts: [{ type: "text", text: transcript }],
       })
       if (result.error) throw result.error

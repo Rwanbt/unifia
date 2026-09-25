@@ -37,7 +37,7 @@ export interface LiveContext {
   model?: { providerID: string; modelID: string }
   variant?: string
   locale?: string
-  submitTurn?: (transcript: string) => Promise<string>
+  submitTurn?: (transcript: string, signal?: AbortSignal) => Promise<string>
 }
 
 export interface LocalVoiceTransport {
@@ -83,10 +83,9 @@ export function errorFromUnknown(error: unknown): LiveVoiceError {
 }
 
 /**
- * Owns one Live conversation: Voice Host preparation, room grant, LiveKit
- * connection, microphone lease, playback lease and reconnection. It holds
- * the binding across reconnects so the room, device identity and Unifia
- * session survive a network drop; turn de-duplication lives in the agent.
+ * Owns one Live conversation. Desktop uses the Voice Host and LiveKit binding;
+ * standalone Android uses the injected local audio transport and Unifia session.
+ * Both paths share state, microphone ownership, playback and cancellation.
  */
 export class LiveVoiceController {
   private snapshot: LiveSnapshot = INITIAL_LIVE_SNAPSHOT
@@ -99,6 +98,8 @@ export class LiveVoiceController {
   private playbackId: string | undefined
   private agentTimer: ReturnType<typeof setTimeout> | undefined
   private localTurnQueue: Promise<void> = Promise.resolve()
+  private localTurnAbort: AbortController | undefined
+  private localInputRevision = 0
 
   constructor(private readonly deps: LiveControllerDeps) {}
 
@@ -148,12 +149,17 @@ export class LiveVoiceController {
       if (context.transport === "local") {
         if (!this.deps.localVoice) throw new LiveHostError("voice_host_unavailable", "Local Android voice is unavailable")
         if (!context.submitTurn) throw new LiveHostError("agent_unavailable", "Local Android voice has no Unifia session transport")
+        this.localInputRevision = 0
         await this.deps.localVoice.start({
           onSpeaking: (speaking) => {
-            if (speaking) this.deps.localVoice?.stopSpeaking()
+            if (speaking) {
+              this.localInputRevision++
+              this.deps.localVoice?.stopSpeaking()
+              this.localTurnAbort?.abort()
+            }
             this.dispatch({ type: "user-speaking", speaking }, generation)
           },
-          onUtterance: (audio) => this.queueLocalTurn(audio, generation),
+          onUtterance: (audio) => this.queueLocalTurn(audio, generation, this.localInputRevision),
         })
         if (generation !== this.generation) return
         this.dispatch({ type: "connected" }, generation)
@@ -178,24 +184,38 @@ export class LiveVoiceController {
     }
   }
 
-  private queueLocalTurn(audio: string, generation: number) {
+  private queueLocalTurn(audio: string, generation: number, inputRevision: number) {
     this.localTurnQueue = this.localTurnQueue.then(async () => {
-      if (generation !== this.generation || !this.context?.submitTurn || !this.deps.localVoice) return
+      if (generation !== this.generation || inputRevision !== this.localInputRevision || !this.context?.submitTurn || !this.deps.localVoice) return
       try {
         const transcript = (await this.deps.localVoice.transcribe(audio)).trim()
-        if (!transcript || generation !== this.generation) return
+        if (!transcript || generation !== this.generation || inputRevision !== this.localInputRevision) return
         this.dispatch({ type: "user-speaking", speaking: false }, generation)
         this.dispatch({ type: "agent-state", agent: "thinking" }, generation)
-        const response = (await this.context.submitTurn(transcript)).trim()
+        const abort = new AbortController()
+        this.localTurnAbort = abort
+        const response = (await this.context.submitTurn(transcript, abort.signal)).trim()
+        if (this.localTurnAbort === abort) this.localTurnAbort = undefined
         if (generation !== this.generation) return
+        if (abort.signal.aborted || inputRevision !== this.localInputRevision) {
+          this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+          return
+        }
         if (!response) {
           this.dispatch({ type: "agent-state", agent: "listening" }, generation)
           return
         }
         this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
         await this.deps.localVoice.speak(response)
-        if (generation === this.generation) this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+        if (generation === this.generation && inputRevision === this.localInputRevision) {
+          this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+        }
       } catch (error) {
+        if (this.localTurnAbort?.signal.aborted) {
+          this.localTurnAbort = undefined
+          if (generation === this.generation) this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+          return
+        }
         if (generation === this.generation) this.fail(errorFromUnknown(error), error)
       }
     }).catch((error) => {
@@ -326,6 +346,8 @@ export class LiveVoiceController {
     void room?.disconnect().catch(() => undefined)
     this.deps.localVoice?.stop()
     this.deps.localVoice?.stopSpeaking()
+    this.localTurnAbort?.abort()
+    this.localTurnAbort = undefined
     this.lease?.release()
     this.lease = undefined
     if (this.playbackId) this.deps.playback.end(this.playbackId)

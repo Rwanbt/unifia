@@ -66,4 +66,11 @@ describe("createLocalVoiceSession", () => {
     })
     await expect(promptSession.submit("hello", {})).rejects.toThrow("prompt denied")
   })
+
+  test("forwards cancellation to the Unifia prompt request", async () => {
+    const { session, prompts } = setup("ses_existing")
+    const abort = new AbortController()
+    await session.submit("hello", {}, abort.signal)
+    expect(prompts[0].signal).toBe(abort.signal)
+  })
 })
