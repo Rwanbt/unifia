@@ -228,11 +228,11 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
 
 /* ─── 10. PROMPT TRAY / BOTTOM BAR — single line, compact ───────────────── */
 
-/* The DockTray: keep original top overlap, center items, single line */
+/* Keep the DockTray scrollable so controls retain stable touch targets. */
 [data-dock-surface="tray"] > div {
   flex-wrap: nowrap !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   overflow-x: auto !important;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -242,13 +242,34 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   display: none;
 }
 
-/* Force all inner flex containers to center + nowrap */
+/* Keep nested tray rows from compressing their controls into overlapping labels. */
 [data-dock-surface="tray"] > div > div {
   flex-wrap: nowrap !important;
   align-items: center !important;
 }
 
-/* Tray buttons — compact, single line */
+/* Selector groups scroll as a row instead of shrinking below their labels. */
+[data-v110="prompt-footer-controls"] {
+  justify-content: flex-start !important;
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+[data-v110="prompt-footer-controls"]::-webkit-scrollbar {
+  display: none;
+}
+[data-v110="prompt-footer-controls"] > [data-v110="prompt-attach-slot"] {
+  flex: 0 0 44px !important;
+  width: 44px !important;
+}
+[data-v110="prompt-footer-controls"] > div.flex-1,
+[data-v110="prompt-footer-controls"] > div.flex-1 > div.flex-1,
+[data-v110="prompt-footer-controls"] > div.flex-1 > div.flex-1 > div.flex-1 {
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  min-width: 0 !important;
+}
+
 [data-component="prompt-agent-control"] button,
 [data-component="prompt-model-control"] button,
 [data-component="prompt-variant-control"] button,
@@ -257,22 +278,53 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
 [data-action="prompt-model"],
 [data-action="prompt-model-variant"],
 [data-action="prompt-permissions"] {
-  min-height: 32px !important;
-  height: 32px !important;
+  min-height: 44px !important;
+  height: 44px !important;
   font-size: 13px !important;
   padding-left: 8px !important;
   padding-right: 8px !important;
   white-space: nowrap !important;
 }
 
-/* All tray selectors — equal flex sizing, no truncation */
+/* Each selector has a readable bound and truncates its own value. */
 [data-component="prompt-agent-control"],
 [data-component="prompt-model-control"],
 [data-component="prompt-mode-control"],
 [data-component="prompt-variant-control"],
 [data-component="prompt-debate-model-control"] {
-  flex: 1 1 0 !important;
+  flex: 0 0 auto !important;
   min-width: 0 !important;
+}
+[data-component="prompt-agent-control"] { width: 88px !important; }
+[data-component="prompt-model-control"] { width: 124px !important; }
+[data-component="prompt-mode-control"] { width: 96px !important; }
+[data-component="prompt-variant-control"] { width: 104px !important; }
+[data-component="prompt-debate-model-control"] { width: 124px !important; }
+
+[data-v110="prompt-control"] {
+  width: 100% !important;
+  min-width: 44px !important;
+  max-width: 100% !important;
+  min-height: 44px !important;
+  height: 44px !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  padding-inline: 8px !important;
+}
+[data-v110="prompt-control"] [data-slot="select-select-trigger-value"],
+[data-v110="prompt-control"] > span.truncate,
+[data-v110="prompt-control"] span.truncate {
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+[data-v110="prompt-control"] [data-slot="select-select-trigger-icon"] {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
 }
 
 /* Debate adds a fifth selector; two compact columns prevent overlap on phones. */
@@ -299,13 +351,14 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   width: 100% !important;
 }
 
-/* Ensure text doesn't get truncated too aggressively */
+/* Do not let selector labels paint over adjacent touch targets. */
 [data-component="prompt-agent-control"] .truncate,
 [data-component="prompt-model-control"] .truncate,
 [data-component="prompt-mode-control"] .truncate,
 [data-component="prompt-variant-control"] .truncate {
-  overflow: visible !important;
-  text-overflow: unset !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
   white-space: nowrap !important;
 }
 
@@ -519,13 +572,12 @@ a:active,
     display: none !important;
   }
 
-  /* Stack the tray controls so they don't need horizontal scroll */
-  [data-dock-surface="tray"] .flex.items-center.gap-1\.5.min-w-0.flex-1 {
-    flex-wrap: wrap !important;
-    gap: 4px 8px !important;
-  }
+  [data-component="prompt-agent-control"] { width: 80px !important; }
+  [data-component="prompt-model-control"] { width: 108px !important; }
+  [data-component="prompt-mode-control"] { width: 88px !important; }
+  [data-component="prompt-variant-control"] { width: 92px !important; }
+  [data-component="prompt-debate-model-control"] { width: 108px !important; }
 
-  /* Agent/model selectors take full width when wrapped */
   [data-component="prompt-model-control"],
   [data-component="prompt-agent-control"],
   [data-component="prompt-variant-control"] {
