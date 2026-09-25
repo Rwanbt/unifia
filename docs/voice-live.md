@@ -81,25 +81,33 @@ file through `UNIFIA_VOICE_HOST_DIR` to issue room tokens. The manual Pocket
 worker is stopped while the Voice Host runs so Pocket is loaded once. The host
 is stopped 5 minutes after the last Live conversation ends.
 
-**Mobile.** The phone runs no speech model for Live. When the app is connected
-to the desktop's Unifia server (the existing paired remote-server connection),
-`POST /voice/live/session` on that server returns a token and the Voice Host's
-LAN URL; the phone joins over WebRTC and hears Pocket (or Piper) generated on
-the desktop CPU. Dictation on the phone keeps using its local Parakeet. This
-Live audio path does not provide manual read-aloud: the mobile `tts-toggle`
-handler currently reports that the Voice Host is unavailable, and the server
-has no authenticated manual-synthesis route. This remains a Wave L production
-blocker.
+**Android Local (standalone-first; implementation in progress).** The phone
+owns microphone capture, local VAD/endpointing, existing Parakeet inference,
+turn orchestration, TTS, and playback. Finalized speech enters the existing
+Unifia session so its selected agent, provider, tools, permissions, project,
+and memory remain authoritative. This path does not use LiveKit, WebRTC, ICE,
+STUN/TURN, a desktop server, or LAN. A local LLM and local speech models allow
+the complete conversation to work offline. If the user deliberately selected
+a remote LLM provider, only the normal Unifia model request needs the network;
+raw microphone audio remains on device.
 
-**No Voice Host.** On the phone's embedded server, or when the host is not
-running, the server answers `503 voice_host_unavailable` and the Live button
-shows "Voice Host unavailable. Start Unifia on your computer or check
-Settings > Audio." No cloud voice service is used as a substitute.
+**Android Remote/Offload (optional).** The existing paired-server route may
+remain available when explicitly selected: `/voice/live/session` grants a
+room on the desktop Voice Host and the phone joins over WebRTC. It can offload
+larger speech models, but it is not required for Android Voice.
+
+**Historical mobile behavior (superseded).** The earlier release path made
+the paired desktop Voice Host mandatory and left mobile manual TTS unavailable.
+That behavior is not the target architecture and must not be presented as the
+Android Local experience. See [ADR-058](adr/ADR-058-voice-runtime.md) and the
+[standalone implementation plan](PLAN-ANDROID-STANDALONE-VOICE.md).
 
 ### Network exposure
 
 | Mode | Signal | Media | Notes |
 |---|---|---|---|
+| Android Local | No network listener for voice | In-process/native audio | Target: no room, token, or paired device. |
+| Android Remote/Offload | Existing paired-server LiveKit signaling | Existing WebRTC media | Explicit optional transport. |
 | Local (default) | `127.0.0.1:7880/tcp` (+ `[::1]` when IPv6 loopback exists) | `127.0.0.1:7882/udp` | Verified listeners on Linux: nothing else is bound. |
 | LAN (opt-in) | `127.0.0.1` + one private IPv4 | same UDP port on those addresses | Address = interface of the default route, only if RFC1918. |
 
@@ -144,23 +152,24 @@ Internet exposure is never automatic.
 |---|---|
 | Unauthorized participant | Tokens only from the authenticated Unifia server (existing Basic/JWT auth = pairing); viewer accounts refused; `maxParticipants: 2`; agent dispatch only by token. |
 | Token leak / replay | 10-minute JWT limited to one opaque room, microphone publishing only, no data publishing, no admin grants. Bindings expire after 12 h. |
-| Secret exposure | LiveKit API secret stays on the desktop (0600 file, never in a response or the WebView). |
+| Secret exposure | Desktop LiveKit API secret stays on the desktop (0600 file, never in a response or the WebView); Android Local has no room secret. |
 | Room/identity disclosure | Room `unifia-live-<24 random>`, identity `device-<16 random>`, binding `lvb_<32 random>`; no path, user or session in names. |
 | Token flooding | 20 grants per minute per server. |
 | Audio flood / oversized audio | Utterances capped at 60 s for STT; LiveKit limits participants and tracks. |
 | TTS DoS | One synthesis per model, bounded queue (32 chunks) with backpressure, cancellation on barge-in. |
 | Tampered runtime | `livekit-server` must match its pinned reproducible SHA-256; Python deps from the exact `uv.lock` with hashes. |
-| LAN exposure | Off by default; only one RFC1918 address is added; no TCP ICE, no TURN. |
+| LAN exposure | Desktop LAN off by default; only one RFC1918 address is added; no TCP ICE, no TURN. Android Local opens no voice listener. |
 | Voice read-back of secrets | Renderer redacts API keys, tokens, passwords, private keys and URL credentials before synthesis. |
 | Malicious binding / path | Binding ids validated by regex; directory must be absolute; the agent refuses a binding whose room differs. |
 
 ## Privacy
 
-Microphone audio goes only to the local or LAN Voice Host. No audio or
-transcript is logged: logs carry byte counts, durations, providers and
-languages. LiveKit session recording is disabled (`record=False`). If the
-selected Unifia model is remote, the transcript follows the same disclosure
-policies as typed prompts. LiveKit Cloud is never enabled.
+In Android Local, raw microphone audio stays on the phone and is not sent to a
+Voice Host. No audio or transcript is logged: logs carry byte counts,
+durations, providers and languages. LiveKit session recording is disabled
+(`record=False`) for desktop and optional Remote/Offload. If the selected
+Unifia model is remote, the finalized transcript follows the same disclosure
+policies as a typed prompt. LiveKit Cloud is never enabled.
 
 ## Licenses
 
