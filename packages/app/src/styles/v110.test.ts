@@ -133,10 +133,23 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
     expect(css).toContain('[data-v110="prompt-control"] [data-slot="select-select-trigger-icon"]')
     expect(css).toContain("left: 8px")
     expect(css).toContain("bottom: calc(100% + 14px)")
-    expect(css).toContain("bottom: calc(100% + 18px)")
+    expect(css).toContain("bottom: calc(100% + var(--v110-prompt-strip) + 8px)")
     expect(css).not.toContain("justify-content: flex-end")
     expect(prompt).not.toContain('Icon name="chevron-down"')
     expect(prompt).toContain('data-v110": "prompt-control"')
+  })
+
+  test("on phones and touch screens the actions get their own strip under the selectors", () => {
+    const css = readFileSync(V110_CHAT_CSS, "utf8")
+    const prompt = readFileSync(PROMPT_INPUT, "utf8")
+    // Side by side, the selector row covered dictation, Live and send on
+    // Android (touch-sized actions outgrow the desktop reserve).
+    expect(prompt).toContain('data-v110="prompt-actions-dock"')
+    const stacked = css.slice(css.indexOf("(pointer: coarse) {"))
+    expect(stacked).toContain("--v110-prompt-strip: calc(var(--v110-prompt-action-size) + 14px)")
+    expect(stacked).toContain("padding-bottom: var(--v110-prompt-strip)")
+    expect(stacked).toContain("bottom: calc(8px - var(--v110-prompt-strip))")
+    expect(stacked).toContain("bottom: calc(var(--v110-prompt-strip) + 4px)")
   })
 })
 

@@ -127,6 +127,13 @@ button[class*="size-8"],
   min-height: 44px !important;
 }
 
+/* The composer's phone layout reserves its actions strip from this size
+ * (v110-chat.css); it must match the 44px targets above or the selector
+ * row and the actions (dictation, Live, send) overlap. */
+[data-v110="prompt-composer"] {
+  --v110-prompt-action-size: 44px;
+}
+
 /* ─── 5. SHOW ALL TOOLBAR BUTTONS ON NARROW SCREENS ──────────────────────── */
 
 /* Desktop hides buttons with `hidden md:flex` and `hidden xl:flex`.
@@ -261,6 +268,9 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
 [data-v110="prompt-footer-controls"] > [data-v110="prompt-attach-slot"] {
   flex: 0 0 44px !important;
   width: 44px !important;
+  /* The slot clips to its box: at the app's 28px it cut the 44px button down
+   * to a square-cornered band. */
+  height: 44px !important;
 }
 [data-v110="prompt-footer-controls"] > div.flex-1,
 [data-v110="prompt-footer-controls"] > div.flex-1 > div.flex-1,
@@ -295,11 +305,28 @@ header .hidden.xl\:flex.shrink-0.ml-14 {
   flex: 0 0 auto !important;
   min-width: 0 !important;
 }
-[data-component="prompt-agent-control"] { width: 88px !important; }
+/* Icon + agent name + chevron: below ~100px a short name like "Chat" ellipsizes. */
+[data-component="prompt-agent-control"] { width: 104px !important; }
 [data-component="prompt-model-control"] { width: 124px !important; }
 [data-component="prompt-mode-control"] { width: 96px !important; }
 [data-component="prompt-variant-control"] { width: 104px !important; }
 [data-component="prompt-debate-model-control"] { width: 124px !important; }
+
+/* Wrappers between a control and its trigger (tooltip trigger, the agent's
+ * Select) are flex items sized to their content, so the trigger's 100%
+ * overflowed the bound above and painted over the next selector. */
+:is(
+    [data-component="prompt-agent-control"],
+    [data-component="prompt-model-control"],
+    [data-component="prompt-mode-control"],
+    [data-component="prompt-variant-control"],
+    [data-component="prompt-debate-model-control"]
+  )
+  :is([data-component="tooltip-trigger"], [data-component="select"]) {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
 
 [data-v110="prompt-control"] {
   width: 100% !important;
@@ -572,7 +599,7 @@ a:active,
     display: none !important;
   }
 
-  [data-component="prompt-agent-control"] { width: 80px !important; }
+  [data-component="prompt-agent-control"] { width: 96px !important; }
   [data-component="prompt-model-control"] { width: 108px !important; }
   [data-component="prompt-mode-control"] { width: 88px !important; }
   [data-component="prompt-variant-control"] { width: 92px !important; }

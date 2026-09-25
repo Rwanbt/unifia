@@ -575,6 +575,44 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   color: var(--text);
 }
 
+/* Phones and touch screens stack two rows under the text: the selectors, then
+ * the actions (web search, dictation, Live, send) in a strip reserved at the
+ * bottom of the composer. Side by side, the selectors cover the actions as
+ * soon as touch-sized actions outgrow the desktop reserve (tablets and phones
+ * in landscape). The strip is sized from the action button size, so a shell
+ * with bigger touch targets (mobile.css: 44px) cannot make the rows overlap.
+ * The actions dock is anchored to the form, which ends where that strip
+ * begins, hence the negative offset. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait), (pointer: coarse) {
+  [data-v110="prompt-composer"] {
+    --v110-prompt-actions-reserve: 0px;
+    --v110-prompt-action-size: 28px;
+    --v110-prompt-strip: calc(var(--v110-prompt-action-size) + 14px);
+    padding-bottom: var(--v110-prompt-strip);
+  }
+
+  [data-v110="prompt-actions-dock"] {
+    right: 0;
+    bottom: calc(8px - var(--v110-prompt-strip));
+  }
+
+  [data-v110="composer-dock"] [data-component="prompt-input"] {
+    padding-right: 38px;
+  }
+
+  [data-v110="prompt-composer"] > [data-dock-surface="tray"] {
+    left: 8px;
+    right: 8px;
+    bottom: calc(var(--v110-prompt-strip) + 4px);
+  }
+
+  /* Above the selector row, clear of the actions strip it sits in. */
+  [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
+    right: 6px;
+    bottom: calc(100% + var(--v110-prompt-strip) + 8px);
+  }
+}
+
 @media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
   /* Maquette: on phones copy-context moves into the conversation head's
    * right end, clear of the context meter above Send. */
@@ -589,21 +627,6 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
     border-radius: 11px;
   }
 
-  [data-v110="prompt-composer"] {
-    --v110-prompt-actions-reserve: 0px;
-    padding-bottom: 42px;
-  }
-
-  [data-v110="composer-dock"] [data-component="prompt-input"] {
-    padding-right: 38px;
-  }
-
-  [data-v110="prompt-composer"] > [data-dock-surface="tray"] {
-    left: 8px;
-    right: 8px;
-    bottom: 46px;
-  }
-
   [data-v110="prompt-composer"] > [data-dock-surface="tray"] > div > div {
     gap: 4px;
   }
@@ -615,8 +638,6 @@ html[data-color-scheme="light"] [data-v110="session-chat-surface"] {
   }
 
   [data-v110="prompt-send-stack"] [data-v110="context-meter"] {
-    right: 6px;
-    bottom: calc(100% + 18px);
     width: 24px;
     height: 24px;
   }
