@@ -533,7 +533,18 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const setWebSearch = (value: boolean) => setWebSearchPrefs("webSearch", value)
   const dictation = createDictation(language)
   const recording = dictation.recording
-  const live = createLiveBinding({ platform, sdk, params, local, language })
+  const live = createLiveBinding({
+    platform,
+    sdk,
+    params,
+    local,
+    language,
+    beforeStart: () => {
+      // Finalize a dictation in progress first: its text lands in the prompt,
+      // then Live takes the microphone.
+      if (dictation.recording()) dictation.stop()
+    },
+  })
   const isImeComposing = (event: KeyboardEvent) => event.isComposing || composing() || event.keyCode === 229
 
   const handleBlur = () => {
@@ -1239,7 +1250,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               <VoiceControls
                 dictation={dictation}
                 liveAvailable={live.available}
-                liveContext={live.context}
                 language={language}
                 style={buttons()}
               />

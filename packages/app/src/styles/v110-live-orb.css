@@ -1,0 +1,495 @@
+/* SPDX-License-Identifier: MIT */
+/* Live orb — port of the Jarvis topbar prototype V5
+ * (Unifia-UI-UX-v110-JARVIS-TOPBAR-PROTOTYPE-V5.html, `.jarvis-*` and
+ * `#unifia-jarvis-topbar-v5`). The prototype's fixed cyan/violet/green/amber
+ * palette is replaced by shades of the user's accent (ADR-048): every state
+ * pairs two tints of `--accent`, so the motion reads as one colour family.
+ * Global `prefers-reduced-motion` (v110.css) stops the animations; the orb
+ * keeps its accent colours. */
+
+[data-v110="live-orb"] {
+  --live-orb-accent: var(--accent, var(--text));
+  --live-orb-light: color-mix(in srgb, var(--live-orb-accent) 55%, white);
+  --live-orb-deep: color-mix(in srgb, var(--live-orb-accent) 72%, black);
+  --live-orb-a: var(--live-orb-accent);
+  --live-orb-b: var(--live-orb-light);
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  min-width: 31px;
+  padding: 0;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+[data-v110="live-orb"]:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--live-orb-a) 72%, transparent);
+  outline-offset: 2px;
+}
+[data-v110="live-orb"][data-visual="idle"] {
+  --live-orb-a: var(--live-orb-accent);
+  --live-orb-b: var(--live-orb-light);
+}
+[data-v110="live-orb"][data-visual="listening"] {
+  --live-orb-a: var(--live-orb-light);
+  --live-orb-b: var(--live-orb-accent);
+}
+[data-v110="live-orb"][data-visual="thinking"] {
+  --live-orb-a: var(--live-orb-deep);
+  --live-orb-b: var(--live-orb-light);
+}
+[data-v110="live-orb"][data-visual="working"] {
+  --live-orb-a: var(--live-orb-accent);
+  --live-orb-b: var(--live-orb-deep);
+}
+[data-v110="live-orb"][data-visual="speaking"] {
+  --live-orb-a: var(--live-orb-light);
+  --live-orb-b: var(--live-orb-deep);
+}
+[data-v110="live-orb"][data-visual="attention"] {
+  --live-orb-a: var(--live-orb-accent);
+  --live-orb-b: var(--live-orb-light);
+}
+
+[data-slot="live-orb-ring"] {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+[data-slot="live-orb-ring"]::before,
+[data-slot="live-orb-ring"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+[data-slot="live-orb-ring"]::before {
+  border: 1px solid color-mix(in srgb, var(--live-orb-a) 78%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--live-orb-a) 24%, transparent);
+}
+[data-slot="live-orb-ring"]::after {
+  inset: 3px;
+  border: 1px solid color-mix(in srgb, var(--live-orb-b) 58%, transparent);
+}
+[data-slot="live-orb-core"] {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--live-orb-a), var(--live-orb-b));
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--live-orb-a) 88%, transparent),
+    0 0 17px color-mix(in srgb, var(--live-orb-b) 42%, transparent);
+}
+[data-slot="live-orb-orbit"] {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: var(--live-orb-a);
+  border-right-color: color-mix(in srgb, var(--live-orb-b) 80%, transparent);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--live-orb-a) 55%, transparent));
+  opacity: 0;
+}
+[data-slot="live-orb-attention"] {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  right: 4px;
+  top: 4px;
+  border-radius: 50%;
+  background: var(--live-orb-light);
+  border: 1.5px solid var(--bg-soft);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: 0.16s ease;
+}
+
+/* OFF: neutral and completely static. */
+[data-v110="live-orb"][data-visual="off"] [data-slot="live-orb-ring"]::before {
+  border-color: color-mix(in srgb, var(--faint) 66%, transparent);
+  box-shadow: none;
+  opacity: 0.78;
+}
+[data-v110="live-orb"][data-visual="off"] [data-slot="live-orb-ring"]::after {
+  border-color: color-mix(in srgb, var(--muted) 38%, transparent);
+  opacity: 0.5;
+}
+[data-v110="live-orb"][data-visual="off"] [data-slot="live-orb-core"] {
+  background: var(--muted);
+  box-shadow: none;
+  opacity: 0.68;
+}
+[data-v110="live-orb"][data-visual="off"]:hover [data-slot="live-orb-core"] {
+  background: color-mix(in srgb, var(--live-orb-accent) 45%, var(--muted));
+  opacity: 0.9;
+}
+
+/* Motion language (prototype V5). */
+[data-visual="idle"] [data-slot="live-orb-ring"] {
+  animation: live-orb-breathe 2.6s ease-in-out infinite;
+}
+[data-visual="idle"] [data-slot="live-orb-orbit"] {
+  opacity: 0.58;
+  animation: live-orb-spin 5.2s linear infinite;
+}
+[data-visual="idle"] [data-slot="live-orb-core"] {
+  animation: live-orb-idle-core 2.6s ease-in-out infinite;
+}
+[data-visual="listening"] [data-slot="live-orb-ring"]::before {
+  animation: live-orb-listen 1.05s ease-out infinite;
+}
+[data-visual="listening"] [data-slot="live-orb-ring"]::after {
+  animation: live-orb-listen-inner 1.05s 0.22s ease-out infinite;
+}
+[data-visual="listening"] [data-slot="live-orb-core"] {
+  animation: live-orb-core-pulse 0.78s ease-in-out infinite;
+}
+[data-visual="thinking"] [data-slot="live-orb-orbit"] {
+  opacity: 1;
+  animation: live-orb-spin 0.95s linear infinite;
+}
+[data-visual="thinking"] [data-slot="live-orb-ring"]::after {
+  animation: live-orb-counterspin 1.8s linear infinite;
+}
+[data-visual="working"] [data-slot="live-orb-orbit"] {
+  opacity: 1;
+  animation: live-orb-spin 0.72s linear infinite;
+}
+[data-visual="working"] [data-slot="live-orb-core"] {
+  animation: live-orb-core-pulse 0.92s ease-in-out infinite;
+}
+[data-visual="working"] [data-slot="live-orb-ring"]::before,
+[data-visual="speaking"] [data-slot="live-orb-ring"]::before {
+  animation: live-orb-halo 1.5s ease-in-out infinite;
+}
+[data-visual="speaking"] [data-slot="live-orb-core"] {
+  animation: live-orb-core-pulse 0.6s ease-in-out infinite;
+}
+[data-visual="speaking"] [data-slot="live-orb-orbit"] {
+  opacity: 0.7;
+  animation: live-orb-spin 2.4s linear infinite;
+}
+[data-visual="attention"] [data-slot="live-orb-attention"] {
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--live-orb-light) 65%, transparent);
+}
+[data-visual="attention"] [data-slot="live-orb-ring"]::before {
+  animation: live-orb-attention 1.05s ease-in-out infinite;
+}
+[data-visual="attention"] [data-slot="live-orb-core"] {
+  animation: live-orb-core-pulse 0.7s ease-in-out infinite;
+}
+
+@keyframes live-orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scale(1.045);
+    opacity: 1;
+  }
+}
+@keyframes live-orb-listen {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.95;
+  }
+  80%,
+  100% {
+    transform: scale(1.42);
+    opacity: 0;
+  }
+}
+@keyframes live-orb-listen-inner {
+  0% {
+    transform: scale(0.74);
+    opacity: 0.72;
+  }
+  82%,
+  100% {
+    transform: scale(1.72);
+    opacity: 0;
+  }
+}
+@keyframes live-orb-idle-core {
+  0%,
+  100% {
+    transform: scale(0.92);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.16);
+    filter: brightness(1.35);
+  }
+}
+@keyframes live-orb-core-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+@keyframes live-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes live-orb-counterspin {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes live-orb-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-orb-a) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--live-orb-a) 14%, transparent);
+  }
+}
+@keyframes live-orb-attention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-orb-light) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--live-orb-light) 16%, transparent);
+  }
+}
+
+/* Peek: the prototype's `.jarvis-peek`, floated in a portal so the topbar
+ * never clips it; positioned under the orb by the component. */
+[data-v110="live-orb-peek"] {
+  --live-orb-accent: var(--accent, var(--text));
+  --live-orb-light: color-mix(in srgb, var(--live-orb-accent) 55%, white);
+  position: fixed;
+  z-index: 5000;
+  width: 300px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+  transform-origin: top center;
+  animation: live-orb-peek-in 0.16s cubic-bezier(0.2, 0.82, 0.2, 1);
+}
+@keyframes live-orb-peek-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+}
+[data-slot="live-orb-peek-head"] {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px 8px 11px;
+  border-bottom: 1px solid var(--line);
+}
+[data-slot="live-orb-peek-identity"] {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+[data-slot="live-orb-peek-identity"] > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+[data-slot="live-orb-peek-identity"] b {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+[data-slot="live-orb-peek-identity"] span {
+  font-size: 8px;
+  color: var(--muted);
+}
+[data-slot="live-orb-mini"] {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+}
+[data-slot="live-orb-mini"]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--live-orb-accent), var(--live-orb-light));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--live-orb-accent) 62%, transparent);
+  animation: live-orb-core-pulse 1.4s ease-in-out infinite;
+}
+[data-slot="live-orb-peek-close"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  width: 27px;
+  height: 27px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+}
+[data-slot="live-orb-peek-close"]:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+[data-slot="live-orb-peek-body"] {
+  padding: 12px;
+}
+[data-slot="live-orb-peek-copy"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+[data-slot="live-orb-peek-copy"] b {
+  font-size: 10px;
+  color: var(--text);
+}
+[data-slot="live-orb-peek-copy"] span {
+  font-size: 8px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+/* No fake percentages: an indeterminate bar runs only while the agent works. */
+[data-slot="live-orb-progress"] {
+  position: relative;
+  height: 3px;
+  margin: 11px 0 12px;
+  border-radius: 999px;
+  background: var(--surface-4);
+  overflow: hidden;
+}
+[data-slot="live-orb-progress"] i {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--live-orb-accent), var(--live-orb-light));
+  opacity: 0.35;
+}
+[data-slot="live-orb-progress"][data-busy] i {
+  width: 34%;
+  opacity: 1;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--live-orb-accent) 35%, transparent);
+  animation: live-orb-progress 1.3s ease-in-out infinite;
+}
+@keyframes live-orb-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+[data-slot="live-orb-rows"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+[data-slot="live-orb-row"] {
+  min-height: 29px;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 8px;
+  color: var(--muted);
+}
+[data-slot="live-orb-row"]:hover {
+  background: var(--surface-2);
+}
+[data-slot="live-orb-row"] b {
+  font-size: 7px;
+  font-weight: 600;
+  color: var(--faint);
+}
+[data-slot="live-orb-dot"] {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+[data-slot="live-orb-dot"][data-tone="done"] {
+  background: var(--success, var(--live-orb-accent));
+}
+[data-slot="live-orb-dot"][data-tone="active"] {
+  background: var(--live-orb-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--live-orb-accent) 55%, transparent);
+  animation: live-orb-core-pulse 1.15s ease-in-out infinite;
+}
+[data-slot="live-orb-dot"][data-tone="blocked"] {
+  background: var(--live-orb-light);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--live-orb-light) 65%, transparent);
+}
+[data-slot="live-orb-row"]:has([data-tone="blocked"]) b {
+  color: var(--text);
+}
+[data-slot="live-orb-peek-actions"] {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--line);
+}
+[data-slot="live-orb-peek-actions"] button {
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  font-size: 8px;
+  color: var(--muted);
+}
+[data-slot="live-orb-peek-actions"] button:hover {
+  background: var(--hover);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+@media (max-width: 760px) {
+  [data-v110="live-orb"] {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    margin-left: 0;
+  }
+}
+@media (max-height: 560px) and (max-width: 980px) and (orientation: landscape) {
+  [data-v110="live-orb"] {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+}

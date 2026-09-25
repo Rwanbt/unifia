@@ -6,9 +6,8 @@ import { Tooltip } from "@unifia/ui/tooltip"
 import { createEffect, createSignal, on, onCleanup, Show, type Component, type JSX } from "solid-js"
 import type { useLanguage } from "@/context/language"
 import type { SpeechEndDetail } from "@/hooks/web-speech"
-import type { LiveContext } from "@/voice/live-controller"
 import { isLiveActive } from "@/voice/live-state"
-import { liveController, liveDetails, liveState } from "@/voice/live-store"
+import { liveDetails, liveState, toggleLive } from "@/voice/live-store"
 
 type Language = ReturnType<typeof useLanguage>
 
@@ -67,7 +66,6 @@ function liveStatusKey(state: LiveVoiceState): string {
 export const VoiceControls: Component<{
   dictation: Dictation
   liveAvailable: boolean
-  liveContext: () => LiveContext
   language: Language
   style: JSX.CSSProperties | undefined
 }> = (props) => {
@@ -85,19 +83,6 @@ export const VoiceControls: Component<{
       { defer: true },
     ),
   )
-
-  const toggleLive = () => {
-    const controller = liveController()
-    if (active()) {
-      void controller.stop()
-      return
-    }
-    controller.reset()
-    // Finalize a dictation in progress first: its text lands in the prompt,
-    // then Live takes the microphone.
-    if (props.dictation.recording()) props.dictation.stop()
-    void controller.start(props.liveContext())
-  }
 
   const liveLabel = () => (active() ? t("prompt.live.stop") : t("prompt.live.start"))
 

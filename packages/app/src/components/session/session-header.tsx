@@ -27,6 +27,7 @@ import { messageAgentColor } from "@/utils/agent"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
+import { LiveOrb } from "./live-orb"
 
 const OPEN_APPS = [
   "vscode",
@@ -223,7 +224,9 @@ export function SessionHeader() {
     isOpen: () => view().terminal.opened(),
     openDelay: 205,
     hovered: () =>
-      !!document.querySelector('[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover'),
+      !!document.querySelector(
+        '[data-v110="top-terminal"]:hover, [data-component="session-editor-surface"]:hover, #terminal-panel:hover',
+      ),
   })
   const clickTerminal = () => {
     if (terminalHover.peeking()) {
@@ -347,55 +350,60 @@ export function SessionHeader() {
       <Show when={titlebarSlots.center()}>
         {(mount) => (
           <Portal mount={mount()}>
-            <Show when={platform.platform !== "mobile"}>
-              {(() => {
-                const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
-                const setView = (next: "chat" | "split" | "main") => {
-                  view().workspace.set(next)
-                }
-                // Only the layouts this viewport offers (Chat and Editor on
-                // portrait tablets and phones, as in the reference).
-                const options = () =>
-                  [
-                    { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
-                    { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
-                    { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
-                  ].filter((option) => shell.modes().includes(option.id))
-                return (
-                  <div
-                    role="radiogroup"
-                    aria-label={language.t("session.header.viewSwitch.label")}
-                    data-v110="layout-switch"
-                    // #layoutSwitch: 2px padding, no gap, 11px radius.
-                    class="flex items-center rounded-[11px] border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
-                  >
-                    <For each={options()}>
-                      {(option) => (
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={workspaceView() === option.id}
-                          // Maquette #layoutSwitch button measures h=22px,
-                          // font-size=9px, padding="5px 9px" live
-                          // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
-                          // text-12-medium is actually 13px (--font-size-
-                          // small), noticeably larger, which was widening
-                          // every button here.
-                          class="rounded-[9px] px-[9px] h-[22px] text-[9px] font-normal transition-colors"
-                          classList={{
-                            "text-[var(--text)]": workspaceView() === option.id,
-                            "text-[var(--muted)] hover:text-[var(--text)]": workspaceView() !== option.id,
-                          }}
-                          onClick={() => setView(option.id)}
-                        >
-                          {option.label}
-                        </button>
-                      )}
-                    </For>
-                  </div>
-                )
-              })()}
-            </Show>
+            {/* The Live orb sits right after the layout switch, as in the
+                Jarvis topbar prototype V5; on mobile it is alone. */}
+            <div data-v110="topbar-center" class="flex items-center">
+              <Show when={platform.platform !== "mobile"}>
+                {(() => {
+                  const workspaceView = createMemo(() => shell.fit(view().workspace.current()))
+                  const setView = (next: "chat" | "split" | "main") => {
+                    view().workspace.set(next)
+                  }
+                  // Only the layouts this viewport offers (Chat and Editor on
+                  // portrait tablets and phones, as in the reference).
+                  const options = () =>
+                    [
+                      { id: "chat" as const, label: language.t("session.header.viewSwitch.chat") },
+                      { id: "split" as const, label: language.t("session.header.viewSwitch.split") },
+                      { id: "main" as const, label: language.t("session.header.viewSwitch.editor") },
+                    ].filter((option) => shell.modes().includes(option.id))
+                  return (
+                    <div
+                      role="radiogroup"
+                      aria-label={language.t("session.header.viewSwitch.label")}
+                      data-v110="layout-switch"
+                      // #layoutSwitch: 2px padding, no gap, 11px radius.
+                      class="flex items-center rounded-[11px] border border-border-weak-base bg-[var(--v110-rail-bg)] p-0.5 shrink-0"
+                    >
+                      <For each={options()}>
+                        {(option) => (
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={workspaceView() === option.id}
+                            // Maquette #layoutSwitch button measures h=22px,
+                            // font-size=9px, padding="5px 9px" live
+                            // (Unifia-UI-UX-v110-PORT-READY-R1.html:15239) --
+                            // text-12-medium is actually 13px (--font-size-
+                            // small), noticeably larger, which was widening
+                            // every button here.
+                            class="rounded-[9px] px-[9px] h-[22px] text-[9px] font-normal transition-colors"
+                            classList={{
+                              "text-[var(--text)]": workspaceView() === option.id,
+                              "text-[var(--muted)] hover:text-[var(--text)]": workspaceView() !== option.id,
+                            }}
+                            onClick={() => setView(option.id)}
+                          >
+                            {option.label}
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                  )
+                })()}
+              </Show>
+              <LiveOrb />
+            </div>
           </Portal>
         )}
       </Show>
@@ -490,7 +498,9 @@ export function SessionHeader() {
                       onClick={clickTerminal}
                       onPointerEnter={terminalHover.enterTrigger}
                       onPointerLeave={terminalHover.leaveTrigger}
-                      aria-label={language.t(view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show")}
+                      aria-label={language.t(
+                        view().terminal.opened() ? "terminal.toggle.hide" : "terminal.toggle.show",
+                      )}
                       aria-expanded={view().terminal.opened()}
                       aria-controls="terminal-panel"
                     >

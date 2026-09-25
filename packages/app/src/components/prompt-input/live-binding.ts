@@ -24,12 +24,31 @@ export function createLiveBinding(input: {
   params: { id?: string }
   local: ReturnType<typeof useLocal>
   language: ReturnType<typeof useLanguage>
+  /** Runs before Live takes the microphone (finalizes a dictation in progress). */
+  beforeStart: () => void
 }) {
   const server = useServer()
   const collaborativeAuth = useCollaborativeAuth()
   const navigate = useNavigate()
-  const tauri = (globalThis as { __TAURI__?: { core?: { invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } } }).__TAURI__
+  const tauri = (
+    globalThis as {
+      __TAURI__?: { core?: { invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
+    }
+  ).__TAURI__
   const directory = () => input.sdk.directory
+  // Live needs a microphone and a server; settings can turn the button off.
+  const available = typeof navigator !== "undefined" && !!navigator.mediaDevices && loadAudioSettings().liveEnabled
+  const context = (): LiveContext => {
+    const model = input.local.model.current()
+    return {
+      directory: directory(),
+      sessionID: input.params.id,
+      agent: input.local.agent.current()?.name,
+      model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
+      variant: input.local.model.variant.current(),
+      locale: input.language.locale(),
+    }
+  }
 
   bindLiveRuntime({
     host: createLiveHostClient({
@@ -48,21 +67,10 @@ export function createLiveBinding(input: {
       if (input.params.id === sessionID) return
       navigate(`/${base64Encode(directory())}/session/${sessionID}`)
     },
+    context,
+    available,
+    beforeStart: input.beforeStart,
   })
 
-  return {
-    // Live needs a microphone and a server; settings can turn the button off.
-    available: typeof navigator !== "undefined" && !!navigator.mediaDevices && loadAudioSettings().liveEnabled,
-    context: (): LiveContext => {
-      const model = input.local.model.current()
-      return {
-        directory: directory(),
-        sessionID: input.params.id,
-        agent: input.local.agent.current()?.name,
-        model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
-        variant: input.local.model.variant.current(),
-        locale: input.language.locale(),
-      }
-    },
-  }
+  return { available }
 }
