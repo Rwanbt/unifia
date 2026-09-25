@@ -92,22 +92,33 @@ def main() -> int:
         sys.stderr.write(pip_install.stderr)
         return fail("pytest install failed", 3)
 
-    # Smoke-import the modules the legacy run was failing on.
+    # Smoke-import the modules the legacy run was failing on. The
+    # legacy test collection errored on `voice_host.worker` because the
+    # package is not on sys.path when pytest is launched without a
+    # PYTHONPATH; we add the package root so the smoke and the
+    # collection both succeed.
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(PACKAGE) + os.pathsep + env.get("PYTHONPATH", "")
     smoke = run(
         ["uv", "run", "--no-sync", "python", "-c",
          "import pocket_tts.models.model_state; import voice_host.worker; print('ok')"],
         cwd=PACKAGE,
+        env=env,
     )
     if smoke.returncode != 0:
         sys.stderr.write(smoke.stdout)
         sys.stderr.write(smoke.stderr)
         return fail("smoke import failed", 4)
 
-    # Build the pytest command.
+    # Build the pytest command (PYTHONPATH carries the package root).
     pytest_cmd: list[str] = ["uv", "run", "--no-sync", "pytest", "tests"]
     if args.collect_only or not args.full:
         pytest_cmd.append("--collect-only")
-    pytest_cmd.extend(["-q", "--rootdir", str(PACKAGE)])
+    pytest_cmd.extend(["-q", "--rootdir", str(PACKAGE), "--import-mode=importlib"])
+
+    print("[voice-host-test-runner] running pytest...", file=sys.stderr)
+    proc = subprocess.run(pytest_cmd, cwd=PACKAGE, env=env, check=False)
+    return proc.returncode
 
     print("[voice-host-test-runner] running pytest...", file=sys.stderr)
     proc = subprocess.run(pytest_cmd, cwd=PACKAGE, check=False)
