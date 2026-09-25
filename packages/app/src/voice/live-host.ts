@@ -41,6 +41,15 @@ export interface LiveServer {
 /** Keeps the desktop Voice Host warm for a quick restart, then frees its RAM. */
 export const HOST_IDLE_STOP_MS = 5 * 60_000
 
+function isLoopbackServer(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1" || hostname === "tauri.localhost"
+  } catch {
+    return false
+  }
+}
+
 const KNOWN_ERRORS = new Set<LiveVoiceError>([
   "voice_host_unavailable",
   "voice_host_lan_disabled",
@@ -77,6 +86,9 @@ export function createLiveHostClient(input: {
   return {
     async prepare(settings) {
       clearTimeout(idleTimer)
+      if (input.platform === "mobile" && isLoopbackServer(input.server().url)) {
+        throw new LiveHostError("voice_host_unavailable", "Live Voice Host is provided by a connected desktop server")
+      }
       if (input.platform !== "desktop" || !input.invoke) return
       try {
         await input.invoke("voice_live_start", {

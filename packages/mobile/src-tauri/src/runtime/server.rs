@@ -28,6 +28,11 @@ fn append_bun_verbose_fetch_env(env_content: String, enabled: bool) -> String {
     }
 }
 
+fn attach_parent_watchdog_pipe(command: &mut Command) {
+    // WHY: serve exits when stdin reaches EOF; Android's app stdin is already closed.
+    command.stdin(Stdio::piped());
+}
+
 /// Static storage for the server child process.
 static SERVER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -384,6 +389,7 @@ pub async fn start_embedded_server(
         .map_err(|e| format!("Create stdout log: {}", e))?;
 
     let mut command = Command::new(&cmd_path);
+    attach_parent_watchdog_pipe(&mut command);
     command
         .args(&cmd_args)
         .current_dir(&home_dir)
@@ -1194,6 +1200,20 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("opencode_server_test_{}_{}", name, n));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn embedded_server_keeps_parent_watchdog_stdin_open() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "read line"]);
+        attach_parent_watchdog_pipe(&mut command);
+
+        let mut child = command.spawn().expect("shell should start");
+        assert!(child.stdin.is_some(), "host must retain the watchdog pipe");
+        assert!(child.try_wait().expect("child status should be readable").is_none());
+
+        drop(child.stdin.take());
+        assert!(child.wait().expect("child should exit at EOF").success());
     }
 
     #[test]

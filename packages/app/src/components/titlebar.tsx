@@ -275,7 +275,8 @@ export function Titlebar() {
         onMouseDown={drag}
       >
         <div ref={slots.registerRight} data-v110="topbar-right-slot" class="flex items-center gap-1 shrink-0 justify-end" />
-        {/* The icon set has no sun/moon glyph, so the theme toggle draws its
+        {/* Mobile keeps theme switching in the quick-action sheet.
+            The icon set has no sun/moon glyph, so the theme toggle draws its
             own. #themeBtn (Unifia-UI-UX-v110-PORT-READY-R1.html, lines
             4871-4880) is never in the .app.show-home hide-list (lines
             4013-4027), so the maquette keeps it visible on every route, not
@@ -290,38 +291,40 @@ export function Titlebar() {
             rgb(237,237,237)) and the maquette's uniformly bright
             themeBtn (rgb(242,242,243)) -- matched explicitly instead of
             relying on a raw element's own default. */}
-        <button
-          data-v110="theme-toggle"
-          type="button"
-          class="titlebar-icon rounded-md shrink-0 text-text-strong grid place-items-center w-8 h-[31px]"
-          onClick={toggleScheme}
-          aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
-          title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
-        >
-          <Show
-            when={theme.mode() === "light"}
-            fallback={
+        <Show when={platform.platform !== "mobile"}>
+          <button
+            data-v110="theme-toggle"
+            type="button"
+            class="titlebar-icon rounded-md shrink-0 text-text-strong grid place-items-center w-8 h-[31px]"
+            onClick={toggleScheme}
+            aria-label={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
+            title={theme.mode() === "light" ? "Switch to dark theme" : "Switch to light theme"}
+          >
+            <Show
+              when={theme.mode() === "light"}
+              fallback={
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.4" />
+                  <path
+                    d="M10 2.2v2M10 15.8v2M2.2 10h2M15.8 10h2M4.5 4.5l1.4 1.4M14.1 14.1l1.4 1.4M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4-1.4"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              }
+            >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <circle cx="10" cy="10" r="3.4" stroke="currentColor" stroke-width="1.4" />
                 <path
-                  d="M10 2.2v2M10 15.8v2M2.2 10h2M15.8 10h2M4.5 4.5l1.4 1.4M14.1 14.1l1.4 1.4M15.5 4.5l-1.4 1.4M5.9 14.1l-1.4 1.4"
+                  d="M16.2 12.4A7 7 0 0 1 7.6 3.8a7 7 0 1 0 8.6 8.6Z"
                   stroke="currentColor"
                   stroke-width="1.4"
-                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 />
               </svg>
-            }
-          >
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path
-                d="M16.2 12.4A7 7 0 0 1 7.6 3.8a7 7 0 1 0 8.6 8.6Z"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </Show>
-        </button>
+            </Show>
+          </button>
+        </Show>
         {/* #topInspectorBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15269) --
             a generic "show/hide the whole inspector panel" toggle, standalone
             and always visible, distinct from fileTree.toggle/review.toggle

@@ -11,6 +11,8 @@ const dir = join(import.meta.dir, ".");
 const nav = readFileSync(join(dir, "v110-mobile-nav.tsx"), "utf8")
 const css = readFileSync(join(dir, "v110-shell.css"), "utf8")
 const bar = readFileSync(join(dir, "../styles/v110-mobile.css"), "utf8")
+const titlebar = readFileSync(join(dir, "../components/titlebar.tsx"), "utf8")
+const layout = readFileSync(join(dir, "../pages/layout.tsx"), "utf8")
 
 describe("a2 mobile nav", () => {
   test("renders the given modes plus the shared destinations, never a second registry", () => {
@@ -25,6 +27,11 @@ describe("a2 mobile nav", () => {
     expect(nav.includes('data-action="mobile-more"')).toBe(true)
     expect(nav.includes('data-v110="mobile-sheet"')).toBe(true)
     expect(nav.includes("aria-expanded={open()}")).toBe(true)
+  })
+  test("mobile theme stays in quick actions instead of the topbar", () => {
+    expect(titlebar.includes('<Show when={platform.platform !== "mobile"}>')).toBe(true)
+    expect(nav.includes('{ id: "theme", glyph: "◐", labelKey: "mobile.sheet.theme" }')).toBe(true)
+    expect(layout.includes('if (action === "theme") theme.setColorScheme')).toBe(true)
   })
   test("the bar keeps the notch clear", () => {
     expect(bar.includes("env(safe-area-inset-bottom)")).toBe(true)

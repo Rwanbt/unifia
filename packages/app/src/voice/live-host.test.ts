@@ -75,4 +75,15 @@ describe("Live host client", () => {
     const client = createLiveHostClient({ platform: "mobile", server: () => ({ url: "http://x" }), invoke: async () => { throw new Error("no") } })
     await client.prepare(DEFAULT_AUDIO_SETTINGS)
   })
+
+  test("mobile local mode reports that Live requires a connected desktop server", async () => {
+    const client = createLiveHostClient({
+      platform: "mobile",
+      server: () => ({ url: "http://127.0.0.1:14096" }),
+      fetch: recorder(200, true).fetchImpl,
+    })
+    const error = await client.prepare(DEFAULT_AUDIO_SETTINGS).catch((value) => value)
+    expect(error).toBeInstanceOf(LiveHostError)
+    expect(error.code).toBe("voice_host_unavailable")
+  })
 })

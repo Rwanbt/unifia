@@ -17,6 +17,15 @@ describe("session workspace layout", () => {
     expect(source).toContain('class="flex-1 min-h-0 flex flex-col shell:flex-row"')
   })
 
+  test("mobile can switch between exclusive Chat and Editor surfaces", async () => {
+    const header = await Bun.file(new URL("../../components/session/session-header.tsx", import.meta.url)).text()
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+
+    expect(header).toContain('data-v110="layout-switch"')
+    expect(header).toContain('(platform.platform !== "mobile" || option.id !== "split")')
+    expect(source).toContain('if (current === "main") return "0px"')
+  })
+
   test("overlay panels are styled by the web bundle, not Android-only CSS", async () => {
     const css = await Bun.file(new URL("../../styles/v110.css", import.meta.url)).text()
     const overlayBlock = css.slice(css.indexOf(".mobile-side-panel"))
@@ -165,7 +174,7 @@ describe("session workspace layout", () => {
     expect(source).toContain("const workspaceView = createMemo(() => shell.fit(view().workspace.current()))")
     expect(source).not.toContain('mode.active() === "code" ? view().workspace.current() : "split"')
     expect(source).toContain(
-      'if (current === "main" && (!isMobileDevice() || MAIN_PANE_DESTINATIONS.has(mode.destination()))) return "0px"',
+      'if (current === "main") return "0px"',
     )
     expect(source).toContain('if (isDesktop() && current === "split")')
   })

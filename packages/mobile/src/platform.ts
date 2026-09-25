@@ -7,6 +7,7 @@ import { checkRuntime, extractRuntime, startEmbeddedServer, checkLocalHealth, st
 // fetch_private_server qui accepte les certs self-signed.
 let _privateFp: string | null = null
 let _embeddedServerUrl: string | null = null
+const EMBEDDED_SERVER_USERNAME = "opencode"
 
 export function setPrivateServerFp(fp: string | null) {
   _privateFp = fp
@@ -469,7 +470,7 @@ export async function createPlatform(): Promise<Platform> {
         if (savedPw) {
           await writeDebugLog(`returning cached: url=http://127.0.0.1:${port} pw=${savedPw.slice(0,8)}...`)
           _embeddedServerUrl = `http://127.0.0.1:${port}`
-          return { url: _embeddedServerUrl, username: "unifia", password: savedPw }
+          return { url: _embeddedServerUrl, username: EMBEDDED_SERVER_USERNAME, password: savedPw }
         }
         await writeDebugLog("server running but no saved password, restarting...")
         try { await stopLocal(port) } catch {}
@@ -499,7 +500,7 @@ export async function createPlatform(): Promise<Platform> {
         if (healthy) {
           await writeDebugLog(`returning: url=http://127.0.0.1:${port} pw=${password.slice(0,8)}...`)
           _embeddedServerUrl = `http://127.0.0.1:${port}`
-          return { url: _embeddedServerUrl, username: "unifia", password }
+          return { url: _embeddedServerUrl, username: EMBEDDED_SERVER_USERNAME, password }
         }
       }
       await writeDebugLog("health check timed out after 30s")
