@@ -11,7 +11,7 @@
 
 **Latest pushed implementation SHA:** `e31ca24b26d5bda257bbe641a0d8df359d116024` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
 
-**Current worktree:** local `voice` is at `533355c886bac24846bdb6feb99ede3e75e73de7` and is six commits ahead of `origin/voice` (`89945700f0de04206e67844f011c614e4b41911d`). Push is blocked: the configured proxy is unavailable, GitHub CLI credentials are invalid, and the GitHub connector denied Git blob creation with HTTP 403. Do not force-push or recreate commits through another API. Latest core/contracts/Voice Host slices pass targeted local checks; remote CI is pending. Production event producers still do not use VoiceCore as their ordering/state authority. Pre-existing build/cache artifacts remain unstaged.
+**Current worktree:** latest implementation commit is `533355c886bac24846bdb6feb99ede3e75e73de7`; local `voice` was last verified at docs checkpoint `866295e17d80c6cb3bed8b0cd67bdda8447e89d1`, seven commits ahead of `origin/voice` (`89945700f0de04206e67844f011c614e4b41911d`). This checkpoint adds one more docs-only commit. Push is blocked: the configured proxy is unavailable, GitHub CLI credentials are invalid, and the GitHub connector denied Git blob creation with HTTP 403. Do not force-push or recreate commits through another API. Latest core/contracts/Voice Host slices pass targeted local checks; remote CI is pending. Production event producers still do not use VoiceCore as their ordering/state authority. Pre-existing build/cache artifacts remain unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -107,7 +107,7 @@
 
 ## Next Exact Actions
 
-1. Resolve GitHub write authentication/proxy availability, then push the six local commits and inspect exact-SHA CI results; never force-push or recreate commits through an API.
+1. Resolve GitHub write authentication/proxy availability, then push the eight local commits and inspect exact-SHA CI results; never force-push or recreate commits through an API.
 2. Continue G1 by establishing selected-LLM/provider readiness without generating an unauthorized session turn; unify remaining desktop/Android/local error producers; close ADR-070 only after adoption tests pass.
 3. Continue G2 by connecting actual Android and desktop producers/adapters to VoiceCore and proving Python/TypeScript/Rust fixture parity; then implement G3 native audio (Android adapter still uses WebView `getUserMedia`/`ScriptProcessorNode`) and proceed through G14 in dependency order.
 4. The Xiaomi device is currently visible to `adb devices`; inspect app/device instructions and qualify only real audio paths. Qualify installer/model loading on Windows and Android hardware; do not claim GO PROD from host tests.
