@@ -5,9 +5,11 @@
 //! errors. Platform runtimes adapt their providers to this contract; they do
 //! not own a second event vocabulary.
 
+mod engine;
 mod error;
 mod event;
 
+pub use engine::{TurnToken, VoiceCore, VoiceCoreError, VoiceCoreSnapshot};
 pub use error::{
     VoiceError, VoiceErrorCause, VoiceErrorCode, VoiceErrorStage, VoiceErrorValidationError,
 };

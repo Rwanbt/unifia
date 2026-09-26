@@ -9,9 +9,9 @@
 
 **Last source SHA with both required remote workflows green:** `46f6686851e3e4df4dabb3345a50f4e290485bde` (`voice-ci` 36242039225; `unifia-conformance` 36242039213).
 
-**Current source HEAD:** `46f6686851e3e4df4dabb3345a50f4e290485bde` on `voice` and `origin/voice` (verified by GitHub Actions after push).
+**Current source HEAD:** `af13bb2d1290ef40deb3edc273683389497ecc42` on `voice` and `origin/voice` (fetched and verified). Local changes below are not yet committed.
 
-**Current worktree:** the checkpoint, the initial portable Rust VoiceCore contract crate, and its Tauri path-dependency integration are modified. The Rust crate currently provides typed error/event contracts and validation; production event producers have not migrated. Untracked build/cache artifacts remain preserved and unstaged.
+**Current worktree:** `packages/voice-core` adds event sequencing, timestamp monotonicity, generation fencing across reconnect/recovery, turn tokens, and playback-only cancellation; ADR-060 is amended to select Rust as canonical; this checkpoint records that state. Production event producers have not migrated. Untracked build/cache artifacts remain preserved and unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -27,7 +27,7 @@
 |---|---|---|
 | G0 — Truth and CI | Green | Exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde` passed `voice-ci` `36242039225` and `unifia-conformance` `36242039213`. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. The current local change adds binding-scoped errors before session creation and persistent error attributes. Remaining: selected LLM/provider readiness beyond bridge reachability, other Android/local/desktop emitters, completed ADR adoption evidence, model registry/security reconciliation. |
-| G2 — Shared VoiceCore | In progress | Initial portable `packages/voice-core` crate defines typed error/event contracts and validation, and the Tauri runtime links it. Production producers and state-machine ownership have not migrated or been qualified. |
+| G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed error/event contracts, sequence assignment, idempotency-key deduplication, monotonic timestamp checks, generation fencing, turn tokens, playback-only cancellation, reconnect, and snapshot recovery. Rust unit tests cover duplicate retries, ordering, stale generations, cancellation races, reconnect, and recovery; the Tauri runtime links the crate. Production producers, complete lifecycle state machine, durable persistence, adapters, and cross-runtime fixture parity remain open.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
 | G5 — Streaming STT | Not started | Android Parakeet is batch/final transcription; real streaming parity is open. |
@@ -79,6 +79,8 @@
 - Issue #117 Acceptance Criteria were normalized from heading `Acceptance` and ordinary bullets to `Acceptance Criteria` checkboxes. The exact text of all seven criteria was preserved; `ac_guard.py --bind` and the post-update claim re-read both pass. Bound AC digest: `689002c87f981091be1eda0890c4fbaf9b6f89dc46ce54c877cf88e941d22657`.
 - GitHub run `36241529290` (`voice-ci`) and `36241529304` (`unifia-conformance`) both passed on exact SHA `33b6b4e7df2f7ff877386bc90b71cbd883942b33`.
 - For exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde`, `voice-ci` run `36242039225` and `unifia-conformance` run `36242039213` both completed successfully. The push hook also passed all **47/47** typechecks.
+- At local HEAD `af13bb2d12`, `packages/voice-core` passed `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` (**4 passed**); the mobile Tauri crate passed `cargo check --lib`. This pushed slice only adds typed contracts and links the crate; production producers have not migrated.
+- Current uncommitted VoiceCore engine slice: `cargo fmt --check`, Clippy, and `cargo check --lib --manifest-path ../mobile/src-tauri/Cargo.toml` pass; VoiceCore tests **9 passed**. Added idempotent event publication, sequence/timestamp checks, stale generation fencing, playback cancellation independent of agent work, reconnect, and process snapshot recovery fencing. This is local evidence only until commit and remote CI; no device or cross-runtime qualification is claimed.
 
 ## CI Runs at Baseline
 
@@ -98,5 +100,5 @@
 ## Next Exact Actions
 
 1. Continue G1: establish a truthful selected-LLM/provider readiness check without generating an unauthorized session turn; unify desktop/Android/local error producers; close ADR-070 only after all emitters and adoption tests pass.
-2. Correct ADR-060 to reflect the required Rust VoiceCore; reconcile all 18 ADR artifacts and verify whether the six required architecture topics have complete decision records.
-3. Implement the real VoiceCore and canonical typed event model, then continue G2–G14 in dependency order; update this gate table only with production-path evidence, not scaffold or mock coverage.
+2. Continue G1: reconcile typed Rust errors/events with all active Python/TypeScript emitters and implement selected-provider readiness plus model-registry security. ADR-060 now selects Rust VoiceCore; six missing architecture topics still require decision records.
+3. Commit/push the green VoiceCore sequencing slice, confirm exact-SHA CI, then continue G2 by connecting actual Android and desktop producers/adapters and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order. Update gates only with production-path evidence.

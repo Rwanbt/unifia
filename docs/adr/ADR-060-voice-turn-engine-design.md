@@ -5,10 +5,10 @@
 > [ADR-059-voice-portable-pocket-runtime.md](ADR-059-voice-portable-pocket-runtime.md)
 > and the
 > [v2 parity RFC](../rfcs/RFC-VOICE-PARITY-PC-ANDROID-2026-09-25.md).
-> Drafts the design for one shared `VoiceTurnEngine` used by the
-> desktop Python `voice_host` and the TypeScript mobile composer. No
-> destructive refactor is performed in this session — the document is
-> the foundation for R2 of the v2 plan.
+> Original draft proposed a TypeScript-facing engine. The v2.2 campaign
+> selects a portable Rust `VoiceCore` as the canonical owner, with Python
+> and TypeScript as adapters during migration. This ADR remains DRAFT until
+> production adapters and parity evidence are complete.
 
 ## Context
 
@@ -38,11 +38,18 @@ audio adapter boundary.
 
 ## Decision (proposed)
 
-A single shared `VoiceTurnEngine` is the canonical owner of every
-platform-independent Voice concern. Its public API is the contract; the
-desktop and Android paths become adapters that satisfy it.
+A single shared `VoiceCore` is the canonical owner of platform-independent
+Voice semantics. The portable Rust crate at `packages/voice-core` is the
+canonical API; the desktop Python runtime and Android TypeScript/Tauri paths
+become adapters that satisfy it. Provider implementations remain in their
+best-supported runtime rather than moving into Rust solely for uniformity.
 
-### Public surface (TypeScript, used by both UI and tests)
+### Historical TypeScript projection (not the canonical core API)
+
+The following TypeScript interface and event union preserve the original
+draft's UI projection. They are not the engine implementation or a second
+source of truth. Bindings and adapters must derive their behavior and wire
+contract from `packages/voice-core`.
 
 ```ts
 // packages/contracts/voice/turn-engine.ts (proposed)
@@ -206,10 +213,18 @@ authoritative for the platform that has not yet proven parity.
 
 ## Status
 
-**DRAFT — design only.** No shared package is created in this
-session. The contract above is the destination; the migration plan is
-the staged sequence. Feature flags `voice_engine_v2` and
-`voice_engine_v2_android` are the safety harness for the next session.
+**DRAFT — implementation in progress.** `packages/voice-core` now defines
+typed error/event contracts and validation, and the Tauri crate links it.
+The core also sequences events, deduplicates retried publications by
+idempotency key, fences stale session/turn generations, cancels stale
+speech output without cancelling agent work, and advances generation on
+reconnect/recovery. Production event producers, durable
+recovery storage, adapters, and cross-runtime parity remain unimplemented;
+no adoption or qualification is claimed.
+
+The historical feature flags `voice_engine_v2` and
+`voice_engine_v2_android` may be used by adapters during migration, but do
+not change the canonical ownership decision above.
 
 ## References
 
