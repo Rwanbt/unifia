@@ -161,6 +161,8 @@ pub trait PlatformSignals {
     fn thermal_status(&self) -> ThermalStatus;
 }
 
+type EvictionListener = Box<dyn Fn(&EvictionEvent) + Send + Sync>;
+
 /// Pure-logic scheduler. No I/O, no threads of its own — all state
 /// is held behind an internal lock-free data layout guarded by the
 /// single mutable borrow the consumer keeps across `acquire` /
@@ -187,7 +189,7 @@ pub struct VoiceResourceScheduler {
     random_id: Box<dyn Fn() -> String + Send + Sync>,
     leases: HashMap<String, LeaseInternal>,
     resource_index: HashMap<String, String>,
-    eviction_listeners: Vec<Box<dyn Fn(&EvictionEvent) + Send + Sync>>,
+    eviction_listeners: Vec<EvictionListener>,
     memory_state: MemoryPressureState,
     thermal_status: ThermalStatus,
     lease_counter: AtomicU64,
@@ -287,7 +289,11 @@ impl VoiceResourceScheduler {
                 }
                 // New request outranks the existing holder; preempt.
                 let mut evictions = Vec::new();
-                self.evict_by_ids(&[existing_id.clone()], EvictionReason::ExplicitRelease, &mut evictions);
+                self.evict_by_ids(
+                    std::slice::from_ref(&existing_id),
+                    EvictionReason::ExplicitRelease,
+                    &mut evictions,
+                );
                 self.emit(&evictions);
             }
         }
@@ -323,7 +329,11 @@ impl VoiceResourceScheduler {
     /// because the eviction sweep mutates the inner maps.
     pub fn list(&mut self) -> Vec<ResourceLease> {
         self.evict_expired_in_place(); // observable side-effect on the consumer's behalf
-        self.leases.keys().cloned().map(|id| self.build_lease_handle(id)).collect()
+        self.leases
+            .keys()
+            .cloned()
+            .map(|id| self.build_lease_handle(id))
+            .collect()
     }
 
     pub fn report_memory_pressure(
@@ -376,10 +386,16 @@ impl VoiceResourceScheduler {
                     matches!(lease.residency, ResidencyClass::Preload)
                 }
                 PressureState::MemoryPressureCritical => {
-                    matches!(lease.residency, ResidencyClass::Preload | ResidencyClass::IdleEvict)
+                    matches!(
+                        lease.residency,
+                        ResidencyClass::Preload | ResidencyClass::IdleEvict
+                    )
                 }
                 PressureState::ThermalCritical => {
-                    matches!(lease.residency, ResidencyClass::Preload | ResidencyClass::IdleEvict)
+                    matches!(
+                        lease.residency,
+                        ResidencyClass::Preload | ResidencyClass::IdleEvict
+                    )
                 }
                 PressureState::None => false,
             };
@@ -575,21 +591,35 @@ mod tests {
         thermal: ThermalStatus,
     }
     impl PlatformSignals for FakeSignals {
-        fn free_bytes(&self) -> u64 { self.free }
-        fn target_bytes(&self) -> u64 { self.target }
-        fn thermal_status(&self) -> ThermalStatus { self.thermal }
+        fn free_bytes(&self) -> u64 {
+            self.free
+        }
+        fn target_bytes(&self) -> u64 {
+            self.target
+        }
+        fn thermal_status(&self) -> ThermalStatus {
+            self.thermal
+        }
     }
 
-    struct FixedClock { ms: AtomicU64 }
+    struct FixedClock {
+        ms: AtomicU64,
+    }
     impl FixedClock {
-        fn new(initial: u64) -> Self { Self { ms: AtomicU64::new(initial) } }
-        fn advance(&self, by_ms: u64) { self.ms.fetch_add(by_ms, Ordering::Relaxed); }
-        fn now(&self) -> u64 { self.ms.load(Ordering::Relaxed) }
+        fn new(initial: u64) -> Self {
+            Self {
+                ms: AtomicU64::new(initial),
+            }
+        }
+        fn advance(&self, by_ms: u64) {
+            self.ms.fetch_add(by_ms, Ordering::Relaxed);
+        }
+        fn now(&self) -> u64 {
+            self.ms.load(Ordering::Relaxed)
+        }
     }
 
-    fn scheduler_with_clock(
-        clock: Arc<FixedClock>,
-    ) -> VoiceResourceScheduler {
+    fn scheduler_with_clock(clock: Arc<FixedClock>) -> VoiceResourceScheduler {
         let clock_fn = {
             let clock = Arc::clone(&clock);
             Box::new(move || clock.now())
@@ -641,7 +671,12 @@ mod tests {
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         let r = rid("vad-silero");
         let lease = s
-            .acquire(r.clone(), "rt", ResourcePriority::VadAec, ResidencyClass::KeepWarm)
+            .acquire(
+                r.clone(),
+                "rt",
+                ResourcePriority::VadAec,
+                ResidencyClass::KeepWarm,
+            )
             .expect("acquire ok");
         let found = s.find(&r).expect("find ok");
         assert_eq!(lease.lease_id, found.lease_id);
@@ -653,8 +688,18 @@ mod tests {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         let r = rid("tts-pocket");
-        let _low = s.acquire(r.clone(), "a", ResourcePriority::Preload, ResidencyClass::IdleEvict);
-        let _high = s.acquire(r.clone(), "b", ResourcePriority::VadAec, ResidencyClass::IdleEvict);
+        let _low = s.acquire(
+            r.clone(),
+            "a",
+            ResourcePriority::Preload,
+            ResidencyClass::IdleEvict,
+        );
+        let _high = s.acquire(
+            r.clone(),
+            "b",
+            ResourcePriority::VadAec,
+            ResidencyClass::IdleEvict,
+        );
         let found = s.find(&r).expect("present after preempt");
         // High-priority request preempts the lower one — the current
         // holder is now the VadAec (b), not the Preload (a).
@@ -667,12 +712,27 @@ mod tests {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         let r = rid("vad-silero");
-        let _first = s.acquire(r.clone(), "first", ResourcePriority::VadAec, ResidencyClass::IdleEvict);
+        let _first = s.acquire(
+            r.clone(),
+            "first",
+            ResourcePriority::VadAec,
+            ResidencyClass::IdleEvict,
+        );
         // Same priority from a different owner is refused (cannot preempt).
-        let second = s.acquire(r.clone(), "second", ResourcePriority::VadAec, ResidencyClass::IdleEvict);
+        let second = s.acquire(
+            r.clone(),
+            "second",
+            ResourcePriority::VadAec,
+            ResidencyClass::IdleEvict,
+        );
         assert!(second.is_none(), "equal priority must be refused");
         // Lower priority from a different owner is refused.
-        let third = s.acquire(r.clone(), "third", ResourcePriority::Preload, ResidencyClass::IdleEvict);
+        let third = s.acquire(
+            r.clone(),
+            "third",
+            ResourcePriority::Preload,
+            ResidencyClass::IdleEvict,
+        );
         assert!(third.is_none(), "lower priority must be refused");
     }
 
@@ -680,8 +740,18 @@ mod tests {
     fn moderate_memory_pressure_evicts_preload_keeps_vad() {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
-        let _vad = s.acquire(rid("vad-silero"), "vad", ResourcePriority::VadAec, ResidencyClass::KeepWarm);
-        let _preload = s.acquire(rid("tts-pocket"), "tts", ResourcePriority::Preload, ResidencyClass::Preload);
+        let _vad = s.acquire(
+            rid("vad-silero"),
+            "vad",
+            ResourcePriority::VadAec,
+            ResidencyClass::KeepWarm,
+        );
+        let _preload = s.acquire(
+            rid("tts-pocket"),
+            "tts",
+            ResourcePriority::Preload,
+            ResidencyClass::Preload,
+        );
         assert_eq!(s.list().len(), 2);
         let evictions = s.report_memory_pressure(MemoryPressureState::Moderate, 0, 0);
         let removed: Vec<&str> = evictions.iter().map(|e| e.lease_id.as_str()).collect();
@@ -697,10 +767,30 @@ mod tests {
     fn critical_memory_pressure_evicts_preload_plus_idle_evict_but_keeps_realtime() {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
-        let _rt = s.acquire(rid("audio-frame"), "rt", ResourcePriority::RealtimeAudio, ResidencyClass::KeepWarm);
-        let _vad = s.acquire(rid("vad-silero"), "vad", ResourcePriority::VadAec, ResidencyClass::KeepWarm);
-        let _idle = s.acquire(rid("stt-cache"), "stt", ResourcePriority::ActiveSttTts, ResidencyClass::IdleEvict);
-        let _preload = s.acquire(rid("tts-pocket"), "tts", ResourcePriority::Preload, ResidencyClass::Preload);
+        let _rt = s.acquire(
+            rid("audio-frame"),
+            "rt",
+            ResourcePriority::RealtimeAudio,
+            ResidencyClass::KeepWarm,
+        );
+        let _vad = s.acquire(
+            rid("vad-silero"),
+            "vad",
+            ResourcePriority::VadAec,
+            ResidencyClass::KeepWarm,
+        );
+        let _idle = s.acquire(
+            rid("stt-cache"),
+            "stt",
+            ResourcePriority::ActiveSttTts,
+            ResidencyClass::IdleEvict,
+        );
+        let _preload = s.acquire(
+            rid("tts-pocket"),
+            "tts",
+            ResourcePriority::Preload,
+            ResidencyClass::Preload,
+        );
         let evictions = s.report_memory_pressure(MemoryPressureState::Critical, 0, 0);
         // realtime + keep-warm VAD survive; idle + preload evicted.
         assert!(s.find(&rid("audio-frame")).is_some());
@@ -718,8 +808,18 @@ mod tests {
     fn severe_thermal_pressure_cancels_preload_keeps_vad() {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
-        let _vad = s.acquire(rid("vad-silero"), "vad", ResourcePriority::VadAec, ResidencyClass::KeepWarm);
-        let _preload = s.acquire(rid("tts-pocket"), "tts", ResourcePriority::Preload, ResidencyClass::Preload);
+        let _vad = s.acquire(
+            rid("vad-silero"),
+            "vad",
+            ResourcePriority::VadAec,
+            ResidencyClass::KeepWarm,
+        );
+        let _preload = s.acquire(
+            rid("tts-pocket"),
+            "tts",
+            ResourcePriority::Preload,
+            ResidencyClass::Preload,
+        );
         let evictions = s.report_thermal(ThermalStatus::Severe);
         assert!(s.find(&rid("vad-silero")).is_some());
         assert!(s.find(&rid("tts-pocket")).is_none());
@@ -732,8 +832,18 @@ mod tests {
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         // Per ADR-074 §6, realtime-audio is permanent for the
         // lifetime of the session — keep-warm residency.
-        let _rt_audio = s.acquire(rid("audio-frame"), "rt", ResourcePriority::RealtimeAudio, ResidencyClass::KeepWarm);
-        let _rt_vad = s.acquire(rid("vad-silero"), "vad", ResourcePriority::VadAec, ResidencyClass::KeepWarm);
+        let _rt_audio = s.acquire(
+            rid("audio-frame"),
+            "rt",
+            ResourcePriority::RealtimeAudio,
+            ResidencyClass::KeepWarm,
+        );
+        let _rt_vad = s.acquire(
+            rid("vad-silero"),
+            "vad",
+            ResourcePriority::VadAec,
+            ResidencyClass::KeepWarm,
+        );
         // Sweep through EVERY memory + thermal pressure state; realtime
         // + keep-warm VAD MUST survive.
         for mem in [
@@ -760,19 +870,37 @@ mod tests {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         // Idle-evict has 5-minute TTL.
-        let _idle = s.acquire(rid("stt-cache"), "stt", ResourcePriority::ActiveSttTts, ResidencyClass::IdleEvict);
+        let _idle = s.acquire(
+            rid("stt-cache"),
+            "stt",
+            ResourcePriority::ActiveSttTts,
+            ResidencyClass::IdleEvict,
+        );
         assert!(s.find(&rid("stt-cache")).is_some());
         // Advance 6 minutes — past the 5-minute TTL.
         clock.advance(6 * 60 * 1000);
-        assert!(s.find(&rid("stt-cache")).is_none(), "ttl-expired lease should be gone");
+        assert!(
+            s.find(&rid("stt-cache")).is_none(),
+            "ttl-expired lease should be gone"
+        );
     }
 
     #[test]
     fn keep_warm_lease_survives_listing() {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
-        let _ = s.acquire(rid("vad-silero"), "vad", ResourcePriority::VadAec, ResidencyClass::KeepWarm);
-        let _ = s.acquire(rid("stt-cache"), "stt", ResourcePriority::ActiveSttTts, ResidencyClass::IdleEvict);
+        let _ = s.acquire(
+            rid("vad-silero"),
+            "vad",
+            ResourcePriority::VadAec,
+            ResidencyClass::KeepWarm,
+        );
+        let _ = s.acquire(
+            rid("stt-cache"),
+            "stt",
+            ResourcePriority::ActiveSttTts,
+            ResidencyClass::IdleEvict,
+        );
         // 30 minutes later — only KEEP_WARM should still be there.
         clock.advance(6 * 60 * 1000); // 6 min, idle-evict TTL is 5 min
         let leases = s.list();
@@ -785,12 +913,27 @@ mod tests {
         let clock = Arc::new(FixedClock::new(1_000));
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         // Memory pressure
-        let _ = s.acquire(rid("tts-pocket"), "tts", ResourcePriority::Preload, ResidencyClass::Preload);
+        let _ = s.acquire(
+            rid("tts-pocket"),
+            "tts",
+            ResourcePriority::Preload,
+            ResidencyClass::Preload,
+        );
         // Preemption = ExplicitRelease
         let r = rid("vad-silero");
-        let _ = s.acquire(r.clone(), "first", ResourcePriority::Preload, ResidencyClass::IdleEvict);
+        let _ = s.acquire(
+            r.clone(),
+            "first",
+            ResourcePriority::Preload,
+            ResidencyClass::IdleEvict,
+        );
         // Idle-evict lease for TTL
-        let _ = s.acquire(rid("stt-cache"), "stt", ResourcePriority::ActiveSttTts, ResidencyClass::IdleEvict);
+        let _ = s.acquire(
+            rid("stt-cache"),
+            "stt",
+            ResourcePriority::ActiveSttTts,
+            ResidencyClass::IdleEvict,
+        );
 
         // Capture via a flag-set listener.
         let captured = Arc::new(std::sync::Mutex::new(Vec::<(String, EvictionReason)>::new()));
@@ -804,7 +947,12 @@ mod tests {
         // (a) memory pressure should evict the preload tts-pocket
         s.report_memory_pressure(MemoryPressureState::Moderate, 0, 0);
         // (b) preemption of the lower-priority holder of vad-silero -> ExplicitRelease
-        let _ = s.acquire(r.clone(), "second", ResourcePriority::VadAec, ResidencyClass::IdleEvict);
+        let _ = s.acquire(
+            r.clone(),
+            "second",
+            ResourcePriority::VadAec,
+            ResidencyClass::IdleEvict,
+        );
         // (c) TTL expiry -> advance clock past idle-evict TTL.
         clock.advance(6 * 60 * 1000);
         let _ = s.list(); // sweep occurs on list(); must trigger eviction listener
@@ -838,8 +986,22 @@ mod tests {
         let mut s = scheduler_with_clock(Arc::clone(&clock));
         let r1 = rid("vad-silero");
         let r2 = rid("stt-cache");
-        let l1 = s.acquire(r1, "o1", ResourcePriority::Preload, ResidencyClass::IdleEvict).unwrap();
-        let l2 = s.acquire(r2, "o2", ResourcePriority::Preload, ResidencyClass::IdleEvict).unwrap();
+        let l1 = s
+            .acquire(
+                r1,
+                "o1",
+                ResourcePriority::Preload,
+                ResidencyClass::IdleEvict,
+            )
+            .unwrap();
+        let l2 = s
+            .acquire(
+                r2,
+                "o2",
+                ResourcePriority::Preload,
+                ResidencyClass::IdleEvict,
+            )
+            .unwrap();
         assert_ne!(l1.lease_id, l2.lease_id, "unique ids per acquire");
     }
 }

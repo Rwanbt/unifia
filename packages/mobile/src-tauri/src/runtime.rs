@@ -49,6 +49,9 @@ use extraction::is_runtime_ready;
 mod bearer;
 // Re-exported for the cargo integration test in `tests/bearer_env.rs`
 // (which only sees the public API of the crate, not sibling modules).
+// WHY: This public re-export is consumed by Android builds; host test builds
+// exercise the implementation through runtime::server and leave this path unused.
+#[allow(unused_imports)]
 pub use bearer::derive_workbench_bearer;
 
 const DEFAULT_PORT: u32 = 14096;
