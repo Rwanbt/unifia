@@ -9,7 +9,7 @@
 
 **Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Most recent pushed head with both required workflows confirmed green:** `58cbdc23fd9102bb61aa30eb1c5d1dd55eea14a2` (`voice-ci` 36253644173; `unifia-conformance` 36253644192; both successful).
+**Most recent pushed head with both required workflows confirmed green:** `977b74c9941de4a5960f562dc7181192bb00855e` (`test(voice): add cross-runtime wire fixture`; `voice-ci` 36254047307; `unifia-conformance` 36254047267; both successful). The local branch and `origin/voice` match this SHA.
 
 **Previous pushed implementation SHA:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`, followed by checkpoint commit `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`, on `voice` and `origin/voice`; both required remote workflows passed on branch head. The push hook passed all **47/47** Turbo typechecks.
 
@@ -27,7 +27,7 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | `voice-ci` `36252983708` and `unifia-conformance` `36252983713` both passed on exact branch-head SHA `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`; push hook passed 47/47 typechecks. |
+| G0 — Truth and CI | Green | `voice-ci` `36254047307` and `unifia-conformance` `36254047267` both passed on exact pushed SHA `977b74c9941de4a5960f562dc7181192bb00855e`; push hook passed 47/47 typechecks on the preceding push. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Python error/readiness emitters now use safe monotonic timestamps and TypeScript rejects unsafe timestamps. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; event generation and ordering parity across other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
 | G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. Android Tauri owns the snapshot store under app data. Mobile local Live durably reserves the canonical SDK `messageID` before `prompt`; a reservation failure prevents the SDK call. Snapshot data preserves turn replay fences and clock state, not event payloads. Android Live rotates the canonical session before the 4,096-turn replay history fills, preserving history and permission policy. A shared STT-error JSON fixture now verifies Rust serialization, Python producer parity for common fields, and TypeScript acceptance. Still open: broader event fixtures, first-delta delivery into SpeechSegmenter/TTS, Python/desktop producer adoption, and lifecycle/recovery parity.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
@@ -47,6 +47,7 @@
 
 - Current capacity-rotation source: App Voice **132 passed**, app typecheck passed, Biome passed on five changed TS files, VoiceCore **25 passed** with strict Clippy and rustfmt, Android Tauri `cargo check --lib --locked` passed, and `test/server/session-list.test.ts` **6 passed** including explicit permission-rule preservation across session fork. Capacity rotation implementation commit: `9fae579091cf78c67f3794133792de0d466d44da`. Remote workflows for this SHA are pending.
 - Shared wire-fixture slice: VoiceCore **26 passed** with strict Clippy and rustfmt; contracts typecheck passed and `speech.test.ts` **13 passed**; Voice Host `test_voice_error.py` **16 passed, 29 subtests passed**. Rust/Python common error-envelope fields match the same fixture, and TypeScript accepts that fixture.
+- Cross-runtime fixture code-bearing commit `977b74c9941de4a5960f562dc7181192bb00855e` was pushed; `voice-ci` `36254047307` and `unifia-conformance` `36254047267` both succeeded on that exact SHA (the earlier lookup that failed at the proxy was retried successfully).
 - Latest confirmed pushed-head workflows: `voice-ci` `36253644173` and `unifia-conformance` `36253644192` both succeeded on exact SHA `58cbdc23fd9102bb61aa30eb1c5d1dd55eea14a2`.
 - GitHub API confirmed `voice` at `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`; exact branch-head runs `voice-ci` `36252983708` and `unifia-conformance` `36252983713` both succeeded. Those commits appeared on the branch from the alternate harness after the local credential failure.
 
