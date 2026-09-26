@@ -9,9 +9,9 @@
 
 **Last implementation SHA with both required remote workflows confirmed green:** `01bf5da293394970bfe1e99b476a249ed783c17f` (`voice-ci` 36244758338; `unifia-conformance` 36244758313; both reported successful in the previous continuation).
 
-**Latest pre-change pushed SHA:** `4ceaebd85f420be3360a2108bdf1173975b38278` on `voice` and `origin/voice`; its `voice-ci` run `36244919076` passed. Current GitHub API/Actions recheck is unavailable because the configured proxy `127.0.0.1:9` refuses connections; do not infer the `unifia-conformance` result for `4ceaebd`.
+**Latest pushed implementation SHA:** `e31ca24b26d5bda257bbe641a0d8df359d116024` on `voice` and `origin/voice` (push output and tracking ref agree). The push hook passed all **47/47** Turbo typechecks. GitHub run lookup for this SHA returned no results in this session; remote workflow status is unverified.
 
-**Current worktree:** `4ceaebd85f420be3360a2108bdf1173975b38278` plus the G1 selected-model preflight change under review; the shared artifact registry/installer and desktop/Android adoption commits remain pushed. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain preserved and unstaged.
+**Current worktree:** implementation commit `e31ca24b26d5bda257bbe641a0d8df359d116024` plus this checkpoint-only correction. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -83,7 +83,7 @@
 - VoiceCore sequencing slice at `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: `cargo fmt --check`, Clippy, and `cargo check --lib --manifest-path ../mobile/src-tauri/Cargo.toml` pass; VoiceCore tests **9 passed**. This establishes core-local behavior only; no device or cross-runtime qualification is claimed.
 - Exact source SHA `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: local VoiceCore format check, Clippy (`-D warnings`), **9 tests**, and mobile `cargo check --lib` passed. GitHub `voice-ci` run `36243451608` and `unifia-conformance` run `36243451545` both completed successfully on that exact SHA.
 - Exact pushed source SHA `01bf5da293394970bfe1e99b476a249ed783c17f`: Voice artifact crate `cargo fmt --check`, Clippy `--locked -D warnings`, and **7 tests** passed; mobile and desktop `cargo check --lib` passed; registry validator and **5** Node self-tests passed; workflow YAML parsed; `git diff --check` passed. GitHub branch API confirmed `voice` points to this exact SHA; `voice-ci` `36244758338` completed successfully; `unifia-conformance` `36244758313` was still in progress at the last read.
-- G1 selected-model preflight on top of `4ceaebd85f`: `BridgeTests` **6 passed**; Ruff, `py_compile`, and `git diff --check` passed. The full `test_live_runtime.py` invocation produced **18 passed, 2 environment failures**: the sandbox denied writes under `%TEMP%` in existing Piper test setup. No model inference/network health is claimed by the provider-catalog check.
+- G1 selected-model preflight at exact pushed SHA `e31ca24b26d5bda257bbe641a0d8df359d116024`: `BridgeTests` **6 passed**; Ruff, `py_compile`, and `git diff --check` passed. The full `test_live_runtime.py` invocation produced **18 passed, 2 environment failures**: the sandbox denied writes under `%TEMP%` in existing Piper test setup. The push hook passed **47/47** Turbo typechecks. GitHub run lookup returned no results; remote workflow status is unverified. No model inference/network health is claimed by the provider-catalog check.
 - The pinned 463,415,355-byte Parakeet release ZIP was downloaded to ignored `.build-temp/voice-artifact-audit/`; `Get-FileHash -Algorithm SHA256` returned `c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03`. Hashes for the four required ONNX/vocabulary files were computed from the ZIP stream and added to the registry.
 
 ## CI Runs at Baseline
