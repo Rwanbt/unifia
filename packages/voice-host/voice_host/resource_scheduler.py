@@ -28,7 +28,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Iterable, Protocol
+from typing import Callable, Iterable, Protocol, runtime_checkable
 
 
 class ResourcePriority(str, Enum):
@@ -133,6 +133,7 @@ class _LeaseInternal:
     released: bool = False
 
 
+@runtime_checkable
 class PlatformSignals(Protocol):
     """Inject memory + thermal observations from the host platform.
 

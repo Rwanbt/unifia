@@ -66,11 +66,17 @@ def build_resources(config: LiveConfig):
     # R13 desktop convergence (ADR-074): instantiate the VoiceResourceScheduler
     # in desktop mode with `local-llm` as the GPU owner so Voice never
     # allocates discrete VRAM by default (we already documented this as the
-    # the canonical behaviour in the v2 plan §20 / §32). The platform layer
-    # (psutil / Win32_TemperatureProbe) will be plugged in once the desktop
-    # supervisor is available; in the meantime the scheduler runs in
-    # nominal mode and only honours TTL expiry.
-    desktop_signals: PlatformSignals | None = None
+    # the canonical behaviour in the v2 plan §20 / §32).
+    # R13.2 plugs in `DesktopPlatformSignals` so the scheduler receives
+    # real memory observations (via psutil on hosts that ship it) and
+    # best-effort thermal readings; Windows falls back to ThermalStatus.NONE
+    # because no portable CPU-temperature API exists there yet.
+    from ..platform_signals import DesktopPlatformSignals, MockDesktopSignals
+
+    if os.environ.get("UNIFIA_VOICE_PLATFORM_SIGNALS") == "mock":
+        desktop_signals: object = MockDesktopSignals()
+    else:
+        desktop_signals = DesktopPlatformSignals()
     gpu_owner: str = "local-llm" if config.local_llm_owns_gpu else "none"
     scheduler = VoiceResourceScheduler(
         mode="desktop",
