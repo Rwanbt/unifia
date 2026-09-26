@@ -30,7 +30,6 @@ describe("PocketAndroidBackend — R7 scaffolding", () => {
   })
 
   test("prepare() succeeds for each of the 5 mandatory languages", async () => {
-    const backend = new PocketAndroidBackend()
     for (const language of ALL_LANGUAGES) {
       // Each backend instance is single-language; re-prepare for each lang.
       const fresh = new PocketAndroidBackend()
