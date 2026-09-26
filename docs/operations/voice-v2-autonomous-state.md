@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last code SHA with verified remote CI:** `dbf5d111db915adb550bc3d5e9d0b547fe62ccec`
+**Last source SHA with both required remote workflows green:** `46f6686851e3e4df4dabb3345a50f4e290485bde` (`voice-ci` 36242039225; `unifia-conformance` 36242039213).
 
-**Current source HEAD:** `33b6b4e7df2f7ff877386bc90b71cbd883942b33` on local `voice`; `origin/voice` tracking ref matched after the successful push. A fresh fetch failed through the configured proxy, so the current GitHub state and Actions for this SHA are unverified.
+**Current source HEAD:** `46f6686851e3e4df4dabb3345a50f4e290485bde` on `voice` and `origin/voice` (verified by GitHub Actions after push).
 
-**Current worktree:** G1 pre-session error delivery is in progress on top of `33b6b4e7df`: startup failures use the opaque Live binding until a canonical session exists, persist the validated error envelope for room attribute recovery, and are accepted only for the active binding. These changes are locally tested but not committed or covered by remote CI.
+**Current worktree:** the checkpoint, the initial portable Rust VoiceCore contract crate, and its Tauri path-dependency integration are modified. The Rust crate currently provides typed error/event contracts and validation; production event producers have not migrated. Untracked build/cache artifacts remain preserved and unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -19,15 +19,15 @@
 
 ## Verdict
 
-**IN PROGRESS — NOT GO PROD.** G0 CI is green on `dbf5d111db`. The G1 readiness and microphone gating are pushed at `5b7d69dff6`; cause-category metadata, provider identity validation, and the stable-code inventory are pushed at `33b6b4e7df`. GitHub CI could not be refreshed because the configured proxy is unavailable. Current local G1 work adds binding-scoped pre-session errors with persisted room attributes. G1 remains partial: selected LLM/provider health is unverified and Android/local/desktop emitters are not unified. No production qualification is inferred from unit tests or scaffolds.
+**IN PROGRESS — NOT GO PROD.** Both G0 workflows are green on exact SHA `46f6686851`. G1 readiness and microphone gating are pushed at `5b7d69dff6`; cause-category metadata and provider identity validation are pushed at `33b6b4e7df`; binding-scoped pre-session errors are pushed at `46f6686851`. G1 remains partial: selected LLM/provider health is unverified and Android/local/desktop emitters are not unified. No production qualification is inferred from unit tests or scaffolds.
 
 ## Gate State
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | GitHub Actions runs `36239716868` (`voice-ci`) and `36239716904` (`unifia-conformance`) both completed successfully on exact SHA `dbf5d111db915adb550bc3d5e9d0b547fe62ccec`. Voice CI has 6 successful blocking jobs; the Voice Host job reports 163 passed and 1 explicitly skipped live transport integration requiring livekit-server, espeak-ng, and Bun. |
+| G0 — Truth and CI | Green | Exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde` passed `voice-ci` `36242039225` and `unifia-conformance` `36242039213`. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. The current local change adds binding-scoped errors before session creation and persistent error attributes. Remaining: selected LLM/provider readiness beyond bridge reachability, other Android/local/desktop emitters, completed ADR adoption evidence, model registry/security reconciliation. |
-| G2 — Shared VoiceCore | Not started | No canonical cross-platform state machine/event core has been verified. |
+| G2 — Shared VoiceCore | In progress | Initial portable `packages/voice-core` crate defines typed error/event contracts and validation, and the Tauri runtime links it. Production producers and state-machine ownership have not migrated or been qualified. |
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
 | G5 — Streaming STT | Not started | Android Parakeet is batch/final transcription; real streaming parity is open. |
@@ -67,8 +67,7 @@
 - Current G1 local verification on the uncommitted worktree: App Voice **123 passed**; contracts **705 passed**; app and contracts typechecks passed; Voice Host full suite **167 passed, 1 skipped**; Ruff checks passed for all touched Python files.
 - Native model prewarm smoke on this Windows host called `livekit.local_inference._native.init_vad()` and `init_eot()` successfully. This confirms model initialization only; it is not an EOT accuracy, latency, or production qualification result.
 - Latest G1 error-envelope verification on local HEAD `5b7d69dff6`: App Voice suite **123 passed**; contracts suite **706 passed**; app and contracts typechecks passed; Python↔TypeScript accepted an actual `STT_PROVIDER_UNAVAILABLE` payload with `cause_category=availability`, `provider_id=parakeet`, and `seq=7`. Voice Host full suite: **169 passed, 1 skipped, 25 subtests passed**; the skip is the existing live transport integration requiring livekit-server, espeak-ng, and Bun.
-- GitHub Actions for pushed `5b7d69dff6` are **UNVERIFIED**: `git fetch origin` and `gh run list` both failed to connect through configured proxy `127.0.0.1:9`.
-- Current pre-session error slice on local base `33b6b4e7df`: App Voice suite **124 passed** and app typecheck passed; contracts suite **707 passed** and contracts typecheck passed; Voice Host suite **171 passed, 1 skipped, 25 subtests passed**; Biome checked all five changed TypeScript files; Python→TypeScript accepted a real binding-scoped `PROVIDER_BINDING_INVALID` event. Full-suite checks include the tests added for matching the active grant binding and retaining the event in LiveKit participant attributes.
+- Exact-SHA G1 evidence for `46f6686851`: App Voice suite **124 passed** and app typecheck passed; contracts suite **707 passed** and contracts typecheck passed; Voice Host suite **171 passed, 1 skipped, 25 subtests passed**; Biome checked all five changed TypeScript files; Python→TypeScript accepted a real binding-scoped `PROVIDER_BINDING_INVALID` event. These suites were run on the source tree immediately before the commit; the committed source is identical.
 - GitHub run `36238924843` (`voice-ci`) and `36238924934` (`unifia-conformance`) both passed on `f039a92d98`.
 - The full app (**1,799 tests**) and contracts (**704 tests**) runs preceded the final event-schema alignment change that removed a non-ADR `causeCategory` field; after that correction, the focused controller/contracts suite passed **31 tests**, both typechecks and Biome passed, and the Python suite remained **159 passed, 1 skipped**. The new source diff still requires remote CI.
 - Current pre-commit Rust checks: `cargo clippy --all-targets -- -D warnings` passed after fixing two scheduler lint findings and documenting the Android-only bearer re-export; targeted Rust scheduler tests remained **15/15 green**.
@@ -76,6 +75,10 @@
 - Local reproduction of the formerly failing isolated renderer step with the workflow's `PYTHONPATH`: **53 passed**. The workflow parser now confirms this environment and the Windows Rust runner selection.
 - GitHub Actions run `36231800987` on `3cd2a3bc66`: app (**118 tests**), contracts (**701 tests**), docs, registry CLI, registry integrity helper tests, and full Python Host suite passed. The explicit SpeechRenderer step failed collection because `PYTHONPATH` was absent. Rust scheduler step failed because Ubuntu lacked `glib-2.0` / `gobject-2.0` development packages.
 - The repo-wide `cargo fmt --all -- --check` currently reports extensive pre-existing formatting differences outside this Voice task. CI uses `rustfmt --check` on the Voice scheduler file instead; that focused check passes.
+- GitHub confirmed Issue #117 remains OPEN and assigned to `Rwanbt`; its scope and Acceptance criteria explicitly cover G0–G14. No open PR referencing #117 was returned by the search.
+- Issue #117 Acceptance Criteria were normalized from heading `Acceptance` and ordinary bullets to `Acceptance Criteria` checkboxes. The exact text of all seven criteria was preserved; `ac_guard.py --bind` and the post-update claim re-read both pass. Bound AC digest: `689002c87f981091be1eda0890c4fbaf9b6f89dc46ce54c877cf88e941d22657`.
+- GitHub run `36241529290` (`voice-ci`) and `36241529304` (`unifia-conformance`) both passed on exact SHA `33b6b4e7df2f7ff877386bc90b71cbd883942b33`.
+- For exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde`, `voice-ci` run `36242039225` and `unifia-conformance` run `36242039213` both completed successfully. The push hook also passed all **47/47** typechecks.
 
 ## CI Runs at Baseline
 
@@ -94,7 +97,6 @@
 
 ## Next Exact Actions
 
-1. Review the binding-scoped pre-session error diff and commit/push it; keep build/cache artifacts unstaged.
-2. Verify exact-SHA `voice-ci` and conformance when GitHub access is available; do not call pushed code remotely green without that evidence.
-3. Finish G1 by mapping remaining desktop/Android/local error producers and establishing a truthful selected-LLM/provider readiness check without generating an unauthorized session turn; close ADR-070 only after all emitters and adoption tests pass.
-4. Continue G2–G14 in order; update this gate table only with production-path evidence, not scaffold or mock coverage.
+1. Continue G1: establish a truthful selected-LLM/provider readiness check without generating an unauthorized session turn; unify desktop/Android/local error producers; close ADR-070 only after all emitters and adoption tests pass.
+2. Correct ADR-060 to reflect the required Rust VoiceCore; reconcile all 18 ADR artifacts and verify whether the six required architecture topics have complete decision records.
+3. Implement the real VoiceCore and canonical typed event model, then continue G2–G14 in dependency order; update this gate table only with production-path evidence, not scaffold or mock coverage.

@@ -5795,8 +5795,16 @@ dependencies = [
  "tauri-plugin-window-state",
  "tokio",
  "tracing",
+ "unifia-voice-core",
  "url",
  "zip",
+]
+
+[[package]]
+name = "unifia-voice-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

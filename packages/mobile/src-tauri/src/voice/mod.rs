@@ -30,3 +30,5 @@ pub use resource_scheduler::{
     ResidencyClass, ResourceId, ResourceLease, ResourcePriority, ThermalStatus,
     VoiceResourceScheduler,
 };
+
+pub use unifia_voice_core::{VoiceError, VoiceErrorCode, VoiceEvent, VoiceEventKind};
