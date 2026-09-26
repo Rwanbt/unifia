@@ -18,7 +18,6 @@ import {
   PRIORITY_ORDER,
   priorityWeight,
   type EvictionEvent,
-  type MemoryPressureSignal,
   type MemoryPressureState,
   type NpuCapability,
   type ProviderId,
@@ -27,7 +26,6 @@ import {
   type ResourcePriority,
   type ResidencyClass,
   type SchedulerDiagnostics,
-  type ThermalSignal,
   type ThermalStatus,
   type VoiceResourceScheduler,
 } from "@unifia/contracts/voice-resource-scheduler"
