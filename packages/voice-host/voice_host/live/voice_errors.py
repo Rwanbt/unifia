@@ -8,9 +8,9 @@ from typing import Any
 
 VOICE_ERROR_TOPIC = "unifia.voice_error"
 _SAFE_ERRORS = {
-    ("session", "SESSION_AGENT_ERROR"): (False, "session", "The Unifia session returned an error."),
-    ("session", "SESSION_AGENT_UNAVAILABLE"): (False, "availability", "The Unifia session is unavailable."),
-    ("stt", "STT_PROVIDER_UNAVAILABLE"): (False, "availability", "The speech recognition provider is unavailable."),
+    ("session", "SESSION_AGENT_ERROR"): (False, "The Unifia session returned an error."),
+    ("session", "SESSION_AGENT_UNAVAILABLE"): (False, "The Unifia session is unavailable."),
+    ("stt", "STT_PROVIDER_UNAVAILABLE"): (False, "The speech recognition provider is unavailable."),
 }
 
 
@@ -23,7 +23,7 @@ def encode_voice_error_event(
     definition = _SAFE_ERRORS.get((stage, code))
     if definition is None or not code.startswith(f"{stage.upper().replace('-', '_')}_"):
         raise ValueError("Voice error code does not match a registered stage")
-    recoverable, category, detail = definition
+    recoverable, detail = definition
     event: dict[str, Any] = {
         "kind": "voice_error",
         "sessionID": session_id,
@@ -33,7 +33,6 @@ def encode_voice_error_event(
         "code": code,
         "detail": detail,
         "recoverable": recoverable,
-        "causeCategory": category,
     }
     if turn_id:
         event["turnID"] = turn_id

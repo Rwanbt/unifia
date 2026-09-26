@@ -14,6 +14,7 @@ class VoiceErrorContractTests(unittest.TestCase):
         self.assertEqual(event["stage"], "session")
         self.assertEqual(event["seq"], 1)
         self.assertEqual(event["turnID"], "turn_1")
+        self.assertNotIn("causeCategory", event)
         self.assertNotIn("transcript", event["detail"])
         with self.assertRaises(ValueError):
             encode_voice_error_event(

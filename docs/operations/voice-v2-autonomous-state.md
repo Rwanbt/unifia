@@ -7,7 +7,7 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last verified remote HEAD:** `74c76b1a5692f6f4fe6545fe61a093dd45c690df` (G1 checkpoint in progress)
+**Last code SHA with verified remote CI:** `f039a92d98caf77345cc647b5dfa369f1dbebfd9`
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -21,8 +21,8 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | GitHub Actions run `36232511790` completed successfully on exact SHA `386fdcf5eafb216288e3d7ea0d3070a8f6e5f3ee`; all 5 mandatory jobs passed. Voice Host: 156 passed, 1 explicitly skipped integration test requiring livekit-server, espeak-ng, and Bun. Local Rust module test: 15 passed; hosted direct `rustc --test` step passed. |
-| G1 — Contracts and ADR reconciliation | Partial | TypeScript now models staged `VoiceError` values and ordered `voice_error` envelopes, validates stage/code pairing, drops raw exception text from Live errors, and preserves legacy UI identifiers. Targeted app/contracts tests and typechecks pass. Remaining: emit/adopt the event across Python/desktop/Android paths, complete ADR 070 reconciliation, and cover all runtime stages. |
+| G0 — Truth and CI | Green | GitHub Actions run `36232511790` completed successfully on exact SHA `386fdcf5eafb216288e3d7ea0d3070a8f6e5f3ee`; all 5 mandatory jobs passed. The subsequent Voice CI run `36233221531` and conformance run `36233221569` also passed on `e5e8f9af82`. Voice Host: 156 passed, 1 explicitly skipped integration test requiring livekit-server, espeak-ng, and Bun. Local Rust module test: 15 passed; hosted direct `rustc --test` step passed. |
+| G1 — Contracts and ADR reconciliation | Partial | The TypeScript controller validates ordered envelopes and discards free-form remote detail; LiveKit accepts only reliable `unifia.voice_error` packets from the agent. Python publishes safe, sequenced session errors on that data topic, with a legacy-attribute fallback if sending fails. Remaining: structured pre-session errors (no `sessionID` may exist yet), all other stages/providers, cross-platform emitters, readiness gating, and ADR-070 adoption evidence. |
 | G2 — Shared VoiceCore | Not started | No canonical cross-platform state machine/event core has been verified. |
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
@@ -52,6 +52,13 @@
 - `bunx biome check packages/app/src/voice packages/contracts/src packages/contracts/test scripts/voice/model-registry-validator.mjs scripts/voice/model-registry-validator.test.mjs`: passed; **151 files checked**.
 - Current targeted rerun: App Voice **118 passed**, contracts **701 passed**, Rust scheduler **15 passed**; app and contract typechecks passed.
 - G1 checkpoint targeted rerun: app Live controller/state/orb plus contracts speech tests **39 passed**, 0 failed, 160 assertions; app and contracts typechecks passed. This proves only the new TypeScript contract and touched Live UI/controller path, not full G1 adoption.
+- Latest full app run: **1,799 passed**, 0 failed across 213 files; latest contracts run: **704 passed**, 0 failed across 46 files.
+- Latest targeted controller/contracts rerun after session-correlation and payload-registry checks: **31 passed**, 0 failed; app and contracts typechecks plus Biome on the changed TypeScript files passed.
+- Latest Voice Host suite: **159 passed, 1 skipped**. The skip remains the live transport integration requiring livekit-server, espeak-ng, and Bun.
+- Cross-runtime serialization check: Python `encode_voice_error_event()` produced a `SESSION_AGENT_ERROR` envelope that TypeScript `isVoiceErrorEvent()` accepted (`sessionID=ses_cross`, `seq=1`).
+- Current pre-push gate on `f039a92d98`: **47/47 typechecks passed**.
+- GitHub run `36238924843` (`voice-ci`) and `36238924934` (`unifia-conformance`) both passed on `f039a92d98`.
+- The full app (**1,799 tests**) and contracts (**704 tests**) runs preceded the final event-schema alignment change that removed a non-ADR `causeCategory` field; after that correction, the focused controller/contracts suite passed **31 tests**, both typechecks and Biome passed, and the Python suite remained **159 passed, 1 skipped**. The new source diff still requires remote CI.
 - Current pre-commit Rust checks: `cargo clippy --all-targets -- -D warnings` passed after fixing two scheduler lint findings and documenting the Android-only bearer re-export; targeted Rust scheduler tests remained **15/15 green**.
 - Current Python targeted rerun: `python -m pytest -p no:cacheprovider tests/test_resource_scheduler.py tests/test_platform_signals.py -q` from `packages/voice-host`: **26 passed**.
 - Local reproduction of the formerly failing isolated renderer step with the workflow's `PYTHONPATH`: **53 passed**. The workflow parser now confirms this environment and the Windows Rust runner selection.
@@ -75,5 +82,6 @@
 
 ## Next Exact Actions
 
-1. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
+1. Finish G1 by emitting the staged contract for pre-session/provider failures and remaining desktop/Android error stages, then reconcile ADR-070's readiness rule with actual runtime provider health.
+2. Continue G2–G14 in order; update this gate table only with production-path evidence, not scaffold or mock coverage.
 3. Record each test, benchmark, device, exact source SHA, and package/model SHA here; never mark a physical gate green from mocks or host-only tests.

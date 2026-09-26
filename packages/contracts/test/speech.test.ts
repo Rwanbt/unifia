@@ -24,6 +24,7 @@ describe("speech contracts", () => {
       expect(error.detail.length).toBeLessThanOrEqual(240)
       const event = createVoiceErrorEvent(error, { sessionID: "ses_test", turnID: "turn_test", seq: 4 })
       expect(isVoiceErrorEvent(event)).toBe(true)
+      expect(event).not.toHaveProperty("causeCategory")
     }
   })
 
@@ -33,6 +34,7 @@ describe("speech contracts", () => {
     expect(isVoiceErrorEvent({ ...base, detail: "Authorization: Bearer secret" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, code: "NETWORK_ANYTHING" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, provider_id: "secret value" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, sessionID: "binding_not_session" })).toBe(false)
   })
 
   test("voice error events map to legacy UI codes without retaining free-form detail", () => {

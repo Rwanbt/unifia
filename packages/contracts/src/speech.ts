@@ -199,7 +199,6 @@ export interface VoiceErrorEvent {
   code: string
   detail: string
   recoverable: boolean
-  causeCategory: VoiceErrorCauseCategory
   provider_id?: string
   retry_after_ms?: number
 }
@@ -321,7 +320,6 @@ export function createVoiceErrorEvent(
     code: error.code,
     detail: error.detail,
     recoverable: error.recoverable,
-    causeCategory: error.causeCategory,
     ...(error.providerId ? { provider_id: error.providerId } : {}),
   }
 }
@@ -331,7 +329,8 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
   const event = value as Partial<VoiceErrorEvent>
   return event.kind === "voice_error"
     && typeof event.sessionID === "string"
-    && event.sessionID.trim().length > 0
+    && event.sessionID.startsWith("ses_")
+    && event.sessionID.length > "ses_".length
     && event.sessionID.length <= MAX_VOICE_ERROR_ID_LENGTH
     && (event.turnID === undefined || (typeof event.turnID === "string" && event.turnID.length <= MAX_VOICE_ERROR_ID_LENGTH))
     && typeof event.ts === "number"
@@ -347,8 +346,6 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
     && event.detail.length <= 240
     && !/(?:bearer\s+\S+|(?:api[_-]?key|authorization|token)\s*[:=]\s*\S+)/i.test(event.detail)
     && typeof event.recoverable === "boolean"
-    && typeof event.causeCategory === "string"
-    && ["permission", "device", "availability", "provider", "session", "network", "programmer"].includes(event.causeCategory)
     && (event.provider_id === undefined || (typeof event.provider_id === "string" && event.provider_id.length <= MAX_VOICE_ERROR_PROVIDER_LENGTH && /^[A-Za-z0-9._@:-]+$/.test(event.provider_id)))
     && (event.retry_after_ms === undefined || (typeof event.retry_after_ms === "number" && Number.isSafeInteger(event.retry_after_ms) && event.retry_after_ms >= 0 && event.retry_after_ms <= MAX_VOICE_ERROR_RETRY_MS))
 }
@@ -375,7 +372,6 @@ export function voiceErrorFromEvent(event: VoiceErrorEvent): VoiceError {
     code: event.code,
     recoverable: event.recoverable,
     providerId: event.provider_id,
-    causeCategory: event.causeCategory,
   }
 }
 
