@@ -140,6 +140,7 @@ pub(crate) fn apply_runtime_environment(
     project: &Path,
 ) -> Result<(), String> {
     let speech_dir = app_data_dir(app)?.join("speech");
+    apply_python_runtime_environment(command);
     command
         .env("UV_PYTHON_INSTALL_DIR", speech_dir.join("runtime/python"))
         .env("UV_PYTHON_PREFERENCE", "only-managed")
@@ -156,6 +157,10 @@ pub(crate) fn apply_runtime_environment(
         .env("MKL_NUM_THREADS", "2")
         .env("OPENBLAS_NUM_THREADS", "2");
     Ok(())
+}
+
+fn apply_python_runtime_environment(command: &mut Command) {
+    command.env("PYTHONUTF8", "1");
 }
 
 pub(crate) async fn ensure_uv(speech_dir: &Path, app: &AppHandle) -> Result<PathBuf, String> {
@@ -297,5 +302,21 @@ fn uv_asset() -> Result<(&'static str, &'static str, &'static str), String> {
             "tar.gz",
         )),
         _ => Err("No pinned uv runtime is available for this platform".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+    use tokio::process::Command;
+
+    #[test]
+    fn managed_python_processes_use_utf8_mode() {
+        let mut command = Command::new("python");
+        super::apply_python_runtime_environment(&mut command);
+
+        assert!(command.as_std().get_envs().any(|(key, value)| {
+            key == OsStr::new("PYTHONUTF8") && value == Some(OsStr::new("1"))
+        }));
     }
 }
