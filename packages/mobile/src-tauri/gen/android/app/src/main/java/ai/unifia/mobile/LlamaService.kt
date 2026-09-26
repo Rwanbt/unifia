@@ -86,7 +86,7 @@ class LlamaService : Service() {
     // respawn with the same args after an unexpected death.
     private var lastPtyNativeLibDir: String? = null
     private var lastPtyRuntimeDir: String? = null
-    private var lastPtyPort: Int = 14098
+    private var lastPtyPort: Int = BuildConfig.UNIFIA_PTY_PORT
 
     // Held for the lifetime of an active llama-server child process.
     // PARTIAL_WAKE_LOCK prevents CPU deep sleep between token generation steps
@@ -369,7 +369,11 @@ class LlamaService : Service() {
      * @param runtimeDir    Path to the runtime directory (for port file)
      * @param port          TCP port for the PTY server
      */
-    fun spawnPtyServer(nativeLibDir: String, runtimeDir: String, port: Int = 14098) {
+    fun spawnPtyServer(
+        nativeLibDir: String,
+        runtimeDir: String,
+        port: Int = BuildConfig.UNIFIA_PTY_PORT
+    ) {
         // stopPtyServer() interrupts any watchdog from a previous instance
         // first, so it never mistakes this intentional restart for an
         // unexpected death.
