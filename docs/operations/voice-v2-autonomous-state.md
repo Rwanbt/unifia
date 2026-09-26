@@ -8,6 +8,8 @@
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
 **Last verified local/remote HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
+
+**G0 commits prepared locally:** `e00bf2a388` (strict Rust lint fixes), `e81cb76c9c` (blocking CI repair and registry validator). The GitHub compare API confirmed `origin/voice` was still exactly at the baseline immediately before these commits.
 **Updated:** 2026-09-26
 
 ## Verdict
@@ -65,6 +67,6 @@
 
 ## Next Exact Actions
 
-1. Finish G0 validation, including the full Python suite when dependency access is available, then run the hosted workflow on this exact branch commit; fix real failures rather than weakening assertions.
+1. Push the two G0 commits to `voice`, then verify the hosted workflow on the resulting SHA; fix real failures rather than weakening assertions. The full Python suite remains unverified locally because required packages could not be downloaded.
 3. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
 4. Record each test, benchmark, device, exact source SHA, and package/model SHA here; never mark a physical gate green from mocks or host-only tests.
