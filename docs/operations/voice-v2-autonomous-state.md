@@ -9,9 +9,9 @@
 
 **Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Most recent pushed head with both required workflows confirmed green:** `d518c93bf17423b0b2b2e7238d26972e29689cf4` (`feat(android): report native audio clock and diagnostics`; `voice-ci` `36271252898` success; `unifia-conformance` `36271252881` success; both on that exact SHA). The subsequent docs-only Android collision checkpoint is `8804a3511a40c5e53d6b928827b29983d0dba9c1`; its `voice-ci` run `36271534998` succeeded. The path-filtered `unifia-conformance` did not run for that docs-only commit.
+**Most recent pushed head with both required workflows confirmed green:** `5cc42e97eb271f6b6f413aef3b4b95300e740762` (`fix(android): share PTY port with native service`; `voice-ci` `36275004726` success; `unifia-conformance` `36275004752` success; both on that exact SHA). The previous code/docs history is retained below.
 
-**Current branch head:** `8804a3511a40c5e53d6b928827b29983d0dba9c1`, equal to `origin/voice` and confirmed by authenticated fetch plus GitHub API on 2026-09-26. G3 implementation commits `1a0b36a6ce`, `763bcf6e84`, and `642403c9d2` add the Oboe engine, Rust PCM bridge, and Android Live routing; `d518c93bf1` adds the native audio clock and diagnostics. Both required workflows passed on `d518c93`; `voice-ci` also passed on the docs-only `8804a351` checkpoint.
+**Current branch head:** `5cc42e97eb271f6b6f413aef3b4b95300e740762`, equal to `origin/voice`; GitHub's branch ref and both required workflows confirmed this exact SHA on 2026-09-27. G3 implementation commits `1a0b36a6ce`, `763bcf6e84`, and `642403c9d2` add the Oboe engine, Rust PCM bridge, and Android Live routing; `d518c93bf1` adds the native audio clock and diagnostics.
 
 **Code-bearing slices included in that push:** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6).
 
@@ -27,7 +27,7 @@
 
 **Pushed G3 diagnostics slice:** `voice-ci` run `36271252898` and `unifia-conformance` run `36271252881` both succeeded on exact SHA `d518c93bf17423b0b2b2e7238d26972e29689cf4`.
 
-**Updated:** 2026-09-26 (23:12 Europe/Paris)
+**Updated:** 2026-09-27 (00:07 Europe/Paris)
 
 ## Verdict
 
@@ -55,6 +55,7 @@
 
 ## Checks Run
 
+- 2026-09-27 Android PTY collision subgate: issue #117 remains **OPEN**, assigned to `Rwanbt`; remote `voice` equals source SHA `5cc42e97eb271f6b6f413aef3b4b95300e740762`. Both exact-SHA workflows passed: `voice-ci` `36275004726`, `unifia-conformance` `36275004752`. Gradle compiled `:app:compileArm64DebugKotlin` with `UNIFIA_PTY_PORT=14198`; generated ARM64 `BuildConfig` contains `UNIFIA_PTY_PORT = 14198`. A debug APK from this SHA was built with temporary package suffix `.voicequal4`, SHA-256 `CE0223CEF9BAC18338EBEBF6976B3EBBA9B9B03B726322A0CDCEF603B9940079`. On Xiaomi Mi 10 Pro `b7163823` (Android 13/API 33, arm64-v8a), `LlamaService` logged `PTY server spawned on port 14198` and the native binary logged `listening on 127.0.0.1:14198`; one process remained alive through a 15-second observation with no 14098 bind error or respawn. The QA package was force-stopped; production package PID 3462 remained active. This closes only the isolated PTY port-collision subgate. Local Mode health, microphone permission/capture, frame movement/xruns, playback, routes, lifecycle, AEC and G3 remain open.
 - Current GitHub state: issue [#117](https://github.com/Rwanbt/unifia/issues/117) is **OPEN** and assigned to `Rwanbt`. Authenticated `gh` API and Git fetch confirmed remote `voice` equals local SHA `8804a3511a40c5e53d6b928827b29983d0dba9c1` on 2026-09-26. Git pushes work per-command through the existing `gh auth` token and OpenSSL without writing the token into Git config.
 - Pocket G7 host experiment: isolated official `pocket-tts==3.3.0` generated streaming PCM for EN/FR/ES/IT/DE. Warm-cache first PCM was 47–67 ms and RTFx 5.37–7.01 on this Windows CPU host; repeated language switching reached 1,780.8 MiB RSS. Cancellation was acknowledged in 26.6 ms with zero post-cancel PCM, then the worker synthesized again. This used a temporary copy and `tokenizers==0.23.1` from another local Python 3.12 environment; the shipping lock remains on 3.1.0. Full revisions, hashes, method, and limitations are in [the TTS bakeoff report](pocket-tts-3.3-windows-bakeoff-2026-09-26.md). This proves neither model quality nor Android suitability.
 - Windows UTF-8 issue reproduced: the Pocket 3.3 French YAML fails to load under CP1252; the five-language benchmark passed when the Python worker was launched with `PYTHONUTF8=1`. The desktop managed-runtime launcher now sets this variable for its Python subprocesses. The Rust test source compiled, but the Windows test executable exited with `0xc0000139` (`STATUS_ENTRYPOINT_NOT_FOUND`); execution remains to be confirmed in CI.
@@ -137,12 +138,21 @@
 
 - No target Windows physical Live/audio qualification is recorded.
 - Pocket 3.3 passed a host runtime experiment only. Product lock, reproducible installation, model-quality evaluation, and Android runtime/physical qualification remain open.
-- Xiaomi Mi 10 Pro (`b7163823`, Android 13, arm64-v8a) was detected by ADB; physical audio qualification is still open. Device `logcat` confirmed the `.voicequal` and `.voicequal2` PTY servers repeatedly failed with `bind port 14098: Address already in use`; `ss -ltn` showed the production package's `libpty_server.so` listening on `127.0.0.1:14098`. Both qualification packages were force-stopped with their installations/data preserved; the production package was left running. This proves a PTY port collision, but whether it alone caused the Local Mode HTTP health-check timeout is not yet verified. A controlled retry needs the production service stopped by its normal app flow or an isolated PTY port.
+- Xiaomi Mi 10 Pro (`b7163823`, Android 13, arm64-v8a) is available; physical audio qualification remains open. Earlier `.voicequal`/`.voicequal2` logs showed Kotlin `LlamaService` hard-coded to 14098 and colliding with production. Commit `5cc42e97eb` wires Gradle's validated build-time port into Kotlin `BuildConfig`; `.voicequal4` on-device evidence confirms the native listener binds 14198 and stays alive. Whether resolving the collision alone fixes the previous Local Mode HTTP health-check timeout remains unverified. Production was left running; QA app was force-stopped.
 - Pocket TTS entries are still absent and several Piper revisions remain unverified. Android/Windows model packaging and runtime loading have not been qualified on target systems.
 - The checkout contains untracked build/cache artifacts. Preserve them; do not stage them as campaign output.
 
 ## Next Exact Actions
 
-1. Re-run `.voicequal2` Local Mode in isolation (production app's server stopped through its normal flow, or a qualified unique PTY port); separately verify whether removing the `14098` collision resolves HTTP health. Do not interpret any microphone result before startup succeeds.
+1. Run `.voicequal4` Local Mode and verify whether the health-check timeout is resolved with the shared 14198 PTY port; do not infer microphone status from startup alone.
 2. Continue G3 physical validation: use the normal Android consent prompt, confirm native frame-clock movement and xrun counters, then connect canonical TTS to native playback and implement focus, route/reopen, lifecycle, and AEC. Do not claim GO PROD from host tests or an APK build.
 3. Continue G2 lifecycle/recovery parity and VoiceCore/segmenter adoption in Python and desktop producers; preserve `cancel speech != cancel agent work`. Then advance G4–G14 in dependency order and qualify model loading on Windows and Android with exact source/package hashes.
+
+## 2026-09-27 — Android PTY port collision subgate
+
+- Exact pushed source SHA `5cc42e97eb271f6b6f413aef3b4b95300e740762` is on `origin/voice`; issue #117 is open and assigned to `Rwanbt`. `voice-ci` run `36275004726` and `unifia-conformance` run `36275004752` both succeeded on that SHA.
+- Investigation rejected the initial assumption that passing `UNIFIA_PTY_PORT` only to the embedded Bun runtime would isolate the Android PTY server. Device logs had shown Kotlin `LlamaService` independently defaulting to 14098. Gradle now validates the environment value once per build and emits it as `BuildConfig.UNIFIA_PTY_PORT`; both `lastPtyPort` and the default `spawnPtyServer()` argument use that generated field.
+- `:app:compileArm64DebugKotlin` passed with `UNIFIA_PTY_PORT=14198`, and generated ARM64 `BuildConfig.java` contains 14198. APK `app-universal-debug.apk`, built from this source with a temporary `.voicequal4` suffix, has SHA-256 `CE0223CEF9BAC18338EBEBF6976B3EBBA9B9B03B726322A0CDCEF603B9940079`. The temporary Gradle suffix was restored; its SHA-256 matches the pre-build file.
+- On Xiaomi Mi 10 Pro `b7163823` (Android 13/API 33, arm64-v8a), the QA process PID 25561 logged `PTY server spawned on port 14198`; native PID 25659 logged `listening on 127.0.0.1:14198` and wrote its port file. After 15 seconds there was no 14098 bind error or respawn. The QA package was force-stopped and production PID 3462 remained active. The isolated PTY collision subgate is **PASS**.
+- Local Mode health was not opened or observed in the UI. This evidence does not close G3: microphone consent/capture, native frame movement/xruns, TTS playback, focus/routes/lifecycle/AEC, and all other G3 production criteria remain open. Continue with `.voicequal4` Local Mode startup, then the microphone and native-audio journey.
+- Vault sync was attempted after the local date changed to 2026-09-27 and failed to acquire `.git/vault-sync.lock` with `PermissionError`; no vault sync, commit or push is claimed. The previous successful daily sync was for 2026-09-26.
