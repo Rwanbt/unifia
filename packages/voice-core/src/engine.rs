@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,11 @@ pub enum VoiceCoreError {
     GenerationExhausted,
     SequenceExhausted,
     InvalidEvent,
+    InvalidSnapshot,
+    DuplicateTurn,
 }
+
+const MAX_TURN_ID_LENGTH: usize = 128;
 
 #[derive(Debug, Clone)]
 pub struct TurnToken {
@@ -34,6 +38,7 @@ pub struct VoiceCoreSnapshot {
     session_id: String,
     generation: u64,
     monotonic_timestamp_ms: u64,
+    issued_turn_ids: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -44,6 +49,7 @@ pub struct VoiceCore {
     monotonic_timestamp_ms: u64,
     next_turn_generation: u64,
     turns: HashMap<String, TurnState>,
+    issued_turn_ids: BTreeSet<String>,
     published_keys: HashMap<String, VoiceEvent>,
 }
 
@@ -66,6 +72,7 @@ impl VoiceCore {
             monotonic_timestamp_ms: 0,
             next_turn_generation: 1,
             turns: HashMap::new(),
+            issued_turn_ids: BTreeSet::new(),
             published_keys: HashMap::new(),
         })
     }
@@ -75,12 +82,28 @@ impl VoiceCore {
             session_id: self.session_id.clone(),
             generation: self.generation,
             monotonic_timestamp_ms: self.monotonic_timestamp_ms,
+            issued_turn_ids: self.issued_turn_ids.iter().cloned().collect(),
         }
     }
 
     pub fn recover(snapshot: VoiceCoreSnapshot) -> Result<Self, VoiceCoreError> {
-        if !valid_session_id(&snapshot.session_id) {
-            return Err(VoiceCoreError::InvalidSession);
+        if !valid_session_id(&snapshot.session_id)
+            || snapshot.generation == 0
+            || snapshot.monotonic_timestamp_ms > MAX_SAFE_VOICE_INTEGER
+            || snapshot
+                .issued_turn_ids
+                .iter()
+                .any(|id| id.trim().is_empty() || id.len() > MAX_TURN_ID_LENGTH)
+        {
+            return Err(VoiceCoreError::InvalidSnapshot);
+        }
+        let issued_turn_ids = snapshot
+            .issued_turn_ids
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if issued_turn_ids.len() != snapshot.issued_turn_ids.len() {
+            return Err(VoiceCoreError::InvalidSnapshot);
         }
         let generation = snapshot
             .generation
@@ -93,20 +116,26 @@ impl VoiceCore {
             monotonic_timestamp_ms: snapshot.monotonic_timestamp_ms,
             next_turn_generation: 1,
             turns: HashMap::new(),
+            issued_turn_ids,
             published_keys: HashMap::new(),
         })
     }
 
     pub fn begin_turn(&mut self, turn_id: impl Into<String>) -> Result<TurnToken, VoiceCoreError> {
         let turn_id = turn_id.into();
-        if turn_id.trim().is_empty() || turn_id.len() > 128 {
+        if turn_id.trim().is_empty() || turn_id.len() > MAX_TURN_ID_LENGTH {
             return Err(VoiceCoreError::InvalidTurn);
         }
+        if self.issued_turn_ids.contains(&turn_id) {
+            return Err(VoiceCoreError::DuplicateTurn);
+        }
         let turn_generation = self.next_turn_generation;
-        self.next_turn_generation = self
+        let next_turn_generation = self
             .next_turn_generation
             .checked_add(1)
             .ok_or(VoiceCoreError::GenerationExhausted)?;
+        self.next_turn_generation = next_turn_generation;
+        self.issued_turn_ids.insert(turn_id.clone());
         self.turns.insert(
             turn_id.clone(),
             TurnState {
@@ -398,6 +427,10 @@ mod tests {
         let old = core.begin_turn("turn-old").unwrap();
         core.reconnect().unwrap();
         assert_eq!(
+            core.begin_turn("turn-old").unwrap_err(),
+            VoiceCoreError::DuplicateTurn
+        );
+        assert_eq!(
             core.publish(Some(&old), 20, VoiceEventKind::AgentThinking),
             Err(VoiceCoreError::StaleSessionGeneration)
         );
@@ -439,6 +472,7 @@ mod tests {
     #[test]
     fn process_recovery_fences_old_generation_and_resets_sequence() {
         let mut core = VoiceCore::new("ses_recovery").unwrap();
+        let previous_turn = core.begin_turn("turn_previous").unwrap();
         let initial = core
             .publish(
                 None,
@@ -449,6 +483,14 @@ mod tests {
             )
             .unwrap();
         let mut recovered = VoiceCore::recover(core.snapshot()).unwrap();
+        assert_eq!(
+            recovered.begin_turn("turn_previous").unwrap_err(),
+            VoiceCoreError::DuplicateTurn
+        );
+        assert_eq!(
+            recovered.publish(Some(&previous_turn), 40, VoiceEventKind::AgentThinking),
+            Err(VoiceCoreError::StaleSessionGeneration)
+        );
         let resumed = recovered
             .publish(
                 None,
@@ -460,5 +502,51 @@ mod tests {
             .unwrap();
         assert_eq!((initial.sequence, resumed.sequence), (0, 0));
         assert_eq!((initial.generation, resumed.generation), (1, 2));
+    }
+
+    #[test]
+    fn snapshot_round_trip_preserves_turn_deduplication() {
+        let mut core = VoiceCore::new("ses_snapshot_turns").unwrap();
+        core.begin_turn("turn_once").unwrap();
+        let serialized = serde_json::to_vec(&core.snapshot()).unwrap();
+        let snapshot = serde_json::from_slice(&serialized).unwrap();
+        let mut recovered = VoiceCore::recover(snapshot).unwrap();
+
+        assert_eq!(
+            recovered.begin_turn("turn_once").unwrap_err(),
+            VoiceCoreError::DuplicateTurn
+        );
+        assert!(recovered.begin_turn("turn_twice").is_ok());
+    }
+
+    #[test]
+    fn recovery_rejects_invalid_turn_history() {
+        let mut snapshot = VoiceCore::new("ses_bad_snapshot").unwrap().snapshot();
+        snapshot.issued_turn_ids = vec!["turn_duplicate".into(), "turn_duplicate".into()];
+        assert!(matches!(
+            VoiceCore::recover(snapshot),
+            Err(VoiceCoreError::InvalidSnapshot)
+        ));
+
+        let mut snapshot = VoiceCore::new("ses_bad_snapshot").unwrap().snapshot();
+        snapshot.issued_turn_ids = vec!["  ".into()];
+        assert!(matches!(
+            VoiceCore::recover(snapshot),
+            Err(VoiceCoreError::InvalidSnapshot)
+        ));
+
+        let mut snapshot = VoiceCore::new("ses_bad_snapshot").unwrap().snapshot();
+        snapshot.generation = 0;
+        assert!(matches!(
+            VoiceCore::recover(snapshot),
+            Err(VoiceCoreError::InvalidSnapshot)
+        ));
+
+        let mut snapshot = VoiceCore::new("ses_bad_snapshot").unwrap().snapshot();
+        snapshot.monotonic_timestamp_ms = MAX_SAFE_VOICE_INTEGER + 1;
+        assert!(matches!(
+            VoiceCore::recover(snapshot),
+            Err(VoiceCoreError::InvalidSnapshot)
+        ));
     }
 }
