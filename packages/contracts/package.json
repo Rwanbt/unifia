@@ -12,6 +12,7 @@
     "./speech": "./src/speech.ts",
     "./voice-resource-scheduler": "./src/voice-resource-scheduler.ts",
     "./voice-eot-bench": "./src/voice-eot-bench.ts",
+    "./streaming-stt": "./src/streaming-stt.ts",
     "./knowledge": "./src/knowledge/index.ts",
     "./knowledge/*": "./src/knowledge/*.ts"
   },
