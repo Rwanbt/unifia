@@ -9,11 +9,11 @@
 
 **Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Most recent pushed head with both required workflows confirmed green:** `977b74c9941de4a5960f562dc7181192bb00855e` (`test(voice): add cross-runtime wire fixture`; `voice-ci` 36254047307; `unifia-conformance` 36254047267; both successful).
+**Most recent pushed head with both required workflows confirmed green:** `56eefd9dffeed4d1389e3602cd49d12256ce1097` (`docs(voice): checkpoint G6 streaming gate and section 22 ports`; `voice-ci` `36264821349` success; `unifia-conformance` `36264821202` success; both on that exact SHA). The local branch and `origin/voice` match this SHA.
 
-**Most recent pushed head with `voice-ci` confirmed green:** `56ff45a6ee4f15f60d231e2abbaf3192f3d08ca3` (`docs(voice): record green workflows on cross-runtime fixture sha`; `voice-ci` `36261391375` successful). `unifia-conformance` is path-filtered to `packages/**` and produced no run for that docs-only SHA; its most recent success remains `36254047267` on `977b74c994`. The local branch matched `origin/voice` at `56ff45a6ee` before this checkpoint's slices.
+**Code-bearing slices included in that push:** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6).
 
-**This checkpoint's code-bearing slices (push pending at doc time):** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6), followed by this checkpoint commit. Both required workflows must be confirmed green on the pushed SHA before it is recorded here as green.
+**Previous heads:** `56ff45a6ee4f15f60d231e2abbaf3192f3d08ca3` (`voice-ci` `36261391375` success; `unifia-conformance` path-filtered to `packages/**`, no run for that docs-only SHA) and `977b74c9941de4a5960f562dc7181192bb00855e` (`voice-ci` `36254047307`; `unifia-conformance` `36254047267`; both successful).
 
 **Previous pushed implementation SHA:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`, followed by checkpoint commit `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`, on `voice` and `origin/voice`; both required remote workflows passed on branch head. The push hook passed all **47/47** Turbo typechecks.
 
@@ -49,6 +49,7 @@
 
 ## Checks Run
 
+- Exact-SHA workflow confirmation for the G6/§22 push: `voice-ci` run `36264821349` and `unifia-conformance` run `36264821202` both **completed successfully** on `56eefd9dffeed4d1389e3602cd49d12256ce1097`. The push hook passed all **47/47** Turbo typechecks.
 - G6/§22 slice committed as `79b2fdd2ba` (ports + parity fixture) and `7528d43e17` (controller wiring): App Voice suite (`bun test --preload ./happydom.ts ./src/voice`) **163 passed, 0 failed**; full app suite **1,836 passed, 0 failed** across 217 files; `bun turbo typecheck` **47/47**; `bunx biome check packages/app/src/voice` clean (42 files). The five new G6 controller tests were executed five consecutive times (**30 passed, 0 failed** each) to rule out timing flakiness.
 - Cross-runtime text parity: `speech-text-parity.test.ts` (TS) and `tests/test_text_parity.py` (Python) both assert `packages/voice-core/fixtures/speech-text-parity.json`, generated from the Python reference by `scripts/voice/generate-speech-fixtures.py`; the fixture contains only static fields (version/source/reference), so regeneration is deterministic. Voice Host full suite via `scripts/voice/voice-host-test-runner.py --full`: **182 passed, 1 skipped, 128 subtests passed** (includes the Python side of the parity fixture; the skip remains the live transport integration requiring livekit-server, espeak-ng, and Bun).
 - GitHub secret scanning push protection rejected the first push attempt: the parity fixture's synthetic Slack vector matched the full real-token shape. The vector was shortened to the shape already accepted in this repository (`xoxb-1234567890-ABCDEFGHIJ`), the fixture regenerated (one line changed, redaction output unchanged), and the unpushed commits rebuilt on top of `56ff45a6ee` with the fix folded into the ports commit (`79b2fdd2ba`). The pre-fix chain is preserved locally at `backup/voice-g6-with-blocked-token` and must never be pushed; pushed history was never modified and no force-push was used.
@@ -127,8 +128,7 @@
 
 ## Next Exact Actions
 
-1. Push `voice` without force-push, then confirm `voice-ci` and `unifia-conformance` (path-filtered to `packages/**`, so it will run for these code-bearing SHAs) are green on the exact pushed SHA and record it here in a follow-up checkpoint commit.
-2. Continue G2 with lifecycle/recovery parity and VoiceCore/segmenter adoption in the Python and desktop producers; preserve `cancel speech != cancel agent work`.
-3. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
-4. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
-5. Retry the Obsidian vault sync (previous attempt failed on `vault-sync.lock`); do not record it as done until it succeeds.
+1. Continue G2 with lifecycle/recovery parity and VoiceCore/segmenter adoption in the Python and desktop producers; preserve `cancel speech != cancel agent work`.
+2. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
+3. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
+4. Retry the Obsidian vault sync (previous attempt failed on `vault-sync.lock`); do not record it as done until it succeeds.
