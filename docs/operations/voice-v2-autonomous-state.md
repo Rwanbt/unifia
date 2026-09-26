@@ -7,9 +7,9 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last verified remote HEAD:** `3cd2a3bc66c47903ea8a2c666513edb1ed8e9f32`
+**Last verified remote HEAD:** `386fdcf5eafb216288e3d7ea0d3070a8f6e5f3ee`
 
-**G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66` (checkpoint).
+**G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
 **Updated:** 2026-09-26
 
@@ -21,7 +21,7 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | In progress | Voice Host full suite locally: 156 passed, 1 skipped; hosted app, contracts, docs, registry, full Python, and SpeechRenderer jobs pass on run `36232257315`. That run confirms the `PYTHONPATH` fix. Its Rust job is still compiling the entire Tauri crate on Windows, so the next commit narrows CI to compile the std-only scheduler module directly with `rustc --test` on Ubuntu. Hosted confirmation remains pending. |
+| G0 — Truth and CI | Green | GitHub Actions run `36232511790` completed successfully on exact SHA `386fdcf5eafb216288e3d7ea0d3070a8f6e5f3ee`; all 5 mandatory jobs passed. Voice Host: 156 passed, 1 explicitly skipped integration test requiring livekit-server, espeak-ng, and Bun. Local Rust module test: 15 passed; hosted direct `rustc --test` step passed. |
 | G1 — Contracts and ADR reconciliation | Not started | ADRs 058–074 were read; all are still DRAFT until their implementation and adoption evidence is verified. |
 | G2 — Shared VoiceCore | Not started | No canonical cross-platform state machine/event core has been verified. |
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
@@ -44,6 +44,7 @@
 - `cargo test --lib voice:: --no-fail-fast` in `packages/mobile/src-tauri`: **15 passed** (one unrelated unused-import warning).
 - Python resource scheduler/platform-signal tests: **26 passed** with system Python when run from `packages/voice-host` with cache disabled; the wiring test could not collect there because `livekit` is absent.
 - Full `scripts/voice/voice-host-test-runner.py --full` with elevated network access: **156 passed, 1 skipped**, after `uv sync`, pytest install, and smoke imports succeeded.
+- Skip classification: `tests/test_live_transport_integration.py:390` is explicitly skipped because it requires `livekit-server`, `espeak-ng`, and Bun. This is an integration prerequisite gap, not a collection failure; that live transport integration remains unqualified.
 - `voice-ci.yml` parsed successfully after the local repair; workflow dispatch is present and all configured jobs are blocking; `git diff --check` passed.
 - Current validator rerun: the registry CLI executed under Node 22, validated 6 entries, and reported 2 missing model groups; 4 self-tests passed. The CLI entrypoint now uses Node-compatible `fileURLToPath` detection.
 - `node scripts/voice/model-registry-validator.mjs`: **6 entries structurally valid**, with an explicit warning that 2 required model groups remain missing.
@@ -62,6 +63,7 @@
 - Run `36210384107` on `7580531`: failed before creating jobs.
 - Run `36231757400` on `35f05b6f37` and `36231800987` on `3cd2a3bc66`: workflow parsed; the latter's job-level failures and root causes are detailed above.
 - Run `36232257315` on `5e77352883`: Python, SpeechRenderer security, registry, contracts, app, and docs are green; the Rust crate-wide build had not completed when the CI job was narrowed to its pure module.
+- Run `36232511790` on `386fdcf5ea`: **success**, all five configured blocking jobs.
 
 ## Known Qualification Blockers
 
@@ -72,6 +74,5 @@
 
 ## Next Exact Actions
 
-1. Verify the next hosted Voice workflow run with standalone scheduler compilation; fix any remaining failures rather than weakening assertions.
-2. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
+1. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
 3. Record each test, benchmark, device, exact source SHA, and package/model SHA here; never mark a physical gate green from mocks or host-only tests.
