@@ -32,6 +32,12 @@ run("rejects malformed digest and missing metadata", () => {
   assert.ok(errors.some((error) => error.includes("sha256")))
   assert.ok(errors.some((error) => error.includes("licence")))
 })
+run("rejects malformed pinned file digests", () => {
+  const errors = validateVoiceModelRegistry({
+    models: [{ ...validModel, compatibility: { file_sha256: { "model.onnx": "not-a-digest" } } }],
+  })
+  assert.ok(errors.some((error) => error.includes("file_sha256")))
+})
 run("rejects duplicate provider/model identities", () => {
   assert.ok(validateVoiceModelRegistry({ models: [validModel, validModel] }).some((error) => error.includes("duplicates")))
 })

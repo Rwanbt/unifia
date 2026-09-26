@@ -24,6 +24,35 @@
       }
     },
     {
+      "provider": "nvidia",
+      "model_id": "parakeet-tdt-0.6b-v3-int8",
+      "version": "1.0.0",
+      "upstream_revision": "github.com/Kieirra/murmure-model/releases/259016270/assets/311357956 (tag 1.0.0)",
+      "sha256": "c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03",
+      "size_bytes": 463415355,
+      "licence": "CC-BY-4.0",
+      "languages": ["en", "fr", "es", "it", "de", "multi-25"],
+      "architecture": "parakeet-tdt-0.6b-v3-int8-onnx-archive",
+      "quantization": "int8",
+      "redistributable": true,
+      "source": "https://github.com/Kieirra/murmure-model/releases/download/1.0.0/parakeet-tdt-0.6b-v3-int8.zip",
+      "minimum_runtime": "ONNX Runtime 2.0.0-rc.10",
+      "compatibility": {
+        "engine": "Unifia ParakeetEngine",
+        "archive_sha256": "c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03",
+        "archive_size_bytes": 463415355,
+        "max_uncompressed_size_bytes": 3221225472,
+        "required_files": ["nemo128.onnx", "encoder-model.int8.onnx", "decoder_joint-model.int8.onnx", "vocab.txt"],
+        "file_sha256": {
+          "nemo128.onnx": "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+          "encoder-model.int8.onnx": "6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09",
+          "decoder_joint-model.int8.onnx": "eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70",
+          "vocab.txt": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"
+        },
+        "notes": "Release asset digest and size verified through the GitHub Releases API on 2026-09-26. Model license follows NVIDIA's upstream model card."
+      }
+    },
+    {
       "provider": "rhasspy",
       "model_id": "piper-voice-en_US-ljspeech-medium",
       "version": "UNVERIFIED — last update time recorded, upstream revision pending",
@@ -127,8 +156,8 @@
   "missing_for_adoption": [
     {
       "model_id": "parakeet-tdt-0.6b-v3-int8",
-      "reason": "ONNX export SHA-256 not yet recorded against the .build-temp cache; the model is referenced by ADR-058 §1.4 and ADR-068 as the canonical STT but not yet in this registry.",
-      "next_action": "Compute SHA-256 against the .build-temp/ artifact when present; record source/upstream_revision/licence; add an entry."
+      "reason": "The desktop and Android installers now share the registry and atomic installer; adoption still needs target-runtime packaging qualification.",
+      "next_action": "Verify bundled registry access and model loading on Windows and Android, including interrupted downloads and promotion recovery."
     },
     {
       "model_id": "pocket-tts-v1-* (one entry per language)",

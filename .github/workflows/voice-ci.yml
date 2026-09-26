@@ -26,6 +26,11 @@ on:
       - "packages/mobile/src-tauri/src/speech.rs"
       - "packages/mobile/src-tauri/Cargo.toml"
       - "packages/mobile/src-tauri/Cargo.lock"
+      - "packages/desktop/src-tauri/src/parakeet/**"
+      - "packages/desktop/src-tauri/src/speech.rs"
+      - "packages/desktop/src-tauri/Cargo.toml"
+      - "packages/desktop/src-tauri/Cargo.lock"
+      - "crates/unifia-voice-artifacts/**"
       - "scripts/voice/**"
       - "docs/voice-*.md"
       - "docs/adr/ADR-05*.md"
@@ -201,7 +206,40 @@ jobs:
       # Real-device validation is R3 / R12 hardware.
 
   # ──────────────────────────────────────────────────────────────────
-  # 5. Voice docs sanity — check internal markdown references
+  # 5. Shared artifact installation and ZIP security implementation.
+  voice-artifacts:
+    name: voice model artifact manager
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache artifact manager dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/unifia-voice-artifacts/target
+          key: ${{ runner.os }}-voice-artifacts-${{ hashFiles('crates/unifia-voice-artifacts/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-voice-artifacts-
+
+      - name: Artifact manager formatting
+        run: cargo fmt --manifest-path crates/unifia-voice-artifacts/Cargo.toml --all -- --check
+
+      - name: Artifact manager clippy
+        run: cargo clippy --manifest-path crates/unifia-voice-artifacts/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: Artifact manager security tests
+        run: cargo test --manifest-path crates/unifia-voice-artifacts/Cargo.toml --locked
+
+  # 6. Voice docs sanity — check internal markdown references
   #    resolve (no broken `[text](path.md)` between voice-*.md).
   #    Cheap, fast, catches accidental dangling links when we ship
   #    Session-Recap → RFC → ADR → runbook references.

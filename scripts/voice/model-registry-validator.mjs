@@ -53,6 +53,12 @@ export function validateVoiceModelRegistry(registry) {
     }
     if (!model.compatibility || typeof model.compatibility !== "object" || Array.isArray(model.compatibility)) {
       errors.push(`${prefix}.compatibility must be an object`)
+    } else if (model.compatibility.file_sha256 !== undefined) {
+      const fileDigests = model.compatibility.file_sha256
+      if (!fileDigests || typeof fileDigests !== "object" || Array.isArray(fileDigests)
+        || Object.values(fileDigests).some((digest) => !/^[a-f0-9]{64}$/.test(digest ?? ""))) {
+        errors.push(`${prefix}.compatibility.file_sha256 must map files to lowercase SHA-256 digests`)
+      }
     }
     if (typeof model.provider === "string" && typeof model.model_id === "string") {
       const key = `${model.provider}:${model.model_id}`
@@ -89,7 +95,7 @@ async function main() {
   }
   console.log(`Voice model registry metadata valid: ${registry.models.length} entries`)
   if (registry.missing_for_adoption?.length) {
-    console.warn(`Registry adoption remains incomplete: ${registry.missing_for_adoption.length} required model group(s) are missing`)
+    console.warn(`Model/runtime adoption evidence remains incomplete: ${registry.missing_for_adoption.length} required group(s) lack adoption evidence`)
   }
 }
 
