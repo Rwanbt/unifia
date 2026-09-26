@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 from voice_host.live.agent import LiveConversation, _warm_tts
 from voice_host.live.voice_errors import (
@@ -13,6 +14,35 @@ from voice_host.live.voice_errors import (
 
 
 class VoiceErrorContractTests(unittest.TestCase):
+    def test_events_use_a_safe_monotonic_timestamp(self):
+        with (
+            patch("voice_host.live.voice_errors.time.monotonic_ns", return_value=42_000_000),
+            patch("voice_host.live.voice_errors.time.time_ns", return_value=99_000_000_000),
+        ):
+            error = json.loads(encode_voice_error_event(
+                session_id="ses_123",
+                sequence=0,
+                stage="session",
+                code="SESSION_AGENT_ERROR",
+            ))
+            ready = json.loads(encode_voice_ready_event(session_id="ses_123", sequence=1))
+
+        self.assertEqual(error["ts"], 42)
+        self.assertEqual(ready["ts"], 42)
+
+    def test_events_reject_an_unsafe_monotonic_timestamp(self):
+        with patch(
+            "voice_host.live.voice_errors.time.monotonic_ns",
+            return_value=(9_007_199_254_740_992 * 1_000_000),
+        ):
+            with self.assertRaises(ValueError):
+                encode_voice_error_event(
+                    session_id="ses_123",
+                    sequence=0,
+                    stage="session",
+                    code="SESSION_AGENT_ERROR",
+                )
+
     def test_event_uses_contract_fields_and_only_registered_safe_details(self):
         event = json.loads(
             encode_voice_error_event(

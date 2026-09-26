@@ -13,6 +13,7 @@ SESSION_ID_PREFIX = "ses_"
 MAX_SESSION_ID_LENGTH = 128
 MAX_BINDING_ID_LENGTH = 36
 MAX_PROVIDER_ID_LENGTH = 120
+MAX_SAFE_INTEGER = 9_007_199_254_740_991
 log = logging.getLogger("unifia.voice.errors")
 _SAFE_ERRORS = {
     ("audio-input", "AUDIO_INPUT_UNAVAILABLE"): (
@@ -158,6 +159,13 @@ def _valid_binding_id(binding_id: str) -> bool:
     )
 
 
+def _monotonic_timestamp_ms() -> int:
+    timestamp_ms = time.monotonic_ns() // 1_000_000
+    if not 0 <= timestamp_ms <= MAX_SAFE_INTEGER:
+        raise ValueError("Voice event timestamp is outside the safe integer range")
+    return timestamp_ms
+
+
 def encode_voice_error_event(
     *,
     session_id: str | None = None,
@@ -196,7 +204,7 @@ def encode_voice_error_event(
         raise ValueError("Voice error provider identity is invalid")
     event: dict[str, Any] = {
         "kind": "voice_error",
-        "ts": time.time_ns() // 1_000_000,
+        "ts": _monotonic_timestamp_ms(),
         "seq": sequence,
         "stage": stage,
         "code": code,
@@ -221,7 +229,7 @@ def encode_voice_ready_event(*, session_id: str, sequence: int) -> str:
     event = {
         "kind": "voice_ready",
         "sessionID": session_id,
-        "ts": time.time_ns() // 1_000_000,
+        "ts": _monotonic_timestamp_ms(),
         "seq": sequence,
         "profile": "live",
     }
