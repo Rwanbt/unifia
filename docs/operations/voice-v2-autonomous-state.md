@@ -9,9 +9,9 @@
 
 **Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Most recent pushed head with both required workflows confirmed green:** `642403c9d2fc6e52903d7d62451e4e8281acefbe` (`feat(android): route Live voice through native capture`; `voice-ci` `36270025936` success; `unifia-conformance` `36270025856` success; both on that exact SHA).
+**Most recent pushed head with both required workflows confirmed green:** `d518c93bf17423b0b2b2e7238d26972e29689cf4` (`feat(android): report native audio clock and diagnostics`; `voice-ci` `36271252898` success; `unifia-conformance` `36271252881` success; both on that exact SHA).
 
-**Current branch head:** `642403c9d2fc6e52903d7d62451e4e8281acefbe`, equal to `origin/voice`. G3 implementation commits `1a0b36a6ce`, `763bcf6e84`, and `642403c9d2` add the Oboe engine, Rust PCM bridge, and Android Live routing. Their exact-head `voice-ci` and `unifia-conformance` runs both passed.
+**Current branch head:** `d518c93bf17423b0b2b2e7238d26972e29689cf4`, equal to `origin/voice`. G3 implementation commits `1a0b36a6ce`, `763bcf6e84`, and `642403c9d2` add the Oboe engine, Rust PCM bridge, and Android Live routing; `d518c93bf1` adds the native audio clock and diagnostics. Both latest required workflows passed on the exact head.
 
 **Code-bearing slices included in that push:** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6).
 
@@ -23,9 +23,11 @@
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
-**Local G3 follow-up (not yet pushed):** App and contracts typechecks pass; the focused Android transport/controller tests pass (**31 tests, 95 assertions**); the updated Android `aarch64` debug APK builds successfully. APK SHA-256: `93DC89FE29E2D6EACEC15180DB38DD8FAD2B9C591A69E1A280D124A66D029357`. It is installed as `ai.unifia.mobile.voicequal2` on Xiaomi Mi 10 Pro `b7163823` (Android 13, API 33, arm64). Local Mode reached “Starting local server… Waiting for health check”; normal microphone consent and native frame movement have not yet been observed. This build is a compile/package check only, not device qualification.
+**G3 local validation evidence:** App and contracts typechecks pass; focused Android transport/controller tests pass (**31 tests, 95 assertions**); the Android `aarch64` debug APK builds successfully. APK SHA-256: `93DC89FE29E2D6EACEC15180DB38DD8FAD2B9C591A69E1A280D124A66D029357`. It is installed as `ai.unifia.mobile.voicequal2` on Xiaomi Mi 10 Pro `b7163823` (Android 13, API 33, arm64). Local Mode reached “Starting local server… Waiting for health check”; normal microphone consent and native frame movement have not yet been observed. This build is a compile/package check only, not device qualification.
 
-**Updated:** 2026-09-26 (22:52 Europe/Paris)
+**Pushed G3 diagnostics slice:** `voice-ci` run `36271252898` and `unifia-conformance` run `36271252881` both succeeded on exact SHA `d518c93bf17423b0b2b2e7238d26972e29689cf4`.
+
+**Updated:** 2026-09-26 (23:00 Europe/Paris)
 
 ## Verdict
 
@@ -130,12 +132,12 @@
 ## Known Qualification Blockers
 
 - No target Windows physical Live/audio qualification is recorded.
-- Xiaomi Mi 10 Pro (`b7163823`, Android 13, arm64-v8a) was detected by ADB; no physical audio qualification was run.
+- Xiaomi Mi 10 Pro (`b7163823`, Android 13, arm64-v8a) was detected by ADB; physical audio qualification is still open. Device `logcat` confirmed the `.voicequal` and `.voicequal2` PTY servers repeatedly failed with `bind port 14098: Address already in use`; `ss -ltn` showed the production package's `libpty_server.so` listening on `127.0.0.1:14098`. Both qualification packages were force-stopped with their installations/data preserved; the production package was left running. This proves a PTY port collision, but whether it alone caused the Local Mode HTTP health-check timeout is not yet verified. A controlled retry needs the production service stopped by its normal app flow or an isolated PTY port.
 - Pocket TTS entries are still absent and several Piper revisions remain unverified. Android/Windows model packaging and runtime loading have not been qualified on target systems.
 - The checkout contains untracked build/cache artifacts. Preserve them; do not stage them as campaign output.
 
 ## Next Exact Actions
 
-1. Resolve and reproduce the `.voicequal2` Local Mode health-check stall from its runtime logs before interpreting any microphone result.
+1. Re-run `.voicequal2` Local Mode in isolation (production app's server stopped through its normal flow, or a qualified unique PTY port); separately verify whether removing the `14098` collision resolves HTTP health. Do not interpret any microphone result before startup succeeds.
 2. Continue G3 physical validation: use the normal Android consent prompt, confirm native frame-clock movement and xrun counters, then connect canonical TTS to native playback and implement focus, route/reopen, lifecycle, and AEC. Do not claim GO PROD from host tests or an APK build.
 3. Continue G2 lifecycle/recovery parity and VoiceCore/segmenter adoption in Python and desktop producers; preserve `cancel speech != cancel agent work`. Then advance G4–G14 in dependency order and qualify model loading on Windows and Android with exact source/package hashes.
