@@ -159,6 +159,10 @@ def _valid_binding_id(binding_id: str) -> bool:
     )
 
 
+def _valid_sequence(sequence: int) -> bool:
+    return type(sequence) is int and 0 <= sequence <= MAX_SAFE_INTEGER
+
+
 def _monotonic_timestamp_ms() -> int:
     timestamp_ms = time.monotonic_ns() // 1_000_000
     if not 0 <= timestamp_ms <= MAX_SAFE_INTEGER:
@@ -185,7 +189,7 @@ def encode_voice_error_event(
         has_session == has_binding
         or (has_session and not valid_session)
         or (has_binding and not valid_binding)
-        or sequence < 0
+        or not _valid_sequence(sequence)
     ):
         raise ValueError("Voice error identity is invalid")
     definition = _SAFE_ERRORS.get((stage, code))
@@ -224,7 +228,7 @@ def encode_voice_error_event(
 
 
 def encode_voice_ready_event(*, session_id: str, sequence: int) -> str:
-    if not _valid_session_id(session_id) or sequence < 0:
+    if not _valid_session_id(session_id) or not _valid_sequence(sequence):
         raise ValueError("Voice readiness identity is invalid")
     event = {
         "kind": "voice_ready",

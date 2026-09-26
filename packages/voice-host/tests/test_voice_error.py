@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from voice_host.live.agent import LiveConversation, _warm_tts
 from voice_host.live.voice_errors import (
+    MAX_SAFE_INTEGER,
     VOICE_ERROR_TOPIC,
     VOICE_READY_TOPIC,
     encode_voice_error_event,
@@ -14,6 +15,36 @@ from voice_host.live.voice_errors import (
 
 
 class VoiceErrorContractTests(unittest.TestCase):
+    def test_sequences_match_the_javascript_safe_integer_contract(self):
+        self.assertEqual(
+            json.loads(encode_voice_error_event(
+                session_id="ses_123",
+                sequence=MAX_SAFE_INTEGER,
+                stage="session",
+                code="SESSION_AGENT_ERROR",
+            ))["seq"],
+            MAX_SAFE_INTEGER,
+        )
+        self.assertEqual(
+            json.loads(encode_voice_ready_event(
+                session_id="ses_123", sequence=MAX_SAFE_INTEGER
+            ))["seq"],
+            MAX_SAFE_INTEGER,
+        )
+        for invalid_sequence in (-1, MAX_SAFE_INTEGER + 1, 1.5, True):
+            with self.subTest(sequence=invalid_sequence):
+                with self.assertRaises(ValueError):
+                    encode_voice_error_event(
+                        session_id="ses_123",
+                        sequence=invalid_sequence,
+                        stage="session",
+                        code="SESSION_AGENT_ERROR",
+                    )
+                with self.assertRaises(ValueError):
+                    encode_voice_ready_event(
+                        session_id="ses_123", sequence=invalid_sequence
+                    )
+
     def test_events_use_a_safe_monotonic_timestamp(self):
         with (
             patch("voice_host.live.voice_errors.time.monotonic_ns", return_value=42_000_000),
@@ -163,7 +194,7 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.assertEqual(
-            [item[0]["seq"] for item in room.local_participant.published], [1, 2]
+            [item[0]["seq"] for item in room.local_participant.published], [0, 1]
         )
         self.assertTrue(
             all(
@@ -174,7 +205,7 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await conversation.publish_voice_ready("ses_123"))
         ready, options = room.local_participant.published[-1]
         self.assertEqual(ready["kind"], "voice_ready")
-        self.assertEqual(ready["seq"], 3)
+        self.assertEqual(ready["seq"], 2)
         self.assertEqual(options, {"reliable": True, "topic": VOICE_READY_TOPIC})
         self.assertEqual(
             json.loads(room.local_participant.attributes["unifia.voice_ready"]), ready

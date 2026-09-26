@@ -145,12 +145,13 @@ class LiveConversation:
         stage: str = "session",
         binding_id: str | None = None,
     ) -> bool:
+        sequence = self._voice_event_sequence
         self._voice_event_sequence += 1
         published = await publish_voice_error_event(
             self.room.local_participant,
             session_id=session_id,
             binding_id=binding_id,
-            sequence=self._voice_event_sequence,
+            sequence=sequence,
             stage=stage,
             code=code,
             turn_id=turn_id,
@@ -160,11 +161,12 @@ class LiveConversation:
         return published
 
     async def publish_voice_ready(self, session_id: str) -> bool:
+        sequence = self._voice_event_sequence
         self._voice_event_sequence += 1
         published = await publish_voice_ready_event(
             self.room.local_participant,
             session_id=session_id,
-            sequence=self._voice_event_sequence,
+            sequence=sequence,
         )
         if not published:
             log.warning("could not publish Voice readiness event")
