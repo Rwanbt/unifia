@@ -78,6 +78,7 @@ android {
     }
     buildFeatures {
         buildConfig = true
+        prefab = true
     }
     packaging {
         // Force extraction of JNI libs to nativeLibraryDir so we can exec them.
@@ -99,6 +100,7 @@ rust {
 }
 
 dependencies {
+    implementation("com.google.oboe:oboe:1.11.0")
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")
