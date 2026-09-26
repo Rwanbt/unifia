@@ -11,7 +11,7 @@
 
 **Latest pushed implementation SHA:** `e31ca24b26d5bda257bbe641a0d8df359d116024` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
 
-**Latest code-bearing commit:** `65ff1b6cbcec3650bb26d751e01f5d41e0de0205` on local `voice`. There are unpushed local commits above the last locally recorded `origin/voice` ref (`89945700f0de04206e67844f011c614e4b41911d`); inspect the current count with Git before delivery. A live fetch/push is currently blocked because GitHub CLI credentials are invalid and Git has no Windows credential; the earlier GitHub connector also denied Git blob creation with HTTP 403. The live remote ref could not be re-read in this session, so the local tracking ref is not proof of current remote state. Do not force-push or recreate commits through another API. The latest local Voice Host slice passes its full test suite; remote CI is pending. Production event producers still do not use VoiceCore as their ordering/state authority. Pre-existing and test-generated build/cache artifacts remain unstaged.
+**Latest code-bearing commit:** `65ff1b6cbcec3650bb26d751e01f5d41e0de0205` on local `voice`. GitHub API confirmed the live `voice` branch still points to `89945700f0de04206e67844f011c614e4b41911d`; six `voice-ci` checks on that SHA completed successfully. Local commits above that remote SHA remain unpushed. Native Git fetch/push is blocked because the GitHub CLI token is invalid and Git has no Windows credential; the earlier GitHub connector also denied Git blob creation with HTTP 403. Do not force-push or recreate commits through another API. The latest local Voice Host slice passes its full test suite; CI for local commits is pending. Production event producers still do not use VoiceCore as their ordering/state authority. Pre-existing and test-generated build/cache artifacts remain unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -108,7 +108,7 @@
 
 ## Next Exact Actions
 
-1. Restore valid GitHub write credentials, verify the live `voice` ref, push the local commits normally, then inspect exact-SHA CI results; never force-push or recreate commits through an API.
+1. Restore valid GitHub write credentials and push the local commits normally onto the API-verified `voice` ref `89945700f0de04206e67844f011c614e4b41911d`; then inspect exact-SHA CI results. Never force-push or recreate commits through an API.
 2. Continue G2 by making VoiceCore the actual ordering/state authority for the Python and platform emitters, adding generation and cross-runtime fixture parity; preserve `cancel speech != cancel agent work`.
 3. Continue G3 native audio (Android adapter still uses WebView `getUserMedia`/`ScriptProcessorNode`) and proceed through G14 in dependency order. Do not claim GO PROD from host tests.
 4. The Xiaomi device was previously visible to `adb devices`; recheck it and inspect app/device instructions before qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
