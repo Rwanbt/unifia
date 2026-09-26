@@ -32,6 +32,16 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   let previousSpeaking = false
   let lastDiagnosticsAt = 0
 
+  function stopTransport() {
+    if (stopped) return
+    stopped = true
+    if (audioOpened) {
+      audioOpened = false
+      void invoke("voice_audio_close").catch((error) => console.error("[Live] Native audio close failed", error))
+    }
+    handlers?.onSpeaking(false)
+  }
+
   async function pollAudio() {
     if (polling) return
     polling = true
@@ -65,8 +75,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       }
     } catch (error) {
       if (!stopped) {
-        stopped = true
-        handlers?.onSpeaking(false)
+        stopTransport()
         handlers?.onError?.(error)
       }
     } finally {
@@ -107,7 +116,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
         }
         void pollAudio()
       } catch (error) {
-        this.stop()
+        stopTransport()
         throw error
       }
     },
@@ -121,11 +130,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       return tts.speak(text, language, loadAudioSettings().ttsSpeed)
     },
     stop() {
-      if (stopped) return
-      stopped = true
-      handlers?.onSpeaking(false)
-      if (audioOpened) void invoke("voice_audio_close").catch((error) => console.error("[Live] Native audio close failed", error))
-      audioOpened = false
+      stopTransport()
     },
     stopSpeaking() {
       tts.stop()

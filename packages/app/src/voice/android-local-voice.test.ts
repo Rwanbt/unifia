@@ -96,4 +96,49 @@ describe("Android native Live audio transport", () => {
     transport.stop()
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
+
+  test("requests native audio closure when polling fails before reporting the error", async () => {
+    installLocalSpeech()
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }),
+      },
+    })
+    let rejectPoll!: (error: Error) => void
+    const pollFailure = new Promise<never>((_, reject) => { rejectPoll = reject })
+    let resolveClosed!: () => void
+    const closed = new Promise<void>((resolve) => { resolveClosed = resolve })
+    const commands: string[] = []
+    const events: string[] = []
+    const invoke = async (command: string) => {
+      commands.push(command)
+      if (command === "stt_available") return true
+      if (command === "voice_audio_poll") return pollFailure
+      if (command === "voice_audio_close") {
+        events.push("close")
+        resolveClosed()
+      }
+      return null
+    }
+    const transport = createAndroidLocalVoiceTransport(invoke)
+    let reportedError: unknown
+
+    await transport.start({
+      onSpeaking() {},
+      onUtterance() {},
+      onError(error) {
+        events.push("error")
+        reportedError = error
+      },
+    })
+    rejectPoll(new Error("Oboe audio stream failed"))
+    await closed
+
+    expect(commands).toContain("voice_audio_close")
+    expect(events).toEqual(["close", "error"])
+    expect(reportedError).toBeInstanceOf(Error)
+    transport.stop()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
 })
