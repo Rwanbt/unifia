@@ -587,6 +587,19 @@ async def run_job(
         ctx.shutdown("agent_unavailable")
         return
     try:
+        await conversation.bridge.probe_selected_model()
+    except (BridgeError, aiohttp.ClientError):
+        published = await conversation.publish_voice_error(
+            binding.session_id,
+            "LLM_UNAVAILABLE",
+            stage="llm",
+            binding_id=None if binding.session_id else binding.id,
+        )
+        if not published:
+            await conversation.publish(error="llm_unavailable")
+        ctx.shutdown("llm_unavailable")
+        return
+    try:
         detection = turn_detector()
     except Exception:
         detection = None

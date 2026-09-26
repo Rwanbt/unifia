@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from aiohttp import web
 
-from voice_host.live.bridge import LiveBinding, ServerEndpoint, VoiceAgentBridge, _TurnTracker
+from voice_host.live.bridge import BridgeError, LiveBinding, ServerEndpoint, VoiceAgentBridge, _TurnTracker
 from voice_host.live.tts import PcmChunk, PiperBackend, PocketBackend, SynthesisRequest, TtsRouter, float32_to_s16le
 from voice_host.live.turns import TurnLedger, VoiceTurn, ascending_id, turn_id_for
 
@@ -240,6 +240,7 @@ class FakeUnifia:
     def app(self):
         app = web.Application()
         app.router.add_get("/session", self.list_sessions)
+        app.router.add_get("/provider", self.list_providers)
         app.router.add_post("/session", self.create_session)
         app.router.add_post("/voice/live/bindings/{id}/session", self.bind)
         app.router.add_get("/session/{sid}/message/{mid}", self.get_message)
@@ -261,6 +262,13 @@ class FakeUnifia:
         assert request.query["limit"] == "1"
         self.probes += 1
         return web.json_response([])
+
+    async def list_providers(self, request):
+        self.check_auth(request)
+        return web.json_response({
+            "all": [{"id": "local-llm", "models": {"qwen": {"id": "qwen"}}}],
+            "connected": ["local-llm"],
+        })
 
     async def bind(self, request):
         self.bindings[request.match_info["id"]] = (await request.json())["sessionID"]
@@ -345,6 +353,18 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.bridge.probe()
         self.assertEqual(self.fake.probes, 1)
         self.assertEqual(self.fake.sessions, 0)
+
+    async def test_readiness_probe_accepts_configured_selected_model_without_creating_a_turn(self):
+        await self.bridge.probe_selected_model()
+        self.assertEqual(self.fake.sessions, 0)
+        self.assertEqual(self.fake.prompts, [])
+
+    async def test_readiness_probe_rejects_unconfigured_selected_model(self):
+        self.binding.model = {"providerID": "local-llm", "modelID": "missing"}
+        with self.assertRaisesRegex(BridgeError, "selected model is not configured"):
+            await self.bridge.probe_selected_model()
+        self.assertEqual(self.fake.sessions, 0)
+        self.assertEqual(self.fake.prompts, [])
 
     async def test_turn_streams_only_its_own_answer(self):
         sid = await self.bridge.ensure_session()

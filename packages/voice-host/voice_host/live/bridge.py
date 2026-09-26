@@ -215,6 +215,28 @@ class VoiceAgentBridge:
         """Verify the authenticated Unifia session bridge without creating state."""
         await self._request("GET", "/session", query={"limit": "1"})
 
+    async def probe_selected_model(self) -> None:
+        """Check that an explicit selection is configured, without generating a turn."""
+        model = self.binding.model
+        if model is None:
+            return
+        data = await self._request("GET", "/provider")
+        if not isinstance(data, dict):
+            raise BridgeError("provider catalog response is invalid")
+        connected = data.get("connected")
+        providers = data.get("all")
+        if not isinstance(connected, list) or not isinstance(providers, list):
+            raise BridgeError("provider catalog response is incomplete")
+        provider_id = model.get("providerID")
+        model_id = model.get("modelID")
+        selected = next(
+            (provider for provider in providers if isinstance(provider, dict) and provider.get("id") == provider_id),
+            None,
+        )
+        models = selected.get("models") if selected else None
+        if provider_id not in connected or not isinstance(models, dict) or model_id not in models:
+            raise BridgeError("selected model is not configured")
+
     async def ensure_session(self) -> str:
         """Return the bound session, creating it canonically on the first turn."""
         async with self._session_lock:

@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last source SHA with both required remote workflows green:** `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12` (`voice-ci` 36243451608; `unifia-conformance` 36243451545).
+**Last implementation SHA with both required remote workflows confirmed green:** `01bf5da293394970bfe1e99b476a249ed783c17f` (`voice-ci` 36244758338; `unifia-conformance` 36244758313; both reported successful in the previous continuation).
 
-**Latest implementation source SHA:** `01bf5da293394970bfe1e99b476a249ed783c17f` on `voice` and `origin/voice` (GitHub branch API confirmed the exact same SHA). The artifact-installer and desktop/mobile integration commits are pushed; `voice-ci` is green (`36244758338`) and `unifia-conformance` is still running (`36244758313`).
+**Latest pre-change pushed SHA:** `4ceaebd85f420be3360a2108bdf1173975b38278` on `voice` and `origin/voice`; its `voice-ci` run `36244919076` passed. Current GitHub API/Actions recheck is unavailable because the configured proxy `127.0.0.1:9` refuses connections; do not infer the `unifia-conformance` result for `4ceaebd`.
 
-**Current worktree:** implementation SHA `01bf5da293394970bfe1e99b476a249ed783c17f` includes `d0fee82b31` (shared artifact registry/installer) and `01bf5da293` (desktop + Android adoption). This checkpoint is a docs-only follow-up. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain preserved and unstaged.
+**Current worktree:** `4ceaebd85f420be3360a2108bdf1173975b38278` plus the G1 selected-model preflight change under review; the shared artifact registry/installer and desktop/Android adoption commits remain pushed. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain preserved and unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -19,14 +19,14 @@
 
 ## Verdict
 
-**IN PROGRESS — NOT GO PROD.** G1 still lacks selected LLM/provider health and cross-runtime emitter parity. Parakeet now has immutable archive and per-file SHA-256 pins in the shared registry; desktop and Android use one atomic, rollback-capable installer. Local Rust/Node/Tauri checks pass; exact-SHA `voice-ci` run `36244758338` is green and `unifia-conformance` `36244758313` remains in progress. No production qualification is inferred from unit tests or scaffolds.
+**IN PROGRESS — NOT GO PROD.** Live startup now checks an explicit model against the configured connected-provider catalog before `voice_ready`, without creating a session or generating a turn. This proves selection/configuration only; actual provider reachability/inference and cross-runtime emitter parity remain open. Parakeet now has immutable archive and per-file SHA-256 pins in the shared registry; desktop and Android use one atomic, rollback-capable installer. No production qualification is inferred from unit tests or scaffolds.
 
 ## Gate State
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
 | G0 — Truth and CI | Green | Exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde` passed `voice-ci` `36242039225` and `unifia-conformance` `36242039213`. |
-| G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Parakeet artifact SHA pins and shared Android/desktop installation are now implemented and locally checked. Remaining: selected LLM/provider readiness beyond bridge reachability, other Android/local/desktop emitters, completed ADR adoption evidence. |
+| G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; selections omitted in the binding, other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
 | G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed error/event contracts, sequence assignment, idempotency-key deduplication, monotonic timestamp checks, generation fencing, turn tokens, playback-only cancellation, reconnect, and snapshot recovery. Rust unit tests cover duplicate retries, ordering, stale generations, cancellation races, reconnect, and recovery; the Tauri runtime links the crate. Production producers, complete lifecycle state machine, durable persistence, adapters, and cross-runtime fixture parity remain open.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
@@ -83,6 +83,7 @@
 - VoiceCore sequencing slice at `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: `cargo fmt --check`, Clippy, and `cargo check --lib --manifest-path ../mobile/src-tauri/Cargo.toml` pass; VoiceCore tests **9 passed**. This establishes core-local behavior only; no device or cross-runtime qualification is claimed.
 - Exact source SHA `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: local VoiceCore format check, Clippy (`-D warnings`), **9 tests**, and mobile `cargo check --lib` passed. GitHub `voice-ci` run `36243451608` and `unifia-conformance` run `36243451545` both completed successfully on that exact SHA.
 - Exact pushed source SHA `01bf5da293394970bfe1e99b476a249ed783c17f`: Voice artifact crate `cargo fmt --check`, Clippy `--locked -D warnings`, and **7 tests** passed; mobile and desktop `cargo check --lib` passed; registry validator and **5** Node self-tests passed; workflow YAML parsed; `git diff --check` passed. GitHub branch API confirmed `voice` points to this exact SHA; `voice-ci` `36244758338` completed successfully; `unifia-conformance` `36244758313` was still in progress at the last read.
+- G1 selected-model preflight on top of `4ceaebd85f`: `BridgeTests` **6 passed**; Ruff, `py_compile`, and `git diff --check` passed. The full `test_live_runtime.py` invocation produced **18 passed, 2 environment failures**: the sandbox denied writes under `%TEMP%` in existing Piper test setup. No model inference/network health is claimed by the provider-catalog check.
 - The pinned 463,415,355-byte Parakeet release ZIP was downloaded to ignored `.build-temp/voice-artifact-audit/`; `Get-FileHash -Algorithm SHA256` returned `c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03`. Hashes for the four required ONNX/vocabulary files were computed from the ZIP stream and added to the registry.
 
 ## CI Runs at Baseline
