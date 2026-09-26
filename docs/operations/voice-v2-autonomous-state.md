@@ -9,7 +9,7 @@
 
 **Last verified local/remote HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**G0 commits prepared locally:** `e00bf2a388` (strict Rust lint fixes), `e81cb76c9c` (blocking CI repair and registry validator). The GitHub compare API confirmed `origin/voice` was still exactly at the baseline immediately before these commits.
+**G0 commits pushed:** `e00bf2a388` (strict Rust lint fixes), `e81cb76c9c` (blocking CI repair and registry validator), `35f05b6f37` (checkpoint). GitHub returned the pushed commit `35f05b6f37c45e156d61a5e3f1ac623aa7964b6d`.
 **Updated:** 2026-09-26
 
 ## Verdict
@@ -67,6 +67,6 @@
 
 ## Next Exact Actions
 
-1. Push the two G0 commits to `voice`, then verify the hosted workflow on the resulting SHA; fix real failures rather than weakening assertions. The full Python suite remains unverified locally because required packages could not be downloaded.
-3. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
-4. Record each test, benchmark, device, exact source SHA, and package/model SHA here; never mark a physical gate green from mocks or host-only tests.
+1. Verify the hosted Voice workflow on `35f05b6f37c45e156d61a5e3f1ac623aa7964b6d`; fix real failures rather than weakening assertions. The full Python suite remains unverified locally because required packages could not be downloaded.
+2. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
+3. Record each test, benchmark, device, exact source SHA, and package/model SHA here; never mark a physical gate green from mocks or host-only tests.
