@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
-import { createLocalVoiceSession, type LocalVoiceSessionClient } from "./local-session"
+import {
+  createLocalVoiceSession,
+  type LocalVoiceSessionClient,
+  type LocalVoiceStreamChunk,
+} from "./local-session"
 
 function setup(sessionID?: string) {
   const created: Array<{ directory: string; title: string }> = []
@@ -72,5 +76,82 @@ describe("createLocalVoiceSession", () => {
     const abort = new AbortController()
     await session.submit("hello", {}, abort.signal)
     expect(prompts[0].signal).toBe(abort.signal)
+  })
+
+  test("supportsStreaming is false when the client lacks promptStream", () => {
+    const { session } = setup("ses_existing")
+    expect(session.supportsStreaming()).toBe(false)
+  })
+
+  test("submitStream emits the client chunks and honours abort", async () => {
+    const chunks: LocalVoiceStreamChunk[] = [
+      { kind: "thinking", turnID: "t1" },
+      { kind: "assistant_text_delta", delta: "Bonjour", turnID: "t1" },
+      { kind: "assistant_text_delta", delta: " à tous", turnID: "t1" },
+      { kind: "tool_started", tool: "fs.read", turnID: "t1" },
+      { kind: "tool_finished", tool: "fs.read", turnID: "t1", outcome: "ok" },
+      { kind: "assistant_text_final", text: "Bonjour à tous", turnID: "t1" },
+    ]
+    const received: LocalVoiceStreamChunk[] = []
+    const client: LocalVoiceSessionClient = {
+      async create() { return { data: { id: "ses_stream" } } },
+      async prompt() { throw new Error("prompt should not be called when promptStream is implemented") },
+      async *promptStream(input: Parameters<NonNullable<LocalVoiceSessionClient["promptStream"]>>[0]) {
+        expect(input.sessionID).toBe("ses_stream")
+        expect(input.signal?.aborted ?? false).toBe(false)
+        for (const chunk of chunks) yield chunk
+      },
+    }
+    const session = createLocalVoiceSession({
+      client,
+      directory: "D:/project",
+      onSession: () => {},
+    })
+    expect(session.supportsStreaming()).toBe(true)
+    for await (const chunk of session.submitStream("Bonjour", {})) {
+      received.push(chunk)
+    }
+    expect(received).toEqual(chunks)
+  })
+
+  test("submitStream returns no chunks when the client has no promptStream", async () => {
+    const { session } = setup("ses_existing")
+    const received: LocalVoiceStreamChunk[] = []
+    for await (const chunk of session.submitStream("hello", {})) received.push(chunk)
+    expect(received).toEqual([])
+  })
+
+  test("submitStream stops emitting once the AbortSignal fires", async () => {
+    const client: LocalVoiceSessionClient = {
+      async create() { return { data: { id: "ses_abort" } } },
+      async prompt() { throw new Error("unused") },
+      async *promptStream() {
+        yield { kind: "assistant_text_delta", delta: "ok", turnID: "t1" }
+        yield { kind: "assistant_text_delta", delta: "more", turnID: "t1" }
+      },
+    }
+    const session = createLocalVoiceSession({ client, directory: "D:/project", onSession: () => {} })
+    const abort = new AbortController()
+    const received: LocalVoiceStreamChunk[] = []
+    for await (const chunk of session.submitStream("hi", {}, abort.signal)) {
+      received.push(chunk)
+      abort.abort()
+    }
+    expect(received.length).toBeGreaterThanOrEqual(1)
+    expect(received[received.length - 1]).toEqual({ kind: "assistant_text_delta", delta: "ok", turnID: "t1" })
+  })
+
+  test("submitStream ignores whitespace-only transcripts (no create, no chunks)", async () => {
+    const created: string[] = []
+    const client: LocalVoiceSessionClient = {
+      async create() { created.push("called"); return { data: { id: "ses_blank" } } },
+      async prompt() { throw new Error("unused") },
+      async *promptStream() { yield { kind: "assistant_text_delta", delta: "x", turnID: "t1" } },
+    }
+    const session = createLocalVoiceSession({ client, directory: "D:/project", onSession: () => {} })
+    const received: LocalVoiceStreamChunk[] = []
+    for await (const chunk of session.submitStream("   ", {})) received.push(chunk)
+    expect(received).toEqual([])
+    expect(created).toEqual([])
   })
 })
