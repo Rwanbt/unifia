@@ -8,6 +8,7 @@
 mod engine;
 mod error;
 mod event;
+mod runtime;
 mod snapshot_store;
 
 pub use engine::{TurnToken, VoiceCore, VoiceCoreError, VoiceCoreSnapshot, MAX_ISSUED_TURN_IDS};
@@ -18,4 +19,5 @@ pub use event::{
     AudioRoute, LocaleSource, ResourcePressure, SpeechLanguage, StopReason, ToolOutcome,
     TurnCancelReason, VoiceEvent, VoiceEventKind, VoiceEventValidationError, VoiceProfile,
 };
+pub use runtime::{VoiceCoreRuntime, VoiceCoreRuntimeError};
 pub use snapshot_store::{VoiceCoreSnapshotStore, VoiceCoreSnapshotStoreError};

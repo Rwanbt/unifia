@@ -58,9 +58,17 @@ impl VoiceCoreSnapshot {
                 .iter()
                 .all(|turn_id| current_turns.contains(turn_id))
     }
+
+    pub(crate) const fn monotonic_timestamp_ms(&self) -> u64 {
+        self.monotonic_timestamp_ms
+    }
+
+    pub(crate) const fn generation(&self) -> u64 {
+        self.generation
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VoiceCore {
     session_id: String,
     generation: u64,
@@ -72,7 +80,7 @@ pub struct VoiceCore {
     published_keys: HashMap<String, VoiceEvent>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TurnState {
     generation: u64,
     playback_generation: u64,
