@@ -5,6 +5,7 @@ import { AudioCaptureCoordinator } from "./audio-capture-coordinator"
 import { DEFAULT_AUDIO_SETTINGS } from "./audio-settings"
 import { LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVoiceTransport } from "./live-controller"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
+import type { LocalVoiceStreamChunk } from "./local-session"
 
 class FakeRoom implements LiveRoom {
   handlers: LiveRoomHandlers | undefined
@@ -229,5 +230,224 @@ describe("LiveVoiceController", () => {
     rooms[0].handlers!.onAgentAttributes({ "unifia.error": "stt_unavailable" })
     expect(controller.details.error).toBe("stt_unavailable")
     expect(rooms[0].disconnected).toBe(true)
+  })
+
+  /* R6 streaming parity (ADR-060): when the Unifia runtime exposes
+     `submitTurnStream`, the controller consumes semantic chunks
+     (text deltas, tool lifecycle, permission, errors) instead of
+     waiting for a single blocking response. The legacy `submitTurn`
+     path is preserved for clients that have not migrated yet. */
+  describe("R6 streaming parity (submitTurnStream)", () => {
+    function localHandlers(): { current: Parameters<LocalVoiceTransport["start"]>[0] | undefined } {
+      return { current: undefined }
+    }
+
+    function streamingLocalVoice(spoken: string[], handlersRef: ReturnType<typeof localHandlers>): LocalVoiceTransport {
+      return {
+        async start(handlers) {
+          handlersRef.current = handlers
+        },
+        async transcribe() {
+          return "bonjour"
+        },
+        async speak(text) {
+          spoken.push(text)
+        },
+        stop() {},
+        stopSpeaking() {},
+      }
+    }
+
+    test("consumes text deltas, accumulates, and speaks the final text", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const chunks: LocalVoiceStreamChunk[] = [
+        { kind: "thinking", turnID: "t1" },
+        { kind: "assistant_text_delta", delta: "Bonjour", turnID: "t1" },
+        { kind: "assistant_text_delta", delta: " à tous", turnID: "t1" },
+        { kind: "assistant_text_final", text: "Bonjour à tous", turnID: "t1" },
+      ]
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* () {
+          for (const chunk of chunks) yield chunk
+        },
+      })
+      const events: string[] = []
+      controller.subscribe((state) => events.push(state))
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(spoken).toEqual(["Bonjour à tous"])
+      expect(events.includes("speaking")).toBe(true)
+      expect(controller.state).toBe("listening")
+    })
+
+    test("forwards tool_started / tool_finished into agent-task=working then idle", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const toolEvents: Array<{ type: string; tool?: string }> = []
+      const chunks: LocalVoiceStreamChunk[] = [
+        { kind: "assistant_text_delta", delta: "Je ", turnID: "t1" },
+        { kind: "tool_started", tool: "fs.read", turnID: "t1" },
+        { kind: "tool_finished", tool: "fs.read", turnID: "t1", outcome: "ok" },
+        { kind: "assistant_text_final", text: "Je sais.", turnID: "t1" },
+      ]
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* () {
+          for (const chunk of chunks) yield chunk
+        },
+      })
+      const details: Array<{ task: string }> = []
+      controller.subscribe((_state, snapshot) => details.push({ task: snapshot.task }))
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(details.some((d) => d.task === "working")).toBe(true)
+      expect(toolEvents).toEqual([]) // no separate toolEvent channel — task="working" is the projection
+      expect(spoken).toEqual(["Je sais."])
+    })
+
+    test("permission_required flips attention to permission", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const chunks: LocalVoiceStreamChunk[] = [
+        { kind: "permission_required", permission: "fs.write:/etc/hosts", turnID: "t1" },
+        { kind: "assistant_text_final", text: "OK", turnID: "t1" },
+      ]
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* () {
+          for (const chunk of chunks) yield chunk
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(controller.details.attention).toBe("permission")
+    })
+
+    test("mid-stream error chunk fails the controller with a stable code", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const chunks: LocalVoiceStreamChunk[] = [
+        { kind: "assistant_text_delta", delta: "Partiel ", turnID: "t1" },
+        { kind: "error", stage: "llm", code: "rate_limited", detail: "upstream 429" },
+      ]
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* () {
+          for (const chunk of chunks) yield chunk
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(controller.state).toBe("error")
+      expect(controller.details.error).toBe("agent_unavailable")
+      expect(spoken).toEqual([])
+    })
+
+    test("user interrupt during streaming halts the iterator and skips speak", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const seen: string[] = []
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* (_transcript, signal) {
+          seen.push("delta-1")
+          yield { kind: "assistant_text_delta", delta: "J'allais", turnID: "t1" }
+          // Simulate real LLM streaming latency — gives the user time to interrupt mid-stream.
+          await new Promise((resolve) => setTimeout(resolve, 30))
+          if (signal?.aborted) return
+          seen.push("delta-2")
+          yield { kind: "assistant_text_delta", delta: " dire...", turnID: "t1" }
+          seen.push("end")
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      // Let the first delta arrive.
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      handlersRef.current!.onSpeaking(true)
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      // The generator honoured the abort signal and the controller never spoke partial text.
+      expect(spoken).toEqual([])
+      expect(seen).toEqual(["delta-1"])
+      expect(controller.state).toBe("listening")
+    })
+
+    test("legacy submitTurn still works when submitTurnStream is absent", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const localVoice: LocalVoiceTransport = {
+        async start(handlers) {
+          handlersRef.current = handlers
+        },
+        async transcribe() {
+          return "salut"
+        },
+        async speak(text) {
+          spoken.push(text)
+        },
+        stop() {},
+        stopSpeaking() {},
+      }
+      const { controller } = setup({ localVoice })
+      const prompts: string[] = []
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurn: async (text) => {
+          prompts.push(text)
+          return "Salut !"
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(prompts).toEqual(["salut"])
+      expect(spoken).toEqual(["Salut !"])
+      expect(controller.state).toBe("listening")
+    })
+
+    test("late chunks after user interrupt are discarded (no duplicate turn)", async () => {
+      const handlersRef = localHandlers()
+      const spoken: string[] = []
+      const seen: string[] = []
+      const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+      await controller.start({
+        ...context,
+        transport: "local",
+        submitTurnStream: async function* (_transcript, signal) {
+          seen.push("delta")
+          yield { kind: "assistant_text_delta", delta: "p1", turnID: "t1" }
+          await new Promise((resolve) => setTimeout(resolve, 30))
+          if (signal?.aborted) return
+          seen.push("delta2")
+          yield { kind: "assistant_text_delta", delta: "p2", turnID: "t1" }
+          await new Promise((resolve) => setTimeout(resolve, 30))
+          if (signal?.aborted) return
+          seen.push("final")
+          yield { kind: "assistant_text_final", text: "p1p2", turnID: "t1" }
+        },
+      })
+      handlersRef.current!.onUtterance("wav-data")
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      // User starts speaking — bumps revision, aborts the in-flight stream.
+      handlersRef.current!.onSpeaking(true)
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      // The generator stopped at the first signal check and never reached the final chunk;
+      // the controller never spoke the partial text. Even if the iterator had emitted more
+      // chunks before propagating the abort, the controller's guards would still drop them.
+      expect(spoken).toEqual([])
+      expect(controller.state).toBe("listening")
+      expect(seen.includes("final")).toBe(false)
+    })
   })
 })

@@ -2,6 +2,7 @@
 import type { LiveRoomGrant, LiveVoiceError, LiveVoiceState } from "@unifia/contracts/speech"
 import type { AudioCaptureLease } from "./audio-capture-coordinator"
 import type { AudioSettingsV2 } from "./audio-settings"
+import type { LocalVoiceStreamChunk } from "./local-session"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
 import { deriveLiveState, INITIAL_LIVE_SNAPSHOT, reduceLive, type AgentPhase, type LiveEvent, type LiveSnapshot } from "./live-state"
 
@@ -38,6 +39,12 @@ export interface LiveContext {
   variant?: string
   locale?: string
   submitTurn?: (transcript: string, signal?: AbortSignal) => Promise<string>
+  /** R6 streaming parity (ADR-060). When the Unifia runtime exposes a
+   * streaming variant of `prompt`, the controller consumes
+   * `assistant_text_delta` / `assistant_text_final` / `tool_*` /
+   * `permission_required` chunks instead of waiting for the full
+   * response. Optional: legacy clients keep using `submitTurn`. */
+  submitTurnStream?: (transcript: string, signal?: AbortSignal) => AsyncIterable<LocalVoiceStreamChunk>
 }
 
 export interface LocalVoiceTransport {
@@ -148,7 +155,7 @@ export class LiveVoiceController {
       this.lease = lease
       if (context.transport === "local") {
         if (!this.deps.localVoice) throw new LiveHostError("voice_host_unavailable", "Local Android voice is unavailable")
-        if (!context.submitTurn) throw new LiveHostError("agent_unavailable", "Local Android voice has no Unifia session transport")
+        if (!context.submitTurnStream && !context.submitTurn) throw new LiveHostError("agent_unavailable", "Local Android voice has no Unifia session transport")
         this.localInputRevision = 0
         await this.deps.localVoice.start({
           onSpeaking: (speaking) => {
@@ -186,41 +193,157 @@ export class LiveVoiceController {
 
   private queueLocalTurn(audio: string, generation: number, inputRevision: number) {
     this.localTurnQueue = this.localTurnQueue.then(async () => {
-      if (generation !== this.generation || inputRevision !== this.localInputRevision || !this.context?.submitTurn || !this.deps.localVoice) return
+      if (generation !== this.generation || inputRevision !== this.localInputRevision || !this.deps.localVoice) return
+      const context = this.context
+      if (!context || (!context.submitTurnStream && !context.submitTurn)) {
+        this.fail("agent_unavailable", new Error("Local Android voice has no Unifia session transport"))
+        return
+      }
+      const transcript = (await this.deps.localVoice.transcribe(audio)).trim()
+      if (!transcript || generation !== this.generation || inputRevision !== this.localInputRevision) return
+      this.dispatch({ type: "user-speaking", speaking: false }, generation)
+      this.dispatch({ type: "agent-state", agent: "thinking" }, generation)
+      const abort = new AbortController()
+      this.localTurnAbort = abort
       try {
-        const transcript = (await this.deps.localVoice.transcribe(audio)).trim()
-        if (!transcript || generation !== this.generation || inputRevision !== this.localInputRevision) return
-        this.dispatch({ type: "user-speaking", speaking: false }, generation)
-        this.dispatch({ type: "agent-state", agent: "thinking" }, generation)
-        const abort = new AbortController()
-        this.localTurnAbort = abort
-        const response = (await this.context.submitTurn(transcript, abort.signal)).trim()
+        if (context.submitTurnStream) {
+          await this.runStreamingLocalTurn(context.submitTurnStream, transcript, abort.signal, generation, inputRevision)
+        } else {
+          await this.runLegacyLocalTurn(context.submitTurn!, transcript, abort.signal, generation, inputRevision)
+        }
         if (this.localTurnAbort === abort) this.localTurnAbort = undefined
-        if (generation !== this.generation) return
-        if (abort.signal.aborted || inputRevision !== this.localInputRevision) {
-          this.dispatch({ type: "agent-state", agent: "listening" }, generation)
-          return
-        }
-        if (!response) {
-          this.dispatch({ type: "agent-state", agent: "listening" }, generation)
-          return
-        }
-        this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
-        await this.deps.localVoice.speak(response)
-        if (generation === this.generation && inputRevision === this.localInputRevision) {
-          this.dispatch({ type: "agent-state", agent: "listening" }, generation)
-        }
       } catch (error) {
-        if (this.localTurnAbort?.signal.aborted) {
-          this.localTurnAbort = undefined
-          if (generation === this.generation) this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+        if (abort.signal.aborted) {
+          if (this.localTurnAbort === abort) this.localTurnAbort = undefined
+          if (generation === this.generation) {
+            /* The streaming turn bailed out mid-iteration because the
+               user interrupted or the input revision was bumped. Drop
+               any partial state we were holding (agent was possibly
+               already promoted to "speaking" by a text-delta) and
+               return the state machine to "listening" so the UI does
+               not get stuck on "speaking" forever. */
+            this.dispatch({ type: "agent-task", task: "idle" }, generation)
+            this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+          }
           return
         }
         if (generation === this.generation) this.fail(errorFromUnknown(error), error)
       }
+      /* If the streaming turn returned without throwing because the
+         AbortSignal fired mid-iteration, the inner helper bailed out
+         before its post-speak listening dispatch. Detect that here and
+         drop back to "listening" so the UI is not stuck on "speaking". */
+      if (generation === this.generation && abort.signal.aborted) {
+        this.dispatch({ type: "agent-task", task: "idle" }, generation)
+        this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+      }
     }).catch((error) => {
       if (generation === this.generation) this.fail(errorFromUnknown(error), error)
     })
+  }
+
+  /**
+   * R6 streaming parity (ADR-060). Consumes AgentBridge semantic
+   * chunks as they arrive — text deltas, tool lifecycle, permission
+   * requests — instead of waiting for the full response. The text
+   * accumulator is consumed once `assistant_text_final` arrives (or
+   * the stream ends) and forwarded to the existing local TTS path,
+   * which preserves the deterministic lease/cancellation semantics
+   * already proven on the legacy path.
+   */
+  private async runStreamingLocalTurn(
+    submitTurnStream: NonNullable<LiveContext["submitTurnStream"]>,
+    transcript: string,
+    signal: AbortSignal,
+    generation: number,
+    inputRevision: number,
+  ): Promise<void> {
+    const stream = submitTurnStream(transcript, signal)
+    let accumulated = ""
+    let finalText: string | undefined
+    for await (const chunk of stream) {
+      if (signal.aborted || generation !== this.generation || inputRevision !== this.localInputRevision) return
+      switch (chunk.kind) {
+        case "assistant_text_delta":
+          accumulated += chunk.delta
+          this.dispatch({ type: "agent-text-delta", delta: chunk.delta, turnID: chunk.turnID }, generation)
+          if (this.snapshot.agent !== "speaking") this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
+          break
+        case "assistant_text_final":
+          finalText = chunk.text
+          this.dispatch({ type: "agent-text-final", text: chunk.text, turnID: chunk.turnID }, generation)
+          break
+        case "tool_started":
+          this.dispatch({ type: "agent-task", task: "working" }, generation)
+          this.dispatch({ type: "tool-started", tool: chunk.tool, turnID: chunk.turnID }, generation)
+          break
+        case "tool_finished":
+          this.dispatch({ type: "tool-finished", tool: chunk.tool, turnID: chunk.turnID, outcome: chunk.outcome }, generation)
+          break
+        case "permission_required":
+          this.dispatch({ type: "permission-required", permission: chunk.permission, turnID: chunk.turnID }, generation)
+          break
+        case "working":
+          this.dispatch({ type: "agent-task", task: "working" }, generation)
+          break
+        case "thinking":
+          this.dispatch({ type: "agent-task", task: "thinking" }, generation)
+          break
+        case "error":
+          this.fail("agent_unavailable", new Error(`${chunk.stage}/${chunk.code}: ${chunk.detail}`))
+          this.dispatch({ type: "stream-error", stage: chunk.stage, code: chunk.code, detail: chunk.detail }, generation)
+          return
+      }
+    }
+    if (signal.aborted || generation !== this.generation || inputRevision !== this.localInputRevision) return
+    const text = (finalText ?? accumulated).trim()
+    if (!text) {
+      this.dispatch({ type: "agent-task", task: "idle" }, generation)
+      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+      return
+    }
+    if (this.snapshot.agent !== "speaking") this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
+    await this.deps.localVoice!.speak(text)
+    if (generation === this.generation && inputRevision === this.localInputRevision) {
+      /* Reset task before going back to listening — `deriveLiveState`
+         prioritises `task === "thinking"` over `agent === "listening"`,
+         so without an explicit agent-task=idle the UI would stay stuck
+         on "thinking" forever (matches the desktop LiveKit pattern
+         where the host dispatches `unifia.task=idle` separately). */
+      this.dispatch({ type: "agent-task", task: "idle" }, generation)
+      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+    }
+  }
+
+  /**
+   * Legacy path preserved for clients that still expose only the
+   * blocking `submitTurn` — same STT → submit → TTS shape as before
+   * R6, with the same abort/revision guards. Behaviour is unchanged
+   * from the pre-streaming controller, including the `speak` on a
+   * complete response (no incremental synthesis).
+   */
+  private async runLegacyLocalTurn(
+    submitTurn: NonNullable<LiveContext["submitTurn"]>,
+    transcript: string,
+    signal: AbortSignal,
+    generation: number,
+    inputRevision: number,
+  ): Promise<void> {
+    const response = (await submitTurn(transcript, signal)).trim()
+    if (generation !== this.generation) return
+    if (signal.aborted || inputRevision !== this.localInputRevision) {
+      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+      return
+    }
+    if (!response) {
+      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+      return
+    }
+    this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
+    await this.deps.localVoice!.speak(response)
+    if (generation === this.generation && inputRevision === this.localInputRevision) {
+      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+    }
   }
 
   private grantRequest(settings: AudioSettingsV2): LiveGrantRequest {

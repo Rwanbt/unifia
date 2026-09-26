@@ -28,6 +28,17 @@ export type LiveEvent =
   | { type: "user-speaking"; speaking: boolean }
   | { type: "error"; error: LiveVoiceError }
   | { type: "stop" }
+  /* R6 streaming parity (ADR-060): provider-neutral semantic events
+     forwarded from AgentBridge so Android consumes the same live
+     stream as desktop Live. Most are observability-only — the
+     reducer returns snapshot unchanged — except `permission-required`
+     which flips attention. */
+  | { type: "tool-started"; tool: string; turnID: string }
+  | { type: "tool-finished"; tool: string; turnID: string; outcome: "ok" | "denied" | "errored" }
+  | { type: "agent-text-delta"; delta: string; turnID: string }
+  | { type: "agent-text-final"; text: string; turnID: string }
+  | { type: "permission-required"; permission: string; turnID: string }
+  | { type: "stream-error"; stage: string; code: string; detail: string }
 
 export const INITIAL_LIVE_SNAPSHOT: LiveSnapshot = {
   connection: "idle",
@@ -66,6 +77,18 @@ export function reduceLive(snapshot: LiveSnapshot, event: LiveEvent): LiveSnapsh
       return { ...snapshot, connection: "error", error: event.error, userSpeaking: false }
     case "stop":
       return INITIAL_LIVE_SNAPSHOT
+    /* R6 streaming parity — observability events keep the snapshot
+       intact; the controller owns accumulator state (text buffer,
+       currentTurnID, etc.). Only `permission-required` mutates
+       attention so the UI can surface the prompt. */
+    case "permission-required":
+      return { ...snapshot, attention: "permission" }
+    case "tool-started":
+    case "tool-finished":
+    case "agent-text-delta":
+    case "agent-text-final":
+    case "stream-error":
+      return snapshot
   }
 }
 
