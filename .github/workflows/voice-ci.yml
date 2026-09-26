@@ -26,6 +26,7 @@ on:
       - "packages/mobile/src-tauri/src/speech.rs"
       - "packages/mobile/src-tauri/Cargo.toml"
       - "packages/mobile/src-tauri/Cargo.lock"
+      - "packages/voice-core/**"
       - "packages/desktop/src-tauri/src/parakeet/**"
       - "packages/desktop/src-tauri/src/speech.rs"
       - "packages/desktop/src-tauri/Cargo.toml"
@@ -205,8 +206,43 @@ jobs:
       # Tauri GTK/WebKit libraries do not gate the §18 unit tier.
       # Real-device validation is R3 / R12 hardware.
 
+  # 5. Shared platform-independent Voice event and recovery semantics.
+  voice-rust-core:
+    name: voice Rust core
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache VoiceCore dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/voice-core/target
+          key: ${{ runner.os }}-voice-core-${{ hashFiles('packages/voice-core/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-voice-core-
+
+      - name: VoiceCore formatting
+        run: cargo fmt --manifest-path packages/voice-core/Cargo.toml -- --check
+
+      - name: VoiceCore strict Clippy
+        run: cargo clippy --manifest-path packages/voice-core/Cargo.toml --all-targets --locked -- -D warnings
+
+      - name: VoiceCore tests
+        run: cargo test --manifest-path packages/voice-core/Cargo.toml --locked
+
   # ──────────────────────────────────────────────────────────────────
-  # 5. Shared artifact installation and ZIP security implementation.
+  # 6. Shared artifact installation and ZIP security implementation.
   voice-artifacts:
     name: voice model artifact manager
     runs-on: ubuntu-latest
@@ -239,7 +275,7 @@ jobs:
       - name: Artifact manager security tests
         run: cargo test --manifest-path crates/unifia-voice-artifacts/Cargo.toml --locked
 
-  # 6. Voice docs sanity — check internal markdown references
+  # 7. Voice docs sanity — check internal markdown references
   #    resolve (no broken `[text](path.md)` between voice-*.md).
   #    Cheap, fast, catches accidental dangling links when we ship
   #    Session-Recap → RFC → ADR → runbook references.

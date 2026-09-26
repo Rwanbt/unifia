@@ -8,8 +8,9 @@
 mod engine;
 mod error;
 mod event;
+mod snapshot_store;
 
-pub use engine::{TurnToken, VoiceCore, VoiceCoreError, VoiceCoreSnapshot};
+pub use engine::{TurnToken, VoiceCore, VoiceCoreError, VoiceCoreSnapshot, MAX_ISSUED_TURN_IDS};
 pub use error::{
     VoiceError, VoiceErrorCause, VoiceErrorCode, VoiceErrorStage, VoiceErrorValidationError,
 };
@@ -17,3 +18,4 @@ pub use event::{
     AudioRoute, LocaleSource, ResourcePressure, SpeechLanguage, StopReason, ToolOutcome,
     TurnCancelReason, VoiceEvent, VoiceEventKind, VoiceEventValidationError, VoiceProfile,
 };
+pub use snapshot_store::{VoiceCoreSnapshotStore, VoiceCoreSnapshotStoreError};

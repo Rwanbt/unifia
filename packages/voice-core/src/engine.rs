@@ -20,9 +20,11 @@ pub enum VoiceCoreError {
     InvalidEvent,
     InvalidSnapshot,
     DuplicateTurn,
+    TurnHistoryCapacity,
 }
 
 const MAX_TURN_ID_LENGTH: usize = 128;
+pub const MAX_ISSUED_TURN_IDS: usize = 4096;
 
 #[derive(Debug, Clone)]
 pub struct TurnToken {
@@ -32,13 +34,30 @@ pub struct TurnToken {
     playback_generation: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VoiceCoreSnapshot {
     session_id: String,
     generation: u64,
     monotonic_timestamp_ms: u64,
     issued_turn_ids: Vec<String>,
+}
+
+impl VoiceCoreSnapshot {
+    pub(crate) fn is_forward_of(&self, previous: &Self) -> bool {
+        let current_turns = self
+            .issued_turn_ids
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        self.session_id == previous.session_id
+            && self.generation >= previous.generation
+            && self.monotonic_timestamp_ms >= previous.monotonic_timestamp_ms
+            && previous
+                .issued_turn_ids
+                .iter()
+                .all(|turn_id| current_turns.contains(turn_id))
+    }
 }
 
 #[derive(Debug)]
@@ -90,6 +109,7 @@ impl VoiceCore {
         if !valid_session_id(&snapshot.session_id)
             || snapshot.generation == 0
             || snapshot.monotonic_timestamp_ms > MAX_SAFE_VOICE_INTEGER
+            || snapshot.issued_turn_ids.len() > MAX_ISSUED_TURN_IDS
             || snapshot
                 .issued_turn_ids
                 .iter()
@@ -128,6 +148,9 @@ impl VoiceCore {
         }
         if self.issued_turn_ids.contains(&turn_id) {
             return Err(VoiceCoreError::DuplicateTurn);
+        }
+        if self.issued_turn_ids.len() >= MAX_ISSUED_TURN_IDS {
+            return Err(VoiceCoreError::TurnHistoryCapacity);
         }
         let turn_generation = self.next_turn_generation;
         let next_turn_generation = self
@@ -547,6 +570,33 @@ mod tests {
         assert!(matches!(
             VoiceCore::recover(snapshot),
             Err(VoiceCoreError::InvalidSnapshot)
+        ));
+
+        let mut snapshot = VoiceCore::new("ses_bad_snapshot").unwrap().snapshot();
+        snapshot.issued_turn_ids = (0..=MAX_ISSUED_TURN_IDS)
+            .map(|index| format!("turn_{index}"))
+            .collect();
+        assert!(matches!(
+            VoiceCore::recover(snapshot),
+            Err(VoiceCoreError::InvalidSnapshot)
+        ));
+    }
+
+    #[test]
+    fn turn_history_capacity_fails_closed_without_dropping_replay_protection() {
+        let mut core = VoiceCore::new("ses_turn_capacity").unwrap();
+        for index in 0..MAX_ISSUED_TURN_IDS {
+            core.begin_turn(format!("turn_{index}"))
+                .expect("turn history has capacity");
+        }
+
+        assert!(matches!(
+            core.begin_turn("turn_over_capacity"),
+            Err(VoiceCoreError::TurnHistoryCapacity)
+        ));
+        assert!(matches!(
+            core.begin_turn("turn_0"),
+            Err(VoiceCoreError::DuplicateTurn)
         ));
     }
 }
