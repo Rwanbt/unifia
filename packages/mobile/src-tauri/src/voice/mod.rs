@@ -18,6 +18,7 @@
 
 #![allow(clippy::result_large_err)]
 
+pub(crate) mod native_audio;
 mod resource_scheduler;
 pub(crate) mod voice_core;
 

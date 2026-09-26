@@ -5797,6 +5797,7 @@ dependencies = [
  "hkdf",
  "hound",
  "jni",
+ "libloading",
  "log",
  "ndarray",
  "ndk-context",

@@ -130,6 +130,30 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
     Ok(text)
 }
 
+pub async fn stt_transcribe_pcm16k(app: AppHandle, samples: Vec<i16>) -> Result<String, String> {
+    if samples.len() < 3_200 || samples.len() > 16_000 * 60 {
+        return Err("Native PCM utterance length is outside the supported range".into());
+    }
+    let loaded = {
+        let state = app.state::<SpeechState>();
+        let loaded = *lock_safe(&state.stt_loaded);
+        loaded
+    };
+    if !loaded {
+        stt_load_model(app.clone()).await?;
+    }
+    let samples = samples.into_iter().map(|sample| sample as f32 / 32_768.0).collect::<Vec<_>>();
+    let app_clone = app.clone();
+    tokio::task::spawn_blocking(move || {
+        let state = app_clone.state::<SpeechState>();
+        let mut engine = lock_safe(&state.stt_engine);
+        engine.transcribe(&samples)
+    })
+    .await
+    .map_err(|error| format!("Task: {error}"))?
+    .map_err(|error| format!("STT: {error}"))
+}
+
 #[tauri::command]
 pub async fn stt_available(app: AppHandle) -> bool {
     unifia_voice_artifacts::bundled_parakeet_spec()

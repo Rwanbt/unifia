@@ -416,6 +416,11 @@ pub fn run() {
             voice::voice_core::voice_core_publish,
             voice::voice_core::voice_core_publish_text_delta,
             voice::voice_core::voice_core_close_session,
+            voice::native_audio::voice_audio_open,
+            voice::native_audio::voice_audio_close,
+            voice::native_audio::voice_audio_poll,
+            voice::native_audio::voice_audio_write_pcm,
+            voice::native_audio::voice_audio_transcribe_utterance,
         ]);
     }
 
@@ -430,6 +435,7 @@ pub fn run() {
                     .map_err(std::io::Error::other)?
                     .join("voice-core");
                 app.manage(voice::voice_core::VoiceCoreState::new(voice_core_dir));
+                app.manage(voice::native_audio::NativeAudioState::default());
             }
             #[cfg(debug_assertions)]
             {
