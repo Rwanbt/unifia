@@ -203,6 +203,15 @@ export interface VoiceErrorEvent {
   retry_after_ms?: number
 }
 
+/** Live becomes listening only after the runtime publishes this readiness event. */
+export interface VoiceReadyEvent {
+  kind: "voice_ready"
+  sessionID: string
+  ts: number
+  seq: number
+  profile: "live"
+}
+
 const VOICE_ERROR_DEFINITIONS: Record<LiveVoiceError, Omit<VoiceError, "legacyCode" | "timestamp" | "providerId">> = {
   microphone_denied: {
     stage: "permission",
@@ -290,6 +299,8 @@ const VOICE_ERROR_EVENT_CODE_STAGES: Readonly<Record<string, VoiceErrorStage>> =
   PROVIDER_LAN_ACCESS_DISABLED: "provider",
   STT_PROVIDER_UNAVAILABLE: "stt",
   TTS_PROVIDER_UNAVAILABLE: "tts",
+  VAD_PROVIDER_UNAVAILABLE: "vad",
+  TURN_DETECTOR_UNAVAILABLE: "turn-detection",
   SESSION_AGENT_UNAVAILABLE: "session",
   SESSION_AGENT_ERROR: "session",
   PROVIDER_BINDING_INVALID: "provider",
@@ -348,6 +359,22 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
     && typeof event.recoverable === "boolean"
     && (event.provider_id === undefined || (typeof event.provider_id === "string" && event.provider_id.length <= MAX_VOICE_ERROR_PROVIDER_LENGTH && /^[A-Za-z0-9._@:-]+$/.test(event.provider_id)))
     && (event.retry_after_ms === undefined || (typeof event.retry_after_ms === "number" && Number.isSafeInteger(event.retry_after_ms) && event.retry_after_ms >= 0 && event.retry_after_ms <= MAX_VOICE_ERROR_RETRY_MS))
+}
+
+export function isVoiceReadyEvent(value: unknown): value is VoiceReadyEvent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const event = value as Partial<VoiceReadyEvent>
+  return event.kind === "voice_ready"
+    && typeof event.sessionID === "string"
+    && event.sessionID.startsWith("ses_")
+    && event.sessionID.length > "ses_".length
+    && event.sessionID.length <= MAX_VOICE_ERROR_ID_LENGTH
+    && typeof event.ts === "number"
+    && Number.isFinite(event.ts)
+    && typeof event.seq === "number"
+    && Number.isSafeInteger(event.seq)
+    && event.seq >= 0
+    && event.profile === "live"
 }
 
 export function voiceErrorFromEvent(event: VoiceErrorEvent): VoiceError {

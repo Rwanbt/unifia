@@ -15,7 +15,9 @@ import os
 import signal
 import sys
 import threading
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 # CPU-first: hide CUDA before any numerical library is imported.
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -25,13 +27,34 @@ from .config import LiveConfig  # noqa: E402
 READY_MARKER = "UNIFIA_LIVE_READY"
 
 
+def initialize_local_models(native: Any) -> tuple[bool, bool]:
+    return (
+        _initialize_model("Silero VAD", native.init_vad),
+        _initialize_model("turn detector", native.init_eot),
+    )
+
+
+def _initialize_model(name: str, initialize: Callable[[], None]) -> bool:
+    try:
+        initialize()
+        return True
+    except Exception:
+        logging.getLogger(__name__).warning("%s model initialization failed", name)
+        return False
+
+
 def parakeet_ready(directory: Path | None) -> bool:
-    return bool(directory) and (directory / "encoder-model.int8.onnx").is_file() and (directory / "vocab.txt").is_file()
+    return (
+        bool(directory)
+        and (directory / "encoder-model.int8.onnx").is_file()
+        and (directory / "vocab.txt").is_file()
+    )
 
 
 def build_resources(config: LiveConfig):
     logger = logging.getLogger(__name__)
     from livekit.agents import inference
+    from livekit.local_inference import _native
 
     from ..resource_scheduler import (
         ResourcePriority,
@@ -44,6 +67,7 @@ def build_resources(config: LiveConfig):
     from .tts import PiperBackend, PocketBackend, TtsRouter
 
     threads = config.threads
+    vad_ready, turn_detector_ready = initialize_local_models(_native)
     os.environ["UNIFIA_TTS_THREADS"] = str(threads["pocket"])
     for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
         os.environ[key] = str(threads["pocket"])
@@ -57,7 +81,9 @@ def build_resources(config: LiveConfig):
     def router_factory(on_route):
         backends = {"pocket": PocketBackend()}
         if config.piper_project and config.piper_assets:
-            backends["piper"] = PiperBackend.from_project(config.piper_project, config.piper_assets)
+            backends["piper"] = PiperBackend.from_project(
+                config.piper_project, config.piper_assets
+            )
         return TtsRouter(backends, preference=config.tts_provider, on_route=on_route)
 
     # R13 desktop convergence (ADR-074): instantiate the VoiceResourceScheduler
@@ -109,6 +135,8 @@ def build_resources(config: LiveConfig):
         recognizer=recognizer,
         router_factory=router_factory,
         voice_resource_scheduler=scheduler,
+        vad_ready=vad_ready,
+        turn_detector_ready=turn_detector_ready,
     )
 
 
@@ -120,7 +148,9 @@ def check(config: LiveConfig) -> int:
     report = {
         "livekitUrl": config.livekit_url,
         "parakeet": parakeet_ready(config.parakeet_dir),
-        "piper": bool(config.piper_project and (config.piper_project / ".venv").exists()),
+        "piper": bool(
+            config.piper_project and (config.piper_project / ".venv").exists()
+        ),
         "turnDetector": "turn-detector-v1-mini",
         "vad": "silero",
         "cpuProfile": config.cpu_profile,
@@ -152,7 +182,12 @@ async def serve(config: LiveConfig) -> None:
 
     @server.rtc_session()
     async def entrypoint(ctx: JobContext) -> None:
-        await run_job(ctx, config.server, resources, lambda: inference.TurnDetector(version="v1-mini"))
+        await run_job(
+            ctx,
+            config.server,
+            resources,
+            lambda: inference.TurnDetector(version="v1-mini"),
+        )
 
     server.on("worker_registered", lambda *_: print(READY_MARKER, flush=True))
 

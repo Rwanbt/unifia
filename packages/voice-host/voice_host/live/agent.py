@@ -47,7 +47,7 @@ from .segmenter import Segment, SpeechSegmenter
 from .stt import ParakeetSTT
 from .tts import PcmChunk, RouteRecord, SynthesisRequest, TtsRouter
 from .turns import TurnLedger, VoiceTurn, ascending_id, device_id, turn_id_for
-from .voice_errors import publish_voice_error_event
+from .voice_errors import publish_voice_error_event, publish_voice_ready_event
 
 log = logging.getLogger("unifia.voice.live")
 
@@ -122,7 +122,7 @@ class LiveConversation:
     _watchers: set[asyncio.Task[None]] = field(default_factory=set)
     _turn_ended_at: float | None = None
     _first_audio_pending: bool = False
-    _voice_error_sequence: int = 0
+    _voice_event_sequence: int = 0
 
     def language(self) -> str:
         return self.languages.resolve(None)
@@ -140,17 +140,28 @@ class LiveConversation:
     async def publish_voice_error(
         self, session_id: str, code: str, turn_id: str | None = None, stage: str = "session"
     ) -> bool:
-        self._voice_error_sequence += 1
+        self._voice_event_sequence += 1
         published = await publish_voice_error_event(
             self.room.local_participant,
             session_id=session_id,
-            sequence=self._voice_error_sequence,
+            sequence=self._voice_event_sequence,
             stage=stage,
             code=code,
             turn_id=turn_id,
         )
         if not published:
             log.warning("could not publish staged Voice error event")
+        return published
+
+    async def publish_voice_ready(self, session_id: str) -> bool:
+        self._voice_event_sequence += 1
+        published = await publish_voice_ready_event(
+            self.room.local_participant,
+            session_id=session_id,
+            sequence=self._voice_event_sequence,
+        )
+        if not published:
+            log.warning("could not publish Voice readiness event")
         return published
 
     def on_route(self, record: RouteRecord) -> None:
@@ -441,6 +452,8 @@ class SharedResources:
     recognizer: Any
     router_factory: Callable[[Callable[[RouteRecord], None]], TtsRouter]
     voice_resource_scheduler: Any | None = None
+    vad_ready: bool = False
+    turn_detector_ready: bool = False
 
 
 _resources: SharedResources | None = None
@@ -511,6 +524,17 @@ async def run_job(
         await asyncio.sleep(3)
         ctx.shutdown("stt_unavailable")
         return
+    if resources.vad is None or not resources.vad_ready:
+        if not binding.session_id or not await publish_voice_error_event(
+            ctx.room.local_participant,
+            session_id=binding.session_id,
+            sequence=0,
+            stage="vad",
+            code="VAD_PROVIDER_UNAVAILABLE",
+        ):
+            await ctx.room.local_participant.set_attributes({"unifia.error": "voice_internal_error"})
+        ctx.shutdown("vad_unavailable")
+        return
 
     languages = LanguageRouter(preference=binding.language, application_locale=binding.locale)
     conversation: LiveConversation
@@ -534,13 +558,25 @@ async def run_job(
             await conversation.publish(error="agent_unavailable")
         ctx.shutdown("agent_unavailable")
         return
+    try:
+        detection = turn_detector()
+    except Exception:
+        detection = None
+    if detection is None or not resources.turn_detector_ready:
+        published = bool(binding.session_id) and await conversation.publish_voice_error(
+            binding.session_id or "", "TURN_DETECTOR_UNAVAILABLE", stage="turn-detection"
+        )
+        if not published:
+            await conversation.publish(error="voice_internal_error")
+        ctx.shutdown("turn_detection_unavailable")
+        return
     session = AgentSession(
         stt=ParakeetSTT(resources.recognizer, languages),
         vad=resources.vad,
         llm=UnifiaLLM(conversation),
         tts=UnifiaTTS(conversation),
         turn_handling={
-            "turn_detection": turn_detector(),
+            "turn_detection": detection,
             # VAD interruption (the adaptive detector is a cloud feature):
             # 0.3 s of speech stops the assistant; coughs and clicks do not.
             "interruption": {"enabled": True, "mode": "vad", "min_duration": 0.3},
@@ -572,7 +608,7 @@ async def run_job(
             metric("voice.interrupt.ms", (time.monotonic() - interrupt_started.pop()) * 1000)
             interrupt_started.clear()
 
-    if not await _warm_tts(router, conversation.language(), conversation.voices):
+    if await _warm_tts(router, conversation.language(), conversation.voices) is None:
         published = bool(binding.session_id) and await conversation.publish_voice_error(
             binding.session_id or "", "TTS_PROVIDER_UNAVAILABLE", stage="tts"
         )
@@ -583,15 +619,35 @@ async def run_job(
         ctx.shutdown("tts_unavailable")
         return
 
-    await session.start(
-        agent=UnifiaVoiceAgent(conversation),
-        room=ctx.room,
-        room_options=room_io.RoomOptions(close_on_disconnect=False),
-        record=False,
-    )
+    try:
+        session_id = await conversation.bridge.ensure_session()
+    except (BridgeError, aiohttp.ClientError, KeyError, TypeError):
+        log.error("Live could not bind an Unifia session")
+        await conversation.publish(error="agent_unavailable")
+        ctx.shutdown("agent_unavailable")
+        return
+
+    try:
+        await session.start(
+            agent=UnifiaVoiceAgent(conversation),
+            room=ctx.room,
+            room_options=room_io.RoomOptions(close_on_disconnect=False),
+            record=False,
+        )
+    except Exception:
+        log.error("Live voice session failed during startup")
+        if not await conversation.publish_voice_error(session_id, "SESSION_AGENT_UNAVAILABLE"):
+            await conversation.publish(error="agent_unavailable")
+        ctx.shutdown("agent_unavailable")
+        return
+    if not await conversation.publish_voice_ready(session_id):
+        if not await conversation.publish_voice_error(session_id, "SESSION_AGENT_UNAVAILABLE"):
+            await conversation.publish(error="agent_unavailable")
+        ctx.shutdown("agent_unavailable")
+        return
     metric("voice.connect.ms", (time.monotonic() - connected_at) * 1000)
     await conversation.publish(
-        session=binding.session_id or "", task="idle", language=conversation.language(), error=""
+        session=session_id, task="idle", language=conversation.language(), error=""
     )
     # The job outlives this function; the watcher only ends it once the user
     # has been gone past the grace period (network drops keep the job).

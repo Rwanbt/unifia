@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
-import { createVoiceRegistry, resolveSpeechLanguage, resolveTtsProviders } from "../src/speech"
-import { createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, liveVoiceErrors, voiceErrorFromEvent } from "../src/speech"
+import { createVoiceRegistry, createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, isVoiceReadyEvent, liveVoiceErrors, resolveSpeechLanguage, resolveTtsProviders, voiceErrorFromEvent } from "../src/speech"
 
 const licensedVoice = {
   id: "fr-fr-default",
@@ -16,6 +15,14 @@ const licensedVoice = {
 }
 
 describe("speech contracts", () => {
+  test("voice readiness requires a valid session, sequence, and Live profile", () => {
+    const base = { kind: "voice_ready", sessionID: "ses_test", ts: 123, seq: 1, profile: "live" }
+    expect(isVoiceReadyEvent(base)).toBe(true)
+    expect(isVoiceReadyEvent({ ...base, sessionID: "binding_test" })).toBe(false)
+    expect(isVoiceReadyEvent({ ...base, seq: -1 })).toBe(false)
+    expect(isVoiceReadyEvent({ ...base, profile: "dictation" })).toBe(false)
+  })
+
   test("voice errors carry a stable stage, code, safe detail and ordered event envelope", () => {
     for (const legacyCode of liveVoiceErrors) {
       const error = createVoiceError(legacyCode, 123)

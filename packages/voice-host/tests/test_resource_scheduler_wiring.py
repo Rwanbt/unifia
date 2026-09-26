@@ -71,6 +71,8 @@ def test_shared_resources_carries_voice_resource_scheduler_field() -> None:
         voice_resource_scheduler=scheduler,
     )
     assert resources.voice_resource_scheduler is scheduler
+    assert resources.vad_ready is False
+    assert resources.turn_detector_ready is False
 
 
 def test_shared_resources_scheduler_is_optional_for_legacy_callers() -> None:

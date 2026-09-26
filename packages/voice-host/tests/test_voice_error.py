@@ -4,8 +4,11 @@ import unittest
 from voice_host.live.agent import LiveConversation, _warm_tts
 from voice_host.live.voice_errors import (
     VOICE_ERROR_TOPIC,
+    VOICE_READY_TOPIC,
     encode_voice_error_event,
+    encode_voice_ready_event,
     publish_voice_error_event,
+    publish_voice_ready_event,
 )
 
 
@@ -34,15 +37,27 @@ class VoiceErrorContractTests(unittest.TestCase):
                 code="SESSION_AGENT_ERROR",
             )
 
+    def test_ready_event_requires_a_session_and_has_canonical_fields(self):
+        event = json.loads(encode_voice_ready_event(session_id="ses_123", sequence=2))
+        self.assertEqual(event["kind"], "voice_ready")
+        self.assertEqual(event["profile"], "live")
+        self.assertEqual(event["seq"], 2)
+        with self.assertRaises(ValueError):
+            encode_voice_ready_event(session_id="binding_123", sequence=2)
+
 
 class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
     async def test_errors_publish_in_sequence_over_the_reliable_agent_data_topic(self):
         class Participant:
             def __init__(self):
                 self.published = []
+                self.attributes = {}
 
             async def publish_data(self, payload, **options):
                 self.published.append((json.loads(payload), options))
+
+            async def set_attributes(self, attributes):
+                self.attributes.update(attributes)
 
         class Room:
             isconnected = True
@@ -72,6 +87,14 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
                 item[1] == {"reliable": True, "topic": VOICE_ERROR_TOPIC}
                 for item in room.local_participant.published
             )
+        )
+        self.assertTrue(await conversation.publish_voice_ready("ses_123"))
+        ready, options = room.local_participant.published[-1]
+        self.assertEqual(ready["kind"], "voice_ready")
+        self.assertEqual(ready["seq"], 3)
+        self.assertEqual(options, {"reliable": True, "topic": VOICE_READY_TOPIC})
+        self.assertEqual(
+            json.loads(room.local_participant.attributes["unifia.voice_ready"]), ready
         )
 
     async def test_publish_failure_is_reported_to_the_caller_for_legacy_fallback(self):
@@ -113,6 +136,30 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
         event, options = participant.published[0]
         self.assertEqual(event["code"], "STT_PROVIDER_UNAVAILABLE")
         self.assertEqual(options, {"reliable": True, "topic": VOICE_ERROR_TOPIC})
+
+    async def test_ready_event_uses_data_and_persistent_attribute_channels(self):
+        class Participant:
+            def __init__(self):
+                self.published = []
+                self.attributes = {}
+
+            async def publish_data(self, payload, **options):
+                self.published.append((json.loads(payload), options))
+
+            async def set_attributes(self, attributes):
+                self.attributes.update(attributes)
+
+        participant = Participant()
+        self.assertTrue(
+            await publish_voice_ready_event(
+                participant, session_id="ses_123", sequence=1
+            )
+        )
+        event, options = participant.published[0]
+        self.assertEqual(
+            event, json.loads(participant.attributes["unifia.voice_ready"])
+        )
+        self.assertEqual(options, {"reliable": True, "topic": VOICE_READY_TOPIC})
 
 
 class TtsReadinessTests(unittest.IsolatedAsyncioTestCase):

@@ -307,6 +307,8 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
                 {"pocket": FailingPocket(), "piper": self.piper},
                 on_route=lambda record: (self.routes.append(record), on_route(record)),
             ),
+            vad_ready=True,
+            turn_detector_ready=True,
         )
         endpoint = ServerEndpoint(self.server_url, "unifia", "pw")
 

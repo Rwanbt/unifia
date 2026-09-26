@@ -109,6 +109,20 @@ ADR-060).
    state**. `voice_ready` is emitted only when every provider
    required by the selected profile is loaded and usable:
 
+   ```ts
+   export interface VoiceReadyEvent {
+     kind: "voice_ready"
+     sessionID: string
+     ts: number
+     seq: number
+     profile: "live"
+   }
+   ```
+
+   The runtime may mirror the same validated envelope in participant
+   attributes so a client joining after the reliable data packet can
+   recover readiness. Both paths use the same sequence and session ID.
+
    | Profile | Required providers for `voice_ready` |
    |---|---|
    | Dictation | `vad`, `stt` |
@@ -197,7 +211,9 @@ ADR-060).
 appendix of codes is started. Adoption requires every free-form
 error string in the desktop Python code and the Android
 TypeScript code to be mapped, and the contract tests above to be
-green.
+green. A partial Python-to-TypeScript `voice_ready` path and startup
+provider checks are implemented on the Voice branch; remaining
+provider health and Android/local transport adoption are still open.
 
 ## References
 
