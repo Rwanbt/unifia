@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Latest pushed SHA with both required remote workflows confirmed green:** `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a` (`voice-ci` 36249076833; `unifia-conformance` 36249076835; both successful).
+**Latest pushed SHA with both required remote workflows confirmed green:** `5bff7f4a22f71e2843ec031771904eaee52c7a76` (`voice-ci` 36251106047; `unifia-conformance` 36251105987; both successful).
 
-**Latest pushed implementation SHA:** `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
+**Latest pushed implementation SHA:** `5bff7f4a22f71e2843ec031771904eaee52c7a76` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
 
-**Latest code-bearing commit:** `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a`. Exact-SHA runs `36249076833` and `36249076835` passed, including the new blocking VoiceCore Rust format/Clippy/test job. The snapshot store and bounded-history slice are verified and pushed; there is still no production runtime owner, and production event producers do not use VoiceCore as ordering/state authority. Preserve pre-existing and test-generated build/cache artifacts unstaged.
+**Latest code-bearing commit:** `5bff7f4a22f71e2843ec031771904eaee52c7a76`. Exact-SHA runs `36251106047` and `36251105987` passed. This commit adds an Android Tauri durable VoiceCore owner and wires the local Live final-transcript path to reserve and persist the canonical SDK message ID before prompting, then publish ordered turn/thinking/final events. Streaming and other production producers remain open. Preserve pre-existing and test-generated build/cache artifacts unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -19,15 +19,15 @@
 
 ## Verdict
 
-**IN PROGRESS — NOT GO PROD.** Live startup checks an explicit model against the configured connected-provider catalog before `voice_ready`, without creating a session or generating a turn; this does not prove inference or provider reachability. Parakeet has immutable archive and per-file SHA-256 pins and a shared atomic installer. The current G2 slice adds crash-conscious snapshot persistence, bounded turn replay history and blocking VoiceCore CI coverage, but the store has no production runtime owner and production event emitters still bypass VoiceCore. No production qualification is inferred from unit tests or scaffolds.
+**IN PROGRESS — NOT GO PROD.** Live startup checks an explicit model against the configured connected-provider catalog before `voice_ready`, without creating a session or generating a turn; this does not prove inference or provider reachability. Parakeet has immutable archive and per-file SHA-256 pins and a shared atomic installer. The Android local Live final-transcript path now persists the same canonical message ID used by the SDK and emits ordered durable events before/after the prompt. Python and desktop producers still bypass VoiceCore; streaming AgentBridge, lifecycle/recovery parity, safe history-capacity rotation and cross-runtime fixtures remain open. No production qualification is inferred from unit tests or scaffolds.
 
 ## Gate State
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | `voice-ci` `36249076833` and `unifia-conformance` `36249076835` both passed on exact SHA `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a`. The new blocking VoiceCore job passed formatting, strict Clippy, and Rust tests. |
+| G0 — Truth and CI | Green | `voice-ci` `36251106047` and `unifia-conformance` `36251105987` both passed on exact SHA `5bff7f4a22f71e2843ec031771904eaee52c7a76`; push hook passed 47/47 typechecks. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Python error/readiness emitters now use safe monotonic timestamps and TypeScript rejects unsafe timestamps. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; event generation and ordering parity across other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
-| G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. The current local slice adds `VoiceCoreSnapshotStore`: two alternating slots, schema validation, 1 MiB bounded reads, SHA-256 consistency checks for accidental corruption (not authenticity), flush-before-promotion, stale-snapshot rejection and preservation of the previous complete slot on interrupted writes. Issued turn history caps at 4,096 and fails closed rather than evicting IDs; callers must still surface capacity and rotate the session safely. Local tests cover corruption, interrupted promotion, oversized input, stale writes, deduplication and capacity. No production runtime owns or calls the store; production event producers still bypass VoiceCore. Lifecycle state machine, durable idempotency, runtime integration, generation parity and cross-runtime fixture parity remain open.
+| G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. Android Tauri now owns the durable snapshot store under app data. Mobile local Live reserves and persists the canonical SDK `messageID` before `prompt`, then durably publishes ordered `TurnSubmitted`, `AgentThinking` and `AssistantTextFinal`; a reservation failure prevents the SDK call. Focused mobile Voice tests **37 passed** and VoiceCore/store/mobile Rust tests passed. Still open: real streaming AgentBridge, Python/desktop producer adoption, lifecycle/recovery parity, session rotation at the 4,096-turn limit, and cross-runtime fixtures.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
 | G5 — Streaming STT | Not started | Android Parakeet is batch/final transcription; real streaming parity is open. |
@@ -44,7 +44,7 @@
 ## Checks Run
 
 - Latest pushed SHA `b7733b32455e59529c1525f5fb5e6c8170ef5056`: `voice-ci` run `36248320071` and `unifia-conformance` run `36248320089` both completed successfully; push hook passed **47/47** typechecks.
-- Exact pushed G2 slice SHA `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a`: `voice-ci` `36249076833` and `unifia-conformance` `36249076835` passed. The new `voice-rust-core` job passed format, strict Clippy and tests; local VoiceCore tests **21 passed**; mobile Tauri `cargo check --lib --locked` and push-hook **47/47** typechecks passed.
+- Exact pushed Android integration SHA `5bff7f4a22f71e2843ec031771904eaee52c7a76`: `voice-ci` `36251106047` and `unifia-conformance` `36251105987` passed; push hook passed 47/47 typechecks. Focused app Voice tests **37 passed**, app typecheck/Biome passed, mobile Rust voice tests **16 passed**, VoiceCore tests **23 passed**, strict Clippy/rustfmt and Android `aarch64-linux-android` compile passed. Packaged and linked ONNX Runtime library SHA-256 matched (`CD1285F8955F3ABCB0127D1FFAF1E5DA7893D2547872A831B4717C0BFE388328`). The local commit hook could not launch due to Windows signal-pipe permission error; equivalent relevant checks were run manually.
 
 - `bun test --preload ./happydom.ts ./src/voice` in `packages/app`: **118 passed**, 0 failed, 481 assertions.
 - `bun run typecheck` in `packages/app`: passed.
@@ -106,13 +106,13 @@
 ## Known Qualification Blockers
 
 - No target Windows physical Live/audio qualification is recorded.
-- The Xiaomi Android device is available, but interaction/audio permissions and unattended device limits prevent claiming physical qualification.
+- Xiaomi Mi 10 Pro (`b7163823`, Android 13, arm64-v8a) was detected by ADB; no physical audio qualification was run.
 - Pocket TTS entries are still absent and several Piper revisions remain unverified. Android/Windows model packaging and runtime loading have not been qualified on target systems.
 - The checkout contains untracked build/cache artifacts. Preserve them; do not stage them as campaign output.
 
 ## Next Exact Actions
 
-1. Continue G2 by wiring a durable snapshot owner into the actual Live runtime and making VoiceCore the state/order authority for production Android, TypeScript and Python paths; inspect binding/session flows before choosing adapter boundaries.
-2. Surface safe session rotation at turn-history capacity, persist idempotency history, and add generation/cross-runtime fixture parity; preserve `cancel speech != cancel agent work`.
-3. Continue G3 native audio (Android adapter still uses WebView `getUserMedia`/`ScriptProcessorNode`) and proceed through G14 in dependency order. Do not claim GO PROD from host tests.
-4. The Xiaomi device was previously visible to `adb devices`; recheck it and inspect app/device instructions before qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
+1. Continue G2 by implementing actual streaming AgentBridge and adopting VoiceCore ordering/state authority in Python and desktop production emitters; preserve one message ID across durable events and SDK calls.
+2. Add safe session rotation at turn-history capacity, lifecycle/recovery parity and cross-runtime fixtures; preserve `cancel speech != cancel agent work`.
+3. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
+4. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
