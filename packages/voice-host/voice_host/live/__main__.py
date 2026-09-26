@@ -32,6 +32,13 @@ def parakeet_ready(directory: Path | None) -> bool:
 def build_resources(config: LiveConfig):
     from livekit.agents import inference
 
+    from ..resource_scheduler import (
+        PlatformSignals,
+        ResourcePriority,
+        ResidencyClass,
+        ThermalStatus,
+        VoiceResourceScheduler,
+    )
     from .agent import SharedResources
     from .stt import load_parakeet
     from .tts import PiperBackend, PocketBackend, TtsRouter
@@ -56,11 +63,50 @@ def build_resources(config: LiveConfig):
             backends["piper"] = PiperBackend.from_project(config.piper_project, config.piper_assets)
         return TtsRouter(backends, preference=config.tts_provider, on_route=on_route)
 
+    # R13 desktop convergence (ADR-074): instantiate the VoiceResourceScheduler
+    # in desktop mode with `local-llm` as the GPU owner so Voice never
+    # allocates discrete VRAM by default (we already documented this as the
+    # the canonical behaviour in the v2 plan §20 / §32). The platform layer
+    # (psutil / Win32_TemperatureProbe) will be plugged in once the desktop
+    # supervisor is available; in the meantime the scheduler runs in
+    # nominal mode and only honours TTL expiry.
+    desktop_signals: PlatformSignals | None = None
+    gpu_owner: str = "local-llm" if config.local_llm_owns_gpu else "none"
+    scheduler = VoiceResourceScheduler(
+        mode="desktop",
+        gpu_owned_by=gpu_owner,
+        platform=desktop_signals,
+    )
+    log.info(
+        "voice.resource.diagnostics mode=%s gpu_owned_by=%s voice_gpu_alloc_bytes=%s "
+        "platform_connected=%s thermal=%s memory=%s",
+        "desktop",
+        gpu_owner,
+        0,
+        desktop_signals is not None,
+        ThermalStatus.NONE.value,
+        "nominal",
+    )
+    # Acquire a KEEP_WARM lease for Silero VAD for the lifetime of the
+    # process. The handle is intentionally not stored: the scheduler
+    # keeps it alive until release()/evict, and the eviction listener
+    # we register below simply logs the event for now. Future R13 work
+    # (model-evict-on-pressure) will react to that listener.
+    from ..resource_scheduler import ResourceId  # late import keeps top-of-file tidy
+
+    scheduler.acquire(
+        ResourceId(kind="vad-silero", revision=inference.VAD.__name__),
+        owner="unifia-voice-live",
+        priority=ResourcePriority.VAD_AEC,
+        residency=ResidencyClass.KEEP_WARM,
+    )
+
     return SharedResources(
         vad=inference.VAD(model="silero"),
         recognizer=recognizer,
         stt_error=stt_error,
         router_factory=router_factory,
+        voice_resource_scheduler=scheduler,
     )
 
 

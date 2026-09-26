@@ -406,12 +406,19 @@ class UnifiaVoiceAgent(Agent):
 
 @dataclass
 class SharedResources:
-    """Models shared by every Live room of this process (one copy each)."""
+    """Models shared by every Live room of this process (one copy each).
+
+    ``voice_resource_scheduler`` (R11 desktop convergence, ADR-074)
+    owns model leases across memory / thermal / GPU pressure. Optional
+    on legacy call sites that predate the R13 wiring — production
+    callers should always supply it.
+    """
 
     vad: Any
     recognizer: Any
     stt_error: str | None
     router_factory: Callable[[Callable[[RouteRecord], None]], TtsRouter]
+    voice_resource_scheduler: Any | None = None
 
 
 _resources: SharedResources | None = None
