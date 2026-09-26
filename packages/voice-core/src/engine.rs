@@ -158,7 +158,7 @@ impl VoiceCore {
             (None, false) => None,
         };
         let sequence = self.next_sequence;
-        self.next_sequence = self
+        let next_sequence = self
             .next_sequence
             .checked_add(1)
             .ok_or(VoiceCoreError::SequenceExhausted)?;
@@ -174,6 +174,7 @@ impl VoiceCore {
         output
             .validate()
             .map_err(|_| VoiceCoreError::InvalidEvent)?;
+        self.next_sequence = next_sequence;
         self.monotonic_timestamp_ms = monotonic_timestamp_ms;
         Ok(output)
     }
@@ -335,6 +336,26 @@ mod tests {
             ),
             Err(VoiceCoreError::IdempotencyConflict)
         );
+    }
+
+    #[test]
+    fn invalid_event_does_not_consume_sequence_or_advance_timestamp() {
+        let mut core = VoiceCore::new("ses_invalid_event").unwrap();
+        assert_eq!(
+            core.publish(None, 50, VoiceEventKind::VadProbability { value: f32::NAN }),
+            Err(VoiceCoreError::InvalidEvent)
+        );
+
+        let event = core
+            .publish(
+                None,
+                10,
+                VoiceEventKind::VoicePreparing {
+                    profile: VoiceProfile::Live,
+                },
+            )
+            .unwrap();
+        assert_eq!((event.sequence, event.monotonic_timestamp_ms), (0, 10));
     }
 
     #[test]
