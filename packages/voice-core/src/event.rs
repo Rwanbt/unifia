@@ -413,4 +413,117 @@ mod tests {
                 .unwrap();
         assert_eq!(serde_json::to_value(event).unwrap(), fixture);
     }
+
+    fn ordering_violations(fixture: &serde_json::Value) -> Vec<String> {
+        let mut violations = Vec::new();
+        let precedence: Vec<(String, String)> = fixture["precedence"]
+            .as_array()
+            .expect("precedence array")
+            .iter()
+            .map(|rule| {
+                (
+                    rule["before"].as_str().expect("before").to_owned(),
+                    rule["after"].as_str().expect("after").to_owned(),
+                )
+            })
+            .collect();
+
+        for trace in fixture["traces"].as_array().expect("traces array") {
+            let name = trace["name"].as_str().expect("trace name");
+            let events = trace["events"].as_array().expect("events array");
+            let mut previous_sequence: Option<u64> = None;
+            let mut previous_timestamp: Option<u64> = None;
+            let mut generation: Option<u64> = None;
+            let mut session: Option<String> = None;
+            let mut first_seen: Vec<(String, usize)> = Vec::new();
+
+            for (index, value) in events.iter().enumerate() {
+                let event = match serde_json::from_value::<VoiceEvent>(value.clone()) {
+                    Ok(event) => event,
+                    Err(error) => {
+                        violations.push(format!("{name}[{index}] deserialize: {error}"));
+                        continue;
+                    }
+                };
+                if let Err(error) = event.validate() {
+                    violations.push(format!("{name}[{index}] validate: {error:?}"));
+                }
+                if let Some(previous) = previous_sequence {
+                    if event.sequence <= previous {
+                        violations.push(format!(
+                            "{name}[{index}] sequence {} does not increase past {previous}",
+                            event.sequence
+                        ));
+                    }
+                }
+                if let Some(previous) = previous_timestamp {
+                    if event.monotonic_timestamp_ms < previous {
+                        violations.push(format!(
+                            "{name}[{index}] timestamp {} regresses past {previous}",
+                            event.monotonic_timestamp_ms
+                        ));
+                    }
+                }
+                match generation {
+                    None => generation = Some(event.generation),
+                    Some(expected) if expected == event.generation => {}
+                    Some(expected) => violations.push(format!(
+                        "{name}[{index}] generation {} differs from {expected}",
+                        event.generation
+                    )),
+                }
+                match &session {
+                    None => session = event.session_id.clone(),
+                    Some(expected) if event.session_id.as_ref() == Some(expected) => {}
+                    Some(expected) => violations.push(format!(
+                        "{name}[{index}] session {:?} differs from {expected:?}",
+                        event.session_id
+                    )),
+                }
+                previous_sequence = Some(event.sequence);
+                previous_timestamp = Some(event.monotonic_timestamp_ms);
+
+                let kind = value["kind"].as_str().expect("kind").to_owned();
+                if !first_seen.iter().any(|(seen, _)| seen == &kind) {
+                    first_seen.push((kind, index));
+                }
+            }
+
+            for (before, after) in &precedence {
+                let before_index = first_seen.iter().find(|(kind, _)| kind == before);
+                let after_index = first_seen.iter().find(|(kind, _)| kind == after);
+                if let (Some((_, before)), Some((_, after))) = (before_index, after_index) {
+                    if before >= after {
+                        violations.push(format!(
+                            "{name}: {before} (index {before}) must precede {after} (index {after})"
+                        ));
+                    }
+                }
+            }
+        }
+        violations
+    }
+
+    #[test]
+    fn event_ordering_fixture_envelopes_validate_and_follow_precedence() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../fixtures/event-ordering.json")).unwrap();
+        let violations = ordering_violations(&fixture);
+        assert!(violations.is_empty(), "violations: {violations:#?}");
+    }
+
+    #[test]
+    fn event_ordering_fixture_detects_reordering_and_sequence_regressions() {
+        let mut fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../fixtures/event-ordering.json")).unwrap();
+
+        let events = &mut fixture["traces"][0]["events"];
+        events.as_array_mut().unwrap().swap(0, 1);
+        assert!(!ordering_violations(&fixture).is_empty());
+
+        let mut fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../fixtures/event-ordering.json")).unwrap();
+        fixture["traces"][0]["events"][2]["seq"] = serde_json::json!(0);
+        assert!(!ordering_violations(&fixture).is_empty());
+    }
 }
