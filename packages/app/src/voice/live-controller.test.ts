@@ -259,7 +259,7 @@ describe("LiveVoiceController", () => {
         code: "STT_PROVIDER_UNAVAILABLE",
         detail: "untrusted provider output",
         recoverable: true,
-        causeCategory: "availability",
+        cause_category: "availability",
       }))
     expect(controller.details.error?.legacyCode).toBe("stt_unavailable")
     expect(controller.details.error?.detail).not.toContain("untrusted")

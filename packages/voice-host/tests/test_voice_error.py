@@ -27,7 +27,7 @@ class VoiceErrorContractTests(unittest.TestCase):
         self.assertEqual(event["stage"], "session")
         self.assertEqual(event["seq"], 1)
         self.assertEqual(event["turnID"], "turn_1")
-        self.assertNotIn("causeCategory", event)
+        self.assertEqual(event["cause_category"], "session")
         self.assertNotIn("transcript", event["detail"])
         with self.assertRaises(ValueError):
             encode_voice_error_event(
@@ -44,6 +44,38 @@ class VoiceErrorContractTests(unittest.TestCase):
         self.assertEqual(event["seq"], 2)
         with self.assertRaises(ValueError):
             encode_voice_ready_event(session_id="binding_123", sequence=2)
+
+    def test_every_error_stage_has_a_registered_safe_event(self):
+        expected = {
+            "audio-input", "audio-output", "permission", "model-missing", "model-download",
+            "integrity", "model-load", "vad", "turn-detection", "stt", "session", "provider",
+            "llm", "tool", "tts", "resource", "thermal", "network", "unsupported-capability",
+            "abi", "logging",
+        }
+        from voice_host.live.voice_errors import _SAFE_ERRORS
+
+        self.assertEqual({stage for stage, _code in _SAFE_ERRORS}, expected)
+        for stage, code in _SAFE_ERRORS:
+            with self.subTest(stage=stage, code=code):
+                event = json.loads(encode_voice_error_event(
+                    session_id="ses_123", sequence=1, stage=stage, code=code
+                ))
+                self.assertEqual(event["stage"], stage)
+                self.assertIn(event["cause_category"], {
+                    "permission", "device", "availability", "provider", "session", "network", "programmer",
+                })
+
+    def test_provider_identity_is_validated_and_serialized(self):
+        event = json.loads(encode_voice_error_event(
+            session_id="ses_123", sequence=1, stage="stt",
+            code="STT_PROVIDER_UNAVAILABLE", provider_id="parakeet@1.0",
+        ))
+        self.assertEqual(event["provider_id"], "parakeet@1.0")
+        with self.assertRaises(ValueError):
+            encode_voice_error_event(
+                session_id="ses_123", sequence=1, stage="stt",
+                code="STT_PROVIDER_UNAVAILABLE", provider_id="Authorization: secret",
+            )
 
 
 class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
@@ -131,10 +163,12 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
                 sequence=0,
                 stage="stt",
                 code="STT_PROVIDER_UNAVAILABLE",
+                provider_id="parakeet",
             )
         )
         event, options = participant.published[0]
         self.assertEqual(event["code"], "STT_PROVIDER_UNAVAILABLE")
+        self.assertEqual(event["provider_id"], "parakeet")
         self.assertEqual(options, {"reliable": True, "topic": VOICE_ERROR_TOPIC})
 
     async def test_ready_event_uses_data_and_persistent_attribute_channels(self):

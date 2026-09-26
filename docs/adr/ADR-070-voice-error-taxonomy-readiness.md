@@ -88,6 +88,7 @@ ADR-060).
      code: string                  // stable identifier, e.g. "TTS_UNHEALTHY"
      detail: string                // one-line human-readable, scrubbed
      recoverable: boolean
+     cause_category: VoiceErrorCauseCategory
      provider_id?: ProviderId      // e.g. "pocket@3.1.0", "piper@2023.11.14"
      retry_after_ms?: number
    }
@@ -99,10 +100,9 @@ ADR-060).
    `code: "UNCLASSIFIED_<file>:<line>"` so the bug is traceable
    to its source. The contract test enforces this rule.
 
-3. **Codes** are stable, kebab-case, scoped to a stage:
-   `AUDIO_INPUT_<...>`, `TTS_<...>`, etc. Each new code is
-   documented in this ADR's appendix (kept as a separate
-   `voice_error_codes.md` once adoption begins). A code is never
+3. **Codes** are stable, uppercase identifiers scoped to a stage:
+   `AUDIO_INPUT_<...>`, `TTS_<...>`, etc. The current code inventory
+   is documented in [ADR-070-voice-error-codes.md](ADR-070-voice-error-codes.md). A code is never
    removed without a deprecation cycle of one minor version.
 
 4. **Readiness is a single boolean derived from the staged
@@ -207,13 +207,13 @@ ADR-060).
 
 ## Status
 
-**DRAFT** — not adopted. The taxonomy is specified; the
-appendix of codes is started. Adoption requires every free-form
-error string in the desktop Python code and the Android
-TypeScript code to be mapped, and the contract tests above to be
-green. A partial Python-to-TypeScript `voice_ready` path and startup
-provider checks are implemented on the Voice branch; remaining
-provider health and Android/local transport adoption are still open.
+**DRAFT** — not adopted. The event carries stage, stable code,
+recoverability, cause category, timestamp, optional provider identity,
+and scrubbed detail across the Python-to-TypeScript LiveKit path.
+Adoption requires every free-form error string in the desktop Python
+code and the Android TypeScript code to be mapped, and the contract
+tests above to be green. Selected LLM/provider health and Android/local
+transport adoption are still open.
 
 ## References
 

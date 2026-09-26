@@ -172,7 +172,16 @@ export const voiceErrorStages = [
 ] as const
 
 export type VoiceErrorStage = (typeof voiceErrorStages)[number]
-export type VoiceErrorCauseCategory = "permission" | "device" | "availability" | "provider" | "session" | "network" | "programmer"
+export const voiceErrorCauseCategories = [
+  "permission",
+  "device",
+  "availability",
+  "provider",
+  "session",
+  "network",
+  "programmer",
+] as const
+export type VoiceErrorCauseCategory = (typeof voiceErrorCauseCategories)[number]
 const MAX_VOICE_ERROR_ID_LENGTH = 128
 const MAX_VOICE_ERROR_PROVIDER_LENGTH = 120
 const MAX_VOICE_ERROR_RETRY_MS = 86_400_000
@@ -199,6 +208,7 @@ export interface VoiceErrorEvent {
   code: string
   detail: string
   recoverable: boolean
+  cause_category: VoiceErrorCauseCategory
   provider_id?: string
   retry_after_ms?: number
 }
@@ -292,7 +302,7 @@ const VOICE_ERROR_DEFINITIONS: Record<LiveVoiceError, Omit<VoiceError, "legacyCo
   },
 }
 
-const VOICE_ERROR_EVENT_CODE_STAGES: Readonly<Record<string, VoiceErrorStage>> = {
+export const voiceErrorCodeStages: Readonly<Record<string, VoiceErrorStage>> = {
   PERMISSION_MICROPHONE_DENIED: "permission",
   AUDIO_INPUT_UNAVAILABLE: "audio-input",
   PROVIDER_VOICE_HOST_UNAVAILABLE: "provider",
@@ -300,13 +310,24 @@ const VOICE_ERROR_EVENT_CODE_STAGES: Readonly<Record<string, VoiceErrorStage>> =
   STT_PROVIDER_UNAVAILABLE: "stt",
   TTS_PROVIDER_UNAVAILABLE: "tts",
   VAD_PROVIDER_UNAVAILABLE: "vad",
-  TURN_DETECTOR_UNAVAILABLE: "turn-detection",
+  TURN_DETECTION_UNAVAILABLE: "turn-detection",
+  AUDIO_OUTPUT_UNAVAILABLE: "audio-output",
+  MODEL_MISSING_REQUIRED: "model-missing",
+  MODEL_DOWNLOAD_FAILED: "model-download",
+  INTEGRITY_VERIFICATION_FAILED: "integrity",
+  MODEL_LOAD_FAILED: "model-load",
   SESSION_AGENT_UNAVAILABLE: "session",
   SESSION_AGENT_ERROR: "session",
+  LLM_UNAVAILABLE: "llm",
+  TOOL_EXECUTION_FAILED: "tool",
   PROVIDER_BINDING_INVALID: "provider",
+  RESOURCE_PRESSURE: "resource",
+  THERMAL_LIMIT: "thermal",
   NETWORK_CONNECTION_LOST: "network",
   NETWORK_RATE_LIMITED: "network",
   UNSUPPORTED_CAPABILITY_UNCLASSIFIED_RUNTIME_ERROR: "unsupported-capability",
+  ABI_UNSUPPORTED: "abi",
+  LOGGING_FAILURE: "logging",
 }
 
 export function createVoiceError(legacyCode: LiveVoiceError, timestamp = Date.now()): VoiceError {
@@ -314,7 +335,7 @@ export function createVoiceError(legacyCode: LiveVoiceError, timestamp = Date.no
 }
 
 export function voiceErrorCodeMatchesStage(stage: VoiceErrorStage, code: string): boolean {
-  return VOICE_ERROR_EVENT_CODE_STAGES[code] === stage
+  return voiceErrorCodeStages[code] === stage
 }
 
 export function createVoiceErrorEvent(
@@ -331,6 +352,7 @@ export function createVoiceErrorEvent(
     code: error.code,
     detail: error.detail,
     recoverable: error.recoverable,
+    cause_category: error.causeCategory,
     ...(error.providerId ? { provider_id: error.providerId } : {}),
   }
 }
@@ -357,6 +379,8 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
     && event.detail.length <= 240
     && !/(?:bearer\s+\S+|(?:api[_-]?key|authorization|token)\s*[:=]\s*\S+)/i.test(event.detail)
     && typeof event.recoverable === "boolean"
+    && typeof event.cause_category === "string"
+    && voiceErrorCauseCategories.some((category) => category === event.cause_category)
     && (event.provider_id === undefined || (typeof event.provider_id === "string" && event.provider_id.length <= MAX_VOICE_ERROR_PROVIDER_LENGTH && /^[A-Za-z0-9._@:-]+$/.test(event.provider_id)))
     && (event.retry_after_ms === undefined || (typeof event.retry_after_ms === "number" && Number.isSafeInteger(event.retry_after_ms) && event.retry_after_ms >= 0 && event.retry_after_ms <= MAX_VOICE_ERROR_RETRY_MS))
 }
@@ -398,6 +422,7 @@ export function voiceErrorFromEvent(event: VoiceErrorEvent): VoiceError {
     stage: event.stage,
     code: event.code,
     recoverable: event.recoverable,
+    causeCategory: event.cause_category,
     providerId: event.provider_id,
   }
 }

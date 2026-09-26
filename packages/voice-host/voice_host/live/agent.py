@@ -515,6 +515,7 @@ async def run_job(
             sequence=0,
             stage="stt",
             code="STT_PROVIDER_UNAVAILABLE",
+            provider_id="parakeet",
         )
         if not published:
             if binding.session_id:
@@ -564,7 +565,7 @@ async def run_job(
         detection = None
     if detection is None or not resources.turn_detector_ready:
         published = bool(binding.session_id) and await conversation.publish_voice_error(
-            binding.session_id or "", "TURN_DETECTOR_UNAVAILABLE", stage="turn-detection"
+            binding.session_id or "", "TURN_DETECTION_UNAVAILABLE", stage="turn-detection"
         )
         if not published:
             await conversation.publish(error="voice_internal_error")

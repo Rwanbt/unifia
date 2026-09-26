@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
-import { createVoiceRegistry, createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, isVoiceReadyEvent, liveVoiceErrors, resolveSpeechLanguage, resolveTtsProviders, voiceErrorFromEvent } from "../src/speech"
+import { createVoiceRegistry, createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, isVoiceReadyEvent, liveVoiceErrors, resolveSpeechLanguage, resolveTtsProviders, voiceErrorCodeStages, voiceErrorFromEvent, voiceErrorStages } from "../src/speech"
 
 const licensedVoice = {
   id: "fr-fr-default",
@@ -31,8 +31,13 @@ describe("speech contracts", () => {
       expect(error.detail.length).toBeLessThanOrEqual(240)
       const event = createVoiceErrorEvent(error, { sessionID: "ses_test", turnID: "turn_test", seq: 4 })
       expect(isVoiceErrorEvent(event)).toBe(true)
-      expect(event).not.toHaveProperty("causeCategory")
+      expect(event.cause_category).toBe(error.causeCategory)
     }
+  })
+
+  test("every declared error stage has at least one stable code", () => {
+    const coveredStages = new Set(Object.values(voiceErrorCodeStages))
+    expect([...voiceErrorStages].filter((stage) => !coveredStages.has(stage))).toEqual([])
   })
 
   test("voice error event rejects mismatched stages and exposed credentials", () => {
@@ -41,6 +46,7 @@ describe("speech contracts", () => {
     expect(isVoiceErrorEvent({ ...base, detail: "Authorization: Bearer secret" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, code: "NETWORK_ANYTHING" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, provider_id: "secret value" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, cause_category: "other" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, sessionID: "binding_not_session" })).toBe(false)
   })
 
@@ -50,6 +56,7 @@ describe("speech contracts", () => {
     expect(mapped.legacyCode).toBe("stt_unavailable")
     expect(mapped.code).toBe(event.code)
     expect(mapped.detail).not.toContain("untrusted")
+    expect(mapped.causeCategory).toBe(event.cause_category)
   })
 
   test("auto fallback order is stable and explicit providers stay explicit", () => {
