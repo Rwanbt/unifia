@@ -69,4 +69,10 @@ describe("Live voice state machine", () => {
     const s = run({ type: "stop" }, { type: "connected" }, { type: "reconnecting" })
     expect(deriveLiveState(s)).toBe("idle")
   })
+
+  test("speech-segment-ready is observability-only and never mutates the snapshot", () => {
+    const s = run(...ready)
+    expect(reduceLive(s, { type: "speech-segment-ready", turnID: "t1" })).toBe(s)
+    expect(deriveLiveState(s)).toBe("listening")
+  })
 })

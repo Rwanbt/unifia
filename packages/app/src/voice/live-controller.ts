@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: MIT */
-import { createVoiceError, isLiveVoiceError, isVoiceErrorEvent, isVoiceReadyEvent, voiceErrorFromEvent, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
+import { createVoiceError, isLiveVoiceError, isVoiceErrorEvent, isVoiceReadyEvent, resolveSpeechLanguage, voiceErrorFromEvent, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
 import type { AudioCaptureLease } from "./audio-capture-coordinator"
 import type { AudioSettingsV2 } from "./audio-settings"
 import type { LocalVoiceStreamChunk } from "./local-session"
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
 import { deriveLiveState, INITIAL_LIVE_SNAPSHOT, reduceLive, type AgentPhase, type LiveEvent, type LiveSnapshot } from "./live-state"
+import { SpeechSegmenter, type SpeechSegment } from "./speech-segmenter"
+import { renderSegment } from "./speech-renderer"
 
 export type DisconnectReason = "client" | "lost" | "server"
 
@@ -248,11 +250,21 @@ export class LiveVoiceController {
   /**
    * R6 streaming parity (ADR-060). Consumes AgentBridge semantic
    * chunks as they arrive — text deltas, tool lifecycle, permission
-   * requests — instead of waiting for the full response. The text
-   * accumulator is consumed once `assistant_text_final` arrives (or
-   * the stream ends) and forwarded to the existing local TTS path,
-   * which preserves the deterministic lease/cancellation semantics
-   * already proven on the legacy path.
+   * requests — instead of waiting for the full response.
+   *
+   * G6 (campaign §20 gate): every `assistant_text_delta` goes straight
+   * into the shared `SpeechSegmenter`, so the first completed sentence
+   * is rendered and handed to TTS while later deltas are still
+   * arriving; the answer no longer has to finish before anything is
+   * spoken. Segments speak sequentially through `speechChain`, and each
+   * queued utterance re-checks the generation/revision guards before
+   * touching the transport, so an interrupt (or a newer turn) drops
+   * everything still queued behind the current one. The authoritative
+   * `assistant_text_final` text is reconciled once the stream ends:
+   * any remainder is pushed through the same segmenter, or — when it
+   * diverges from the accumulated deltas before anything was spoken —
+   * the partial buffer is dropped and the final text is segmented from
+   * scratch.
    */
   private async runStreamingLocalTurn(
     submitTurnStream: NonNullable<LiveContext["submitTurnStream"]>,
@@ -262,18 +274,52 @@ export class LiveVoiceController {
     inputRevision: number,
   ): Promise<void> {
     const stream = submitTurnStream(transcript, signal)
+    const language = resolveSpeechLanguage({
+      preference: this.deps.settings().sttLanguage,
+      applicationLocale: this.context?.locale,
+      text: transcript,
+    })
+    let segmenter = new SpeechSegmenter()
     let accumulated = ""
     let finalText: string | undefined
+    let turnID = ""
+    let queued = 0
+    let speechChain: Promise<void> = Promise.resolve()
+    let speakFailure: unknown
+    const alive = () => !signal.aborted && generation === this.generation && inputRevision === this.localInputRevision
+    const enqueue = (segments: SpeechSegment[]) => {
+      for (const segment of segments) {
+        const spoken = renderSegment(segment, language)
+        if (!spoken) continue
+        const utterance = spoken
+        const utteranceTurn = turnID
+        queued++
+        speechChain = speechChain.then(async () => {
+          if (!alive()) return
+          this.dispatch({ type: "speech-segment-ready", turnID: utteranceTurn }, generation)
+          try {
+            await this.deps.localVoice!.speak(utterance)
+          } catch (error) {
+            /* Swallow transport failures once the turn is dead; a live
+               turn rethrows below so `queueLocalTurn` surfaces it. */
+            if (alive()) speakFailure = speakFailure ?? error
+          }
+        })
+      }
+    }
     for await (const chunk of stream) {
-      if (signal.aborted || generation !== this.generation || inputRevision !== this.localInputRevision) return
+      if (!alive()) return
       switch (chunk.kind) {
         case "assistant_text_delta":
           accumulated += chunk.delta
+          turnID = chunk.turnID
           this.dispatch({ type: "agent-text-delta", delta: chunk.delta, turnID: chunk.turnID }, generation)
           if (this.snapshot.agent !== "speaking") this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
+          enqueue(segmenter.push(chunk.delta))
           break
         case "assistant_text_final":
           finalText = chunk.text
+          turnID = chunk.turnID
           this.dispatch({ type: "agent-text-final", text: chunk.text, turnID: chunk.turnID }, generation)
           break
         case "tool_started":
@@ -298,24 +344,30 @@ export class LiveVoiceController {
           return
       }
     }
-    if (signal.aborted || generation !== this.generation || inputRevision !== this.localInputRevision) return
-    const text = (finalText ?? accumulated).trim()
-    if (!text) {
-      this.dispatch({ type: "agent-task", task: "idle" }, generation)
-      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
-      return
+    if (!alive()) return
+    if (finalText !== undefined && finalText !== accumulated) {
+      if (finalText.startsWith(accumulated)) {
+        enqueue(segmenter.push(finalText.slice(accumulated.length)))
+      } else if (queued === 0) {
+        // Divergence before anything was spoken: drop the partial buffer
+        // and segment the authoritative final text from scratch.
+        segmenter = new SpeechSegmenter()
+        enqueue(segmenter.push(finalText))
+      }
+      // Divergence after speech started: the spoken prefix is already out;
+      // flushing below releases whatever the segmenter still buffered.
     }
-    if (this.snapshot.agent !== "speaking") this.dispatch({ type: "agent-state", agent: "speaking" }, generation)
-    await this.deps.localVoice!.speak(text)
-    if (generation === this.generation && inputRevision === this.localInputRevision) {
-      /* Reset task before going back to listening — `deriveLiveState`
-         prioritises `task === "thinking"` over `agent === "listening"`,
-         so without an explicit agent-task=idle the UI would stay stuck
-         on "thinking" forever (matches the desktop LiveKit pattern
-         where the host dispatches `unifia.task=idle` separately). */
-      this.dispatch({ type: "agent-task", task: "idle" }, generation)
-      this.dispatch({ type: "agent-state", agent: "listening" }, generation)
-    }
+    enqueue(segmenter.flush())
+    await speechChain
+    if (!alive()) return
+    if (speakFailure !== undefined) throw speakFailure
+    /* Reset task before going back to listening — `deriveLiveState`
+       prioritises `task === "thinking"` over `agent === "listening"`,
+       so without an explicit agent-task=idle the UI would stay stuck
+       on "thinking" forever (matches the desktop LiveKit pattern
+       where the host dispatches `unifia.task=idle` separately). */
+    this.dispatch({ type: "agent-task", task: "idle" }, generation)
+    this.dispatch({ type: "agent-state", agent: "listening" }, generation)
   }
 
   /**

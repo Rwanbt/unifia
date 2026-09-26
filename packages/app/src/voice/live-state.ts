@@ -38,6 +38,7 @@ export type LiveEvent =
   | { type: "agent-text-delta"; delta: string; turnID: string }
   | { type: "agent-text-final"; text: string; turnID: string }
   | { type: "permission-required"; permission: string; turnID: string }
+  | { type: "speech-segment-ready"; turnID: string }
   | { type: "stream-error"; stage: string; code: string; detail: string }
 
 export const INITIAL_LIVE_SNAPSHOT: LiveSnapshot = {
@@ -87,6 +88,7 @@ export function reduceLive(snapshot: LiveSnapshot, event: LiveEvent): LiveSnapsh
     case "tool-finished":
     case "agent-text-delta":
     case "agent-text-final":
+    case "speech-segment-ready":
     case "stream-error":
       return snapshot
   }

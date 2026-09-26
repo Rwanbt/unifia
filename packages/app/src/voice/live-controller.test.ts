@@ -573,5 +573,155 @@ describe("LiveVoiceController", () => {
       expect(controller.state).toBe("listening")
       expect(seen.includes("final")).toBe(false)
     })
+
+    /* G6 — the campaign gate for real streaming: "first LLM delta
+       reaches SpeechSegmenter without waiting for complete answer".
+       These tests drive the shared segmenter from live deltas and
+       prove the sequential TTS queue plus its cancellation guards. */
+    describe("G6 streaming gate (SpeechSegmenter before the final answer)", () => {
+      const poll = async (ready: () => boolean) => {
+        for (let attempt = 0; attempt < 200 && !ready(); attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 5))
+        }
+        return ready()
+      }
+
+      test("first sentence reaches TTS before the stream ends", async () => {
+        const handlersRef = localHandlers()
+        const spoken: string[] = []
+        let spokenMidStream = -1
+        const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+        await controller.start({
+          ...context,
+          transport: "local",
+          submitTurnStream: async function* () {
+            yield { kind: "assistant_text_delta", delta: "Bonjour à tous. ", turnID: "t1" }
+            // The first delta already completes a sentence; wait until TTS
+            // picked it up while the rest of the answer is still streaming.
+            await poll(() => spoken.length > 0)
+            spokenMidStream = spoken.length
+            yield { kind: "assistant_text_delta", delta: "Et merci de votre attention.", turnID: "t1" }
+            yield { kind: "assistant_text_final", text: "Bonjour à tous. Et merci de votre attention.", turnID: "t1" }
+          },
+        })
+        handlersRef.current!.onUtterance("wav-data")
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        expect(spokenMidStream).toBe(1)
+        expect(spoken).toEqual(["Bonjour à tous.", "Et merci de votre attention."])
+        expect(controller.state).toBe("listening")
+      })
+
+      test("a secret streamed inside a delta never reaches TTS", async () => {
+        const handlersRef = localHandlers()
+        const spoken: string[] = []
+        const secret = "hunter2hunter2"
+        const answer = `Je vais utiliser password: ${secret} pour la suite. `
+        const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+        await controller.start({
+          ...context,
+          transport: "local",
+          submitTurnStream: async function* () {
+            yield { kind: "assistant_text_delta", delta: answer, turnID: "t1" }
+            yield { kind: "assistant_text_final", text: answer, turnID: "t1" }
+          },
+        })
+        handlersRef.current!.onUtterance("wav-data")
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        expect(spoken.length).toBeGreaterThan(0)
+        expect(spoken.join(" ")).not.toContain(secret)
+        expect(spoken.join(" ")).toContain("hidden value")
+        expect(controller.state).toBe("listening")
+      })
+
+      test("a streamed code block is spoken as the localised marker, never the code", async () => {
+        const handlersRef = localHandlers()
+        const spoken: string[] = []
+        const answer = "Voici :\n```ts\nconst a = 1\n```\nÇa marche."
+        const { controller } = setup({ localVoice: streamingLocalVoice(spoken, handlersRef) })
+        await controller.start({
+          ...context,
+          transport: "local",
+          submitTurnStream: async function* () {
+            for (const delta of ["Voici :\n", "```ts\n", "const a = 1\n", "```\n", "Ça marche."]) {
+              yield { kind: "assistant_text_delta", delta, turnID: "t1" }
+            }
+            yield { kind: "assistant_text_final", text: answer, turnID: "t1" }
+          },
+        })
+        handlersRef.current!.onUtterance("wav-data")
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        expect(spoken).toEqual(["Voici:", "The code is shown in the conversation.", "Ça marche."])
+        expect(spoken.join(" ")).not.toContain("const a")
+        expect(controller.state).toBe("listening")
+      })
+
+      test("an interrupt mid-playback drops the segments still queued behind it", async () => {
+        const handlersRef = localHandlers()
+        const spoken: string[] = []
+        const slowVoice: LocalVoiceTransport = {
+          async start(handlers) {
+            handlersRef.current = handlers
+          },
+          async transcribe() {
+            return "bonjour"
+          },
+          async speak(text) {
+            spoken.push(text)
+            await new Promise((resolve) => setTimeout(resolve, 50))
+          },
+          stop() {},
+          stopSpeaking() {},
+        }
+        const { controller } = setup({ localVoice: slowVoice })
+        await controller.start({
+          ...context,
+          transport: "local",
+          submitTurnStream: async function* (_transcript, signal) {
+            yield { kind: "assistant_text_delta", delta: "Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir. ", turnID: "t1" }
+            await new Promise((resolve) => setTimeout(resolve, 60))
+            if (signal?.aborted) return
+            yield { kind: "assistant_text_final", text: "Première phrase assez longue pour partir. Deuxième phrase est aussi assez longue pour partir.", turnID: "t1" }
+          },
+        })
+        handlersRef.current!.onUtterance("wav-data")
+        // Barge in while the first segment is inside speak() and the
+        // second one is still queued behind it.
+        await poll(() => spoken.length === 1)
+        handlersRef.current!.onSpeaking(true)
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        expect(spoken).toEqual(["Première phrase assez longue pour partir."])
+        expect(controller.state).toBe("listening")
+      })
+
+      test("a TTS failure during streaming fails the controller with a stable code", async () => {
+        const handlersRef = localHandlers()
+        const failingVoice: LocalVoiceTransport = {
+          async start(handlers) {
+            handlersRef.current = handlers
+          },
+          async transcribe() {
+            return "bonjour"
+          },
+          async speak() {
+            throw new Error("tts exploded")
+          },
+          stop() {},
+          stopSpeaking() {},
+        }
+        const { controller } = setup({ localVoice: failingVoice })
+        await controller.start({
+          ...context,
+          transport: "local",
+          submitTurnStream: async function* () {
+            yield { kind: "assistant_text_delta", delta: "Voilà une phrase complète. ", turnID: "t1" }
+            yield { kind: "assistant_text_final", text: "Voilà une phrase complète. ", turnID: "t1" }
+          },
+        })
+        handlersRef.current!.onUtterance("wav-data")
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        expect(controller.state).toBe("error")
+        expect(controller.details.error?.legacyCode).toBe("voice_internal_error")
+      })
+    })
   })
 })
