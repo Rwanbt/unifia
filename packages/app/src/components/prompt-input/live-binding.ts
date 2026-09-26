@@ -12,6 +12,7 @@ import type { LiveContext } from "@/voice/live-controller"
 import { createLiveHostClient } from "@/voice/live-host"
 import { createAndroidLocalVoiceTransport } from "@/voice/android-local-voice"
 import { createLocalVoiceSession } from "@/voice/local-session"
+import { createTauriVoiceCoreRuntime } from "@/voice/voice-core-runtime"
 import { bindLiveRuntime } from "@/voice/live-store"
 import { loadAudioSettings } from "@/voice/audio-settings"
 
@@ -37,16 +38,20 @@ export function createLiveBinding(input: {
       __TAURI__?: { core?: { invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
     }
   ).__TAURI__
+  const isMobile = input.platform.platform === "mobile"
+  const voiceCore = isMobile && tauri?.core?.invoke
+    ? createTauriVoiceCoreRuntime((command, args) => tauri.core!.invoke!(command, args))
+    : undefined
   const directory = () => input.sdk.directory
   const localSession = createLocalVoiceSession({
     client: input.sdk.client.session,
+    voiceCore,
     directory: directory(),
     sessionID: input.params.id,
     onSession: (sessionID) => {
       if (input.params.id !== sessionID) navigate(`/${base64Encode(directory())}/session/${sessionID}`)
     },
   })
-  const isMobile = input.platform.platform === "mobile"
   // Android uses the local audio adapter; other platforms retain host LiveKit.
   const available = typeof navigator !== "undefined"
     && !!navigator.mediaDevices
@@ -62,6 +67,7 @@ export function createLiveBinding(input: {
       model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
       variant: input.local.model.variant.current(),
       locale: input.language.locale(),
+      closeVoiceCoreSession: () => localSession.closeVoiceCoreSession(),
       submitTurn: (transcript, signal) => localSession.submit(transcript, {
         agent: input.local.agent.current()?.name,
         model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,

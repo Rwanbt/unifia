@@ -19,6 +19,7 @@
 #![allow(clippy::result_large_err)]
 
 mod resource_scheduler;
+pub(crate) mod voice_core;
 
 // Public surface re-exported for downstream modules. The pub use is
 // consumed by the inline tests (and future callers) so consumers can
@@ -31,4 +32,5 @@ pub use resource_scheduler::{
     VoiceResourceScheduler,
 };
 
+#[allow(unused_imports)]
 pub use unifia_voice_core::{VoiceError, VoiceErrorCode, VoiceEvent, VoiceEventKind};

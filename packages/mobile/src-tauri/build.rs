@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-env-changed=ORT_LIB_LOCATION");
     sync_jnilibs_onnxruntime();
     tauri_build::build()
 }
@@ -16,34 +17,55 @@ fn main() {
 // version is a hard crash, not a compatible fallback.
 fn sync_jnilibs_onnxruntime() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let jnilibs_dir = format!("{}/gen/android/app/src/main/jniLibs/arm64-v8a", manifest_dir);
-    let jnilibs_so = format!("{}/libonnxruntime.so", jnilibs_dir);
+    let jnilibs_dir = std::path::PathBuf::from(format!(
+        "{}/gen/android/app/src/main/jniLibs/arm64-v8a",
+        manifest_dir
+    ));
+    let jnilibs_so = jnilibs_dir.join("libonnxruntime.so");
 
-    let location = std::env::var("ORT_LIB_LOCATION").unwrap_or_else(|_| {
-        let candidates = [
-            format!("{}/ort-android/extracted/jni/arm64-v8a", manifest_dir),
-            jnilibs_dir.clone(),
-        ];
-        candidates
-            .into_iter()
-            .find(|candidate| std::path::Path::new(candidate).join("libonnxruntime.so").exists())
-            .unwrap_or(jnilibs_dir.clone())
-    });
+    let location = std::env::var("ORT_LIB_LOCATION")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let candidates = [
+                std::path::PathBuf::from(format!(
+                    "{}/ort-android/extracted/jni/arm64-v8a",
+                    manifest_dir
+                )),
+                jnilibs_dir.clone(),
+            ];
+            candidates
+                .into_iter()
+                .find(|candidate| candidate.join("libonnxruntime.so").exists())
+                .unwrap_or(jnilibs_dir.clone())
+        });
 
-    let source_so = format!("{}/libonnxruntime.so", location);
-    if source_so == jnilibs_so || !std::path::Path::new(&source_so).exists() {
+    let source_so = location.join("libonnxruntime.so");
+    let same_file = source_so == jnilibs_so
+        || matches!(
+            (source_so.canonicalize(), jnilibs_so.canonicalize()),
+            (Ok(source), Ok(target)) if source == target
+        );
+    if same_file || !source_so.exists() {
         return;
     }
 
     if let Err(e) = std::fs::create_dir_all(&jnilibs_dir) {
-        println!("cargo:warning=Could not create jniLibs dir {}: {}", jnilibs_dir, e);
+        println!(
+            "cargo:warning=Could not create jniLibs dir {}: {}",
+            jnilibs_dir.display(),
+            e
+        );
         return;
     }
     match std::fs::copy(&source_so, &jnilibs_so) {
         Ok(_) => println!(
             "cargo:warning=Synced libonnxruntime.so from ORT_LIB_LOCATION={} into jniLibs/ (keeps linked ABI in lockstep with the packaged .so)",
-            location
+            location.display()
         ),
-        Err(e) => println!("cargo:warning=Failed to sync libonnxruntime.so from {}: {}", location, e),
+        Err(e) => println!(
+            "cargo:warning=Failed to sync libonnxruntime.so from {}: {}",
+            location.display(),
+            e
+        ),
     }
 }

@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: MIT */
+import { describe, expect, test } from "bun:test"
+import { createTauriVoiceCoreRuntime } from "./voice-core-runtime"
+
+describe("createTauriVoiceCoreRuntime", () => {
+  test("uses the registered Tauri commands and preserves event correlation", async () => {
+    const calls: Array<{ command: string; args: Record<string, unknown> }> = []
+    const client = createTauriVoiceCoreRuntime(async (command, args) => {
+      calls.push({ command, args })
+      return command === "voice_core_open_session" ? 3 : undefined
+    })
+
+    expect(await client.openSession("ses_voice")).toBe(3)
+    await client.beginTurn("ses_voice", "msg_turn")
+    await client.publish("ses_voice", "msg_turn", { kind: "agent_thinking" })
+    await client.closeSession("ses_voice")
+
+    expect(calls).toEqual([
+      { command: "voice_core_open_session", args: { sessionId: "ses_voice" } },
+      { command: "voice_core_begin_turn", args: { sessionId: "ses_voice", turnId: "msg_turn" } },
+      {
+        command: "voice_core_publish",
+        args: { sessionId: "ses_voice", turnId: "msg_turn", event: { kind: "agent_thinking" } },
+      },
+      { command: "voice_core_close_session", args: { sessionId: "ses_voice" } },
+    ])
+  })
+})

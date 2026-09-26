@@ -5,6 +5,7 @@ import {
   type LocalVoiceSessionClient,
   type LocalVoiceStreamChunk,
 } from "./local-session"
+import type { VoiceCoreRuntimeClient } from "./voice-core-runtime"
 
 function setup(sessionID?: string) {
   const created: Array<{ directory: string; title: string }> = []
@@ -76,6 +77,82 @@ describe("createLocalVoiceSession", () => {
     const abort = new AbortController()
     await session.submit("hello", {}, abort.signal)
     expect(prompts[0].signal).toBe(abort.signal)
+  })
+
+  test("durably reserves the SDK message ID before submission and records the final response", async () => {
+    const order: string[] = []
+    let submittedMessageID = ""
+    const voiceCore: VoiceCoreRuntimeClient = {
+      async openSession(sessionID) {
+        order.push(`open:${sessionID}`)
+        return 1
+      },
+      async beginTurn(sessionID, turnID) {
+        order.push(`begin:${sessionID}:${turnID}`)
+      },
+      async publish(sessionID, turnID, event) {
+        order.push(`publish:${event.kind}:${sessionID}:${turnID ?? ""}`)
+      },
+      async closeSession(sessionID) {
+        order.push(`close:${sessionID}`)
+      },
+    }
+    const client: LocalVoiceSessionClient = {
+      async create() { return { data: { id: "ses_core" } } },
+      async prompt(request) {
+        submittedMessageID = request.messageID ?? ""
+        order.push(`prompt:${request.sessionID}:${submittedMessageID}`)
+        return { data: { parts: [{ type: "text", text: "Response." }] } }
+      },
+    }
+    const session = createLocalVoiceSession({
+      client,
+      voiceCore,
+      directory: "D:/project",
+      sessionID: "ses_core",
+      onSession: () => {},
+    })
+
+    await session.submit("Hello", {})
+
+    expect(submittedMessageID).toMatch(/^msg_/)
+    expect(order).toEqual([
+      "open:ses_core",
+      `begin:ses_core:${submittedMessageID}`,
+      `publish:turn_submitted:ses_core:${submittedMessageID}`,
+      `publish:agent_thinking:ses_core:${submittedMessageID}`,
+      `prompt:ses_core:${submittedMessageID}`,
+      `publish:assistant_text_final:ses_core:${submittedMessageID}`,
+    ])
+    await session.closeVoiceCoreSession()
+    expect(order.at(-1)).toBe("close:ses_core")
+  })
+
+  test("does not submit to the SDK when durable turn reservation fails", async () => {
+    let promptCalled = false
+    const client: LocalVoiceSessionClient = {
+      async create() { return { data: { id: "ses_reservation" } } },
+      async prompt() {
+        promptCalled = true
+        return { data: { parts: [] } }
+      },
+    }
+    const voiceCore: VoiceCoreRuntimeClient = {
+      async openSession() { return 1 },
+      async beginTurn() { throw new Error("snapshot persistence failed") },
+      async publish() {},
+      async closeSession() {},
+    }
+    const session = createLocalVoiceSession({
+      client,
+      voiceCore,
+      directory: "D:/project",
+      sessionID: "ses_reservation",
+      onSession: () => {},
+    })
+
+    await expect(session.submit("Do not lose this turn", {})).rejects.toThrow("snapshot persistence failed")
+    expect(promptCalled).toBe(false)
   })
 
   test("supportsStreaming is false when the client lacks promptStream", () => {

@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: MIT */
+import { Identifier } from "@/utils/id"
+import type { VoiceCoreRuntimeClient } from "./voice-core-runtime"
 
 export interface LocalVoiceSessionClient {
   create(input: { directory: string; title: string }): Promise<{
@@ -7,6 +9,7 @@ export interface LocalVoiceSessionClient {
   }>
   prompt(input: {
     sessionID: string
+    messageID?: string
     directory: string
     agent?: string
     model?: { providerID: string; modelID: string }
@@ -55,6 +58,7 @@ export interface LocalVoiceTurnOptions {
 /** Sends finalized local transcripts through the existing Unifia session API. */
 export function createLocalVoiceSession(input: {
   client: LocalVoiceSessionClient
+  voiceCore?: VoiceCoreRuntimeClient
   directory: string
   sessionID?: string
   onSession: (sessionID: string) => void
@@ -83,6 +87,22 @@ export function createLocalVoiceSession(input: {
     }
   }
 
+  async function openVoiceCoreSession(currentSessionID: string): Promise<void> {
+    if (!input.voiceCore) return
+    await input.voiceCore.openSession(currentSessionID)
+  }
+
+  async function beginVoiceCoreTurn(currentSessionID: string, messageID: string): Promise<void> {
+    if (!input.voiceCore) return
+    await openVoiceCoreSession(currentSessionID)
+    await input.voiceCore.beginTurn(currentSessionID, messageID)
+    await input.voiceCore.publish(currentSessionID, messageID, {
+      kind: "turn_submitted",
+      message_id: messageID,
+    })
+    await input.voiceCore.publish(currentSessionID, messageID, { kind: "agent_thinking" })
+  }
+
   return {
     get sessionID() {
       return sessionID
@@ -94,8 +114,11 @@ export function createLocalVoiceSession(input: {
       const transcript = text.trim()
       if (!transcript) return ""
       const currentSessionID = await ensureSession()
+      const messageID = Identifier.ascending("message")
+      await beginVoiceCoreTurn(currentSessionID, messageID)
       const result = await input.client.prompt({
         sessionID: currentSessionID,
+        messageID,
         directory: input.directory,
         agent: options.agent,
         model: options.model,
@@ -105,10 +128,17 @@ export function createLocalVoiceSession(input: {
       })
       if (result.error) throw result.error
       if (!result.data) throw new Error("Unifia did not return the voice response")
-      return result.data.parts
+      const response = result.data.parts
         .filter((part) => part.type === "text" && part.text)
         .map((part) => part.text)
         .join("")
+      if (input.voiceCore) {
+        await input.voiceCore.publish(currentSessionID, messageID, {
+          kind: "assistant_text_final",
+          text: response,
+        })
+      }
+      return response
     },
     /**
      * Streaming submit. Returns an empty async iterable when the
@@ -141,6 +171,10 @@ export function createLocalVoiceSession(input: {
         if (signal?.aborted) return
         yield chunk
       }
+    },
+    async closeVoiceCoreSession(): Promise<void> {
+      if (!input.voiceCore || !sessionID) return
+      await input.voiceCore.closeSession(sessionID)
     },
   }
 }

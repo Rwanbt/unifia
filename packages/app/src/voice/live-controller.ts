@@ -46,6 +46,7 @@ export interface LiveContext {
    * `permission_required` chunks instead of waiting for the full
    * response. Optional: legacy clients keep using `submitTurn`. */
   submitTurnStream?: (transcript: string, signal?: AbortSignal) => AsyncIterable<LocalVoiceStreamChunk>
+  closeVoiceCoreSession?: () => Promise<void>
 }
 
 export interface LocalVoiceTransport {
@@ -556,11 +557,14 @@ export class LiveVoiceController {
   async stop(): Promise<void> {
     if (this.snapshot.connection === "idle") return
     this.generation++
+    const context = this.context
+    this.context = undefined
     const binding = this.grant?.binding
     this.grant = undefined
     this.teardown()
     this.snapshot = INITIAL_LIVE_SNAPSHOT
     for (const listener of this.listeners) listener(this.state, this.snapshot)
+    await context?.closeVoiceCoreSession?.()
     if (binding) await this.deps.host.release(binding)
   }
 

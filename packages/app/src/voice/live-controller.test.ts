@@ -203,12 +203,17 @@ describe("LiveVoiceController", () => {
 
   test("stop releases the microphone, playback and binding", async () => {
     const { controller, rooms, released, coordinator, playback } = setup()
-    await controller.start(context)
+    const closedSessions: string[] = []
+    await controller.start({
+      ...context,
+      closeVoiceCoreSession: async () => { closedSessions.push(context.sessionID) },
+    })
     await controller.stop()
     expect(controller.state).toBe("idle")
     expect(rooms[0].disconnected).toBe(true)
     expect(released).toEqual([liveBindingId])
     expect(playback).toEqual(["start:live-1", "end:live-1"])
+    expect(closedSessions).toEqual([context.sessionID])
     // Dictation can take the microphone again immediately.
     expect(coordinator.acquire("dictation", () => {})).toBeDefined()
   })

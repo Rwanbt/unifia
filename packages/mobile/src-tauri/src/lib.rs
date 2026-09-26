@@ -410,12 +410,25 @@ pub fn run() {
             speech::stt_transcribe,
             speech::stt_available,
             speech::stt_loaded,
+            voice::voice_core::voice_core_open_session,
+            voice::voice_core::voice_core_begin_turn,
+            voice::voice_core::voice_core_publish,
+            voice::voice_core::voice_core_close_session,
         ]);
     }
 
     builder
         .setup(|app| {
             app.manage(speech::SpeechState::new());
+            #[cfg(target_os = "android")]
+            {
+                let voice_core_dir = app
+                    .path()
+                    .app_data_dir()
+                    .map_err(std::io::Error::other)?
+                    .join("voice-core");
+                app.manage(voice::voice_core::VoiceCoreState::new(voice_core_dir));
+            }
             #[cfg(debug_assertions)]
             {
                 let window = app.get_webview_window("main").unwrap();
