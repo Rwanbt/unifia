@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import { createVoiceRegistry, resolveSpeechLanguage, resolveTtsProviders } from "../src/speech"
-import { createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, liveVoiceErrors } from "../src/speech"
+import { createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, liveVoiceErrors, voiceErrorFromEvent } from "../src/speech"
 
 const licensedVoice = {
   id: "fr-fr-default",
@@ -31,6 +31,16 @@ describe("speech contracts", () => {
     const base = createVoiceErrorEvent(createVoiceError("connection_lost", 123), { sessionID: "ses_test", seq: 0 })
     expect(isVoiceErrorEvent({ ...base, stage: "stt" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, detail: "Authorization: Bearer secret" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, code: "NETWORK_ANYTHING" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, provider_id: "secret value" })).toBe(false)
+  })
+
+  test("voice error events map to legacy UI codes without retaining free-form detail", () => {
+    const event = createVoiceErrorEvent(createVoiceError("stt_unavailable", 123), { sessionID: "ses_test", seq: 0 })
+    const mapped = voiceErrorFromEvent({ ...event, detail: "untrusted transcript or provider output" })
+    expect(mapped.legacyCode).toBe("stt_unavailable")
+    expect(mapped.code).toBe(event.code)
+    expect(mapped.detail).not.toContain("untrusted")
   })
 
   test("auto fallback order is stable and explicit providers stay explicit", () => {

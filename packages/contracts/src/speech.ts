@@ -173,6 +173,9 @@ export const voiceErrorStages = [
 
 export type VoiceErrorStage = (typeof voiceErrorStages)[number]
 export type VoiceErrorCauseCategory = "permission" | "device" | "availability" | "provider" | "session" | "network" | "programmer"
+const MAX_VOICE_ERROR_ID_LENGTH = 128
+const MAX_VOICE_ERROR_PROVIDER_LENGTH = 120
+const MAX_VOICE_ERROR_RETRY_MS = 86_400_000
 
 export interface VoiceError {
   stage: VoiceErrorStage
@@ -281,13 +284,27 @@ const VOICE_ERROR_DEFINITIONS: Record<LiveVoiceError, Omit<VoiceError, "legacyCo
   },
 }
 
-export function createVoiceError(legacyCode: LiveVoiceError, timestamp = performance.now()): VoiceError {
+const VOICE_ERROR_EVENT_CODE_STAGES: Readonly<Record<string, VoiceErrorStage>> = {
+  PERMISSION_MICROPHONE_DENIED: "permission",
+  AUDIO_INPUT_UNAVAILABLE: "audio-input",
+  PROVIDER_VOICE_HOST_UNAVAILABLE: "provider",
+  PROVIDER_LAN_ACCESS_DISABLED: "provider",
+  STT_PROVIDER_UNAVAILABLE: "stt",
+  TTS_PROVIDER_UNAVAILABLE: "tts",
+  SESSION_AGENT_UNAVAILABLE: "session",
+  SESSION_AGENT_ERROR: "session",
+  PROVIDER_BINDING_INVALID: "provider",
+  NETWORK_CONNECTION_LOST: "network",
+  NETWORK_RATE_LIMITED: "network",
+  UNSUPPORTED_CAPABILITY_UNCLASSIFIED_RUNTIME_ERROR: "unsupported-capability",
+}
+
+export function createVoiceError(legacyCode: LiveVoiceError, timestamp = Date.now()): VoiceError {
   return { ...VOICE_ERROR_DEFINITIONS[legacyCode], legacyCode, timestamp }
 }
 
 export function voiceErrorCodeMatchesStage(stage: VoiceErrorStage, code: string): boolean {
-  const prefix = stage.toUpperCase().replaceAll("-", "_")
-  return code.startsWith(`${prefix}_`)
+  return VOICE_ERROR_EVENT_CODE_STAGES[code] === stage
 }
 
 export function createVoiceErrorEvent(
@@ -314,8 +331,9 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
   const event = value as Partial<VoiceErrorEvent>
   return event.kind === "voice_error"
     && typeof event.sessionID === "string"
-    && event.sessionID.length > 0
-    && (event.turnID === undefined || typeof event.turnID === "string")
+    && event.sessionID.trim().length > 0
+    && event.sessionID.length <= MAX_VOICE_ERROR_ID_LENGTH
+    && (event.turnID === undefined || (typeof event.turnID === "string" && event.turnID.length <= MAX_VOICE_ERROR_ID_LENGTH))
     && typeof event.ts === "number"
     && Number.isFinite(event.ts)
     && typeof event.seq === "number"
@@ -331,8 +349,34 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
     && typeof event.recoverable === "boolean"
     && typeof event.causeCategory === "string"
     && ["permission", "device", "availability", "provider", "session", "network", "programmer"].includes(event.causeCategory)
-    && (event.provider_id === undefined || typeof event.provider_id === "string")
-    && (event.retry_after_ms === undefined || (typeof event.retry_after_ms === "number" && event.retry_after_ms >= 0))
+    && (event.provider_id === undefined || (typeof event.provider_id === "string" && event.provider_id.length <= MAX_VOICE_ERROR_PROVIDER_LENGTH && /^[A-Za-z0-9._@:-]+$/.test(event.provider_id)))
+    && (event.retry_after_ms === undefined || (typeof event.retry_after_ms === "number" && Number.isSafeInteger(event.retry_after_ms) && event.retry_after_ms >= 0 && event.retry_after_ms <= MAX_VOICE_ERROR_RETRY_MS))
+}
+
+export function voiceErrorFromEvent(event: VoiceErrorEvent): VoiceError {
+  const legacyCode: LiveVoiceError = event.stage === "permission"
+    ? "microphone_denied"
+    : event.stage === "audio-input"
+      ? "microphone_unavailable"
+      : event.stage === "stt"
+        ? "stt_unavailable"
+        : event.stage === "tts" || event.stage === "audio-output"
+          ? "tts_unavailable"
+          : event.stage === "session" || event.stage === "llm" || event.stage === "tool"
+            ? "agent_unavailable"
+            : event.stage === "network"
+              ? "connection_lost"
+              : event.stage === "provider"
+                ? "voice_host_unavailable"
+                : "voice_internal_error"
+  return {
+    ...createVoiceError(legacyCode, event.ts),
+    stage: event.stage,
+    code: event.code,
+    recoverable: event.recoverable,
+    providerId: event.provider_id,
+    causeCategory: event.causeCategory,
+  }
 }
 
 /** One finalized user utterance handed to the Unifia session. */

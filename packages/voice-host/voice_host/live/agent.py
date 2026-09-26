@@ -47,6 +47,7 @@ from .segmenter import Segment, SpeechSegmenter
 from .stt import ParakeetSTT
 from .tts import PcmChunk, RouteRecord, SynthesisRequest, TtsRouter
 from .turns import TurnLedger, VoiceTurn, ascending_id, device_id, turn_id_for
+from .voice_errors import VOICE_ERROR_TOPIC, encode_voice_error_event
 
 log = logging.getLogger("unifia.voice.live")
 
@@ -121,6 +122,7 @@ class LiveConversation:
     _watchers: set[asyncio.Task[None]] = field(default_factory=set)
     _turn_ended_at: float | None = None
     _first_audio_pending: bool = False
+    _voice_error_sequence: int = 0
 
     def language(self) -> str:
         return self.languages.resolve(None)
@@ -134,6 +136,23 @@ class LiveConversation:
             await self.room.local_participant.set_attributes({f"unifia.{k}": v for k, v in changed.items()})
         except Exception as error:  # attributes are advisory UI state
             log.warning("could not publish agent attributes: %s", error)
+
+    async def publish_voice_error(self, session_id: str, code: str, turn_id: str | None = None) -> bool:
+        stage = "stt" if code == "STT_PROVIDER_UNAVAILABLE" else "session"
+        self._voice_error_sequence += 1
+        payload = encode_voice_error_event(
+            session_id=session_id,
+            sequence=self._voice_error_sequence,
+            stage=stage,
+            code=code,
+            turn_id=turn_id,
+        )
+        try:
+            await self.room.local_participant.publish_data(payload, reliable=True, topic=VOICE_ERROR_TOPIC)
+            return True
+        except Exception:
+            log.warning("could not publish staged Voice error event")
+            return False
 
     def on_route(self, record: RouteRecord) -> None:
         metric("voice.tts.first_audio.ms", record.first_audio_ms, provider=record.resolved, language=record.language)
@@ -151,9 +170,12 @@ class LiveConversation:
         turn_id = turn_id_for(self.room.name, participant.identity if participant else "", message.id)
         try:
             session_id = await self.bridge.ensure_session()
-        except (BridgeError, aiohttp.ClientError) as error:
-            log.error("voice turn could not reach the Unifia session: %s", error)
-            await self.publish(error="agent_unavailable", task="idle")
+        except (BridgeError, aiohttp.ClientError):
+            log.error("voice turn could not reach the Unifia session")
+            session_id = self.bridge.binding.session_id
+            if session_id and not await self.publish_voice_error(session_id, "SESSION_AGENT_UNAVAILABLE", turn_id):
+                await self.publish(error="agent_unavailable")
+            await self.publish(task="idle")
             emit(phrase(self.language(), "error"))
             return
         candidate = VoiceTurn(
@@ -209,13 +231,15 @@ class LiveConversation:
                     await self.publish(attention="question")
                     emit(" " + phrase(turn.language, "question") + " ")
                 elif event.type == "error":
-                    await self.publish(error="agent_error")
+                    if not await self.publish_voice_error(turn.session_id, "SESSION_AGENT_ERROR", turn.id):
+                        await self.publish(error="agent_unavailable")
                     emit(" " + phrase(turn.language, "error"))
                 elif event.type == "done":
                     finished = True
-        except (BridgeError, aiohttp.ClientError) as error:
-            log.error("voice turn stream failed: %s", error)
-            await self.publish(error="agent_unavailable")
+        except (BridgeError, aiohttp.ClientError):
+            log.error("voice turn stream failed")
+            if not await self.publish_voice_error(turn.session_id, "SESSION_AGENT_UNAVAILABLE", turn.id):
+                await self.publish(error="agent_unavailable")
             if not spoke:
                 emit(phrase(turn.language, "error"))
             finished = True

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { createVoiceError, isLiveVoiceError, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
+import { createVoiceError, isLiveVoiceError, isVoiceErrorEvent, voiceErrorFromEvent, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
 import type { AudioCaptureLease } from "./audio-capture-coordinator"
 import type { AudioSettingsV2 } from "./audio-settings"
 import type { LocalVoiceStreamChunk } from "./local-session"
@@ -15,6 +15,7 @@ export interface LiveRoomHandlers {
   onAgentJoined(): void
   onAgentLeft(): void
   onAgentAttributes(attributes: Readonly<Record<string, string>>): void
+  onAgentVoiceError(payload: string): void
   onUserSpeaking(speaking: boolean): void
 }
 
@@ -407,6 +408,7 @@ export class LiveVoiceController {
         if (generation === this.generation && this.snapshot.connection === "connected") this.fail("agent_unavailable")
       },
       onAgentAttributes: (attributes) => this.applyAgentAttributes(attributes, generation),
+      onAgentVoiceError: (payload) => this.applyAgentVoiceError(payload, generation),
       onUserSpeaking: (speaking) => this.dispatch({ type: "user-speaking", speaking }, generation),
     }
   }
@@ -432,6 +434,30 @@ export class LiveVoiceController {
       this.grant = { ...this.grant, sessionID: session }
       this.deps.onSession?.(session)
     }
+  }
+
+  private applyAgentVoiceError(payload: string, generation: number) {
+    if (generation !== this.generation) return
+    let event: unknown
+    try {
+      event = JSON.parse(payload)
+    } catch {
+      this.fail("voice_internal_error")
+      return
+    }
+    if (!isVoiceErrorEvent(event)) {
+      this.fail("voice_internal_error")
+      return
+    }
+    if (this.grant?.sessionID && event.sessionID !== this.grant.sessionID) {
+      this.fail("voice_internal_error")
+      return
+    }
+    if (this.grant && !this.grant.sessionID && event.sessionID.startsWith("ses_")) {
+      this.grant = { ...this.grant, sessionID: event.sessionID }
+      this.deps.onSession?.(event.sessionID)
+    }
+    this.fail(voiceErrorFromEvent(event))
   }
 
   /** Full reconnect after LiveKit gave up resuming: same binding, fresh token. */

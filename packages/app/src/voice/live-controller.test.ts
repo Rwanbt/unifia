@@ -232,6 +232,49 @@ describe("LiveVoiceController", () => {
     expect(rooms[0].disconnected).toBe(true)
   })
 
+  test("agent voice_error events validate the envelope and keep raw detail out of UI state", async () => {
+    const { controller, rooms } = setup()
+    await controller.start(context)
+    rooms[0].handlers!.onAgentVoiceError(JSON.stringify({
+        kind: "voice_error",
+        sessionID: "ses_1",
+        ts: 123,
+        seq: 1,
+        stage: "stt",
+        code: "STT_PROVIDER_UNAVAILABLE",
+        detail: "untrusted provider output",
+        recoverable: true,
+        causeCategory: "availability",
+      }))
+    expect(controller.details.error?.legacyCode).toBe("stt_unavailable")
+    expect(controller.details.error?.detail).not.toContain("untrusted")
+    await controller.stop()
+  })
+
+  test("malformed agent voice_error events fail with the safe internal code", async () => {
+    const { controller, rooms } = setup()
+    await controller.start(context)
+    rooms[0].handlers!.onAgentVoiceError("not-json")
+    expect(controller.details.error?.legacyCode).toBe("voice_internal_error")
+  })
+
+  test("agent voice_error from a different session is rejected", async () => {
+    const { controller, rooms } = setup()
+    await controller.start(context)
+    rooms[0].handlers!.onAgentVoiceError(JSON.stringify({
+      kind: "voice_error",
+      sessionID: "ses_other",
+      ts: 123,
+      seq: 1,
+      stage: "stt",
+      code: "STT_PROVIDER_UNAVAILABLE",
+      detail: "The provider is unavailable.",
+      recoverable: false,
+      causeCategory: "availability",
+    }))
+    expect(controller.details.error?.legacyCode).toBe("voice_internal_error")
+  })
+
   /* R6 streaming parity (ADR-060): when the Unifia runtime exposes
      `submitTurnStream`, the controller consumes semantic chunks
      (text deltas, tool lifecycle, permission, errors) instead of

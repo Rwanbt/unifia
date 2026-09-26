@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import {
+  DataPacket_Kind,
   DisconnectReason,
   ParticipantEvent,
   Room,
@@ -66,6 +67,10 @@ export function createLiveKitRoom(): LiveRoom {
           if (participant.isAgent) handlers.onAgentLeft()
         })
         .on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => agentAttributes(participant))
+        .on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+          if (!participant?.isAgent || kind !== DataPacket_Kind.RELIABLE || topic !== "unifia.voice_error") return
+          handlers.onAgentVoiceError(new TextDecoder().decode(payload))
+        })
         .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
           if (track.kind !== Track.Kind.Audio) return
           const element = track.attach()
