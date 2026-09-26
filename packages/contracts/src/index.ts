@@ -77,3 +77,4 @@ export * from "./workflow-map-key.js"
 // policy). Knowledge owns this namespace; it never carries workflow
 // authority contracts.
 export * from "./knowledge/index.js"
+export * from "./voice-resource-scheduler.js"
