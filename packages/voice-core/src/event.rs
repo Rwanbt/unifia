@@ -526,4 +526,70 @@ mod tests {
         fixture["traces"][0]["events"][2]["seq"] = serde_json::json!(0);
         assert!(!ordering_violations(&fixture).is_empty());
     }
+
+    #[test]
+    fn adr_060_projection_matches_voice_event_kinds() {
+        let adr_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/adr/ADR-060-voice-turn-engine-design.md");
+        let text = std::fs::read_to_string(&adr_path)
+            .expect("ADR-060 must be readable from packages/voice-core");
+        let start = text
+            .find("export type VoiceEvent =")
+            .expect("ADR-060 must project export type VoiceEvent");
+        let rest = &text[start..];
+        let end = rest
+            .find("```")
+            .expect("VoiceEvent union stays inside a fence");
+        let block = &rest[..end];
+
+        let mut kinds: Vec<&str> = Vec::new();
+        let mut cursor = block;
+        while let Some(found) = cursor.find("kind: \"") {
+            let after = &cursor[found + "kind: \"".len()..];
+            let quote = after.find('"').expect("closed kind string literal");
+            kinds.push(&after[..quote]);
+            cursor = &after[quote + 1..];
+        }
+
+        let expected = [
+            "voice_preparing",
+            "voice_ready",
+            "speech_started",
+            "speech_ended",
+            "vad_probability",
+            "turn_incomplete",
+            "turn_complete",
+            "stt_partial",
+            "stt_final",
+            "turn_submitted",
+            "agent_thinking",
+            "agent_working",
+            "tool_started",
+            "tool_finished",
+            "permission_required",
+            "assistant_text_delta",
+            "assistant_text_final",
+            "speech_segment_ready",
+            "tts_started",
+            "tts_audio",
+            "tts_cancelled",
+            "assistant_speaking",
+            "assistant_interrupted",
+            "audio_route_changed",
+            "provider_fallback",
+            "resource_pressure",
+            "voice_recovering",
+            "voice_error",
+            "voice_stopped",
+        ];
+        assert_eq!(
+            kinds, expected,
+            "ADR-060 VoiceEvent union must list every VoiceEventKind in declaration order"
+        );
+        assert_eq!(
+            block.matches("generation: number").count(),
+            expected.len(),
+            "every projected event carries the generation envelope field"
+        );
+    }
 }

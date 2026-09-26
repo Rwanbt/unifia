@@ -49,10 +49,80 @@ best-supported runtime rather than moving into Rust solely for uniformity.
 The following TypeScript interface and event union preserve the original
 draft's UI projection. They are not the engine implementation or a second
 source of truth. Bindings and adapters must derive their behavior and wire
-contract from `packages/voice-core`.
+contract from `packages/voice-core`. Reconciled 2026-09-26 against the
+canonical `VoiceEvent` / `VoiceEventKind` in
+`packages/voice-core/src/event.rs`: all 29 kinds (including
+`assistant_text_final`), the envelope `sessionID` / `turnID` / `ts` / `seq` /
+`generation`, and snake_case payload fields exactly as serde serializes them.
 
 ```ts
 // packages/contracts/voice/turn-engine.ts (proposed)
+
+// Wire-value types: serde forms of the canonical packages/voice-core enums.
+export type VoiceProfile = "dictation" | "manual_read_aloud" | "live";
+export type SpeechLanguage = "en" | "fr" | "es" | "it" | "de";
+export type LocaleSource =
+  | "user"
+  | "stt-final"
+  | "conversation"
+  | "application"
+  | "fallback-english";
+export type ToolOutcome = "ok" | "denied" | "errored";
+export type TurnCancelReason =
+  | "user-barge"
+  | "agent-cancel"
+  | "error"
+  | "route-change";
+export type AudioRoute =
+  | "speaker"
+  | "wired-headset"
+  | "usb-headset"
+  | "bluetooth-hfp"
+  | "bluetooth-a2dp"
+  | "bluetooth-le-audio"
+  | "unknown";
+export type ResourcePressureKind = "memory" | "cpu" | "thermal" | "network";
+export type StopReason =
+  | "user"
+  | "session-ended"
+  | "error"
+  | "process-shutdown";
+export type VoiceErrorStage =
+  | "audio-input"
+  | "audio-output"
+  | "permission"
+  | "model-missing"
+  | "model-download"
+  | "integrity"
+  | "model-load"
+  | "vad"
+  | "turn-detection"
+  | "stt"
+  | "session"
+  | "provider"
+  | "llm"
+  | "tool"
+  | "tts"
+  | "resource"
+  | "thermal"
+  | "network"
+  | "unsupported-capability"
+  | "abi"
+  | "logging";
+export type VoiceErrorCause =
+  | "permission"
+  | "device"
+  | "availability"
+  | "provider"
+  | "session"
+  | "network"
+  | "programmer";
+// Catalog codes live in packages/voice-core/src/error.rs (VoiceErrorCode).
+export type VoiceErrorCode = string;
+// Provider id string; recovery stage string recorded by voice_recovering.
+export type ProviderId = string;
+export type RecoveryStage = string;
+
 export interface VoiceTurnEngine {
   // session lifecycle
   prepare(session: VoiceSessionContext): Promise<VoiceReady>
@@ -73,34 +143,35 @@ export interface VoiceTurnEngine {
 }
 
 export type VoiceEvent =
-  | { kind: "voice_preparing"; sessionID: string; turnID?: undefined; ts: number; seq: number }
-  | { kind: "voice_ready"; sessionID: string; ts: number; seq: number; capabilities: VoiceCapabilities }
-  | { kind: "speech_started"; sessionID: string; turnID: string; ts: number; seq: number }
-  | { kind: "speech_ended"; sessionID: string; turnID: string; ts: number; seq: number }
-  | { kind: "vad_probability"; sessionID: string; turnID?: undefined; ts: number; seq: number; value: number }
-  | { kind: "turn_incomplete"; sessionID: string; turnID: string; ts: number; seq: number }
-  | { kind: "turn_complete"; sessionID: string; turnID: string; ts: number; seq: number; transcript: string; confidence?: number }
-  | { kind: "stt_partial"; sessionID: string; turnID: string; ts: number; seq: number; text: string; stable: boolean }
-  | { kind: "stt_final"; sessionID: string; turnID: string; ts: number; seq: number; text: string }
-  | { kind: "turn_submitted"; sessionID: string; turnID: string; ts: number; seq: number; messageID: string }
-  | { kind: "agent_thinking"; sessionID: string; turnID: string; ts: number; seq: number }
-  | { kind: "agent_working"; sessionID: string; turnID: string; ts: number; seq: number; tool?: string }
-  | { kind: "tool_started"; sessionID: string; turnID: string; ts: number; seq: number; tool: string }
-  | { kind: "tool_finished"; sessionID: string; turnID: string; ts: number; seq: number; tool: string; outcome: "ok" | "denied" | "errored" }
-  | { kind: "permission_required"; sessionID: string; turnID: string; ts: number; seq: number; permission: string }
-  | { kind: "assistant_text_delta"; sessionID: string; turnID: string; ts: number; seq: number; delta: string }
-  | { kind: "speech_segment_ready"; sessionID: string; turnID: string; ts: number; seq: number; text: string; voice: VoiceId; lang: VoiceLang }
-  | { kind: "tts_started"; sessionID: string; turnID: string; ts: number; seq: number; segment: number }
-  | { kind: "tts_audio"; sessionID: string; turnID: string; ts: number; seq: number; segment: number; pcm: Float32Array; sampleRate: number; channels: 1 }
-  | { kind: "tts_cancelled"; sessionID: string; turnID: string; ts: number; seq: number; reason: TurnCancelReason }
-  | { kind: "assistant_speaking"; sessionID: string; turnID: string; ts: number; seq: number }
-  | { kind: "assistant_interrupted"; sessionID: string; turnID: string; ts: number; seq: number }
-  | { kind: "audio_route_changed"; sessionID: string; ts: number; seq: number; route: AudioRoute }
-  | { kind: "provider_fallback"; sessionID: string; ts: number; seq: number; from: ProviderId; to: ProviderId; reason: string }
-  | { kind: "resource_pressure"; sessionID: string; ts: number; seq: number; pressure: "memory" | "cpu" | "thermal" | "network" }
-  | { kind: "voice_recovering"; sessionID: string; ts: number; seq: number; stage: RecoveryStage }
-  | { kind: "voice_error"; sessionID: string; turnID?: string; ts: number; seq: number; stage: VoiceErrorStage; detail: string }
-  | { kind: "voice_stopped"; sessionID: string; ts: number; seq: number; reason: StopReason }
+  | { kind: "voice_preparing"; sessionID: string; turnID?: undefined; ts: number; seq: number; generation: number; profile: VoiceProfile }
+  | { kind: "voice_ready"; sessionID: string; ts: number; seq: number; generation: number; profile: VoiceProfile; capabilities: string[]; language: SpeechLanguage; voice: string; locale_source: LocaleSource }
+  | { kind: "speech_started"; sessionID: string; turnID: string; ts: number; seq: number; generation: number }
+  | { kind: "speech_ended"; sessionID: string; turnID: string; ts: number; seq: number; generation: number }
+  | { kind: "vad_probability"; sessionID: string; turnID?: undefined; ts: number; seq: number; generation: number; value: number }
+  | { kind: "turn_incomplete"; sessionID: string; turnID: string; ts: number; seq: number; generation: number }
+  | { kind: "turn_complete"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; transcript: string; confidence?: number }
+  | { kind: "stt_partial"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; text: string; stable: boolean }
+  | { kind: "stt_final"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; text: string; language: SpeechLanguage }
+  | { kind: "turn_submitted"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; message_id: string }
+  | { kind: "agent_thinking"; sessionID: string; turnID: string; ts: number; seq: number; generation: number }
+  | { kind: "agent_working"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; tool?: string }
+  | { kind: "tool_started"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; tool: string }
+  | { kind: "tool_finished"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; tool: string; outcome: ToolOutcome }
+  | { kind: "permission_required"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; permission: string }
+  | { kind: "assistant_text_delta"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; delta: string }
+  | { kind: "assistant_text_final"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; text: string }
+  | { kind: "speech_segment_ready"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; text: string; voice: string; language: SpeechLanguage }
+  | { kind: "tts_started"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; segment: number }
+  | { kind: "tts_audio"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; segment: number; pcm: number[]; sample_rate_hz: number; channels: number }
+  | { kind: "tts_cancelled"; sessionID: string; turnID: string; ts: number; seq: number; generation: number; segment: number; reason: TurnCancelReason }
+  | { kind: "assistant_speaking"; sessionID: string; turnID: string; ts: number; seq: number; generation: number }
+  | { kind: "assistant_interrupted"; sessionID: string; turnID: string; ts: number; seq: number; generation: number }
+  | { kind: "audio_route_changed"; sessionID: string; ts: number; seq: number; generation: number; route: AudioRoute; interrupted: boolean }
+  | { kind: "provider_fallback"; sessionID: string; ts: number; seq: number; generation: number; from: ProviderId; to: ProviderId; reason: string }
+  | { kind: "resource_pressure"; sessionID: string; ts: number; seq: number; generation: number; pressure: ResourcePressureKind }
+  | { kind: "voice_recovering"; sessionID: string; ts: number; seq: number; generation: number; stage: RecoveryStage }
+  | { kind: "voice_error"; sessionID: string; bindingID?: string; turnID?: string; ts: number; seq: number; generation: number; stage: VoiceErrorStage; code: VoiceErrorCode; recoverable: boolean; cause_category: VoiceErrorCause; provider_id?: string; detail: string; retry_after_ms?: number }
+  | { kind: "voice_stopped"; sessionID: string; ts: number; seq: number; generation: number; reason: StopReason }
 ```
 
 ### Adapters required
