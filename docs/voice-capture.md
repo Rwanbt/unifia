@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: MIT -->
 # Voice capture ownership
 
 `AudioCaptureCoordinator` grants a single microphone lease per renderer.

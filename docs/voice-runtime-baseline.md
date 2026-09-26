@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: MIT -->
 # Voice runtime baseline
 
 Status: Historical Wave A characterization, 2026-09-23. This snapshot is exploratory, not production qualification; implementation and gate evidence continued afterward. Current architecture is in [voice-live.md](voice-live.md), and production remains uncertified until the physical gates listed there and in ADR-058 pass.

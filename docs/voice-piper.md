@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: MIT -->
 # Piper TTS fallback
 
 Unifia runs Piper through the supervised `piper-host` JSONL subprocess. The

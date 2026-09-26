@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: MIT -->
 # Voice playback
 
 Manual read-aloud and automatic assistant playback use the `tts-toggle` and
