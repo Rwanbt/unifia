@@ -80,6 +80,7 @@ tar = "0.4"
 url = "2"
 zeroize = "1.8"
 unifia-supervisor = { version = "0.0.0", path = "../../../crates/unifia-supervisor" }
+unifia-voice-artifacts = { path = "../../../crates/unifia-voice-artifacts" }
 # Brand-prefixed keyring helpers (carte C8-B). Isolated from the Tauri
 # runtime so the migration logic can be unit-tested on a workstation
 # without WebView2 / DirectML installed.

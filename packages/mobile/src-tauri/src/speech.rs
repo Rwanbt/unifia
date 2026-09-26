@@ -9,14 +9,11 @@
 //! about ONNX Runtime type errors).
 #![allow(dead_code)]
 
-use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 use crate::parakeet::ParakeetEngine;
-
-const STT_MODEL_URL: &str = "https://github.com/Kieirra/murmure-model/releases/download/1.0.0/parakeet-tdt-0.6b-v3-int8.zip";
 
 /// Acquire a Mutex guard tolerantly: if poisoned (a previous holder panicked),
 /// recover the guard rather than propagating. This trades the crash for a
@@ -39,15 +36,12 @@ fn model_dir(app: &AppHandle) -> PathBuf {
     data_dir(app).join("speech").join("parakeet-tdt-0.6b-v3-int8")
 }
 
-fn speech_dir(app: &AppHandle) -> PathBuf {
-    data_dir(app).join("speech")
-}
-
 // ─── State ─────────────────────────────────────────────────────────────
 
 pub struct SpeechState {
     stt_engine: Mutex<ParakeetEngine>,
     stt_loaded: Mutex<bool>,
+    model_download: tokio::sync::Mutex<()>,
 }
 
 impl SpeechState {
@@ -55,6 +49,7 @@ impl SpeechState {
         Self {
             stt_engine: Mutex::new(ParakeetEngine::new()),
             stt_loaded: Mutex::new(false),
+            model_download: tokio::sync::Mutex::new(()),
         }
     }
 }
@@ -63,48 +58,11 @@ impl SpeechState {
 
 #[tauri::command]
 pub async fn stt_download_model(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<SpeechState>();
+    let _download_guard = state.model_download.lock().await;
+    let spec = unifia_voice_artifacts::bundled_parakeet_spec()?;
     let dir = model_dir(&app);
-    if dir.join("encoder-model.int8.onnx").exists() {
-        return Ok(());
-    }
-
-    tracing::info!("[STT] Downloading Parakeet model...");
-    let _ = fs::create_dir_all(speech_dir(&app));
-    let zip_path = speech_dir(&app).join("parakeet-model.zip");
-
-    let client = reqwest::Client::new();
-    let resp = client.get(STT_MODEL_URL).send().await.map_err(|e| format!("Download: {}", e))?;
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()));
-    }
-
-    use futures_util::StreamExt;
-    use tokio::io::AsyncWriteExt;
-
-    let mut file = tokio::fs::File::create(&zip_path).await.map_err(|e| format!("Create: {}", e))?;
-    let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| format!("Stream: {}", e))?;
-        file.write_all(&chunk).await.map_err(|e| format!("Write: {}", e))?;
-    }
-    file.flush().await.map_err(|e| format!("Flush: {}", e))?;
-    drop(file);
-
-    // Extract
-    let zip_clone = zip_path.clone();
-    let dir_clone = speech_dir(&app);
-    tokio::task::spawn_blocking(move || {
-        let file = fs::File::open(&zip_clone).map_err(|e| format!("Open: {}", e))?;
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Zip: {}", e))?;
-        archive.extract(&dir_clone).map_err(|e| format!("Extract: {}", e))?;
-        Ok::<(), String>(())
-    })
-    .await
-    .map_err(|e| format!("Task: {}", e))?
-    .map_err(|e: String| e)?;
-
-    let _ = fs::remove_file(&zip_path);
-    Ok(())
+    unifia_voice_artifacts::install(&spec, &dir, |_| {}).await
 }
 
 #[tauri::command]
@@ -115,7 +73,8 @@ pub async fn stt_load_model(app: AppHandle) -> Result<(), String> {
     }
 
     let dir = model_dir(&app);
-    if !dir.join("encoder-model.int8.onnx").exists() {
+    let spec = unifia_voice_artifacts::bundled_parakeet_spec()?;
+    if !unifia_voice_artifacts::is_installed(&spec, &dir) {
         return Err("Model not downloaded".to_string());
     }
 
@@ -173,7 +132,8 @@ pub async fn stt_transcribe(app: AppHandle, audio_base64: String) -> Result<Stri
 
 #[tauri::command]
 pub async fn stt_available(app: AppHandle) -> bool {
-    model_dir(&app).join("encoder-model.int8.onnx").exists()
+    unifia_voice_artifacts::bundled_parakeet_spec()
+        .is_ok_and(|spec| unifia_voice_artifacts::is_installed(&spec, &model_dir(&app)))
 }
 
 #[tauri::command]

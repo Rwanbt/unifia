@@ -6308,6 +6308,7 @@ dependencies = [
  "tracing-subscriber",
  "unifia-keyring-shim",
  "unifia-supervisor",
+ "unifia-voice-artifacts",
  "url",
  "uuid",
  "webkit2gtk",
@@ -6335,6 +6336,20 @@ dependencies = [
  "thiserror 2.0.20",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "unifia-voice-artifacts"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "uuid",
+ "zip 2.4.2",
 ]
 
 [[package]]
