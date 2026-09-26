@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Latest pushed SHA with both required remote workflows confirmed green:** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
+**Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Latest pushed implementation SHA:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`, followed by checkpoint commit `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`, on `voice` and `origin/voice`; both required remote workflows passed on branch head. The push hook passed all **47/47** Turbo typechecks.
+**Previous pushed implementation SHA:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`, followed by checkpoint commit `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`, on `voice` and `origin/voice`; both required remote workflows passed on branch head. The push hook passed all **47/47** Turbo typechecks.
 
-**Latest code-bearing commit:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`. Exact-SHA local tests and remote branch-head workflows passed. This adds the Android SDK `promptAsync` stream adapter, filters events to the submitted message lineage, and sequences semantic events and in-memory text deltas through VoiceCore. Snapshots retain replay protection and clock state, not event payloads. SpeechSegmenter/TTS streaming and other production producers remain open. Preserve pre-existing and test-generated build/cache artifacts unstaged.
+**Previous code-bearing commit:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`. Exact-SHA local tests and remote branch-head workflows passed. This adds the Android SDK `promptAsync` stream adapter, filters events to the submitted message lineage, and sequences semantic events and in-memory text deltas through VoiceCore. Snapshots retain replay protection and clock state, not event payloads. SpeechSegmenter/TTS streaming and other production producers remain open. Preserve pre-existing and test-generated build/cache artifacts unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -43,7 +43,7 @@
 
 ## Checks Run
 
-- Current capacity-rotation source: App Voice **132 passed**, app typecheck passed, Biome passed on five changed TS files, VoiceCore **25 passed** with strict Clippy and rustfmt, Android Tauri `cargo check --lib --locked` passed, and `test/server/session-list.test.ts` **6 passed** including explicit permission-rule preservation across session fork. The exact commit SHA for this local slice is pending.
+- Current capacity-rotation source: App Voice **132 passed**, app typecheck passed, Biome passed on five changed TS files, VoiceCore **25 passed** with strict Clippy and rustfmt, Android Tauri `cargo check --lib --locked` passed, and `test/server/session-list.test.ts` **6 passed** including explicit permission-rule preservation across session fork. Capacity rotation implementation commit: `9fae579091cf78c67f3794133792de0d466d44da`. Remote workflows for this SHA are pending.
 - GitHub API confirmed `voice` at `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`; exact branch-head runs `voice-ci` `36252983708` and `unifia-conformance` `36252983713` both succeeded. Those commits appeared on the branch from the alternate harness after the local credential failure.
 
 - Latest pushed SHA `b7733b32455e59529c1525f5fb5e6c8170ef5056`: `voice-ci` run `36248320071` and `unifia-conformance` run `36248320089` both completed successfully; push hook passed **47/47** typechecks.
@@ -115,7 +115,6 @@
 
 ## Next Exact Actions
 
-1. Finish and commit the local G2 capacity-rotation slice; add/confirm capacity-boundary and retry evidence, then push it to `voice`.
-2. Continue G2 with lifecycle/recovery parity, cross-runtime fixtures, and VoiceCore adoption in Python and desktop emitters; preserve `cancel speech != cancel agent work`.
-3. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
-4. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
+1. Continue G2 with lifecycle/recovery parity, cross-runtime fixtures, and VoiceCore adoption in Python and desktop emitters; preserve `cancel speech != cancel agent work`.
+2. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
+3. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
