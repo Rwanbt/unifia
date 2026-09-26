@@ -58,7 +58,18 @@ describe("Android native Live audio transport", () => {
       if (command === "stt_available") return true
       if (command === "voice_audio_poll") {
         pollCount++
-        return { speaking: pollCount === 1, utterance_id: pollCount === 1 ? "41" : null, audio_clock_ms: 20 }
+        return {
+          speaking: pollCount === 1,
+          utterance_id: pollCount === 1 ? "41" : null,
+          audio_clock_ms: 20,
+          sample_rate: 48_000,
+          frames_per_burst: 192,
+          xrun_count: 0,
+          last_error: 0,
+          capture_overflows: 0,
+          playback_overflows: 0,
+          playback_empty_samples: 0,
+        }
       }
       if (command === "voice_audio_transcribe_utterance") return "Hello"
       return null

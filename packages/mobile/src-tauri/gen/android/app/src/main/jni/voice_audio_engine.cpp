@@ -192,6 +192,10 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
     return input_ ? input_->getFramesPerBurst() : 0;
   }
 
+  int64_t audioClockFrames() const noexcept {
+    return input_ ? input_->getFramesRead() : 0;
+  }
+
   int32_t xrunCount() const noexcept {
     const auto inputResult = input_ && input_->isXRunCountSupported()
                                  ? input_->getXRunCount()
@@ -240,6 +244,7 @@ VoiceAudioEngine* engineFor(void* handle) noexcept {
 extern "C" {
 
 struct VoiceAudioStats {
+  int64_t audioClockFrames;
   int32_t sampleRate;
   int32_t framesPerBurst;
   int32_t xrunCount;
@@ -280,6 +285,7 @@ uint32_t voice_audio_write(void* handle, const int16_t* samples, uint32_t count)
 void voice_audio_stats(void* handle, VoiceAudioStats* stats) noexcept {
   auto* engine = engineFor(handle);
   if (engine == nullptr || stats == nullptr) return;
+  stats->audioClockFrames = engine->audioClockFrames();
   stats->sampleRate = engine->sampleRate();
   stats->framesPerBurst = engine->framesPerBurst();
   stats->xrunCount = engine->xrunCount();

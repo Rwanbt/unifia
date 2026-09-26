@@ -1,19 +1,36 @@
 /* SPDX-License-Identifier: MIT */
-import type { LocalVoiceTransport } from "./live-controller"
+import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-controller"
 import { AndroidOfflineTts } from "./android-offline-tts"
 import { loadAudioSettings } from "./audio-settings"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
-type NativeAudioPoll = { speaking: boolean; utterance_id: string | null; audio_clock_ms: number }
+type NativeAudioPoll = {
+  speaking: boolean
+  utterance_id: string | null
+  audio_clock_ms: number
+  sample_rate: number
+  frames_per_burst: number
+  xrun_count: number
+  last_error: number
+  capture_overflows: number
+  playback_overflows: number
+  playback_empty_samples: number
+}
 
 /** Android Oboe capture, local Parakeet inference and installed offline TTS. */
 export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoiceTransport {
-  let handlers: { onSpeaking(speaking: boolean): void; onUtterance(audio: string): void; onError?(error: unknown): void } | undefined
+  let handlers: {
+    onSpeaking(speaking: boolean): void
+    onUtterance(audio: string): void
+    onError?(error: unknown): void
+    onAudioDiagnostics?(stats: LocalVoiceAudioDiagnostics): void
+  } | undefined
   const tts = new AndroidOfflineTts()
   let stopped = true
   let audioOpened = false
   let polling = false
   let previousSpeaking = false
+  let lastDiagnosticsAt = 0
 
   async function pollAudio() {
     if (polling) return
@@ -22,6 +39,23 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       while (!stopped) {
         const poll = await invoke("voice_audio_poll") as NativeAudioPoll
         if (stopped) break
+        if (poll.last_error !== 0) throw new Error(`Oboe audio stream failed (${poll.last_error})`)
+        if (poll.sample_rate !== 48_000) throw new Error(`Unsupported native audio sample rate (${poll.sample_rate})`)
+        const now = Date.now()
+        if (now - lastDiagnosticsAt >= 1_000) {
+          lastDiagnosticsAt = now
+          const diagnostics: LocalVoiceAudioDiagnostics = {
+            audioClockMs: poll.audio_clock_ms,
+            sampleRate: poll.sample_rate,
+            framesPerBurst: poll.frames_per_burst,
+            xrunCount: poll.xrun_count,
+            lastError: poll.last_error,
+            captureOverflows: poll.capture_overflows,
+            playbackOverflows: poll.playback_overflows,
+            playbackEmptySamples: poll.playback_empty_samples,
+          }
+          handlers?.onAudioDiagnostics?.(diagnostics)
+        }
         if (poll.speaking !== previousSpeaking) {
           previousSpeaking = poll.speaking
           handlers?.onSpeaking(poll.speaking)

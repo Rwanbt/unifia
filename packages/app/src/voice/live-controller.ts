@@ -56,11 +56,23 @@ export interface LocalVoiceTransport {
     onSpeaking(speaking: boolean): void
     onUtterance(audio: string): void
     onError?(error: unknown): void
+    onAudioDiagnostics?(stats: LocalVoiceAudioDiagnostics): void
   }): Promise<void>
   transcribe(audio: string): Promise<string>
   speak(text: string): Promise<void>
   stop(): void
   stopSpeaking(): void
+}
+
+export interface LocalVoiceAudioDiagnostics {
+  audioClockMs: number
+  sampleRate: number
+  framesPerBurst: number
+  xrunCount: number
+  lastError: number
+  captureOverflows: number
+  playbackOverflows: number
+  playbackEmptySamples: number
 }
 
 export interface LivePlayback {
@@ -173,6 +185,7 @@ export class LiveVoiceController {
             this.dispatch({ type: "user-speaking", speaking }, generation)
           },
           onUtterance: (audio) => this.queueLocalTurn(audio, generation, this.localInputRevision),
+          onAudioDiagnostics: (stats) => this.deps.log?.("Native Android audio diagnostics", { ...stats }),
           onError: (error) => {
             if (generation === this.generation) this.fail(errorFromUnknown(error))
           },

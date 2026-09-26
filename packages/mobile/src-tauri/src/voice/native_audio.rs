@@ -23,6 +23,20 @@ type Open = unsafe extern "C" fn(*mut c_void) -> i32;
 type Close = unsafe extern "C" fn(*mut c_void);
 type Read = unsafe extern "C" fn(*mut c_void, *mut i16, u32) -> u32;
 type Write = unsafe extern "C" fn(*mut c_void, *const i16, u32) -> u32;
+type GetStats = unsafe extern "C" fn(*mut c_void, *mut NativeStats);
+
+#[repr(C)]
+#[derive(Default)]
+struct NativeStats {
+    audio_clock_frames: i64,
+    sample_rate: i32,
+    frames_per_burst: i32,
+    xrun_count: i32,
+    last_error: i32,
+    capture_overflows: u32,
+    playback_overflows: u32,
+    playback_empty_samples: u32,
+}
 
 struct NativeApi {
     _library: Library,
@@ -32,6 +46,7 @@ struct NativeApi {
     close: Close,
     read: Read,
     write: Write,
+    get_stats: GetStats,
 }
 
 impl NativeApi {
@@ -59,6 +74,9 @@ impl NativeApi {
             let write = *library
                 .get::<Write>(b"voice_audio_write\0")
                 .map_err(|error| format!("resolve voice_audio_write: {error}"))?;
+            let get_stats = *library
+                .get::<GetStats>(b"voice_audio_stats\0")
+                .map_err(|error| format!("resolve voice_audio_stats: {error}"))?;
             Ok(Self {
                 _library: library,
                 create,
@@ -67,6 +85,7 @@ impl NativeApi {
                 close,
                 read,
                 write,
+                get_stats,
             })
         }
     }
@@ -79,7 +98,6 @@ struct CaptureSegmenter {
     speech_active: bool,
     silent_ms: u32,
     background_rms: f32,
-    audio_clock_frames: u64,
 }
 
 impl CaptureSegmenter {
@@ -91,7 +109,6 @@ impl CaptureSegmenter {
             speech_active: false,
             silent_ms: 0,
             background_rms: 0.006,
-            audio_clock_frames: 0,
         }
     }
 
@@ -99,7 +116,6 @@ impl CaptureSegmenter {
         if samples.is_empty() {
             return (self.speech_active, None);
         }
-        self.audio_clock_frames = self.audio_clock_frames.saturating_add(samples.len() as u64);
         let square_mean = samples
             .iter()
             .map(|sample| {
@@ -177,6 +193,13 @@ pub struct AudioPoll {
     speaking: bool,
     utterance_id: Option<String>,
     audio_clock_ms: u64,
+    sample_rate: i32,
+    frames_per_burst: i32,
+    xrun_count: i32,
+    last_error: i32,
+    capture_overflows: u32,
+    playback_overflows: u32,
+    playback_empty_samples: u32,
 }
 
 #[tauri::command]
@@ -243,12 +266,30 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
     };
     let mono_16khz = downsample_48khz_to_16khz(&capture[..read.min(capture.len())]);
     let (speaking, utterance_id) = session.segmenter.accept(&mono_16khz);
-    let audio_clock_ms = session.segmenter.audio_clock_frames * 1_000 / 16_000;
+    let mut stats = NativeStats::default();
+    unsafe { (session.api.get_stats)(session.handle as *mut c_void, &mut stats) };
+    if stats.last_error != 0 {
+        return Err(format!("Oboe audio stream failed ({})", stats.last_error));
+    }
     Ok(AudioPoll {
         speaking,
         utterance_id: utterance_id.map(|id| id.to_string()),
-        audio_clock_ms,
+        audio_clock_ms: audio_clock_ms(&stats),
+        sample_rate: stats.sample_rate,
+        frames_per_burst: stats.frames_per_burst,
+        xrun_count: stats.xrun_count,
+        last_error: stats.last_error,
+        capture_overflows: stats.capture_overflows,
+        playback_overflows: stats.playback_overflows,
+        playback_empty_samples: stats.playback_empty_samples,
     })
+}
+
+fn audio_clock_ms(stats: &NativeStats) -> u64 {
+    u64::try_from(stats.audio_clock_frames.max(0))
+        .unwrap_or(0)
+        .saturating_mul(1_000)
+        / u64::try_from(stats.sample_rate.max(1)).unwrap_or(1)
 }
 
 #[tauri::command]
@@ -334,6 +375,17 @@ mod tests {
     #[test]
     fn downsamples_complete_frames_and_drops_partial_tail() {
         assert_eq!(downsample_48khz_to_16khz(&[3, 6, 9, 10]), vec![6]);
+    }
+
+    #[test]
+    fn audio_clock_uses_native_stream_frame_position() {
+        let stats = NativeStats {
+            audio_clock_frames: 96_000,
+            sample_rate: 48_000,
+            ..NativeStats::default()
+        };
+        assert_eq!(audio_clock_ms(&stats), 2_000);
+        assert_eq!(std::mem::size_of::<NativeStats>(), 40);
     }
 
     #[test]
