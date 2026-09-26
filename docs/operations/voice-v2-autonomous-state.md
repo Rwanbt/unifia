@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Latest pushed SHA with both required remote workflows confirmed green:** `b7733b32455e59529c1525f5fb5e6c8170ef5056` (`voice-ci` 36248320071; `unifia-conformance` 36248320089; both successful).
+**Latest pushed SHA with both required remote workflows confirmed green:** `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a` (`voice-ci` 36249076833; `unifia-conformance` 36249076835; both successful).
 
-**Latest pushed implementation SHA:** `b7733b32455e59529c1525f5fb5e6c8170ef5056` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
+**Latest pushed implementation SHA:** `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
 
-**Latest code-bearing commit:** `3e0fed9179a979d6ad316beb346f5be4fc9a295d`, included in the pushed branch. GitHub runs `36248320071` and `36248320089` passed on exact SHA `b7733b32455e59529c1525f5fb5e6c8170ef5056`. The current G2 slice adds a bounded, checksum-verified snapshot store and a blocking VoiceCore CI job; exact-SHA CI for this slice is pending. Production event producers still do not use VoiceCore as their ordering/state authority. Preserve pre-existing and test-generated build/cache artifacts unstaged.
+**Latest code-bearing commit:** `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a`. Exact-SHA runs `36249076833` and `36249076835` passed, including the new blocking VoiceCore Rust format/Clippy/test job. The snapshot store and bounded-history slice are verified and pushed; there is still no production runtime owner, and production event producers do not use VoiceCore as ordering/state authority. Preserve pre-existing and test-generated build/cache artifacts unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -25,7 +25,7 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green on current pushed SHA; local gate extension pending | `voice-ci` `36248320071` and `unifia-conformance` `36248320089` passed on exact SHA `b7733b32455e59529c1525f5fb5e6c8170ef5056`. The new VoiceCore job has only local YAML and Rust validation until the changed workflow is pushed and runs remotely. |
+| G0 — Truth and CI | Green | `voice-ci` `36249076833` and `unifia-conformance` `36249076835` both passed on exact SHA `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a`. The new blocking VoiceCore job passed formatting, strict Clippy, and Rust tests. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Python error/readiness emitters now use safe monotonic timestamps and TypeScript rejects unsafe timestamps. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; event generation and ordering parity across other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
 | G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. The current local slice adds `VoiceCoreSnapshotStore`: two alternating slots, schema validation, 1 MiB bounded reads, SHA-256 consistency checks for accidental corruption (not authenticity), flush-before-promotion, stale-snapshot rejection and preservation of the previous complete slot on interrupted writes. Issued turn history caps at 4,096 and fails closed rather than evicting IDs; callers must still surface capacity and rotate the session safely. Local tests cover corruption, interrupted promotion, oversized input, stale writes, deduplication and capacity. No production runtime owns or calls the store; production event producers still bypass VoiceCore. Lifecycle state machine, durable idempotency, runtime integration, generation parity and cross-runtime fixture parity remain open.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
@@ -44,7 +44,7 @@
 ## Checks Run
 
 - Latest pushed SHA `b7733b32455e59529c1525f5fb5e6c8170ef5056`: `voice-ci` run `36248320071` and `unifia-conformance` run `36248320089` both completed successfully; push hook passed **47/47** typechecks.
-- Current G2 slice: **21 Rust tests passed**; Rust formatting, strict Clippy, mobile `cargo check --lib --manifest-path packages/mobile/src-tauri/Cargo.toml --locked`, and `git diff --check` passed. The workflow parsed as YAML and the new blocking `voice-rust-core` job was detected. Run remote CI on the committed SHA before calling G2 closed.
+- Exact pushed G2 slice SHA `61ab9b8934aaf295cdf17a5bb97f7fbbed35d03a`: `voice-ci` `36249076833` and `unifia-conformance` `36249076835` passed. The new `voice-rust-core` job passed format, strict Clippy and tests; local VoiceCore tests **21 passed**; mobile Tauri `cargo check --lib --locked` and push-hook **47/47** typechecks passed.
 
 - `bun test --preload ./happydom.ts ./src/voice` in `packages/app`: **118 passed**, 0 failed, 481 assertions.
 - `bun run typecheck` in `packages/app`: passed.
@@ -112,7 +112,7 @@
 
 ## Next Exact Actions
 
-1. Finish formatting and targeted checks, review the complete diff, commit the G2 storage + CI slice, push normally, and verify exact-SHA `voice-ci` and `unifia-conformance`.
-2. Continue G2 by wiring a durable snapshot owner into the real runtime, surfacing safe session rotation at turn-history capacity, making VoiceCore the actual ordering/state authority for Python and platform emitters, persisting idempotency history, and adding generation/cross-runtime fixture parity; preserve `cancel speech != cancel agent work`.
+1. Continue G2 by wiring a durable snapshot owner into the actual Live runtime and making VoiceCore the state/order authority for production Android, TypeScript and Python paths; inspect binding/session flows before choosing adapter boundaries.
+2. Surface safe session rotation at turn-history capacity, persist idempotency history, and add generation/cross-runtime fixture parity; preserve `cancel speech != cancel agent work`.
 3. Continue G3 native audio (Android adapter still uses WebView `getUserMedia`/`ScriptProcessorNode`) and proceed through G14 in dependency order. Do not claim GO PROD from host tests.
 4. The Xiaomi device was previously visible to `adb devices`; recheck it and inspect app/device instructions before qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
