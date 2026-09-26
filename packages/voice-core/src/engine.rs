@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::event::MAX_SAFE_VOICE_INTEGER;
 use crate::{VoiceEvent, VoiceEventKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,6 +159,9 @@ impl VoiceCore {
             (None, false) => None,
         };
         let sequence = self.next_sequence;
+        if sequence > MAX_SAFE_VOICE_INTEGER {
+            return Err(VoiceCoreError::SequenceExhausted);
+        }
         let next_sequence = self
             .next_sequence
             .checked_add(1)
@@ -356,6 +360,36 @@ mod tests {
             )
             .unwrap();
         assert_eq!((event.sequence, event.monotonic_timestamp_ms), (0, 10));
+    }
+
+    #[test]
+    fn sequence_exhaustion_matches_the_javascript_safe_integer_limit() {
+        let mut core = VoiceCore::new("ses_sequence_limit").unwrap();
+        core.next_sequence = MAX_SAFE_VOICE_INTEGER;
+        let last_representable = core
+            .publish(
+                None,
+                1,
+                VoiceEventKind::VoicePreparing {
+                    profile: VoiceProfile::Live,
+                },
+            )
+            .unwrap();
+        assert_eq!(last_representable.sequence, MAX_SAFE_VOICE_INTEGER);
+        assert_eq!(
+            core.publish(
+                None,
+                2,
+                VoiceEventKind::VoiceReady {
+                    profile: VoiceProfile::Live,
+                    capabilities: vec![],
+                    language: SpeechLanguage::En,
+                    voice: "en-default".into(),
+                    locale_source: crate::LocaleSource::FallbackEnglish,
+                },
+            ),
+            Err(VoiceCoreError::SequenceExhausted)
+        );
     }
 
     #[test]

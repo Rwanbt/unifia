@@ -20,6 +20,7 @@ describe("speech contracts", () => {
     expect(isVoiceReadyEvent(base)).toBe(true)
     expect(isVoiceReadyEvent({ ...base, sessionID: "binding_test" })).toBe(false)
     expect(isVoiceReadyEvent({ ...base, seq: -1 })).toBe(false)
+    expect(isVoiceReadyEvent({ ...base, ts: Number.MAX_SAFE_INTEGER + 1 })).toBe(false)
     expect(isVoiceReadyEvent({ ...base, profile: "dictation" })).toBe(false)
   })
 
@@ -48,6 +49,7 @@ describe("speech contracts", () => {
     expect(isVoiceErrorEvent({ ...base, provider_id: "secret value" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, cause_category: "other" })).toBe(false)
     expect(isVoiceErrorEvent({ ...base, sessionID: "binding_not_session" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, ts: Number.MAX_SAFE_INTEGER + 1 })).toBe(false)
   })
 
   test("pre-session errors use exactly one validated Live binding identity", () => {

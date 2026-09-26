@@ -375,7 +375,7 @@ export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
       : validBindingIdentity && !hasSessionIdentity)
     && (event.turnID === undefined || (typeof event.turnID === "string" && event.turnID.length <= MAX_VOICE_ERROR_ID_LENGTH))
     && typeof event.ts === "number"
-    && Number.isFinite(event.ts)
+    && Number.isSafeInteger(event.ts)
     && typeof event.seq === "number"
     && Number.isSafeInteger(event.seq)
     && event.seq >= 0
@@ -402,7 +402,7 @@ export function isVoiceReadyEvent(value: unknown): value is VoiceReadyEvent {
     && event.sessionID.length > "ses_".length
     && event.sessionID.length <= MAX_VOICE_ERROR_ID_LENGTH
     && typeof event.ts === "number"
-    && Number.isFinite(event.ts)
+    && Number.isSafeInteger(event.ts)
     && typeof event.seq === "number"
     && Number.isSafeInteger(event.seq)
     && event.seq >= 0

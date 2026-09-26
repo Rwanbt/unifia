@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::VoiceError;
 
+pub(crate) const MAX_SAFE_VOICE_INTEGER: u64 = 9_007_199_254_740_991;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VoiceProfile {
@@ -233,6 +235,7 @@ pub enum VoiceEventValidationError {
     BindingIdentityNotAllowed,
     InvalidTurnIdentity,
     MissingTurnIdentity,
+    InvalidTimestamp,
     InvalidConfidence,
     InvalidVadProbability,
     InvalidAudioFormat,
@@ -242,8 +245,11 @@ pub enum VoiceEventValidationError {
 
 impl VoiceEvent {
     pub fn validate(&self) -> Result<(), VoiceEventValidationError> {
-        if self.sequence > 9_007_199_254_740_991 {
+        if self.sequence > MAX_SAFE_VOICE_INTEGER {
             return Err(VoiceEventValidationError::InvalidSequence);
+        }
+        if self.monotonic_timestamp_ms > MAX_SAFE_VOICE_INTEGER {
+            return Err(VoiceEventValidationError::InvalidTimestamp);
         }
         let has_session = self.session_id.as_deref().is_some_and(valid_session_id);
         let has_binding = self.binding_id.as_deref().is_some_and(valid_binding_id);
@@ -355,6 +361,26 @@ mod tests {
         assert_eq!(
             base(VoiceEventKind::SpeechStarted).validate(),
             Err(VoiceEventValidationError::MissingTurnIdentity)
+        );
+    }
+
+    #[test]
+    fn rejects_timestamps_and_sequences_outside_javascript_safe_integer_range() {
+        let ready = || VoiceEventKind::VoicePreparing {
+            profile: VoiceProfile::Live,
+        };
+        let mut event = base(ready());
+        event.monotonic_timestamp_ms = MAX_SAFE_VOICE_INTEGER + 1;
+        assert_eq!(
+            event.validate(),
+            Err(VoiceEventValidationError::InvalidTimestamp)
+        );
+
+        let mut event = base(ready());
+        event.sequence = MAX_SAFE_VOICE_INTEGER + 1;
+        assert_eq!(
+            event.validate(),
+            Err(VoiceEventValidationError::InvalidSequence)
         );
     }
 
