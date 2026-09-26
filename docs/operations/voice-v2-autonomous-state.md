@@ -11,7 +11,7 @@
 
 **Most recent pushed head with both required workflows confirmed green:** `5cc42e97eb271f6b6f413aef3b4b95300e740762` (`fix(android): share PTY port with native service`; `voice-ci` `36275004726` success; `unifia-conformance` `36275004752` success; both on that exact SHA). The previous code/docs history is retained below.
 
-**Current branch head:** `552babbde5` (documentation checkpoint) is pushed and equal to `origin/voice`. The latest code-bearing commit is `e5a053544a9c15d0ffdb0f5e500321e778023327`; both required workflows passed on that exact SHA: `voice-ci` `36277047410`, `unifia-conformance` `36277047373`. Previous exact code SHA `4d92a6ee2719bfe2377af53229265b83c03635f9` also passed both workflows (`36275783995`, `36275783879`).
+**Last verified branch head before this state update:** `653c5001519656f3968abbaf014fb0b657334458` on `origin/voice`. The latest code-bearing commit is `e5a053544a9c15d0ffdb0f5e500321e778023327`; both required workflows passed on that exact SHA: `voice-ci` `36277047410`, `unifia-conformance` `36277047373`. Previous exact code SHA `4d92a6ee2719bfe2377af53229265b83c03635f9` also passed both workflows (`36275783995`, `36275783879`).
 
 **Code-bearing slices included in that push:** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6).
 
