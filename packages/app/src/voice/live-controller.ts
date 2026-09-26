@@ -73,6 +73,8 @@ export interface LocalVoiceAudioDiagnostics {
   captureOverflows: number
   playbackOverflows: number
   playbackEmptySamples: number
+  vadProvider: string
+  vadFallback: boolean
 }
 
 export interface LivePlayback {

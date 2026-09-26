@@ -30,6 +30,7 @@ use toolchain::{force_symlink, prepare_toolchain_wrappers, repair_rootfs_hardlin
 // are re-imported because `check_runtime` and the tests still call them.
 mod extraction;
 mod pty_config;
+#[cfg(unix)]
 use pty_config::android_pty_port;
 // Re-exported so lib.rs's `generate_handler!` can reference
 // `runtime::extract_runtime`. That handler is `#[cfg(target_os = "android")]`,

@@ -20,6 +20,7 @@
 
 pub(crate) mod native_audio;
 mod resource_scheduler;
+mod vad;
 pub(crate) mod voice_core;
 
 // Public surface re-exported for downstream modules. The pub use is

@@ -69,6 +69,8 @@ describe("Android native Live audio transport", () => {
           capture_overflows: 0,
           playback_overflows: 0,
           playback_empty_samples: 0,
+          vad_provider: "silero-v6.2.2",
+          vad_fallback: false,
         }
       }
       if (command === "voice_audio_transcribe_utterance") return "Hello"
@@ -77,13 +79,16 @@ describe("Android native Live audio transport", () => {
     const transport = createAndroidLocalVoiceTransport(invoke)
     let utteranceID = ""
     let speakingTransitions = 0
+    let vadStatus: { provider: string; fallback: boolean } | undefined
     await transport.start({
       onSpeaking: () => { speakingTransitions++ },
       onUtterance: (id) => { utteranceID = id },
+      onAudioDiagnostics: (stats) => { vadStatus = { provider: stats.vadProvider, fallback: stats.vadFallback } },
     })
     await new Promise((resolve) => setTimeout(resolve, 35))
     expect(utteranceID).toBe("41")
     expect(speakingTransitions).toBe(2)
+    expect(vadStatus).toEqual({ provider: "silero-v6.2.2", fallback: false })
     expect(trackStops).toBe(1)
     expect(commands.map(({ command }) => command)).toContain("voice_audio_open")
     expect(commands.map(({ command }) => command)).toContain("voice_audio_poll")

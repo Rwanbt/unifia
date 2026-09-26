@@ -15,6 +15,8 @@ type NativeAudioPoll = {
   capture_overflows: number
   playback_overflows: number
   playback_empty_samples: number
+  vad_provider: string
+  vad_fallback: boolean
 }
 
 /** Android Oboe capture, local Parakeet inference and installed offline TTS. */
@@ -63,6 +65,8 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
             captureOverflows: poll.capture_overflows,
             playbackOverflows: poll.playback_overflows,
             playbackEmptySamples: poll.playback_empty_samples,
+            vadProvider: poll.vad_provider,
+            vadFallback: poll.vad_fallback,
           }
           handlers?.onAudioDiagnostics?.(diagnostics)
         }

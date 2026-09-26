@@ -7,14 +7,14 @@ use std::sync::Mutex;
 
 use libloading::Library;
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 const CAPTURE_CHUNK_FRAMES: usize = 960;
 const DOWNSAMPLE_FACTOR: usize = 3;
 const VOICE_THRESHOLD: f32 = 0.018;
-const END_OF_TURN_SILENCE_MS: u32 = 500;
+const END_OF_TURN_SILENCE_MS: u32 = 650;
 const MAX_UTTERANCE_SAMPLES: usize = 16_000 * 60;
-const MIN_UTTERANCE_SAMPLES: usize = 16_000 / 5;
+const MIN_UTTERANCE_SAMPLES: usize = 16_000 * 280 / 1_000;
 const MAX_PENDING_UTTERANCES: usize = 2;
 
 type Create = unsafe extern "C" fn() -> *mut c_void;
@@ -98,6 +98,7 @@ struct CaptureSegmenter {
     speech_active: bool,
     silent_ms: u32,
     background_rms: f32,
+    vad_fallback: bool,
 }
 
 impl CaptureSegmenter {
@@ -109,10 +110,11 @@ impl CaptureSegmenter {
             speech_active: false,
             silent_ms: 0,
             background_rms: 0.006,
+            vad_fallback: false,
         }
     }
 
-    fn accept(&mut self, samples: &[i16]) -> (bool, Option<u64>) {
+    fn accept(&mut self, samples: &[i16], probability: Option<f32>) -> (bool, Option<u64>) {
         if samples.is_empty() {
             return (self.speech_active, None);
         }
@@ -125,7 +127,13 @@ impl CaptureSegmenter {
             .sum::<f32>()
             / samples.len() as f32;
         let rms = square_mean.sqrt();
-        let active = rms >= VOICE_THRESHOLD.max(self.background_rms * 3.0);
+        let active = match probability {
+            Some(probability) => probability >= 0.5,
+            None => {
+                self.vad_fallback = true;
+                rms >= VOICE_THRESHOLD.max(self.background_rms * 3.0)
+            }
+        };
         if !self.speech_active && !active {
             self.background_rms = self.background_rms * 0.96 + rms * 0.04;
             return (false, None);
@@ -176,6 +184,7 @@ struct NativeSession {
     api: NativeApi,
     handle: usize,
     segmenter: CaptureSegmenter,
+    vad: Option<super::vad::SileroVad>,
 }
 
 impl Drop for NativeSession {
@@ -200,10 +209,12 @@ pub struct AudioPoll {
     capture_overflows: u32,
     playback_overflows: u32,
     playback_empty_samples: u32,
+    vad_provider: &'static str,
+    vad_fallback: bool,
 }
 
 #[tauri::command]
-pub fn voice_audio_open(state: State<'_, NativeAudioState>) -> Result<(), String> {
+pub fn voice_audio_open(app: AppHandle, state: State<'_, NativeAudioState>) -> Result<(), String> {
     let mut current = state
         .0
         .lock()
@@ -211,6 +222,19 @@ pub fn voice_audio_open(state: State<'_, NativeAudioState>) -> Result<(), String
     if current.is_some() {
         return Ok(());
     }
+    let vad = match app.path().app_data_dir() {
+        Ok(directory) => match super::vad::SileroVad::load(&directory.join("voice-models")) {
+            Ok(vad) => Some(vad),
+            Err(error) => {
+                log::warn!("[voice] Silero VAD unavailable; using RMS fallback: {error}");
+                None
+            }
+        },
+        Err(error) => {
+            log::warn!("[voice] app data path unavailable; using RMS VAD fallback: {error}");
+            None
+        }
+    };
     let api = NativeApi::load()?;
     // SAFETY: The opaque handle is owned by NativeSession and used only through
     // function pointers from the same loaded library.
@@ -229,6 +253,7 @@ pub fn voice_audio_open(state: State<'_, NativeAudioState>) -> Result<(), String
         api,
         handle: handle as usize,
         segmenter: CaptureSegmenter::new(),
+        vad,
     });
     Ok(())
 }
@@ -265,7 +290,29 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         ) as usize
     };
     let mono_16khz = downsample_48khz_to_16khz(&capture[..read.min(capture.len())]);
-    let (speaking, utterance_id) = session.segmenter.accept(&mono_16khz);
+    let probabilities = match session.vad.as_mut() {
+        Some(vad) => match vad.probabilities(&mono_16khz) {
+            Ok(frames) => frames,
+            Err(error) => {
+                log::warn!("[voice] Silero VAD failed; using RMS fallback: {error}");
+                session.vad = None;
+                Vec::new()
+            }
+        },
+        None => Vec::new(),
+    };
+    let (speaking, utterance_id) = if session.vad.is_some() && probabilities.is_empty() {
+        (session.segmenter.speech_active, None)
+    } else if session.vad.is_none() {
+        session.segmenter.accept(&mono_16khz, None)
+    } else {
+        let mut emitted = None;
+        for (frame, probability) in probabilities {
+            let (_, utterance) = session.segmenter.accept(&frame, Some(probability));
+            emitted = emitted.or(utterance);
+        }
+        (session.segmenter.speech_active, emitted)
+    };
     let mut stats = NativeStats::default();
     unsafe { (session.api.get_stats)(session.handle as *mut c_void, &mut stats) };
     if stats.last_error != 0 {
@@ -282,6 +329,12 @@ pub fn voice_audio_poll(state: State<'_, NativeAudioState>) -> Result<AudioPoll,
         capture_overflows: stats.capture_overflows,
         playback_overflows: stats.playback_overflows,
         playback_empty_samples: stats.playback_empty_samples,
+        vad_provider: if session.vad.is_some() {
+            "silero-v6.2.2"
+        } else {
+            "rms-fallback"
+        },
+        vad_fallback: session.segmenter.vad_fallback || session.vad.is_none(),
     })
 }
 
@@ -391,14 +444,19 @@ mod tests {
     #[test]
     fn segmenter_emits_bounded_pcm_after_silence() {
         let mut segmenter = CaptureSegmenter::new();
-        let speech = vec![2_000_i16; 16_000 * 3 / 10];
-        assert_eq!(segmenter.accept(&speech), (true, None));
-        let silence = vec![0_i16; 16_000 / 20];
-        let mut emitted = None;
-        for _ in 0..10 {
-            let (_, utterance_id) = segmenter.accept(&silence);
-            emitted = emitted.or(utterance_id);
+        let speech = vec![2_000_i16; 512 * 9];
+        for frame in speech.chunks(512) {
+            assert_eq!(segmenter.accept(frame, Some(0.9)), (true, None));
         }
+        let silence = vec![0_i16; 512];
+        let mut emitted = None;
+        for _ in 0..20 {
+            let (_, utterance_id) = segmenter.accept(&silence, Some(0.0));
+            emitted = emitted.or(utterance_id);
+            assert!(emitted.is_none(), "650 ms trailing silence has not elapsed");
+        }
+        let (_, utterance_id) = segmenter.accept(&silence, Some(0.0));
+        emitted = emitted.or(utterance_id);
         let id = emitted.expect("speech should be emitted after the end-of-turn silence");
         assert_eq!(segmenter.pending.remove(&id).unwrap().len(), speech.len());
         assert!(segmenter.samples.capacity() <= MIN_UTTERANCE_SAMPLES * 2);
