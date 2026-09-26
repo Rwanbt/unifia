@@ -41,8 +41,12 @@ export function createLiveKitRoom(): LiveRoom {
         audioOutput: options.outputDeviceId ? { deviceId: options.outputDeviceId } : undefined,
       })
       room = current
-      const agentAttributes = (participant: Participant) => {
-        if (participant.isAgent) handlers.onAgentAttributes({ ...participant.attributes })
+  const agentAttributes = async (participant: Participant) => {
+    if (!participant.isAgent) return
+    const attributes = { ...participant.attributes }
+    handlers.onAgentAttributes(attributes)
+    const ready = attributes["unifia.voice_ready"]
+    if (ready) await handlers.onAgentVoiceReady(ready)
       }
       current
         .on(RoomEvent.Reconnecting, handlers.onReconnecting)
@@ -60,16 +64,19 @@ export function createLiveKitRoom(): LiveRoom {
         })
         .on(RoomEvent.ParticipantConnected, (participant) => {
           if (!participant.isAgent) return
-          handlers.onAgentJoined()
-          agentAttributes(participant)
+          void agentAttributes(participant)
         })
         .on(RoomEvent.ParticipantDisconnected, (participant) => {
           if (participant.isAgent) handlers.onAgentLeft()
         })
-        .on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => agentAttributes(participant))
+        .on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
+          void agentAttributes(participant)
+        })
         .on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
-          if (!participant?.isAgent || kind !== DataPacket_Kind.RELIABLE || topic !== "unifia.voice_error") return
-          handlers.onAgentVoiceError(new TextDecoder().decode(payload))
+          if (!participant?.isAgent || kind !== DataPacket_Kind.RELIABLE) return
+          const body = new TextDecoder().decode(payload)
+          if (topic === "unifia.voice_error") handlers.onAgentVoiceError(body)
+          if (topic === "unifia.voice_ready") void handlers.onAgentVoiceReady(body)
         })
         .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
           if (track.kind !== Track.Kind.Audio) return
@@ -91,8 +98,7 @@ export function createLiveKitRoom(): LiveRoom {
       await current.startAudio().catch(() => undefined)
       for (const participant of current.remoteParticipants.values()) {
         if (!participant.isAgent) continue
-        handlers.onAgentJoined()
-        agentAttributes(participant)
+        await agentAttributes(participant)
       }
     },
     async setMicrophone(enabled) {

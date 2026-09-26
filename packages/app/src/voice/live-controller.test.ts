@@ -66,6 +66,16 @@ function setup(options: { roomError?: unknown; grantErrors?: unknown[]; localVoi
   return { controller, rooms, requests, released, prepared, coordinator, playback, sessions }
 }
 
+function markReady(handlers: LiveRoomHandlers, sessionID = "ses_1") {
+  return handlers.onAgentVoiceReady(JSON.stringify({
+    kind: "voice_ready",
+    sessionID,
+    ts: 123,
+    seq: 1,
+    profile: "live",
+  }))
+}
+
 const context = { directory: "/work/project", sessionID: "ses_1", agent: "build", model: { providerID: "local-llm", modelID: "qwen" } }
 
 describe("LiveVoiceController", () => {
@@ -76,10 +86,13 @@ describe("LiveVoiceController", () => {
     await controller.start(context)
     expect(prepared).toEqual(["local"])
     expect(requests[0]).toMatchObject({ directory: "/work/project", sessionID: "ses_1", agent: "build", model: context.model })
-    expect(rooms[0].mic).toBe(true)
+    expect(rooms[0].mic).toBe(false)
     expect(playback).toEqual(["start:live-1"])
     expect(controller.state).toBe("connecting")
     rooms[0].handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
+    expect(controller.state).toBe("connecting")
+    await markReady(rooms[0].handlers!)
+    expect(rooms[0].mic).toBe(true)
     expect(controller.state).toBe("listening")
     expect(states.filter((state, index) => state !== states[index - 1])).toEqual(["idle", "connecting", "listening"])
   })
@@ -141,7 +154,7 @@ describe("LiveVoiceController", () => {
     const { controller, rooms } = setup()
     await controller.start(context)
     const room = rooms[0].handlers!
-    room.onAgentAttributes({ "lk.agent.state": "listening" })
+    await markReady(room)
     room.onUserSpeaking(true)
     room.onUserSpeaking(false)
     expect(controller.state).toBe("processing")
@@ -164,20 +177,22 @@ describe("LiveVoiceController", () => {
   test("a full reconnect reuses the binding (same room, device and session)", async () => {
     const { controller, rooms, requests } = setup({ grantErrors: [undefined, new LiveHostError("voice_host_unavailable")] })
     await controller.start(context)
-    rooms[0].handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
+    await markReady(rooms[0].handlers!)
     rooms[0].handlers!.onDisconnected("lost")
     await new Promise((resolve) => setTimeout(resolve, 0))
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(requests.slice(1).every((request) => request.binding === "lvb_1" && !request.directory)).toBe(true)
-    expect(rooms.at(-1)!.mic).toBe(true)
+    expect(rooms.at(-1)!.mic).toBe(false)
     rooms.at(-1)!.handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
+    await markReady(rooms.at(-1)!.handlers!)
+    expect(rooms.at(-1)!.mic).toBe(true)
     expect(controller.state).toBe("listening")
   })
 
   test("transient LiveKit reconnection keeps the conversation", async () => {
     const { controller, rooms } = setup()
     await controller.start(context)
-    rooms[0].handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
+    await markReady(rooms[0].handlers!)
     rooms[0].handlers!.onReconnecting()
     expect(controller.state).toBe("reconnecting")
     rooms[0].handlers!.onReconnected()
@@ -249,6 +264,46 @@ describe("LiveVoiceController", () => {
     expect(controller.details.error?.legacyCode).toBe("stt_unavailable")
     expect(controller.details.error?.detail).not.toContain("untrusted")
     await controller.stop()
+  })
+
+  test("rejects malformed readiness and leaves the microphone closed", async () => {
+    const { controller, rooms } = setup()
+    await controller.start(context)
+    await rooms[0].handlers!.onAgentVoiceReady("not-json")
+    expect(controller.state).toBe("error")
+    expect(rooms[0].mic).toBe(false)
+  })
+
+  test("a late readiness completion cannot reopen the microphone after an error", async () => {
+    const { controller, rooms } = setup()
+    await controller.start(context)
+    let finish: (() => void) | undefined
+    rooms[0].setMicrophone = async (enabled) => {
+      if (enabled) await new Promise<void>((resolve) => { finish = resolve })
+      rooms[0].mic = enabled
+    }
+    const pending = rooms[0].handlers!.onAgentVoiceReady(JSON.stringify({
+      kind: "voice_ready",
+      sessionID: "ses_1",
+      ts: 123,
+      seq: 1,
+      profile: "live",
+    }))
+    await Promise.resolve()
+    rooms[0].handlers!.onAgentVoiceError(JSON.stringify({
+      kind: "voice_error",
+      sessionID: "ses_1",
+      ts: 124,
+      seq: 2,
+      stage: "stt",
+      code: "STT_PROVIDER_UNAVAILABLE",
+      detail: "The speech recognition provider is unavailable.",
+      recoverable: false,
+    }))
+    finish?.()
+    await pending
+    expect(controller.state).toBe("error")
+    expect(rooms[0].mic).toBe(false)
   })
 
   test("malformed agent voice_error events fail with the safe internal code", async () => {

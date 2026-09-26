@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { createVoiceError, isLiveVoiceError, isVoiceErrorEvent, voiceErrorFromEvent, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
+import { createVoiceError, isLiveVoiceError, isVoiceErrorEvent, isVoiceReadyEvent, voiceErrorFromEvent, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
 import type { AudioCaptureLease } from "./audio-capture-coordinator"
 import type { AudioSettingsV2 } from "./audio-settings"
 import type { LocalVoiceStreamChunk } from "./local-session"
@@ -12,10 +12,10 @@ export interface LiveRoomHandlers {
   onReconnecting(): void
   onReconnected(): void
   onDisconnected(reason: DisconnectReason): void
-  onAgentJoined(): void
   onAgentLeft(): void
   onAgentAttributes(attributes: Readonly<Record<string, string>>): void
   onAgentVoiceError(payload: string): void
+  onAgentVoiceReady(payload: string): Promise<void>
   onUserSpeaking(speaking: boolean): void
 }
 
@@ -369,6 +369,7 @@ export class LiveVoiceController {
   private async connect(generation: number) {
     const room = this.deps.createRoom()
     this.room = room
+    this.dispatch({ type: "agent-state", agent: "initializing" }, generation)
     const settings = this.deps.settings()
     await room.connect(this.grant!, this.handlers(generation), {
       inputDeviceId: settings.liveInputDeviceId,
@@ -378,7 +379,6 @@ export class LiveVoiceController {
       await room.disconnect()
       return
     }
-    await room.setMicrophone(true)
     this.dispatch({ type: "connected" }, generation)
     if (!this.playbackId) {
       this.playbackId = `live-${generation}`
@@ -403,12 +403,12 @@ export class LiveVoiceController {
         if (generation !== this.generation || reason === "client") return
         void this.reconnect(generation)
       },
-      onAgentJoined: () => clearTimeout(this.agentTimer),
       onAgentLeft: () => {
         if (generation === this.generation && this.snapshot.connection === "connected") this.fail("agent_unavailable")
       },
       onAgentAttributes: (attributes) => this.applyAgentAttributes(attributes, generation),
       onAgentVoiceError: (payload) => this.applyAgentVoiceError(payload, generation),
+      onAgentVoiceReady: (payload) => this.applyAgentVoiceReady(payload, generation),
       onUserSpeaking: (speaking) => this.dispatch({ type: "user-speaking", speaking }, generation),
     }
   }
@@ -416,8 +416,10 @@ export class LiveVoiceController {
   private applyAgentAttributes(attributes: Readonly<Record<string, string>>, generation: number) {
     const phase = attributes["lk.agent.state"] as AgentPhase | undefined
     if (phase && AGENT_PHASES.has(phase)) {
-      if (phase !== "initializing") clearTimeout(this.agentTimer)
-      this.dispatch({ type: "agent-state", agent: phase }, generation)
+      if (phase === "initializing" || this.snapshot.agent !== "initializing") {
+        if (phase !== "initializing") clearTimeout(this.agentTimer)
+        this.dispatch({ type: "agent-state", agent: phase }, generation)
+      }
     }
     const task = attributes["unifia.task"]
     if (task === "idle" || task === "thinking" || task === "working") this.dispatch({ type: "agent-task", task }, generation)
@@ -460,6 +462,39 @@ export class LiveVoiceController {
     this.fail(voiceErrorFromEvent(event))
   }
 
+  private async applyAgentVoiceReady(payload: string, generation: number) {
+    if (generation !== this.generation) return
+    let event: unknown
+    try {
+      event = JSON.parse(payload)
+    } catch {
+      this.fail("voice_internal_error")
+      return
+    }
+    if (!isVoiceReadyEvent(event) || (this.grant?.sessionID && event.sessionID !== this.grant.sessionID)) {
+      this.fail("voice_internal_error")
+      return
+    }
+    const room = this.room
+    if (!room) return
+    try {
+      if (this.grant && !this.grant.sessionID) {
+        this.grant = { ...this.grant, sessionID: event.sessionID }
+        this.deps.onSession?.(event.sessionID)
+      }
+      await room.setMicrophone(true)
+    } catch (error) {
+      if (generation === this.generation) this.fail(errorFromUnknown(error))
+      return
+    }
+    if (generation !== this.generation) {
+      await room.setMicrophone(false).catch(() => undefined)
+      return
+    }
+    clearTimeout(this.agentTimer)
+    this.dispatch({ type: "agent-state", agent: "listening" }, generation)
+  }
+
   /** Full reconnect after LiveKit gave up resuming: same binding, fresh token. */
   private async reconnect(generation: number) {
     this.dispatch({ type: "reconnecting" }, generation)
@@ -486,6 +521,7 @@ export class LiveVoiceController {
   }
 
   private fail(error: LiveVoiceError | VoiceError) {
+    const generation = this.generation
     const voiceError = typeof error === "string" ? createVoiceError(error) : error
     this.log("voice.live.error", {
       code: voiceError.code,
@@ -494,7 +530,8 @@ export class LiveVoiceController {
       causeCategory: voiceError.causeCategory,
     })
     this.teardown()
-    this.dispatch({ type: "error", error: voiceError })
+    this.dispatch({ type: "error", error: voiceError }, generation)
+    this.generation++
   }
 
   private teardown() {
