@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last implementation SHA with both required remote workflows confirmed green:** `01bf5da293394970bfe1e99b476a249ed783c17f` (`voice-ci` 36244758338; `unifia-conformance` 36244758313; both reported successful in the previous continuation).
+**Latest implementation SHA with both required remote workflows confirmed green:** `e31ca24b26d5bda257bbe641a0d8df359d116024` (`voice-ci` 36245518691; `unifia-conformance` 36245518695; both successful).
 
-**Latest pushed implementation SHA:** `e31ca24b26d5bda257bbe641a0d8df359d116024` on `voice` and `origin/voice` (push output and tracking ref agree). The push hook passed all **47/47** Turbo typechecks. GitHub run lookup for this SHA returned no results in this session; remote workflow status is unverified.
+**Latest pushed implementation SHA:** `e31ca24b26d5bda257bbe641a0d8df359d116024` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
 
-**Current worktree:** implementation commit `e31ca24b26d5bda257bbe641a0d8df359d116024` plus this checkpoint-only correction. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain unstaged.
+**Current worktree:** branch `voice` is at `89945700f0de04206e67844f011c614e4b41911d`, equal to `origin/voice`. Its docs-only checkpoint commit passed `voice-ci` run `36245600481`; no `unifia-conformance` run is listed for this SHA. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -25,7 +25,7 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | Exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde` passed `voice-ci` `36242039225` and `unifia-conformance` `36242039213`. |
+| G0 — Truth and CI | Green | Implementation SHA `e31ca24b26d5bda257bbe641a0d8df359d116024` passed `voice-ci` `36245518691` and `unifia-conformance` `36245518695`. Current docs-only SHA `89945700f0de04206e67844f011c614e4b41911d` passed `voice-ci` `36245600481`; no conformance run is listed for that SHA. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; selections omitted in the binding, other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
 | G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed error/event contracts, sequence assignment, idempotency-key deduplication, monotonic timestamp checks, generation fencing, turn tokens, playback-only cancellation, reconnect, and snapshot recovery. Rust unit tests cover duplicate retries, ordering, stale generations, cancellation races, reconnect, and recovery; the Tauri runtime links the crate. Production producers, complete lifecycle state machine, durable persistence, adapters, and cross-runtime fixture parity remain open.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
@@ -103,6 +103,6 @@
 
 ## Next Exact Actions
 
-1. Read exact-SHA results for runs `36244758338` and `36244758313`; fix any failures and push a corrective commit.
-2. Continue G1: establish selected-LLM/provider readiness without generating an unauthorized session turn; unify remaining desktop/Android/local error producers; close ADR-070 only after adoption tests pass.
-3. Continue G2 by connecting actual Android and desktop producers/adapters to VoiceCore and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order. Qualify installer/model loading on Windows and Android hardware; do not claim GO PROD from host tests.
+1. Continue G1 by establishing selected-LLM/provider readiness without generating an unauthorized session turn; unify remaining desktop/Android/local error producers; close ADR-070 only after adoption tests pass.
+2. Continue G2 by connecting actual Android and desktop producers/adapters to VoiceCore and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order.
+3. The Xiaomi device is currently visible to `adb devices`; inspect app/device instructions and qualify only real audio paths. Qualify installer/model loading on Windows and Android hardware; do not claim GO PROD from host tests.
