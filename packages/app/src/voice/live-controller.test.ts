@@ -210,25 +210,25 @@ describe("LiveVoiceController", () => {
     const denied = setup({ roomError: Object.assign(new Error("denied"), { name: "NotAllowedError" }) })
     await denied.controller.start(context)
     expect(denied.controller.state).toBe("error")
-    expect(denied.controller.details.error).toBe("microphone_denied")
+    expect(denied.controller.details.error?.legacyCode).toBe("microphone_denied")
 
     const noHost = setup({ grantErrors: [new LiveHostError("voice_host_unavailable")] })
     await noHost.controller.start(context)
-    expect(noHost.controller.details.error).toBe("voice_host_unavailable")
+    expect(noHost.controller.details.error?.legacyCode).toBe("voice_host_unavailable")
   })
 
   test("an agent that never joins surfaces Voice Host unavailable", async () => {
     const { controller } = setup()
     await controller.start(context)
     await new Promise((resolve) => setTimeout(resolve, 80))
-    expect(controller.details.error).toBe("voice_host_unavailable")
+    expect(controller.details.error?.legacyCode).toBe("voice_host_unavailable")
   })
 
   test("agent-reported errors stop Live with their code", async () => {
     const { controller, rooms } = setup()
     await controller.start(context)
     rooms[0].handlers!.onAgentAttributes({ "unifia.error": "stt_unavailable" })
-    expect(controller.details.error).toBe("stt_unavailable")
+    expect(controller.details.error?.legacyCode).toBe("stt_unavailable")
     expect(rooms[0].disconnected).toBe(true)
   })
 
@@ -349,7 +349,7 @@ describe("LiveVoiceController", () => {
       handlersRef.current!.onUtterance("wav-data")
       await new Promise((resolve) => setTimeout(resolve, 10))
       expect(controller.state).toBe("error")
-      expect(controller.details.error).toBe("agent_unavailable")
+      expect(controller.details.error?.legacyCode).toBe("agent_unavailable")
       expect(spoken).toEqual([])
     })
 

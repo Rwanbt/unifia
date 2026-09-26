@@ -7,7 +7,7 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last verified remote HEAD:** `386fdcf5eafb216288e3d7ea0d3070a8f6e5f3ee`
+**Last verified remote HEAD:** `74c76b1a5692f6f4fe6545fe61a093dd45c690df` (G1 checkpoint in progress)
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -15,14 +15,14 @@
 
 ## Verdict
 
-**IN PROGRESS — NOT GO PROD.** The Voice workflow had invalid YAML, a broken Python-runner path, a Windows-only interpreter path in the runner, and failure-masking steps. CI repair is under way. No production qualification is inferred from unit tests or scaffolds.
+**IN PROGRESS — NOT GO PROD.** G0 CI repair is green. G1 has a first structured TypeScript error-contract slice, but ADR adoption is incomplete and the Python runtime does not yet emit the canonical event. No production qualification is inferred from unit tests or scaffolds.
 
 ## Gate State
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
 | G0 — Truth and CI | Green | GitHub Actions run `36232511790` completed successfully on exact SHA `386fdcf5eafb216288e3d7ea0d3070a8f6e5f3ee`; all 5 mandatory jobs passed. Voice Host: 156 passed, 1 explicitly skipped integration test requiring livekit-server, espeak-ng, and Bun. Local Rust module test: 15 passed; hosted direct `rustc --test` step passed. |
-| G1 — Contracts and ADR reconciliation | Not started | ADRs 058–074 were read; all are still DRAFT until their implementation and adoption evidence is verified. |
+| G1 — Contracts and ADR reconciliation | Partial | TypeScript now models staged `VoiceError` values and ordered `voice_error` envelopes, validates stage/code pairing, drops raw exception text from Live errors, and preserves legacy UI identifiers. Targeted app/contracts tests and typechecks pass. Remaining: emit/adopt the event across Python/desktop/Android paths, complete ADR 070 reconciliation, and cover all runtime stages. |
 | G2 — Shared VoiceCore | Not started | No canonical cross-platform state machine/event core has been verified. |
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
@@ -51,6 +51,7 @@
 - `node scripts/voice/model-registry-validator.test.mjs`: **4 direct Node self-tests passed**, including digest mismatch detection. This validates the helper, not model download, extraction, atomic promotion, or runtime loading.
 - `bunx biome check packages/app/src/voice packages/contracts/src packages/contracts/test scripts/voice/model-registry-validator.mjs scripts/voice/model-registry-validator.test.mjs`: passed; **151 files checked**.
 - Current targeted rerun: App Voice **118 passed**, contracts **701 passed**, Rust scheduler **15 passed**; app and contract typechecks passed.
+- G1 checkpoint targeted rerun: app Live controller/state/orb plus contracts speech tests **39 passed**, 0 failed, 160 assertions; app and contracts typechecks passed. This proves only the new TypeScript contract and touched Live UI/controller path, not full G1 adoption.
 - Current pre-commit Rust checks: `cargo clippy --all-targets -- -D warnings` passed after fixing two scheduler lint findings and documenting the Android-only bearer re-export; targeted Rust scheduler tests remained **15/15 green**.
 - Current Python targeted rerun: `python -m pytest -p no:cacheprovider tests/test_resource_scheduler.py tests/test_platform_signals.py -q` from `packages/voice-host`: **26 passed**.
 - Local reproduction of the formerly failing isolated renderer step with the workflow's `PYTHONPATH`: **53 passed**. The workflow parser now confirms this environment and the Windows Rust runner selection.

@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: MIT */
-import type { LiveRoomGrant, LiveVoiceError } from "@unifia/contracts/speech"
+import { createVoiceError, isLiveVoiceError, type LiveRoomGrant, type LiveVoiceError, type VoiceError } from "@unifia/contracts/speech"
 import type { AudioSettingsV2 } from "./audio-settings"
 
 export class LiveHostError extends Error {
+  readonly voiceError: VoiceError
+
   constructor(
     readonly code: LiveVoiceError,
-    message?: string,
   ) {
-    super(message ?? code)
+    const voiceError = createVoiceError(code)
+    super(voiceError.detail)
     this.name = "LiveHostError"
+    this.voiceError = voiceError
   }
 }
 
@@ -50,13 +53,6 @@ function isLoopbackServer(url: string): boolean {
   }
 }
 
-const KNOWN_ERRORS = new Set<LiveVoiceError>([
-  "voice_host_unavailable",
-  "voice_host_lan_disabled",
-  "binding_invalid",
-  "rate_limited",
-])
-
 export function createLiveHostClient(input: {
   platform: "web" | "desktop" | "mobile"
   server: () => LiveServer
@@ -78,8 +74,8 @@ export function createLiveHostClient(input: {
         },
         body: body === undefined ? undefined : JSON.stringify(body),
       })
-    } catch (error) {
-      throw new LiveHostError("voice_host_unavailable", error instanceof Error ? error.message : String(error))
+    } catch {
+      throw new LiveHostError("connection_lost")
     }
   }
 
@@ -87,7 +83,7 @@ export function createLiveHostClient(input: {
     async prepare(settings) {
       clearTimeout(idleTimer)
       if (input.platform === "mobile" && isLoopbackServer(input.server().url)) {
-        throw new LiveHostError("voice_host_unavailable", "Live Voice Host is provided by a connected desktop server")
+        throw new LiveHostError("voice_host_unavailable")
       }
       if (input.platform !== "desktop" || !input.invoke) return
       try {
@@ -96,20 +92,20 @@ export function createLiveHostClient(input: {
           cpuProfile: settings.cpuProfile,
           ttsProvider: settings.ttsProvider,
         })
-      } catch (error) {
-        throw new LiveHostError("voice_host_unavailable", String(error))
+      } catch {
+        throw new LiveHostError("voice_host_unavailable")
       }
     },
     async requestGrant(body) {
       const response = await call("POST", "/session", body)
       if (response.ok) return (await response.json()) as LiveRoomGrant
       const detail = (await response.json().catch(() => undefined)) as { error?: string } | undefined
-      const code = detail?.error as LiveVoiceError | undefined
+      const code = detail?.error
       if (response.status === 410) throw new LiveHostError("binding_invalid")
       if (response.status === 429) throw new LiveHostError("rate_limited")
-      if (code && KNOWN_ERRORS.has(code)) throw new LiveHostError(code)
-      if (response.status === 404) throw new LiveHostError("voice_host_unavailable", "server without Live support")
-      throw new LiveHostError("unknown", `HTTP ${response.status}`)
+      if (isLiveVoiceError(code)) throw new LiveHostError(code)
+      if (response.status === 404) throw new LiveHostError("voice_host_unavailable")
+      throw new LiveHostError("voice_internal_error")
     },
     async release(binding) {
       await call("DELETE", `/bindings/${encodeURIComponent(binding)}`).catch(() => undefined)

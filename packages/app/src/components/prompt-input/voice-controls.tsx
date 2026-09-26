@@ -56,7 +56,7 @@ const LIVE_ERROR_KEYS: Record<LiveVoiceError, string> = {
   binding_invalid: "prompt.live.error.connectionLost",
   connection_lost: "prompt.live.error.connectionLost",
   rate_limited: "prompt.live.error.rateLimited",
-  unknown: "prompt.live.error.unknown",
+  voice_internal_error: "prompt.live.error.unknown",
 }
 
 function liveStatusKey(state: LiveVoiceState): string {
@@ -78,7 +78,7 @@ export const VoiceControls: Component<{
       () => liveDetails().error,
       (error) => {
         if (!error) return
-        showToast({ title: t(LIVE_ERROR_KEYS[error] ?? LIVE_ERROR_KEYS.unknown) })
+        showToast({ title: t(LIVE_ERROR_KEYS[error.legacyCode]) })
       },
       { defer: true },
     ),

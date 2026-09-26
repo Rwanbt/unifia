@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
 import { createVoiceRegistry, resolveSpeechLanguage, resolveTtsProviders } from "../src/speech"
+import { createVoiceError, createVoiceErrorEvent, isVoiceErrorEvent, liveVoiceErrors } from "../src/speech"
 
 const licensedVoice = {
   id: "fr-fr-default",
@@ -15,6 +16,23 @@ const licensedVoice = {
 }
 
 describe("speech contracts", () => {
+  test("voice errors carry a stable stage, code, safe detail and ordered event envelope", () => {
+    for (const legacyCode of liveVoiceErrors) {
+      const error = createVoiceError(legacyCode, 123)
+      expect(error.timestamp).toBe(123)
+      expect(error.code).toMatch(/^[A-Z][A-Z0-9_]+$/)
+      expect(error.detail.length).toBeLessThanOrEqual(240)
+      const event = createVoiceErrorEvent(error, { sessionID: "ses_test", turnID: "turn_test", seq: 4 })
+      expect(isVoiceErrorEvent(event)).toBe(true)
+    }
+  })
+
+  test("voice error event rejects mismatched stages and exposed credentials", () => {
+    const base = createVoiceErrorEvent(createVoiceError("connection_lost", 123), { sessionID: "ses_test", seq: 0 })
+    expect(isVoiceErrorEvent({ ...base, stage: "stt" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, detail: "Authorization: Bearer secret" })).toBe(false)
+  })
+
   test("auto fallback order is stable and explicit providers stay explicit", () => {
     expect(resolveTtsProviders("auto")).toEqual(["pocket", "piper", "fallback-android-tts"])
     expect(resolveTtsProviders("piper")).toEqual(["piper"])

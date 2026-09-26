@@ -126,19 +126,214 @@ export const liveVoiceStates = [
 ] as const
 export type LiveVoiceState = (typeof liveVoiceStates)[number]
 
-/** Stable error codes shared by the Voice Host, the server and the UI. */
-export type LiveVoiceError =
-  | "microphone_denied"
-  | "microphone_unavailable"
-  | "voice_host_unavailable"
-  | "voice_host_lan_disabled"
-  | "stt_unavailable"
-  | "tts_unavailable"
-  | "agent_unavailable"
-  | "binding_invalid"
-  | "connection_lost"
-  | "rate_limited"
-  | "unknown"
+export const liveVoiceErrors = [
+  "microphone_denied",
+  "microphone_unavailable",
+  "voice_host_unavailable",
+  "voice_host_lan_disabled",
+  "stt_unavailable",
+  "tts_unavailable",
+  "agent_unavailable",
+  "binding_invalid",
+  "connection_lost",
+  "rate_limited",
+  "voice_internal_error",
+] as const
+
+/** Stable legacy identifiers kept for UI translation compatibility. */
+export type LiveVoiceError = (typeof liveVoiceErrors)[number]
+
+export function isLiveVoiceError(value: unknown): value is LiveVoiceError {
+  return typeof value === "string" && liveVoiceErrors.some((code) => code === value)
+}
+
+export const voiceErrorStages = [
+  "audio-input",
+  "audio-output",
+  "permission",
+  "model-missing",
+  "model-download",
+  "integrity",
+  "model-load",
+  "vad",
+  "turn-detection",
+  "stt",
+  "session",
+  "provider",
+  "llm",
+  "tool",
+  "tts",
+  "resource",
+  "thermal",
+  "network",
+  "unsupported-capability",
+  "abi",
+  "logging",
+] as const
+
+export type VoiceErrorStage = (typeof voiceErrorStages)[number]
+export type VoiceErrorCauseCategory = "permission" | "device" | "availability" | "provider" | "session" | "network" | "programmer"
+
+export interface VoiceError {
+  stage: VoiceErrorStage
+  code: string
+  legacyCode: LiveVoiceError
+  recoverable: boolean
+  providerId?: string
+  detail: string
+  causeCategory: VoiceErrorCauseCategory
+  timestamp: number
+}
+
+/** Ordered event envelope used by platform adapters when surfacing a Voice failure. */
+export interface VoiceErrorEvent {
+  kind: "voice_error"
+  sessionID: string
+  turnID?: string
+  ts: number
+  seq: number
+  stage: VoiceErrorStage
+  code: string
+  detail: string
+  recoverable: boolean
+  causeCategory: VoiceErrorCauseCategory
+  provider_id?: string
+  retry_after_ms?: number
+}
+
+const VOICE_ERROR_DEFINITIONS: Record<LiveVoiceError, Omit<VoiceError, "legacyCode" | "timestamp" | "providerId">> = {
+  microphone_denied: {
+    stage: "permission",
+    code: "PERMISSION_MICROPHONE_DENIED",
+    recoverable: false,
+    detail: "Microphone permission was denied.",
+    causeCategory: "permission",
+  },
+  microphone_unavailable: {
+    stage: "audio-input",
+    code: "AUDIO_INPUT_UNAVAILABLE",
+    recoverable: true,
+    detail: "The microphone is unavailable.",
+    causeCategory: "device",
+  },
+  voice_host_unavailable: {
+    stage: "provider",
+    code: "PROVIDER_VOICE_HOST_UNAVAILABLE",
+    recoverable: true,
+    detail: "The configured Voice Host is unavailable.",
+    causeCategory: "availability",
+  },
+  voice_host_lan_disabled: {
+    stage: "provider",
+    code: "PROVIDER_LAN_ACCESS_DISABLED",
+    recoverable: false,
+    detail: "Voice Host LAN access is disabled.",
+    causeCategory: "provider",
+  },
+  stt_unavailable: {
+    stage: "stt",
+    code: "STT_PROVIDER_UNAVAILABLE",
+    recoverable: true,
+    detail: "The configured speech recognition provider is unavailable.",
+    causeCategory: "availability",
+  },
+  tts_unavailable: {
+    stage: "tts",
+    code: "TTS_PROVIDER_UNAVAILABLE",
+    recoverable: true,
+    detail: "The configured speech synthesis provider is unavailable.",
+    causeCategory: "availability",
+  },
+  agent_unavailable: {
+    stage: "session",
+    code: "SESSION_AGENT_UNAVAILABLE",
+    recoverable: true,
+    detail: "The Unifia session agent is unavailable.",
+    causeCategory: "session",
+  },
+  binding_invalid: {
+    stage: "provider",
+    code: "PROVIDER_BINDING_INVALID",
+    recoverable: false,
+    detail: "The Voice provider binding is no longer valid.",
+    causeCategory: "provider",
+  },
+  connection_lost: {
+    stage: "network",
+    code: "NETWORK_CONNECTION_LOST",
+    recoverable: true,
+    detail: "The Voice connection was lost.",
+    causeCategory: "network",
+  },
+  rate_limited: {
+    stage: "network",
+    code: "NETWORK_RATE_LIMITED",
+    recoverable: true,
+    detail: "The Voice provider is rate limited.",
+    causeCategory: "network",
+  },
+  voice_internal_error: {
+    stage: "unsupported-capability",
+    code: "UNSUPPORTED_CAPABILITY_UNCLASSIFIED_RUNTIME_ERROR",
+    recoverable: false,
+    detail: "An unclassified Voice runtime failure occurred.",
+    causeCategory: "programmer",
+  },
+}
+
+export function createVoiceError(legacyCode: LiveVoiceError, timestamp = performance.now()): VoiceError {
+  return { ...VOICE_ERROR_DEFINITIONS[legacyCode], legacyCode, timestamp }
+}
+
+export function voiceErrorCodeMatchesStage(stage: VoiceErrorStage, code: string): boolean {
+  const prefix = stage.toUpperCase().replaceAll("-", "_")
+  return code.startsWith(`${prefix}_`)
+}
+
+export function createVoiceErrorEvent(
+  error: VoiceError,
+  identity: { sessionID: string; turnID?: string; seq: number },
+): VoiceErrorEvent {
+  return {
+    kind: "voice_error",
+    sessionID: identity.sessionID,
+    ...(identity.turnID ? { turnID: identity.turnID } : {}),
+    ts: error.timestamp,
+    seq: identity.seq,
+    stage: error.stage,
+    code: error.code,
+    detail: error.detail,
+    recoverable: error.recoverable,
+    causeCategory: error.causeCategory,
+    ...(error.providerId ? { provider_id: error.providerId } : {}),
+  }
+}
+
+export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const event = value as Partial<VoiceErrorEvent>
+  return event.kind === "voice_error"
+    && typeof event.sessionID === "string"
+    && event.sessionID.length > 0
+    && (event.turnID === undefined || typeof event.turnID === "string")
+    && typeof event.ts === "number"
+    && Number.isFinite(event.ts)
+    && typeof event.seq === "number"
+    && Number.isSafeInteger(event.seq)
+    && event.seq >= 0
+    && typeof event.stage === "string"
+    && voiceErrorStages.some((stage) => stage === event.stage)
+    && typeof event.code === "string"
+    && voiceErrorCodeMatchesStage(event.stage, event.code)
+    && typeof event.detail === "string"
+    && event.detail.length <= 240
+    && !/(?:bearer\s+\S+|(?:api[_-]?key|authorization|token)\s*[:=]\s*\S+)/i.test(event.detail)
+    && typeof event.recoverable === "boolean"
+    && typeof event.causeCategory === "string"
+    && ["permission", "device", "availability", "provider", "session", "network", "programmer"].includes(event.causeCategory)
+    && (event.provider_id === undefined || typeof event.provider_id === "string")
+    && (event.retry_after_ms === undefined || (typeof event.retry_after_ms === "number" && event.retry_after_ms >= 0))
+}
 
 /** One finalized user utterance handed to the Unifia session. */
 export interface VoiceTurn {

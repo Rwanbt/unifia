@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
+import { createVoiceError } from "@unifia/contracts/speech"
 import { deriveLiveState, INITIAL_LIVE_SNAPSHOT, isLiveActive, reduceLive, type LiveEvent } from "./live-state"
 
 function run(...events: LiveEvent[]) {
@@ -57,9 +58,9 @@ describe("Live voice state machine", () => {
   })
 
   test("errors carry a code and stop resets everything", () => {
-    const s = run(...ready, { type: "error", error: "voice_host_unavailable" })
+    const s = run(...ready, { type: "error", error: createVoiceError("voice_host_unavailable") })
     expect(deriveLiveState(s)).toBe("error")
-    expect(s.error).toBe("voice_host_unavailable")
+    expect(s.error?.legacyCode).toBe("voice_host_unavailable")
     expect(isLiveActive("error")).toBe(false)
     expect(run(...ready, { type: "stop" })).toEqual(INITIAL_LIVE_SNAPSHOT)
   })

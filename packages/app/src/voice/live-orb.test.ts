@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
-import { liveVoiceStates } from "@unifia/contracts/speech"
+import { createVoiceError, liveVoiceStates } from "@unifia/contracts/speech"
 import { dict as en } from "@/i18n/en"
 import { liveOrbView, liveOrbVisual } from "./live-orb"
 import { deriveLiveState, INITIAL_LIVE_SNAPSHOT, reduceLive, type LiveEvent, type LiveSnapshot } from "./live-state"
@@ -18,7 +18,7 @@ function visual(snapshot: LiveSnapshot) {
 describe("Live topbar orb", () => {
   test("off and static while Live is idle or failed", () => {
     expect(visual(INITIAL_LIVE_SNAPSHOT)).toBe("off")
-    expect(visual(run({ type: "start" }, { type: "error", error: "voice_host_unavailable" }))).toBe("off")
+    expect(visual(run({ type: "start" }, { type: "error", error: createVoiceError("voice_host_unavailable") }))).toBe("off")
     expect(liveOrbView("idle", INITIAL_LIVE_SNAPSHOT).rows).toEqual([])
   })
 

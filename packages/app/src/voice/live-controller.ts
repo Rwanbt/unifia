@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import type { LiveRoomGrant, LiveVoiceError, LiveVoiceState } from "@unifia/contracts/speech"
+import { createVoiceError, isLiveVoiceError, type LiveRoomGrant, type LiveVoiceError, type LiveVoiceState, type VoiceError } from "@unifia/contracts/speech"
 import type { AudioCaptureLease } from "./audio-capture-coordinator"
 import type { AudioSettingsV2 } from "./audio-settings"
 import type { LocalVoiceStreamChunk } from "./local-session"
@@ -78,15 +78,16 @@ export interface LiveControllerDeps {
 }
 
 const AGENT_PHASES = new Set<AgentPhase>(["initializing", "idle", "listening", "thinking", "speaking"])
-const AGENT_ERRORS = new Set<LiveVoiceError>(["stt_unavailable", "tts_unavailable", "agent_unavailable", "binding_invalid"])
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000]
 
-export function errorFromUnknown(error: unknown): LiveVoiceError {
-  if (error instanceof LiveHostError) return error.code
+export function errorFromUnknown(error: unknown): VoiceError {
+  if (error instanceof LiveHostError) return error.voiceError
   const name = (error as { name?: string } | null)?.name
-  if (name === "NotAllowedError" || name === "PermissionDeniedError") return "microphone_denied"
-  if (name === "NotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") return "microphone_unavailable"
-  return "unknown"
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") return createVoiceError("microphone_denied")
+  if (name === "NotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") {
+    return createVoiceError("microphone_unavailable")
+  }
+  return createVoiceError("voice_internal_error")
 }
 
 /**
@@ -154,8 +155,8 @@ export class LiveVoiceController {
       if (!lease) throw new LiveHostError("microphone_unavailable")
       this.lease = lease
       if (context.transport === "local") {
-        if (!this.deps.localVoice) throw new LiveHostError("voice_host_unavailable", "Local Android voice is unavailable")
-        if (!context.submitTurnStream && !context.submitTurn) throw new LiveHostError("agent_unavailable", "Local Android voice has no Unifia session transport")
+        if (!this.deps.localVoice) throw new LiveHostError("voice_host_unavailable")
+        if (!context.submitTurnStream && !context.submitTurn) throw new LiveHostError("agent_unavailable")
         this.localInputRevision = 0
         await this.deps.localVoice.start({
           onSpeaking: (speaking) => {
@@ -187,7 +188,7 @@ export class LiveVoiceController {
       this.log("voice.connect.ms", { value: (this.deps.now ?? Date.now)() - startedAt })
     } catch (error) {
       if (generation !== this.generation) return
-      this.fail(errorFromUnknown(error), error)
+      this.fail(errorFromUnknown(error))
     }
   }
 
@@ -196,7 +197,7 @@ export class LiveVoiceController {
       if (generation !== this.generation || inputRevision !== this.localInputRevision || !this.deps.localVoice) return
       const context = this.context
       if (!context || (!context.submitTurnStream && !context.submitTurn)) {
-        this.fail("agent_unavailable", new Error("Local Android voice has no Unifia session transport"))
+        this.fail("agent_unavailable")
         return
       }
       const transcript = (await this.deps.localVoice.transcribe(audio)).trim()
@@ -227,7 +228,7 @@ export class LiveVoiceController {
           }
           return
         }
-        if (generation === this.generation) this.fail(errorFromUnknown(error), error)
+        if (generation === this.generation) this.fail(errorFromUnknown(error))
       }
       /* If the streaming turn returned without throwing because the
          AbortSignal fired mid-iteration, the inner helper bailed out
@@ -238,7 +239,7 @@ export class LiveVoiceController {
         this.dispatch({ type: "agent-state", agent: "listening" }, generation)
       }
     }).catch((error) => {
-      if (generation === this.generation) this.fail(errorFromUnknown(error), error)
+      if (generation === this.generation) this.fail(errorFromUnknown(error))
     })
   }
 
@@ -290,7 +291,7 @@ export class LiveVoiceController {
           this.dispatch({ type: "agent-task", task: "thinking" }, generation)
           break
         case "error":
-          this.fail("agent_unavailable", new Error(`${chunk.stage}/${chunk.code}: ${chunk.detail}`))
+          this.fail("agent_unavailable")
           this.dispatch({ type: "stream-error", stage: chunk.stage, code: chunk.code, detail: chunk.detail }, generation)
           return
       }
@@ -422,8 +423,10 @@ export class LiveVoiceController {
       const attention = attributes["unifia.attention"]
       this.dispatch({ type: "attention", attention: attention === "permission" || attention === "question" ? attention : undefined }, generation)
     }
-    const error = attributes["unifia.error"] as LiveVoiceError | undefined
-    if (error && AGENT_ERRORS.has(error)) this.fail(error)
+    const reportedError = attributes["unifia.error"]
+    if (reportedError) {
+      this.fail(isLiveVoiceError(reportedError) ? reportedError : "voice_internal_error")
+    }
     const session = attributes["unifia.session"]
     if (session?.startsWith("ses_") && this.grant && this.grant.sessionID !== session) {
       this.grant = { ...this.grant, sessionID: session }
@@ -445,21 +448,27 @@ export class LiveVoiceController {
         this.dispatch({ type: "reconnected" }, generation)
         return
       } catch (error) {
-        const code = errorFromUnknown(error)
-        if (code === "binding_invalid" || code === "microphone_denied") {
-          this.fail(code, error)
+        const voiceError = errorFromUnknown(error)
+        if (voiceError.legacyCode === "binding_invalid" || voiceError.legacyCode === "microphone_denied") {
+          this.fail(voiceError)
           return
         }
-        this.log("voice.reconnect.retry", { code })
+        this.log("voice.reconnect.retry", { code: voiceError.code })
       }
     }
     this.fail("connection_lost")
   }
 
-  private fail(error: LiveVoiceError, cause?: unknown) {
-    this.log("voice.live.error", { error, cause: cause instanceof Error ? cause.message : undefined })
+  private fail(error: LiveVoiceError | VoiceError) {
+    const voiceError = typeof error === "string" ? createVoiceError(error) : error
+    this.log("voice.live.error", {
+      code: voiceError.code,
+      stage: voiceError.stage,
+      recoverable: voiceError.recoverable,
+      causeCategory: voiceError.causeCategory,
+    })
     this.teardown()
-    this.dispatch({ type: "error", error })
+    this.dispatch({ type: "error", error: voiceError })
   }
 
   private teardown() {

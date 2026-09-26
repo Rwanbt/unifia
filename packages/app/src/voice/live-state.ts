@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import type { LiveVoiceError, LiveVoiceState } from "@unifia/contracts/speech"
+import type { LiveVoiceState, VoiceError } from "@unifia/contracts/speech"
 
 /** Raw facts reported by the transport and the agent; the UI state is derived. */
 export type LiveConnection = "idle" | "connecting" | "connected" | "reconnecting" | "error"
@@ -14,7 +14,7 @@ export interface LiveSnapshot {
   /** The user stopped talking and no answer has started yet. */
   awaitingAnswer: boolean
   attention?: "permission" | "question"
-  error?: LiveVoiceError
+  error?: VoiceError
 }
 
 export type LiveEvent =
@@ -26,7 +26,7 @@ export type LiveEvent =
   | { type: "agent-task"; task: AgentTask }
   | { type: "attention"; attention?: "permission" | "question" }
   | { type: "user-speaking"; speaking: boolean }
-  | { type: "error"; error: LiveVoiceError }
+  | { type: "error"; error: VoiceError }
   | { type: "stop" }
   /* R6 streaming parity (ADR-060): provider-neutral semantic events
      forwarded from AgentBridge so Android consumes the same live
