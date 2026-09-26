@@ -9,7 +9,9 @@
 
 **Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Most recent pushed head with both required workflows confirmed green:** `56eefd9dffeed4d1389e3602cd49d12256ce1097` (`docs(voice): checkpoint G6 streaming gate and section 22 ports`; `voice-ci` `36264821349` success; `unifia-conformance` `36264821202` success; both on that exact SHA). The local branch and `origin/voice` match this SHA.
+**Most recent pushed head with both required workflows confirmed green:** `56eefd9dffeed4d1389e3602cd49d12256ce1097` (`docs(voice): checkpoint G6 streaming gate and section 22 ports`; `voice-ci` `36264821349` success; `unifia-conformance` `36264821202` success; both on that exact SHA).
+
+**Current branch head:** `3dc2f029943da730902ff7e61e4b7fcbedc0a662` (`docs(voice): record green workflows on G6 streaming SHA`; `voice-ci` `36265023017` success on that exact SHA; `unifia-conformance` path-filtered to `packages/**`, no run for this docs-only SHA). The local branch and `origin/voice` match this SHA.
 
 **Code-bearing slices included in that push:** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6).
 
@@ -49,6 +51,8 @@
 
 ## Checks Run
 
+- Obsidian vault daily sync **completed for 2026-09-26**: `vault.py check` was brought green by fixing its 18 lint issues (v4 frontmatter added to the 13 `Session-Recap-*-2026-09-26` notes; `type: daily` → `type: session` on four `operations/sessions` notes, plus the missing `schema_version: 4` on `session-voice-local-server-health-recovery-2026-09-25`); `pwsh -NoProfile -File D:/scripts/vault_sync_once_daily.ps1` then exited **0** (`vault: pushed to the remote (1 commit(s), branch master)`), vault commit `637d3e1` is on `origin/master` (0 ahead), and the sentinel `D:\scripts\vault_last_sync_date.txt` reads `2026-09-26`. The earlier `vault-sync.lock` failure is cleared; the sync is recorded done only on this evidence.
+- Current-head workflow confirmation: `voice-ci` run `36265023017` **completed successfully** on exact SHA `3dc2f029943da730902ff7e61e4b7fcbedc0a662` (docs-only push, so path-filtered `unifia-conformance` correctly has no run; both required workflows remain confirmed green on `56eefd9dffeed4d1389e3602cd49d12256ce1097`).
 - Exact-SHA workflow confirmation for the G6/§22 push: `voice-ci` run `36264821349` and `unifia-conformance` run `36264821202` both **completed successfully** on `56eefd9dffeed4d1389e3602cd49d12256ce1097`. The push hook passed all **47/47** Turbo typechecks.
 - G6/§22 slice committed as `79b2fdd2ba` (ports + parity fixture) and `7528d43e17` (controller wiring): App Voice suite (`bun test --preload ./happydom.ts ./src/voice`) **163 passed, 0 failed**; full app suite **1,836 passed, 0 failed** across 217 files; `bun turbo typecheck` **47/47**; `bunx biome check packages/app/src/voice` clean (42 files). The five new G6 controller tests were executed five consecutive times (**30 passed, 0 failed** each) to rule out timing flakiness.
 - Cross-runtime text parity: `speech-text-parity.test.ts` (TS) and `tests/test_text_parity.py` (Python) both assert `packages/voice-core/fixtures/speech-text-parity.json`, generated from the Python reference by `scripts/voice/generate-speech-fixtures.py`; the fixture contains only static fields (version/source/reference), so regeneration is deterministic. Voice Host full suite via `scripts/voice/voice-host-test-runner.py --full`: **182 passed, 1 skipped, 128 subtests passed** (includes the Python side of the parity fixture; the skip remains the live transport integration requiring livekit-server, espeak-ng, and Bun).
@@ -131,4 +135,3 @@
 1. Continue G2 with lifecycle/recovery parity and VoiceCore/segmenter adoption in the Python and desktop producers; preserve `cancel speech != cancel agent work`.
 2. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
 3. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.
-4. Retry the Obsidian vault sync (previous attempt failed on `vault-sync.lock`); do not record it as done until it succeeds.
