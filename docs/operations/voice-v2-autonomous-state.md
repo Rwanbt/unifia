@@ -21,7 +21,7 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | In progress | Voice Host full suite locally: 156 passed, 1 skipped; hosted app, contracts, docs, registry jobs passed on run `36231800987`. That run exposed two CI configuration failures: the standalone SpeechRenderer step lacked `PYTHONPATH`; Ubuntu Rust build lacked GLib/GObject system libraries. A follow-up commit fixes the environment and moves the pure scheduler host job to Windows, matching the verified local build. Hosted confirmation of these fixes is pending. |
+| G0 — Truth and CI | In progress | Voice Host full suite locally: 156 passed, 1 skipped; hosted app, contracts, docs, registry, full Python, and SpeechRenderer jobs pass on run `36232257315`. That run confirms the `PYTHONPATH` fix. Its Rust job is still compiling the entire Tauri crate on Windows, so the next commit narrows CI to compile the std-only scheduler module directly with `rustc --test` on Ubuntu. Hosted confirmation remains pending. |
 | G1 — Contracts and ADR reconciliation | Not started | ADRs 058–074 were read; all are still DRAFT until their implementation and adoption evidence is verified. |
 | G2 — Shared VoiceCore | Not started | No canonical cross-platform state machine/event core has been verified. |
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
@@ -61,6 +61,7 @@
 - Run `36222438107` on `261cef4`: failed before creating jobs (the invalid YAML prevented workflow parsing).
 - Run `36210384107` on `7580531`: failed before creating jobs.
 - Run `36231757400` on `35f05b6f37` and `36231800987` on `3cd2a3bc66`: workflow parsed; the latter's job-level failures and root causes are detailed above.
+- Run `36232257315` on `5e77352883`: Python, SpeechRenderer security, registry, contracts, app, and docs are green; the Rust crate-wide build had not completed when the CI job was narrowed to its pure module.
 
 ## Known Qualification Blockers
 
@@ -71,6 +72,6 @@
 
 ## Next Exact Actions
 
-1. Verify the next hosted Voice workflow run after the `PYTHONPATH` and Windows Rust-runner fixes; fix any remaining failures rather than weakening assertions.
+1. Verify the next hosted Voice workflow run with standalone scheduler compilation; fix any remaining failures rather than weakening assertions.
 2. Reconcile G1 contracts and ADR status with production code, then continue G2–G14 in order.
 3. Record each test, benchmark, device, exact source SHA, and package/model SHA here; never mark a physical gate green from mocks or host-only tests.

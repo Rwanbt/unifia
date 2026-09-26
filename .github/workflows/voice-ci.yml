@@ -164,7 +164,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────
   voice-rust-scheduler:
     name: voice Rust scheduler
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -190,12 +190,15 @@ jobs:
         run: rustfmt --check src/voice/resource_scheduler.rs
         working-directory: packages/mobile/src-tauri
 
-      - name: "Run voice:: scheduler tests (host-compiled)"
+      - name: "Run standalone Voice scheduler tests"
         working-directory: packages/mobile/src-tauri
-        run: "cargo test --lib voice:: --no-fail-fast"
+        run: |
+          rustc --edition=2021 --test src/voice/resource_scheduler.rs -o "$RUNNER_TEMP/voice-resource-scheduler-tests"
+          "$RUNNER_TEMP/voice-resource-scheduler-tests"
       # The Rust scheduler is pure logic — no Android ABI / NDK
-      # dependency at test time, so host cargo is sufficient for the
-      # §18 unit tier. Real-device validation is R3 / R12 hardware.
+      # dependency. Compile this std-only module directly so unrelated
+      # Tauri GTK/WebKit libraries do not gate the §18 unit tier.
+      # Real-device validation is R3 / R12 hardware.
 
   # ──────────────────────────────────────────────────────────────────
   # 5. Voice docs sanity — check internal markdown references
