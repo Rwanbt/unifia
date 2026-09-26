@@ -11,6 +11,21 @@ afterEach(async () => {
 })
 
 describe("Session.list", () => {
+  test("session forks preserve explicit permission rules", async () => {
+    await using tmp = await tmpdir({ git: true })
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const permission = [{ permission: "*", pattern: "*", action: "deny" as const }]
+        const original = await Session.create({ permission })
+
+        const forked = await Session.fork({ sessionID: original.id })
+
+        expect(forked.permission).toEqual(permission)
+      },
+    })
+  })
+
   test("filters by directory", async () => {
     await using tmp = await tmpdir({ git: true })
     await Instance.provide({

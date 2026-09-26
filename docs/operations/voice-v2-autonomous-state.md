@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Latest pushed SHA with both required remote workflows confirmed green:** `5bff7f4a22f71e2843ec031771904eaee52c7a76` (`voice-ci` 36251106047; `unifia-conformance` 36251105987; both successful).
+**Latest pushed SHA with both required remote workflows confirmed green:** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Latest pushed implementation SHA:** `5bff7f4a22f71e2843ec031771904eaee52c7a76` on `voice` and `origin/voice`; both required remote workflows passed. The push hook passed all **47/47** Turbo typechecks.
+**Latest pushed implementation SHA:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`, followed by checkpoint commit `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`, on `voice` and `origin/voice`; both required remote workflows passed on branch head. The push hook passed all **47/47** Turbo typechecks.
 
-**Latest code-bearing commit:** `5bff7f4a22f71e2843ec031771904eaee52c7a76`. Exact-SHA runs `36251106047` and `36251105987` passed. This commit adds an Android Tauri VoiceCore snapshot owner and wires the local Live final-transcript path to reserve the canonical SDK message ID before prompting, then sequence turn/thinking/final events. Snapshots retain replay protection and clock state, not event payloads. Streaming and other production producers remain open. Preserve pre-existing and test-generated build/cache artifacts unstaged.
+**Latest code-bearing commit:** `b1f7e091eba0a538317fe40ebef3fe4c8211223a`. Exact-SHA local tests and remote branch-head workflows passed. This adds the Android SDK `promptAsync` stream adapter, filters events to the submitted message lineage, and sequences semantic events and in-memory text deltas through VoiceCore. Snapshots retain replay protection and clock state, not event payloads. SpeechSegmenter/TTS streaming and other production producers remain open. Preserve pre-existing and test-generated build/cache artifacts unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -25,9 +25,9 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | `voice-ci` `36251106047` and `unifia-conformance` `36251105987` both passed on exact SHA `5bff7f4a22f71e2843ec031771904eaee52c7a76`; push hook passed 47/47 typechecks. |
+| G0 — Truth and CI | Green | `voice-ci` `36252983708` and `unifia-conformance` `36252983713` both passed on exact branch-head SHA `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`; push hook passed 47/47 typechecks. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Python error/readiness emitters now use safe monotonic timestamps and TypeScript rejects unsafe timestamps. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; event generation and ordering parity across other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
-| G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. Android Tauri owns the snapshot store under app data. Mobile local Live durably reserves the canonical SDK `messageID` before `prompt`; a reservation failure prevents the SDK call. Snapshot data preserves turn replay fences and clock state, not event payloads. The live binding now submits with `promptAsync` and correlates SDK message/part/tool events to the exact voice turn; semantic events are sequenced by VoiceCore, with token deltas in memory to avoid disk flushes. Still open: first-delta delivery into SpeechSegmenter/TTS, Python/desktop producer adoption, lifecycle/recovery parity, session rotation at the 4,096-turn limit, and cross-runtime fixtures.
+| G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. Android Tauri owns the snapshot store under app data. Mobile local Live durably reserves the canonical SDK `messageID` before `prompt`; a reservation failure prevents the SDK call. Snapshot data preserves turn replay fences and clock state, not event payloads. Android Live now queries remaining turn capacity before each prompt; on exhaustion it forks the canonical Unifia session with history and permission policy preserved, opens a fresh VoiceCore snapshot, then submits the reserved turn. Capacity, SDK fork, and fail-closed ordering have focused tests. Still open: first-delta delivery into SpeechSegmenter/TTS, Python/desktop producer adoption, lifecycle/recovery parity, and cross-runtime fixtures.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
 | G5 — Streaming STT | Not started | Android Parakeet is batch/final transcription; real streaming parity is open. |
@@ -42,6 +42,9 @@
 | G14 — Production hardening | Partial | Parakeet archive and four extracted-file hashes are pinned; shared safe extraction, cache validation, atomic promotion/rollback and recovery have 7 passing unit tests. Both Tauri crates compile locally. Remaining: green exact-SHA remote workflows, Windows/Android packaging/runtime and physical qualification, broader registry adoption, and production security/evidence gates. |
 
 ## Checks Run
+
+- Current capacity-rotation source: App Voice **132 passed**, app typecheck passed, Biome passed on five changed TS files, VoiceCore **25 passed** with strict Clippy and rustfmt, Android Tauri `cargo check --lib --locked` passed, and `test/server/session-list.test.ts` **6 passed** including explicit permission-rule preservation across session fork. The exact commit SHA for this local slice is pending.
+- GitHub API confirmed `voice` at `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e`; exact branch-head runs `voice-ci` `36252983708` and `unifia-conformance` `36252983713` both succeeded. Those commits appeared on the branch from the alternate harness after the local credential failure.
 
 - Latest pushed SHA `b7733b32455e59529c1525f5fb5e6c8170ef5056`: `voice-ci` run `36248320071` and `unifia-conformance` run `36248320089` both completed successfully; push hook passed **47/47** typechecks.
 - Exact pushed Android integration SHA `5bff7f4a22f71e2843ec031771904eaee52c7a76`: `voice-ci` `36251106047` and `unifia-conformance` `36251105987` passed; push hook passed 47/47 typechecks. Focused app Voice tests **37 passed**, app typecheck/Biome passed, mobile Rust voice tests **16 passed**, VoiceCore tests **23 passed**, strict Clippy/rustfmt and Android `aarch64-linux-android` compile passed. Packaged and linked ONNX Runtime library SHA-256 matched (`CD1285F8955F3ABCB0127D1FFAF1E5DA7893D2547872A831B4717C0BFE388328`). The local commit hook could not launch due to Windows signal-pipe permission error; equivalent relevant checks were run manually.
@@ -112,7 +115,7 @@
 
 ## Next Exact Actions
 
-1. Continue G2 by implementing actual streaming AgentBridge and adopting VoiceCore ordering/state authority in Python and desktop production emitters; preserve one message ID across durable events and SDK calls.
-2. Add safe session rotation at turn-history capacity, lifecycle/recovery parity and cross-runtime fixtures; preserve `cancel speech != cancel agent work`.
+1. Finish and commit the local G2 capacity-rotation slice; add/confirm capacity-boundary and retry evidence, then push it to `voice`.
+2. Continue G2 with lifecycle/recovery parity, cross-runtime fixtures, and VoiceCore adoption in Python and desktop emitters; preserve `cancel speech != cancel agent work`.
 3. Continue G3 native Android audio (Live still uses WebView `getUserMedia`/`ScriptProcessorNode`), then G4–G14 in dependency order. Do not claim GO PROD from host tests.
 4. Recheck the Xiaomi device and inspect install/device instructions before physical qualification. Qualify installer/model loading on Windows and Android hardware with exact source/package hashes.

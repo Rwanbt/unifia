@@ -11,6 +11,7 @@ export type VoiceCoreEvent =
 
 export interface VoiceCoreRuntimeClient {
   openSession(sessionID: string): Promise<number>
+  remainingTurnCapacity(sessionID: string): Promise<number>
   beginTurn(sessionID: string, turnID: string): Promise<void>
   publish(sessionID: string, turnID: string | undefined, event: VoiceCoreEvent): Promise<unknown>
   publishTextDelta(sessionID: string, turnID: string, delta: string): Promise<unknown>
@@ -24,6 +25,9 @@ export function createTauriVoiceCoreRuntime(
   return {
     async openSession(sessionID) {
       return await invoke("voice_core_open_session", { sessionId: sessionID }) as number
+    },
+    async remainingTurnCapacity(sessionID) {
+      return await invoke("voice_core_remaining_turn_capacity", { sessionId: sessionID }) as number
     },
     async beginTurn(sessionID, turnID) {
       await invoke("voice_core_begin_turn", { sessionId: sessionID, turnId: turnID })

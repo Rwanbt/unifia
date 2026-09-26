@@ -69,6 +69,16 @@ impl VoiceCoreRuntime {
         Ok(active.core.snapshot().generation())
     }
 
+    /// Reports remaining replay-protected turns without weakening the persisted history.
+    pub fn remaining_turn_capacity(
+        &self,
+        session_id: &str,
+    ) -> Result<usize, VoiceCoreRuntimeError> {
+        let mut sessions = self.lock_sessions()?;
+        let active = self.active_session(&mut sessions, session_id)?;
+        Ok(active.core.remaining_turn_capacity())
+    }
+
     /// Reserves a unique turn ID and persists replay protection before returning.
     pub fn begin_turn(&self, session_id: &str, turn_id: &str) -> Result<(), VoiceCoreRuntimeError> {
         let mut sessions = self.lock_sessions()?;
@@ -270,6 +280,37 @@ mod tests {
             )
             .unwrap();
         assert_eq!((next.generation, next.sequence), (2, 0));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn remaining_turn_capacity_recovers_the_durable_history_count() {
+        let root = test_root("capacity");
+        {
+            let runtime = VoiceCoreRuntime::new(&root);
+            assert_eq!(
+                runtime
+                    .remaining_turn_capacity("ses_runtime_capacity")
+                    .unwrap(),
+                4096
+            );
+            runtime
+                .begin_turn("ses_runtime_capacity", "msg_capacity_one")
+                .unwrap();
+            assert_eq!(
+                runtime
+                    .remaining_turn_capacity("ses_runtime_capacity")
+                    .unwrap(),
+                4095
+            );
+        }
+        let recovered = VoiceCoreRuntime::new(&root);
+        assert_eq!(
+            recovered
+                .remaining_turn_capacity("ses_runtime_capacity")
+                .unwrap(),
+            4095
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 

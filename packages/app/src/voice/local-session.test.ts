@@ -87,6 +87,7 @@ describe("createLocalVoiceSession", () => {
         order.push(`open:${sessionID}`)
         return 1
       },
+      async remainingTurnCapacity() { return 1 },
       async beginTurn(sessionID, turnID) {
         order.push(`begin:${sessionID}:${turnID}`)
       },
@@ -140,6 +141,7 @@ describe("createLocalVoiceSession", () => {
     }
     const voiceCore: VoiceCoreRuntimeClient = {
       async openSession() { return 1 },
+      async remainingTurnCapacity() { return 1 },
       async beginTurn() { throw new Error("snapshot persistence failed") },
       async publish() {},
       async publishTextDelta() {},
@@ -154,6 +156,79 @@ describe("createLocalVoiceSession", () => {
     })
 
     await expect(session.submit("Do not lose this turn", {})).rejects.toThrow("snapshot persistence failed")
+    expect(promptCalled).toBe(false)
+  })
+
+  test("forks the canonical session before submitting when VoiceCore turn history is full", async () => {
+    const order: string[] = []
+    const adopted: string[] = []
+    const client: LocalVoiceSessionClient = {
+      async create() { throw new Error("unused") },
+      async fork(request) {
+        order.push(`fork:${request.sessionID}`)
+        return { data: { id: "ses_voice_fork" } }
+      },
+      async prompt(request) {
+        order.push(`prompt:${request.sessionID}`)
+        return { data: { parts: [{ type: "text", text: "Continued." }] } }
+      },
+    }
+    const voiceCore: VoiceCoreRuntimeClient = {
+      async openSession(sessionID) { order.push(`open:${sessionID}`); return 1 },
+      async remainingTurnCapacity(sessionID) {
+        order.push(`capacity:${sessionID}`)
+        return sessionID === "ses_voice_full" ? 0 : 4096
+      },
+      async beginTurn(sessionID, turnID) { order.push(`begin:${sessionID}:${turnID}`) },
+      async publish(sessionID, turnID, event) { order.push(`publish:${sessionID}:${turnID}:${event.kind}`) },
+      async publishTextDelta() {},
+      async closeSession(sessionID) { order.push(`close:${sessionID}`) },
+    }
+    const session = createLocalVoiceSession({
+      client,
+      voiceCore,
+      directory: "D:/project",
+      sessionID: "ses_voice_full",
+      onSession: (id) => adopted.push(id),
+    })
+
+    const result = await session.submit("Continue", {})
+
+    expect(result).toBe("Continued.")
+    expect(adopted).toEqual(["ses_voice_fork"])
+    expect(order.slice(0, 5)).toEqual([
+      "capacity:ses_voice_full",
+      "fork:ses_voice_full",
+      "open:ses_voice_fork",
+      "close:ses_voice_full",
+      "open:ses_voice_fork",
+    ])
+    expect(order).toContain("prompt:ses_voice_fork")
+  })
+
+  test("fails closed at capacity when session forking is unavailable", async () => {
+    let promptCalled = false
+    const client: LocalVoiceSessionClient = {
+      async create() { throw new Error("unused") },
+      async prompt() { promptCalled = true; return { data: { parts: [] } } },
+    }
+    const voiceCore: VoiceCoreRuntimeClient = {
+      async openSession() { return 1 },
+      async remainingTurnCapacity() { return 0 },
+      async beginTurn() {},
+      async publish() {},
+      async publishTextDelta() {},
+      async closeSession() {},
+    }
+    const session = createLocalVoiceSession({
+      client,
+      voiceCore,
+      directory: "D:/project",
+      sessionID: "ses_voice_full",
+      onSession: () => {},
+    })
+
+    await expect(session.submit("Do not lose this turn", {})).rejects.toThrow("turn history is full")
     expect(promptCalled).toBe(false)
   })
 
@@ -215,6 +290,7 @@ describe("createLocalVoiceSession", () => {
     }
     const voiceCore: VoiceCoreRuntimeClient = {
       async openSession() { order.push("open"); return 1 },
+      async remainingTurnCapacity() { return 1 },
       async beginTurn(_sessionID, turnID) { order.push(`begin:${turnID}`) },
       async publish(_sessionID, turnID, event) { order.push(`event:${turnID}:${event.kind}`) },
       async publishTextDelta(_sessionID, turnID, delta) { order.push(`delta:${turnID}:${delta}`) },

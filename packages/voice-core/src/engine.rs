@@ -113,6 +113,10 @@ impl VoiceCore {
         }
     }
 
+    pub fn remaining_turn_capacity(&self) -> usize {
+        MAX_ISSUED_TURN_IDS.saturating_sub(self.issued_turn_ids.len())
+    }
+
     pub fn recover(snapshot: VoiceCoreSnapshot) -> Result<Self, VoiceCoreError> {
         if !valid_session_id(&snapshot.session_id)
             || snapshot.generation == 0
@@ -593,9 +597,14 @@ mod tests {
     #[test]
     fn turn_history_capacity_fails_closed_without_dropping_replay_protection() {
         let mut core = VoiceCore::new("ses_turn_capacity").unwrap();
+        assert_eq!(core.remaining_turn_capacity(), MAX_ISSUED_TURN_IDS);
         for index in 0..MAX_ISSUED_TURN_IDS {
             core.begin_turn(format!("turn_{index}"))
                 .expect("turn history has capacity");
+            assert_eq!(
+                core.remaining_turn_capacity(),
+                MAX_ISSUED_TURN_IDS - index - 1
+            );
         }
 
         assert!(matches!(

@@ -62,6 +62,13 @@ export function createLiveBinding(input: {
   const localSession = createLocalVoiceSession({
     client: {
       create: (request) => input.sdk.client.session.create(request),
+      fork: async ({ sessionID, directory }) => {
+        const result = await input.sdk.client.session.fork({ sessionID, directory })
+        if (result.error) return { error: result.error }
+        const forkedSessionID = result.data?.id
+        if (!forkedSessionID) return { error: new Error("Unifia did not return the forked session") }
+        return { data: { id: forkedSessionID } }
+      },
       prompt: (request) => input.sdk.client.session.prompt(request),
       promptStream,
     },

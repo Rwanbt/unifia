@@ -411,6 +411,7 @@ pub fn run() {
             speech::stt_available,
             speech::stt_loaded,
             voice::voice_core::voice_core_open_session,
+            voice::voice_core::voice_core_remaining_turn_capacity,
             voice::voice_core::voice_core_begin_turn,
             voice::voice_core::voice_core_publish,
             voice::voice_core::voice_core_publish_text_delta,

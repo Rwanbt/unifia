@@ -7,6 +7,10 @@ export interface LocalVoiceSessionClient {
     data?: { id: string }
     error?: unknown
   }>
+  fork?(input: { sessionID: string; directory: string }): Promise<{
+    data?: { id: string }
+    error?: unknown
+  }>
   prompt(input: {
     sessionID: string
     messageID?: string
@@ -66,6 +70,7 @@ export function createLocalVoiceSession(input: {
 }) {
   let sessionID = input.sessionID
   let creating: Promise<string> | undefined
+  let pendingRotation: { previousSessionID: string; nextSessionID: string } | undefined
 
   async function ensureSession(): Promise<string> {
     if (sessionID) return sessionID
@@ -104,6 +109,37 @@ export function createLocalVoiceSession(input: {
     await input.voiceCore.publish(currentSessionID, messageID, { kind: "agent_thinking" })
   }
 
+  async function ensureTurnSession(): Promise<string> {
+    const currentSessionID = await ensureSession()
+    if (!input.voiceCore) return currentSessionID
+
+    if (!pendingRotation) {
+      const remaining = await input.voiceCore.remainingTurnCapacity(currentSessionID)
+      if (!Number.isSafeInteger(remaining) || remaining < 0) {
+        throw new Error("VoiceCore returned an invalid turn-capacity value")
+      }
+      if (remaining > 0) return currentSessionID
+      if (!input.client.fork) {
+        throw new Error("VoiceCore turn history is full and this runtime cannot fork the Unifia session")
+      }
+      const result = await input.client.fork({ sessionID: currentSessionID, directory: input.directory })
+      if (result.error) throw result.error
+      const nextSessionID = result.data?.id
+      if (!nextSessionID || nextSessionID === currentSessionID) {
+        throw new Error("Unifia did not return a distinct forked Voice session")
+      }
+      pendingRotation = { previousSessionID: currentSessionID, nextSessionID }
+    }
+
+    const rotation = pendingRotation
+    await openVoiceCoreSession(rotation.nextSessionID)
+    await input.voiceCore.closeSession(rotation.previousSessionID)
+    sessionID = rotation.nextSessionID
+    pendingRotation = undefined
+    input.onSession(sessionID)
+    return sessionID
+  }
+
   return {
     get sessionID() {
       return sessionID
@@ -114,7 +150,7 @@ export function createLocalVoiceSession(input: {
     async submit(text: string, options: Omit<LocalVoiceTurnOptions, "directory">, signal?: AbortSignal): Promise<string> {
       const transcript = text.trim()
       if (!transcript) return ""
-      const currentSessionID = await ensureSession()
+      const currentSessionID = await ensureTurnSession()
       const messageID = Identifier.ascending("message")
       await beginVoiceCoreTurn(currentSessionID, messageID)
       const result = await input.client.prompt({
@@ -158,7 +194,7 @@ export function createLocalVoiceSession(input: {
       if (!input.client.promptStream) return
       const transcript = text.trim()
       if (!transcript) return
-      const currentSessionID = await ensureSession()
+      const currentSessionID = await ensureTurnSession()
       const messageID = Identifier.ascending("message")
       await beginVoiceCoreTurn(currentSessionID, messageID)
       const stream = input.client.promptStream({

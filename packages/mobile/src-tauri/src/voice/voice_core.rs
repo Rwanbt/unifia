@@ -27,6 +27,17 @@ pub fn voice_core_open_session(
 }
 
 #[tauri::command]
+pub fn voice_core_remaining_turn_capacity(
+    state: State<'_, VoiceCoreState>,
+    session_id: String,
+) -> Result<usize, String> {
+    state
+        .0
+        .remaining_turn_capacity(&session_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn voice_core_begin_turn(
     state: State<'_, VoiceCoreState>,
     session_id: String,
