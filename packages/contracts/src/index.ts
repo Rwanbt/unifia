@@ -78,3 +78,4 @@ export * from "./workflow-map-key.js"
 // authority contracts.
 export * from "./knowledge/index.js"
 export * from "./voice-resource-scheduler.js"
+export * from "./voice-eot-bench.js"
