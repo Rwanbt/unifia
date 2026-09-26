@@ -9,9 +9,9 @@
 
 **Last source SHA with both required remote workflows green:** `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12` (`voice-ci` 36243451608; `unifia-conformance` 36243451545).
 
-**Current source HEAD:** `af13bb2d1290ef40deb3edc273683389497ecc42` on `voice` and `origin/voice` (fetched and verified). Local changes below are not yet committed.
+**Latest implementation source SHA:** `01bf5da293394970bfe1e99b476a249ed783c17f` on `voice` and `origin/voice` (GitHub branch API confirmed the exact same SHA). The artifact-installer and desktop/mobile integration commits are pushed; `voice-ci` is green (`36244758338`) and `unifia-conformance` is still running (`36244758313`).
 
-**Current worktree:** implementation is committed and remotely green at `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`. `packages/voice-core` adds event sequencing, idempotency-key deduplication, timestamp monotonicity, generation fencing across reconnect/recovery, turn tokens, and playback-only cancellation; ADR-060 selects Rust as canonical. Production event producers have not migrated. Untracked build/cache artifacts remain preserved and unstaged.
+**Current worktree:** implementation SHA `01bf5da293394970bfe1e99b476a249ed783c17f` includes `d0fee82b31` (shared artifact registry/installer) and `01bf5da293` (desktop + Android adoption). This checkpoint is a docs-only follow-up. VoiceCore production event producers have not migrated. Pre-existing build/cache artifacts remain preserved and unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -19,14 +19,14 @@
 
 ## Verdict
 
-**IN PROGRESS — NOT GO PROD.** Both G0 workflows are green on exact SHA `46f6686851`. G1 readiness and microphone gating are pushed at `5b7d69dff6`; cause-category metadata and provider identity validation are pushed at `33b6b4e7df`; binding-scoped pre-session errors are pushed at `46f6686851`. G1 remains partial: selected LLM/provider health is unverified and Android/local/desktop emitters are not unified. No production qualification is inferred from unit tests or scaffolds.
+**IN PROGRESS — NOT GO PROD.** G1 still lacks selected LLM/provider health and cross-runtime emitter parity. Parakeet now has immutable archive and per-file SHA-256 pins in the shared registry; desktop and Android use one atomic, rollback-capable installer. Local Rust/Node/Tauri checks pass; exact-SHA `voice-ci` run `36244758338` is green and `unifia-conformance` `36244758313` remains in progress. No production qualification is inferred from unit tests or scaffolds.
 
 ## Gate State
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
 | G0 — Truth and CI | Green | Exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde` passed `voice-ci` `36242039225` and `unifia-conformance` `36242039213`. |
-| G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. The current local change adds binding-scoped errors before session creation and persistent error attributes. Remaining: selected LLM/provider readiness beyond bridge reachability, other Android/local/desktop emitters, completed ADR adoption evidence, model registry/security reconciliation. |
+| G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Parakeet artifact SHA pins and shared Android/desktop installation are now implemented and locally checked. Remaining: selected LLM/provider readiness beyond bridge reachability, other Android/local/desktop emitters, completed ADR adoption evidence. |
 | G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed error/event contracts, sequence assignment, idempotency-key deduplication, monotonic timestamp checks, generation fencing, turn tokens, playback-only cancellation, reconnect, and snapshot recovery. Rust unit tests cover duplicate retries, ordering, stale generations, cancellation races, reconnect, and recovery; the Tauri runtime links the crate. Production producers, complete lifecycle state machine, durable persistence, adapters, and cross-runtime fixture parity remain open.
 | G3 — Native Android audio | Not started | Android Live still uses WebView capture/playback; native full-duplex and AEC need implementation and device qualification. |
 | G4 — VAD and EOT | Not started | Real Android Silero and qualified EOT model/audio corpus remain open. |
@@ -39,7 +39,7 @@
 | G11 — Resource scheduling | Partial | TypeScript/Python/Rust scheduler logic exists and has unit tests; actual model residency/provider wiring and hardware pressure qualification remain open. |
 | G12 — Android standalone | Not started | Airplane-mode, local LLM, five-language, endurance, and duplex physical gates remain open. |
 | G13 — Desktop convergence | Not started | Shared core must become canonical; document compatibility or retirement of the legacy path. |
-| G14 — Production hardening | Not started | Registry integrity, security, packaging, final CI, documentation, and evidence remain open. |
+| G14 — Production hardening | Partial | Parakeet archive and four extracted-file hashes are pinned; shared safe extraction, cache validation, atomic promotion/rollback and recovery have 7 passing unit tests. Both Tauri crates compile locally. Remaining: green exact-SHA remote workflows, Windows/Android packaging/runtime and physical qualification, broader registry adoption, and production security/evidence gates. |
 
 ## Checks Run
 
@@ -82,6 +82,8 @@
 - At local HEAD `af13bb2d12`, `packages/voice-core` passed `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` (**4 passed**); the mobile Tauri crate passed `cargo check --lib`. This pushed slice only adds typed contracts and links the crate; production producers have not migrated.
 - VoiceCore sequencing slice at `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: `cargo fmt --check`, Clippy, and `cargo check --lib --manifest-path ../mobile/src-tauri/Cargo.toml` pass; VoiceCore tests **9 passed**. This establishes core-local behavior only; no device or cross-runtime qualification is claimed.
 - Exact source SHA `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: local VoiceCore format check, Clippy (`-D warnings`), **9 tests**, and mobile `cargo check --lib` passed. GitHub `voice-ci` run `36243451608` and `unifia-conformance` run `36243451545` both completed successfully on that exact SHA.
+- Exact pushed source SHA `01bf5da293394970bfe1e99b476a249ed783c17f`: Voice artifact crate `cargo fmt --check`, Clippy `--locked -D warnings`, and **7 tests** passed; mobile and desktop `cargo check --lib` passed; registry validator and **5** Node self-tests passed; workflow YAML parsed; `git diff --check` passed. GitHub branch API confirmed `voice` points to this exact SHA; `voice-ci` `36244758338` completed successfully; `unifia-conformance` `36244758313` was still in progress at the last read.
+- The pinned 463,415,355-byte Parakeet release ZIP was downloaded to ignored `.build-temp/voice-artifact-audit/`; `Get-FileHash -Algorithm SHA256` returned `c5d0197e0b98552d8b88c569dbd9715199b68f6d0de17045b96e8541d4f75c03`. Hashes for the four required ONNX/vocabulary files were computed from the ZIP stream and added to the registry.
 
 ## CI Runs at Baseline
 
@@ -95,11 +97,11 @@
 
 - No target Windows physical Live/audio qualification is recorded.
 - The Xiaomi Android device is available, but interaction/audio permissions and unattended device limits prevent claiming physical qualification.
-- Model registry is partial: Parakeet and Pocket entries are absent, and several Piper revisions are marked unverified. There is no verified Android registry.
+- Pocket TTS entries are still absent and several Piper revisions remain unverified. Android/Windows model packaging and runtime loading have not been qualified on target systems.
 - The checkout contains untracked build/cache artifacts. Preserve them; do not stage them as campaign output.
 
 ## Next Exact Actions
 
-1. Continue G1: establish a truthful selected-LLM/provider readiness check without generating an unauthorized session turn; unify desktop/Android/local error producers; close ADR-070 only after all emitters and adoption tests pass.
-2. Continue G1: reconcile typed Rust errors/events with all active Python/TypeScript emitters and implement selected-provider readiness plus model-registry security. ADR-060 now selects Rust VoiceCore; six missing architecture topics still require decision records.
-3. Continue G2 by connecting actual Android and desktop producers/adapters to VoiceCore and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order. Update gates only with production-path evidence.
+1. Read exact-SHA results for runs `36244758338` and `36244758313`; fix any failures and push a corrective commit.
+2. Continue G1: establish selected-LLM/provider readiness without generating an unauthorized session turn; unify remaining desktop/Android/local error producers; close ADR-070 only after adoption tests pass.
+3. Continue G2 by connecting actual Android and desktop producers/adapters to VoiceCore and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order. Qualify installer/model loading on Windows and Android hardware; do not claim GO PROD from host tests.
