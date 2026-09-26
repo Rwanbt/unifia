@@ -56,7 +56,7 @@ canonical `VoiceEvent` / `VoiceEventKind` in
 `generation`, and snake_case payload fields exactly as serde serializes them.
 
 ```ts
-// packages/contracts/voice/turn-engine.ts (proposed)
+// packages/contracts/src/voice-turn-engine.ts (canonical contract)
 
 // Wire-value types: serde forms of the canonical packages/voice-core enums.
 export type VoiceProfile = "dictation" | "manual_read_aloud" | "live";

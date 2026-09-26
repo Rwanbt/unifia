@@ -16,6 +16,11 @@ constexpr uint32_t kMaximumCallbackFrames = 2'048;
 
 class SampleRing {
  public:
+  void clear() noexcept {
+    read_.store(0, std::memory_order_relaxed);
+    write_.store(0, std::memory_order_relaxed);
+  }
+
   uint32_t push(const int16_t* input, uint32_t count) noexcept {
     const uint32_t write = write_.load(std::memory_order_relaxed);
     const uint32_t read = read_.load(std::memory_order_acquire);
@@ -51,6 +56,12 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
  public:
   oboe::Result open() noexcept {
     if (input_ || output_) return oboe::Result::ErrorInvalidState;
+    capture_.clear();
+    playback_.clear();
+    captureOverflows_.store(0, std::memory_order_relaxed);
+    playbackOverflows_.store(0, std::memory_order_relaxed);
+    playbackEmptySamples_.store(0, std::memory_order_relaxed);
+    lastError_.store(0, std::memory_order_relaxed);
     oboe::AudioStreamBuilder inputBuilder;
     inputBuilder.setDirection(oboe::Direction::Input)
         ->setSampleRate(kCanonicalSampleRate)
@@ -114,10 +125,12 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
 
   oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream, void* audioData,
                                         int32_t frameCount) noexcept override {
+    if (frameCount <= 0 || audioData == nullptr) return oboe::DataCallbackResult::Continue;
     auto* samples = static_cast<int16_t*>(audioData);
     const auto count = static_cast<uint32_t>(frameCount);
     if (stream->getDirection() == oboe::Direction::Input) {
       const uint32_t channels = static_cast<uint32_t>(stream->getChannelCount());
+      if (channels == 0) return oboe::DataCallbackResult::Continue;
       std::array<int16_t, kMaximumCallbackFrames> monoSamples{};
       uint32_t offset = 0;
       while (offset < count) {
@@ -137,6 +150,7 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
       }
     } else {
       const uint32_t channels = static_cast<uint32_t>(stream->getChannelCount());
+      if (channels == 0) return oboe::DataCallbackResult::Continue;
       std::array<int16_t, kMaximumCallbackFrames> monoSamples{};
       uint32_t offset = 0;
       while (offset < count) {
@@ -179,8 +193,14 @@ class VoiceAudioEngine final : public oboe::AudioStreamDataCallback,
   }
 
   int32_t xrunCount() const noexcept {
-    const int32_t inputCount = input_ ? input_->getXRunCount() : 0;
-    const int32_t outputCount = output_ ? output_->getXRunCount() : 0;
+    const auto inputResult = input_ && input_->isXRunCountSupported()
+                                 ? input_->getXRunCount()
+                                 : oboe::ResultWithValue<int32_t>(0);
+    const auto outputResult = output_ && output_->isXRunCountSupported()
+                                  ? output_->getXRunCount()
+                                  : oboe::ResultWithValue<int32_t>(0);
+    const int32_t inputCount = inputResult ? inputResult.value() : 0;
+    const int32_t outputCount = outputResult ? outputResult.value() : 0;
     return (inputCount < 0 ? 0 : inputCount) + (outputCount < 0 ? 0 : outputCount);
   }
 

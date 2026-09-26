@@ -55,6 +55,7 @@ export interface LocalVoiceTransport {
   start(handlers: {
     onSpeaking(speaking: boolean): void
     onUtterance(audio: string): void
+    onError?(error: unknown): void
   }): Promise<void>
   transcribe(audio: string): Promise<string>
   speak(text: string): Promise<void>
@@ -172,6 +173,9 @@ export class LiveVoiceController {
             this.dispatch({ type: "user-speaking", speaking }, generation)
           },
           onUtterance: (audio) => this.queueLocalTurn(audio, generation, this.localInputRevision),
+          onError: (error) => {
+            if (generation === this.generation) this.fail(errorFromUnknown(error))
+          },
         })
         if (generation !== this.generation) return
         this.dispatch({ type: "connected" }, generation)
