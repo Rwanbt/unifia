@@ -12,6 +12,7 @@ import type { LiveContext } from "@/voice/live-controller"
 import { createLiveHostClient } from "@/voice/live-host"
 import { createAndroidLocalVoiceTransport } from "@/voice/android-local-voice"
 import { createLocalVoiceSession } from "@/voice/local-session"
+import { createSdkLivePromptStream } from "@/voice/sdk-live-prompt-stream"
 import { createTauriVoiceCoreRuntime } from "@/voice/voice-core-runtime"
 import { bindLiveRuntime } from "@/voice/live-store"
 import { loadAudioSettings } from "@/voice/audio-settings"
@@ -43,8 +44,27 @@ export function createLiveBinding(input: {
     ? createTauriVoiceCoreRuntime((command, args) => tauri.core!.invoke!(command, args))
     : undefined
   const directory = () => input.sdk.directory
+  const promptStream = createSdkLivePromptStream({
+    events: input.sdk.event,
+    promptAsync: async (request) => {
+      const result = await input.sdk.client.session.promptAsync({
+        sessionID: request.sessionID,
+        messageID: request.messageID,
+        directory: request.directory,
+        agent: request.agent,
+        model: request.model,
+        variant: request.variant,
+        parts: request.parts,
+      })
+      return { error: result.error }
+    },
+  })
   const localSession = createLocalVoiceSession({
-    client: input.sdk.client.session,
+    client: {
+      create: (request) => input.sdk.client.session.create(request),
+      prompt: (request) => input.sdk.client.session.prompt(request),
+      promptStream,
+    },
     voiceCore,
     directory: directory(),
     sessionID: input.params.id,
@@ -69,6 +89,11 @@ export function createLiveBinding(input: {
       locale: input.language.locale(),
       closeVoiceCoreSession: () => localSession.closeVoiceCoreSession(),
       submitTurn: (transcript, signal) => localSession.submit(transcript, {
+        agent: input.local.agent.current()?.name,
+        model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
+        variant: input.local.model.variant.current(),
+      }, signal),
+      submitTurnStream: (transcript, signal) => localSession.submitStream(transcript, {
         agent: input.local.agent.current()?.name,
         model: model ? { providerID: model.provider.id, modelID: model.id } : undefined,
         variant: input.local.model.variant.current(),

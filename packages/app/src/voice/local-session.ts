@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { Identifier } from "@/utils/id"
-import type { VoiceCoreRuntimeClient } from "./voice-core-runtime"
+import type { VoiceCoreEvent, VoiceCoreRuntimeClient } from "./voice-core-runtime"
 
 export interface LocalVoiceSessionClient {
   create(input: { directory: string; title: string }): Promise<{
@@ -29,6 +29,7 @@ export interface LocalVoiceSessionClient {
    */
   promptStream?(input: {
     sessionID: string
+    messageID: string
     directory: string
     agent?: string
     model?: { providerID: string; modelID: string }
@@ -158,8 +159,11 @@ export function createLocalVoiceSession(input: {
       const transcript = text.trim()
       if (!transcript) return
       const currentSessionID = await ensureSession()
+      const messageID = Identifier.ascending("message")
+      await beginVoiceCoreTurn(currentSessionID, messageID)
       const stream = input.client.promptStream({
         sessionID: currentSessionID,
+        messageID,
         directory: input.directory,
         agent: options.agent,
         model: options.model,
@@ -169,6 +173,14 @@ export function createLocalVoiceSession(input: {
       })
       for await (const chunk of stream) {
         if (signal?.aborted) return
+        if (input.voiceCore) {
+          if (chunk.kind === "assistant_text_delta") {
+            await input.voiceCore.publishTextDelta(currentSessionID, messageID, chunk.delta)
+          } else {
+            const event = voiceCoreEventForChunk(chunk)
+            if (event) await input.voiceCore.publish(currentSessionID, messageID, event)
+          }
+        }
         yield chunk
       }
     },
@@ -176,5 +188,26 @@ export function createLocalVoiceSession(input: {
       if (!input.voiceCore || !sessionID) return
       await input.voiceCore.closeSession(sessionID)
     },
+  }
+}
+
+function voiceCoreEventForChunk(
+  chunk: Exclude<LocalVoiceStreamChunk, { kind: "assistant_text_delta" }>,
+): VoiceCoreEvent | undefined {
+  switch (chunk.kind) {
+    case "assistant_text_final":
+      return { kind: "assistant_text_final", text: chunk.text }
+    case "tool_started":
+      return { kind: "tool_started", tool: chunk.tool }
+    case "tool_finished":
+      return { kind: "tool_finished", tool: chunk.tool, outcome: chunk.outcome }
+    case "permission_required":
+      return { kind: "permission_required", permission: chunk.permission }
+    case "working":
+      return { kind: "agent_working", tool: null }
+    case "thinking":
+      return { kind: "agent_thinking" }
+    case "error":
+      return undefined
   }
 }

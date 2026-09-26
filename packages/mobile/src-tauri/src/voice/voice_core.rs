@@ -52,6 +52,19 @@ pub fn voice_core_publish(
 }
 
 #[tauri::command]
+pub fn voice_core_publish_text_delta(
+    state: State<'_, VoiceCoreState>,
+    session_id: String,
+    turn_id: String,
+    delta: String,
+) -> Result<VoiceEvent, String> {
+    state
+        .0
+        .publish_assistant_text_delta(&session_id, &turn_id, delta)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn voice_core_close_session(
     state: State<'_, VoiceCoreState>,
     session_id: String,

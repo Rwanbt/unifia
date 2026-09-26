@@ -9,6 +9,12 @@ This is the **Unifia Workbench** changelog — it tracks the rebrand from
 `Rwanbt/opencode` until the rebrand. Older entries below still use that
 former name; GitHub redirects it to the current one.
 
+## [Unreleased]
+
+### Added
+
+- Android Live now streams the canonical Unifia session's text, tool, and permission events into the Voice controller using the submitted message ID. Mobile events are sequenced through VoiceCore; high-rate text deltas stay in memory between durable snapshot checkpoints ([ADR-075](docs/adr/ADR-075-voice-transient-event-durability.md)).
+
 ---
 
 ## [1.0.0-unifia] - 2026-07-31

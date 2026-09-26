@@ -413,6 +413,7 @@ pub fn run() {
             voice::voice_core::voice_core_open_session,
             voice::voice_core::voice_core_begin_turn,
             voice::voice_core::voice_core_publish,
+            voice::voice_core::voice_core_publish_text_delta,
             voice::voice_core::voice_core_close_session,
         ]);
     }

@@ -93,6 +93,31 @@ impl VoiceCoreRuntime {
         turn_id: Option<&str>,
         event: VoiceEventKind,
     ) -> Result<VoiceEvent, VoiceCoreRuntimeError> {
+        self.publish_event(session_id, turn_id, event, true)
+    }
+
+    // See ADR-075: snapshots are not an event log, so each token must not trigger a disk flush.
+    pub fn publish_assistant_text_delta(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        delta: String,
+    ) -> Result<VoiceEvent, VoiceCoreRuntimeError> {
+        self.publish_event(
+            session_id,
+            Some(turn_id),
+            VoiceEventKind::AssistantTextDelta { delta },
+            false,
+        )
+    }
+
+    fn publish_event(
+        &self,
+        session_id: &str,
+        turn_id: Option<&str>,
+        event: VoiceEventKind,
+        persist: bool,
+    ) -> Result<VoiceEvent, VoiceCoreRuntimeError> {
         let mut sessions = self.lock_sessions()?;
         let active = self.active_session(&mut sessions, session_id)?;
         let token = turn_id
@@ -109,9 +134,11 @@ impl VoiceCoreRuntime {
             .core
             .publish(token, timestamp, event)
             .map_err(VoiceCoreRuntimeError::Core)?;
-        if let Err(error) = active.store.persist(&active.core.snapshot()) {
-            active.core = previous;
-            return Err(VoiceCoreRuntimeError::Store(error));
+        if persist {
+            if let Err(error) = active.store.persist(&active.core.snapshot()) {
+                active.core = previous;
+                return Err(VoiceCoreRuntimeError::Store(error));
+            }
         }
         Ok(published)
     }
@@ -258,6 +285,36 @@ mod tests {
             ),
             Err(VoiceCoreRuntimeError::MissingTurn)
         ));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn token_deltas_advance_sequence_without_forcing_snapshot_writes() {
+        let root = test_root("stream-delta");
+        let runtime = VoiceCoreRuntime::new(&root);
+        runtime.begin_turn("ses_stream_delta", "msg_voice").unwrap();
+
+        let first = runtime
+            .publish_assistant_text_delta("ses_stream_delta", "msg_voice", "Hel".into())
+            .unwrap();
+        let second = runtime
+            .publish_assistant_text_delta("ses_stream_delta", "msg_voice", "lo".into())
+            .unwrap();
+        let final_event = runtime
+            .publish(
+                "ses_stream_delta",
+                Some("msg_voice"),
+                VoiceEventKind::AssistantTextFinal {
+                    text: "Hello".into(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            (first.sequence, second.sequence, final_event.sequence),
+            (0, 1, 2)
+        );
+        assert_eq!(first.generation, final_event.generation);
         let _ = std::fs::remove_dir_all(root);
     }
 }

@@ -93,6 +93,7 @@ describe("createLocalVoiceSession", () => {
       async publish(sessionID, turnID, event) {
         order.push(`publish:${event.kind}:${sessionID}:${turnID ?? ""}`)
       },
+      async publishTextDelta() {},
       async closeSession(sessionID) {
         order.push(`close:${sessionID}`)
       },
@@ -141,6 +142,7 @@ describe("createLocalVoiceSession", () => {
       async openSession() { return 1 },
       async beginTurn() { throw new Error("snapshot persistence failed") },
       async publish() {},
+      async publishTextDelta() {},
       async closeSession() {},
     }
     const session = createLocalVoiceSession({
@@ -175,6 +177,7 @@ describe("createLocalVoiceSession", () => {
       async prompt() { throw new Error("prompt should not be called when promptStream is implemented") },
       async *promptStream(input: Parameters<NonNullable<LocalVoiceSessionClient["promptStream"]>>[0]) {
         expect(input.sessionID).toBe("ses_stream")
+        expect(input.messageID).toMatch(/^msg_/)
         expect(input.signal?.aborted ?? false).toBe(false)
         for (const chunk of chunks) yield chunk
       },
@@ -196,6 +199,47 @@ describe("createLocalVoiceSession", () => {
     const received: LocalVoiceStreamChunk[] = []
     for await (const chunk of session.submitStream("hello", {})) received.push(chunk)
     expect(received).toEqual([])
+  })
+
+  test("submitStream reserves one SDK message ID and sequences semantic chunks before yielding", async () => {
+    const order: string[] = []
+    let streamMessageID = ""
+    const client: LocalVoiceSessionClient = {
+      async create() { return { data: { id: "ses_stream_core" } } },
+      async prompt() { throw new Error("unused") },
+      async *promptStream(request) {
+        streamMessageID = request.messageID
+        yield { kind: "assistant_text_delta", delta: "Hi", turnID: request.messageID }
+        yield { kind: "assistant_text_final", text: "Hi", turnID: request.messageID }
+      },
+    }
+    const voiceCore: VoiceCoreRuntimeClient = {
+      async openSession() { order.push("open"); return 1 },
+      async beginTurn(_sessionID, turnID) { order.push(`begin:${turnID}`) },
+      async publish(_sessionID, turnID, event) { order.push(`event:${turnID}:${event.kind}`) },
+      async publishTextDelta(_sessionID, turnID, delta) { order.push(`delta:${turnID}:${delta}`) },
+      async closeSession() {},
+    }
+    const session = createLocalVoiceSession({
+      client,
+      voiceCore,
+      directory: "D:/project",
+      sessionID: "ses_stream_core",
+      onSession: () => {},
+    })
+    const chunks: LocalVoiceStreamChunk[] = []
+    for await (const chunk of session.submitStream("hello", {})) chunks.push(chunk)
+
+    expect(streamMessageID).toMatch(/^msg_/)
+    expect(chunks.map((chunk) => chunk.kind)).toEqual(["assistant_text_delta", "assistant_text_final"])
+    expect(order).toEqual([
+      "open",
+      `begin:${streamMessageID}`,
+      `event:${streamMessageID}:turn_submitted`,
+      `event:${streamMessageID}:agent_thinking`,
+      `delta:${streamMessageID}:Hi`,
+      `event:${streamMessageID}:assistant_text_final`,
+    ])
   })
 
   test("submitStream stops emitting once the AbortSignal fires", async () => {

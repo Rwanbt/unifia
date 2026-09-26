@@ -13,6 +13,7 @@ describe("createTauriVoiceCoreRuntime", () => {
     expect(await client.openSession("ses_voice")).toBe(3)
     await client.beginTurn("ses_voice", "msg_turn")
     await client.publish("ses_voice", "msg_turn", { kind: "agent_thinking" })
+    await client.publishTextDelta("ses_voice", "msg_turn", "Hello")
     await client.closeSession("ses_voice")
 
     expect(calls).toEqual([
@@ -21,6 +22,10 @@ describe("createTauriVoiceCoreRuntime", () => {
       {
         command: "voice_core_publish",
         args: { sessionId: "ses_voice", turnId: "msg_turn", event: { kind: "agent_thinking" } },
+      },
+      {
+        command: "voice_core_publish_text_delta",
+        args: { sessionId: "ses_voice", turnId: "msg_turn", delta: "Hello" },
       },
       { command: "voice_core_close_session", args: { sessionId: "ses_voice" } },
     ])
