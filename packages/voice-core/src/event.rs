@@ -392,4 +392,25 @@ mod tests {
         assert_eq!(json["code"], "VAD_PROVIDER_UNAVAILABLE");
         assert_eq!(json["stage"], "vad");
     }
+
+    #[test]
+    fn stt_error_matches_the_cross_runtime_wire_fixture() {
+        let event = VoiceEvent {
+            session_id: Some("ses_cross_runtime".into()),
+            binding_id: None,
+            turn_id: Some("turn_cross_runtime".into()),
+            monotonic_timestamp_ms: 1234,
+            sequence: 7,
+            generation: 2,
+            event: VoiceEventKind::VoiceError {
+                error: crate::VoiceError::from_code(VoiceErrorCode::SttProviderUnavailable, None),
+            },
+        };
+        assert_eq!(event.validate(), Ok(()));
+
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../fixtures/voice-error-stt-unavailable.json"))
+                .unwrap();
+        assert_eq!(serde_json::to_value(event).unwrap(), fixture);
+    }
 }

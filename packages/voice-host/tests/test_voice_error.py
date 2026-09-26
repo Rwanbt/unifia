@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from voice_host.live.agent import LiveConversation, _warm_tts
@@ -15,6 +16,31 @@ from voice_host.live.voice_errors import (
 
 
 class VoiceErrorContractTests(unittest.TestCase):
+    def test_stt_error_matches_the_cross_runtime_wire_fixture(self):
+        fixture_path = (
+            Path(__file__).resolve().parents[2]
+            / "voice-core"
+            / "fixtures"
+            / "voice-error-stt-unavailable.json"
+        )
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        with patch(
+            "voice_host.live.voice_errors.time.monotonic_ns",
+            return_value=1_234_000_000,
+        ):
+            event = json.loads(encode_voice_error_event(
+                session_id="ses_cross_runtime",
+                sequence=7,
+                stage="stt",
+                code="STT_PROVIDER_UNAVAILABLE",
+                turn_id="turn_cross_runtime",
+            ))
+
+        self.assertEqual(
+            event,
+            {key: value for key, value in fixture.items() if key != "generation"},
+        )
+
     def test_sequences_match_the_javascript_safe_integer_contract(self):
         self.assertEqual(
             json.loads(encode_voice_error_event(

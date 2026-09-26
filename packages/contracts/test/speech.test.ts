@@ -15,6 +15,13 @@ const licensedVoice = {
 }
 
 describe("speech contracts", () => {
+  test("accepts the canonical Rust/Python STT error wire fixture", async () => {
+    const fixture: unknown = await Bun.file(
+      new URL("../../voice-core/fixtures/voice-error-stt-unavailable.json", import.meta.url),
+    ).json()
+    expect(isVoiceErrorEvent(fixture)).toBe(true)
+  })
+
   test("voice readiness requires a valid session, sequence, and Live profile", () => {
     const base = { kind: "voice_ready", sessionID: "ses_test", ts: 123, seq: 1, profile: "live" }
     expect(isVoiceReadyEvent(base)).toBe(true)
