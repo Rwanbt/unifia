@@ -7,11 +7,11 @@
 
 **Baseline HEAD:** `261cef41351ae7804a07e811e775e056be51f9d5`
 
-**Last source SHA with both required remote workflows green:** `46f6686851e3e4df4dabb3345a50f4e290485bde` (`voice-ci` 36242039225; `unifia-conformance` 36242039213).
+**Last source SHA with both required remote workflows green:** `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12` (`voice-ci` 36243451608; `unifia-conformance` 36243451545).
 
 **Current source HEAD:** `af13bb2d1290ef40deb3edc273683389497ecc42` on `voice` and `origin/voice` (fetched and verified). Local changes below are not yet committed.
 
-**Current worktree:** `packages/voice-core` adds event sequencing, timestamp monotonicity, generation fencing across reconnect/recovery, turn tokens, and playback-only cancellation; ADR-060 is amended to select Rust as canonical; this checkpoint records that state. Production event producers have not migrated. Untracked build/cache artifacts remain preserved and unstaged.
+**Current worktree:** implementation is committed and remotely green at `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`. `packages/voice-core` adds event sequencing, idempotency-key deduplication, timestamp monotonicity, generation fencing across reconnect/recovery, turn tokens, and playback-only cancellation; ADR-060 selects Rust as canonical. Production event producers have not migrated. Untracked build/cache artifacts remain preserved and unstaged.
 
 **G0 commits pushed:** `e00bf2a388`, `e81cb76c9c`, `35f05b6f37`, `3cd2a3bc66`, `5e77352883`, `386fdcf5ea`.
 
@@ -80,7 +80,8 @@
 - GitHub run `36241529290` (`voice-ci`) and `36241529304` (`unifia-conformance`) both passed on exact SHA `33b6b4e7df2f7ff877386bc90b71cbd883942b33`.
 - For exact SHA `46f6686851e3e4df4dabb3345a50f4e290485bde`, `voice-ci` run `36242039225` and `unifia-conformance` run `36242039213` both completed successfully. The push hook also passed all **47/47** typechecks.
 - At local HEAD `af13bb2d12`, `packages/voice-core` passed `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` (**4 passed**); the mobile Tauri crate passed `cargo check --lib`. This pushed slice only adds typed contracts and links the crate; production producers have not migrated.
-- Current uncommitted VoiceCore engine slice: `cargo fmt --check`, Clippy, and `cargo check --lib --manifest-path ../mobile/src-tauri/Cargo.toml` pass; VoiceCore tests **9 passed**. Added idempotent event publication, sequence/timestamp checks, stale generation fencing, playback cancellation independent of agent work, reconnect, and process snapshot recovery fencing. This is local evidence only until commit and remote CI; no device or cross-runtime qualification is claimed.
+- VoiceCore sequencing slice at `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: `cargo fmt --check`, Clippy, and `cargo check --lib --manifest-path ../mobile/src-tauri/Cargo.toml` pass; VoiceCore tests **9 passed**. This establishes core-local behavior only; no device or cross-runtime qualification is claimed.
+- Exact source SHA `14f0aa791ffa16adfdb488da3c4f7bb2bcb24c12`: local VoiceCore format check, Clippy (`-D warnings`), **9 tests**, and mobile `cargo check --lib` passed. GitHub `voice-ci` run `36243451608` and `unifia-conformance` run `36243451545` both completed successfully on that exact SHA.
 
 ## CI Runs at Baseline
 
@@ -101,4 +102,4 @@
 
 1. Continue G1: establish a truthful selected-LLM/provider readiness check without generating an unauthorized session turn; unify desktop/Android/local error producers; close ADR-070 only after all emitters and adoption tests pass.
 2. Continue G1: reconcile typed Rust errors/events with all active Python/TypeScript emitters and implement selected-provider readiness plus model-registry security. ADR-060 now selects Rust VoiceCore; six missing architecture topics still require decision records.
-3. Commit/push the green VoiceCore sequencing slice, confirm exact-SHA CI, then continue G2 by connecting actual Android and desktop producers/adapters and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order. Update gates only with production-path evidence.
+3. Continue G2 by connecting actual Android and desktop producers/adapters to VoiceCore and proving Python/TypeScript/Rust fixture parity; proceed through G3–G14 in dependency order. Update gates only with production-path evidence.
