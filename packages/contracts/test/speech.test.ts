@@ -16,7 +16,7 @@ const licensedVoice = {
 
 describe("speech contracts", () => {
   test("auto fallback order is stable and explicit providers stay explicit", () => {
-    expect(resolveTtsProviders("auto")).toEqual(["pocket", "piper"])
+    expect(resolveTtsProviders("auto")).toEqual(["pocket", "piper", "fallback-android-tts"])
     expect(resolveTtsProviders("piper")).toEqual(["piper"])
   })
 

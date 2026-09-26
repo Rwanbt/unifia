@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: MIT
 name: voice-ci
 
-# Companion to plan §14 (Tests) + plan §18 (Test pyramid). The general
-# `test.yml` in this directory runs `pnpm turbo test` which exercises
-# the JS / Bun monorepo (including `packages/app/src/voice/*`).
-# This workflow covers the surfaces the JS pipeline does NOT:
+# Companion to the Voice v2 test plan. This workflow runs the Voice
+# app tests/typecheck, the desktop Python host suite, the host-compiled
+# Rust scheduler tests, and voice documentation sanity checks.
 #
-#   1. voice-host Python suite (uv-managed venv) — the desktop
-#      LiveKit worker, R11 ResourceScheduler, R13.2 PlatformSignals,
-#      R14 SpeechRenderer security tests, etc.
-#   2. Android Rust voice scheduler (host-compiled cargo test).
-#   3. Voice docs sanity (markdown links between voice-*.md files).
+# Jobs cover the Voice Host, app, provider-neutral contracts, Android
+# Rust scheduler, and linked Voice documentation.
 #
 # Triggers: push + PR touching voice sources. Branching off `voice`
 # per the campaign's git discipline.
@@ -22,15 +18,25 @@ on:
   pull_request:
     paths:
       - "packages/voice-host/**"
+      - "packages/voice-host/models/**"
       - "packages/app/src/voice/**"
       - "packages/app/src/contracts/**"
+      - "packages/contracts/**"
       - "packages/mobile/src-tauri/src/voice/**"
+      - "packages/mobile/src-tauri/src/speech.rs"
       - "packages/mobile/src-tauri/Cargo.toml"
+      - "packages/mobile/src-tauri/Cargo.lock"
+      - "scripts/voice/**"
       - "docs/voice-*.md"
-      - "docs/adr/ADR-05[89].md"
-      - "docs/adr/ADR-06[0-9].md"
-      - "docs/adr/ADR-07[0-4].md"
+      - "docs/adr/ADR-05*.md"
+      - "docs/adr/ADR-06*.md"
+      - "docs/adr/ADR-07*.md"
+      - "docs/rfcs/RFC-VOICE-*.md"
+      - "docs/CHECKPOINT-VOICE-*.md"
+      - "docs/PLAN-*-VOICE*.md"
+      - "docs/operations/voice-v2-autonomous-state.md"
       - ".github/workflows/voice-ci.yml"
+  workflow_dispatch:
 
 concurrency:
   group: voice-ci-${{ github.event.pull_request.number || github.ref }}
@@ -42,9 +48,7 @@ permissions:
 jobs:
   # ──────────────────────────────────────────────────────────────────
   # 1. Desktop Python voice-host suite (managed uv venv).
-  #    Tier: unit + integration. 156 + 1 skip + 2 pre-existing
-  #    collection gaps in test_live_stt.py / test_voice_state.py
-  #    (missing `pocket_tts.models.model_state` in venv — documented).
+  #    All collection errors and test failures block this workflow.
   # ──────────────────────────────────────────────────────────────────
   voice-host-python:
     name: voice-host python
@@ -58,56 +62,100 @@ jobs:
           # Long paths + symlink-as-text for Windows-generated refs.
           lfs: false
 
+      - name: Validate Voice model registry metadata
+        run: node scripts/voice/model-registry-validator.mjs
+
+      - name: Voice model integrity tests
+        run: node scripts/voice/model-registry-validator.test.mjs
+
       - name: Install uv (Astral)
         uses: astral-sh/setup-uv@v3
         with:
           version: "0.4.x"
 
-      - name: Set up Python (managed 3.12)
+      - name: Install managed Python 3.12
         run: |
           uv python install 3.12
-          echo "PYTHON_VERSION=$(uv python find 3.12)" >> "$GITHUB_ENV"
-
-      - name: Build / install voice-host venv
-        working-directory: packages/voice-host
-        run: |
-          uv sync --frozen --python 3.12
-          uv pip install --python .venv/bin/python pytest==9.1.1 pytest-asyncio
-
-      - name: Smoke import (catches missing-module / ABI regressions)
-        working-directory: packages/voice-host
-        run: |
-          uv run --no-sync python -c "import pocket_tts.models.model_state; import voice_host.worker; print('ok')"
-          # NOTE: the smoke is expected to fail on environments without
-          # `pocket_tts.models.model_state` installed (the pre-existing
-          # venv gap documented in the final report). Treat it as a
-          # WARN — the full test suite below will report the actual
-          # coverage.
 
       - name: Voice-host full suite
         working-directory: packages/voice-host
-        run: |
-          uv run --no-sync python scripts/voice/voice-host-test-runner.py --full
-        # Allow failures from the 2 pre-existing collection gaps; the rest
-        # of the suite MUST be green. The runner prints a non-zero exit
-        # when test failures occur; the gap below separates "missing
-        # collection imports" from "real test failure".
-        continue-on-error: true
+        run: python ../../scripts/voice/voice-host-test-runner.py --full
 
       - name: Assert R14 SpeechRenderer security tests green
         working-directory: packages/voice-host
         run: |
-          # 53 R14 tests in test_renderer_security.py — must always be green.
-          # If this job fails, the campaign's "no secret vocalization"
-          # §42 invariant is broken and the commit must NOT proceed.
-          uv run --no-sync pytest \
-            tests/test_renderer_security.py \
-            -v --no-header -q 2>&1 | tail -3
-          # Grep the last 3 lines for "53 passed" + 0 failed.
-          uv run --no-sync pytest tests/test_renderer_security.py -q | grep -E "53 passed|failed"
+          uv run --no-sync pytest tests/test_renderer_security.py -v --no-header -q
+
+  # 2. Android / desktop TypeScript Voice surface.
+  voice-app:
+    name: voice app tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prepare Voice test report directory
+        run: mkdir -p packages/app/.artifacts/voice
+
+      - name: Voice tests
+        working-directory: packages/app
+        run: bun test --preload ./happydom.ts ./src/voice --reporter=junit --reporter-outfile=.artifacts/voice/junit.xml
+
+      - name: Upload Voice test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-app-junit
+          path: packages/app/.artifacts/voice/junit.xml
+          if-no-files-found: ignore
+
+      - name: Voice typecheck
+        working-directory: packages/app
+        run: bun run typecheck
+
+      - name: Voice formatting
+        run: bunx biome check packages/app/src/voice packages/contracts/src packages/contracts/test
+
+  # 3. Provider-neutral speech contracts have their own tests and typecheck.
+  voice-contracts:
+    name: voice contracts tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Contract tests
+        working-directory: packages/contracts
+        run: bun run test
+
+      - name: Contract typecheck
+        working-directory: packages/contracts
+        run: bun run typecheck
 
   # ──────────────────────────────────────────────────────────────────
-  # 2. Android voice scheduler (host-compiled cargo).
+  # 4. Android voice scheduler (host-compiled cargo).
   #    The Rust scheduler + PlatformSignals trait are cfg-gated on
   #    android-or-test, so a host cargo test exercises the same
   #    pure-logic surface that ships to the device.
@@ -136,15 +184,19 @@ jobs:
           key: ${{ runner.os }}-cargo-v1-${{ hashFiles('packages/mobile/src-tauri/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-v1-
 
-      - name: Run voice:: scheduler tests (host-compiled)
+      - name: Voice Rust formatting
+        run: rustfmt --check src/voice/resource_scheduler.rs
         working-directory: packages/mobile/src-tauri
-        run: cargo test --lib voice:: --no-fail-fast
+
+      - name: "Run voice:: scheduler tests (host-compiled)"
+        working-directory: packages/mobile/src-tauri
+        run: "cargo test --lib voice:: --no-fail-fast"
       # The Rust scheduler is pure logic — no Android ABI / NDK
       # dependency at test time, so host cargo is sufficient for the
       # §18 unit tier. Real-device validation is R3 / R12 hardware.
 
   # ──────────────────────────────────────────────────────────────────
-  # 3. Voice docs sanity — check internal markdown references
+  # 5. Voice docs sanity — check internal markdown references
   #    resolve (no broken `[text](path.md)` between voice-*.md).
   #    Cheap, fast, catches accidental dangling links when we ship
   #    Session-Recap → RFC → ADR → runbook references.
@@ -180,7 +232,8 @@ jobs:
                           files.append(os.path.join(root, n))
               files += ["docs/rfcs/RFC-VOICE-PARITY-PC-ANDROID-2026-09-25.md",
                         "docs/CHECKPOINT-VOICE-V2-2026-09-26.md",
-                        "docs/voice-current-state-2026-09-25.md"]
+                        "docs/voice-current-state-2026-09-25.md",
+                        "docs/operations/voice-v2-autonomous-state.md"]
               return sorted(set(files))
 
           def resolve(base, target):

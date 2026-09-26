@@ -82,8 +82,9 @@ def main() -> int:
         return fail("uv sync failed", 3)
 
     # Install pytest into the venv (it is not in pyproject dev deps).
+    python_path = VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     pip_install = run(
-        ["uv", "pip", "install", "--python", str(VENV / "Scripts" / "python.exe"),
+        ["uv", "pip", "install", "--python", str(python_path),
          f"pytest=={PYTEST_VERSION}", "pytest-asyncio"],
         cwd=PACKAGE,
     )
@@ -118,10 +119,6 @@ def main() -> int:
 
     print("[voice-host-test-runner] running pytest...", file=sys.stderr)
     proc = subprocess.run(pytest_cmd, cwd=PACKAGE, env=env, check=False)
-    return proc.returncode
-
-    print("[voice-host-test-runner] running pytest...", file=sys.stderr)
-    proc = subprocess.run(pytest_cmd, cwd=PACKAGE, check=False)
     return proc.returncode
 
 
