@@ -26,8 +26,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-import pytest
-
 from voice_host.live.agent import SharedResources
 from voice_host.resource_scheduler import (
     EvictionReason,
@@ -69,7 +67,6 @@ def test_shared_resources_carries_voice_resource_scheduler_field() -> None:
     resources = SharedResources(
         vad=object(),
         recognizer=None,
-        stt_error=None,
         router_factory=_make_router_factory(),
         voice_resource_scheduler=scheduler,
     )
@@ -83,7 +80,6 @@ def test_shared_resources_scheduler_is_optional_for_legacy_callers() -> None:
     resources = SharedResources(
         vad=object(),
         recognizer=None,
-        stt_error=None,
         router_factory=_make_router_factory(),
     )
     assert resources.voice_resource_scheduler is None
@@ -154,7 +150,7 @@ def test_eviction_listener_receives_event_with_provider_metadata() -> None:
     reload a model on the next session)."""
 
     scheduler = VoiceResourceScheduler(mode="desktop", gpu_owned_by="local-llm")
-    preload = _stub_lease(
+    _stub_lease(
         scheduler,
         kind="fast-decision-cache",
         priority=ResourcePriority.PRELOAD,

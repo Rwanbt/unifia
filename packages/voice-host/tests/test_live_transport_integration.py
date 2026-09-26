@@ -303,7 +303,6 @@ class LiveTransportIntegration(unittest.IsolatedAsyncioTestCase):
         resources = live_agent.SharedResources(
             vad=inference.VAD(model="silero"),
             recognizer=self.recognizer,
-            stt_error=None,
             router_factory=lambda on_route: TtsRouter(
                 {"pocket": FailingPocket(), "piper": self.piper},
                 on_route=lambda record: (self.routes.append(record), on_route(record)),

@@ -47,7 +47,7 @@ from .segmenter import Segment, SpeechSegmenter
 from .stt import ParakeetSTT
 from .tts import PcmChunk, RouteRecord, SynthesisRequest, TtsRouter
 from .turns import TurnLedger, VoiceTurn, ascending_id, device_id, turn_id_for
-from .voice_errors import VOICE_ERROR_TOPIC, encode_voice_error_event
+from .voice_errors import publish_voice_error_event
 
 log = logging.getLogger("unifia.voice.live")
 
@@ -134,25 +134,24 @@ class LiveConversation:
         self._attributes.update(changed)
         try:
             await self.room.local_participant.set_attributes({f"unifia.{k}": v for k, v in changed.items()})
-        except Exception as error:  # attributes are advisory UI state
-            log.warning("could not publish agent attributes: %s", error)
+        except Exception:  # attributes are advisory UI state
+            log.warning("could not publish agent attributes")
 
-    async def publish_voice_error(self, session_id: str, code: str, turn_id: str | None = None) -> bool:
-        stage = "stt" if code == "STT_PROVIDER_UNAVAILABLE" else "session"
+    async def publish_voice_error(
+        self, session_id: str, code: str, turn_id: str | None = None, stage: str = "session"
+    ) -> bool:
         self._voice_error_sequence += 1
-        payload = encode_voice_error_event(
+        published = await publish_voice_error_event(
+            self.room.local_participant,
             session_id=session_id,
             sequence=self._voice_error_sequence,
             stage=stage,
             code=code,
             turn_id=turn_id,
         )
-        try:
-            await self.room.local_participant.publish_data(payload, reliable=True, topic=VOICE_ERROR_TOPIC)
-            return True
-        except Exception:
+        if not published:
             log.warning("could not publish staged Voice error event")
-            return False
+        return published
 
     def on_route(self, record: RouteRecord) -> None:
         metric("voice.tts.first_audio.ms", record.first_audio_ms, provider=record.resolved, language=record.language)
@@ -440,7 +439,6 @@ class SharedResources:
 
     vad: Any
     recognizer: Any
-    stt_error: str | None
     router_factory: Callable[[Callable[[RouteRecord], None]], TtsRouter]
     voice_resource_scheduler: Any | None = None
 
@@ -488,8 +486,8 @@ async def run_job(
     ctx.add_shutdown_callback(http.close)
     try:
         binding, raw = await fetch_binding(endpoint, binding_id, http)
-    except (BridgeError, aiohttp.ClientError) as error:
-        log.error("Live binding unavailable: %s", error)
+    except (BridgeError, aiohttp.ClientError):
+        log.error("Live binding unavailable")
         await ctx.room.local_participant.set_attributes({"unifia.error": "binding_invalid"})
         ctx.shutdown("binding_invalid")
         return
@@ -498,8 +496,18 @@ async def run_job(
         ctx.shutdown("binding_mismatch")
         return
     if resources.recognizer is None:
-        await ctx.room.local_participant.set_attributes({"unifia.error": "stt_unavailable"})
-        log.error("Parakeet unavailable: %s", resources.stt_error)
+        published = bool(binding.session_id) and await publish_voice_error_event(
+            ctx.room.local_participant,
+            session_id=binding.session_id or "",
+            sequence=0,
+            stage="stt",
+            code="STT_PROVIDER_UNAVAILABLE",
+        )
+        if not published:
+            if binding.session_id:
+                log.warning("could not publish startup STT error event")
+            await ctx.room.local_participant.set_attributes({"unifia.error": "stt_unavailable"})
+        log.error("Parakeet unavailable")
         await asyncio.sleep(3)
         ctx.shutdown("stt_unavailable")
         return
@@ -516,6 +524,16 @@ async def run_job(
         speed=float(raw.get("speed") or 1.0),
     )
     ctx.add_shutdown_callback(conversation.aclose)
+    try:
+        await conversation.bridge.probe()
+    except (BridgeError, aiohttp.ClientError):
+        published = bool(binding.session_id) and await conversation.publish_voice_error(
+            binding.session_id or "", "SESSION_AGENT_UNAVAILABLE"
+        )
+        if not published:
+            await conversation.publish(error="agent_unavailable")
+        ctx.shutdown("agent_unavailable")
+        return
     session = AgentSession(
         stt=ParakeetSTT(resources.recognizer, languages),
         vad=resources.vad,
@@ -554,6 +572,17 @@ async def run_job(
             metric("voice.interrupt.ms", (time.monotonic() - interrupt_started.pop()) * 1000)
             interrupt_started.clear()
 
+    if not await _warm_tts(router, conversation.language(), conversation.voices):
+        published = bool(binding.session_id) and await conversation.publish_voice_error(
+            binding.session_id or "", "TTS_PROVIDER_UNAVAILABLE", stage="tts"
+        )
+        if not published:
+            if binding.session_id:
+                log.warning("could not publish startup TTS error event")
+            await conversation.publish(error="tts_unavailable")
+        ctx.shutdown("tts_unavailable")
+        return
+
     await session.start(
         agent=UnifiaVoiceAgent(conversation),
         room=ctx.room,
@@ -564,8 +593,6 @@ async def run_job(
     await conversation.publish(
         session=binding.session_id or "", task="idle", language=conversation.language(), error=""
     )
-    # Prepare the conversation language so the first answer does not pay the load.
-    asyncio.create_task(_warm_tts(router, conversation.language(), conversation.voices))
     # The job outlives this function; the watcher only ends it once the user
     # has been gone past the grace period (network drops keep the job).
     watcher = asyncio.create_task(_end_when_room_empty(ctx))
@@ -576,13 +603,14 @@ async def _cancel(task: asyncio.Task[None]) -> None:
     task.cancel()
 
 
-async def _warm_tts(router: TtsRouter, language: str, voices: dict[str, str]) -> None:
+async def _warm_tts(router: TtsRouter, language: str, voices: dict[str, str]) -> str | None:
     for name in router.order():
         try:
             await router.backends[name].prepare(language, voices.get(language))
-            return
-        except Exception as error:
-            log.warning("TTS warmup failed for %s: %s", name, error)
+            return name
+        except Exception:
+            log.warning("TTS warmup failed for provider %s", name)
+    return None
 
 
 async def _end_when_room_empty(ctx: JobContext) -> None:

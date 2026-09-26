@@ -30,10 +30,10 @@ def parakeet_ready(directory: Path | None) -> bool:
 
 
 def build_resources(config: LiveConfig):
+    logger = logging.getLogger(__name__)
     from livekit.agents import inference
 
     from ..resource_scheduler import (
-        PlatformSignals,
         ResourcePriority,
         ResidencyClass,
         ThermalStatus,
@@ -48,14 +48,11 @@ def build_resources(config: LiveConfig):
     for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
         os.environ[key] = str(threads["pocket"])
     recognizer = None
-    stt_error: str | None = None
     if parakeet_ready(config.parakeet_dir):
         try:
             recognizer = load_parakeet(config.parakeet_dir, threads["stt"])  # type: ignore[arg-type]
-        except Exception as error:
-            stt_error = f"{type(error).__name__}: {error}"
-    else:
-        stt_error = "Parakeet model is not installed"
+        except Exception:
+            logger.warning("Parakeet model loading failed")
 
     def router_factory(on_route):
         backends = {"pocket": PocketBackend()}
@@ -83,7 +80,7 @@ def build_resources(config: LiveConfig):
         gpu_owned_by=gpu_owner,
         platform=desktop_signals,
     )
-    log.info(
+    logger.info(
         "voice.resource.diagnostics mode=%s gpu_owned_by=%s voice_gpu_alloc_bytes=%s "
         "platform_connected=%s thermal=%s memory=%s",
         "desktop",
@@ -110,7 +107,6 @@ def build_resources(config: LiveConfig):
     return SharedResources(
         vad=inference.VAD(model="silero"),
         recognizer=recognizer,
-        stt_error=stt_error,
         router_factory=router_factory,
         voice_resource_scheduler=scheduler,
     )

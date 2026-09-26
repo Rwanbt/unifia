@@ -235,9 +235,11 @@ class FakeUnifia:
         self.bindings = {}
         self.messages = set()
         self.queues = []
+        self.probes = 0
 
     def app(self):
         app = web.Application()
+        app.router.add_get("/session", self.list_sessions)
         app.router.add_post("/session", self.create_session)
         app.router.add_post("/voice/live/bindings/{id}/session", self.bind)
         app.router.add_get("/session/{sid}/message/{mid}", self.get_message)
@@ -253,6 +255,12 @@ class FakeUnifia:
         self.check_auth(request)
         self.sessions += 1
         return web.json_response({"id": f"ses_{self.sessions}"})
+
+    async def list_sessions(self, request):
+        self.check_auth(request)
+        assert request.query["limit"] == "1"
+        self.probes += 1
+        return web.json_response([])
 
     async def bind(self, request):
         self.bindings[request.match_info["id"]] = (await request.json())["sessionID"]
@@ -332,6 +340,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first, second)
         self.assertEqual(self.fake.sessions, 1)
         self.assertEqual(self.fake.bindings["lvb_abcdefghijklmnop"], first)
+
+    async def test_readiness_probe_checks_bridge_without_creating_a_session(self):
+        await self.bridge.probe()
+        self.assertEqual(self.fake.probes, 1)
+        self.assertEqual(self.fake.sessions, 0)
 
     async def test_turn_streams_only_its_own_answer(self):
         sid = await self.bridge.ensure_session()

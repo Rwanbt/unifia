@@ -189,11 +189,16 @@ class VoiceAgentBridge:
     def _params(self) -> dict[str, str]:
         return {"directory": self.binding.directory}
 
-    async def _request(self, method: str, path: str, body: Any = None) -> Any:
+    async def _request(
+        self, method: str, path: str, body: Any = None, query: dict[str, str] | None = None
+    ) -> Any:
+        params = self._params()
+        if query:
+            params.update(query)
         async with self.http.request(
             method,
             f"{self.endpoint.url}{path}",
-            params=self._params(),
+            params=params,
             json=body,
             headers=self._headers(),
             timeout=aiohttp.ClientTimeout(total=30),
@@ -205,6 +210,10 @@ class VoiceAgentBridge:
                 return None
             text = await response.text()
             return json.loads(text) if text else None
+
+    async def probe(self) -> None:
+        """Verify the authenticated Unifia session bridge without creating state."""
+        await self._request("GET", "/session", query={"limit": "1"})
 
     async def ensure_session(self) -> str:
         """Return the bound session, creating it canonically on the first turn."""
