@@ -9,9 +9,9 @@
 
 **Previous branch head with both required remote workflows confirmed green (before this slice):** `b9f3ec3f4b0e0a6263fd0ce3288d81331200344e` (`voice-ci` 36252983708; `unifia-conformance` 36252983713; both successful).
 
-**Most recent pushed head with both required workflows confirmed green:** `d518c93bf17423b0b2b2e7238d26972e29689cf4` (`feat(android): report native audio clock and diagnostics`; `voice-ci` `36271252898` success; `unifia-conformance` `36271252881` success; both on that exact SHA).
+**Most recent pushed head with both required workflows confirmed green:** `d518c93bf17423b0b2b2e7238d26972e29689cf4` (`feat(android): report native audio clock and diagnostics`; `voice-ci` `36271252898` success; `unifia-conformance` `36271252881` success; both on that exact SHA). The subsequent docs-only Android collision checkpoint is `8804a3511a40c5e53d6b928827b29983d0dba9c1`; its `voice-ci` run `36271534998` succeeded. The path-filtered `unifia-conformance` did not run for that docs-only commit.
 
-**Current branch head:** `d518c93bf17423b0b2b2e7238d26972e29689cf4`, equal to `origin/voice`. G3 implementation commits `1a0b36a6ce`, `763bcf6e84`, and `642403c9d2` add the Oboe engine, Rust PCM bridge, and Android Live routing; `d518c93bf1` adds the native audio clock and diagnostics. Both latest required workflows passed on the exact head.
+**Current branch head:** `8804a3511a40c5e53d6b928827b29983d0dba9c1`, equal to `origin/voice` and confirmed by authenticated fetch plus GitHub API on 2026-09-26. G3 implementation commits `1a0b36a6ce`, `763bcf6e84`, and `642403c9d2` add the Oboe engine, Rust PCM bridge, and Android Live routing; `d518c93bf1` adds the native audio clock and diagnostics. Both required workflows passed on `d518c93`; `voice-ci` also passed on the docs-only `8804a351` checkpoint.
 
 **Code-bearing slices included in that push:** `79b2fdd2ba` (`feat(voice): port SpeechSegmenter and SpeechRenderer semantics to TypeScript`, campaign §22) and `7528d43e17` (`feat(voice): stream SpeechSegmenter segments to TTS before the answer completes`, campaign G6).
 
@@ -27,7 +27,7 @@
 
 **Pushed G3 diagnostics slice:** `voice-ci` run `36271252898` and `unifia-conformance` run `36271252881` both succeeded on exact SHA `d518c93bf17423b0b2b2e7238d26972e29689cf4`.
 
-**Updated:** 2026-09-26 (23:00 Europe/Paris)
+**Updated:** 2026-09-26 (23:12 Europe/Paris)
 
 ## Verdict
 
@@ -37,7 +37,7 @@
 
 | Gate | State | Evidence / remaining work |
 |---|---|---|
-| G0 — Truth and CI | Green | Exact branch-head `voice-ci` `36270025936` and `unifia-conformance` `36270025856` both passed on pushed SHA `642403c9d2fc6e52903d7d62451e4e8281acefbe`; the push hook passed 47/47 Turbo typechecks. |
+| G0 — Truth and CI | Green | The required workflows passed together on exact pushed code SHA `d518c93bf17423b0b2b2e7238d26972e29689cf4` (`voice-ci` `36271252898`; `unifia-conformance` `36271252881`). GitHub API confirmed docs-only head `8804a3511a40c5e53d6b928827b29983d0dba9c1`; its `voice-ci` `36271534998` succeeded, while path-filtered conformance correctly had no run. |
 | G1 — Contracts and ADR reconciliation | Partial | Python publishes session-scoped `voice_ready` on reliable data and participant attributes; TypeScript requires it before opening the microphone. Python error/readiness emitters now use safe monotonic timestamps and TypeScript rejects unsafe timestamps. Error envelopes include required `cause_category`, optional validated provider identity, and stable codes for all 21 stages. Explicit Live model selections are checked against the connected provider catalog before readiness. Remaining: non-generative preflight cannot prove inference/network health; event generation and ordering parity across other Android/local/desktop emitters, and completed ADR adoption evidence remain open. |
 | G2 — Shared VoiceCore | In progress | Portable `packages/voice-core` defines typed contracts, ordering, generation fencing, turn tokens, playback-only cancellation, reconnect and recovery. Android Tauri owns the snapshot store under app data. Mobile local Live durably reserves the canonical SDK `messageID` before `prompt`; a reservation failure prevents the SDK call. Snapshot data preserves turn replay fences and clock state, not event payloads. Android Live rotates the canonical session before the 4,096-turn replay history fills, preserving history and permission policy. Shared STT-error and event-ordering JSON fixtures now exercise Rust/Python/TypeScript validation; the local/Android streaming emitter is checked against canonical precedence rules. The shared app now carries canonical SpeechSegmenter/SpeechRenderer semantics with a two-sided parity fixture (§22). Still open: wider producer envelope parity, Python/desktop producer adoption of VoiceCore and the shared segmenter, and lifecycle/recovery parity.
 | G3 — Native Android audio | In progress (device gate open) | Tauri resolves `libvoice_audio.so`; Oboe requests mono 48 kHz I16 input/output with bounded lock-free PCM rings. A Rust poll command reads frames and segments locally, retaining PCM by utterance ID for batch STT without frame transport through JavaScript. `audio_clock_ms` uses Oboe's monotonic `getFramesRead()` position; native stats cross the C ABI and are logged once per second. Latest Android `aarch64` APK build passes. Remaining: run this exact APK on-device through the normal microphone consent prompt, record live frame movement/xruns, connect canonical TTS to native playback, and implement focus, route/reopen, lifecycle, and AEC. |
@@ -54,6 +54,9 @@
 | G14 — Production hardening | Partial | Parakeet archive and four extracted-file hashes are pinned; shared safe extraction, cache validation, atomic promotion/rollback and recovery have 7 passing unit tests. Both Tauri crates compile locally. Remaining: green exact-SHA remote workflows, Windows/Android packaging/runtime and physical qualification, broader registry adoption, and production security/evidence gates. |
 
 ## Checks Run
+
+- Current GitHub state: issue [#117](https://github.com/Rwanbt/unifia/issues/117) is **OPEN** and assigned to `Rwanbt`. Authenticated `gh` API and Git fetch confirmed remote `voice` equals local SHA `8804a3511a40c5e53d6b928827b29983d0dba9c1`. For Git, the configured Windows Schannel credential provider has no credential; authenticated Git transport succeeds per-command with the existing `gh auth` token, `http.sslbackend=openssl`, and a temporary HTTP auth header, without writing a token into Git config.
+- Pocket candidate inspection: upstream `pocket-tts==3.3.0` imports under the project Python 3.12 / CPU PyTorch 2.14 environment when isolated in `.build-temp`; `tokenizers==0.23.1` was reused from the local Graphify Python 3.12 environment. The production lock/environment remains pinned to Pocket 3.1.0. Offline model loading failed before inference because the exact Pocket 3.3 tokenizer revision `00eac05ed3d16bdc3f6b5d598874019c34a89214` is absent from the local HF cache; the HF endpoint currently fails TLS from this shell. This proves import compatibility only, not synthesis, model compatibility, or a bakeoff result.
 
 - Obsidian vault daily sync **completed for 2026-09-26**: `vault.py check` was brought green by fixing its 18 lint issues (v4 frontmatter added to the 13 `Session-Recap-*-2026-09-26` notes; `type: daily` → `type: session` on four `operations/sessions` notes, plus the missing `schema_version: 4` on `session-voice-local-server-health-recovery-2026-09-25`); `pwsh -NoProfile -File D:/scripts/vault_sync_once_daily.ps1` then exited **0** (`vault: pushed to the remote (1 commit(s), branch master)`), vault commit `637d3e1` is on `origin/master` (0 ahead), and the sentinel `D:\scripts\vault_last_sync_date.txt` reads `2026-09-26`. The earlier `vault-sync.lock` failure is cleared; the sync is recorded done only on this evidence.
 - Current-head workflow confirmation: `voice-ci` run `36265023017` **completed successfully** on exact SHA `3dc2f029943da730902ff7e61e4b7fcbedc0a662` (docs-only push, so path-filtered `unifia-conformance` correctly has no run; both required workflows remain confirmed green on `56eefd9dffeed4d1389e3602cd49d12256ce1097`).
@@ -132,6 +135,7 @@
 ## Known Qualification Blockers
 
 - No target Windows physical Live/audio qualification is recorded.
+- Pocket 3.3 model assets and pinned tokenizer revision are not available in the local HF cache; direct shell access to Hugging Face fails TLS, so the 3.3 model has not yet run. The existing project environment and lock remain on 3.1.0.
 - Xiaomi Mi 10 Pro (`b7163823`, Android 13, arm64-v8a) was detected by ADB; physical audio qualification is still open. Device `logcat` confirmed the `.voicequal` and `.voicequal2` PTY servers repeatedly failed with `bind port 14098: Address already in use`; `ss -ltn` showed the production package's `libpty_server.so` listening on `127.0.0.1:14098`. Both qualification packages were force-stopped with their installations/data preserved; the production package was left running. This proves a PTY port collision, but whether it alone caused the Local Mode HTTP health-check timeout is not yet verified. A controlled retry needs the production service stopped by its normal app flow or an isolated PTY port.
 - Pocket TTS entries are still absent and several Piper revisions remain unverified. Android/Windows model packaging and runtime loading have not been qualified on target systems.
 - The checkout contains untracked build/cache artifacts. Preserve them; do not stage them as campaign output.
