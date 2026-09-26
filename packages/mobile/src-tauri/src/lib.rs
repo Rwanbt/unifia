@@ -25,6 +25,12 @@ mod validate;
 mod proxy;
 mod parakeet;
 mod speech;
+// voice module is Android-only at runtime, but its pure-logic
+// scheduler (ADR-074 / R11 Rust mirror) is unit-tested on host
+// machines — same pattern as `runtime`/`llm`/`proxy` above.
+#[cfg(any(target_os = "android", test))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+mod voice;
 
 /// Install the process-wide logger. Release builds log at Info level, debug
 /// builds at Debug. On Android we route to logcat (`adb logcat -s OpenCode:I`);
