@@ -4,15 +4,6 @@
 export const speechLanguages = ["en", "fr", "es", "it", "de"] as const
 
 export type SpeechLanguage = (typeof speechLanguages)[number]
-export type TtsProviderId = "pocket" | "piper"
-
-export interface TtsCapabilities {
-  streaming: boolean
-  voiceCloning: boolean
-  cpuOnly: boolean
-  remoteCapable: boolean
-  languages: SpeechLanguage[]
-}
 
 export interface TtsRequest {
   id: string
@@ -28,18 +19,10 @@ export interface AudioFrame {
   pcm: Int16Array | Float32Array
 }
 
-export interface TtsBackend {
-  readonly id: TtsProviderId
-  capabilities(): TtsCapabilities
-  prepare(language: SpeechLanguage, signal?: AbortSignal): Promise<void>
-  synthesize(request: TtsRequest, signal: AbortSignal): AsyncIterable<AudioFrame>
-  cancel(requestId: string): Promise<void>
-  dispose(): Promise<void>
-}
-
 export interface VoiceManifest {
   id: string
-  provider: TtsProviderId
+  /** Provider identifier; matches `TtsProviderId` in `@unifia/contracts/tts-router`. */
+  provider: "pocket" | "piper" | "fallback-android-tts"
   language: SpeechLanguage
   displayName: string
   version: string
@@ -51,8 +34,8 @@ export interface VoiceManifest {
 }
 
 export interface VoiceRegistry {
-  list(language: SpeechLanguage, provider?: TtsProviderId): readonly VoiceManifest[]
-  get(id: string, language: SpeechLanguage, provider?: TtsProviderId): VoiceManifest | undefined
+  list(language: SpeechLanguage, provider?: VoiceManifest["provider"]): readonly VoiceManifest[]
+  get(id: string, language: SpeechLanguage, provider?: VoiceManifest["provider"]): VoiceManifest | undefined
 }
 
 export function createVoiceRegistry(manifests: readonly VoiceManifest[]): VoiceRegistry {
@@ -70,10 +53,10 @@ export function createVoiceRegistry(manifests: readonly VoiceManifest[]): VoiceR
   }
 
   return Object.freeze({
-    list(language: SpeechLanguage, provider?: TtsProviderId) {
+    list(language: SpeechLanguage, provider?: VoiceManifest["provider"]) {
       return [...byKey.values()].filter((voice) => voice.language === language && (!provider || voice.provider === provider))
     },
-    get(id: string, language: SpeechLanguage, provider?: TtsProviderId) {
+    get(id: string, language: SpeechLanguage, provider?: VoiceManifest["provider"]) {
       if (provider) return byKey.get(`${provider}:${language}:${id}`)
       const matches = [...byKey.values()].filter((voice) => voice.id === id && voice.language === language)
       return matches.length === 1 ? matches[0] : undefined
@@ -81,24 +64,21 @@ export function createVoiceRegistry(manifests: readonly VoiceManifest[]): VoiceR
   })
 }
 
-export type TtsProviderPreference = "auto" | TtsProviderId
-
-export interface TtsRouter {
-  readonly voices: VoiceRegistry
-  prepare(language: SpeechLanguage, signal?: AbortSignal): Promise<TtsProviderId>
-  synthesize(request: TtsRequest, signal: AbortSignal): AsyncIterable<AudioFrame>
-  cancel(requestId: string): Promise<void>
-  dispose(): Promise<void>
-}
-
-/** Resolves explicit choices without silently selecting another provider. */
-export function resolveTtsProviders(preference: TtsProviderPreference): readonly TtsProviderId[] {
-  if (preference === "auto") return ["pocket", "piper"]
-  return [preference]
-}
-
 export function isSpeechLanguage(value: unknown): value is SpeechLanguage {
   return typeof value === "string" && speechLanguages.some((language) => language === value)
+}
+
+/** User-facing TTS provider preference. Independent of the canonical
+ *  `TtsProviderId` exported by `@unifia/contracts/tts-router` —
+ *  audio-settings UI only needs to know which provider to prefer
+ *  without depending on the router contract. */
+export type TtsProviderChoice = "pocket" | "piper" | "fallback-android-tts"
+export type TtsProviderPreference = "auto" | TtsProviderChoice
+
+/** Resolves explicit choices without silently selecting another provider. */
+export function resolveTtsProviders(preference: TtsProviderPreference): readonly TtsProviderChoice[] {
+  if (preference === "auto") return ["pocket", "piper", "fallback-android-tts"]
+  return [preference]
 }
 
 export interface LanguageRouteInput {
