@@ -50,6 +50,16 @@ describe("speech contracts", () => {
     expect(isVoiceErrorEvent({ ...base, sessionID: "binding_not_session" })).toBe(false)
   })
 
+  test("pre-session errors use exactly one validated Live binding identity", () => {
+    const base = createVoiceErrorEvent(
+      createVoiceError("binding_invalid", 123), { sessionID: "ses_test", seq: 0 },
+    )
+    const bindingEvent = { ...base, sessionID: undefined, bindingID: `lvb_${"1".repeat(32)}` }
+    expect(isVoiceErrorEvent(bindingEvent)).toBe(true)
+    expect(isVoiceErrorEvent({ ...bindingEvent, sessionID: "ses_test" })).toBe(false)
+    expect(isVoiceErrorEvent({ ...base, sessionID: undefined, bindingID: "lvb_short" })).toBe(false)
+  })
+
   test("voice error events map to legacy UI codes without retaining free-form detail", () => {
     const event = createVoiceErrorEvent(createVoiceError("stt_unavailable", 123), { sessionID: "ses_test", seq: 0 })
     const mapped = voiceErrorFromEvent({ ...event, detail: "untrusted transcript or provider output" })
@@ -57,6 +67,12 @@ describe("speech contracts", () => {
     expect(mapped.code).toBe(event.code)
     expect(mapped.detail).not.toContain("untrusted")
     expect(mapped.causeCategory).toBe(event.cause_category)
+    expect(voiceErrorFromEvent({
+      ...event,
+      stage: "provider",
+      code: "PROVIDER_BINDING_INVALID",
+      cause_category: "provider",
+    }).legacyCode).toBe("binding_invalid")
   })
 
   test("auto fallback order is stable and explicit providers stay explicit", () => {

@@ -37,6 +37,27 @@ class VoiceErrorContractTests(unittest.TestCase):
                 code="SESSION_AGENT_ERROR",
             )
 
+    def test_pre_session_error_uses_a_valid_binding_instead_of_a_session_id(self):
+        binding_id = "lvb_" + "1" * 32
+        event = json.loads(
+            encode_voice_error_event(
+                binding_id=binding_id,
+                sequence=0,
+                stage="provider",
+                code="PROVIDER_BINDING_INVALID",
+            )
+        )
+        self.assertEqual(event["bindingID"], binding_id)
+        self.assertNotIn("sessionID", event)
+        with self.assertRaises(ValueError):
+            encode_voice_error_event(
+                session_id="ses_123",
+                binding_id=binding_id,
+                sequence=0,
+                stage="provider",
+                code="PROVIDER_BINDING_INVALID",
+            )
+
     def test_ready_event_requires_a_session_and_has_canonical_fields(self):
         event = json.loads(encode_voice_ready_event(session_id="ses_123", sequence=2))
         self.assertEqual(event["kind"], "voice_ready")
@@ -194,6 +215,34 @@ class VoiceErrorPublishingTests(unittest.IsolatedAsyncioTestCase):
             event, json.loads(participant.attributes["unifia.voice_ready"])
         )
         self.assertEqual(options, {"reliable": True, "topic": VOICE_READY_TOPIC})
+
+    async def test_pre_session_error_is_persisted_for_a_late_room_joiner(self):
+        class Participant:
+            def __init__(self):
+                self.published = []
+                self.attributes = {}
+
+            async def publish_data(self, payload, **options):
+                self.published.append((json.loads(payload), options))
+
+            async def set_attributes(self, attributes):
+                self.attributes.update(attributes)
+
+        participant = Participant()
+        binding_id = "lvb_" + "1" * 32
+        self.assertTrue(await publish_voice_error_event(
+            participant,
+            binding_id=binding_id,
+            sequence=0,
+            stage="provider",
+            code="PROVIDER_BINDING_INVALID",
+        ))
+        event, options = participant.published[0]
+        self.assertEqual(event["bindingID"], binding_id)
+        self.assertEqual(options, {"reliable": True, "topic": VOICE_ERROR_TOPIC})
+        self.assertEqual(
+            json.loads(participant.attributes["unifia.voice_error"]), event
+        )
 
 
 class TtsReadinessTests(unittest.IsolatedAsyncioTestCase):

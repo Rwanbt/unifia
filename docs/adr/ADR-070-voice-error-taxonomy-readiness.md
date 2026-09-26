@@ -80,7 +80,8 @@ ADR-060).
 
    export interface VoiceErrorEvent {
      kind: "voice_error"
-     sessionID: string
+     sessionID?: string
+     bindingID?: string          // pre-session correlation; opaque Live binding
      turnID?: string
      ts: number
      seq: number
@@ -93,6 +94,11 @@ ADR-060).
      retry_after_ms?: number
    }
    ```
+
+   Exactly one identity is required. Startup errors before an Unifia session
+   exists use the already-issued Live binding ID; errors after binding use the
+   canonical session ID. Clients accept a binding-scoped event only when its
+   `bindingID` matches the active grant.
 
 2. **No `unknown` stage**. Every `voice_error` event carries a
    `stage` drawn from the enumerated list. A bug that fails to

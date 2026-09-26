@@ -41,12 +41,17 @@ export function createLiveKitRoom(): LiveRoom {
         audioOutput: options.outputDeviceId ? { deviceId: options.outputDeviceId } : undefined,
       })
       room = current
-  const agentAttributes = async (participant: Participant) => {
-    if (!participant.isAgent) return
-    const attributes = { ...participant.attributes }
-    handlers.onAgentAttributes(attributes)
-    const ready = attributes["unifia.voice_ready"]
-    if (ready) await handlers.onAgentVoiceReady(ready)
+      const agentAttributes = async (participant: Participant) => {
+        if (!participant.isAgent) return
+        const attributes = { ...participant.attributes }
+        handlers.onAgentAttributes(attributes)
+        const error = attributes["unifia.voice_error"]
+        if (error) {
+          handlers.onAgentVoiceError(error)
+          return
+        }
+        const ready = attributes["unifia.voice_ready"]
+        if (ready) await handlers.onAgentVoiceReady(ready)
       }
       current
         .on(RoomEvent.Reconnecting, handlers.onReconnecting)

@@ -4,7 +4,9 @@
 This appendix is the initial stable code inventory for the `voice_error`
 envelope defined by [ADR-070](ADR-070-voice-error-taxonomy-readiness.md).
 Wire events carry `stage`, `code`, `recoverable`, `cause_category`, `ts`,
-scrubbed `detail`, and an optional validated `provider_id`.
+scrubbed `detail`, and an optional validated `provider_id`. Exactly one
+correlation identity is present: the canonical `sessionID` after binding or
+the opaque `bindingID` before a session exists.
 
 | Stage | Code | Recoverable | Cause category |
 |---|---|---:|---|

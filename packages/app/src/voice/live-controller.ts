@@ -428,7 +428,7 @@ export class LiveVoiceController {
       this.dispatch({ type: "attention", attention: attention === "permission" || attention === "question" ? attention : undefined }, generation)
     }
     const reportedError = attributes["unifia.error"]
-    if (reportedError) {
+    if (reportedError && !attributes["unifia.voice_error"]) {
       this.fail(isLiveVoiceError(reportedError) ? reportedError : "voice_internal_error")
     }
     const session = attributes["unifia.session"]
@@ -451,11 +451,15 @@ export class LiveVoiceController {
       this.fail("voice_internal_error")
       return
     }
-    if (this.grant?.sessionID && event.sessionID !== this.grant.sessionID) {
+    if (event.bindingID && event.bindingID !== this.grant?.binding) {
       this.fail("voice_internal_error")
       return
     }
-    if (this.grant && !this.grant.sessionID && event.sessionID.startsWith("ses_")) {
+    if (event.sessionID && this.grant?.sessionID && event.sessionID !== this.grant.sessionID) {
+      this.fail("voice_internal_error")
+      return
+    }
+    if (event.sessionID && this.grant && !this.grant.sessionID) {
       this.grant = { ...this.grant, sessionID: event.sessionID }
       this.deps.onSession?.(event.sessionID)
     }

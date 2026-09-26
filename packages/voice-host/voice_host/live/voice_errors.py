@@ -11,6 +11,7 @@ VOICE_ERROR_TOPIC = "unifia.voice_error"
 VOICE_READY_TOPIC = "unifia.voice_ready"
 SESSION_ID_PREFIX = "ses_"
 MAX_SESSION_ID_LENGTH = 128
+MAX_BINDING_ID_LENGTH = 36
 MAX_PROVIDER_ID_LENGTH = 120
 log = logging.getLogger("unifia.voice.errors")
 _SAFE_ERRORS = {
@@ -149,9 +150,18 @@ def _valid_session_id(session_id: str) -> bool:
     )
 
 
+def _valid_binding_id(binding_id: str) -> bool:
+    return (
+        binding_id.startswith("lvb_")
+        and len(binding_id) == MAX_BINDING_ID_LENGTH
+        and all(character.isascii() and character.isalnum() for character in binding_id[4:])
+    )
+
+
 def encode_voice_error_event(
     *,
-    session_id: str,
+    session_id: str | None = None,
+    binding_id: str | None = None,
     sequence: int,
     stage: str,
     code: str,
@@ -159,7 +169,16 @@ def encode_voice_error_event(
     provider_id: str | None = None,
 ) -> str:
     """Serialize only known safe details; never forward provider or transcript text."""
-    if not _valid_session_id(session_id) or sequence < 0:
+    has_session = session_id is not None
+    has_binding = binding_id is not None
+    valid_session = bool(session_id) and _valid_session_id(session_id or "")
+    valid_binding = bool(binding_id) and _valid_binding_id(binding_id or "")
+    if (
+        has_session == has_binding
+        or (has_session and not valid_session)
+        or (has_binding and not valid_binding)
+        or sequence < 0
+    ):
         raise ValueError("Voice error identity is invalid")
     definition = _SAFE_ERRORS.get((stage, code))
     if definition is None or not code.startswith(f"{stage.upper().replace('-', '_')}_"):
@@ -177,7 +196,6 @@ def encode_voice_error_event(
         raise ValueError("Voice error provider identity is invalid")
     event: dict[str, Any] = {
         "kind": "voice_error",
-        "sessionID": session_id,
         "ts": time.time_ns() // 1_000_000,
         "seq": sequence,
         "stage": stage,
@@ -186,6 +204,10 @@ def encode_voice_error_event(
         "recoverable": recoverable,
         "cause_category": cause_category,
     }
+    if has_session:
+        event["sessionID"] = session_id
+    if has_binding:
+        event["bindingID"] = binding_id
     if provider_id:
         event["provider_id"] = provider_id
     if turn_id:
@@ -209,7 +231,8 @@ def encode_voice_ready_event(*, session_id: str, sequence: int) -> str:
 async def publish_voice_error_event(
     publisher: Any,
     *,
-    session_id: str,
+    session_id: str | None = None,
+    binding_id: str | None = None,
     sequence: int,
     stage: str,
     code: str,
@@ -218,17 +241,25 @@ async def publish_voice_error_event(
 ) -> bool:
     payload = encode_voice_error_event(
         session_id=session_id,
+        binding_id=binding_id,
         sequence=sequence,
         stage=stage,
         code=code,
         turn_id=turn_id,
         provider_id=provider_id,
     )
+    published = False
     try:
         await publisher.publish_data(payload, reliable=True, topic=VOICE_ERROR_TOPIC)
-        return True
+        published = True
     except Exception:
-        return False
+        log.warning("could not publish staged Voice error data event")
+    try:
+        await publisher.set_attributes({"unifia.voice_error": payload})
+        published = True
+    except Exception:
+        log.warning("could not persist staged Voice error event")
+    return published
 
 
 async def publish_voice_ready_event(

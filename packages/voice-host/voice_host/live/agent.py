@@ -138,12 +138,18 @@ class LiveConversation:
             log.warning("could not publish agent attributes")
 
     async def publish_voice_error(
-        self, session_id: str, code: str, turn_id: str | None = None, stage: str = "session"
+        self,
+        session_id: str | None,
+        code: str,
+        turn_id: str | None = None,
+        stage: str = "session",
+        binding_id: str | None = None,
     ) -> bool:
         self._voice_event_sequence += 1
         published = await publish_voice_error_event(
             self.room.local_participant,
             session_id=session_id,
+            binding_id=binding_id,
             sequence=self._voice_event_sequence,
             stage=stage,
             code=code,
@@ -501,17 +507,35 @@ async def run_job(
         binding, raw = await fetch_binding(endpoint, binding_id, http)
     except (BridgeError, aiohttp.ClientError):
         log.error("Live binding unavailable")
-        await ctx.room.local_participant.set_attributes({"unifia.error": "binding_invalid"})
+        published = await publish_voice_error_event(
+            ctx.room.local_participant,
+            binding_id=binding_id,
+            sequence=0,
+            stage="provider",
+            code="PROVIDER_BINDING_INVALID",
+        )
+        if not published:
+            await ctx.room.local_participant.set_attributes({"unifia.error": "binding_invalid"})
         ctx.shutdown("binding_invalid")
         return
     if raw.get("room") != ctx.room.name:
         log.error("Live binding does not match its room")
+        published = await publish_voice_error_event(
+            ctx.room.local_participant,
+            binding_id=binding_id,
+            sequence=0,
+            stage="provider",
+            code="PROVIDER_BINDING_INVALID",
+        )
+        if not published:
+            await ctx.room.local_participant.set_attributes({"unifia.error": "binding_invalid"})
         ctx.shutdown("binding_mismatch")
         return
     if resources.recognizer is None:
-        published = bool(binding.session_id) and await publish_voice_error_event(
+        published = await publish_voice_error_event(
             ctx.room.local_participant,
-            session_id=binding.session_id or "",
+            session_id=binding.session_id,
+            binding_id=None if binding.session_id else binding.id,
             sequence=0,
             stage="stt",
             code="STT_PROVIDER_UNAVAILABLE",
@@ -526,9 +550,10 @@ async def run_job(
         ctx.shutdown("stt_unavailable")
         return
     if resources.vad is None or not resources.vad_ready:
-        if not binding.session_id or not await publish_voice_error_event(
+        if not await publish_voice_error_event(
             ctx.room.local_participant,
             session_id=binding.session_id,
+            binding_id=None if binding.session_id else binding.id,
             sequence=0,
             stage="vad",
             code="VAD_PROVIDER_UNAVAILABLE",
@@ -552,8 +577,10 @@ async def run_job(
     try:
         await conversation.bridge.probe()
     except (BridgeError, aiohttp.ClientError):
-        published = bool(binding.session_id) and await conversation.publish_voice_error(
-            binding.session_id or "", "SESSION_AGENT_UNAVAILABLE"
+        published = await conversation.publish_voice_error(
+            binding.session_id,
+            "SESSION_AGENT_UNAVAILABLE",
+            binding_id=None if binding.session_id else binding.id,
         )
         if not published:
             await conversation.publish(error="agent_unavailable")
@@ -564,8 +591,11 @@ async def run_job(
     except Exception:
         detection = None
     if detection is None or not resources.turn_detector_ready:
-        published = bool(binding.session_id) and await conversation.publish_voice_error(
-            binding.session_id or "", "TURN_DETECTION_UNAVAILABLE", stage="turn-detection"
+        published = await conversation.publish_voice_error(
+            binding.session_id,
+            "TURN_DETECTION_UNAVAILABLE",
+            stage="turn-detection",
+            binding_id=None if binding.session_id else binding.id,
         )
         if not published:
             await conversation.publish(error="voice_internal_error")
@@ -610,12 +640,14 @@ async def run_job(
             interrupt_started.clear()
 
     if await _warm_tts(router, conversation.language(), conversation.voices) is None:
-        published = bool(binding.session_id) and await conversation.publish_voice_error(
-            binding.session_id or "", "TTS_PROVIDER_UNAVAILABLE", stage="tts"
+        published = await conversation.publish_voice_error(
+            binding.session_id,
+            "TTS_PROVIDER_UNAVAILABLE",
+            stage="tts",
+            binding_id=None if binding.session_id else binding.id,
         )
         if not published:
-            if binding.session_id:
-                log.warning("could not publish startup TTS error event")
+            log.warning("could not publish startup TTS error event")
             await conversation.publish(error="tts_unavailable")
         ctx.shutdown("tts_unavailable")
         return

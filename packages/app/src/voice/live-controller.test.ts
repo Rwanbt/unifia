@@ -7,6 +7,8 @@ import { LiveVoiceController, type LiveRoom, type LiveRoomHandlers, type LocalVo
 import { LiveHostError, type LiveGrantRequest, type LiveHostClient } from "./live-host"
 import type { LocalVoiceStreamChunk } from "./local-session"
 
+const liveBindingId = `lvb_${"1".repeat(32)}`
+
 class FakeRoom implements LiveRoom {
   handlers: LiveRoomHandlers | undefined
   mic = false
@@ -38,7 +40,7 @@ function setup(options: { roomError?: unknown; grantErrors?: unknown[]; localVoi
       const error = options.grantErrors?.shift()
       if (error) throw error
       grants++
-      return { url: "ws://127.0.0.1:7880", token: `t${grants}`, expiresAt: 0, room: "unifia-live-x", binding: "lvb_1", sessionID: request.sessionID ?? null }
+      return { url: "ws://127.0.0.1:7880", token: `t${grants}`, expiresAt: 0, room: "unifia-live-x", binding: liveBindingId, sessionID: request.sessionID ?? null }
     },
     async release(binding) {
       released.push(binding)
@@ -181,7 +183,7 @@ describe("LiveVoiceController", () => {
     rooms[0].handlers!.onDisconnected("lost")
     await new Promise((resolve) => setTimeout(resolve, 0))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(requests.slice(1).every((request) => request.binding === "lvb_1" && !request.directory)).toBe(true)
+    expect(requests.slice(1).every((request) => request.binding === liveBindingId && !request.directory)).toBe(true)
     expect(rooms.at(-1)!.mic).toBe(false)
     rooms.at(-1)!.handlers!.onAgentAttributes({ "lk.agent.state": "listening" })
     await markReady(rooms.at(-1)!.handlers!)
@@ -205,7 +207,7 @@ describe("LiveVoiceController", () => {
     await controller.stop()
     expect(controller.state).toBe("idle")
     expect(rooms[0].disconnected).toBe(true)
-    expect(released).toEqual(["lvb_1"])
+    expect(released).toEqual([liveBindingId])
     expect(playback).toEqual(["start:live-1", "end:live-1"])
     // Dictation can take the microphone again immediately.
     expect(coordinator.acquire("dictation", () => {})).toBeDefined()
@@ -264,6 +266,25 @@ describe("LiveVoiceController", () => {
     expect(controller.details.error?.legacyCode).toBe("stt_unavailable")
     expect(controller.details.error?.detail).not.toContain("untrusted")
     await controller.stop()
+  })
+
+  test("accepts a pre-session error only when it matches the active binding", async () => {
+    const { controller, rooms } = setup()
+    await controller.start({ ...context, sessionID: undefined })
+    rooms[0].handlers!.onAgentVoiceError(JSON.stringify({
+      kind: "voice_error",
+      bindingID: liveBindingId,
+      ts: 123,
+      seq: 0,
+      stage: "provider",
+      code: "PROVIDER_BINDING_INVALID",
+      detail: "The Voice provider binding is invalid.",
+      recoverable: false,
+      cause_category: "provider",
+    }))
+    expect(controller.details.error?.code).toBe("PROVIDER_BINDING_INVALID")
+    expect(controller.state).toBe("error")
+    expect(rooms[0].mic).toBe(false)
   })
 
   test("rejects malformed readiness and leaves the microphone closed", async () => {

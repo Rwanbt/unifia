@@ -200,7 +200,8 @@ export interface VoiceError {
 /** Ordered event envelope used by platform adapters when surfacing a Voice failure. */
 export interface VoiceErrorEvent {
   kind: "voice_error"
-  sessionID: string
+  sessionID?: string
+  bindingID?: string
   turnID?: string
   ts: number
   seq: number
@@ -360,11 +361,18 @@ export function createVoiceErrorEvent(
 export function isVoiceErrorEvent(value: unknown): value is VoiceErrorEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false
   const event = value as Partial<VoiceErrorEvent>
-  return event.kind === "voice_error"
-    && typeof event.sessionID === "string"
+  const validSessionIdentity = typeof event.sessionID === "string"
     && event.sessionID.startsWith("ses_")
     && event.sessionID.length > "ses_".length
     && event.sessionID.length <= MAX_VOICE_ERROR_ID_LENGTH
+  const validBindingIdentity = typeof event.bindingID === "string"
+    && /^lvb_[A-Za-z0-9]{32}$/.test(event.bindingID)
+  const hasSessionIdentity = event.sessionID !== undefined
+  const hasBindingIdentity = event.bindingID !== undefined
+  return event.kind === "voice_error"
+    && (hasSessionIdentity
+      ? validSessionIdentity && !hasBindingIdentity
+      : validBindingIdentity && !hasSessionIdentity)
     && (event.turnID === undefined || (typeof event.turnID === "string" && event.turnID.length <= MAX_VOICE_ERROR_ID_LENGTH))
     && typeof event.ts === "number"
     && Number.isFinite(event.ts)
@@ -415,7 +423,11 @@ export function voiceErrorFromEvent(event: VoiceErrorEvent): VoiceError {
             : event.stage === "network"
               ? "connection_lost"
               : event.stage === "provider"
-                ? "voice_host_unavailable"
+                ? event.code === "PROVIDER_BINDING_INVALID"
+                  ? "binding_invalid"
+                  : event.code === "PROVIDER_LAN_ACCESS_DISABLED"
+                    ? "voice_host_lan_disabled"
+                    : "voice_host_unavailable"
                 : "voice_internal_error"
   return {
     ...createVoiceError(legacyCode, event.ts),
