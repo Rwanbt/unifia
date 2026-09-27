@@ -1033,4 +1033,18 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-slot="account-
   [data-v110="account-frame"] [data-slot="account-security-actions"] {
     justify-content: space-between;
   }
+
+  /* "Vos espaces": Join and Create side by side, the session count under
+   * the space's text. */
+  [data-v110="account-frame"] [data-slot="account-space-actions"] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  [data-v110="account-frame"] [data-slot="account-space"] {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  [data-v110="account-frame"] [data-slot="account-space-meta"] {
+    grid-column: 2;
+  }
 }
