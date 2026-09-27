@@ -128,14 +128,33 @@
   `Voice cloning: True` even on the no-cloning weights (it reports architectural
   capability), so §40 requires the shipped capability surface to state Android
   Pocket synthesis is **not** a voice-cloning engine.
-- **Next exact action.** Diagnose the `flow_lm_main` divergence. Leading
-  hypothesis (explicitly unproven): the ONNX AR-loop monkeypatch of
-  `StreamingMultiheadAttention` / `_LinearKVCacheBackend` assumes the pre-3.x
-  cache contract, and the error lands in the KV cache first then propagates to
-  `eos_logit` — an accumulation error across autoregressive steps rather than
-  one wrong operator. Re-run `--validate-only` until it passes at `1e-4`. Only
-  then build the arm64 JNI library and measure on `b7163823`. Then per language,
-  then register packs with pinned digests.
+- **G7 — the §24 audio gate now PASSES on English (`388c049ead`).** Two defects
+  were found and both were *not* ONNX export defects. (a) The runaway render
+  was the ungated no-cloning weight variant, which has a degenerate EOS head —
+  the eager reference itself never terminates with those weights, so the C++
+  runtime was faithful all along. Corrected by the project's licence decision of
+  2026-09-27 to use the official `kyutai/pocket-tts` weights at rev
+  `39592ff23c9…` (staged SHA-256 `473f47d9…`, distinct from the no-cloning
+  `be9c6b48…`). (b) The residual premature EOS was a **missing
+  `bos_before_voice` prefix**: pocket-tts 3.1.0 prepends
+  `flow_lm.bos_before_voice` to the encoded voice prompt (`tts_model.py:972`,
+  guarded by `insert_bos_before_voice: true` in `english.yaml`) and the runtime
+  fed the raw `mimi_encoder` output with no prefix. A controlled replay of the
+  model's own state construction, prefix as the only variable, measured **126
+  conditioning steps → EOS at frame 67 / 5.520 s** versus **125 steps → EOS at
+  frame 7 / 0.720 s**: one step out of 126 moved the stop point ~9.6x. The
+  vector ships as a zero-input asset `bos_before_voice.onnx` (4,288 bytes,
+  SHA-256 `c0a66e83…`, ORT round-trip bit-exact) and is prepended on the voice
+  pass only; the runtime now warns loudly when it is absent, because its absence
+  degrades to plausible-but-wrong audio instead of raising. Final gate result on
+  the full sentence: **duration 5.640 s → 5.840 s (+3.55%, limit ±25%), non-silence
+  0.796 → 0.856 (+0.060, limit ±0.15), spectral JSD 0.1565 (limit 0.35), level
+  −4.34 dBFS — all PASS**, at RTFx 2.28 and 1305 ms cold first chunk. All five
+  language configs set `insert_bos_before_voice: true` at the same revision, so
+  the fix generalises; that was verified rather than assumed.
+- **Next exact action.** Extend the §24 gate to FR/ES/IT/DE, then execute the
+  INT8 pack (never yet run) against the passing fp32 render. Only then build the
+  arm64 JNI library and measure TTFA/RTF/RSS/thermal on `b7163823`.
 
 ## Verdict
 
