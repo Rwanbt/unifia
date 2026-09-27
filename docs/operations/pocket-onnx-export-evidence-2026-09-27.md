@@ -598,6 +598,48 @@ duration column should be read as indicative, and the ES result in particular
 should not be treated as settled. A greedy-reference generator is the next
 harness change.
 
+### 4.18 Two defects in my own harness, and the corrected deterministic result
+
+Fixing §4.17 required correcting two more things that were mine, not the
+product's.
+
+**A silent reference.** The first greedy-reference generator cast the model's
+normalised float output straight to int16 with `int(v)`, which truncates every
+sample to zero. All four references were written as silence
+(`peak=-infdBFS`, `voice=0.000`) and the gate dutifully reported every language
+as failing. The generator now scales by 32767 and **refuses to write a file
+whose peak is below 1000**, so a silent reference can never be produced or
+compared again.
+
+**An unstable spectral metric.** `spectral_profile` truncated to the first 3 s
+and then analysed a single 2048-sample window — **85 ms at 24 kHz**. That is
+not a sentence, which is why the same file pair scored 0.0330 against one
+reference and 2.7321 against another. It now isolates the voiced frames with
+the same silence threshold used elsewhere, concatenates them, and evaluates a
+20-band Goertzel filterbank across the whole span. Self-check: a file compared
+against itself now scores **JSD 0.0000**, which the old version could not be
+trusted to produce.
+
+With both sides greedy and the metric sound:
+
+| Language | Duration (≤±25 %) | non-silence (≤±0.15) | spectral JSD (≤0.35) | Verdict |
+|---|---|---|---|---|
+| **EN** | +3.99 % | +0.046 | **0.0141** | **PASS** |
+| **IT** | −9.82 % | +0.038 | **0.1220** | **PASS** |
+| **DE** | −7.62 % | +0.110 | **0.1673** | **PASS** |
+| ES | **+136.73 %** | **−0.447** | 0.0965 | **FAIL** |
+| FR | not run | — | — | blocked on §4.14 |
+
+English, Italian and German pass every criterion against a deterministic
+reference. **Spanish is a genuine failure, not measurement noise**: the render
+is 15.34 s against a 6.48 s reference, with 6.55 s of trailing silence after
+the speech ends, and its non-silence ratio collapses from 1.000 to 0.553. The
+spectral envelope matches (0.0965), so the voice is recognisably the same
+language — the AR loop simply runs far too long. Note also that the Spanish
+*reference itself* is 100 % voiced and flagged `trunc=True`, so the eager model
+may itself be misbehaving for Spanish at temperature 0; that needs separating
+from the runtime before the cause is attributed.
+
 ## 6. Three side findings worth recording
 
 - **`Voice cloning: True`** is reported by the exporter even when the

@@ -120,36 +120,61 @@ def describe(path: Path) -> dict:
     }
 
 
-def spectral_profile(path: Path, bands=12):
-    """Coarse log-magnitude band profile, computed on a fixed-length window.
+def spectral_profile(path: Path, bands=20):
+    """Log-magnitude band profile over the whole VOICED region.
 
-    Uses a Goertzel-style DFT per band on a normalised window so the comparison
-    is about spectral *shape* (does it sound like the same utterance) rather
-    than sample alignment (which autoregressive sampling will never preserve).
+    An earlier version truncated to the first 3 s and then analysed a single
+    2048-sample window, which at 24 kHz is 85 ms - far too short to characterise
+    a sentence, and it made the JSD swing wildly between runs (0.03 to 2.7 for
+    the same pair of files) depending on which 85 ms happened to be analysed.
+    A gate whose own metric is that unstable cannot be used to judge anything.
+
+    This instead isolates the voiced frames using the same silence threshold
+    as the rest of the tool, concatenates them, and evaluates a Goertzel
+    filterbank across the whole span. The result is an utterance-level spectral
+    envelope: still not a sample-alignment test, but now stable and meaningful.
     """
     samples, rate = load(path)
     if not samples:
         return [0.0] * bands
-    size = min(len(samples), rate * 3)  # first 3 s is plenty for a profile
-    chunk = samples[:size]
-    window_len = min(len(chunk), 2048)
-    chunk = chunk[:window_len]
+
+    rms_frames, window = frame_rms(samples, rate)
+    threshold = 32768.0 * (10 ** (SPEECH_DETECT_FLOOR_DBFS / 20.0))
+    voiced_samples = _array("h")
+    for index, value in enumerate(rms_frames):
+        if value > threshold:
+            start = index * window
+            voiced_samples.extend(samples[start:start + window])
+    if len(voiced_samples) < rate // 2:
+        voiced_samples = samples
+
+    # Keep the comparison bounded: the profile is an envelope, not a waveform.
+    span = voiced_samples[:rate * 10]
+    length = len(span)
+    if length < 64:
+        return [0.0] * bands
+
     profile = []
     for band in range(bands):
-        # Log-spaced band centres between 100 Hz and Nyquist/2.
         lo = 100.0 * (2.0 ** band)
         hi = lo * 2.0
         if hi > rate / 2:
             hi = rate / 2
+        if lo >= rate / 2:
+            break
         centre = (lo + hi) / 2.0
         omega = 2.0 * math.pi * centre / rate
         coeff = 2.0 * math.cos(omega)
         s1 = s2 = 0.0
-        for n, value in enumerate(chunk):
-            window_gain = 0.5 - 0.5 * math.cos(2.0 * math.pi * n / (window_len - 1))
+        # Sample the envelope at a bounded number of evenly spaced points rather
+        # than every sample, so cost does not scale with utterance length.
+        stride = max(1, length // 20000)
+        for n in range(0, length, stride):
+            value = span[n]
+            window_gain = 0.5 - 0.5 * math.cos(2.0 * math.pi * n / (length - 1))
             s0 = value * window_gain + coeff * s1 - s2
             s2, s1 = s1, s0
-        magnitude = math.sqrt(max(0.0, s1 * s1 + s2 * s2 - coeff * s1 * s2)) / window_len
+        magnitude = math.sqrt(max(0.0, s1 * s1 + s2 * s2 - coeff * s1 * s2)) / (length / stride)
         profile.append(20 * math.log10(magnitude + 1e-9))
     total = sum(profile) or 1.0
     return [p / total for p in profile]
