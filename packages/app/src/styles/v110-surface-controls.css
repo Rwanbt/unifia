@@ -108,3 +108,49 @@
   scrollbar-width: none;
   border-bottom: 1px solid var(--line);
 }
+
+/* Workbench connection banner's retry (connection-banner.tsx): a secondary
+ * button sized to its label, never the full row. */
+[data-v110="connection-retry"] {
+  align-self: flex-start;
+  width: auto;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-v110="connection-retry"]:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+/* Automate v0 page (automate-surface.tsx fallback): cards, the node search
+ * field and the node family chips. */
+[data-v110="automate-surface"] :is([data-automate-node-library], [data-automate-runs], [data-automate-definition]) {
+  border-color: var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+[data-v110="automate-surface"] [data-automate-node-library] input {
+  height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+}
+
+[data-v110="automate-surface"] [data-automate-node-library] span.rounded {
+  border-color: var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 10px;
+}

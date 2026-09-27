@@ -65,6 +65,7 @@ export function ConnectionBanner(props: { dataAttr: "workbench-connection" | "de
       <Show when={canRetry()}>
         <button
           type="button"
+          data-v110="connection-retry"
           data-workbench-retry={props.dataRetryAttr === "workbench-retry" ? "" : undefined}
           data-design-retry={props.dataRetryAttr === "design-retry" ? "" : undefined}
           data-automate-retry={props.dataRetryAttr === "automate-retry" ? "" : undefined}
