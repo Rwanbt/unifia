@@ -684,14 +684,17 @@ html[data-color-scheme="light"] [data-component="v110-topbar"] [data-component="
     flex: 1 1 auto;
     min-width: 0;
     height: 38px;
-    border-radius: 12px;
+    border-color: transparent;
+    border-radius: 11px;
+    background: transparent;
   }
 
   [data-component="v110-topbar"] [data-v110="layout-switch"] > [role="radio"] {
     flex: 1 1 0;
-    height: 32px;
-    border-radius: 10px;
-    font-size: 11px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 9px;
+    font-size: 9px;
   }
 }
 
