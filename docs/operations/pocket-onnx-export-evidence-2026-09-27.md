@@ -295,17 +295,74 @@ wrong autoregressive state. **The tensor-level precision floor and the
 audio-level failure are the same defect at two levels** — which is why the gate
 had to move to audio, and why the audio result governs.
 
-### 4.5 Next exact action
+### 4.6 CORRECTION — the runaway is in the weights, not the C++ runtime
 
-1. Compare the C++ per-frame `conditioning` and KV cache against the PyTorch
-   reference over the **same forced token sequence** (temperature 0, no
-   sampling). That separates "the AR state is wrong" from "EOS head is wrong",
-   and is the only remaining ambiguity now that the EOS comparison direction
-   and the per-frame logit are both known-good.
-2. Suspect first the boundary the C++ passes between the text-conditioning
-   pass and the first AR frame, then the cache `offset` bookkeeping across
-   frames, since both feed "how much text has been consumed".
-3. Re-run this gate only after duration and EOS match.
+The §4.2 and §4.3 conclusions above — that the C++ autoregressive state was
+wrong — **are wrong, and are withdrawn.** A direct trace of the *eager PyTorch
+reference* settles it.
+
+`english.yaml` declares **two different weight variants**:
+
+```yaml
+weights_path:                        hf://kyutai/pocket-tts/languages/english/model.safetensors@39592ff2...
+weights_path_without_voice_cloning:  hf://kyutai/pocket-tts-without-voice-cloning/...@d29db797...
+```
+
+| Path | Weights used | Result for `"Hi."` |
+|---|---|---|
+| CLI `generate --config english.yaml` | `weights_path` → **voice-cloning** | **0.760 s**, terminates |
+| `_from_pydantic_config_with_weights`, `weights_path` overridden to the staged file | **no-cloning** | **2.720 s**, never fires EOS |
+| ONNX pack exported from that staged file → C++ runtime | **no-cloning** | **4.560 s**, never fires EOS |
+
+The eager reference, given the *same* no-cloning weights as the ONNX pack,
+also fails to terminate and logs the model's own warning:
+
+```
+WARNING:pocket_tts.models.tts_model:Maximum generation length reached
+        without EOS, this very often indicates an error.
+```
+
+Its per-frame trajectory never crosses −4.0 either:
+
+```
+frame  0  -8.3495   frame  8  -7.1900   frame 16  -7.1694
+frame  1  -5.5615   frame  9  -6.8124   ...
+frame  2  -7.5405   frame 10  -6.6408   RESULT: never crosses the threshold
+...                    ...                  (36 steps, 2.88s of AR)
+```
+
+**Therefore the C++/ONNX runtime is faithful to the weights it was given.** It
+does not fire EOS because the no-cloning variant does not fire EOS. The
+earlier comparison against a 0.760 s CLI render was invalid: it compared two
+*different models*, not two runtimes.
+
+The `without-voice-cloning` repository is a community-processed derivative —
+upstream's own gate carries a Prohibited Use clause on voice cloning, and the
+processing is a script that strips the cloning path. That stripping appears to
+leave the EOS head degenerate for this model/config. This is a
+**weight-provenance defect, not an ONNX export defect and not a C++ port
+defect.**
+
+What survives from the earlier sections: the export itself is sound (§2.1–§2.2,
+four graphs bit-exact, the fifth an fp16 precision floor), the pack loads and
+runs at 1.55–2.89x realtime (§4.1), and the audio gate is correctly specified
+(§2.3, §4.2). What is withdrawn: §4.2's "runaway means the AR state is wrong",
+§4.3's "EOS is delayed, pointing at the C++ AR state", and §4.5's diagnostic
+plan premised on that.
+
+### 4.7 Next exact action
+
+1. Re-run the export and the audio gate from the **voice-cloning** weights
+   (`kyutai/pocket-tts` @ `39592ff23c9ef80098bb74895d104c26275fe2c9`) as the
+   reference, and confirm the C++ render then terminates. That isolates the
+   weight variant as the sole cause.
+2. Separately, decide the **licence question**, which is a product decision and
+   not an engineering one: `kyutai/pocket-tts` is `gated: "auto"` and its model
+   card carries a **Prohibited Use** clause covering voice cloning. Shipping a
+   runtime built on those weights may be unacceptable even though the code is
+   MIT and the weights are CC-BY-4.0. This must be resolved before any Android
+   work, not after.
+3. Only after 1 and 2, re-run the §24 audio gate and the arm64 build.
 
 ## 5. What this session did and did not establish
 
@@ -313,27 +370,31 @@ Established by measurement: all five graphs export; four reproduce eager
 PyTorch to fp32 noise or bit-exactly; the fifth differs only by an fp16
 KV-cache precision floor that grows monotonically with depth; the C++ runtime
 loads and executes the pack and produces genuine, correctly-levelled speech at
-1.55-2.89x realtime on a desktop CPU; and the EOS head is correctly wired but
-its logit rises too slowly to fire.
+1.55-2.89x realtime on a desktop CPU; and the ONNX render's failure to
+terminate is **inherited from the no-cloning weights**, not introduced by the
+export or the port.
 
-Not established: audio equivalence (currently **failing**), a warm TTFA
-measurement on any device, any Android arm64 build, any on-device figure, and
-cancellation behaviour. **No Pocket TTS capability is qualified by this work.**
+Not established: audio equivalence against a like-for-like reference (blocked on
+the weight-variant and licence questions above), a warm TTFA measurement on any
+device, any Android arm64 build, any on-device figure, and cancellation
+behaviour. **No Pocket TTS capability is qualified by this work.**
 
 ## 6. Two side findings worth recording
 
 - **`Voice cloning: True`** is reported by the exporter even when the
-  no-voice-cloning weights are loaded. The flag reflects architectural
-  capability, not the weights in use. Campaign §40 requires honest capability
-  reporting, so the shipped capability surface must state that Android Pocket
-  synthesis is **not** a voice-cloning engine regardless of this flag.
+  no-cloning weights are loaded. The flag reflects architectural capability,
+  not the weights in use. Campaign §40 requires honest capability reporting, so
+  the shipped capability surface must state that Android Pocket synthesis is
+  **not** a voice-cloning engine regardless of this flag — and §4.6 is direct
+  evidence that the no-cloning variant is not a safe substitute.
 - The product `pocket-tts` lock is **3.1.0**, while upstream is **3.3.0**
   (2026-09-24). That two-release gap is itself a scheduled follow-up, not part
   of the Android critical path.
 
 ## 7. Not verified this session
 
-- The precise cause of the delayed EOS logit (§4.5) is **not** established.
+- Whether the **voice-cloning** weights terminate correctly through this same
+  ONNX pack. That is the confirming experiment for §4.6 and has not been run.
 - The seed voice is fetched from `kyutai/tts-voices`, a **different repository
   from the model weights**, and is used only as local conditioning for a
   pipeline comparison. It is not redistributed and is **not** a licence-cleared
