@@ -313,14 +313,14 @@ html[data-color-scheme="light"] [data-v110="account-frame"] {
 }
 
 /* Pages -- .settings-page-head h2, h3, .settings-section, .setting-row. */
-[data-v110="settings-frame"] [data-slot="tabs-content"] h2 {
+[data-v110="settings-frame"] :is([data-slot="tabs-content"], [data-slot="settings-mobile-content"]) h2 {
   color: var(--text);
   font-size: 16px;
   font-weight: 700;
   line-height: normal;
 }
 
-[data-v110="settings-frame"] [data-slot="tabs-content"] h3 {
+[data-v110="settings-frame"] :is([data-slot="tabs-content"], [data-slot="settings-mobile-content"]) h3 {
   margin: 25px 4px 10px;
   padding: 0;
   color: var(--text);
@@ -2639,7 +2639,7 @@ html[data-ui-animations="off"] [data-v110="chat-observability"] * {
 /* Settings switches -- maquette .ui-toggle: a 31x18 pill, filled with the
  * accent when on (ADR-048).
  * The ui Switch keeps the square OpenCode shape elsewhere. */
-[data-v110="settings-dialog"] [data-component="switch"],
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"],
 [data-v110="account-frame"] [data-component="switch"] {
   --v110-toggle-off: #26262b;
   --v110-toggle-line: rgba(255, 255, 255, 0.13);
@@ -2647,7 +2647,7 @@ html[data-ui-animations="off"] [data-v110="chat-observability"] * {
   --v110-toggle-knob-on: #0e0e10;
 }
 
-html[data-color-scheme="light"] [data-v110="settings-dialog"] [data-component="switch"],
+html[data-color-scheme="light"] :is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"],
 html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="switch"] {
   --v110-toggle-off: color-mix(in srgb, #8d8d95 10%, #e4e4e8);
   --v110-toggle-line: rgba(0, 0, 0, 0.12);
@@ -2655,7 +2655,7 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
   --v110-toggle-knob-on: #ffffff;
 }
 
-[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-control"],
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"] [data-slot="switch-control"],
 [data-v110="account-frame"] [data-component="switch"] [data-slot="switch-control"] {
   width: 31px;
   height: 18px;
@@ -2665,7 +2665,7 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
   background: var(--v110-toggle-off);
 }
 
-[data-v110="settings-dialog"] [data-component="switch"] [data-slot="switch-thumb"],
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"] [data-slot="switch-thumb"],
 [data-v110="account-frame"] [data-component="switch"] [data-slot="switch-thumb"] {
   width: 12px;
   height: 12px;
@@ -2676,13 +2676,13 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
   transform: translateX(0);
 }
 
-[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-control"],
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"][data-checked] [data-slot="switch-control"],
 [data-v110="account-frame"] [data-component="switch"][data-checked] [data-slot="switch-control"] {
   border-color: var(--accent);
   background: var(--accent);
 }
 
-[data-v110="settings-dialog"] [data-component="switch"][data-checked] [data-slot="switch-thumb"],
+:is([data-v110="settings-dialog"], [data-slot="settings-mobile-nav"]) [data-component="switch"][data-checked] [data-slot="switch-thumb"],
 [data-v110="account-frame"] [data-component="switch"][data-checked] [data-slot="switch-thumb"] {
   background: var(--v110-toggle-knob-on);
   transform: translateX(13px);
@@ -2866,4 +2866,168 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
     min-height: 38px;
     font-size: 11px;
   }
+}
+
+/* ---- Drill-down on overlay viewports (ADR-058) -------------------------
+ * Maquette @media (max-width: 760px) #settingsIntegrated: a compact command
+ * bar without search or save state, the pages as a two-column grid under
+ * full-width group labels, then one page under a sticky back bar. Keyed on
+ * the panel's own [data-overlay] -- the same viewport authority that picks
+ * the layout -- rather than a width guess. */
+
+[data-v110="settings-frame"][data-overlay] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The title takes its own line, the scope and detail switch share the next
+ * (the reference's phone command bar). */
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 8px;
+  gap: 8px 6px;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-title"] {
+  flex: 1 0 100%;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] :is(
+    [data-slot="settings-save-state"],
+    [data-slot="settings-search-wrap"],
+    [data-slot="settings-control-label"],
+    [data-slot="settings-detail"] > span
+  ) {
+  display: none;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-controls"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 0;
+}
+
+[data-v110="settings-frame"][data-overlay] [data-v110="settings-commandbar"] [data-slot="settings-scope"] {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+[data-slot="settings-mobile-nav"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-slot="settings-mobile-list"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 10px calc(18px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+
+[data-slot="settings-mobile-group"] h3 {
+  margin: 0;
+  padding: 8px 4px 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+[data-slot="settings-mobile-grid"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+[data-slot="settings-mobile-item"] {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-slot="settings-mobile-item"]:hover,
+[data-slot="settings-mobile-item"][data-active] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+[data-slot="settings-mobile-item"] > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-slot="settings-mobile-item"] [data-slot="settings-nav-icon"] {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-slot="settings-mobile-item"] [data-slot="settings-nav-icon"][data-filled] {
+  fill: currentColor;
+  stroke: none;
+}
+
+[data-slot="settings-mobile-item"] [data-slot="settings-nav-glyph"] {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+/* .settings-content-top: back | centred title | balancing column. */
+[data-slot="settings-mobile-head"] {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 50px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+[data-slot="settings-mobile-head"] b {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* .settings-page on phones: 20px 14px, room for the home indicator. */
+[data-slot="settings-mobile-content"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 20px 14px calc(44px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  scrollbar-width: none;
 }
