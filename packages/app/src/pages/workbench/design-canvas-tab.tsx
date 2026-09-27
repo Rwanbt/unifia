@@ -192,7 +192,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
       data-design-canvas-tab
       data-design-canvas-selection={selection().join(",")}
     >
-      <div class="flex items-center gap-2 border-b border-border-base px-2 py-1">
+      <div data-v110="design-canvas-toolbar" class="flex items-center gap-2 border-b border-border-base px-2 py-1">
         <For each={designTools}>
           {(entry) => (
             <button
@@ -200,6 +200,7 @@ export function DesignCanvasTab(props: { id: string }): JSX.Element {
               class="rounded border border-border-base px-2 py-1 text-12-regular capitalize"
               classList={{ "bg-background-stronger": tool() === entry }}
               data-design-tool={entry}
+              aria-pressed={tool() === entry}
               onClick={() => chooseTool(entry)}
             >
               {entry}
