@@ -75,6 +75,11 @@ export interface LocalVoiceAudioDiagnostics {
   playbackEmptySamples: number
   vadProvider: string
   vadFallback: boolean
+  turnDetector: string
+  turnDetectorFallback: boolean
+  turnGateEvaluations: number
+  turnGateVetoes: number
+  turnGateForced: number
 }
 
 export interface LivePlayback {

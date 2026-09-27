@@ -17,6 +17,11 @@ type NativeAudioPoll = {
   playback_empty_samples: number
   vad_provider: string
   vad_fallback: boolean
+  turn_detector: string
+  turn_detector_fallback: boolean
+  turn_gate_evaluations: number
+  turn_gate_vetoes: number
+  turn_gate_forced: number
 }
 
 /** Android Oboe capture, local Parakeet inference and installed offline TTS. */
@@ -67,6 +72,11 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
             playbackEmptySamples: poll.playback_empty_samples,
             vadProvider: poll.vad_provider,
             vadFallback: poll.vad_fallback,
+            turnDetector: poll.turn_detector,
+            turnDetectorFallback: poll.turn_detector_fallback,
+            turnGateEvaluations: poll.turn_gate_evaluations,
+            turnGateVetoes: poll.turn_gate_vetoes,
+            turnGateForced: poll.turn_gate_forced,
           }
           handlers?.onAudioDiagnostics?.(diagnostics)
         }

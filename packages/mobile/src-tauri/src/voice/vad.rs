@@ -3,7 +3,7 @@
 
 use ndarray::{ArrayD, IxDyn};
 use ort::{
-    execution_providers::CPUExecutionProvider,
+    ep::CPU,
     session::{builder::GraphOptimizationLevel, Session},
     value::TensorRef,
 };
@@ -39,7 +39,7 @@ impl SileroVad {
             .map_err(|error| format!("configure Silero ONNX optimization: {error}"))?
             .with_intra_threads(1)
             .map_err(|error| format!("configure Silero ONNX threads: {error}"))?
-            .with_execution_providers([CPUExecutionProvider::default().build()])
+            .with_execution_providers([CPU::default().build()])
             .map_err(|error| format!("configure Silero CPU execution: {error}"))?
             .commit_from_file(&model_path)
             .map_err(|error| format!("load pinned Silero model: {error}"))?;

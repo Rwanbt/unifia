@@ -18,8 +18,12 @@
 
 #![allow(clippy::result_large_err)]
 
+pub(crate) mod capture_segmenter;
+#[cfg(test)]
+mod eot_corpus_tests;
 pub(crate) mod native_audio;
 mod resource_scheduler;
+mod smart_turn;
 mod vad;
 pub(crate) mod voice_core;
 

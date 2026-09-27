@@ -797,6 +797,32 @@ def main() -> int:
     args.json.parent.mkdir(parents=True, exist_ok=True)
     args.json.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
 
+    # Reference decisions of the production candidate (policy C) for the Rust
+    # parity test `smart_turn_gate_decisions_match_the_reference_fixture`.
+    gate_fixture = {
+        "version": 1,
+        "source": "scripts/voice/eot_bakeoff_smart_turn.py",
+        "candidate": "smart-turn-persist",
+        "runtime": {
+            "onnxruntime": ort.__version__,
+            "intra_threads": 1,
+        },
+        "model": {k: pins["smart-turn"][k] for k in ("model_id", "sha256")},
+        "decisions": [
+            {k: decision[k] for k in ("fixture", "kind", "trigger_ms", "probability", "accepted", "forced")}
+            for decision in gate_decisions
+            if decision["candidate"] == "smart-turn-persist"
+        ],
+    }
+    gate_fixture_path = (
+        REPO_ROOT / "packages" / "voice-core" / "fixtures" / "smart-turn-gate.json"
+    )
+    gate_fixture_path.parent.mkdir(parents=True, exist_ok=True)
+    gate_fixture_path.write_text(
+        json.dumps(gate_fixture, indent=2) + "\n", encoding="utf-8"
+    )
+    print(f"wrote {gate_fixture_path}")
+
     labels = {
         "deterministic": "deterministic (A)",
         "smart-turn-gated": "smart-turn-gated (B)",

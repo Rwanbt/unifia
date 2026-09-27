@@ -47,6 +47,9 @@ base64 = "0.22"
 hex = "0.4"
 getrandom = "0.2"
 libloading = "0.7.4"
+# Smart Turn v3.2 Whisper log-mel frontend (G4): mixed-radix FFT for the
+# 400-sample periodic-Hann frames of `voice/smart_turn.rs`.
+rustfft = "6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 url = "2"
@@ -59,11 +62,11 @@ ndk-context = "0.1"
 # Android: set ORT_LIB_LOCATION to ONNX Runtime AAR extracted .so directory before building.
 # download-binaries is needed for API availability; ORT_LIB_LOCATION overrides the download.
 [dependencies.ort]
-version = "=2.0.0-rc.10"
+version = "=2.0.0-rc.13"
 features = ["download-binaries"]
 
 [dependencies.ndarray]
-version = "0.16.1"
+version = "0.17.2"
 
 [dependencies.hound]
 version = "3.5.1"
