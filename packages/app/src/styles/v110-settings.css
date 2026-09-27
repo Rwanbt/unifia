@@ -3145,3 +3145,23 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
   color: var(--text);
   font-size: 10px;
 }
+[data-slot="input-wrapper"]:has(> :is([data-action="settings-ui-font"], [data-action="settings-code-font"])) {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+:is(input[data-action="settings-ui-font"], input[data-action="settings-code-font"]) {
+  height: 34px;
+  padding: 0 11px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+}
+
+:is(input[data-action="settings-ui-font"], input[data-action="settings-code-font"])::placeholder {
+  color: var(--text);
+  opacity: 0.85;
+}
