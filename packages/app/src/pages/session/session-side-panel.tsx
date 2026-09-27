@@ -7,6 +7,7 @@ import {
   createMemo,
   createResource,
   createSignal,
+  on,
   type JSX,
 } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
@@ -140,6 +141,28 @@ export function SessionSidePanel(props: {
     if (!layout.inspector.opened()) return
     if (layout.sidebar.opened()) layout.sidebar.close()
   })
+
+  // Phones: the drawer and the inspector sheet both cover the workspace, so
+  // opening one closes the other; each toggle then leads straight back to
+  // the conversation instead of uncovering the other panel.
+  createEffect(
+    on(
+      () => layout.mobileSidebar.opened(),
+      (opened) => {
+        if (opened && isOverlay() && layout.inspector.opened()) layout.inspector.close()
+      },
+      { defer: true },
+    ),
+  )
+  createEffect(
+    on(
+      () => layout.inspector.opened(),
+      (opened) => {
+        if (opened && isOverlay() && layout.mobileSidebar.opened()) layout.mobileSidebar.hide()
+      },
+      { defer: true },
+    ),
+  )
 
   const diffFiles = createMemo(() => props.diffs().map((d) => d.file))
   const kinds = createMemo(() => {

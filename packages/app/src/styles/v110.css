@@ -156,6 +156,11 @@
   inset: 0 !important;
   /* Above the chat's floating controls (chat-copy-context is 35). */
   z-index: 40 !important;
+  /* An absolute box with a non-stretch self-alignment (the desktop card's
+   * flex-start) sizes to its content, not to its insets: the sheet grew to
+   * the whole file tree and nothing inside it could scroll. */
+  align-self: stretch !important;
+  justify-self: stretch !important;
 }
 
 .mobile-side-panel:not([aria-hidden="true"]) {
