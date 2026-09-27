@@ -8,6 +8,7 @@
 mod engine;
 mod error;
 mod event;
+mod ffi;
 mod runtime;
 mod snapshot_store;
 
