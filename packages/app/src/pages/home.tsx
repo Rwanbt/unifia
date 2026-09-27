@@ -28,6 +28,7 @@ import { useLayout } from "@/context/layout"
 import { useMode } from "@/context/mode"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
+import { displayName } from "@/pages/layout/helpers"
 import { tHome } from "@/i18n/home"
 import { DateTime } from "luxon"
 
@@ -213,8 +214,9 @@ export default function Home() {
                     data-v110="home-quick-chip"
                     data-home-open-mode="code"
                     onClick={() => openProject(project.worktree)}
+                    title={project.worktree.replace(homedir(), "~")}
                   >
-                    <span>{project.worktree.replace(homedir(), "~")}</span>
+                    <span>{displayName(project)}</span>
                     <small>
                       {DateTime.fromMillis(project.time.updated ?? project.time.created).toRelative()}
                     </small>
