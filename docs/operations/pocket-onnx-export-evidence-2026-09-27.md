@@ -454,7 +454,67 @@ BOS prefix (§4.10). Neither was an ONNX export defect, and the fp16 precision
 floor of §2.2 remains a documented, understood property that did not prevent
 audio equivalence.
 
-## 5. What this session did and did not establish
+## 4.12 Extending to the five mandatory languages — French is structurally different
+
+A first sweep exposed a mismatch that is easy to get wrong: the published
+models are **not** one architecture. Inspecting the configs at revision
+`39592ff2`:
+
+| Config | HF directory | `num_layers` | `d_model` | weights |
+|---|---|---|---|---|
+| `english.yaml` | `languages/english` | 6 | 1024 | 219 MB |
+| `spanish.yaml` | `languages/spanish` | 6 | 1024 | 219 MB |
+| `italian.yaml` | `languages/italian` | 6 | 1024 | 219 MB |
+| `german.yaml` | `languages/german` | 6 | 1024 | 219 MB |
+| `french_24l.yaml` | `languages/french_24l` | **24** | 1024 | **672 MB** |
+
+**There is no 6-layer French model.** `kyutai/pocket-tts` publishes
+`french_24l` but no `french`; the earlier sweep failed with a 404 on
+`languages/french/model.safetensors` because the directory simply does not
+exist. English, Spanish, Italian and German share the 6-layer architecture
+that the exporter was written for. French exists only as the 24-layer
+checkpoint, at **672 MB — 3x English** — which is a material mobile packaging
+fact on its own.
+
+### 4.13 The exporter hardcoded 6 layers
+
+`export_onnx.py` declared `NUM_LAYERS = 6` as a class constant on
+`FlowLMMainWrapper`, and the tracing wrapper sizes its KV caches from it. With
+a 24-layer model the wrapper indexes `k_caches[i]` past its end and dies with
+`IndexError` during `torch.jit.trace`. The PocketTTS.cpp runtime has **no**
+such assumption — it enumerates graph states dynamically through
+`StateBufferIO` — so the exporter was the only blocker.
+
+Patch 7 derives the geometry from the loaded model instead:
+
+```python
+FlowLMMainWrapper.NUM_LAYERS = len(flow_lm.transformer.layers)
+FlowLMMainWrapper.D_MODEL   = first.self_attn.in_proj.in_features
+FlowLMMainWrapper.NUM_HEADS = int(first.self_attn.num_heads)
+FlowLMMainWrapper.DIM_PER_HEAD = int(first.self_attn.dim_per_head)
+```
+
+This is verified to work: the French export now reports
+`flow_lm geometry: 24 layers, d_model=1024, heads=16` and gets past the
+previous `IndexError`.
+
+### 4.14 French export then hits `MemoryError`
+
+With the layer count generalised, the 24-layer `flow_lm_main` trace exhausts
+memory on this host:
+
+```
+torch.onnx.export -> _export -> graph._export_onnx
+MemoryError: bad allocation
+```
+
+The 6-layer backbone already produces a 302 MB graph; 24 layers is roughly 4x
+the nodes, and the TorchScript trace holds the whole graph in memory. This is a
+host-capacity finding, not a correctness one, and it has **not** been resolved
+here. French therefore remains unqualified, and for a reason that is about
+model size rather than about the runtime's correctness.
+
+
 
 Established by measurement: all five graphs export; four reproduce eager
 PyTorch to fp32 noise or bit-exactly; the fifth differs only by an fp16

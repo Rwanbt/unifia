@@ -26,7 +26,10 @@ from onnx import helper, numpy_helper
 
 sys.path.insert(0, r"D:\App\unifia\voice-runtime\.build-temp\pocket-export\pylibs")
 
-MODEL_DIR = Path(r"D:\App\unifia\voice-runtime\.build-temp\pocket-export\models-cloning")
+MODEL_DIR = Path(
+    sys.argv[1] if len(sys.argv) > 1
+    else r"D:\App\unifia\voice-runtime\.build-temp\pocket-export\models-cloning"
+)
 CONFIG = Path(r"D:\App\unifia\voice-runtime\packages\voice-host\.venv\Lib"
               r"\site-packages\pocket_tts\config\english.yaml")
 
@@ -35,8 +38,14 @@ from pocket_tts.utils.config import load_config  # noqa: E402
 
 
 def main() -> int:
-    config = load_config(str(CONFIG))
+    config_path = MODEL_DIR.parent / "config" / (
+        "english.yaml" if "cloning" in MODEL_DIR.name or MODEL_DIR.name == "models-en"
+        else MODEL_DIR.name.replace("models-", "") + ".yaml"
+    )
+    config = load_config(str(config_path))
     config.weights_path = str(MODEL_DIR / ".cache" / "tts_b6369a24.safetensors")
+    print(f"config  = {config_path.name}")
+    print(f"weights = {config.weights_path}")
     model = TTSModel._from_pydantic_config_with_weights(
         config, temp=0.0, sampler_decode_steps=1, noise_clamp=None, eos_threshold=-4.0,
     )

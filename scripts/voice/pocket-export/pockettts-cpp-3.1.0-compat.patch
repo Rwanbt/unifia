@@ -1,5 +1,5 @@
 ﻿diff --git a/export_onnx.py b/export_onnx.py
-index 109521d..8f91bb7 100644
+index 109521d..c5bdeb1 100644
 --- a/export_onnx.py
 +++ b/export_onnx.py
 @@ -71,13 +71,60 @@ from pocket_tts.modules.stateful_module import StatefulModule, init_states, incr
@@ -68,7 +68,45 @@ index 109521d..8f91bb7 100644
  
  # ============================================================================
  # Constants
-@@ -604,7 +651,14 @@ def _monkeypatch_for_onnx():
+@@ -284,6 +331,12 @@ class FlowLMMainWrapper(nn.Module):
+       state_17: layer 5 step
+     """
+ 
++    # UNIFIA PATCH (7th delta): upstream hardcodes 6, which silently only ever
++    # handled the 6-layer models. The 24-layer `_24l` variants (and French, for
++    # which no 6-layer model is published) fail with an IndexError on
++    # `k_caches[i]` during tracing. Derive the depth from the loaded model so
++    # one exporter covers both generations; the PocketTTS.cpp runtime already
++    # enumerates graph states dynamically and has no layer assumption.
+     NUM_LAYERS = 6
+     D_MODEL = 1024
+     NUM_HEADS = 16
+@@ -407,7 +460,23 @@ class FlowLMMainWrapper(nn.Module):
+ 
+ 
+ def export_flow_lm_main(model: TTSModel, output_path: Path, max_seq=MAX_SEQ_LEN):
+-    wrapper = FlowLMMainWrapper(model.flow_lm)
++    # UNIFIA PATCH (7th delta, cont.): derive the graph geometry from the loaded
++    # model instead of the 6-layer constants, so one exporter serves both the
++    # 6-layer models (en/es/it/de) and the 24-layer `_24l` models (French).
++    flow_lm = model.flow_lm
++    layers = flow_lm.transformer.layers
++    FlowLMMainWrapper.NUM_LAYERS = len(layers)
++    first = layers[0]
++    # `StreamingMultiheadAttention` uses a fused `in_proj` and already exposes
++    # `num_heads` / `dim_per_head` (see its `_cache_backend` construction in
++    # pocket_tts/modules/attention.py), so read those rather than recomputing.
++    FlowLMMainWrapper.D_MODEL = first.self_attn.in_proj.in_features
++    FlowLMMainWrapper.NUM_HEADS = int(first.self_attn.num_heads)
++    FlowLMMainWrapper.DIM_PER_HEAD = int(first.self_attn.dim_per_head)
++    print(f"  flow_lm geometry: {FlowLMMainWrapper.NUM_LAYERS} layers, "
++          f"d_model={FlowLMMainWrapper.D_MODEL}, heads={FlowLMMainWrapper.NUM_HEADS}")
++
++    wrapper = FlowLMMainWrapper(flow_lm)
+     wrapper.eval()
+     for p in wrapper.parameters():
+         p.requires_grad_(False)
+@@ -604,7 +673,14 @@ def _monkeypatch_for_onnx():
          assignment → scatter-based with tensor offset (no .item())
        - _LinearKVCacheBackend.increment_step: state["offset"] += → state["offset"] = ... +
      """
@@ -84,7 +122,7 @@ index 109521d..8f91bb7 100644
  
      # --- StreamingConv1d: state["previous"][:] = ... → state["previous"] = ...
      def _conv1d_forward_onnx(self, x, model_state):
-@@ -928,6 +982,16 @@ def run_quantization(onnx_dir: Path):
+@@ -928,6 +1004,16 @@ def run_quantization(onnx_dir: Path):
  # Validation
  # ============================================================================
  
@@ -101,7 +139,7 @@ index 109521d..8f91bb7 100644
  def _compare(name: str, pt: np.ndarray, ox: np.ndarray, atol=1e-4, rtol=1e-4):
      """Compare PyTorch vs ONNX arrays. Returns (ok, result_string)."""
      if pt.shape != ox.shape:
-@@ -945,11 +1009,11 @@ def validate_text_conditioner(model: TTSModel, onnx_dir: Path,
+@@ -945,11 +1031,11 @@ def validate_text_conditioner(model: TTSModel, onnx_dir: Path,
      sess = ort.InferenceSession(str(onnx_dir / onnx_file))
      text = "Hello world."
      prepared = model.flow_lm.conditioner.prepare(text)
@@ -115,7 +153,7 @@ index 109521d..8f91bb7 100644
      ort_out = sess.run(None, {"token_ids": tokens.numpy()})
      ok, msg = _compare("embeddings", pt_emb.numpy(), ort_out[0], atol=atol, rtol=rtol)
      return [(ok, f"text_conditioner: {msg}")]
-@@ -993,14 +1057,28 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+@@ -993,14 +1079,28 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
      N_LAYERS = 6
      results = []
  
@@ -146,7 +184,7 @@ index 109521d..8f91bb7 100644
      text_len = tokens.shape[1]
  
      pt_state = init_states(model.flow_lm, batch_size=1, sequence_length=max_seq)
-@@ -1057,7 +1135,7 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
+@@ -1057,7 +1157,7 @@ def validate_flow_lm_main(model: TTSModel, onnx_dir: Path,
      pt_state2 = init_states(model.flow_lm, batch_size=1, sequence_length=max_seq)
      _sanitize_states(pt_state2)
      with torch.no_grad():
@@ -155,7 +193,7 @@ index 109521d..8f91bb7 100644
          text_emb_cat = torch.cat([text_emb, torch.empty(1, 0, 1024)], dim=1)
          bos = torch.where(torch.isnan(bos_latent), model.flow_lm.bos_emb, bos_latent)
          input_empty = model.flow_lm.input_linear(torch.empty(1, 0, 32))
-@@ -1113,8 +1191,13 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
+@@ -1113,8 +1213,13 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
      with torch.no_grad():
          denorm = latent * model.flow_lm.emb_std + model.flow_lm.emb_mean
          transposed = denorm.transpose(-1, -2)
@@ -171,7 +209,7 @@ index 109521d..8f91bb7 100644
          increment_steps(model.mimi, pt_state_copy, increment=16)
  
      ort_states = extract_flat_states(layout, pt_mimi_state)
-@@ -1134,8 +1217,9 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
+@@ -1134,8 +1239,9 @@ def validate_mimi_decoder(model: TTSModel, onnx_dir: Path,
          with torch.no_grad():
              denorm = lat * model.flow_lm.emb_std + model.flow_lm.emb_mean
              transposed = denorm.transpose(-1, -2)
@@ -183,7 +221,7 @@ index 109521d..8f91bb7 100644
              increment_steps(model.mimi, pt_stream_state, increment=16)
          feed = {"latent": lat.numpy()}
          for i, s in enumerate(ort_stream_states):
-@@ -1257,13 +1341,26 @@ def main():
+@@ -1257,13 +1363,26 @@ def main():
  
      # Load model with voice cloning weights
      print("Loading model...")
