@@ -76,6 +76,20 @@ describe("rulesFastDecisionProvider", () => {
     expect(decide("ich meinte eigentlich Windows", "de").kind).toBe("correction")
   })
 
+  it("classifies explicit new-request topic transitions in EN/FR/ES/IT/DE", () => {
+    expect(decide("I have a new request").kind).toBe("new-request")
+    expect(decide("different question: what is the weather?").kind).toBe("new-request")
+    expect(decide("une autre question", "fr").kind).toBe("new-request")
+    expect(decide("cambiemos de tema", "es").kind).toBe("new-request")
+    expect(decide("un'altra domanda", "it").kind).toBe("new-request")
+    expect(decide("neues Thema", "de").kind).toBe("new-request")
+  })
+
+  it("does not infer new-request for ordinary content", () => {
+    expect(decide("Please summarize this document").kind).toBe("continue")
+    expect(decide("Open the settings panel").kind).toBe("continue")
+  })
+
   it("classifies permission-answer yes/no across languages", () => {
     expect(decide("yes").kind).toBe("permission-answer")
     expect(decide("no").kind).toBe("permission-answer")

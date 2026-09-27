@@ -164,6 +164,40 @@ const RULES: readonly Rule[] = [
     pattern: /\b(nee[,]?\s+warte|ich\s+wollte\s+eigentlich\s+sagen|korrektur|ich\s+meinte)\b/i,
   },
 
+  // new-request — only explicit topic/request transitions classify
+  // here. Generic content remains `continue`; the rule must not
+  // infer a new task merely because a sentence contains an imperative.
+  {
+    kind: "new-request",
+    languages: ["en"],
+    rationale: "new-request:en:topic-transition",
+    pattern: /\b(new\s+request|different\s+question|another\s+thing|on\s+another\s+topic|switch\s+topics?)\b/i,
+  },
+  {
+    kind: "new-request",
+    languages: ["fr"],
+    rationale: "new-request:fr:topic-transition",
+    pattern: /\b(autre\s+question|autre\s+sujet|nouvelle\s+demande|changeons\s+de\s+sujet|passons\s+à\s+autre\s+chose)\b/i,
+  },
+  {
+    kind: "new-request",
+    languages: ["es"],
+    rationale: "new-request:es:topic-transition",
+    pattern: /\b(otra\s+pregunta|otro\s+tema|nueva\s+petición|nueva\s+peticion|cambiemos\s+de\s+tema|cambiando\s+de\s+tema)\b/i,
+  },
+  {
+    kind: "new-request",
+    languages: ["it"],
+    rationale: "new-request:it:topic-transition",
+    pattern: /\b(un'altra\s+domanda|altra\s+domanda|nuova\s+richiesta|altro\s+argomento|cambiamo\s+argomento)\b/i,
+  },
+  {
+    kind: "new-request",
+    languages: ["de"],
+    rationale: "new-request:de:topic-transition",
+    pattern: /\b(andere\s+frage|neue\s+frage|neues\s+thema|anderes\s+thema|themenwechsel)\b/i,
+  },
+
   // permission-answer — short yes/no to a pending permission. The
   // exact id match happens in `lastAssistantText`; the bare yes/no
   // is a strong hint but not a guarantee.
