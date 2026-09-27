@@ -37,6 +37,72 @@
 
 **Updated:** 2026-09-27 (Europe/Paris)
 
+## 2026-09-27 — Truth discovery, FFI export, canonical Android TTS routing, Pocket Android study
+
+- **Repository truth.** The authoritative checkout is the git worktree
+  `D:/App/unifia/voice-runtime` (its `.git` lives under
+  `D:/App/unifia/unifia/.git`); `D:/App/unifia` itself is **not** a repository.
+  Branch `voice`; at session start HEAD and `origin/voice` were both
+  `299a9062fc7d5bc324a4d9ab3cb69d62f9881b12` (0 ahead / 0 behind after
+  `git fetch origin --prune`), i.e. **109 commits ahead** of the
+  `261cef4135` baseline named in the campaign brief. `origin/new-ui` is
+  `99707e15a4`; `origin/main` is `207ff452b8`. Twelve pre-existing stashes are
+  unrelated to this tranche. Full record:
+  [voice-current-state-2026-09-27.md](../voice-current-state-2026-09-27.md).
+- **CI trust re-established (G0 stays green).** Contrary to the campaign
+  brief, `voice-ci` is not red: runs `36342174192` and `36342174278` both
+  **succeeded on the exact branch head** `299a9062fc`, with the four preceding
+  runs green as well. CI repair is therefore not the blocking first action.
+- **Unpublished local work protected.** An uncommitted, untracked C ABI for
+  `packages/voice-core` (`src/ffi.rs`, 302 lines + `cdylib` crate type) was
+  found, verified (`cargo test --locked` **31/31**, strict Clippy clean,
+  `cargo fmt --check` clean), committed as `6f95cee58a` and pushed. It exposes
+  `unifia_voice_core_create/_begin_turn/_publish/_reconnect/_destroy/
+  _string_free` with contained panics and stable negative error codes, for
+  Python desktop and Android JNI adoption of the canonical core (G2/G13).
+- **G8 — Android TTS is now canonically routed (`3cf7d1f4d2`).** Android Live
+  previously called the WebView system voice directly, bypassing both the
+  `TtsRouter` and the `AudioPlaybackCoordinator`. Speech now flows
+  `SpeechSegmenter -> TtsRouter -> playTtsRequest lease ->
+  voice_audio_write_pcm` (native Oboe output) via
+  `packages/app/src/voice/android-speech-output.ts`, with linear resampling to
+  the native 48 kHz rate (phase carried across chunks) and ring-buffer
+  backpressure retries. System speech is retained **only** as an explicitly
+  labelled emergency fallback and is deliberately *not* a `TtsBackend`,
+  because `speechSynthesis` never yields PCM; the engine that actually spoke is
+  reported as `ttsBackend` in audio diagnostics. Two behavioural fixes fall
+  out: speech readiness no longer gates capture (a missing system voice
+  previously failed Live startup before the microphone opened — a candidate
+  cause of the reported generic Android Live failure), and a router that
+  yields no PCM is no longer reported as a successful Pocket synthesis.
+  Evidence: new `android-speech-output.test.ts` **9/9** (two of which caught
+  the false-`pocket` bug during development), full app Voice suite **329 pass /
+  1 gated skip / 0 fail** across 37 files, `bun run typecheck` clean, Biome
+  clean on all four touched files.
+- **G7 — Pocket Android portability study closed
+  ([pocket-tts-android-runtime-study-2026-09-27.md](pocket-tts-android-runtime-study-2026-09-27.md)).**
+  Verified upstream: Pocket is at **3.3.0** (2026-09-24), the product lock at
+  3.1.0 is two releases behind; code is **MIT**, weights **CC-BY-4.0**; the
+  ungated `kyutai/pocket-tts-without-voice-cloning` repository is `gated=false`
+  and is already cached locally for all five mandatory languages, in the same
+  per-language pack layout PocketTTS-Android-Engine imports. **Piper's
+  maintained line is GPL-3.0 and is excluded from the MIT app** (campaign
+  §26 confirmed); sherpa-onnx is **Apache-2.0, not GPL**, but its Pocket
+  streaming is sentence-level rather than pipelined. Selected: **PocketTTS.cpp
+  (MIT) + ONNX Runtime on arm64 CPU**, following the MIT
+  PocketTTS-Android-Engine JNI pattern. Two hard findings: (a) **`pocket-tts`
+  3.3.0 has no ONNX export** — only `export-voice` for voice embeddings — so a
+  third-party certified conversion is mandatory (§38 provenance); (b) every
+  language weight is **219,029,196 bytes**, so five languages total **≈1.07 GB**
+  and must be provisioned on demand through the existing model registry, never
+  bundled in the APK. NekoSpeak independently reports NNAPI/QNN are not viable
+  for Pocket (dynamic shapes), confirming the CPU-first policy.
+- **Next exact action.** Execute the study's step 1–2: export English fp32 to
+  ONNX from the local cache and validate the graphs on the **host** against
+  eager PyTorch reference PCM before any Android build. Then INT8 A/B, then the
+  other four languages into the registry, then arm64 JNI and device
+  measurement on `b7163823`.
+
 ## Verdict
 
 **IN PROGRESS — NOT GO PROD.** Android Live now embeds the registry-pinned Silero v6.2.2 ONNX artifact and runs CPU inference in Rust over Oboe PCM, maintaining its recurrent state and 64-sample context across 512-sample frames. The probability stream drives Android speech segmentation with the 280 ms minimum, 650 ms trailing silence, and 60 s maximum; a missing or failed model selects the existing RMS fallback and exposes that provider in audio diagnostics. Android ARM64 debug APK compilation and host-side model inference are verified, but no physical VAD or EOT quality claim is made. Cross-runtime EOT parity (`29f3f08fe1`) and the G4 Smart Turn candidate bake-off (`fa4be3fd08`) are recorded host-side, with candidate C (Smart Turn gated by a bounded 128 ms deterministic fallback) winning the committed budgets while the pure upstream veto fails them; policy C is now integrated in the Rust `CaptureSegmenter` (`5002e453cf`) with f32 feature/probability parity bit-exact against the official pipecat/ORT 1.28.0 Python harness on sampled windows and its telemetry mirrored into app diagnostics; physical Windows/Xiaomi evidence remains open. Android Live moves microphone PCM through native ring buffers and uses local batch Parakeet STT; native playback is not connected to canonical TTS, and AEC, focus, routes, lifecycle, streaming STT and physical device qualification remain open. The Android local Live final-transcript path durably reserves the same canonical message ID used by the SDK before prompting and sequences semantic events through VoiceCore; snapshots retain replay protection and clock state, not event payloads. The canonical SpeechSegmenter and SpeechRenderer semantics are ported into the shared TypeScript app behind a Python-generated cross-runtime parity fixture (§22), and local streaming feeds `assistant_text_delta` through the segmenter to TTS before the answer completes (G6, host-verified). Python and desktop producers still bypass VoiceCore and the shared segmenter; lifecycle/recovery parity remains open. Physical standalone, duplex, Windows, five-language and endurance gates remain unqualified. The G5 streaming-STT host bake-off is executed (nemo-speech C++ WS, transformers F32 streaming, Parakeet batch baseline over a 45-fixture validity screen) with a provisional leading candidate; the real `StreamingSttProvider` implementation and all Android resource/physical streaming evidence remain open.
