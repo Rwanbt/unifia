@@ -14,7 +14,7 @@ import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { ServerConnection, serverName, useServer } from "@/context/server"
 import { useCheckServerHealth } from "@/utils/server-health"
-import { ComputeIcon, computeKind } from "./compute-icon"
+import { ComputeIcon, computeGlyph, computeKind } from "./compute-icon"
 import { SettingsPage } from "./settings-page"
 import { SettingsRemoteAccess } from "./settings-remote-access"
 import { SettingsAndroid } from "./settings-android"
@@ -98,7 +98,7 @@ export function SettingsCompute() {
               <article data-slot="compute-device">
                 <div data-slot="compute-device-head">
                   <div data-slot="compute-device-icon">
-                    <ComputeIcon name={kind === "local" || kind === "wsl" ? "monitor" : "server"} />
+                    <ComputeIcon name={computeGlyph(conn)} />
                   </div>
                   <div data-slot="compute-device-copy">
                     <b>{kind === "local" ? language.t("settings.compute.thisDevice") : serverName(conn)}</b>

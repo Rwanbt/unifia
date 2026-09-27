@@ -5,10 +5,10 @@ import { Tabs } from "@unifia/ui/tabs"
 import { useMutation } from "@tanstack/solid-query"
 import { showToast } from "@unifia/ui/toast"
 import { useNavigate } from "@solidjs/router"
-import { type Accessor, createEffect, createMemo, For, type JSXElement, onCleanup, Show } from "solid-js"
+import { type Accessor, createEffect, createMemo, createSignal, For, type JSXElement, onCleanup, Show } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { ServerHealthIndicator } from "@/components/server/server-row"
-import { ComputeIcon, computeKind } from "./compute-icon"
+import { ComputeIcon, computeGlyph, computeKind } from "./compute-icon"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
@@ -262,6 +262,22 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
     if (value === "disabled") return language.t("mcp.status.disabled")
   }
 
+  type StatusTab = "compute" | "servers" | "mcp" | "lsp" | "plugins"
+  const [tab, setTab] = createSignal<StatusTab>("compute")
+  // The head names the open tab, as the reference's head names its only list.
+  const head = createMemo(() => {
+    const current = tab()
+    if (current === "compute" || current === "servers") {
+      return {
+        title: language.t(current === "compute" ? "settings.tab.compute" : "status.popover.tab.servers"),
+        count: language.t("settings.compute.count", { online: online(), total: servers().length }),
+      }
+    }
+    if (current === "mcp") return { title: language.t("status.popover.tab.mcp"), count: `${mcpConnected()}/${mcpNames().length}` }
+    if (current === "lsp") return { title: language.t("status.popover.tab.lsp"), count: String(lspCount()) }
+    return { title: language.t("status.popover.tab.plugins"), count: String(pluginCount()) }
+  })
+
   const manage = () => {
     const run = ++dialogRun
     void import("./dialog-select-server").then((x) => {
@@ -277,12 +293,8 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
     >
       <div class="flex items-center gap-2 px-[5px] pt-1 pb-[9px]">
         <div class="flex min-w-0 items-baseline gap-1.5">
-          <span class="truncate text-12-medium text-text-strong">
-            {language.t("settings.tab.compute")}
-          </span>
-          <span class="shrink-0 text-11-regular text-text-weak">
-            {language.t("settings.compute.count", { online: online(), total: servers().length })}
-          </span>
+          <span class="truncate text-12-medium text-text-strong">{head().title}</span>
+          <span class="shrink-0 text-11-regular text-text-weak">{head().count}</span>
         </div>
         <span class="flex-1" />
         <Show when={server.current}>
@@ -294,28 +306,43 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
         </Show>
       </div>
 
-      <Tabs aria-label={language.t("status.popover.ariaLabel")} defaultValue="compute" variant="pill">
-        <Tabs.List class="w-full gap-1 border border-border-base bg-background-stronger p-[3px] [&_[data-slot=tabs-trigger]]:px-2.5">
-          <Tabs.Trigger value="compute" class="h-7 min-w-0 flex-1 rounded-[7px] text-12-medium">
+      <Tabs
+        aria-label={language.t("status.popover.ariaLabel")}
+        value={tab()}
+        onChange={(value) => setTab(value as StatusTab)}
+        variant="pill"
+      >
+        <Tabs.List class="w-full">
+          <Tabs.Trigger value="compute" class="min-w-0 flex-1">
             {language.t("settings.tab.compute")}
           </Tabs.Trigger>
-          <Tabs.Trigger value="servers" class="h-7 min-w-0 flex-1 rounded-[7px] text-12-medium">
-            {sortedServers().length > 0 ? `${sortedServers().length} ` : ""}
+          <Tabs.Trigger value="servers" class="min-w-0 flex-1">
+            <Show when={sortedServers().length > 0}>
+              <i data-slot="status-count">{sortedServers().length}</i>
+            </Show>
             {language.t("status.popover.tab.servers")}
           </Tabs.Trigger>
-          <Tabs.Trigger value="mcp" class="h-7 min-w-0 flex-1 rounded-[7px] text-12-medium">
-            {mcpConnected() > 0 ? `${mcpConnected()} ` : ""}
+          <Tabs.Trigger value="mcp" class="min-w-0 flex-1">
+            <Show when={mcpConnected() > 0}>
+              <i data-slot="status-count">{mcpConnected()}</i>
+            </Show>
             {language.t("status.popover.tab.mcp")}
           </Tabs.Trigger>
-          <Tabs.Trigger value="lsp" class="h-7 min-w-0 flex-1 rounded-[7px] text-12-medium">
-            {lspCount() > 0 ? `${lspCount()} ` : ""}
+          <Tabs.Trigger value="lsp" class="min-w-0 flex-1">
+            <Show when={lspCount() > 0}>
+              <i data-slot="status-count">{lspCount()}</i>
+            </Show>
             {language.t("status.popover.tab.lsp")}
             <Show when={diagTotal() > 0}>
-              <span class="ml-1 text-icon-critical-base">{diagTotal()}</span>
+              <i data-slot="status-count" data-tone="critical">
+                {diagTotal()}
+              </i>
             </Show>
           </Tabs.Trigger>
-          <Tabs.Trigger value="plugins" class="h-7 min-w-0 flex-1 rounded-[7px] text-12-medium">
-            {pluginCount() > 0 ? `${pluginCount()} ` : ""}
+          <Tabs.Trigger value="plugins" class="min-w-0 flex-1">
+            <Show when={pluginCount() > 0}>
+              <i data-slot="status-count">{pluginCount()}</i>
+            </Show>
             {language.t("status.popover.tab.plugins")}
           </Tabs.Trigger>
         </Tabs.List>
@@ -375,7 +402,7 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
                     }}
                   >
                     <span class="grid size-7 place-items-center rounded-[9px] border border-border-base bg-surface-raised-base text-text-weak">
-                      <ComputeIcon name={kind === "local" || kind === "wsl" ? "monitor" : "server"} />
+                      <ComputeIcon name={computeGlyph(s)} />
                     </span>
                     <span class="flex min-w-0 flex-col gap-0.5">
                       <span class="truncate text-12-medium text-text-strong">
@@ -432,7 +459,7 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
                     title={serverName(s)}
                     class="grid min-h-[52px] w-full grid-cols-[30px_1fr_auto] items-center gap-[9px] rounded-[10px] px-2 py-[7px] text-left transition-colors"
                     classList={{
-                      "hover:bg-surface-raised-base-hover": !blocked(),
+                      "hover:bg-surface-3": !blocked(),
                       "cursor-not-allowed opacity-45": blocked(),
                     }}
                     aria-disabled={blocked()}
@@ -443,7 +470,7 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
                     }}
                   >
                     <span class="grid size-7 place-items-center rounded-[9px] border border-border-base bg-surface-raised-base text-text-weak">
-                      <Icon name="server" size="small" />
+                      <ComputeIcon name={computeGlyph(s)} />
                     </span>
                     <span class="flex min-w-0 flex-col gap-0.5">
                       <span class="truncate text-12-medium text-text-strong">{serverName(s)}</span>
@@ -488,7 +515,7 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
                   return (
                     <button
                       type="button"
-                      class="grid min-h-[52px] w-full grid-cols-[30px_1fr_auto] items-center gap-[9px] rounded-[10px] px-2 py-[7px] text-left transition-colors hover:bg-surface-raised-base-hover"
+                      class="grid min-h-[52px] w-full grid-cols-[30px_1fr_auto] items-center gap-[9px] rounded-[10px] px-2 py-[7px] text-left transition-colors hover:bg-surface-3"
                       onClick={() => {
                         if (toggleMcp.isPending) return
                         toggleMcp.mutate(name)

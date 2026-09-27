@@ -1,0 +1,91 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Server status popover (components/status-popover-body.tsx) -- maquette
+ * #runtimePopoverV32. The reference has no tabs; the app keeps five, so the
+ * tab bar borrows the popover's own vocabulary (line border, surface-3 for
+ * the selected item, like .runtime-choice-v32[aria-pressed]) instead of the
+ * UI kit's 32px pill, which cannot fit five labels in 350px. */
+
+[data-v110="status-popover"] [data-slot="tabs-list"] {
+  height: auto;
+  margin-bottom: 4px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+[data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"] {
+  height: 24px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--muted);
+  transition: background 0.13s, color 0.13s;
+}
+
+[data-v110="status-popover"] [data-slot="tabs-trigger"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 4px;
+  white-space: nowrap;
+  /* The global selected-tab inset stroke; here the fill alone marks it,
+   * like the reference's pressed row. */
+  box-shadow: none !important;
+}
+
+[data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"]:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]),
+[data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"]:has([data-selected]):hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* A mouse click leaves no ring; the keyboard still gets one. */
+[data-v110="status-popover"] [data-slot="tabs-trigger"]:focus {
+  outline: none;
+}
+
+[data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"]:has(:focus-visible) {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+[data-v110="status-popover"] [data-slot="status-count"] {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+[data-v110="status-popover"] [data-slot="status-count"][data-tone="critical"] {
+  color: var(--danger, #df848a);
+}
+
+/* The settings page styles the same glyphs at 18px; the popover's 28px
+ * tiles take the reference's 15px / 1.8 stroke. */
+[data-v110="status-popover"] [data-slot="compute-icon"] {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+html[data-ui-animations="off"] [data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"] {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-v110="status-popover"] [data-slot="tabs-trigger-wrapper"] {
+    transition: none !important;
+  }
+}

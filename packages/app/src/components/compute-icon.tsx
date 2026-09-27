@@ -48,6 +48,12 @@ export function ComputeIcon(props: { name: keyof typeof ICONS }) {
   )
 }
 
+/** The glyph a connection's tile shows: a screen for this machine, a rack otherwise. */
+export function computeGlyph(conn: ServerConnection.Any): "monitor" | "server" {
+  const kind = computeKind(conn)
+  return kind === "local" || kind === "wsl" ? "monitor" : "server"
+}
+
 export function computeKind(conn: ServerConnection.Any): ComputeKind {
   if (conn.type === "ssh") return "ssh"
   if (conn.type === "sidecar") return conn.variant === "wsl" ? "wsl" : "local"
