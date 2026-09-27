@@ -13,6 +13,8 @@ import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { applyPath, backPath, forwardPath } from "./titlebar-history"
 import { useTitlebarSlots } from "@/context/titlebar-slots"
+import { useMode } from "@/context/mode"
+import { LiveOrb } from "./session/live-orb"
 
 type TauriDesktopWindow = {
   startDragging?: () => Promise<void>
@@ -39,6 +41,7 @@ const currentThemeWindow = () => tauriApi()?.webviewWindow?.getCurrentWebviewWin
 
 export function Titlebar() {
   const layout = useLayout()
+  const mode = useMode()
   const platform = usePlatform()
   const command = useCommand()
   const language = useLanguage()
@@ -267,6 +270,13 @@ export function Titlebar() {
       </div>
 
       <div data-slot="topbar-center" class="min-w-0 flex items-center justify-center pointer-events-none">
+        {/* The reference's home topbar carries the Live orb; in a session the
+            orb comes with the layout switch through the centre slot. */}
+        <Show when={mode.routeKind() === "home"}>
+          <div class="pointer-events-auto flex">
+            <LiveOrb />
+          </div>
+        </Show>
         <div
           ref={slots.registerCenter}
           data-slot="topbar-center-slot"

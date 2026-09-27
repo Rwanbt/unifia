@@ -415,3 +415,10 @@
   color: var(--muted);
   text-align: center;
 }
+
+/* Home has no context panel and no inspector: the reference's home topbar
+ * keeps neither toggle. */
+[data-v110="shell-frame"][data-route="home"]
+  :is([data-v110="context-toggle"], [data-v110="inspector-toggle"], [data-v110="mobile-context-toggle"]) {
+  display: none;
+}
