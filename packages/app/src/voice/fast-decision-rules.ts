@@ -321,4 +321,7 @@ export const rulesFastDecisionProvider: FastDecisionProvider = {
       rationale: "rules-default-continue",
     }
   },
+  dispose(): void {
+    // Rules holds no resources — nothing to release.
+  },
 }

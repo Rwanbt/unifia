@@ -122,6 +122,13 @@ export interface FastDecisionProvider {
    *  invalid input (returns a `continue` proposal with
    *  `confidence: 0`). */
   decide(input: FastDecisionInput): DecisionProposal
+  /** Release any resources the provider may hold. Idempotent.
+   *  Required for resource-scheduler wiring (§29): every provider
+   *  that owns a lease must expose `dispose` so the wiring
+   *  decorator can release the lease when the provider is no
+   *  longer needed. `OFF` and `Rules` are no-ops; future neural
+   *  providers will unload their model here. */
+  dispose(): void
 }
 
 /** The input the consumer hands to the provider. The provider

@@ -49,4 +49,7 @@ export const offFastDecisionProvider: FastDecisionProvider = {
       rationale: "off-bypass",
     }
   },
+  dispose(): void {
+    // OFF holds no resources — nothing to release.
+  },
 }
