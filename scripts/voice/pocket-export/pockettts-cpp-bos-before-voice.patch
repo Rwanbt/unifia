@@ -1,5 +1,5 @@
 ﻿diff --git a/pocket_tts.cpp b/pocket_tts.cpp
-index 6b6b48a..80605be 100644
+index 6b6b48a..ad362bb 100644
 --- a/pocket_tts.cpp
 +++ b/pocket_tts.cpp
 @@ -1464,6 +1464,48 @@ public:
@@ -62,7 +62,20 @@ index 6b6b48a..80605be 100644
      std::unique_ptr<Tokenizer> tok_;
      std::unique_ptr<StatefulRunner> main_runner_;
      std::unique_ptr<StatefulRunner> dec_runner_;  // reused across stream() calls
-@@ -1743,7 +1789,36 @@ private:
+@@ -1708,6 +1754,12 @@ private:
+         std::vector<float> s_buf_{1}, t_buf_{1};
+         
+         void cond_pass(const float* d, size_t sz, const std::vector<int64_t>& sh) {
++            if (std::getenv("PTT_TRACE_EOS")) {
++                static int cond_call_ = 0;
++                ++cond_call_;
++                std::fprintf(stderr, "[eos:cond] pass=%d steps=%lld\n",
++                             cond_call_, (long long)(sh.size() >= 2 ? sh[1] : -1));
++            }
+             std::vector<Ort::Value> inputs;
+             inputs.push_back(Ort::Value::CreateTensor<float>(m_, nullptr, 0, empty_seq_shape_, 3));
+             inputs.push_back(Ort::Value::CreateTensor<float>(m_, const_cast<float*>(d), sz, sh.data(), sh.size()));
+@@ -1743,7 +1795,36 @@ private:
              
              {
                  auto _ = g_prof.time("voice_conditioning_pass");
@@ -100,7 +113,7 @@ index 6b6b48a..80605be 100644
              }
              
              if (out_voice_snap) *out_voice_snap = main_runner_.take_snapshot();
-@@ -1810,6 +1885,23 @@ private:
+@@ -1810,6 +1891,28 @@ private:
                  
                  eos_logit = outputs[1].GetTensorData<float>()[0];
              }
@@ -113,12 +126,17 @@ index 6b6b48a..80605be 100644
 +            // per-frame value distinguishes "EOS never crosses the threshold"
 +            // from "the graph's eos output is not what index 1 carries".
 +            if (std::getenv("PTT_TRACE_EOS")) {
-+                static int trace_n = 0;
-+                if (trace_n < 24) {
-+                    std::fprintf(stderr, "[eos] frame=%d logit=%.4f thr=%.2f %s\n",
++                // UNIFIA DIAGNOSTIC (temporary): tag the phase. A previous trace
++                // printed two separate `frame=0` blocks because `idx_` restarts
++                // per LatentGen, so a conditioning pass could not be told from
++                // an autoregressive step. Both run `flow_lm_main` and both emit
++                // an eos_logit; only the AR path's value governs termination.
++                static int ar_frame_ = 0;
++                if (ar_frame_ < 30) {
++                    std::fprintf(stderr, "[eos:ar] frame=%d logit=%.4f thr=%.2f %s\n",
 +                                 idx_, eos_logit, tts.cfg_.eos_threshold,
 +                                 eos_ ? "FIRED" : "");
-+                    ++trace_n;
++                    ++ar_frame_;
 +                }
 +            }
              

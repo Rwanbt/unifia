@@ -675,7 +675,65 @@ is not a trustworthy target for a duration criterion, so the Spanish result
 needs the reference's own behaviour characterised before the runtime is blamed.
 That is the next diagnostic.
 
-## 6. Three side findings worth recording
+### 4.21 Phase-tagged trace — the real shape of the Spanish failure
+
+The trace was re-instrumented so each call site prints its phase
+(`[eos:cond]` for a conditioning pass, `[eos:ar]` for an autoregressive step)
+instead of relying on a restarting frame counter. The earlier ambiguity is gone
+and the real structure is visible: **the runtime segments the text and
+generates each segment separately**, so there are multiple conditioning passes
+and multiple AR loops per utterance.
+
+```
+########## Spanish ##########
+[eos:cond] pass=1 steps=126      <- voice conditioning (126 = BOS + encoded voice)
+[eos:cond] pass=2 steps=3        <- text segment 1
+[eos:ar]   frame=0 -6.2517
+[eos:ar]   frame=1 -3.3630
+[eos:ar]   frame=2 -2.5978  FIRED   <- segment 1 ends, weakly
+...
+[eos:cond] pass=3 steps=18       <- text segment 2
+[eos:ar]   frame=0  -7.4804
+[eos:ar]   frame=7  -6.5655
+[eos:ar]   frame=11 -8.0594
+[eos:ar]   frame=13 -9.5916
+[eos:ar]   frame=15 -9.4270     <- never approaches -4.0; runs to frame budget
+
+########## English ##########
+[eos:cond] pass=1 steps=126
+[eos:cond] pass=2 steps=3
+[eos:ar]   frame=0  -9.2766
+[eos:ar]   frame=6  -6.6280
+[eos:ar]   frame=8  -3.1650
+[eos:ar]   frame=9   5.6463  FIRED   <- decisive end-of-sequence (+5.6)
+[eos:cond] pass=3 steps=15
+[eos:ar]   frame=0  -9.7860 ...
+```
+
+This corrects §4.19. Spanish is **not** a uniform "EOS never fires":
+
+- Segment 1 terminates **early but correctly** — at frame 2, with a logit of
+  only −2.60, a weak margin over the −4.0 threshold. For a two-word segment
+  that is plausible.
+- Segment 2 **never terminates at all**, and its logit moves *downward* away
+  from the threshold (−7.48 → −9.59 → −10.5). That is not a marginal miss; the
+  model is confidently reporting "not finished" for the whole frame budget.
+
+English's segment 1, by contrast, ends with a **decisive** logit of **+5.65**,
+an order of magnitude past the threshold, whereas Spanish's ends at −2.60,
+barely over it. A weak positive margin is consistent with a state that has not
+fully converged, which would also explain why Spanish's second segment never
+settles. That is a hypothesis for the next diagnostic, not a conclusion: the
+conditioning tensors feeding Spanish segment 2 have not yet been compared
+against the eager reference for the same segment.
+
+The actionable next step is therefore narrow and specific: for Spanish
+segment 2, compare the C++ per-frame `conditioning` and KV cache against the
+eager reference on a forced greedy sequence, the same method that settled the
+`bos_before_voice` question. If they agree, the model itself does not emit EOS
+for that Spanish segment and the finding belongs upstream, not in this runtime.
+
+
 
 - **`Voice cloning: True`** is reported by the exporter even when the
   no-cloning weights are loaded. The flag reflects architectural capability,
