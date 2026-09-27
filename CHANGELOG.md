@@ -15,6 +15,7 @@ former name; GitHub redirects it to the current one.
 
 - Android Live now streams the canonical Unifia session's text, tool, and permission events into the Voice controller using the submitted message ID. Mobile events are sequenced through VoiceCore; high-rate text deltas stay in memory between durable snapshot checkpoints ([ADR-075](docs/adr/ADR-075-voice-transient-event-durability.md)).
 - Android Live forks the canonical Unifia conversation before VoiceCore's bounded replay history fills, preserving message history and session permissions ([ADR-076](docs/adr/ADR-076-voice-session-capacity-rotation.md)).
+- Streaming STT now has a real provider behind the `StreamingSttProvider` contract: Nemotron 3.5 streaming through the native nemo-speech runtime, an honest final-only fallback provider, and a selection router that degrades with classified reasons instead of faking partials. The model is pinned in the Voice model registry; selection evidence and open Android qualifications are recorded in ([ADR-077](docs/adr/ADR-077-voice-streaming-stt-selection.md)).
 
 ---
 
