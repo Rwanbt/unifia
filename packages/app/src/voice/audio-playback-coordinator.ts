@@ -1,4 +1,4 @@
-export type AudioPlaybackPriority = "autoplay" | "manual" | "live"
+export type AudioPlaybackPriority = "autoplay" | "manual" | "preview" | "live"
 
 export type AudioPlaybackLease = {
   readonly id: number
@@ -8,6 +8,7 @@ export type AudioPlaybackLease = {
 const PRIORITY: Record<AudioPlaybackPriority, number> = {
   autoplay: 1,
   manual: 2,
+  preview: 2,
   live: 3,
 }
 

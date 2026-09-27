@@ -56,6 +56,22 @@ describe("playTtsRequest arbitration (G8)", () => {
     coordinator.release(manual!)
   })
 
+  it("preview requests share manual priority and preempt autoplay", async () => {
+    const coordinator = new AudioPlaybackCoordinator()
+    const router = createTtsRouter([backend("pocket", [chunk(0)])])
+    const autoplay = coordinator.acquire("autoplay", () => {})
+    expect(autoplay).toBeDefined()
+    const consumed: number[] = []
+    const played = await playTtsRequest(
+      { router, coordinator, consume: async (audio) => { consumed.push(audio.sequence) } },
+      request,
+      "preview",
+    )
+    expect(played).toBe(true)
+    expect(consumed).toEqual([0])
+    expect(coordinator.isCurrent(autoplay!)).toBe(false)
+  })
+
   it("Live preempts manual and aborts the manual PCM consumer", async () => {
     const coordinator = new AudioPlaybackCoordinator()
     const cancelCalls: string[] = []
