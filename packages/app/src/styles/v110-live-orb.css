@@ -3,13 +3,15 @@
 /* Live orb (components/session/live-orb.tsx) -- Jarvis topbar prototype V5,
  * #jarvisOrb: an invisible 31px hit area around an 18px ring pair, a 5px
  * core and an orbit arc. OFF is neutral and static; ON is the prototype's
- * idle state (cyan/violet, breathing ring, slow orbit). ON is the user's own
+ * idle state (breathing ring, slow orbit). The prototype's cyan/violet
+ * becomes two shades of the user's accent (ADR-048), as on the voice branch,
+ * so the orb follows the accent picked in settings. ON is the user's own
  * request for motion, so like the prototype's `jarvis-force-motion` it
  * animates even under reduced motion. */
 
 [data-v110="live-orb"] {
-  --live-cyan: #4de3ff;
-  --live-violet: #9d7cff;
+  --live-accent: var(--accent, var(--text));
+  --live-light: color-mix(in srgb, var(--live-accent) 55%, white);
   --live-state: var(--faint);
   --live-state-2: var(--muted);
   position: relative;
@@ -27,8 +29,8 @@
 }
 
 [data-v110="live-orb"][data-state="idle"] {
-  --live-state: var(--live-cyan);
-  --live-state-2: var(--live-violet);
+  --live-state: var(--live-accent);
+  --live-state-2: var(--live-light);
 }
 
 [data-v110="live-orb"]:focus-visible {
