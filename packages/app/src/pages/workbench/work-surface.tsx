@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
-import { Show, createEffect, createMemo, onMount, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, onMount, type JSX } from "solid-js"
+import { WORK_VIEW_LABEL_KEY, WORK_VIEWS } from "@/context/work-view"
 import type { TeamGraphTask } from "@unifia/ui/team-graph"
 import { useMode } from "@/context/mode"
 import { useLanguage } from "@/context/language"
@@ -129,6 +130,24 @@ export function WorkSurface(): JSX.Element {
             onNewTask={teamDialog.open}
             menu={<WorkArtifactMenu artifacts={artifacts} />}
           />
+          {/* Phones: the reference picks the view from a strip of tabs in the
+              surface (.work65-mobile-tabs); wider layouts pick it from the
+              context panel, so the strip is hidden there (v110-work.css). */}
+          <nav data-v110="work-mobile-tabs" aria-label={t("sidebar.work.views")}>
+            <For each={WORK_VIEWS}>
+              {(item) => (
+                <button
+                  type="button"
+                  data-v110="work-btn"
+                  data-primary={view() === item ? "" : undefined}
+                  aria-pressed={view() === item}
+                  onClick={() => layout.work.setView(item)}
+                >
+                  {t(WORK_VIEW_LABEL_KEY[item])}
+                </button>
+              )}
+            </For>
+          </nav>
           <div data-v110="work-content" data-parity="work.content" data-work-view-content={view()}>
             <Show when={workbench.uiPhase() !== "ready"}>
               <div data-v110="work-connection">

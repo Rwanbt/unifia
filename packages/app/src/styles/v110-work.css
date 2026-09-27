@@ -361,3 +361,58 @@ html[data-color-scheme="light"] [data-v110="work-check"] {
 [data-v110="work-safe-actions"] [data-v110="work-btn"] {
   width: 100%;
 }
+
+/* Phones -- V5 at 390px (.work65-mobile-tabs, measured): a 40px strip of
+ * 32px tabs, 3px apart, 4px/6px padding, scrolling sideways without a bar;
+ * the active tab is the primary (inverted) button. The header wraps: title
+ * on its own line, then the health pill and the actions (kept on phones,
+ * unlike the reference, so no action is lost). One column of cards. */
+[data-v110="work-mobile-tabs"] {
+  display: none;
+}
+
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="work-top"] {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 8px;
+  }
+
+  [data-v110="work-title"] {
+    flex: 1 1 100%;
+  }
+
+  [data-v110="work-title"] h2 {
+    font-size: 12px;
+  }
+
+  [data-v110="work-actions"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  [data-v110="work-actions"] > * {
+    flex: 0 0 auto;
+  }
+
+  [data-v110="work-mobile-tabs"] {
+    display: flex;
+    flex-shrink: 0;
+    gap: 3px;
+    padding: 4px 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--v110-card-line);
+    background: var(--v110-card-bg);
+  }
+
+  [data-v110="work-mobile-tabs"] [data-v110="work-btn"] {
+    flex: 0 0 auto;
+  }
+
+  [data-v110="work-grid"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
