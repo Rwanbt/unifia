@@ -669,6 +669,7 @@ export const dict = {
   "common.closeTab": "Zatvori karticu",
   "common.dismiss": "Odbaci",
   "common.requestFailed": "Zahtjev nije uspio",
+  "common.retry": "Retry",
   "common.moreOptions": "Više opcija",
   "common.learnMore": "Saznaj više",
   "common.rename": "Preimenuj",

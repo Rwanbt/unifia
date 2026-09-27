@@ -631,6 +631,7 @@ export const dict = {
   "common.closeTab": "Fermer l'onglet",
   "common.dismiss": "Ignorer",
   "common.requestFailed": "La demande a échoué",
+  "common.retry": "Réessayer",
   "common.moreOptions": "Plus d'options",
   "common.learnMore": "En savoir plus",
   "common.rename": "Renommer",

@@ -659,6 +659,7 @@ export const dict = {
   "common.closeTab": "關閉標籤頁",
   "common.dismiss": "忽略",
   "common.requestFailed": "要求失敗",
+  "common.retry": "Retry",
   "common.moreOptions": "更多選項",
   "common.learnMore": "深入了解",
   "common.rename": "重新命名",

@@ -3031,3 +3031,121 @@ html[data-color-scheme="light"] [data-v110="account-frame"] [data-component="swi
   background: var(--surface);
   scrollbar-width: none;
 }
+
+/* ---- Pages inside the drill-down --------------------------------------
+ * The reference's @media (max-width: 760px) page rules, keyed on the
+ * drill-down's content box (ADR-058) rather than a width guess: the head
+ * stacks with its actions full width, h2 drops to 18px (catalog heads too),
+ * setting rows keep their control beside the copy, the observability tabs
+ * become a two-column grid (no horizontal hunting), and a hook's event tag
+ * moves under its copy. */
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-page-head"] {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-page-head"] h2 {
+  font-size: 18px;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-head-actions"] {
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-head-actions"] > * {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="setting-row"] {
+  flex-wrap: nowrap;
+  min-height: 68px;
+  gap: 10px;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="setting-row"] [data-slot="setting-copy"] {
+  max-width: none;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="setting-row"] [data-slot="setting-control"] {
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* .setting-row at <= 420px: the copy, then the control under it. */
+@media (max-width: 420px) {
+  [data-slot="settings-mobile-content"] [data-v110="setting-row"] {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  [data-slot="settings-mobile-content"] [data-v110="setting-row"] [data-slot="setting-control"] {
+    justify-content: flex-start;
+  }
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-subtabs"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0 0 16px;
+  padding: 0 0 10px;
+  overflow: visible;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-subtabs"] button {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  text-align: center;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="settings-subtabs"] button[aria-selected="true"] {
+  border-color: var(--line);
+  background: var(--surface-3);
+  box-shadow: none;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="hook-row"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+[data-slot="settings-mobile-content"] [data-v110="settings-page"] [data-slot="hook-event"] {
+  grid-column: 1 / 2;
+  justify-self: start;
+}
+
+/* A page that failed to load, in place of the page (SettingsPageBoundary). */
+[data-slot="settings-page-error"] {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--v110-settings-section-bg, var(--surface-2));
+  color: var(--muted);
+  font-size: 10px;
+}
+
+[data-slot="settings-page-error"] b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+[data-slot="settings-page-error"] button {
+  margin-top: 4px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 10px;
+}

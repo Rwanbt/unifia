@@ -609,6 +609,7 @@ export const dict = {
   "common.closeTab": "Lukk fane",
   "common.dismiss": "Avvis",
   "common.requestFailed": "Forespørsel mislyktes",
+  "common.retry": "Retry",
   "common.moreOptions": "Flere alternativer",
   "common.learnMore": "Lær mer",
   "common.rename": "Gi nytt navn",

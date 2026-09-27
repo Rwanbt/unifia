@@ -665,6 +665,7 @@ export const dict = {
   "common.closeTab": "Luk fane",
   "common.dismiss": "Afvis",
   "common.requestFailed": "Forespørgsel mislykkedes",
+  "common.retry": "Retry",
   "common.moreOptions": "Flere muligheder",
   "common.learnMore": "Lær mere",
   "common.rename": "Omdøb",

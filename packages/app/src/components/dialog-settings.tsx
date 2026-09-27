@@ -1,4 +1,4 @@
-import { type Component, type JSX, For, Show, Suspense, createMemo, createSignal } from "solid-js"
+import { type Component, type JSX, For, Show, createMemo, createSignal } from "solid-js"
 import { Dialog } from "@unifia/ui/dialog"
 import { Tabs } from "@unifia/ui/tabs"
 import { useLanguage } from "@/context/language"
@@ -24,6 +24,7 @@ import { SettingsSecurity } from "./settings-security"
 import { SettingsNetwork } from "./settings-network"
 import { SettingsCommandBar } from "./settings-command-bar"
 import { SettingsScopeProvider } from "./settings-scope"
+import { SettingsPageBoundary } from "./settings-page"
 import { SettingsNavIcon, type SettingsIconName } from "./settings-nav-icon"
 
 export const DialogSettings: Component = () => (
@@ -221,7 +222,7 @@ export const SettingsPanel: Component = () => {
                 // WHY: a page's resources would otherwise suspend the app-level
                 // Suspense (app.tsx) and blank the whole session while they load.
                 <Tabs.Content value={page.id}>
-                  <Suspense>{page.render()}</Suspense>
+                  <SettingsPageBoundary>{page.render()}</SettingsPageBoundary>
                 </Tabs.Content>
               )}
             </For>

@@ -610,6 +610,7 @@ export const dict = {
   "common.closeTab": "Cerrar pestaña",
   "common.dismiss": "Descartar",
   "common.requestFailed": "Solicitud fallida",
+  "common.retry": "Retry",
   "common.moreOptions": "Más opciones",
   "common.learnMore": "Saber más",
   "common.rename": "Renombrar",

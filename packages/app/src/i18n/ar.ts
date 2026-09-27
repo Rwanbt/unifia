@@ -602,6 +602,7 @@ export const dict = {
   "common.closeTab": "إغلاق علامة التبويب",
   "common.dismiss": "رفض",
   "common.requestFailed": "فشل الطلب",
+  "common.retry": "Retry",
   "common.moreOptions": "مزيد من الخيارات",
   "common.learnMore": "اعرف المزيد",
   "common.rename": "إعادة تسمية",

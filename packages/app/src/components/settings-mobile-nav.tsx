@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 
-import { type Component, For, Show, Suspense, createMemo } from "solid-js"
+import { type Component, For, Show, createMemo } from "solid-js"
 import { IconButton } from "@unifia/ui/icon-button"
 import { useLanguage } from "@/context/language"
 import type { SettingsGroup } from "./dialog-settings"
 import { SettingsNavIcon } from "./settings-nav-icon"
+import { SettingsPageBoundary } from "./settings-page"
 
 /**
  * Settings on overlay viewports: the reference's phone list (grouped sections,
@@ -67,7 +68,7 @@ export const SettingsMobileNav: Component<{
               <b>{page().label}</b>
             </div>
             <div data-slot="settings-mobile-content">
-              <Suspense>{page().render()}</Suspense>
+              <SettingsPageBoundary>{page().render()}</SettingsPageBoundary>
             </div>
           </>
         )}
