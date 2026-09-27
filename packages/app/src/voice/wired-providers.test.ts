@@ -38,14 +38,20 @@ describe("wired-providers (G11 wiring)", () => {
       owner: "parakeet-tdt",
       ...STT_WIRE,
     }, STT_WIRE)
-    expect(wired.lease).toBeUndefined()
+    // Lease is acquired at construction time (§29 invariant).
+    expect(wired.lease).toBeDefined()
+    expect(activeLeases(scheduler, "parakeet-tdt")).toBe(1)
     await wired.base.prepare({ language: "en" })
     expect(activeLeases(scheduler, "parakeet-tdt")).toBe(1)
     await wired.base.dispose()
     expect(activeLeases(scheduler, "parakeet-tdt")).toBe(0)
   })
 
-  it("prepare failure releases the lease — no leak", async () => {
+  it("prepare failure does NOT release the lease — the provider still occupies its slot", async () => {
+    // §29: lease is held for the provider's residency, not for the
+    // prepare call. A failed prepare leaves the lease intact so the
+    // caller can retry prepare on the same provider. The test below
+    // verifies that contract.
     const scheduler = createVoiceResourceScheduler({ mode: "mobile" })
     const base = createFinalSttFallbackProvider({
       transcribe: async () => "ok",
@@ -56,6 +62,8 @@ describe("wired-providers (G11 wiring)", () => {
       ...STT_WIRE,
     }, STT_WIRE)
     await expect(wired.base.prepare({ language: "xx" as never })).rejects.toThrow()
+    expect(activeLeases(scheduler, "parakeet-tdt")).toBe(1)
+    await wired.base.dispose()
     expect(activeLeases(scheduler, "parakeet-tdt")).toBe(0)
   })
 
@@ -67,13 +75,13 @@ describe("wired-providers (G11 wiring)", () => {
       owner: "parakeet-tdt",
       ...STT_WIRE,
     }, STT_WIRE)
-    await wired.base.prepare({ language: "en" })
+    expect(activeLeases(scheduler, "parakeet-tdt")).toBe(1)
     await wired.base.dispose()
     await wired.base.dispose()
     expect(activeLeases(scheduler, "parakeet-tdt")).toBe(0)
   })
 
-  it("**no lease leak** under 1,000 prepare+dispose cycles", async () => {
+  it("**no lease leak** under 1,000 wire+dispose cycles", async () => {
     const scheduler = createVoiceResourceScheduler({ mode: "mobile" })
     for (let i = 0; i < 1_000; i++) {
       const base = createFinalSttFallbackProvider({ transcribe: async () => "" })
@@ -82,7 +90,6 @@ describe("wired-providers (G11 wiring)", () => {
         owner: "parakeet-tdt",
         ...STT_WIRE,
       }, STT_WIRE)
-      await wired.base.prepare({ language: "en" })
       await wired.base.dispose()
     }
     expect(activeLeases(scheduler, "parakeet-tdt")).toBe(0)
@@ -99,6 +106,10 @@ describe("wired-providers (G11 wiring)", () => {
       ...STT_WIRE,
     }, STT_WIRE)
     await expect(wired.base.prepare({ language: "en" }, ac.signal)).rejects.toThrow()
+    // Lease survives an aborted prepare — the provider is still
+    // alive in the scheduler's view. Caller must dispose() to release.
+    expect(activeLeases(scheduler, "parakeet-tdt")).toBe(1)
+    await wired.base.dispose()
     expect(activeLeases(scheduler, "parakeet-tdt")).toBe(0)
   })
 

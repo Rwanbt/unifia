@@ -72,29 +72,29 @@ export function wireStreamingSttLease(
   request: WireStreamingSttRequest,
   wire: WireOptions,
 ): WiredProvider<StreamingSttProvider> {
-  let lease: ProviderLeaseHandle | undefined
+  // Lease is acquired at construction time so the provider's
+  // residency is observable from the moment wireStreamingSttLease
+  // returns. prepare() then loads the model; dispose() releases the
+  // lease and unloads the model. This matches the G11 invariant
+  // (§29): "A model load must acquire a resource lease; a model
+  // unload must release it."
+  const handle = acquireProviderLease(scheduler, { ...request, ...wire })
+  if (!handle) {
+    throw new Error(
+      `wired StreamingStt: could not acquire lease for ${request.resource.kind}:${request.resource.language ?? ""} (priority=${wire.priority}, residency=${wire.residency})`,
+    )
+  }
+  let lease: ProviderLeaseHandle = handle
   let disposed = false
   const wrapped: StreamingSttProvider = {
     id: base.id,
     capabilities: base.capabilities,
     async prepare(next: StreamingSttConfig, signal?: AbortSignal): Promise<void> {
       if (disposed) throw new Error("wired StreamingStt: prepare() after dispose()")
-      const handle = acquireProviderLease(scheduler, { ...request, ...wire }, signal)
-      if (!handle) {
-        throw new Error(
-          `wired StreamingStt: could not acquire lease for ${request.resource.kind}:${request.resource.language ?? ""} (priority=${wire.priority}, residency=${wire.residency})`,
-        )
-      }
-      try {
-        await base.prepare(next, signal)
-        lease = handle
-      } catch (err) {
-        handle.dispose()
-        throw err
-      }
+      await base.prepare(next, signal)
     },
     transcribe(frames, signal): AsyncIterable<StreamingSttEvent> {
-      if (!lease) throw new Error("wired StreamingStt: transcribe() before prepare()")
+      if (disposed) throw new Error("wired StreamingStt: transcribe() after dispose()")
       return base.transcribe(frames, signal)
     },
     async dispose(): Promise<void> {
@@ -103,8 +103,7 @@ export function wireStreamingSttLease(
       try {
         await base.dispose()
       } finally {
-        lease?.dispose()
-        lease = undefined
+        lease.dispose()
       }
     },
   }
