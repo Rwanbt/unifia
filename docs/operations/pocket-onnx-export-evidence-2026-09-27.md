@@ -529,6 +529,75 @@ mandatory languages, the INT8 pack (never executed), any Android arm64 build,
 any on-device TTFA/RTF/RAM/thermal figure, and cancellation behaviour.
 **No Pocket TTS capability is production-qualified by this work yet.**
 
+### 4.15 `bos_before_voice` is model-specific — one BOS per language
+
+A first multi-language sweep rendered **ES, IT and DE all at exactly 0.860 s**
+(~10 frames) with EOS firing early, while the runtime reported the BOS asset as
+loaded with no warning. An identical duration across three languages is not
+speech; it is a fixed early stop.
+
+The cause was an orchestration fault worth recording precisely, because it
+produced plausible audio and raised no error: an earlier step moved the
+**English** BOS asset into every pack. Loading each model's own weights settles
+whether that was legitimate:
+
+| model | mean | std | abs max |
+|---|---|---|---|
+| english | −0.000119 | 0.018299 | 0.0728 |
+| spanish | +0.000398 | 0.058794 | 0.2119 |
+| italian | +0.000299 | 0.052642 | 0.1719 |
+| german | +0.000212 | 0.035513 | 0.1709 |
+
+```
+english vs spanish  2.060547e-01      english vs german  1.503906e-01
+english vs italian  1.972656e-01      spanish vs german  1.452637e-01
+italian vs german   1.608887e-01
+```
+
+**RESULT: `bos_before_voice` differs per model.** The inter-language deltas
+(0.10–0.21) are an order of magnitude larger than the English vector's own
+standard deviation (0.018), so substituting one language's BOS for another's is
+out-of-distribution conditioning — exactly the failure class the model warns
+about at `tts_model.py:932`.
+
+This sharpens the earlier note: `bos_before_voice` is not merely
+*config*-dependent, it is **weight-dependent**. Every language pack must export
+its own, derived from the same weights as the graphs in that pack. A pack whose
+BOS digest does not correspond to its own weights is invalid even when the
+runtime loads it without complaint.
+
+### 4.16 Five-language sweep results with per-model BOS
+
+| Language | Gate | Duration drift | non-silence | spectral JSD |
+|---|---|---|---|---|
+| **EN** | **PASS** (via `models-cloning`) | +3.55% | +0.060 | **0.1565** |
+| **IT** | **PASS** | −15.19% | +0.088 | **0.0463** |
+| **DE** | **PASS** | −6.73% | +0.058 | **0.0330** |
+| ES | FAIL | **+82.86%** | −0.014 | 0.4320 |
+| FR | not run | — | — | — |
+
+Italian and German now pass every criterion, which confirms that supplying each
+model's own BOS is both necessary and sufficient for those two. Spanish passes
+non-silence and level but **overshoots** — 15.58 s against an 8.52 s reference,
+a +82.86% drift in the opposite direction to the earlier early-EOS failure.
+French is blocked on the 24-layer `MemoryError` of §4.14.
+
+### 4.17 A methodological flaw in the gate itself: the reference is stochastic
+
+While running the sweep, the **same Spanish text against the same weights
+produced three different reference durations**: 5.960 s, then 7.400 s, then
+8.520 s. The eager reference is sampled at temperature 0.3, so it varies run to
+run, and the candidate render is compared against a moving target with a ±25%
+duration limit. Any individual comparison in that regime is unreliable in both
+directions — it can fail a good render or pass a broken one.
+
+This is a defect in the harness, not in the product, and it is recorded rather
+than worked around: **the reference must be generated greedily (temperature 0)
+so that both sides of the comparison are deterministic.** Until then the
+duration column should be read as indicative, and the ES result in particular
+should not be treated as settled. A greedy-reference generator is the next
+harness change.
+
 ## 6. Three side findings worth recording
 
 - **`Voice cloning: True`** is reported by the exporter even when the

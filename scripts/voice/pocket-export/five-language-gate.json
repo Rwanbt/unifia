@@ -1,0 +1,60 @@
+{
+  "EN": {
+    "status": "ran",
+    "export_ok": false,
+    "ref_ok": true,
+    "cand_ok": false,
+    "bos_ok": true,
+    "cpp_seconds": 0.1,
+    "cpp_warnings": [],
+    "cpp_tail": [],
+    "gate": "not run (missing reference or candidate audio)"
+  },
+  "ES": {
+    "status": "ran",
+    "export_ok": true,
+    "ref_ok": true,
+    "cand_ok": true,
+    "bos_ok": true,
+    "cpp_seconds": 6.9,
+    "cpp_warnings": [],
+    "cpp_tail": [],
+    "gate_exit": 1,
+    "gate": "==============================================================================\nreference : reference-es.wav  8.520s @ 24000Hz  peak=-4.28dBFS  voice=0.704  lead=0.00s tail=0.48s\ncandidate : onnx-es.wav  15.580s @ 24000Hz  peak=-2.71dBFS  voice=0.691  lead=0.00s tail=1.88s\n\nduration drift     : +82.86%  (limit +-25%)  FAIL\nnon-silence drift  : -0.014  (limit +-0.15)  PASS\ncandidate level    : -2.71 dBFS  PASS (audible)\nspectral JSD       : 0.4320  (limit 0.35)  FAIL\n\n==============================================================================\nVERDICT: FAIL -> duration drift (truncation or runaway); spectral shape"
+  },
+  "IT": {
+    "status": "ran",
+    "export_ok": true,
+    "ref_ok": true,
+    "cand_ok": true,
+    "bos_ok": true,
+    "cpp_seconds": 5.1,
+    "cpp_warnings": [],
+    "cpp_tail": [],
+    "gate_exit": 0,
+    "gate": "==============================================================================\nreference : reference-it.wav  7.240s @ 24000Hz  peak=-3.77dBFS  voice=0.698  lead=0.17s tail=0.66s\ncandidate : onnx-it.wav  6.140s @ 24000Hz  peak=-1.82dBFS  voice=0.785  lead=0.07s tail=0.53s\n\nduration drift     : -15.19%  (limit +-25%)  PASS\nnon-silence drift  : +0.088  (limit +-0.15)  PASS\ncandidate level    : -1.82 dBFS  PASS (audible)\nspectral JSD       : 0.0463  (limit 0.35)  PASS\n\n==============================================================================\nVERDICT: PASS -> audio-level equivalence holds at the section 24 gate"
+  },
+  "DE": {
+    "status": "ran",
+    "export_ok": true,
+    "ref_ok": true,
+    "cand_ok": true,
+    "bos_ok": true,
+    "cpp_seconds": 4.7,
+    "cpp_warnings": [],
+    "cpp_tail": [],
+    "gate_exit": 0,
+    "gate": "==============================================================================\nreference : reference-de.wav  6.840s @ 24000Hz  peak=-4.70dBFS  voice=0.798  lead=0.00s tail=0.33s\ncandidate : onnx-de.wav  6.380s @ 24000Hz  peak=-5.00dBFS  voice=0.855  lead=0.00s tail=0.21s\n\nduration drift     : -6.73%  (limit +-25%)  PASS\nnon-silence drift  : +0.058  (limit +-0.15)  PASS\ncandidate level    : -5.00 dBFS  PASS (audible)\nspectral JSD       : 0.0330  (limit 0.35)  PASS\n\n==============================================================================\nVERDICT: PASS -> audio-level equivalence holds at the section 24 gate"
+  },
+  "FR": {
+    "status": "ran",
+    "export_ok": false,
+    "ref_ok": true,
+    "cand_ok": false,
+    "bos_ok": true,
+    "cpp_seconds": 0.5,
+    "cpp_warnings": [],
+    "cpp_tail": [],
+    "gate": "not run (missing reference or candidate audio)"
+  }
+}
