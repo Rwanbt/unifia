@@ -79,6 +79,27 @@
       }
     },
     {
+      "provider": "nvidia",
+      "model_id": "nemotron-3.5-asr-streaming-0.6b-q8-0-gguf",
+      "version": "0.6b-q8_0",
+      "upstream_revision": "huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b@git revision 1c8deaecc64b91f034d73e08dd8b64625eb3395d",
+      "sha256": "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
+      "size_bytes": 741548352,
+      "licence": "OpenMDW-1.1 (https://openmdw.ai/license/1-1/)",
+      "languages": ["en", "fr", "es", "it", "de", "multi"],
+      "architecture": "nemotron-3.5-asr-streaming-fastconformer-gguf",
+      "quantization": "q8_0",
+      "redistributable": true,
+      "source": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b/resolve/1c8deaecc64b91f034d73e08dd8b64625eb3395d/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
+      "minimum_runtime": "nemo-speech>=0.1.0 (ws /v1/audio/transcriptions/realtime, offline POST /v1/audio/transcriptions)",
+      "compatibility": {
+        "engine": "Unifia NemotronStreamingProvider (G5 winner, packages/app/src/voice/streaming-stt-nemo.ts)",
+        "sample_rate_hz": "8000-96000 (session negotiated from first frame)",
+        "quantization_note": "q8_0 GGUF, 741548352 bytes; SHA-256 recorded from the pinned local artifact under C:\\Users\\barat\\AppData\\Local\\NeMoSpeech\\models.",
+        "notes": "G5 bake-off evidence: .build-temp/g5-streaming/results/g5-nemotron-full.json (91 fixtures, 5 languages) and g5-e2e-provider.json (live five-language provider e2e). OpenMDW-1.1 permits redistribution provided a copy of the agreement and all copyright/origin notices accompany the Model Materials. Licence text recorded 2026-09-27 from https://openmdw.ai/license/1-1/."
+      }
+    },
+    {
       "provider": "rhasspy",
       "model_id": "piper-voice-en_US-ljspeech-medium",
       "version": "UNVERIFIED — last update time recorded, upstream revision pending",

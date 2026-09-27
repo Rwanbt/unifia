@@ -30,6 +30,10 @@
  *  concrete provider instance. */
 export type StreamingSttProviderId =
   | "parakeet-tdt-streaming"
+  /** Honest final-only provider (campaign §20): capabilities.partials is
+   *  false and the provider emits exactly one FinalTranscript per turn.
+   *  Used when no streaming candidate has been qualified on the target. */
+  | "parakeet-tdt-final"
   | "moonshine"
   | "nemotron-streaming"
   | "whisper-streaming"
@@ -144,6 +148,15 @@ export const STREAMING_STT_ERROR_CODES = {
   PROVIDER_LOAD_FAILED: "STREAM_PROVIDER_LOAD_FAILED",
   INFERENCE_TIMEOUT: "STREAM_INFERENCE_TIMEOUT",
   MODEL_CRASHED: "STREAM_MODEL_CRASHED",
+  /** The streaming runtime committed the turn but returned an empty
+   *  transcript over non-trivial audio (documented nemo-speech 0.1.0
+   *  streaming-path defect). `recovered: true` means the provider
+   *  re-transcribed the same audio through its offline path and will
+   *  emit a non-empty FinalTranscript; `recovered: false` means the
+   *  route-around failed and the FinalTranscript will be empty. */
+  EMPTY_FINAL: "STREAM_EMPTY_FINAL",
+  /** A final-only (non-streaming) STT call failed at runtime. */
+  TRANSCRIPTION_FAILED: "STREAM_TRANSCRIPTION_FAILED",
 } as const
 
 export type StreamingSttErrorCode =
