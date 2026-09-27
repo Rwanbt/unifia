@@ -130,6 +130,27 @@ describe("production TtsRouter (G8)", () => {
     expect(fallbackCalls).toHaveLength(0)
   })
 
+  it("content-policy errors cannot be made recoverable by a backend", async () => {
+    const fallbackCalls: string[] = []
+    const router = createTtsRouter([
+      backend({ id: "pocket", events: [{
+        code: TTS_ERROR_CODES.CONTENT_POLICY_BLOCKED,
+        detail: "speech content is blocked",
+        // A buggy or compromised provider cannot override the
+        // router's canonical non-recoverable policy classification.
+        recoverable: true,
+        capturedAt: 1,
+      }] }),
+      backend({ id: "fallback-android-tts", events: [chunk(0, true)], synthCalls: fallbackCalls }),
+    ])
+    const events = []
+    for await (const event of router.synthesize(request, new AbortController().signal)) events.push(event)
+    expect(events).toEqual([
+      expect.objectContaining({ code: TTS_ERROR_CODES.CONTENT_POLICY_BLOCKED, recoverable: false }),
+    ])
+    expect(fallbackCalls).toEqual([])
+  })
+
   it("does not replay a partial stream that ended without a final chunk", async () => {
     const fallbackCalls: string[] = []
     const router = createTtsRouter([
