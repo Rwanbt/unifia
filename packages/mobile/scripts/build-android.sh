@@ -13,7 +13,13 @@ if [ ! -f "$SCRIPT_DIR/../src-tauri/assets/runtime/bin/bun" ]; then
   bash "$SCRIPT_DIR/prepare-android-runtime.sh"
 else
   echo "Runtime binaries already prepared. Refreshing the embedded Unifia CLI bundle..."
-  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  # WHY three levels: SCRIPT_DIR is <repo>/packages/mobile/scripts, so `..` is
+  # packages/mobile and `../..` is packages. Only `../../..` is the repository
+  # root where scripts/bundle-mobile.mjs lives. With `../..` this resolved to
+  # <repo>/packages/scripts/bundle-mobile.mjs and failed with MODULE_NOT_FOUND.
+  # The bug was latent because this branch only runs when the runtime binaries
+  # already exist; on a first build the branch above runs instead.
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
   node "$REPO_ROOT/scripts/bundle-mobile.mjs" --outdir "$SCRIPT_DIR/../src-tauri/assets/runtime"
 fi
 
