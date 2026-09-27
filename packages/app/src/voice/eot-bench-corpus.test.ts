@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 import { describe, expect, test } from "bun:test"
+import { createHash } from "node:crypto"
+import { readFile } from "node:fs/promises"
+import { dirname, resolve } from "node:path"
 import {
   EOT_BENCH_PATH,
   computeCoverage,
@@ -13,6 +16,28 @@ import {
   EOT_LANGUAGES,
   EOT_SCENARIOS,
 } from "@unifia/contracts/voice-eot-bench"
+
+const audio = {
+  path: "audio/test.wav",
+  spokenTranscript: "Test phrase.",
+  assistantTranscript: null,
+  sampleRateHz: 16000,
+  durationMs: 1000,
+  sha256: "0".repeat(64),
+  speechIntervalsMs: [{ startMs: 0, endMs: 200 }],
+  silenceIntervalsMs: [{ startMs: 200, endMs: 1000 }],
+  forbiddenEotIntervalsMs: [{ startMs: 0, endMs: 850 }],
+  expectedEotMs: 850,
+  noiseCondition: "clean",
+  overlapCondition: "none",
+  assistantSpeechIntervalsMs: [],
+  models: [{ id: "fixture", revision: "test", modelSha256: "0".repeat(64), configSha256: "0".repeat(64) }],
+  pythonVersion: "3.12.13",
+  generator: "piper-tts@1.8.0",
+  onnxRuntimeVersion: "1.30.0",
+  numpyVersion: "2.5.3",
+  seed: 1,
+} as const
 
 describe("UNIFIA-EOT-BENCH corpus", () => {
   test("loads and validates the on-disk corpus at the canonical path", async () => {
@@ -85,6 +110,24 @@ describe("UNIFIA-EOT-BENCH corpus", () => {
     expect(unique.size).toBe(ids.length)
   })
 
+  test("every audio reference matches a mono 16 kHz PCM WAV and its SHA-256", async () => {
+    const result = await loadEotBench(EOT_BENCH_PATH)
+    if (!result.ok) throw new Error(result.error)
+    for (const fixture of result.corpus.fixtures) {
+      const bytes = await readFile(resolve(dirname(EOT_BENCH_PATH), fixture.audio.path))
+      expect(bytes.toString("ascii", 0, 4)).toBe("RIFF")
+      expect(bytes.toString("ascii", 8, 12)).toBe("WAVE")
+      expect(bytes.readUInt16LE(22)).toBe(1)
+      expect(bytes.readUInt32LE(24)).toBe(fixture.audio.sampleRateHz)
+      expect(bytes.readUInt16LE(34)).toBe(16)
+      expect(Math.abs(Math.round(bytes.readUInt32LE(40) / 2 / fixture.audio.sampleRateHz * 1000) - fixture.audio.durationMs)).toBeLessThanOrEqual(1)
+      expect(createHash("sha256").update(bytes).digest("hex")).toBe(fixture.audio.sha256)
+      expect(fixture.audio.speechIntervalsMs.length).toBeGreaterThan(0)
+      expect(fixture.audio.forbiddenEotIntervalsMs.length).toBeGreaterThan(0)
+      expect(fixture.audio.expectedEotMs !== null).toBe(fixture.expectedTurnComplete)
+    }
+  })
+
   test("validator rejects a corpus with the wrong version", () => {
     const validation = validateEotBenchCorpus({
       version: "0.0.0",
@@ -116,6 +159,7 @@ describe("UNIFIA-EOT-BENCH corpus", () => {
         scenario,
         transcript: "x",
         expectedTurnComplete: true,
+        audio,
       })),
     )
     const validation = validateEotBenchCorpus({
@@ -138,6 +182,7 @@ describe("UNIFIA-EOT-BENCH corpus", () => {
         scenario,
         transcript: "x",
         expectedTurnComplete: true,
+        audio,
       })),
     )
     const validation = validateEotBenchCorpus({
@@ -177,6 +222,23 @@ describe("UNIFIA-EOT-BENCH corpus", () => {
     const languages = new Set(fixtures.map((f) => f.language))
     for (const language of EOT_LANGUAGES) {
       expect(languages.has(language)).toBe(true)
+    }
+  })
+
+  test("audio transformations are described by their generated annotations", async () => {
+    const result = await loadEotBench(EOT_BENCH_PATH)
+    if (!result.ok) throw new Error(result.error)
+    for (const fixture of fixturesByScenario(result.corpus, "speech-over-assistant")) {
+      expect(fixture.audio.overlapCondition).toBe("assistant-speech")
+      expect(fixture.audio.assistantTranscript).toBeTruthy()
+      expect(fixture.audio.assistantSpeechIntervalsMs.length).toBeGreaterThan(0)
+    }
+    for (const fixture of fixturesByScenario(result.corpus, "multilingual-switch")) {
+      expect(fixture.audio.models.length).toBe(2)
+      expect(fixture.audio.spokenTranscript).toBe(fixture.transcript)
+    }
+    for (const fixture of fixturesByScenario(result.corpus, "rapid-interruption")) {
+      expect(fixture.audio.spokenTranscript).toBe(Array(3).fill(fixture.transcript).join(" "))
     }
   })
 })

@@ -173,6 +173,27 @@ describe("PocketAndroidBackend — R4 UNIFIA-EOT-BENCH corpus cross-check", () =
         scenario: "short-statement" as const,
         transcript: "scaffold",
         expectedTurnComplete: true,
+        audio: {
+          path: "audio/scaffold.wav",
+          spokenTranscript: "scaffold",
+          assistantTranscript: null,
+          sampleRateHz: 16000,
+          durationMs: 1000,
+          sha256: "0".repeat(64),
+          speechIntervalsMs: [{ startMs: 0, endMs: 200 }],
+          silenceIntervalsMs: [{ startMs: 200, endMs: 1000 }],
+          forbiddenEotIntervalsMs: [{ startMs: 0, endMs: 850 }],
+          expectedEotMs: 850,
+          noiseCondition: "clean",
+          overlapCondition: "none",
+          assistantSpeechIntervalsMs: [],
+          models: [{ id: "fixture", revision: "test", modelSha256: "0".repeat(64), configSha256: "0".repeat(64) }],
+          pythonVersion: "3.12.13",
+          generator: "piper-tts@1.8.0",
+          onnxRuntimeVersion: "1.30.0",
+          numpyVersion: "2.5.3",
+          seed: 1,
+        },
       }))
       for (const fixture of synthetic) {
         await assertFixtureLanguageCovered(fixture)

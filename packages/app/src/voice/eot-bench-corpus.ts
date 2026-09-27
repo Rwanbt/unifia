@@ -16,6 +16,7 @@ import {
   EOT_BENCH_VERSION,
   EOT_LANGUAGES,
   EOT_SCENARIOS,
+  type EotAudioAnnotation,
   type EotBenchCorpus,
   type EotFixture,
   type EotScenario,
@@ -190,6 +191,8 @@ export function validateEotBenchCorpus(value: unknown):
     if (f.expectedDurationMs !== undefined && typeof f.expectedDurationMs !== "number") {
       return { ok: false, error: `Fixture ${f.id} has non-numeric expectedDurationMs` }
     }
+    const audio = validateAudioAnnotation(f.audio, f.id, f.expectedTurnComplete)
+    if (!audio.ok) return audio
     const cell = `${f.language}|${f.scenario}`
     seenCells.add(cell)
     typedFixtures.push({
@@ -201,6 +204,7 @@ export function validateEotBenchCorpus(value: unknown):
       expectedDurationMs:
         typeof f.expectedDurationMs === "number" ? f.expectedDurationMs : undefined,
       notes: typeof f.notes === "string" ? f.notes : undefined,
+      audio: audio.annotation,
     })
   }
   const missing: { language: SpeechLanguage; scenario: EotScenario }[] = []
@@ -227,6 +231,91 @@ export function validateEotBenchCorpus(value: unknown):
     fixtures: typedFixtures,
   }
   return { ok: true, corpus }
+}
+
+function validateAudioAnnotation(
+  value: unknown,
+  fixtureId: string,
+  expectedTurnComplete: boolean,
+): { ok: true; annotation: EotAudioAnnotation } | { ok: false; error: string } {
+  if (typeof value !== "object" || value === null) {
+    return { ok: false, error: `Fixture ${fixtureId} missing audio annotation` }
+  }
+  const audio = value as Record<string, unknown>
+  if (typeof audio.path !== "string" || !audio.path.startsWith("audio/") || audio.path.includes("..")) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid audio path` }
+  }
+  if (typeof audio.spokenTranscript !== "string" || !audio.spokenTranscript.trim()) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid spokenTranscript` }
+  }
+  if (audio.sampleRateHz !== 16000 || !isPositiveInteger(audio.durationMs)) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid audio format metadata` }
+  }
+  if (!isSha256(audio.sha256) || audio.generator !== "piper-tts@1.8.0" ||
+      audio.pythonVersion !== "3.12.13" || audio.onnxRuntimeVersion !== "1.30.0" || audio.numpyVersion !== "2.5.3" ||
+      !isPositiveInteger(audio.seed)) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid audio provenance` }
+  }
+  if (audio.expectedEotMs !== null && !isValidIntervalPoint(audio.expectedEotMs, audio.durationMs)) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid expectedEotMs` }
+  }
+  if (expectedTurnComplete !== (typeof audio.expectedEotMs === "number")) {
+    return { ok: false, error: `Fixture ${fixtureId} expected EOT disagrees with expectedTurnComplete` }
+  }
+  if (!isAudioCondition(audio.noiseCondition, ["clean", "background-noise", "whisper", "clipped"]) ||
+      !isAudioCondition(audio.overlapCondition, ["none", "assistant-speech"])) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid noise or overlap condition` }
+  }
+  if (audio.overlapCondition === "assistant-speech" ? typeof audio.assistantTranscript !== "string" || !audio.assistantTranscript.trim() : audio.assistantTranscript !== null) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid assistantTranscript` }
+  }
+  const intervalKeys = ["speechIntervalsMs", "silenceIntervalsMs", "forbiddenEotIntervalsMs", "assistantSpeechIntervalsMs"] as const
+  for (const key of intervalKeys) {
+    if (!areIntervalsValid(audio[key], audio.durationMs)) {
+      return { ok: false, error: `Fixture ${fixtureId} has invalid ${key}` }
+    }
+  }
+  if (!Array.isArray(audio.models) || audio.models.length === 0 || !audio.models.every(isModelReference)) {
+    return { ok: false, error: `Fixture ${fixtureId} has invalid model provenance` }
+  }
+  return { ok: true, annotation: audio as unknown as EotAudioAnnotation }
+}
+
+function areIntervalsValid(value: unknown, durationMs: number): boolean {
+  if (!Array.isArray(value)) return false
+  let lastEndMs = 0
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) return false
+    const interval = item as Record<string, unknown>
+    if (!isValidIntervalPoint(interval.startMs, durationMs) || !isValidIntervalPoint(interval.endMs, durationMs)) return false
+    if (interval.startMs >= interval.endMs || interval.startMs < lastEndMs) return false
+    lastEndMs = interval.endMs
+  }
+  return true
+}
+
+function isModelReference(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false
+  const model = value as Record<string, unknown>
+  return typeof model.id === "string" && model.id.length > 0 &&
+    typeof model.revision === "string" && model.revision.length > 0 &&
+    isSha256(model.modelSha256) && isSha256(model.configSha256)
+}
+
+function isValidIntervalPoint(value: unknown, durationMs: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= durationMs
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+}
+
+function isSha256(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value)
+}
+
+function isAudioCondition<T extends string>(value: unknown, allowed: readonly T[]): value is T {
+  return typeof value === "string" && allowed.includes(value as T)
 }
 
 /** Aggregate coverage statistics from a validated corpus. */

@@ -89,6 +89,40 @@ export interface EotFixture {
   readonly expectedDurationMs?: number
   /** Optional notes describing the expected VAD/EOT behaviour. */
   readonly notes?: string
+  /** Generated mono PCM and its timed benchmark annotations. */
+  readonly audio: EotAudioAnnotation
+}
+
+export interface EotAudioInterval {
+  readonly startMs: number
+  readonly endMs: number
+}
+
+export interface EotAudioAnnotation {
+  readonly path: string
+  readonly spokenTranscript: string
+  readonly assistantTranscript: string | null
+  readonly sampleRateHz: number
+  readonly durationMs: number
+  readonly sha256: string
+  readonly speechIntervalsMs: readonly EotAudioInterval[]
+  readonly silenceIntervalsMs: readonly EotAudioInterval[]
+  readonly forbiddenEotIntervalsMs: readonly EotAudioInterval[]
+  readonly expectedEotMs: number | null
+  readonly noiseCondition: "clean" | "background-noise" | "whisper" | "clipped"
+  readonly overlapCondition: "none" | "assistant-speech"
+  readonly assistantSpeechIntervalsMs: readonly EotAudioInterval[]
+  readonly models: readonly {
+    readonly id: string
+    readonly revision: string
+    readonly modelSha256: string
+    readonly configSha256: string
+  }[]
+  readonly pythonVersion: "3.12.13"
+  readonly generator: "piper-tts@1.8.0"
+  readonly onnxRuntimeVersion: "1.30.0"
+  readonly numpyVersion: "2.5.3"
+  readonly seed: number
 }
 
 /** Top-level corpus shape, serialised to JSON. */
@@ -105,4 +139,4 @@ export const EOT_BENCH_FILE = "unifia-eot-bench.json"
 
 /** Bump when the fixture set or schema changes in a way that
  *  invalidates prior measurements. */
-export const EOT_BENCH_VERSION = "1.0.0"
+export const EOT_BENCH_VERSION = "2.0.0"
