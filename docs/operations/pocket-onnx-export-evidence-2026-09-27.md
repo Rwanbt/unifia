@@ -231,26 +231,81 @@ it *worse*, not better (14.48 s, JSD 1.39), so this is not a sampling-tuning
 problem. The C++ AR loop is not converging to the same EOS decision as the
 eager reference on these graphs.
 
-### 4.3 Reading this against §2.2
+### 4.3 Minimised repro and the measured EOS trajectory
+
+Following the §40 self-correction loop (reproduce → minimise), the failure was
+minimised to a two-character utterance:
+
+| Text | Eager reference | ONNX / C++ | Drift |
+|---|---|---|---|
+| `"Hi."` | **0.760 s** | **4.560 s** | **+500%** |
+
+A trivial input running away 6x proves this is **not** sampling divergence from
+the fp16 floor — an AR model that had merely sampled differently would still
+terminate somewhere. The loop never reaches its end-of-sequence decision at all.
+
+The EOS comparison itself was then checked and is **correct**: pocket-tts
+computes `out_eos = self.out_eos(transformer_out) > eos_threshold`
+(`models/flow_lm.py:154`) and the C++ tests
+`eos_logit > tts.cfg_.eos_threshold` (`pocket_tts.cpp:1814`). Same direction,
+same default threshold of −4.0. There is no sign or polarity bug.
+
+Instrumenting the C++ per-frame (temporary, scratch-tree only) shows the EOS
+logit **is** being produced and **is** rising — it is simply far too slow to
+reach the threshold:
+
+```
+frame  0  -7.3226      frame 12  -6.2091      frame 23  -4.7661   <- still below -4.0
+frame  1  -6.8403      frame 13  -5.9363
+frame  2  -6.1751      frame 14  -5.7228
+frame  3  -5.9363      frame 15  -5.6481
+frame  4  -5.9346      frame 16  -5.4966
+frame  5  -5.8465      frame 17  -5.4009
+frame  6  -6.0755      frame 18  -5.2442
+frame  7  -6.0553      frame 19  -5.2719
+frame  8  -5.7943      frame 20  -5.2682
+frame  9  -5.9174      frame 21  -5.1376
+frame 10  -6.1274      frame 22  -4.9770
+frame 11  -6.1711      frame 23  -4.7661
+```
+
+The trajectory climbs by roughly 0.1 per frame. Extrapolating the trend, it
+would cross −4.0 within ~8 further frames — but the render ran to ~51 frames
+(~4.1 s) and **never fired**.
+
+**Diagnosis: the EOS signal is systematically delayed, not absent.** For `"Hi."`
+the eager model is done after ~9 frames; this runtime has not resolved
+end-of-sequence after 5x that. A rising-but-lagging logit points at the
+autoregressive *state* rather than the EOS head: the model is not accumulating
+"the text is finished" evidence across steps, which is consistent with the
+KV-cache/conditioning state the C++ loop carries between frames differing from
+the reference even though the exported graph itself is numerically sound
+(§2.2). The audio is plausible speech rather than noise, which is why the
+defect is not obvious by ear.
+
+### 4.4 Reading this against §2.2
 
 §2.2 established that the graph computes correctly in fp32 and differs from
-eager PyTorch only by fp16 KV-cache rounding through 6 layers, with the
-deepest-layer relative error at `4.4e-03`. This run shows what that residual
-actually costs in product terms: it is large enough to flip autoregressive
-sampling decisions, so the ONNX path no longer stops where the reference
-stops. **The tensor-level precision floor and the audio-level failure are the
-same defect viewed at two levels** — which is exactly why the gate had to move
-to audio, and why the audio result is the one that governs.
+eager PyTorch only by fp16 KV-cache rounding through 6 layers, deepest-layer
+relative error `4.4e-03`. §4.2 then showed the product consequence: the
+residual is large enough to flip autoregressive decisions, so the ONNX path
+stops where the reference does not. §4.3 sharpens that: even the two-character
+case never terminates, so the defect is not marginal drift but a systematically
+wrong autoregressive state. **The tensor-level precision floor and the
+audio-level failure are the same defect at two levels** — which is why the gate
+had to move to audio, and why the audio result governs.
 
-### 4.4 Next exact action
+### 4.5 Next exact action
 
-1. Determine whether the C++ EOS decision reads the same tensor the graph
-   exports. The profile shows 162 `flow_lm_main` runs producing 155 flow steps
-   — i.e. the AR loop ran to its frame budget rather than stopping early.
-2. Instrument the C++ `eos_logit` per step against the PyTorch reference for
-   the same forced token sequence (greedy, temperature forced to 0) to
-   separate "sampling diverged" from "EOS logic is wrong".
-3. Only after the duration and EOS behaviour match, re-run this gate.
+1. Compare the C++ per-frame `conditioning` and KV cache against the PyTorch
+   reference over the **same forced token sequence** (temperature 0, no
+   sampling). That separates "the AR state is wrong" from "EOS head is wrong",
+   and is the only remaining ambiguity now that the EOS comparison direction
+   and the per-frame logit are both known-good.
+2. Suspect first the boundary the C++ passes between the text-conditioning
+   pass and the first AR frame, then the cache `offset` bookkeeping across
+   frames, since both feed "how much text has been consumed".
+3. Re-run this gate only after duration and EOS match.
 
 ## 5. What this session did and did not establish
 
@@ -258,11 +313,12 @@ Established by measurement: all five graphs export; four reproduce eager
 PyTorch to fp32 noise or bit-exactly; the fifth differs only by an fp16
 KV-cache precision floor that grows monotonically with depth; the C++ runtime
 loads and executes the pack and produces genuine, correctly-levelled speech at
-2.76-2.89x realtime on a desktop CPU.
+1.55-2.89x realtime on a desktop CPU; and the EOS head is correctly wired but
+its logit rises too slowly to fire.
 
 Not established: audio equivalence (currently **failing**), a warm TTFA
 measurement on any device, any Android arm64 build, any on-device figure, and
-cancellation behaviour. No Pocket TTS capability is qualified by this work.
+cancellation behaviour. **No Pocket TTS capability is qualified by this work.**
 
 ## 6. Two side findings worth recording
 
@@ -277,7 +333,7 @@ cancellation behaviour. No Pocket TTS capability is qualified by this work.
 
 ## 7. Not verified this session
 
-- The root cause of the C++ runaway output (§4.4) is **not** established.
+- The precise cause of the delayed EOS logit (§4.5) is **not** established.
 - The seed voice is fetched from `kyutai/tts-voices`, a **different repository
   from the model weights**, and is used only as local conditioning for a
   pipeline comparison. It is not redistributed and is **not** a licence-cleared
