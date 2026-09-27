@@ -80,6 +80,9 @@ export interface LocalVoiceAudioDiagnostics {
   turnGateEvaluations: number
   turnGateVetoes: number
   turnGateForced: number
+  /** Which engine actually produced the most recent spoken audio, so a
+   *  system voice is never reported as a neural Pocket backend. */
+  ttsBackend?: string
 }
 
 export interface LivePlayback {

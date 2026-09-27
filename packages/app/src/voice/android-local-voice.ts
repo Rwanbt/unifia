@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: MIT */
 import type { LocalVoiceAudioDiagnostics, LocalVoiceTransport } from "./live-controller"
 import { AndroidOfflineTts } from "./android-offline-tts"
+import { AudioPlaybackCoordinator } from "./audio-playback-coordinator"
+import { createAndroidSpeechOutput } from "./android-speech-output"
+import { createTtsRouter } from "./tts-router"
 import { loadAudioSettings } from "./audio-settings"
+import type { SpeechLanguage } from "@unifia/contracts/speech"
 
 type TauriInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>
 type NativeAudioPoll = {
@@ -33,6 +37,17 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
     onAudioDiagnostics?(stats: LocalVoiceAudioDiagnostics): void
   } | undefined
   const tts = new AndroidOfflineTts()
+  const coordinator = new AudioPlaybackCoordinator()
+  // No production PCM backend is registered on Android yet, so the router
+  // resolves to "no provider" and the labelled emergency path speaks. The
+  // moment a real Pocket backend is registered it takes precedence here
+  // without any further change at this call site.
+  const speech = createAndroidSpeechOutput({
+    invoke,
+    router: createTtsRouter([]),
+    coordinator,
+    emergency: tts,
+  })
   let stopped = true
   let audioOpened = false
   let polling = false
@@ -42,6 +57,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
   function stopTransport() {
     if (stopped) return
     stopped = true
+    speech.stop()
     if (audioOpened) {
       audioOpened = false
       void invoke("voice_audio_close").catch((error) => console.error("[Live] Native audio close failed", error))
@@ -77,6 +93,7 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
             turnGateEvaluations: poll.turn_gate_evaluations,
             turnGateVetoes: poll.turn_gate_vetoes,
             turnGateForced: poll.turn_gate_forced,
+            ttsBackend: speech.lastBackend,
           }
           handlers?.onAudioDiagnostics?.(diagnostics)
         }
@@ -106,7 +123,10 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       previousSpeaking = false
       try {
         const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
-        await tts.prepare(language)
+        // Speech readiness must never gate capture: a missing system voice or
+        // an absent neural backend degrades at speak time with a labelled
+        // fallback instead of failing Live startup before the mic opens.
+        await speech.prepare(language as SpeechLanguage)
         if (stopped) return
         const available = await invoke("stt_available")
         if (stopped) return
@@ -139,15 +159,19 @@ export function createAndroidLocalVoiceTransport(invoke: TauriInvoke): LocalVoic
       if (typeof result !== "string") throw new Error("Local Parakeet returned an invalid transcript")
       return result
     },
-    speak(text) {
+    async speak(text) {
       const language = (document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase()
-      return tts.speak(text, language, loadAudioSettings().ttsSpeed)
+      // The backend that actually spoke is reported through the audio
+      // diagnostics (`ttsBackend`), because LocalVoiceTransport.speak is
+      // fixed to Promise<void>. That keeps "which engine spoke" observable
+      // without ever letting a system voice be reported as Pocket.
+      await speech.speak(text, language as SpeechLanguage, loadAudioSettings().ttsSpeed, "live")
     },
     stop() {
       stopTransport()
     },
     stopSpeaking() {
-      tts.stop()
+      speech.stop()
     },
   }
 
