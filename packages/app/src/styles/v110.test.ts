@@ -133,7 +133,8 @@ describe("A1 — v110.css shell contract is wired into the app", () => {
     expect(css).toContain('[data-v110="prompt-control"] [data-slot="select-select-trigger-icon"]')
     expect(css).toContain("left: 8px")
     expect(css).toContain("bottom: calc(100% + 14px)")
-    expect(css).toContain("bottom: calc(100% + 18px)")
+    // Phones: the ring sits inline before Send, in the reserved right group.
+    expect(css).toContain("--v110-prompt-actions-reserve: 150px")
     expect(css).not.toContain("justify-content: flex-end")
     expect(prompt).not.toContain('Icon name="chevron-down"')
     expect(prompt).toContain('data-v110": "prompt-control"')
