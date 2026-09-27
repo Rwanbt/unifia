@@ -364,20 +364,77 @@ plan premised on that.
    work, not after.
 3. Only after 1 and 2, re-run the §24 audio gate and the arm64 build.
 
+### 4.8 Re-run with the official voice-cloning weights — runaway resolved
+
+Following the §4.7 action, the pack was re-exported from the official
+`kyutai/pocket-tts` weights at the revision `english.yaml` pins. The staged
+file hashes `473f47d99560bd50eb8b4509d3cacfe7f316ab20bdca86505403a2e6a936a6e9`,
+distinct from the no-cloning file's `be9c6b48...`, so the two variants are
+genuinely different artifacts.
+
+The export behaves as before (four graphs exact; `flow_lm_main` AR at the same
+fp16 floor; `mimi_decoder` frames 0.21e-06 to 8.09e-06), confirming §2.2 is a
+property of the runtime rather than of one weight file.
+
+**The runaway is gone.** EOS now fires instead of never firing:
+
+| | no-cloning weights | voice-cloning weights |
+|---|---|---|
+| `"Hi."` EOS | never crosses −4.0 | **fires at frame 2** (−3.4199) |
+| `"Hi."` duration | 4.560 s | **0.480 s** |
+| `"Hi."` non-silence drift | +0.382 (FAIL) | +0.128 (PASS) |
+| `"Hi."` spectral JSD | 0.8615 (FAIL) | **0.2147 (PASS)** |
+
+This confirms §4.6: the runaway was the weight variant, and the ONNX pack and
+C++ port were faithful all along.
+
+### 4.9 The remaining defect is premature EOS on longer text
+
+With the runaway resolved, a real, separable defect appears — the C++ render is
+now **too short**, the opposite failure mode:
+
+| Text | Eager reference | ONNX / C++ | Drift | Verdict |
+|---|---|---|---|---|
+| `"Hi."` | 0.760 s | 0.480 s | −36.8% | duration FAIL, everything else PASS |
+| full sentence | **5.640 s** | **2.080 s** | **−63.1%** | duration FAIL, spectral FAIL (0.3652) |
+
+For the full sentence the candidate stops after ~26 frames where the reference
+runs ~70, so the EOS head now fires **too early** rather than never.
+
+One caveat on the `"Hi."` duration: the reference deliberately appends tail
+padding (0.26 s trailing silence, 0.04 s leading) while the C++ emits none.
+Its *voiced* span is therefore ≈0.46 s against the candidate's 0.48 s — a ~4%
+match. The raw duration metric conflates speech with padding, so voiced
+duration is the fairer criterion; that refinement is recorded rather than
+silently applied.
+
+Leading hypothesis for the premature EOS: the C++ supplies voice conditioning
+through the pre-3.x path, while pocket-tts 3.1.0 routes it through
+`flow_lm.speaker_proj_weight` with `insert_bos_before_voice: true`. A
+conditioning path that does not match leaves the model believing the turn is
+already complete, which fires EOS early. The `--eos-extra` auto-calculation
+(from text length) is a secondary suspect.
+
+Not yet distinguished: early EOS from a wrong conditioning path, versus early
+EOS from text being consumed faster than the reference consumes it. The next
+step compares, for the full sentence, the frame index at which each side fires
+EOS and the conditioning tensors at that frame.
+
 ## 5. What this session did and did not establish
 
 Established by measurement: all five graphs export; four reproduce eager
 PyTorch to fp32 noise or bit-exactly; the fifth differs only by an fp16
 KV-cache precision floor that grows monotonically with depth; the C++ runtime
 loads and executes the pack and produces genuine, correctly-levelled speech at
-1.55-2.89x realtime on a desktop CPU; and the ONNX render's failure to
-terminate is **inherited from the no-cloning weights**, not introduced by the
-export or the port.
+0.35-2.89x realtime on a desktop CPU; the runaway was caused by the no-cloning
+weight variant and is **resolved** by the official weights; and the residual
+defect is **premature EOS** on longer text, with the C++ stopping at ~26 frames
+against the reference's ~70.
 
-Not established: audio equivalence against a like-for-like reference (blocked on
-the weight-variant and licence questions above), a warm TTFA measurement on any
-device, any Android arm64 build, any on-device figure, and cancellation
-behaviour. **No Pocket TTS capability is qualified by this work.**
+Not established: full audio equivalence (duration and spectral both still
+failing on the full sentence), the cause of the premature EOS, a warm TTFA
+measurement on any device, any Android arm64 build, any on-device figure, and
+cancellation behaviour. **No Pocket TTS capability is qualified by this work.**
 
 ## 6. Two side findings worth recording
 
@@ -385,16 +442,16 @@ behaviour. **No Pocket TTS capability is qualified by this work.**
   no-cloning weights are loaded. The flag reflects architectural capability,
   not the weights in use. Campaign §40 requires honest capability reporting, so
   the shipped capability surface must state that Android Pocket synthesis is
-  **not** a voice-cloning engine regardless of this flag — and §4.6 is direct
-  evidence that the no-cloning variant is not a safe substitute.
+  **not** a voice-cloning engine regardless of this flag — and §4.6/§4.8 are
+  direct evidence that the no-cloning variant is not a usable substitute.
 - The product `pocket-tts` lock is **3.1.0**, while upstream is **3.3.0**
   (2026-09-24). That two-release gap is itself a scheduled follow-up, not part
   of the Android critical path.
 
 ## 7. Not verified this session
 
-- Whether the **voice-cloning** weights terminate correctly through this same
-  ONNX pack. That is the confirming experiment for §4.6 and has not been run.
+- The cause of the premature EOS (§4.9). A wrong voice-conditioning path and
+  text consumed too fast are both still consistent with the evidence.
 - The seed voice is fetched from `kyutai/tts-voices`, a **different repository
   from the model weights**, and is used only as local conditioning for a
   pipeline comparison. It is not redistributed and is **not** a licence-cleared
