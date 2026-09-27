@@ -83,7 +83,17 @@ import { UserSurface } from "@/pages/settings/user-surface"
 import { BrowserSurface } from "@/pages/workbench/browser-surface"
 import { MemorySurface } from "@/pages/workbench/memory-surface"
 
-const MAIN_PANE_DESTINATIONS: ReadonlySet<string> = new Set(["settings", "user", "browser", "memory"])
+// Every destination with its own surface opens beside the chat, like the
+// reference; only Code keeps the layout the user picked.
+const MAIN_PANE_DESTINATIONS: ReadonlySet<string> = new Set([
+  "settings",
+  "user",
+  "browser",
+  "memory",
+  "work",
+  "design",
+  "automate",
+])
 const emptyUserMessages: UserMessage[] = []
 
 type ChangeMode = "git" | "branch" | "session" | "turn"
