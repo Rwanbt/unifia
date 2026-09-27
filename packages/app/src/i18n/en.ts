@@ -2097,6 +2097,7 @@ export const dict = {
   "session.header.viewSwitch.chat": "Chat",
   "session.header.viewSwitch.split": "Split",
   "session.header.viewSwitch.editor": "Editor",
+  "session.header.live.soon": "Live — coming soon",
   "session.header.moreActions": "More actions",
   "sourceControl.minutesAgo": "{{count}}m ago",
   "sourceControl.hoursAgo": "{{count}}h ago",

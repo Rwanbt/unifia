@@ -27,6 +27,7 @@ import { messageAgentColor } from "@/utils/agent"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
+import { LiveOrb } from "./live-orb"
 
 const OPEN_APPS = [
   "vscode",
@@ -326,7 +327,7 @@ export function SessionHeader() {
 
               <Show when={hotkey()}>
                 {(keybind) => (
-                  <Keybind class="shrink-0 !border-0 !bg-transparent !shadow-none px-0 text-text-weaker">
+                  <Keybind class="shrink-0">
                     {keybind()}
                   </Keybind>
                 )}
@@ -395,6 +396,7 @@ export function SessionHeader() {
                   </div>
                 )
               })()}
+              <LiveOrb />
             </Show>
           </Portal>
         )}

@@ -110,7 +110,7 @@ export const SidebarContent = (props: {
         onPointerLeave={props.onRailPanelLeave}
       >
         <div class="flex-1 min-h-0 w-full">
-          <div class="h-full w-full flex flex-col items-center gap-3 px-3 py-3 overflow-y-auto no-scrollbar">
+          <div class="h-full w-full flex flex-col items-center gap-3 px-3 py-2 overflow-y-auto no-scrollbar">
             {/* .rail-btn + .rail-btn gap measured live at 8px
                 (y=127 - y=77 - 42px height =
                 Unifia-UI-UX-v110-PORT-READY-R1.html:15327-15346); was

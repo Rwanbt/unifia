@@ -163,6 +163,7 @@ export function Titlebar() {
       onDblClick={maximize}
     >
       <div
+        data-slot="topbar-left"
         classList={{
           "flex items-center min-w-0": true,
           // .topbar{padding:0 12px} (Unifia-UI-UX-v110-PORT-READY-R1.html:102)
@@ -194,7 +195,7 @@ export function Titlebar() {
             />
           </div>
         </Show>
-        <div class="flex items-center gap-1 shrink-0">
+        <div data-slot="topbar-lead" class="flex items-center gap-1 shrink-0">
           {/* #toggleRailBtn (Unifia-UI-UX-v110-PORT-READY-R1.html:15227,
               "shell.classList.toggle('hide-rail')") -- toggles the mode-icon
               rail (sidebar-shell.tsx, data-v110="rail"), distinct from the
@@ -207,6 +208,7 @@ export function Titlebar() {
           <Tooltip placement="bottom" value={language.t("command.rail.toggle")} class="hidden shell:flex shrink-0">
             <Button
               variant="ghost"
+              data-v110="rail-toggle"
               class="titlebar-icon w-8 h-[31px] p-0 box-border grid place-items-center"
               onPointerEnter={layout.hover.rail.enterTrigger}
               onPointerLeave={layout.hover.rail.leaveTrigger}
@@ -258,14 +260,19 @@ export function Titlebar() {
               (common.goBack/common.goForward) with mod+[ / mod+] and a
               command-palette entry, entirely independent of these buttons. */}
         </div>
-        <div ref={slots.registerLeft} class="flex items-center gap-3 min-w-0 px-2" />
+        <div ref={slots.registerLeft} data-slot="topbar-left-slot" class="flex items-center gap-3 min-w-0 px-2" />
       </div>
 
-      <div class="min-w-0 flex items-center justify-center pointer-events-none">
-        <div ref={slots.registerCenter} class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full" />
+      <div data-slot="topbar-center" class="min-w-0 flex items-center justify-center pointer-events-none">
+        <div
+          ref={slots.registerCenter}
+          data-slot="topbar-center-slot"
+          class="pointer-events-auto min-w-0 flex justify-center w-fit max-w-full"
+        />
       </div>
 
       <div
+        data-slot="topbar-right"
         classList={{
           "flex items-center min-w-0 justify-end": true,
           // .topbar{padding:0 12px} (Unifia-UI-UX-v110-PORT-READY-R1.html:102)
