@@ -303,12 +303,12 @@ jobs:
               for root, _, names in os.walk(folder):
                   for n in names:
                       if n.endswith(".md") and (n.startswith("voice-") or "voice-2.md" == n):
-                          files.append(os.path.join(root, n))
-               # Plus ADRs 058..082 plus the RFC + checkpoint + state.
-               for root, _, names in os.walk("docs/adr"):
-                   for n in names:
-                       if n.startswith(("ADR-058","ADR-059","ADR-06","ADR-07","ADR-08")) and n.endswith(".md"):
                            files.append(os.path.join(root, n))
+              # Plus ADRs 058..082 plus the RFC + checkpoint + state.
+              for root, _, names in os.walk("docs/adr"):
+                  for n in names:
+                      if n.startswith(("ADR-058","ADR-059","ADR-06","ADR-07","ADR-08")) and n.endswith(".md"):
+                          files.append(os.path.join(root, n))
               files += ["docs/rfcs/RFC-VOICE-PARITY-PC-ANDROID-2026-09-25.md",
                         "docs/CHECKPOINT-VOICE-V2-2026-09-26.md",
                         "docs/voice-current-state-2026-09-25.md",
