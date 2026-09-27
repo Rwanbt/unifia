@@ -514,3 +514,11 @@ html[data-color-scheme] [data-component="session-editor-surface"] [data-v110="co
     color: var(--v110-card-text);
   }
 }
+
+/* Phones: the reference's mode surfaces sit flat, no rounded bordered card. */
+@media (max-width: 599px), (max-width: 700px) and (orientation: portrait) {
+  [data-v110="surface-card"] {
+    border-color: transparent;
+    border-radius: 0;
+  }
+}
