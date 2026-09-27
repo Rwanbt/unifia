@@ -126,6 +126,69 @@ route speech through the canonical TTS pipeline at all.**
 **The decisive Android gate hardware is present and connected.** Prior sessions
 left it usable; the physical gate is not blocked by absent hardware.
 
+## 5.1 Device measurements taken on the target (2026-09-27)
+
+Read-only probes against `b7163823`, run without rebuilding the app.
+
+| Probe | Result | Significance |
+|---|---|---|
+| Device | Xiaomi **Mi 10 Pro**, Android **13**, **arm64-v8a** | matches the goal's expected target |
+| `/proc/meminfo` | `MemTotal 7 793 608 kB`, `MemFree 91 788 kB`, **`MemAvailable 1 997 104 kB`** | see below |
+| Installed app | `ai.unifia.mobile` 0.1.0, `versionCode 1000`, `lastUpdateTime 2026-09-25 16:54:04` | the **25/09 build, not current source** |
+| `RECORD_AUDIO` | `granted=true` (`USER_SET`) on the primary user; `granted=false` on `User 999` | a disabled work profile also exists |
+| TTS service | `com.google.android.apps.speech.tts.googletts.service.GoogleTtsService`, `enabled=true`, `isDefault=true` | system TTS is present |
+| `settings get secure tts_default_synth` | `null` | no engine explicitly selected, despite `isDefault=true` |
+| Google TTS build | `googletts.google-speech-apk_20260817.01_p0.966249458` | this is the **Google-backed** engine, not a local one |
+
+### The memory number is the binding constraint
+
+**~2.0 GB available, 7.8 GB total, 92 MB free.** Campaign §31 warned that
+"the old device snapshot showed constrained available memory" and required the
+final memory policy to come from measurement. This is that measurement, and it
+is more constraining than the plan assumed:
+
+```
+Parakeet STT weights           ~220 MB
+Pocket English weights         ~219 MB  (fp32 graphs 426 MB, INT8 108 MB)
+Pocket French weights          ~672 MB  (24-layer, no 6-layer model exists)
+local LLM                      variable
+```
+
+The full stack does not fit in 2 GB alongside a WebView. The resource
+scheduler and the on-demand provisioning policy therefore stop being
+optimisations and become the **binding constraint on the whole Android design**.
+Any per-language model residency plan has to be measured against this figure,
+not against total RAM.
+
+### A caution on the TTS finding
+
+`cmd package query-activities -a android.intent.action.TTS_SERVICE` returns
+"No activities found", which looks like "no TTS on this device". That is a
+**false negative**: TTS is bound as a *service*, and the correct verb is
+`query-services`, which does find `GoogleTtsService`. Recorded because the
+wrong verb would have produced a confidently wrong conclusion.
+
+What the probes do **not** establish: whether WebView `speechSynthesis`
+exposes any *local* voice to the app. The engine present is the Google-backed
+one, and campaign §4 forbids cloud TTS, so a working system-voice fallback
+cannot be assumed — it has to be observed from inside the app's WebView, which
+is what `scripts/voice/android-live-trace-capture.sh` exists to do.
+
+### Build tooling for the physical gate is already in place
+
+- `scripts/build-android-release.ps1` — builds, flags-checks, prepares the
+  runtime, signs, verifies and hashes the release APK. Requires a keystore via
+  `UNIFIA_ANDROID_KEYSTORE`, or `-UnsignedOnly`.
+- `scripts/voice/android-live-trace-capture.sh` — stage-tagged device trace for
+  the Live journey (TTS voice discovery, STT model load, microphone
+  acquisition, session/provider selection, memory before and after). One step
+  is manual by design: the operator taps the Live orb.
+
+Neither has been run against current source in this session, so **no PASS is
+claimed for G3 or G12**.
+
+
+
 ## 6. Correction to the goal's licence constraint
 
 The goal (§26) states: *"Do not embed GPL Piper into the MIT mobile
