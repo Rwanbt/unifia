@@ -388,55 +388,88 @@ property of the runtime rather than of one weight file.
 This confirms §4.6: the runaway was the weight variant, and the ONNX pack and
 C++ port were faithful all along.
 
-### 4.9 The remaining defect is premature EOS on longer text
+### 4.10 Root cause found and fixed — the missing `bos_before_voice` prefix
 
-With the runaway resolved, a real, separable defect appears — the C++ render is
-now **too short**, the opposite failure mode:
+pocket-tts 3.1.0 builds the voice conditioning as (`tts_model.py:972`):
 
-| Text | Eager reference | ONNX / C++ | Drift | Verdict |
+```python
+if self.flow_lm.insert_bos_before_voice:
+    prompt = torch.cat([self.flow_lm.bos_before_voice, prompt], dim=1)
+```
+
+`english.yaml` sets `insert_bos_before_voice: true`. The C++ runtime fed the
+raw `mimi_encoder` output with **no prefix**, and contained no
+`insert_bos` / `bos_before_voice` handling at all.
+
+A controlled replay of the model's own state construction, using its identical
+`_run_flow_lm_and_increment_step` call and making the prefix the *only*
+variable, confirmed it:
+
+| | WITH `bos_before_voice` (stock eager) | WITHOUT (C++ path) |
+|---|---|---|
+| conditioning length | **126** steps | **125** steps |
+| EOS fires at frame | **67** | **7** |
+| AR frames | 71 | 11 |
+| duration | **5.520 s** | 0.720 s |
+
+**One conditioning step out of 126 moved the stop point by a factor of ~9.6.**
+
+The model itself documents this class of failure: feeding conditioning outside
+its trained distribution leaves it *"typically never emits EOS"*
+(`tts_model.py:932`).
+
+**The fix.** `flow_lm.bos_before_voice` is a model parameter, not a constant in
+the graph, so baking it into `flow_lm_main` would change that graph's contract
+for every caller. It is instead exported as a zero-input asset
+(`bos_before_voice.onnx`, 4,288 bytes, SHA-256
+`c0a66e83fa9ae0ed66a36781fb076602fd9701df55a2f0640ed497a71a838849`, verified to
+round-trip through ONNX Runtime bit-exactly) and prepended by the runtime on
+the **voice conditioning pass only**. The text path is deliberately untouched,
+because pocket-tts does not prefix text conditioning. The runtime also warns
+loudly when the asset is absent, since its absence silently degrades output.
+
+Patch: `scripts/voice/pocket-export/pockettts-cpp-bos-before-voice.patch`
+(93 insertions, 1 deletion, against upstream `e801e7d6c269`).
+
+### 4.11 §24 audio gate now **PASSES**
+
+| Criterion | Eager reference | ONNX / C++ + BOS | Limit | Result |
 |---|---|---|---|---|
-| `"Hi."` | 0.760 s | 0.480 s | −36.8% | duration FAIL, everything else PASS |
-| full sentence | **5.640 s** | **2.080 s** | **−63.1%** | duration FAIL, spectral FAIL (0.3652) |
+| duration | 5.640 s | 5.840 s (**+3.55%**) | ±25% | **PASS** |
+| non-silence ratio | 0.796 | 0.856 (+0.060) | ±0.15 | **PASS** |
+| leading silence | 0.11 s | 0.04 s | — | ok |
+| trailing silence | 0.27 s | 0.12 s | — | ok |
+| peak level | −5.33 dBFS | −4.34 dBFS | > −50 | **PASS** |
+| spectral JSD | — | **0.1565** | ≤0.35 | **PASS** |
 
-For the full sentence the candidate stops after ~26 frames where the reference
-runs ~70, so the EOS head now fires **too early** rather than never.
+**VERDICT: PASS — audio-level equivalence holds at the §24 gate.**
 
-One caveat on the `"Hi."` duration: the reference deliberately appends tail
-padding (0.26 s trailing silence, 0.04 s leading) while the C++ emits none.
-Its *voiced* span is therefore ≈0.46 s against the candidate's 0.48 s — a ~4%
-match. The raw duration metric conflates speech with padding, so voiced
-duration is the fairer criterion; that refinement is recorded rather than
-silently applied.
+For the same sentence the C++ render goes from 2.080 s / JSD 0.3652 (failing) to
+5.840 s / JSD 0.1565 (passing) on a one-line semantic fix. Throughput is
+RTFx 2.28x with a 1305 ms cold first chunk.
 
-Leading hypothesis for the premature EOS: the C++ supplies voice conditioning
-through the pre-3.x path, while pocket-tts 3.1.0 routes it through
-`flow_lm.speaker_proj_weight` with `insert_bos_before_voice: true`. A
-conditioning path that does not match leaves the model believing the turn is
-already complete, which fires EOS early. The `--eos-extra` auto-calculation
-(from text length) is a secondary suspect.
-
-Not yet distinguished: early EOS from a wrong conditioning path, versus early
-EOS from text being consumed faster than the reference consumes it. The next
-step compares, for the full sentence, the frame index at which each side fires
-EOS and the conditioning tensors at that frame.
+This closes the loop on the whole investigation: the runaway (§4.2) was the
+no-cloning weight variant (§4.6), and the premature EOS (§4.9) was the missing
+BOS prefix (§4.10). Neither was an ONNX export defect, and the fp16 precision
+floor of §2.2 remains a documented, understood property that did not prevent
+audio equivalence.
 
 ## 5. What this session did and did not establish
 
 Established by measurement: all five graphs export; four reproduce eager
 PyTorch to fp32 noise or bit-exactly; the fifth differs only by an fp16
 KV-cache precision floor that grows monotonically with depth; the C++ runtime
-loads and executes the pack and produces genuine, correctly-levelled speech at
-0.35-2.89x realtime on a desktop CPU; the runaway was caused by the no-cloning
-weight variant and is **resolved** by the official weights; and the residual
-defect is **premature EOS** on longer text, with the C++ stopping at ~26 frames
-against the reference's ~70.
+loads and executes the pack at 2.28x realtime on a desktop CPU; the runaway was
+caused by the no-cloning weight variant; the premature EOS was caused by a
+missing `bos_before_voice` prefix; and after fixing it the **§24 audio gate
+passes on English** with duration within 3.55% and spectral JSD 0.1565.
 
-Not established: full audio equivalence (duration and spectral both still
-failing on the full sentence), the cause of the premature EOS, a warm TTFA
-measurement on any device, any Android arm64 build, any on-device figure, and
-cancellation behaviour. **No Pocket TTS capability is qualified by this work.**
+**English is the only language qualified.** Not established: the remaining four
+mandatory languages, the INT8 pack (never executed), any Android arm64 build,
+any on-device TTFA/RTF/RAM/thermal figure, and cancellation behaviour.
+**No Pocket TTS capability is production-qualified by this work yet.**
 
-## 6. Two side findings worth recording
+## 6. Three side findings worth recording
 
 - **`Voice cloning: True`** is reported by the exporter even when the
   no-cloning weights are loaded. The flag reflects architectural capability,
@@ -444,19 +477,23 @@ cancellation behaviour. **No Pocket TTS capability is qualified by this work.**
   the shipped capability surface must state that Android Pocket synthesis is
   **not** a voice-cloning engine regardless of this flag — and §4.6/§4.8 are
   direct evidence that the no-cloning variant is not a usable substitute.
+- `insert_bos_before_voice` is a **config-dependent** model behaviour, not a
+  constant. Any runtime port must honour it per language config rather than
+  assuming it, and must fail loudly when the corresponding asset is missing,
+  because the failure mode is plausible-sounding audio rather than an error.
 - The product `pocket-tts` lock is **3.1.0**, while upstream is **3.3.0**
   (2026-09-24). That two-release gap is itself a scheduled follow-up, not part
   of the Android critical path.
 
 ## 7. Not verified this session
 
-- The cause of the premature EOS (§4.9). A wrong voice-conditioning path and
-  text consumed too fast are both still consistent with the evidence.
+- **French, Spanish, Italian and German** are unmeasured. Each has its own
+  config, and §6's BOS note means `insert_bos_before_voice` must be checked per
+  language rather than assumed.
+- The INT8 pack was never executed; only the fp32 pack has been run.
+- No Android arm64 build exists and no on-device measurement has been taken.
+- Cancellation, barge-in and streaming-chunk behaviour are untested.
 - The seed voice is fetched from `kyutai/tts-voices`, a **different repository
-  from the model weights**, and is used only as local conditioning for a
-  pipeline comparison. It is not redistributed and is **not** a licence-cleared
-  shipping voice; §26 still requires a per-voice licence check before any real
-  voice is qualified.
-- `mimi_encoder` and `text_conditioner` have no INT8 variant, so an INT8 pack
-  still needs the two fp32 graphs (~43 MB combined).
-- Only the fp32 pack has been executed. The INT8 pack has never been run.
+  from the model weights**, used only as local conditioning. It is not
+  redistributed and is **not** a licence-cleared shipping voice; §26 still
+  requires a per-voice licence check before any real voice is qualified.

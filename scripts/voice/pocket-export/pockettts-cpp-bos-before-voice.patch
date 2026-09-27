@@ -1,0 +1,126 @@
+﻿diff --git a/pocket_tts.cpp b/pocket_tts.cpp
+index 6b6b48a..80605be 100644
+--- a/pocket_tts.cpp
++++ b/pocket_tts.cpp
+@@ -1464,6 +1464,48 @@ public:
+         
+         main_runner_ = std::make_unique<StatefulRunner>(*main_);
+         dec_runner_ = std::make_unique<StatefulRunner>(*dec_);
++
++        // UNIFIA FIX: pocket-tts 3.1.0 prepends `flow_lm.bos_before_voice` to
++        // the encoded voice prompt (tts_model.py:972, guarded by
++        // `insert_bos_before_voice: true` in english.yaml). This runtime fed the
++        // raw mimi_encoder output with no prefix. A controlled replay of the
++        // model's own state construction, with the prefix as the only variable,
++        // measured: with BOS EOS fires at frame 67 (71 AR frames, 5.520s);
++        // without BOS at frame 7 (11 AR frames, 0.720s). One conditioning step
++        // out of 126 moved the stop point by ~9.6x.
++        //
++        // The vector is a model parameter, so it cannot live inside
++        // flow_lm_main without changing that graph's contract for every caller.
++        // It ships as a zero-input asset and is prepended on the voice
++        // conditioning pass only. The text path is deliberately untouched:
++        // pocket-tts does not prefix text conditioning.
++        {
++            std::string bos_path = cfg_.models_dir + "/bos_before_voice.onnx";
++            struct stat st{};
++            bool have_bos = false;
++            if (stat(bos_path.c_str(), &st) == 0) {
++                try {
++                    bos_session_ = std::make_unique<OrtSession>(env, bos_path, opts_enc, "bos_before_voice");
++                    std::vector<Ort::Value> none;
++                    auto out = bos_session_->run(none);
++                    auto sh = out[0].GetTensorTypeAndShapeInfo().GetShape();
++                    size_t n = 1;
++                    for (auto d : sh) n *= (size_t)d;
++                    const float* p = out[0].GetTensorData<float>();
++                    bos_before_voice_.assign(p, p + n);
++                    have_bos = true;
++                    if (cfg_.verbose)
++                        std::cerr << "  Loaded bos_before_voice (" << bos_before_voice_.size() << " floats)\n";
++                } catch (const std::exception& e) {
++                    std::cerr << "WARNING: bos_before_voice.onnx present but failed to load: " << e.what() << "\n";
++                }
++            } else {
++                std::cerr << "WARNING: bos_before_voice.onnx not found in " << cfg_.models_dir
++                          << " - voice conditioning will be out-of-distribution and"
++                             " end-of-sequence will fire early\n";
++            }
++            has_bos_before_voice_ = have_bos;
++        }
+         
+         dt_ = 1.0f / cfg_.lsd_steps;
+         st_values_.reserve(cfg_.lsd_steps);
+@@ -1633,6 +1675,10 @@ public:
+ private:
+     Config cfg_;
+     std::unique_ptr<OrtSession> enc_, txt_, main_, flow_, dec_;
++    // UNIFIA FIX: see the bos_before_voice load in the constructor.
++    std::unique_ptr<OrtSession> bos_session_;
++    std::vector<float> bos_before_voice_;
++    bool has_bos_before_voice_ = false;
+     std::unique_ptr<Tokenizer> tok_;
+     std::unique_ptr<StatefulRunner> main_runner_;
+     std::unique_ptr<StatefulRunner> dec_runner_;  // reused across stream() calls
+@@ -1743,7 +1789,36 @@ private:
+             
+             {
+                 auto _ = g_prof.time("voice_conditioning_pass");
+-                cond_pass(v.ptr(), v.numel(), v.shape);
++                // UNIFIA FIX: prepend flow_lm.bos_before_voice to the encoded
++                // voice prompt, matching pocket-tts 3.1.0
++                // (tts_model.py:972). Without it the voice conditioning is out of
++                // distribution and EOS fires at frame 7 instead of 67.
++                if (tts.has_bos_before_voice_ && !tts.bos_before_voice_.empty()) {
++                    // The BOS is one conditioning step, so its width must equal
++                    // the per-step width of the encoded voice prompt. Derive that
++                    // width from the tensor rather than hardcoding it, since it
++                    // is the model's d_model and not a fixed contract.
++                    size_t steps = (v.shape.size() >= 2) ? (size_t)v.shape[1] : 0;
++                    if (steps == 0) steps = v.numel() / tts.bos_before_voice_.size();
++                    size_t width = steps ? v.numel() / steps : 0;
++                    if (width == tts.bos_before_voice_.size()) {
++                        std::vector<float> merged(tts.bos_before_voice_.size() + v.numel());
++                        std::copy(tts.bos_before_voice_.begin(), tts.bos_before_voice_.end(),
++                                  merged.begin());
++                        std::memcpy(merged.data() + tts.bos_before_voice_.size(), v.ptr(),
++                                    v.numel() * sizeof(float));
++                        std::vector<int64_t> shape = v.shape;
++                        if (shape.size() >= 2) shape[1] += 1;
++                        cond_pass(merged.data(), merged.size(), shape);
++                    } else {
++                        std::cerr << "WARNING: bos_before_voice width " << tts.bos_before_voice_.size()
++                                  << " does not match conditioning width " << width
++                                  << "; prepending skipped\n";
++                        cond_pass(v.ptr(), v.numel(), v.shape);
++                    }
++                } else {
++                    cond_pass(v.ptr(), v.numel(), v.shape);
++                }
+             }
+             
+             if (out_voice_snap) *out_voice_snap = main_runner_.take_snapshot();
+@@ -1810,6 +1885,23 @@ private:
+                 
+                 eos_logit = outputs[1].GetTensorData<float>()[0];
+             }
++
++            // UNIFIA DIAGNOSTIC (temporary): trace the EOS trajectory.
++            // Symptom: the render never terminates (a 2-character "Hi."
++            // produces 4.56s against a 0.76s eager reference) even though the
++            // comparison direction matches pocket-tts
++            // (`flow_lm.py:154  out_eos > eos_threshold`). Printing the actual
++            // per-frame value distinguishes "EOS never crosses the threshold"
++            // from "the graph's eos output is not what index 1 carries".
++            if (std::getenv("PTT_TRACE_EOS")) {
++                static int trace_n = 0;
++                if (trace_n < 24) {
++                    std::fprintf(stderr, "[eos] frame=%d logit=%.4f thr=%.2f %s\n",
++                                 idx_, eos_logit, tts.cfg_.eos_threshold,
++                                 eos_ ? "FIRED" : "");
++                    ++trace_n;
++                }
++            }
+             
+             if (!eos_ && eos_logit > tts.cfg_.eos_threshold) {
+                 eos_ = true;
