@@ -61,6 +61,11 @@ export interface TtsProviderError {
 export interface TtsCapabilities {
   readonly providerId: TtsProviderId
   readonly languages: readonly SpeechLanguage[]
+  /** False for deterministic scaffolds and reference-only providers.
+   *  The production router skips these so placeholder PCM cannot be
+   *  mistaken for a qualified local speech backend. Omitted means the
+   *  backend owns its production-readiness claim. */
+  readonly productionReady?: boolean
   readonly streaming: boolean
   readonly voiceCloning: boolean
   readonly cpuOnly: boolean

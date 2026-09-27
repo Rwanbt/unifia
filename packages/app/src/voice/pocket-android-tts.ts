@@ -100,6 +100,7 @@ export class PocketAndroidBackend implements TtsBackend {
     this.capabilities = {
       providerId: "pocket",
       languages: POCKET_LANGUAGES,
+      productionReady: false,
       streaming: true,
       voiceCloning: true,
       cpuOnly: true,

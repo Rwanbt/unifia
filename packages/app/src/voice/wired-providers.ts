@@ -40,6 +40,7 @@ import type {
   StreamingSttEvent,
 } from "@unifia/contracts/streaming-stt"
 import type { FastDecisionProvider, FastDecisionInput, DecisionProposal } from "@unifia/contracts/fast-decision"
+import type { TtsBackend, TtsConfig, TtsProviderError, TtsAudioChunk } from "@unifia/contracts/tts-router"
 import type { SpeechLanguage } from "@unifia/contracts/speech"
 import { acquireProviderLease, withProviderLease, type ProviderLeaseHandle, type ProviderLeaseRequest } from "./provider-lease"
 
@@ -176,6 +177,61 @@ export function wireFastDecisionLease(
 
 export interface WireVadRequest extends ProviderLeaseRequest {
   readonly resource: ProviderLeaseRequest["resource"] & { readonly kind: "vad" }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * TTS
+ * ────────────────────────────────────────────────────────────────── */
+
+export interface WireTtsRequest extends ProviderLeaseRequest {
+  readonly resource: ProviderLeaseRequest["resource"] & { readonly kind: "tts" }
+}
+
+/** Lease is acquired when the backend is registered and released after
+ *  backend disposal, matching the other model-backed providers. */
+export function wireTtsLease(
+  scheduler: VoiceResourceScheduler,
+  base: TtsBackend,
+  request: WireTtsRequest,
+  wire: WireOptions,
+): WiredProvider<TtsBackend> {
+  const lease = acquireProviderLease(scheduler, { ...request, ...wire })
+  if (!lease) {
+    throw new Error(
+      `wired TTS: could not acquire lease for ${request.resource.kind}:${request.resource.language ?? ""} (priority=${wire.priority}, residency=${wire.residency})`,
+    )
+  }
+  let disposed = false
+  const wrapped: TtsBackend = {
+    id: base.id,
+    capabilities: base.capabilities,
+    async prepare(config: TtsConfig, signal?: AbortSignal): Promise<void> {
+      if (disposed) throw new Error("wired TTS: prepare() after dispose()")
+      await base.prepare(config, signal)
+    },
+    synthesize(text: string, signal: AbortSignal): AsyncIterable<TtsAudioChunk | TtsProviderError> {
+      if (disposed) throw new Error("wired TTS: synthesize() after dispose()")
+      return base.synthesize(text, signal)
+    },
+    cancel(requestId: string): Promise<void> {
+      return base.cancel(requestId)
+    },
+    async dispose(): Promise<void> {
+      if (disposed) return
+      disposed = true
+      try {
+        await base.dispose()
+      } finally {
+        lease.dispose()
+      }
+    },
+  }
+  return {
+    base: wrapped,
+    get lease() {
+      return lease
+    },
+  } as WiredProvider<TtsBackend>
 }
 
 /** Silero VAD wraps a sync `decide` function. Same lease shape as

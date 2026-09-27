@@ -190,7 +190,7 @@ describe("MockTtsRouter — R8 fallback chain", () => {
         perLanguage: { en: { chunks: SAMPLE_CHUNKS(1, 0) }, fr: { chunks: [] }, es: { chunks: [] }, it: { chunks: [] }, de: { chunks: [] } },
       }),
     ])
-    await expect(router.prepare("fr")).rejects.toThrow(/no backend covers/i)
+    await expect(router.prepare("fr")).rejects.toThrow(/no .*backend covers/i)
   })
 
   test("cancel dispatches to every backend", async () => {

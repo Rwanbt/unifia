@@ -7,6 +7,8 @@
 
 **IMPLEMENTATION COMPLETE / PRODUCTION QUALIFICATION BLOCKED.** Every non-blocked gate in the §43 dependency order has either been closed (`IMPLEMENTED host` per ADR-080) or explicitly documented with the precise blocker that prevents it from reaching `IMPLEMENTED physical` or `QUALIFIED physical`. No gate has been silently weakened, no test has been skipped, no scaffold has been relabelled as production. `GO PROD` is **not** claimed — the physical gates that remain open require capabilities or upstream changes that are genuinely outside the autonomous agent's reach in this campaign window.
 
+**Post-report continuation update (2026-09-27):** later commits have shipped G10 FastDecision, G11 host lease wiring, §13 strict STT errors, and §37 host security regressions; see current evidence in `docs/operations/voice-v2-autonomous-state.md`. G8 now has a production router core and PCM playback arbitration adapter, but web/mobile Live/manual/preview call sites remain on direct Web Speech / Android Offline TTS, and no production-ready Pocket PCM backend exists. G8 remains partial; the production-blocked verdict is unchanged.
+
 The blockers fall into two honest classes:
 
 1. **Upstream / build gaps** that are theoretically solvable but require a multi-hour NDK cross-compile of `ggml` + `llama.cpp` + `SentencePiece` against Android `arm64-v8a`, with no Ninja toolchain present on the Windows host and no working `nemo-speech` Android target upstream — a future build remains the prerequisite for any Android streaming STT (ADR-077, ADR-078, ADR-079).
@@ -56,10 +58,11 @@ The implementation that actually exists in this branch:
 | Streaming STT fallback | `parakeet-tdt-final` (honest final-only, no partials) | `IMPLEMENTED host` |
 | Streaming STT router | `selectStreamingStt` with classified fallback reasons | `IMPLEMENTED host` |
 | TTS (desktop) | Piper (isolated process; not embedded into the MIT mobile bundle) | `IMPLEMENTED host` (host-only Python reference, not Android) |
-| TTS (Android) | System TTS retained only as labelled transitional fallback; Pocket Android is still a deterministic scaffold | `DRAFT` |
+| TTS routing | Production router core; local-only default, explicit remote allow-list, readiness filtering, canonical fallback classification | `IMPLEMENTED host`; client integration open |
+| TTS (Android) | System TTS retained only as labelled transitional fallback; Pocket Android is still a deterministic scaffold (`productionReady: false`) | `DRAFT` |
 | AgentBridge streaming | SDK `promptAsync` adapter in `live-binding.ts` + R6 chunk adapter; first sentence reaches TTS before the stream ends | `IMPLEMENTED host` |
-| FastDecision | Not yet shipped | `DRAFT` (per §28, OFF / Rules baseline not implemented) |
-| Resource scheduler | Foundations in TS / Python / Rust exist | `DRAFT` (per §29, leases not yet wired to providers) |
+| FastDecision | OFF + language-tagged Rules providers | `IMPLEMENTED host` (continuation commit `a1f54aaa59`) |
+| Resource scheduler | STT, FastDecision, Silero host, and TTS lease decorators | `IMPLEMENTED host` (continuation commits `24bf8c55d9`, current G8 slice pending) |
 
 ## Models
 
@@ -166,10 +169,10 @@ Only real limitations. Not hidden.
 
 1. **Android streaming STT has no production runtime.** `nemo-speech` has no Android target upstream; a future NDK cross-compile of `ggml` + `llama.cpp` + `SentencePiece` + `Abseil` for Android `arm64-v8a` is the prerequisite. The streaming STT contract ships with an honest final-only fallback so no streaming is faked (ADR-077).
 2. **No AEC / NS / AGC integrated.** The chain is reserved (ADR-079) but not yet implemented. G9 (full duplex) and §32 (physical full-duplex) are blocked until the chain lands.
-3. **No canonical TTS playback wired on Android.** Oboe playback exists but is not driven by a canonical TTS provider; Pocket Android remains a deterministic scaffold.
+3. **Canonical TTS remains partial.** The router/playback core and scheduler lease adapter now exist, but Android Oboe playback is not connected to a production-ready local TTS provider; Pocket Android remains a deterministic scaffold explicitly marked non-production. Existing web/mobile Live/manual/preview call sites continue to use direct speech APIs.
 4. **G3 physical-device gates remain open**: microphone consent + frame movement, xrun proof, audio focus, route / reopen (speaker, wired, Bluetooth), lifecycle (suspend, resume, screen lock), AEC integration on Xiaomi Mi 10 Pro. Per `packages/app/AGENTS.md`, no app / server restart is performed during the agent's window; the QA package variants were force-stopped after measurement and the production package was kept running.
-5. **G10 FastDecision is not yet shipped.** The OFF + Rules provider is the §28 production baseline; it remains `DRAFT`.
-6. **G11 Resource scheduler foundations exist but are not wired to actual model residency.** TS / Python / Rust schedulers are foundations; model leases are not yet acquired on load and released on unload.
+5. **G10 FastDecision is host-implemented.** OFF is a true zero-load bypass and Rules is the proposal-only five-language default; physical/device use is unqualified.
+6. **G11 Resource scheduler is wired on the host.** STT, FastDecision, Silero host, and TTS decorators acquire/release leases; Android platform signals and physical residency/pressure behavior remain unqualified.
 7. **G12 Android standalone is not qualified.** Airplane-mode, local LLM, five-language, endurance, and duplex physical gates are not measured.
 8. **§20 mobile constraints are unmeasured on the phone.** The Windows-side measurement (CPU / RSS during five-language streaming) is recorded; the phone-side measurement requires the runtime to land on the device, which the §20 packaging blocker prevents.
 9. **G13 desktop convergence is open.** The canonical shared VoiceCore semantics exist; the desktop supervisor still primarily runs the legacy Python / LiveKit runtime, and no shared-core / desktop-parity benchmark has been run end-to-end.
