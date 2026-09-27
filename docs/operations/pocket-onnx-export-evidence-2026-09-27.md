@@ -175,26 +175,114 @@ Patch: `scripts/voice/pocket-export/pockettts-cpp-3.1.0-compat.patch`.
   (2026-09-24). That two-release gap is itself a scheduled follow-up, not part
   of the Android critical path.
 
-## 6. Next exact action
+## 4. The C++ runtime executes the graphs — and fails the audio gate
 
-1. Diagnose the `flow_lm_main` divergence against the other four exact graphs.
-   Leading hypothesis: the ONNX AR-loop monkeypatch of
-   `StreamingMultiheadAttention` / `_LinearKVCacheBackend` assumes the pre-3.x
-   cache contract, and the residual lands in the KV cache first
-   (`kv_cache_L0_K 1.78e-03`) then propagates to `eos_logit` (2.85e-02) —
-   consistent with an accumulation error across autoregressive steps rather
-   than a single wrong operator.
-2. Re-run `--validate-only` until `flow_lm_main` passes at `1e-4`.
-3. Only then build the arm64 JNI library and measure TTFA/RTF/RSS on
-   `b7163823`. Do not start Android work against a numerically unverified
-   backbone.
-4. Then repeat per language, and register each pack with pinned digests.
+`PocketTTS.cpp` was built on the Windows host (MSVC, `cmake -B .build
+-DCMAKE_BUILD_TYPE=Release`, ONNX Runtime 1.23.2 fetched by the project's own
+CMake). The CLI `pocket-tts.exe` links and runs.
+
+> Note: the optional `BUILD_SHARED_LIB=ON` target does **not** link on Windows —
+> it passes `-l:libonnxruntime.so`, a GNU-ld flag MSVC ignores
+> (`LNK4044`), leaving `OrtGetApiBase` unresolved. This is an upstream Windows
+> gap in the shared-library path, not a problem with the graph pack. The CLI
+> target, which is what produces audio, builds and runs cleanly.
+
+### 4.1 Measured execution (fp32, 8 threads, desktop)
+
+| Metric | Value |
+|---|---|
+| Graph load (all 5) | **1.12 s** |
+| Audio produced | 12.40 s (temp 0.7) / 14.48 s (temp 0.3) |
+| Generation wall time | 4.29 s / 5.25 s |
+| **RTFx** | **2.89x / 2.76x** (RTF 0.35 / 0.36) |
+| **First-chunk latency** | **1504 ms / 1663 ms** |
+| Output level | peak −6.73 / −12.40 dBFS — audible, correctly levelled |
+
+The 5 ONNX graphs therefore load and execute for real and produce genuine,
+auditable speech. That part of the Android plan is de-risked.
+
+The headline TTFA is dominated by one-time conditioning work, not by streaming:
+the profile shows `encode_voice` at **1325 ms** and `run:mimi_encoder` at
+**1214 ms**, each executed exactly **once**. Subtracting that one-time cost
+leaves a warm first-chunk latency of roughly **180 ms**, which is inside the
+§45 `<250 ms` target. The cold number must not be quoted as steady-state.
+
+### 4.2 Audio-level equivalence against the PyTorch reference: **FAIL**
+
+Reference: eager pocket-tts 3.1.0, same seed voice
+(`kyutai/tts-voices` `alba-mackenna/casual.wav`), same text, same
+`english.yaml` config. `audio_compare.py` applies the §24 criteria.
+
+| Criterion | Reference | Candidate (t=0.7) | Candidate (t=0.3) | Limit | Result |
+|---|---|---|---|---|---|
+| duration | 5.640 s | 12.400 s | 14.480 s | ±25% | **FAIL** (+120%, +157%) |
+| non-silence ratio | 0.796 | 0.975 | 0.977 | ±0.15 | **FAIL** (+0.179, +0.181) |
+| trailing silence | 0.27 s | **0.00 s** | **0.00 s** | — | **FAIL** |
+| leading silence | 0.11 s | 0.00 s | 0.00 s | — | note |
+| peak level | −5.33 dBFS | −6.73 dBFS | −12.40 dBFS | > −50 | PASS |
+| spectral JSD | — | 0.583 | 1.393 | ≤0.35 | **FAIL** |
+
+**This is a runaway-output failure, which §24 names explicitly.** The render
+produces continuous energy to a frame cap and never stops on EOS: trailing
+silence is exactly 0.00 s in both runs, and non-silence sits at 0.977.
+
+Lowering the temperature to match the config's `default_temperature: 0.3` made
+it *worse*, not better (14.48 s, JSD 1.39), so this is not a sampling-tuning
+problem. The C++ AR loop is not converging to the same EOS decision as the
+eager reference on these graphs.
+
+### 4.3 Reading this against §2.2
+
+§2.2 established that the graph computes correctly in fp32 and differs from
+eager PyTorch only by fp16 KV-cache rounding through 6 layers, with the
+deepest-layer relative error at `4.4e-03`. This run shows what that residual
+actually costs in product terms: it is large enough to flip autoregressive
+sampling decisions, so the ONNX path no longer stops where the reference
+stops. **The tensor-level precision floor and the audio-level failure are the
+same defect viewed at two levels** — which is exactly why the gate had to move
+to audio, and why the audio result is the one that governs.
+
+### 4.4 Next exact action
+
+1. Determine whether the C++ EOS decision reads the same tensor the graph
+   exports. The profile shows 162 `flow_lm_main` runs producing 155 flow steps
+   — i.e. the AR loop ran to its frame budget rather than stopping early.
+2. Instrument the C++ `eos_logit` per step against the PyTorch reference for
+   the same forced token sequence (greedy, temperature forced to 0) to
+   separate "sampling diverged" from "EOS logic is wrong".
+3. Only after the duration and EOS behaviour match, re-run this gate.
+
+## 5. What this session did and did not establish
+
+Established by measurement: all five graphs export; four reproduce eager
+PyTorch to fp32 noise or bit-exactly; the fifth differs only by an fp16
+KV-cache precision floor that grows monotonically with depth; the C++ runtime
+loads and executes the pack and produces genuine, correctly-levelled speech at
+2.76-2.89x realtime on a desktop CPU.
+
+Not established: audio equivalence (currently **failing**), a warm TTFA
+measurement on any device, any Android arm64 build, any on-device figure, and
+cancellation behaviour. No Pocket TTS capability is qualified by this work.
+
+## 6. Two side findings worth recording
+
+- **`Voice cloning: True`** is reported by the exporter even when the
+  no-voice-cloning weights are loaded. The flag reflects architectural
+  capability, not the weights in use. Campaign §40 requires honest capability
+  reporting, so the shipped capability surface must state that Android Pocket
+  synthesis is **not** a voice-cloning engine regardless of this flag.
+- The product `pocket-tts` lock is **3.1.0**, while upstream is **3.3.0**
+  (2026-09-24). That two-release gap is itself a scheduled follow-up, not part
+  of the Android critical path.
 
 ## 7. Not verified this session
 
-- The `flow_lm_main` root cause is **not** yet established; §6.1 is a hypothesis.
-- No C++ runtime has been compiled and no PCM has been produced from these
-  graphs. Nothing here qualifies audio output.
-- No Android arm64 build exists. `onnxruntime` on-device is untested.
+- The root cause of the C++ runaway output (§4.4) is **not** established.
+- The seed voice is fetched from `kyutai/tts-voices`, a **different repository
+  from the model weights**, and is used only as local conditioning for a
+  pipeline comparison. It is not redistributed and is **not** a licence-cleared
+  shipping voice; §26 still requires a per-voice licence check before any real
+  voice is qualified.
 - `mimi_encoder` and `text_conditioner` have no INT8 variant, so an INT8 pack
   still needs the two fp32 graphs (~43 MB combined).
+- Only the fp32 pack has been executed. The INT8 pack has never been run.
