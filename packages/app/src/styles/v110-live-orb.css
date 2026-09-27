@@ -1,0 +1,155 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Live orb (components/session/live-orb.tsx) -- Jarvis topbar prototype V5,
+ * #jarvisOrb: an invisible 31px hit area around an 18px ring pair, a 5px
+ * core and an orbit arc. OFF is neutral and static; ON is the prototype's
+ * idle state (cyan/violet, breathing ring, slow orbit). ON is the user's own
+ * request for motion, so like the prototype's `jarvis-force-motion` it
+ * animates even under reduced motion. */
+
+[data-v110="live-orb"] {
+  --live-cyan: #4de3ff;
+  --live-violet: #9d7cff;
+  --live-state: var(--faint);
+  --live-state-2: var(--muted);
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 31px;
+  width: 31px;
+  height: 31px;
+  margin-left: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+[data-v110="live-orb"][data-state="idle"] {
+  --live-state: var(--live-cyan);
+  --live-state-2: var(--live-violet);
+}
+
+[data-v110="live-orb"]:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--live-state) 72%, transparent);
+  outline-offset: 2px;
+}
+
+[data-v110="live-orb"] [data-slot="live-orb-ring"] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+[data-v110="live-orb"] [data-slot="live-orb-ring"]::before,
+[data-v110="live-orb"] [data-slot="live-orb-ring"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+[data-v110="live-orb"] [data-slot="live-orb-ring"]::before {
+  border: 1px solid color-mix(in srgb, var(--faint) 66%, transparent);
+  opacity: 0.78;
+}
+
+[data-v110="live-orb"] [data-slot="live-orb-ring"]::after {
+  inset: 3px;
+  border: 1px solid color-mix(in srgb, var(--muted) 38%, transparent);
+  opacity: 0.5;
+}
+
+[data-v110="live-orb"] [data-slot="live-orb-core"] {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.68;
+}
+
+[data-v110="live-orb"] [data-slot="live-orb-orbit"] {
+  position: absolute;
+  inset: -2px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+/* ---- ON (idle) ---- */
+
+[data-v110="live-orb"][data-state="idle"] [data-slot="live-orb-ring"] {
+  animation: live-orb-breathe 2.6s ease-in-out infinite;
+}
+
+[data-v110="live-orb"][data-state="idle"] [data-slot="live-orb-ring"]::before {
+  border-color: color-mix(in srgb, var(--live-state) 78%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--live-state) 24%, transparent);
+  opacity: 0.92;
+}
+
+[data-v110="live-orb"][data-state="idle"] [data-slot="live-orb-ring"]::after {
+  border-color: color-mix(in srgb, var(--live-state-2) 58%, transparent);
+  opacity: 1;
+}
+
+[data-v110="live-orb"][data-state="idle"] [data-slot="live-orb-core"] {
+  background: linear-gradient(135deg, var(--live-state), var(--live-state-2));
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--live-state) 88%, transparent),
+    0 0 17px color-mix(in srgb, var(--live-state-2) 42%, transparent);
+  opacity: 1;
+  animation: live-orb-core 2.6s ease-in-out infinite;
+}
+
+[data-v110="live-orb"][data-state="idle"] [data-slot="live-orb-orbit"] {
+  border-top-color: var(--live-state);
+  border-right-color: color-mix(in srgb, var(--live-state-2) 80%, transparent);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--live-state) 55%, transparent));
+  opacity: 0.58;
+  animation: live-orb-spin 5.2s linear infinite;
+}
+
+@keyframes live-orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scale(1.045);
+    opacity: 1;
+  }
+}
+
+@keyframes live-orb-core {
+  0%,
+  100% {
+    transform: scale(0.92);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.16);
+    filter: brightness(1.35);
+  }
+}
+
+@keyframes live-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  [data-v110="live-orb"] {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    margin-left: 0;
+  }
+}
